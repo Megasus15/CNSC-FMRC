@@ -14,7 +14,7 @@
   </head>
   <body class="services-page-body">
     <header class="site-header">
-      <a href="/home-page/main.html#home" class="logo-container">
+      <a href="/home-page/main.html" class="logo-container">
         <img
           src="/images/CNSC logo.png"
           alt="CNSC Logo"
@@ -24,7 +24,7 @@
       </a>
       <nav class="main-nav">
         <ul>
-          <li><a href="/home-page/main.html#home" class="nav-link">Home</a></li>
+          <li><a href="/home-page/main.html" class="nav-link">Home</a></li>
           <li>
             <a href="/home-page/main.html#about" class="nav-link">About Us</a>
           </li>
@@ -34,59 +34,59 @@
             >
           </li>
           <li>
-            <a href="/home-page/main.html#products" class="nav-link"
-              >Products</a
-            >
+            <a href="/products-page/product.html" class="nav-link">Products</a>
           </li>
           <li>
             <a href="/home-page/main.html#contact" class="nav-link">Contact</a>
           </li>
         </ul>
       </nav>
-      <div class="user-profile">
-        <svg
-          width="40"
-          height="40"
-          viewBox="0 0 40 40"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <circle cx="20" cy="20" r="20" fill="#C0392B" />
-          <path
-            d="M20 20C23.3137 20 26 17.3137 26 14C26 10.6863 23.3137 8 20 8C16.6863 8 14 10.6863 14 14C14 17.3137 16.6863 20 20 20ZM20 23C15.5817 23 6.66669 25.2386 6.66669 29.6667V32H33.3334V29.6667C33.3334 25.2386 24.4183 23 20 23Z"
-            fill="white"
-          />
-        </svg>
+      <div class="header-right-actions">
+        <div class="user-profile" title="My Account">
+          <svg
+            width="40"
+            height="40"
+            viewBox="0 0 40 40"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <circle cx="20" cy="20" r="20" fill="#C0392B" />
+            <path
+              d="M20 20C23.3137 20 26 17.3137 26 14C26 10.6863 23.3137 8 20 8C16.6863 8 14 10.6863 14 14C14 17.3137 16.6863 20 20 20ZM20 23C15.5817 23 6.66669 25.2386 6.66669 29.6667V32H33.3334V29.6667C33.3334 25.2386 24.4183 23 20 23Z"
+              fill="white"
+            />
+          </svg>
+        </div>
       </div>
     </header>
 
-    <section class="services-top-bar">
-      <div class="services-container">
-        <h2 class="services-main-title">Our Services</h2>
-        <div class="controls-wrapper">
-          <div class="search-box">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#888"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <input
-              type="text"
-              placeholder="Search Services..."
-              class="search-input"
-            />
-          </div>
-          <div class="category-box">
-            <select class="category-dropdown">
+    <section class="products-toolbar">
+      <div class="toolbar-container">
+        <div class="toolbar-search">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#888"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input
+            type="text"
+            placeholder="Search Services..."
+            class="search-input"
+          />
+        </div>
+
+        <div class="toolbar-actions">
+          <div class="category-dropdown-box">
+            <select class="category-select">
               <option value="all">All Categories</option>
               <option value="prototyping">Prototyping</option>
               <option value="manufacturing">Manufacturing</option>
@@ -98,202 +98,246 @@
       </div>
     </section>
 
-    <section class="services-grid-section">
-      <div class="services-container grid-container">
-        <div class="service-card">
-          <div class="card-img-holder">
-            <img src="/images/labelling.jpg" alt="Product Labelling" />
+    <section class="services-carousel-section">
+      <div class="services-container carousel-wrapper">
+        <button class="carousel-btn prev-btn" aria-label="Previous Service">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+
+        <div class="carousel-track">
+          <div class="carousel-item">
+            <div class="service-card">
+              <div class="card-img-holder">
+                <img src="/images/labelling.jpg" alt="Product Labelling" />
+              </div>
+              <div class="card-content">
+                <h3 class="card-title">Product Labelling and Designing</h3>
+                <p class="card-desc">
+                  Professional branding, logo creation, and sticker label
+                  design.
+                </p>
+                <button class="details-btn open-modal-btn">
+                  Click for more details
+                </button>
+              </div>
+            </div>
           </div>
-          <div class="card-content">
-            <h3 class="card-title">Product Labelling and Designing</h3>
-            <p class="card-desc">
-              Professional branding, logo creation, and sticker label design.
-            </p>
-            <button class="details-btn open-modal-btn">
-              Click for more details
-            </button>
+
+          <div class="carousel-item">
+            <div class="service-card">
+              <div class="card-img-holder">
+                <img src="/images/3dprint.jpg" alt="3D Printing" />
+              </div>
+              <div class="card-content">
+                <h3 class="card-title">3D Printing</h3>
+                <p class="card-desc">
+                  High-quality rapid prototyping using FDM and SLA tech.
+                </p>
+                <button class="details-btn open-modal-btn">
+                  Click for more details
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="carousel-item">
+            <div class="service-card">
+              <div class="card-img-holder">
+                <img src="/images/3dscan.jpg" alt="3D Scanning" />
+              </div>
+              <div class="card-content">
+                <h3 class="card-title">3D Scanning</h3>
+                <p class="card-desc">
+                  Accurate digital recreation of physical objects for reverse
+                  engineering.
+                </p>
+                <button class="details-btn open-modal-btn">
+                  Click for more details
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="carousel-item">
+            <div class="service-card">
+              <div class="card-img-holder">
+                <img src="/images/laser-cutting.png" alt="Laser Cutting" />
+              </div>
+              <div class="card-content">
+                <h3 class="card-title">Laser Cutting / Engraving</h3>
+                <p class="card-desc">
+                  Precision laser services on wood, acrylic, leather, and
+                  metals.
+                </p>
+                <button class="details-btn open-modal-btn">
+                  Click for more details
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="carousel-item">
+            <div class="service-card">
+              <div class="card-img-holder">
+                <img
+                  src="/images/largeformat.jpg"
+                  alt="Large Format Printing"
+                />
+              </div>
+              <div class="card-content">
+                <h3 class="card-title">Large Format Printing & Cutting</h3>
+                <p class="card-desc">
+                  Tarpaulins, vinyl stickers, and large-scale poster printing.
+                </p>
+                <button class="details-btn open-modal-btn">
+                  Click for more details
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="carousel-item">
+            <div class="service-card">
+              <div class="card-img-holder">
+                <img src="/images/cnc.jpg" alt="CNC Milling" />
+              </div>
+              <div class="card-content">
+                <h3 class="card-title">CNC Milling</h3>
+                <p class="card-desc">
+                  Computer-controlled shaping for wood, plastics, and soft
+                  metals.
+                </p>
+                <button class="details-btn open-modal-btn">
+                  Click for more details
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="carousel-item">
+            <div class="service-card">
+              <div class="card-img-holder">
+                <img src="/images/embroidery.jpg" alt="Digital Embroidery" />
+              </div>
+              <div class="card-content">
+                <h3 class="card-title">Digital Embroidery</h3>
+                <p class="card-desc">
+                  Automated stitching for uniforms, patches, and textiles.
+                </p>
+                <button class="details-btn open-modal-btn">
+                  Click for more details
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="carousel-item">
+            <div class="service-card">
+              <div class="card-img-holder">
+                <img src="/images/heatpress.jpg" alt="Heat Press" />
+              </div>
+              <div class="card-content">
+                <h3 class="card-title">Heat Press</h3>
+                <p class="card-desc">
+                  Apparel printing, mugs, and souvenirs using heat transfer.
+                </p>
+                <button class="details-btn open-modal-btn">
+                  Click for more details
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="service-card">
-          <div class="card-img-holder">
-            <img src="/images/3dprint.jpg" alt="3D Printing" />
-          </div>
-          <div class="card-content">
-            <h3 class="card-title">3D Printing</h3>
-            <p class="card-desc">
-              High-quality rapid prototyping using FDM and SLA tech.
-            </p>
-            <button class="details-btn open-modal-btn">
-              Click for more details
-            </button>
-          </div>
-        </div>
-
-        <div class="service-card">
-          <div class="card-img-holder">
-            <img src="/images/3dscan.jpg" alt="3D Scanning" />
-          </div>
-          <div class="card-content">
-            <h3 class="card-title">3D Scanning</h3>
-            <p class="card-desc">
-              Accurate digital recreation of physical objects for reverse
-              engineering.
-            </p>
-            <button class="details-btn open-modal-btn">
-              Click for more details
-            </button>
-          </div>
-        </div>
-
-        <div class="service-card">
-          <div class="card-img-holder">
-            <img src="/images/lasercut.jpg" alt="Laser Cutting" />
-          </div>
-          <div class="card-content">
-            <h3 class="card-title">Laser Cutting / Engraving</h3>
-            <p class="card-desc">
-              Precision laser services on wood, acrylic, leather, and metals.
-            </p>
-            <button class="details-btn open-modal-btn">
-              Click for more details
-            </button>
-          </div>
-        </div>
-
-        <div class="service-card">
-          <div class="card-img-holder">
-            <img src="/images/largeformat.jpg" alt="Large Format Printing" />
-          </div>
-          <div class="card-content">
-            <h3 class="card-title">Large Format Printing & Cutting</h3>
-            <p class="card-desc">
-              Tarpaulins, vinyl stickers, and large-scale poster printing.
-            </p>
-            <button class="details-btn open-modal-btn">
-              Click for more details
-            </button>
-          </div>
-        </div>
-
-        <div class="service-card">
-          <div class="card-img-holder">
-            <img src="/images/cnc.jpg" alt="CNC Milling" />
-          </div>
-          <div class="card-content">
-            <h3 class="card-title">CNC Milling</h3>
-            <p class="card-desc">
-              Computer-controlled shaping for wood, plastics, and soft metals.
-            </p>
-            <button class="details-btn open-modal-btn">
-              Click for more details
-            </button>
-          </div>
-        </div>
-
-        <div class="service-card">
-          <div class="card-img-holder">
-            <img src="/images/embroidery.jpg" alt="Digital Embroidery" />
-          </div>
-          <div class="card-content">
-            <h3 class="card-title">Digital Embroidery</h3>
-            <p class="card-desc">
-              Automated stitching for uniforms, patches, and textiles.
-            </p>
-            <button class="details-btn open-modal-btn">
-              Click for more details
-            </button>
-          </div>
-        </div>
-
-        <div class="service-card">
-          <div class="card-img-holder">
-            <img src="/images/heatpress.jpg" alt="Heat Press" />
-          </div>
-          <div class="card-content">
-            <h3 class="card-title">Heat Press</h3>
-            <p class="card-desc">
-              Apparel printing, mugs, and souvenirs using heat transfer.
-            </p>
-            <button class="details-btn open-modal-btn">
-              Click for more details
-            </button>
-          </div>
-        </div>
-
-        <div class="service-card">
-          <div class="card-img-holder">
-            <img src="/images/training.jpg" alt="Training" />
-          </div>
-          <div class="card-content">
-            <h3 class="card-title">Training / Workshop / Tour</h3>
-            <p class="card-desc">
-              Hands-on seminars on equipment operation and facility tours.
-            </p>
-            <button class="details-btn open-modal-btn">
-              Click for more details
-            </button>
-          </div>
-        </div>
-
-        <div class="service-card">
-          <div class="card-img-holder">
-            <img src="/images/partnership.jpg" alt="Partnership" />
-          </div>
-          <div class="card-content">
-            <h3 class="card-title">Partnership</h3>
-            <p class="card-desc">
-              Collaborative R&D and shared manufacturing facilities for MSMEs.
-            </p>
-            <button class="details-btn open-modal-btn">
-              Click for more details
-            </button>
-          </div>
-        </div>
+        <button class="carousel-btn next-btn" aria-label="Next Service">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
       </div>
     </section>
 
     <div class="modal-overlay" id="serviceModal">
       <div class="modal-box">
-        <button class="close-modal-btn">&times;</button>
-        <h2 class="modal-title" id="modalTitle">Service Details</h2>
-        <p class="modal-desc">
-          Get precise, professional results with our state-of-the-art facility.
-          We cater to students, researchers, and local businesses.
-        </p>
-
-        <h3 class="modal-subtitle">Key Features</h3>
-        <div class="feature-chips">
-          <span class="chip">Multiple material support</span>
-          <span class="chip">High precision cuts</span>
-          <span class="chip">Rapid prototyping</span>
-          <span class="chip">Cost-effective</span>
+        <div class="modal-header">
+          <h2 class="modal-title" id="modalTitle">Service Details</h2>
+          <button class="close-modal-btn" id="closeModalBtn">&times;</button>
         </div>
 
-        <div class="modal-columns">
-          <div class="modal-col">
-            <h3 class="modal-subtitle">Supported Materials</h3>
-            <ul class="modal-list">
-              <li>Acrylic & Plastics</li>
-              <li>Wood / MDF / Plywood</li>
-              <li>Leather & Textiles</li>
-            </ul>
+        <div class="modal-divider"></div>
+
+        <div class="modal-scroll-area">
+          <div class="modal-img-holder">
+            <img src="" alt="Service Banner" id="modalImage" />
           </div>
-          <div class="modal-col">
-            <h3 class="modal-subtitle">Best For</h3>
-            <ul class="modal-list">
-              <li>Signage and nameplates</li>
-              <li>Keychains and souvenirs</li>
-              <li>Prototypes and craft projects</li>
-            </ul>
+
+          <p class="modal-desc">
+            Get precise, professional results with our state-of-the-art
+            facility. We cater to students, researchers, and local businesses.
+          </p>
+
+          <h3 class="modal-subtitle">Key Features</h3>
+          <div class="feature-chips">
+            <span class="chip">Multiple material support</span>
+            <span class="chip">High precision cuts</span>
+            <span class="chip">Rapid prototyping</span>
+            <span class="chip">Cost-effective</span>
+          </div>
+
+          <div class="modal-columns">
+            <div class="modal-col">
+              <h3 class="modal-subtitle">Supported Materials</h3>
+              <ul class="modal-list">
+                <li>Acrylic & Plastics</li>
+                <li>Wood / MDF / Plywood</li>
+                <li>Leather & Textiles</li>
+              </ul>
+            </div>
+            <div class="modal-col">
+              <h3 class="modal-subtitle">Best For</h3>
+              <ul class="modal-list">
+                <li>Signage and nameplates</li>
+                <li>Keychains and souvenirs</li>
+                <li>Prototypes and craft projects</li>
+              </ul>
+            </div>
           </div>
         </div>
+
+        <div class="modal-divider"></div>
 
         <div class="modal-actions">
           <button class="modal-btn outline-btn">View Products</button>
           <button class="modal-btn solid-btn">Request Custom Works</button>
         </div>
       </div>
+    </div>
+
+    <div class="image-lightbox-overlay" id="imageLightbox">
+      <button class="close-lightbox-btn" id="closeLightbox">&times;</button>
+      <img src="" alt="Fullscreen view" class="lightbox-img" id="lightboxImg" />
     </div>
 
     <footer class="site-footer">
@@ -323,8 +367,8 @@
             <li><a href="/home-page/main.html#home">Home</a></li>
             <li><a href="/home-page/main.html#about">About Us</a></li>
             <li><a href="/services-page/service.html">Services</a></li>
-            <li><a href="/home-page/main.html#products">Products</a></li>
-            <li><a href="/home-page/main.html#contact">Contact</a></li>
+            <li><a href="/products-page/product.html">Products</a></li>
+            <li><a href="#contact">Contact</a></li>
           </ul>
         </div>
         <div class="footer-col">
