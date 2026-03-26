@@ -24,7 +24,7 @@
       </a>
       <nav class="main-nav">
         <ul>
-          <li><a href="/home-page/main.html" class="nav-link">Home</a></li>
+          <li><a href="/home-page/main.html#home" class="nav-link">Home</a></li>
           <li>
             <a href="/home-page/main.html#about" class="nav-link">About Us</a>
           </li>
@@ -36,9 +36,7 @@
               >Products</a
             >
           </li>
-          <li>
-            <a href="/home-page/main.html#contact" class="nav-link">Contact</a>
-          </li>
+          <li><a href="/contact-page/contact.html" class="nav-link">Contact</a></li>
         </ul>
       </nav>
       <div class="header-right-actions">
@@ -102,19 +100,29 @@
             type="text"
             placeholder="Search Products"
             class="search-input"
+            id="productSearchInput"
           />
         </div>
 
         <div class="toolbar-actions">
           <div class="category-dropdown-box">
-            <select class="category-select">
+            <select class="category-select" id="productCategorySelect">
               <option value="all">All Categories</option>
               <option value="3dprint">3D Printing</option>
               <option value="laser">Laser Cutting</option>
               <option value="apparel">Apparel & Heat Press</option>
             </select>
           </div>
-          <button class="btn-custom-work">Request Custom Work</button>
+          <div class="category-dropdown-box">
+            <select class="category-select" id="productFilterSelect">
+              <option value="all">All Filters</option>
+              <option value="in-stock">In Stock</option>
+              <option value="out-of-stock">Out of Stock</option>
+              <option value="price-low">Price: Low to High</option>
+              <option value="price-high">Price: High to Low</option>
+              <option value="top-rated">Top Rated</option>
+            </select>
+          </div>
         </div>
       </div>
     </section>
@@ -548,6 +556,46 @@
         </div>
       </div>
     </section>
+
+    <div class="modal-overlay" id="productInfoModal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h2 class="modal-title" id="productInfoTitle">Product Information</h2>
+          <button class="close-modal-btn" id="closeProductInfoModal">&times;</button>
+        </div>
+
+        <div class="modal-divider"></div>
+
+        <div class="modal-scroll-area">
+          <div class="modal-img-holder">
+            <img src="" alt="Product Preview" id="productInfoImage" />
+          </div>
+
+          <p class="modal-desc" id="productInfoSummary"></p>
+
+          <h3 class="modal-subtitle">Product Details</h3>
+          <div class="feature-chips" id="productInfoChips"></div>
+
+          <div class="modal-columns">
+            <div class="modal-col">
+              <h3 class="modal-subtitle">Availability</h3>
+              <ul class="modal-list" id="productInfoAvailability"></ul>
+            </div>
+            <div class="modal-col">
+              <h3 class="modal-subtitle">Recommended For</h3>
+              <ul class="modal-list" id="productInfoRecommended"></ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-divider"></div>
+
+        <div class="modal-actions">
+          <button class="modal-btn outline-btn" id="productInfoAddToCart">Add to Cart</button>
+          <button class="modal-btn solid-btn" id="productInfoBuyNow">Buy Now</button>
+        </div>
+      </div>
+    </div>
 
     <div class="shop-modal-overlay" id="checkoutModal">
       <div class="shop-modal-box">
@@ -1364,7 +1412,7 @@ Purok-6, Brgy. Masalong (pangatlong bahay na kahoy na gate, pataas mula sa bahay
             <li><a href="/home-page/main.html#about">About Us</a></li>
             <li><a href="/services-page/service.html">Services</a></li>
             <li><a href="/products-page/product.html">Products</a></li>
-            <li><a href="#contact">Contact</a></li>
+            <li><a href="/contact-page/contact.html">Contact</a></li>
           </ul>
         </div>
 

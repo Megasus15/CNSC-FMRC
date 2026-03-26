@@ -27,7 +27,7 @@
 
       <nav class="main-nav">
         <ul>
-          <li><a href="main.html" class="nav-link active">Home</a></li>
+          <li><a href="main.html#home" class="nav-link active">Home</a></li>
           <li><a href="#about" class="nav-link">About Us</a></li>
           <li>
             <a href="/services-page/service.html" class="nav-link">Services</a>
@@ -35,7 +35,7 @@
           <li>
             <a href="/products-page/product.html" class="nav-link">Products</a>
           </li>
-          <li><a href="#contact" class="nav-link">Contact</a></li>
+          <li><a href="/contact-page/contact.html" class="nav-link">Contact</a></li>
         </ul>
       </nav>
 
@@ -64,11 +64,13 @@
           <h2 class="hero-title">
             FABRICATION &<br />
             MANUFACTURING<br />
-            RESEARCH CENTER
+            <span class="hero-research-line">RESEARCH CENTER</span>
           </h2>
 
           <div class="hero-buttons">
-            <button class="btn-browse">Browse Products</button>
+            <a href="/products-page/product.html" class="btn-browse"
+              >Browse Products</a
+            >
             <button class="btn-appointment">Appoint Now!</button>
           </div>
         </div>
@@ -126,27 +128,35 @@
           </div>
 
           <div class="about-content-right">
-            <div class="features-card">
-              <div class="feature-item">
-                <img src="/images/3Dprint.png" alt="3D Printing Icon" />
-                <span>3D Printing</span>
-              </div>
-              <div class="feature-item">
-                <img src="/images/laser-cutting.png" alt="Laser Cutting Icon" />
-                <span>Laser Cutting</span>
-              </div>
-              <div class="feature-item">
-                <img src="/images/cnc-milling.png" alt="CNC Milling Icon" />
-                <span>CNC Milling</span>
-              </div>
-              <div class="feature-item">
-                <img src="/images/3dscanning.png" alt="3D Scanning Icon" />
-                <span>3D Scanning</span>
-              </div>
-
-              <a href="/services-page/service.html" class="see-more-link"
-                >See more...</a
+            <div class="about-video-holder" id="aboutVideoHolder" aria-label="About video holder">
+              <video
+                class="about-preview-video"
+                id="aboutPreviewVideo"
+                preload="metadata"
+                muted
+                playsinline
               >
+                <source src="/images/Product showcase.mp4" type="video/mp4" />
+              </video>
+              <button
+                class="about-video-control"
+                id="aboutVideoToggle"
+                type="button"
+                aria-label="Play or pause preview video"
+              >
+                ▶
+              </button>
+            </div>
+
+            <div class="about-video-modal" id="aboutVideoModal">
+              <button class="about-video-close" id="aboutVideoClose" aria-label="Close video">
+                &times;
+              </button>
+              <div class="about-video-modal-box">
+                <video class="about-full-video" id="aboutFullVideo" controls playsinline>
+                  <source src="/images/Product showcase.mp4" type="video/mp4" />
+                </video>
+              </div>
             </div>
           </div>
         </div>
@@ -220,42 +230,12 @@
             <div class="carousel-item">
               <div class="service-card landscape-card">
                 <div class="card-img-holder">
-                  <img src="/images/laser-cutting.png" alt="Laser Cutting" />
-                </div>
-                <div class="card-content">
-                  <h3 class="card-title">Laser Cutting / Engraving</h3>
-                  <p class="card-desc">
-                    Precision laser services on wood, acrylic, leather, and
-                    metals.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div class="carousel-item">
-              <div class="service-card landscape-card">
-                <div class="card-img-holder">
                   <img src="/images/3dprint.jpg" alt="3D Printing" />
                 </div>
                 <div class="card-content">
                   <h3 class="card-title">3D Printing</h3>
                   <p class="card-desc">
                     High-quality rapid prototyping using FDM and SLA tech.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div class="carousel-item">
-              <div class="service-card landscape-card">
-                <div class="card-img-holder">
-                  <img src="/images/cnc.jpg" alt="CNC Milling" />
-                </div>
-                <div class="card-content">
-                  <h3 class="card-title">CNC Milling</h3>
-                  <p class="card-desc">
-                    Computer-controlled shaping for wood, plastics, and soft
-                    metals.
                   </p>
                 </div>
               </div>
@@ -279,15 +259,162 @@
             <div class="carousel-item">
               <div class="service-card landscape-card">
                 <div class="card-img-holder">
-                  <img
-                    src="/images/largeformat.jpg"
-                    alt="Large Format Printing"
-                  />
+                  <img src="/images/pic1.jpg" alt="Heatpress" />
                 </div>
                 <div class="card-content">
-                  <h3 class="card-title">Large Format Printing & Cutting</h3>
+                  <h3 class="card-title">Heatpress</h3>
+                  <p class="card-desc">
+                    Professional heat transfer printing for shirts, mugs, and
+                    customized promotional materials.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="carousel-item">
+              <div class="service-card landscape-card">
+                <div class="card-img-holder">
+                  <img src="/images/cnc.jpg" alt="CNC Milling" />
+                </div>
+                <div class="card-content">
+                  <h3 class="card-title">CNC Milling</h3>
+                  <p class="card-desc">
+                    Computer-controlled shaping for wood, plastics, and soft
+                    metals.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="carousel-item">
+              <div class="service-card landscape-card">
+                <div class="card-img-holder">
+                  <img src="/images/pic2.jpg" alt="CNC Router" />
+                </div>
+                <div class="card-content">
+                  <h3 class="card-title">CNC Router</h3>
+                  <p class="card-desc">
+                    Precision routing for signages, panels, molds, and larger
+                    wood or acrylic projects.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="carousel-item">
+              <div class="service-card landscape-card">
+                <div class="card-img-holder">
+                  <img src="/images/laser-cutting.png" alt="Laser Cutting and Engraving" />
+                </div>
+                <div class="card-content">
+                  <h3 class="card-title">Laser Cutting and Engraving</h3>
+                  <p class="card-desc">
+                    Precision laser services on wood, acrylic, leather, and
+                    metals.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="carousel-item">
+              <div class="service-card landscape-card">
+                <div class="card-img-holder">
+                  <img src="/images/pic1.jpg" alt="Digital Embroidery" />
+                </div>
+                <div class="card-content">
+                  <h3 class="card-title">Digital Embroidery</h3>
+                  <p class="card-desc">
+                    Automated stitching for uniforms, patches, logos, and
+                    textile branding applications.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="carousel-item">
+              <div class="service-card landscape-card">
+                <div class="card-img-holder">
+                  <img src="/images/largeformat.jpg" alt="Large Format Printing and Cutting" />
+                </div>
+                <div class="card-content">
+                  <h3 class="card-title">Large Format Printing and Cutting</h3>
                   <p class="card-desc">
                     Tarpaulins, vinyl stickers, and large-scale poster printing.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="carousel-item">
+              <div class="service-card landscape-card">
+                <div class="card-img-holder">
+                  <img src="/images/pic2.jpg" alt="Prototyping" />
+                </div>
+                <div class="card-content">
+                  <h3 class="card-title">Prototyping</h3>
+                  <p class="card-desc">
+                    End-to-end prototype development support from concept design
+                    to initial functional model.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="carousel-item">
+              <div class="service-card landscape-card">
+                <div class="card-img-holder">
+                  <img src="/images/labelling.jpg" alt="Product Labeling and Designing" />
+                </div>
+                <div class="card-content">
+                  <h3 class="card-title">Product Labeling and Designing</h3>
+                  <p class="card-desc">
+                    Professional branding, logo creation, and product label
+                    layout for market-ready packaging.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="carousel-item">
+              <div class="service-card landscape-card">
+                <div class="card-img-holder">
+                  <img src="/images/pic1.jpg" alt="Project Consultation" />
+                </div>
+                <div class="card-content">
+                  <h3 class="card-title">Project Consultation</h3>
+                  <p class="card-desc">
+                    Technical guidance for fabrication workflows, materials,
+                    costing, and project planning.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="carousel-item">
+              <div class="service-card landscape-card">
+                <div class="card-img-holder">
+                  <img src="/images/pic2.jpg" alt="Partnership" />
+                </div>
+                <div class="card-content">
+                  <h3 class="card-title">Partnership</h3>
+                  <p class="card-desc">
+                    Collaborative programs with institutions, communities, and
+                    industries for innovation initiatives.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="carousel-item">
+              <div class="service-card landscape-card">
+                <div class="card-img-holder">
+                  <img src="/images/pic1.jpg" alt="Training Workshop Tour" />
+                </div>
+                <div class="card-content">
+                  <h3 class="card-title">Training/Workshop/Tour</h3>
+                  <p class="card-desc">
+                    Structured learning sessions, laboratory demonstrations, and
+                    guided facility tours.
                   </p>
                 </div>
               </div>
@@ -529,15 +656,21 @@
 
               <div class="apt-input-group">
                 <label>Province</label>
-                <input type="text" class="c-input" placeholder="Camarines Norte"/>
+                <select id="aptProvince" class="c-input">
+                  <option value="" selected disabled hidden>Select Province</option>
+                </select>
               </div>
               <div class="apt-input-group">
                 <label>Municipality</label>
-                <input type="text" class="c-input" placeholder="Daet"/>
+                <select id="aptMunicipality" class="c-input" disabled>
+                  <option value="" selected disabled hidden>Select Municipality</option>
+                </select>
               </div>
               <div class="apt-input-group">
                 <label>Barangay</label>
-                <input type="text" id="aptAddress" class="c-input" placeholder="Barangay II"/>
+                <select id="aptAddress" class="c-input" disabled>
+                  <option value="" selected disabled hidden>Select Barangay</option>
+                </select>
               </div>
 
               <!-- Section 3: Appointment Details -->
@@ -836,7 +969,7 @@
           click CANCEL.
         </p>
         <div class="nested-actions">
-          <button class="apt-btn apt-btn-outline-brown" id="cancelPrivacyBtn">
+          <button class="apt-btn apt-btn-cancel" id="cancelPrivacyBtn">
             Cancel
           </button>
           <button class="apt-btn apt-btn-blue" id="acceptPrivacyBtn">
@@ -854,7 +987,7 @@
           Are you sure you want to proceed?
         </p>
         <div class="nested-actions" style="justify-content: center">
-          <button class="apt-btn apt-btn-outline-brown" id="cancelConfirmBtn">
+          <button class="apt-btn apt-btn-cancel" id="cancelConfirmBtn">
             Cancel
           </button>
           <button class="apt-btn apt-btn-blue" id="acceptConfirmBtn">
@@ -864,7 +997,7 @@
       </div>
     </div>
 
-    <footer class="site-footer">
+    <footer class="site-footer" id="contact">
       <div class="footer-container">
         <div class="footer-col brand-col">
           <div class="footer-logo-row">
@@ -893,14 +1026,14 @@
             <li><a href="#about">About Us</a></li>
             <li><a href="/services-page/service.html">Services</a></li>
             <li><a href="/products-page/product.html">Products</a></li>
-            <li><a href="#contact">Contact</a></li>
+            <li><a href="/contact-page/contact.html">Contact</a></li>
           </ul>
         </div>
 
         <div class="footer-col">
           <h4 class="footer-heading">Business Hours</h4>
           <p class="footer-text">Monday - Friday</p>
-          <p class="footer-text">8:00am - 5:00pm</p>
+          <p class="footer-text">7:00am - 6:00pm</p>
         </div>
 
         <div class="footer-col contact-col">

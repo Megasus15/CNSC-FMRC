@@ -13,9 +13,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (entry.isIntersecting) {
         const id = entry.target.getAttribute("id");
         if (id) {
+          const navSectionId = id === "services-preview" ? "about" : id;
           navLinks.forEach((link) => link.classList.remove("active"));
           const activeLink = document.querySelector(
-            `.nav-link[href*="#${id}"]`,
+            `.nav-link[href*="#${navSectionId}"]`,
           );
           if (activeLink) {
             activeLink.classList.add("active");
@@ -30,6 +31,91 @@ document.addEventListener("DOMContentLoaded", () => {
       observer.observe(section);
     }
   });
+
+  // Landing page reveal animation (home -> footer)
+  const revealTargets = document.querySelectorAll(
+    ".hero-content-left, .hero-content-right, .scroll-indicator, .about-content-left, .vision-content-left, .vision-content-right, .mission-content-left, .mission-content-right, #services-preview .section-title, #services-preview .carousel-wrapper, #services-preview .view-all-container, .products-toolbar, .services-carousel-section .carousel-wrapper, .shop-section .shop-card, .contact-info-card, .contact-form-card",
+  );
+
+  revealTargets.forEach((element) => element.classList.add("reveal-on-scroll"));
+
+  const revealObserver = new IntersectionObserver(
+    (entries, activeObserver) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("show-reveal");
+          activeObserver.unobserve(entry.target);
+        }
+      });
+    },
+    {
+      threshold: 0.14,
+      rootMargin: "0px 0px -12% 0px",
+    },
+  );
+
+  revealTargets.forEach((element) => revealObserver.observe(element));
+
+  // About video holder interactions
+  const aboutVideoHolder = document.getElementById("aboutVideoHolder");
+  const aboutPreviewVideo = document.getElementById("aboutPreviewVideo");
+  const aboutVideoToggle = document.getElementById("aboutVideoToggle");
+  const aboutVideoModal = document.getElementById("aboutVideoModal");
+  const aboutVideoClose = document.getElementById("aboutVideoClose");
+  const aboutFullVideo = document.getElementById("aboutFullVideo");
+
+  if (
+    aboutVideoHolder &&
+    aboutPreviewVideo &&
+    aboutVideoToggle &&
+    aboutVideoModal &&
+    aboutVideoClose &&
+    aboutFullVideo
+  ) {
+    document.body.appendChild(aboutVideoModal);
+
+    const syncPreviewIcon = () => {
+      aboutVideoToggle.textContent = aboutPreviewVideo.paused ? "▶" : "❚❚";
+    };
+
+    aboutVideoToggle.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (aboutPreviewVideo.paused) {
+        aboutPreviewVideo.play().catch(() => {});
+      } else {
+        aboutPreviewVideo.pause();
+      }
+    });
+
+    const closeAboutVideoModal = () => {
+      aboutVideoModal.classList.remove("show-video-modal");
+      aboutFullVideo.pause();
+      document.body.style.overflow = "";
+    };
+
+    aboutVideoHolder.addEventListener("click", () => {
+      aboutVideoModal.classList.add("show-video-modal");
+      aboutFullVideo.currentTime = aboutPreviewVideo.currentTime || 0;
+      aboutFullVideo.play().catch(() => {});
+      document.body.style.overflow = "hidden";
+    });
+
+    aboutVideoClose.addEventListener("click", (event) => {
+      event.stopPropagation();
+      closeAboutVideoModal();
+    });
+
+    aboutVideoModal.addEventListener("click", (event) => {
+      if (event.target === aboutVideoModal) {
+        closeAboutVideoModal();
+      }
+    });
+
+    aboutPreviewVideo.addEventListener("play", syncPreviewIcon);
+    aboutPreviewVideo.addEventListener("pause", syncPreviewIcon);
+    aboutPreviewVideo.addEventListener("ended", syncPreviewIcon);
+    syncPreviewIcon();
+  }
 
   // Modal Logic
   const modal = document.getElementById("serviceModal");
@@ -222,6 +308,265 @@ document.addEventListener("DOMContentLoaded", () => {
         imageLightbox.classList.remove("show-lightbox");
       }
     });
+  }
+
+  // =========================================
+  // PRODUCTS PAGE: INFO, RATING, FILTERS
+  // =========================================
+  const isProductsPage = document.body.classList.contains("products-page-body");
+  const productCards = Array.from(document.querySelectorAll(".shop-card"));
+
+  if (isProductsPage && productCards.length > 0) {
+    const shopGrid = document.querySelector(".shop-grid");
+    const searchInput = document.getElementById("productSearchInput");
+    const categorySelect = document.getElementById("productCategorySelect");
+    const filterSelect = document.getElementById("productFilterSelect");
+
+    const productInfoModal = document.getElementById("productInfoModal");
+    const closeProductInfoModal = document.getElementById("closeProductInfoModal");
+    const productInfoTitle = document.getElementById("productInfoTitle");
+    const productInfoImage = document.getElementById("productInfoImage");
+    const productInfoSummary = document.getElementById("productInfoSummary");
+    const productInfoChips = document.getElementById("productInfoChips");
+    const productInfoAvailability = document.getElementById("productInfoAvailability");
+    const productInfoRecommended = document.getElementById("productInfoRecommended");
+    const productInfoAddToCart = document.getElementById("productInfoAddToCart");
+    const productInfoBuyNow = document.getElementById("productInfoBuyNow");
+
+    let activeProductCard = null;
+
+    const getCategoryFromName = (name) => {
+      const normalized = name.toLowerCase();
+      if (normalized.includes("laser")) return "laser";
+      if (normalized.includes("heat press") || normalized.includes("shirt"))
+        return "apparel";
+      return "3dprint";
+    };
+
+    const paintStars = (container, ratingValue) => {
+      const stars = container.querySelectorAll(".rating-star-btn");
+      stars.forEach((star) => {
+        const starValue = parseInt(star.dataset.star || "0");
+        star.classList.toggle("filled", starValue <= ratingValue);
+      });
+    };
+
+    productCards.forEach((card, index) => {
+      const nameEl = card.querySelector(".product-name");
+      const nameText = nameEl ? nameEl.innerText.trim() : `Product ${index + 1}`;
+      const inferredCategory = getCategoryFromName(nameText);
+
+      card.dataset.category = card.dataset.category || inferredCategory;
+      card.dataset.userRating = card.dataset.userRating || "4";
+
+      const productInfo = card.querySelector(".product-info");
+      const priceEl = card.querySelector(".product-price");
+
+      if (productInfo && priceEl && !card.querySelector(".product-rating-row")) {
+        const ratingRow = document.createElement("div");
+        ratingRow.className = "product-rating-row";
+        ratingRow.innerHTML = `
+          <span class="rating-score"><span class="rating-score-value">4.0</span>/5</span>
+          <div class="rating-stars" aria-label="Product rating">
+            <button type="button" class="rating-star-btn filled" data-star="1">★</button>
+            <button type="button" class="rating-star-btn filled" data-star="2">★</button>
+            <button type="button" class="rating-star-btn filled" data-star="3">★</button>
+            <button type="button" class="rating-star-btn filled" data-star="4">★</button>
+            <button type="button" class="rating-star-btn" data-star="5">★</button>
+            <span class="rating-count">(${12 + index * 3})</span>
+          </div>
+        `;
+
+        priceEl.insertAdjacentElement("afterend", ratingRow);
+
+        const starsContainer = ratingRow.querySelector(".rating-stars");
+        paintStars(starsContainer, parseInt(card.dataset.userRating));
+
+        starsContainer.addEventListener("click", (event) => {
+          const clickedStar = event.target.closest(".rating-star-btn");
+          if (!clickedStar) return;
+
+          const selectedRating = parseInt(clickedStar.dataset.star || "4");
+          card.dataset.userRating = String(selectedRating);
+          const scoreValue = ratingRow.querySelector(".rating-score-value");
+          if (scoreValue) scoreValue.innerText = `${selectedRating}.0`;
+          paintStars(starsContainer, selectedRating);
+
+          if (filterSelect && filterSelect.value === "top-rated") {
+            applyProductFilters();
+          }
+        });
+      }
+
+      const actionContainer = card.querySelector(".product-actions");
+      if (actionContainer && !actionContainer.querySelector(".btn-view-info")) {
+        const infoBtn = document.createElement("button");
+        infoBtn.type = "button";
+        infoBtn.className = "action-btn btn-view-info";
+        infoBtn.innerText = "VIEW INFO";
+
+        const divider = document.createElement("span");
+        divider.className = "action-divider";
+        divider.setAttribute("aria-hidden", "true");
+
+        actionContainer.insertBefore(divider, actionContainer.firstChild);
+        actionContainer.insertBefore(infoBtn, divider);
+      }
+    });
+
+    const openProductInfoModal = (card) => {
+      if (!productInfoModal) return;
+
+      activeProductCard = card;
+      const title = card.querySelector(".product-name")?.innerText || "Product";
+      const image = card.querySelector(".product-img-wrapper img");
+      const price = card.querySelector(".product-price")?.innerText || "₱0.00";
+      const code = card.querySelector(".code-value")?.innerText || "N/A";
+      const stock = card.querySelector(".stock-text")?.innerText || "N/A";
+      const badge = card.querySelector(".stock-badge")?.innerText || "N/A";
+      const currentRating = parseInt(card.dataset.userRating || "4");
+
+      if (productInfoTitle) productInfoTitle.innerText = title;
+      if (productInfoImage && image) {
+        productInfoImage.src = image.src;
+        productInfoImage.alt = image.alt || title;
+      }
+
+      if (productInfoSummary) {
+        productInfoSummary.innerText = `${title} is available for request and processing through CNSC-FMRC. This item includes quality production support with consistent output standards.`;
+      }
+
+      if (productInfoChips) {
+        productInfoChips.innerHTML = `
+          <span class="chip">Price ${price}</span>
+          <span class="chip">Code ${code}</span>
+          <span class="chip">Rated ${currentRating}.0 / 5</span>
+          <span class="chip">Service-backed production</span>
+        `;
+      }
+
+      if (productInfoAvailability) {
+        productInfoAvailability.innerHTML = `
+          <li>Stock status: ${stock}</li>
+          <li>Availability badge: ${badge}</li>
+          <li>Direct checkout supported</li>
+        `;
+      }
+
+      if (productInfoRecommended) {
+        productInfoRecommended.innerHTML = `
+          <li>Academic prototypes and demos</li>
+          <li>Business sample production</li>
+          <li>Event and presentation materials</li>
+        `;
+      }
+
+      productInfoModal.classList.add("show-modal");
+      document.body.style.overflow = "hidden";
+    };
+
+    const closeInfoModal = () => {
+      if (!productInfoModal) return;
+      productInfoModal.classList.remove("show-modal");
+      document.body.style.overflow = "";
+    };
+
+    document.body.addEventListener("click", (event) => {
+      const viewInfoBtn = event.target.closest(".btn-view-info");
+      if (viewInfoBtn) {
+        const relatedCard = viewInfoBtn.closest(".shop-card");
+        if (relatedCard) openProductInfoModal(relatedCard);
+      }
+    });
+
+    if (closeProductInfoModal) {
+      closeProductInfoModal.addEventListener("click", closeInfoModal);
+    }
+
+    if (productInfoModal) {
+      productInfoModal.addEventListener("click", (event) => {
+        if (event.target === productInfoModal) closeInfoModal();
+      });
+    }
+
+    if (productInfoAddToCart) {
+      productInfoAddToCart.addEventListener("click", () => {
+        const addBtn = activeProductCard?.querySelector(".btn-add-cart:not(.disabled)");
+        if (addBtn) {
+          closeInfoModal();
+          addBtn.click();
+        }
+      });
+    }
+
+    if (productInfoBuyNow) {
+      productInfoBuyNow.addEventListener("click", () => {
+        const buyBtn = activeProductCard?.querySelector(".btn-buy-now:not(.disabled)");
+        if (buyBtn) {
+          closeInfoModal();
+          buyBtn.click();
+        }
+      });
+    }
+
+    const applyProductFilters = () => {
+      const searchValue = (searchInput?.value || "").trim().toLowerCase();
+      const selectedCategory = categorySelect?.value || "all";
+      const selectedFilter = filterSelect?.value || "all";
+
+      const cards = Array.from(shopGrid?.querySelectorAll(".shop-card") || []);
+
+      cards.forEach((card) => {
+        const nameText = card.querySelector(".product-name")?.innerText.toLowerCase() || "";
+        const category = card.dataset.category || "all";
+        const stockBadge = card.querySelector(".stock-badge");
+        const isOutOfStock = stockBadge?.classList.contains("out-of-stock");
+        const userRating = parseInt(card.dataset.userRating || "4");
+
+        let visible = true;
+
+        if (searchValue && !nameText.includes(searchValue)) visible = false;
+        if (selectedCategory !== "all" && category !== selectedCategory)
+          visible = false;
+
+        if (selectedFilter === "in-stock" && isOutOfStock) visible = false;
+        if (selectedFilter === "out-of-stock" && !isOutOfStock) visible = false;
+        if (selectedFilter === "top-rated" && userRating < 4) visible = false;
+
+        card.style.display = visible ? "flex" : "none";
+      });
+
+      if (selectedFilter === "price-low" || selectedFilter === "price-high" || selectedFilter === "top-rated") {
+        const visibleCards = cards.filter((card) => card.style.display !== "none");
+
+        visibleCards.sort((a, b) => {
+          if (selectedFilter === "top-rated") {
+            return (
+              parseInt(b.dataset.userRating || "4") -
+              parseInt(a.dataset.userRating || "4")
+            );
+          }
+
+          const getPrice = (cardEl) => {
+            const priceText = cardEl.querySelector(".product-price")?.innerText || "₱0";
+            return parseFloat(priceText.replace(/[^0-9.]/g, ""));
+          };
+
+          const priceA = getPrice(a);
+          const priceB = getPrice(b);
+          return selectedFilter === "price-low" ? priceA - priceB : priceB - priceA;
+        });
+
+        visibleCards.forEach((card) => shopGrid.appendChild(card));
+      }
+    };
+
+    if (searchInput) searchInput.addEventListener("input", applyProductFilters);
+    if (categorySelect)
+      categorySelect.addEventListener("change", applyProductFilters);
+    if (filterSelect) filterSelect.addEventListener("change", applyProductFilters);
+
+    applyProductFilters();
   }
 
   // =========================================
@@ -556,7 +901,8 @@ document.addEventListener("DOMContentLoaded", () => {
     clone.style.width = `${imgRect.width}px`;
     clone.style.height = `${imgRect.height}px`;
     clone.style.borderRadius = "6px";
-    clone.style.transition = "all 0.8s cubic-bezier(0.25, 0.8, 0.25, 1)";
+    clone.style.transition =
+      "transform 1.2s cubic-bezier(0.1, 0.7, 0.2, 1), opacity 1.2s ease";
     clone.style.pointerEvents = "none";
 
     document.body.appendChild(clone);
@@ -570,7 +916,7 @@ document.addEventListener("DOMContentLoaded", () => {
     clone.style.transform = `translate(${translateX}px, ${translateY}px) scale(0.1)`;
     clone.style.opacity = "0.3";
 
-    setTimeout(() => clone.remove(), 800);
+    setTimeout(() => clone.remove(), 1200);
   }
 
   // Update Cart Totals and Counters
@@ -763,6 +1109,89 @@ document.addEventListener("DOMContentLoaded", () => {
       appointmentOverlay.classList.add("show-modal");
       document.body.style.overflow = "hidden";
       switchAptStep(1);
+    });
+  }
+
+  const aptProvince = document.getElementById("aptProvince");
+  const aptMunicipality = document.getElementById("aptMunicipality");
+  const aptBarangay = document.getElementById("aptAddress");
+
+  if (aptProvince && aptMunicipality && aptBarangay) {
+    const phAddressData = {
+      "Camarines Norte": {
+        Daet: ["Barangay I", "Barangay II", "Barangay III", "Barangay IV"],
+        Labo: ["Baay", "Canapawan", "Daguit", "Talobatib"],
+        Basud: ["Angas", "Bactas", "Mocong", "Poblacion 1"],
+      },
+      "Camarines Sur": {
+        Naga: ["Abella", "Bagumbayan Norte", "Concepcion Grande", "Tinago"],
+        Iriga: ["San Agustin", "San Isidro", "Santa Cruz Sur", "Santiago"],
+        Pili: ["Anayan", "Cadlan", "Del Rosario", "San Jose"],
+      },
+      Albay: {
+        Legazpi: ["Bitano", "Bogtong", "Cabangan", "Puro"],
+        Ligao: ["Busay", "Dunao", "Herrera", "Tuburan"],
+        Tabaco: ["Basud", "Bombon", "Cobo", "Tagas"],
+      },
+      Sorsogon: {
+        "Sorsogon City": ["Balogo", "Bibincahan", "Burabod", "Talisay"],
+        Bulan: ["A. Bonifacio", "Aquino", "Calpi", "Zone 8"],
+        Gubat: ["Ariman", "Bagacay", "Bentuco", "Balud del Sur"],
+      },
+      Quezon: {
+        Lucena: ["Bocohan", "Dalahican", "Ibabang Dupay", "Mayao Crossing"],
+        Candelaria: ["Bukal Sur", "Kinatihan I", "Malabanban Norte", "Pahinga Norte"],
+        Sariaya: ["Balubal", "Concepcion 1", "Concepcion Banahaw", "Sampaloc 1"],
+      },
+      "Metro Manila": {
+        Manila: ["Barangay 659", "Barangay 699", "Barangay 734", "Barangay 750"],
+        Quezon: ["Bagumbayan", "Batasan Hills", "Commonwealth", "UP Campus"],
+        Makati: ["Bel-Air", "Poblacion", "San Lorenzo", "Urdaneta"],
+      },
+    };
+
+    const fillSelect = (selectElement, options, placeholder) => {
+      selectElement.innerHTML = `<option value="" selected disabled hidden>${placeholder}</option>`;
+      options.forEach((optionText) => {
+        const option = document.createElement("option");
+        option.value = optionText;
+        option.textContent = optionText;
+        selectElement.appendChild(option);
+      });
+    };
+
+    fillSelect(aptProvince, Object.keys(phAddressData), "Select Province");
+
+    aptProvince.addEventListener("change", () => {
+      const selectedProvince = aptProvince.value;
+      const municipalities = Object.keys(phAddressData[selectedProvince] || {});
+
+      aptMunicipality.disabled = municipalities.length === 0;
+      aptBarangay.disabled = true;
+      fillSelect(aptMunicipality, municipalities, "Select Municipality");
+      fillSelect(aptBarangay, [], "Select Barangay");
+    });
+
+    aptMunicipality.addEventListener("change", () => {
+      const selectedProvince = aptProvince.value;
+      const selectedMunicipality = aptMunicipality.value;
+      const barangays =
+        phAddressData[selectedProvince]?.[selectedMunicipality] || [];
+
+      aptBarangay.disabled = barangays.length === 0;
+      fillSelect(aptBarangay, barangays, "Select Barangay");
+    });
+  }
+
+  // =========================================
+  // CONTACT PAGE FORM
+  // =========================================
+  const contactMessageForm = document.getElementById("contactMessageForm");
+  if (contactMessageForm) {
+    contactMessageForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      alert("Thank you! Your message has been sent successfully.");
+      contactMessageForm.reset();
     });
   }
 
