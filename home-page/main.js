@@ -1,6 +1,154 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const navLinks = document.querySelectorAll(".nav-link");
+  let navLinks = document.querySelectorAll(".nav-link");
   const sections = document.querySelectorAll("main, section");
+
+  // Mobile Sidebar Navigation (shared across all pages)
+  const siteHeader = document.querySelector(".site-header");
+  const mainNav = siteHeader?.querySelector(".main-nav");
+  const logoContainer = siteHeader?.querySelector(".logo-container");
+  const headerActions = siteHeader?.querySelector(".header-right-actions");
+
+  if (siteHeader && mainNav && logoContainer && !document.querySelector(".mobile-menu-toggle")) {
+    const menuToggle = document.createElement("button");
+    menuToggle.type = "button";
+    menuToggle.className = "mobile-menu-toggle";
+    menuToggle.id = "mobileMenuToggle";
+    menuToggle.setAttribute("aria-label", "Open navigation menu");
+    menuToggle.setAttribute("aria-expanded", "false");
+    menuToggle.innerHTML = "<span></span><span></span><span></span>";
+
+    siteHeader.insertBefore(menuToggle, logoContainer);
+
+    const sidebarBackdrop = document.createElement("div");
+    sidebarBackdrop.className = "sidebar-backdrop";
+
+    const mobileSidebar = document.createElement("aside");
+    mobileSidebar.className = "mobile-sidebar";
+    mobileSidebar.setAttribute("aria-hidden", "true");
+
+    const sidebarHeader = document.createElement("div");
+    sidebarHeader.className = "sidebar-header";
+
+    const sidebarCloseBtn = document.createElement("button");
+    sidebarCloseBtn.type = "button";
+    sidebarCloseBtn.className = "sidebar-close-btn";
+    sidebarCloseBtn.setAttribute("aria-label", "Close sidebar menu");
+    sidebarCloseBtn.innerHTML = "&times;";
+
+    const sidebarBrand = document.createElement("a");
+    sidebarBrand.className = "sidebar-logo-container";
+    sidebarBrand.href = logoContainer.getAttribute("href") || "/home-page/main.html";
+    sidebarBrand.innerHTML = logoContainer.innerHTML;
+
+    sidebarHeader.append(sidebarCloseBtn, sidebarBrand);
+
+    const sidebarNav = document.createElement("nav");
+    sidebarNav.className = "sidebar-nav";
+    const navListClone = mainNav.querySelector("ul")?.cloneNode(true);
+    if (navListClone) {
+      sidebarNav.appendChild(navListClone);
+    }
+
+    mobileSidebar.append(sidebarHeader, sidebarNav);
+    document.body.append(sidebarBackdrop, mobileSidebar);
+
+    const openSidebar = () => {
+      mobileSidebar.classList.add("open");
+      sidebarBackdrop.classList.add("show");
+      menuToggle.classList.add("is-open");
+      menuToggle.setAttribute("aria-expanded", "true");
+      mobileSidebar.setAttribute("aria-hidden", "false");
+      document.body.classList.add("sidebar-open");
+    };
+
+    const closeSidebar = () => {
+      mobileSidebar.classList.remove("open");
+      sidebarBackdrop.classList.remove("show");
+      menuToggle.classList.remove("is-open");
+      menuToggle.setAttribute("aria-expanded", "false");
+      mobileSidebar.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("sidebar-open");
+    };
+
+    menuToggle.addEventListener("click", () => {
+      if (mobileSidebar.classList.contains("open")) {
+        closeSidebar();
+      } else {
+        openSidebar();
+      }
+    });
+
+    sidebarCloseBtn.addEventListener("click", closeSidebar);
+    sidebarBackdrop.addEventListener("click", closeSidebar);
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && mobileSidebar.classList.contains("open")) {
+        closeSidebar();
+      }
+    });
+
+    window.addEventListener("resize", () => {
+      if (window.innerWidth > 900 && mobileSidebar.classList.contains("open")) {
+        closeSidebar();
+      }
+    });
+
+    mobileSidebar.querySelectorAll(".nav-link").forEach((link) => {
+      link.addEventListener("click", (event) => {
+        const href = link.getAttribute("href") || "";
+
+        if (href.startsWith("#")) {
+          event.preventDefault();
+          closeSidebar();
+          const target = document.querySelector(href);
+          if (target) target.scrollIntoView({ behavior: "smooth" });
+          return;
+        }
+
+        closeSidebar();
+      });
+    });
+
+    navLinks = document.querySelectorAll(".nav-link");
+  }
+
+  // Disable sticky header when any modal/overlay/form is open
+  const headerBlockingSelectors = [
+    ".modal-overlay.show-modal",
+    ".shop-modal-overlay.show-modal",
+    ".image-lightbox-overlay.show-lightbox",
+    ".about-video-modal.show-video-modal",
+    ".apt-overlay.show-modal",
+    ".apt-nested-modal.show-modal",
+    ".success-modal-overlay.active",
+    "#appointmentFlow.show-modal",
+    "#checkoutModal.show-modal",
+    "#addressSelectionModal.show-modal",
+    "#editInfoModal.show-modal",
+    "#addInfoModal.show-modal",
+    "#cartModal.show-modal",
+    "#serviceModal.show-modal",
+    "#productInfoModal.show-modal",
+  ];
+
+  const syncHeaderStickyState = () => {
+    const hasOpenLayer = headerBlockingSelectors.some((selector) =>
+      document.querySelector(selector),
+    );
+    document.body.classList.toggle("modal-open-state", hasOpenLayer);
+  };
+
+  syncHeaderStickyState();
+
+  const modalStateObserver = new MutationObserver(() => {
+    syncHeaderStickyState();
+  });
+
+  modalStateObserver.observe(document.body, {
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["class", "style"],
+  });
 
   const observerOptions = {
     root: null,

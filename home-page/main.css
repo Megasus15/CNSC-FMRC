@@ -4328,3 +4328,913 @@ input:checked + .toggle-slider:before {
     border-top-width: 3px;
   }
 }
+
+/* =========================================
+   MOBILE SIDEBAR NAV + RESPONSIVE OVERRIDES
+   ========================================= */
+
+.mobile-menu-toggle {
+  display: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid #e0e0e0;
+  background: #ffffff;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 5px;
+  transition:
+    background-color 0.25s ease,
+    transform 0.1s ease,
+    border-color 0.25s ease;
+}
+
+.mobile-menu-toggle span {
+  width: 20px;
+  height: 2.2px;
+  border-radius: 2px;
+  background: #222;
+  transition:
+    transform 0.25s ease,
+    opacity 0.25s ease;
+}
+
+.mobile-menu-toggle:hover {
+  background: #f1f1f1;
+  border-color: #cfcfcf;
+}
+
+.mobile-menu-toggle:active {
+  transform: scale(0.96);
+}
+
+.mobile-menu-toggle.is-open span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.mobile-menu-toggle.is-open span:nth-child(2) {
+  opacity: 0;
+}
+
+.mobile-menu-toggle.is-open span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 20, 20, 0.32);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: 11000;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.25s ease,
+    visibility 0.25s ease;
+}
+
+.mobile-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: min(88vw, 340px);
+  height: 100dvh;
+  background: #ffffff;
+  z-index: 11010;
+  transform: translateX(-105%);
+  transition: transform 0.28s ease;
+  box-shadow: 10px 0 35px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-sidebar.open {
+  transform: translateX(0);
+}
+
+.sidebar-backdrop.show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.sidebar-header {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 14px 12px;
+  border-bottom: 1px solid #ececec;
+}
+
+.sidebar-close-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  color: #1f1f1f;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 0.25s ease,
+    transform 0.1s ease,
+    border-color 0.25s ease;
+}
+
+.sidebar-close-btn:hover {
+  background: #efefef;
+  border-color: #d0d0d0;
+}
+
+.sidebar-close-btn:active {
+  transform: scale(0.96);
+}
+
+.sidebar-logo-container {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  min-width: 0;
+}
+
+.sidebar-logo-container .header-emblem {
+  height: 36px;
+  margin-right: 10px;
+}
+
+.sidebar-logo-container .logo-text {
+  font-size: 20px;
+  white-space: nowrap;
+}
+
+.sidebar-nav {
+  padding: 16px 12px 20px;
+  overflow-y: auto;
+}
+
+.sidebar-nav ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sidebar-nav .nav-link {
+  display: block;
+  width: 100%;
+  padding: 12px 12px;
+  border-radius: 10px;
+  pointer-events: auto;
+}
+
+.sidebar-nav .nav-link:hover,
+.sidebar-nav .nav-link.active {
+  background: #fbecec;
+  color: #8b0000;
+}
+
+body.sidebar-open {
+  overflow: hidden !important;
+}
+
+@media (max-width: 900px) {
+  .mobile-menu-toggle {
+    display: inline-flex;
+    flex-shrink: 0;
+  }
+
+  .site-header {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 4%;
+  }
+
+  .main-nav {
+    display: none;
+  }
+
+  .site-header .logo-container {
+    display: flex;
+    align-items: center;
+    margin-right: auto;
+    margin-left: 2px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .site-header .header-emblem {
+    height: 40px;
+    margin-right: 10px;
+  }
+
+  .site-header .logo-text {
+    font-size: 21px;
+    line-height: 1.1;
+  }
+
+  .header-right-actions {
+    display: flex;
+    align-items: center;
+    position: static !important;
+    top: auto !important;
+    right: auto !important;
+    margin-left: 0;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .hero-section {
+    min-height: calc(100vh - 70px);
+    padding: 16px 5% 42px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .hero-container {
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    max-width: 100%;
+    gap: 0;
+    text-align: center;
+  }
+
+  .hero-content-left {
+    width: 100%;
+    padding-right: 0;
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    order: 2;
+  }
+
+  .hero-content-right {
+    order: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 14px;
+  }
+
+  .hero-graphic {
+    width: clamp(130px, 34vw, 180px);
+    max-width: 180px;
+    padding: 8px;
+    border-width: 2px;
+  }
+
+  .hero-title {
+    font-size: clamp(30px, 8.2vw, 42px);
+    line-height: 1.2;
+    margin-bottom: 16px;
+  }
+
+  .hero-buttons {
+    width: 100%;
+    max-width: 380px;
+    flex-wrap: nowrap;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .btn-browse,
+  .btn-appointment {
+    flex: 1;
+    padding: 12px 10px;
+    font-size: 13px;
+    border-radius: 10px;
+    white-space: nowrap;
+  }
+
+  .scroll-indicator {
+    position: static;
+    left: auto;
+    bottom: auto;
+    transform: none;
+    margin: 18px auto 0;
+    width: fit-content;
+    animation: bounceY 2s infinite;
+  }
+
+  .scroll-icon {
+    margin-top: 5px;
+  }
+
+  .footer-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "brand brand"
+      "quick hours"
+      "contact contact";
+    gap: 22px;
+  }
+
+  .footer-container .footer-col:nth-child(1) {
+    grid-area: brand;
+  }
+
+  .footer-container .footer-col:nth-child(2) {
+    grid-area: quick;
+  }
+
+  .footer-container .footer-col:nth-child(3) {
+    grid-area: hours;
+  }
+
+  .footer-container .footer-col:nth-child(4) {
+    grid-area: contact;
+  }
+
+  .footer-heading {
+    margin-bottom: 14px;
+    font-size: 19px;
+  }
+
+  .apt-container {
+    max-width: 100%;
+    padding: 12px 4% 18px;
+  }
+
+  .apt-header-top {
+    margin-top: 4px;
+    margin-bottom: 18px;
+    gap: 8px;
+  }
+
+  .apt-main-title {
+    font-size: 25px;
+  }
+
+  .apt-progress-wrapper {
+    overflow-x: auto;
+    gap: 8px;
+    padding-bottom: 8px;
+  }
+
+  .apt-line {
+    min-width: 26px;
+    margin-top: 34px;
+  }
+
+  .apt-step {
+    min-width: 72px;
+  }
+
+  .apt-icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .apt-card {
+    padding: 18px;
+  }
+
+  .apt-form-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px;
+  }
+
+  .apt-form-header {
+    grid-column: span 1;
+  }
+
+  .apt-calendar-wrapper {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .apt-calendar-left,
+  .apt-time-right {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .ticket-body {
+    padding: 18px;
+  }
+
+  .ticket-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .apt-footer-actions {
+    flex-direction: column-reverse;
+    gap: 10px;
+    padding-bottom: 22px;
+  }
+
+  .apt-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .site-header .logo-text {
+    font-size: 18px;
+  }
+
+  .site-header .header-emblem {
+    height: 35px;
+    margin-right: 8px;
+  }
+
+  .hero-title {
+    font-size: clamp(25px, 7.8vw, 32px);
+  }
+
+  .hero-buttons {
+    max-width: 100%;
+  }
+
+  .btn-browse,
+  .btn-appointment {
+    font-size: 12px;
+    padding: 11px 8px;
+  }
+}
+
+@keyframes bounceY {
+  0%,
+  20%,
+  50%,
+  80%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-8px);
+  }
+  60% {
+    transform: translateY(-4px);
+  }
+}
+
+/* =========================================
+   MOBILE CONTENT SCALE TUNING (RESPONSIVE ONLY)
+   ========================================= */
+
+@media (max-width: 900px) {
+  .about-section,
+  .vision-section,
+  .mission-section,
+  .services-preview-section {
+    padding-top: 64px;
+    padding-bottom: 64px;
+  }
+
+  .section-title {
+    font-size: clamp(34px, 7vw, 46px);
+    margin-bottom: 22px;
+  }
+
+  .section-text {
+    font-size: 17px;
+    line-height: 1.75;
+  }
+
+  .vm-title {
+    font-size: clamp(32px, 6.5vw, 44px);
+    margin-bottom: 16px;
+  }
+
+  .vm-text {
+    font-size: 20px;
+    line-height: 1.65;
+  }
+
+  .vision-img,
+  .mission-img {
+    max-width: 600px;
+  }
+
+  .landscape-carousel {
+    height: 460px;
+  }
+
+  .landscape-carousel .carousel-item {
+    width: 330px;
+    height: 385px;
+  }
+
+  .landscape-card .card-img-holder {
+    height: 190px;
+  }
+
+  .card-title {
+    font-size: 22px;
+  }
+
+  .card-desc {
+    font-size: 16px;
+    line-height: 1.65;
+  }
+
+  .view-all-btn {
+    font-size: 17px;
+    padding: 16px 44px;
+  }
+
+  .products-toolbar {
+    padding-top: 18px;
+    padding-bottom: 18px;
+  }
+
+  .toolbar-search .search-input,
+  .category-select,
+  .search-input {
+    font-size: 16px;
+  }
+
+  .carousel-wrapper {
+    height: 540px;
+  }
+
+  .carousel-item {
+    width: 300px;
+    height: 430px;
+  }
+
+  .shop-grid {
+    gap: 20px;
+  }
+
+  .shop-card {
+    border-radius: 14px;
+  }
+
+  .product-img-wrapper {
+    height: 230px;
+  }
+
+  .product-name {
+    font-size: 18px;
+  }
+
+  .product-price {
+    font-size: 24px;
+  }
+
+  .stock-text,
+  .rating-count,
+  .rating-score,
+  .code-value,
+  .code-label {
+    font-size: 13px;
+  }
+
+  .action-btn {
+    font-size: 12px;
+    padding: 12px 10px;
+  }
+
+  .contact-title {
+    font-size: clamp(34px, 6.4vw, 42px);
+  }
+
+  .contact-subtitle {
+    font-size: clamp(30px, 5.8vw, 36px);
+  }
+
+  .contact-lead {
+    font-size: 17px;
+  }
+
+  .contact-link-text,
+  .contact-input,
+  .contact-field-group label {
+    font-size: 16px;
+  }
+
+  .contact-submit-btn {
+    font-size: 16px;
+    padding: 14px 30px;
+  }
+
+  .site-footer {
+    padding-top: 56px;
+  }
+
+  .footer-brand {
+    font-size: 28px;
+  }
+
+  .footer-heading {
+    font-size: 22px;
+  }
+
+  .footer-menu a,
+  .footer-link,
+  .footer-text,
+  .footer-desc,
+  .contact-list li {
+    font-size: 17px;
+    line-height: 1.6;
+  }
+
+  .apt-main-title {
+    font-size: 30px;
+  }
+
+  .apt-card {
+    padding: 24px;
+  }
+
+  .apt-card-header h3 {
+    font-size: 22px;
+  }
+
+  .apt-reminder-content h4 {
+    font-size: 18px;
+  }
+
+  .apt-reminder-content p,
+  .apt-reminder-content ol,
+  .apt-reminder-content ul,
+  .apt-reminder-list li {
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .apt-form-header h4 {
+    font-size: 17px;
+  }
+
+  .apt-input-group label,
+  .c-input,
+  .t-value,
+  .t-label,
+  .time-slot-btn,
+  .cal-days-header span,
+  .leg-item,
+  #selectedDateDisplay,
+  #slotCounter,
+  .calendar-header-text p {
+    font-size: 15px;
+  }
+
+  .calendar-header-text h3,
+  #calMonthYear {
+    font-size: 22px;
+  }
+
+  .cal-day-cell {
+    height: 54px;
+    font-size: 16px;
+  }
+
+  .apt-btn {
+    font-size: 16px;
+    padding: 14px 22px;
+  }
+
+  .ticket-header h3 {
+    font-size: 26px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .about-section,
+  .vision-section,
+  .mission-section,
+  .services-preview-section {
+    padding-top: 52px;
+    padding-bottom: 52px;
+  }
+
+  .section-title {
+    font-size: clamp(30px, 8vw, 38px);
+  }
+
+  .section-text {
+    font-size: 16px;
+  }
+
+  .vm-title {
+    font-size: clamp(28px, 7.5vw, 34px);
+  }
+
+  .vm-text {
+    font-size: 18px;
+  }
+
+  .landscape-carousel {
+    height: 430px;
+  }
+
+  .landscape-carousel .carousel-item {
+    width: 315px;
+    height: 365px;
+  }
+
+  .card-title {
+    font-size: 20px;
+  }
+
+  .card-desc {
+    font-size: 15px;
+  }
+
+  .view-all-btn {
+    font-size: 16px;
+    padding: 15px 36px;
+  }
+
+  .products-toolbar {
+    margin-bottom: 20px;
+  }
+
+  .toolbar-container {
+    gap: 12px;
+  }
+
+  .toolbar-search,
+  .category-dropdown-box {
+    border-radius: 12px;
+  }
+
+  .shop-section {
+    padding-bottom: 60px;
+  }
+
+  .product-name {
+    font-size: 17px;
+  }
+
+  .product-price {
+    font-size: 22px;
+  }
+
+  .action-btn {
+    font-size: 11.8px;
+  }
+
+  .contact-info-card,
+  .contact-form-card {
+    padding: 26px;
+  }
+
+  .contact-title {
+    font-size: 32px;
+  }
+
+  .contact-subtitle {
+    font-size: 28px;
+  }
+
+  .contact-lead,
+  .contact-link-text,
+  .contact-input {
+    font-size: 15px;
+  }
+
+  .site-footer {
+    padding-top: 48px;
+  }
+
+  .footer-brand {
+    font-size: 24px;
+  }
+
+  .footer-heading {
+    font-size: 20px;
+  }
+
+  .footer-menu a,
+  .footer-link,
+  .footer-text,
+  .footer-desc,
+  .contact-list li {
+    font-size: 15px;
+  }
+
+  .apt-main-title {
+    font-size: 27px;
+  }
+
+  .apt-card {
+    padding: 20px;
+  }
+
+  .apt-card-header h3 {
+    font-size: 20px;
+  }
+
+  .apt-reminder-content h4 {
+    font-size: 17px;
+  }
+
+  .apt-input-group label,
+  .c-input,
+  .time-slot-btn,
+  .cal-day-cell,
+  .calendar-header-text p,
+  .t-value {
+    font-size: 14px;
+  }
+
+  .calendar-header-text h3,
+  #calMonthYear {
+    font-size: 20px;
+  }
+
+  .apt-btn {
+    font-size: 15px;
+    padding: 13px 18px;
+  }
+}
+
+/* =========================================
+   RESPONSIVE FIXES: STICKY HEADER + APT STEPS
+   ========================================= */
+
+@media (max-width: 900px) {
+  .site-header {
+    position: sticky !important;
+    top: 0;
+    z-index: 12000;
+  }
+
+  body.modal-open-state .site-header {
+    position: relative !important;
+    top: auto !important;
+    z-index: 10 !important;
+  }
+
+  .apt-progress-wrapper {
+    overflow-x: visible !important;
+    gap: 4px;
+    padding-bottom: 0;
+    justify-content: space-between;
+  }
+
+  .apt-step {
+    min-width: 0;
+    width: 56px;
+    gap: 6px;
+  }
+
+  .apt-line {
+    min-width: 8px;
+    margin-top: 30px;
+  }
+
+  .step-label {
+    display: block;
+    font-size: 9px;
+    letter-spacing: 0.7px;
+    line-height: 1.1;
+  }
+
+  .apt-step span:last-child {
+    display: block;
+    font-size: 10px;
+    line-height: 1.2;
+    margin-top: 2px;
+    white-space: normal;
+  }
+
+  .apt-icon {
+    width: 38px;
+    height: 38px;
+    border-width: 2px;
+  }
+
+  .apt-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .apt-step {
+    width: 52px;
+  }
+
+  .apt-line {
+    min-width: 6px;
+  }
+
+  .step-label {
+    font-size: 8px;
+  }
+
+  .apt-step span:last-child {
+    font-size: 9px;
+  }
+}
