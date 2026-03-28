@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard | CNSC-FMRC</title>
+    <link rel="stylesheet" href="dashboard.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+  </head>
+  <body>
+    <div class="dashboard-container">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" />
+          <h2>CNSC-FMRC</h2>
+        </div>
+
+        <nav class="sidebar-nav">
+          <a href="#" class="nav-link active"
+            ><i class="fa-solid fa-house"></i> Dashboard</a
+          >
+          <a href="#" class="nav-link"
+            ><i class="fa-solid fa-box"></i> Inventory</a
+          >
+          <a href="#" class="nav-link"
+            ><i class="fa-solid fa-tags"></i> Products</a
+          >
+          <a href="#" class="nav-link"
+            ><i class="fa-regular fa-calendar-check"></i> Appointment</a
+          >
+          <a href="#" class="nav-link"
+            ><i class="fa-solid fa-money-bill-trend-up"></i> Payment
+            Monitoring</a
+          >
+          <a href="#" class="nav-link"
+            ><i class="fa-solid fa-users"></i> Accounts Registered</a
+          >
+          <a href="#" class="nav-link"
+            ><i class="fa-solid fa-file-invoice-dollar"></i> Payments</a
+          >
+          <a href="#" class="nav-link"
+            ><i class="fa-solid fa-chart-line"></i> Reports</a
+          >
+
+          <div class="nav-item has-dropdown">
+            <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn">
+              <div class="dropdown-title">
+                <i class="fa-solid fa-screwdriver-wrench"></i> Admin Control
+              </div>
+              <i class="fa-solid fa-chevron-down arrow"></i>
+            </a>
+            <div class="dropdown-menu">
+              <a href="#" class="sub-link">Home</a>
+              <a href="#" class="sub-link">About Us</a>
+              <a href="#" class="sub-link">Services</a>
+              <a href="#" class="sub-link">Contact</a>
+              <a href="#" class="sub-link">Footer</a>
+            </div>
+          </div>
+
+          <a href="#" class="nav-link"
+            ><i class="fa-solid fa-box-archive"></i> Archives</a
+          >
+        </nav>
+
+        <div class="sidebar-footer">
+          <button class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="top-header">
+          <div class="header-left">
+            <h1>Dashboard Overview</h1>
+          </div>
+          <div class="header-right">
+            <div class="notifications">
+              <i class="fa-regular fa-bell"></i>
+              <span class="badge">3</span>
+            </div>
+
+            <div class="user-profile">
+              <div class="user-info">
+                <span class="role">Admin</span>
+              </div>
+              <img
+                src="../images/pic1.jpg"
+                alt="Profile"
+                class="profile-icon"
+              />
+
+              <div class="profile-popup" id="profilePopup">
+                <div class="popup-header">
+                  <h4>System Admin</h4>
+                  <p>admin@cnsc.edu.ph</p>
+                  <span class="badge-role">Super Admin</span>
+                </div>
+                <hr />
+                <button class="popup-logout">
+                  <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div class="dashboard-content">
+          <div class="summary-cards">
+            <div class="card">
+              <div class="card-info">
+                <h3>150</h3>
+                <p>Total Products</p>
+              </div>
+              <i class="fa-solid fa-tags card-icon"></i>
+            </div>
+            <div class="card">
+              <div class="card-info">
+                <h3>24</h3>
+                <p>Pending Appointments</p>
+              </div>
+              <i class="fa-regular fa-calendar-check card-icon"></i>
+            </div>
+            <div class="card">
+              <div class="card-info">
+                <h3>₱15,400</h3>
+                <p>Payment Collection</p>
+              </div>
+              <i class="fa-solid fa-money-bill-trend-up card-icon"></i>
+            </div>
+            <div class="card">
+              <div class="card-info">
+                <h3>89</h3>
+                <p>Registered Accounts</p>
+              </div>
+              <i class="fa-solid fa-users card-icon"></i>
+            </div>
+          </div>
+
+          <div class="dashboard-widgets">
+            <div class="widget">
+              <h3>Quick Navigation</h3>
+              <div class="quick-links">
+                <button class="btn-quick">Add New Product</button>
+                <button class="btn-quick">Verify Payment</button>
+                <button class="btn-quick">Generate Monthly Report</button>
+              </div>
+            </div>
+            <div class="widget widget-large">
+              <h3>Recent System Activity</h3>
+              <p class="text-muted">
+                You can place a table of recent appointments or payments here.
+              </p>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script src="dashboard.js"></script>
+  </body>
+</html>

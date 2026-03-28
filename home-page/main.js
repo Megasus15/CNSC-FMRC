@@ -99,6 +99,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (href.startsWith("#")) {
           event.preventDefault();
+          navLinks.forEach((navLink) => navLink.classList.remove("active"));
+          document
+            .querySelectorAll(`.nav-link[href="${href}"]`)
+            .forEach((navLink) => navLink.classList.add("active"));
           closeSidebar();
           const target = document.querySelector(href);
           if (target) target.scrollIntoView({ behavior: "smooth" });
@@ -163,12 +167,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (id) {
           const navSectionId = id === "services-preview" ? "about" : id;
           navLinks.forEach((link) => link.classList.remove("active"));
-          const activeLink = document.querySelector(
+          const activeLinks = document.querySelectorAll(
             `.nav-link[href*="#${navSectionId}"]`,
           );
-          if (activeLink) {
-            activeLink.classList.add("active");
-          }
+          activeLinks.forEach((link) => link.classList.add("active"));
         }
       }
     });

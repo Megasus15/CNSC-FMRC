@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CNSC-FMRC Admin Access</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Open+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="auth.css" />
+  </head>
+  <body>
+    <main class="auth-page">
+      <section class="auth-card" aria-label="Admin authentication panel">
+        <div class="card-accent"></div>
+
+        <div class="auth-hero">
+          <div class="auth-brand">
+            <img
+              src="/images/CNSC logo.png"
+              alt="CNSC Logo"
+              class="brand-logo"
+              onerror="this.style.display = 'none'"
+            />
+            <img
+              src="/images/FMRC Logo.png"
+              alt="FMRC Logo"
+              class="brand-logo"
+              onerror="this.style.display = 'none'"
+            />
+          </div>
+          <h1 class="auth-title">Welcome</h1>
+          <p class="auth-caption">CNSC-FMRC Admin Portal</p>
+        </div>
+
+        <form class="auth-form active" id="loginForm" novalidate>
+          <div class="input-wrapper">
+            <label for="loginUser">Email or Username</label>
+            <div class="input-icon-group">
+              <svg
+                class="input-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              <input
+                id="loginUser"
+                type="text"
+                placeholder="Enter your email or username"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="input-wrapper">
+            <label for="loginPass">Password</label>
+            <div class="password-field input-icon-group">
+              <svg
+                class="input-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+              <input
+                id="loginPass"
+                type="password"
+                placeholder="Enter your password"
+                required
+              />
+              <button
+                class="toggle-pass"
+                type="button"
+                data-target="loginPass"
+                aria-label="Show password"
+              >
+                <svg
+                  class="eye-open"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-link-wrap">
+            <a href="#" class="form-link">Forgot Password?</a>
+          </div>
+
+          <button class="auth-btn" type="submit">Login to Dashboard</button>
+
+          <p class="switch-copy">
+            No account yet?
+            <button class="inline-link" id="openSignupFromLogin" type="button">
+              Sign Up
+            </button>
+          </p>
+        </form>
+
+        <form class="auth-form" id="signupForm" novalidate>
+          <h2 class="form-heading">Create Account</h2>
+
+          <div class="input-wrapper">
+            <label for="signupUser">Email or Username</label>
+            <div class="input-icon-group">
+              <svg
+                class="input-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                ></path>
+                <polyline points="22,6 12,13 2,6"></polyline>
+              </svg>
+              <input
+                id="signupUser"
+                type="text"
+                placeholder="Create your email or username"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="input-wrapper">
+            <label for="signupPass">Password</label>
+            <div class="password-field input-icon-group">
+              <svg
+                class="input-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+              <input
+                id="signupPass"
+                type="password"
+                placeholder="Create a password"
+                required
+              />
+              <button
+                class="toggle-pass"
+                type="button"
+                data-target="signupPass"
+                aria-label="Show password"
+              >
+                <svg
+                  class="eye-open"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="input-wrapper">
+            <label for="signupConfirm">Confirm Password</label>
+            <div class="password-field input-icon-group">
+              <svg
+                class="input-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+              <input
+                id="signupConfirm"
+                type="password"
+                placeholder="Re-enter password"
+                required
+              />
+              <button
+                class="toggle-pass"
+                type="button"
+                data-target="signupConfirm"
+                aria-label="Show password"
+              >
+                <svg
+                  class="eye-open"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <button class="auth-btn" type="submit">Create Account</button>
+
+          <p class="switch-copy">
+            Already have an account?
+            <button class="inline-link" id="openLoginFromSignup" type="button">
+              Log In
+            </button>
+          </p>
+        </form>
+      </section>
+    </main>
+
+    <div
+      class="success-modal"
+      id="signupSuccessModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="successTitle"
+    >
+      <div class="success-box">
+        <div class="success-icon">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+        <h3 id="successTitle">Account Created</h3>
+        <p>
+          Your admin account is ready. Please proceed to log in to access the
+          dashboard.
+        </p>
+        <button
+          id="successContinueBtn"
+          class="auth-btn btn-yellow"
+          type="button"
+        >
+          Proceed to Login
+        </button>
+      </div>
+    </div>
+
+    <script src="auth.js"></script>
+  </body>
+</html>
