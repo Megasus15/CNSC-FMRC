@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Appointments | CNSC-FMRC Admin</title>
+    <link rel="stylesheet" href="dashboard.css" />
+    <link rel="stylesheet" href="admin-modules.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  </head>
+  <body>
+    <div class="dashboard-container">
+      <aside class="sidebar">
+        <div class="sidebar-header"><img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" /><h2>CNSC-FMRC</h2></div>
+        <div class="sidebar-scroll-indicator" aria-hidden="true"><span class="indicator-thumb"></span></div>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html" class="nav-link"><i class="fa-solid fa-house"></i> Dashboard</a>
+          <a href="inventory.html" class="nav-link"><i class="fa-solid fa-box"></i> Inventory</a>
+          <a href="products.html" class="nav-link"><i class="fa-solid fa-tags"></i> Products</a>
+          <a href="appointments.html" class="nav-link active"><i class="fa-regular fa-calendar-check"></i> Appointment</a>
+          <a href="payment-monitoring.html" class="nav-link"><i class="fa-solid fa-money-bill-trend-up"></i> Payment Monitoring</a>
+          <a href="accounts.html" class="nav-link"><i class="fa-solid fa-users"></i> Accounts Registered</a>
+          <a href="payments.html" class="nav-link"><i class="fa-solid fa-file-invoice-dollar"></i> Payments</a>
+          <a href="reports.html" class="nav-link"><i class="fa-solid fa-chart-line"></i> Reports</a>
+          <a href="orders.html" class="nav-link"><i class="fa-solid fa-box-open"></i> Orders</a>
+          <div class="nav-item has-dropdown">
+            <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn"><div class="dropdown-title"><i class="fa-solid fa-screwdriver-wrench"></i> Admin Control</div><i class="fa-solid fa-chevron-down arrow"></i></a>
+            <div class="dropdown-menu">
+              <a href="../home-page/main.html" class="sub-link">Home</a>
+              <a href="../services-page/service.html" class="sub-link">Services</a>
+              <a href="../contact-page/contact.html" class="sub-link">Contact</a>
+              <a href="#" class="sub-link">Footer</a>
+            </div>
+          </div>
+          <a href="archives.html" class="nav-link"><i class="fa-solid fa-box-archive"></i> Archives</a>
+        </nav>
+        <div class="sidebar-footer"><button class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div>
+      </aside>
+
+      <main class="main-content">
+        <header class="top-header">
+          <div class="header-left"><h1>Appointment Management</h1></div>
+          <div class="header-right">
+            <div class="notifications"><i class="fa-regular fa-bell"></i><span class="badge">5</span></div>
+            <div class="user-profile">
+              <div class="user-info"><span class="role">Admin</span></div>
+              <span class="profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
+              <div class="profile-popup" id="profilePopup"><div class="popup-header">
+                  <div class="popup-profile-row">
+                    <span class="popup-profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
+                    <div class="popup-profile-meta">
+                      <p class="popup-identity">admin@cnsc.edu.ph</p>
+                      <span class="popup-role">Admin</span>
+                    </div>
+                  </div>
+                </div>
+                <a href="my-account.html" class="profile-popup-link"><i class="fa-regular fa-id-card"></i> My Account</a>
+                <hr /><button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div>
+            </div>
+          </div>
+        </header>
+
+        <section class="module-content">
+          <div class="page-toolbar">
+            <div class="toolbar-title"><h2>Appointment List</h2><p>Review requests, assign slots, and control blocked dates.</p></div>
+            <div class="toolbar-actions">
+              <button class="btn-admin btn-secondary" onclick="window.location.reload();" title="Refresh Data">
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+              </button>
+              <button class="btn-admin" data-modal-open="#modalCalendar"><i class="fa-regular fa-calendar-check"></i> Manage Calendar</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header"><h3>Client Appointments</h3><input class="search-input" id="appointmentSearchInput" placeholder="Search client, contact, email, or purpose..." /></div>
+            <div class="table-scroll-hint"><i class="fa-solid fa-left-right"></i> This table is horizontally scrollable. Slide left or right to view all appointment fields.</div>
+            <div class="table-wrapper appointments-table-wrapper">
+              <table class="admin-table inventory-table" id="appointmentsTable">
+                <thead><tr><th>AP-No</th><th>Client Name</th><th>Contact Number</th><th>Email</th><th>Address</th><th>Type</th><th>Purpose</th><th>File Attach</th><th>Additional Description / Notes</th><th>Date</th><th>Time</th><th>Status</th><th class="sticky-action">Action</th></tr></thead>
+                <tbody id="appointmentsTableBody"></tbody>
+              </table>
+            </div>
+            <div class="table-footer" id="appointmentsTableFooter">
+              <div class="table-footer-meta" id="appointmentsTableMeta">Page 1 of 1</div>
+              <div class="table-pagination">
+                <button class="page-btn" id="appointmentsPrevPage" aria-label="Previous page"><i class="fa-solid fa-chevron-left"></i></button>
+                <div class="page-number" id="appointmentsCurrentPage">1</div>
+                <button class="page-btn" id="appointmentsNextPage" aria-label="Next page"><i class="fa-solid fa-chevron-right"></i></button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-overlay" id="modalCalendar" data-backdrop-close="false">
+      <div class="modal-card modal-calendar-admin">
+        <h3 class="modal-title">Manage Calendar</h3>
+        <p class="field-hint">This panel controls website Step 3 availability. You can block whole dates or specific time slots.</p>
+        <div class="admin-calendar-grid">
+          <div class="admin-calendar-left">
+            <div class="cal-navigation">
+              <button id="adminCalPrevBtn" type="button" class="page-btn" aria-label="Previous month"><i class="fa-solid fa-chevron-left"></i></button>
+              <h4 id="adminCalMonthYear">March 2026</h4>
+              <button id="adminCalNextBtn" type="button" class="page-btn" aria-label="Next month"><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+            <div class="cal-days-header"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+            <div class="cal-days-grid" id="adminCalDaysGrid"></div>
+            <div class="calendar-note">Weekends and past dates are unavailable on the website form.</div>
+          </div>
+          <div class="admin-calendar-right">
+            <h4 id="adminSelectedDateDisplay">Select a Date</h4>
+            <div class="admin-calendar-actions">
+              <button type="button" class="btn-admin" id="btnToggleBlockDay">Block Whole Day</button>
+              <button type="button" class="btn-admin btn-secondary" id="btnClearDayBlocks">Clear Day Blocks</button>
+            </div>
+            <div class="time-slots-container" id="adminTimeSlotsContainer"><p class="time-placeholder">Please pick a date first.</p></div>
+            <p class="field-hint">Click any time slot to block/unblock it for client booking.</p>
+          </div>
+        </div>
+        <div class="modal-actions"><button class="btn-admin btn-secondary" data-modal-close="#modalCalendar">Close</button></div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modalDeleteAppointment" data-backdrop-close="false">
+      <div class="modal-card modal-confirm">
+        <h3 class="modal-title">Delete Confirmation</h3>
+        <hr class="confirm-separator" />
+        <p class="confirm-text">You are about to delete <strong id="deleteAppointmentTargetLabel">this appointment</strong>.</p>
+        <p class="field-hint">This is a design-only confirmation for now.</p>
+        <hr class="confirm-separator" />
+        <div class="modal-actions">
+          <button class="btn-admin btn-secondary" data-modal-close="#modalDeleteAppointment">Cancel</button>
+          <button class="btn-admin" id="btnConfirmDeleteAppointment" type="button">Delete Appointment</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modalArchiveAppointment" data-backdrop-close="false">
+      <div class="modal-card modal-confirm">
+        <h3 class="modal-title">Archive Confirmation</h3>
+        <hr class="confirm-separator" />
+        <p class="confirm-text">You are about to move <strong id="archiveAppointmentTargetLabel">this appointment</strong> to Archives.</p>
+        <p class="field-hint">This is a design-only confirmation for now.</p>
+        <hr class="confirm-separator" />
+        <div class="modal-actions">
+          <button class="btn-admin btn-secondary" data-modal-close="#modalArchiveAppointment">Cancel</button>
+          <button class="btn-admin" id="btnConfirmArchiveAppointment" type="button">Move to Archives</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="admin-common.js"></script>
+    <script src="appointments.js"></script>
+  </body>
+</html>
+
+
+
+

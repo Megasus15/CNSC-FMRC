@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inventory | CNSC-FMRC Admin</title>
+    <link rel="stylesheet" href="dashboard.css" />
+    <link rel="stylesheet" href="admin-modules.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+  </head>
+  <body>
+    <div class="dashboard-container">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" />
+          <h2>CNSC-FMRC</h2>
+        </div>
+
+        <div class="sidebar-scroll-indicator" aria-hidden="true">
+          <span class="indicator-thumb"></span>
+        </div>
+
+        <nav class="sidebar-nav">
+          <a href="dashboard.html" class="nav-link"><i class="fa-solid fa-house"></i> Dashboard</a>
+          <a href="inventory.html" class="nav-link active"><i class="fa-solid fa-box"></i> Inventory</a>
+          <a href="products.html" class="nav-link"><i class="fa-solid fa-tags"></i> Products</a>
+          <a href="appointments.html" class="nav-link"><i class="fa-regular fa-calendar-check"></i> Appointment</a>
+          <a href="payment-monitoring.html" class="nav-link"><i class="fa-solid fa-money-bill-trend-up"></i> Payment Monitoring</a>
+          <a href="accounts.html" class="nav-link"><i class="fa-solid fa-users"></i> Accounts Registered</a>
+          <a href="payments.html" class="nav-link"><i class="fa-solid fa-file-invoice-dollar"></i> Payments</a>
+          <a href="reports.html" class="nav-link"><i class="fa-solid fa-chart-line"></i> Reports</a>
+          <a href="orders.html" class="nav-link"><i class="fa-solid fa-box-open"></i> Orders</a>
+
+          <div class="nav-item has-dropdown">
+            <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn">
+              <div class="dropdown-title">
+                <i class="fa-solid fa-screwdriver-wrench"></i> Admin Control
+              </div>
+              <i class="fa-solid fa-chevron-down arrow"></i>
+            </a>
+            <div class="dropdown-menu">
+              <a href="../home-page/main.html" class="sub-link">Home</a>
+              <a href="../services-page/service.html" class="sub-link">Services</a>
+              <a href="../contact-page/contact.html" class="sub-link">Contact</a>
+              <a href="#" class="sub-link">Footer</a>
+            </div>
+          </div>
+
+          <a href="archives.html" class="nav-link"><i class="fa-solid fa-box-archive"></i> Archives</a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <button class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="top-header">
+          <div class="header-left">
+            <h1>Inventory Management</h1>
+          </div>
+          <div class="header-right">
+            <div class="notifications">
+              <i class="fa-regular fa-bell"></i>
+              <span class="badge">4</span>
+            </div>
+            <div class="user-profile">
+              <div class="user-info"><span class="role">Admin</span></div>
+              <span class="profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
+              <div class="profile-popup" id="profilePopup">
+                <div class="popup-header">
+                  <div class="popup-profile-row">
+                    <span class="popup-profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
+                    <div class="popup-profile-meta">
+                      <p class="popup-identity">admin@cnsc.edu.ph</p>
+                      <span class="popup-role">Admin</span>
+                    </div>
+                  </div>
+                </div>
+                <a href="my-account.html" class="profile-popup-link"><i class="fa-regular fa-id-card"></i> My Account</a>
+                <hr />
+                <button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section class="module-content">
+          <div class="page-toolbar">
+            <div class="toolbar-title">
+              <h2>Inventory Items</h2>
+              <p>Track materials, stock levels, and receiving status in one place.</p>
+            </div>
+            <div class="toolbar-actions">
+              <button class="btn-admin btn-secondary" onclick="window.location.reload();" title="Refresh Data">
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+              </button>
+              <button class="btn-admin btn-secondary" id="btnExportCsv">
+                <i class="fa-solid fa-file-arrow-down"></i> Export CSV
+              </button>
+              <button class="btn-admin" data-modal-open="#modalAddItem">
+                <i class="fa-solid fa-plus"></i> Add Item
+              </button>
+            </div>
+          </div>
+
+          <div class="page-metrics">
+            <div class="metric-card">
+              <div class="metric-icon"><i class="fa-solid fa-box"></i></div>
+              <div><div class="metric-value">100</div><div class="metric-label">Total Items</div></div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon"><i class="fa-solid fa-arrow-down-short-wide"></i></div>
+              <div><div class="metric-value">30</div><div class="metric-label">Low Stock</div></div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon"><i class="fa-regular fa-clock"></i></div>
+              <div><div class="metric-value">15,000</div><div class="metric-label">Orders</div></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <h3>Inventory List</h3>
+              <div class="filters-row">
+                <select class="filter-select" id="inventoryCategoryFilter">
+                  <option value="all">All Categories</option>
+                  <option value="Raw Materials">Raw Materials</option>
+                  <option value="Consumables">Consumables</option>
+                </select>
+                <input class="search-input" id="inventorySearchInput" placeholder="Search item name..." />
+              </div>
+            </div>
+            <div class="table-wrapper">
+              <table class="admin-table inventory-table" id="inventoryTable">
+                <thead>
+                  <tr>
+                    <th>Item ID</th>
+                    <th>Material Name</th>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th>Photo</th>
+                    <th>Qty</th>
+                    <th>Unit</th>
+                    <th>Status</th>
+                    <th class="th-action sticky-action">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="inventoryTableBody"></tbody>
+              </table>
+            </div>
+            <div class="table-footer" id="inventoryTableFooter">
+              <div class="table-footer-meta" id="inventoryTableMeta">Page 1 of 1</div>
+              <div class="table-pagination">
+                <button class="page-btn" id="inventoryPrevPage" aria-label="Previous page">
+                  <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <div class="page-number" id="inventoryCurrentPage">1</div>
+                <button class="page-btn" id="inventoryNextPage" aria-label="Next page">
+                  <i class="fa-solid fa-chevron-right"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-overlay" id="modalAddItem" data-backdrop-close="false">
+      <div class="modal-card">
+        <h3 class="modal-title">Add Item</h3>
+        <div class="form-grid">
+          <div class="field-stack full"><label>Material Name</label><input class="input-field" id="addItemName" /></div>
+          <div class="field-stack"><label>Category</label><select class="filter-select" id="addItemCategory"><option>Raw Materials</option><option>Consumables</option></select></div>
+          <div class="field-stack"><label>Quantity</label><input class="input-field" id="addItemQty" type="number" min="0" /></div>
+          <div class="field-stack"><label>Unit</label><select class="filter-select" id="addItemUnit"><option>pcs</option><option>box</option><option>roll</option></select></div>
+          <div class="field-stack full">
+            <label>Upload Image/Photo</label>
+            <div class="upload-row">
+              <input class="input-field file-input" id="addItemPhoto" type="file" accept="image/*" />
+              <button
+                class="btn-admin btn-secondary icon-only-btn"
+                id="btnEditPhoto"
+                type="button"
+                title="Edit Photo"
+                aria-label="Edit Photo"
+              >
+                <i class="fa-regular fa-pen-to-square"></i>
+              </button>
+            </div>
+            <p class="field-hint">Image only. You can rotate and resize before saving.</p>
+          </div>
+          <div class="field-stack full"><label>Description</label><textarea class="textarea-field" id="addItemDescription"></textarea></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-admin btn-secondary" data-modal-close="#modalAddItem">Cancel</button>
+          <button class="btn-admin" id="btnSaveItem" type="button">Save Item</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modalEditItem" data-backdrop-close="false">
+      <div class="modal-card">
+        <h3 class="modal-title">Edit Item</h3>
+        <div class="form-grid">
+          <div class="field-stack full"><label>Material Name</label><input class="input-field" id="editItemName" /></div>
+          <div class="field-stack"><label>Category</label><select class="filter-select" id="editItemCategory"><option>Raw Materials</option><option>Consumables</option></select></div>
+          <div class="field-stack"><label>Quantity</label><input class="input-field" id="editItemQty" type="number" min="0" /></div>
+          <div class="field-stack"><label>Unit</label><select class="filter-select" id="editItemUnit"><option>pcs</option><option>box</option><option>roll</option></select></div>
+          <div class="field-stack full">
+            <label>Upload Image/Photo</label>
+            <div class="upload-row">
+              <input class="input-field file-input" id="editItemPhoto" type="file" accept="image/*" />
+              <button
+                class="btn-admin btn-secondary icon-only-btn"
+                id="btnEditPhotoInEditModal"
+                type="button"
+                title="Edit Photo"
+                aria-label="Edit Photo"
+              >
+                <i class="fa-regular fa-pen-to-square"></i>
+              </button>
+            </div>
+            <p class="field-hint">Image only. You can rotate and resize before saving.</p>
+          </div>
+          <div class="field-stack full"><label>Description</label><textarea class="textarea-field" id="editItemDescription"></textarea></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-admin btn-secondary" data-modal-close="#modalEditItem">Cancel</button>
+          <button class="btn-admin" id="btnUpdateItem" type="button">Update Item</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modalDeleteItem" data-backdrop-close="false">
+      <div class="modal-card modal-confirm">
+        <h3 class="modal-title">Delete Confirmation</h3>
+        <hr class="confirm-separator" />
+        <p class="confirm-text">
+          You are about to delete <strong id="deleteItemTargetLabel">this item</strong>.
+        </p>
+        <p class="field-hint">This is a design-only confirmation for now.</p>
+        <hr class="confirm-separator" />
+        <div class="modal-actions">
+          <button class="btn-admin btn-secondary" data-modal-close="#modalDeleteItem">Cancel</button>
+          <button class="btn-admin" id="btnConfirmDelete" type="button">Delete Item</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modalArchiveItem" data-backdrop-close="false">
+      <div class="modal-card modal-confirm">
+        <h3 class="modal-title">Archive Confirmation</h3>
+        <hr class="confirm-separator" />
+        <p class="confirm-text">
+          You are about to move <strong id="archiveItemTargetLabel">this item</strong> to Archives.
+        </p>
+        <p class="field-hint">This is a design-only confirmation for now.</p>
+        <hr class="confirm-separator" />
+        <div class="modal-actions">
+          <button class="btn-admin btn-secondary" data-modal-close="#modalArchiveItem">Cancel</button>
+          <button class="btn-admin" id="btnConfirmArchiveItem" type="button">Move to Archives</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modalPhotoPreview">
+      <div class="modal-card modal-photo-preview">
+        <h3 class="modal-title">Photo Preview</h3>
+        <div class="photo-preview-box">
+          <img id="inventoryPhotoPreview" alt="Inventory item preview" />
+        </div>
+        <div class="modal-actions">
+          <button class="btn-admin btn-secondary" data-modal-close="#modalPhotoPreview">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modalPhotoEditor">
+      <div class="modal-card modal-photo-editor">
+        <h3 class="modal-title">Edit Image/Photo</h3>
+        <div class="photo-editor-preview" id="photoEditorPreviewWrap">
+          <img id="photoEditorPreview" alt="Photo editor preview" />
+        </div>
+        <div class="photo-editor-controls">
+          <div class="field-stack">
+            <label for="photoRotate">Rotate</label>
+            <input id="photoRotate" type="range" min="0" max="360" value="0" />
+          </div>
+          <div class="field-stack">
+            <label for="photoScale">Resize</label>
+            <input id="photoScale" type="range" min="50" max="150" value="100" />
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn-admin btn-secondary" data-modal-close="#modalPhotoEditor">Cancel</button>
+          <button class="btn-admin" id="btnApplyPhotoEdit" type="button">Apply</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="admin-common.js"></script>
+    <script src="inventory.js"></script>
+  </body>
+</html>
+
+
+
+

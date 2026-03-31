@@ -168,9 +168,7 @@ document.addEventListener("DOMContentLoaded", () => {
     indicatorThumb.style.transform = `translateY(${thumbTop}%)`;
   };
 
-  // 1. Sidebar 'Admin Control' Dropdown Logic
   const adminControlBtn = document.getElementById("adminControlBtn");
-
   if (adminControlBtn) {
     adminControlBtn.addEventListener("click", (e) => {
       if (isMobileSidebarMode() && !body.classList.contains("admin-sidebar-open")) {
@@ -178,11 +176,9 @@ document.addEventListener("DOMContentLoaded", () => {
         openMobileSidebar();
         return;
       }
-      e.preventDefault(); // Prevents page reload
+      e.preventDefault();
       const hasDropdown = adminControlBtn.parentElement;
       hasDropdown.classList.toggle("open");
-
-      // Wait for layout update so scrollHeight reflects expanded/collapsed content.
       requestAnimationFrame(updateSidebarScrollIndicator);
     });
   }
@@ -244,37 +240,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // 2. Dashboard quick-link card navigation
-  const normalizeText = (value) => value.replace(/\s+/g, " ").trim().toLowerCase();
-  const sidebarLinks = Array.from(
-    document.querySelectorAll(".sidebar-nav .nav-link, .sidebar-nav .sub-link")
-  );
-
-  const resolveSidebarRoute = (navLabel) => {
-    const normalizedLabel = normalizeText(navLabel);
-    return sidebarLinks.find((link) =>
-      normalizeText(link.textContent).includes(normalizedLabel)
-    );
-  };
-
-  document.querySelectorAll(".summary-cards .card-link").forEach((card) => {
-    card.addEventListener("click", (e) => {
-      const navLabel = card.dataset.navLabel;
-      if (!navLabel) return;
-
-      const sidebarMatch = resolveSidebarRoute(navLabel);
-      if (!sidebarMatch) return;
-
-      const targetHref = sidebarMatch.getAttribute("href") || "#";
-      if (targetHref === "#") {
-        e.preventDefault();
-        sidebarMatch.classList.add("active");
-        setTimeout(() => sidebarMatch.classList.remove("active"), 900);
-      }
-    });
-  });
-
-  // 3. Profile Message Box (Popup) Logic
   const userProfile = document.querySelector(".user-profile");
   const profilePopup = document.getElementById("profilePopup");
   const profileInitials = document.querySelectorAll(".profile-initial");
@@ -291,22 +256,254 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (userProfile && profilePopup) {
     userProfile.addEventListener("click", (e) => {
-      e.stopPropagation(); // Stops click from triggering document click immediately
+      e.stopPropagation();
       profilePopup.classList.toggle("show");
     });
 
-    // Close the popup if clicking anywhere else on the screen
     document.addEventListener("click", (e) => {
       if (!userProfile.contains(e.target)) {
         profilePopup.classList.remove("show");
       }
     });
 
-    // Keeps popup open if you click inside it
     profilePopup.addEventListener("click", (e) => {
       e.stopPropagation();
     });
   }
 
+  const openers = document.querySelectorAll("[data-modal-open]");
+  const closers = document.querySelectorAll("[data-modal-close]");
+
+  openers.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = btn.getAttribute("data-modal-open");
+      const modal = document.querySelector(target);
+      modal?.classList.add("show");
+    });
+  });
+
+  closers.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = btn.getAttribute("data-modal-close");
+      const modal = document.querySelector(target);
+      modal?.classList.remove("show");
+    });
+  });
+
+  document.querySelectorAll(".modal-overlay").forEach((overlay) => {
+    overlay.addEventListener("click", (e) => {
+      if (overlay.getAttribute("data-backdrop-close") === "false") {
+        return;
+      }
+      if (e.target === overlay) {
+        overlay.classList.remove("show");
+      }
+    });
+  });
+
+  const tooltipEl = document.createElement("div");
+  tooltipEl.className = "admin-global-tooltip";
+  document.body.appendChild(tooltipEl);
+
+  let activeTooltipTarget = null;
+
+  const hideTooltip = () => {
+    activeTooltipTarget = null;
+    tooltipEl.classList.remove("show");
+  };
+
+  const placeTooltip = (target) => {
+    const text = target.getAttribute("data-tooltip") || "";
+    if (!text) {
+      hideTooltip();
+      return;
+    }
+
+    tooltipEl.textContent = text;
+    tooltipEl.classList.add("show");
+
+    const rect = target.getBoundingClientRect();
+    const tipRect = tooltipEl.getBoundingClientRect();
+    const gap = 10;
+    const viewportPadding = 8;
+
+    let left = rect.left + rect.width / 2 - tipRect.width / 2;
+    left = Math.max(viewportPadding, Math.min(left, window.innerWidth - tipRect.width - viewportPadding));
+
+    let top = rect.top - tipRect.height - gap;
+    if (top < viewportPadding) {
+      top = rect.bottom + gap;
+      tooltipEl.style.setProperty("--tooltip-arrow-rotation", "180deg");
+      tooltipEl.style.setProperty("--tooltip-arrow-bottom", "auto");
+      tooltipEl.style.setProperty("--tooltip-arrow-top", "-5px");
+    } else {
+      tooltipEl.style.setProperty("--tooltip-arrow-rotation", "0deg");
+      tooltipEl.style.setProperty("--tooltip-arrow-bottom", "-5px");
+      tooltipEl.style.setProperty("--tooltip-arrow-top", "auto");
+    }
+
+    tooltipEl.style.left = `${left}px`;
+    tooltipEl.style.top = `${top}px`;
+  };
+
+  document.addEventListener("mouseover", (e) => {
+    const target = e.target instanceof Element ? e.target.closest("[data-tooltip]") : null;
+    if (!target) return;
+    activeTooltipTarget = target;
+    placeTooltip(target);
+  });
+
+  document.addEventListener("mousemove", (e) => {
+    if (!activeTooltipTarget) return;
+    const current = e.target instanceof Element ? e.target.closest("[data-tooltip]") : null;
+    if (current !== activeTooltipTarget) return;
+    placeTooltip(activeTooltipTarget);
+  });
+
+  document.addEventListener("mouseout", (e) => {
+    if (!activeTooltipTarget) return;
+    const from = e.target instanceof Element ? e.target.closest("[data-tooltip]") : null;
+    if (from !== activeTooltipTarget) return;
+    const to = e.relatedTarget instanceof Element ? e.relatedTarget.closest("[data-tooltip]") : null;
+    if (to === activeTooltipTarget) return;
+    hideTooltip();
+  });
+
+  document.addEventListener("focusin", (e) => {
+    const target = e.target instanceof Element ? e.target.closest("[data-tooltip]") : null;
+    if (!target) return;
+    activeTooltipTarget = target;
+    placeTooltip(target);
+  });
+
+  document.addEventListener("focusout", (e) => {
+    const target = e.target instanceof Element ? e.target.closest("[data-tooltip]") : null;
+    if (target && target === activeTooltipTarget) {
+      hideTooltip();
+    }
+  });
+
+  window.addEventListener("scroll", () => {
+    if (activeTooltipTarget) placeTooltip(activeTooltipTarget);
+  }, true);
+
+  window.addEventListener("resize", () => {
+    if (activeTooltipTarget) placeTooltip(activeTooltipTarget);
+  });
+
   syncSidebarMode();
+
+  const getFilterValue = (value) => {
+    const normalized = (value || "").trim().toLowerCase();
+    if (!normalized || normalized === "all") return "";
+    if (normalized.startsWith("all ")) return "";
+    return normalized;
+  };
+
+  const tablePanels = document.querySelectorAll(".panel");
+
+  tablePanels.forEach((panel) => {
+    const table = panel.querySelector("table.enhanced-table");
+    if (!table) return;
+
+    const tbody = table.querySelector("tbody");
+    if (!tbody) return;
+
+    const allRows = Array.from(tbody.querySelectorAll("tr"));
+    if (!allRows.length) return;
+
+    const footer = panel.querySelector(".table-footer");
+    if (!footer) return;
+
+    const pageButtons = footer.querySelectorAll(".page-btn");
+    const prevButton = pageButtons[0] || null;
+    const nextButton = pageButtons[1] || null;
+    const pageNumber = footer.querySelector(".page-number");
+    const pageMeta = footer.querySelector(".table-footer-meta");
+
+    const moduleSection = panel.closest(".module-content");
+    const toolbar = moduleSection?.querySelector(".page-toolbar") || null;
+
+    const searchInputs = [
+      panel.querySelector(".search-input"),
+      toolbar?.querySelector(".search-input") || null,
+    ].filter(Boolean);
+
+    const filterSelects = [
+      ...panel.querySelectorAll(".filter-select"),
+      ...(toolbar ? toolbar.querySelectorAll(".filter-select") : []),
+    ];
+
+    const pageSize = Math.max(Number.parseInt(table.dataset.pageSize || "5", 10), 1);
+
+    let currentPage = 1;
+    let filteredRows = allRows;
+
+    const applyFilters = () => {
+      const query = (searchInputs[0]?.value || "").trim().toLowerCase();
+      const activeFilters = Array.from(filterSelects)
+        .map((select) => getFilterValue(select.value))
+        .filter(Boolean);
+
+      filteredRows = allRows.filter((row) => {
+        const rowText = row.textContent.toLowerCase();
+        const matchesSearch = !query || rowText.includes(query);
+        const matchesFilters = activeFilters.every((filterValue) =>
+          rowText.includes(filterValue)
+        );
+        return matchesSearch && matchesFilters;
+      });
+    };
+
+    const renderPage = () => {
+      const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+      if (currentPage > totalPages) currentPage = totalPages;
+
+      const start = (currentPage - 1) * pageSize;
+      const end = start + pageSize;
+
+      allRows.forEach((row) => {
+        row.style.display = "none";
+      });
+
+      filteredRows.slice(start, end).forEach((row) => {
+        row.style.display = "";
+      });
+
+      if (pageNumber) pageNumber.textContent = String(currentPage);
+      if (pageMeta) pageMeta.textContent = `Page ${currentPage} of ${totalPages}`;
+      if (prevButton) prevButton.disabled = currentPage <= 1;
+      if (nextButton) nextButton.disabled = currentPage >= totalPages;
+    };
+
+    const rerenderFromStart = () => {
+      currentPage = 1;
+      applyFilters();
+      renderPage();
+    };
+
+    prevButton?.addEventListener("click", () => {
+      if (currentPage <= 1) return;
+      currentPage -= 1;
+      renderPage();
+    });
+
+    nextButton?.addEventListener("click", () => {
+      const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+      if (currentPage >= totalPages) return;
+      currentPage += 1;
+      renderPage();
+    });
+
+    searchInputs.forEach((input) => {
+      input.addEventListener("input", rerenderFromStart);
+    });
+
+    filterSelects.forEach((select) => {
+      select.addEventListener("change", rerenderFromStart);
+    });
+
+    applyFilters();
+    renderPage();
+  });
 });

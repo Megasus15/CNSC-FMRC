@@ -1252,15 +1252,136 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const privacyModal = document.getElementById("aptPrivacyModal");
   const confirmModal = document.getElementById("aptConfirmModal");
+  const APPOINTMENTS_STORAGE_KEY = "fmrcAppointments";
+  const CALENDAR_BLOCKS_STORAGE_KEY = "fmrcAppointmentCalendarBlocks";
+
+  let appointmentSubmitted = false;
+  let uploadedAppointmentFile = { name: "", dataUrl: "" };
+
+  const fileToDataUrl = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsDataURL(file);
+    });
+
+  const readStoredAppointments = () => {
+    try {
+      const raw = localStorage.getItem(APPOINTMENTS_STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const nextAppointmentNo = (records) => {
+    const max = records.reduce((acc, record) => {
+      const val = Number(String(record?.apNo || "").replace(/[^0-9]/g, "") || 0);
+      return Math.max(acc, val);
+    }, 175);
+    return `AP-${String(max + 1).padStart(5, "0")}`;
+  };
+
+  const toReadableDate = (isoDate) => {
+    const match = String(isoDate || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return isoDate || "N/A";
+    const months = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+    return `${months[Number(match[2]) - 1]} ${Number(match[3])}, ${match[1]}`;
+  };
+
+  const persistAppointmentRecord = () => {
+    const records = readStoredAppointments();
+
+    const firstName = document.getElementById("aptFName")?.value?.trim() || "";
+    const lastName = document.getElementById("aptLName")?.value?.trim() || "";
+    const email = document.getElementById("aptEmail")?.value?.trim() || "N/A";
+    const contactNumber = document.getElementById("aptPhone")?.value?.trim() || "N/A";
+    const purpose = document.getElementById("aptPurpose")?.value?.trim() || "Inquiries";
+    const type = document.getElementById("aptRole")?.value?.trim() || "Student";
+    const notes = document.getElementById("aptDesc")?.value?.trim() || "N/A";
+
+    const province = document.getElementById("aptProvince")?.value?.trim() || "";
+    const municipality = document.getElementById("aptMunicipality")?.value?.trim() || "";
+    const barangay = document.getElementById("aptAddress")?.value?.trim() || "";
+    const address = [barangay, municipality, province].filter(Boolean).join(", ") || "N/A";
+
+    const selections = window.appointmentSelections || {};
+    const selectedDates = Object.keys(selections).sort();
+    const firstDate = selectedDates[0] || "N/A";
+    const firstTime = selections[firstDate]?.[0] || "N/A";
+
+    const appointment = {
+      apNo: nextAppointmentNo(records),
+      clientName: `${firstName} ${lastName}`.trim() || "N/A",
+      contactNumber,
+      email,
+      address,
+      type,
+      purpose,
+      fileAttach: uploadedAppointmentFile.name
+        ? {
+            name: uploadedAppointmentFile.name,
+            dataUrl: uploadedAppointmentFile.dataUrl || "",
+          }
+        : { name: "N/A", dataUrl: "" },
+      notes,
+      date: firstDate,
+      time: firstTime,
+      status: "Scheduled",
+      submittedAt: new Date().toISOString(),
+      schedulePreview: toReadableDate(firstDate),
+    };
+
+    records.unshift(appointment);
+    localStorage.setItem(APPOINTMENTS_STORAGE_KEY, JSON.stringify(records));
+  };
 
   // 1. Open Flow
   if (appointmentBtn && appointmentOverlay) {
     appointmentBtn.addEventListener("click", () => {
       appointmentOverlay.classList.add("show-modal");
       document.body.style.overflow = "hidden";
+      appointmentSubmitted = false;
       switchAptStep(1);
     });
   }
+
+  const aptFileInput = document.getElementById("aptFile");
+  aptFileInput?.addEventListener("change", async () => {
+    const file = aptFileInput.files?.[0];
+    if (!file) {
+      uploadedAppointmentFile = { name: "", dataUrl: "" };
+      return;
+    }
+
+    if (!file.type || (!file.type.startsWith("image/") && file.type !== "application/pdf")) {
+      uploadedAppointmentFile = { name: file.name, dataUrl: "" };
+      return;
+    }
+
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      uploadedAppointmentFile = { name: file.name, dataUrl };
+    } catch {
+      uploadedAppointmentFile = { name: file.name, dataUrl: "" };
+    }
+  });
 
   const aptProvince = document.getElementById("aptProvince");
   const aptMunicipality = document.getElementById("aptMunicipality");
@@ -1350,6 +1471,7 @@ document.addEventListener("DOMContentLoaded", () => {
     closeAppointmentBtn.addEventListener("click", () => {
       appointmentOverlay.classList.remove("show-modal");
       document.body.style.overflow = ""; // Resets to CSS
+      appointmentSubmitted = false;
     });
   }
 
@@ -1482,6 +1604,11 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   bindClick("btnFinishStep5", () => {
+      if (!appointmentSubmitted) {
+        persistAppointmentRecord();
+        appointmentSubmitted = true;
+      }
+
       // Show Success Modal on Finish
       const successModal = document.getElementById("successAppointmentModal");
       if(successModal) {
@@ -1502,6 +1629,7 @@ document.addEventListener("DOMContentLoaded", () => {
     appointmentOverlay.classList.remove("show-modal");
     document.body.style.overflow = ""; // Resets to CSS (which keeps overflow-x: hidden)
     // Optional: Reset form here
+    appointmentSubmitted = false;
     switchAptStep(1);
   });
 });
@@ -1510,14 +1638,15 @@ document.addEventListener("DOMContentLoaded", () => {
 // NEW CALENDAR LOGIC (Step 3)
 // =========================================
 document.addEventListener("DOMContentLoaded", () => {
+  const CALENDAR_BLOCKS_STORAGE_KEY = "fmrcAppointmentCalendarBlocks";
   const calGrid = document.getElementById("calDaysGrid");
   const monthDisplay = document.getElementById("calMonthYear");
   const prevBtn = document.getElementById("calPrevBtn");
   const nextBtn = document.getElementById("calNextBtn");
   const timeContainer = document.getElementById("timeSlotsContainer");
   const selectedDateDisplay = document.getElementById("selectedDateDisplay");
-  const slotCounter = document.getElementById("slotCounter"); // New
-  const limitMsg = document.getElementById("maxLimitMsg");    // New
+  const slotCounter = document.getElementById("slotCounter");
+  const limitMsg = document.getElementById("maxLimitMsg");
 
   // State
   let today = new Date(2026, 2, 23); // March 23, 2026 (Fixed Context Date)
@@ -1525,9 +1654,34 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentYear = today.getFullYear();
   let selectedDateKey = null; // Format "YYYY-MM-DD"
 
-  // "Database" of selections for demo purposes
-  // storing array of selected times: { "2026-03-25": ["9:00-10:00 AM"] }
+  // User selections: one slot per date -> { "2026-03-25": ["9:00 - 10:00 AM"] }
   window.appointmentSelections = {};
+
+  // Demo booked slots from other users per date.
+  window.bookedAppointmentSlots = {
+    "2026-03-24": ["9:00 - 10:00 AM", "2:00 - 3:00 PM"],
+    "2026-03-26": ["10:00 - 11:00 AM"],
+    "2026-03-30": ["1:00 - 2:00 PM", "3:00 - 4:00 PM"]
+  };
+
+  const readAdminCalendarBlocks = () => {
+    try {
+      const raw = localStorage.getItem(CALENDAR_BLOCKS_STORAGE_KEY);
+      if (!raw) return { blockedDays: [], blockedSlots: {} };
+      const parsed = JSON.parse(raw);
+      return {
+        blockedDays: Array.isArray(parsed?.blockedDays) ? parsed.blockedDays : [],
+        blockedSlots:
+          parsed?.blockedSlots && typeof parsed.blockedSlots === "object"
+            ? parsed.blockedSlots
+            : {},
+      };
+    } catch {
+      return { blockedDays: [], blockedSlots: {} };
+    }
+  };
+
+  const getAdminBlocks = () => readAdminCalendarBlocks();
 
   const timeSlots = [
     { label: "9:00 - 10:00 AM", type: "AM" },
@@ -1584,6 +1738,8 @@ document.addEventListener("DOMContentLoaded", () => {
       // Determine Status
       const isWeekend = cellDate.getDay() === 0 || cellDate.getDay() === 6;
       const isPast = cellDate < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const adminBlocks = getAdminBlocks();
+      const isAdminBlockedDay = adminBlocks.blockedDays.includes(dateKey);
       
       if (isWeekend) {
         cell.classList.add("disabled", "unavailable");
@@ -1592,6 +1748,9 @@ document.addEventListener("DOMContentLoaded", () => {
         cell.classList.add("disabled");
         cell.style.opacity = "0.5";
         cell.setAttribute("title", "Unavailable: Past Date");
+      } else if (isAdminBlockedDay) {
+        cell.classList.add("disabled", "unavailable");
+        cell.setAttribute("title", "Unavailable: Blocked by admin");
       } else {
         // Active Date
         cell.addEventListener("click", () => handleDateClick(cell, dateKey, day, month, year));
@@ -1608,22 +1767,39 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function showSlotMessage(message, color = "#b01c1c") {
+    if (!limitMsg) return;
+    limitMsg.style.display = "block";
+    limitMsg.style.color = color;
+    limitMsg.innerText = message;
+    setTimeout(() => {
+      limitMsg.style.display = "none";
+    }, 3500);
+  }
+
+  function getCombinedSlotsForDate(dateKey) {
+    const selected = window.appointmentSelections[dateKey] || [];
+    const booked = window.bookedAppointmentSlots[dateKey] || [];
+    const adminBlocked = getAdminBlocks().blockedSlots?.[dateKey] || [];
+    return [...new Set([...selected, ...booked, ...adminBlocked])];
+  }
+
   function updateDayIndicators(cell, dateKey) {
-    const apps = window.appointmentSelections[dateKey] || [];
-    const hasAM = apps.some(t => t.includes("AM"));
-    const hasPM = apps.some(t => t.includes("PM"));
+    const apps = getCombinedSlotsForDate(dateKey);
+    const hasAM = apps.some((t) => t.includes("AM"));
+    const hasPM = apps.some((t) => t.includes("PM"));
     
     cell.classList.remove("has-am", "has-pm", "has-full");
 
     if (hasAM && hasPM) {
-        cell.classList.add("has-full");
-        cell.setAttribute("title", "Full Booking (AM & PM)");
+      cell.classList.add("has-full");
+      cell.setAttribute("title", "AM and PM slots have booked/selected times");
     } else if (hasAM) {
         cell.classList.add("has-am");
-        cell.setAttribute("title", "AM Selected");
+      cell.setAttribute("title", "AM has booked/selected time");
     } else if (hasPM) {
         cell.classList.add("has-pm");
-        cell.setAttribute("title", "PM Selected");
+      cell.setAttribute("title", "PM has booked/selected time");
     } else {
         cell.setAttribute("title", "Available");
     }
@@ -1646,37 +1822,56 @@ document.addEventListener("DOMContentLoaded", () => {
   function renderTimeSlots(dateKey) {
     timeContainer.innerHTML = "";
     const currentApps = window.appointmentSelections[dateKey] || [];
-    
-    // Calculate Total Selected across ALL dates
-    const totalSelected = Object.values(window.appointmentSelections).reduce((sum, arr) => sum + arr.length, 0);
+    const selectedSlot = currentApps[0] || null;
+    const bookedSlots = window.bookedAppointmentSlots[dateKey] || [];
+    const adminBlocks = getAdminBlocks();
+    const adminBlockedSlots = adminBlocks.blockedSlots?.[dateKey] || [];
+    const isAdminBlockedDay = adminBlocks.blockedDays.includes(dateKey);
 
-    // Update Counter Text
     if (slotCounter) {
-        slotCounter.innerText = `Total Selected: ${totalSelected}/6`;
-        slotCounter.style.color = (totalSelected >= 6) ? "#b01c1c" : "#555";
+      slotCounter.innerText = "Allowed: 1 time slot for this selected date";
+      slotCounter.style.color = "#555";
     }
 
     timeSlots.forEach(slot => {
         const btn = document.createElement("div");
         btn.classList.add("time-slot-btn");
-        
-        // Check if selected
-        const isSelected = currentApps.includes(slot.label);
+
+        const isSelected = selectedSlot === slot.label;
+        const isBooked = bookedSlots.includes(slot.label);
+        const isAdminBlockedSlot = adminBlockedSlots.includes(slot.label);
+
         if (isSelected) btn.classList.add("selected");
-        
-        // If limit reached and not selected, disable it
-        if (!isSelected && totalSelected >= 6) {
-           btn.classList.add("disabled");
-           btn.style.opacity = "0.5";
-           btn.style.cursor = "not-allowed";
+
+        if (isBooked || isAdminBlockedSlot || isAdminBlockedDay) {
+          btn.classList.add("disabled");
+          if (isAdminBlockedDay) {
+            btn.setAttribute("title", "Unavailable: blocked by admin for the whole day");
+          } else if (isAdminBlockedSlot) {
+            btn.setAttribute("title", "Unavailable: blocked by admin for this time slot");
+          } else {
+            btn.setAttribute("title", "Unavailable: already selected by another user for this date");
+          }
         }
 
         btn.innerHTML = `
             <span>${slot.label}</span>
             <span class="time-slot-label">${slot.type}</span>
         `;
-        
+
         btn.addEventListener("click", () => {
+            if (isAdminBlockedDay) {
+              showSlotMessage("This date is blocked by admin.");
+              return;
+            }
+            if (isAdminBlockedSlot) {
+              showSlotMessage("This time is blocked by admin for the selected date.");
+              return;
+            }
+            if (isBooked) {
+              showSlotMessage("This time is disabled because another user already booked this date and time.");
+              return;
+            }
             toggleTimeSlot(dateKey, slot.label);
         });
 
@@ -1686,34 +1881,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function toggleTimeSlot(dateKey, timeLabel) {
     if (!window.appointmentSelections[dateKey]) window.appointmentSelections[dateKey] = [];
-    
-    const index = window.appointmentSelections[dateKey].indexOf(timeLabel);
-    
-    // Check Total Count
-    const totalSelected = Object.values(window.appointmentSelections).reduce((sum, arr) => sum + arr.length, 0);
 
-    if (index > -1) {
-        // Deselecting is always allowed
-        window.appointmentSelections[dateKey].splice(index, 1);
-        if (limitMsg) limitMsg.style.display = "none"; 
+    const currentSelection = window.appointmentSelections[dateKey][0] || null;
+
+    if (currentSelection === timeLabel) {
+      // Deselect the same time when clicked again.
+      window.appointmentSelections[dateKey] = [];
+      if (limitMsg) limitMsg.style.display = "none";
     } else {
-        // SELECTING: Check Global Limit
-        if (totalSelected >= 6) {
-            if (limitMsg) {
-                limitMsg.style.display = "block";
-                limitMsg.innerText = "Maximum limit of 6 slots (total across all dates) reached!";
-                setTimeout(() => { limitMsg.style.display = "none"; }, 3000);
-            }
-            return; // STOP HERE
-        }
-        
-        window.appointmentSelections[dateKey].push(timeLabel); 
+      // Enforce only one selected time slot for the chosen date.
+      window.appointmentSelections[dateKey] = [timeLabel];
+      if (currentSelection && currentSelection !== timeLabel) {
+        showSlotMessage("Only one time slot can be selected per day. Your previous selection was replaced.", "#0b6f36");
+      } else if (limitMsg) {
+        limitMsg.style.display = "none";
+      }
     }
     
     // Re-render to show updates
     renderTimeSlots(dateKey);
     
-    // Update Calendar Indicator as before
+    // Update date indicators with booked + selected slot states.
     renderCalendar(currentMonth, currentYear);
   }
 
