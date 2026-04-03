@@ -33,7 +33,7 @@ body {
 
 .dashboard-container {
   display: flex;
-  height: 100vh;
+  min-height: 100vh;
 }
 
 /* SIDEBAR LAYOUT */
@@ -289,6 +289,7 @@ body {
   min-height: 100vh;
   min-width: 0;
   overflow-x: hidden;
+  padding-top: 70px;
 }
 
 /* TOP HEADER & NOTIFICATIONS */
@@ -300,8 +301,10 @@ body {
   justify-content: space-between;
   align-items: center;
   padding: 0 30px;
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 270px;
+  right: 0;
   z-index: 90;
 }
 
@@ -843,6 +846,7 @@ body {
 
   .top-header {
     padding: 0 16px;
+    left: 76px;
   }
 
   .header-left h1 {
@@ -940,6 +944,7 @@ body {
 
   .top-header {
     padding: 0 12px;
+    left: 68px;
   }
 
   .header-left h1 {

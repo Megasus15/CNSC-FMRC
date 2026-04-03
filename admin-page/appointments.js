@@ -170,43 +170,25 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  const readCalendarBlocks = () => {
+      const readCalendarBlocks = () => {
     try {
       const raw = localStorage.getItem(CALENDAR_BLOCKS_STORAGE_KEY);
-      if (!raw) {
-        return {
-          blockedDays: [],
-          blockedSlots: {},
-        };
-      }
+      if (!raw) return { blockedDays: [], blockedSlots: {}, events: {} };
 
       const parsed = JSON.parse(raw);
-      const blockedDays = Array.isArray(parsed?.blockedDays)
-        ? parsed.blockedDays.filter((d) => typeof d === "string")
-        : [];
+      const blockedDays = Array.isArray(parsed?.blockedDays) ? parsed.blockedDays.filter(d => typeof d === "string") : [];
+      const blockedSlots = (parsed && typeof parsed.blockedSlots === "object" && !Array.isArray(parsed.blockedSlots)) ? parsed.blockedSlots : {};
+      const events = (parsed && typeof parsed.events === "object" && !Array.isArray(parsed.events)) ? parsed.events : {};
 
-      const blockedSlots =
-        parsed?.blockedSlots && typeof parsed.blockedSlots === "object"
-          ? Object.fromEntries(
-              Object.entries(parsed.blockedSlots).map(([dateKey, slots]) => [
-                dateKey,
-                Array.isArray(slots)
-                  ? slots.filter((slot) => typeof slot === "string")
-                  : [],
-              ])
-            )
-          : {};
+      Object.keys(blockedSlots).forEach(k => { if(!Array.isArray(blockedSlots[k])) delete blockedSlots[k]; });
+      Object.keys(events).forEach(k => { if(!Array.isArray(events[k])) delete events[k]; });
 
-      return { blockedDays, blockedSlots };
+      return { blockedDays, blockedSlots, events };
     } catch {
-      return {
-        blockedDays: [],
-        blockedSlots: {},
-      };
+      return { blockedDays: [], blockedSlots: {}, events: {} };
     }
   };
-
-  let calendarBlocks = readCalendarBlocks();
+let calendarBlocks = readCalendarBlocks();
 
   const writeCalendarBlocks = () => {
     localStorage.setItem(CALENDAR_BLOCKS_STORAGE_KEY, JSON.stringify(calendarBlocks));
@@ -215,7 +197,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const appointments = readAppointments();
 
   const statusClass = (status) => {
-    if (status === "Completed") return "status-blue";
+    if (status === "Completed") return "status-green";
     if (status === "Approved") return "status-green";
     if (status === "Scheduled") return "status-yellow";
     if (status === "Cancelled") return "status-red";
@@ -429,7 +411,14 @@ document.addEventListener("DOMContentLoaded", () => {
       : "Block Whole Day";
   };
 
-  const updateDateIndicators = (cell, dateKey) => {
+    const updateDateIndicators = (cell, dateKey) => {
+    cell.querySelectorAll('.event-dot').forEach(el => el.remove());
+    if (calendarBlocks.events && calendarBlocks.events[dateKey] && calendarBlocks.events[dateKey].length) {
+      const dot = document.createElement('div');
+      dot.className = 'event-dot';
+      dot.style.cssText = 'width:6px;height:6px;background:#e67e22;border-radius:50%;margin-top:2px;';
+      cell.appendChild(dot);
+    }
     const blockedSlots = calendarBlocks.blockedSlots[dateKey] || [];
     const hasAM = blockedSlots.some((slot) => slot.includes("AM"));
     const hasPM = blockedSlots.some((slot) => slot.includes("PM"));
@@ -490,7 +479,7 @@ document.addEventListener("DOMContentLoaded", () => {
           selectedDateKey = dateKey;
           selectedDateDisplay.textContent = `${months[currentMonth]} ${day}, ${currentYear}`;
           renderCalendar();
-          renderTimeSlots();
+          renderTimeSlots(); if(typeof renderEvents === 'function') renderEvents();
         });
       }
 
@@ -521,7 +510,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     writeCalendarBlocks();
     renderCalendar();
-    renderTimeSlots();
+    renderTimeSlots(); if(typeof renderEvents === 'function') renderEvents();
   };
 
   const renderTimeSlots = () => {
@@ -575,7 +564,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     writeCalendarBlocks();
     renderCalendar();
-    renderTimeSlots();
+    renderTimeSlots(); if(typeof renderEvents === 'function') renderEvents();
   });
 
   btnClearDayBlocks?.addEventListener("click", () => {
@@ -588,7 +577,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     writeCalendarBlocks();
     renderCalendar();
-    renderTimeSlots();
+    renderTimeSlots(); if(typeof renderEvents === 'function') renderEvents();
   });
 
   calPrevBtn?.addEventListener("click", () => {
@@ -611,7 +600,70 @@ document.addEventListener("DOMContentLoaded", () => {
 
   window.addEventListener("resize", renderTable);
 
+    // Add Event Logic
+  const adminEventInput = document.getElementById("adminEventInput");
+  const btnAddStaticEvent = document.getElementById("btnAddStaticEvent");
+  const adminEventList = document.getElementById("adminEventList");
+  const btnSaveCalendarChanges = document.getElementById("btnSaveCalendarChanges");
+
+  const renderEvents = () => {
+    if (!adminEventList) return;
+    adminEventList.innerHTML = "";
+    if (!selectedDateKey) return;
+    
+    if(!calendarBlocks.events) calendarBlocks.events = {};
+    const dayEvents = calendarBlocks.events[selectedDateKey] || [];
+    dayEvents.forEach((evText, i) => {
+      const item = document.createElement("div");
+      item.style.cssText = "display: flex; justify-content: space-between; background: #fdf2e9; border: 1px solid #f8c471; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; align-items: center; color: #d35400;";
+      item.innerHTML = `<span>${evText}</span><button type="button" style="background: none; border: none; color: #e74c3c; cursor: pointer; font-weight: bold;">X</button>`;
+      item.querySelector("button").addEventListener("click", () => {
+        calendarBlocks.events[selectedDateKey].splice(i, 1);
+        if(calendarBlocks.events[selectedDateKey].length === 0) delete calendarBlocks.events[selectedDateKey];
+        writeCalendarBlocks();
+        renderEvents();
+        renderCalendar();
+      });
+      adminEventList.appendChild(item);
+    });
+  };
+
+  
+
+  btnAddStaticEvent?.addEventListener("click", () => {
+    if (!selectedDateKey) { alert("Please pick a date first."); return; }
+    const ev = adminEventInput.value.trim();
+    if (!ev) return;
+    if(!calendarBlocks.events) calendarBlocks.events = {};
+    if(!calendarBlocks.events[selectedDateKey]) calendarBlocks.events[selectedDateKey] = [];
+    calendarBlocks.events[selectedDateKey].push(ev);
+    adminEventInput.value = "";
+    writeCalendarBlocks();
+    renderEvents();
+    renderCalendar();
+  });
+
+  btnSaveCalendarChanges?.addEventListener("click", () => {
+    writeCalendarBlocks();
+    alert("Calendar changes saved successfully!");
+    const modal = document.querySelector("#modalCalendar");
+    if(modal) {
+      // standard close modal logic for this project by clicking the closest dismiss overlay or removing show
+      document.body.classList.remove('modal-open');
+      modal.classList.remove('show');
+    }
+  });
+
   renderTable();
   renderCalendar();
-  renderTimeSlots();
+  renderTimeSlots(); if(typeof renderEvents === 'function') renderEvents();
 });
+
+
+
+
+
+
+
+
+

@@ -112,15 +112,19 @@
           <div class="page-metrics">
             <div class="metric-card">
               <div class="metric-icon"><i class="fa-solid fa-box"></i></div>
-              <div><div class="metric-value">100</div><div class="metric-label">Total Items</div></div>
+              <div><div class="metric-value" id="metricTotalItems">0</div><div class="metric-label">Total Items</div></div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon"><i class="fa-solid fa-box-open"></i></div>
+              <div><div class="metric-value" id="metricInStock">0</div><div class="metric-label">In Stock</div></div>
             </div>
             <div class="metric-card">
               <div class="metric-icon"><i class="fa-solid fa-arrow-down-short-wide"></i></div>
-              <div><div class="metric-value">30</div><div class="metric-label">Low Stock</div></div>
+              <div><div class="metric-value" id="metricLowStock">0</div><div class="metric-label">Low Stock</div></div>
             </div>
             <div class="metric-card">
-              <div class="metric-icon"><i class="fa-regular fa-clock"></i></div>
-              <div><div class="metric-value">15,000</div><div class="metric-label">Orders</div></div>
+              <div class="metric-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+              <div><div class="metric-value" id="metricOutOfStock">0</div><div class="metric-label">Out of Stock</div></div>
             </div>
           </div>
 
@@ -212,6 +216,17 @@
           <div class="field-stack"><label>Category</label><select class="filter-select" id="editItemCategory"><option>Raw Materials</option><option>Consumables</option></select></div>
           <div class="field-stack"><label>Quantity</label><input class="input-field" id="editItemQty" type="number" min="0" /></div>
           <div class="field-stack"><label>Unit</label><select class="filter-select" id="editItemUnit"><option>pcs</option><option>box</option><option>roll</option></select></div>
+          <div class="field-stack">
+            <label>Deduction Type</label>
+            <select class="filter-select" id="editDeductionType">
+              <option value="Production">Production</option>
+              <option value="Defect">Defect</option>
+            </select>
+          </div>
+          <div class="field-stack">
+            <label>Deduct Quantity</label>
+            <input class="input-field" id="editDeductQty" type="number" min="0" placeholder="0" />
+          </div>
           <div class="field-stack full">
             <label>Upload Image/Photo</label>
             <div class="upload-row">

@@ -108,17 +108,30 @@
             <div class="cal-days-grid" id="adminCalDaysGrid"></div>
             <div class="calendar-note">Weekends and past dates are unavailable on the website form.</div>
           </div>
-          <div class="admin-calendar-right">
-            <h4 id="adminSelectedDateDisplay">Select a Date</h4>
-            <div class="admin-calendar-actions">
-              <button type="button" class="btn-admin" id="btnToggleBlockDay">Block Whole Day</button>
-              <button type="button" class="btn-admin btn-secondary" id="btnClearDayBlocks">Clear Day Blocks</button>
+                      <div class="admin-calendar-right">
+              <h4 id="adminSelectedDateDisplay">Select a Date</h4>
+              <div class="admin-calendar-actions">
+                <button type="button" class="btn-admin" id="btnToggleBlockDay">Block Whole Day</button>
+                <button type="button" class="btn-admin btn-secondary" id="btnClearDayBlocks">Clear Day Blocks</button>
+              </div>
+
+              <div class="admin-event-input-group" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px;">
+                <label for="adminEventInput" style="font-size: 0.8rem; font-weight: 600; color: #34404d;">Add Event for this Day:</label>
+                <div style="display: flex; gap: 8px;">
+                  <input type="text" id="adminEventInput" style="flex: 1; padding: 8px; border: 1px solid #d9e0e8; border-radius: 6px; font-size: 0.8rem;" placeholder="e.g. FMRC Anniversary">
+                  <button type="button" class="btn-admin" id="btnAddStaticEvent">Add</button>
+                </div>
+                <div id="adminEventList" style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;"></div>
+              </div>
+
+              <div class="time-slots-container" id="adminTimeSlotsContainer"><p class="time-placeholder">Please pick a date first.</p></div>
+              <p class="field-hint" style="margin-top: 10px;">Click any time slot to block/unblock it for client booking.</p>
             </div>
-            <div class="time-slots-container" id="adminTimeSlotsContainer"><p class="time-placeholder">Please pick a date first.</p></div>
-            <p class="field-hint">Click any time slot to block/unblock it for client booking.</p>
           </div>
-        </div>
-        <div class="modal-actions"><button class="btn-admin btn-secondary" data-modal-close="#modalCalendar">Close</button></div>
+          <div class="modal-actions" style="margin-top: auto; padding-top: 15px;">
+            <button class="btn-admin btn-secondary" data-modal-close="#modalCalendar">Close</button>
+            <button class="btn-admin" id="btnSaveCalendarChanges" type="button">Save Changes</button>
+          </div>
       </div>
     </div>
 
@@ -154,6 +167,7 @@
     <script src="appointments.js"></script>
   </body>
 </html>
+
 
 
 

@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const addItemPhoto = document.getElementById("addItemPhoto");
   const btnEditPhoto = document.getElementById("btnEditPhoto");
   const editItemPhoto = document.getElementById("editItemPhoto");
-  const btnEditExistingPhoto = document.getElementById("btnEditExistingPhoto");
+  const btnEditExistingPhoto = document.getElementById("btnEditPhotoInEditModal");
 
   const modalEditItem = document.getElementById("modalEditItem");
   const modalDeleteItem = document.getElementById("modalDeleteItem");
@@ -25,6 +25,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const editItemQty = document.getElementById("editItemQty");
   const editItemUnit = document.getElementById("editItemUnit");
   const editItemDescription = document.getElementById("editItemDescription");
+  const editDeductionType = document.getElementById("editDeductionType");
+  const editDeductQty = document.getElementById("editDeductQty");
+  const btnSaveItem = document.getElementById("btnSaveItem");
+  const btnUpdateItem = document.getElementById("btnUpdateItem");
+  const btnConfirmDelete = document.getElementById("btnConfirmDelete");
 
   const photoPreviewModal = document.getElementById("modalPhotoPreview");
   const photoPreviewImg = document.getElementById("inventoryPhotoPreview");
@@ -34,6 +39,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const photoRotate = document.getElementById("photoRotate");
   const photoScale = document.getElementById("photoScale");
   const btnApplyPhotoEdit = document.getElementById("btnApplyPhotoEdit");
+
+  const metricTotalItems = document.getElementById("metricTotalItems");
+  const metricInStock = document.getElementById("metricInStock");
+  const metricLowStock = document.getElementById("metricLowStock");
+  const metricOutOfStock = document.getElementById("metricOutOfStock");
 
   const defaultItems = [
     {
@@ -82,6 +92,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentPage = 1;
   let editedPhotoData = "";
   let sourcePhotoData = "";
+  let activeEditId = "";
+  let pendingDeleteId = "";
 
   const statusClass = (status) => {
     if (status === "In Stock") return "status-green";
@@ -127,6 +139,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const available = Math.max(180, footerTop - tableTop - 70);
     const rows = Math.floor(available / rowHeight);
     return Math.max(5, rows);
+  };
+
+  const refreshMetrics = () => {
+    const inStockCount = items.filter((item) => item.status === "In Stock").length;
+    const lowStockCount = items.filter((item) => item.status === "Low Stock").length;
+    const outOfStockCount = items.filter((item) => item.status === "Out of Stock").length;
+
+    if (metricTotalItems) metricTotalItems.textContent = String(items.length);
+    if (metricInStock) metricInStock.textContent = String(inStockCount);
+    if (metricLowStock) metricLowStock.textContent = String(lowStockCount);
+    if (metricOutOfStock) metricOutOfStock.textContent = String(outOfStockCount);
   };
 
   const renderTable = () => {
@@ -177,6 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (currentPageEl) currentPageEl.textContent = String(currentPage);
     if (prevBtn) prevBtn.disabled = currentPage <= 1;
     if (nextBtn) nextBtn.disabled = currentPage >= pageCount;
+    refreshMetrics();
   };
 
   const openModal = (modal) => {
@@ -368,9 +392,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (editItemQty) editItemQty.value = safeValue(item.qty);
       if (editItemUnit) editItemUnit.value = safeValue(item.unit);
       if (editItemDescription) editItemDescription.value = safeValue(item.description);
+      if (editDeductionType) editDeductionType.value = "Production";
+      if (editDeductQty) editDeductQty.value = "0";
 
       sourcePhotoData = item.photo || "";
       editedPhotoData = item.photo || "";
+      activeEditId = item.id;
       openModal(modalEditItem);
       return;
     }
@@ -386,9 +413,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (editItemQty) editItemQty.value = safeValue(item.qty);
       if (editItemUnit) editItemUnit.value = safeValue(item.unit);
       if (editItemDescription) editItemDescription.value = safeValue(item.description);
+      if (editDeductionType) editDeductionType.value = "Production";
+      if (editDeductQty) editDeductQty.value = "0";
 
       sourcePhotoData = item.photo || "";
       editedPhotoData = item.photo || "";
+      activeEditId = item.id;
       openModal(modalEditItem);
       return;
     }
@@ -411,9 +441,85 @@ document.addEventListener("DOMContentLoaded", () => {
       if (deleteItemTargetLabel) {
         deleteItemTargetLabel.textContent = item ? `${item.id} - ${item.name}` : "this item";
       }
+      pendingDeleteId = item?.id || "";
       openModal(modalDeleteItem);
       return;
     }
+  });
+
+  btnSaveItem?.addEventListener("click", () => {
+    const addName = (document.getElementById("addItemName")?.value || "").trim();
+    const addCategory = document.getElementById("addItemCategory")?.value || "Raw Materials";
+    const addQtyRaw = Number(document.getElementById("addItemQty")?.value || 0);
+    const addUnit = document.getElementById("addItemUnit")?.value || "pcs";
+    const addDescription = (document.getElementById("addItemDescription")?.value || "").trim();
+
+    if (!addName) {
+      alert("Material name is required.");
+      return;
+    }
+
+    const cleanQty = Math.max(0, Number.isFinite(addQtyRaw) ? addQtyRaw : 0);
+    const nextIdNumber =
+      items.reduce((maxId, item) => {
+        const numericPart = Number(String(item.id).replace("INV-", ""));
+        return Number.isFinite(numericPart) ? Math.max(maxId, numericPart) : maxId;
+      }, 0) + 1;
+
+    const newItem = {
+      id: `INV-${String(nextIdNumber).padStart(3, "0")}`,
+      name: addName,
+      category: addCategory,
+      description: addDescription,
+      photo: editedPhotoData || "",
+      qty: cleanQty,
+      unit: addUnit,
+      status: inferStatus(cleanQty),
+    };
+
+    items.unshift(newItem);
+    currentPage = 1;
+    renderTable();
+    closeModal(document.getElementById("modalAddItem"));
+  });
+
+  btnUpdateItem?.addEventListener("click", () => {
+    if (!activeEditId) return;
+    const item = items.find((entry) => entry.id === activeEditId);
+    if (!item) return;
+
+    const baseQty = Number(editItemQty?.value || 0);
+    const deductQty = Number(editDeductQty?.value || 0);
+    const validBaseQty = Math.max(0, Number.isFinite(baseQty) ? baseQty : 0);
+    const validDeductQty = Math.max(0, Number.isFinite(deductQty) ? deductQty : 0);
+    const finalQty = Math.max(0, validBaseQty - validDeductQty);
+
+    item.name = (editItemName?.value || "").trim() || item.name;
+    item.category = editItemCategory?.value || item.category;
+    item.unit = editItemUnit?.value || item.unit;
+    item.description = (editItemDescription?.value || "").trim();
+    item.qty = finalQty;
+    item.status = inferStatus(finalQty);
+    item.photo = editedPhotoData || item.photo;
+
+    if (validDeductQty > 0) {
+      const deductionLabel = editDeductionType?.value || "Production";
+      alert(`${deductionLabel} deduction applied: -${validDeductQty} ${item.unit}.`);
+    }
+
+    renderTable();
+    closeModal(modalEditItem);
+  });
+
+  btnConfirmDelete?.addEventListener("click", () => {
+    if (!pendingDeleteId) {
+      closeModal(modalDeleteItem);
+      return;
+    }
+    items = items.filter((item) => item.id !== pendingDeleteId);
+    pendingDeleteId = "";
+    renderTable();
+    closeModal(modalDeleteItem);
   });
 
   prevBtn?.addEventListener("click", () => {

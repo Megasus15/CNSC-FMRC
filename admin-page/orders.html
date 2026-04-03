@@ -57,33 +57,83 @@
           <div class="page-toolbar">
             <div class="toolbar-title">
               <h2>Orders</h2>
-              <p>Track order fulfillment across payment and production stages.</p>
+              <p>Monitor every customer order from incoming request to final claiming.</p>
             </div>
             <div class="toolbar-actions">
               <button class="btn-admin btn-secondary" onclick="window.location.reload();" title="Refresh Data">
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
-              <select class="filter-select"><option>All</option><option>Pending</option><option>Completed</option></select>
-              <input class="search-input" placeholder="Search product..." />
+              <select class="filter-select"><option>All Stages</option><option>Incoming</option><option>Pending</option><option>Completed</option><option>Rejected</option></select>
+              <input class="search-input" placeholder="Search order no., customer, or product..." />
             </div>
           </div>
-          <div class="panel">
-            <div class="table-wrapper">
-              <table class="admin-table enhanced-table">
-                <thead><tr><th>Order No.</th><th>Order</th><th>Date</th><th>Customer</th><th>Payment</th><th>Total</th><th>Item</th><th>Status</th><th class="sticky-action">Action</th></tr></thead>
-                <tbody>
-                  <tr><td>#ORD001</td><td>3D Print</td><td>Mar 10, 2026</td><td>Vear Carl T.</td><td>COP</td><td>₱18,000</td><td>3</td><td><span class="status-pill status-yellow">Pending</span></td><td class="action-icons sticky-action"><button data-tooltip="Edit Order"><i class="fa-regular fa-pen-to-square"></i></button><button data-tooltip="View Order"><i class="fa-regular fa-eye"></i></button><button data-tooltip="Move to Archives" data-modal-open="#modalArchiveOrder"><i class="fa-solid fa-box-archive"></i></button><button data-tooltip="Delete Order" data-modal-open="#modalDeleteOrder"><i class="fa-regular fa-trash-can"></i></button></td></tr>
-                  <tr><td>#ORD002</td><td>Laser Cut</td><td>Mar 16, 2026</td><td>Wern C.</td><td>GCash</td><td>₱26,400</td><td>8</td><td><span class="status-pill status-green">Ongoing</span></td><td class="action-icons sticky-action"><button data-tooltip="Edit Order"><i class="fa-regular fa-pen-to-square"></i></button><button data-tooltip="View Order"><i class="fa-regular fa-eye"></i></button><button data-tooltip="Move to Archives" data-modal-open="#modalArchiveOrder"><i class="fa-solid fa-box-archive"></i></button><button data-tooltip="Delete Order" data-modal-open="#modalDeleteOrder"><i class="fa-regular fa-trash-can"></i></button></td></tr>
-                  <tr><td>#ORD003</td><td>CNC Batch</td><td>Mar 25, 2026</td><td>Kevin A.</td><td>COP</td><td>₱30,500</td><td>4</td><td><span class="status-pill status-blue">Completed</span></td><td class="action-icons sticky-action"><button data-tooltip="Edit Order"><i class="fa-regular fa-pen-to-square"></i></button><button data-tooltip="View Order"><i class="fa-regular fa-eye"></i></button><button data-tooltip="Move to Archives" data-modal-open="#modalArchiveOrder"><i class="fa-solid fa-box-archive"></i></button><button data-tooltip="Delete Order" data-modal-open="#modalDeleteOrder"><i class="fa-regular fa-trash-can"></i></button></td></tr>
-                </tbody>
-              </table>
+
+          <div class="orders-flow-strip">
+            <div class="flow-step"><span class="flow-step-number">1</span><div><h4>Incoming</h4><p>New customer checkout requests are waiting for admin review.</p></div></div>
+            <div class="flow-step"><span class="flow-step-number">2</span><div><h4>Pending</h4><p>Approved orders are being prepared and waiting for customer claim.</p></div></div>
+            <div class="flow-step"><span class="flow-step-number">3</span><div><h4>Completed</h4><p>Orders are marked completed once customer already received the items.</p></div></div>
+          </div>
+
+          <div class="orders-section-grid">
+            <div class="panel">
+              <div class="panel-header">
+                <h3>Incoming Orders</h3>
+                <span class="status-pill status-yellow">Needs Review</span>
+              </div>
+              <div class="table-wrapper">
+                <table class="admin-table enhanced-table">
+                  <thead><tr><th>Order No.</th><th>Order</th><th>Date</th><th>Customer</th><th>Payment</th><th>Total Item</th><th>Status</th><th class="sticky-action">Action</th></tr></thead>
+                  <tbody>
+                    <tr><td>#ORD101</td><td>Steel Bracket Set</td><td>Apr 02, 2026</td><td>Vear Carl T.</td><td>COP</td><td>3</td><td><span class="status-pill status-yellow">Incoming</span></td><td class="action-icons sticky-action"><button data-tooltip="View Order Info"><i class="fa-regular fa-eye"></i></button><button data-tooltip="Approve Order"><i class="fa-solid fa-check"></i></button><button data-tooltip="Reject Order"><i class="fa-solid fa-xmark"></i></button></td></tr>
+                    <tr><td>#ORD102</td><td>Laser-Cut Signage</td><td>Apr 02, 2026</td><td>Wern C.</td><td>GCash</td><td>2</td><td><span class="status-pill status-yellow">Incoming</span></td><td class="action-icons sticky-action"><button data-tooltip="View Order Info"><i class="fa-regular fa-eye"></i></button><button data-tooltip="Approve Order"><i class="fa-solid fa-check"></i></button><button data-tooltip="Reject Order"><i class="fa-solid fa-xmark"></i></button></td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div class="table-footer">
-              <div class="table-footer-meta">Page 1 of 1</div>
-              <div class="table-pagination">
-                <button class="page-btn" disabled><i class="fa-solid fa-chevron-left"></i></button>
-                <div class="page-number">1</div>
-                <button class="page-btn" disabled><i class="fa-solid fa-chevron-right"></i></button>
+
+            <div class="panel">
+              <div class="panel-header">
+                <h3>Pending Orders</h3>
+                <span class="status-pill status-blue">In Progress</span>
+              </div>
+              <div class="table-wrapper">
+                <table class="admin-table enhanced-table">
+                  <thead><tr><th>Order No.</th><th>Order</th><th>Date</th><th>Customer</th><th>Payment</th><th>Total Item</th><th>Status</th><th class="sticky-action">Action</th></tr></thead>
+                  <tbody>
+                    <tr><td>#ORD095</td><td>CNC Batch</td><td>Apr 01, 2026</td><td>Kevin A.</td><td>COP</td><td>4</td><td><span class="status-pill status-blue">Pending</span></td><td class="action-icons sticky-action"><button data-tooltip="View Order Info"><i class="fa-regular fa-eye"></i></button><button data-tooltip="Mark as Completed"><i class="fa-solid fa-clipboard-check"></i></button></td></tr>
+                    <tr><td>#ORD097</td><td>Prototype Housing</td><td>Apr 01, 2026</td><td>Elena P.</td><td>GCash</td><td>1</td><td><span class="status-pill status-blue">Pending</span></td><td class="action-icons sticky-action"><button data-tooltip="View Order Info"><i class="fa-regular fa-eye"></i></button><button data-tooltip="Mark as Completed"><i class="fa-solid fa-clipboard-check"></i></button></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header">
+                <h3>Completed Orders</h3>
+                <span class="status-pill status-green">Released to Customer</span>
+              </div>
+              <div class="table-wrapper">
+                <table class="admin-table enhanced-table">
+                  <thead><tr><th>Order No.</th><th>Order</th><th>Date</th><th>Customer</th><th>Payment</th><th>Total Item</th><th>Status</th><th class="sticky-action">Action</th></tr></thead>
+                  <tbody>
+                    <tr><td>#ORD083</td><td>Machine Guard Kit</td><td>Mar 29, 2026</td><td>Maria B.</td><td>COP</td><td>5</td><td><span class="status-pill status-green">Completed</span></td><td class="action-icons sticky-action"><button data-tooltip="View Order Info"><i class="fa-regular fa-eye"></i></button><button data-tooltip="Move to Archives" data-modal-open="#modalArchiveOrder"><i class="fa-solid fa-box-archive"></i></button></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-header">
+                <h3>Rejected Orders</h3>
+                <span class="status-pill status-red">Decision Required</span>
+              </div>
+              <div class="table-wrapper">
+                <table class="admin-table enhanced-table">
+                  <thead><tr><th>Order No.</th><th>Order</th><th>Date</th><th>Customer</th><th>Payment</th><th>Total Item</th><th>Status</th><th class="sticky-action">Action</th></tr></thead>
+                  <tbody>
+                    <tr><td>#ORD088</td><td>Custom Clamp Set</td><td>Mar 30, 2026</td><td>John R.</td><td>GCash</td><td>2</td><td><span class="status-pill status-red">Rejected</span></td><td class="action-icons sticky-action"><button data-tooltip="View Order Info"><i class="fa-regular fa-eye"></i></button><button data-tooltip="Move to Archives" data-modal-open="#modalArchiveOrder"><i class="fa-solid fa-box-archive"></i></button><button data-tooltip="Delete Permanently" data-modal-open="#modalDeleteOrder"><i class="fa-regular fa-trash-can"></i></button></td></tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
