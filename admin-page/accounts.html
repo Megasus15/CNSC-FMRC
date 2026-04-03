@@ -70,11 +70,9 @@
             <div class="panel-header"><h3>User Directory</h3><div class="filters-row"><select class="filter-select"><option>All Roles</option><option>Admin</option><option>Cashier</option></select></div></div>
             <div class="table-wrapper">
               <table class="admin-table enhanced-table">
-                <thead><tr><th>No.</th><th>Name</th><th>Username/Gmail</th><th>Password</th><th>Role</th><th>Joined</th><th class="sticky-action">Action</th></tr></thead>
-                <tbody>
-                  <tr><td>001</td><td>Vear Carl T. Marasigan</td><td>uVearCarl</td><td>••••••••</td><td>Admin</td><td>Mar 12, 2026</td><td class="action-icons sticky-action"><button data-tooltip="View Account"><i class="fa-regular fa-eye"></i></button><button data-tooltip="Delete Account" data-modal-open="#modalDeleteAccount"><i class="fa-regular fa-trash-can"></i></button></td></tr>
-                  <tr><td>002</td><td>Wern Claire B. Bustamante</td><td>wernclaire@gmail.com</td><td>••••••••</td><td>Cashier</td><td>Mar 12, 2026</td><td class="action-icons sticky-action"><button data-tooltip="View Account"><i class="fa-regular fa-eye"></i></button><button data-tooltip="Delete Account" data-modal-open="#modalDeleteAccount"><i class="fa-regular fa-trash-can"></i></button></td></tr>
-                  <tr><td>003</td><td>Kevin S. Arvalo</td><td>kevinKarv</td><td>••••••••</td><td>Cashier</td><td>Mar 14, 2026</td><td class="action-icons sticky-action"><button data-tooltip="View Account"><i class="fa-regular fa-eye"></i></button><button data-tooltip="Delete Account" data-modal-open="#modalDeleteAccount"><i class="fa-regular fa-trash-can"></i></button></td></tr>
+                <thead><tr><th>No.</th><th>Name</th><th>Username</th><th>Gmail</th><th>Role</th><th>Joined</th></tr></thead>
+                <tbody id="accountsTableBody">
+                  <!-- Realtime data injected via JS -->
                 </tbody>
               </table>
             </div>
@@ -104,6 +102,7 @@
       </div>
     </div>
     <script src="admin-common.js"></script>
+    <script src="accounts.js"></script>
   </body>
 </html>
 

@@ -1907,3 +1907,467 @@ document.addEventListener("DOMContentLoaded", () => {
 
 });
 
+// --- USER PROFILE AND AUTHENTICATION LOGIC ---
+(() => {
+  const userProfileBtn = document.querySelector(".user-profile");
+  if (!userProfileBtn) return;
+
+  const ensureLoader = () => {
+    let loader = document.getElementById("global-loader");
+    if (!loader) {
+      loader = document.createElement("div");
+      loader.id = "global-loader";
+      loader.className = "global-loader-overlay";
+      loader.innerHTML = '<div class="laravel-spinner"></div>';
+      document.body.appendChild(loader);
+    }
+    return loader;
+  };
+
+  const setLoader = (active) => {
+    ensureLoader().classList.toggle("active", active);
+  };
+
+  const ensureStatusModal = () => {
+    let modal = document.getElementById("userStatusModal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "userStatusModal";
+      modal.className = "status-modal";
+      modal.innerHTML = '<div class="status-box" id="userStatusText"></div>';
+      document.body.appendChild(modal);
+    }
+    return {
+      modal,
+      text: document.getElementById("userStatusText"),
+    };
+  };
+
+  const showStatus = (message) => {
+    const { modal, text } = ensureStatusModal();
+    if (text) text.textContent = message;
+    modal.classList.add("show");
+  };
+
+  const hideStatus = () => {
+    const modal = document.getElementById("userStatusModal");
+    modal?.classList.remove("show");
+  };
+
+  const hideDropdown = (dropdown) => {
+    if (!dropdown.classList.contains("show")) return;
+    dropdown.classList.add("is-closing");
+    dropdown.classList.remove("show");
+    setTimeout(() => dropdown.classList.remove("is-closing"), 180);
+  };
+
+  const openProfileModal = (userInfo, token) => {
+    let overlay = document.getElementById("customerProfileModal");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "customerProfileModal";
+      overlay.className = "customer-modal-overlay";
+      overlay.innerHTML = `
+        <section class="customer-modal" role="dialog" aria-modal="true" aria-labelledby="customerModalTitle">
+          <div class="customer-modal-head">
+            <h2 class="customer-modal-title" id="customerModalTitle">My Account</h2>
+            <button class="customer-modal-close" id="closeProfileModal" type="button" aria-label="Close">&times;</button>
+          </div>
+          <div class="customer-card" id="customerInfoBox"></div>
+          <h3 class="customer-form-title">Change Password</h3>
+          <form id="changePasswordForm" novalidate>
+            <div class="customer-field">
+              <label for="cp_current">Current Password</label>
+              <div class="password-wrapper">
+                <input type="password" id="cp_current" required />
+                <button class="toggle-pass" type="button" data-target="cp_current" aria-label="Show password">
+                  <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="customer-field">
+              <label for="cp_new">New Password</label>
+              <div class="password-wrapper">
+                <input type="password" id="cp_new" required />
+                <button class="toggle-pass" type="button" data-target="cp_new" aria-label="Show password">
+                  <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="customer-field">
+              <label for="cp_confirm">Confirm New Password</label>
+              <div class="password-wrapper">
+                <input type="password" id="cp_confirm" required />
+                <button class="toggle-pass" type="button" data-target="cp_confirm" aria-label="Show password">
+                  <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="customer-msg" id="cp_msg"></div>
+            <button type="submit" class="customer-btn">Update Password</button>
+          </form>
+        </section>
+      `;
+      document.body.appendChild(overlay);
+
+      // Password Toggle Logic
+      const eyeClosedSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
+      const eyeOpenSvg = '<svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+      
+      overlay.querySelectorAll(".toggle-pass").forEach((toggleBtn) => {
+        toggleBtn.addEventListener("click", () => {
+          const targetId = toggleBtn.getAttribute("data-target");
+          const input = overlay.querySelector("#" + targetId);
+          if (input) {
+            if (input.type === "password") {
+              input.type = "text";
+              toggleBtn.innerHTML = eyeClosedSvg;
+              toggleBtn.classList.add("active");
+            } else {
+              input.type = "password";
+              toggleBtn.innerHTML = eyeOpenSvg;
+              toggleBtn.classList.remove("active");
+            }
+          }
+        });
+      });
+    }
+
+    const infoBox = overlay.querySelector("#customerInfoBox");
+    if (infoBox) {
+      infoBox.innerHTML = `
+        <p><strong>Name:</strong> ${userInfo.name || "N/A"}</p>
+        <p><strong>Username:</strong> ${userInfo.username || "N/A"}</p>
+        <p><strong>Email:</strong> ${userInfo.email || "N/A"}</p>
+      `;
+    }
+
+    const closeModal = () => {
+      overlay.classList.add("closing");
+      overlay.classList.remove("show");
+      setTimeout(() => {
+        overlay.classList.remove("closing");
+        document.body.style.overflow = "";
+      }, 180);
+    };
+
+    overlay.classList.add("show");
+    document.body.style.overflow = "hidden";
+
+    overlay.querySelector("#closeProfileModal")?.addEventListener("click", closeModal, {
+      once: true,
+    });
+
+    overlay.addEventListener(
+      "click",
+      (event) => {
+        if (event.target === overlay) {
+          closeModal();
+        }
+      },
+      { once: true },
+    );
+
+    const form = overlay.querySelector("#changePasswordForm");
+    const msgBox = overlay.querySelector("#cp_msg");
+
+    if (form) {
+      form.onsubmit = async (event) => {
+        event.preventDefault();
+
+        const currentPassword = overlay.querySelector("#cp_current")?.value || "";
+        const newPassword = overlay.querySelector("#cp_new")?.value || "";
+        const confirmPassword = overlay.querySelector("#cp_confirm")?.value || "";
+
+        if (!currentPassword) {
+          msgBox.style.display = "block";
+          msgBox.style.color = "#b91c1c";
+          msgBox.textContent = "Current password is required.";
+          return;
+        }
+        if (!newPassword) {
+          msgBox.style.display = "block";
+          msgBox.style.color = "#b91c1c";
+          msgBox.textContent = "New password is required.";
+          return;
+        }
+        if (newPassword.length < 8) {
+          msgBox.style.display = "block";
+          msgBox.style.color = "#b91c1c";
+          msgBox.textContent = "New password must be at least 8 characters.";
+          return;
+        }
+        if (newPassword !== confirmPassword) {
+          msgBox.style.display = "block";
+          msgBox.style.color = "#b91c1c";
+          msgBox.textContent = "Confirm password does not match.";
+          return;
+        }
+
+        setLoader(true);
+        try {
+          const response = await fetch("http://127.0.0.1:8000/api/change-password", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: "Bearer " + token,
+            },
+            body: JSON.stringify({
+              current_password: currentPassword,
+              new_password: newPassword,
+              new_password_confirmation: confirmPassword,
+            }),
+          });
+
+          const data = await response.json();
+
+          msgBox.style.display = "block";
+          if (response.ok) {
+            msgBox.style.color = "#0f7b35";
+            msgBox.innerHTML = "<i class=\"fa-solid fa-circle-check\"></i> you have changed your password successfully.";
+            form.reset();
+            
+            setTimeout(() => {
+              msgBox.style.display = "none";
+              msgBox.textContent = "";
+            }, 3500);
+          } else if (response.status === 422 && data.errors) {
+            const currentErr = data.errors.current_password?.[0];
+            const newErr = data.errors.new_password?.[0];
+            const confirmErr = data.errors.new_password_confirmation?.[0];
+            msgBox.style.color = "#b91c1c";
+            msgBox.textContent =
+              currentErr || newErr || confirmErr || data.message || "Unable to update password.";
+          } else {
+            msgBox.style.color = "#b91c1c";
+            msgBox.textContent = data.message || "Unable to update password.";
+          }
+        } catch {
+          msgBox.style.display = "block";
+          msgBox.style.color = "#b91c1c";
+          msgBox.textContent = "Cannot connect to server. Ensure Laravel is running.";
+        } finally {
+          setLoader(false);
+        }
+      };
+    }
+  };
+
+  const token = localStorage.getItem("customer_token");
+  const userInfoStr = localStorage.getItem("customer_info");
+  let userInfo = null;
+
+  try {
+    if (userInfoStr) userInfo = JSON.parse(userInfoStr);
+  } catch {
+    userInfo = null;
+  }
+
+  if (!(token && userInfo)) {
+    const guestDropdown = document.createElement("div");
+    guestDropdown.className = "profile-popup guest-profile-popup";
+    guestDropdown.innerHTML = `
+      <div class="popup-header">
+        <div class="popup-profile-row">
+          <span class="popup-profile-icon">?</span>
+          <div class="popup-profile-meta">
+            <p class="popup-identity">Welcome, guest</p>
+            <span class="popup-role">Customer Portal</span>
+          </div>
+        </div>
+      </div>
+      <p class="guest-popup-copy">Sign in to access your account, orders, and appointments.</p>
+      <div class="guest-auth-stack">
+        <a href="../customer-auth/auth.html#login" class="guest-auth-btn guest-auth-login">Login</a>
+        <div class="guest-auth-or">OR</div>
+        <a href="../customer-auth/auth.html#signup" class="guest-auth-btn guest-auth-signup">Sign Up</a>
+      </div>
+    `;
+
+    userProfileBtn.appendChild(guestDropdown);
+
+    userProfileBtn.addEventListener("click", (event) => {
+      if (event.target.closest(".profile-popup")) return;
+
+      if (guestDropdown.classList.contains("show")) {
+        hideDropdown(guestDropdown);
+      } else {
+        guestDropdown.classList.add("show");
+      }
+    });
+
+    document.addEventListener("click", (event) => {
+      if (!userProfileBtn.contains(event.target)) {
+        hideDropdown(guestDropdown);
+      }
+    });
+
+    return;
+  }
+
+  const initial = (userInfo.username || userInfo.name || userInfo.email || "U")
+    .trim()
+    .charAt(0)
+    .toUpperCase();
+
+  userProfileBtn.innerHTML = `<span class="user-initial-badge">${initial}</span>`;
+  userProfileBtn.classList.add("nav-profile-btn");
+
+  const dropdown = document.createElement("div");
+  dropdown.className = "profile-popup";
+  dropdown.innerHTML = `
+    <div class="popup-header">
+      <div class="popup-profile-row">
+        <span class="popup-profile-icon profile-initial">${initial}</span>
+        <div class="popup-profile-meta">
+          <p class="popup-identity">${userInfo.email || userInfo.username || userInfo.name || "Customer"}</p>
+          <span class="popup-role">Customer</span>
+        </div>
+      </div>
+    </div>
+    <a href="#" id="viewProfileBtn" class="profile-popup-link">
+      <i class="fa-regular fa-id-card"></i> My Account
+    </a>
+    <hr />
+    <button type="button" id="logoutBtn" class="logout-btn popup-logout" style="border: none; font-family: inherit;">
+      <i class="fa-solid fa-right-from-bracket"></i> Logout
+    </button>
+  `;
+
+  userProfileBtn.appendChild(dropdown);
+
+  userProfileBtn.addEventListener("click", (event) => {
+    // If we click inside the popup (but not the main button itself), do nothing
+    if (event.target.closest(".profile-popup")) return;
+    
+    if (dropdown.classList.contains("show")) {
+      hideDropdown(dropdown);
+    } else {
+      dropdown.classList.add("show");
+    }
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!userProfileBtn.contains(event.target)) {
+      hideDropdown(dropdown);
+    }
+  });
+
+  dropdown.querySelector("#viewProfileBtn")?.addEventListener("click", () => {
+    hideDropdown(dropdown);
+    openProfileModal(userInfo, token);
+  });
+
+  const showLogoutConfirmModal = (onConfirm) => {
+    let modal = document.getElementById("laravelLogoutModal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "laravelLogoutModal";
+      modal.innerHTML = `
+        <div style="position: fixed; inset: 0; background: rgba(17, 24, 39, 0.6); backdrop-filter: blur(2px); display: flex; justify-content: center; align-items: center; z-index: 100000; opacity: 0; transition: opacity 0.2s ease;">
+          <div style="background: #fff; border-radius: 12px; width: 100%; max-width: 420px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); transform: scale(0.95); transition: transform 0.2s ease; font-family: 'Open Sans', sans-serif; overflow: hidden;">
+            <div style="padding: 24px;">
+              <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px;">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: #fee2e2; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
+                  <svg width="24" height="24" fill="none" stroke="#dc2626" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                </div>
+                <h2 style="font-size: 1.25rem; font-weight: 600; color: #111827; margin: 0;">Confirm Logout</h2>
+              </div>
+              <p style="font-size: 0.9rem; color: #4b5563; margin: 0 0 0 54px; line-height: 1.5;">Are you sure you want to log out from your account? You will need to sign in again to access the portal.</p>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 12px; background: #f9fafb; padding: 16px 24px; border-top: 1px solid #f3f4f6;">
+              <button id="cancelLogoutBtn" style="padding: 8px 16px; background: #fff; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; color: #374151; font-weight: 600; font-family: inherit; font-size: 0.875rem; transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.08s ease;">Cancel</button>
+              <button id="confirmLogoutBtn" style="padding: 8px 16px; background: var(--primary-color, #a80f0f); border: none; border-radius: 6px; cursor: pointer; color: #fff; font-weight: 600; font-family: inherit; font-size: 0.875rem; transition: background-color 0.2s ease, transform 0.08s ease, box-shadow 0.2s ease;">Log Out</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      const cancelBtn = modal.querySelector("#cancelLogoutBtn");
+      const confirmBtn = modal.querySelector("#confirmLogoutBtn");
+      
+      cancelBtn.onmouseenter = () => {
+        cancelBtn.style.backgroundColor = "#fee2e2";
+        cancelBtn.style.color = "#dc2626";
+        cancelBtn.style.borderColor = "#fca5a5";
+      };
+      cancelBtn.onmouseleave = () => {
+        cancelBtn.style.backgroundColor = "#fff";
+        cancelBtn.style.color = "#374151";
+        cancelBtn.style.borderColor = "#d1d5db";
+        cancelBtn.style.transform = "scale(1)";
+      };
+      cancelBtn.onmousedown = () => cancelBtn.style.transform = "scale(0.96)";
+      cancelBtn.onmouseup = () => cancelBtn.style.transform = "scale(1)";
+
+      confirmBtn.onmouseenter = () => {
+        confirmBtn.style.backgroundColor = "#7f1d1d"; // Darker red
+        confirmBtn.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)";
+      };
+      confirmBtn.onmouseleave = () => {
+        confirmBtn.style.backgroundColor = "var(--primary-color, #a80f0f)";
+        confirmBtn.style.boxShadow = "none";
+        confirmBtn.style.transform = "scale(1)";
+      };
+      confirmBtn.onmousedown = () => confirmBtn.style.transform = "scale(0.96)";
+      confirmBtn.onmouseup = () => confirmBtn.style.transform = "scale(1)";
+
+      cancelBtn.addEventListener("click", () => {
+        modal.children[0].style.opacity = "0";
+        modal.children[0].children[0].style.transform = "scale(0.95)";
+        setTimeout(() => (modal.style.display = "none"), 200);
+      });
+
+      confirmBtn.addEventListener("click", () => {
+        modal.children[0].style.opacity = "0";
+        modal.children[0].children[0].style.transform = "scale(0.95)";
+        setTimeout(() => {
+          modal.style.display = "none";
+          onConfirm();
+        }, 200);
+      });
+    }
+
+    modal.style.display = "block";
+    requestAnimationFrame(() => {
+      modal.children[0].style.opacity = "1";
+      modal.children[0].children[0].style.transform = "scale(1)";
+    });
+  };
+
+  dropdown.querySelector("#logoutBtn")?.addEventListener("click", async () => {
+    hideDropdown(dropdown);
+    showLogoutConfirmModal(async () => {
+      hideStatus();
+      setLoader(true);
+      try {
+        await fetch("http://127.0.0.1:8000/api/logout", {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer " + token,
+            Accept: "application/json",
+          },
+        });
+      } catch {
+        // Token cleanup should still happen locally.
+      } finally {
+        localStorage.removeItem("customer_token");
+        localStorage.removeItem("customer_info");
+        setLoader(false);
+        showStatus("Logged out successfully.");
+        window.location.href = "../customer-auth/auth.html";
+      }
+    });
+  });
+})();

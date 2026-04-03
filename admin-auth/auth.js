@@ -1,11 +1,25 @@
 document.addEventListener("DOMContentLoaded", () => {
   const loginForm = document.getElementById("loginForm");
-  const signupForm = document.getElementById("signupForm");
-  const openSignupFromLogin = document.getElementById("openSignupFromLogin");
-  const openLoginFromSignup = document.getElementById("openLoginFromSignup");
+  const authStatusModal = document.getElementById("authStatusModal");
+  const authStatusText = document.getElementById("authStatusText");
 
-  const signupSuccessModal = document.getElementById("signupSuccessModal");
-  const successContinueBtn = document.getElementById("successContinueBtn");
+  const toggleLoader = (show) => {
+    let loader = document.getElementById("global-loader");
+    if (!loader) {
+      loader = document.createElement("div");
+      loader.id = "global-loader";
+      loader.className = "global-loader-overlay";
+      loader.innerHTML = '<div class="laravel-spinner"></div>';
+      document.body.appendChild(loader);
+    }
+    loader.classList.toggle("active", show);
+  };
+
+  const showStatus = (message) => {
+    if (!authStatusModal || !authStatusText) return;
+    authStatusText.textContent = message;
+    authStatusModal.classList.add("show");
+  };
 
   const setFieldError = (inputId, message) => {
     const input = document.getElementById(inputId);
@@ -48,21 +62,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  const showLogin = () => {
-    loginForm.classList.add("active");
-    signupForm.classList.remove("active");
-    clearFormErrors(signupForm);
-  };
-
-  const showSignup = () => {
-    signupForm.classList.add("active");
-    loginForm.classList.remove("active");
-    clearFormErrors(loginForm);
-  };
-
-  openSignupFromLogin.addEventListener("click", showSignup);
-  openLoginFromSignup.addEventListener("click", showLogin);
-
   // Password Toggle Logic with SVG swapping
   const eyeOpenSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
   const eyeClosedSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
@@ -89,9 +88,6 @@ document.addEventListener("DOMContentLoaded", () => {
   [
     "loginUser",
     "loginPass",
-    "signupUser",
-    "signupPass",
-    "signupConfirm",
   ].forEach((inputId) => {
     const input = document.getElementById(inputId);
     if (!input) return;
@@ -103,122 +99,86 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Handle Signup Submit
-  signupForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-
-    clearFormErrors(signupForm);
-
-    const user = document.getElementById("signupUser").value.trim();
-    const pass = document.getElementById("signupPass").value;
-    const confirm = document.getElementById("signupConfirm").value;
-
-    let hasError = false;
-
-    if (!user) {
-      setFieldError(
-        "signupUser",
-        "Please enter your email or username so we know who this account is for.",
-      );
-      hasError = true;
-    } else if (user.length < 4) {
-      setFieldError(
-        "signupUser",
-        "Username or email is too short. Please enter at least 4 characters.",
-      );
-      hasError = true;
-    }
-
-    if (!pass) {
-      setFieldError(
-        "signupPass",
-        "Password is required. Please create a secure password.",
-      );
-      hasError = true;
-    } else if (pass.length < 8) {
-      setFieldError(
-        "signupPass",
-        "Password is too short. Use at least 8 characters.",
-      );
-      hasError = true;
-    }
-
-    if (!confirm) {
-      setFieldError(
-        "signupConfirm",
-        "Please confirm your password by typing it again.",
-      );
-      hasError = true;
-    } else if (pass && pass !== confirm) {
-      setFieldError(
-        "signupConfirm",
-        "The confirmation password does not match your password.",
-      );
-      hasError = true;
-    }
-
-    if (hasError) {
-      const firstErrorInput = signupForm.querySelector(".input-wrapper.has-error input");
-      if (firstErrorInput) firstErrorInput.focus();
-      return;
-    }
-
-    signupSuccessModal.classList.add("show");
-    document.body.style.overflow = "hidden";
-    signupForm.reset();
-    clearFormErrors(signupForm);
-  });
-
-  // Handle Modal Continue
-  successContinueBtn.addEventListener("click", () => {
-    signupSuccessModal.classList.remove("show");
-    document.body.style.overflow = "";
-    showLogin();
-  });
-
-  // Close modal on background click
-  signupSuccessModal.addEventListener("click", (event) => {
-    if (event.target === signupSuccessModal) {
-      signupSuccessModal.classList.remove("show");
-      document.body.style.overflow = "";
-      showLogin();
-    }
-  });
-
   // Handle Login Submit
-  loginForm.addEventListener("submit", (event) => {
-    event.preventDefault();
+  if (loginForm) {
+      loginForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
 
-    clearFormErrors(loginForm);
+        clearFormErrors(loginForm);
 
-    const user = document.getElementById("loginUser").value.trim();
-    const pass = document.getElementById("loginPass").value;
+        const user = document.getElementById("loginUser").value.trim();
+        const pass = document.getElementById("loginPass").value;
 
-    let hasError = false;
+        let hasError = false;
 
-    if (!user) {
-      setFieldError(
-        "loginUser",
-        "Please enter your email or username before logging in.",
-      );
-      hasError = true;
-    }
+        if (!user) {
+          setFieldError(
+            "loginUser",
+            "Please enter your email or username before logging in.",
+          );
+          hasError = true;
+        }
 
-    if (!pass) {
-      setFieldError(
-        "loginPass",
-        "Password cannot be empty. Please enter your password.",
-      );
-      hasError = true;
-    }
+        if (!pass) {
+          setFieldError(
+            "loginPass",
+            "Password cannot be empty. Please enter your password.",
+          );
+          hasError = true;
+        }
 
-    if (hasError) {
-      const firstErrorInput = loginForm.querySelector(".input-wrapper.has-error input");
-      if (firstErrorInput) firstErrorInput.focus();
-      return;
-    }
+        if (hasError) {
+          const firstErrorInput = loginForm.querySelector(".input-wrapper.has-error input");
+          if (firstErrorInput) firstErrorInput.focus();
+          return;
+        }
 
-    // Design-only routing to dashboard placeholder page.
-    window.location.href = "../admin-page/dashboard.html";
-  });
+        toggleLoader(true);
+        try {
+          const response = await fetch('http://127.0.0.1:8000/api/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              login: user,
+              password: pass
+            })
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            localStorage.setItem('auth_token', data.access_token);
+            localStorage.setItem('user_info', JSON.stringify(data.user));
+            showStatus("Login successful. Opening dashboard...");
+
+            if (data.user.role === 'admin') {
+              window.location.href = "../admin-page/dashboard.html";
+            } else if (data.user.role === 'cashier') {
+              window.location.href = "../cashier-page/dashboard.html";
+            } else {
+              setFieldError("loginUser", "Unauthorized access. This area is for Admin/Cashier only.");
+            }
+          } else if (response.status === 422 && data.errors) {
+            if (data.errors.login?.[0]) {
+              setFieldError("loginUser", data.errors.login[0]);
+            }
+            if (data.errors.password?.[0]) {
+              setFieldError("loginPass", data.errors.password[0]);
+            }
+          } else if (data.message && /invalid|incorrect|credentials/i.test(data.message)) {
+            setFieldError("loginPass", "Password is incorrect.");
+          } else {
+            setFieldError("loginUser", data.message || "Unable to log in with the provided details.");
+          }
+        } catch {
+          setFieldError("loginUser", "Cannot connect to server. Ensure Laravel is running (php artisan serve).");
+        } finally {
+          toggleLoader(false);
+        }
+      });
+  }
 });
+

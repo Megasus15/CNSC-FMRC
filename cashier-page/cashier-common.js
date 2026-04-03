@@ -271,6 +271,156 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  const ensureLoader = () => {
+    let loader = document.getElementById("global-loader");
+    if (!loader) {
+      loader = document.createElement("div");
+      loader.id = "global-loader";
+      loader.className = "global-loader-overlay";
+      loader.innerHTML = '<div class="laravel-spinner"></div>';
+      document.body.appendChild(loader);
+    }
+    return loader;
+  };
+
+  const setLoading = (active) => {
+    ensureLoader().classList.toggle("active", active);
+  };
+
+  const ensureStatusModal = () => {
+    let modal = document.getElementById("authStatusModal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "authStatusModal";
+      modal.className = "status-modal";
+      modal.innerHTML = '<div class="status-box" id="authStatusText"></div>';
+      document.body.appendChild(modal);
+    }
+    return {
+      modal,
+      text: document.getElementById("authStatusText"),
+    };
+  };
+
+  const showStatus = (message) => {
+    const { modal, text } = ensureStatusModal();
+    if (text) text.textContent = message;
+    modal.classList.add("show");
+  };
+
+  const showLogoutConfirmModal = (onConfirm) => {
+    let modal = document.getElementById("laravelLogoutModal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "laravelLogoutModal";
+      modal.innerHTML = `
+        <div style="position: fixed; inset: 0; background: rgba(17, 24, 39, 0.6); backdrop-filter: blur(2px); display: flex; justify-content: center; align-items: center; z-index: 100000; opacity: 0; transition: opacity 0.2s ease;">
+          <div style="background: #fff; border-radius: 12px; width: 100%; max-width: 420px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); transform: scale(0.95); transition: transform 0.2s ease; font-family: 'Open Sans', sans-serif; overflow: hidden;">
+            <div style="padding: 24px;">
+              <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px;">
+                <div style="width: 40px; height: 40px; border-radius: 50%; background: #fee2e2; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
+                  <svg width="24" height="24" fill="none" stroke="#dc2626" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                </div>
+                <h2 style="font-size: 1.25rem; font-weight: 600; color: #111827; margin: 0;">Confirm Logout</h2>
+              </div>
+              <p style="font-size: 0.9rem; color: #4b5563; margin: 0 0 0 54px; line-height: 1.5;">Are you sure you want to log out from your account? You will need to sign in again to access the portal.</p>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 12px; background: #f9fafb; padding: 16px 24px; border-top: 1px solid #f3f4f6;">
+              <button id="cancelLogoutBtn" style="padding: 8px 16px; background: #fff; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; color: #374151; font-weight: 600; font-family: inherit; font-size: 0.875rem; transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.08s ease;">Cancel</button>
+              <button id="confirmLogoutBtn" style="padding: 8px 16px; background: var(--primary-color, #a80f0f); border: none; border-radius: 6px; cursor: pointer; color: #fff; font-weight: 600; font-family: inherit; font-size: 0.875rem; transition: background-color 0.2s ease, transform 0.08s ease, box-shadow 0.2s ease;">Log Out</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      const cancelBtn = modal.querySelector("#cancelLogoutBtn");
+      const confirmBtn = modal.querySelector("#confirmLogoutBtn");
+      
+      cancelBtn.onmouseenter = () => {
+        cancelBtn.style.backgroundColor = "#fee2e2";
+        cancelBtn.style.color = "#dc2626";
+        cancelBtn.style.borderColor = "#fca5a5";
+      };
+      cancelBtn.onmouseleave = () => {
+        cancelBtn.style.backgroundColor = "#fff";
+        cancelBtn.style.color = "#374151";
+        cancelBtn.style.borderColor = "#d1d5db";
+        cancelBtn.style.transform = "scale(1)";
+      };
+      cancelBtn.onmousedown = () => cancelBtn.style.transform = "scale(0.96)";
+      cancelBtn.onmouseup = () => cancelBtn.style.transform = "scale(1)";
+
+      confirmBtn.onmouseenter = () => {
+        confirmBtn.style.backgroundColor = "#7f1d1d"; // Darker red
+        confirmBtn.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)";
+      };
+      confirmBtn.onmouseleave = () => {
+        confirmBtn.style.backgroundColor = "var(--primary-color, #a80f0f)";
+        confirmBtn.style.boxShadow = "none";
+        confirmBtn.style.transform = "scale(1)";
+      };
+      confirmBtn.onmousedown = () => confirmBtn.style.transform = "scale(0.96)";
+      confirmBtn.onmouseup = () => confirmBtn.style.transform = "scale(1)";
+
+      cancelBtn.addEventListener("click", () => {
+        modal.children[0].style.opacity = "0";
+        modal.children[0].children[0].style.transform = "scale(0.95)";
+        setTimeout(() => (modal.style.display = "none"), 200);
+      });
+
+      confirmBtn.addEventListener("click", () => {
+        modal.children[0].style.opacity = "0";
+        modal.children[0].children[0].style.transform = "scale(0.95)";
+        setTimeout(() => {
+          modal.style.display = "none";
+          onConfirm();
+        }, 200);
+      });
+    }
+
+    modal.style.display = "block";
+    requestAnimationFrame(() => {
+      modal.children[0].style.opacity = "1";
+      modal.children[0].children[0].style.transform = "scale(1)";
+    });
+  };
+
+  const performLogout = async () => {
+    const token = localStorage.getItem("auth_token");
+    setLoading(true);
+    try {
+      if (token) {
+        await fetch("http://127.0.0.1:8000/api/logout", {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer " + token,
+            Accept: "application/json",
+          },
+        });
+      }
+    } catch {
+      // Local session cleanup is still required.
+    } finally {
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("user_info");
+      setLoading(false);
+      showStatus("Logged out successfully.");
+      window.location.href = "../admin-auth/auth.html";
+    }
+  };
+
+  document.querySelectorAll(".logout-btn").forEach((button) => {
+    if (button.dataset.logoutBound === "1") return;
+    button.dataset.logoutBound = "1";
+    button.addEventListener("click", async (event) => {
+      event.preventDefault();
+      showLogoutConfirmModal(async () => {
+        await performLogout();
+      });
+    });
+  });
+
   const openers = document.querySelectorAll("[data-modal-open]");
   const closers = document.querySelectorAll("[data-modal-close]");
 

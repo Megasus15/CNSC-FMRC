@@ -308,5 +308,75 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+    const ensureLoader = () => {
+      let loader = document.getElementById("global-loader");
+      if (!loader) {
+        loader = document.createElement("div");
+        loader.id = "global-loader";
+        loader.className = "global-loader-overlay";
+        loader.innerHTML = '<div class="laravel-spinner"></div>';
+        document.body.appendChild(loader);
+      }
+      return loader;
+    };
+
+    const setLoading = (active) => {
+      ensureLoader().classList.toggle("active", active);
+    };
+
+    const ensureStatusModal = () => {
+      let modal = document.getElementById("authStatusModal");
+      if (!modal) {
+        modal = document.createElement("div");
+        modal.id = "authStatusModal";
+        modal.className = "status-modal";
+        modal.innerHTML = '<div class="status-box" id="authStatusText"></div>';
+        document.body.appendChild(modal);
+      }
+      return {
+        modal,
+        text: document.getElementById("authStatusText"),
+      };
+    };
+
+    const showStatus = (message) => {
+      const { modal, text } = ensureStatusModal();
+      if (text) text.textContent = message;
+      modal.classList.add("show");
+    };
+
+    const performLogout = async () => {
+      const token = localStorage.getItem("auth_token");
+      setLoading(true);
+      try {
+        if (token) {
+          await fetch("http://127.0.0.1:8000/api/logout", {
+            method: "POST",
+            headers: {
+              Authorization: "Bearer " + token,
+              Accept: "application/json",
+            },
+          });
+        }
+      } catch {
+        // Local session cleanup is still required.
+      } finally {
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("user_info");
+        setLoading(false);
+        showStatus("Logged out successfully.");
+        window.location.href = "../admin-auth/auth.html";
+      }
+    };
+
+    document.querySelectorAll(".logout-btn").forEach((button) => {
+      if (button.dataset.logoutBound === "1") return;
+      button.dataset.logoutBound = "1";
+      button.addEventListener("click", async (event) => {
+        event.preventDefault();
+        await performLogout();
+      });
+    });
+
   syncSidebarMode();
 });
