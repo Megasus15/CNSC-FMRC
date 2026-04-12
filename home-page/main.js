@@ -1,6 +1,26 @@
+const getCustomerSession = () => {
+  const token = localStorage.getItem("customer_token");
+  const userInfoRaw = localStorage.getItem("customer_info");
+
+  let userInfo = null;
+  try {
+    if (userInfoRaw) userInfo = JSON.parse(userInfoRaw);
+  } catch {
+    userInfo = null;
+  }
+
+  return {
+    token,
+    userInfo,
+    isAuthenticated: Boolean(token && userInfo),
+  };
+};
+
 document.addEventListener("DOMContentLoaded", () => {
   let navLinks = document.querySelectorAll(".nav-link");
   const sections = document.querySelectorAll("main, section");
+  const customerSession = getCustomerSession();
+  const isGuestUser = !customerSession.isAuthenticated;
 
   // Mobile Sidebar Navigation (shared across all pages)
   const siteHeader = document.querySelector(".site-header");
@@ -115,6 +135,56 @@ document.addEventListener("DOMContentLoaded", () => {
 
     navLinks = document.querySelectorAll(".nav-link");
   }
+
+  const ensureGuestAccessModal = () => {
+    let modal = document.getElementById("guestAccessModal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "guestAccessModal";
+      modal.className = "guest-access-modal";
+      modal.innerHTML = `
+        <div class="guest-access-card" role="dialog" aria-modal="true" aria-labelledby="guestAccessTitle">
+          <button type="button" class="guest-access-close" id="closeGuestAccessModal" aria-label="Close guest access prompt">&times;</button>
+          <h2 class="guest-access-title" id="guestAccessTitle">Welcome, Guest</h2>
+          <p class="guest-access-copy" id="guestAccessCopy">Please log in or create an account to continue.</p>
+          <div class="guest-access-actions">
+            <a href="../customer-auth/auth.html#login" class="guest-access-btn login">Login</a>
+            <a href="../customer-auth/auth.html#signup" class="guest-access-btn signup">Sign Up</a>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      modal.querySelector("#closeGuestAccessModal")?.addEventListener("click", () => {
+        modal.classList.remove("show");
+        document.body.style.overflow = "";
+      });
+
+      modal.addEventListener("click", (event) => {
+        if (event.target === modal) {
+          modal.classList.remove("show");
+          document.body.style.overflow = "";
+        }
+      });
+    }
+    return modal;
+  };
+
+  const openGuestAccessModal = (actionLabel) => {
+    const modal = ensureGuestAccessModal();
+    const copy = modal.querySelector("#guestAccessCopy");
+    if (copy) {
+      copy.textContent = `Please log in or create an account to ${actionLabel}.`;
+    }
+    modal.classList.add("show");
+    document.body.style.overflow = "hidden";
+  };
+
+  const requireCustomerAuth = (actionLabel) => {
+    if (!isGuestUser) return true;
+    openGuestAccessModal(actionLabel);
+    return false;
+  };
 
   // Disable sticky header when any modal/overlay/form is open
   const headerBlockingSelectors = [
@@ -318,121 +388,142 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // =========================================
-  // SERVICES 3D CAROUSEL LOGIC
+  // SERVICES LIST FILTERING LOGIC
+  // =========================================
+  const isServicesPage = document.body.classList.contains("services-page-body");
+
+  if (isServicesPage) {
+    const searchInput = document.querySelector(".toolbar-search .search-input");
+    const categorySelect = document.querySelector(".category-select");
+    const serviceCards = Array.from(document.querySelectorAll(".services-grid .service-card"));
+
+    const normalize = (value) => String(value || "").toLowerCase().trim();
+
+    const applyServiceFilters = () => {
+      const query = normalize(searchInput?.value || "");
+      const selectedCategory = normalize(categorySelect?.value || "all");
+
+      serviceCards.forEach((card) => {
+        const title = normalize(card.querySelector(".card-title")?.textContent || "");
+        const desc = normalize(card.querySelector(".card-desc")?.textContent || "");
+        const category = normalize(card.dataset.category || "");
+
+        const matchesSearch = !query || title.includes(query) || desc.includes(query);
+        const matchesCategory = selectedCategory === "all" || category === selectedCategory;
+        card.style.display = matchesSearch && matchesCategory ? "" : "none";
+      });
+    };
+
+    searchInput?.addEventListener("input", applyServiceFilters);
+    categorySelect?.addEventListener("change", applyServiceFilters);
+    applyServiceFilters();
+  }
+
+  // =========================================
+  // SERVICES 3D CAROUSEL LOGIC (Homepage)
   // =========================================
   const track = document.querySelector(".carousel-track");
 
   if (track) {
-    // Ensures this only runs on the services page
     const items = Array.from(track.querySelectorAll(".carousel-item"));
     const prevBtn = document.querySelector(".prev-btn");
     const nextBtn = document.querySelector(".next-btn");
-    let currentIndex = 0;
-    let autoPlayInterval;
+    const wrapper = document.querySelector(".carousel-wrapper");
 
-    // Core function to update classes for 3D effect
-    function updateCarousel() {
-      items.forEach((item, index) => {
-        // Reset all classes
-        item.className = "carousel-item";
+    if (items.length > 0 && prevBtn && nextBtn && wrapper) {
+      let currentIndex = 0;
+      let autoPlayInterval;
 
-        // Calculate dynamic positions relative to current index
-        if (index === currentIndex) {
-          item.classList.add("active");
-        } else if (index === (currentIndex - 1 + items.length) % items.length) {
-          item.classList.add("prev");
-        } else if (index === (currentIndex + 1) % items.length) {
-          item.classList.add("next");
-        } else if (index === (currentIndex - 2 + items.length) % items.length) {
-          item.classList.add("prev-hidden");
-        } else if (index === (currentIndex + 2) % items.length) {
-          item.classList.add("next-hidden");
-        }
+      const updateCarousel = () => {
+        items.forEach((item, index) => {
+          item.className = "carousel-item";
+
+          if (index === currentIndex) {
+            item.classList.add("active");
+          } else if (index === (currentIndex - 1 + items.length) % items.length) {
+            item.classList.add("prev");
+          } else if (index === (currentIndex + 1) % items.length) {
+            item.classList.add("next");
+          } else if (index === (currentIndex - 2 + items.length) % items.length) {
+            item.classList.add("prev-hidden");
+          } else if (index === (currentIndex + 2) % items.length) {
+            item.classList.add("next-hidden");
+          }
+        });
+      };
+
+      const moveNext = () => {
+        currentIndex = (currentIndex + 1) % items.length;
+        updateCarousel();
+      };
+
+      const movePrev = () => {
+        currentIndex = (currentIndex - 1 + items.length) % items.length;
+        updateCarousel();
+      };
+
+      const startAutoPlay = () => {
+        autoPlayInterval = setInterval(moveNext, 5000);
+      };
+
+      const resetAutoPlay = () => {
+        clearInterval(autoPlayInterval);
+        startAutoPlay();
+      };
+
+      nextBtn.addEventListener("click", () => {
+        moveNext();
+        resetAutoPlay();
       });
-    }
 
-    // Movement Functions
-    function moveNext() {
-      currentIndex = (currentIndex + 1) % items.length;
-      updateCarousel();
-    }
+      prevBtn.addEventListener("click", () => {
+        movePrev();
+        resetAutoPlay();
+      });
 
-    function movePrev() {
-      currentIndex = (currentIndex - 1 + items.length) % items.length;
-      updateCarousel();
-    }
+      items.forEach((item) => {
+        item.addEventListener("click", () => {
+          if (item.classList.contains("prev")) {
+            movePrev();
+            resetAutoPlay();
+          } else if (item.classList.contains("next")) {
+            moveNext();
+            resetAutoPlay();
+          }
+        });
+      });
 
-    // Button Listeners
-    nextBtn.addEventListener("click", () => {
-      moveNext();
-      resetAutoPlay();
-    });
-    prevBtn.addEventListener("click", () => {
-      movePrev();
-      resetAutoPlay();
-    });
+      let startX = 0;
+      let endX = 0;
 
-    // Allow clicking the side cards to bring them to the front
-    items.forEach((item) => {
-      item.addEventListener("click", (e) => {
-        if (item.classList.contains("prev")) {
-          movePrev();
-          resetAutoPlay();
-        } else if (item.classList.contains("next")) {
+      track.addEventListener(
+        "touchstart",
+        (e) => {
+          startX = e.touches[0].clientX;
+          clearInterval(autoPlayInterval);
+        },
+        { passive: true },
+      );
+
+      track.addEventListener("touchend", (e) => {
+        endX = e.changedTouches[0].clientX;
+        const swipeThreshold = 40;
+
+        if (startX - endX > swipeThreshold) {
           moveNext();
-          resetAutoPlay();
+        } else if (endX - startX > swipeThreshold) {
+          movePrev();
         }
+
+        startAutoPlay();
       });
-    });
 
-    // Mobile Swipe (Touch) Support
-    let startX = 0;
-    let endX = 0;
+      wrapper.addEventListener("mouseenter", () => clearInterval(autoPlayInterval));
+      wrapper.addEventListener("mouseleave", startAutoPlay);
 
-    track.addEventListener(
-      "touchstart",
-      (e) => {
-        startX = e.touches[0].clientX;
-        clearInterval(autoPlayInterval); // Pause auto-play on touch
-      },
-      { passive: true },
-    );
-
-    track.addEventListener("touchend", (e) => {
-      endX = e.changedTouches[0].clientX;
-      handleSwipe();
-      startAutoPlay(); // Resume auto-play
-    });
-
-    function handleSwipe() {
-      const swipeThreshold = 40; // Minimum distance to trigger swipe
-      if (startX - endX > swipeThreshold) {
-        moveNext(); // Swipe left
-      } else if (endX - startX > swipeThreshold) {
-        movePrev(); // Swipe right
-      }
-    }
-
-    // Slow Automatic Sliding Animation (Loops every 4 seconds)
-    function startAutoPlay() {
-      autoPlayInterval = setInterval(moveNext, 5000);
-    }
-
-    function resetAutoPlay() {
-      clearInterval(autoPlayInterval);
+      updateCarousel();
       startAutoPlay();
     }
-
-    // Pause animation when user hovers over the carousel
-    const wrapper = document.querySelector(".carousel-wrapper");
-    wrapper.addEventListener("mouseenter", () =>
-      clearInterval(autoPlayInterval),
-    );
-    wrapper.addEventListener("mouseleave", startAutoPlay);
-
-    // Initialize the carousel on load
-    updateCarousel();
-    startAutoPlay();
   }
 
   // =========================================
@@ -806,6 +897,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const buyNowBtns = document.querySelectorAll(".btn-buy-now:not(.disabled)");
   buyNowBtns.forEach((btn) => {
     btn.addEventListener("click", function (e) {
+      if (!requireCustomerAuth("buy products")) return;
+
       const card = e.target.closest(".shop-card");
       if (card) {
         const imgScr = card.querySelector(".product-img-wrapper img").src;
@@ -1027,6 +1120,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (cartIconTrigger && cartModal) {
     cartIconTrigger.addEventListener("click", (e) => {
       e.preventDefault();
+      if (!requireCustomerAuth("view and manage your cart")) return;
       cartModal.classList.add("show-modal");
       document.body.style.overflow = "hidden";
     });
@@ -1108,6 +1202,8 @@ document.addEventListener("DOMContentLoaded", () => {
   );
   addToCartBtns.forEach((btn) => {
     btn.addEventListener("click", function (e) {
+      if (!requireCustomerAuth("add products to cart")) return;
+
       const card = e.target.closest(".shop-card");
       if (!card) return;
 
@@ -1214,6 +1310,8 @@ document.addEventListener("DOMContentLoaded", () => {
   );
   if (cartCheckoutSubmitBtn) {
     cartCheckoutSubmitBtn.addEventListener("click", () => {
+      if (!requireCustomerAuth("buy products")) return;
+
       const checkedItems = cartItemsContainer.querySelectorAll(
         ".cart-item-check:checked",
       );
@@ -1246,178 +1344,812 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================================
   // APPOINTMENT FLOW LOGIC (HOMEPAGE)
   // =========================================
+  const API_BASE_URL =
+    window.APP_API_BASE_URL ||
+    document.querySelector('meta[name="api-base-url"]')?.getAttribute("content") ||
+    `${window.location.protocol}//${window.location.hostname}:8000/api`;
   const appointmentBtn = document.querySelector(".btn-appointment");
   const appointmentOverlay = document.getElementById("appointmentFlow");
   const closeAppointmentBtn = document.getElementById("closeAppointmentBtn");
-
   const privacyModal = document.getElementById("aptPrivacyModal");
   const confirmModal = document.getElementById("aptConfirmModal");
-  const APPOINTMENTS_STORAGE_KEY = "fmrcAppointments";
-  const CALENDAR_BLOCKS_STORAGE_KEY = "fmrcAppointmentCalendarBlocks";
+  const successModal = document.getElementById("successAppointmentModal");
+  const aptFileInput = document.getElementById("aptFile");
+  const aptFileName = document.getElementById("aptFileName");
+
+  const calGrid = document.getElementById("calDaysGrid");
+  const monthDisplay = document.getElementById("calMonthYear");
+  const prevBtn = document.getElementById("calPrevBtn");
+  const nextBtn = document.getElementById("calNextBtn");
+  const timeContainer = document.getElementById("timeSlotsContainer");
+  const selectedDateDisplay = document.getElementById("selectedDateDisplay");
+  const slotCounter = document.getElementById("slotCounter");
+  const limitMsg = document.getElementById("maxLimitMsg");
 
   let appointmentSubmitted = false;
-  let uploadedAppointmentFile = { name: "", dataUrl: "" };
+  let submittedAppointment = null;
+  let selectedDateKey = null;
+  const today = new Date();
+  const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  let currentMonth = todayOnly.getMonth();
+  let currentYear = todayOnly.getFullYear();
+  let uploadedAppointmentFile = null;
 
-  const fileToDataUrl = (file) =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ""));
-      reader.onerror = () => reject(new Error("Failed to read file"));
-      reader.readAsDataURL(file);
-    });
+  const defaultTimeSlots = [
+    { label: "9:00 - 10:00 AM", type: "AM", sort_order: 1 },
+    { label: "10:00 - 11:00 AM", type: "AM", sort_order: 2 },
+    { label: "11:00 - 12:00", type: "AM", sort_order: 3 },
+    { label: "1:00 - 2:00 PM", type: "PM", sort_order: 4 },
+    { label: "2:00 - 3:00 PM", type: "PM", sort_order: 5 },
+    { label: "3:00 - 4:00 PM", type: "PM", sort_order: 6 },
+  ];
 
-  const readStoredAppointments = () => {
-    try {
-      const raw = localStorage.getItem(APPOINTMENTS_STORAGE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
+  const calendarState = {
+    timeSlots: [...defaultTimeSlots],
+    daySettings: {},
+    bookedSlots: {},
+  };
+
+  const appointmentSelections = {};
+  window.appointmentSelections = appointmentSelections;
+
+  const months = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
+
+  const parseSlotStartMinutes = (slot) => {
+    const label = String(slot?.label || "").trim();
+    const start = label.split("-")[0].trim();
+    const meridiemMatch = label.match(/\b(AM|PM)\b/i);
+    const meridiem = (slot?.type || meridiemMatch?.[1] || "AM").toUpperCase();
+    const match = start.match(/^(\d{1,2})(?::(\d{1,2}))?$/);
+    if (!match) return Number.MAX_SAFE_INTEGER;
+
+    let hh = Number(match[1]);
+    const mm = Number(match[2] || "0");
+    if (Number.isNaN(hh) || Number.isNaN(mm) || hh < 1 || hh > 12 || mm < 0 || mm > 59) {
+      return Number.MAX_SAFE_INTEGER;
     }
+
+    if (meridiem === "AM") {
+      if (hh === 12) hh = 0;
+    } else if (hh < 12) {
+      hh += 12;
+    }
+
+    return hh * 60 + mm;
   };
 
-  const nextAppointmentNo = (records) => {
-    const max = records.reduce((acc, record) => {
-      const val = Number(String(record?.apNo || "").replace(/[^0-9]/g, "") || 0);
-      return Math.max(acc, val);
-    }, 175);
-    return `AP-${String(max + 1).padStart(5, "0")}`;
+  const slotSortComparator = (a, b) => {
+    const aTime = parseSlotStartMinutes(a);
+    const bTime = parseSlotStartMinutes(b);
+    if (aTime !== bTime) return aTime - bTime;
+    return String(a?.label || "").localeCompare(String(b?.label || ""));
   };
+
+  const bindClick = (id, callback) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("click", callback);
+  };
+
+  const setText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.innerText = text;
+  };
+
+  const setHtml = (id, content) => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = content;
+  };
+
+  const showSlotMessage = (message, color = "#b01c1c") => {
+    if (!limitMsg) return;
+    limitMsg.style.display = "block";
+    limitMsg.style.color = color;
+    limitMsg.innerText = message;
+  };
+
+  const clearSlotMessage = () => {
+    if (!limitMsg) return;
+    limitMsg.style.display = "none";
+    limitMsg.innerText = "";
+  };
+
+  const toDateKey = (year, month, day) =>
+    `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
   const toReadableDate = (isoDate) => {
     const match = String(isoDate || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (!match) return isoDate || "N/A";
-    const months = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ];
+    if (!match) return "N/A";
     return `${months[Number(match[2]) - 1]} ${Number(match[3])}, ${match[1]}`;
   };
 
-  const persistAppointmentRecord = () => {
-    const records = readStoredAppointments();
+  const getAppointmentAddress = () => {
+    const country = document.getElementById("aptCountry")?.value?.trim() || "Philippines";
 
-    const firstName = document.getElementById("aptFName")?.value?.trim() || "";
-    const lastName = document.getElementById("aptLName")?.value?.trim() || "";
-    const email = document.getElementById("aptEmail")?.value?.trim() || "N/A";
-    const contactNumber = document.getElementById("aptPhone")?.value?.trim() || "N/A";
-    const purpose = document.getElementById("aptPurpose")?.value?.trim() || "Inquiries";
-    const type = document.getElementById("aptRole")?.value?.trim() || "Student";
-    const notes = document.getElementById("aptDesc")?.value?.trim() || "N/A";
+    if (country !== "Philippines") {
+      const intlAddress = document.getElementById("aptIntlAddress")?.value?.trim() || "";
+      return [intlAddress, country].filter(Boolean).join(", ");
+    }
 
+    const region = document.getElementById("aptRegion")?.value?.trim() || "";
     const province = document.getElementById("aptProvince")?.value?.trim() || "";
     const municipality = document.getElementById("aptMunicipality")?.value?.trim() || "";
     const barangay = document.getElementById("aptAddress")?.value?.trim() || "";
-    const address = [barangay, municipality, province].filter(Boolean).join(", ") || "N/A";
 
-    const selections = window.appointmentSelections || {};
-    const selectedDates = Object.keys(selections).sort();
-    const firstDate = selectedDates[0] || "N/A";
-    const firstTime = selections[firstDate]?.[0] || "N/A";
-
-    const appointment = {
-      apNo: nextAppointmentNo(records),
-      clientName: `${firstName} ${lastName}`.trim() || "N/A",
-      contactNumber,
-      email,
-      address,
-      type,
-      purpose,
-      fileAttach: uploadedAppointmentFile.name
-        ? {
-            name: uploadedAppointmentFile.name,
-            dataUrl: uploadedAppointmentFile.dataUrl || "",
-          }
-        : { name: "N/A", dataUrl: "" },
-      notes,
-      date: firstDate,
-      time: firstTime,
-      status: "Scheduled",
-      submittedAt: new Date().toISOString(),
-      schedulePreview: toReadableDate(firstDate),
-    };
-
-    records.unshift(appointment);
-    localStorage.setItem(APPOINTMENTS_STORAGE_KEY, JSON.stringify(records));
+    return [barangay, municipality, province, region, country].filter(Boolean).join(", ");
   };
 
-  // 1. Open Flow
-  if (appointmentBtn && appointmentOverlay) {
-    appointmentBtn.addEventListener("click", () => {
-      appointmentOverlay.classList.add("show-modal");
-      document.body.style.overflow = "hidden";
-      appointmentSubmitted = false;
-      switchAptStep(1);
-    });
-  }
-
-  const aptFileInput = document.getElementById("aptFile");
-  aptFileInput?.addEventListener("change", async () => {
-    const file = aptFileInput.files?.[0];
-    if (!file) {
-      uploadedAppointmentFile = { name: "", dataUrl: "" };
-      return;
-    }
-
-    if (!file.type || (!file.type.startsWith("image/") && file.type !== "application/pdf")) {
-      uploadedAppointmentFile = { name: file.name, dataUrl: "" };
-      return;
-    }
-
+  const fetchCalendarAvailability = async () => {
     try {
-      const dataUrl = await fileToDataUrl(file);
-      uploadedAppointmentFile = { name: file.name, dataUrl };
+      const response = await fetch(`${API_BASE_URL}/appointments/calendar`, {
+        headers: {
+          Accept: "application/json",
+        },
+      });
+
+      if (!response.ok) return;
+      const data = await response.json();
+
+      const incomingSlots = Array.isArray(data?.time_slots) ? data.time_slots : [];
+      calendarState.timeSlots = incomingSlots.length
+        ? incomingSlots
+            .map((slot) => ({
+              label: String(slot.label || ""),
+              type: String(slot.type || "AM"),
+              sort_order: Number(slot.sort_order || 1),
+            }))
+            .filter((slot) => slot.label)
+            .sort(slotSortComparator)
+            .map((slot, index) => ({ ...slot, sort_order: index + 1 }))
+        : [...defaultTimeSlots];
+
+      calendarState.daySettings = {};
+      (Array.isArray(data?.day_settings) ? data.day_settings : []).forEach((entry) => {
+        if (!entry?.date) return;
+        calendarState.daySettings[String(entry.date)] = {
+          is_blocked: Boolean(entry.is_blocked),
+          blocked_slots: Array.isArray(entry.blocked_slots) ? entry.blocked_slots : [],
+          events: Array.isArray(entry.events) ? entry.events : [],
+          custom_slots: Array.isArray(entry.custom_slots) ? entry.custom_slots : [],
+        };
+      });
+
+      calendarState.bookedSlots = data?.booked_slots && typeof data.booked_slots === "object"
+        ? data.booked_slots
+        : {};
     } catch {
-      uploadedAppointmentFile = { name: file.name, dataUrl: "" };
+      // Keep defaults when API is temporarily unavailable.
     }
+  };
+
+  const setFieldError = (inputId, message) => {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    const group = input.closest(".apt-input-group");
+    if (!group) return;
+
+    let bubble = group.querySelector(".apt-field-error-bubble");
+    if (!bubble) {
+      bubble = document.createElement("div");
+      bubble.className = "apt-field-error-bubble";
+      bubble.setAttribute("role", "alert");
+      group.appendChild(bubble);
+    }
+
+    bubble.textContent = message;
+    group.classList.add("has-error");
+    input.setAttribute("aria-invalid", "true");
+  };
+
+  const clearFieldError = (inputId) => {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    const group = input.closest(".apt-input-group");
+    if (!group) return;
+
+    group.classList.remove("has-error");
+    input.removeAttribute("aria-invalid");
+  };
+
+  const clearAllFieldErrors = () => {
+    document.querySelectorAll(".apt-input-group.has-error").forEach((group) => {
+      group.classList.remove("has-error");
+      const input = group.querySelector("input, select, textarea");
+      if (input) input.removeAttribute("aria-invalid");
+    });
+  };
+
+  [
+    "aptLName",
+    "aptFName",
+    "aptMI",
+    "aptPhone",
+    "aptEmail",
+    "aptCountry",
+    "aptRegion",
+    "aptProvince",
+    "aptMunicipality",
+    "aptAddress",
+    "aptIntlAddress",
+    "aptPurpose",
+    "aptRole",
+    "aptDesc",
+  ].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", () => clearFieldError(id));
+    el.addEventListener("change", () => clearFieldError(id));
   });
 
+  const getSelectedSchedule = () => {
+    const date = Object.keys(appointmentSelections)[0] || "";
+    const time = date ? appointmentSelections[date]?.[0] || "" : "";
+    return { date, time };
+  };
+
+  const validateAppointmentStep2 = () => {
+    clearAllFieldErrors();
+
+    const lastName = document.getElementById("aptLName")?.value?.trim() || "";
+    const firstName = document.getElementById("aptFName")?.value?.trim() || "";
+    const middleInitial = document.getElementById("aptMI")?.value?.trim() || "";
+    const mobile = document.getElementById("aptPhone")?.value?.trim() || "";
+    const email = document.getElementById("aptEmail")?.value?.trim() || "";
+    const purpose = document.getElementById("aptPurpose")?.value?.trim() || "";
+    const clientType = document.getElementById("aptRole")?.value?.trim() || "";
+    const country = document.getElementById("aptCountry")?.value?.trim() || "Philippines";
+
+    let firstInvalidId = "";
+    const markError = (id, message) => {
+      setFieldError(id, message);
+      if (!firstInvalidId) firstInvalidId = id;
+    };
+
+    if (!lastName) {
+      markError("aptLName", "Last Name is required.");
+    } else if (lastName.length > 20) {
+      markError("aptLName", "Last Name must not exceed 20 letters.");
+    } else if (!/^[A-Za-z]+(?:\s[A-Za-z]+)*$/.test(lastName)) {
+      markError("aptLName", "Last Name is invalid. Use letters only.");
+    }
+
+    if (!firstName) {
+      markError("aptFName", "First Name is required.");
+    } else if (firstName.length > 25) {
+      markError("aptFName", "First Name must not exceed 25 letters.");
+    } else if (!/^[A-Za-z]+(?:\s[A-Za-z]+)*$/.test(firstName)) {
+      markError("aptFName", "First Name is invalid. Use letters only.");
+    }
+
+    if (middleInitial && !/^[A-Za-z]$/.test(middleInitial)) {
+      markError("aptMI", "M.I. is invalid. Use exactly 1 letter only.");
+    }
+
+    if (!mobile) {
+      markError("aptPhone", "Mobile Number is required.");
+    } else if (!/^\d{11}$/.test(mobile)) {
+      markError("aptPhone", "Mobile Number is invalid. Use exactly 11 digits.");
+    }
+
+    if (!email) {
+      markError("aptEmail", "Email Address is required.");
+    } else if (!/^[A-Za-z0-9._%+-]+@gmail\.com$/i.test(email)) {
+      markError("aptEmail", "Email Address is invalid. Please use a Gmail address only.");
+    }
+
+    if (!purpose) {
+      markError("aptPurpose", "Purpose of Visit is required.");
+    }
+
+    if (!clientType) {
+      markError("aptRole", "Type of Client is required.");
+    }
+
+    if (country === "Philippines") {
+      if (!document.getElementById("aptRegion")?.value?.trim()) {
+        markError("aptRegion", "Region is required.");
+      }
+      if (!document.getElementById("aptProvince")?.value?.trim()) {
+        markError("aptProvince", "Province is required.");
+      }
+      if (!document.getElementById("aptMunicipality")?.value?.trim()) {
+        markError("aptMunicipality", "Municipality is required.");
+      }
+      if (!document.getElementById("aptAddress")?.value?.trim()) {
+        markError("aptAddress", "Barangay is required.");
+      }
+    } else {
+      const intlAddress = document.getElementById("aptIntlAddress")?.value?.trim() || "";
+      if (!intlAddress) {
+        markError("aptIntlAddress", "Complete Residential Address is required.");
+      }
+    }
+
+    if (firstInvalidId) {
+      document.getElementById(firstInvalidId)?.focus();
+      return false;
+    }
+
+    return true;
+  };
+
+  const updateQrDetails = (referenceNo, verifyUrl) => {
+    const qrImage = document.getElementById("receiptQrImage");
+    const qrLink = document.getElementById("receiptQrLink");
+    const payloadUrl = verifyUrl || `${window.location.origin}/appointments/verify/${referenceNo || "PENDING"}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(payloadUrl)}`;
+
+    if (qrImage) {
+      qrImage.crossOrigin = "anonymous";
+      qrImage.src = qrUrl;
+    }
+    if (qrLink) {
+      qrLink.href = payloadUrl;
+      qrLink.textContent = "Open verification page";
+    }
+  };
+
+  const populateReviewData = (step) => {
+    const prefix = step === 4 ? "rev" : "com";
+    const fName = document.getElementById("aptFName")?.value?.trim() || "N/A";
+    const lName = document.getElementById("aptLName")?.value?.trim() || "N/A";
+    const mi = document.getElementById("aptMI")?.value?.trim() || "";
+    const fullName = [fName, mi ? `${mi.replace(/\.$/, "")}.` : "", lName]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    const phone = document.getElementById("aptPhone")?.value?.trim() || "N/A";
+    const email = document.getElementById("aptEmail")?.value?.trim() || "N/A";
+    const purpose = document.getElementById("aptPurpose")?.value?.trim() || "N/A";
+    const clientType = document.getElementById("aptRole")?.value?.trim() || "N/A";
+    const country = document.getElementById("aptCountry")?.value?.trim() || "Philippines";
+    const notes = document.getElementById("aptDesc")?.value?.trim() || "N/A";
+    const address = getAppointmentAddress() || "N/A";
+    const attachmentName = uploadedAppointmentFile?.name || "N/A";
+
+    const { date, time } = getSelectedSchedule();
+    const scheduleText = date && time ? `${toReadableDate(date)} @ ${time}` : "Not selected";
+    const referenceNo = submittedAppointment?.reference_no || "PENDING";
+
+    setText(`${prefix}Name`, fullName);
+    setText(`${prefix}Phone`, phone);
+    setText(`${prefix}Email`, email);
+    setText(`${prefix}Address`, address);
+    setText(`${prefix}Purpose`, purpose);
+    setText(`${prefix}ClientType`, clientType);
+    setText(`${prefix}Country`, country);
+    setText(`${prefix}Desc`, notes);
+    setText(`${prefix}FileAttach`, attachmentName);
+    setText(`${prefix}TicketNo`, `Ticket #${referenceNo}`);
+    setHtml(`${prefix}Sched`, scheduleText);
+
+    setText("successReferenceNo", referenceNo);
+    updateQrDetails(referenceNo, submittedAppointment?.qr_payload || "");
+  };
+
+  const switchAptStep = (stepNumber) => {
+    document.querySelectorAll(".apt-content-section").forEach((sec) => sec.classList.remove("active"));
+    document.querySelectorAll(".apt-step").forEach((step, index) => {
+      const icon = step.querySelector(".apt-icon");
+      if (index < stepNumber) {
+        step.classList.add("active");
+        if (icon) {
+          icon.style.background = "#4caf50";
+          icon.style.color = "#fff";
+          icon.style.borderColor = "#fff";
+        }
+      } else {
+        step.classList.remove("active");
+        if (icon) {
+          icon.style.background = "#fff";
+          icon.style.color = "#8b0000";
+        }
+      }
+    });
+
+    const targetSection = document.getElementById(`aptStep${stepNumber}`);
+    if (targetSection) targetSection.classList.add("active");
+
+    if (stepNumber === 3) {
+      clearSlotMessage();
+      renderCalendar(currentMonth, currentYear);
+      if (selectedDateKey) renderTimeSlots(selectedDateKey);
+      showSlotMessage("Reminder: You can select only 1 time slot for this appointment.", "#9a6a00");
+    }
+
+    if (stepNumber === 4 || stepNumber === 5) {
+      populateReviewData(stepNumber);
+    }
+  };
+
+  const submitAppointment = async () => {
+    const { date, time } = getSelectedSchedule();
+    if (!date || !time) {
+      showSlotMessage("Please select a date and time first before continuing.");
+      return false;
+    }
+
+    const formData = new FormData();
+    formData.append("last_name", document.getElementById("aptLName")?.value?.trim() || "");
+    formData.append("first_name", document.getElementById("aptFName")?.value?.trim() || "");
+    formData.append("middle_initial", document.getElementById("aptMI")?.value?.trim() || "");
+    formData.append("contact_number", document.getElementById("aptPhone")?.value?.trim() || "");
+    formData.append("email", document.getElementById("aptEmail")?.value?.trim() || "");
+    formData.append("country", document.getElementById("aptCountry")?.value?.trim() || "Philippines");
+    formData.append("region", document.getElementById("aptRegion")?.value?.trim() || "");
+    formData.append("province", document.getElementById("aptProvince")?.value?.trim() || "");
+    formData.append("municipality", document.getElementById("aptMunicipality")?.value?.trim() || "");
+    formData.append("barangay", document.getElementById("aptAddress")?.value?.trim() || "");
+    formData.append("intl_address", document.getElementById("aptIntlAddress")?.value?.trim() || "");
+    formData.append("full_address", getAppointmentAddress() || "");
+    formData.append("client_type", document.getElementById("aptRole")?.value?.trim() || "");
+    formData.append("purpose", document.getElementById("aptPurpose")?.value?.trim() || "");
+    formData.append("additional_notes", document.getElementById("aptDesc")?.value?.trim() || "");
+    formData.append("appointment_date", date);
+    formData.append("appointment_time", time);
+
+    if (uploadedAppointmentFile) {
+      formData.append("attachment", uploadedAppointmentFile);
+    }
+
+    const token = localStorage.getItem("customer_token");
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/appointments`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: formData,
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const message = payload?.message || "Unable to submit appointment. Please review your details and try again.";
+        showSlotMessage(message);
+        return false;
+      }
+
+      submittedAppointment = payload?.data || null;
+      appointmentSubmitted = true;
+      populateReviewData(5);
+      return true;
+    } catch {
+      showSlotMessage("Cannot connect to server. Please make sure Laravel is running.");
+      return false;
+    }
+  };
+
+  const downloadAppointmentReceipt = async () => {
+    const receipt = document.getElementById("officialReceiptCard");
+    const referenceNo = submittedAppointment?.reference_no || "PENDING";
+
+    if (!receipt || typeof window.html2canvas !== "function") {
+      showSlotMessage("Receipt download is unavailable right now. Please try again.");
+      return;
+    }
+
+    const canvas = await window.html2canvas(receipt, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#ffffff",
+    });
+
+    const link = document.createElement("a");
+    link.href = canvas.toDataURL("image/png");
+    link.download = `FMRC-Official-Receipt-${referenceNo}.png`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
+  const downloadQrCodeCard = () => {
+    const qrImage = document.getElementById("receiptQrImage");
+    const qrLink = document.getElementById("receiptQrLink")?.href || "";
+    const referenceNo = submittedAppointment?.reference_no || "PENDING";
+    if (!qrImage?.src) return;
+
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 900;
+      canvas.height = 1180;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = "#8b0000";
+      ctx.font = "bold 42px Montserrat, Arial, sans-serif";
+      ctx.fillText("CNSC-FMRC QR PASS", 180, 90);
+
+      ctx.strokeStyle = "#d8dde6";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(130, 140, 640, 640);
+      ctx.drawImage(img, 180, 190, 540, 540);
+
+      ctx.fillStyle = "#1f2937";
+      ctx.font = "bold 28px Montserrat, Arial, sans-serif";
+      ctx.fillText(`Reference: ${referenceNo}`, 180, 840);
+      ctx.font = "22px Montserrat, Arial, sans-serif";
+      ctx.fillText("Scan to verify this appointment receipt", 180, 895);
+      ctx.fillText("FMRC Online Appointment Verification", 180, 940);
+      ctx.font = "16px Montserrat, Arial, sans-serif";
+      ctx.fillText("Scan to open the official verification page", 180, 988);
+
+      const dl = document.createElement("a");
+      dl.href = canvas.toDataURL("image/png");
+      dl.download = `FMRC-Appointment-QR-${referenceNo}.png`;
+      document.body.appendChild(dl);
+      dl.click();
+      dl.remove();
+    };
+
+    img.onerror = () => {
+      const link = document.createElement("a");
+      link.href = qrImage.src;
+      link.download = `FMRC-Appointment-QR-${referenceNo}.png`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    };
+
+    img.src = qrImage.src;
+  };
+
+  const handleDateClick = (dateKey, day, month, year) => {
+    selectedDateKey = dateKey;
+    selectedDateDisplay.innerText = `${months[month]} ${day}, ${year}`;
+    if (slotCounter) {
+      slotCounter.style.display = "block";
+      slotCounter.innerText = "Allowed: 1 time slot for this appointment";
+      slotCounter.style.color = "#555";
+    }
+    showSlotMessage("Reminder: You can select only 1 time slot for this appointment.", "#9a6a00");
+    renderCalendar(currentMonth, currentYear);
+    renderTimeSlots(dateKey);
+  };
+
+  const getCombinedSlotsForDate = (dateKey) => {
+    const selected = appointmentSelections[dateKey] || [];
+    const booked = calendarState.bookedSlots[dateKey] || [];
+    const blocked = calendarState.daySettings[dateKey]?.blocked_slots || [];
+    return [...new Set([...selected, ...booked, ...blocked])];
+  };
+
+  const getRenderableSlotsForDate = (dateKey) => {
+    const baseSlots = [...calendarState.timeSlots].sort(slotSortComparator);
+    const day = calendarState.daySettings[dateKey] || {};
+    const customSlots = (Array.isArray(day.custom_slots) ? day.custom_slots : [])
+      .map((slot) => ({
+        label: String(slot?.label || "").trim(),
+        type: String(slot?.type || "AM") === "PM" ? "PM" : "AM",
+        sort_order: 999,
+      }))
+      .filter((slot) => slot.label);
+
+    const seen = new Set(baseSlots.map((slot) => `${slot.label}|${slot.type}`));
+    customSlots.forEach((slot) => {
+      const key = `${slot.label}|${slot.type}`;
+      if (!seen.has(key)) {
+        baseSlots.push(slot);
+        seen.add(key);
+      }
+    });
+
+    return baseSlots.sort(slotSortComparator);
+  };
+
+  const updateDayIndicators = (cell, dateKey) => {
+    const slots = getCombinedSlotsForDate(dateKey);
+    const hasAM = slots.some((slot) => String(slot).includes("AM"));
+    const hasPM = slots.some((slot) => String(slot).includes("PM"));
+
+    cell.classList.remove("has-am", "has-pm", "has-full");
+    if (hasAM && hasPM) {
+      cell.classList.add("has-full");
+    } else if (hasAM) {
+      cell.classList.add("has-am");
+    } else if (hasPM) {
+      cell.classList.add("has-pm");
+    }
+  };
+
+  const renderCalendar = (month, year) => {
+    if (!calGrid || !monthDisplay) return;
+
+    calGrid.innerHTML = "";
+    monthDisplay.innerText = `${months[month]} ${year}`;
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    for (let i = 0; i < firstDay; i += 1) {
+      const emptyCell = document.createElement("div");
+      calGrid.appendChild(emptyCell);
+    }
+
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const cell = document.createElement("div");
+      cell.classList.add("cal-day-cell");
+      cell.innerText = String(day);
+
+      const dateObj = new Date(year, month, day);
+      const dateKey = toDateKey(year, month, day);
+      const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+      const isPast = dateObj < todayOnly;
+      const daySettings = calendarState.daySettings[dateKey] || {
+        is_blocked: false,
+        blocked_slots: [],
+        events: [],
+      };
+
+      if (isWeekend) {
+        cell.classList.add("disabled", "unavailable");
+        cell.setAttribute("title", "Unavailable: Weekend");
+      } else if (isPast) {
+        cell.classList.add("disabled");
+        cell.style.opacity = "0.55";
+        cell.setAttribute("title", "Unavailable: Past Date");
+      } else if (daySettings.is_blocked) {
+        cell.classList.add("disabled", "unavailable");
+        cell.setAttribute("title", "Unavailable: Blocked by admin");
+      } else {
+        cell.addEventListener("click", () => handleDateClick(dateKey, day, month, year));
+        updateDayIndicators(cell, dateKey);
+      }
+
+      if (Array.isArray(daySettings.events) && daySettings.events.length) {
+        cell.setAttribute("title", `Event: ${daySettings.events.join(", ")}`);
+      }
+
+      if (dateKey === selectedDateKey) {
+        cell.classList.add("selected");
+      }
+
+      calGrid.appendChild(cell);
+    }
+  };
+
+  const renderTimeSlots = (dateKey) => {
+    if (!timeContainer) return;
+    const eventsDisplay = document.getElementById("userDateEventsDisplay");
+    
+    if (!dateKey) {
+      timeContainer.innerHTML = '<p class="time-placeholder">Please pick a date first.</p>';
+      if (eventsDisplay) {
+        eventsDisplay.style.display = "none";
+        eventsDisplay.innerHTML = "";
+      }
+      return;
+    }
+
+    const selectedSchedule = getSelectedSchedule();
+    const selectedSlot = selectedSchedule.date === dateKey ? selectedSchedule.time : "";
+    const daySettings = calendarState.daySettings[dateKey] || {
+      is_blocked: false,
+      blocked_slots: [],
+      events: [],
+      custom_slots: [],
+    };
+    const bookedSlots = calendarState.bookedSlots[dateKey] || [];
+
+    if (eventsDisplay) {
+      if (daySettings.events && daySettings.events.length > 0) {
+        eventsDisplay.style.display = "block";
+        eventsDisplay.innerHTML = `<div class="date-note-title">Schedule Notice for this Date</div><ul class="date-note-list">${daySettings.events
+          .map((ev) => `<li>${String(ev)}</li>`)
+          .join("")}</ul>`;
+      } else {
+        eventsDisplay.style.display = "none";
+        eventsDisplay.innerHTML = "";
+      }
+    }
+
+    timeContainer.innerHTML = "";
+    getRenderableSlotsForDate(dateKey).forEach((slot) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "time-slot-btn";
+      button.innerHTML = `<span>${slot.label}</span><span class="time-slot-label">${slot.type}</span>`;
+
+      const isBooked = bookedSlots.includes(slot.label);
+      const isBlocked = daySettings.blocked_slots.includes(slot.label) || daySettings.is_blocked;
+      const isSelected = selectedSlot === slot.label;
+
+      if (isSelected) button.classList.add("selected");
+      if (isBooked || isBlocked) {
+        button.classList.add("disabled");
+        button.title = isBlocked
+          ? "Unavailable: blocked by admin"
+          : "Unavailable: already booked";
+      }
+
+      button.addEventListener("click", () => {
+        if (isBooked) {
+          showSlotMessage("This time slot is already booked by another customer.");
+          return;
+        }
+        if (isBlocked) {
+          showSlotMessage("This time slot is blocked by admin for the selected date.");
+          return;
+        }
+
+        const hasExistingSelection = Boolean(selectedSchedule.date && selectedSchedule.time);
+        const isReplacingSelection = hasExistingSelection && (selectedSchedule.date !== dateKey || selectedSchedule.time !== slot.label);
+
+        Object.keys(appointmentSelections).forEach((key) => delete appointmentSelections[key]);
+        appointmentSelections[dateKey] = [slot.label];
+
+        if (isReplacingSelection) {
+          showSlotMessage("Only 1 slot is allowed per appointment. Your previous slot was replaced.");
+        } else {
+          showSlotMessage("Reminder: You can select only 1 time slot for this appointment.", "#9a6a00");
+        }
+        renderTimeSlots(dateKey);
+        renderCalendar(currentMonth, currentYear);
+      });
+
+      timeContainer.appendChild(button);
+    });
+  };
+
+  const resetAppointmentFlowState = () => {
+    Object.keys(appointmentSelections).forEach((key) => delete appointmentSelections[key]);
+    selectedDateKey = null;
+    clearSlotMessage();
+    submittedAppointment = null;
+    appointmentSubmitted = false;
+    uploadedAppointmentFile = null;
+    if (aptFileInput) aptFileInput.value = "";
+    if (aptFileName) aptFileName.textContent = "No file selected";
+    setText("successReferenceNo", "PENDING");
+    updateQrDetails("PENDING", "");
+  };
+
+  // Address dropdown behavior.
+  const aptCountry = document.getElementById("aptCountry");
+  const aptRegion = document.getElementById("aptRegion");
   const aptProvince = document.getElementById("aptProvince");
   const aptMunicipality = document.getElementById("aptMunicipality");
   const aptBarangay = document.getElementById("aptAddress");
+  const aptIntlAddress = document.getElementById("aptIntlAddress");
+  const aptPhAddressFields = document.getElementById("aptPhAddressFields");
+  const aptIntlAddressField = document.getElementById("aptIntlAddressField");
 
-  if (aptProvince && aptMunicipality && aptBarangay) {
+  if (aptCountry && aptRegion && aptProvince && aptMunicipality && aptBarangay) {
     const phAddressData = {
-      "Camarines Norte": {
-        Daet: ["Barangay I", "Barangay II", "Barangay III", "Barangay IV"],
-        Labo: ["Baay", "Canapawan", "Daguit", "Talobatib"],
-        Basud: ["Angas", "Bactas", "Mocong", "Poblacion 1"],
+      "Bicol Region": {
+        "Camarines Norte": {
+          Daet: ["Barangay I", "Barangay II", "Barangay III", "Barangay IV"],
+          Labo: ["Baay", "Canapawan", "Daguit", "Talobatib"],
+          Basud: ["Angas", "Bactas", "Mocong", "Poblacion 1"],
+        },
       },
-      "Camarines Sur": {
-        Naga: ["Abella", "Bagumbayan Norte", "Concepcion Grande", "Tinago"],
-        Iriga: ["San Agustin", "San Isidro", "Santa Cruz Sur", "Santiago"],
-        Pili: ["Anayan", "Cadlan", "Del Rosario", "San Jose"],
-      },
-      Albay: {
-        Legazpi: ["Bitano", "Bogtong", "Cabangan", "Puro"],
-        Ligao: ["Busay", "Dunao", "Herrera", "Tuburan"],
-        Tabaco: ["Basud", "Bombon", "Cobo", "Tagas"],
-      },
-      Sorsogon: {
-        "Sorsogon City": ["Balogo", "Bibincahan", "Burabod", "Talisay"],
-        Bulan: ["A. Bonifacio", "Aquino", "Calpi", "Zone 8"],
-        Gubat: ["Ariman", "Bagacay", "Bentuco", "Balud del Sur"],
-      },
-      Quezon: {
-        Lucena: ["Bocohan", "Dalahican", "Ibabang Dupay", "Mayao Crossing"],
-        Candelaria: ["Bukal Sur", "Kinatihan I", "Malabanban Norte", "Pahinga Norte"],
-        Sariaya: ["Balubal", "Concepcion 1", "Concepcion Banahaw", "Sampaloc 1"],
-      },
-      "Metro Manila": {
-        Manila: ["Barangay 659", "Barangay 699", "Barangay 734", "Barangay 750"],
-        Quezon: ["Bagumbayan", "Batasan Hills", "Commonwealth", "UP Campus"],
-        Makati: ["Bel-Air", "Poblacion", "San Lorenzo", "Urdaneta"],
+      "National Capital Region (NCR)": {
+        "Metro Manila": {
+          Manila: ["Barangay 659", "Barangay 699", "Barangay 734", "Barangay 750"],
+          "Quezon City": ["Bagumbayan", "Batasan Hills", "Commonwealth", "UP Campus"],
+        },
       },
     };
 
@@ -1431,32 +2163,232 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     };
 
-    fillSelect(aptProvince, Object.keys(phAddressData), "Select Province");
+    const resetPhSelects = () => {
+      fillSelect(aptRegion, Object.keys(phAddressData), "Select Region");
+      fillSelect(aptProvince, [], "Select Province");
+      fillSelect(aptMunicipality, [], "Select Municipality");
+      fillSelect(aptBarangay, [], "Select Barangay");
+      aptProvince.disabled = true;
+      aptMunicipality.disabled = true;
+      aptBarangay.disabled = true;
+    };
+
+    const updateAddressMode = () => {
+      const isPhilippines = aptCountry.value === "Philippines";
+      if (aptPhAddressFields) aptPhAddressFields.style.display = isPhilippines ? "contents" : "none";
+      if (aptIntlAddressField) aptIntlAddressField.style.display = isPhilippines ? "none" : "block";
+      if (aptIntlAddress) aptIntlAddress.required = !isPhilippines;
+    };
+
+    resetPhSelects();
+    updateAddressMode();
+
+    aptCountry.addEventListener("change", updateAddressMode);
+
+    aptRegion.addEventListener("change", () => {
+      const provinces = Object.keys(phAddressData[aptRegion.value] || {});
+      fillSelect(aptProvince, provinces, "Select Province");
+      fillSelect(aptMunicipality, [], "Select Municipality");
+      fillSelect(aptBarangay, [], "Select Barangay");
+      aptProvince.disabled = !provinces.length;
+      aptMunicipality.disabled = true;
+      aptBarangay.disabled = true;
+    });
 
     aptProvince.addEventListener("change", () => {
-      const selectedProvince = aptProvince.value;
-      const municipalities = Object.keys(phAddressData[selectedProvince] || {});
-
-      aptMunicipality.disabled = municipalities.length === 0;
-      aptBarangay.disabled = true;
+      const municipalities = Object.keys(phAddressData[aptRegion.value]?.[aptProvince.value] || {});
       fillSelect(aptMunicipality, municipalities, "Select Municipality");
       fillSelect(aptBarangay, [], "Select Barangay");
+      aptMunicipality.disabled = !municipalities.length;
+      aptBarangay.disabled = true;
     });
 
     aptMunicipality.addEventListener("change", () => {
-      const selectedProvince = aptProvince.value;
-      const selectedMunicipality = aptMunicipality.value;
-      const barangays =
-        phAddressData[selectedProvince]?.[selectedMunicipality] || [];
-
-      aptBarangay.disabled = barangays.length === 0;
+      const barangays = phAddressData[aptRegion.value]?.[aptProvince.value]?.[aptMunicipality.value] || [];
       fillSelect(aptBarangay, barangays, "Select Barangay");
+      aptBarangay.disabled = !barangays.length;
     });
   }
 
-  // =========================================
-  // CONTACT PAGE FORM
-  // =========================================
+  aptFileInput?.addEventListener("change", () => {
+    const file = aptFileInput.files?.[0];
+    clearFieldError("aptFile");
+
+    if (!file) {
+      uploadedAppointmentFile = null;
+      if (aptFileName) aptFileName.textContent = "No file selected";
+      return;
+    }
+
+    const isAllowedMime =
+      file.type.startsWith("image/") ||
+      file.type === "application/pdf" ||
+      file.type === "application/msword" ||
+      file.type ===
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    const isAllowedExt = /\.(png|jpg|jpeg|webp|gif|pdf|doc|docx)$/i.test(file.name);
+
+    if (!isAllowedMime && !isAllowedExt) {
+      uploadedAppointmentFile = null;
+      aptFileInput.value = "";
+      if (aptFileName) aptFileName.textContent = "Invalid file. Use image, DOC/DOCX, or PDF only.";
+      showSlotMessage("Attachment is invalid. Please upload an image, DOC/DOCX, or PDF file only.");
+      return;
+    }
+
+    uploadedAppointmentFile = file;
+    if (aptFileName) aptFileName.textContent = file.name;
+  });
+
+  const aptLName = document.getElementById("aptLName");
+  const aptFName = document.getElementById("aptFName");
+  const aptMI = document.getElementById("aptMI");
+  const aptPhone = document.getElementById("aptPhone");
+  const aptEmail = document.getElementById("aptEmail");
+
+  aptLName?.addEventListener("input", () => {
+    aptLName.value = aptLName.value.replace(/[^A-Za-z\s]/g, "").slice(0, 20);
+  });
+
+  aptFName?.addEventListener("input", () => {
+    aptFName.value = aptFName.value.replace(/[^A-Za-z\s]/g, "").slice(0, 25);
+  });
+
+  aptMI?.addEventListener("input", () => {
+    aptMI.value = aptMI.value.replace(/[^A-Za-z]/g, "").slice(0, 1).toUpperCase();
+  });
+
+  aptPhone?.addEventListener("input", () => {
+    aptPhone.value = aptPhone.value.replace(/\D/g, "").slice(0, 11);
+  });
+
+  aptEmail?.addEventListener("blur", () => {
+    aptEmail.value = aptEmail.value.trim().toLowerCase();
+  });
+
+  let aptPollTimer = null;
+
+  const startAptPolling = () => {
+    if (aptPollTimer) clearInterval(aptPollTimer);
+    aptPollTimer = setInterval(async () => {
+      // Only fetch if Step 3 is visible inside the modal
+      if (document.getElementById("aptStep3")?.classList.contains("active") && appointmentOverlay?.classList.contains("show-modal")) {
+        await fetchCalendarAvailability();
+        renderCalendar(currentMonth, currentYear);
+        renderTimeSlots(selectedDateKey);
+      }
+    }, 10000);
+  };
+
+  const stopAptPolling = () => {
+    if (aptPollTimer) clearInterval(aptPollTimer);
+  };
+
+  if (appointmentBtn && appointmentOverlay) {
+    appointmentBtn.addEventListener("click", async () => {
+      if (!requireCustomerAuth("set an appointment")) return;
+      await fetchCalendarAvailability();
+      resetAppointmentFlowState();
+      renderCalendar(currentMonth, currentYear);
+      renderTimeSlots(null);
+      appointmentOverlay.classList.add("show-modal");
+      document.body.style.overflow = "hidden";
+      switchAptStep(1);
+      startAptPolling();
+    });
+  }
+
+  if (closeAppointmentBtn) {
+    closeAppointmentBtn.addEventListener("click", () => {
+      appointmentOverlay.classList.remove("show-modal");
+      document.body.style.overflow = "";
+      resetAppointmentFlowState();
+      switchAptStep(1);
+      stopAptPolling();
+    });
+  }
+
+  prevBtn?.addEventListener("click", () => {
+    currentMonth -= 1;
+    if (currentMonth < 0) {
+      currentMonth = 11;
+      currentYear -= 1;
+    }
+    renderCalendar(currentMonth, currentYear);
+  });
+
+  nextBtn?.addEventListener("click", () => {
+    currentMonth += 1;
+    if (currentMonth > 11) {
+      currentMonth = 0;
+      currentYear += 1;
+    }
+    renderCalendar(currentMonth, currentYear);
+  });
+
+  bindClick("btnGoToPrivacy", () => privacyModal?.classList.add("show-modal"));
+  bindClick("cancelPrivacyBtn", () => privacyModal?.classList.remove("show-modal"));
+  bindClick("acceptPrivacyBtn", () => {
+    privacyModal?.classList.remove("show-modal");
+    switchAptStep(2);
+  });
+
+  bindClick("btnCancelTo1", () => switchAptStep(1));
+  bindClick("btnGoToStep3", async () => {
+    if (!validateAppointmentStep2()) return;
+    await fetchCalendarAvailability();
+    switchAptStep(3);
+  });
+
+  bindClick("btnCancelTo2", () => switchAptStep(2));
+  bindClick("btnGoToConfirm", () => {
+    const { date, time } = getSelectedSchedule();
+    if (!date || !time) {
+      showSlotMessage("Please select a date and time first before proceeding.");
+      return;
+    }
+    clearSlotMessage();
+    confirmModal?.classList.add("show-modal");
+  });
+
+  bindClick("cancelConfirmBtn", () => confirmModal?.classList.remove("show-modal"));
+  bindClick("acceptConfirmBtn", () => {
+    confirmModal?.classList.remove("show-modal");
+    switchAptStep(4);
+  });
+
+  bindClick("btnCancelTo3", () => switchAptStep(3));
+  bindClick("btnGoToStep5", () => switchAptStep(5));
+
+  bindClick("btnGenerateReport", () => {
+    void downloadAppointmentReceipt();
+  });
+
+  bindClick("btnDownloadQr", downloadQrCodeCard);
+
+  bindClick("btnFinishStep5", async () => {
+    if (appointmentSubmitted) {
+      successModal?.classList.add("active");
+      return;
+    }
+
+    const ok = await submitAppointment();
+    if (!ok) return;
+    successModal?.classList.add("active");
+  });
+
+  bindClick("btnSuccessHome", () => {
+    successModal?.classList.remove("active");
+    appointmentOverlay?.classList.remove("show-modal");
+    document.body.style.overflow = "";
+    resetAppointmentFlowState();
+    switchAptStep(1);
+  });
+
+  bindClick("btnSuccessDownload", () => {
+    downloadQrCodeCard();
+  });
+
   const contactMessageForm = document.getElementById("contactMessageForm");
   if (contactMessageForm) {
     contactMessageForm.addEventListener("submit", (event) => {
@@ -1465,452 +2397,13 @@ document.addEventListener("DOMContentLoaded", () => {
       contactMessageForm.reset();
     });
   }
-
-  // 2. Close Flow via Back Arrow
-  if (closeAppointmentBtn) {
-    closeAppointmentBtn.addEventListener("click", () => {
-      appointmentOverlay.classList.remove("show-modal");
-      document.body.style.overflow = ""; // Resets to CSS
-      appointmentSubmitted = false;
-    });
-  }
-
-  // 3. Step Switching Engine
-  function switchAptStep(stepNumber) {
-    document
-      .querySelectorAll(".apt-content-section")
-      .forEach((sec) => sec.classList.remove("active"));
-
-    document.querySelectorAll(".apt-step").forEach((step, index) => {
-      const icon = step.querySelector(".apt-icon");
-      if (index < stepNumber) {
-        step.classList.add("active");
-        icon.style.background = "#4caf50";
-        icon.style.color = "#fff";
-        icon.style.borderColor = "#fff";
-      } else {
-        step.classList.remove("active");
-        icon.style.background = "#fff";
-        icon.style.color = "#8b0000";
-      }
-    });
-
-    const targetSection = document.getElementById("aptStep" + stepNumber);
-    if (targetSection) targetSection.classList.add("active");
-
-    if (stepNumber === 4 || stepNumber === 5) populateReviewData(stepNumber);
-  }
-
-  // 4. Data Transfer to Review Screen
-  function populateReviewData(step) {
-    const prefix = step === 4 ? "rev" : "com";
-
-    const fName = document.getElementById("aptFName").value;
-    const lName = document.getElementById("aptLName").value;
-    const phone = document.getElementById("aptPhone").value;
-    const email = document.getElementById("aptEmail").value;
-    const address = document.getElementById("aptAddress").value;
-    const purpose = document.getElementById("aptPurpose").value;
-    const desc = document.getElementById("aptDesc").value;
-    
-    // New Logic for Time & Date from Step 3
-    let schedHTML = "<div style='margin-top:5px;'>";
-    
-    // Use the global appointmentSelections object
-    const selections = window.appointmentSelections || {};
-    const dates = Object.keys(selections).sort();
-    
-    if (dates.length === 0) {
-        schedHTML += "<div>No Date Selected</div>";
-    } else {
-        dates.forEach(dateKey => {
-            const times = selections[dateKey];
-            if (times && times.length > 0) {
-                // Convert YYYY-MM-DD to readable format
-                const dObj = new Date(dateKey);
-                // Adjust for timezone offset or just parse string manually to avoid UTC issues
-                // Simple parsing:
-                const [y, m, d] = dateKey.split("-");
-                const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-                const readableDate = `${months[parseInt(m)-1]} ${parseInt(d)}, ${y}`;
-                
-                schedHTML += `<div style="margin-bottom: 4px;"><strong>${readableDate}</strong>: ${times.join(", ")}</div>`;
-            }
-        });
-    }
-    schedHTML += "</div>";
-
-    const setText = (id, text) => {
-        const el = document.getElementById(id);
-        if (el) el.innerText = text;
-    };
-
-    setText(prefix + "Name", `${fName} ${lName}`.trim() || "Kevin Arevalo");
-    setText(prefix + "Email", email || "kevin@gmail.com");
-    setText(prefix + "Address", address || "Masalong, Labo");
-    setText(prefix + "Phone", phone || "09911341158");
-    setText(prefix + "Purpose", purpose);
-    
-    // For the Ticket View, we use innerHTML to support multiple lines
-    const schedEl = document.getElementById(prefix + "Sched");
-    if(schedEl) schedEl.innerHTML = schedHTML;
-    
-    setText(prefix + "Desc", desc || "N/A");
-  }
-
-  // 5. Button Bindings (No inline onclicks used)
-  const bindClick = (id, callback) => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener("click", callback);
-  };
-
-  // Step 1 to Privacy
-  bindClick("btnGoToPrivacy", () => privacyModal.classList.add("show-modal"));
-  bindClick("cancelPrivacyBtn", () =>
-    privacyModal.classList.remove("show-modal"),
-  );
-  bindClick("acceptPrivacyBtn", () => {
-    privacyModal.classList.remove("show-modal");
-    switchAptStep(2);
-  });
-
-  // Step 2 to Step 3
-  bindClick("btnCancelTo1", () => switchAptStep(1));
-  bindClick("btnGoToStep3", () => switchAptStep(3));
-
-  // Step 3 to Confirm
-  bindClick("btnCancelTo2", () => switchAptStep(2));
-  bindClick("btnGoToConfirm", () => confirmModal.classList.add("show-modal"));
-  bindClick("cancelConfirmBtn", () =>
-    confirmModal.classList.remove("show-modal"),
-  );
-  bindClick("acceptConfirmBtn", () => {
-    confirmModal.classList.remove("show-modal");
-    switchAptStep(4);
-  });
-
-  // Step 4 to Step 5 (Immediate View)
-  bindClick("btnCancelTo3", () => switchAptStep(3));
-  
-  bindClick("btnGoToStep5", () => {
-    switchAptStep(5); 
-    // No timeout anymore - show the actual ticket immediately
-  });
-
-  // Step 5 Actions
-  bindClick("btnGenerateReport", () => {
-      // Simulate PDF generation
-      alert("Report generated successfully! Check your downloads.");
-  });
-
-  bindClick("btnFinishStep5", () => {
-      if (!appointmentSubmitted) {
-        persistAppointmentRecord();
-        appointmentSubmitted = true;
-      }
-
-      // Show Success Modal on Finish
-      const successModal = document.getElementById("successAppointmentModal");
-      if(successModal) {
-          successModal.classList.add("active");
-          successModal.style.visibility = "visible";
-          successModal.style.opacity = "1";
-      }
-  });
-
-  // Success Modal Home Button
-  bindClick("btnSuccessHome", () => {
-    const successModal = document.getElementById("successAppointmentModal");
-    if(successModal) {
-        successModal.classList.remove("active");
-        successModal.style.visibility = "hidden";
-        successModal.style.opacity = "0";
-    }
-    appointmentOverlay.classList.remove("show-modal");
-    document.body.style.overflow = ""; // Resets to CSS (which keeps overflow-x: hidden)
-    // Optional: Reset form here
-    appointmentSubmitted = false;
-    switchAptStep(1);
-  });
-});
-
-// =========================================
-// NEW CALENDAR LOGIC (Step 3)
-// =========================================
-document.addEventListener("DOMContentLoaded", () => {
-  const CALENDAR_BLOCKS_STORAGE_KEY = "fmrcAppointmentCalendarBlocks";
-  const calGrid = document.getElementById("calDaysGrid");
-  const monthDisplay = document.getElementById("calMonthYear");
-  const prevBtn = document.getElementById("calPrevBtn");
-  const nextBtn = document.getElementById("calNextBtn");
-  const timeContainer = document.getElementById("timeSlotsContainer");
-  const selectedDateDisplay = document.getElementById("selectedDateDisplay");
-  const slotCounter = document.getElementById("slotCounter");
-  const limitMsg = document.getElementById("maxLimitMsg");
-
-  // State
-  let today = new Date(2026, 2, 23); // March 23, 2026 (Fixed Context Date)
-  let currentMonth = today.getMonth();
-  let currentYear = today.getFullYear();
-  let selectedDateKey = null; // Format "YYYY-MM-DD"
-
-  // User selections: one slot per date -> { "2026-03-25": ["9:00 - 10:00 AM"] }
-  window.appointmentSelections = {};
-
-  // Demo booked slots from other users per date.
-  window.bookedAppointmentSlots = {
-    "2026-03-24": ["9:00 - 10:00 AM", "2:00 - 3:00 PM"],
-    "2026-03-26": ["10:00 - 11:00 AM"],
-    "2026-03-30": ["1:00 - 2:00 PM", "3:00 - 4:00 PM"]
-  };
-
-  const readAdminCalendarBlocks = () => {
-    try {
-      const raw = localStorage.getItem(CALENDAR_BLOCKS_STORAGE_KEY);
-      if (!raw) return { blockedDays: [], blockedSlots: {} };
-      const parsed = JSON.parse(raw);
-      return {
-        blockedDays: Array.isArray(parsed?.blockedDays) ? parsed.blockedDays : [],
-        blockedSlots:
-          parsed?.blockedSlots && typeof parsed.blockedSlots === "object"
-            ? parsed.blockedSlots
-            : {},
-      };
-    } catch {
-      return { blockedDays: [], blockedSlots: {} };
-    }
-  };
-
-  const getAdminBlocks = () => readAdminCalendarBlocks();
-
-  const timeSlots = [
-    { label: "9:00 - 10:00 AM", type: "AM" },
-    { label: "10:00 - 11:00 AM", type: "AM" },
-    { label: "11:00 - 12:00 AM", type: "AM" },
-    { label: "1:00 - 2:00 PM", type: "PM" },
-    { label: "2:00 - 3:00 PM", type: "PM" },
-    { label: "3:00 - 4:00 PM", type: "PM" }
-  ];
-
-  const months = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
-  ];
-
-  // Initialize
-  if (calGrid) {
-    renderCalendar(currentMonth, currentYear);
-    
-    prevBtn.addEventListener("click", () => {
-      currentMonth--;
-      if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-      renderCalendar(currentMonth, currentYear);
-    });
-
-    nextBtn.addEventListener("click", () => {
-      currentMonth++;
-      if (currentMonth > 11) { currentMonth = 0; currentYear++; }
-      renderCalendar(currentMonth, currentYear);
-    });
-  }
-
-  function renderCalendar(month, year) {
-    calGrid.innerHTML = "";
-    monthDisplay.innerText = `${months[month]} ${year}`;
-
-    const firstDay = new Date(year, month, 1).getDay();
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-    // Empty cells for previous month
-    for (let i = 0; i < firstDay; i++) {
-      const emptyCell = document.createElement("div");
-      calGrid.appendChild(emptyCell);
-    }
-
-    for (let day = 1; day <= daysInMonth; day++) {
-      const cell = document.createElement("div");
-      cell.classList.add("cal-day-cell");
-      cell.innerText = day;
-
-      const cellDate = new Date(year, month, day);
-      const dateKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-      
-      // Determine Status
-      const isWeekend = cellDate.getDay() === 0 || cellDate.getDay() === 6;
-      const isPast = cellDate < new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const adminBlocks = getAdminBlocks();
-      const isAdminBlockedDay = adminBlocks.blockedDays.includes(dateKey);
-      
-      if (isWeekend) {
-        cell.classList.add("disabled", "unavailable");
-        cell.setAttribute("title", "Unavailable: Weekend");
-      } else if (isPast) {
-        cell.classList.add("disabled");
-        cell.style.opacity = "0.5";
-        cell.setAttribute("title", "Unavailable: Past Date");
-      } else if (isAdminBlockedDay) {
-        cell.classList.add("disabled", "unavailable");
-        cell.setAttribute("title", "Unavailable: Blocked by admin");
-      } else {
-        // Active Date
-        cell.addEventListener("click", () => handleDateClick(cell, dateKey, day, month, year));
-        
-        if (dateKey === selectedDateKey) {
-            cell.classList.add("selected");
-        }
-        
-        // Check indicators state
-        updateDayIndicators(cell, dateKey);
-      }
-
-      calGrid.appendChild(cell);
-    }
-  }
-
-  function showSlotMessage(message, color = "#b01c1c") {
-    if (!limitMsg) return;
-    limitMsg.style.display = "block";
-    limitMsg.style.color = color;
-    limitMsg.innerText = message;
-    setTimeout(() => {
-      limitMsg.style.display = "none";
-    }, 3500);
-  }
-
-  function getCombinedSlotsForDate(dateKey) {
-    const selected = window.appointmentSelections[dateKey] || [];
-    const booked = window.bookedAppointmentSlots[dateKey] || [];
-    const adminBlocked = getAdminBlocks().blockedSlots?.[dateKey] || [];
-    return [...new Set([...selected, ...booked, ...adminBlocked])];
-  }
-
-  function updateDayIndicators(cell, dateKey) {
-    const apps = getCombinedSlotsForDate(dateKey);
-    const hasAM = apps.some((t) => t.includes("AM"));
-    const hasPM = apps.some((t) => t.includes("PM"));
-    
-    cell.classList.remove("has-am", "has-pm", "has-full");
-
-    if (hasAM && hasPM) {
-      cell.classList.add("has-full");
-      cell.setAttribute("title", "AM and PM slots have booked/selected times");
-    } else if (hasAM) {
-        cell.classList.add("has-am");
-      cell.setAttribute("title", "AM has booked/selected time");
-    } else if (hasPM) {
-        cell.classList.add("has-pm");
-      cell.setAttribute("title", "PM has booked/selected time");
-    } else {
-        cell.setAttribute("title", "Available");
-    }
-  }
-
-  function handleDateClick(cell, dateKey, day, month, year) {
-    // Remove selected from others
-    document.querySelectorAll(".cal-day-cell").forEach(c => c.classList.remove("selected"));
-    cell.classList.add("selected");
-    
-    selectedDateKey = dateKey;
-    selectedDateDisplay.innerText = `${months[month]} ${day}, ${year}`;
-    
-    // Show Counter
-    if(slotCounter) slotCounter.style.display = "block";
-    
-    renderTimeSlots(dateKey);
-  }
-
-  function renderTimeSlots(dateKey) {
-    timeContainer.innerHTML = "";
-    const currentApps = window.appointmentSelections[dateKey] || [];
-    const selectedSlot = currentApps[0] || null;
-    const bookedSlots = window.bookedAppointmentSlots[dateKey] || [];
-    const adminBlocks = getAdminBlocks();
-    const adminBlockedSlots = adminBlocks.blockedSlots?.[dateKey] || [];
-    const isAdminBlockedDay = adminBlocks.blockedDays.includes(dateKey);
-
-    if (slotCounter) {
-      slotCounter.innerText = "Allowed: 1 time slot for this selected date";
-      slotCounter.style.color = "#555";
-    }
-
-    timeSlots.forEach(slot => {
-        const btn = document.createElement("div");
-        btn.classList.add("time-slot-btn");
-
-        const isSelected = selectedSlot === slot.label;
-        const isBooked = bookedSlots.includes(slot.label);
-        const isAdminBlockedSlot = adminBlockedSlots.includes(slot.label);
-
-        if (isSelected) btn.classList.add("selected");
-
-        if (isBooked || isAdminBlockedSlot || isAdminBlockedDay) {
-          btn.classList.add("disabled");
-          if (isAdminBlockedDay) {
-            btn.setAttribute("title", "Unavailable: blocked by admin for the whole day");
-          } else if (isAdminBlockedSlot) {
-            btn.setAttribute("title", "Unavailable: blocked by admin for this time slot");
-          } else {
-            btn.setAttribute("title", "Unavailable: already selected by another user for this date");
-          }
-        }
-
-        btn.innerHTML = `
-            <span>${slot.label}</span>
-            <span class="time-slot-label">${slot.type}</span>
-        `;
-
-        btn.addEventListener("click", () => {
-            if (isAdminBlockedDay) {
-              showSlotMessage("This date is blocked by admin.");
-              return;
-            }
-            if (isAdminBlockedSlot) {
-              showSlotMessage("This time is blocked by admin for the selected date.");
-              return;
-            }
-            if (isBooked) {
-              showSlotMessage("This time is disabled because another user already booked this date and time.");
-              return;
-            }
-            toggleTimeSlot(dateKey, slot.label);
-        });
-
-        timeContainer.appendChild(btn);
-    });
-  }
-
-  function toggleTimeSlot(dateKey, timeLabel) {
-    if (!window.appointmentSelections[dateKey]) window.appointmentSelections[dateKey] = [];
-
-    const currentSelection = window.appointmentSelections[dateKey][0] || null;
-
-    if (currentSelection === timeLabel) {
-      // Deselect the same time when clicked again.
-      window.appointmentSelections[dateKey] = [];
-      if (limitMsg) limitMsg.style.display = "none";
-    } else {
-      // Enforce only one selected time slot for the chosen date.
-      window.appointmentSelections[dateKey] = [timeLabel];
-      if (currentSelection && currentSelection !== timeLabel) {
-        showSlotMessage("Only one time slot can be selected per day. Your previous selection was replaced.", "#0b6f36");
-      } else if (limitMsg) {
-        limitMsg.style.display = "none";
-      }
-    }
-    
-    // Re-render to show updates
-    renderTimeSlots(dateKey);
-    
-    // Update date indicators with booked + selected slot states.
-    renderCalendar(currentMonth, currentYear);
-  }
-
 });
 
 // --- USER PROFILE AND AUTHENTICATION LOGIC ---
 (() => {
   const userProfileBtn = document.querySelector(".user-profile");
   if (!userProfileBtn) return;
+  userProfileBtn.removeAttribute("title");
 
   const ensureLoader = () => {
     let loader = document.getElementById("global-loader");
@@ -2163,17 +2656,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  const token = localStorage.getItem("customer_token");
-  const userInfoStr = localStorage.getItem("customer_info");
-  let userInfo = null;
+  const { token, userInfo, isAuthenticated } = getCustomerSession();
 
-  try {
-    if (userInfoStr) userInfo = JSON.parse(userInfoStr);
-  } catch {
-    userInfo = null;
-  }
-
-  if (!(token && userInfo)) {
+  if (!isAuthenticated) {
     const guestDropdown = document.createElement("div");
     guestDropdown.className = "profile-popup guest-profile-popup";
     guestDropdown.innerHTML = `
@@ -2181,8 +2666,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <div class="popup-profile-row">
           <span class="popup-profile-icon">?</span>
           <div class="popup-profile-meta">
-            <p class="popup-identity">Welcome, guest</p>
-            <span class="popup-role">Customer Portal</span>
+            <p class="popup-identity">Welcome, Guest</p>
           </div>
         </div>
       </div>
@@ -2230,8 +2714,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="popup-profile-row">
         <span class="popup-profile-icon profile-initial">${initial}</span>
         <div class="popup-profile-meta">
-          <p class="popup-identity">${userInfo.email || userInfo.username || userInfo.name || "Customer"}</p>
-          <span class="popup-role">Customer</span>
+          <p class="popup-identity">${userInfo.email || userInfo.username || userInfo.name || "User"}</p>
         </div>
       </div>
     </div>
@@ -2275,7 +2758,7 @@ document.addEventListener("DOMContentLoaded", () => {
       modal.id = "laravelLogoutModal";
       modal.innerHTML = `
         <div style="position: fixed; inset: 0; background: rgba(17, 24, 39, 0.6); backdrop-filter: blur(2px); display: flex; justify-content: center; align-items: center; z-index: 100000; opacity: 0; transition: opacity 0.2s ease;">
-          <div style="background: #fff; border-radius: 12px; width: 100%; max-width: 420px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); transform: scale(0.95); transition: transform 0.2s ease; font-family: 'Open Sans', sans-serif; overflow: hidden;">
+          <div style="background: #fff; border-radius: 12px; width: 100%; max-width: 420px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); transform: scale(0.95); transition: transform 0.2s ease; font-family: 'Montserrat', sans-serif; overflow: hidden;">
             <div style="padding: 24px;">
               <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px;">
                 <div style="width: 40px; height: 40px; border-radius: 50%; background: #fee2e2; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">

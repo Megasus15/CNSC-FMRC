@@ -7,21 +7,21 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Open+Sans:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="auth.css" />
   </head>
   <body>
     <main class="auth-page">
-      <a href="../home-page/main.html" class="auth-back-link" aria-label="Back to homepage">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M15 18l-6-6 6-6"></path>
-        </svg>
-        <span>Back to Home</span>
-      </a>
+      <div class="auth-shell">
+        <a href="../home-page/main.html" class="auth-back-link" aria-label="Back to homepage">
+          <span class="back-chevron" aria-hidden="true">&#8249;</span>
+          <span class="back-text">Back to Homepage</span>
+        </a>
 
-      <section class="auth-card" aria-label="Customer authentication panel">
+        <section class="auth-card" aria-label="Customer authentication panel">
+
         <div class="card-accent"></div>
 
         <div class="auth-hero">
@@ -215,7 +215,8 @@
             <a href="#" class="switch-account-link" id="openLoginFromSignup">Already have an account? Log In</a>
           </div>
         </form>
-      </section>
+        </section>
+      </div>
     </main>
 
     <div

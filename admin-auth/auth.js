@@ -154,12 +154,12 @@ document.addEventListener("DOMContentLoaded", () => {
             localStorage.setItem('user_info', JSON.stringify(data.user));
             showStatus("Login successful. Opening dashboard...");
 
-            if (data.user.role === 'admin') {
+            if (data.user.role === 'admin' || data.user.role === 'staff') {
               window.location.href = "../admin-page/dashboard.html";
             } else if (data.user.role === 'cashier') {
               window.location.href = "../cashier-page/dashboard.html";
             } else {
-              setFieldError("loginUser", "Unauthorized access. This area is for Admin/Cashier only.");
+              setFieldError("loginUser", "Unauthorized access. This area is for Admin/Cashier/Staff only.");
             }
           } else if (response.status === 422 && data.errors) {
             if (data.errors.login?.[0]) {

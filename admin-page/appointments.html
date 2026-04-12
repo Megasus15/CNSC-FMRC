@@ -19,7 +19,7 @@
           <a href="products.html" class="nav-link"><i class="fa-solid fa-tags"></i> Products</a>
           <a href="appointments.html" class="nav-link active"><i class="fa-regular fa-calendar-check"></i> Appointment</a>
           <a href="payment-monitoring.html" class="nav-link"><i class="fa-solid fa-money-bill-trend-up"></i> Payment Monitoring</a>
-          <a href="accounts.html" class="nav-link"><i class="fa-solid fa-users"></i> Accounts Registered</a>
+          <a href="accounts.html" class="nav-link"><i class="fa-solid fa-users"></i> User Management</a>
           <a href="payments.html" class="nav-link"><i class="fa-solid fa-file-invoice-dollar"></i> Payments</a>
           <a href="reports.html" class="nav-link"><i class="fa-solid fa-chart-line"></i> Reports</a>
           <a href="orders.html" class="nav-link"><i class="fa-solid fa-box-open"></i> Orders</a>
@@ -95,8 +95,10 @@
 
     <div class="modal-overlay" id="modalCalendar" data-backdrop-close="false">
       <div class="modal-card modal-calendar-admin">
-        <h3 class="modal-title">Manage Calendar</h3>
-        <p class="field-hint">This panel controls website Step 3 availability. You can block whole dates or specific time slots.</p>
+        <div class="calendar-modal-header">
+          <h3 class="modal-title">Manage Calendar</h3>
+          <p class="field-hint">This panel controls website Step 3 availability. You can block whole dates or specific time slots.</p>
+        </div>
         <div class="admin-calendar-grid">
           <div class="admin-calendar-left">
             <div class="cal-navigation">
@@ -108,30 +110,54 @@
             <div class="cal-days-grid" id="adminCalDaysGrid"></div>
             <div class="calendar-note">Weekends and past dates are unavailable on the website form.</div>
           </div>
-                      <div class="admin-calendar-right">
+          <div class="admin-calendar-right">
+            <div class="admin-date-heading">
               <h4 id="adminSelectedDateDisplay">Select a Date</h4>
-              <div class="admin-calendar-actions">
-                <button type="button" class="btn-admin" id="btnToggleBlockDay">Block Whole Day</button>
-                <button type="button" class="btn-admin btn-secondary" id="btnClearDayBlocks">Clear Day Blocks</button>
-              </div>
-
-              <div class="admin-event-input-group" style="margin-bottom: 12px; display: flex; flex-direction: column; gap: 6px;">
-                <label for="adminEventInput" style="font-size: 0.8rem; font-weight: 600; color: #34404d;">Add Event for this Day:</label>
-                <div style="display: flex; gap: 8px;">
-                  <input type="text" id="adminEventInput" style="flex: 1; padding: 8px; border: 1px solid #d9e0e8; border-radius: 6px; font-size: 0.8rem;" placeholder="e.g. FMRC Anniversary">
-                  <button type="button" class="btn-admin" id="btnAddStaticEvent">Add</button>
-                </div>
-                <div id="adminEventList" style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px;"></div>
-              </div>
-
-              <div class="time-slots-container" id="adminTimeSlotsContainer"><p class="time-placeholder">Please pick a date first.</p></div>
-              <p class="field-hint" style="margin-top: 10px;">Click any time slot to block/unblock it for client booking.</p>
             </div>
+
+            <div class="admin-calendar-actions admin-calendar-actions-main">
+              <button type="button" class="btn-admin" id="btnToggleBlockDay">Block Whole Day</button>
+              <button type="button" class="btn-admin btn-secondary btn-clear-day-blocks" id="btnClearDayBlocks">Clear Day Blocks</button>
+            </div>
+
+            <div class="admin-event-input-group admin-calendar-card">
+              <label for="adminEventInput">Add Note / Reason for this Date:</label>
+              <p class="admin-inline-help">This note will be visible to users. Example: "System Maintenance" or "2:00 PM blocked for staff meeting".</p>
+              <div class="admin-event-input-row">
+                <input type="text" id="adminEventInput" placeholder="Enter reason here..." />
+                <button type="button" class="btn-admin btn-note-save" id="btnAddStaticEvent">Save Note</button>
+              </div>
+              <div id="adminEventList" class="admin-event-list-box"></div>
+            </div>
+
+            <div class="admin-calendar-card admin-day-slot-editor">
+              <label class="admin-slot-manager-label" for="adminDaySlotLabel">Add Specific Time Slot for Selected Date Only</label>
+              <p class="admin-inline-help">This slot is day-only and will not be added to other dates.</p>
+              <div class="admin-slot-manager-row">
+                <button id="btnOpenDayTimePicker" type="button" class="btn-admin btn-secondary btn-open-time-picker">Choose Time Slot</button>
+                <input id="adminDaySlotLabel" type="hidden" value="" />
+                <input id="adminDaySlotType" type="hidden" value="AM" />
+                <button id="btnAddDaySlot" type="button" class="btn-admin">Add Day Slot</button>
+              </div>
+              <div id="adminDaySlotList" class="admin-slot-list"></div>
+            </div>
+
+            <div id="adminDateSummary" class="admin-date-summary-box">
+               <!-- Populated by JS -->
+            </div>
+
+            <div class="admin-time-slots-wrap">
+              <div class="admin-slot-heading">Available Time Slots for Selected Date</div>
+              <p class="field-hint admin-slot-hint">Click any time slot below to block or unblock for this date only.</p>
+              <div class="time-slots-container" id="adminTimeSlotsContainer"><p class="time-placeholder">Please pick a date first.</p></div>
+            </div>
+            <!-- Manage Time slots (Global) attaches here via JS -->
           </div>
-          <div class="modal-actions" style="margin-top: auto; padding-top: 15px;">
-            <button class="btn-admin btn-secondary" data-modal-close="#modalCalendar">Close</button>
-            <button class="btn-admin" id="btnSaveCalendarChanges" type="button">Save Changes</button>
-          </div>
+        </div>
+        <div class="modal-actions modal-actions-sticky">
+          <button class="btn-admin btn-secondary" data-modal-close="#modalCalendar">Close</button>
+          <button class="btn-admin" id="btnSaveCalendarChanges" type="button">Save Changes</button>
+        </div>
       </div>
     </div>
 
@@ -149,16 +175,41 @@
       </div>
     </div>
 
-    <div class="modal-overlay" id="modalArchiveAppointment" data-backdrop-close="false">
-      <div class="modal-card modal-confirm">
-        <h3 class="modal-title">Archive Confirmation</h3>
+    <div class="modal-overlay" id="modalTimePicker" data-backdrop-close="false">
+      <div class="modal-card modal-time-picker">
+        <h3 class="modal-title" id="timePickerTitle">Choose Time Slot</h3>
         <hr class="confirm-separator" />
-        <p class="confirm-text">You are about to move <strong id="archiveAppointmentTargetLabel">this appointment</strong> to Archives.</p>
-        <p class="field-hint">This is a design-only confirmation for now.</p>
+        <p class="field-hint">Scroll each column and pick a time range for this slot.</p>
+        <div class="time-picker-grid">
+          <div class="time-wheel">
+            <label for="pickerStartHour">Start Hour</label>
+            <select id="pickerStartHour" size="5" class="time-wheel-select"></select>
+          </div>
+          <div class="time-wheel">
+            <label for="pickerStartMinute">Start Min</label>
+            <select id="pickerStartMinute" size="5" class="time-wheel-select"></select>
+          </div>
+          <div class="time-wheel">
+            <label for="pickerEndHour">End Hour</label>
+            <select id="pickerEndHour" size="5" class="time-wheel-select"></select>
+          </div>
+          <div class="time-wheel">
+            <label for="pickerEndMinute">End Min</label>
+            <select id="pickerEndMinute" size="5" class="time-wheel-select"></select>
+          </div>
+          <div class="time-wheel">
+            <label for="pickerPeriod">Period</label>
+            <select id="pickerPeriod" size="2" class="time-wheel-select time-wheel-select-period">
+              <option value="AM">AM</option>
+              <option value="PM">PM</option>
+            </select>
+          </div>
+        </div>
+        <p class="time-picker-preview" id="timePickerPreview">Selected: 9:00 - 10:00 AM</p>
         <hr class="confirm-separator" />
         <div class="modal-actions">
-          <button class="btn-admin btn-secondary" data-modal-close="#modalArchiveAppointment">Cancel</button>
-          <button class="btn-admin" id="btnConfirmArchiveAppointment" type="button">Move to Archives</button>
+          <button class="btn-admin btn-secondary" data-modal-close="#modalTimePicker">Cancel</button>
+          <button class="btn-admin" id="btnConfirmTimePicker" type="button">Use Time Slot</button>
         </div>
       </div>
     </div>
@@ -167,6 +218,7 @@
     <script src="appointments.js"></script>
   </body>
 </html>
+
 
 
 

@@ -10,6 +10,18 @@ use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
+    private function ensureAdmin(Request $request): ?\Illuminate\Http\JsonResponse
+    {
+        $actor = $request->user();
+        if (!$actor || $actor->role !== 'admin') {
+            return response()->json([
+                'message' => 'Forbidden. Admin access is required.',
+            ], 403);
+        }
+
+        return null;
+    }
+
     public function register(Request $request)
     {
         $request->validate([
@@ -73,12 +85,73 @@ class AuthController extends Controller
         ]);
     }
 
-    // For Admin to see registered users
-    public function getUsers()
+    // For Admin to see all registered users in both customer/admin portals.
+    public function getUsers(Request $request)
     {
-        // Only return customers and cashier
-        $users = User::whereIn('role', ['customer', 'cashier'])->get();
-        return response()->json($users);
+        $denied = $this->ensureAdmin($request);
+        if ($denied) {
+            return $denied;
+        }
+
+        $users = User::query()
+            ->select(['id', 'name', 'username', 'email', 'role', 'created_at'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'data' => $users,
+        ]);
+    }
+
+    // For Admin to create a system user account.
+    public function adminCreateUser(Request $request)
+    {
+        $denied = $this->ensureAdmin($request);
+        if ($denied) {
+            return $denied;
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'username' => 'nullable|required_without:email|string|max:255|alpha_dash|unique:users,username',
+            'email' => 'nullable|required_without:username|string|email|max:255|regex:/^[A-Za-z0-9._%+-]+@gmail\.com$/i|unique:users,email',
+            'role' => 'required|in:customer,cashier,staff',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $user = User::create([
+            'name' => $validated['name'],
+            'username' => $validated['username'] ?? null,
+            'email' => $validated['email'] ?? null,
+            'password' => Hash::make($validated['password']),
+            'role' => $validated['role'],
+        ]);
+
+        return response()->json([
+            'message' => 'User account created successfully.',
+            'data' => $user,
+        ], 201);
+    }
+
+    public function adminDeleteUser(Request $request, User $user)
+    {
+        $denied = $this->ensureAdmin($request);
+        if ($denied) {
+            return $denied;
+        }
+
+        if ((int) $request->user()->id === (int) $user->id) {
+            return response()->json([
+                'message' => 'You cannot delete your own account.',
+            ], 422);
+        }
+
+        $user->tokens()->delete();
+        $user->delete();
+
+        return response()->json([
+            'message' => 'User account deleted successfully.',
+        ]);
     }
     
     // Change password function

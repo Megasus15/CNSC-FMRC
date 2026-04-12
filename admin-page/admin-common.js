@@ -541,6 +541,59 @@ document.addEventListener("DOMContentLoaded", () => {
     if (activeTooltipTarget) placeTooltip(activeTooltipTarget);
   });
 
+  const ensureAdminSystemPopup = () => {
+    let popup = document.getElementById("adminSystemPopup");
+    if (popup) return popup;
+
+    popup = document.createElement("div");
+    popup.id = "adminSystemPopup";
+    popup.className = "admin-system-popup";
+    popup.innerHTML = `
+      <div class="admin-system-popup__backdrop"></div>
+      <div class="admin-system-popup__card" role="dialog" aria-modal="true" aria-labelledby="adminSystemPopupTitle">
+        <h3 id="adminSystemPopupTitle" class="admin-system-popup__title">System Message</h3>
+        <hr class="admin-system-popup__separator" />
+        <p id="adminSystemPopupMessage" class="admin-system-popup__message"></p>
+        <hr class="admin-system-popup__separator" />
+        <div class="admin-system-popup__actions">
+          <button id="adminSystemPopupOk" type="button" class="btn-admin">Okay</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(popup);
+    return popup;
+  };
+
+  window.showAdminPopup = (message, options = {}) => {
+    const popup = ensureAdminSystemPopup();
+    const titleEl = popup.querySelector("#adminSystemPopupTitle");
+    const msgEl = popup.querySelector("#adminSystemPopupMessage");
+    const okBtn = popup.querySelector("#adminSystemPopupOk");
+
+    if (titleEl) titleEl.textContent = options.title || "System Message";
+    if (msgEl) msgEl.textContent = String(message || "Done.");
+
+    const closePopup = () => {
+      popup.classList.remove("show");
+      if (typeof options.onOk === "function") {
+        options.onOk();
+      }
+    };
+
+    if (okBtn) {
+      okBtn.onclick = closePopup;
+      okBtn.focus();
+    }
+
+    popup.classList.add("show");
+  };
+
+  // Replace native browser alert on admin pages with system popup.
+  window.alert = (message) => {
+    window.showAdminPopup(message);
+  };
+
   syncSidebarMode();
 
   const getFilterValue = (value) => {

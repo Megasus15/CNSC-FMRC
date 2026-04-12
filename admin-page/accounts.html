@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Accounts Registered | CNSC-FMRC Admin</title>
+    <title>User Management | CNSC-FMRC Admin</title>
     <link rel="stylesheet" href="dashboard.css" />
     <link rel="stylesheet" href="admin-modules.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -19,7 +19,7 @@
           <a href="products.html" class="nav-link"><i class="fa-solid fa-tags"></i> Products</a>
           <a href="appointments.html" class="nav-link"><i class="fa-regular fa-calendar-check"></i> Appointment</a>
           <a href="payment-monitoring.html" class="nav-link"><i class="fa-solid fa-money-bill-trend-up"></i> Payment Monitoring</a>
-          <a href="accounts.html" class="nav-link active"><i class="fa-solid fa-users"></i> Accounts Registered</a>
+          <a href="accounts.html" class="nav-link active"><i class="fa-solid fa-users"></i> User Management</a>
           <a href="payments.html" class="nav-link"><i class="fa-solid fa-file-invoice-dollar"></i> Payments</a>
           <a href="reports.html" class="nav-link"><i class="fa-solid fa-chart-line"></i> Reports</a>
           <a href="orders.html" class="nav-link"><i class="fa-solid fa-box-open"></i> Orders</a>
@@ -39,7 +39,7 @@
 
       <main class="main-content">
         <header class="top-header">
-          <div class="header-left"><h1>Accounts Registered</h1></div>
+          <div class="header-left"><h1>User Management</h1></div>
           <div class="header-right"><div class="notifications"><i class="fa-regular fa-bell"></i><span class="badge">2</span></div><div class="user-profile"><div class="user-info"><span class="role">Admin</span></div><span class="profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span><div class="profile-popup" id="profilePopup"><div class="popup-header">
                   <div class="popup-profile-row">
                     <span class="popup-profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
@@ -56,33 +56,89 @@
         <section class="module-content">
           <div class="page-toolbar">
             <div class="toolbar-title">
-              <h2>Registered Accounts</h2>
-              <p>Monitor all user records, creation dates, and account access status.</p>
+              <h2>Accounts Management</h2>
+              <p>Manage all portal accounts and create new system users with clear role access.</p>
             </div>
             <div class="toolbar-actions">
               <button class="btn-admin btn-secondary" onclick="window.location.reload();" title="Refresh Data">
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
-              <input class="search-input" placeholder="Search users..." />
+              <input id="accountsSearchInput" class="search-input" placeholder="Search name, username, or Gmail..." />
             </div>
           </div>
-          <div class="panel">
-            <div class="panel-header"><h3>User Directory</h3><div class="filters-row"><select class="filter-select"><option>All Roles</option><option>Admin</option><option>Cashier</option></select></div></div>
-            <div class="table-wrapper">
-              <table class="admin-table enhanced-table">
-                <thead><tr><th>No.</th><th>Name</th><th>Username</th><th>Gmail</th><th>Role</th><th>Joined</th></tr></thead>
-                <tbody id="accountsTableBody">
-                  <!-- Realtime data injected via JS -->
-                </tbody>
-              </table>
-            </div>
-            <div class="table-footer">
-              <div class="table-footer-meta">Page 1 of 1</div>
-              <div class="table-pagination">
-                <button class="page-btn" disabled><i class="fa-solid fa-chevron-left"></i></button>
-                <div class="page-number">1</div>
-                <button class="page-btn" disabled><i class="fa-solid fa-chevron-right"></i></button>
+
+          <div class="accounts-layout-grid">
+            <div class="panel">
+              <div class="panel-header">
+                <h3>User Directory</h3>
+                <div class="filters-row">
+                  <select id="accountsRoleFilter" class="filter-select">
+                    <option value="all">All Roles</option>
+                    <option value="admin">Admin</option>
+                    <option value="cashier">Cashier</option>
+                    <option value="staff">Staff</option>
+                    <option value="customer">Customer</option>
+                  </select>
+                </div>
               </div>
+              <div class="table-wrapper">
+                <table class="admin-table enhanced-table accounts-table">
+                  <thead><tr><th>No.</th><th>Name</th><th>Username</th><th>Gmail</th><th>Role</th><th>Joined</th><th class="sticky-action">Action</th></tr></thead>
+                  <tbody id="accountsTableBody">
+                    <!-- Realtime data injected via JS -->
+                  </tbody>
+                </table>
+              </div>
+              <div class="table-footer">
+                <div class="table-footer-meta" id="accountsTableMeta">Showing 0 of 0 users</div>
+                <div class="table-pagination">
+                  <button id="accountsPrevPage" class="page-btn" disabled><i class="fa-solid fa-chevron-left"></i></button>
+                  <div class="page-number" id="accountsCurrentPage">1</div>
+                  <button id="accountsNextPage" class="page-btn" disabled><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel accounts-form-panel">
+              <div class="panel-header">
+                <h3>Add System User</h3>
+              </div>
+              <p class="field-hint">Create a new account and assign role access for the Admin Portal.</p>
+              <form id="adminCreateUserForm" class="accounts-form-grid">
+                <div class="field-stack">
+                  <label for="createUserName">Full Name</label>
+                  <input id="createUserName" class="input-field" type="text" maxlength="255" required />
+                </div>
+                <div class="field-stack">
+                  <label for="createUserRole">Role</label>
+                  <select id="createUserRole" class="filter-select" required>
+                    <option value="customer">Customer</option>
+                    <option value="cashier">Cashier</option>
+                    <option value="staff">Staff</option>
+                  </select>
+                </div>
+                <div class="field-stack">
+                  <label for="createUserUsername">Username (optional)</label>
+                  <input id="createUserUsername" class="input-field" type="text" maxlength="255" placeholder="e.g. staff_jane" />
+                </div>
+                <div class="field-stack">
+                  <label for="createUserEmail">Gmail (optional)</label>
+                  <input id="createUserEmail" class="input-field" type="email" maxlength="255" placeholder="name@gmail.com" />
+                </div>
+                <div class="field-stack">
+                  <label for="createUserPassword">Password</label>
+                  <input id="createUserPassword" class="input-field" type="password" minlength="8" required />
+                </div>
+                <div class="field-stack">
+                  <label for="createUserPasswordConfirm">Confirm Password</label>
+                  <input id="createUserPasswordConfirm" class="input-field" type="password" minlength="8" required />
+                </div>
+                <p class="field-hint accounts-form-note">Required: Provide at least one login identifier (Username or Gmail).</p>
+                <div class="accounts-form-actions">
+                  <button id="btnCreateUser" class="btn-admin" type="submit"><i class="fa-solid fa-user-plus"></i> Create Account</button>
+                </div>
+                <p id="accountsFormStatus" class="field-hint"></p>
+              </form>
             </div>
           </div>
         </section>
@@ -92,12 +148,12 @@
       <div class="modal-card modal-confirm">
         <h3 class="modal-title">Delete Confirmation</h3>
         <hr class="confirm-separator" />
-        <p class="confirm-text">You are about to delete <strong>this account</strong>.</p>
-        <p class="field-hint">This is a design-only confirmation for now.</p>
+        <p class="confirm-text">You are about to delete <strong id="deleteAccountTargetLabel">this account</strong>.</p>
+        <p class="field-hint">This action permanently removes this account from the database.</p>
         <hr class="confirm-separator" />
         <div class="modal-actions">
           <button class="btn-admin btn-secondary" data-modal-close="#modalDeleteAccount">Cancel</button>
-          <button class="btn-admin" type="button">Delete Account</button>
+          <button class="btn-admin" id="btnConfirmDeleteAccount" type="button">Delete Account</button>
         </div>
       </div>
     </div>
