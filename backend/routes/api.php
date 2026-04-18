@@ -5,6 +5,8 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AppointmentController;
+use App\Http\Controllers\Api\AdminDashboardController;
+use App\Http\Controllers\Api\OrderController;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
@@ -20,6 +22,24 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/users', [AuthController::class, 'getUsers']);
     Route::post('/users', [AuthController::class, 'adminCreateUser']);
     Route::delete('/users/{user}', [AuthController::class, 'adminDeleteUser']);
+
+    Route::get('/customer/profile', [AuthController::class, 'customerProfile']);
+    Route::put('/customer/profile', [AuthController::class, 'updateCustomerProfile']);
+
+    Route::post('/orders', [OrderController::class, 'customerStore']);
+    Route::get('/customer/orders', [OrderController::class, 'customerIndex']);
+    Route::get('/customer/orders/{order}', [OrderController::class, 'customerShow']);
+
+    Route::get('/admin/orders', [OrderController::class, 'adminIndex']);
+    Route::get('/admin/dashboard/summary', [AdminDashboardController::class, 'summary']);
+    Route::get('/admin/orders/{order}', [OrderController::class, 'adminShow']);
+    Route::post('/admin/orders/{order}/approve', [OrderController::class, 'approve']);
+    Route::post('/admin/orders/{order}/reject', [OrderController::class, 'reject']);
+    Route::post('/admin/orders/{order}/complete', [OrderController::class, 'complete']);
+    Route::patch('/admin/orders/{order}/tracking', [OrderController::class, 'updateTracking']);
+    Route::patch('/admin/orders/{order}/payment-status', [OrderController::class, 'updatePaymentStatus']);
+    Route::delete('/admin/orders/{order}/payment', [OrderController::class, 'adminDestroyPayment']);
+    Route::delete('/admin/orders/{order}', [OrderController::class, 'adminDestroy']);
 
     Route::get('/user', function (Request $request) {
         return $request->user();

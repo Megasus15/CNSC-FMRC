@@ -22,40 +22,19 @@
           <span class="indicator-thumb"></span>
         </div>
 
-        <nav class="sidebar-nav">
-          <a href="dashboard.html" class="nav-link active"
-            ><i class="fa-solid fa-house"></i> Dashboard</a
-          >
-          <a href="inventory.html" class="nav-link"
-            ><i class="fa-solid fa-box"></i> Inventory</a
-          >
-          <a href="products.html" class="nav-link"
-            ><i class="fa-solid fa-tags"></i> Products</a
-          >
-          <a href="appointments.html" class="nav-link"
-            ><i class="fa-regular fa-calendar-check"></i> Appointment</a
-          >
-          <a href="payment-monitoring.html" class="nav-link"
-            ><i class="fa-solid fa-money-bill-trend-up"></i> Payment
-            Monitoring</a
-          >
-          <a href="accounts.html" class="nav-link"
-            ><i class="fa-solid fa-users"></i> User Management</a
-          >
-          <a href="payments.html" class="nav-link"
-            ><i class="fa-solid fa-file-invoice-dollar"></i> Payments</a
-          >
-          <a href="reports.html" class="nav-link"
-            ><i class="fa-solid fa-chart-line"></i> Reports</a
-          >
-          <a href="orders.html" class="nav-link"
-            ><i class="fa-solid fa-box-open"></i> Orders</a
-          >
+                <nav class="sidebar-nav">
+          <a href="dashboard.html" class="nav-link active"><i class="fa-solid fa-house"></i> Dashboard</a>
+          <a href="inventory.html" class="nav-link"><i class="fa-solid fa-box"></i> Inventory</a>
+          <a href="products.html" class="nav-link"><i class="fa-solid fa-tags"></i> Products</a>
+          <a href="appointments.html" class="nav-link"><i class="fa-regular fa-calendar-check"></i> Appointment</a>
+          <a href="accounts.html" class="nav-link"><i class="fa-solid fa-users"></i> User Management</a>
+          <a href="reports.html" class="nav-link"><i class="fa-solid fa-chart-line"></i> Reports</a>
+          <a href="orders.html" class="nav-link"><i class="fa-solid fa-box-open"></i> Orders</a>
 
           <div class="nav-item has-dropdown">
             <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn">
               <div class="dropdown-title">
-                <i class="fa-solid fa-screwdriver-wrench"></i> Admin Control
+                <i class="fa-solid fa-screwdriver-wrench"></i> Website Management
               </div>
               <i class="fa-solid fa-chevron-down arrow"></i>
             </a>
@@ -67,9 +46,8 @@
             </div>
           </div>
 
-          <a href="archives.html" class="nav-link"
-            ><i class="fa-solid fa-box-archive"></i> Archives</a
-          >
+          <a href="archives.html" class="nav-link"><i class="fa-solid fa-box-archive"></i> Archives</a>
+          <a href="my-account.html" class="nav-link"><i class="fa-regular fa-id-card"></i> My Account</a>
         </nav>
 
         <div class="sidebar-footer">
@@ -123,7 +101,7 @@
               <p>Overview of all activities and quick summaries.</p>
             </div>
             <div class="toolbar-actions">
-              <button class="btn-admin btn-secondary" onclick="window.location.reload();" title="Refresh Data">
+              <button class="btn-admin btn-secondary" id="dashboardRefreshBtn" type="button" title="Refresh Data">
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
             </div>
@@ -131,12 +109,12 @@
 
           <div class="summary-cards">
             <!-- Total Income -->
-            <a class="card card-link" href="payments.html" data-nav-label="Payments">
+            <a class="card card-link" href="reports.html" data-nav-label="Reports">
               <div class="card-info">
                 <h3>₱ 124,500</h3>
                 <p>Total Revenue</p>
               </div>
-              <i class="fa-solid fa-wallet card-icon" style="color: #2E7D32;"></i>
+              <i class="fa-solid fa-wallet card-icon"></i>
             </a>
 
             <!-- Inventory -->
@@ -145,7 +123,7 @@
                 <h3>320</h3>
                 <p>Total Inventory Items</p>
               </div>
-              <i class="fa-solid fa-box card-icon" style="color: #1976D2;"></i>
+              <i class="fa-solid fa-box card-icon"></i>
             </a>
 
             <!-- Products -->
@@ -154,43 +132,25 @@
                 <h3>85</h3>
                 <p>Total Products</p>
               </div>
-              <i class="fa-solid fa-tags card-icon" style="color: #00796B;"></i>
+              <i class="fa-solid fa-tags card-icon"></i>
             </a>
 
             <!-- Appointments -->
             <a class="card card-link" href="appointments.html" data-nav-label="Appointment">
               <div class="card-info">
-                <h3>142</h3>
+                <h3 id="dashboardAppointmentsCount">--</h3>
                 <p>Total Appointments</p>
               </div>
-              <i class="fa-regular fa-calendar-check card-icon" style="color: #0288D1;"></i>
-            </a>
-
-            <!-- Payment Monitoring -->
-            <a class="card card-link" href="payment-monitoring.html" data-nav-label="Payment Monitoring">
-              <div class="card-info">
-                <h3>18</h3>
-                <p>Pending Payments</p>
-              </div>
-              <i class="fa-solid fa-money-bill-trend-up card-icon" style="color: #F57F17;"></i>
+              <i class="fa-regular fa-calendar-check card-icon"></i>
             </a>
 
             <!-- User Management -->
             <a class="card card-link" href="accounts.html" data-nav-label="User Management">
               <div class="card-info">
-                <h3>456</h3>
+                <h3 id="dashboardAccountsCount">--</h3>
                 <p>Total Accounts</p>
               </div>
-              <i class="fa-solid fa-users card-icon" style="color: #800000;"></i>
-            </a>
-
-            <!-- Payments (Transactions) -->
-            <a class="card card-link" href="payments.html" data-nav-label="Payments">
-              <div class="card-info">
-                <h3>1,208</h3>
-                <p>Total Transactions</p>
-              </div>
-              <i class="fa-solid fa-file-invoice-dollar card-icon" style="color: #388E3C;"></i>
+              <i class="fa-solid fa-users card-icon"></i>
             </a>
 
             <!-- Reports -->
@@ -199,16 +159,16 @@
                 <h3>24</h3>
                 <p>Generated Reports</p>
               </div>
-              <i class="fa-solid fa-chart-line card-icon" style="color: #512DA8;"></i>
+              <i class="fa-solid fa-chart-line card-icon"></i>
             </a>
 
             <!-- Orders -->
             <a class="card card-link" href="orders.html" data-nav-label="Orders">
               <div class="card-info">
-                <h3>312</h3>
+                <h3 id="dashboardOrdersCount">--</h3>
                 <p>Total Orders</p>
               </div>
-              <i class="fa-solid fa-box-open card-icon" style="color: #D84315;"></i>
+              <i class="fa-solid fa-box-open card-icon"></i>
             </a>
 
             <!-- Archives -->
@@ -217,7 +177,7 @@
                 <h3>89</h3>
                 <p>Archived Records</p>
               </div>
-              <i class="fa-solid fa-box-archive card-icon" style="color: #546E7A;"></i>
+              <i class="fa-solid fa-box-archive card-icon"></i>
             </a>
           </div>
 
@@ -228,27 +188,12 @@
                 <h3><i class="fa-regular fa-calendar-check" style="margin-right: 8px; color: var(--primary-color);"></i> Recent Appointments</h3>
                 <a href="appointments.html" class="view-all-link">See All <i class="fa-solid fa-arrow-right"></i></a>
               </div>
-              <ul class="recent-list">
-                <li>
+              <ul class="recent-list" id="dashboardRecentAppointments">
+                <li class="recent-loading">
                   <div class="recent-info">
-                    <strong>Venz Carl Tarusan</strong>
-                    <span>Meeting - Main Office</span>
+                    <strong>Loading appointments...</strong>
+                    <span>Please wait while dashboard syncs.</span>
                   </div>
-                  <span class="recent-date">Today, 2:00 PM</span>
-                </li>
-                <li>
-                  <div class="recent-info">
-                    <strong>Wenn Claire Bustamante</strong>
-                    <span>Consultation</span>
-                  </div>
-                  <span class="recent-date">Today, 3:30 PM</span>
-                </li>
-                <li>
-                  <div class="recent-info">
-                    <strong>Kevin Arevalo</strong>
-                    <span>Site Visit</span>
-                  </div>
-                  <span class="recent-date">Tomorrow, 10:00 AM</span>
                 </li>
               </ul>
             </div>
@@ -259,44 +204,12 @@
                 <h3><i class="fa-solid fa-box-open" style="margin-right: 8px; color: var(--primary-color);"></i> Recent Orders</h3>
                 <a href="orders.html" class="view-all-link">See All <i class="fa-solid fa-arrow-right"></i></a>
               </div>
-              <ul class="recent-list">
-                <li>
+              <ul class="recent-list" id="dashboardRecentOrders">
+                <li class="recent-loading">
                   <div class="recent-info">
-                    <strong>#ORD-1025</strong>
-                    <span>2x Bamboo Chairs</span>
+                    <strong>Loading orders...</strong>
+                    <span>Please wait while dashboard syncs.</span>
                   </div>
-                  <span class="badge-status priority-high">Pending</span>
-                </li>
-                <li>
-                  <div class="recent-info">
-                    <strong>#ORD-1024</strong>
-                    <span>1x Custom Desk</span>
-                  </div>
-                  <span class="badge-status priority-low">Processing</span>
-                </li>
-              </ul>
-            </div>
-
-            <!-- Newly Registered Accounts -->
-            <div class="widget recent-panel">
-              <div class="widget-header">
-                <h3><i class="fa-solid fa-user-plus" style="margin-right: 8px; color: var(--primary-color);"></i> New Accounts</h3>
-                <a href="accounts.html" class="view-all-link">See All <i class="fa-solid fa-arrow-right"></i></a>
-              </div>
-              <ul class="recent-list">
-                <li>
-                  <div class="recent-info">
-                    <strong>Alice Reyes</strong>
-                    <span>alice.reyes@email.com</span>
-                  </div>
-                  <span class="recent-date">Today</span>
-                </li>
-                <li>
-                  <div class="recent-info">
-                    <strong>Bob Santos</strong>
-                    <span>bsantos12@email.com</span>
-                  </div>
-                  <span class="recent-date">Yesterday</span>
                 </li>
               </ul>
             </div>

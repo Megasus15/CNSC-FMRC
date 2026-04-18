@@ -20,7 +20,7 @@
 
 body {
   min-height: 100vh;
-  font-family: "Open Sans", sans-serif;
+  font-family: "Montserrat", sans-serif;
   color: var(--text-main);
   background-color: var(--bg-color);
   /* Optional: Very subtle background pattern */
@@ -161,7 +161,7 @@ body {
   font-size: 14px;
   color: var(--text-main);
   transition: all 0.2s ease;
-  font-family: "Open Sans", sans-serif;
+  font-family: "Montserrat", sans-serif;
 }
 
 .input-icon-group input:focus {
@@ -285,7 +285,7 @@ body {
 .field-error-bubble {
   position: absolute;
   right: 0;
-  top: -8px;
+  top: -4px;
   transform: translateY(-100%);
   max-width: 290px;
   background: #d32f2f;

@@ -10,6 +10,10 @@
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800;900&display=swap"
       rel="stylesheet"
     />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
     <link rel="stylesheet" href="../home-page/main.css" />
   </head>
   <body class="products-page-body">
@@ -61,7 +65,7 @@
               d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"
             ></path>
           </svg>
-          <span class="cart-badge">1</span>
+          <span class="cart-badge">0</span>
         </a>
 
         <div class="user-profile">
@@ -627,11 +631,6 @@
           <div
             class="checkout-client-info"
             id="openAddressSelectionBtn"
-            onclick="
-              document
-                .getElementById('addressSelectionModal')
-                .classList.add('show-modal')
-            "
           >
             <div class="client-icon">
               <svg
@@ -651,18 +650,16 @@
             </div>
             <div class="client-details">
               <div class="client-name-phone">
-                <span id="displayClientName">Kevin Arevalo</span>
-                <span id="displayClientPhone">(+63)98******45</span>
+                <span id="displayClientName">No Name Provided</span>
+                <span id="displayClientPhone">+63 -</span>
               </div>
               <div class="client-address-text" id="displayClientAddress">
-                Purok-6, Brgy. Masalong (pangatlong bahay na kahoy na gate,
-                pataas mula sa bahay nila ex-kapitana)<br />
-                Masalong, Labo, Camarines Norte, Philippines
+                No saved address yet. Add your details first.
               </div>
               <div class="client-dept-role">
-                <span class="badge-role" id="displayClientRole">Student</span>
+                <span class="badge-role" id="displayClientRole">Not set</span>
                 <span class="badge-role gray-badge" id="displayClientDept"
-                  >CNSC</span
+                  >Not set</span
                 >
               </div>
             </div>
@@ -729,8 +726,8 @@
               <select class="payment-select">
                 <option>Choose Payment Method</option>
                 <option>Cash on Pickup</option>
+                <option>Cash on Delivery</option>
                 <option>GCash</option>
-                <option>Bank Transfer</option>
               </select>
             </div>
           </div>
@@ -776,7 +773,13 @@
             </svg>
           </button>
           <h2 class="shop-modal-title">Your addresses</h2>
-          <div style="width: 24px"></div>
+          <button
+            class="cart-edit-btn address-edit-toggle"
+            id="addressEditModeBtn"
+            type="button"
+          >
+            Edit
+          </button>
         </div>
 
         <div class="shop-modal-body" style="padding: 0; background: #f4f4f4">
@@ -799,55 +802,39 @@
             <span class="chevron-right">&gt;</span>
           </div>
 
-          <div class="address-list">
-            <div
-              class="address-item"
-              data-name="Kevin Arevalo"
-              data-phone="9810265945"
-              data-address="Purok-6, Brgy. Masalong (pangatlong bahay na kahoy na gate, pataas mula sa bahay nila ex-kapitana)<br>Masalong, Labo, Camarines Norte, Philippines"
-              data-dept="CNSC"
-              data-role="Student"
-            >
-              <div class="address-item-left">
-                <div class="address-name-row">
-                  <span class="a-name">Kevin Arevalo</span>
-                  <span class="a-phone">(+63)98******45</span>
-                </div>
-                <div class="a-address-text">
-                  Purok-6, Brgy. Masalong (pangatlong bahay na kahoy na gate,
-                  pataas mula sa bahay nila ex-kapitana)<br />
-                  Masalong, Labo, Camarines Norte, Philippines
-                </div>
-                <div class="a-badges">
-                  <span class="a-badge default-badge">Default</span>
-                </div>
-              </div>
-              <div class="address-item-right">
-                <button class="edit-address-btn">Edit</button>
-              </div>
-            </div>
+          <div class="address-list" id="addressList"></div>
+        </div>
 
-            <div
-              class="address-item"
-              data-name="Juan Dela Cruz"
-              data-phone="9123456789"
-              data-address="Brgy. 1, Daet, Camarines Norte, Philippines"
-              data-dept="DTI"
-              data-role="Business"
+        <div
+          class="shop-modal-footer address-selection-footer"
+          id="addressSelectionFooter"
+          style="display: none"
+        >
+          <label class="cart-checkbox-container select-all-container">
+            <input type="checkbox" id="selectAllAddressBtn" />
+            <span class="cart-checkmark"></span>
+            <span
+              class="select-all-text"
+              style="font-size: 13px; margin-left: 8px; font-weight: 600; color: #111"
+              >All</span
             >
-              <div class="address-item-left">
-                <div class="address-name-row">
-                  <span class="a-name">Juan Dela Cruz</span>
-                  <span class="a-phone">(+63)91******89</span>
-                </div>
-                <div class="a-address-text">
-                  Brgy. 1, Daet, Camarines Norte, Philippines
-                </div>
-              </div>
-              <div class="address-item-right">
-                <button class="edit-address-btn">Edit</button>
-              </div>
-            </div>
+          </label>
+
+          <div class="cart-footer-right address-delete-actions" style="display: flex; align-items: center; gap: 8px">
+            <button
+              class="btn-place-order delete-btn"
+              id="deleteSelectedAddressBtn"
+              style="padding: 10px 22px; border-radius: 30px; background: transparent; border: 1px solid #b01c1c; color: #b01c1c"
+            >
+              Delete
+            </button>
+            <button
+              class="btn-place-order delete-btn"
+              id="deleteAllAddressBtn"
+              style="padding: 10px 22px; border-radius: 30px; background: transparent; border: 1px solid #b01c1c; color: #b01c1c"
+            >
+              Delete All
+            </button>
           </div>
         </div>
       </div>
@@ -873,24 +860,7 @@
             </svg>
           </button>
           <h2 class="shop-modal-title">Edit Details</h2>
-          <button class="trash-btn" title="Delete Address">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#555"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <polyline points="3 6 5 6 21 6"></polyline>
-              <path
-                d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
-              ></path>
-            </svg>
-          </button>
+          <div style="width: 24px"></div>
         </div>
 
         <div class="shop-modal-body">
@@ -908,8 +878,8 @@
               <input
                 type="text"
                 id="inpFullName"
-                value="Kevin Arevalo"
                 class="c-input"
+                required
               />
             </div>
 
@@ -920,8 +890,8 @@
                 <input
                   type="tel"
                   id="inpPhone"
-                  value="9810265945"
                   class="c-input"
+                  required
                 />
               </div>
             </div>
@@ -932,9 +902,8 @@
                 id="inpAddress"
                 class="c-input c-textarea"
                 style="margin-bottom: 10px"
-              >
-Purok-6, Brgy. Masalong (pangatlong bahay na kahoy na gate, pataas mula sa bahay nila ex-kapitana)&#10;Masalong, Labo, Camarines Norte</textarea
-              >
+                required
+              ></textarea>
             </div>
 
             <div class="form-group">
@@ -943,7 +912,8 @@ Purok-6, Brgy. Masalong (pangatlong bahay na kahoy na gate, pataas mula sa bahay
                 type="text"
                 id="inpDetails"
                 class="c-input"
-                placeholder="Enter other details (optional)"
+                placeholder="Apartment, room, landmark"
+                required
               />
             </div>
 
@@ -952,9 +922,9 @@ Purok-6, Brgy. Masalong (pangatlong bahay na kahoy na gate, pataas mula sa bahay
               <input
                 type="text"
                 id="inpDept"
-                value="CNSC"
                 class="c-input"
                 placeholder="e.g. Engineering Dept, DTI, etc."
+                required
               />
             </div>
 
@@ -1022,7 +992,7 @@ Purok-6, Brgy. Masalong (pangatlong bahay na kahoy na gate, pataas mula sa bahay
                 </p>
               </div>
               <label class="toggle-switch">
-                <input type="checkbox" checked />
+                <input type="checkbox" checked id="inpSetDefault" />
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -1082,14 +1052,14 @@ Purok-6, Brgy. Masalong (pangatlong bahay na kahoy na gate, pataas mula sa bahay
           <div class="checkout-form">
             <div class="form-group">
               <label>Name</label>
-              <input type="text" id="addInpFullName" class="c-input" />
+              <input type="text" id="addInpFullName" class="c-input" required />
             </div>
 
             <div class="form-group">
               <label>Phone number</label>
               <div class="phone-input-group">
                 <span class="phone-prefix">PH +63</span>
-                <input type="tel" id="addInpPhone" class="c-input" />
+                <input type="tel" id="addInpPhone" class="c-input" required />
               </div>
             </div>
 
@@ -1099,6 +1069,7 @@ Purok-6, Brgy. Masalong (pangatlong bahay na kahoy na gate, pataas mula sa bahay
                 id="addInpAddress"
                 class="c-input c-textarea"
                 style="margin-bottom: 10px"
+                required
               ></textarea>
             </div>
 
@@ -1108,7 +1079,8 @@ Purok-6, Brgy. Masalong (pangatlong bahay na kahoy na gate, pataas mula sa bahay
                 type="text"
                 id="addInpDetails"
                 class="c-input"
-                placeholder="Enter other details (optional)"
+                placeholder="Apartment, room, landmark"
+                required
               />
             </div>
 
@@ -1119,6 +1091,7 @@ Purok-6, Brgy. Masalong (pangatlong bahay na kahoy na gate, pataas mula sa bahay
                 id="addInpDept"
                 class="c-input"
                 placeholder="e.g. Engineering Dept, DTI, etc."
+                required
               />
             </div>
 
@@ -1188,7 +1161,7 @@ Purok-6, Brgy. Masalong (pangatlong bahay na kahoy na gate, pataas mula sa bahay
                 </p>
               </div>
               <label class="toggle-switch">
-                <input type="checkbox" checked />
+                <input type="checkbox" checked id="addInpSetDefault" />
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -1265,7 +1238,7 @@ Purok-6, Brgy. Masalong (pangatlong bahay na kahoy na gate, pataas mula sa bahay
                   text-overflow: ellipsis;
                   max-width: 150px;
                 "
-                >Masalong, Labo, Camarines Norte</span
+                >No saved address</span
               >
               <svg
                 xmlns="http://www.w3.org/2000/svg"

@@ -105,6 +105,16 @@ document.addEventListener("DOMContentLoaded", () => {
     return `AP-${digits.slice(-3).padStart(3, "0")}`;
   };
 
+  const toTimestamp = (value) => {
+    const ts = Date.parse(String(value || ""));
+    return Number.isFinite(ts) ? ts : 0;
+  };
+
+  const toNumericId = (value) => {
+    const parsed = Number(String(value ?? "").replace(/[^0-9]/g, ""));
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
   const parseStartTimeInMinutes = (label, fallbackType = "AM") => {
     const source = String(label || "").trim();
     const startRaw = source.split("-")[0].trim();
@@ -366,7 +376,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     if (!response.ok) throw new Error("Failed to fetch appointments");
     const payload = await response.json();
-    state.appointments = Array.isArray(payload?.data) ? payload.data : [];
+    const appointments = Array.isArray(payload?.data) ? payload.data : [];
+    state.appointments = [...appointments].sort(
+      (a, b) =>
+        toTimestamp(a?.created_at || a?.created_at_label) -
+          toTimestamp(b?.created_at || b?.created_at_label) ||
+        toNumericId(a?.id || a?.reference_no) - toNumericId(b?.id || b?.reference_no),
+    );
   };
 
   const fetchCalendar = async () => {
@@ -430,18 +446,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const calculateRowsPerPage = () => {
-    const firstRow = tableBody?.querySelector("tr");
-    const rowHeight = firstRow?.offsetHeight || 42;
-
-    const sidebarFooter = document.querySelector(".sidebar-footer");
-    const footerTop = sidebarFooter
-      ? sidebarFooter.getBoundingClientRect().top
-      : window.innerHeight - 70;
-
-    const tableTop = tableWrapper?.getBoundingClientRect().top || 200;
-    const available = Math.max(180, footerTop - tableTop - 70);
-    const rows = Math.floor(available / rowHeight);
-    return Math.max(5, rows);
+    return 5;
   };
 
   const renderTable = () => {
@@ -488,14 +493,13 @@ document.addEventListener("DOMContentLoaded", () => {
       .join("");
 
     if (!pagedItems.length) {
-      tableBody.innerHTML = `<tr><td colspan="13">No appointment records found.</td></tr>`;
+      tableBody.innerHTML = `<tr class="table-empty-row"><td colspan="13"><div class="table-empty-state"><i class="fa-regular fa-folder-open"></i><span>No appointment records found.</span></div></td></tr>`;
     }
 
     if (tableMeta) {
-      tableMeta.textContent = `Page ${currentPage} of ${pageCount} • Showing ${Math.min(
-        source.length,
-        start + 1
-      )}-${Math.min(source.length, start + rowsPerPage)} of ${source.length}`;
+      const from = source.length ? start + 1 : 0;
+      const to = source.length ? Math.min(source.length, start + rowsPerPage) : 0;
+      tableMeta.textContent = `Page ${currentPage} of ${pageCount} • Showing ${from}-${to} of ${source.length}`;
     }
 
     if (currentPageEl) currentPageEl.textContent = String(currentPage);
@@ -764,7 +768,6 @@ document.addEventListener("DOMContentLoaded", () => {
       title: "Saved",
       onOk: () => {
         modalCalendar?.classList.remove("show");
-        window.location.reload();
       },
     });
     await fetchCalendar();
@@ -995,7 +998,6 @@ document.addEventListener("DOMContentLoaded", () => {
     await removeAppointment(activeDeleteId);
     activeDeleteId = 0;
     document.getElementById("modalDeleteAppointment")?.classList.remove("show");
-    window.location.reload();
   });
 
   prevBtn?.addEventListener("click", () => {

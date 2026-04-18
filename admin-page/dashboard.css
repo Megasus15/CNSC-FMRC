@@ -563,6 +563,20 @@ body {
   margin-top: 14px;
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
+}
+
+.admin-system-popup__actions .btn-admin {
+  min-width: 92px;
+  justify-content: center;
+}
+
+.admin-system-popup__actions #adminSystemPopupCancel {
+  display: none;
+}
+
+.admin-system-popup__actions.is-confirm #adminSystemPopupCancel {
+  display: inline-flex;
 }
 
 @keyframes adminPopupIn {
@@ -743,7 +757,7 @@ body {
 
 .summary-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 20px;
   margin-bottom: 30px;
 }
@@ -754,9 +768,14 @@ body {
   border-radius: 12px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   border: 1px solid var(--border-color);
   transition: var(--transition);
+}
+
+.card-info {
+  flex: 1;
+  min-width: 0;
 }
 
 .card-link {
@@ -789,9 +808,14 @@ body {
 }
 
 .card-icon {
-  font-size: 2.2rem;
-  color: var(--secondary-color);
-  opacity: 0.8;
+  width: 36px;
+  text-align: center;
+  font-size: 1.45rem;
+  color: var(--primary-color);
+  opacity: 0.9;
+  align-self: center;
+  flex-shrink: 0;
+  margin-left: 12px;
 }
 
 .dashboard-widgets {
@@ -851,7 +875,44 @@ body {
 .recent-list li {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid #edf1f6;
+  border-radius: 10px;
+  background: #fafbfc;
+}
+
+.recent-list li.latest-entry {
+  border-color: #f2caca;
+  background: linear-gradient(135deg, #fff5f5, #fff);
+  box-shadow: 0 8px 16px rgba(128, 0, 0, 0.08);
+}
+
+.recent-loading,
+.recent-empty {
+  justify-content: flex-start;
+}
+
+.latest-chip {
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #8b0000;
+  background: #ffe9e9;
+  border: 1px solid #f2c7c7;
+}
+
+.recent-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  min-width: 95px;
 }
 
 .recent-info {
@@ -892,6 +953,11 @@ body {
 .priority-low {
   background-color: #d4edda;
   color: #155724;
+}
+
+.priority-neutral {
+  background-color: #e2e8f0;
+  color: #334155;
 }
 
 @media (max-width: 1024px) {
@@ -1107,7 +1173,17 @@ body {
 }
 
 @media (max-width: 992px) {
+  .summary-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .dashboard-widgets {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .summary-cards {
     grid-template-columns: 1fr;
   }
 }

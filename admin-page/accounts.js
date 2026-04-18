@@ -88,6 +88,16 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
+  const toTimestamp = (value) => {
+    const ts = Date.parse(String(value || ""));
+    return Number.isFinite(ts) ? ts : 0;
+  };
+
+  const toNumericId = (value) => {
+    const parsed = Number(String(value ?? "").replace(/[^0-9]/g, ""));
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
   const escapeHtml = (value) =>
     String(value ?? "")
       .replace(/&/g, "&amp;")
@@ -189,7 +199,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const payload = await response.json();
-      state.users = Array.isArray(payload?.data) ? payload.data : [];
+      const fetchedUsers = Array.isArray(payload?.data) ? payload.data : [];
+      state.users = [...fetchedUsers].sort(
+        (a, b) =>
+          toTimestamp(a?.created_at) - toTimestamp(b?.created_at) ||
+          toNumericId(a?.id) - toNumericId(b?.id),
+      );
       state.currentPage = 1;
       renderTable();
     } catch (error) {

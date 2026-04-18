@@ -13,11 +13,30 @@ document.addEventListener("DOMContentLoaded", () => {
   const indicatorThumb = document.querySelector(
     ".sidebar-scroll-indicator .indicator-thumb"
   );
+  const REMOVED_ROUTES = ["payment-monitoring.html", "payments.html"];
 
   let sidebarToggleBtn = null;
   let sidebarBackdrop = null;
 
   const isMobileSidebarMode = () => window.innerWidth <= MOBILE_BREAKPOINT;
+
+  const sanitizeRemovedPageLinks = () => {
+    const currentPath = window.location.pathname.toLowerCase();
+    const openedRemovedPage = REMOVED_ROUTES.some((route) =>
+      currentPath.endsWith(`/${route}`)
+    );
+
+    if (openedRemovedPage) {
+      window.location.replace("dashboard.html");
+      return;
+    }
+
+    REMOVED_ROUTES.forEach((route) => {
+      document
+        .querySelectorAll(`a[href="${route}"]`)
+        .forEach((link) => link.remove());
+    });
+  };
 
   const saveSidebarState = (isOpen) => {
     try {
@@ -223,6 +242,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   ensureMyAccountEntry();
+  sanitizeRemovedPageLinks();
   decorateSidebarLabels();
   ensureMobileSidebarChrome();
   updateSidebarScrollIndicator();
@@ -556,6 +576,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <p id="adminSystemPopupMessage" class="admin-system-popup__message"></p>
         <hr class="admin-system-popup__separator" />
         <div class="admin-system-popup__actions">
+          <button id="adminSystemPopupCancel" type="button" class="btn-admin btn-secondary">Cancel</button>
           <button id="adminSystemPopupOk" type="button" class="btn-admin">Okay</button>
         </div>
       </div>
@@ -565,28 +586,75 @@ document.addEventListener("DOMContentLoaded", () => {
     return popup;
   };
 
-  window.showAdminPopup = (message, options = {}) => {
+  const showAdminSystemPopup = (message, options = {}) => {
     const popup = ensureAdminSystemPopup();
     const titleEl = popup.querySelector("#adminSystemPopupTitle");
     const msgEl = popup.querySelector("#adminSystemPopupMessage");
     const okBtn = popup.querySelector("#adminSystemPopupOk");
+    const cancelBtn = popup.querySelector("#adminSystemPopupCancel");
+    const actions = popup.querySelector(".admin-system-popup__actions");
+    const backdrop = popup.querySelector(".admin-system-popup__backdrop");
 
     if (titleEl) titleEl.textContent = options.title || "System Message";
     if (msgEl) msgEl.textContent = String(message || "Done.");
 
-    const closePopup = () => {
+    const closePopup = (callback) => {
       popup.classList.remove("show");
-      if (typeof options.onOk === "function") {
-        options.onOk();
+      if (typeof callback === "function") {
+        callback();
       }
     };
 
+    const isConfirm = Boolean(options.isConfirm);
+
+    if (actions) {
+      actions.classList.toggle("is-confirm", isConfirm);
+    }
+
     if (okBtn) {
-      okBtn.onclick = closePopup;
-      okBtn.focus();
+      okBtn.textContent = options.okText || (isConfirm ? "Confirm" : "Okay");
+      okBtn.onclick = () => closePopup(options.onOk);
+    }
+
+    if (cancelBtn) {
+      cancelBtn.textContent = options.cancelText || "Cancel";
+      cancelBtn.style.display = isConfirm ? "inline-flex" : "none";
+      cancelBtn.onclick = () => closePopup(options.onCancel);
+    }
+
+    if (backdrop) {
+      backdrop.onclick = isConfirm
+        ? () => closePopup(options.onCancel)
+        : () => closePopup();
     }
 
     popup.classList.add("show");
+
+    if (isConfirm && cancelBtn) {
+      cancelBtn.focus();
+    } else if (okBtn) {
+      okBtn.focus();
+    }
+  };
+
+  window.showAdminPopup = (message, options = {}) => {
+    showAdminSystemPopup(message, {
+      title: options.title,
+      okText: options.okText,
+      onOk: options.onOk,
+      isConfirm: false,
+    });
+  };
+
+  window.showAdminConfirmPopup = (message, options = {}) => {
+    showAdminSystemPopup(message, {
+      title: options.title || "Please Confirm",
+      okText: options.confirmText || "Confirm",
+      cancelText: options.cancelText || "Cancel",
+      onOk: options.onConfirm,
+      onCancel: options.onCancel,
+      isConfirm: true,
+    });
   };
 
   // Replace native browser alert on admin pages with system popup.
@@ -603,6 +671,25 @@ document.addEventListener("DOMContentLoaded", () => {
     return normalized;
   };
 
+  const ensureEmptyStateRow = (table, tbody) => {
+    let emptyRow = tbody.querySelector(".table-empty-row");
+    if (!emptyRow) {
+      emptyRow = document.createElement("tr");
+      emptyRow.className = "table-empty-row";
+
+      const cell = document.createElement("td");
+      const headerCount = table.querySelectorAll("thead th").length || 1;
+      const emptyMessage = table.dataset.emptyMessage || "No data available yet.";
+      cell.colSpan = headerCount;
+      cell.innerHTML = `<div class="table-empty-state"><i class="fa-regular fa-folder-open"></i><span>${emptyMessage}</span></div>`;
+
+      emptyRow.appendChild(cell);
+      tbody.appendChild(emptyRow);
+    }
+
+    return emptyRow;
+  };
+
   const tablePanels = document.querySelectorAll(".panel");
 
   tablePanels.forEach((panel) => {
@@ -612,11 +699,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const tbody = table.querySelector("tbody");
     if (!tbody) return;
 
-    const allRows = Array.from(tbody.querySelectorAll("tr"));
-    if (!allRows.length) return;
+    const allRows = Array.from(tbody.querySelectorAll("tr")).filter(
+      (row) => !row.classList.contains("table-empty-row")
+    );
+
+    const emptyStateRow = ensureEmptyStateRow(table, tbody);
 
     const footer = panel.querySelector(".table-footer");
-    if (!footer) return;
+    if (!footer) {
+      emptyStateRow.style.display = allRows.length ? "none" : "table-row";
+      return;
+    }
 
     const pageButtons = footer.querySelectorAll(".page-btn");
     const prevButton = pageButtons[0] || null;
@@ -668,6 +761,12 @@ document.addEventListener("DOMContentLoaded", () => {
       allRows.forEach((row) => {
         row.style.display = "none";
       });
+
+      if (!filteredRows.length) {
+        emptyStateRow.style.display = "table-row";
+      } else {
+        emptyStateRow.style.display = "none";
+      }
 
       filteredRows.slice(start, end).forEach((row) => {
         row.style.display = "";

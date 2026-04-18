@@ -16,6 +16,81 @@ const getCustomerSession = () => {
   };
 };
 
+const ORDER_STAGE_FLOW = ["to_pay", "to_ship", "to_receive", "completed"];
+const PHILIPPINES_TIME_ZONE = "Asia/Manila";
+const API_REQUEST_TIMEOUT_MS = 15000;
+const ORDERS_REALTIME_SIGNAL_KEY = "fmrc_orders_updated_at";
+const ORDERS_REALTIME_CHANNEL = "fmrc-orders-realtime";
+const CUSTOMER_ORDERS_FALLBACK_SYNC_MS = 6000;
+const CUSTOMER_ORDERS_MIN_REFRESH_GAP_MS = 2500;
+const CART_STORAGE_KEY = "fmrc_cart_items";
+const CART_STORAGE_SIGNAL_KEY = "fmrc_cart_updated_at";
+
+let ordersRealtimeChannel = null;
+
+const getOrdersRealtimeChannel = () => {
+  if (typeof window.BroadcastChannel !== "function") return null;
+  if (!ordersRealtimeChannel) {
+    ordersRealtimeChannel = new window.BroadcastChannel(ORDERS_REALTIME_CHANNEL);
+  }
+  return ordersRealtimeChannel;
+};
+
+const resolveApiBaseUrl = () => {
+  const configured =
+    window.APP_API_BASE_URL ||
+    document.querySelector('meta[name="api-base-url"]')?.getAttribute("content") ||
+    "";
+
+  if (configured.trim()) {
+    return configured.replace(/\/+$/, "");
+  }
+
+  const protocol = String(window.location.protocol || "").toLowerCase();
+  const hostname = String(window.location.hostname || "").toLowerCase();
+  const origin = String(window.location.origin || "");
+  const port = String(window.location.port || "");
+
+  if (!/^https?:$/.test(protocol) || !hostname) {
+    return "http://127.0.0.1:8000/api";
+  }
+
+  const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1";
+  const isPort8000 = port === "8000";
+  const isStandardWebPort = port === "" || port === "80" || port === "443";
+
+  if (isPort8000 || (!isLocalHost && isStandardWebPort)) {
+    return `${origin.replace(/\/+$/, "")}/api`;
+  }
+
+  if (isLocalHost) {
+    return `${protocol}//${hostname}:8000/api`;
+  }
+
+  return `${origin.replace(/\/+$/, "")}/api`;
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
+
+const emitCustomerOrdersUpdated = (detail = {}) => {
+  const payload = {
+    source: "customer-portal",
+    timestamp: Date.now(),
+    ...detail,
+  };
+
+  window.dispatchEvent(new CustomEvent("fmrc:orders-updated", { detail: payload }));
+
+  try {
+    localStorage.setItem(ORDERS_REALTIME_SIGNAL_KEY, JSON.stringify(payload));
+  } catch {
+    // Ignore storage write issues.
+  }
+
+  const realtimeChannel = getOrdersRealtimeChannel();
+  realtimeChannel?.postMessage(payload);
+};
+
 document.addEventListener("DOMContentLoaded", () => {
   let navLinks = document.querySelectorAll(".nav-link");
   const sections = document.querySelectorAll("main, section");
@@ -186,6 +261,99 @@ document.addEventListener("DOMContentLoaded", () => {
     return false;
   };
 
+  const fetchWithTimeout = async (url, options = {}, timeoutMs = API_REQUEST_TIMEOUT_MS) => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+    const { signal: _ignoredSignal, ...restOptions } = options;
+
+    try {
+      return await fetch(url, {
+        ...restOptions,
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        throw new Error("Request timed out. Please check your connection and try again.");
+      }
+
+      throw error;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  };
+
+  const ensureCustomerSystemPopup = () => {
+    let popup = document.getElementById("customerSystemPopup");
+    if (popup) return popup;
+
+    popup = document.createElement("div");
+    popup.id = "customerSystemPopup";
+    popup.className = "admin-system-popup";
+    popup.innerHTML = `
+      <div class="admin-system-popup__backdrop"></div>
+      <div class="admin-system-popup__card" role="dialog" aria-modal="true" aria-labelledby="customerSystemPopupTitle">
+        <h3 id="customerSystemPopupTitle" class="admin-system-popup__title">System Message</h3>
+        <hr class="admin-system-popup__separator" />
+        <p id="customerSystemPopupMessage" class="admin-system-popup__message"></p>
+        <hr class="admin-system-popup__separator" />
+        <div class="admin-system-popup__actions">
+          <button id="customerSystemPopupCancel" type="button" class="btn-admin btn-secondary">Cancel</button>
+          <button id="customerSystemPopupOk" type="button" class="btn-admin">Okay</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(popup);
+    return popup;
+  };
+
+  const showCustomerPopup = (message, options = {}) =>
+    new Promise((resolve) => {
+      const popup = ensureCustomerSystemPopup();
+      const titleEl = popup.querySelector("#customerSystemPopupTitle");
+      const msgEl = popup.querySelector("#customerSystemPopupMessage");
+      const okBtn = popup.querySelector("#customerSystemPopupOk");
+      const cancelBtn = popup.querySelector("#customerSystemPopupCancel");
+      const actions = popup.querySelector(".admin-system-popup__actions");
+      const backdrop = popup.querySelector(".admin-system-popup__backdrop");
+
+      if (titleEl) titleEl.textContent = options.title || "System Message";
+      if (msgEl) msgEl.textContent = String(message || "Done.");
+
+      const isConfirm = Boolean(options.isConfirm);
+      if (actions) {
+        actions.classList.toggle("is-confirm", isConfirm);
+      }
+
+      const closePopup = (accepted) => {
+        popup.classList.remove("show");
+        resolve(Boolean(accepted));
+      };
+
+      if (okBtn) {
+        okBtn.textContent = options.okText || (isConfirm ? "Confirm" : "Okay");
+        okBtn.onclick = () => closePopup(true);
+      }
+
+      if (cancelBtn) {
+        cancelBtn.textContent = options.cancelText || "Cancel";
+        cancelBtn.style.display = isConfirm ? "inline-flex" : "none";
+        cancelBtn.onclick = () => closePopup(false);
+      }
+
+      if (backdrop) {
+        backdrop.onclick = () => closePopup(false);
+      }
+
+      popup.classList.add("show");
+
+      if (isConfirm && cancelBtn) {
+        cancelBtn.focus();
+      } else if (okBtn) {
+        okBtn.focus();
+      }
+    });
+
   // Disable sticky header when any modal/overlay/form is open
   const headerBlockingSelectors = [
     ".modal-overlay.show-modal",
@@ -203,6 +371,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "#cartModal.show-modal",
     "#serviceModal.show-modal",
     "#productInfoModal.show-modal",
+    "#customerOrdersModal.show",
   ];
 
   const syncHeaderStickyState = () => {
@@ -888,7 +1057,9 @@ document.addEventListener("DOMContentLoaded", () => {
         inputQty.value = currentVal + 1;
         updateCheckoutMath();
       } else {
-        alert("Maximum stock reached for this item.");
+        void showCustomerPopup("Maximum stock reached for this item.", {
+          title: "Stock Limit",
+        });
       }
     });
   }
@@ -898,6 +1069,9 @@ document.addEventListener("DOMContentLoaded", () => {
   buyNowBtns.forEach((btn) => {
     btn.addEventListener("click", function (e) {
       if (!requireCustomerAuth("buy products")) return;
+      if (!isGuestUser) {
+        void fetchCustomerCheckoutProfile();
+      }
 
       const card = e.target.closest(".shop-card");
       if (card) {
@@ -948,6 +1122,7 @@ document.addEventListener("DOMContentLoaded", () => {
   );
   if (openAddressSelectionBtn) {
     openAddressSelectionBtn.addEventListener("click", () => {
+      setAddressEditMode(false);
       addressSelectionModal.classList.add("show-modal");
     });
   }
@@ -957,151 +1132,1015 @@ document.addEventListener("DOMContentLoaded", () => {
   );
   if (backToCheckoutFromAddressBtn) {
     backToCheckoutFromAddressBtn.addEventListener("click", () => {
+      setAddressEditMode(false);
       addressSelectionModal.classList.remove("show-modal");
     });
   }
 
-  // Select an address from the list to use in Checkout
-  const addressItems = document.querySelectorAll(".address-item");
-  addressItems.forEach((item) => {
-    item.addEventListener("click", function (e) {
-      // Ignore click if they clicked the Edit button
-      if (e.target.classList.contains("edit-address-btn")) return;
-
-      const name = this.dataset.name;
-      const phone = this.dataset.phone;
-      const address = this.dataset.address;
-      const dept = this.dataset.dept;
-      const role = this.dataset.role;
-
-      document.getElementById("displayClientName").innerText = name;
-      const maskedPhone =
-        phone.length > 4
-          ? `(+63)${phone.substring(0, 2)}******${phone.substring(phone.length - 2)}`
-          : phone;
-      document.getElementById("displayClientPhone").innerText = maskedPhone;
-      document.getElementById("displayClientAddress").innerHTML = address;
-      document.getElementById("displayClientRole").innerText = role;
-      document.getElementById("displayClientDept").innerText = dept;
-
-      addressSelectionModal.classList.remove("show-modal");
-    });
-  });
-
-  // --- MODAL 3: OPEN EDIT/ADD FORM ---
+  // Select and manage checkout addresses using profile data + local address book.
   const openAddAddressBtn = document.getElementById("openAddAddressBtn");
-  const editAddressBtns = document.querySelectorAll(".edit-address-btn");
   const addInfoModal = document.getElementById("addInfoModal");
+  const addressList = document.getElementById("addressList") || document.querySelector(".address-list");
+  const addressEditModeBtn = document.getElementById("addressEditModeBtn");
+  const addressSelectionFooter = document.getElementById("addressSelectionFooter");
+  const selectAllAddressBtn = document.getElementById("selectAllAddressBtn");
+  const deleteSelectedAddressBtn = document.getElementById("deleteSelectedAddressBtn");
+  const deleteAllAddressBtn = document.getElementById("deleteAllAddressBtn");
+  const cartShortAddressText = document.getElementById("cartShortAddressText");
 
-  if (openAddAddressBtn) {
-    if (addInfoModal) {
-      openAddAddressBtn.addEventListener("click", () => {
-        addInfoModal.classList.add("show-modal");
-      });
+  const displayClientName = document.getElementById("displayClientName");
+  const displayClientPhone = document.getElementById("displayClientPhone");
+  const displayClientAddress = document.getElementById("displayClientAddress");
+  const displayClientRole = document.getElementById("displayClientRole");
+  const displayClientDept = document.getElementById("displayClientDept");
+
+  const inpFullName = document.getElementById("inpFullName");
+  const inpPhone = document.getElementById("inpPhone");
+  const inpAddress = document.getElementById("inpAddress");
+  const inpDetails = document.getElementById("inpDetails");
+  const inpDept = document.getElementById("inpDept");
+  const inpSetDefault = document.getElementById("inpSetDefault");
+  const addInpFullName = document.getElementById("addInpFullName");
+  const addInpPhone = document.getElementById("addInpPhone");
+  const addInpAddress = document.getElementById("addInpAddress");
+  const addInpDetails = document.getElementById("addInpDetails");
+  const addInpDept = document.getElementById("addInpDept");
+  const addInpSetDefault = document.getElementById("addInpSetDefault");
+
+  const saveInfoBtn = document.getElementById("saveInfoBtn");
+  const saveNewInfoBtn = document.getElementById("saveNewInfoBtn");
+  const backToAddressBtn = document.getElementById("backToAddressBtn");
+  const backToAddressFromAddBtn = document.getElementById("backToAddressFromAddBtn");
+
+  const ADDRESS_STORAGE_NAMESPACE = "fmrc_checkout_addresses_v1";
+
+  let customerCheckoutProfile = null;
+  let customerAddressBook = [];
+  let selectedCheckoutAddressId = null;
+  let editingCheckoutAddressId = null;
+  let isAddressEditMode = false;
+  const addressDeleteSelection = new Set();
+
+  const escapeCustomerHtml = (value) =>
+    String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const getMaskedPhone = (rawDigits) => {
+    const digits = String(rawDigits || "").replace(/\D/g, "");
+    if (!digits) return "(+63)N/A";
+    if (digits.length <= 4) return `(+63)${digits}`;
+    return `(+63)${digits.substring(0, 2)}******${digits.substring(digits.length - 2)}`;
+  };
+
+  const getShortAddress = (addressLine) => {
+    const clean = String(addressLine || "").replace(/\s+/g, " ").trim();
+    if (!clean) return "No saved address";
+    if (clean.length <= 40) return clean;
+    return `${clean.slice(0, 37)}...`;
+  };
+
+  const getAddressStorageKey = () => {
+    const customerKey =
+      customerSession.userInfo?.id ||
+      customerSession.userInfo?.email ||
+      customerSession.userInfo?.username ||
+      "guest";
+
+    return `${ADDRESS_STORAGE_NAMESPACE}:${String(customerKey).toLowerCase()}`;
+  };
+
+  const normalizePhoneDigits = (value) => String(value || "").replace(/\D/g, "").slice(0, 11);
+
+  const createAddressId = () => `addr-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+  const normalizeAddressEntry = (entry = {}) => ({
+    id: String(entry.id || createAddressId()),
+    name: String(entry.name || "").trim(),
+    phone_number: normalizePhoneDigits(entry.phone_number || entry.phone || ""),
+    address_line: String(entry.address_line || "").trim(),
+    address_details: String(entry.address_details || "").trim(),
+    department: String(entry.department || "").trim(),
+    customer_type: String(entry.customer_type || "Student").trim() || "Student",
+    is_default: Boolean(entry.is_default),
+    updated_at: String(entry.updated_at || new Date().toISOString()),
+  });
+
+  const setRoleByRadioName = (radioName, value) => {
+    const targetValue = String(value || "Student");
+    const radios = document.querySelectorAll(`input[name="${radioName}"]`);
+    let matched = false;
+    radios.forEach((radio) => {
+      if (!(radio instanceof HTMLInputElement)) return;
+      const isMatch = radio.value === targetValue;
+      radio.checked = isMatch;
+      if (isMatch) matched = true;
+    });
+
+    if (!matched) {
+      const first = radios[0];
+      if (first instanceof HTMLInputElement) {
+        first.checked = true;
+      }
     }
-  }
+  };
 
-  editAddressBtns.forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation(); // Prevents the card click event from firing
-      editInfoModal.classList.add("show-modal");
+  const getSelectedRole = (name) => {
+    const checked = document.querySelector(`input[name="${name}"]:checked`);
+    return checked instanceof HTMLInputElement ? checked.value : "Student";
+  };
+
+  const getAddressFieldIds = (mode) => {
+    if (mode === "add") {
+      return {
+        name: "addInpFullName",
+        phone: "addInpPhone",
+        address: "addInpAddress",
+        details: "addInpDetails",
+        dept: "addInpDept",
+      };
+    }
+
+    return {
+      name: "inpFullName",
+      phone: "inpPhone",
+      address: "inpAddress",
+      details: "inpDetails",
+      dept: "inpDept",
+    };
+  };
+
+  const clearCheckoutFieldError = (fieldId) => {
+    const field = document.getElementById(fieldId);
+    if (!(field instanceof HTMLElement)) return;
+
+    const group = field.closest(".form-group");
+    if (!(group instanceof HTMLElement)) return;
+
+    group.classList.remove("has-error");
+    field.removeAttribute("aria-invalid");
+  };
+
+  const setCheckoutFieldError = (fieldId, message) => {
+    const field = document.getElementById(fieldId);
+    if (!(field instanceof HTMLElement)) return;
+
+    const group = field.closest(".form-group");
+    if (!(group instanceof HTMLElement)) return;
+
+    let bubble = group.querySelector(".checkout-field-error-bubble");
+    if (!(bubble instanceof HTMLElement)) {
+      bubble = document.createElement("div");
+      bubble.className = "checkout-field-error-bubble";
+      bubble.setAttribute("role", "alert");
+      group.appendChild(bubble);
+    }
+
+    bubble.textContent = String(message || "Please check this field.");
+    group.classList.add("has-error");
+    field.setAttribute("aria-invalid", "true");
+  };
+
+  const clearCheckoutFormErrors = (mode) => {
+    const ids = getAddressFieldIds(mode);
+    Object.values(ids).forEach((fieldId) => clearCheckoutFieldError(fieldId));
+  };
+
+  const ensureSingleDefaultAddress = () => {
+    if (!customerAddressBook.length) {
+      selectedCheckoutAddressId = null;
+      return;
+    }
+
+    let defaultIndex = customerAddressBook.findIndex((entry) => entry.is_default);
+    if (defaultIndex < 0) {
+      defaultIndex = 0;
+      customerAddressBook[0].is_default = true;
+    }
+
+    customerAddressBook = customerAddressBook.map((entry, index) => ({
+      ...entry,
+      is_default: index === defaultIndex,
+    }));
+
+    const hasSelected = customerAddressBook.some(
+      (entry) => String(entry.id) === String(selectedCheckoutAddressId),
+    );
+    if (!hasSelected) {
+      selectedCheckoutAddressId = customerAddressBook[defaultIndex]?.id || customerAddressBook[0]?.id || null;
+    }
+  };
+
+  const loadAddressBookFromStorage = () => {
+    try {
+      const raw = localStorage.getItem(getAddressStorageKey());
+      const parsed = JSON.parse(raw || "[]");
+      customerAddressBook = Array.isArray(parsed)
+        ? parsed.map((entry) => normalizeAddressEntry(entry))
+        : [];
+    } catch {
+      customerAddressBook = [];
+    }
+
+    ensureSingleDefaultAddress();
+  };
+
+  const saveAddressBookToStorage = () => {
+    try {
+      localStorage.setItem(getAddressStorageKey(), JSON.stringify(customerAddressBook));
+    } catch {
+      // Ignore localStorage quota/write issues.
+    }
+  };
+
+  const getSelectedCheckoutAddress = () => {
+    if (!customerAddressBook.length) return null;
+
+    const selected = customerAddressBook.find(
+      (entry) => String(entry.id) === String(selectedCheckoutAddressId),
+    );
+    if (selected) return selected;
+
+    return customerAddressBook.find((entry) => entry.is_default) || customerAddressBook[0] || null;
+  };
+
+  const renderCheckoutAddress = () => {
+    const selected = getSelectedCheckoutAddress();
+    const fallbackName = customerCheckoutProfile?.name || customerSession.userInfo?.name || "No Name Provided";
+    const name = selected?.name || fallbackName;
+    const phone = selected?.phone_number || customerCheckoutProfile?.phone_number || "";
+    const addressLine = selected?.address_line || customerCheckoutProfile?.address_line || "";
+    const addressDetails = selected?.address_details || customerCheckoutProfile?.address_details || "";
+    const department = selected?.department || customerCheckoutProfile?.department || "Not set";
+    const role = selected?.customer_type || customerCheckoutProfile?.customer_type || "Not set";
+
+    if (displayClientName) displayClientName.innerText = name;
+    if (displayClientPhone) displayClientPhone.innerText = getMaskedPhone(phone);
+    if (displayClientAddress) {
+      displayClientAddress.innerHTML = [addressLine, addressDetails]
+        .filter(Boolean)
+        .map((entry) => escapeCustomerHtml(entry))
+        .join("<br>") || "No saved address yet. Add your details first.";
+    }
+    if (displayClientRole) displayClientRole.innerText = role;
+    if (displayClientDept) displayClientDept.innerText = department;
+    if (cartShortAddressText) {
+      cartShortAddressText.innerText = getShortAddress(addressLine || addressDetails);
+    }
+  };
+
+  const syncAddressEditUi = () => {
+    if (!customerAddressBook.length) {
+      isAddressEditMode = false;
+      addressDeleteSelection.clear();
+    }
+
+    if (addressEditModeBtn) {
+      addressEditModeBtn.innerText = isAddressEditMode ? "Done" : "Edit";
+      addressEditModeBtn.disabled = !customerAddressBook.length;
+    }
+
+    if (addressSelectionFooter) {
+      addressSelectionFooter.style.display = isAddressEditMode ? "flex" : "none";
+    }
+
+    const total = customerAddressBook.length;
+    const selectedCount = addressDeleteSelection.size;
+
+    if (selectAllAddressBtn) {
+      selectAllAddressBtn.disabled = !isAddressEditMode || total === 0;
+      selectAllAddressBtn.checked = isAddressEditMode && total > 0 && selectedCount === total;
+      selectAllAddressBtn.indeterminate = isAddressEditMode && selectedCount > 0 && selectedCount < total;
+    }
+
+    if (deleteSelectedAddressBtn) {
+      deleteSelectedAddressBtn.disabled = !isAddressEditMode || selectedCount === 0;
+    }
+
+    if (deleteAllAddressBtn) {
+      deleteAllAddressBtn.disabled = !isAddressEditMode || total === 0;
+    }
+  };
+
+  const renderAddressList = () => {
+    if (!addressList) return;
+
+    if (!customerAddressBook.length) {
+      addressList.innerHTML = `
+        <div class="address-item address-item-empty">
+          <div class="address-item-left">
+            <div class="a-address-text">No saved address yet. Tap <strong>Add details</strong> to create one.</div>
+          </div>
+        </div>
+      `;
+      syncAddressEditUi();
+      return;
+    }
+
+    addressList.innerHTML = customerAddressBook
+      .map((entry) => {
+        const safeId = escapeCustomerHtml(entry.id);
+        const isSelected = String(entry.id) === String(selectedCheckoutAddressId);
+        const isChecked = addressDeleteSelection.has(String(entry.id));
+        const displayAddress = [entry.address_line, entry.address_details]
+          .filter(Boolean)
+          .map((part) => escapeCustomerHtml(part))
+          .join("<br>");
+
+        return `
+          <div class="address-item ${isSelected ? "selected" : ""} ${isAddressEditMode ? "select-mode" : ""}" data-address-id="${safeId}">
+            <div class="address-item-main">
+              <div class="address-edit-selector">
+                <label class="cart-checkbox-container">
+                  <input type="checkbox" class="address-edit-check" data-address-check="${safeId}" ${isChecked ? "checked" : ""}>
+                  <span class="cart-checkmark"></span>
+                </label>
+              </div>
+
+              <div class="address-item-left">
+                <div class="address-name-row">
+                  <span class="a-name">${escapeCustomerHtml(entry.name || "No Name Provided")}</span>
+                  <span class="a-phone">${getMaskedPhone(entry.phone_number)}</span>
+                </div>
+                <div class="a-address-text">${displayAddress || "No saved address"}</div>
+                <div class="a-badges">
+                  ${entry.is_default ? '<span class="a-badge default-badge">Default</span>' : ""}
+                </div>
+              </div>
+
+              ${
+                isAddressEditMode
+                  ? `<button class="delete-address-inline" type="button" data-address-delete="${safeId}">Delete</button>`
+                  : `<div class="address-item-right"><button class="edit-address-btn" type="button" data-address-edit="${safeId}">Edit</button></div>`
+              }
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+
+    syncAddressEditUi();
+  };
+
+  const applyAddressToForm = (mode, addressEntry) => {
+    const source = addressEntry || {};
+    const isAddMode = mode === "add";
+
+    if (isAddMode) {
+      if (addInpFullName) {
+        addInpFullName.value = source.name || customerSession.userInfo?.name || "";
+      }
+      if (addInpPhone) addInpPhone.value = source.phone_number || "";
+      if (addInpAddress) addInpAddress.value = source.address_line || "";
+      if (addInpDetails) addInpDetails.value = source.address_details || "";
+      if (addInpDept) addInpDept.value = source.department || "";
+      if (addInpSetDefault) {
+        addInpSetDefault.checked = customerAddressBook.length === 0 || Boolean(source.is_default);
+      }
+      setRoleByRadioName("addUserRole", source.customer_type || "Student");
+      return;
+    }
+
+    if (inpFullName) inpFullName.value = source.name || customerSession.userInfo?.name || "";
+    if (inpPhone) inpPhone.value = source.phone_number || "";
+    if (inpAddress) inpAddress.value = source.address_line || "";
+    if (inpDetails) inpDetails.value = source.address_details || "";
+    if (inpDept) inpDept.value = source.department || "";
+    if (inpSetDefault) inpSetDefault.checked = Boolean(source.is_default);
+    setRoleByRadioName("userRole", source.customer_type || "Student");
+  };
+
+  const validateAddressForm = (mode) => {
+    const ids = getAddressFieldIds(mode);
+    const isAddMode = mode === "add";
+
+    clearCheckoutFormErrors(mode);
+
+    const nameInput = document.getElementById(ids.name);
+    const phoneInput = document.getElementById(ids.phone);
+    const addressInput = document.getElementById(ids.address);
+    const detailsInput = document.getElementById(ids.details);
+    const deptInput = document.getElementById(ids.dept);
+
+    const name = String(nameInput?.value || "").trim();
+    const phone = normalizePhoneDigits(phoneInput?.value || "");
+    const addressLine = String(addressInput?.value || "").trim();
+    const addressDetails = String(detailsInput?.value || "").trim();
+    const department = String(deptInput?.value || "").trim();
+    const customerType = getSelectedRole(isAddMode ? "addUserRole" : "userRole");
+    const setDefault = isAddMode ? Boolean(addInpSetDefault?.checked) : Boolean(inpSetDefault?.checked);
+
+    if (phoneInput instanceof HTMLInputElement) {
+      phoneInput.value = phone;
+    }
+
+    let firstInvalidInput = null;
+
+    const registerError = (fieldId, message) => {
+      setCheckoutFieldError(fieldId, message);
+      if (!firstInvalidInput) {
+        firstInvalidInput = document.getElementById(fieldId);
+      }
+    };
+
+    if (!name) {
+      registerError(ids.name, "Please enter your full name.");
+    }
+
+    if (!phone) {
+      registerError(ids.phone, "Please enter your mobile number.");
+    } else if (!/^9\d{9,10}$/.test(phone)) {
+      registerError(ids.phone, "Use a valid PH number after +63. Example: 9XXXXXXXXX.");
+    }
+
+    if (!addressLine) {
+      registerError(ids.address, "Please enter your main address.");
+    }
+
+    if (!addressDetails) {
+      registerError(ids.details, "Please add a detail like room, unit, or landmark.");
+    }
+
+    if (!department) {
+      registerError(ids.dept, "Please enter your department or organization.");
+    }
+
+    if (firstInvalidInput instanceof HTMLElement) {
+      firstInvalidInput.focus();
+      return null;
+    }
+
+    return {
+      entry: normalizeAddressEntry({
+        name,
+        phone_number: phone,
+        address_line: addressLine,
+        address_details: addressDetails,
+        department,
+        customer_type: customerType || "Student",
+        is_default: setDefault,
+      }),
+    };
+  };
+
+  const applyServerAddressErrors = (mode, errors, fallbackMessage) => {
+    const ids = getAddressFieldIds(mode);
+    let didSetFieldError = false;
+
+    const pushFieldError = (fieldId, message) => {
+      if (!message) return;
+      setCheckoutFieldError(fieldId, message);
+      didSetFieldError = true;
+    };
+
+    if (errors && typeof errors === "object") {
+      pushFieldError(ids.name, errors.name?.[0]);
+      pushFieldError(ids.phone, errors.phone_number?.[0]);
+      pushFieldError(ids.address, errors.address_line?.[0]);
+      pushFieldError(ids.details, errors.address_details?.[0]);
+      pushFieldError(ids.dept, errors.department?.[0]);
+      pushFieldError(ids.dept, errors.customer_type?.[0]);
+    }
+
+    if (!didSetFieldError && fallbackMessage) {
+      pushFieldError(ids.address, fallbackMessage);
+    }
+  };
+
+  const syncProfileFromAddress = async (addressEntry) => {
+    const token = customerSession.token || localStorage.getItem("customer_token") || "";
+    if (!token) {
+      return {
+        ok: false,
+        message: "Login session not found. Please sign in again.",
+      };
+    }
+
+    const payload = {
+      name: addressEntry?.name || customerSession.userInfo?.name || null,
+      phone_number: addressEntry?.phone_number || null,
+      address_line: addressEntry?.address_line || null,
+      address_details: addressEntry?.address_details || null,
+      department: addressEntry?.department || null,
+      customer_type: addressEntry?.customer_type || "Student",
+    };
+
+    try {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/customer/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return {
+          ok: false,
+          message: result?.message || "Unable to save your details right now.",
+          errors: result?.errors || null,
+        };
+      }
+
+      customerCheckoutProfile = result?.data || {
+        ...(customerCheckoutProfile || {}),
+        ...payload,
+      };
+
+      if (customerSession.userInfo && customerCheckoutProfile?.name) {
+        customerSession.userInfo.name = customerCheckoutProfile.name;
+        try {
+          localStorage.setItem("customer_info", JSON.stringify(customerSession.userInfo));
+        } catch {
+          // Ignore storage write issues.
+        }
+      }
+
+      return {
+        ok: true,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message: error?.message || "Unable to save your details right now.",
+      };
+    }
+  };
+
+  const setSelectedAddress = (addressId, markAsDefault = false) => {
+    const id = String(addressId || "");
+    if (!id) return;
+
+    selectedCheckoutAddressId = id;
+    if (!markAsDefault) return;
+
+    customerAddressBook = customerAddressBook.map((entry) => ({
+      ...entry,
+      is_default: String(entry.id) === id,
+    }));
+  };
+
+  const removeAddressesByIds = async (addressIds, message, title) => {
+    const idsToRemove = Array.from(new Set((addressIds || []).map((id) => String(id || "")).filter(Boolean)));
+    if (!idsToRemove.length) return;
+
+    const confirmed = await showCustomerPopup(message, {
+      title,
+      isConfirm: true,
+      okText: "Delete",
+      cancelText: "Cancel",
+    });
+
+    if (!confirmed) return;
+
+    customerAddressBook = customerAddressBook.filter(
+      (entry) => !idsToRemove.includes(String(entry.id)),
+    );
+    addressDeleteSelection.clear();
+    ensureSingleDefaultAddress();
+    saveAddressBookToStorage();
+    renderAddressList();
+    renderCheckoutAddress();
+    applyAddressToForm("edit", getSelectedCheckoutAddress() || customerCheckoutProfile);
+    applyAddressToForm("add", getSelectedCheckoutAddress() || customerCheckoutProfile);
+
+    if (!customerAddressBook.length) {
+      isAddressEditMode = false;
+    }
+
+    const profileSyncResult = await syncProfileFromAddress(getSelectedCheckoutAddress());
+    if (profileSyncResult.ok) {
+      emitCustomerOrdersUpdated({ type: "profile-updated" });
+    }
+
+    renderAddressList();
+  };
+
+  const setAddressEditMode = (nextMode) => {
+    isAddressEditMode = Boolean(nextMode) && customerAddressBook.length > 0;
+    addressDeleteSelection.clear();
+    renderAddressList();
+  };
+
+  const openEditAddressModal = (addressId) => {
+    const target = customerAddressBook.find((entry) => String(entry.id) === String(addressId));
+    if (!target || !editInfoModal) return;
+
+    editingCheckoutAddressId = String(target.id);
+    clearCheckoutFormErrors("edit");
+    applyAddressToForm("edit", target);
+    editInfoModal.classList.add("show-modal");
+  };
+
+  const openAddAddressModal = () => {
+    if (!addInfoModal) return;
+
+    const selected = getSelectedCheckoutAddress() || customerCheckoutProfile;
+    clearCheckoutFormErrors("add");
+    applyAddressToForm("add", {
+      ...(selected || {}),
+      address_line: "",
+      address_details: "",
+      is_default: customerAddressBook.length === 0,
+    });
+
+    addInfoModal.classList.add("show-modal");
+  };
+
+  const saveAddressFromModal = async (mode) => {
+    const validated = validateAddressForm(mode);
+    if (!validated) return false;
+
+    const isAddMode = mode === "add";
+    const confirmMessage = isAddMode
+      ? "Save this new address?"
+      : "Update this address?";
+
+    const confirmed = await showCustomerPopup(confirmMessage, {
+      title: isAddMode ? "Confirm Save" : "Confirm Update",
+      isConfirm: true,
+      okText: isAddMode ? "Save" : "Update",
+      cancelText: "Cancel",
+    });
+
+    if (!confirmed) return false;
+
+    if (isAddMode) {
+      const nextEntry = {
+        ...validated.entry,
+        id: createAddressId(),
+        is_default:
+          customerAddressBook.length === 0 ||
+          Boolean(validated.entry.is_default),
+      };
+
+      if (nextEntry.is_default) {
+        customerAddressBook = customerAddressBook.map((entry) => ({
+          ...entry,
+          is_default: false,
+        }));
+      }
+
+      customerAddressBook.push(nextEntry);
+      setSelectedAddress(nextEntry.id, nextEntry.is_default);
+    } else {
+      if (!editingCheckoutAddressId) {
+        applyServerAddressErrors("edit", null, "Choose an address first, then try again.");
+        return false;
+      }
+
+      customerAddressBook = customerAddressBook.map((entry) => {
+        if (String(entry.id) !== String(editingCheckoutAddressId)) {
+          return validated.entry.is_default ? { ...entry, is_default: false } : entry;
+        }
+
+        return {
+          ...entry,
+          ...validated.entry,
+          id: entry.id,
+        };
+      });
+
+      setSelectedAddress(editingCheckoutAddressId, Boolean(validated.entry.is_default));
+    }
+
+    ensureSingleDefaultAddress();
+    saveAddressBookToStorage();
+    renderAddressList();
+    renderCheckoutAddress();
+    applyAddressToForm("edit", getSelectedCheckoutAddress() || customerCheckoutProfile);
+    applyAddressToForm("add", getSelectedCheckoutAddress() || customerCheckoutProfile);
+
+    const syncResult = await syncProfileFromAddress(getSelectedCheckoutAddress());
+    if (!syncResult.ok) {
+      applyServerAddressErrors(mode, syncResult.errors, syncResult.message || "Unable to save your details.");
+      return false;
+    }
+
+    emitCustomerOrdersUpdated({ type: "profile-updated" });
+    return true;
+  };
+
+  const seedAddressBookFromProfile = (profile) => {
+    const hasSeedData = Boolean(
+      profile?.name ||
+        profile?.phone_number ||
+        profile?.address_line ||
+        profile?.address_details ||
+        profile?.department,
+    );
+
+    if (!hasSeedData || customerAddressBook.length) return;
+
+    const seeded = normalizeAddressEntry({
+      id: createAddressId(),
+      name: profile?.name || customerSession.userInfo?.name || "",
+      phone_number: profile?.phone_number || "",
+      address_line: profile?.address_line || "",
+      address_details: profile?.address_details || "",
+      department: profile?.department || "",
+      customer_type: profile?.customer_type || "Student",
+      is_default: true,
+    });
+
+    customerAddressBook = [seeded];
+    selectedCheckoutAddressId = seeded.id;
+    saveAddressBookToStorage();
+  };
+
+  const fetchCustomerCheckoutProfile = async () => {
+    const token = customerSession.token || localStorage.getItem("customer_token") || "";
+    if (!token) return;
+
+    try {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/customer/profile`, {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return;
+      }
+
+      customerCheckoutProfile = payload?.data || null;
+      seedAddressBookFromProfile(customerCheckoutProfile);
+      ensureSingleDefaultAddress();
+      renderAddressList();
+      renderCheckoutAddress();
+      applyAddressToForm("edit", getSelectedCheckoutAddress() || customerCheckoutProfile);
+      applyAddressToForm("add", getSelectedCheckoutAddress() || customerCheckoutProfile);
+    } catch {
+      // Keep UI usable with local/session fallback values.
+    }
+  };
+
+  [inpPhone, addInpPhone].forEach((phoneInput) => {
+    phoneInput?.addEventListener("input", () => {
+      phoneInput.value = normalizePhoneDigits(phoneInput.value);
     });
   });
 
-  const backToAddressBtn = document.getElementById("backToAddressBtn");
+  if (openAddAddressBtn && addInfoModal) {
+    openAddAddressBtn.addEventListener("click", () => {
+      openAddAddressModal();
+    });
+  }
+
+  if (addressEditModeBtn) {
+    addressEditModeBtn.addEventListener("click", () => {
+      setAddressEditMode(!isAddressEditMode);
+    });
+  }
+
+  if (selectAllAddressBtn) {
+    selectAllAddressBtn.addEventListener("change", () => {
+      addressDeleteSelection.clear();
+      if (selectAllAddressBtn.checked) {
+        customerAddressBook.forEach((entry) => {
+          addressDeleteSelection.add(String(entry.id));
+        });
+      }
+      renderAddressList();
+    });
+  }
+
+  if (deleteSelectedAddressBtn) {
+    deleteSelectedAddressBtn.addEventListener("click", () => {
+      void removeAddressesByIds(
+        Array.from(addressDeleteSelection),
+        "Delete selected address details?",
+        "Delete Selected",
+      );
+    });
+  }
+
+  if (deleteAllAddressBtn) {
+    deleteAllAddressBtn.addEventListener("click", () => {
+      void removeAddressesByIds(
+        customerAddressBook.map((entry) => entry.id),
+        "Delete all saved addresses?",
+        "Delete All",
+      );
+    });
+  }
+
+  if (addressList) {
+    addressList.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      const deleteBtn = target.closest("[data-address-delete]");
+      if (deleteBtn) {
+        const addressId = String(deleteBtn.getAttribute("data-address-delete") || "");
+        void removeAddressesByIds([addressId], "Delete this saved address?", "Delete Address");
+        return;
+      }
+
+      const checkInput = target.closest(".address-edit-check");
+      if (checkInput instanceof HTMLInputElement) {
+        const checkId = String(checkInput.getAttribute("data-address-check") || "");
+        if (!checkId) return;
+
+        if (checkInput.checked) {
+          addressDeleteSelection.add(checkId);
+        } else {
+          addressDeleteSelection.delete(checkId);
+        }
+        syncAddressEditUi();
+        return;
+      }
+
+      const editBtn = target.closest("[data-address-edit]");
+      if (editBtn) {
+        const editId = String(editBtn.getAttribute("data-address-edit") || "");
+        openEditAddressModal(editId);
+        return;
+      }
+
+      const item = target.closest(".address-item");
+      if (!(item instanceof HTMLElement)) return;
+      const addressId = String(item.getAttribute("data-address-id") || "");
+      if (!addressId) return;
+
+      if (isAddressEditMode) {
+        if (addressDeleteSelection.has(addressId)) {
+          addressDeleteSelection.delete(addressId);
+        } else {
+          addressDeleteSelection.add(addressId);
+        }
+        renderAddressList();
+        return;
+      }
+
+      setSelectedAddress(addressId, true);
+      ensureSingleDefaultAddress();
+      saveAddressBookToStorage();
+      renderAddressList();
+      renderCheckoutAddress();
+      addressSelectionModal?.classList.remove("show-modal");
+
+      void (async () => {
+        const syncResult = await syncProfileFromAddress(getSelectedCheckoutAddress());
+        if (syncResult.ok) {
+          emitCustomerOrdersUpdated({ type: "profile-updated" });
+        }
+      })();
+    });
+  }
+
   if (backToAddressBtn) {
     backToAddressBtn.addEventListener("click", () => {
-      editInfoModal.classList.remove("show-modal");
+      editInfoModal?.classList.remove("show-modal");
     });
   }
 
-  const backToAddressFromAddBtn = document.getElementById(
-    "backToAddressFromAddBtn",
-  );
   if (backToAddressFromAddBtn && addInfoModal) {
     backToAddressFromAddBtn.addEventListener("click", () => {
       addInfoModal.classList.remove("show-modal");
     });
   }
 
-  const saveInfoBtn = document.getElementById("saveInfoBtn");
   if (saveInfoBtn) {
-    saveInfoBtn.addEventListener("click", () => {
-      const name = document.getElementById("inpFullName").value;
-      const phone = document.getElementById("inpPhone").value;
-      const addr = document.getElementById("inpAddress").value;
-      const dept = document.getElementById("inpDept").value;
-      const roleRadio = document.querySelector(
-        'input[name="userRole"]:checked',
-      );
-      const role = roleRadio ? roleRadio.value : "Student";
-
-      // Update the first address item visually in the list
-      const firstItem = document.querySelector(".address-item");
-      if (firstItem) {
-        firstItem.dataset.name = name;
-        firstItem.dataset.phone = phone;
-        firstItem.dataset.address = addr.replace(/\n/g, "<br>");
-        firstItem.dataset.dept = dept;
-        firstItem.dataset.role = role;
-
-        firstItem.querySelector(".a-name").innerText =
-          name || "No Name Provided";
-        const maskedPhone =
-          phone.length > 4
-            ? `(+63)${phone.substring(0, 2)}******${phone.substring(phone.length - 2)}`
-            : phone;
-        firstItem.querySelector(".a-phone").innerText = maskedPhone;
-        firstItem.querySelector(".a-address-text").innerHTML =
-          addr.replace(/\n/g, "<br>") || "No Address Provided";
-      }
-
-      // Also auto-update the Checkout banner to ensure it uses the newly saved data
-      document.getElementById("displayClientName").innerText =
-        name || "No Name Provided";
-      const maskedPhoneCheck =
-        phone.length > 4
-          ? `(+63)${phone.substring(0, 2)}******${phone.substring(phone.length - 2)}`
-          : phone;
-      document.getElementById("displayClientPhone").innerText =
-        maskedPhoneCheck;
-      document.getElementById("displayClientAddress").innerHTML =
-        addr.replace(/\n/g, "<br>") || "No Address Provided";
-      document.getElementById("displayClientRole").innerText = role;
-      document.getElementById("displayClientDept").innerText =
-        dept || "No Dept";
-
-      editInfoModal.classList.remove("show-modal"); // Go back to address list
+    saveInfoBtn.addEventListener("click", async () => {
+      const saved = await saveAddressFromModal("edit");
+      if (!saved) return;
+      editInfoModal?.classList.remove("show-modal");
     });
   }
 
-  const saveNewInfoBtn = document.getElementById("saveNewInfoBtn");
   if (saveNewInfoBtn && addInfoModal) {
-    saveNewInfoBtn.addEventListener("click", () => {
-      // Logic for saving new info would go here.
-      // For now, we simulate success and close.
-      alert("Address added!");
+    saveNewInfoBtn.addEventListener("click", async () => {
+      const saved = await saveAddressFromModal("add");
+      if (!saved) return;
       addInfoModal.classList.remove("show-modal");
+      setAddressEditMode(false);
     });
+  }
+
+  loadAddressBookFromStorage();
+  renderAddressList();
+  renderCheckoutAddress();
+  applyAddressToForm("edit", getSelectedCheckoutAddress() || customerCheckoutProfile);
+  applyAddressToForm("add", getSelectedCheckoutAddress() || customerCheckoutProfile);
+  if (!isGuestUser) {
+    void fetchCustomerCheckoutProfile();
   }
 
   // Submit Order logic
   const submitOrderBtn = document.getElementById("submitOrderBtn");
   if (submitOrderBtn) {
-    submitOrderBtn.addEventListener("click", function () {
+    submitOrderBtn.addEventListener("click", async function () {
       const terms = document.getElementById("orderTerms");
       if (terms && !terms.checked) {
-        alert("Please check the terms and payment agreement box first.");
+        await showCustomerPopup("Please check the terms and payment agreement box first.", {
+          title: "Validation",
+        });
         return;
       }
+
+      const paymentSelect = document.querySelector("#checkoutModal .payment-select");
+      const paymentMethod = String(paymentSelect?.value || "").trim();
+      if (!paymentMethod || paymentMethod.toLowerCase().includes("choose payment method")) {
+        await showCustomerPopup("Please choose a payment method first.", {
+          title: "Validation",
+        });
+        return;
+      }
+
+      const selectedAddress = getSelectedCheckoutAddress();
+      if (!selectedAddress) {
+        await showCustomerPopup("Please add and select your delivery details first.", {
+          title: "Address Required",
+        });
+        return;
+      }
+
+      const quantity = Math.max(1, Number.parseInt(inputQty?.value || "1", 10) || 1);
+      const totalText = checkoutGrandTotal?.innerText || checkoutPrice?.innerText || "₱0.00";
+      const totalAmount = Number.isFinite(parsePrice(totalText)) ? parsePrice(totalText) : 0;
       const originalText = this.innerText;
+      this.disabled = true;
       this.innerText = "Processing...";
-      setTimeout(() => {
-        alert("Order Placed Successfully!");
+
+      try {
+        const token = customerSession.token || localStorage.getItem("customer_token") || "";
+        if (!token) {
+          throw new Error("Login session not found. Please sign in again.");
+        }
+
+        const contactNumber = String(selectedAddress.phone_number || "").replace(/\D/g, "");
+        const orderNotes = [
+          selectedAddress.address_line,
+          selectedAddress.address_details,
+          selectedAddress.department ? `Department: ${selectedAddress.department}` : "",
+          selectedAddress.customer_type ? `Role: ${selectedAddress.customer_type}` : "",
+        ]
+          .filter(Boolean)
+          .join(" | ");
+
+        const payload = {
+          product_name: checkoutTitle?.innerText?.trim() || "Custom Order",
+          product_image: checkoutImg?.src || "/images/FMRC Logo.png",
+          quantity,
+          unit_price: Number.isFinite(currentItemPrice) ? Number(currentItemPrice) : 0,
+          total_amount: totalAmount,
+          payment_method: paymentMethod,
+          customer_name:
+            selectedAddress.name ||
+            customerCheckoutProfile?.name ||
+            customerSession.userInfo?.name ||
+            customerSession.userInfo?.username ||
+            customerSession.userInfo?.email ||
+            "Customer",
+          customer_contact:
+            contactNumber
+              ? `+63${contactNumber}`
+              : customerSession.userInfo?.email || "N/A",
+          notes: orderNotes,
+          location_name: selectedAddress.address_line || customerCheckoutProfile?.address_line || null,
+          courier_name: "J&T Express",
+        };
+
+        const response = await fetchWithTimeout(`${API_BASE_URL}/orders`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.message || "Unable to place order at the moment.");
+        }
+
+        const orderNo = data?.data?.order_no_display || "";
+        await showCustomerPopup(`Order placed successfully${orderNo ? ` (${orderNo})` : ""}!`, {
+          title: "Success",
+        });
+        emitCustomerOrdersUpdated({ type: "created", orderId: data?.data?.id || null });
+
         checkoutModal.classList.remove("show-modal");
-        document.body.style.overflow = ""; // Resets to CSS
+        document.body.style.overflow = "";
+      } catch (error) {
+        await showCustomerPopup(error?.message || "Unable to place order. Please try again.", {
+          title: "Order Failed",
+        });
+      } finally {
+        this.disabled = false;
         this.innerText = originalText;
-      }, 1000);
+      }
     });
   }
 
@@ -1115,6 +2154,102 @@ document.addEventListener("DOMContentLoaded", () => {
   const emptyCartMessage = document.getElementById("emptyCartMessage");
   const headerCartBadge = document.querySelector(".cart-badge");
   const cartHeaderCount = document.getElementById("cartHeaderCount");
+
+  const emitCartRealtimeUpdate = (detail = {}) => {
+    const payload = {
+      source: "customer-cart",
+      timestamp: Date.now(),
+      ...detail,
+    };
+
+    try {
+      localStorage.setItem(CART_STORAGE_SIGNAL_KEY, JSON.stringify(payload));
+    } catch {
+      // Ignore storage write issues.
+    }
+  };
+
+  const createCartItemCard = ({ title, image, unitPrice, quantity = 1, checked = true }) => {
+    const rawTitle = String(title || "Product");
+    const safeTitle = escapeCustomerHtml(rawTitle);
+    const safeImage = String(image || "/images/FMRC Logo.png");
+    const numericPrice = Number.isFinite(Number(unitPrice)) ? Number(unitPrice) : 0;
+    const qty = Math.max(1, Number.parseInt(String(quantity || "1"), 10) || 1);
+
+    const cartItem = document.createElement("div");
+    cartItem.className = "cart-item-card";
+    cartItem.dataset.productName = rawTitle;
+    cartItem.dataset.unitPrice = String(numericPrice);
+    cartItem.innerHTML = `
+      <label class="cart-checkbox-container">
+        <input type="checkbox" class="cart-item-check" ${checked ? "checked" : ""}>
+        <span class="cart-checkmark"></span>
+      </label>
+      <div class="cart-item-img"><img src="${safeImage}" alt="Product"></div>
+      <div class="cart-item-details">
+        <h4>${safeTitle}</h4>
+        <div class="cart-item-bottom">
+          <span class="c-price" data-price="${numericPrice}">${formatPrice(numericPrice)}</span>
+          <div class="qty-selector">
+            <button class="qty-btn c-minus-btn">-</button>
+            <input type="number" class="c-qty-input" value="${qty}" min="1" max="99" readonly>
+            <button class="qty-btn c-plus-btn">+</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    return cartItem;
+  };
+
+  const collectCartItemsFromDom = () => {
+    if (!cartItemsContainer) return [];
+
+    return Array.from(cartItemsContainer.querySelectorAll(".cart-item-card")).map((item) => {
+      const title = item.querySelector("h4")?.innerText || "Product";
+      const image = item.querySelector("img")?.getAttribute("src") || "/images/FMRC Logo.png";
+      const unitPrice = Number(item.querySelector(".c-price")?.dataset.price || 0);
+      const quantity = Math.max(1, Number.parseInt(item.querySelector(".c-qty-input")?.value || "1", 10) || 1);
+      const checked = Boolean(item.querySelector(".cart-item-check")?.checked);
+
+      return {
+        title,
+        image,
+        unitPrice,
+        quantity,
+        checked,
+      };
+    });
+  };
+
+  const persistCartItems = () => {
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(collectCartItemsFromDom()));
+    } catch {
+      // Ignore storage write issues.
+    }
+
+    emitCartRealtimeUpdate({ type: "updated" });
+  };
+
+  const restoreCartItems = () => {
+    if (!cartItemsContainer) return;
+
+    let savedItems = [];
+    try {
+      const raw = localStorage.getItem(CART_STORAGE_KEY);
+      const parsed = JSON.parse(raw || "[]");
+      savedItems = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      savedItems = [];
+    }
+
+    cartItemsContainer.querySelectorAll(".cart-item-card").forEach((item) => item.remove());
+
+    savedItems.forEach((entry) => {
+      cartItemsContainer.appendChild(createCartItemCard(entry));
+    });
+  };
 
   // Open & Close Cart Modal
   if (cartIconTrigger && cartModal) {
@@ -1165,7 +2300,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Update Cart Totals and Counters
   function updateCartTotals() {
-    const items = cartItemsContainer.querySelectorAll(".cart-item-card");
+    const items = cartItemsContainer?.querySelectorAll(".cart-item-card") || [];
     let total = 0;
     let count = 0;
 
@@ -1181,16 +2316,30 @@ document.addEventListener("DOMContentLoaded", () => {
       count += qty; // Total items in cart regardless of checked state
     });
 
-    document.getElementById("cartTotalPrice").innerText = formatPrice(total);
-    if (cartHeaderCount) cartHeaderCount.innerText = items.length;
-    if (headerCartBadge) headerCartBadge.innerText = count;
+    const cartTotalPriceEl = document.getElementById("cartTotalPrice");
+    if (cartTotalPriceEl) {
+      cartTotalPriceEl.innerText = formatPrice(total);
+    }
+    if (cartHeaderCount) cartHeaderCount.innerText = String(count);
+    if (headerCartBadge) {
+      if (count > 0) {
+        headerCartBadge.innerText = String(count);
+        headerCartBadge.style.display = "flex";
+      } else {
+        headerCartBadge.innerText = "";
+        headerCartBadge.style.display = "none";
+      }
+    }
 
     const allChecked =
       items.length > 0 &&
       Array.from(items).every(
         (i) => i.querySelector(".cart-item-check").checked,
       );
-    document.getElementById("selectAllCartBtn").checked = allChecked;
+    const selectAll = document.getElementById("selectAllCartBtn");
+    if (selectAll) {
+      selectAll.checked = allChecked;
+    }
 
     if (items.length === 0 && emptyCartMessage)
       emptyCartMessage.style.display = "block";
@@ -1213,30 +2362,34 @@ document.addEventListener("DOMContentLoaded", () => {
 
       flyToCart(imgElement, cartIconTrigger); // Trigger the slow fly animation
 
-      const cartItem = document.createElement("div");
-      cartItem.className = "cart-item-card";
-      cartItem.innerHTML = `
-        <label class="cart-checkbox-container">
-          <input type="checkbox" class="cart-item-check" checked>
-          <span class="cart-checkmark"></span>
-        </label>
-        <div class="cart-item-img"><img src="${imgElement.src}" alt="Product"></div>
-        <div class="cart-item-details">
-          <h4>${title}</h4>
-          <div class="cart-item-bottom">
-            <span class="c-price" data-price="${parsePrice(priceStr)}">${priceStr}</span>
-            <div class="qty-selector">
-              <button class="qty-btn c-minus-btn">-</button>
-              <input type="number" class="c-qty-input" value="1" min="1" max="99" readonly>
-              <button class="qty-btn c-plus-btn">+</button>
-            </div>
-          </div>
-        </div>
-      `;
+      const unitPrice = parsePrice(priceStr);
+      const existingItem = Array.from(cartItemsContainer.querySelectorAll(".cart-item-card")).find(
+        (item) =>
+          item.dataset.productName === title &&
+          Number(item.dataset.unitPrice || 0) === unitPrice,
+      );
 
-      if (emptyCartMessage) emptyCartMessage.style.display = "none";
-      cartItemsContainer.appendChild(cartItem);
+      if (existingItem) {
+        const qtyInput = existingItem.querySelector(".c-qty-input");
+        if (qtyInput) {
+          qtyInput.value = String(Math.max(1, Number.parseInt(qtyInput.value || "1", 10) + 1));
+        }
+        const checkbox = existingItem.querySelector(".cart-item-check");
+        if (checkbox) checkbox.checked = true;
+      } else {
+        if (emptyCartMessage) emptyCartMessage.style.display = "none";
+        const cartItem = createCartItemCard({
+          title,
+          image: imgElement.src,
+          unitPrice,
+          quantity: 1,
+          checked: true,
+        });
+        cartItemsContainer.appendChild(cartItem);
+      }
+
       updateCartTotals();
+      persistCartItems();
     });
   });
 
@@ -1248,13 +2401,16 @@ document.addEventListener("DOMContentLoaded", () => {
         if (parseInt(input.value) > 1) {
           input.value = parseInt(input.value) - 1;
           updateCartTotals();
+          persistCartItems();
         }
       } else if (e.target.classList.contains("c-plus-btn")) {
         const input = e.target.previousElementSibling;
         input.value = parseInt(input.value) + 1;
         updateCartTotals();
+        persistCartItems();
       } else if (e.target.classList.contains("cart-item-check")) {
         updateCartTotals();
+        persistCartItems();
       }
     });
   }
@@ -1266,6 +2422,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const checks = cartItemsContainer.querySelectorAll(".cart-item-check");
       checks.forEach((c) => (c.checked = e.target.checked));
       updateCartTotals();
+      persistCartItems();
     });
   }
 
@@ -1287,12 +2444,33 @@ document.addEventListener("DOMContentLoaded", () => {
   // Delete Selected Items
   const cartDeleteBtn = document.getElementById("cartDeleteBtn");
   if (cartDeleteBtn) {
-    cartDeleteBtn.addEventListener("click", () => {
-      const items = cartItemsContainer.querySelectorAll(".cart-item-card");
-      items.forEach((item) => {
-        if (item.querySelector(".cart-item-check").checked) item.remove();
-      });
+    cartDeleteBtn.addEventListener("click", async () => {
+      const selectedItems = Array.from(
+        cartItemsContainer.querySelectorAll(".cart-item-card"),
+      ).filter((item) => item.querySelector(".cart-item-check")?.checked);
+
+      if (!selectedItems.length) {
+        await showCustomerPopup("Select at least one item to remove.", {
+          title: "No Selection",
+        });
+        return;
+      }
+
+      const shouldDelete = await showCustomerPopup(
+        "Remove selected item(s) from your cart?",
+        {
+          title: "Confirm Removal",
+          isConfirm: true,
+          okText: "Remove",
+          cancelText: "Cancel",
+        },
+      );
+
+      if (!shouldDelete) return;
+
+      selectedItems.forEach((item) => item.remove());
       updateCartTotals();
+      persistCartItems();
     });
   }
 
@@ -1311,12 +2489,17 @@ document.addEventListener("DOMContentLoaded", () => {
   if (cartCheckoutSubmitBtn) {
     cartCheckoutSubmitBtn.addEventListener("click", () => {
       if (!requireCustomerAuth("buy products")) return;
+      if (!isGuestUser) {
+        void fetchCustomerCheckoutProfile();
+      }
 
       const checkedItems = cartItemsContainer.querySelectorAll(
         ".cart-item-check:checked",
       );
       if (checkedItems.length === 0) {
-        alert("Please select an item to checkout.");
+        void showCustomerPopup("Please select an item to checkout.", {
+          title: "Validation",
+        });
         return;
       }
 
@@ -1341,13 +2524,18 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  restoreCartItems();
+  updateCartTotals();
+
+  window.addEventListener("storage", (event) => {
+    if (event.key !== CART_STORAGE_KEY && event.key !== CART_STORAGE_SIGNAL_KEY) return;
+    restoreCartItems();
+    updateCartTotals();
+  });
+
   // =========================================
   // APPOINTMENT FLOW LOGIC (HOMEPAGE)
   // =========================================
-  const API_BASE_URL =
-    window.APP_API_BASE_URL ||
-    document.querySelector('meta[name="api-base-url"]')?.getAttribute("content") ||
-    `${window.location.protocol}//${window.location.hostname}:8000/api`;
   const appointmentBtn = document.querySelector(".btn-appointment");
   const appointmentOverlay = document.getElementById("appointmentFlow");
   const closeAppointmentBtn = document.getElementById("closeAppointmentBtn");
@@ -1493,7 +2681,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const fetchCalendarAvailability = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/appointments/calendar`, {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/appointments/calendar`, {
         headers: {
           Accept: "application/json",
         },
@@ -1810,7 +2998,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const token = localStorage.getItem("customer_token");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/appointments`, {
+      const response = await fetchWithTimeout(`${API_BASE_URL}/appointments`, {
         method: "POST",
         headers: {
           Accept: "application/json",
@@ -1831,8 +3019,10 @@ document.addEventListener("DOMContentLoaded", () => {
       appointmentSubmitted = true;
       populateReviewData(5);
       return true;
-    } catch {
-      showSlotMessage("Cannot connect to server. Please make sure Laravel is running.");
+    } catch (error) {
+      showSlotMessage(
+        error?.message || "Cannot connect to server. Please make sure Laravel is running.",
+      );
       return false;
     }
   };
@@ -2285,16 +3475,30 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   if (appointmentBtn && appointmentOverlay) {
-    appointmentBtn.addEventListener("click", async () => {
-      if (!requireCustomerAuth("set an appointment")) return;
-      await fetchCalendarAvailability();
-      resetAppointmentFlowState();
-      renderCalendar(currentMonth, currentYear);
-      renderTimeSlots(null);
+    appointmentBtn.addEventListener("click", () => {
       appointmentOverlay.classList.add("show-modal");
       document.body.style.overflow = "hidden";
-      switchAptStep(1);
-      startAptPolling();
+
+      try {
+        resetAppointmentFlowState();
+        renderCalendar(currentMonth, currentYear);
+        renderTimeSlots(null);
+        switchAptStep(1);
+        startAptPolling();
+      } catch {
+        // Keep modal open so the user can still proceed if a non-critical UI section fails.
+      }
+
+      // Open immediately, then hydrate availability in the background.
+      void (async () => {
+        await fetchCalendarAvailability();
+        if (!appointmentOverlay.classList.contains("show-modal")) return;
+
+        renderCalendar(currentMonth, currentYear);
+        if (document.getElementById("aptStep3")?.classList.contains("active")) {
+          renderTimeSlots(selectedDateKey);
+        }
+      })();
     });
   }
 
@@ -2393,7 +3597,9 @@ document.addEventListener("DOMContentLoaded", () => {
   if (contactMessageForm) {
     contactMessageForm.addEventListener("submit", (event) => {
       event.preventDefault();
-      alert("Thank you! Your message has been sent successfully.");
+      void showCustomerPopup("Thank you! Your message has been sent successfully.", {
+        title: "Message Sent",
+      });
       contactMessageForm.reset();
     });
   }
@@ -2608,7 +3814,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         setLoader(true);
         try {
-          const response = await fetch("http://127.0.0.1:8000/api/change-password", {
+          const response = await fetch(`${API_BASE_URL}/change-password`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -2654,6 +3860,775 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       };
     }
+  };
+
+  const formatOrderCurrency = (amount) => {
+    const parsed = Number(amount || 0);
+    const safeAmount = Number.isFinite(parsed) ? parsed : 0;
+    return `₱${safeAmount.toLocaleString("en-PH", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
+  const ORDER_STAGE_LABELS = {
+    to_pay: "To Pay",
+    to_ship: "To Ship",
+    to_receive: "To Receive",
+    completed: "Completed",
+  };
+
+  const ORDER_LIFECYCLE_LABELS = {
+    incoming: "Incoming",
+    pending: "Pending",
+    rejected: "Rejected",
+    completed: "Completed",
+  };
+
+  const buildGoogleMapEmbedUrl = (latitude, longitude) => {
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "";
+    return `https://maps.google.com/maps?q=${encodeURIComponent(`${lat},${lng}`)}&z=15&output=embed`;
+  };
+
+  const buildGoogleMapOpenUrl = (latitude, longitude) => {
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "";
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
+  };
+
+  const buildJntTrackingUrl = (trackingNo) => {
+    const code = String(trackingNo || "").trim();
+    if (!code) return "";
+    return `https://www.jtexpress.ph/index/query/gzquery.html?waybillNo=${encodeURIComponent(code)}`;
+  };
+
+  let customerOrdersController = null;
+  const customerOrdersCache = new Map();
+
+  const fetchJsonWithTimeout = async (url, options = {}, timeoutMs = API_REQUEST_TIMEOUT_MS) => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+    const {
+      headers: optionHeaders = {},
+      signal: _ignoredSignal,
+      ...restOptions
+    } = options;
+    const requestHeaders = {
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+      ...optionHeaders,
+    };
+
+    try {
+      const response = await fetch(url, {
+        ...restOptions,
+        headers: requestHeaders,
+        cache: restOptions.cache || "no-store",
+        signal: controller.signal,
+      });
+
+      const data = await response.json().catch(() => ({}));
+      return { response, data };
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        throw new Error("Request timed out. Please check your connection and try again.");
+      }
+
+      throw error;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  };
+
+  const fetchCustomerOrders = async (customerToken) => {
+    const { response, data } = await fetchJsonWithTimeout(`${API_BASE_URL}/customer/orders`, {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${customerToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(data.message || "Unable to load your orders.");
+    }
+
+    return Array.isArray(data.data) ? data.data : [];
+  };
+
+  const fetchCustomerOrderDetail = async (customerToken, orderId) => {
+    const { response, data } = await fetchJsonWithTimeout(`${API_BASE_URL}/customer/orders/${orderId}`, {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${customerToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(data.message || "Unable to load order details.");
+    }
+
+    return data.data || null;
+  };
+
+  const openOrdersModal = (activeUserInfo) => {
+    if (!customerOrdersController) {
+      const overlay = document.createElement("div");
+      overlay.id = "customerOrdersModal";
+      overlay.className = "customer-orders-overlay";
+      overlay.innerHTML = `
+        <section class="customer-orders-modal" role="dialog" aria-modal="true" aria-labelledby="customerOrdersTitle">
+          <div class="customer-orders-head">
+            <div class="customer-orders-title-wrap">
+              <h2 class="customer-orders-title" id="customerOrdersTitle">My Orders</h2>
+              <p class="customer-orders-subtitle">Track every order from payment to completion.</p>
+            </div>
+            <button type="button" class="customer-orders-close" id="closeCustomerOrdersModal" aria-label="Close">&times;</button>
+          </div>
+
+          <div class="customer-orders-tabs" id="customerOrdersTabs">
+            <button type="button" class="customer-orders-tab active" data-tab="all">All <span class="customer-orders-tab-count">0</span></button>
+            <button type="button" class="customer-orders-tab" data-tab="to_pay">To Pay <span class="customer-orders-tab-count">0</span></button>
+            <button type="button" class="customer-orders-tab" data-tab="to_ship">To Ship <span class="customer-orders-tab-count">0</span></button>
+            <button type="button" class="customer-orders-tab" data-tab="to_receive">To Receive <span class="customer-orders-tab-count">0</span></button>
+            <button type="button" class="customer-orders-tab" data-tab="completed">Completed <span class="customer-orders-tab-count">0</span></button>
+          </div>
+
+          <div class="customer-orders-viewport" id="customerOrdersViewport">
+            <div class="customer-orders-track" id="customerOrdersTrack">
+              <section class="customer-orders-panel" data-panel="all"></section>
+              <section class="customer-orders-panel" data-panel="to_pay"></section>
+              <section class="customer-orders-panel" data-panel="to_ship"></section>
+              <section class="customer-orders-panel" data-panel="to_receive"></section>
+              <section class="customer-orders-panel" data-panel="completed"></section>
+            </div>
+          </div>
+
+          <section class="customer-order-detail-modal" id="customerOrderDetailModal" aria-hidden="true">
+            <div class="customer-order-detail-head">
+              <h3 id="customerOrderDetailTitle">Order Details</h3>
+              <button type="button" class="customer-orders-close" id="closeCustomerOrderDetail" aria-label="Close">&times;</button>
+            </div>
+            <div class="customer-order-detail-content" id="customerOrderDetailContent"></div>
+          </section>
+        </section>
+      `;
+      document.body.appendChild(overlay);
+
+      const tabs = Array.from(overlay.querySelectorAll(".customer-orders-tab"));
+      const panels = Array.from(overlay.querySelectorAll(".customer-orders-panel"));
+      const track = overlay.querySelector("#customerOrdersTrack");
+      const viewport = overlay.querySelector("#customerOrdersViewport");
+      const closeBtn = overlay.querySelector("#closeCustomerOrdersModal");
+      const detailModal = overlay.querySelector("#customerOrderDetailModal");
+      const detailContent = overlay.querySelector("#customerOrderDetailContent");
+      const detailTitle = overlay.querySelector("#customerOrderDetailTitle");
+      const closeDetailBtn = overlay.querySelector("#closeCustomerOrderDetail");
+      const stageByPanel = ["all", "to_pay", "to_ship", "to_receive", "completed"];
+
+      const state = {
+        activeIndex: 0,
+        userInfo: null,
+        cacheKey: "",
+        token: "",
+        orders: [],
+        detailsById: new Map(),
+        loading: false,
+        refreshInProgress: false,
+        refreshQueued: false,
+        lastRefreshAt: 0,
+        detailLoading: false,
+        activeDetailId: null,
+        lastDetailRefreshAt: 0,
+        lastRealtimeSignalTs: 0,
+        refreshTimer: null,
+        touchStartX: 0,
+        touchStartY: 0,
+      };
+
+      const shouldProcessRealtimeSignal = (payload = {}) => {
+        const ts = Number(payload?.timestamp || 0);
+        if (!Number.isFinite(ts) || ts <= 0) return true;
+        if (ts <= state.lastRealtimeSignalTs) return false;
+        state.lastRealtimeSignalTs = ts;
+        return true;
+      };
+
+      const stopRealtimeRefresh = () => {
+        if (state.refreshTimer) {
+          window.clearInterval(state.refreshTimer);
+          state.refreshTimer = null;
+        }
+      };
+
+      const startRealtimeRefresh = () => {
+        stopRealtimeRefresh();
+        state.refreshTimer = window.setInterval(() => {
+          if (!overlay.classList.contains("show") || document.hidden) return;
+          if (state.refreshInProgress) return;
+
+          const elapsed = Date.now() - state.lastRefreshAt;
+          if (elapsed < CUSTOMER_ORDERS_MIN_REFRESH_GAP_MS) return;
+
+          void refreshOrders(false);
+        }, CUSTOMER_ORDERS_FALLBACK_SYNC_MS);
+      };
+
+      const close = () => {
+        overlay.classList.add("closing");
+        overlay.classList.remove("show");
+        stopRealtimeRefresh();
+        state.activeDetailId = null;
+        if (detailModal) {
+          detailModal.classList.remove("show");
+          detailModal.setAttribute("aria-hidden", "true");
+        }
+        setTimeout(() => {
+          overlay.classList.remove("closing");
+          document.body.style.overflow = "";
+        }, 180);
+      };
+
+      const escapeHtml = (value) =>
+        String(value || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+
+      const formatOrderDate = (isoDate) => {
+        if (!isoDate) return "-";
+        const date = new Date(isoDate);
+        if (Number.isNaN(date.getTime())) return String(isoDate);
+        return date.toLocaleString("en-PH", {
+          timeZone: PHILIPPINES_TIME_ZONE,
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+      };
+
+      const renderEmptyState = (stageKey) => {
+        const labels = {
+          all: "No orders yet.",
+          to_pay: "No orders are waiting for payment.",
+          to_ship: "No orders are waiting for shipping.",
+          to_receive: "No orders are waiting for delivery/pickup.",
+          completed: "No completed orders yet.",
+        };
+
+        return `
+          <div class="customer-orders-empty">
+            <i class="fa-regular fa-folder-open"></i>
+            <p>${labels[stageKey] || "No orders found."}</p>
+          </div>
+        `;
+      };
+
+      const renderLoadingState = () => `
+        <div class="customer-orders-empty">
+          <i class="fa-solid fa-spinner fa-spin"></i>
+          <p>Loading orders from server...</p>
+        </div>
+      `;
+
+      const getVisibleOrdersByPanel = (stageKey) => {
+        if (stageKey === "all") return state.orders;
+        if (stageKey === "completed") {
+          return state.orders.filter(
+            (order) =>
+              String(order.lifecycle_status || "").toLowerCase() !== "rejected" &&
+              String(order.customer_stage || "") === "completed",
+          );
+        }
+
+        return state.orders.filter(
+          (order) =>
+            String(order.lifecycle_status || "").toLowerCase() !== "rejected" &&
+            String(order.customer_stage || "") === stageKey,
+        );
+      };
+
+      const setActivePanel = (index) => {
+        const nextIndex = Math.min(Math.max(index, 0), stageByPanel.length - 1);
+        state.activeIndex = nextIndex;
+
+        tabs.forEach((tab, tabIndex) => {
+          tab.classList.toggle("active", tabIndex === nextIndex);
+        });
+
+        if (track) {
+          track.style.transform = `translateX(-${nextIndex * 100}%)`;
+        }
+      };
+
+      const resolveOrderStatusMeta = (order) => {
+        const lifecycle = String(order?.lifecycle_status || "pending").toLowerCase();
+        const stage = ORDER_STAGE_FLOW.includes(order?.customer_stage)
+          ? order.customer_stage
+          : "to_pay";
+
+        if (lifecycle === "rejected") {
+          return {
+            label: ORDER_LIFECYCLE_LABELS.rejected,
+            className: "status-rejected",
+          };
+        }
+
+        if (lifecycle === "completed" || stage === "completed") {
+          return {
+            label: ORDER_STAGE_LABELS.completed,
+            className: "status-completed",
+          };
+        }
+
+        return {
+          label: ORDER_STAGE_LABELS[stage] || ORDER_LIFECYCLE_LABELS[lifecycle] || "Pending",
+          className: `status-${stage.replace("_", "-")}`,
+        };
+      };
+
+      const renderOrders = () => {
+        if (state.loading) {
+          panels.forEach((panel) => {
+            panel.innerHTML = renderLoadingState();
+          });
+          tabs.forEach((tab) => {
+            const countEl = tab.querySelector(".customer-orders-tab-count");
+            if (countEl) countEl.textContent = "0";
+          });
+          return;
+        }
+
+        stageByPanel.forEach((stageKey, panelIndex) => {
+          const panel = panels[panelIndex];
+          if (!panel) return;
+
+          const scopedOrders = getVisibleOrdersByPanel(stageKey);
+
+          if (!scopedOrders.length) {
+            panel.innerHTML = renderEmptyState(stageKey);
+            return;
+          }
+
+          panel.innerHTML = scopedOrders
+            .map((order) => {
+              const statusMeta = resolveOrderStatusMeta(order);
+              const quantity = Math.max(1, Number.parseInt(order.quantity || "1", 10) || 1);
+              const quantityLabel = `${quantity} item${quantity > 1 ? "s" : ""}`;
+              const productImage = escapeHtml(order.product_image || "/images/FMRC Logo.png");
+              const productName = escapeHtml(order.product_name || "Custom Order");
+              const orderNo = escapeHtml(order.order_no_display || `#${order.order_no || order.id || "-"}`);
+              const paymentMethod = escapeHtml(order.payment_method || "N/A");
+
+              const numericTotal = Number(order.total_amount || 0);
+              const totalLabel = formatOrderCurrency(Number.isFinite(numericTotal) ? numericTotal : 0);
+
+              return `
+                <article class="customer-order-card">
+                  <div class="customer-order-thumb">
+                    <img src="${productImage}" alt="Order item" loading="lazy" />
+                  </div>
+                  <div class="customer-order-main">
+                    <h4>${productName}</h4>
+                    <p class="customer-order-meta">Order ${orderNo} • ${quantityLabel}</p>
+                    <p class="customer-order-meta">${paymentMethod} • ${formatOrderDate(order.created_at)}</p>
+                  </div>
+                  <div class="customer-order-side">
+                    <span class="customer-order-status ${statusMeta.className}">${statusMeta.label}</span>
+                    <strong class="customer-order-price">${totalLabel}</strong>
+                    <div class="customer-order-actions">
+                      <button type="button" class="customer-order-detail-btn" data-order-detail="${escapeHtml(order.id)}">Order Details</button>
+                    </div>
+                  </div>
+                </article>
+              `;
+            })
+            .join("");
+        });
+
+        tabs.forEach((tab, tabIndex) => {
+          const stageKey = stageByPanel[tabIndex];
+          const count = getVisibleOrdersByPanel(stageKey).length;
+          const countEl = tab.querySelector(".customer-orders-tab-count");
+          if (countEl) countEl.textContent = String(count);
+        });
+      };
+
+      const renderDetailModal = (detail) => {
+        if (!detailModal || !detailContent || !detailTitle) return;
+
+        const safeOrderNo = escapeHtml(detail.order_no_display || `#${detail.order_no || detail.id || "-"}`);
+        const safeTitle = escapeHtml(detail.product_name || "Order Details");
+        const safeStatus = escapeHtml(
+          ORDER_LIFECYCLE_LABELS[String(detail.lifecycle_status || "").toLowerCase()] ||
+            ORDER_STAGE_LABELS[String(detail.customer_stage || "").toLowerCase()] ||
+            "Pending",
+        );
+
+        const timeline = Array.isArray(detail.timeline) ? detail.timeline : [];
+        const withCoords =
+          timeline.find((entry) => Number.isFinite(Number(entry?.latitude)) && Number.isFinite(Number(entry?.longitude))) ||
+          detail;
+        const mapEmbedUrl = buildGoogleMapEmbedUrl(withCoords?.latitude, withCoords?.longitude);
+        const mapOpenUrl = buildGoogleMapOpenUrl(withCoords?.latitude, withCoords?.longitude);
+        const courierName = escapeHtml(detail.courier_name || "J&T Express");
+        const courierTrackingNo = String(detail.courier_tracking_no || "").trim();
+        const jntUrl = buildJntTrackingUrl(courierTrackingNo);
+
+        detailTitle.textContent = `Order ${safeOrderNo}`;
+
+        detailContent.innerHTML = `
+          <div class="customer-order-detail-summary">
+            <div class="customer-order-detail-chip"><span>Item</span><strong>${safeTitle}</strong></div>
+            <div class="customer-order-detail-chip"><span>Status</span><strong>${safeStatus}</strong></div>
+            <div class="customer-order-detail-chip"><span>Payment</span><strong>${escapeHtml(detail.payment_method || "N/A")}</strong></div>
+            <div class="customer-order-detail-chip"><span>Total</span><strong>${escapeHtml(detail.total_label || formatOrderCurrency(detail.total_amount))}</strong></div>
+          </div>
+
+          <div class="customer-order-detail-logistics">
+            <h4>Courier Tracking</h4>
+            <p><strong>${courierName}</strong>${courierTrackingNo ? ` • ${escapeHtml(courierTrackingNo)}` : ""}</p>
+            ${
+              jntUrl
+                ? `<a class="customer-order-logistics-link" href="${escapeHtml(jntUrl)}" target="_blank" rel="noopener noreferrer">Track on J&T Express</a>`
+                : '<p class="customer-order-logistics-note">Tracking number will appear once admin updates shipment info.</p>'
+            }
+          </div>
+
+          <div class="customer-order-detail-map-wrap">
+            <h4>Realtime Location</h4>
+            ${
+              mapEmbedUrl
+                ? `<iframe class="customer-order-map-frame" src="${escapeHtml(mapEmbedUrl)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Order location map"></iframe>
+                   <div class="customer-order-map-actions">${
+                     mapOpenUrl
+                       ? `<a href="${escapeHtml(mapOpenUrl)}" target="_blank" rel="noopener noreferrer">Open in Google Maps</a>`
+                       : ""
+                   }</div>`
+                : '<div class="customer-order-map-empty"><i class="fa-solid fa-map-location-dot"></i><p>Location updates will appear here once posted by admin or courier.</p></div>'
+            }
+          </div>
+
+          <div class="customer-order-detail-timeline">
+            <h4>Order Timeline</h4>
+            <div class="customer-order-timeline-list">
+              ${
+                timeline.length
+                  ? timeline
+                      .map(
+                        (entry) => `
+                          <article class="customer-order-timeline-item">
+                            <div class="customer-order-timeline-dot"></div>
+                            <div class="customer-order-timeline-body">
+                              <div class="customer-order-timeline-top">
+                                <strong>${escapeHtml(entry.title || "Order update")}</strong>
+                                <span>${escapeHtml(formatOrderDate(entry.occurred_at || entry.occurred_at_label))}</span>
+                              </div>
+                              ${entry.description ? `<p>${escapeHtml(entry.description)}</p>` : ""}
+                              <div class="customer-order-timeline-meta">
+                                <span>${escapeHtml(entry.stage_label || ORDER_STAGE_LABELS[entry.stage] || "Stage update")}</span>
+                                ${entry.location_name ? `<span>${escapeHtml(entry.location_name)}</span>` : ""}
+                              </div>
+                            </div>
+                          </article>
+                        `,
+                      )
+                      .join("")
+                  : '<p class="customer-order-timeline-empty">Timeline updates will appear once your order is processed.</p>'
+              }
+            </div>
+          </div>
+        `;
+
+        detailModal.classList.add("show");
+        detailModal.setAttribute("aria-hidden", "false");
+      };
+
+      const closeDetailModal = () => {
+        if (!detailModal) return;
+        detailModal.classList.remove("show");
+        detailModal.setAttribute("aria-hidden", "true");
+        state.activeDetailId = null;
+      };
+
+      const openOrderDetail = async (orderId) => {
+        if (!orderId || !state.token) return;
+
+        const key = String(orderId);
+        const cached = state.detailsById.get(key);
+        if (cached) {
+          state.activeDetailId = key;
+          renderDetailModal(cached);
+          void refreshActiveDetail(true);
+          return;
+        }
+
+        if (!detailModal || !detailContent || !detailTitle) return;
+
+        state.detailLoading = true;
+        state.activeDetailId = key;
+        detailTitle.textContent = "Loading Order Details";
+        detailContent.innerHTML = `
+          <div class="customer-orders-empty">
+            <i class="fa-solid fa-spinner fa-spin"></i>
+            <p>Loading order timeline...</p>
+          </div>
+        `;
+        detailModal.classList.add("show");
+        detailModal.setAttribute("aria-hidden", "false");
+
+        try {
+          const detail = await fetchCustomerOrderDetail(state.token, key);
+          if (detail) {
+            state.detailsById.set(key, detail);
+            renderDetailModal(detail);
+            state.lastDetailRefreshAt = Date.now();
+          }
+        } catch (error) {
+          detailTitle.textContent = "Order Details";
+          detailContent.innerHTML = `
+            <div class="customer-orders-empty">
+              <i class="fa-regular fa-circle-xmark"></i>
+              <p>${escapeHtml(error?.message || "Unable to load order details.")}</p>
+            </div>
+          `;
+        } finally {
+          state.detailLoading = false;
+        }
+      };
+
+      const refreshActiveDetail = async (force = false) => {
+        if (!state.activeDetailId || !state.token) return;
+        if (!detailModal?.classList.contains("show")) return;
+        if (state.detailLoading) return;
+        if (!force && Date.now() - state.lastDetailRefreshAt < 1000) return;
+
+        state.detailLoading = true;
+        try {
+          const detail = await fetchCustomerOrderDetail(state.token, state.activeDetailId);
+          if (detail) {
+            state.detailsById.set(String(state.activeDetailId), detail);
+            renderDetailModal(detail);
+            state.lastDetailRefreshAt = Date.now();
+          }
+        } catch {
+          // Keep current detail view; periodic refresh will retry.
+        } finally {
+          state.detailLoading = false;
+        }
+      };
+
+      const refreshOrders = async (showLoading, force = false) => {
+        if (state.refreshInProgress) {
+          if (force) state.refreshQueued = true;
+          return;
+        }
+
+        const now = Date.now();
+        if (!force && now - state.lastRefreshAt < CUSTOMER_ORDERS_MIN_REFRESH_GAP_MS) {
+          return;
+        }
+
+        if (!state.token) {
+          state.loading = false;
+          tabs.forEach((tab) => {
+            const countEl = tab.querySelector(".customer-orders-tab-count");
+            if (countEl) countEl.textContent = "0";
+          });
+
+          panels.forEach((panel) => {
+            panel.innerHTML = `
+              <div class="customer-orders-empty">
+                <i class="fa-regular fa-circle-xmark"></i>
+                <p>Session expired. Please login again.</p>
+              </div>
+            `;
+          });
+          stopRealtimeRefresh();
+          return;
+        }
+
+        state.refreshInProgress = true;
+
+        if (showLoading) {
+          state.loading = true;
+          renderOrders();
+        }
+
+        try {
+          const orders = await fetchCustomerOrders(state.token);
+          state.orders = orders;
+          state.lastRefreshAt = Date.now();
+          if (state.cacheKey) {
+            customerOrdersCache.set(state.cacheKey, orders);
+          }
+          renderOrders();
+
+          void refreshActiveDetail(false);
+        } catch (error) {
+          tabs.forEach((tab) => {
+            const countEl = tab.querySelector(".customer-orders-tab-count");
+            if (countEl) countEl.textContent = "0";
+          });
+
+          panels.forEach((panel) => {
+            panel.innerHTML = `
+              <div class="customer-orders-empty">
+                <i class="fa-regular fa-circle-xmark"></i>
+                <p>${escapeHtml(error?.message || "Unable to load orders right now.")}</p>
+              </div>
+            `;
+          });
+        } finally {
+          state.loading = false;
+          state.refreshInProgress = false;
+
+          if (state.refreshQueued) {
+            state.refreshQueued = false;
+            void refreshOrders(false, true);
+          }
+        }
+      };
+
+      tabs.forEach((tab, index) => {
+        tab.addEventListener("click", () => {
+          setActivePanel(index);
+        });
+      });
+
+      overlay.addEventListener("click", (event) => {
+        const detailBtn = event.target.closest("[data-order-detail]");
+        if (detailBtn) {
+          const orderId = detailBtn.getAttribute("data-order-detail") || "";
+          if (!orderId) return;
+          void openOrderDetail(orderId);
+          return;
+        }
+
+        if (event.target === overlay) {
+          close();
+        }
+      });
+
+      closeBtn?.addEventListener("click", close);
+      closeDetailBtn?.addEventListener("click", closeDetailModal);
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape" || !overlay.classList.contains("show")) return;
+        if (detailModal?.classList.contains("show")) {
+          closeDetailModal();
+          return;
+        }
+        close();
+      });
+
+      viewport?.addEventListener(
+        "touchstart",
+        (event) => {
+          const touch = event.changedTouches?.[0];
+          if (!touch) return;
+          state.touchStartX = touch.clientX;
+          state.touchStartY = touch.clientY;
+        },
+        { passive: true },
+      );
+
+      viewport?.addEventListener(
+        "touchend",
+        (event) => {
+          const touch = event.changedTouches?.[0];
+          if (!touch) return;
+
+          const deltaX = touch.clientX - state.touchStartX;
+          const deltaY = touch.clientY - state.touchStartY;
+
+          if (Math.abs(deltaX) < 45 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
+          if (deltaX < 0) {
+            setActivePanel(state.activeIndex + 1);
+          } else {
+            setActivePanel(state.activeIndex - 1);
+          }
+        },
+        { passive: true },
+      );
+
+      window.addEventListener("fmrc:orders-updated", (event) => {
+        if (!overlay.classList.contains("show")) return;
+        const payload = event?.detail || {};
+        if (!shouldProcessRealtimeSignal(payload)) return;
+        state.lastDetailRefreshAt = 0;
+        void refreshOrders(false, true);
+      });
+
+      window.addEventListener("storage", (event) => {
+        if (event.key !== ORDERS_REALTIME_SIGNAL_KEY) return;
+        if (!overlay.classList.contains("show") || document.hidden) return;
+
+        let payload = {};
+        try {
+          payload = JSON.parse(event.newValue || "{}");
+        } catch {
+          payload = {};
+        }
+        if (!shouldProcessRealtimeSignal(payload)) return;
+
+        state.lastDetailRefreshAt = 0;
+        void refreshOrders(false, true);
+      });
+
+      const realtimeChannel = getOrdersRealtimeChannel();
+      realtimeChannel?.addEventListener("message", (event) => {
+        if (!overlay.classList.contains("show") || document.hidden) return;
+        const payload = event?.data || {};
+        if (payload?.source === "customer-portal") return;
+        if (!shouldProcessRealtimeSignal(payload)) return;
+        state.lastDetailRefreshAt = 0;
+        void refreshOrders(false, true);
+      });
+
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden || !overlay.classList.contains("show")) return;
+        state.lastDetailRefreshAt = 0;
+        void refreshOrders(false, true);
+      });
+
+      window.addEventListener("focus", () => {
+        if (!overlay.classList.contains("show")) return;
+        state.lastDetailRefreshAt = 0;
+        void refreshOrders(false, true);
+      });
+
+      customerOrdersController = {
+        open: async (nextUserInfo) => {
+          state.userInfo = nextUserInfo;
+          state.cacheKey = String(nextUserInfo?.id || nextUserInfo?.email || "customer-orders");
+          state.token = localStorage.getItem("customer_token") || "";
+          state.detailsById.clear();
+          state.refreshQueued = false;
+          setActivePanel(0);
+
+          const cachedOrders = customerOrdersCache.get(state.cacheKey);
+          if (Array.isArray(cachedOrders) && cachedOrders.length) {
+            state.loading = false;
+            state.orders = cachedOrders;
+            renderOrders();
+          }
+
+          overlay.classList.add("show");
+          document.body.style.overflow = "hidden";
+          await refreshOrders(!Array.isArray(cachedOrders) || !cachedOrders.length, true);
+          startRealtimeRefresh();
+        },
+      };
+    }
+
+    void customerOrdersController.open(activeUserInfo);
   };
 
   const { token, userInfo, isAuthenticated } = getCustomerSession();
@@ -2721,6 +4696,9 @@ document.addEventListener("DOMContentLoaded", () => {
     <a href="#" id="viewProfileBtn" class="profile-popup-link">
       <i class="fa-regular fa-id-card"></i> My Account
     </a>
+    <a href="#" id="viewOrdersBtn" class="profile-popup-link">
+      <i class="fa-solid fa-box-archive"></i> My Orders
+    </a>
     <hr />
     <button type="button" id="logoutBtn" class="logout-btn popup-logout" style="border: none; font-family: inherit;">
       <i class="fa-solid fa-right-from-bracket"></i> Logout
@@ -2749,6 +4727,12 @@ document.addEventListener("DOMContentLoaded", () => {
   dropdown.querySelector("#viewProfileBtn")?.addEventListener("click", () => {
     hideDropdown(dropdown);
     openProfileModal(userInfo, token);
+  });
+
+  dropdown.querySelector("#viewOrdersBtn")?.addEventListener("click", (event) => {
+    event.preventDefault();
+    hideDropdown(dropdown);
+    openOrdersModal(userInfo);
   });
 
   const showLogoutConfirmModal = (onConfirm) => {
@@ -2835,7 +4819,7 @@ document.addEventListener("DOMContentLoaded", () => {
       hideStatus();
       setLoader(true);
       try {
-        await fetch("http://127.0.0.1:8000/api/logout", {
+        await fetch(`${API_BASE_URL}/logout`, {
           method: "POST",
           headers: {
             Authorization: "Bearer " + token,

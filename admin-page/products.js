@@ -162,18 +162,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const calculateRowsPerPage = () => {
-    const firstRow = tableBody?.querySelector("tr");
-    const rowHeight = firstRow?.offsetHeight || 42;
-
-    const sidebarFooter = document.querySelector(".sidebar-footer");
-    const footerTop = sidebarFooter
-      ? sidebarFooter.getBoundingClientRect().top
-      : window.innerHeight - 70;
-
-    const tableTop = tableWrapper?.getBoundingClientRect().top || 200;
-    const available = Math.max(180, footerTop - tableTop - 70);
-    const rows = Math.floor(available / rowHeight);
-    return Math.max(5, rows);
+    return 5;
   };
 
   const renderTable = () => {
@@ -216,14 +205,13 @@ document.addEventListener("DOMContentLoaded", () => {
       .join("");
 
     if (pagedItems.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="11">No products found.</td></tr>`;
+      tableBody.innerHTML = `<tr class="table-empty-row"><td colspan="11"><div class="table-empty-state"><i class="fa-regular fa-folder-open"></i><span>No products found.</span></div></td></tr>`;
     }
 
     if (tableMeta) {
-      tableMeta.textContent = `Page ${currentPage} of ${pageCount} • Showing ${Math.min(
-        source.length,
-        start + 1
-      )}-${Math.min(source.length, start + rowsPerPage)} of ${source.length}`;
+      const from = source.length ? start + 1 : 0;
+      const to = source.length ? Math.min(source.length, start + rowsPerPage) : 0;
+      tableMeta.textContent = `Page ${currentPage} of ${pageCount} • Showing ${from}-${to} of ${source.length}`;
     }
     if (currentPageEl) currentPageEl.textContent = String(currentPage);
     if (prevBtn) prevBtn.disabled = currentPage <= 1;

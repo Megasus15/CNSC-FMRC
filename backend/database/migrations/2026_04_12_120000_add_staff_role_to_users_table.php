@@ -15,6 +15,11 @@ return new class extends Migration
             return;
         }
 
+        if (DB::getDriverName() !== 'mysql') {
+            // SQLite/PostgreSQL test runs cannot use MySQL MODIFY ENUM syntax.
+            return;
+        }
+
         DB::statement("ALTER TABLE users MODIFY role ENUM('customer','admin','cashier','staff') NOT NULL DEFAULT 'customer'");
     }
 
@@ -28,6 +33,11 @@ return new class extends Migration
         }
 
         DB::table('users')->where('role', 'staff')->update(['role' => 'customer']);
+
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
+
         DB::statement("ALTER TABLE users MODIFY role ENUM('customer','admin','cashier') NOT NULL DEFAULT 'customer'");
     }
 };

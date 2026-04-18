@@ -18,13 +18,17 @@
           <a href="inventory.html" class="nav-link"><i class="fa-solid fa-box"></i> Inventory</a>
           <a href="products.html" class="nav-link"><i class="fa-solid fa-tags"></i> Products</a>
           <a href="appointments.html" class="nav-link"><i class="fa-regular fa-calendar-check"></i> Appointment</a>
-          <a href="payment-monitoring.html" class="nav-link"><i class="fa-solid fa-money-bill-trend-up"></i> Payment Monitoring</a>
           <a href="accounts.html" class="nav-link"><i class="fa-solid fa-users"></i> User Management</a>
-          <a href="payments.html" class="nav-link"><i class="fa-solid fa-file-invoice-dollar"></i> Payments</a>
           <a href="reports.html" class="nav-link"><i class="fa-solid fa-chart-line"></i> Reports</a>
           <a href="orders.html" class="nav-link active"><i class="fa-solid fa-box-open"></i> Orders</a>
+
           <div class="nav-item has-dropdown">
-            <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn"><div class="dropdown-title"><i class="fa-solid fa-screwdriver-wrench"></i> Admin Control</div><i class="fa-solid fa-chevron-down arrow"></i></a>
+            <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn">
+              <div class="dropdown-title">
+                <i class="fa-solid fa-screwdriver-wrench"></i> Website Management
+              </div>
+              <i class="fa-solid fa-chevron-down arrow"></i>
+            </a>
             <div class="dropdown-menu">
               <a href="../home-page/main.html" class="sub-link">Home</a>
               <a href="../services-page/service.html" class="sub-link">Services</a>
@@ -32,7 +36,9 @@
               <a href="#" class="sub-link">Footer</a>
             </div>
           </div>
+
           <a href="archives.html" class="nav-link"><i class="fa-solid fa-box-archive"></i> Archives</a>
+          <a href="my-account.html" class="nav-link"><i class="fa-regular fa-id-card"></i> My Account</a>
         </nav>
         <div class="sidebar-footer"><button class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div>
       </aside>
@@ -56,121 +62,210 @@
         <section class="module-content">
           <div class="page-toolbar">
             <div class="toolbar-title">
-              <h2>Orders</h2>
-              <p>Monitor every customer order from incoming request to final claiming.</p>
+              <h2>Orders Operations Center</h2>
+              <p>Review incoming requests first, manage all order statuses in one table, and monitor complete payment history.</p>
             </div>
             <div class="toolbar-actions">
-              <button class="btn-admin btn-secondary" onclick="window.location.reload();" title="Refresh Data">
+              <button class="btn-admin btn-secondary" id="ordersRefreshBtn" type="button" title="Refresh Data">
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
-              <select class="filter-select"><option>All Stages</option><option>Incoming</option><option>Pending</option><option>Completed</option><option>Rejected</option></select>
-              <input class="search-input" placeholder="Search order no., customer, or product..." />
             </div>
           </div>
 
-          <div class="orders-flow-strip">
-            <div class="flow-step"><span class="flow-step-number">1</span><div><h4>Incoming</h4><p>New customer checkout requests are waiting for admin review.</p></div></div>
-            <div class="flow-step"><span class="flow-step-number">2</span><div><h4>Pending</h4><p>Approved orders are being prepared and waiting for customer claim.</p></div></div>
-            <div class="flow-step"><span class="flow-step-number">3</span><div><h4>Completed</h4><p>Orders are marked completed once customer already received the items.</p></div></div>
-          </div>
+          <div class="orders-layout-stack">
+            <article class="panel incoming-orders-panel">
+              <div class="panel-header incoming-panel-header">
+                <div>
+                  <h3>Incoming Orders</h3>
+                  <p class="incoming-subtitle">Prioritized queue. Review first, then move orders to processing.</p>
+                </div>
+                <span class="status-pill status-yellow">Urgent Review</span>
+              </div>
 
-          <div class="orders-section-grid">
-            <div class="panel">
+              <div class="incoming-orders-grid-wrapper">
+                <div class="incoming-orders-scroll">
+                  <div class="incoming-orders-grid" id="incomingOrdersCards"></div>
+                </div>
+                <div class="incoming-cards-pagination" id="incomingCardsPagination">
+                  <button type="button" class="page-btn" id="incomingPrevBtn"><i class="fa-solid fa-chevron-left"></i></button>
+                  <div class="page-number" id="incomingPageNumber">1</div>
+                  <button type="button" class="page-btn" id="incomingNextBtn"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+              </div>
+
+              <div class="incoming-orders-compact">
+                <div class="table-wrapper">
+                  <table class="admin-table" id="incomingCompactTable" data-page-size="5" data-empty-message="No incoming orders found.">
+                    <thead>
+                      <tr>
+                        <th>Order No.</th>
+                        <th>Customer</th>
+                        <th>Item</th>
+                        <th>Payment</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th class="sticky-action">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+                <div class="table-footer" id="incomingCompactFooter">
+                  <div class="table-footer-meta">Page 1 of 1</div>
+                  <div class="table-pagination">
+                    <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-left"></i></button>
+                    <div class="page-number">1</div>
+                    <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-right"></i></button>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <article class="panel" id="ordersDirectoryPanel">
               <div class="panel-header">
-                <h3>Incoming Orders</h3>
-                <span class="status-pill status-yellow">Needs Review</span>
+                <h3>Orders Directory</h3>
+                <div class="filters-row">
+                  <select class="filter-select" id="ordersDirectoryStatusFilter">
+                    <option value="all">All Orders</option>
+                    <option value="pending">Pending Orders</option>
+                    <option value="completed">Completed Orders</option>
+                    <option value="rejected">Rejected Orders</option>
+                  </select>
+                  <input class="search-input" id="ordersDirectorySearch" placeholder="Search order no., customer, or item..." />
+                </div>
               </div>
               <div class="table-wrapper">
-                <table class="admin-table enhanced-table">
-                  <thead><tr><th>Order No.</th><th>Order</th><th>Date</th><th>Customer</th><th>Payment</th><th>Total Item</th><th>Status</th><th class="sticky-action">Action</th></tr></thead>
-                  <tbody>
-                    <tr><td>#ORD101</td><td>Steel Bracket Set</td><td>Apr 02, 2026</td><td>Vear Carl T.</td><td>COP</td><td>3</td><td><span class="status-pill status-yellow">Incoming</span></td><td class="action-icons sticky-action"><button data-tooltip="View Order Info"><i class="fa-regular fa-eye"></i></button><button data-tooltip="Approve Order"><i class="fa-solid fa-check"></i></button><button data-tooltip="Reject Order"><i class="fa-solid fa-xmark"></i></button></td></tr>
-                    <tr><td>#ORD102</td><td>Laser-Cut Signage</td><td>Apr 02, 2026</td><td>Wern C.</td><td>GCash</td><td>2</td><td><span class="status-pill status-yellow">Incoming</span></td><td class="action-icons sticky-action"><button data-tooltip="View Order Info"><i class="fa-regular fa-eye"></i></button><button data-tooltip="Approve Order"><i class="fa-solid fa-check"></i></button><button data-tooltip="Reject Order"><i class="fa-solid fa-xmark"></i></button></td></tr>
-                  </tbody>
+                <table class="admin-table" id="ordersDirectoryTable" data-page-size="5" data-empty-message="No orders available.">
+                  <thead>
+                    <tr>
+                      <th>Order No.</th>
+                      <th>Order Item</th>
+                      <th>Date</th>
+                      <th>Customer</th>
+                      <th>Payment Method</th>
+                      <th>Total</th>
+                      <th>Status</th>
+                      <th class="sticky-action">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
                 </table>
               </div>
-            </div>
+              <div class="table-footer" id="ordersDirectoryFooter">
+                <div class="table-footer-meta">Page 1 of 1</div>
+                <div class="table-pagination">
+                  <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-left"></i></button>
+                  <div class="page-number">1</div>
+                  <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+              </div>
+            </article>
 
-            <div class="panel">
+            <article class="panel" id="paymentsHistoryPanel">
               <div class="panel-header">
-                <h3>Pending Orders</h3>
-                <span class="status-pill status-blue">In Progress</span>
+                <h3>Payments History</h3>
+                <div class="filters-row">
+                  <select class="filter-select" id="paymentsMethodFilter">
+                    <option value="all">All Payments</option>
+                    <option value="gcash">GCash</option>
+                    <option value="cop">COP</option>
+                    <option value="cod">COD</option>
+                  </select>
+                </div>
               </div>
               <div class="table-wrapper">
-                <table class="admin-table enhanced-table">
-                  <thead><tr><th>Order No.</th><th>Order</th><th>Date</th><th>Customer</th><th>Payment</th><th>Total Item</th><th>Status</th><th class="sticky-action">Action</th></tr></thead>
-                  <tbody>
-                    <tr><td>#ORD095</td><td>CNC Batch</td><td>Apr 01, 2026</td><td>Kevin A.</td><td>COP</td><td>4</td><td><span class="status-pill status-blue">Pending</span></td><td class="action-icons sticky-action"><button data-tooltip="View Order Info"><i class="fa-regular fa-eye"></i></button><button data-tooltip="Mark as Completed"><i class="fa-solid fa-clipboard-check"></i></button></td></tr>
-                    <tr><td>#ORD097</td><td>Prototype Housing</td><td>Apr 01, 2026</td><td>Elena P.</td><td>GCash</td><td>1</td><td><span class="status-pill status-blue">Pending</span></td><td class="action-icons sticky-action"><button data-tooltip="View Order Info"><i class="fa-regular fa-eye"></i></button><button data-tooltip="Mark as Completed"><i class="fa-solid fa-clipboard-check"></i></button></td></tr>
-                  </tbody>
+                <table class="admin-table" id="paymentsHistoryTable" data-page-size="5" data-empty-message="No payments available.">
+                  <thead>
+                    <tr>
+                      <th>Payment ID</th>
+                      <th>Order No.</th>
+                      <th>Customer</th>
+                      <th>Method</th>
+                      <th>Reference</th>
+                      <th>Amount</th>
+                      <th>Payment Status</th>
+                      <th>Date Paid</th>
+                      <th class="sticky-action">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
                 </table>
               </div>
-            </div>
-
-            <div class="panel">
-              <div class="panel-header">
-                <h3>Completed Orders</h3>
-                <span class="status-pill status-green">Released to Customer</span>
+              <div class="table-footer" id="paymentsHistoryFooter">
+                <div class="table-footer-meta">Page 1 of 1</div>
+                <div class="table-pagination">
+                  <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-left"></i></button>
+                  <div class="page-number">1</div>
+                  <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
               </div>
-              <div class="table-wrapper">
-                <table class="admin-table enhanced-table">
-                  <thead><tr><th>Order No.</th><th>Order</th><th>Date</th><th>Customer</th><th>Payment</th><th>Total Item</th><th>Status</th><th class="sticky-action">Action</th></tr></thead>
-                  <tbody>
-                    <tr><td>#ORD083</td><td>Machine Guard Kit</td><td>Mar 29, 2026</td><td>Maria B.</td><td>COP</td><td>5</td><td><span class="status-pill status-green">Completed</span></td><td class="action-icons sticky-action"><button data-tooltip="View Order Info"><i class="fa-regular fa-eye"></i></button><button data-tooltip="Move to Archives" data-modal-open="#modalArchiveOrder"><i class="fa-solid fa-box-archive"></i></button></td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div class="panel">
-              <div class="panel-header">
-                <h3>Rejected Orders</h3>
-                <span class="status-pill status-red">Decision Required</span>
-              </div>
-              <div class="table-wrapper">
-                <table class="admin-table enhanced-table">
-                  <thead><tr><th>Order No.</th><th>Order</th><th>Date</th><th>Customer</th><th>Payment</th><th>Total Item</th><th>Status</th><th class="sticky-action">Action</th></tr></thead>
-                  <tbody>
-                    <tr><td>#ORD088</td><td>Custom Clamp Set</td><td>Mar 30, 2026</td><td>John R.</td><td>GCash</td><td>2</td><td><span class="status-pill status-red">Rejected</span></td><td class="action-icons sticky-action"><button data-tooltip="View Order Info"><i class="fa-regular fa-eye"></i></button><button data-tooltip="Move to Archives" data-modal-open="#modalArchiveOrder"><i class="fa-solid fa-box-archive"></i></button><button data-tooltip="Delete Permanently" data-modal-open="#modalDeleteOrder"><i class="fa-regular fa-trash-can"></i></button></td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            </article>
           </div>
         </section>
       </main>
     </div>
-    <div class="modal-overlay" id="modalDeleteOrder" data-backdrop-close="false">
-      <div class="modal-card modal-confirm">
-        <h3 class="modal-title">Delete Confirmation</h3>
-        <hr class="confirm-separator" />
-        <p class="confirm-text">You are about to delete <strong>this order</strong>.</p>
-        <p class="field-hint">This is a design-only confirmation for now.</p>
-        <hr class="confirm-separator" />
+
+    <div class="modal-overlay" id="modalOrderDetails" data-backdrop-close="false">
+      <div class="modal-card">
+        <h3 class="modal-title">Order Details</h3>
+        <div class="form-grid">
+          <div class="field-stack"><label>Order No.</label><input id="modalOrderNo" class="input-field" readonly /></div>
+          <div class="field-stack"><label>Date</label><input id="modalOrderDate" class="input-field" readonly /></div>
+          <div class="field-stack full"><label>Order Item</label><input id="modalOrderItem" class="input-field" readonly /></div>
+          <div class="field-stack"><label>Customer</label><input id="modalOrderCustomer" class="input-field" readonly /></div>
+          <div class="field-stack"><label>Contact</label><input id="modalOrderContact" class="input-field" readonly /></div>
+          <div class="field-stack full"><label>Address</label><textarea id="modalOrderAddress" class="textarea-field" readonly></textarea></div>
+          <div class="field-stack"><label>Payment Method</label><input id="modalOrderPayment" class="input-field" readonly /></div>
+          <div class="field-stack"><label>Payment Reference</label><input id="modalOrderReference" class="input-field" readonly /></div>
+          <div class="field-stack"><label>Quantity</label><input id="modalOrderQty" class="input-field" readonly /></div>
+          <div class="field-stack"><label>Total</label><input id="modalOrderTotal" class="input-field" readonly /></div>
+          <div class="field-stack"><label>Status</label><input id="modalOrderStatus" class="input-field" readonly /></div>
+          <div class="field-stack full"><label>Notes</label><textarea id="modalOrderNotes" class="textarea-field" readonly></textarea></div>
+        </div>
         <div class="modal-actions">
-          <button class="btn-admin btn-secondary" data-modal-close="#modalDeleteOrder">Cancel</button>
-          <button class="btn-admin" type="button">Delete Order</button>
+          <button class="btn-admin btn-secondary" data-modal-close="#modalOrderDetails">Close</button>
         </div>
       </div>
     </div>
-    <div class="modal-overlay" id="modalArchiveOrder" data-backdrop-close="false">
-      <div class="modal-card modal-confirm">
-        <h3 class="modal-title">Archive Confirmation</h3>
-        <hr class="confirm-separator" />
-        <p class="confirm-text">You are about to move <strong>this order</strong> to Archives.</p>
-        <p class="field-hint">This is a design-only confirmation for now.</p>
-        <hr class="confirm-separator" />
+
+    <div class="modal-overlay" id="modalTrackingUpdate" data-backdrop-close="false">
+      <div class="modal-card">
+        <h3 class="modal-title">Update Tracking Status</h3>
+        <div class="form-grid">
+          <input type="hidden" id="trackingOrderId" />
+          <div class="field-stack"><label>Order No.</label><input id="trackingOrderNo" class="input-field" readonly /></div>
+          <div class="field-stack"><label>Customer Stage</label>
+            <select id="trackingStage" class="filter-select">
+              <option value="to_pay">To Pay</option>
+              <option value="to_ship">To Ship</option>
+              <option value="to_receive">To Receive</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+          <div class="field-stack full"><label>Timeline Title</label><input id="trackingEventTitle" class="input-field" placeholder="ex. Order prepared for shipping" /></div>
+          <div class="field-stack full"><label>Description</label><textarea id="trackingEventDescription" class="textarea-field" placeholder="Add extra details for customer visibility."></textarea></div>
+          <div class="field-stack"><label>Courier</label><input id="trackingCourierName" class="input-field" placeholder="ex. J&T Express" /></div>
+          <div class="field-stack"><label>Tracking No.</label><input id="trackingCourierNo" class="input-field" placeholder="ex. JT123456789PH" /></div>
+          <div class="field-stack"><label>Location Name</label><input id="trackingLocationName" class="input-field" placeholder="ex. Daet Distribution Hub" /></div>
+          <div class="field-stack grid-two">
+            <div>
+              <label>Latitude</label>
+              <input id="trackingLatitude" class="input-field" placeholder="ex. 14.112233" />
+            </div>
+            <div>
+              <label>Longitude</label>
+              <input id="trackingLongitude" class="input-field" placeholder="ex. 122.955667" />
+            </div>
+          </div>
+        </div>
         <div class="modal-actions">
-          <button class="btn-admin btn-secondary" data-modal-close="#modalArchiveOrder">Cancel</button>
-          <button class="btn-admin" type="button">Move to Archives</button>
+          <button class="btn-admin btn-secondary" data-modal-close="#modalTrackingUpdate">Cancel</button>
+          <button class="btn-admin" id="btnSaveTrackingUpdate" type="button">Save Update</button>
         </div>
       </div>
     </div>
+
+    <script src="orders.js"></script>
     <script src="admin-common.js"></script>
   </body>
 </html>
-
-
-
-
-
