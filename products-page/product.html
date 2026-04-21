@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -15,6 +15,42 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
     <link rel="stylesheet" href="../home-page/main.css" />
+    <style>
+      @keyframes shimmer {
+        0%  { background-position: 200% 0; }
+        100%{ background-position: -200% 0; }
+      }
+      /* Empty state */
+      .products-empty-state {
+        grid-column: 1 / -1;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 80px 20px;
+        text-align: center;
+        gap: 16px;
+        color: #6b7280;
+      }
+      .products-empty-state svg { opacity: 0.35; }
+      .products-empty-state h3 { font-size: 1.1rem; color: #374151; margin: 0; }
+      .products-empty-state p  { font-size: 0.88rem; margin: 0; }
+      /* View Info button on card */
+      .product-view-info-btn {
+        width: 100%;
+        padding: 7px 0;
+        background: transparent;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #6b7280;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+        margin-top: 4px;
+      }
+      .product-view-info-btn:hover { background: #f3f4f6; color: #374151; }
+    </style>
   </head>
   <body class="products-page-body">
     <header class="site-header">
@@ -135,8 +171,23 @@
     </section>
 
     <section class="shop-section">
-      <div class="shop-grid">
-        <div class="shop-card">
+      <div class="shop-grid" id="productGrid">
+        <!-- Products rendered dynamically by products.js -->
+      </div>
+      <!-- Empty State: shown when no products are available -->
+      <div class="products-empty-state" id="productsEmptyState">
+        <svg xmlns="http://www.w3.org/2000/svg" width="90" height="90" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <path d="M16 10a4 4 0 0 1-8 0"></path>
+        </svg>
+        <h3>No Products Available</h3>
+        <p>Our product catalog is currently empty. Please check back soon!</p>
+      </div>
+    </section>
+
+    <!-- Placeholder section tag closed above; remaining modals below -->
+    <section style="display:none;"><div class="shop-card">
           <div class="product-img-wrapper">
             <img
               src="/images/laser-cutting-wood.jpg"
@@ -562,7 +613,7 @@
           </div>
         </div>
       </div>
-    </section>
+    </div></section>
 
     <div class="modal-overlay" id="productInfoModal">
       <div class="modal-box">
@@ -1504,5 +1555,6 @@
     </footer>
 
     <script src="../home-page/main.js"></script>
+    <script src="products.js"></script>
   </body>
 </html>

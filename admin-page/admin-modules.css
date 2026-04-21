@@ -1832,3 +1832,48 @@ body.reports-page .table-wrapper {
     grid-template-columns: 1fr;
   }
 }
+
+/* --- Generic Skeleton Loader --- */
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skeleton-text {
+  height: 14px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+.skeleton-avatar {
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* --- Fixed Modals Layout --- */
+.modal-header-fixed {
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 10;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.modal-body-scroll {
+  padding: 20px 24px;
+  overflow-y: auto;
+  max-height: calc(90vh - 150px);
+}
+.modal-footer-fixed {
+  position: sticky;
+  bottom: 0;
+  background: #f9fafb;
+  z-index: 10;
+  padding: 16px 24px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-radius: 0 0 12px 12px;
+}

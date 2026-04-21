@@ -30,6 +30,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnSaveItem = document.getElementById("btnSaveItem");
   const btnUpdateItem = document.getElementById("btnUpdateItem");
   const btnConfirmDelete = document.getElementById("btnConfirmDelete");
+  const modalViewItem = document.getElementById("modalViewItem");
+  const viewItemTitle = document.getElementById("viewItemTitle");
+  const viewItemContent = document.getElementById("viewItemContent");
+  const btnCloseViewItem = document.getElementById("btnCloseViewItem");
+  const btnOpenEditFromViewItem = document.getElementById("btnOpenEditFromViewItem");
 
   const photoPreviewModal = document.getElementById("modalPhotoPreview");
   const photoPreviewImg = document.getElementById("inventoryPhotoPreview");
@@ -167,7 +172,6 @@ document.addEventListener("DOMContentLoaded", () => {
           <td>${safeValue(item.unit)}</td>
           <td><span class="status-pill ${statusClass(item.status)}">${safeValue(item.status)}</span></td>
           <td class="action-icons sticky-action">
-            <button type="button" data-tooltip="Edit Item" data-edit-id="${item.id}"><i class="fa-regular fa-pen-to-square"></i></button>
             <button type="button" data-tooltip="View Item" data-view-id="${item.id}"><i class="fa-regular fa-eye"></i></button>
             <button type="button" data-tooltip="Move to Archives" data-archive-id="${item.id}"><i class="fa-solid fa-box-archive"></i></button>
             <button type="button" data-tooltip="Delete Item" data-delete-id="${item.id}"><i class="fa-regular fa-trash-can"></i></button>
@@ -396,18 +400,21 @@ document.addEventListener("DOMContentLoaded", () => {
       const item = items.find((x) => x.id === id);
       if (!item) return;
 
-      if (editItemName) editItemName.value = safeValue(item.name);
-      if (editItemCategory) editItemCategory.value = safeValue(item.category);
-      if (editItemQty) editItemQty.value = safeValue(item.qty);
-      if (editItemUnit) editItemUnit.value = safeValue(item.unit);
-      if (editItemDescription) editItemDescription.value = safeValue(item.description);
-      if (editDeductionType) editDeductionType.value = "Production";
-      if (editDeductQty) editDeductQty.value = "0";
-
-      sourcePhotoData = item.photo || "";
-      editedPhotoData = item.photo || "";
       activeEditId = item.id;
-      openModal(modalEditItem);
+      if (viewItemTitle) viewItemTitle.textContent = `${item.id} — ${item.name}`;
+      if (viewItemContent) {
+        const statusCls = statusClass(item.status);
+        viewItemContent.innerHTML = `
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;">
+            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Item ID</div><div style="font-size:.88rem;color:#111827;font-weight:500;">${item.id}</div></div>
+            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Category</div><div style="font-size:.88rem;color:#111827;font-weight:500;">${item.category}</div></div>
+            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Quantity</div><div style="font-size:.88rem;color:#111827;font-weight:500;">${item.qty} ${item.unit}</div></div>
+            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Status</div><div><span class="status-pill ${statusCls}">${item.status}</span></div></div>
+            <div style="grid-column:1/-1;"><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Description</div><div style="font-size:.88rem;color:#111827;">${item.description || '—'}</div></div>
+            ${item.photo ? `<div style="grid-column:1/-1;"><img src="${item.photo}" style="max-height:120px;border-radius:8px;object-fit:contain;" /></div>` : ''}
+          </div>`;
+      }
+      openModal(modalViewItem);
       return;
     }
 
@@ -435,6 +442,26 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  btnCloseViewItem?.addEventListener("click", () => closeModal(modalViewItem));
+
+  btnOpenEditFromViewItem?.addEventListener("click", () => {
+    const item = items.find((x) => x.id === activeEditId);
+    if (!item) return;
+    closeModal(modalViewItem);
+
+    if (editItemName) editItemName.value = safeValue(item.name);
+    if (editItemCategory) editItemCategory.value = safeValue(item.category);
+    if (editItemQty) editItemQty.value = safeValue(item.qty);
+    if (editItemUnit) editItemUnit.value = safeValue(item.unit);
+    if (editItemDescription) editItemDescription.value = safeValue(item.description);
+    if (editDeductionType) editDeductionType.value = "Production";
+    if (editDeductQty) editDeductQty.value = "0";
+
+    sourcePhotoData = item.photo || "";
+    editedPhotoData = item.photo || "";
+    openModal(modalEditItem);
+  });
+
   btnSaveItem?.addEventListener("click", () => {
     const addName = (document.getElementById("addItemName")?.value || "").trim();
     const addCategory = document.getElementById("addItemCategory")?.value || "Raw Materials";
@@ -443,7 +470,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const addDescription = (document.getElementById("addItemDescription")?.value || "").trim();
 
     if (!addName) {
-      alert("Material name is required.");
+      window.showAdminPopup?.("Material name is required.", { title: "Validation Error" });
       return;
     }
 
@@ -465,10 +492,11 @@ document.addEventListener("DOMContentLoaded", () => {
       status: inferStatus(cleanQty),
     };
 
-    items.push(newItem);
+    items.unshift(newItem);
     currentPage = 1;
     renderTable();
     closeModal(document.getElementById("modalAddItem"));
+    setTimeout(() => window.showAdminPopup?.("Item added successfully.", { title: "Success ✓" }), 200);
   });
 
   btnUpdateItem?.addEventListener("click", () => {
@@ -492,11 +520,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (validDeductQty > 0) {
       const deductionLabel = editDeductionType?.value || "Production";
-      alert(`${deductionLabel} deduction applied: -${validDeductQty} ${item.unit}.`);
+      window.showAdminPopup?.(`${deductionLabel} deduction applied: -${validDeductQty} ${item.unit}.`, { title: "Deduction Applied" });
     }
 
     renderTable();
     closeModal(modalEditItem);
+    setTimeout(() => window.showAdminPopup?.("Item updated successfully.", { title: "Success ✓" }), 200);
   });
 
   btnConfirmDelete?.addEventListener("click", () => {
@@ -508,6 +537,7 @@ document.addEventListener("DOMContentLoaded", () => {
     pendingDeleteId = "";
     renderTable();
     closeModal(modalDeleteItem);
+    setTimeout(() => window.showAdminPopup?.("Item deleted successfully.", { title: "Success ✓" }), 200);
   });
 
   prevBtn?.addEventListener("click", () => {

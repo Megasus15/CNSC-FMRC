@@ -679,6 +679,27 @@ document.addEventListener("DOMContentLoaded", () => {
         .join("");
     };
 
+    const renderDashboardLoading = () => {
+      const loaderHTML = `
+        <li class="recent-item" style="pointer-events:none; padding:12px 16px; border-bottom:1px solid #f3f4f6; display:flex; align-items:center;">
+          <div class="recent-info" style="flex:1;">
+            <div style="height:14px;border-radius:4px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;margin-bottom:8px;width:160px;"></div>
+            <div style="height:10px;border-radius:4px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:90px;"></div>
+          </div>
+          <div class="recent-side" style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+            <div style="height:18px;border-radius:12px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:60px;"></div>
+            <div style="height:10px;border-radius:4px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:70px;"></div>
+          </div>
+        </li>`.repeat(4);
+        
+      if (dashboardRecentAppointments) {
+        dashboardRecentAppointments.innerHTML = loaderHTML;
+      }
+      if (dashboardRecentOrders) {
+        dashboardRecentOrders.innerHTML = loaderHTML;
+      }
+    };
+
     const renderDashboardSyncError = (message) => {
       if (dashboardRecentAppointments) {
         dashboardRecentAppointments.innerHTML = `
@@ -849,6 +870,10 @@ document.addEventListener("DOMContentLoaded", () => {
       dashboardSyncRequestId = requestId;
       dashboardSyncController = new AbortController();
       dashboardSyncInProgress = true;
+
+      if (source === "manual") {
+        renderDashboardLoading();
+      }
 
       try {
         let usedSummaryEndpoint = false;

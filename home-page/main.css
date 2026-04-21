@@ -7173,3 +7173,27 @@ body.sidebar-open {
   height: 20px;
 }
 
+
+/* --- View Info Button (Modernized) --- */
+.product-view-info-btn {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1.5px solid #d1d5db;
+  background-color: #ffffff;
+  color: #374151;
+  border-radius: 8px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.product-view-info-btn:hover {
+  border-color: #a80f0f;
+  color: #a80f0f;
+  background-color: #fef2f2;
+}
+.product-view-info-btn:active {
+  transform: scale(0.98);
+}

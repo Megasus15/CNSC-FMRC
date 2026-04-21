@@ -75,8 +75,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const isPassword = input.type === "password";
       input.type = isPassword ? "text" : "password";
 
-      // Swap the SVG inside the button
-      toggleBtn.innerHTML = isPassword ? eyeClosedSVG : eyeOpenSVG;
+      // Swap the SVG inside the button — CORRECTED:
+      // isPassword=true means we're revealing it → show OPEN eye
+      // isPassword=false means we're hiding it again → show CLOSED eye
+      toggleBtn.innerHTML = isPassword ? eyeOpenSVG : eyeClosedSVG;
       toggleBtn.setAttribute(
         "aria-label",
         isPassword ? "Hide password" : "Show password",

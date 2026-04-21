@@ -112,7 +112,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const isPassword = input.type === "password";
       input.type = isPassword ? "text" : "password";
-      toggleBtn.innerHTML = isPassword ? eyeClosedSvg : eyeOpenSvg;
+      // CORRECTED: showing password → open eye; hiding → closed eye
+      toggleBtn.innerHTML = isPassword ? eyeOpenSvg : eyeClosedSvg;
       toggleBtn.setAttribute("aria-label", isPassword ? "Hide password" : "Show password");
     });
   });

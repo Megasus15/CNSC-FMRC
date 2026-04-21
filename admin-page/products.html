@@ -7,6 +7,223 @@
     <link rel="stylesheet" href="dashboard.css" />
     <link rel="stylesheet" href="admin-modules.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+      /* ── Product-specific styles ── */
+      .row-blocked td { background: rgba(220,38,38,0.07) !important; }
+      .row-blocked:hover td { background: rgba(220,38,38,0.12) !important; }
+
+      /* Modal: fixed header/footer, scrollable body */
+      .modal-card.product-modal {
+        display: flex;
+        flex-direction: column;
+        max-height: 90vh;
+        overflow: hidden;
+        padding: 0;
+        min-width: 560px;
+        max-width: 700px;
+        width: 100%;
+      }
+      .product-modal .modal-header-fixed {
+        padding: 20px 24px 12px;
+        border-bottom: 1px solid #e5e7eb;
+        flex-shrink: 0;
+      }
+      .product-modal .modal-title { margin: 0; font-size: 1.05rem; }
+      .product-modal .modal-body-scroll {
+        padding: 20px 24px;
+        overflow-y: auto;
+        flex: 1;
+      }
+      .product-modal .modal-footer-fixed {
+        padding: 14px 24px;
+        border-top: 1px solid #e5e7eb;
+        background: #fff;
+        flex-shrink: 0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+      /* Section dividers inside modal */
+      .modal-section-title {
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #9ca3af;
+        margin: 18px 0 10px;
+        padding-bottom: 6px;
+        border-bottom: 1px solid #f3f4f6;
+      }
+      .modal-section-title:first-child { margin-top: 0; }
+
+      /* Toggle row (In Stock / Out of Stock) */
+      .stock-toggle-group {
+        display: flex;
+        gap: 8px;
+        margin-top: 4px;
+      }
+      .stock-toggle-btn {
+        flex: 1;
+        padding: 8px 12px;
+        border-radius: 8px;
+        border: 1.5px solid #e5e7eb;
+        background: #f9fafb;
+        cursor: pointer;
+        font-size: 0.8rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: all 0.18s;
+      }
+      .stock-toggle-btn.active-in-stock {
+        border-color: #16a34a;
+        background: #dcfce7;
+        color: #15803d;
+      }
+      .stock-toggle-btn.active-out-of-stock {
+        border-color: #dc2626;
+        background: #fee2e2;
+        color: #b91c1c;
+      }
+
+      /* Block toggle */
+      .block-toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1.5px solid #e5e7eb;
+        background: #f9fafb;
+        margin-top: 4px;
+      }
+      .block-toggle-label {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .block-toggle-label strong {
+        font-size: 0.85rem;
+        color: #111827;
+      }
+      .block-toggle-label span {
+        font-size: 0.75rem;
+        color: #6b7280;
+      }
+      .block-toggle-row.is-blocked {
+        border-color: #dc2626;
+        background: #fff1f2;
+      }
+      .block-toggle-row.is-blocked .block-toggle-label strong {
+        color: #b91c1c;
+      }
+
+      /* Upload image area */
+      .upload-area {
+        border: 1.5px dashed #d1d5db;
+        border-radius: 8px;
+        padding: 14px 16px;
+        background: #f9fafb;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        cursor: pointer;
+        transition: border-color 0.18s, background 0.18s;
+      }
+      .upload-area:hover { border-color: #a80f0f; background: #fff5f5; }
+      .upload-area-icon { font-size: 1.5rem; color: #6b7280; flex-shrink: 0; }
+      .upload-area-text { flex: 1; }
+      .upload-area-text strong { display: block; font-size: 0.82rem; color: #374151; }
+      .upload-area-text span { font-size: 0.74rem; color: #9ca3af; }
+      .upload-area.has-image { border-color: #16a34a; background: #f0fdf4; }
+      .upload-area.has-image .upload-area-icon { color: #16a34a; }
+      .upload-area input[type="file"] { display: none; }
+
+      /* View product modal content styles */
+      .view-product-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px 20px;
+      }
+      .view-product-image {
+        grid-column: 1 / -1;
+        background: #f3f4f6;
+        border-radius: 10px;
+        overflow: hidden;
+        max-height: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .view-product-image img {
+        max-height: 200px;
+        max-width: 100%;
+        object-fit: contain;
+      }
+      .view-product-image .no-image-placeholder {
+        padding: 30px;
+        text-align: center;
+        color: #9ca3af;
+        font-size: 0.85rem;
+      }
+      .vp-label { font-size: 0.73rem; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+      .vp-value { font-size: 0.88rem; color: #111827; font-weight: 500; margin-top: 2px; word-break: break-word; }
+      .chips-preview { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+      .chip-tag {
+        padding: 3px 10px;
+        border-radius: 20px;
+        background: #f3f4f6;
+        font-size: 0.74rem;
+        color: #374151;
+        font-weight: 600;
+        border: 1px solid #e5e7eb;
+      }
+
+      /* Photo editor modal */
+      .modal-card.photo-editor-modal {
+        min-width: 480px;
+        max-width: 580px;
+      }
+      .photo-editor-canvas-wrap {
+        width: 100%;
+        height: 260px;
+        background: #111;
+        border-radius: 10px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 12px;
+      }
+      .photo-editor-canvas-wrap img {
+        max-height: 260px;
+        max-width: 100%;
+        object-fit: contain;
+        transition: transform 0.15s;
+        transform-origin: center;
+      }
+      .photo-editor-sliders { display: flex; flex-direction: column; gap: 10px; }
+      .slider-row { display: flex; align-items: center; gap: 10px; }
+      .slider-row label { font-size: 0.8rem; font-weight: 600; min-width: 60px; color: #374151; }
+      .slider-row input[type="range"] { flex: 1; }
+      .slider-row .slider-val { font-size: 0.78rem; color: #6b7280; min-width: 36px; text-align: right; }
+
+      /* Skeleton rows */
+      .skeleton-row td { padding: 10px 14px; }
+      .skeleton-cell {
+        height: 14px;
+        border-radius: 6px;
+        background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.4s infinite;
+      }
+      @keyframes shimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+      }
+    </style>
   </head>
   <body>
     <div class="dashboard-container">
@@ -73,7 +290,7 @@
               <button class="btn-admin btn-secondary" onclick="window.location.reload();" title="Refresh Data">
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
-              <button class="btn-admin" data-modal-open="#modalAddProduct"><i class="fa-solid fa-plus"></i> Add Product</button>
+              <button class="btn-admin" id="btnOpenAddProduct"><i class="fa-solid fa-plus"></i> Add Product</button>
             </div>
           </div>
 
@@ -81,7 +298,12 @@
             <div class="panel-header">
               <h3>Product List</h3>
               <div class="filters-row">
-                <select class="filter-select" id="productCategoryFilter"><option value="all">All Categories</option><option value="3D Print">3D Print</option><option value="Laser Cut">Laser Cut</option><option value="CNC">CNC</option></select>
+                <select class="filter-select" id="productCategoryFilter">
+                  <option value="all">All Categories</option>
+                  <option value="3D Print">3D Print</option>
+                  <option value="Laser Cut">Laser Cut</option>
+                  <option value="CNC">CNC</option>
+                </select>
                 <input class="search-input" id="productSearchInput" placeholder="Search product..." />
               </div>
             </div>
@@ -94,12 +316,11 @@
                     <th>Product Name</th>
                     <th>Category</th>
                     <th>Code</th>
-                    <th>Description</th>
-                    <th>Specification</th>
-                    <th>Image/Photo</th>
-                    <th>Stock</th>
+                    <th>Image</th>
+                    <th>Stock Qty</th>
                     <th>Price</th>
-                    <th>Status</th>
+                    <th>Stock Status</th>
+                    <th>Visibility</th>
                     <th class="th-action sticky-action">Action</th>
                   </tr>
                 </thead>
@@ -107,7 +328,7 @@
               </table>
             </div>
             <div class="table-footer" id="productTableFooter">
-              <div class="table-footer-meta" id="productTableMeta">Page 1 of 1</div>
+              <div class="table-footer-meta" id="productTableMeta">Loading...</div>
               <div class="table-pagination">
                 <button class="page-btn" id="productPrevPage" aria-label="Previous page"><i class="fa-solid fa-chevron-left"></i></button>
                 <div class="page-number" id="productCurrentPage">1</div>
@@ -119,133 +340,240 @@
       </main>
     </div>
 
+    <!-- ══════════════════════ ADD PRODUCT MODAL ══════════════════════ -->
     <div class="modal-overlay" id="modalAddProduct" data-backdrop-close="false">
-      <div class="modal-card">
-        <h3 class="modal-title">Add Product</h3>
-        <div class="form-grid">
-          <div class="field-stack full"><label>Product Name</label><input class="input-field" id="addProductName" /></div>
-          <div class="field-stack"><label>Category</label><select class="filter-select" id="addProductCategory"><option>3D Print</option><option>Laser Cut</option><option>CNC</option></select></div>
-          <div class="field-stack"><label>Product Code</label><input class="input-field" id="addProductCode" /></div>
-          <div class="field-stack"><label>In Stock</label><input class="input-field" id="addProductStock" type="number" min="0" /></div>
-          <div class="field-stack"><label>Price</label><input class="input-field" id="addProductPrice" type="number" min="0" step="0.01" /></div>
-          <div class="field-stack full"><label>Specification</label><textarea class="textarea-field" id="addProductSpecification" placeholder="- 1kg spool&#10;- 1.75mm diameter&#10;- 220\u00b0C nozzle temp"></textarea></div>
-          <div class="field-stack full">
-            <label>Upload Image/Photo</label>
-            <div class="upload-row">
-              <input class="input-field file-input" id="addProductPhoto" type="file" accept="image/*" />
-              <button
-                class="btn-admin btn-secondary icon-only-btn"
-                id="btnEditProductPhoto"
-                type="button"
-                title="Edit Photo"
-                aria-label="Edit Photo"
-              >
-                <i class="fa-regular fa-pen-to-square"></i>
-              </button>
-            </div>
-            <p class="field-hint">Image only. You can rotate and resize before saving.</p>
-          </div>
-          <div class="field-stack full"><label>Description</label><textarea class="textarea-field" id="addProductDescription"></textarea></div>
+      <div class="modal-card product-modal">
+        <div class="modal-header-fixed">
+          <h3 class="modal-title"><i class="fa-solid fa-plus" style="margin-right:6px;"></i>Add Product</h3>
         </div>
-        <div class="modal-actions"><button class="btn-admin btn-secondary" data-modal-close="#modalAddProduct">Cancel</button><button class="btn-admin" id="btnSaveProduct" type="button">Save Product</button></div>
+        <div class="modal-body-scroll">
+          <p class="modal-section-title">Product Card Details</p>
+          <p class="field-hint" style="margin-bottom:12px;">These fields are displayed on the customer's product card.</p>
+          <div class="form-grid">
+            <div class="field-stack full"><label>Product Name <span style="color:#dc2626">*</span></label><input class="input-field" id="addProductName" maxlength="255" /></div>
+            <div class="field-stack"><label>Category <span style="color:#dc2626">*</span></label>
+              <select class="filter-select" id="addProductCategory">
+                <option>3D Print</option><option>Laser Cut</option><option>CNC</option>
+              </select>
+            </div>
+            <div class="field-stack"><label>Product Code</label><input class="input-field" id="addProductCode" placeholder="e.g. S2P-001" maxlength="100" /></div>
+            <div class="field-stack"><label>In Stock (Quantity) <span style="color:#dc2626">*</span></label><input class="input-field" id="addProductStock" type="number" min="0" /></div>
+            <div class="field-stack"><label>Price (₱) <span style="color:#dc2626">*</span></label><input class="input-field" id="addProductPrice" type="number" min="0" step="0.01" /></div>
+
+            <div class="field-stack full">
+              <label>Stock Status <span style="color:#dc2626">*</span></label>
+              <div class="stock-toggle-group">
+                <button type="button" class="stock-toggle-btn active-in-stock" id="addStockStatusInStock" data-form="add" data-value="in_stock">
+                  <i class="fa-solid fa-circle-check"></i> In Stock
+                </button>
+                <button type="button" class="stock-toggle-btn" id="addStockStatusOutOfStock" data-form="add" data-value="out_of_stock">
+                  <i class="fa-solid fa-circle-xmark"></i> Out of Stock
+                </button>
+              </div>
+              <input type="hidden" id="addProductStockStatus" value="in_stock" />
+            </div>
+
+            <div class="field-stack full">
+              <label>Product Visibility</label>
+              <div class="block-toggle-row" id="addBlockToggleRow">
+                <div class="block-toggle-label">
+                  <strong id="addBlockLabel">Product Active (Visible to Customers)</strong>
+                  <span>Toggle to block this product from appearing on the customer website.</span>
+                </div>
+                <label class="toggle-switch" style="flex-shrink:0;">
+                  <input type="checkbox" id="addProductBlocked" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <p class="field-hint">When blocked, the product is hidden and not clickable on the customer website.</p>
+            </div>
+
+            <div class="field-stack full">
+              <label>Upload Image</label>
+              <div class="upload-area" id="addUploadArea">
+                <div class="upload-area-icon"><i class="fa-regular fa-image"></i></div>
+                <div class="upload-area-text">
+                  <strong id="addUploadLabel">Click to choose an image</strong>
+                  <span>JPG, PNG, GIF, WEBP — image will open in editor</span>
+                </div>
+                <input type="file" id="addProductPhoto" accept="image/*" />
+              </div>
+            </div>
+          </div>
+
+          <p class="modal-section-title" style="margin-top:22px;">View Info Details</p>
+          <p class="field-hint" style="margin-bottom:12px;">These fields appear inside the "View Info" modal on the customer's product page.</p>
+          <div class="form-grid">
+            <div class="field-stack full">
+              <label>Product Summary / Description</label>
+              <textarea class="textarea-field" id="addProductSummary" rows="3" placeholder="Short description shown in the product info modal..."></textarea>
+            </div>
+            <div class="field-stack full">
+              <label>Product Detail Chips</label>
+              <textarea class="textarea-field" id="addProductChips" rows="2" placeholder="One tag per line, e.g.&#10;200gsm material&#10;UV-coated"></textarea>
+              <p class="field-hint">Each line becomes a chip tag in the customer View Info modal.</p>
+            </div>
+            <div class="field-stack">
+              <label>Availability</label>
+              <textarea class="textarea-field" id="addProductAvailability" rows="3" placeholder="One item per line, e.g.&#10;Mon – Fri, 8AM–5PM&#10;Campus pickup available"></textarea>
+            </div>
+            <div class="field-stack">
+              <label>Recommended For</label>
+              <textarea class="textarea-field" id="addProductRecommended" rows="3" placeholder="One item per line, e.g.&#10;Students&#10;Business owners"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer-fixed">
+          <button class="btn-admin btn-secondary" id="btnCancelAddProduct">Cancel</button>
+          <button class="btn-admin" id="btnSaveProduct" type="button"><i class="fa-solid fa-floppy-disk"></i> Save Product</button>
+        </div>
       </div>
     </div>
 
+    <!-- ══════════════════════ EDIT PRODUCT MODAL ══════════════════════ -->
     <div class="modal-overlay" id="modalEditProduct" data-backdrop-close="false">
-      <div class="modal-card">
-        <h3 class="modal-title">Edit Product</h3>
-        <div class="form-grid">
-          <div class="field-stack full"><label>Product Name</label><input class="input-field" id="editProductName" /></div>
-          <div class="field-stack"><label>Category</label><select class="filter-select" id="editProductCategory"><option>3D Print</option><option>Laser Cut</option><option>CNC</option></select></div>
-          <div class="field-stack"><label>Product Code</label><input class="input-field" id="editProductCode" /></div>
-          <div class="field-stack"><label>In Stock</label><input class="input-field" id="editProductStock" type="number" min="0" /></div>
-          <div class="field-stack"><label>Price</label><input class="input-field" id="editProductPrice" type="number" min="0" step="0.01" /></div>
-          <div class="field-stack full"><label>Specification</label><textarea class="textarea-field" id="editProductSpecification" placeholder="- 1kg spool&#10;- 1.75mm diameter&#10;- 220\u00b0C nozzle temp"></textarea></div>
-          <div class="field-stack full">
-            <label>Upload Image/Photo</label>
-            <div class="upload-row">
-              <input class="input-field file-input" id="editProductPhoto" type="file" accept="image/*" />
-              <button
-                class="btn-admin btn-secondary icon-only-btn"
-                id="btnEditProductPhotoInEditModal"
-                type="button"
-                title="Edit Photo"
-                aria-label="Edit Photo"
-              >
-                <i class="fa-regular fa-pen-to-square"></i>
-              </button>
-            </div>
-            <p class="field-hint">Image only. You can rotate and resize before saving.</p>
-          </div>
-          <div class="field-stack full"><label>Description</label><textarea class="textarea-field" id="editProductDescription"></textarea></div>
+      <div class="modal-card product-modal">
+        <div class="modal-header-fixed">
+          <h3 class="modal-title"><i class="fa-regular fa-pen-to-square" style="margin-right:6px;"></i>Edit Product</h3>
         </div>
-        <div class="modal-actions"><button class="btn-admin btn-secondary" data-modal-close="#modalEditProduct">Cancel</button><button class="btn-admin" id="btnUpdateProduct" type="button">Update Product</button></div>
+        <div class="modal-body-scroll">
+          <p class="modal-section-title">Product Card Details</p>
+          <p class="field-hint" style="margin-bottom:12px;">These fields are displayed on the customer's product card.</p>
+          <div class="form-grid">
+            <div class="field-stack full"><label>Product Name <span style="color:#dc2626">*</span></label><input class="input-field" id="editProductName" maxlength="255" /></div>
+            <div class="field-stack"><label>Category <span style="color:#dc2626">*</span></label>
+              <select class="filter-select" id="editProductCategory">
+                <option>3D Print</option><option>Laser Cut</option><option>CNC</option>
+              </select>
+            </div>
+            <div class="field-stack"><label>Product Code</label><input class="input-field" id="editProductCode" maxlength="100" /></div>
+            <div class="field-stack"><label>In Stock (Quantity) <span style="color:#dc2626">*</span></label><input class="input-field" id="editProductStock" type="number" min="0" /></div>
+            <div class="field-stack"><label>Price (₱) <span style="color:#dc2626">*</span></label><input class="input-field" id="editProductPrice" type="number" min="0" step="0.01" /></div>
+
+            <div class="field-stack full">
+              <label>Stock Status <span style="color:#dc2626">*</span></label>
+              <div class="stock-toggle-group">
+                <button type="button" class="stock-toggle-btn active-in-stock" id="editStockStatusInStock" data-form="edit" data-value="in_stock">
+                  <i class="fa-solid fa-circle-check"></i> In Stock
+                </button>
+                <button type="button" class="stock-toggle-btn" id="editStockStatusOutOfStock" data-form="edit" data-value="out_of_stock">
+                  <i class="fa-solid fa-circle-xmark"></i> Out of Stock
+                </button>
+              </div>
+              <input type="hidden" id="editProductStockStatus" value="in_stock" />
+            </div>
+
+            <div class="field-stack full">
+              <label>Product Visibility</label>
+              <div class="block-toggle-row" id="editBlockToggleRow">
+                <div class="block-toggle-label">
+                  <strong id="editBlockLabel">Product Active (Visible to Customers)</strong>
+                  <span>Toggle to block this product from appearing on the customer website.</span>
+                </div>
+                <label class="toggle-switch" style="flex-shrink:0;">
+                  <input type="checkbox" id="editProductBlocked" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <p class="field-hint">When blocked, the product is hidden and not clickable on the customer website.</p>
+            </div>
+
+            <div class="field-stack full">
+              <label>Upload Image</label>
+              <div class="upload-area" id="editUploadArea">
+                <div class="upload-area-icon"><i class="fa-regular fa-image"></i></div>
+                <div class="upload-area-text">
+                  <strong id="editUploadLabel">Click to replace image</strong>
+                  <span>JPG, PNG, GIF, WEBP — image will open in editor</span>
+                </div>
+                <input type="file" id="editProductPhoto" accept="image/*" />
+              </div>
+            </div>
+          </div>
+
+          <p class="modal-section-title" style="margin-top:22px;">View Info Details</p>
+          <p class="field-hint" style="margin-bottom:12px;">These fields appear inside the "View Info" modal on the customer's product page.</p>
+          <div class="form-grid">
+            <div class="field-stack full">
+              <label>Product Summary / Description</label>
+              <textarea class="textarea-field" id="editProductSummary" rows="3" placeholder="Short description shown in the product info modal..."></textarea>
+            </div>
+            <div class="field-stack full">
+              <label>Product Detail Chips</label>
+              <textarea class="textarea-field" id="editProductChips" rows="2" placeholder="One tag per line, e.g.&#10;200gsm material&#10;UV-coated"></textarea>
+              <p class="field-hint">Each line becomes a chip tag in the customer View Info modal.</p>
+            </div>
+            <div class="field-stack">
+              <label>Availability</label>
+              <textarea class="textarea-field" id="editProductAvailability" rows="3" placeholder="One item per line, e.g.&#10;Mon – Fri, 8AM–5PM&#10;Campus pickup available"></textarea>
+            </div>
+            <div class="field-stack">
+              <label>Recommended For</label>
+              <textarea class="textarea-field" id="editProductRecommended" rows="3" placeholder="One item per line, e.g.&#10;Students&#10;Business owners"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer-fixed">
+          <button class="btn-admin btn-secondary" id="btnCancelEditProduct">Cancel</button>
+          <button class="btn-admin" id="btnUpdateProduct" type="button"><i class="fa-solid fa-floppy-disk"></i> Update Product</button>
+        </div>
       </div>
     </div>
 
+    <!-- ══════════════════════ VIEW PRODUCT MODAL ══════════════════════ -->
+    <div class="modal-overlay" id="modalViewProduct" data-backdrop-close="false">
+      <div class="modal-card" style="min-width:500px;max-width:640px;width:100%;">
+        <h3 class="modal-title" id="viewProductTitle" style="margin-bottom:4px;">Product Details</h3>
+        <p class="field-hint" style="margin-bottom:14px;" id="viewProductSubtitle"></p>
+        <hr class="confirm-separator" />
+        <div id="viewProductContent" style="margin-bottom:16px;"></div>
+        <hr class="confirm-separator" />
+        <div class="modal-actions">
+          <button class="btn-admin btn-secondary" id="btnCloseViewProduct">Close</button>
+          <button class="btn-admin" id="btnOpenEditFromView" type="button"><i class="fa-regular fa-pen-to-square"></i> Edit Product</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════ DELETE PRODUCT MODAL ══════════════════════ -->
     <div class="modal-overlay" id="modalDeleteProduct" data-backdrop-close="false">
       <div class="modal-card modal-confirm">
         <h3 class="modal-title">Delete Confirmation</h3>
         <hr class="confirm-separator" />
         <p class="confirm-text">
-          You are about to delete <strong id="deleteProductTargetLabel">this product</strong>.
+          You are about to permanently delete <strong id="deleteProductTargetLabel">this product</strong>.
         </p>
-        <p class="field-hint">This is a design-only confirmation for now.</p>
+        <p class="field-hint">This action cannot be undone. The product will be removed from the database.</p>
         <hr class="confirm-separator" />
         <div class="modal-actions">
-          <button class="btn-admin btn-secondary" data-modal-close="#modalDeleteProduct">Cancel</button>
+          <button class="btn-admin btn-secondary" id="btnCancelDeleteProduct">Cancel</button>
           <button class="btn-admin" id="btnConfirmProductDelete" type="button">Delete Product</button>
         </div>
       </div>
     </div>
 
-    <div class="modal-overlay" id="modalArchiveProduct" data-backdrop-close="false">
-      <div class="modal-card modal-confirm">
-        <h3 class="modal-title">Archive Confirmation</h3>
-        <hr class="confirm-separator" />
-        <p class="confirm-text">
-          You are about to move <strong id="archiveProductTargetLabel">this product</strong> to Archives.
-        </p>
-        <p class="field-hint">This is a design-only confirmation for now.</p>
-        <hr class="confirm-separator" />
-        <div class="modal-actions">
-          <button class="btn-admin btn-secondary" data-modal-close="#modalArchiveProduct">Cancel</button>
-          <button class="btn-admin" id="btnConfirmProductArchive" type="button">Move to Archives</button>
+    <!-- ══════════════════════ PHOTO EDITOR MODAL ══════════════════════ -->
+    <div class="modal-overlay" id="modalProductPhotoEditor" data-backdrop-close="false">
+      <div class="modal-card photo-editor-modal">
+        <h3 class="modal-title" style="margin-bottom:14px;"><i class="fa-regular fa-image" style="margin-right:6px;"></i>Edit Image</h3>
+        <div class="photo-editor-canvas-wrap">
+          <img id="productPhotoEditorPreview" alt="Image editor preview" />
         </div>
-      </div>
-    </div>
-
-    <div class="modal-overlay" id="modalProductPhotoPreview">
-      <div class="modal-card modal-photo-preview">
-        <h3 class="modal-title">Photo Preview</h3>
-        <div class="photo-preview-box">
-          <img id="productPhotoPreview" alt="Product preview" />
-        </div>
-        <div class="modal-actions">
-          <button class="btn-admin btn-secondary" data-modal-close="#modalProductPhotoPreview">Close</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="modal-overlay" id="modalProductPhotoEditor">
-      <div class="modal-card modal-photo-editor">
-        <h3 class="modal-title">Edit Image/Photo</h3>
-        <div class="photo-editor-preview" id="productPhotoEditorPreviewWrap">
-          <img id="productPhotoEditorPreview" alt="Product photo editor preview" />
-        </div>
-        <div class="photo-editor-controls">
-          <div class="field-stack">
+        <div class="photo-editor-sliders">
+          <div class="slider-row">
             <label for="productPhotoRotate">Rotate</label>
-            <input id="productPhotoRotate" type="range" min="0" max="360" value="0" />
+            <input id="productPhotoRotate" type="range" min="-180" max="180" value="0" />
+            <span class="slider-val" id="rotateVal">0°</span>
           </div>
-          <div class="field-stack">
+          <div class="slider-row">
             <label for="productPhotoScale">Resize</label>
-            <input id="productPhotoScale" type="range" min="50" max="150" value="100" />
+            <input id="productPhotoScale" type="range" min="50" max="200" value="100" />
+            <span class="slider-val" id="scaleVal">100%</span>
           </div>
         </div>
-        <div class="modal-actions">
-          <button class="btn-admin btn-secondary" data-modal-close="#modalProductPhotoEditor">Cancel</button>
-          <button class="btn-admin" id="btnApplyProductPhotoEdit" type="button">Apply</button>
+        <div class="modal-actions" style="margin-top:14px;">
+          <button class="btn-admin btn-secondary" id="btnCancelPhotoEdit">Cancel</button>
+          <button class="btn-admin" id="btnApplyProductPhotoEdit" type="button"><i class="fa-solid fa-floppy-disk"></i> Save Image</button>
         </div>
       </div>
     </div>
@@ -254,8 +582,3 @@
     <script src="products.js"></script>
   </body>
 </html>
-
-
-
-
-

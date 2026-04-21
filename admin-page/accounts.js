@@ -154,7 +154,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <td><span class="role-tag ${roleClass}">${displayRole}</span></td>
               <td>${formatDate(user?.created_at)}</td>
               <td class="action-icons sticky-action">
-                <button type="button" data-tooltip="Edit User" data-user-edit="${user.id}"><i class="fa-regular fa-pen-to-square"></i></button>
+                <button type="button" data-tooltip="View User" data-user-view="${user.id}"><i class="fa-regular fa-eye"></i></button>
                 <button type="button" data-tooltip="Delete User" data-user-delete="${user.id}"><i class="fa-regular fa-trash-can"></i></button>
               </td>
             </tr>
@@ -182,6 +182,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const loadAccounts = async () => {
     try {
+      if (tableBody && (!tableBody.children.length || tableBody.querySelector(".table-empty-state"))) {
+        tableBody.innerHTML = `<tr>
+          <td><div class="skeleton-text" style="width:20px;"></div></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div class="skeleton-avatar" style="width:36px;height:36px;border-radius:50%;"></div>
+              <div style="flex:1;">
+                <div class="skeleton-text" style="width:120px;margin-bottom:6px;"></div>
+                <div class="skeleton-text" style="width:100px;"></div>
+              </div>
+            </div>
+          </td>
+          <td><div class="skeleton-text" style="width:90px;"></div></td>
+          <td><div class="skeleton-text" style="width:70px;"></div></td>
+          <td><div class="skeleton-text" style="width:140px;"></div></td>
+          <td><div class="skeleton-text" style="width:120px;"></div></td>
+          <td><div class="skeleton-avatar" style="width:24px;height:24px;"></div></td>
+        </tr>`.repeat(4);
+      }
+
       const response = await fetch(`${API_BASE_URL}/users`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -356,6 +376,33 @@ document.addEventListener("DOMContentLoaded", () => {
   tableBody?.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
+
+    const viewBtn = target.closest("[data-user-view]");
+    if (viewBtn) {
+      const userId = Number(viewBtn.getAttribute("data-user-view") || 0);
+      const user = state.users.find((u) => Number(u.id) === userId);
+      if (!user) return;
+      const viewTitle = document.getElementById("viewUserTitle");
+      const viewContent = document.getElementById("viewUserContent");
+      const modalViewUser = document.getElementById("modalViewUser");
+      if (viewTitle) viewTitle.textContent = escapeHtml(user?.name || "User Details");
+      if (viewContent) {
+        const roleClass = `role-tag-${String(user?.role || "customer").toLowerCase()}`;
+        viewContent.innerHTML = `
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;">
+            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Full Name</div><div style="font-size:.88rem;color:#111827;font-weight:500;">${escapeHtml(user?.name || "N/A")}</div></div>
+            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Role</div><div><span class="role-tag ${roleClass}">${toTitleCase(user?.role)}</span></div></div>
+            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Username</div><div style="font-size:.88rem;color:#111827;">${escapeHtml(user?.username || 'N/A')}</div></div>
+            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Email</div><div style="font-size:.88rem;color:#111827;word-break:break-word;">${escapeHtml(user?.email || 'N/A')}</div></div>
+            <div style="grid-column:1/-1;"><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Date Created</div><div style="font-size:.88rem;color:#111827;">${formatDate(user?.created_at)}</div></div>
+          </div>`;
+      }
+      modalViewUser?.classList.add("show");
+      document.getElementById("btnCloseViewUser")?.addEventListener("click", () => {
+        modalViewUser?.classList.remove("show");
+      }, { once: true });
+      return;
+    }
 
     const editBtn = target.closest("[data-user-edit]");
     if (editBtn) {

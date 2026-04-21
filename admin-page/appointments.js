@@ -782,6 +782,20 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const isCalendarOpen = modalCalendar?.classList.contains("show");
       
+      if (tableBody && (!tableBody.children.length || tableBody.querySelector(".table-empty-state"))) {
+        tableBody.innerHTML = `<tr>
+          <td><div class="skeleton-text" style="width:20px;"></div></td>
+          <td><div class="skeleton-text" style="width:120px;"></div></td>
+          <td><div class="skeleton-text" style="width:120px;"></div></td>
+          <td><div class="skeleton-text" style="width:80px;"></div></td>
+          <td><div class="skeleton-text" style="width:90px;"></div></td>
+          <td><div class="skeleton-text" style="width:70px;"></div></td>
+          <td><div class="skeleton-text" style="width:140px;"></div></td>
+          <td><div class="skeleton-text" style="width:60px;"></div></td>
+          <td><div class="skeleton-avatar" style="width:24px;height:24px;"></div></td>
+        </tr>`.repeat(4);
+      }
+
       const tasks = [fetchAppointments()];
       if (!isCalendarOpen) {
         tasks.push(fetchCalendar());

@@ -734,6 +734,19 @@ document.addEventListener("DOMContentLoaded", () => {
     renderPaymentsTable();
   };
 
+  const renderOrdersLoading = () => {
+    const createSkeletons = (cols) => `<tr>` + `<td><div class="skeleton-text" style="width:100%"></div></td>`.repeat(cols) + `</tr>`.repeat(4);
+    if (incomingCompactTbody && (!incomingCompactTbody.children.length || incomingCompactTbody.querySelector(".table-empty-state"))) {
+      incomingCompactTbody.innerHTML = createSkeletons(7);
+    }
+    if (ordersDirectoryTbody && (!ordersDirectoryTbody.children.length || ordersDirectoryTbody.querySelector(".table-empty-state"))) {
+      ordersDirectoryTbody.innerHTML = createSkeletons(8);
+    }
+    if (paymentsHistoryTbody && (!paymentsHistoryTbody.children.length || paymentsHistoryTbody.querySelector(".table-empty-state"))) {
+      paymentsHistoryTbody.innerHTML = createSkeletons(9);
+    }
+  };
+
   const syncOrders = async (showErrorPopup = true, options = {}) => {
     const force = Boolean(options.force);
     const source = options.source || "auto";
@@ -760,6 +773,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state.syncController = syncController;
     state.isSyncing = true;
     setRefreshLoading(true, source);
+    if (source === "manual") renderOrdersLoading();
 
     try {
       const response = await request("/admin/orders", {

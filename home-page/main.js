@@ -1108,6 +1108,41 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // Dynamically rendered products buy-now listener
+  document.addEventListener("product:buy-now", (e) => {
+    const product = e.detail;
+    if (!product) return;
+    if (!requireCustomerAuth("buy products")) return;
+    if (!isGuestUser) {
+      void fetchCustomerCheckoutProfile();
+    }
+
+    const imgScr = product.image_data || "/images/FMRC Logo.png";
+    const title = String(product.name || "");
+    const unitPrice = Number.isFinite(Number(product.price)) ? Number(product.price) : 0;
+    
+    currentMaxStock = product.stock_status === "in_stock" ? Number(product.stock) : 0;
+    if (checkoutMaxStock) checkoutMaxStock.innerText = currentMaxStock === 0 ? "Out of Stock" : currentMaxStock;
+
+    currentItemPrice = unitPrice;
+    if (inputQty) {
+        inputQty.value = 1;
+        inputQty.max = currentMaxStock;
+    }
+    if (protectionCheck) protectionCheck.checked = false;
+
+    if (checkoutImg) checkoutImg.src = imgScr;
+    if (checkoutTitle) checkoutTitle.innerText = title;
+    if (checkoutPrice) checkoutPrice.innerText = typeof formatPrice === 'function' ? formatPrice(unitPrice) : '₱' + unitPrice.toFixed(2);
+
+    if (guideImg) guideImg.src = imgScr;
+    if (guideTitle) guideTitle.innerText = title;
+
+    updateCheckoutMath();
+    checkoutModal.classList.add("show-modal");
+    document.body.style.overflow = "hidden";
+  });
+
   const closeCheckoutBtn = document.getElementById("closeCheckoutBtn");
   if (closeCheckoutBtn) {
     closeCheckoutBtn.addEventListener("click", () => {
@@ -2391,6 +2426,52 @@ document.addEventListener("DOMContentLoaded", () => {
       updateCartTotals();
       persistCartItems();
     });
+  });
+
+  // Dynamically rendered products add-to-cart listener
+  document.addEventListener("product:add-to-cart", (e) => {
+    const product = e.detail;
+    if (!product) return;
+    if (!requireCustomerAuth("add products to cart")) return;
+
+    const title = String(product.name || "");
+    const unitPrice = Number.isFinite(Number(product.price)) ? Number(product.price) : 0;
+    const imageSrc = product.image_data || "/images/FMRC Logo.png";
+
+    // Trigger animation if card exists
+    const card = document.querySelector(`.action-btn[data-product-id="${product.id}"]`)?.closest(".shop-card");
+    const imgElement = card ? card.querySelector(".product-img-wrapper img") : null;
+    if (imgElement && typeof flyToCart === "function" && cartIconTrigger) {
+      flyToCart(imgElement, cartIconTrigger);
+    }
+
+    const existingItem = Array.from(cartItemsContainer?.querySelectorAll(".cart-item-card") || []).find(
+      (item) =>
+        item.dataset.productName === title &&
+        Number(item.dataset.unitPrice || 0) === unitPrice,
+    );
+
+    if (existingItem) {
+      const qtyInput = existingItem.querySelector(".c-qty-input");
+      if (qtyInput) {
+        qtyInput.value = String(Math.max(1, Number.parseInt(qtyInput.value || "1", 10) + 1));
+      }
+      const checkbox = existingItem.querySelector(".cart-item-check");
+      if (checkbox) checkbox.checked = true;
+    } else {
+      if (emptyCartMessage) emptyCartMessage.style.display = "none";
+      const cartItem = createCartItemCard({
+        title,
+        image: imageSrc,
+        unitPrice,
+        quantity: 1,
+        checked: true,
+      });
+      if (cartItemsContainer) cartItemsContainer.appendChild(cartItem);
+    }
+
+    updateCartTotals();
+    persistCartItems();
   });
 
   // Cart DOM Listeners (Delegation for +/- and checkboxes)

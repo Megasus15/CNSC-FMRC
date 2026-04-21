@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\ProductController;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
@@ -17,6 +18,9 @@ Route::patch('/appointments/{appointment}/archive', [AppointmentController::clas
 Route::get('/appointments/calendar', [AppointmentController::class, 'calendar']);
 Route::put('/appointments/calendar', [AppointmentController::class, 'updateCalendar']);
 Route::get('/appointments/{reference}/verify', [AppointmentController::class, 'verifyByReference']);
+
+// Public: Customer-facing products (non-blocked only)
+Route::get('/products', [ProductController::class, 'index']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/users', [AuthController::class, 'getUsers']);
@@ -40,6 +44,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/admin/orders/{order}/payment-status', [OrderController::class, 'updatePaymentStatus']);
     Route::delete('/admin/orders/{order}/payment', [OrderController::class, 'adminDestroyPayment']);
     Route::delete('/admin/orders/{order}', [OrderController::class, 'adminDestroy']);
+
+    // Admin: Products CRUD
+    Route::get('/admin/products', [ProductController::class, 'adminIndex']);
+    Route::post('/admin/products', [ProductController::class, 'store']);
+    Route::put('/admin/products/{product}', [ProductController::class, 'update']);
+    Route::delete('/admin/products/{product}', [ProductController::class, 'destroy']);
 
     Route::get('/user', function (Request $request) {
         return $request->user();
