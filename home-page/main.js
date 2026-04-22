@@ -509,29 +509,80 @@ document.addEventListener("DOMContentLoaded", () => {
   // Modal Logic
   const modal = document.getElementById("serviceModal");
   const modalTitle = document.getElementById("modalTitle");
-  const modalImage = document.getElementById("modalImage"); // Grab the new modal image element
+  const modalImage = document.getElementById("modalImage");
+  const modalDesc = document.querySelector("#serviceModal .modal-desc");
+  const featureChips = document.querySelector("#serviceModal .feature-chips");
+  const modalList1 = document.querySelector("#serviceModal .modal-columns .modal-col:first-child .modal-list");
+  const modalList2 = document.querySelector("#serviceModal .modal-columns .modal-col:last-child .modal-list");
+  const modalSub1 = document.querySelector("#serviceModal .modal-columns .modal-col:first-child .modal-subtitle");
+  const modalSub2 = document.querySelector("#serviceModal .modal-columns .modal-col:last-child .modal-subtitle");
+
+  function escHtmlModal(str) { const d = document.createElement("div"); d.textContent = str || ""; return d.innerHTML; }
 
   document.body.addEventListener("click", function (e) {
     // Open Modal logic
     const openBtn = e.target.closest(".open-modal-btn");
     if (openBtn) {
       if (modal) {
-        // Find the specific card that was clicked
         const card = openBtn.closest(".service-card");
-
         if (card) {
-          // 1. Update Title
-          if (modalTitle) {
-            const title = card.querySelector(".card-title").innerText;
-            modalTitle.innerText = title;
+          // Title
+          const title = openBtn.dataset.title || card.querySelector(".card-title")?.innerText || "";
+          if (modalTitle) modalTitle.innerText = title;
+
+          // Image
+          if (modalImage) {
+            const img = openBtn.dataset.img || card.querySelector(".card-img-holder img")?.src || "";
+            modalImage.src = img;
+            modalImage.style.display = img ? "block" : "none";
           }
 
-          // 2. Update Image
-          if (modalImage) {
-            const cardImg = card.querySelector(".card-img-holder img");
-            if (cardImg) {
-              modalImage.src = cardImg.src;
-              modalImage.alt = cardImg.alt;
+          // Description
+          if (modalDesc) {
+            modalDesc.textContent = openBtn.dataset.desc || card.querySelector(".card-desc")?.innerText || "";
+          }
+
+          // Feature chips
+          let features = [];
+          try { features = JSON.parse(openBtn.dataset.features || "[]"); } catch {}
+          if (featureChips) {
+            const subEl = featureChips.previousElementSibling;
+            if (features.length) {
+              featureChips.innerHTML = features.map(f => `<span class="chip">${escHtmlModal(f)}</span>`).join("");
+              featureChips.style.display = "";
+              if (subEl && subEl.classList.contains("modal-subtitle")) subEl.style.display = "";
+            } else {
+              featureChips.innerHTML = "";
+              featureChips.style.display = "none";
+              if (subEl && subEl.classList.contains("modal-subtitle")) subEl.style.display = "none";
+            }
+          }
+
+          // Materials
+          let materials = [];
+          try { materials = JSON.parse(openBtn.dataset.materials || "[]"); } catch {}
+          if (modalList1) {
+            if (materials.length) {
+              modalList1.innerHTML = materials.map(m => `<li>${escHtmlModal(m)}</li>`).join("");
+              if (modalSub1) modalSub1.style.display = "";
+              modalList1.style.display = "";
+            } else {
+              modalList1.innerHTML = "";
+              if (modalSub1) modalSub1.style.display = "none";
+            }
+          }
+
+          // Best For
+          let bestFor = [];
+          try { bestFor = JSON.parse(openBtn.dataset.bestFor || openBtn.dataset["best-for"] || "[]"); } catch {}
+          if (modalList2) {
+            if (bestFor.length) {
+              modalList2.innerHTML = bestFor.map(b => `<li>${escHtmlModal(b)}</li>`).join("");
+              if (modalSub2) modalSub2.style.display = "";
+              modalList2.style.display = "";
+            } else {
+              modalList2.innerHTML = "";
+              if (modalSub2) modalSub2.style.display = "none";
             }
           }
         }
@@ -545,14 +596,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.target.closest(".close-modal-btn")) {
       if (modal) {
         modal.classList.remove("show-modal");
-        document.body.style.overflow = ""; // Resets to CSS
+        document.body.style.overflow = "";
       }
     }
 
     // Close Modal by clicking the dark overlay background
     if (e.target === modal) {
       modal.classList.remove("show-modal");
-      document.body.style.overflow = ""; // Resets to CSS
+      document.body.style.overflow = "";
     }
   });
 
@@ -4918,4 +4969,159 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   });
+})();
+
+// ============================================================================
+// DYNAMIC SITE CONTENT LOADER
+// ============================================================================
+(function () {
+  'use strict';
+
+  const _API = (function() {
+    if (typeof API_BASE_URL !== 'undefined') return API_BASE_URL;
+    return 'http://127.0.0.1:8000/api';
+  })();
+
+  function _txt(id, val) { const el = document.getElementById(id); if (el && val) el.textContent = val; }
+  function _html(id, val) { const el = document.getElementById(id); if (el && val) el.innerHTML = val; }
+  function _src(id, val) { const el = document.getElementById(id); if (el && val) el.src = val; }
+  function _esc(str) { const d = document.createElement('div'); d.textContent = str||''; return d.innerHTML; }
+  function _attr(str) { return String(str||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+  async function loadSiteContent() {
+    try {
+      const [sRes, svRes] = await Promise.all([
+        fetch(_API + '/site-settings'),
+        fetch(_API + '/services'),
+      ]);
+      if (sRes.ok) { const { data } = await sRes.json(); applySettings(data || {}); }
+      if (svRes.ok) { const { data } = await svRes.json(); applyServices(data || []); }
+    } catch { /* silent fallback */ }
+  }
+
+  function applySettings(s) {
+    // Hero title
+    if (s.hero_title) {
+      const el = document.getElementById('heroTitleEl');
+      if (el) {
+        const lines = s.hero_title.split('\n');
+        el.innerHTML = lines.map((l,i) => i===lines.length-1 ? `<span class="hero-research-line">${_esc(l)}</span>` : _esc(l)+'<br />').join('');
+      }
+    }
+    if (s.hero_logo_image) _src('heroLogoEl', s.hero_logo_image);
+    // Hero bg
+    const heroSec = document.querySelector('.hero-section');
+    if (heroSec && s.hero_bg_type === 'color' && s.hero_bg_color) heroSec.style.background = s.hero_bg_color;
+    if (heroSec && s.hero_bg_type === 'image' && s.hero_bg_image) {
+      heroSec.style.backgroundImage = "url('"+s.hero_bg_image+"')";
+      heroSec.style.backgroundSize = 'cover';
+      heroSec.style.backgroundPosition = 'center';
+    }
+    // About
+    _txt('aboutHeadingEl', s.about_heading);
+    _html('aboutText1El', s.about_text_1);
+    _html('aboutText2El', s.about_text_2);
+    if (s.about_video_url) {
+      ['aboutVideoSrc','aboutFullVideoSrc'].forEach(function(id) {
+        const src = document.getElementById(id);
+        if (src) { src.src = s.about_video_url; src.parentElement && src.parentElement.load && src.parentElement.load(); }
+      });
+    }
+    // Vision / Mission
+    _txt('visionHeadingEl', s.vision_heading); _txt('visionTextEl', s.vision_text);
+    if (s.vision_image) _src('visionImgEl', s.vision_image);
+    _txt('missionHeadingEl', s.mission_heading); _txt('missionTextEl', s.mission_text);
+    if (s.mission_image) _src('missionImgEl', s.mission_image);
+    // Footer
+    _txt('footerBrandNameEl', s.footer_brand_name); _txt('footerBrandDescEl', s.footer_brand_desc);
+    _txt('footerHoursDaysEl', s.footer_hours_days); _txt('footerHoursTimeEl', s.footer_hours_time);
+    _txt('footerCopyrightEl', s.footer_copyright);
+    if (s.footer_quick_links) {
+      try {
+        var links = JSON.parse(s.footer_quick_links);
+        var ul = document.getElementById('footerQuickLinksEl');
+        if (ul && links.length) ul.innerHTML = links.map(function(l){return '<li><a href="'+_attr(l.url||'#')+'">'+_esc(l.label||'')+'</a></li>';}).join('');
+      } catch(e){}
+    }
+    var fLoc = document.getElementById('footerLocationLink');
+    if (fLoc) { if(s.footer_contact_location) fLoc.textContent=s.footer_contact_location; if(s.footer_contact_location_url) fLoc.href=s.footer_contact_location_url; }
+    var fEmail = document.getElementById('footerEmailLink');
+    if (fEmail && s.footer_contact_email) { fEmail.textContent=s.footer_contact_email; fEmail.href='mailto:'+s.footer_contact_email; }
+    var fPhone = document.getElementById('footerPhoneLink');
+    if (fPhone && s.footer_contact_phone) { fPhone.textContent=s.footer_contact_phone; fPhone.href='tel:'+s.footer_contact_phone.replace(/[\s-]/g,''); }
+    var fFb = document.getElementById('footerFacebookLink');
+    if (fFb) { if(s.footer_contact_facebook) fFb.textContent=s.footer_contact_facebook; if(s.footer_contact_facebook_url) fFb.href=s.footer_contact_facebook_url; }
+    // Contact page
+    _txt('contactTitleEl', s.contact_heading); _txt('contactLeadEl', s.contact_lead);
+    var cLoc = document.getElementById('contactLocationLink');
+    if (cLoc) { if(s.contact_location) cLoc.textContent=s.contact_location; if(s.contact_location_url) cLoc.href=s.contact_location_url; }
+    var cEmail = document.getElementById('contactEmailLink');
+    if (cEmail && s.contact_email) { cEmail.textContent=s.contact_email; cEmail.href='mailto:'+s.contact_email; }
+    var cPhone = document.getElementById('contactPhoneLink');
+    if (cPhone && s.contact_phone) { cPhone.textContent=s.contact_phone; cPhone.href='tel:'+s.contact_phone.replace(/[\s-]/g,''); }
+    var cFb = document.getElementById('contactFacebookLink');
+    if (cFb) { if(s.contact_facebook) cFb.textContent=s.contact_facebook; if(s.contact_facebook_url) cFb.href=s.contact_facebook_url; }
+    _txt('contactFormHeadingEl', s.contact_form_heading);
+    _txt('contactFormSubtitleEl', s.contact_form_subtitle);
+  }
+
+  function applyServices(services) {
+    // Home carousel
+    var track = document.getElementById('whatWeOfferTrack');
+    if (track && services.length) {
+      track.innerHTML = services.map(function(s) {
+        return '<div class="carousel-item"><div class="service-card landscape-card" data-service-id="'+s.id+'" data-category="'+_attr(s.category||'')+'">'
+          +'<div class="card-img-holder">'+(s.image_data?'<img src="'+_attr(s.image_data)+'" alt="'+_attr(s.title)+'" />':'<div style="width:100%;height:100%;background:#f3f4f6;display:flex;align-items:center;justify-content:center;"><span style="color:#9ca3af;font-size:.78rem;">No image</span></div>')+'</div>'
+          +'<div class="card-content"><h3 class="card-title">'+_esc(s.title)+'</h3><p class="card-desc">'+_esc(s.description||'')+'</p></div>'
+          +'</div></div>';
+      }).join('');
+      initCarousel(track);
+    }
+    // Services page grid
+    var grid = document.getElementById('servicesGrid');
+    if (grid && services.length) {
+      grid.innerHTML = services.map(function(s) {
+        return '<article class="service-card" data-category="'+_attr((s.category||'').toLowerCase().replace(/\s+/g,'-'))+'">'
+          +'<div class="card-img-holder">'+(s.image_data?'<img src="'+_attr(s.image_data)+'" alt="'+_attr(s.title)+'" />':'<div style="width:100%;height:100%;background:#f3f4f6;display:flex;align-items:center;justify-content:center;"><span style="color:#9ca3af;">No image</span></div>')+'</div>'
+          +'<div class="card-content"><span class="service-chip">'+_esc(s.category)+'</span><h3 class="card-title">'+_esc(s.title)+'</h3><p class="card-desc">'+_esc(s.description||'')+'</p>'
+          +'<button class="details-btn open-modal-btn" style="background:none;border:none;cursor:pointer;padding:0;text-align:left;display:inline-flex;align-items:center;gap:4px;" data-title="'+_attr(s.title)+'" data-desc="'+_attr(s.modal_description||s.description||'')+'" data-features="'+_attr(JSON.stringify(s.modal_features||[]))+'" data-materials="'+_attr(JSON.stringify(s.modal_materials||[]))+'" data-best-for="'+_attr(JSON.stringify(s.modal_best_for||[]))+'" data-img="'+_attr(s.image_data||'')+'">View service details</button>'
+          +'</div></article>';
+      }).join('');
+    }
+  }
+
+  function initCarousel(track) {
+    var items = Array.from(track.querySelectorAll('.carousel-item'));
+    var prevEl = document.querySelector('.prev-btn');
+    var nextEl = document.querySelector('.next-btn');
+    var wrapper = document.querySelector('.carousel-wrapper');
+    if (!items.length || !prevEl || !nextEl || !wrapper) return;
+    var cur = 0, timer;
+    function upd() {
+      items.forEach(function(it,i) {
+        it.className = 'carousel-item';
+        if (i===cur) it.classList.add('active');
+        else if (i===(cur-1+items.length)%items.length) it.classList.add('prev');
+        else if (i===(cur+1)%items.length) it.classList.add('next');
+        else if (i===(cur-2+items.length)%items.length) it.classList.add('prev-hidden');
+        else if (i===(cur+2)%items.length) it.classList.add('next-hidden');
+      });
+    }
+    function nxt() { cur=(cur+1)%items.length; upd(); }
+    function prv() { cur=(cur-1+items.length)%items.length; upd(); }
+    var nn=nextEl.cloneNode(true), np=prevEl.cloneNode(true);
+    nextEl.parentNode.replaceChild(nn,nextEl); prevEl.parentNode.replaceChild(np,prevEl);
+    nn.addEventListener('click',function(){ nxt(); clearInterval(timer); timer=setInterval(nxt,5000); });
+    np.addEventListener('click',function(){ prv(); clearInterval(timer); timer=setInterval(nxt,5000); });
+    items.forEach(function(it){ it.addEventListener('click',function(){ if(it.classList.contains('prev')) prv(); else if(it.classList.contains('next')) nxt(); }); });
+    wrapper.addEventListener('mouseenter',function(){ clearInterval(timer); });
+    wrapper.addEventListener('mouseleave',function(){ timer=setInterval(nxt,5000); });
+    upd(); timer=setInterval(nxt,5000);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadSiteContent);
+  } else {
+    loadSiteContent();
+  }
 })();

@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Contact Page Management | CNSC-FMRC Admin</title>
+    <link rel="stylesheet" href="dashboard.css" />
+    <link rel="stylesheet" href="admin-modules.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+      .wm-section{background:#fff;border:1px solid var(--border-color);border-radius:12px;padding:22px 24px;}
+      .wm-section-header{display:flex;align-items:center;gap:10px;margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid #f0f0f0;}
+      .wm-section-header h3{font-size:1rem;color:var(--primary-color);margin:0;}
+      .wm-section-header i{color:var(--primary-color);}
+      .wm-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+      .wm-form-grid .full{grid-column:1/-1;}
+      .field-stack{display:flex;flex-direction:column;gap:5px;}
+      .field-stack label{font-size:0.82rem;font-weight:700;color:#111827;}
+      .wm-input,.wm-textarea{border:1px solid #d8dde3;border-radius:8px;padding:8px 10px;font-size:0.82rem;color:#333;width:100%;background:#fff;font-family:inherit;}
+      .wm-textarea{min-height:80px;resize:vertical;}
+      .section-stack{display:flex;flex-direction:column;gap:18px;}
+      .wm-save-bar{background:#fff;border:1px solid var(--border-color);border-radius:12px;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;gap:10px;position:sticky;bottom:20px;box-shadow:0 4px 20px rgba(0,0,0,.08);}
+      .wm-save-bar p{font-size:0.82rem;color:#6b7280;margin:0;}
+      .contact-preview-card{background:linear-gradient(135deg,#fef2f2,#fff);border:1px solid #fecaca;border-radius:10px;padding:14px 16px;margin-top:12px;}
+      .contact-preview-card .preview-label{font-size:0.72rem;font-weight:700;text-transform:uppercase;color:#9ca3af;letter-spacing:.05em;margin-bottom:8px;}
+      .contact-preview-row{display:flex;align-items:flex-start;gap:8px;font-size:0.82rem;color:#374151;margin-bottom:6px;}
+      .contact-preview-row i{color:var(--primary-color);margin-top:2px;flex-shrink:0;}
+    </style>
+  </head>
+  <body>
+    <div class="dashboard-container">
+      <aside class="sidebar">
+        <div class="sidebar-header"><img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" /><h2>CNSC-FMRC</h2></div>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html" class="nav-link"><i class="fa-solid fa-house"></i> Dashboard</a>
+          <a href="inventory.html" class="nav-link"><i class="fa-solid fa-box"></i> Inventory</a>
+          <a href="products.html" class="nav-link"><i class="fa-solid fa-tags"></i> Products</a>
+          <a href="appointments.html" class="nav-link"><i class="fa-regular fa-calendar-check"></i> Appointment</a>
+          <a href="accounts.html" class="nav-link"><i class="fa-solid fa-users"></i> User Management</a>
+          <a href="reports.html" class="nav-link"><i class="fa-solid fa-chart-line"></i> Reports</a>
+          <a href="orders.html" class="nav-link"><i class="fa-solid fa-box-open"></i> Orders</a>
+          <div class="nav-item has-dropdown open">
+            <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn">
+              <div class="dropdown-title"><i class="fa-solid fa-screwdriver-wrench"></i> Website Management</div>
+              <i class="fa-solid fa-chevron-down arrow"></i>
+            </a>
+            <div class="dropdown-menu">
+              <a href="website-home.html" class="sub-link">Home</a>
+              <a href="website-services.html" class="sub-link">Services</a>
+              <a href="website-contact.html" class="sub-link active">Contact</a>
+              <a href="website-footer.html" class="sub-link">Footer</a>
+            </div>
+          </div>
+          <a href="archives.html" class="nav-link"><i class="fa-solid fa-box-archive"></i> Archives</a>
+          <a href="my-account.html" class="nav-link"><i class="fa-regular fa-id-card"></i> My Account</a>
+        </nav>
+        <div class="sidebar-footer"><button class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div>
+      </aside>
+
+      <main class="main-content">
+        <header class="top-header">
+          <div class="header-left"><h1>Contact Page Management</h1></div>
+          <div class="header-right">
+            <div class="notifications"><i class="fa-regular fa-bell"></i><span class="badge">0</span></div>
+            <div class="user-profile">
+              <div class="user-info"><span class="role">Admin</span></div>
+              <span class="profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
+              <div class="profile-popup" id="profilePopup">
+                <div class="popup-header"><div class="popup-profile-row">
+                  <span class="popup-profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
+                  <div class="popup-profile-meta"><p class="popup-identity">admin@cnsc.edu.ph</p><span class="popup-role">Admin</span></div>
+                </div></div>
+                <a href="my-account.html" class="profile-popup-link"><i class="fa-regular fa-id-card"></i> My Account</a>
+                <hr /><button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section class="module-content">
+          <div class="page-toolbar">
+            <div class="toolbar-title">
+              <h2>Contact Page Content</h2>
+              <p>Edit the information displayed on the Contact page. Click "Save All Changes" to apply.</p>
+            </div>
+            <div class="toolbar-actions">
+              <a href="/contact-page/contact.html" target="_blank" class="btn-admin btn-secondary"><i class="fa-solid fa-eye"></i> Preview Contact Page</a>
+            </div>
+          </div>
+
+          <div class="section-stack">
+            <!-- GET IN TOUCH CARD -->
+            <div class="wm-section">
+              <div class="wm-section-header"><i class="fa-solid fa-address-card"></i><h3>"Get in Touch" Card</h3></div>
+              <div class="wm-form-grid">
+                <div class="field-stack">
+                  <label>Card Heading</label>
+                  <input type="text" class="wm-input" id="contactHeading" placeholder="Get in Touch" />
+                </div>
+                <div class="field-stack full">
+                  <label>Lead Text / Description</label>
+                  <textarea class="wm-textarea" id="contactLead" rows="3" placeholder="Our customer service team is ready to help..."></textarea>
+                </div>
+                <div class="field-stack full">
+                  <label><i class="fa-solid fa-location-dot" style="color:var(--primary-color);margin-right:5px;"></i>Location / Address</label>
+                  <input type="text" class="wm-input" id="contactLocation" placeholder="First Flr., Graduate School Building..." />
+                </div>
+                <div class="field-stack">
+                  <label>Location Map URL</label>
+                  <input type="text" class="wm-input" id="contactLocationUrl" placeholder="https://maps.google.com/..." />
+                </div>
+                <div class="field-stack">
+                  <label><i class="fa-solid fa-envelope" style="color:var(--primary-color);margin-right:5px;"></i>Email Address</label>
+                  <input type="text" class="wm-input" id="contactEmail" placeholder="fmrc@cnsc.edu.ph" />
+                </div>
+                <div class="field-stack">
+                  <label><i class="fa-solid fa-phone" style="color:var(--primary-color);margin-right:5px;"></i>Phone Number</label>
+                  <input type="text" class="wm-input" id="contactPhone" placeholder="0909-099-0000" />
+                </div>
+                <div class="field-stack">
+                  <label><i class="fa-brands fa-facebook" style="color:var(--primary-color);margin-right:5px;"></i>Facebook Display Name</label>
+                  <input type="text" class="wm-input" id="contactFacebook" placeholder="CNSC FMRC" />
+                </div>
+                <div class="field-stack">
+                  <label>Facebook Page URL</label>
+                  <input type="text" class="wm-input" id="contactFacebookUrl" placeholder="https://www.facebook.com/..." />
+                </div>
+              </div>
+            </div>
+
+            <!-- SEND US A MESSAGE CARD -->
+            <div class="wm-section">
+              <div class="wm-section-header"><i class="fa-regular fa-envelope"></i><h3>"Send Us a Message" Card</h3></div>
+              <div class="wm-form-grid">
+                <div class="field-stack">
+                  <label>Card Heading</label>
+                  <input type="text" class="wm-input" id="contactFormHeading" placeholder="Send Us a Message" />
+                </div>
+                <div class="field-stack full">
+                  <label>Subtitle / Description (optional)</label>
+                  <textarea class="wm-textarea" id="contactFormSubtitle" rows="2" placeholder="Leave this blank if not needed."></textarea>
+                </div>
+                <div class="field-stack full">
+                  <p class="field-hint"><i class="fa-solid fa-circle-info" style="margin-right:4px;"></i>The Name, Email, and Message form fields are built-in and not editable here. The form sends messages to the admin inbox.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- SAVE BAR -->
+            <div class="wm-save-bar">
+              <p><i class="fa-solid fa-circle-info" style="margin-right:5px;color:var(--primary-color);"></i>Changes are live on the Contact page after saving.</p>
+              <button class="btn-admin" id="btnSaveContact"><i class="fa-solid fa-floppy-disk"></i> Save All Changes</button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="admin-common.js"></script>
+    <script src="website-contact.js"></script>
+  </body>
+</html>

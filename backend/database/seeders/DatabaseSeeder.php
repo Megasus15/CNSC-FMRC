@@ -32,5 +32,8 @@ class DatabaseSeeder extends Seeder
             'password' => bcrypt('cashier123'),
             'role' => 'cashier',
         ]);
+
+        // Site Settings & Services
+        $this->call(SiteSettingSeeder::class);
     }
 }

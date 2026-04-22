@@ -836,10 +836,13 @@ body {
   font-weight: 800;
   margin-top: auto;
   padding-top: 8px;
+  text-decoration: none;
+  transition: color 0.2s ease;
 }
 
 .services-grid .details-btn:hover {
   color: #b01c1c;
+  text-decoration: underline;
 }
 
 .services-main-title {
