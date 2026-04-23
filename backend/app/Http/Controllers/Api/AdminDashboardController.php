@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -34,6 +35,7 @@ class AdminDashboardController extends Controller
         $appointmentsCount = Appointment::query()->count();
         $accountsCount = User::query()->count();
         $ordersCount = Order::query()->count();
+        $productsCount = Product::query()->count();
 
         $recentAppointments = Appointment::query()
             ->select(['id', 'first_name', 'last_name', 'purpose', 'appointment_date', 'appointment_time', 'status', 'created_at'])
@@ -96,6 +98,7 @@ class AdminDashboardController extends Controller
                     'appointments' => $appointmentsCount,
                     'accounts' => $accountsCount,
                     'orders' => $ordersCount,
+                    'products' => $productsCount,
                 ],
                 'recent_appointments' => $recentAppointments,
                 'recent_orders' => $recentOrders,

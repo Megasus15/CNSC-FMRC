@@ -10,9 +10,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const sidebar = document.querySelector(".sidebar");
   const sidebarHeader = document.querySelector(".sidebar-header");
   const sidebarNav = document.querySelector(".sidebar-nav");
-  const indicatorThumb = document.querySelector(
-    ".sidebar-scroll-indicator .indicator-thumb"
-  );
   const REMOVED_ROUTES = ["payment-monitoring.html", "payments.html"];
 
   let sidebarToggleBtn = null;
@@ -159,36 +156,27 @@ document.addEventListener("DOMContentLoaded", () => {
       body.classList.remove("admin-sidebar-open");
       if (sidebarToggleBtn) sidebarToggleBtn.setAttribute("aria-expanded", "false");
     }
-    updateSidebarScrollIndicator();
   };
 
-  const updateSidebarScrollIndicator = () => {
-    if (!sidebar || !sidebarNav || !indicatorThumb) return;
-
-    const maxScroll = sidebarNav.scrollHeight - sidebarNav.clientHeight;
-    const isScrollable = maxScroll > 1;
-
-    sidebar.classList.toggle("has-scroll-indicator", isScrollable);
-
-    if (!isScrollable) {
-      indicatorThumb.style.height = "100%";
-      indicatorThumb.style.transform = "translateY(0)";
-      return;
-    }
-
-    const thumbHeight = Math.max(
-      (sidebarNav.clientHeight / sidebarNav.scrollHeight) * 100,
-      16
-    );
-    const travel = 100 - thumbHeight;
-    const thumbTop = (sidebarNav.scrollTop / maxScroll) * travel;
-
-    indicatorThumb.style.height = `${thumbHeight}%`;
-    indicatorThumb.style.transform = `translateY(${thumbTop}%)`;
-  };
-
+  const WEBSITE_MGMT_ROUTES = ["website-home.html", "website-services.html", "website-contact.html", "website-footer.html"];
+  const isWebsiteMgmtPage = WEBSITE_MGMT_ROUTES.some(route => window.location.pathname.toLowerCase().endsWith(`/${route}`));
+  
   const adminControlBtn = document.getElementById("adminControlBtn");
   if (adminControlBtn) {
+    const hasDropdown = adminControlBtn.parentElement;
+    
+    if (isWebsiteMgmtPage) {
+      hasDropdown.classList.add("open");
+      localStorage.setItem("websiteMgmtDropdownState", "open");
+    } else {
+      const savedState = localStorage.getItem("websiteMgmtDropdownState");
+      if (savedState === "open") {
+        hasDropdown.classList.add("open");
+      } else {
+        hasDropdown.classList.remove("open");
+      }
+    }
+
     adminControlBtn.addEventListener("click", (e) => {
       if (isMobileSidebarMode() && !body.classList.contains("admin-sidebar-open")) {
         e.preventDefault();
@@ -196,13 +184,11 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       e.preventDefault();
-      const hasDropdown = adminControlBtn.parentElement;
       hasDropdown.classList.toggle("open");
-      requestAnimationFrame(updateSidebarScrollIndicator);
+      localStorage.setItem("websiteMgmtDropdownState", hasDropdown.classList.contains("open") ? "open" : "closed");
     });
   }
 
-  sidebarNav?.addEventListener("scroll", updateSidebarScrollIndicator);
   window.addEventListener("resize", syncSidebarMode);
 
   const ensureMyAccountEntry = () => {
@@ -245,7 +231,6 @@ document.addEventListener("DOMContentLoaded", () => {
   sanitizeRemovedPageLinks();
   decorateSidebarLabels();
   ensureMobileSidebarChrome();
-  updateSidebarScrollIndicator();
 
   // Remove the no-transitions class once the browser has painted the initial state
   requestAnimationFrame(() => {
@@ -289,6 +274,52 @@ document.addEventListener("DOMContentLoaded", () => {
     profilePopup.addEventListener("click", (e) => {
       e.stopPropagation();
     });
+  }
+
+  // --- NOTIFICATION BELL LOGIC ---
+  const notifBtn = document.querySelector(".notifications");
+  
+  if (notifBtn) {
+    let notifDropdown = document.getElementById("notificationDropdown");
+    if (!notifDropdown) {
+      notifDropdown = document.createElement("div");
+      notifDropdown.id = "notificationDropdown";
+      notifDropdown.className = "notification-dropdown";
+      notifDropdown.innerHTML = `
+        <div class="notif-header">
+          <h3>Notifications</h3>
+        </div>
+        <div class="notif-body">
+          <div class="notif-empty">
+            <i class="fa-regular fa-bell-slash"></i>
+            <p>Nothing right now</p>
+          </div>
+        </div>
+      `;
+      notifBtn.appendChild(notifDropdown);
+    }
+
+    notifBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      notifDropdown.classList.toggle("show");
+      if (profilePopup) profilePopup.classList.remove("show"); // Close profile popup if open
+      notifBtn.classList.remove("has-new"); // Stop ringing when viewed
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!notifBtn.contains(e.target) && !notifDropdown.contains(e.target)) {
+        notifDropdown.classList.remove("show");
+      }
+    });
+
+    notifDropdown.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+    
+    const badge = notifBtn.querySelector(".badge");
+    if (badge && parseInt(badge.textContent) > 0) {
+      notifBtn.classList.add("has-new");
+    }
   }
 
   const ensureLoader = () => {

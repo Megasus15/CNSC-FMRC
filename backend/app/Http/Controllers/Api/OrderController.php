@@ -45,8 +45,9 @@ class OrderController extends Controller
         }
 
         $validated = $request->validate([
+            'product_id' => 'nullable|integer|exists:products,id',
             'product_name' => 'required|string|max:180',
-            'product_image' => 'nullable|string|max:700',
+            'product_image' => 'nullable|string',
             'quantity' => 'required|integer|min:1|max:999',
             'unit_price' => 'nullable|numeric|min:0|max:9999999.99',
             'total_amount' => 'required|numeric|min:0|max:9999999.99',
@@ -84,98 +85,119 @@ class OrderController extends Controller
         $paymentStatus = $paymentMethod === 'GCash' ? 'paid' : 'pending';
         $customerStage = $paymentStatus === 'paid' ? 'to_ship' : 'to_pay';
 
-        $createdOrder = DB::transaction(function () use ($validated, $customer, $quantity, $unitPrice, $totalAmount, $paymentMethod, $paymentStatus, $customerStage): Order {
-            $order = Order::query()->create([
-                'order_no' => null,
-                'customer_id' => $customer?->id,
-                'customer_name' => $validated['customer_name']
-                    ?? $customer?->name
-                    ?? $customer?->username
-                    ?? $customer?->email
-                    ?? 'Customer',
-                'customer_contact' => $validated['customer_contact']
-                    ?? $customer?->email
-                    ?? 'N/A',
-                'quantity' => $quantity,
-                'subtotal' => $totalAmount,
-                'total' => $totalAmount,
-                'payment_method' => $paymentMethod,
-                'payment_reference' => $validated['payment_reference'] ?? $this->defaultPaymentReference($paymentMethod),
-                'lifecycle_status' => 'incoming',
-                'customer_stage' => $customerStage,
-                'notes' => $validated['notes'] ?? null,
-                'courier_name' => $validated['courier_name'] ?? 'J&T Express',
-                'courier_tracking_no' => $validated['courier_tracking_no'] ?? null,
-                'location_name' => $validated['location_name'] ?? null,
-                'last_known_lat' => $validated['latitude'] ?? null,
-                'last_known_lng' => $validated['longitude'] ?? null,
-            ]);
-
-            $order->order_no = $this->generateOrderNo((int) $order->id);
-            $order->save();
-
-            OrderItem::query()->create([
-                'order_id' => $order->id,
-                'product_id' => null,
-                'product_name' => $validated['product_name'],
-                'product_image' => $validated['product_image'] ?? null,
-                'unit_price' => $unitPrice,
-                'quantity' => $quantity,
-                'line_total' => $totalAmount,
-            ]);
-
-            Payment::query()->create([
-                'order_id' => $order->id,
-                'payment_no' => $this->generatePaymentNo((int) $order->id),
-                'method' => $paymentMethod,
-                'reference' => $validated['payment_reference'] ?? $this->defaultPaymentReference($paymentMethod),
-                'amount' => $totalAmount,
-                'status' => $paymentStatus,
-                'paid_at' => $paymentStatus === 'paid' ? now() : null,
-            ]);
-
-            $this->createTrackingEvent($order, [
-                'created_by_user_id' => $customer?->id,
-                'stage' => 'to_pay',
-                'event_type' => 'system',
-                'title' => 'Order placed',
-                'description' => 'Your order has been received and is waiting for admin review.',
-                'location_name' => $validated['location_name'] ?? null,
-                'latitude' => $validated['latitude'] ?? null,
-                'longitude' => $validated['longitude'] ?? null,
-                'occurred_at' => now(),
-                'metadata' => [
+        try {
+            $createdOrder = DB::transaction(function () use ($validated, $customer, $quantity, $unitPrice, $totalAmount, $paymentMethod, $paymentStatus, $customerStage): Order {
+                $order = Order::query()->create([
+                    'order_no' => null,
+                    'customer_id' => $customer?->id,
+                    'customer_name' => $validated['customer_name']
+                        ?? $customer?->name
+                        ?? $customer?->username
+                        ?? $customer?->email
+                        ?? 'Customer',
+                    'customer_contact' => $validated['customer_contact']
+                        ?? $customer?->email
+                        ?? 'N/A',
+                    'quantity' => $quantity,
+                    'subtotal' => $totalAmount,
+                    'total' => $totalAmount,
+                    'payment_method' => $paymentMethod,
+                    'payment_reference' => $validated['payment_reference'] ?? $this->defaultPaymentReference($paymentMethod),
                     'lifecycle_status' => 'incoming',
-                ],
+                    'customer_stage' => $customerStage,
+                    'notes' => $validated['notes'] ?? null,
+                    'courier_name' => $validated['courier_name'] ?? 'J&T Express',
+                    'courier_tracking_no' => $validated['courier_tracking_no'] ?? null,
+                    'location_name' => $validated['location_name'] ?? null,
+                    'last_known_lat' => $validated['latitude'] ?? null,
+                    'last_known_lng' => $validated['longitude'] ?? null,
+                ]);
+
+                $order->order_no = $this->generateOrderNo((int) $order->id);
+                $order->save();
+
+                OrderItem::query()->create([
+                    'order_id' => $order->id,
+                    'product_id' => $validated['product_id'] ?? null,
+                    'product_name' => $validated['product_name'],
+                    'product_image' => $validated['product_image'] ?? null,
+                    'unit_price' => $unitPrice,
+                    'quantity' => $quantity,
+                    'line_total' => $totalAmount,
+                ]);
+
+                if (isset($validated['product_id'])) {
+                    $product = \App\Models\Product::find($validated['product_id']);
+                    if ($product) {
+                        if ($product->stock < $quantity) {
+                            throw new \Exception("Insufficient stock for product: {$product->name}. Available: {$product->stock}");
+                        }
+                        $product->stock = max(0, $product->stock - $quantity);
+                        if ($product->stock <= 0) {
+                            $product->stock_status = 'out_of_stock';
+                        }
+                        $product->save();
+                    }
+                }
+
+                Payment::query()->create([
+                    'order_id' => $order->id,
+                    'payment_no' => $this->generatePaymentNo((int) $order->id),
+                    'method' => $paymentMethod,
+                    'reference' => $validated['payment_reference'] ?? $this->defaultPaymentReference($paymentMethod),
+                    'amount' => $totalAmount,
+                    'status' => $paymentStatus,
+                    'paid_at' => $paymentStatus === 'paid' ? now() : null,
+                ]);
+
+                $this->createTrackingEvent($order, [
+                    'created_by_user_id' => $customer?->id,
+                    'stage' => 'to_pay',
+                    'event_type' => 'system',
+                    'title' => 'Order placed',
+                    'description' => 'Your order has been received and is waiting for admin review.',
+                    'location_name' => $validated['location_name'] ?? null,
+                    'latitude' => $validated['latitude'] ?? null,
+                    'longitude' => $validated['longitude'] ?? null,
+                    'occurred_at' => now(),
+                    'metadata' => [
+                        'lifecycle_status' => 'incoming',
+                    ],
+                ]);
+
+                $this->createTrackingEvent($order, [
+                    'created_by_user_id' => $customer?->id,
+                    'stage' => $customerStage,
+                    'event_type' => 'system',
+                    'title' => $paymentStatus === 'paid' ? 'Payment confirmed' : 'Awaiting payment confirmation',
+                    'description' => $paymentStatus === 'paid'
+                        ? 'Payment was confirmed and the order is queued for shipping.'
+                        : 'Payment is pending. Admin will verify and continue processing.',
+                    'occurred_at' => now(),
+                    'metadata' => [
+                        'payment_status' => $paymentStatus,
+                    ],
+                ]);
+
+                return $order;
+            });
+
+            $createdOrder->load([
+                'items',
+                'payment',
+                'trackingEvents' => fn ($query) => $query->orderByDesc('occurred_at')->orderByDesc('id'),
             ]);
 
-            $this->createTrackingEvent($order, [
-                'created_by_user_id' => $customer?->id,
-                'stage' => $customerStage,
-                'event_type' => 'system',
-                'title' => $paymentStatus === 'paid' ? 'Payment confirmed' : 'Awaiting payment confirmation',
-                'description' => $paymentStatus === 'paid'
-                    ? 'Payment was confirmed and the order is queued for shipping.'
-                    : 'Payment is pending. Admin will verify and continue processing.',
-                'occurred_at' => now(),
-                'metadata' => [
-                    'payment_status' => $paymentStatus,
-                ],
-            ]);
+            return response()->json([
+                'message' => 'Order placed successfully.',
+                'data' => $this->transformOrderDetail($createdOrder),
+            ], 201);
 
-            return $order;
-        });
-
-        $createdOrder->load([
-            'items',
-            'payment',
-            'trackingEvents' => fn ($query) => $query->orderByDesc('occurred_at')->orderByDesc('id'),
-        ]);
-
-        return response()->json([
-            'message' => 'Order placed successfully.',
-            'data' => $this->transformOrderDetail($createdOrder),
-        ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => $e->getMessage() ?: 'Unable to place order at the moment.',
+            ], 400);
+        }
     }
 
     public function customerIndex(Request $request): JsonResponse

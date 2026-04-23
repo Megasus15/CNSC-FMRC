@@ -18,10 +18,6 @@
           <h2>CNSC-FMRC</h2>
         </div>
 
-        <div class="sidebar-scroll-indicator" aria-hidden="true">
-          <span class="indicator-thumb"></span>
-        </div>
-
                 <nav class="sidebar-nav">
           <a href="dashboard.html" class="nav-link active"><i class="fa-solid fa-house"></i> Dashboard</a>
           <a href="inventory.html" class="nav-link"><i class="fa-solid fa-box"></i> Inventory</a>
@@ -129,7 +125,7 @@
             <!-- Products -->
             <a class="card card-link" href="products.html" data-nav-label="Products">
               <div class="card-info">
-                <h3>85</h3>
+                <h3 id="dashboardProductsCount">--</h3>
                 <p>Total Products</p>
               </div>
               <i class="fa-solid fa-tags card-icon"></i>
@@ -218,6 +214,27 @@
       </main>
     </div>
 
+    <script src="dashboard.js"></script>
+  </body>
+</html>
+
+
+
+
+
+                  <div class="recent-info">
+                    <strong>Loading orders...</strong>
+                    <span>Please wait while dashboard syncs.</span>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="admin-common.js"></script>
     <script src="dashboard.js"></script>
   </body>
 </html>

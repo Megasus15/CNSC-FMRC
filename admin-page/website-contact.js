@@ -29,6 +29,7 @@ async function loadSettings() {
     setVal('contactFacebookUrl',  s.contact_facebook_url || '');
     setVal('contactFormHeading',  s.contact_form_heading || '');
     setVal('contactFormSubtitle', s.contact_form_subtitle|| '');
+    setVal('contactConsentText',  s.contact_consent_text || 'I hereby consent to the collection, processing, and storage of my personal information in accordance with the Data Privacy Act of 2012 (R.A. 10173).');
   } catch {
     window.showAdminPopup('Failed to load contact settings. Check backend connection.');
   }
@@ -51,6 +52,7 @@ async function doSave() {
     contact_facebook_url: document.getElementById('contactFacebookUrl').value,
     contact_form_heading: document.getElementById('contactFormHeading').value,
     contact_form_subtitle:document.getElementById('contactFormSubtitle').value,
+    contact_consent_text: document.getElementById('contactConsentText').value,
   };
   try {
     const res = await fetch(`${API}/admin/site-settings`, {

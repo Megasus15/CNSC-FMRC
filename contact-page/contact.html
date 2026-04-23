@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -129,7 +129,13 @@
                 ></textarea>
               </div>
 
-              <div class="contact-form-actions full-width">
+              <div class="contact-form-actions full-width" style="flex-direction: column; align-items: flex-end; gap: 14px;">
+                <div class="contact-field-group consent-group" style="width: 100%; text-align: right;">
+                  <label class="consent-label" style="display:inline-flex; align-items:start; gap:8px; font-size:0.85rem; font-weight:500; cursor:pointer; text-align:left; justify-content:flex-end;">
+                    <input type="checkbox" id="contactConsent" required style="margin-top:3px; cursor:pointer;" />
+                    <span id="contactConsentTextEl">I hereby consent to the collection, processing, and storage of my personal information in accordance with the Data Privacy Act of 2012 (R.A. 10173).</span>
+                  </label>
+                </div>
                 <button type="submit" class="contact-submit-btn">Send Message</button>
               </div>
             </form>

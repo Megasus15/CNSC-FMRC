@@ -229,9 +229,27 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // 1. Sidebar 'Admin Control' Dropdown Logic
+  const WEBSITE_MGMT_ROUTES = ["website-home.html", "website-services.html", "website-contact.html", "website-footer.html"];
+  const isWebsiteMgmtPage = WEBSITE_MGMT_ROUTES.some(route => window.location.pathname.toLowerCase().endsWith(`/${route}`));
+
   const adminControlBtn = document.getElementById("adminControlBtn");
 
   if (adminControlBtn) {
+    const hasDropdown = adminControlBtn.parentElement;
+
+    // Restore dropdown state from localStorage on load
+    if (isWebsiteMgmtPage) {
+      hasDropdown.classList.add("open");
+      localStorage.setItem("websiteMgmtDropdownState", "open");
+    } else {
+      const savedState = localStorage.getItem("websiteMgmtDropdownState");
+      if (savedState === "open") {
+        hasDropdown.classList.add("open");
+      } else {
+        hasDropdown.classList.remove("open");
+      }
+    }
+
     adminControlBtn.addEventListener("click", (e) => {
       if (isMobileSidebarMode() && !body.classList.contains("admin-sidebar-open")) {
         e.preventDefault();
@@ -239,8 +257,8 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       e.preventDefault(); // Prevents page reload
-      const hasDropdown = adminControlBtn.parentElement;
       hasDropdown.classList.toggle("open");
+      localStorage.setItem("websiteMgmtDropdownState", hasDropdown.classList.contains("open") ? "open" : "closed");
 
       // Wait for layout update so scrollHeight reflects expanded/collapsed content.
       requestAnimationFrame(updateSidebarScrollIndicator);
@@ -366,6 +384,52 @@ document.addEventListener("DOMContentLoaded", () => {
     profilePopup.addEventListener("click", (e) => {
       e.stopPropagation();
     });
+  }
+
+  // --- NOTIFICATION BELL LOGIC (Dashboard) ---
+  const notifBtn = document.querySelector(".notifications");
+
+  if (notifBtn) {
+    let notifDropdown = document.getElementById("notificationDropdown");
+    if (!notifDropdown) {
+      notifDropdown = document.createElement("div");
+      notifDropdown.id = "notificationDropdown";
+      notifDropdown.className = "notification-dropdown";
+      notifDropdown.innerHTML = `
+        <div class="notif-header">
+          <h3>Notifications</h3>
+        </div>
+        <div class="notif-body">
+          <div class="notif-empty">
+            <i class="fa-regular fa-bell-slash"></i>
+            <p>Nothing right now</p>
+          </div>
+        </div>
+      `;
+      notifBtn.appendChild(notifDropdown);
+    }
+
+    notifBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      notifDropdown.classList.toggle("show");
+      if (profilePopup) profilePopup.classList.remove("show");
+      notifBtn.classList.remove("has-new");
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!notifBtn.contains(e.target) && !notifDropdown.contains(e.target)) {
+        notifDropdown.classList.remove("show");
+      }
+    });
+
+    notifDropdown.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+
+    const badge = notifBtn.querySelector(".badge");
+    if (badge && parseInt(badge.textContent) > 0) {
+      notifBtn.classList.add("has-new");
+    }
   }
 
     const ensureLoader = () => {
@@ -522,6 +586,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const dashboardAppointmentsCount = document.getElementById("dashboardAppointmentsCount");
     const dashboardAccountsCount = document.getElementById("dashboardAccountsCount");
     const dashboardOrdersCount = document.getElementById("dashboardOrdersCount");
+    const dashboardProductsCount = document.getElementById("dashboardProductsCount");
     const dashboardRecentAppointments = document.getElementById("dashboardRecentAppointments");
     const dashboardRecentOrders = document.getElementById("dashboardRecentOrders");
     const dashboardRefreshBtn = document.getElementById("dashboardRefreshBtn");
@@ -587,10 +652,11 @@ document.addEventListener("DOMContentLoaded", () => {
       return "priority-high";
     };
 
-    const setCountCards = ({ appointments, accounts, orders }) => {
+    const setCountCards = ({ appointments, accounts, orders, products }) => {
       if (dashboardAppointmentsCount) dashboardAppointmentsCount.textContent = formatCount(appointments);
       if (dashboardAccountsCount) dashboardAccountsCount.textContent = formatCount(accounts);
       if (dashboardOrdersCount) dashboardOrdersCount.textContent = formatCount(orders);
+      if (dashboardProductsCount) dashboardProductsCount.textContent = formatCount(products);
     };
 
     const renderRecentAppointments = (appointments) => {
@@ -818,6 +884,7 @@ document.addEventListener("DOMContentLoaded", () => {
         appointments: counts?.appointments,
         accounts: counts?.accounts,
         orders: counts?.orders,
+        products: counts?.products,
       });
 
       renderRecentAppointments(appointments);
@@ -826,21 +893,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const syncDashboardDataLegacy = async () => {
       const syncSignal = dashboardSyncController?.signal;
-      const [appointmentsPayload, usersPayload, ordersPayload] = await Promise.all([
+      const [appointmentsPayload, usersPayload, ordersPayload, productsPayload] = await Promise.all([
         requestDashboardJson("/appointments", false, { signal: syncSignal }),
         requestDashboardJson("/users", true, { signal: syncSignal }),
         requestDashboardJson("/admin/orders", true, { signal: syncSignal }),
+        requestDashboardJson("/admin/products", true, { signal: syncSignal }),
       ]);
 
       const appointments = Array.isArray(appointmentsPayload?.data) ? appointmentsPayload.data : [];
       const users = Array.isArray(usersPayload?.data) ? usersPayload.data : [];
       const incomingOrders = Array.isArray(ordersPayload?.incoming) ? ordersPayload.incoming : [];
       const directoryOrders = Array.isArray(ordersPayload?.directory) ? ordersPayload.directory : [];
+      const products = Array.isArray(productsPayload?.data) ? productsPayload.data : [];
 
       setCountCards({
         appointments: appointments.length,
         accounts: users.length,
         orders: incomingOrders.length + directoryOrders.length,
+        products: products.length,
       });
 
       renderRecentAppointments(appointments);
@@ -904,7 +974,7 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
-        setCountCards({ appointments: "--", accounts: "--", orders: "--" });
+        setCountCards({ appointments: "--", accounts: "--", orders: "--", products: "--" });
         renderDashboardSyncError(error?.message || "Please check your network and backend server.");
       } finally {
         if (requestId === dashboardSyncRequestId) {

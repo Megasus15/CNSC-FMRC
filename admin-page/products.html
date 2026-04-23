@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="dashboard.css" />
     <link rel="stylesheet" href="admin-modules.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <style>
       /* -- Product-specific styles -- */
       .row-blocked td { background: rgba(220,38,38,0.07) !important; }
@@ -223,6 +224,129 @@
         0% { background-position: 200% 0; }
         100% { background-position: -200% 0; }
       }
+
+      /* Product Analytics Grid */
+      .product-analytics-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 18px;
+        margin-bottom: 22px;
+      }
+      @media (max-width: 992px) {
+        .product-analytics-grid { grid-template-columns: 1fr; }
+      }
+      .analytics-card {
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        transition: box-shadow 0.25s ease, transform 0.25s ease;
+      }
+      .analytics-card:hover {
+        box-shadow: 0 10px 32px rgba(128,0,0,0.08);
+        transform: translateY(-2px);
+      }
+      @keyframes analyticsSlideIn {
+        0%   { opacity: 0; transform: translateY(18px); }
+        100% { opacity: 1; transform: translateY(0); }
+      }
+      .analytics-card-animate {
+        opacity: 0;
+        animation: analyticsSlideIn 0.5s cubic-bezier(0.22,1,0.36,1) forwards;
+      }
+      .analytics-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 18px 20px 0;
+        gap: 10px;
+      }
+      .analytics-card-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #1a1a2e;
+        margin: 0;
+      }
+      .analytics-card-subtitle {
+        font-size: 0.76rem;
+        color: var(--text-muted);
+        margin: 2px 0 0;
+      }
+      .analytics-card-body {
+        padding: 14px 20px 16px;
+        flex: 1;
+        min-height: 0;
+      }
+      .analytics-card-body--donut {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 20px 16px;
+      }
+      .analytics-card-body--table {
+        padding: 0 0 8px;
+        overflow: hidden;
+      }
+      .analytics-card-footer {
+        padding: 0 20px 14px;
+        text-align: right;
+      }
+      .analytics-view-all {
+        font-size: 0.78rem;
+        color: var(--primary-color);
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        transition: color 0.2s;
+      }
+      .analytics-view-all:hover { color: #5f0000; text-decoration: underline; }
+      .analytics-table-wrapper {
+        overflow-x: auto;
+        max-height: 260px;
+        overflow-y: auto;
+      }
+      .analytics-table-wrapper::-webkit-scrollbar { width: 5px; height: 5px; }
+      .analytics-table-wrapper::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+      .analytics-perf-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 520px;
+      }
+      .analytics-perf-table th,
+      .analytics-perf-table td {
+        text-align: left;
+        padding: 9px 14px;
+        font-size: 0.76rem;
+        border-bottom: 1px solid #f1f3f5;
+        white-space: nowrap;
+      }
+      .analytics-perf-table th {
+        background: #800000;
+        color: #fff;
+        font-weight: 700;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+      }
+      .analytics-perf-table tbody tr:hover td { background: #fef7f7; }
+      .perf-status {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 6px;
+        font-size: 0.7rem;
+        font-weight: 700;
+      }
+      .perf-status--top { background: #dcfce7; color: #15803d; }
+      .perf-status--high { background: #fef3c7; color: #92400e; }
+      .perf-status--low { background: #fee2e2; color: #b91c1c; }
+      .perf-status--out { background: #f1f5f9; color: #64748b; }
     </style>
   </head>
   <body>
@@ -290,6 +414,71 @@
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
               <button class="btn-admin" id="btnOpenAddProduct"><i class="fa-solid fa-plus"></i> Add Product</button>
+            </div>
+          </div>
+
+          <!-- Product Analytics Grid -->
+          <div class="product-analytics-grid" id="productAnalyticsGrid">
+            <div class="analytics-card analytics-card-animate" style="animation-delay: 0.05s;">
+              <div class="analytics-card-header">
+                <div>
+                  <h3 class="analytics-card-title">Top Selling Products</h3>
+                  <p class="analytics-card-subtitle">By total quantity sold</p>
+                </div>
+              </div>
+              <div class="analytics-card-body">
+                <canvas id="topSellingChart" height="220"></canvas>
+              </div>
+              <div class="analytics-card-footer">
+                <a href="#productTable" class="analytics-view-all">View All <i class="fa-solid fa-arrow-right"></i></a>
+              </div>
+            </div>
+            <div class="analytics-card analytics-card-animate" style="animation-delay: 0.12s;">
+              <div class="analytics-card-header">
+                <div>
+                  <h3 class="analytics-card-title">Sales by Category</h3>
+                  <p class="analytics-card-subtitle">Share of total sales</p>
+                </div>
+              </div>
+              <div class="analytics-card-body analytics-card-body--donut">
+                <canvas id="salesByCategoryChart" height="220"></canvas>
+              </div>
+            </div>
+            <div class="analytics-card analytics-card-animate" style="animation-delay: 0.19s;">
+              <div class="analytics-card-header">
+                <div>
+                  <h3 class="analytics-card-title">Product Performance</h3>
+                  <p class="analytics-card-subtitle">Detailed performance per product</p>
+                </div>
+              </div>
+              <div class="analytics-card-body analytics-card-body--table">
+                <div class="analytics-table-wrapper" id="productPerformanceTableWrapper">
+                  <table class="analytics-perf-table" id="productPerformanceTable">
+                    <thead>
+                      <tr>
+                        <th>Product Code</th>
+                        <th>Product Name</th>
+                        <th>Category</th>
+                        <th>Stock</th>
+                        <th>Price</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody id="productPerformanceBody"></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="analytics-card analytics-card-animate" style="animation-delay: 0.26s;">
+              <div class="analytics-card-header">
+                <div>
+                  <h3 class="analytics-card-title">Yearly Sales Trend</h3>
+                  <p class="analytics-card-subtitle">Monthly product value comparison</p>
+                </div>
+              </div>
+              <div class="analytics-card-body">
+                <canvas id="yearlySalesTrendChart" height="220"></canvas>
+              </div>
             </div>
           </div>
 
@@ -393,7 +582,7 @@
                 <div class="upload-area-icon"><i class="fa-regular fa-image"></i></div>
                 <div class="upload-area-text">
                   <strong id="addUploadLabel">Click to choose an image</strong>
-                  <span>JPG, PNG, GIF, WEBP — image will open in editor</span>
+                  <span>JPG, PNG, GIF, WEBP â€” image will open in editor</span>
                 </div>
                 <input type="file" id="addProductPhoto" accept="image/*" />
               </div>
@@ -414,7 +603,7 @@
             </div>
             <div class="field-stack">
               <label>Availability</label>
-              <textarea class="textarea-field" id="addProductAvailability" rows="3" placeholder="One item per line, e.g.&#10;Mon – Fri, 8AM–5PM&#10;Campus pickup available"></textarea>
+              <textarea class="textarea-field" id="addProductAvailability" rows="3" placeholder="One item per line, e.g.&#10;Mon â€“ Fri, 8AMâ€“5PM&#10;Campus pickup available"></textarea>
             </div>
             <div class="field-stack">
               <label>Recommended For</label>
@@ -483,7 +672,7 @@
                 <div class="upload-area-icon"><i class="fa-regular fa-image"></i></div>
                 <div class="upload-area-text">
                   <strong id="editUploadLabel">Click to replace image</strong>
-                  <span>JPG, PNG, GIF, WEBP — image will open in editor</span>
+                  <span>JPG, PNG, GIF, WEBP â€” image will open in editor</span>
                 </div>
                 <input type="file" id="editProductPhoto" accept="image/*" />
               </div>
@@ -504,7 +693,7 @@
             </div>
             <div class="field-stack">
               <label>Availability</label>
-              <textarea class="textarea-field" id="editProductAvailability" rows="3" placeholder="One item per line, e.g.&#10;Mon – Fri, 8AM–5PM&#10;Campus pickup available"></textarea>
+              <textarea class="textarea-field" id="editProductAvailability" rows="3" placeholder="One item per line, e.g.&#10;Mon â€“ Fri, 8AMâ€“5PM&#10;Campus pickup available"></textarea>
             </div>
             <div class="field-stack">
               <label>Recommended For</label>
@@ -562,7 +751,7 @@
           <div class="slider-row">
             <label for="productPhotoRotate">Rotate</label>
             <input id="productPhotoRotate" type="range" min="-180" max="180" value="0" />
-            <span class="slider-val" id="rotateVal">0°</span>
+            <span class="slider-val" id="rotateVal">0Â°</span>
           </div>
           <div class="slider-row">
             <label for="productPhotoScale">Resize</label>

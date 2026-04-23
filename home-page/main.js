@@ -1059,7 +1059,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const guideTitle = document.getElementById("guideProductTitle");
 
   let currentItemPrice = 0;
-  let currentMaxStock = 1;
+  let currentMaxStock = Infinity;
+  let currentProductId = null;
   let protectionFee = 5.0;
 
   function parsePrice(priceStr) {
@@ -1176,6 +1177,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (checkoutMaxStock) checkoutMaxStock.innerText = currentMaxStock === 0 ? "Out of Stock" : currentMaxStock;
 
     currentItemPrice = unitPrice;
+    currentProductId = product.id || null;
     if (inputQty) {
         inputQty.value = 1;
         inputQty.max = currentMaxStock;
@@ -2174,6 +2176,7 @@ document.addEventListener("DOMContentLoaded", () => {
           .join(" | ");
 
         const payload = {
+          product_id: currentProductId,
           product_name: checkoutTitle?.innerText?.trim() || "Custom Order",
           product_image: checkoutImg?.src || "/images/FMRC Logo.png",
           quantity,
@@ -5063,6 +5066,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (cFb) { if(s.contact_facebook) cFb.textContent=s.contact_facebook; if(s.contact_facebook_url) cFb.href=s.contact_facebook_url; }
     _txt('contactFormHeadingEl', s.contact_form_heading);
     _txt('contactFormSubtitleEl', s.contact_form_subtitle);
+    _txt('contactConsentTextEl', s.contact_consent_text || 'I hereby consent to the collection, processing, and storage of my personal information in accordance with the Data Privacy Act of 2012 (R.A. 10173).');
   }
 
   function applyServices(services) {
