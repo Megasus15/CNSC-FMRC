@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\SiteSettingController;
 use App\Http\Controllers\Api\ServiceController;
+use App\Http\Controllers\Api\NotificationController;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
@@ -42,6 +43,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/customer/orders', [OrderController::class, 'customerIndex']);
     Route::get('/customer/orders/{order}', [OrderController::class, 'customerShow']);
 
+    Route::get('/customer/cart', [\App\Http\Controllers\CartItemController::class, 'index']);
+    Route::post('/customer/cart/sync', [\App\Http\Controllers\CartItemController::class, 'sync']);
+
     Route::get('/admin/orders', [OrderController::class, 'adminIndex']);
     Route::get('/admin/dashboard/summary', [AdminDashboardController::class, 'summary']);
     Route::get('/admin/orders/{order}', [OrderController::class, 'adminShow']);
@@ -73,4 +77,11 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
+
+    // Admin: Notifications
+    Route::get('/admin/notifications', [NotificationController::class, 'index']);
+    Route::get('/admin/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    Route::patch('/admin/notifications/{notification}/read', [NotificationController::class, 'markRead']);
+    Route::post('/admin/notifications/mark-all-read', [NotificationController::class, 'markAllRead']);
+    Route::delete('/admin/notifications/{notification}', [NotificationController::class, 'destroy']);
 });

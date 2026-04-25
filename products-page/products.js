@@ -276,6 +276,18 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Also listen to product specific real-time updates (from Admin portal)
+  const PRODUCTS_REALTIME_CHANNEL = "fmrc-products-realtime";
+  if (typeof window.BroadcastChannel === "function") {
+    const productsChannel = new window.BroadcastChannel(PRODUCTS_REALTIME_CHANNEL);
+    productsChannel.addEventListener("message", (event) => {
+      const payload = event?.data || {};
+      if (payload.type === "updated" || payload.type === "created" || payload.type === "deleted") {
+        void loadProducts();
+      }
+    });
+  }
+
   // Also listen to local events
   window.addEventListener("fmrc:orders-updated", (event) => {
     void loadProducts();

@@ -62,6 +62,9 @@ async function doSave() {
     });
     if (!res.ok) throw new Error();
     window.showAdminPopup('Contact page settings saved!', { title: 'Saved!' });
+    if (typeof window.BroadcastChannel === "function") {
+      new window.BroadcastChannel("fmrc-site-settings-realtime").postMessage({ type: "updated" });
+    }
     await loadSettings();
   } catch {
     window.showAdminPopup('Failed to save. Try again.', { title: 'Error' });

@@ -60,9 +60,9 @@
             <h1>Inventory Management</h1>
           </div>
           <div class="header-right">
-            <div class="notifications">
+            <div class="notifications" id="notifBell">
               <i class="fa-regular fa-bell"></i>
-              <span class="badge">4</span>
+              <span class="badge" id="notifBadge" style="display:none;"></span>
             </div>
             <div class="user-profile">
               <div class="user-info"><span class="role">Admin</span></div>
@@ -78,8 +78,7 @@
                   </div>
                 </div>
                 <a href="my-account.html" class="profile-popup-link"><i class="fa-regular fa-id-card"></i> My Account</a>
-                <hr />
-                <button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+                <hr /><button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
               </div>
             </div>
           </div>
@@ -331,8 +330,3 @@
     <script src="inventory.js"></script>
   </body>
 </html>
-
-
-
-
-

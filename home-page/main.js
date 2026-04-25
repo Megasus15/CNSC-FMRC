@@ -2311,26 +2311,74 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  const persistCartItems = () => {
+  const persistCartItems = async () => {
+    const items = collectCartItemsFromDom();
+    const storageKey = customerSession.isAuthenticated ? `${CART_STORAGE_KEY}_${customerSession.userInfo.id}` : CART_STORAGE_KEY;
+    
     try {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(collectCartItemsFromDom()));
+      localStorage.setItem(storageKey, JSON.stringify(items));
     } catch {
       // Ignore storage write issues.
+    }
+
+    if (customerSession.isAuthenticated) {
+      try {
+        await fetchWithTimeout(`${API_BASE_URL}/customer/cart/sync`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "Authorization": `Bearer ${customerSession.token}`,
+          },
+          body: JSON.stringify({ items }),
+        });
+      } catch (err) {
+        console.error("Failed to sync cart to server", err);
+      }
     }
 
     emitCartRealtimeUpdate({ type: "updated" });
   };
 
-  const restoreCartItems = () => {
+  const restoreCartItems = async () => {
     if (!cartItemsContainer) return;
 
     let savedItems = [];
-    try {
-      const raw = localStorage.getItem(CART_STORAGE_KEY);
-      const parsed = JSON.parse(raw || "[]");
-      savedItems = Array.isArray(parsed) ? parsed : [];
-    } catch {
-      savedItems = [];
+    const storageKey = customerSession.isAuthenticated ? `${CART_STORAGE_KEY}_${customerSession.userInfo.id}` : CART_STORAGE_KEY;
+
+    if (customerSession.isAuthenticated) {
+      try {
+        const res = await fetchWithTimeout(`${API_BASE_URL}/customer/cart`, {
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${customerSession.token}`,
+          }
+        });
+        if (res.ok) {
+          const payload = await res.json();
+          savedItems = Array.isArray(payload?.data) ? payload.data : [];
+          localStorage.setItem(storageKey, JSON.stringify(savedItems));
+        } else {
+          throw new Error("Failed to fetch cart");
+        }
+      } catch (err) {
+        console.error("Failed to fetch cart from server", err);
+        try {
+          const raw = localStorage.getItem(storageKey);
+          const parsed = JSON.parse(raw || "[]");
+          savedItems = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          savedItems = [];
+        }
+      }
+    } else {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        const parsed = JSON.parse(raw || "[]");
+        savedItems = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        savedItems = [];
+      }
     }
 
     cartItemsContainer.querySelectorAll(".cart-item-card").forEach((item) => item.remove());
@@ -2338,6 +2386,10 @@ document.addEventListener("DOMContentLoaded", () => {
     savedItems.forEach((entry) => {
       cartItemsContainer.appendChild(createCartItemCard(entry));
     });
+
+    if (typeof updateCartTotals === "function") {
+      updateCartTotals();
+    }
   };
 
   // Open & Close Cart Modal
@@ -2663,7 +2715,7 @@ document.addEventListener("DOMContentLoaded", () => {
   updateCartTotals();
 
   window.addEventListener("storage", (event) => {
-    if (event.key !== CART_STORAGE_KEY && event.key !== CART_STORAGE_SIGNAL_KEY) return;
+    if (!event.key || (!event.key.startsWith(CART_STORAGE_KEY) && event.key !== CART_STORAGE_SIGNAL_KEY)) return;
     restoreCartItems();
     updateCartTotals();
   });

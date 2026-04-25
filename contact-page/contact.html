@@ -129,14 +129,14 @@
                 ></textarea>
               </div>
 
-              <div class="contact-form-actions full-width" style="flex-direction: column; align-items: flex-end; gap: 14px;">
-                <div class="contact-field-group consent-group" style="width: 100%; text-align: right;">
-                  <label class="consent-label" style="display:inline-flex; align-items:start; gap:8px; font-size:0.85rem; font-weight:500; cursor:pointer; text-align:left; justify-content:flex-end;">
-                    <input type="checkbox" id="contactConsent" required style="margin-top:3px; cursor:pointer;" />
+              <div class="contact-form-actions full-width" style="display:flex; flex-direction:row; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap;">
+                <div class="contact-field-group consent-group" style="flex:1; min-width:0;">
+                  <label class="consent-label" style="display:inline-flex; align-items:flex-start; gap:8px; font-size:0.85rem; font-weight:500; cursor:pointer; text-align:left;">
+                    <input type="checkbox" id="contactConsent" required style="margin-top:3px; cursor:pointer; flex-shrink:0;" />
                     <span id="contactConsentTextEl">I hereby consent to the collection, processing, and storage of my personal information in accordance with the Data Privacy Act of 2012 (R.A. 10173).</span>
                   </label>
                 </div>
-                <button type="submit" class="contact-submit-btn">Send Message</button>
+                <button type="submit" class="contact-submit-btn" style="flex-shrink:0; align-self:flex-end;">Send Message</button>
               </div>
             </form>
           </section>
@@ -220,5 +220,6 @@
     </footer>
 
     <script src="../home-page/main.js"></script>
+    <script src="contact.js"></script>
   </body>
 </html>

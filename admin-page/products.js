@@ -761,6 +761,9 @@ document.addEventListener("DOMContentLoaded", () => {
         "productSuccessMsg",
         "Product added successfully.",
       );
+      if (typeof window.BroadcastChannel === "function") {
+        new window.BroadcastChannel("fmrc-products-realtime").postMessage({ type: "created" });
+      }
       window.location.reload();
     } catch (err) {
       console.error("Save product error:", err);
@@ -944,6 +947,9 @@ document.addEventListener("DOMContentLoaded", () => {
         "productSuccessMsg",
         "Product updated successfully.",
       );
+      if (typeof window.BroadcastChannel === "function") {
+        new window.BroadcastChannel("fmrc-products-realtime").postMessage({ type: "updated" });
+      }
       window.location.reload();
     } catch (err) {
       console.error("Update product error:", err);
@@ -993,6 +999,9 @@ document.addEventListener("DOMContentLoaded", () => {
         "productSuccessMsg",
         "Product deleted successfully.",
       );
+      if (typeof window.BroadcastChannel === "function") {
+        new window.BroadcastChannel("fmrc-products-realtime").postMessage({ type: "deleted" });
+      }
       window.location.reload();
     } catch (err) {
       console.error("Delete product error:", err);
