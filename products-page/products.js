@@ -166,7 +166,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const isOutOfStock = product.stock_status === "out_of_stock" || Number(product.stock) <= 0;
       productInfoAddToCart.disabled = isOutOfStock;
       productInfoAddToCart.className = `modal-btn outline-btn${isOutOfStock ? " disabled" : ""}`;
-      productInfoAddToCart.onclick = isOutOfStock ? null : () => {
+      productInfoAddToCart.onclick = isOutOfStock ? null : (e) => {
+        if (e) e.preventDefault();
         productInfoModal.classList.remove("show-modal");
         // Delegate to existing cart logic via custom event
         document.dispatchEvent(new CustomEvent("product:add-to-cart", { detail: product }));
@@ -176,7 +177,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const isOutOfStock = product.stock_status === "out_of_stock" || Number(product.stock) <= 0;
       productInfoBuyNow.disabled = isOutOfStock;
       productInfoBuyNow.className = `modal-btn solid-btn${isOutOfStock ? " disabled" : ""}`;
-      productInfoBuyNow.onclick = isOutOfStock ? null : () => {
+      productInfoBuyNow.onclick = isOutOfStock ? null : (e) => {
+        if (e) e.preventDefault();
         productInfoModal.classList.remove("show-modal");
         document.dispatchEvent(new CustomEvent("product:buy-now", { detail: product }));
       };
@@ -200,6 +202,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const btn = target.closest("[data-action]");
     if (!btn) return;
+
+    e.preventDefault(); // Prevent any form submission or page reload
 
     const id      = Number(btn.getAttribute("data-product-id"));
     const product = allProducts.find(p => p.id === id);
@@ -252,44 +256,60 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   void loadProducts();
-  
-  // ── Realtime updates ─────────────────────────────────────────────────────────
-  const ORDERS_REALTIME_CHANNEL = "fmrc-orders-realtime";
-  let ordersRealtimeChannel = null;
 
-  const getOrdersRealtimeChannel = () => {
-    if (typeof window.BroadcastChannel !== "function") return null;
-    if (!ordersRealtimeChannel) {
-      ordersRealtimeChannel = new window.BroadcastChannel(ORDERS_REALTIME_CHANNEL);
-    }
-    return ordersRealtimeChannel;
+  // ── Realtime updates ─────────────────────────────────────────────────────────
+  // Debounce guard: prevent multiple rapid loadProducts() calls triggered
+  // by simultaneous BroadcastChannel + window events for the same action.
+  let _reloadDebounceTimer = null;
+  const debouncedLoadProducts = () => {
+    if (_reloadDebounceTimer) clearTimeout(_reloadDebounceTimer);
+    _reloadDebounceTimer = setTimeout(() => {
+      _reloadDebounceTimer = null;
+      void loadProducts();
+    }, 600);
   };
 
-  const channel = getOrdersRealtimeChannel();
-  if (channel) {
-    channel.addEventListener("message", (event) => {
+  // Helper: only refresh for genuine order-related types
+  const isOrderRelevantType = (type) =>
+    type === "created" || type === "updated";
+
+  // Listen for order events from OTHER tabs (BroadcastChannel only).
+  // Only react to actual order creation/update — not profile changes.
+  const ORDERS_REALTIME_CHANNEL = "fmrc-orders-realtime";
+  if (typeof window.BroadcastChannel === "function") {
+    const ordersChannel = new window.BroadcastChannel(ORDERS_REALTIME_CHANNEL);
+    ordersChannel.addEventListener("message", (event) => {
+      if (document.hidden) return; // Don't refresh in background tabs
       const payload = event?.data || {};
-      // Refresh products if an order was created (stock might have changed)
-      if (payload.type === "created" || payload.type === "updated") {
-        void loadProducts();
+      // Only refresh stock when an order is actually created/updated
+      if (isOrderRelevantType(payload.type)) {
+        debouncedLoadProducts();
       }
     });
   }
 
-  // Also listen to product specific real-time updates (from Admin portal)
+  // Listen to product-specific real-time updates broadcast by the Admin portal.
   const PRODUCTS_REALTIME_CHANNEL = "fmrc-products-realtime";
   if (typeof window.BroadcastChannel === "function") {
     const productsChannel = new window.BroadcastChannel(PRODUCTS_REALTIME_CHANNEL);
     productsChannel.addEventListener("message", (event) => {
+      if (document.hidden) return; // Don't refresh in background tabs
       const payload = event?.data || {};
       if (payload.type === "updated" || payload.type === "created" || payload.type === "deleted") {
-        void loadProducts();
+        debouncedLoadProducts();
       }
     });
   }
 
-  // Also listen to local events
+  // Listen to the local window event so that the product list refreshes
+  // immediately when the customer places an order on this same page.
+  // Only react to actual order creation — not profile updates.
+  // The debounce ensures this doesn't double-fire with the BroadcastChannel.
   window.addEventListener("fmrc:orders-updated", (event) => {
-    void loadProducts();
+    const payload = event?.detail || {};
+    // Skip profile-updated signals — they don't affect product stock
+    if (payload.type === "profile-updated") return;
+    if (!isOrderRelevantType(payload.type)) return;
+    debouncedLoadProducts();
   });
 });

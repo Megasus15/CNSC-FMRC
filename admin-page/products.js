@@ -687,7 +687,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   btnCancelAddProduct?.addEventListener("click", () => closeModal(modalAdd));
 
-  btnSaveProduct?.addEventListener("click", async () => {
+  btnSaveProduct?.addEventListener("click", async (e) => {
+    if (e) e.preventDefault();
     const name = (addName?.value || "").trim();
     const stock = addStock?.value;
     const price = addPrice?.value;
@@ -757,14 +758,12 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       closeModal(modalAdd);
-      sessionStorage.setItem(
-        "productSuccessMsg",
-        "Product added successfully.",
-      );
-      if (typeof window.BroadcastChannel === "function") {
-        new window.BroadcastChannel("fmrc-products-realtime").postMessage({ type: "created" });
-      }
-      window.location.reload();
+      resetAddForm();
+      broadcastProductChange("created");
+      await loadProducts();
+      setTimeout(() => {
+        window.showAdminPopup?.("Product added successfully.", { title: "Success ✓" });
+      }, 200);
     } catch (err) {
       console.error("Save product error:", err);
       window.showAdminPopup?.("Cannot connect to server.", { title: "Error" });
@@ -868,7 +867,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   btnCancelEditProduct?.addEventListener("click", () => closeModal(modalEdit));
 
-  btnUpdateProduct?.addEventListener("click", async () => {
+  btnUpdateProduct?.addEventListener("click", async (e) => {
+    if (e) e.preventDefault();
     if (!activeProductId) return;
 
     const name = (editName?.value || "").trim();
@@ -943,14 +943,11 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       closeModal(modalEdit);
-      sessionStorage.setItem(
-        "productSuccessMsg",
-        "Product updated successfully.",
-      );
-      if (typeof window.BroadcastChannel === "function") {
-        new window.BroadcastChannel("fmrc-products-realtime").postMessage({ type: "updated" });
-      }
-      window.location.reload();
+      broadcastProductChange("updated");
+      await loadProducts();
+      setTimeout(() => {
+        window.showAdminPopup?.("Product updated successfully.", { title: "Success ✓" });
+      }, 200);
     } catch (err) {
       console.error("Update product error:", err);
       window.showAdminPopup?.("Cannot connect to server.", { title: "Error" });
@@ -966,7 +963,8 @@ document.addEventListener("DOMContentLoaded", () => {
     closeModal(modalDelete),
   );
 
-  btnConfirmProductDelete?.addEventListener("click", async () => {
+  btnConfirmProductDelete?.addEventListener("click", async (e) => {
+    if (e) e.preventDefault();
     if (!activeProductId) return;
     btnConfirmProductDelete.disabled = true;
     btnConfirmProductDelete.textContent = "Deleting…";
@@ -995,14 +993,12 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       closeModal(modalDelete);
-      sessionStorage.setItem(
-        "productSuccessMsg",
-        "Product deleted successfully.",
-      );
-      if (typeof window.BroadcastChannel === "function") {
-        new window.BroadcastChannel("fmrc-products-realtime").postMessage({ type: "deleted" });
-      }
-      window.location.reload();
+      activeProductId = null;
+      broadcastProductChange("deleted");
+      await loadProducts();
+      setTimeout(() => {
+        window.showAdminPopup?.("Product deleted successfully.", { title: "Success ✓" });
+      }, 200);
     } catch (err) {
       console.error("Delete product error:", err);
       window.showAdminPopup?.("Cannot connect to server.", { title: "Error" });
@@ -1057,41 +1053,66 @@ document.addEventListener("DOMContentLoaded", () => {
     renderTable();
   });
 
-  // ─── Show success popup after reload ─────────────────────────────────────────
-  const successMsg = sessionStorage.getItem("productSuccessMsg");
-  if (successMsg) {
-    sessionStorage.removeItem("productSuccessMsg");
-    // Slight delay so admin-common.js popup is ready
-    setTimeout(() => {
-      window.showAdminPopup?.(successMsg, { title: "Success ✓" });
-    }, 400);
-  }
 
   // ─── Initialize ───────────────────────────────────────────────────────────────
+
   void loadProducts();
 
   // ── Realtime updates ─────────────────────────────────────────────────────────
-  const ORDERS_REALTIME_CHANNEL = "fmrc-orders-realtime";
-  let ordersRealtimeChannel = null;
-
-  const getOrdersRealtimeChannel = () => {
-    if (typeof window.BroadcastChannel !== "function") return null;
-    if (!ordersRealtimeChannel) {
-      ordersRealtimeChannel = new window.BroadcastChannel(
-        ORDERS_REALTIME_CHANNEL,
-      );
-    }
-    return ordersRealtimeChannel;
+  // Debounce guard: prevent multiple rapid loadProducts() calls.
+  let _adminReloadDebounceTimer = null;
+  const debouncedLoadProducts = () => {
+    if (_adminReloadDebounceTimer) clearTimeout(_adminReloadDebounceTimer);
+    _adminReloadDebounceTimer = setTimeout(() => {
+      _adminReloadDebounceTimer = null;
+      void loadProducts();
+    }, 600);
   };
 
-  const channel = getOrdersRealtimeChannel();
-  if (channel) {
-    channel.addEventListener("message", (event) => {
+  // Reusable BroadcastChannel instances (created once, never duplicated)
+  const PRODUCTS_REALTIME_CHANNEL = "fmrc-products-realtime";
+  const ORDERS_REALTIME_CHANNEL = "fmrc-orders-realtime";
+
+  let _productsChannel = null;
+  const getProductsChannel = () => {
+    if (typeof window.BroadcastChannel !== "function") return null;
+    if (!_productsChannel) {
+      _productsChannel = new window.BroadcastChannel(PRODUCTS_REALTIME_CHANNEL);
+    }
+    return _productsChannel;
+  };
+
+  // Expose a helper for broadcasting product changes from this admin page.
+  // Uses a source tag so our own listener can ignore messages we sent.
+  const broadcastProductChange = (type) => {
+    const ch = getProductsChannel();
+    ch?.postMessage({ type, source: "admin-products" });
+  };
+
+  // Listen for product changes from OTHER tabs (e.g., another admin tab)
+  const productsChannel = getProductsChannel();
+  productsChannel?.addEventListener("message", (event) => {
+    if (document.hidden) return;
+    const payload = event?.data || {};
+    // Ignore messages this tab sent
+    if (payload.source === "admin-products") return;
+    if (payload.type === "updated" || payload.type === "created" || payload.type === "deleted") {
+      debouncedLoadProducts();
+    }
+  });
+
+  // Listen for order events — only refresh when an order is actually created
+  // (stock changes). Ignore profile-updated and other non-stock-relevant events.
+  if (typeof window.BroadcastChannel === "function") {
+    const ordersChannel = new window.BroadcastChannel(ORDERS_REALTIME_CHANNEL);
+    ordersChannel.addEventListener("message", (event) => {
+      if (document.hidden) return;
       const payload = event?.data || {};
-      // Refresh products if an order was created (stock might have changed)
-      if (payload.type === "created" || payload.type === "updated") {
-        void loadProducts();
+      // Only refresh product stock when a customer places an order
+      if (payload.type === "created") {
+        debouncedLoadProducts();
       }
     });
   }
 });
+

@@ -2258,17 +2258,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  const createCartItemCard = ({ title, image, unitPrice, quantity = 1, checked = true }) => {
+  const createCartItemCard = ({ product_id, title, image, unitPrice, quantity = 1, checked = true }) => {
     const rawTitle = String(title || "Product");
     const safeTitle = escapeCustomerHtml(rawTitle);
     const safeImage = String(image || "/images/FMRC Logo.png");
     const numericPrice = Number.isFinite(Number(unitPrice)) ? Number(unitPrice) : 0;
     const qty = Math.max(1, Number.parseInt(String(quantity || "1"), 10) || 1);
+    const pid = product_id != null ? String(product_id) : "";
 
     const cartItem = document.createElement("div");
     cartItem.className = "cart-item-card";
     cartItem.dataset.productName = rawTitle;
     cartItem.dataset.unitPrice = String(numericPrice);
+    if (pid) cartItem.dataset.productId = pid;
     cartItem.innerHTML = `
       <label class="cart-checkbox-container">
         <input type="checkbox" class="cart-item-check" ${checked ? "checked" : ""}>
@@ -2300,8 +2302,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const unitPrice = Number(item.querySelector(".c-price")?.dataset.price || 0);
       const quantity = Math.max(1, Number.parseInt(item.querySelector(".c-qty-input")?.value || "1", 10) || 1);
       const checked = Boolean(item.querySelector(".cart-item-check")?.checked);
+      const product_id = item.dataset.productId ? Number(item.dataset.productId) : null;
 
       return {
+        product_id,
         title,
         image,
         unitPrice,
@@ -2311,30 +2315,47 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
+  // Debounce timer for server sync (prevents rapid-fire API calls)
+  let _cartSyncTimer = null;
+
   const persistCartItems = async () => {
     const items = collectCartItemsFromDom();
     const storageKey = customerSession.isAuthenticated ? `${CART_STORAGE_KEY}_${customerSession.userInfo.id}` : CART_STORAGE_KEY;
     
+    // Always save full data (including images) to localStorage immediately
     try {
       localStorage.setItem(storageKey, JSON.stringify(items));
     } catch {
       // Ignore storage write issues.
     }
 
+    // Sync to server with debounce (strip large image data to avoid 500 errors)
     if (customerSession.isAuthenticated) {
-      try {
-        await fetchWithTimeout(`${API_BASE_URL}/customer/cart/sync`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "Authorization": `Bearer ${customerSession.token}`,
-          },
-          body: JSON.stringify({ items }),
-        });
-      } catch (err) {
-        console.error("Failed to sync cart to server", err);
-      }
+      if (_cartSyncTimer) clearTimeout(_cartSyncTimer);
+      _cartSyncTimer = setTimeout(async () => {
+        _cartSyncTimer = null;
+        try {
+          // Strip base64 data from images before sending to server.
+          // Keep only URL references (non-base64) to avoid payload size issues.
+          const serverItems = items.map((item) => ({
+            ...item,
+            image: item.image && !item.image.startsWith("data:") ? item.image : null,
+          }));
+
+          await fetchWithTimeout(`${API_BASE_URL}/customer/cart/sync`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+              "Authorization": `Bearer ${customerSession.token}`,
+            },
+            body: JSON.stringify({ items: serverItems }),
+          });
+        } catch (err) {
+          // Silently fail — items are safely stored in localStorage
+          console.error("Failed to sync cart to server", err);
+        }
+      }, 800);
     }
 
     emitCartRealtimeUpdate({ type: "updated" });
@@ -2346,7 +2367,20 @@ document.addEventListener("DOMContentLoaded", () => {
     let savedItems = [];
     const storageKey = customerSession.isAuthenticated ? `${CART_STORAGE_KEY}_${customerSession.userInfo.id}` : CART_STORAGE_KEY;
 
+    // Helper to read from localStorage
+    const readLocalStorage = () => {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        const parsed = JSON.parse(raw || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    };
+
     if (customerSession.isAuthenticated) {
+      const localItems = readLocalStorage();
+
       try {
         const res = await fetchWithTimeout(`${API_BASE_URL}/customer/cart`, {
           headers: {
@@ -2356,29 +2390,32 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         if (res.ok) {
           const payload = await res.json();
-          savedItems = Array.isArray(payload?.data) ? payload.data : [];
-          localStorage.setItem(storageKey, JSON.stringify(savedItems));
+          const apiItems = Array.isArray(payload?.data) ? payload.data : [];
+
+          // If API returns items, use them and sync localStorage
+          if (apiItems.length > 0) {
+            savedItems = apiItems;
+            const newCartString = JSON.stringify(savedItems);
+            if (localStorage.getItem(storageKey) !== newCartString) {
+              localStorage.setItem(storageKey, newCartString);
+            }
+          } else if (localItems.length > 0) {
+            // API is empty but localStorage has items — keep localStorage
+            // (this happens when server sync previously failed)
+            savedItems = localItems;
+          } else {
+            savedItems = [];
+          }
         } else {
           throw new Error("Failed to fetch cart");
         }
       } catch (err) {
         console.error("Failed to fetch cart from server", err);
-        try {
-          const raw = localStorage.getItem(storageKey);
-          const parsed = JSON.parse(raw || "[]");
-          savedItems = Array.isArray(parsed) ? parsed : [];
-        } catch {
-          savedItems = [];
-        }
+        // On any error, fall back to localStorage
+        savedItems = localItems;
       }
     } else {
-      try {
-        const raw = localStorage.getItem(storageKey);
-        const parsed = JSON.parse(raw || "[]");
-        savedItems = Array.isArray(parsed) ? parsed : [];
-      } catch {
-        savedItems = [];
-      }
+      savedItems = readLocalStorage();
     }
 
     cartItemsContainer.querySelectorAll(".cart-item-card").forEach((item) => item.remove());
@@ -2492,6 +2529,7 @@ document.addEventListener("DOMContentLoaded", () => {
   );
   addToCartBtns.forEach((btn) => {
     btn.addEventListener("click", function (e) {
+      e.preventDefault();
       if (!requireCustomerAuth("add products to cart")) return;
 
       const card = e.target.closest(".shop-card");
@@ -2567,6 +2605,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } else {
       if (emptyCartMessage) emptyCartMessage.style.display = "none";
       const cartItem = createCartItemCard({
+        product_id: product.id || null,
         title,
         image: imageSrc,
         unitPrice,
@@ -2584,6 +2623,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (cartItemsContainer) {
     cartItemsContainer.addEventListener("click", (e) => {
       if (e.target.classList.contains("c-minus-btn")) {
+        e.preventDefault();
         const input = e.target.nextElementSibling;
         if (parseInt(input.value) > 1) {
           input.value = parseInt(input.value) - 1;
@@ -2591,8 +2631,14 @@ document.addEventListener("DOMContentLoaded", () => {
           persistCartItems();
         }
       } else if (e.target.classList.contains("c-plus-btn")) {
+        e.preventDefault();
         const input = e.target.previousElementSibling;
         input.value = parseInt(input.value) + 1;
+        updateCartTotals();
+        persistCartItems();
+      } else if (e.target.classList.contains("c-delete-btn")) {
+        e.preventDefault();
+        e.target.closest(".cart-item-card")?.remove();
         updateCartTotals();
         persistCartItems();
       } else if (e.target.classList.contains("cart-item-check")) {
@@ -2693,6 +2739,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const firstItem = checkedItems[0].closest(".cart-item-card");
       const title = firstItem.querySelector("h4").innerText;
       const priceVal = document.getElementById("cartTotalPrice").innerText;
+
+      // Set currentProductId from the cart item for proper stock deduction
+      currentProductId = firstItem.dataset.productId ? Number(firstItem.dataset.productId) : null;
 
       if (checkoutImg) checkoutImg.src = firstItem.querySelector("img").src;
       if (checkoutTitle)
