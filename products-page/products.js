@@ -297,6 +297,35 @@ document.addEventListener("DOMContentLoaded", () => {
       const payload = event?.data || {};
       if (payload.type === "updated" || payload.type === "created" || payload.type === "deleted") {
         debouncedLoadProducts();
+
+        // If a product was deleted, remove it from the customer's cart
+        if (payload.type === "deleted" && payload.productId) {
+          const deletedId = String(payload.productId);
+          // Remove from cart DOM
+          const cartContainer = document.getElementById("cartItemsContainer");
+          if (cartContainer) {
+            const cartCards = cartContainer.querySelectorAll(`.cart-item-card[data-product-id="${deletedId}"]`);
+            cartCards.forEach((card) => card.remove());
+          }
+          // Remove from localStorage cart
+          try {
+            const customerInfoRaw = localStorage.getItem("customer_info");
+            const customerInfo = customerInfoRaw ? JSON.parse(customerInfoRaw) : null;
+            const cartKey = customerInfo?.id ? `fmrc_cart_items_${customerInfo.id}` : "fmrc_cart_items";
+            const cartRaw = localStorage.getItem(cartKey);
+            if (cartRaw) {
+              const cartItems = JSON.parse(cartRaw);
+              if (Array.isArray(cartItems)) {
+                const filtered = cartItems.filter((item) => String(item.product_id) !== deletedId);
+                if (filtered.length !== cartItems.length) {
+                  localStorage.setItem(cartKey, JSON.stringify(filtered));
+                  // Signal cart update
+                  localStorage.setItem("fmrc_cart_updated_at", JSON.stringify({ type: "updated", timestamp: Date.now() }));
+                }
+              }
+            }
+          } catch { /* ignore */ }
+        }
       }
     });
   }

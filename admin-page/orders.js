@@ -69,6 +69,20 @@ document.addEventListener("DOMContentLoaded", () => {
   const paymentsHistoryFooter = document.getElementById("paymentsHistoryFooter");
   const paymentsMethodFilter = document.getElementById("paymentsMethodFilter");
 
+  const walkInOrdersTbody = document.querySelector("#walkInOrdersTable tbody");
+  const walkInOrdersFooter = document.getElementById("walkInOrdersFooter");
+  const openWalkInOrderModalBtn = document.getElementById("openWalkInOrderModalBtn");
+  const modalAddWalkInOrder = document.getElementById("modalAddWalkInOrder");
+  const walkInOrderNoInput = document.getElementById("walkInOrderNoInput");
+  const walkInOrderItemInput = document.getElementById("walkInOrderItemInput");
+  const walkInDateInput = document.getElementById("walkInDateInput");
+  const walkInCustomerInput = document.getElementById("walkInCustomerInput");
+  const walkInPaymentMethodInput = document.getElementById("walkInPaymentMethodInput");
+  const walkInTotalInput = document.getElementById("walkInTotalInput");
+  const walkInStatusInput = document.getElementById("walkInStatusInput");
+  const cancelWalkInOrderBtn = document.getElementById("cancelWalkInOrderBtn");
+  const saveWalkInOrderBtn = document.getElementById("saveWalkInOrderBtn");
+
   const refreshBtn = document.getElementById("ordersRefreshBtn");
 
   const modalOrderDetails = document.getElementById("modalOrderDetails");
@@ -90,11 +104,13 @@ document.addEventListener("DOMContentLoaded", () => {
     incoming: [],
     directory: [],
     payments: [],
+    walkIn: [],
     ordersById: new Map(),
     incomingCardsPage: 1,
     incomingCompactPage: 1,
     directoryPage: 1,
     paymentsPage: 1,
+    walkInPage: 1,
     isSyncing: false,
     syncController: null,
     pollTimer: null,
@@ -152,6 +168,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const incomingCompactPager = getFooterControls(incomingCompactFooter);
   const directoryPager = getFooterControls(ordersDirectoryFooter);
   const paymentsPager = getFooterControls(paymentsHistoryFooter);
+  const walkInPager = getFooterControls(walkInOrdersFooter);
 
   const toTimestamp = (value) => {
     const ts = Date.parse(String(value || ""));
@@ -179,10 +196,20 @@ document.addEventListener("DOMContentLoaded", () => {
           toNumericId(b?.order_id || b?.order_no || b?.payment_id),
     );
 
+  const sortWalkInByDateDesc = (rows) =>
+    [...(Array.isArray(rows) ? rows : [])].sort(
+      (a, b) =>
+        toTimestamp(b?.order_date || b?.created_at) -
+          toTimestamp(a?.order_date || a?.created_at) ||
+        toNumericId(b?.id || b?.order_no) -
+          toNumericId(a?.id || a?.order_no),
+    );
+
   const normalizeStateOrdering = () => {
     state.incoming = sortOrdersByCreatedAsc(state.incoming);
     state.directory = sortOrdersByCreatedAsc(state.directory);
     state.payments = sortPaymentsByOrderAsc(state.payments);
+    state.walkIn = sortWalkInByDateDesc(state.walkIn);
   };
 
   const formatMoney = (amount) => {
@@ -727,11 +754,39 @@ document.addEventListener("DOMContentLoaded", () => {
       .forEach((select) => applyPaymentSelectStyle(select));
   };
 
+  const renderWalkInTable = () => {
+    state.walkInPage = renderPagedRows({
+      rows: state.walkIn,
+      tbody: walkInOrdersTbody,
+      colCount: 8,
+      footer: walkInOrdersFooter,
+      currentPage: state.walkInPage,
+      pageSize: 5,
+      emptyMessage: "No walk-in orders available.",
+      renderRow: (row) => `
+        <tr>
+          <td>${escapeHtml(row.order_no || "-")}</td>
+          <td>${escapeHtml(row.order_item || "-")}</td>
+          <td>${escapeHtml(row.order_date_label || formatDateLabel(row.order_date))}</td>
+          <td>${escapeHtml(row.customer || "-")}</td>
+          <td>${escapeHtml(row.payment_method || "-")}</td>
+          <td>${escapeHtml(row.total_label || formatMoney(row.total))}</td>
+          <td><span class="status-pill ${lifecycleClass(row.status || "pending")}">${escapeHtml(row.status || "Pending")}</span></td>
+          <td class="action-icons sticky-action">
+            <button data-tooltip="Edit Order" data-walkin-edit="${row.id}"><i class="fa-regular fa-pen-to-square"></i></button>
+            <button data-tooltip="Delete Order" data-walkin-delete="${row.id}"><i class="fa-regular fa-trash-can"></i></button>
+          </td>
+        </tr>
+      `,
+    });
+  };
+
   const renderAll = () => {
     renderIncomingCards();
     renderIncomingCompactTable();
     renderDirectoryTable();
     renderPaymentsTable();
+    renderWalkInTable();
   };
 
   const renderOrdersLoading = () => {
@@ -744,6 +799,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (paymentsHistoryTbody && (!paymentsHistoryTbody.children.length || paymentsHistoryTbody.querySelector(".table-empty-state"))) {
       paymentsHistoryTbody.innerHTML = createSkeletons(9);
+    }
+    if (walkInOrdersTbody && (!walkInOrdersTbody.children.length || walkInOrdersTbody.querySelector(".table-empty-state"))) {
+      walkInOrdersTbody.innerHTML = createSkeletons(8);
     }
   };
 
@@ -776,12 +834,19 @@ document.addEventListener("DOMContentLoaded", () => {
     if (source === "manual") renderOrdersLoading();
 
     try {
-      const response = await request("/admin/orders", {
-        signal: syncController.signal,
-      });
+      const [response, walkInResponse] = await Promise.all([
+        request("/admin/orders", {
+          signal: syncController.signal,
+        }),
+        request("/admin/walkin-orders", {
+          signal: syncController.signal,
+        }),
+      ]);
+
       state.incoming = Array.isArray(response.incoming) ? response.incoming : [];
       state.directory = Array.isArray(response.directory) ? response.directory : [];
       state.payments = Array.isArray(response.payments) ? response.payments : [];
+      state.walkIn = Array.isArray(walkInResponse?.data) ? walkInResponse.data : [];
       normalizeStateOrdering();
       mapOrderById();
       renderAll();
@@ -811,6 +876,7 @@ document.addEventListener("DOMContentLoaded", () => {
       renderEmptyTable(incomingCompactTbody, 7, "Unable to load incoming orders.");
       renderEmptyTable(ordersDirectoryTbody, 8, "Unable to load orders directory.");
       renderEmptyTable(paymentsHistoryTbody, 9, "Unable to load payments history.");
+      renderEmptyTable(walkInOrdersTbody, 8, "Unable to load walk-in orders.");
 
       if (incomingCardsWrap) {
         incomingCardsWrap.innerHTML = `
@@ -980,6 +1046,131 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const getCurrentDateTimeLocal = () => {
+    const now = new Date();
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 16);
+  };
+
+  let activeWalkInOrderId = null;
+
+  const resetWalkInOrderForm = () => {
+    activeWalkInOrderId = null;
+    const title = document.getElementById("walkInModalTitle");
+    if (title) title.textContent = "Add Walk-in Order";
+    if (saveWalkInOrderBtn) saveWalkInOrderBtn.innerText = "Save Walk-in Order";
+
+    if (walkInOrderNoInput) walkInOrderNoInput.value = "";
+    if (walkInOrderItemInput) walkInOrderItemInput.value = "";
+    if (walkInDateInput) walkInDateInput.value = getCurrentDateTimeLocal();
+    if (walkInCustomerInput) walkInCustomerInput.value = "";
+    if (walkInPaymentMethodInput) walkInPaymentMethodInput.value = "GCash";
+    if (walkInTotalInput) walkInTotalInput.value = "";
+    if (walkInStatusInput) walkInStatusInput.value = "Pending";
+  };
+
+  const openWalkInOrderModal = (order = null) => {
+    resetWalkInOrderForm();
+    if (order) {
+      activeWalkInOrderId = order.id;
+      const title = document.getElementById("walkInModalTitle");
+      if (title) title.textContent = "Edit Walk-in Order";
+      if (saveWalkInOrderBtn) saveWalkInOrderBtn.innerText = "Update Walk-in Order";
+
+      if (walkInOrderNoInput) walkInOrderNoInput.value = order.order_no || "";
+      if (walkInOrderItemInput) walkInOrderItemInput.value = order.order_item || "";
+      if (walkInDateInput && order.order_date) {
+        // Strip out the seconds to match datetime-local format
+        walkInDateInput.value = order.order_date.slice(0, 16);
+      }
+      if (walkInCustomerInput) walkInCustomerInput.value = order.customer || "";
+      if (walkInPaymentMethodInput) walkInPaymentMethodInput.value = order.payment_method || "GCash";
+      if (walkInTotalInput) walkInTotalInput.value = order.total || "";
+      if (walkInStatusInput) walkInStatusInput.value = order.status || "Pending";
+    }
+    modalAddWalkInOrder?.classList.add("show");
+  };
+
+  const closeWalkInOrderModal = () => {
+    modalAddWalkInOrder?.classList.remove("show");
+    activeWalkInOrderId = null;
+  };
+
+  const saveWalkInOrder = async () => {
+    const orderNo = String(walkInOrderNoInput?.value || "").trim();
+    const orderItem = String(walkInOrderItemInput?.value || "").trim();
+    const orderDate = String(walkInDateInput?.value || "").trim();
+    const customer = String(walkInCustomerInput?.value || "").trim();
+    const paymentMethod = String(walkInPaymentMethodInput?.value || "").trim();
+    const totalRaw = String(walkInTotalInput?.value || "").trim();
+    const status = String(walkInStatusInput?.value || "").trim();
+
+    if (!orderNo || !orderItem || !orderDate || !customer || !paymentMethod || !totalRaw || !status) {
+      showPopup("Please complete all walk-in order fields.", { title: "Validation" });
+      return;
+    }
+
+    const total = Number(totalRaw);
+    if (!Number.isFinite(total) || total < 0) {
+      showPopup("Total must be a valid number greater than or equal to 0.", { title: "Validation" });
+      return;
+    }
+
+    if (saveWalkInOrderBtn) {
+      saveWalkInOrderBtn.disabled = true;
+      saveWalkInOrderBtn.innerText = activeWalkInOrderId ? "Updating..." : "Saving...";
+    }
+
+    try {
+      const url = activeWalkInOrderId ? `/admin/walkin-orders/${activeWalkInOrderId}` : "/admin/walkin-orders";
+      const method = activeWalkInOrderId ? "PUT" : "POST";
+      
+      const payload = await request(url, {
+        method,
+        body: {
+          order_no: orderNo,
+          order_item: orderItem,
+          order_date: orderDate,
+          customer,
+          payment_method: paymentMethod,
+          total,
+          status,
+        },
+      });
+
+      if (payload?.data) {
+        state.walkIn = replaceOrAppendById(state.walkIn, payload.data, "id");
+        normalizeStateOrdering();
+        if (!activeWalkInOrderId) state.walkInPage = 1;
+        renderWalkInTable();
+      }
+
+      closeWalkInOrderModal();
+      showPopup(payload?.message || (activeWalkInOrderId ? "Walk-in order updated successfully." : "Walk-in order added successfully."), { title: "Success" });
+      notifyOrdersRealtimeUpdate({ type: activeWalkInOrderId ? "walkin-updated" : "walkin-created" });
+      void syncOrders(false, { force: true, source: "action" });
+    } catch (error) {
+      showPopup(error.message || (activeWalkInOrderId ? "Unable to update walk-in order." : "Unable to add walk-in order."), { title: "Save Failed" });
+    } finally {
+      if (saveWalkInOrderBtn) {
+        saveWalkInOrderBtn.disabled = false;
+        saveWalkInOrderBtn.innerText = activeWalkInOrderId ? "Update Walk-in Order" : "Save Walk-in Order";
+      }
+    }
+  };
+
+  openWalkInOrderModalBtn?.addEventListener("click", () => {
+    openWalkInOrderModal();
+  });
+
+  cancelWalkInOrderBtn?.addEventListener("click", () => {
+    closeWalkInOrderModal();
+  });
+
+  saveWalkInOrderBtn?.addEventListener("click", () => {
+    void saveWalkInOrder();
+  });
+
   incomingPrevBtn?.addEventListener("click", () => {
     if (state.incomingCardsPage <= 1) return;
     state.incomingCardsPage -= 1;
@@ -1030,6 +1221,19 @@ document.addEventListener("DOMContentLoaded", () => {
     if (state.paymentsPage >= totalPages) return;
     state.paymentsPage += 1;
     renderPaymentsTable();
+  });
+
+  walkInPager.prev?.addEventListener("click", () => {
+    if (state.walkInPage <= 1) return;
+    state.walkInPage -= 1;
+    renderWalkInTable();
+  });
+
+  walkInPager.next?.addEventListener("click", () => {
+    const totalPages = Math.max(1, Math.ceil(state.walkIn.length / 5));
+    if (state.walkInPage >= totalPages) return;
+    state.walkInPage += 1;
+    renderWalkInTable();
   });
 
   directoryStatusFilter?.addEventListener("change", () => {
@@ -1161,6 +1365,66 @@ document.addEventListener("DOMContentLoaded", () => {
       const orderId = String(deletePaymentBtn.getAttribute("data-payment-delete") || "");
       if (!orderId) return;
       void deletePayment(orderId);
+      return;
+    }
+
+    const editWalkInBtn = target.closest("[data-walkin-edit]");
+    if (editWalkInBtn) {
+      const id = editWalkInBtn.getAttribute("data-walkin-edit");
+      const order = state.walkIn.find(o => String(o.id) === String(id));
+      if (order) {
+        openWalkInOrderModal(order);
+      }
+      return;
+    }
+
+    const deleteWalkInBtn = target.closest("[data-walkin-delete]");
+    if (deleteWalkInBtn) {
+      const id = deleteWalkInBtn.getAttribute("data-walkin-delete");
+      const order = state.walkIn.find(o => String(o.id) === String(id));
+      if (order) {
+        const modalDelete = document.getElementById("modalDeleteWalkInOrder");
+        const label = document.getElementById("deleteWalkInOrderTargetLabel");
+        if (label) label.textContent = `#${order.order_no}`;
+        modalDelete?.classList.add("show");
+        
+        const confirmBtn = document.getElementById("btnConfirmWalkInOrderDelete");
+        const cancelBtn = document.getElementById("btnCancelDeleteWalkInOrder");
+        
+        const onCancel = () => {
+          modalDelete?.classList.remove("show");
+          cleanup();
+        };
+        
+        const onConfirm = async () => {
+          confirmBtn.disabled = true;
+          confirmBtn.textContent = "Deleting...";
+          try {
+            await request(`/admin/walkin-orders/${id}`, { method: "DELETE" });
+            state.walkIn = state.walkIn.filter(o => String(o.id) !== String(id));
+            renderWalkInTable();
+            modalDelete?.classList.remove("show");
+            showPopup("Walk-in order deleted successfully.", { title: "Deleted" });
+            notifyOrdersRealtimeUpdate({ type: "walkin-deleted" });
+            void syncOrders(false, { force: true, source: "action" });
+          } catch (error) {
+            showPopup(error.message || "Failed to delete walk-in order.", { title: "Error" });
+          } finally {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = "Delete Order";
+            cleanup();
+          }
+        };
+        
+        const cleanup = () => {
+          cancelBtn?.removeEventListener("click", onCancel);
+          confirmBtn?.removeEventListener("click", onConfirm);
+        };
+        
+        cancelBtn?.addEventListener("click", onCancel);
+        confirmBtn?.addEventListener("click", onConfirm);
+      }
+      return;
     }
   });
 

@@ -11,6 +11,9 @@ use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\SiteSettingController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\ProductAnalyticsController;
+use App\Http\Controllers\Api\WalkInOrderController;
+use App\Http\Controllers\Api\InventoryItemController;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
@@ -57,6 +60,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/admin/orders/{order}/payment', [OrderController::class, 'adminDestroyPayment']);
     Route::delete('/admin/orders/{order}', [OrderController::class, 'adminDestroy']);
 
+    Route::get('/admin/walkin-orders', [WalkInOrderController::class, 'index']);
+    Route::post('/admin/walkin-orders', [WalkInOrderController::class, 'store']);
+    Route::put('/admin/walkin-orders/{id}', [WalkInOrderController::class, 'update']);
+    Route::delete('/admin/walkin-orders/{id}', [WalkInOrderController::class, 'destroy']);
+
     // Admin: Products CRUD
     Route::get('/admin/products', [ProductController::class, 'adminIndex']);
     Route::post('/admin/products', [ProductController::class, 'store']);
@@ -84,4 +92,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/admin/notifications/{notification}/read', [NotificationController::class, 'markRead']);
     Route::post('/admin/notifications/mark-all-read', [NotificationController::class, 'markAllRead']);
     Route::delete('/admin/notifications/{notification}', [NotificationController::class, 'destroy']);
+
+    // Admin: Product Analytics (real-time order-based)
+    Route::get('/admin/product-analytics/top-selling', [ProductAnalyticsController::class, 'topSelling']);
+    Route::get('/admin/product-analytics/sales-by-category', [ProductAnalyticsController::class, 'salesByCategory']);
+    Route::get('/admin/product-analytics/product-performance', [ProductAnalyticsController::class, 'productPerformance']);
+    Route::get('/admin/product-analytics/yearly-sales-trend', [ProductAnalyticsController::class, 'yearlySalesTrend']);
+
+    // Admin: Inventory CRUD
+    Route::get('/admin/inventory', [InventoryItemController::class, 'index']);
+    Route::post('/admin/inventory', [InventoryItemController::class, 'store']);
+    Route::put('/admin/inventory/{id}', [InventoryItemController::class, 'update']);
+    Route::delete('/admin/inventory/{id}', [InventoryItemController::class, 'destroy']);
 });

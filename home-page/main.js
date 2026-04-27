@@ -799,8 +799,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const getCategoryFromName = (name) => {
       const normalized = name.toLowerCase();
       if (normalized.includes("laser")) return "laser";
-      if (normalized.includes("heat press") || normalized.includes("shirt"))
-        return "apparel";
+      if (normalized.includes("cnc")) return "cnc";
       return "3dprint";
     };
 
@@ -1061,7 +1060,21 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentItemPrice = 0;
   let currentMaxStock = Infinity;
   let currentProductId = null;
+  let currentCheckoutMode = "single";
+  let currentCheckoutItems = [];
+  let isCheckoutQtyLocked = false;
   let protectionFee = 5.0;
+
+  const setCheckoutQtyLock = (locked) => {
+    isCheckoutQtyLocked = Boolean(locked);
+    if (btnMinusQty) btnMinusQty.disabled = isCheckoutQtyLocked;
+    if (btnPlusQty) btnPlusQty.disabled = isCheckoutQtyLocked;
+  };
+
+  const setCheckoutStockNotice = (value) => {
+    if (!checkoutMaxStock) return;
+    checkoutMaxStock.innerText = String(value || "0");
+  };
 
   function parsePrice(priceStr) {
     return parseFloat(priceStr.replace(/[^0-9.-]+/g, ""));
@@ -1094,6 +1107,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (btnMinusQty && btnPlusQty && inputQty) {
     btnMinusQty.addEventListener("click", () => {
+      if (isCheckoutQtyLocked) {
+        void showCustomerPopup("Edit quantities directly in your cart for cart checkout.", {
+          title: "Quantity Locked",
+        });
+        return;
+      }
+
       let currentVal = parseInt(inputQty.value);
       if (currentVal > 1) {
         inputQty.value = currentVal - 1;
@@ -1101,6 +1121,13 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
     btnPlusQty.addEventListener("click", () => {
+      if (isCheckoutQtyLocked) {
+        void showCustomerPopup("Edit quantities directly in your cart for cart checkout.", {
+          title: "Quantity Locked",
+        });
+        return;
+      }
+
       let currentVal = parseInt(inputQty.value);
       if (currentVal < currentMaxStock) {
         inputQty.value = currentVal + 1;
@@ -1132,12 +1159,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const priceStr = card.querySelector(".product-price").innerText;
         const stockText = card.querySelector(".stock-text").innerText;
 
+        currentCheckoutMode = "single";
+        currentCheckoutItems = [];
+        setCheckoutQtyLock(false);
+        currentProductId = Number(card.getAttribute("data-product-id") || "") || null;
+
         if (stockText.toLowerCase().includes("unlimited")) {
           currentMaxStock = 9999;
-          if (checkoutMaxStock) checkoutMaxStock.innerText = "Unlimited";
+          setCheckoutStockNotice("Unlimited");
         } else {
-          currentMaxStock = parseInt(stockText.replace(/[^0-9]/g, ""));
-          if (checkoutMaxStock) checkoutMaxStock.innerText = currentMaxStock;
+          currentMaxStock = Math.max(0, parseInt(stockText.replace(/[^0-9]/g, ""), 10) || 0);
+          setCheckoutStockNotice(currentMaxStock);
         }
 
         currentItemPrice = parsePrice(priceStr);
@@ -1172,9 +1204,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const imgScr = product.image_data || "/images/FMRC Logo.png";
     const title = String(product.name || "");
     const unitPrice = Number.isFinite(Number(product.price)) ? Number(product.price) : 0;
-    
-    currentMaxStock = product.stock_status === "in_stock" ? Number(product.stock) : 0;
-    if (checkoutMaxStock) checkoutMaxStock.innerText = currentMaxStock === 0 ? "Out of Stock" : currentMaxStock;
+
+    currentCheckoutMode = "single";
+    currentCheckoutItems = [];
+    setCheckoutQtyLock(false);
+    currentMaxStock = product.stock_status === "in_stock" ? Math.max(0, Number(product.stock) || 0) : 0;
+    setCheckoutStockNotice(currentMaxStock === 0 ? "Out of Stock" : currentMaxStock);
 
     currentItemPrice = unitPrice;
     currentProductId = product.id || null;
@@ -1201,6 +1236,9 @@ document.addEventListener("DOMContentLoaded", () => {
     closeCheckoutBtn.addEventListener("click", () => {
       checkoutModal.classList.remove("show-modal");
       document.body.style.overflow = "auto";
+      currentCheckoutMode = "single";
+      currentCheckoutItems = [];
+      setCheckoutQtyLock(false);
     });
   }
 
@@ -2152,9 +2190,32 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      const quantity = Math.max(1, Number.parseInt(inputQty?.value || "1", 10) || 1);
+      const useCartCheckout =
+        currentCheckoutMode === "cart" &&
+        Array.isArray(currentCheckoutItems) &&
+        currentCheckoutItems.length > 0;
+
+      const quantity = useCartCheckout
+        ? currentCheckoutItems.reduce(
+            (sum, item) => sum + Math.max(1, Number.parseInt(item?.quantity || "1", 10) || 1),
+            0,
+          )
+        : Math.max(1, Number.parseInt(inputQty?.value || "1", 10) || 1);
+
       const totalText = checkoutGrandTotal?.innerText || checkoutPrice?.innerText || "₱0.00";
-      const totalAmount = Number.isFinite(parsePrice(totalText)) ? parsePrice(totalText) : 0;
+      const parsedDisplayedTotal = Number.isFinite(parsePrice(totalText)) ? parsePrice(totalText) : 0;
+      const totalAmount = useCartCheckout
+        ? currentCheckoutItems.reduce((sum, item) => {
+            const qty = Math.max(1, Number.parseInt(item?.quantity || "1", 10) || 1);
+            const lineTotal = Number(item?.line_total);
+            if (Number.isFinite(lineTotal) && lineTotal >= 0) {
+              return sum + lineTotal;
+            }
+            const unitPrice = Number(item?.unit_price || 0);
+            return sum + (Number.isFinite(unitPrice) ? unitPrice * qty : 0);
+          }, 0)
+        : parsedDisplayedTotal;
+
       const originalText = this.innerText;
       this.disabled = true;
       this.innerText = "Processing...";
@@ -2175,29 +2236,74 @@ document.addEventListener("DOMContentLoaded", () => {
           .filter(Boolean)
           .join(" | ");
 
-        const payload = {
-          product_id: currentProductId,
-          product_name: checkoutTitle?.innerText?.trim() || "Custom Order",
-          product_image: checkoutImg?.src || "/images/FMRC Logo.png",
-          quantity,
-          unit_price: Number.isFinite(currentItemPrice) ? Number(currentItemPrice) : 0,
-          total_amount: totalAmount,
+        const customerName =
+          selectedAddress.name ||
+          customerCheckoutProfile?.name ||
+          customerSession.userInfo?.name ||
+          customerSession.userInfo?.username ||
+          customerSession.userInfo?.email ||
+          "Customer";
+
+        const customerContact = contactNumber
+          ? `+63${contactNumber}`
+          : customerSession.userInfo?.email || "N/A";
+
+        const basePayload = {
           payment_method: paymentMethod,
-          customer_name:
-            selectedAddress.name ||
-            customerCheckoutProfile?.name ||
-            customerSession.userInfo?.name ||
-            customerSession.userInfo?.username ||
-            customerSession.userInfo?.email ||
-            "Customer",
-          customer_contact:
-            contactNumber
-              ? `+63${contactNumber}`
-              : customerSession.userInfo?.email || "N/A",
+          customer_name: customerName,
+          customer_contact: customerContact,
           notes: orderNotes,
           location_name: selectedAddress.address_line || customerCheckoutProfile?.address_line || null,
           courier_name: "J&T Express",
         };
+
+        let payload;
+
+        if (useCartCheckout) {
+          const items = currentCheckoutItems.map((item) => {
+            const lineQty = Math.max(1, Number.parseInt(item?.quantity || "1", 10) || 1);
+            const lineUnitPrice = Number.isFinite(Number(item?.unit_price)) ? Number(item.unit_price) : 0;
+            const lineTotal = Number.isFinite(Number(item?.line_total))
+              ? Number(item.line_total)
+              : lineUnitPrice * lineQty;
+
+            return {
+              product_id: item?.product_id ?? null,
+              product_name: String(item?.product_name || "Custom Order"),
+              product_image: String(item?.product_image || "/images/FMRC Logo.png"),
+              quantity: lineQty,
+              unit_price: lineUnitPrice,
+              line_total: lineTotal,
+            };
+          });
+
+          const firstItem = items[0] || {};
+          const summaryName =
+            items.length > 1
+              ? `${firstItem.product_name || "Custom Order"} (+${items.length - 1} more)`
+              : firstItem.product_name || "Custom Order";
+
+          payload = {
+            ...basePayload,
+            product_id: firstItem.product_id ?? null,
+            product_name: summaryName,
+            product_image: firstItem.product_image || checkoutImg?.src || "/images/FMRC Logo.png",
+            quantity,
+            unit_price: quantity > 0 ? Number((totalAmount / quantity).toFixed(2)) : 0,
+            total_amount: totalAmount,
+            items,
+          };
+        } else {
+          payload = {
+            ...basePayload,
+            product_id: currentProductId,
+            product_name: checkoutTitle?.innerText?.trim() || "Custom Order",
+            product_image: checkoutImg?.src || "/images/FMRC Logo.png",
+            quantity,
+            unit_price: Number.isFinite(currentItemPrice) ? Number(currentItemPrice) : 0,
+            total_amount: totalAmount,
+          };
+        }
 
         const response = await fetchWithTimeout(`${API_BASE_URL}/orders`, {
           method: "POST",
@@ -2219,6 +2325,19 @@ document.addEventListener("DOMContentLoaded", () => {
           title: "Success",
         });
         emitCustomerOrdersUpdated({ type: "created", orderId: data?.data?.id || null });
+
+        if (useCartCheckout && cartItemsContainer) {
+          const checkedCartInputs = cartItemsContainer.querySelectorAll(".cart-item-check:checked");
+          checkedCartInputs.forEach((checkedInput) => {
+            checkedInput.closest(".cart-item-card")?.remove();
+          });
+          updateCartTotals();
+          await persistCartItems();
+        }
+
+        currentCheckoutMode = "single";
+        currentCheckoutItems = [];
+        setCheckoutQtyLock(false);
 
         checkoutModal.classList.remove("show-modal");
         document.body.style.overflow = "";
@@ -2720,39 +2839,171 @@ document.addEventListener("DOMContentLoaded", () => {
     "cartCheckoutSubmitBtn",
   );
   if (cartCheckoutSubmitBtn) {
-    cartCheckoutSubmitBtn.addEventListener("click", () => {
+    cartCheckoutSubmitBtn.addEventListener("click", async () => {
       if (!requireCustomerAuth("buy products")) return;
       if (!isGuestUser) {
         void fetchCustomerCheckoutProfile();
       }
 
-      const checkedItems = cartItemsContainer.querySelectorAll(
-        ".cart-item-check:checked",
+      const checkedInputs = Array.from(
+        cartItemsContainer?.querySelectorAll(".cart-item-check:checked") || [],
       );
-      if (checkedItems.length === 0) {
+      if (!checkedInputs.length) {
         void showCustomerPopup("Please select an item to checkout.", {
           title: "Validation",
         });
         return;
       }
 
-      const firstItem = checkedItems[0].closest(".cart-item-card");
-      const title = firstItem.querySelector("h4").innerText;
-      const priceVal = document.getElementById("cartTotalPrice").innerText;
+      const selectedItems = checkedInputs
+        .map((inputEl) => {
+          const card = inputEl.closest(".cart-item-card");
+          if (!card) return null;
 
-      // Set currentProductId from the cart item for proper stock deduction
-      currentProductId = firstItem.dataset.productId ? Number(firstItem.dataset.productId) : null;
+          const qtyInput = card.querySelector(".c-qty-input");
+          const priceEl = card.querySelector(".c-price");
+          const title = card.querySelector("h4")?.innerText || "Custom Order";
+          const image = card.querySelector("img")?.getAttribute("src") || "/images/FMRC Logo.png";
+          const qty = Math.max(1, parseInt(qtyInput?.value || "1", 10) || 1);
+          const price = parseFloat(priceEl?.dataset?.price || "0");
 
-      if (checkoutImg) checkoutImg.src = firstItem.querySelector("img").src;
-      if (checkoutTitle)
+          return {
+            product_id: card.dataset.productId ? Number(card.dataset.productId) : null,
+            product_name: title,
+            product_image: image,
+            quantity: qty,
+            unit_price: Number.isFinite(price) ? price : 0,
+          };
+        })
+        .filter(Boolean);
+
+      if (!selectedItems.length) {
+        void showCustomerPopup("Please select at least one valid cart item.", {
+          title: "Validation",
+        });
+        return;
+      }
+
+      const productIds = selectedItems
+        .map((item) => Number(item.product_id || 0))
+        .filter((id) => Number.isFinite(id) && id > 0);
+
+      const liveStocks = new Map();
+      if (productIds.length > 0) {
+        try {
+          const stockRes = await fetchWithTimeout(`${API_BASE_URL}/products`, {
+            headers: {
+              Accept: "application/json",
+            },
+          });
+
+          if (!stockRes.ok) {
+            throw new Error("Unable to refresh product stock. Please try again.");
+          }
+
+          const stockPayload = await stockRes.json().catch(() => ({}));
+          const products = Array.isArray(stockPayload?.data) ? stockPayload.data : [];
+          products.forEach((product) => {
+            const stockQty = product?.stock_status === "in_stock"
+              ? Math.max(0, Number(product?.stock || 0))
+              : 0;
+            liveStocks.set(Number(product?.id || 0), stockQty);
+          });
+        } catch (error) {
+          void showCustomerPopup(error?.message || "Unable to verify stocks right now.", {
+            title: "Stock Check Failed",
+          });
+          return;
+        }
+      }
+
+      const validatedItems = [];
+      for (const item of selectedItems) {
+        const productId = Number(item.product_id || 0);
+        if (productId > 0) {
+          if (!liveStocks.has(productId)) {
+            void showCustomerPopup(
+              `Product \"${item.product_name}\" is no longer available. Please update your cart.`,
+              { title: "Product Unavailable" },
+            );
+            return;
+          }
+
+          const availableStock = Math.max(0, Number(liveStocks.get(productId) || 0));
+          if (availableStock <= 0) {
+            void showCustomerPopup(
+              `\"${item.product_name}\" is now out of stock.`,
+              { title: "Out of Stock" },
+            );
+            return;
+          }
+
+          if (item.quantity > availableStock) {
+            void showCustomerPopup(
+              `Only ${availableStock} stock(s) left for \"${item.product_name}\". Please reduce quantity in cart.`,
+              { title: "Stock Limit" },
+            );
+            return;
+          }
+
+          validatedItems.push({
+            ...item,
+            max_stock: availableStock,
+            line_total: item.unit_price * item.quantity,
+          });
+          continue;
+        }
+
+        validatedItems.push({
+          ...item,
+          max_stock: null,
+          line_total: item.unit_price * item.quantity,
+        });
+      }
+
+      const firstItem = validatedItems[0];
+      const totalQty = validatedItems.reduce((sum, item) => sum + item.quantity, 0);
+      const totalAmount = validatedItems.reduce((sum, item) => sum + item.line_total, 0);
+
+      currentCheckoutMode = "cart";
+      currentCheckoutItems = validatedItems;
+      currentProductId = firstItem?.product_id ?? null;
+      currentItemPrice = totalQty > 0 ? totalAmount / totalQty : 0;
+
+      if (checkoutImg) checkoutImg.src = firstItem?.product_image || "/images/FMRC Logo.png";
+      if (checkoutTitle) {
         checkoutTitle.innerText =
-          checkedItems.length > 1
-            ? `${title} (+${checkedItems.length - 1} more)`
-            : title;
-      if (checkoutPrice) checkoutPrice.innerText = priceVal;
+          validatedItems.length > 1
+            ? `${firstItem?.product_name || "Custom Order"} (+${validatedItems.length - 1} more)`
+            : firstItem?.product_name || "Custom Order";
+      }
+      if (checkoutPrice) {
+        checkoutPrice.innerText = formatPrice(currentItemPrice);
+      }
 
-      inputQty.value = 1;
-      currentItemPrice = parsePrice(priceVal);
+      if (guideImg) guideImg.src = firstItem?.product_image || "/images/FMRC Logo.png";
+      if (guideTitle) {
+        guideTitle.innerText =
+          validatedItems.length > 1
+            ? `${firstItem?.product_name || "Custom Order"} (+${validatedItems.length - 1} more)`
+            : firstItem?.product_name || "Custom Order";
+      }
+
+      if (validatedItems.length === 1 && Number.isFinite(Number(firstItem?.max_stock))) {
+        currentMaxStock = Math.max(0, Number(firstItem.max_stock));
+        setCheckoutStockNotice(currentMaxStock === 0 ? "Out of Stock" : currentMaxStock);
+      } else {
+        currentMaxStock = 9999;
+        setCheckoutStockNotice(`Multiple products (${validatedItems.length})`);
+      }
+
+      if (inputQty) {
+        inputQty.value = String(totalQty);
+        inputQty.max = String(totalQty);
+      }
+
+      setCheckoutQtyLock(true);
+      if (protectionCheck) protectionCheck.checked = false;
       updateCheckoutMath();
 
       cartModal.classList.remove("show-modal");

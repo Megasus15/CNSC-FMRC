@@ -395,32 +395,59 @@ document.addEventListener("DOMContentLoaded", () => {
     "#db2777", "#ea580c", "#0d9488", "#6366f1", "#94a3b8",
   ];
 
-  const updateSummaryCards = () => {
-    if (!products.length) return;
+  // ── Populate year dropdown for Yearly Sales Trend ──
+  const yearDropdown = document.getElementById("yearlySalesTrendYear");
+  if (yearDropdown) {
+    const currentYear = new Date().getFullYear();
+    yearDropdown.innerHTML = "";
+    for (let y = currentYear; y >= currentYear - 5; y--) {
+      const opt = document.createElement("option");
+      opt.value = y;
+      opt.textContent = `Year ${y}`;
+      if (y === currentYear) opt.selected = true;
+      yearDropdown.appendChild(opt);
+    }
+  }
 
-    // ── 1. Top Selling Products (horizontal bar — sorted by stock as proxy) ──
-    const sorted = [...products]
-      .filter((p) => !p.is_blocked)
-      .sort((a, b) => (b.stock || 0) - (a.stock || 0))
-      .slice(0, 6);
-
+  // ── 1. Top Selling Products (vertical bar, from API) ──
+  const loadTopSelling = async (period = "month") => {
     const topCtx = document.getElementById("topSellingChart");
-    if (topCtx) {
+    const emptyEl = document.getElementById("topSellingEmpty");
+    if (!topCtx) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/product-analytics/top-selling?period=${period}`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      });
+      if (res.status === 401 || res.status === 403) { setUnauthorized(); return; }
+      const payload = await res.json();
+      const data = Array.isArray(payload?.data) ? payload.data : [];
+
       if (chartTopSelling) chartTopSelling.destroy();
+
+      if (!data.length) {
+        topCtx.style.display = "none";
+        if (emptyEl) emptyEl.style.display = "flex";
+        return;
+      }
+
+      topCtx.style.display = "";
+      if (emptyEl) emptyEl.style.display = "none";
+
       chartTopSelling = new Chart(topCtx, {
         type: "bar",
         data: {
-          labels: sorted.map((p) => p.name?.length > 18 ? p.name.slice(0, 18) + "..." : p.name),
+          labels: data.map((p) => p.name?.length > 18 ? p.name.slice(0, 18) + "..." : p.name),
           datasets: [{
-            label: "Stock Qty",
-            data: sorted.map((p) => p.stock || 0),
-            backgroundColor: sorted.map((_, i) => CHART_PALETTE[i % CHART_PALETTE.length]),
+            label: "Qty Sold",
+            data: data.map((p) => p.total_sold),
+            backgroundColor: data.map((_, i) => CHART_PALETTE[i % CHART_PALETTE.length]),
             borderRadius: 6,
             barThickness: 22,
           }],
         },
         options: {
-          indexAxis: "y",
+          indexAxis: "x",
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
@@ -435,38 +462,112 @@ document.addEventListener("DOMContentLoaded", () => {
           },
           scales: {
             x: {
-              grid: { color: "#f3f4f6" },
-              ticks: { font: { family: "Poppins", size: 11 }, color: "#6b7280" },
+              grid: { display: false },
+              ticks: { font: { family: "Poppins", size: 10 }, color: "#374151", maxRotation: 45, minRotation: 0 },
             },
             y: {
-              grid: { display: false },
-              ticks: { font: { family: "Poppins", size: 11, weight: 600 }, color: "#374151" },
+              grid: { color: "#f3f4f6" },
+              ticks: { font: { family: "Poppins", size: 11 }, color: "#6b7280", beginAtZero: true },
             },
           },
         },
       });
+    } catch (err) {
+      console.error("Top selling load error:", err);
+      topCtx.style.display = "none";
+      if (emptyEl) emptyEl.style.display = "flex";
     }
+  };
 
-    // ── 2. Sales by Category (doughnut) ──────────────────────────────────────
-    const categoryMap = {};
-    products.forEach((p) => {
-      const cat = p.category || "Uncategorized";
-      categoryMap[cat] = (categoryMap[cat] || 0) + (p.stock || 0);
-    });
+  // Period dropdown listener
+  const topSellingPeriod = document.getElementById("topSellingPeriod");
+  topSellingPeriod?.addEventListener("change", () => {
+    void loadTopSelling(topSellingPeriod.value);
+  });
 
-    const catLabels = Object.keys(categoryMap);
-    const catValues = Object.values(categoryMap);
-
+  // ── 2. Sales by Category (doughnut, from API) ──
+  const loadSalesByCategory = async () => {
     const catCtx = document.getElementById("salesByCategoryChart");
-    if (catCtx) {
+    const emptyEl = document.getElementById("salesByCategoryEmpty");
+    const layoutEl = document.getElementById("salesByCategoryLayout");
+    const listEl = document.getElementById("salesByCategoryList");
+    const centerMetricEl = document.getElementById("salesCategoryCenterMetric");
+    const centerPercentEl = document.getElementById("salesCategoryCenterPercent");
+    const centerLabelEl = document.getElementById("salesCategoryCenterLabel");
+    if (!catCtx) return;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/product-analytics/sales-by-category`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      });
+      if (res.status === 401 || res.status === 403) { setUnauthorized(); return; }
+      const payload = await res.json();
+      const data = Array.isArray(payload?.data) ? payload.data : [];
+
       if (chartSalesByCategory) chartSalesByCategory.destroy();
+
+      if (!data.length) {
+        catCtx.style.display = "none";
+        if (layoutEl) layoutEl.style.display = "none";
+        if (listEl) listEl.innerHTML = "";
+        if (centerMetricEl) centerMetricEl.style.display = "none";
+        if (emptyEl) emptyEl.style.display = "flex";
+        return;
+      }
+
+      catCtx.style.display = "";
+      if (layoutEl) layoutEl.style.display = "flex";
+      if (centerMetricEl) centerMetricEl.style.display = "flex";
+      if (emptyEl) emptyEl.style.display = "none";
+
+      const sorted = [...data].sort((a, b) => Number(b.total_revenue || 0) - Number(a.total_revenue || 0));
+      const totalRevenue = sorted.reduce((sum, item) => sum + Number(item.total_revenue || 0), 0);
+
+      const mapped = sorted.map((item, index) => {
+        const revenue = Number(item.total_revenue || 0);
+        const percentage = totalRevenue > 0 ? (revenue / totalRevenue) * 100 : 0;
+
+        return {
+          category: item.category || "Uncategorized",
+          total_revenue: revenue,
+          total_sold: Number(item.total_sold || 0),
+          percentage,
+          color: CHART_PALETTE[index % CHART_PALETTE.length],
+        };
+      });
+
+      const topCategory = mapped[0] || null;
+      if (centerPercentEl) {
+        centerPercentEl.textContent = `${(topCategory?.percentage || 0).toFixed(1)}%`;
+      }
+      if (centerLabelEl) {
+        centerLabelEl.textContent = topCategory?.category
+          ? `Top: ${topCategory.category}`
+          : "Top share";
+      }
+
+      if (listEl) {
+        listEl.innerHTML = mapped.map((item) => `
+          <li class="sales-category-item">
+            <div class="sales-category-item-left">
+              <span class="sales-category-dot" style="background:${item.color}"></span>
+              <span class="sales-category-name">${escHtml(item.category)}</span>
+            </div>
+            <div class="sales-category-metrics">
+              <strong>${formatPrice(item.total_revenue)}</strong>
+              <span>${item.percentage.toFixed(1)}% • ${item.total_sold} sold</span>
+            </div>
+          </li>
+        `).join("");
+      }
+
       chartSalesByCategory = new Chart(catCtx, {
         type: "doughnut",
         data: {
-          labels: catLabels,
+          labels: mapped.map((d) => d.category),
           datasets: [{
-            data: catValues,
-            backgroundColor: catLabels.map((_, i) => CHART_PALETTE[i % CHART_PALETTE.length]),
+            data: mapped.map((d) => d.total_revenue),
+            backgroundColor: mapped.map((d) => d.color),
             borderWidth: 2,
             borderColor: "#fff",
             hoverOffset: 8,
@@ -477,102 +578,124 @@ document.addEventListener("DOMContentLoaded", () => {
           maintainAspectRatio: false,
           cutout: "62%",
           plugins: {
-            legend: {
-              position: "right",
-              labels: {
-                font: { family: "Poppins", size: 11 },
-                color: "#374151",
-                padding: 14,
-                usePointStyle: true,
-                pointStyleWidth: 10,
-              },
-            },
+            legend: { display: false },
             tooltip: {
               backgroundColor: "#1a1a2e",
               titleFont: { family: "Poppins", size: 12 },
               bodyFont: { family: "Poppins", size: 11 },
               padding: 10,
               cornerRadius: 8,
+              callbacks: {
+                label: (ctx) => {
+                  const val = ctx.parsed || 0;
+                  const share = totalRevenue > 0 ? (val / totalRevenue) * 100 : 0;
+                  return `${ctx.label}: ₱${val.toLocaleString("en-PH", { minimumFractionDigits: 2 })} (${share.toFixed(1)}%)`;
+                },
+              },
             },
           },
         },
       });
+    } catch (err) {
+      console.error("Sales by category load error:", err);
+      catCtx.style.display = "none";
+      if (layoutEl) layoutEl.style.display = "none";
+      if (listEl) listEl.innerHTML = "";
+      if (centerMetricEl) centerMetricEl.style.display = "none";
+      if (emptyEl) emptyEl.style.display = "flex";
     }
+  };
 
-    // ── 3. Product Performance Table ─────────────────────────────────────────
+  // ── 3. Product Performance Table (from API) ──
+  const loadProductPerformance = async () => {
     const perfBody = document.getElementById("productPerformanceBody");
-    if (perfBody) {
-      const perfProducts = [...products]
-        .sort((a, b) => (b.stock || 0) - (a.stock || 0))
-        .slice(0, 10);
+    const emptyEl = document.getElementById("productPerformanceEmpty");
+    const tableEl = document.getElementById("productPerformanceTable");
+    if (!perfBody) return;
 
-      perfBody.innerHTML = perfProducts.map((p) => {
-        let statusClass = "perf-status--high";
-        let statusLabel = "In Stock";
-        if (p.is_blocked) {
-          statusClass = "perf-status--out";
-          statusLabel = "Blocked";
-        } else if ((p.stock || 0) === 0) {
-          statusClass = "perf-status--out";
-          statusLabel = "Out of Stock";
-        } else if ((p.stock || 0) < 5) {
-          statusClass = "perf-status--low";
-          statusLabel = "Low Stock";
-        } else if ((p.stock || 0) >= 50) {
-          statusClass = "perf-status--top";
-          statusLabel = "Top Seller";
-        }
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/product-analytics/product-performance`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      });
+      if (res.status === 401 || res.status === 403) { setUnauthorized(); return; }
+      const payload = await res.json();
+      const data = Array.isArray(payload?.data) ? payload.data : [];
 
-        const price = parseFloat(p.price || 0).toLocaleString("en-PH", {
+      if (!data.length) {
+        perfBody.innerHTML = "";
+        if (tableEl) tableEl.style.display = "none";
+        if (emptyEl) emptyEl.style.display = "flex";
+        return;
+      }
+
+      if (tableEl) tableEl.style.display = "";
+      if (emptyEl) emptyEl.style.display = "none";
+
+      perfBody.innerHTML = data.map((p) => {
+        let statusClass = "perf-status--low";
+        let statusLabel = p.status || "Low";
+        if (p.status_class === "top") statusClass = "perf-status--top";
+        else if (p.status_class === "high") statusClass = "perf-status--high";
+
+        const revenue = parseFloat(p.total_revenue || 0).toLocaleString("en-PH", {
           style: "currency",
           currency: "PHP",
         });
 
         return `<tr>
           <td>${p.product_code || "N/A"}</td>
-          <td>${p.name || "Unnamed"}</td>
+          <td>${p.product_name || "Unnamed"}</td>
           <td>${p.category || "N/A"}</td>
-          <td>${p.stock ?? 0}</td>
-          <td>${price}</td>
+          <td>${p.total_sold ?? 0}</td>
+          <td>${revenue}</td>
           <td><span class="perf-status ${statusClass}">${statusLabel}</span></td>
         </tr>`;
       }).join("");
+    } catch (err) {
+      console.error("Product performance load error:", err);
+      perfBody.innerHTML = "";
+      if (tableEl) tableEl.style.display = "none";
+      if (emptyEl) emptyEl.style.display = "flex";
     }
+  };
 
-    // ── 4. Yearly Sales Trend (line chart — monthly stock*price value) ───────
-    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    const now = new Date();
-    const currentMonth = now.getMonth();
-
-    // Build monthly data from product created_at dates as proxy for sales activity
-    const monthlyValues = new Array(12).fill(0);
-    products.forEach((p) => {
-      const created = p.created_at ? new Date(p.created_at) : null;
-      if (created && created.getFullYear() === now.getFullYear()) {
-        monthlyValues[created.getMonth()] += (p.stock || 0) * (parseFloat(p.price) || 0);
-      }
-    });
-
-    // If no created_at data, distribute total evenly up to current month
-    const hasTimeData = monthlyValues.some((v) => v > 0);
-    if (!hasTimeData) {
-      const totalValue = products.reduce((sum, p) => sum + ((p.stock || 0) * (parseFloat(p.price) || 0)), 0);
-      const monthsElapsed = currentMonth + 1;
-      for (let i = 0; i <= currentMonth; i++) {
-        monthlyValues[i] = Math.round(totalValue / monthsElapsed * (0.7 + Math.random() * 0.6));
-      }
-    }
-
+  // ── 4. Yearly Sales Trend (line chart, from API) ──
+  const loadYearlySalesTrend = async (year) => {
     const trendCtx = document.getElementById("yearlySalesTrendChart");
-    if (trendCtx) {
+    const emptyEl = document.getElementById("yearlySalesTrendEmpty");
+    if (!trendCtx) return;
+
+    const selectedYear = year || new Date().getFullYear();
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/product-analytics/yearly-sales-trend?year=${selectedYear}`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      });
+      if (res.status === 401 || res.status === 403) { setUnauthorized(); return; }
+      const payload = await res.json();
+      const monthsData = Array.isArray(payload?.data) ? payload.data : [];
+      const hasData = payload?.has_data ?? false;
+
       if (chartYearlyTrend) chartYearlyTrend.destroy();
+
+      if (!hasData) {
+        trendCtx.style.display = "none";
+        if (emptyEl) emptyEl.style.display = "flex";
+        return;
+      }
+
+      trendCtx.style.display = "";
+      if (emptyEl) emptyEl.style.display = "none";
+
+      const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
       chartYearlyTrend = new Chart(trendCtx, {
         type: "line",
         data: {
           labels: months,
           datasets: [{
-            label: "Product Value (PHP)",
-            data: monthlyValues,
+            label: "Total Sales (PHP)",
+            data: monthsData.map((m) => m.total_sales),
             borderColor: "#800000",
             backgroundColor: "rgba(128,0,0,0.08)",
             fill: true,
@@ -598,7 +721,7 @@ document.addEventListener("DOMContentLoaded", () => {
               callbacks: {
                 label: (ctx) => {
                   const val = ctx.parsed.y || 0;
-                  return "PHP " + val.toLocaleString("en-PH", { minimumFractionDigits: 2 });
+                  return "₱" + val.toLocaleString("en-PH", { minimumFractionDigits: 2 });
                 },
               },
             },
@@ -613,13 +736,30 @@ document.addEventListener("DOMContentLoaded", () => {
               ticks: {
                 font: { family: "Poppins", size: 10 },
                 color: "#6b7280",
-                callback: (value) => "PHP " + (value / 1000).toFixed(0) + "k",
+                callback: (value) => "₱" + (value / 1000).toFixed(0) + "k",
               },
             },
           },
         },
       });
+    } catch (err) {
+      console.error("Yearly sales trend load error:", err);
+      trendCtx.style.display = "none";
+      if (emptyEl) emptyEl.style.display = "flex";
     }
+  };
+
+  // Year dropdown listener
+  yearDropdown?.addEventListener("change", () => {
+    void loadYearlySalesTrend(Number(yearDropdown.value));
+  });
+
+  // ── Combined function to load all analytics cards ──
+  const updateSummaryCards = () => {
+    void loadTopSelling(topSellingPeriod?.value || "month");
+    void loadSalesByCategory();
+    void loadProductPerformance();
+    void loadYearlySalesTrend(yearDropdown ? Number(yearDropdown.value) : new Date().getFullYear());
   };
 
   // ─── Load Products from API ───────────────────────────────────────────────────
@@ -993,8 +1133,9 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       closeModal(modalDelete);
+      const deletedId = activeProductId;
       activeProductId = null;
-      broadcastProductChange("deleted");
+      broadcastProductChange("deleted", deletedId);
       await loadProducts();
       setTimeout(() => {
         window.showAdminPopup?.("Product deleted successfully.", { title: "Success ✓" });
@@ -1084,9 +1225,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Expose a helper for broadcasting product changes from this admin page.
   // Uses a source tag so our own listener can ignore messages we sent.
-  const broadcastProductChange = (type) => {
+  const broadcastProductChange = (type, productId = null) => {
     const ch = getProductsChannel();
-    ch?.postMessage({ type, source: "admin-products" });
+    ch?.postMessage({ type, source: "admin-products", productId });
   };
 
   // Listen for product changes from OTHER tabs (e.g., another admin tab)

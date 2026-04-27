@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderTrackingEvent;
 use App\Models\Payment;
+use App\Models\Product;
 use DateTimeInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -46,11 +47,18 @@ class OrderController extends Controller
 
         $validated = $request->validate([
             'product_id' => 'nullable|integer|exists:products,id',
-            'product_name' => 'required|string|max:180',
+            'product_name' => 'required_without:items|string|max:180',
             'product_image' => 'nullable|string',
-            'quantity' => 'required|integer|min:1|max:999',
+            'quantity' => 'required_without:items|integer|min:1|max:999',
             'unit_price' => 'nullable|numeric|min:0|max:9999999.99',
-            'total_amount' => 'required|numeric|min:0|max:9999999.99',
+            'total_amount' => 'required_without:items|numeric|min:0|max:9999999.99',
+            'items' => 'nullable|array|min:1',
+            'items.*.product_id' => 'nullable|integer|exists:products,id',
+            'items.*.product_name' => 'required_with:items|string|max:180',
+            'items.*.product_image' => 'nullable|string',
+            'items.*.quantity' => 'required_with:items|integer|min:1|max:999',
+            'items.*.unit_price' => 'nullable|numeric|min:0|max:9999999.99',
+            'items.*.line_total' => 'nullable|numeric|min:0|max:9999999.99',
             'payment_method' => 'required|string|max:30',
             'payment_reference' => 'nullable|string|max:180',
             'notes' => 'nullable|string|max:2000',
@@ -71,22 +79,74 @@ class OrderController extends Controller
         }
 
         $customer = $request->user();
-        $quantity = max(1, (int) $validated['quantity']);
-        $totalAmount = (float) $validated['total_amount'];
+        $orderItems = $this->normalizeRequestedOrderItems($validated);
 
-        $unitPrice = array_key_exists('unit_price', $validated)
-            ? (float) ($validated['unit_price'] ?? 0)
-            : ($quantity > 0 ? round($totalAmount / $quantity, 2) : 0.0);
+        if (count($orderItems) < 1) {
+            return response()->json([
+                'message' => 'At least one order item is required.',
+            ], 422);
+        }
 
-        if ($unitPrice <= 0 && $quantity > 0 && $totalAmount > 0) {
-            $unitPrice = round($totalAmount / $quantity, 2);
+        $quantity = array_reduce(
+            $orderItems,
+            fn (int $carry, array $item): int => $carry + max(1, (int) ($item['quantity'] ?? 1)),
+            0,
+        );
+
+        $totalAmount = round(
+            array_reduce(
+                $orderItems,
+                fn (float $carry, array $item): float => $carry + max(0, (float) ($item['line_total'] ?? 0)),
+                0.0,
+            ),
+            2,
+        );
+
+        if ($quantity < 1) {
+            return response()->json([
+                'message' => 'Invalid order quantity.',
+            ], 422);
         }
 
         $paymentStatus = $paymentMethod === 'GCash' ? 'paid' : 'pending';
         $customerStage = $paymentStatus === 'paid' ? 'to_ship' : 'to_pay';
 
         try {
-            $createdOrder = DB::transaction(function () use ($validated, $customer, $quantity, $unitPrice, $totalAmount, $paymentMethod, $paymentStatus, $customerStage): Order {
+            $createdOrder = DB::transaction(function () use ($validated, $customer, $orderItems, $quantity, $totalAmount, $paymentMethod, $paymentStatus, $customerStage): Order {
+                $productIds = collect($orderItems)
+                    ->pluck('product_id')
+                    ->filter(fn ($id) => !is_null($id))
+                    ->map(fn ($id) => (int) $id)
+                    ->unique()
+                    ->values();
+
+                $productsById = Product::query()
+                    ->whereIn('id', $productIds)
+                    ->lockForUpdate()
+                    ->get()
+                    ->keyBy('id');
+
+                foreach ($orderItems as $lineItem) {
+                    $lineProductId = $lineItem['product_id'];
+                    if (is_null($lineProductId)) {
+                        continue;
+                    }
+
+                    $product = $productsById->get((int) $lineProductId);
+                    if (!$product) {
+                        throw new \RuntimeException('One or more products are no longer available. Please refresh and try again.');
+                    }
+
+                    $availableStock = max(0, (int) $product->stock);
+                    $requestedQuantity = max(1, (int) $lineItem['quantity']);
+
+                    if ($availableStock < $requestedQuantity) {
+                        throw new \RuntimeException(
+                            "Insufficient stock for product: {$product->name}. Available: {$availableStock}",
+                        );
+                    }
+                }
+
                 $order = Order::query()->create([
                     'order_no' => null,
                     'customer_id' => $customer?->id,
@@ -116,28 +176,33 @@ class OrderController extends Controller
                 $order->order_no = $this->generateOrderNo((int) $order->id);
                 $order->save();
 
-                OrderItem::query()->create([
-                    'order_id' => $order->id,
-                    'product_id' => $validated['product_id'] ?? null,
-                    'product_name' => $validated['product_name'],
-                    'product_image' => $validated['product_image'] ?? null,
-                    'unit_price' => $unitPrice,
-                    'quantity' => $quantity,
-                    'line_total' => $totalAmount,
-                ]);
+                foreach ($orderItems as $lineItem) {
+                    OrderItem::query()->create([
+                        'order_id' => $order->id,
+                        'product_id' => $lineItem['product_id'],
+                        'product_name' => $lineItem['product_name'],
+                        'product_image' => $lineItem['product_image'],
+                        'unit_price' => $lineItem['unit_price'],
+                        'quantity' => $lineItem['quantity'],
+                        'line_total' => $lineItem['line_total'],
+                    ]);
+                }
 
-                if (isset($validated['product_id'])) {
-                    $product = \App\Models\Product::find($validated['product_id']);
-                    if ($product) {
-                        if ($product->stock < $quantity) {
-                            throw new \Exception("Insufficient stock for product: {$product->name}. Available: {$product->stock}");
-                        }
-                        $product->stock = max(0, $product->stock - $quantity);
-                        if ($product->stock <= 0) {
-                            $product->stock_status = 'out_of_stock';
-                        }
-                        $product->save();
+                foreach ($orderItems as $lineItem) {
+                    $lineProductId = $lineItem['product_id'];
+                    if (is_null($lineProductId)) {
+                        continue;
                     }
+
+                    $product = $productsById->get((int) $lineProductId);
+                    if (!$product) {
+                        continue;
+                    }
+
+                    $remainingStock = max(0, (int) $product->stock - (int) $lineItem['quantity']);
+                    $product->stock = $remainingStock;
+                    $product->stock_status = $remainingStock > 0 ? 'in_stock' : 'out_of_stock';
+                    $product->save();
                 }
 
                 Payment::query()->create([
@@ -150,11 +215,13 @@ class OrderController extends Controller
                     'paid_at' => $paymentStatus === 'paid' ? now() : null,
                 ]);
 
+                $trackingLabel = $this->buildOrderItemLabelFromRows($orderItems);
+
                 $this->createTrackingEvent($order, [
                     'created_by_user_id' => $customer?->id,
                     'stage' => 'to_pay',
                     'event_type' => 'system',
-                    'title' => 'Order placed',
+                    'title' => "Order placed: {$trackingLabel}",
                     'description' => 'Your order has been received and is waiting for admin review.',
                     'location_name' => $validated['location_name'] ?? null,
                     'latitude' => $validated['latitude'] ?? null,
@@ -712,6 +779,7 @@ class OrderController extends Controller
     private function transformOrderSummary(Order $order): array
     {
         $item = $order->items->first();
+        $productNameLabel = $this->buildOrderItemLabelFromOrder($order);
         $payment = $order->payment;
         $customerAddressDetails = $this->extractAddressDetailsFromNotes($order->notes);
         $customerAddressLine = trim((string) ($order->location_name ?? ''));
@@ -730,7 +798,7 @@ class OrderController extends Controller
             'customer_address' => $customerAddress,
             'customer_address_line' => $customerAddressLine !== '' ? $customerAddressLine : null,
             'customer_address_details' => $customerAddressDetails !== '' ? $customerAddressDetails : null,
-            'product_name' => $item?->product_name ?? 'Custom Order',
+            'product_name' => $productNameLabel,
             'product_image' => $item?->product_image,
             'quantity' => (int) ($order->quantity ?: ($item?->quantity ?? 1)),
             'unit_price' => (float) ($item?->unit_price ?? 0),
@@ -759,6 +827,19 @@ class OrderController extends Controller
     {
         $summary = $this->transformOrderSummary($order);
 
+        $items = $order->items
+            ->map(fn (OrderItem $item) => [
+                'id' => $item->id,
+                'product_id' => $item->product_id,
+                'product_name' => $item->product_name,
+                'product_image' => $item->product_image,
+                'unit_price' => (float) $item->unit_price,
+                'quantity' => (int) $item->quantity,
+                'line_total' => (float) $item->line_total,
+            ])
+            ->values()
+            ->all();
+
         $timeline = $order->trackingEvents
             ->sortByDesc(fn (OrderTrackingEvent $event) => $event->occurred_at?->getTimestamp() ?? 0)
             ->values()
@@ -766,8 +847,119 @@ class OrderController extends Controller
             ->all();
 
         return $summary + [
+            'items' => $items,
             'timeline' => $timeline,
         ];
+    }
+
+    private function normalizeRequestedOrderItems(array $validated): array
+    {
+        $rawItems = [];
+
+        if (!empty($validated['items']) && is_array($validated['items'])) {
+            $rawItems = $validated['items'];
+        } else {
+            $rawItems[] = [
+                'product_id' => $validated['product_id'] ?? null,
+                'product_name' => $validated['product_name'] ?? 'Custom Order',
+                'product_image' => $validated['product_image'] ?? null,
+                'quantity' => $validated['quantity'] ?? 1,
+                'unit_price' => $validated['unit_price'] ?? null,
+                'line_total' => $validated['total_amount'] ?? null,
+            ];
+        }
+
+        $normalized = [];
+
+        foreach ($rawItems as $rawItem) {
+            $lineQuantity = max(1, (int) ($rawItem['quantity'] ?? 1));
+
+            $lineTotal = array_key_exists('line_total', $rawItem) && !is_null($rawItem['line_total'])
+                ? (float) $rawItem['line_total']
+                : null;
+
+            $lineUnitPrice = array_key_exists('unit_price', $rawItem) && !is_null($rawItem['unit_price'])
+                ? (float) $rawItem['unit_price']
+                : null;
+
+            if (is_null($lineTotal) && !is_null($lineUnitPrice)) {
+                $lineTotal = round(max(0, $lineUnitPrice) * $lineQuantity, 2);
+            }
+
+            if (is_null($lineUnitPrice) && !is_null($lineTotal) && $lineQuantity > 0) {
+                $lineUnitPrice = round(max(0, $lineTotal) / $lineQuantity, 2);
+            }
+
+            if (is_null($lineTotal)) {
+                $lineTotal = 0.0;
+            }
+
+            if (is_null($lineUnitPrice)) {
+                $lineUnitPrice = $lineQuantity > 0 ? round($lineTotal / $lineQuantity, 2) : 0.0;
+            }
+
+            $lineProductName = trim((string) ($rawItem['product_name'] ?? ''));
+            if ($lineProductName === '') {
+                $lineProductName = 'Custom Order';
+            }
+
+            $lineProductId = array_key_exists('product_id', $rawItem) && !is_null($rawItem['product_id'])
+                ? (int) $rawItem['product_id']
+                : null;
+
+            $normalized[] = [
+                'product_id' => $lineProductId,
+                'product_name' => $lineProductName,
+                'product_image' => $rawItem['product_image'] ?? null,
+                'quantity' => $lineQuantity,
+                'unit_price' => round(max(0, $lineUnitPrice), 2),
+                'line_total' => round(max(0, $lineTotal), 2),
+            ];
+        }
+
+        if (count($normalized) === 1 && array_key_exists('total_amount', $validated)) {
+            $fallbackTotal = round(max(0, (float) ($validated['total_amount'] ?? 0)), 2);
+            $normalized[0]['line_total'] = $fallbackTotal;
+            $qty = max(1, (int) $normalized[0]['quantity']);
+            $normalized[0]['unit_price'] = $qty > 0 ? round($fallbackTotal / $qty, 2) : 0.0;
+        }
+
+        return $normalized;
+    }
+
+    private function buildOrderItemLabelFromRows(array $rows): string
+    {
+        if (count($rows) < 1) {
+            return 'Custom Order';
+        }
+
+        $firstName = trim((string) ($rows[0]['product_name'] ?? 'Custom Order'));
+        if ($firstName === '') {
+            $firstName = 'Custom Order';
+        }
+
+        $extraCount = max(0, count($rows) - 1);
+        if ($extraCount > 0) {
+            return $firstName . ' (+' . $extraCount . ' more)';
+        }
+
+        return $firstName;
+    }
+
+    private function buildOrderItemLabelFromOrder(Order $order): string
+    {
+        if (!$order->relationLoaded('items')) {
+            $order->load('items');
+        }
+
+        $rows = $order->items
+            ->map(fn (OrderItem $item) => [
+                'product_name' => $item->product_name,
+            ])
+            ->values()
+            ->all();
+
+        return $this->buildOrderItemLabelFromRows($rows);
     }
 
     private function transformTimelineEvent(OrderTrackingEvent $event): array

@@ -1,567 +1,490 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const tableBody = document.getElementById("inventoryTableBody");
-  const tableMeta = document.getElementById("inventoryTableMeta");
-  const currentPageEl = document.getElementById("inventoryCurrentPage");
-  const prevBtn = document.getElementById("inventoryPrevPage");
-  const nextBtn = document.getElementById("inventoryNextPage");
-  const searchInput = document.getElementById("inventorySearchInput");
-  const categoryFilter = document.getElementById("inventoryCategoryFilter");
-  const tableWrapper = document.querySelector(".table-wrapper");
+  // ─── API helpers ──────────────────────────────────────────────────────────────
+  const API_BASE_URL = (() => {
+    const proto = window.location.protocol;
+    const host = window.location.hostname;
+    const port = window.location.port;
+    if (port === "8000") return `${proto}//${host}:${port}/api`;
+    if (host === "localhost" || host === "127.0.0.1") return `${proto}//${host}:8000/api`;
+    return `${proto}//${host}/api`;
+  })();
 
-  const btnExportCsv = document.getElementById("btnExportCsv");
+  const token = localStorage.getItem("auth_token") || "";
+  const showPopup = (msg, opts = {}) => window.showAdminPopup?.(msg, opts);
+  const escHtml = (str) => String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
-  const addItemPhoto = document.getElementById("addItemPhoto");
-  const btnEditPhoto = document.getElementById("btnEditPhoto");
-  const editItemPhoto = document.getElementById("editItemPhoto");
-  const btnEditExistingPhoto = document.getElementById("btnEditPhotoInEditModal");
+  const setUnauthorized = () => {
+    showPopup("Session expired or unauthorized. Please login again.", {
+      title: "Access Required",
+      onOk: () => { window.location.href = "../admin-auth/auth.html"; },
+    });
+  };
 
-  const modalEditItem = document.getElementById("modalEditItem");
-  const modalDeleteItem = document.getElementById("modalDeleteItem");
-  const deleteItemTargetLabel = document.getElementById("deleteItemTargetLabel");
-  const modalArchiveItem = document.getElementById("modalArchiveItem");
-  const archiveItemTargetLabel = document.getElementById("archiveItemTargetLabel");
-  const editItemName = document.getElementById("editItemName");
-  const editItemCategory = document.getElementById("editItemCategory");
-  const editItemQty = document.getElementById("editItemQty");
-  const editItemUnit = document.getElementById("editItemUnit");
-  const editItemDescription = document.getElementById("editItemDescription");
-  const editDeductionType = document.getElementById("editDeductionType");
-  const editDeductQty = document.getElementById("editDeductQty");
-  const btnSaveItem = document.getElementById("btnSaveItem");
-  const btnUpdateItem = document.getElementById("btnUpdateItem");
-  const btnConfirmDelete = document.getElementById("btnConfirmDelete");
-  const modalViewItem = document.getElementById("modalViewItem");
-  const viewItemTitle = document.getElementById("viewItemTitle");
-  const viewItemContent = document.getElementById("viewItemContent");
-  const btnCloseViewItem = document.getElementById("btnCloseViewItem");
-  const btnOpenEditFromViewItem = document.getElementById("btnOpenEditFromViewItem");
-
-  const photoPreviewModal = document.getElementById("modalPhotoPreview");
-  const photoPreviewImg = document.getElementById("inventoryPhotoPreview");
-
-  const photoEditorModal = document.getElementById("modalPhotoEditor");
-  const photoEditorPreview = document.getElementById("photoEditorPreview");
-  const photoRotate = document.getElementById("photoRotate");
-  const photoScale = document.getElementById("photoScale");
-  const btnApplyPhotoEdit = document.getElementById("btnApplyPhotoEdit");
-
-  const metricTotalItems = document.getElementById("metricTotalItems");
-  const metricInStock = document.getElementById("metricInStock");
-  const metricLowStock = document.getElementById("metricLowStock");
-  const metricOutOfStock = document.getElementById("metricOutOfStock");
-
-  const defaultItems = [
-    {
-      id: "INV-001",
-      name: "Mild Steel Sheet 4x8",
-      category: "Raw Materials",
-      description: "Fabrication sheet",
-      photo: "",
-      qty: 145,
-      unit: "pcs",
-      status: "In Stock",
-    },
-    {
-      id: "INV-002",
-      name: "Welding Wire ER70S-6",
-      category: "Consumables",
-      description: "MIG welding wire",
-      photo: "",
-      qty: 43,
-      unit: "rolls",
-      status: "Low Stock",
-    },
-    {
-      id: "INV-003",
-      name: "Stainless Rod 12mm",
-      category: "Raw Materials",
-      description: "Round bar stock",
-      photo: "",
-      qty: 90,
-      unit: "pcs",
-      status: "In Stock",
-    },
-    {
-      id: "INV-004",
-      name: "CNC Cutting Disc",
-      category: "Consumables",
-      description: "Machine cutting disc",
-      photo: "",
-      qty: 12,
-      unit: "boxes",
-      status: "Out of Stock",
-    },
+  // ─── Categories ───────────────────────────────────────────────────────────────
+  const CATEGORIES = [
+    "Consumable Materials",
+    "Office Supplies",
+    "Inventory Tools",
+    "Electronics and Electrical Equipments",
   ];
 
-  let items = [...defaultItems];
-  let currentPage = 1;
-  let editedPhotoData = "";
-  let sourcePhotoData = "";
-  let activeEditId = "";
-  let pendingDeleteId = "";
+  const CATEGORY_ICONS = {
+    "Consumable Materials": "fa-flask",
+    "Office Supplies": "fa-pen-ruler",
+    "Inventory Tools": "fa-screwdriver-wrench",
+    "Electronics and Electrical Equipments": "fa-microchip",
+  };
 
+  // ─── DOM refs ─────────────────────────────────────────────────────────────────
+  const categoryTablesWrap = document.getElementById("inventoryCategoryTables");
+  const searchInput = document.getElementById("inventorySearchInput");
+  const categoryFilter = document.getElementById("inventoryCategoryFilter");
+  const btnOpenAdd = document.getElementById("btnOpenAddItem");
+
+  // Summary metrics
+  const metricTotal = document.getElementById("metricTotalItems");
+  const metricGood = document.getElementById("metricGood");
+  const metricLow = document.getElementById("metricLowStock");
+  const metricOut = document.getElementById("metricOutOfStock");
+
+  // Add/Edit modal
+  const modalForm = document.getElementById("modalAddInventoryItem");
+  const invModalTitle = document.getElementById("invModalTitle");
+  const formCategory = document.getElementById("invFormCategory");
+  const formItemName = document.getElementById("invFormItemName");
+  const formDescription = document.getElementById("invFormDescription");
+  const formUnit = document.getElementById("invFormUnit");
+  const formLastInvent = document.getElementById("invFormLastInvent");
+  const formOnHand = document.getElementById("invFormOnHand");
+  const formStatus = document.getElementById("invFormStatus");
+  const formRemarks = document.getElementById("invFormRemarks");
+  const btnCancelForm = document.getElementById("btnCancelInvForm");
+  const btnSaveForm = document.getElementById("btnSaveInvForm");
+
+  // View modal
+  const modalView = document.getElementById("modalViewInventoryItem");
+  const invViewTitle = document.getElementById("invViewTitle");
+  const invViewSubtitle = document.getElementById("invViewSubtitle");
+  const invViewContent = document.getElementById("invViewContent");
+  const btnCloseView = document.getElementById("btnCloseViewInv");
+  const btnEditFromView = document.getElementById("btnEditFromViewInv");
+
+  // Delete modal
+  const modalDelete = document.getElementById("modalDeleteInventoryItem");
+  const invDeleteLabel = document.getElementById("invDeleteTargetLabel");
+  const btnCancelDelete = document.getElementById("btnCancelDeleteInv");
+  const btnConfirmDelete = document.getElementById("btnConfirmDeleteInv");
+
+  // ─── State ────────────────────────────────────────────────────────────────────
+  let allItems = [];
+  let editingItemId = null;
+  let deletingItemId = null;
+  let viewingItemId = null;
+  const PAGE_SIZE = 5;
+  const categoryPages = {};
+
+  const openModal = (m) => m?.classList.add("show");
+  const closeModal = (m) => m?.classList.remove("show");
+
+  // ─── Status helpers ───────────────────────────────────────────────────────────
   const statusClass = (status) => {
-    if (status === "In Stock") return "status-green";
+    if (status === "Good") return "status-green";
     if (status === "Low Stock") return "status-yellow";
     if (status === "Out of Stock") return "status-red";
     return "status-blue";
   };
 
-  const inferStatus = (qty) => {
-    if (qty <= 0) return "Out of Stock";
-    if (qty <= 50) return "Low Stock";
-    return "In Stock";
+  const remarksClass = (r) => {
+    if (!r) return "remarks-default";
+    if (r.includes("Acquired")) return "remarks-acquired";
+    if (r.includes("Included")) return "remarks-included";
+    if (r.includes("Restock")) return "remarks-restock";
+    return "remarks-default";
   };
 
-  const safeValue = (value) => {
-    if (value === undefined || value === null || String(value).trim() === "") {
-      return "N/A";
-    }
-    return String(value);
-  };
-
-  const filteredItems = () => {
+  // ─── Filter items ─────────────────────────────────────────────────────────────
+  const getFilteredItemsByCategory = (category) => {
     const q = (searchInput?.value || "").trim().toLowerCase();
-    const category = categoryFilter?.value || "all";
-    return items.filter((item) => {
-      const matchesCategory = category === "all" || item.category === category;
-      const composed = `${item.id} ${item.name} ${item.description}`.toLowerCase();
-      const matchesSearch = !q || composed.includes(q);
-      return matchesCategory && matchesSearch;
+    const filterCat = categoryFilter?.value || "all";
+
+    // If a specific category is selected in the filter and doesn't match, return empty
+    if (filterCat !== "all" && filterCat !== category) return [];
+
+    return allItems.filter((item) => {
+      if (item.category !== category) return false;
+      if (q) {
+        const haystack = `${item.item_name} ${item.description || ""}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
     });
   };
 
-  const calculateRowsPerPage = () => {
-    return 5;
+  // ─── Summary metrics ──────────────────────────────────────────────────────────
+  const updateMetrics = (summary) => {
+    if (metricTotal) metricTotal.textContent = String(summary?.total_items ?? 0);
+    if (metricGood) metricGood.textContent = String(summary?.good ?? 0);
+    if (metricLow) metricLow.textContent = String(summary?.low_stock ?? 0);
+    if (metricOut) metricOut.textContent = String(summary?.out_of_stock ?? 0);
   };
 
-  const refreshMetrics = () => {
-    const inStockCount = items.filter((item) => item.status === "In Stock").length;
-    const lowStockCount = items.filter((item) => item.status === "Low Stock").length;
-    const outOfStockCount = items.filter((item) => item.status === "Out of Stock").length;
+  // ─── Render one category table ────────────────────────────────────────────────
+  const renderCategoryTable = (category) => {
+    const containerId = `inv-cat-${category.replace(/\s+/g, "-").toLowerCase()}`;
+    let card = document.getElementById(containerId);
+    const items = getFilteredItemsByCategory(category);
+    const filterCat = categoryFilter?.value || "all";
 
-    if (metricTotalItems) metricTotalItems.textContent = String(items.length);
-    if (metricInStock) metricInStock.textContent = String(inStockCount);
-    if (metricLowStock) metricLowStock.textContent = String(lowStockCount);
-    if (metricOutOfStock) metricOutOfStock.textContent = String(outOfStockCount);
-  };
+    // Hide entire card if a specific category is selected and doesn't match
+    if (filterCat !== "all" && filterCat !== category) {
+      if (card) card.style.display = "none";
+      return;
+    }
 
-  const renderTable = () => {
-    if (!tableBody) return;
-    const source = filteredItems();
-    const rowsPerPage = calculateRowsPerPage();
-    const pageCount = Math.max(1, Math.ceil(source.length / rowsPerPage));
-    if (currentPage > pageCount) currentPage = pageCount;
+    if (!card) {
+      card = document.createElement("div");
+      card.id = containerId;
+      card.className = "inv-category-card";
+      categoryTablesWrap?.appendChild(card);
+    }
+    card.style.display = "";
 
-    const start = (currentPage - 1) * rowsPerPage;
-    const pagedItems = source.slice(start, start + rowsPerPage);
+    const icon = CATEGORY_ICONS[category] || "fa-box";
+    const page = categoryPages[category] || 1;
+    const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+    const validPage = Math.min(page, totalPages);
+    categoryPages[category] = validPage;
+    const start = (validPage - 1) * PAGE_SIZE;
+    const paged = items.slice(start, start + PAGE_SIZE);
 
-    tableBody.innerHTML = pagedItems
-      .map((item) => {
-        const photoCell = item.photo
-          ? `<button class="photo-link" data-photo-preview="${item.id}">View Photo</button>`
-          : "N/A";
-
+    let tableRows = "";
+    if (!paged.length) {
+      tableRows = `<tr class="table-empty-row"><td colspan="9"><div class="table-empty-state"><i class="fa-regular fa-folder-open"></i><span>No items found in this category.</span></div></td></tr>`;
+    } else {
+      tableRows = paged.map((item, idx) => {
+        const rowNum = start + idx + 1;
+        const statusHtml = `<span class="status-pill ${statusClass(item.status)}">${escHtml(item.status)}</span>`;
+        const remarksHtml = item.remarks
+          ? `<span class="remarks-pill ${remarksClass(item.remarks)}">${escHtml(item.remarks)}</span>`
+          : `<span style="color:#9ca3af;font-size:0.75rem;">—</span>`;
         return `<tr>
-          <td>${safeValue(item.id)}</td>
-          <td title="${safeValue(item.name)}">${safeValue(item.name)}</td>
-          <td>${safeValue(item.category)}</td>
-          <td title="${safeValue(item.description)}">${safeValue(item.description)}</td>
-          <td>${photoCell}</td>
-          <td>${safeValue(item.qty)}</td>
-          <td>${safeValue(item.unit)}</td>
-          <td><span class="status-pill ${statusClass(item.status)}">${safeValue(item.status)}</span></td>
+          <td>${rowNum}</td>
+          <td title="${escHtml(item.item_name)}">${escHtml(item.item_name)}</td>
+          <td title="${escHtml(item.description || "")}">${escHtml(item.description || "—")}</td>
+          <td>${escHtml(item.unit)}</td>
+          <td>${item.last_invent}</td>
+          <td>${item.on_hand}</td>
+          <td>${statusHtml}</td>
+          <td>${remarksHtml}</td>
           <td class="action-icons sticky-action">
-            <button type="button" data-tooltip="View Item" data-view-id="${item.id}"><i class="fa-regular fa-eye"></i></button>
-            <button type="button" data-tooltip="Move to Archives" data-archive-id="${item.id}"><i class="fa-solid fa-box-archive"></i></button>
-            <button type="button" data-tooltip="Delete Item" data-delete-id="${item.id}"><i class="fa-regular fa-trash-can"></i></button>
+            <button type="button" data-tooltip="View Item" data-inv-view="${item.id}"><i class="fa-regular fa-eye"></i></button>
+            <button type="button" data-tooltip="Delete Item" data-inv-delete="${item.id}"><i class="fa-regular fa-trash-can"></i></button>
           </td>
         </tr>`;
-      })
-      .join("");
-
-    if (pagedItems.length === 0) {
-      tableBody.innerHTML = `<tr class="table-empty-row"><td colspan="9"><div class="table-empty-state"><i class="fa-regular fa-folder-open"></i><span>No inventory items found.</span></div></td></tr>`;
+      }).join("");
     }
 
-    if (tableMeta) {
-      const from = source.length ? start + 1 : 0;
-      const to = source.length ? Math.min(source.length, start + rowsPerPage) : 0;
-      tableMeta.textContent = `Page ${currentPage} of ${pageCount} • Showing ${from}-${to} of ${source.length}`;
-    }
-    if (currentPageEl) currentPageEl.textContent = String(currentPage);
-    if (prevBtn) prevBtn.disabled = currentPage <= 1;
-    if (nextBtn) nextBtn.disabled = currentPage >= pageCount;
-    refreshMetrics();
+    const from = items.length ? start + 1 : 0;
+    const to = items.length ? Math.min(items.length, start + PAGE_SIZE) : 0;
+
+    card.innerHTML = `
+      <div class="inv-category-header">
+        <div class="inv-category-header-left">
+          <div class="inv-category-icon"><i class="fa-solid ${icon}"></i></div>
+          <span class="inv-category-title">Inventory of ${escHtml(category)}</span>
+        </div>
+        <span class="inv-category-badge">${items.length} item${items.length !== 1 ? "s" : ""}</span>
+      </div>
+      <div class="inv-category-body">
+        <div class="table-wrapper">
+          <table class="admin-table inventory-table inv-table">
+            <thead>
+              <tr>
+                <th>No.</th>
+                <th>Item Name</th>
+                <th>Description</th>
+                <th>Unit</th>
+                <th>Last Invent</th>
+                <th>On Hand</th>
+                <th>Status</th>
+                <th>Remarks</th>
+                <th class="th-action sticky-action">Action</th>
+              </tr>
+            </thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </div>
+        <div class="inv-cat-footer">
+          <span>Page ${validPage} of ${totalPages} &bull; Showing ${from}&ndash;${to} of ${items.length}</span>
+          <div class="table-pagination">
+            <button class="page-btn" data-cat-prev="${category}" ${validPage <= 1 ? "disabled" : ""}><i class="fa-solid fa-chevron-left"></i></button>
+            <div class="page-number">${validPage}</div>
+            <button class="page-btn" data-cat-next="${category}" ${validPage >= totalPages ? "disabled" : ""}><i class="fa-solid fa-chevron-right"></i></button>
+          </div>
+        </div>
+      </div>
+    `;
   };
 
-  const openModal = (modal) => {
-    modal?.classList.add("show");
+  // ─── Render all category tables ───────────────────────────────────────────────
+  const renderAllTables = () => {
+    CATEGORIES.forEach((cat) => renderCategoryTable(cat));
   };
 
-  const closeModal = (modal) => {
-    modal?.classList.remove("show");
+  // ─── Load inventory from API ──────────────────────────────────────────────────
+  const loadInventory = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/inventory`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      });
+      if (res.status === 401 || res.status === 403) { setUnauthorized(); return; }
+      if (!res.ok) throw new Error("Failed to load inventory");
+      const payload = await res.json();
+      allItems = Array.isArray(payload?.data) ? payload.data : [];
+      if (payload?.summary) updateMetrics(payload.summary);
+      renderAllTables();
+    } catch (err) {
+      console.error("Load inventory error:", err);
+      if (categoryTablesWrap) {
+        categoryTablesWrap.innerHTML = `<div class="panel" style="text-align:center;padding:40px;color:#991b1b;">Could not load inventory. Ensure Laravel server is running.</div>`;
+      }
+    }
   };
 
-  const fileToDataUrl = (file) =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ""));
-      reader.onerror = () => reject(new Error("Failed to read file"));
-      reader.readAsDataURL(file);
-    });
-
-  const applyEditorTransform = () => {
-    if (!photoEditorPreview) return;
-    const rotateDeg = Number(photoRotate?.value || 0);
-    const scalePct = Number(photoScale?.value || 100) / 100;
-    photoEditorPreview.style.transform = `rotate(${rotateDeg}deg) scale(${scalePct})`;
+  // ─── Form helpers ─────────────────────────────────────────────────────────────
+  const resetForm = () => {
+    editingItemId = null;
+    if (invModalTitle) invModalTitle.innerHTML = '<i class="fa-solid fa-plus" style="margin-right:6px;"></i>Add New Item';
+    if (btnSaveForm) btnSaveForm.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Add to Inventory';
+    if (formCategory) formCategory.value = "Consumable Materials";
+    if (formItemName) formItemName.value = "";
+    if (formDescription) formDescription.value = "";
+    if (formUnit) formUnit.value = "pcs";
+    if (formLastInvent) formLastInvent.value = "";
+    if (formOnHand) formOnHand.value = "";
+    if (formStatus) formStatus.value = "Good";
+    if (formRemarks) formRemarks.value = "";
   };
 
-  const renderToCanvas = async () => {
-    if (!photoEditorPreview || !photoEditorPreview.src) return "";
-    const img = new Image();
-    img.src = photoEditorPreview.src;
-    await new Promise((resolve) => {
-      if (img.complete) resolve(true);
-      else img.onload = () => resolve(true);
-    });
-
-    const rotateRad = (Number(photoRotate?.value || 0) * Math.PI) / 180;
-    const scale = Number(photoScale?.value || 100) / 100;
-
-    const w = img.width;
-    const h = img.height;
-    const cos = Math.abs(Math.cos(rotateRad));
-    const sin = Math.abs(Math.sin(rotateRad));
-    const rw = Math.ceil((w * cos + h * sin) * scale);
-    const rh = Math.ceil((w * sin + h * cos) * scale);
-
-    const canvas = document.createElement("canvas");
-    canvas.width = rw;
-    canvas.height = rh;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return "";
-
-    ctx.translate(rw / 2, rh / 2);
-    ctx.rotate(rotateRad);
-    ctx.scale(scale, scale);
-    ctx.drawImage(img, -w / 2, -h / 2);
-
-    return canvas.toDataURL("image/png");
+  const populateFormForEdit = (item) => {
+    editingItemId = item.id;
+    if (invModalTitle) invModalTitle.innerHTML = '<i class="fa-regular fa-pen-to-square" style="margin-right:6px;"></i>Edit Item';
+    if (btnSaveForm) btnSaveForm.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update Item';
+    if (formCategory) formCategory.value = item.category;
+    if (formItemName) formItemName.value = item.item_name || "";
+    if (formDescription) formDescription.value = item.description || "";
+    if (formUnit) formUnit.value = item.unit || "pcs";
+    if (formLastInvent) formLastInvent.value = item.last_invent ?? "";
+    if (formOnHand) formOnHand.value = item.on_hand ?? "";
+    if (formStatus) formStatus.value = item.status || "Good";
+    if (formRemarks) formRemarks.value = item.remarks || "";
   };
 
-  addItemPhoto?.addEventListener("change", async (e) => {
-    const input = e.target;
-    const file = input.files?.[0];
-    if (!file) return;
+  // ─── Open Add Modal ───────────────────────────────────────────────────────────
+  btnOpenAdd?.addEventListener("click", () => {
+    resetForm();
+    openModal(modalForm);
+  });
 
-    if (!file.type.startsWith("image/")) {
-      alert("Image files only.");
-      input.value = "";
-      return;
+  btnCancelForm?.addEventListener("click", () => closeModal(modalForm));
+
+  // ─── Save / Update ────────────────────────────────────────────────────────────
+  btnSaveForm?.addEventListener("click", async () => {
+    const itemName = (formItemName?.value || "").trim();
+    const category = formCategory?.value || "Consumable Materials";
+    const unit = formUnit?.value || "pcs";
+    const lastInvent = Number(formLastInvent?.value || 0);
+    const onHand = Number(formOnHand?.value || 0);
+    const status = formStatus?.value || "Good";
+    const remarks = formRemarks?.value || "";
+    const description = (formDescription?.value || "").trim();
+
+    if (!itemName) { showPopup("Item Name is required.", { title: "Validation Error" }); formItemName?.focus(); return; }
+    if (formLastInvent?.value === "" || formLastInvent?.value === null) { showPopup("Last Invent is required.", { title: "Validation Error" }); formLastInvent?.focus(); return; }
+    if (formOnHand?.value === "" || formOnHand?.value === null) { showPopup("On Hand is required.", { title: "Validation Error" }); formOnHand?.focus(); return; }
+
+    const body = { category, item_name: itemName, description, unit, last_invent: lastInvent, on_hand: onHand, status, remarks };
+
+    btnSaveForm.disabled = true;
+    btnSaveForm.textContent = editingItemId ? "Updating…" : "Saving…";
+
+    try {
+      const url = editingItemId ? `${API_BASE_URL}/admin/inventory/${editingItemId}` : `${API_BASE_URL}/admin/inventory`;
+      const method = editingItemId ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, Accept: "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (res.status === 401 || res.status === 403) { setUnauthorized(); return; }
+      const payload = await res.json();
+      if (!res.ok) {
+        const msg = payload?.message || Object.values(payload?.errors || {})[0]?.[0] || "Failed to save item.";
+        showPopup(msg, { title: "Save Failed" });
+        return;
+      }
+
+      closeModal(modalForm);
+      resetForm();
+      await loadInventory();
+      setTimeout(() => {
+        showPopup(editingItemId ? "Item updated successfully." : "Item added successfully.", { title: "Success ✓" });
+      }, 200);
+    } catch (err) {
+      console.error("Save inventory error:", err);
+      showPopup("Cannot connect to server.", { title: "Error" });
+    } finally {
+      btnSaveForm.disabled = false;
+      btnSaveForm.innerHTML = editingItemId
+        ? '<i class="fa-solid fa-floppy-disk"></i> Update Item'
+        : '<i class="fa-solid fa-floppy-disk"></i> Add to Inventory';
     }
-
-    sourcePhotoData = await fileToDataUrl(file);
-    editedPhotoData = sourcePhotoData;
   });
 
-  btnEditPhoto?.addEventListener("click", () => {
-    if (!sourcePhotoData && !editedPhotoData) {
-      alert("Upload an image first.");
-      return;
+  // ─── View Modal ───────────────────────────────────────────────────────────────
+  const openViewModal = (item) => {
+    viewingItemId = item.id;
+    if (invViewTitle) invViewTitle.textContent = item.item_name || "Item Details";
+    if (invViewSubtitle) invViewSubtitle.textContent = `${item.category} — ${item.unit}`;
+
+    const statusCls = statusClass(item.status);
+    const remarksCls = remarksClass(item.remarks);
+    const remarksHtml = item.remarks
+      ? `<span class="remarks-pill ${remarksCls}">${escHtml(item.remarks)}</span>`
+      : '<span style="color:#9ca3af;">—</span>';
+
+    if (invViewContent) {
+      invViewContent.innerHTML = `
+        <div class="inv-view-grid">
+          <div><div class="inv-view-label">Category</div><div class="inv-view-value">${escHtml(item.category)}</div></div>
+          <div><div class="inv-view-label">Unit</div><div class="inv-view-value">${escHtml(item.unit)}</div></div>
+          <div><div class="inv-view-label">Last Invent</div><div class="inv-view-value">${item.last_invent}</div></div>
+          <div><div class="inv-view-label">On Hand</div><div class="inv-view-value">${item.on_hand}</div></div>
+          <div><div class="inv-view-label">Status</div><div><span class="status-pill ${statusCls}">${escHtml(item.status)}</span></div></div>
+          <div><div class="inv-view-label">Remarks</div><div>${remarksHtml}</div></div>
+          <div class="full"><div class="inv-view-label">Description</div><div class="inv-view-value">${escHtml(item.description || "—")}</div></div>
+        </div>`;
     }
+    openModal(modalView);
+  };
 
-    const workingPhoto = editedPhotoData || sourcePhotoData;
-    if (!photoEditorPreview || !workingPhoto) return;
+  btnCloseView?.addEventListener("click", () => closeModal(modalView));
 
-    photoEditorPreview.src = workingPhoto;
-    if (photoRotate) photoRotate.value = "0";
-    if (photoScale) photoScale.value = "100";
-    applyEditorTransform();
-    openModal(photoEditorModal);
+  btnEditFromView?.addEventListener("click", () => {
+    const item = allItems.find((x) => x.id === viewingItemId);
+    if (!item) return;
+    closeModal(modalView);
+    populateFormForEdit(item);
+    openModal(modalForm);
   });
 
-  editItemPhoto?.addEventListener("change", async (e) => {
-    const input = e.target;
-    const file = input.files?.[0];
-    if (!file) return;
+  // ─── Delete ───────────────────────────────────────────────────────────────────
+  const openDeleteModal = (item) => {
+    deletingItemId = item.id;
+    if (invDeleteLabel) invDeleteLabel.textContent = item.item_name || "this item";
+    openModal(modalDelete);
+  };
 
-    if (!file.type.startsWith("image/")) {
-      alert("Image files only.");
-      input.value = "";
-      return;
+  btnCancelDelete?.addEventListener("click", () => { closeModal(modalDelete); deletingItemId = null; });
+
+  btnConfirmDelete?.addEventListener("click", async () => {
+    if (!deletingItemId) return;
+    btnConfirmDelete.disabled = true;
+    btnConfirmDelete.textContent = "Deleting…";
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/inventory/${deletingItemId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      });
+      if (res.status === 401 || res.status === 403) { setUnauthorized(); return; }
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        showPopup(payload?.message || "Failed to delete item.", { title: "Delete Failed" });
+        return;
+      }
+      closeModal(modalDelete);
+      deletingItemId = null;
+      await loadInventory();
+      setTimeout(() => showPopup("Item deleted successfully.", { title: "Success ✓" }), 200);
+    } catch (err) {
+      console.error("Delete inventory error:", err);
+      showPopup("Cannot connect to server.", { title: "Error" });
+    } finally {
+      btnConfirmDelete.disabled = false;
+      btnConfirmDelete.textContent = "Delete Item";
     }
-
-    sourcePhotoData = await fileToDataUrl(file);
-    editedPhotoData = sourcePhotoData;
   });
 
-  btnEditExistingPhoto?.addEventListener("click", () => {
-    if (!sourcePhotoData && !editedPhotoData) {
-      alert("Upload an image first.");
-      return;
-    }
-
-    const workingPhoto = editedPhotoData || sourcePhotoData;
-    if (!photoEditorPreview || !workingPhoto) return;
-
-    photoEditorPreview.src = workingPhoto;
-    if (photoRotate) photoRotate.value = "0";
-    if (photoScale) photoScale.value = "100";
-    applyEditorTransform();
-    openModal(photoEditorModal);
-  });
-
-  photoRotate?.addEventListener("input", applyEditorTransform);
-  photoScale?.addEventListener("input", applyEditorTransform);
-
-  btnApplyPhotoEdit?.addEventListener("click", async () => {
-    const dataUrl = await renderToCanvas();
-    if (!dataUrl) return;
-    editedPhotoData = dataUrl;
-    sourcePhotoData = dataUrl;
-    closeModal(photoEditorModal);
-  });
-
-  btnExportCsv?.addEventListener("click", () => {
-    const source = filteredItems();
-    const header = [
-      "Item ID",
-      "Material Name",
-      "Category",
-      "Description",
-      "Photo",
-      "Qty",
-      "Unit",
-      "Status",
-    ];
-    const rows = source.map((item) => [
-      item.id,
-      item.name,
-      item.category,
-      item.description,
-      item.photo ? "Available" : "N/A",
-      item.qty,
-      item.unit,
-      item.status,
-    ]);
-    const csv = [header, ...rows]
-      .map((line) => line.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "inventory-export.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-  });
-
-  tableBody?.addEventListener("click", (e) => {
+  // ─── Event delegation for table clicks ────────────────────────────────────────
+  document.addEventListener("click", (e) => {
     const target = e.target;
     if (!(target instanceof HTMLElement)) return;
 
-    const photoBtn = target.closest("[data-photo-preview]");
-    if (photoBtn) {
-      const id = photoBtn.getAttribute("data-photo-preview") || "";
-      const item = items.find((x) => x.id === id);
-      if (!item?.photo) return;
-      if (photoPreviewImg) photoPreviewImg.src = item.photo;
-      openModal(photoPreviewModal);
-      return;
-    }
-
-    const editBtn = target.closest("[data-edit-id]");
-    if (editBtn) {
-      const id = editBtn.getAttribute("data-edit-id") || "";
-      const item = items.find((x) => x.id === id);
-      if (!item) return;
-
-      if (editItemName) editItemName.value = safeValue(item.name);
-      if (editItemCategory) editItemCategory.value = safeValue(item.category);
-      if (editItemQty) editItemQty.value = safeValue(item.qty);
-      if (editItemUnit) editItemUnit.value = safeValue(item.unit);
-      if (editItemDescription) editItemDescription.value = safeValue(item.description);
-      if (editDeductionType) editDeductionType.value = "Production";
-      if (editDeductQty) editDeductQty.value = "0";
-
-      sourcePhotoData = item.photo || "";
-      editedPhotoData = item.photo || "";
-      activeEditId = item.id;
-      openModal(modalEditItem);
-      return;
-    }
-
-    const viewBtn = target.closest("[data-view-id]");
+    // View button
+    const viewBtn = target.closest("[data-inv-view]");
     if (viewBtn) {
-      const id = viewBtn.getAttribute("data-view-id") || "";
-      const item = items.find((x) => x.id === id);
-      if (!item) return;
-
-      activeEditId = item.id;
-      if (viewItemTitle) viewItemTitle.textContent = `${item.id} — ${item.name}`;
-      if (viewItemContent) {
-        const statusCls = statusClass(item.status);
-        viewItemContent.innerHTML = `
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;">
-            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.04em;">Item ID</div><div style="font-size:.88rem;color:#111827;font-weight:500;">${item.id}</div></div>
-            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Category</div><div style="font-size:.88rem;color:#111827;font-weight:500;">${item.category}</div></div>
-            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Quantity</div><div style="font-size:.88rem;color:#111827;font-weight:500;">${item.qty} ${item.unit}</div></div>
-            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Status</div><div><span class="status-pill ${statusCls}">${item.status}</span></div></div>
-            <div style="grid-column:1/-1;"><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Description</div><div style="font-size:.88rem;color:#111827;">${item.description || '—'}</div></div>
-            ${item.photo ? `<div style="grid-column:1/-1;"><img src="${item.photo}" style="max-height:120px;border-radius:8px;object-fit:contain;" /></div>` : ''}
-          </div>`;
-      }
-      openModal(modalViewItem);
+      const id = Number(viewBtn.getAttribute("data-inv-view"));
+      const item = allItems.find((x) => x.id === id);
+      if (item) openViewModal(item);
       return;
     }
 
-    const archiveBtn = target.closest("[data-archive-id]");
-    if (archiveBtn) {
-      const id = archiveBtn.getAttribute("data-archive-id") || "";
-      const item = items.find((x) => x.id === id);
-      if (archiveItemTargetLabel) {
-        archiveItemTargetLabel.textContent = item ? `${item.id} - ${item.name}` : "this item";
-      }
-      openModal(modalArchiveItem);
-      return;
-    }
-
-    const deleteBtn = target.closest("[data-delete-id]");
+    // Delete button
+    const deleteBtn = target.closest("[data-inv-delete]");
     if (deleteBtn) {
-      const id = deleteBtn.getAttribute("data-delete-id") || "";
-      const item = items.find((x) => x.id === id);
-      if (deleteItemTargetLabel) {
-        deleteItemTargetLabel.textContent = item ? `${item.id} - ${item.name}` : "this item";
+      const id = Number(deleteBtn.getAttribute("data-inv-delete"));
+      const item = allItems.find((x) => x.id === id);
+      if (item) openDeleteModal(item);
+      return;
+    }
+
+    // Category pagination prev
+    const prevBtn = target.closest("[data-cat-prev]");
+    if (prevBtn) {
+      const cat = prevBtn.getAttribute("data-cat-prev");
+      if (categoryPages[cat] > 1) {
+        categoryPages[cat] -= 1;
+        renderCategoryTable(cat);
       }
-      pendingDeleteId = item?.id || "";
-      openModal(modalDeleteItem);
+      return;
+    }
+
+    // Category pagination next
+    const nextBtn = target.closest("[data-cat-next]");
+    if (nextBtn) {
+      const cat = nextBtn.getAttribute("data-cat-next");
+      const items = getFilteredItemsByCategory(cat);
+      const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+      if ((categoryPages[cat] || 1) < totalPages) {
+        categoryPages[cat] = (categoryPages[cat] || 1) + 1;
+        renderCategoryTable(cat);
+      }
       return;
     }
   });
 
-  btnCloseViewItem?.addEventListener("click", () => closeModal(modalViewItem));
-
-  btnOpenEditFromViewItem?.addEventListener("click", () => {
-    const item = items.find((x) => x.id === activeEditId);
-    if (!item) return;
-    closeModal(modalViewItem);
-
-    if (editItemName) editItemName.value = safeValue(item.name);
-    if (editItemCategory) editItemCategory.value = safeValue(item.category);
-    if (editItemQty) editItemQty.value = safeValue(item.qty);
-    if (editItemUnit) editItemUnit.value = safeValue(item.unit);
-    if (editItemDescription) editItemDescription.value = safeValue(item.description);
-    if (editDeductionType) editDeductionType.value = "Production";
-    if (editDeductQty) editDeductQty.value = "0";
-
-    sourcePhotoData = item.photo || "";
-    editedPhotoData = item.photo || "";
-    openModal(modalEditItem);
-  });
-
-  btnSaveItem?.addEventListener("click", () => {
-    const addName = (document.getElementById("addItemName")?.value || "").trim();
-    const addCategory = document.getElementById("addItemCategory")?.value || "Raw Materials";
-    const addQtyRaw = Number(document.getElementById("addItemQty")?.value || 0);
-    const addUnit = document.getElementById("addItemUnit")?.value || "pcs";
-    const addDescription = (document.getElementById("addItemDescription")?.value || "").trim();
-
-    if (!addName) {
-      window.showAdminPopup?.("Material name is required.", { title: "Validation Error" });
-      return;
-    }
-
-    const cleanQty = Math.max(0, Number.isFinite(addQtyRaw) ? addQtyRaw : 0);
-    const nextIdNumber =
-      items.reduce((maxId, item) => {
-        const numericPart = Number(String(item.id).replace("INV-", ""));
-        return Number.isFinite(numericPart) ? Math.max(maxId, numericPart) : maxId;
-      }, 0) + 1;
-
-    const newItem = {
-      id: `INV-${String(nextIdNumber).padStart(3, "0")}`,
-      name: addName,
-      category: addCategory,
-      description: addDescription,
-      photo: editedPhotoData || "",
-      qty: cleanQty,
-      unit: addUnit,
-      status: inferStatus(cleanQty),
-    };
-
-    items.unshift(newItem);
-    currentPage = 1;
-    renderTable();
-    closeModal(document.getElementById("modalAddItem"));
-    setTimeout(() => window.showAdminPopup?.("Item added successfully.", { title: "Success ✓" }), 200);
-  });
-
-  btnUpdateItem?.addEventListener("click", () => {
-    if (!activeEditId) return;
-    const item = items.find((entry) => entry.id === activeEditId);
-    if (!item) return;
-
-    const baseQty = Number(editItemQty?.value || 0);
-    const deductQty = Number(editDeductQty?.value || 0);
-    const validBaseQty = Math.max(0, Number.isFinite(baseQty) ? baseQty : 0);
-    const validDeductQty = Math.max(0, Number.isFinite(deductQty) ? deductQty : 0);
-    const finalQty = Math.max(0, validBaseQty - validDeductQty);
-
-    item.name = (editItemName?.value || "").trim() || item.name;
-    item.category = editItemCategory?.value || item.category;
-    item.unit = editItemUnit?.value || item.unit;
-    item.description = (editItemDescription?.value || "").trim();
-    item.qty = finalQty;
-    item.status = inferStatus(finalQty);
-    item.photo = editedPhotoData || item.photo;
-
-    if (validDeductQty > 0) {
-      const deductionLabel = editDeductionType?.value || "Production";
-      window.showAdminPopup?.(`${deductionLabel} deduction applied: -${validDeductQty} ${item.unit}.`, { title: "Deduction Applied" });
-    }
-
-    renderTable();
-    closeModal(modalEditItem);
-    setTimeout(() => window.showAdminPopup?.("Item updated successfully.", { title: "Success ✓" }), 200);
-  });
-
-  btnConfirmDelete?.addEventListener("click", () => {
-    if (!pendingDeleteId) {
-      closeModal(modalDeleteItem);
-      return;
-    }
-    items = items.filter((item) => item.id !== pendingDeleteId);
-    pendingDeleteId = "";
-    renderTable();
-    closeModal(modalDeleteItem);
-    setTimeout(() => window.showAdminPopup?.("Item deleted successfully.", { title: "Success ✓" }), 200);
-  });
-
-  prevBtn?.addEventListener("click", () => {
-    if (currentPage > 1) {
-      currentPage -= 1;
-      renderTable();
-    }
-  });
-
-  nextBtn?.addEventListener("click", () => {
-    currentPage += 1;
-    renderTable();
-  });
-
+  // ─── Filters ──────────────────────────────────────────────────────────────────
   searchInput?.addEventListener("input", () => {
-    currentPage = 1;
-    renderTable();
+    CATEGORIES.forEach((cat) => { categoryPages[cat] = 1; });
+    renderAllTables();
   });
 
   categoryFilter?.addEventListener("change", () => {
-    currentPage = 1;
-    renderTable();
+    CATEGORIES.forEach((cat) => { categoryPages[cat] = 1; });
+    renderAllTables();
   });
 
-  window.addEventListener("resize", renderTable);
-  renderTable();
+  // ─── Auth check + initial load ────────────────────────────────────────────────
+  if (!token) {
+    showPopup("Please login first to access inventory management.", {
+      title: "Session Required",
+      onOk: () => { window.location.href = "../admin-auth/auth.html"; },
+    });
+    return;
+  }
+
+  void loadInventory();
 });

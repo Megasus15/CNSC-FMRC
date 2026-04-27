@@ -6,19 +6,158 @@
     <title>Inventory | CNSC-FMRC Admin</title>
     <link rel="stylesheet" href="dashboard.css" />
     <link rel="stylesheet" href="admin-modules.css" />
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-    />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+      /* ─── Inventory Summary Cards ──────────────────────────────────── */
+      .inv-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+        margin-bottom: 4px;
+      }
+      @media (max-width: 1100px) { .inv-summary-grid { grid-template-columns: repeat(2, 1fr); } }
+      @media (max-width: 600px)  { .inv-summary-grid { grid-template-columns: 1fr; } }
+
+      .inv-summary-card {
+        background: #fff;
+        border: 1px solid var(--border-color, #e5e7eb);
+        border-radius: 12px;
+        padding: 18px 20px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        transition: box-shadow 0.25s ease, transform 0.25s ease;
+      }
+      .inv-summary-card:hover {
+        box-shadow: 0 8px 24px rgba(128,0,0,0.07);
+        transform: translateY(-2px);
+      }
+      .inv-summary-icon {
+        width: 46px; height: 46px;
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.2rem; color: #fff; flex-shrink: 0;
+      }
+      .inv-summary-icon.total   { background: linear-gradient(135deg, #800000, #b91c1c); }
+      .inv-summary-icon.good    { background: linear-gradient(135deg, #16a34a, #22c55e); }
+      .inv-summary-icon.low     { background: linear-gradient(135deg, #d97706, #f59e0b); }
+      .inv-summary-icon.out     { background: linear-gradient(135deg, #dc2626, #ef4444); }
+      .inv-summary-value { font-size: 1.5rem; font-weight: 800; color: #1a1a2e; line-height: 1; }
+      .inv-summary-label { font-size: 0.76rem; color: #6b7280; font-weight: 600; margin-top: 2px; }
+
+      /* ─── Category Table — panel-style (matches User Management) ─── */
+      .inv-category-card {
+        background: #fff;
+        border: 1px solid var(--border-color, #e5e7eb);
+        border-radius: 12px;
+        padding: 16px;
+        min-width: 0;
+        margin-bottom: 0;
+      }
+      .inv-category-header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border-color, #e5e7eb);
+      }
+      .inv-category-header-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .inv-category-icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.95rem;
+        color: var(--primary-color, #800000);
+        background: #f8e8e8;
+        flex-shrink: 0;
+      }
+      .inv-category-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--primary-color, #800000);
+      }
+      .inv-category-badge {
+        display: inline-flex;
+        align-items: center;
+        background: #f8e8e8;
+        color: var(--primary-color, #800000);
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        border: 1px solid #f2d0d0;
+      }
+      .inv-category-body { padding: 0; }
+      .inv-category-body .table-wrapper { margin: 0; }
+
+      /* ─── Inventory table tweaks ──────────────────────────────────── */
+      .inv-table th { font-size: 0.72rem; }
+      .inv-table td { font-size: 0.8rem; }
+
+      /* ─── Category Pagination Footer (matches .table-footer) ──────── */
+      .inv-cat-footer {
+        margin-top: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        font-size: 0.76rem;
+        color: #68707a;
+      }
+      .inv-cat-footer .table-pagination { display: flex; align-items: center; gap: 6px; }
+
+      /* ─── View modal grid ─────────────────────────────────────────── */
+      .inv-view-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px 18px;
+      }
+      .inv-view-grid .full { grid-column: 1 / -1; }
+      .inv-view-label {
+        font-size: 0.73rem;
+        color: #9ca3af;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .inv-view-value {
+        font-size: 0.88rem;
+        color: #111827;
+        font-weight: 500;
+        margin-top: 2px;
+        word-break: break-word;
+      }
+
+      /* ─── Remarks badge ───────────────────────────────────────────── */
+      .remarks-pill {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 6px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .remarks-acquired    { background: #dbeafe; color: #1d4ed8; }
+      .remarks-included    { background: #dcfce7; color: #15803d; }
+      .remarks-restock     { background: #fef3c7; color: #92400e; }
+      .remarks-default     { background: #f1f5f9; color: #64748b; }
+    </style>
   </head>
   <body>
     <div class="dashboard-container">
       <aside class="sidebar">
-        <div class="sidebar-header">
-          <img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" />
-          <h2>CNSC-FMRC</h2>
-        </div>
-
+        <div class="sidebar-header"><img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" /><h2>CNSC-FMRC</h2></div>
                 <nav class="sidebar-nav">
           <a href="dashboard.html" class="nav-link"><i class="fa-solid fa-house"></i> Dashboard</a>
           <a href="inventory.html" class="nav-link active"><i class="fa-solid fa-box"></i> Inventory</a>
@@ -47,28 +186,18 @@
           <a href="my-account.html" class="nav-link"><i class="fa-regular fa-id-card"></i> My Account</a>
         </nav>
 
-        <div class="sidebar-footer">
-          <button class="logout-btn">
-            <i class="fa-solid fa-right-from-bracket"></i> Logout
-          </button>
-        </div>
+        <div class="sidebar-footer"><button class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div>
       </aside>
 
       <main class="main-content">
         <header class="top-header">
-          <div class="header-left">
-            <h1>Inventory Management</h1>
-          </div>
+          <div class="header-left"><h1>Inventory Management</h1></div>
           <div class="header-right">
-            <div class="notifications" id="notifBell">
-              <i class="fa-regular fa-bell"></i>
-              <span class="badge" id="notifBadge" style="display:none;"></span>
-            </div>
+            <div class="notifications" id="notifBell"><i class="fa-regular fa-bell"></i><span class="badge" id="notifBadge" style="display:none;"></span></div>
             <div class="user-profile">
               <div class="user-info"><span class="role">Admin</span></div>
               <span class="profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
-              <div class="profile-popup" id="profilePopup">
-                <div class="popup-header">
+              <div class="profile-popup" id="profilePopup"><div class="popup-header">
                   <div class="popup-profile-row">
                     <span class="popup-profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
                     <div class="popup-profile-meta">
@@ -78,8 +207,7 @@
                   </div>
                 </div>
                 <a href="my-account.html" class="profile-popup-link"><i class="fa-regular fa-id-card"></i> My Account</a>
-                <hr /><button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
-              </div>
+                <hr /><button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div>
             </div>
           </div>
         </header>
@@ -88,240 +216,150 @@
           <div class="page-toolbar">
             <div class="toolbar-title">
               <h2>Inventory Items</h2>
-              <p>Track materials, stock levels, and receiving status in one place.</p>
+              <p>View and manage all inventory items. Monitor stock levels and item details.</p>
             </div>
             <div class="toolbar-actions">
               <button class="btn-admin btn-secondary" onclick="window.location.reload();" title="Refresh Data">
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
-              <button class="btn-admin btn-secondary" id="btnExportCsv">
-                <i class="fa-solid fa-file-arrow-down"></i> Export CSV
-              </button>
-              <button class="btn-admin" data-modal-open="#modalAddItem">
-                <i class="fa-solid fa-plus"></i> Add Item
+              <button class="btn-admin" id="btnOpenAddItem">
+                <i class="fa-solid fa-plus"></i> Add New Item
               </button>
             </div>
           </div>
 
-          <div class="page-metrics">
-            <div class="metric-card">
-              <div class="metric-icon"><i class="fa-solid fa-box"></i></div>
-              <div><div class="metric-value" id="metricTotalItems">0</div><div class="metric-label">Total Items</div></div>
+          <!-- Summary Cards -->
+          <div class="inv-summary-grid" id="invSummaryGrid">
+            <div class="inv-summary-card">
+              <div class="inv-summary-icon total"><i class="fa-solid fa-boxes-stacked"></i></div>
+              <div><div class="inv-summary-value" id="metricTotalItems">0</div><div class="inv-summary-label">Total Items</div></div>
             </div>
-            <div class="metric-card">
-              <div class="metric-icon"><i class="fa-solid fa-box-open"></i></div>
-              <div><div class="metric-value" id="metricInStock">0</div><div class="metric-label">In Stock</div></div>
+            <div class="inv-summary-card">
+              <div class="inv-summary-icon good"><i class="fa-solid fa-circle-check"></i></div>
+              <div><div class="inv-summary-value" id="metricGood">0</div><div class="inv-summary-label">Good Status</div></div>
             </div>
-            <div class="metric-card">
-              <div class="metric-icon"><i class="fa-solid fa-arrow-down-short-wide"></i></div>
-              <div><div class="metric-value" id="metricLowStock">0</div><div class="metric-label">Low Stock</div></div>
+            <div class="inv-summary-card">
+              <div class="inv-summary-icon low"><i class="fa-solid fa-arrow-down-short-wide"></i></div>
+              <div><div class="inv-summary-value" id="metricLowStock">0</div><div class="inv-summary-label">Low Stock</div></div>
             </div>
-            <div class="metric-card">
-              <div class="metric-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
-              <div><div class="metric-value" id="metricOutOfStock">0</div><div class="metric-label">Out of Stock</div></div>
+            <div class="inv-summary-card">
+              <div class="inv-summary-icon out"><i class="fa-solid fa-triangle-exclamation"></i></div>
+              <div><div class="inv-summary-value" id="metricOutOfStock">0</div><div class="inv-summary-label">Out of Stock</div></div>
             </div>
           </div>
 
-          <div class="panel">
+          <!-- Filters Row -->
+          <div class="panel" style="margin-bottom: 18px;">
             <div class="panel-header">
-              <h3>Inventory List</h3>
+              <h3>Inventory Filters</h3>
               <div class="filters-row">
                 <select class="filter-select" id="inventoryCategoryFilter">
                   <option value="all">All Categories</option>
-                  <option value="Raw Materials">Raw Materials</option>
-                  <option value="Consumables">Consumables</option>
+                  <option value="Consumable Materials">Consumable Materials</option>
+                  <option value="Office Supplies">Office Supplies</option>
+                  <option value="Inventory Tools">Inventory Tools</option>
+                  <option value="Electronics and Electrical Equipments">Electronics &amp; Electrical Equipments</option>
                 </select>
-                <input class="search-input" id="inventorySearchInput" placeholder="Search item name..." />
-              </div>
-            </div>
-            <div class="table-wrapper">
-              <table class="admin-table inventory-table" id="inventoryTable">
-                <thead>
-                  <tr>
-                    <th>Item ID</th>
-                    <th>Material Name</th>
-                    <th>Category</th>
-                    <th>Description</th>
-                    <th>Photo</th>
-                    <th>Qty</th>
-                    <th>Unit</th>
-                    <th>Status</th>
-                    <th class="th-action sticky-action">Action</th>
-                  </tr>
-                </thead>
-                <tbody id="inventoryTableBody"></tbody>
-              </table>
-            </div>
-            <div class="table-footer" id="inventoryTableFooter">
-              <div class="table-footer-meta" id="inventoryTableMeta">Page 1 of 1</div>
-              <div class="table-pagination">
-                <button class="page-btn" id="inventoryPrevPage" aria-label="Previous page">
-                  <i class="fa-solid fa-chevron-left"></i>
-                </button>
-                <div class="page-number" id="inventoryCurrentPage">1</div>
-                <button class="page-btn" id="inventoryNextPage" aria-label="Next page">
-                  <i class="fa-solid fa-chevron-right"></i>
-                </button>
+                <input class="search-input" id="inventorySearchInput" placeholder="Search item name or description..." />
               </div>
             </div>
           </div>
+
+          <!-- Category Tables Container -->
+          <div id="inventoryCategoryTables" style="display:flex;flex-direction:column;gap:18px;"></div>
         </section>
       </main>
     </div>
 
-    <div class="modal-overlay" id="modalAddItem" data-backdrop-close="false">
-      <div class="modal-card">
-        <h3 class="modal-title">Add Item</h3>
-        <div class="form-grid">
-          <div class="field-stack full"><label>Material Name</label><input class="input-field" id="addItemName" /></div>
-          <div class="field-stack"><label>Category</label><select class="filter-select" id="addItemCategory"><option>Raw Materials</option><option>Consumables</option></select></div>
-          <div class="field-stack"><label>Quantity</label><input class="input-field" id="addItemQty" type="number" min="0" /></div>
-          <div class="field-stack"><label>Unit</label><select class="filter-select" id="addItemUnit"><option>pcs</option><option>box</option><option>roll</option></select></div>
-          <div class="field-stack full">
-            <label>Upload Image/Photo</label>
-            <div class="upload-row">
-              <input class="input-field file-input" id="addItemPhoto" type="file" accept="image/*" />
-              <button
-                class="btn-admin btn-secondary icon-only-btn"
-                id="btnEditPhoto"
-                type="button"
-                title="Edit Photo"
-                aria-label="Edit Photo"
-              >
-                <i class="fa-regular fa-pen-to-square"></i>
-              </button>
-            </div>
-            <p class="field-hint">Image only. You can rotate and resize before saving.</p>
-          </div>
-          <div class="field-stack full"><label>Description</label><textarea class="textarea-field" id="addItemDescription"></textarea></div>
+    <!-- ────────────── ADD / EDIT ITEM MODAL ────────────── -->
+    <div class="modal-overlay" id="modalAddInventoryItem" data-backdrop-close="false">
+      <div class="modal-card product-modal">
+        <div class="modal-header-fixed">
+          <h3 class="modal-title" id="invModalTitle"><i class="fa-solid fa-plus" style="margin-right:6px;"></i>Add New Item</h3>
         </div>
-        <div class="modal-actions">
-          <button class="btn-admin btn-secondary" data-modal-close="#modalAddItem">Cancel</button>
-          <button class="btn-admin" id="btnSaveItem" type="button">Save Item</button>
+        <div class="modal-body-scroll">
+          <div class="form-grid">
+            <div class="field-stack full">
+              <label>Category <span style="color:#dc2626">*</span></label>
+              <select class="filter-select" id="invFormCategory">
+                <option value="Consumable Materials">Consumable Materials</option>
+                <option value="Office Supplies">Office Supplies</option>
+                <option value="Inventory Tools">Inventory Tools</option>
+                <option value="Electronics and Electrical Equipments">Electronics and Electrical Equipments</option>
+              </select>
+            </div>
+            <div class="field-stack full"><label>Item Name <span style="color:#dc2626">*</span></label><input class="input-field" id="invFormItemName" maxlength="255" placeholder="e.g. 3D Printer Filaments" /></div>
+            <div class="field-stack full"><label>Description</label><input class="input-field" id="invFormDescription" maxlength="500" placeholder="e.g. Black/1.75mm" /></div>
+            <div class="field-stack">
+              <label>Unit <span style="color:#dc2626">*</span></label>
+              <select class="filter-select" id="invFormUnit">
+                <option value="pcs">pcs</option>
+                <option value="set">set</option>
+                <option value="ream">ream</option>
+                <option value="box">box</option>
+                <option value="roll">roll</option>
+                <option value="pack">pack</option>
+                <option value="unit">unit</option>
+                <option value="bottle">bottle</option>
+                <option value="pair">pair</option>
+              </select>
+            </div>
+            <div class="field-stack"><label>Last Invent <span style="color:#dc2626">*</span></label><input class="input-field" id="invFormLastInvent" type="number" min="0" placeholder="0" /></div>
+            <div class="field-stack"><label>On Hand <span style="color:#dc2626">*</span></label><input class="input-field" id="invFormOnHand" type="number" min="0" placeholder="0" /></div>
+            <div class="field-stack">
+              <label>Status <span style="color:#dc2626">*</span></label>
+              <select class="filter-select" id="invFormStatus">
+                <option value="Good">Good</option>
+                <option value="Low Stock">Low Stock</option>
+                <option value="Out of Stock">Out of Stock</option>
+              </select>
+            </div>
+            <div class="field-stack full">
+              <label>Remarks</label>
+              <select class="filter-select" id="invFormRemarks">
+                <option value="">— None —</option>
+                <option value="Recently Acquired">Recently Acquired</option>
+                <option value="Recently Included in the Inventory">Recently Included in the Inventory</option>
+                <option value="Need to Restock">Need to Restock</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer-fixed">
+          <button class="btn-admin btn-secondary" id="btnCancelInvForm">Cancel</button>
+          <button class="btn-admin" id="btnSaveInvForm" type="button"><i class="fa-solid fa-floppy-disk"></i> Add to Inventory</button>
         </div>
       </div>
     </div>
 
-    <div class="modal-overlay" id="modalEditItem" data-backdrop-close="false">
-      <div class="modal-card">
-        <h3 class="modal-title">Edit Item</h3>
-        <div class="form-grid">
-          <div class="field-stack full"><label>Material Name</label><input class="input-field" id="editItemName" /></div>
-          <div class="field-stack"><label>Category</label><select class="filter-select" id="editItemCategory"><option>Raw Materials</option><option>Consumables</option></select></div>
-          <div class="field-stack"><label>Quantity</label><input class="input-field" id="editItemQty" type="number" min="0" /></div>
-          <div class="field-stack"><label>Unit</label><select class="filter-select" id="editItemUnit"><option>pcs</option><option>box</option><option>roll</option></select></div>
-          <div class="field-stack">
-            <label>Deduction Type</label>
-            <select class="filter-select" id="editDeductionType">
-              <option value="Production">Production</option>
-              <option value="Defect">Defect</option>
-            </select>
-          </div>
-          <div class="field-stack">
-            <label>Deduct Quantity</label>
-            <input class="input-field" id="editDeductQty" type="number" min="0" placeholder="0" />
-          </div>
-          <div class="field-stack full">
-            <label>Upload Image/Photo</label>
-            <div class="upload-row">
-              <input class="input-field file-input" id="editItemPhoto" type="file" accept="image/*" />
-              <button
-                class="btn-admin btn-secondary icon-only-btn"
-                id="btnEditPhotoInEditModal"
-                type="button"
-                title="Edit Photo"
-                aria-label="Edit Photo"
-              >
-                <i class="fa-regular fa-pen-to-square"></i>
-              </button>
-            </div>
-            <p class="field-hint">Image only. You can rotate and resize before saving.</p>
-          </div>
-          <div class="field-stack full"><label>Description</label><textarea class="textarea-field" id="editItemDescription"></textarea></div>
-        </div>
+    <!-- ────────────── VIEW ITEM MODAL ────────────── -->
+    <div class="modal-overlay" id="modalViewInventoryItem" data-backdrop-close="false">
+      <div class="modal-card" style="min-width:480px;max-width:600px;width:100%;">
+        <h3 class="modal-title" id="invViewTitle" style="margin-bottom:4px;">Item Details</h3>
+        <p class="field-hint" style="margin-bottom:14px;" id="invViewSubtitle"></p>
+        <hr class="confirm-separator" />
+        <div id="invViewContent" style="margin-bottom:16px;"></div>
+        <hr class="confirm-separator" />
         <div class="modal-actions">
-          <button class="btn-admin btn-secondary" data-modal-close="#modalEditItem">Cancel</button>
-          <button class="btn-admin" id="btnUpdateItem" type="button">Update Item</button>
+          <button class="btn-admin btn-secondary" id="btnCloseViewInv">Close</button>
+          <button class="btn-admin" id="btnEditFromViewInv" type="button"><i class="fa-regular fa-pen-to-square"></i> Edit Item</button>
         </div>
       </div>
     </div>
 
-    <div class="modal-overlay" id="modalDeleteItem" data-backdrop-close="false">
+    <!-- ────────────── DELETE CONFIRMATION MODAL ────────────── -->
+    <div class="modal-overlay" id="modalDeleteInventoryItem" data-backdrop-close="false">
       <div class="modal-card modal-confirm">
         <h3 class="modal-title">Delete Confirmation</h3>
         <hr class="confirm-separator" />
         <p class="confirm-text">
-          You are about to delete <strong id="deleteItemTargetLabel">this item</strong>.
+          You are about to permanently delete <strong id="invDeleteTargetLabel">this item</strong>.
         </p>
-        <p class="field-hint">This is a design-only confirmation for now.</p>
+        <p class="field-hint">This action cannot be undone. The item will be removed from the database.</p>
         <hr class="confirm-separator" />
         <div class="modal-actions">
-          <button class="btn-admin btn-secondary" data-modal-close="#modalDeleteItem">Cancel</button>
-          <button class="btn-admin" id="btnConfirmDelete" type="button">Delete Item</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="modal-overlay" id="modalArchiveItem" data-backdrop-close="false">
-      <div class="modal-card modal-confirm">
-        <h3 class="modal-title">Archive Confirmation</h3>
-        <hr class="confirm-separator" />
-        <p class="confirm-text">
-          You are about to move <strong id="archiveItemTargetLabel">this item</strong> to Archives.
-        </p>
-        <p class="field-hint">This is a design-only confirmation for now.</p>
-        <hr class="confirm-separator" />
-        <div class="modal-actions">
-          <button class="btn-admin btn-secondary" data-modal-close="#modalArchiveItem">Cancel</button>
-          <button class="btn-admin" id="btnConfirmArchiveItem" type="button">Move to Archives</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="modal-overlay" id="modalPhotoPreview">
-      <div class="modal-card modal-photo-preview">
-        <h3 class="modal-title">Photo Preview</h3>
-        <div class="photo-preview-box">
-          <img id="inventoryPhotoPreview" alt="Inventory item preview" />
-        </div>
-        <div class="modal-actions">
-          <button class="btn-admin btn-secondary" data-modal-close="#modalPhotoPreview">Close</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="modal-overlay" id="modalPhotoEditor">
-      <div class="modal-card modal-photo-editor">
-        <h3 class="modal-title">Edit Image/Photo</h3>
-        <div class="photo-editor-preview" id="photoEditorPreviewWrap">
-          <img id="photoEditorPreview" alt="Photo editor preview" />
-        </div>
-        <div class="photo-editor-controls">
-          <div class="field-stack">
-            <label for="photoRotate">Rotate</label>
-            <input id="photoRotate" type="range" min="0" max="360" value="0" />
-          </div>
-          <div class="field-stack">
-            <label for="photoScale">Resize</label>
-            <input id="photoScale" type="range" min="50" max="150" value="100" />
-          </div>
-        </div>
-        <div class="modal-actions">
-          <button class="btn-admin btn-secondary" data-modal-close="#modalPhotoEditor">Cancel</button>
-          <button class="btn-admin" id="btnApplyPhotoEdit" type="button">Apply</button>
-        </div>
-      </div>
-    </div>
-
-    <div class="modal-overlay" id="modalViewItem" data-backdrop-close="false">
-      <div class="modal-card" style="min-width:460px;max-width:560px;">
-        <h3 class="modal-title" id="viewItemTitle">Item Details</h3>
-        <hr class="confirm-separator" />
-        <div id="viewItemContent" style="margin-bottom:14px;"></div>
-        <hr class="confirm-separator" />
-        <div class="modal-actions">
-          <button class="btn-admin btn-secondary" id="btnCloseViewItem">Close</button>
-          <button class="btn-admin" id="btnOpenEditFromViewItem" type="button"><i class="fa-regular fa-pen-to-square"></i> Edit Item</button>
+          <button class="btn-admin btn-secondary" id="btnCancelDeleteInv">Cancel</button>
+          <button class="btn-admin" id="btnConfirmDeleteInv" type="button">Delete Item</button>
         </div>
       </div>
     </div>

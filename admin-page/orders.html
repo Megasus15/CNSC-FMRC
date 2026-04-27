@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -160,6 +160,42 @@
               </div>
             </article>
 
+            <article class="panel" id="walkInOrdersPanel">
+              <div class="panel-header">
+                <h3>Walk-in Customers</h3>
+                <div class="filters-row">
+                  <button class="btn-admin" id="openWalkInOrderModalBtn" type="button">
+                    <i class="fa-solid fa-plus"></i> Add
+                  </button>
+                </div>
+              </div>
+              <div class="table-wrapper">
+                <table class="admin-table" id="walkInOrdersTable" data-page-size="5" data-empty-message="No walk-in orders available.">
+                  <thead>
+                    <tr>
+                      <th>Order No.</th>
+                      <th>Order Item</th>
+                      <th>Date</th>
+                      <th>Customer</th>
+                      <th>Payment Method</th>
+                      <th>Total</th>
+                      <th>Status</th>
+                      <th class="sticky-action">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <div class="table-footer" id="walkInOrdersFooter">
+                <div class="table-footer-meta">Page 1 of 1</div>
+                <div class="table-pagination">
+                  <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-left"></i></button>
+                  <div class="page-number">1</div>
+                  <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+              </div>
+            </article>
+
             <article class="panel" id="paymentsHistoryPanel">
               <div class="panel-header">
                 <h3>Payments History</h3>
@@ -268,6 +304,58 @@
         <div class="modal-footer-fixed">
           <button class="btn-admin btn-secondary" data-modal-close="#modalTrackingUpdate">Cancel</button>
           <button class="btn-admin" id="btnSaveTrackingUpdate" type="button">Save Update</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modalAddWalkInOrder" data-backdrop-close="false">
+      <div class="modal-card product-modal">
+        <div class="modal-header-fixed">
+          <h3 class="modal-title" id="walkInModalTitle">Add Walk-in Order</h3>
+        </div>
+        <div class="modal-body-scroll">
+          <div class="form-grid">
+            <div class="field-stack"><label>Order No.</label><input id="walkInOrderNoInput" class="input-field" /></div>
+            <div class="field-stack"><label>Date</label><input id="walkInDateInput" class="input-field" type="datetime-local" /></div>
+            <div class="field-stack full"><label>Order Item</label><input id="walkInOrderItemInput" class="input-field" /></div>
+            <div class="field-stack"><label>Customer</label><input id="walkInCustomerInput" class="input-field" /></div>
+            <div class="field-stack"><label>Payment Method</label>
+              <select id="walkInPaymentMethodInput" class="filter-select">
+                <option value="GCash">GCash</option>
+                <option value="COP">COP</option>
+                <option value="COD">COD</option>
+              </select>
+            </div>
+            <div class="field-stack"><label>Total</label><input id="walkInTotalInput" class="input-field" type="number" min="0" step="0.01" /></div>
+            <div class="field-stack"><label>Status</label>
+              <select id="walkInStatusInput" class="filter-select">
+                <option value="Pending">Pending</option>
+                <option value="Completed">Completed</option>
+                <option value="Rejected">Rejected</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer-fixed">
+          <button class="btn-admin btn-secondary" id="cancelWalkInOrderBtn" type="button">Cancel</button>
+          <button class="btn-admin" id="saveWalkInOrderBtn" type="button">Save Walk-in Order</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------------------- DELETE WALK-IN ORDER MODAL ---------------------- -->
+    <div class="modal-overlay" id="modalDeleteWalkInOrder" data-backdrop-close="false">
+      <div class="modal-card modal-confirm">
+        <h3 class="modal-title">Delete Confirmation</h3>
+        <hr class="confirm-separator" />
+        <p class="confirm-text">
+          You are about to permanently delete walk-in order <strong id="deleteWalkInOrderTargetLabel"></strong>.
+        </p>
+        <p class="field-hint">This action cannot be undone. The order will be removed from the database.</p>
+        <hr class="confirm-separator" />
+        <div class="modal-actions">
+          <button class="btn-admin btn-secondary" id="btnCancelDeleteWalkInOrder">Cancel</button>
+          <button class="btn-admin" id="btnConfirmWalkInOrderDelete" type="button">Delete Order</button>
         </div>
       </div>
     </div>

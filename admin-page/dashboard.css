@@ -900,16 +900,30 @@ body {
   color: var(--text-muted);
 }
 
-.card-icon {
-  width: 36px;
-  text-align: center;
-  font-size: 1.45rem;
-  color: var(--primary-color);
-  opacity: 0.9;
-  align-self: center;
+/* ─── Dashboard Card Icon Box (matches Inventory summary card icons) ── */
+.card-icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  color: #fff;
   flex-shrink: 0;
+  align-self: center;
   margin-left: 12px;
 }
+
+/* Color variants — same gradient system as inventory icons */
+.card-icon-maroon  { background: linear-gradient(135deg, #800000, #b91c1c); }
+.card-icon-green   { background: linear-gradient(135deg, #16a34a, #22c55e); }
+.card-icon-amber   { background: linear-gradient(135deg, #d97706, #f59e0b); }
+.card-icon-red     { background: linear-gradient(135deg, #dc2626, #ef4444); }
+.card-icon-purple  { background: linear-gradient(135deg, #7c3aed, #a855f7); }
+.card-icon-blue    { background: linear-gradient(135deg, #1d4ed8, #3b82f6); }
+.card-icon-cyan    { background: linear-gradient(135deg, #0891b2, #22d3ee); }
+.card-icon-slate   { background: linear-gradient(135deg, #475569, #94a3b8); }
 
 .dashboard-widgets {
   display: grid;
