@@ -15,6 +15,12 @@ class ProductAnalyticsController extends Controller
 {
     private const ALLOWED_ADMIN_ROLES = ['admin', 'staff'];
 
+    private const COUNTED_ORDER_STATUSES = ['incoming', 'pending', 'completed'];
+
+    private const YEARLY_TREND_DATE_COLUMN_CREATED = 'created_at';
+
+    private const YEARLY_TREND_DATE_COLUMN_COMPLETED = 'completed_at';
+
     /**
      * Top Selling Products based on actual order quantities.
      * Supports period filter: month, week, day
@@ -28,7 +34,7 @@ class ProductAnalyticsController extends Controller
 
         $query = OrderItem::query()
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->whereNotIn('orders.lifecycle_status', ['rejected']);
+            ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES);
 
         // Apply period filter
         $now = Carbon::now('Asia/Manila');
@@ -79,7 +85,7 @@ class ProductAnalyticsController extends Controller
         $categoryData = OrderItem::query()
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->leftJoin('products', 'order_items.product_id', '=', 'products.id')
-            ->whereNotIn('orders.lifecycle_status', ['rejected'])
+            ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES)
             ->select(
                 DB::raw("COALESCE(products.category, 'Uncategorized') as category"),
                 DB::raw('SUM(order_items.quantity) as total_sold'),
@@ -109,7 +115,7 @@ class ProductAnalyticsController extends Controller
         $performanceData = OrderItem::query()
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->leftJoin('products', 'order_items.product_id', '=', 'products.id')
-            ->whereNotIn('orders.lifecycle_status', ['rejected'])
+            ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES)
             ->select(
                 DB::raw("COALESCE(products.code, 'N/A') as product_code"),
                 'order_items.product_name',
@@ -157,12 +163,17 @@ class ProductAnalyticsController extends Controller
         if ($denied) return $denied;
 
         $year = (int) $request->query('year', date('Y'));
+        $dateColumn = $this->resolveYearlyTrendDateColumn($request);
+        $countedStatuses = $dateColumn === self::YEARLY_TREND_DATE_COLUMN_COMPLETED
+            ? ['completed']
+            : self::COUNTED_ORDER_STATUSES;
 
         $monthlyData = Order::query()
-            ->whereNotIn('lifecycle_status', ['rejected'])
-            ->whereYear('created_at', $year)
+            ->whereIn('lifecycle_status', $countedStatuses)
+            ->whereYear($dateColumn, $year)
+            ->whereNotNull($dateColumn)
             ->select(
-                DB::raw('MONTH(created_at) as month'),
+                DB::raw("MONTH({$dateColumn}) as month"),
                 DB::raw('SUM(total) as total_sales'),
                 DB::raw('COUNT(*) as order_count')
             )
@@ -185,9 +196,20 @@ class ProductAnalyticsController extends Controller
 
         return response()->json([
             'year' => $year,
+            'date_basis' => $dateColumn,
             'has_data' => $hasData,
             'data' => $months,
         ]);
+    }
+
+    private function resolveYearlyTrendDateColumn(Request $request): string
+    {
+        $basis = strtolower((string) $request->query('date_basis', self::YEARLY_TREND_DATE_COLUMN_CREATED));
+
+        return match ($basis) {
+            self::YEARLY_TREND_DATE_COLUMN_COMPLETED => self::YEARLY_TREND_DATE_COLUMN_COMPLETED,
+            default => self::YEARLY_TREND_DATE_COLUMN_CREATED,
+        };
     }
 
     private function ensureAdmin(Request $request): ?JsonResponse

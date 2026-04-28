@@ -104,10 +104,10 @@
           </div>
 
           <div class="summary-cards">
-            <!-- Total Income -->
-            <a class="card card-link" href="reports.html" data-nav-label="Reports">
+            <!-- Total Revenue -->
+            <a class="card card-link" href="products.html" data-nav-label="Products">
               <div class="card-info">
-                <h3>₱ 124,500</h3>
+                <h3 id="dashboardRevenueAmount"><span class="card-value-loading"></span></h3>
                 <p>Total Revenue</p>
               </div>
               <div class="card-icon-box card-icon-maroon"><i class="fa-solid fa-wallet"></i></div>
@@ -116,7 +116,7 @@
             <!-- Inventory -->
             <a class="card card-link" href="inventory.html" data-nav-label="Inventory">
               <div class="card-info">
-                <h3>320</h3>
+                <h3 id="dashboardInventoryCount"><span class="card-value-loading"></span></h3>
                 <p>Total Inventory Items</p>
               </div>
               <div class="card-icon-box card-icon-green"><i class="fa-solid fa-boxes-stacked"></i></div>
@@ -125,7 +125,7 @@
             <!-- Products -->
             <a class="card card-link" href="products.html" data-nav-label="Products">
               <div class="card-info">
-                <h3 id="dashboardProductsCount">--</h3>
+                <h3 id="dashboardProductsCount"><span class="card-value-loading"></span></h3>
                 <p>Total Products</p>
               </div>
               <div class="card-icon-box card-icon-purple"><i class="fa-solid fa-tags"></i></div>
@@ -134,7 +134,7 @@
             <!-- Appointments -->
             <a class="card card-link" href="appointments.html" data-nav-label="Appointment">
               <div class="card-info">
-                <h3 id="dashboardAppointmentsCount">--</h3>
+                <h3 id="dashboardAppointmentsCount"><span class="card-value-loading"></span></h3>
                 <p>Total Appointments</p>
               </div>
               <div class="card-icon-box card-icon-blue"><i class="fa-regular fa-calendar-check"></i></div>
@@ -143,13 +143,22 @@
             <!-- User Management -->
             <a class="card card-link" href="accounts.html" data-nav-label="User Management">
               <div class="card-info">
-                <h3 id="dashboardAccountsCount">--</h3>
+                <h3 id="dashboardAccountsCount"><span class="card-value-loading"></span></h3>
                 <p>Total Accounts</p>
               </div>
               <div class="card-icon-box card-icon-cyan"><i class="fa-solid fa-users"></i></div>
             </a>
 
-            <!-- Reports -->
+            <!-- Orders -->
+            <a class="card card-link" href="orders.html" data-nav-label="Orders">
+              <div class="card-info">
+                <h3 id="dashboardOrdersCount"><span class="card-value-loading"></span></h3>
+                <p>Total Orders</p>
+              </div>
+              <div class="card-icon-box card-icon-red"><i class="fa-solid fa-box-open"></i></div>
+            </a>
+
+            <!-- Reports (hardcoded) -->
             <a class="card card-link" href="reports.html" data-nav-label="Reports">
               <div class="card-info">
                 <h3>24</h3>
@@ -158,16 +167,7 @@
               <div class="card-icon-box card-icon-amber"><i class="fa-solid fa-chart-line"></i></div>
             </a>
 
-            <!-- Orders -->
-            <a class="card card-link" href="orders.html" data-nav-label="Orders">
-              <div class="card-info">
-                <h3 id="dashboardOrdersCount">--</h3>
-                <p>Total Orders</p>
-              </div>
-              <div class="card-icon-box card-icon-red"><i class="fa-solid fa-box-open"></i></div>
-            </a>
-
-            <!-- Archives -->
+            <!-- Archives (hardcoded) -->
             <a class="card card-link" href="archives.html" data-nav-label="Archives">
               <div class="card-info">
                 <h3>89</h3>
@@ -175,6 +175,89 @@
               </div>
               <div class="card-icon-box card-icon-slate"><i class="fa-solid fa-box-archive"></i></div>
             </a>
+          </div>
+
+          <!-- Product Analytics Overview Widget -->
+          <div class="dashboard-analytics-overview" id="dashboardAnalyticsOverview">
+            <div class="widget analytics-overview-widget">
+              <div class="widget-header">
+                <h3><i class="fa-solid fa-chart-pie" style="margin-right: 8px; color: var(--primary-color);"></i> Product Analytics Overview</h3>
+                <a href="products.html" class="view-all-link">See All <i class="fa-solid fa-arrow-right"></i></a>
+              </div>
+              <div class="analytics-overview-grid" id="analyticsOverviewGrid">
+                <!-- Top Selling -->
+                <div class="analytics-overview-card">
+                  <div class="aov-header">
+                    <div class="aov-icon aov-icon-fire"><i class="fa-solid fa-fire-flame-curved"></i></div>
+                    <div>
+                      <h4>Top Selling</h4>
+                      <span>This month's best sellers</span>
+                    </div>
+                  </div>
+                  <div class="aov-body" id="aovTopSelling">
+                    <div class="aov-shimmer-list">
+                      <div class="aov-shimmer-row"></div>
+                      <div class="aov-shimmer-row"></div>
+                      <div class="aov-shimmer-row"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Sales by Category -->
+                <div class="analytics-overview-card">
+                  <div class="aov-header">
+                    <div class="aov-icon aov-icon-category"><i class="fa-solid fa-layer-group"></i></div>
+                    <div>
+                      <h4>Sales by Category</h4>
+                      <span>Revenue distribution</span>
+                    </div>
+                  </div>
+                  <div class="aov-body" id="aovSalesByCategory">
+                    <div class="aov-shimmer-list">
+                      <div class="aov-shimmer-row"></div>
+                      <div class="aov-shimmer-row"></div>
+                      <div class="aov-shimmer-row"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Product Performance -->
+                <div class="analytics-overview-card">
+                  <div class="aov-header">
+                    <div class="aov-icon aov-icon-performance"><i class="fa-solid fa-ranking-star"></i></div>
+                    <div>
+                      <h4>Product Performance</h4>
+                      <span>Top revenue generators</span>
+                    </div>
+                  </div>
+                  <div class="aov-body" id="aovProductPerformance">
+                    <div class="aov-shimmer-list">
+                      <div class="aov-shimmer-row"></div>
+                      <div class="aov-shimmer-row"></div>
+                      <div class="aov-shimmer-row"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Yearly Sales Trend -->
+                <div class="analytics-overview-card">
+                  <div class="aov-header">
+                    <div class="aov-icon aov-icon-trend"><i class="fa-solid fa-chart-line"></i></div>
+                    <div>
+                      <h4>Yearly Sales Trend</h4>
+                      <span id="aovTrendYear">Monthly totals</span>
+                    </div>
+                  </div>
+                  <div class="aov-body" id="aovYearlySalesTrend">
+                    <div class="aov-shimmer-list">
+                      <div class="aov-shimmer-row"></div>
+                      <div class="aov-shimmer-row"></div>
+                      <div class="aov-shimmer-row"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div class="dashboard-widgets">
@@ -214,32 +297,7 @@
       </main>
     </div>
 
-    <script src="dashboard.js"></script>
-  </body>
-</html>
-
-
-
-
-
-                  <div class="recent-info">
-                    <strong>Loading orders...</strong>
-                    <span>Please wait while dashboard syncs.</span>
-                  </div>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </section>
-      </main>
-    </div>
-
     <script src="admin-common.js"></script>
     <script src="dashboard.js"></script>
   </body>
 </html>
-
-
-
-
-

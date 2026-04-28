@@ -231,8 +231,85 @@ document.addEventListener("DOMContentLoaded", () => {
     CATEGORIES.forEach((cat) => renderCategoryTable(cat));
   };
 
+  // ─── Skeleton loading for category tables ──────────────────────────────────
+  const SKELETON_ROWS_PER_TABLE = 3;
+
+  const renderSkeletonTables = () => {
+    if (!categoryTablesWrap) return;
+    categoryTablesWrap.innerHTML = CATEGORIES.map((category) => {
+      const containerId = `inv-cat-${category.replace(/\s+/g, "-").toLowerCase()}`;
+      const icon = CATEGORY_ICONS[category] || "fa-box";
+      const skeletonRows = Array.from({ length: SKELETON_ROWS_PER_TABLE }).map(() => `
+        <tr class="inv-skeleton-row">
+          <td><div class="inv-skeleton-cell" style="width:28px;"></div></td>
+          <td><div class="inv-skeleton-cell" style="width:120px;"></div></td>
+          <td><div class="inv-skeleton-cell" style="width:100px;"></div></td>
+          <td><div class="inv-skeleton-cell" style="width:40px;"></div></td>
+          <td><div class="inv-skeleton-cell" style="width:50px;"></div></td>
+          <td><div class="inv-skeleton-cell" style="width:50px;"></div></td>
+          <td><div class="inv-skeleton-cell" style="width:70px;"></div></td>
+          <td><div class="inv-skeleton-cell" style="width:80px;"></div></td>
+          <td><div class="inv-skeleton-cell" style="width:60px;"></div></td>
+        </tr>
+      `).join("");
+
+      return `
+        <div class="inv-category-card" id="${containerId}">
+          <div class="inv-category-header">
+            <div class="inv-category-header-left">
+              <div class="inv-category-icon"><i class="fa-solid ${icon}"></i></div>
+              <span class="inv-category-title">Inventory of ${escHtml(category)}</span>
+            </div>
+            <span class="inv-category-badge"><div class="inv-skeleton-cell" style="width:50px;height:12px;display:inline-block;"></div></span>
+          </div>
+          <div class="inv-category-body">
+            <div class="table-wrapper">
+              <table class="admin-table inventory-table inv-table">
+                <thead>
+                  <tr>
+                    <th>No.</th><th>Item Name</th><th>Description</th><th>Unit</th>
+                    <th>Last Invent</th><th>On Hand</th><th>Status</th><th>Remarks</th>
+                    <th class="th-action sticky-action">Action</th>
+                  </tr>
+                </thead>
+                <tbody>${skeletonRows}</tbody>
+              </table>
+            </div>
+            <div class="inv-cat-footer">
+              <span><div class="inv-skeleton-cell" style="width:130px;height:10px;display:inline-block;"></div></span>
+              <div class="table-pagination">
+                <button class="page-btn" disabled><i class="fa-solid fa-chevron-left"></i></button>
+                <div class="page-number">1</div>
+                <button class="page-btn" disabled><i class="fa-solid fa-chevron-right"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  };
+
+  // Inject skeleton loading styles
+  const skeletonStyle = document.createElement("style");
+  skeletonStyle.textContent = `
+    .inv-skeleton-cell {
+      height: 14px;
+      border-radius: 6px;
+      background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+      background-size: 200% 100%;
+      animation: invShimmer 1.4s infinite;
+    }
+    @keyframes invShimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .inv-skeleton-row td { padding: 10px 14px; }
+  `;
+  document.head.appendChild(skeletonStyle);
+
   // ─── Load inventory from API ──────────────────────────────────────────────────
   const loadInventory = async () => {
+    renderSkeletonTables();
     try {
       const res = await fetch(`${API_BASE_URL}/admin/inventory`, {
         headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },

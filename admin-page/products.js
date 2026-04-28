@@ -395,6 +395,9 @@ document.addEventListener("DOMContentLoaded", () => {
     "#db2777", "#ea580c", "#0d9488", "#6366f1", "#94a3b8",
   ];
 
+  // Yearly trend should mirror Orders page totals in real time.
+  const YEARLY_TREND_DATE_BASIS = "created_at";
+
   // ── Populate year dropdown for Yearly Sales Trend ──
   const yearDropdown = document.getElementById("yearlySalesTrendYear");
   if (yearDropdown) {
@@ -668,8 +671,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const selectedYear = year || new Date().getFullYear();
 
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/product-analytics/yearly-sales-trend?year=${selectedYear}`, {
+      const res = await fetch(`${API_BASE_URL}/admin/product-analytics/yearly-sales-trend?year=${selectedYear}&date_basis=${YEARLY_TREND_DATE_BASIS}`, {
         headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        cache: "no-store",
       });
       if (res.status === 401 || res.status === 403) { setUnauthorized(); return; }
       const payload = await res.json();
@@ -754,12 +758,122 @@ document.addEventListener("DOMContentLoaded", () => {
     void loadYearlySalesTrend(Number(yearDropdown.value));
   });
 
+  // ── Shimmer loading skeleton for analytics cards ──
+  const renderAnalyticsSkeletons = () => {
+    const shimmerHTML = `
+      <div style="display:flex;flex-direction:column;gap:10px;padding:8px 0;">
+        <div style="height:16px;border-radius:6px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:85%;"></div>
+        <div style="height:16px;border-radius:6px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:70%;animation-delay:0.15s;"></div>
+        <div style="height:16px;border-radius:6px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:55%;animation-delay:0.3s;"></div>
+        <div style="height:16px;border-radius:6px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:40%;animation-delay:0.45s;"></div>
+      </div>
+    `;
+
+    // Top Selling - hide chart, show shimmer
+    const topCtx = document.getElementById("topSellingChart");
+    const topEmpty = document.getElementById("topSellingEmpty");
+    const topBody = document.getElementById("topSellingBody");
+    if (topCtx) topCtx.style.display = "none";
+    if (topEmpty) topEmpty.style.display = "none";
+    if (topBody) {
+      let shimmerEl = topBody.querySelector(".analytics-shimmer-loader");
+      if (!shimmerEl) {
+        shimmerEl = document.createElement("div");
+        shimmerEl.className = "analytics-shimmer-loader";
+        topBody.appendChild(shimmerEl);
+      }
+      shimmerEl.innerHTML = shimmerHTML;
+      shimmerEl.style.display = "";
+    }
+
+    // Sales by Category - hide chart & layout, show shimmer
+    const catCtx = document.getElementById("salesByCategoryChart");
+    const catLayout = document.getElementById("salesByCategoryLayout");
+    const catEmpty = document.getElementById("salesByCategoryEmpty");
+    const catBody = document.getElementById("salesByCategoryBody");
+    if (catCtx) catCtx.style.display = "none";
+    if (catLayout) catLayout.style.display = "none";
+    if (catEmpty) catEmpty.style.display = "none";
+    if (catBody) {
+      let shimmerEl = catBody.querySelector(".analytics-shimmer-loader");
+      if (!shimmerEl) {
+        shimmerEl = document.createElement("div");
+        shimmerEl.className = "analytics-shimmer-loader";
+        catBody.appendChild(shimmerEl);
+      }
+      shimmerEl.innerHTML = shimmerHTML;
+      shimmerEl.style.display = "";
+    }
+
+    // Product Performance - hide table, show shimmer
+    const perfTable = document.getElementById("productPerformanceTable");
+    const perfEmpty = document.getElementById("productPerformanceEmpty");
+    const perfWrapper = document.getElementById("productPerformanceTableWrapper");
+    if (perfTable) perfTable.style.display = "none";
+    if (perfEmpty) perfEmpty.style.display = "none";
+    if (perfWrapper) {
+      let shimmerEl = perfWrapper.querySelector(".analytics-shimmer-loader");
+      if (!shimmerEl) {
+        shimmerEl = document.createElement("div");
+        shimmerEl.className = "analytics-shimmer-loader";
+        perfWrapper.appendChild(shimmerEl);
+      }
+      const tableShimmer = `
+        <div style="padding:12px 14px;">
+          <div style="display:flex;gap:12px;margin-bottom:12px;">
+            <div style="height:28px;border-radius:6px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;flex:1;"></div>
+          </div>
+          ${Array.from({length: 4}).map((_, i) => `
+            <div style="display:flex;gap:12px;margin-bottom:10px;">
+              <div style="height:14px;border-radius:4px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:60px;animation-delay:${i * 0.1}s;"></div>
+              <div style="height:14px;border-radius:4px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;flex:1;animation-delay:${i * 0.12}s;"></div>
+              <div style="height:14px;border-radius:4px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:70px;animation-delay:${i * 0.15}s;"></div>
+              <div style="height:14px;border-radius:4px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:50px;animation-delay:${i * 0.18}s;"></div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+      shimmerEl.innerHTML = tableShimmer;
+      shimmerEl.style.display = "";
+    }
+
+    // Yearly Sales Trend - hide chart, show shimmer
+    const trendCtx = document.getElementById("yearlySalesTrendChart");
+    const trendEmpty = document.getElementById("yearlySalesTrendEmpty");
+    const trendBody = document.getElementById("yearlySalesTrendBody");
+    if (trendCtx) trendCtx.style.display = "none";
+    if (trendEmpty) trendEmpty.style.display = "none";
+    if (trendBody) {
+      let shimmerEl = trendBody.querySelector(".analytics-shimmer-loader");
+      if (!shimmerEl) {
+        shimmerEl = document.createElement("div");
+        shimmerEl.className = "analytics-shimmer-loader";
+        trendBody.appendChild(shimmerEl);
+      }
+      shimmerEl.innerHTML = shimmerHTML;
+      shimmerEl.style.display = "";
+    }
+  };
+
+  // ── Remove shimmer loaders after data loads ──
+  const clearAnalyticsShimmers = () => {
+    document.querySelectorAll(".analytics-shimmer-loader").forEach((el) => {
+      el.style.display = "none";
+    });
+  };
+
   // ── Combined function to load all analytics cards ──
   const updateSummaryCards = () => {
-    void loadTopSelling(topSellingPeriod?.value || "month");
-    void loadSalesByCategory();
-    void loadProductPerformance();
-    void loadYearlySalesTrend(yearDropdown ? Number(yearDropdown.value) : new Date().getFullYear());
+    renderAnalyticsSkeletons();
+
+    const onDone = () => clearAnalyticsShimmers();
+
+    Promise.all([
+      loadTopSelling(topSellingPeriod?.value || "month"),
+      loadSalesByCategory(),
+      loadProductPerformance(),
+      loadYearlySalesTrend(yearDropdown ? Number(yearDropdown.value) : new Date().getFullYear()),
+    ]).then(onDone).catch(onDone);
   };
 
   // ─── Load Products from API ───────────────────────────────────────────────────
@@ -1214,6 +1328,22 @@ document.addEventListener("DOMContentLoaded", () => {
   const PRODUCTS_REALTIME_CHANNEL = "fmrc-products-realtime";
   const ORDERS_REALTIME_CHANNEL = "fmrc-orders-realtime";
 
+  const ORDER_ANALYTICS_EVENT_TYPES = new Set([
+    "created",
+    "updated",
+    "deleted",
+    "order-approve",
+    "order-reject",
+    "order-delete",
+    "payment-status-updated",
+    "payment-deleted",
+  ]);
+
+  const shouldRefreshFromOrderEvent = (payload) => {
+    const type = String(payload?.type || "").toLowerCase();
+    return ORDER_ANALYTICS_EVENT_TYPES.has(type);
+  };
+
   let _productsChannel = null;
   const getProductsChannel = () => {
     if (typeof window.BroadcastChannel !== "function") return null;
@@ -1249,11 +1379,19 @@ document.addEventListener("DOMContentLoaded", () => {
     ordersChannel.addEventListener("message", (event) => {
       if (document.hidden) return;
       const payload = event?.data || {};
-      // Only refresh product stock when a customer places an order
-      if (payload.type === "created") {
+      // Keep analytics cards in sync with Orders page mutations.
+      if (shouldRefreshFromOrderEvent(payload)) {
         debouncedLoadProducts();
       }
     });
   }
+
+  window.addEventListener("fmrc:orders-updated", (event) => {
+    if (document.hidden) return;
+    const payload = event?.detail || {};
+    if (shouldRefreshFromOrderEvent(payload)) {
+      debouncedLoadProducts();
+    }
+  });
 });
 

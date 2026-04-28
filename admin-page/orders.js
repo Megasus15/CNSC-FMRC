@@ -73,15 +73,40 @@ document.addEventListener("DOMContentLoaded", () => {
   const walkInOrdersFooter = document.getElementById("walkInOrdersFooter");
   const openWalkInOrderModalBtn = document.getElementById("openWalkInOrderModalBtn");
   const modalAddWalkInOrder = document.getElementById("modalAddWalkInOrder");
+  const modalWalkInDetails = document.getElementById("modalWalkInDetails");
   const walkInOrderNoInput = document.getElementById("walkInOrderNoInput");
-  const walkInOrderItemInput = document.getElementById("walkInOrderItemInput");
-  const walkInDateInput = document.getElementById("walkInDateInput");
-  const walkInCustomerInput = document.getElementById("walkInCustomerInput");
+  const walkInCustomerNameInput = document.getElementById("walkInCustomerNameInput");
+  const walkInAddressInput = document.getElementById("walkInAddressInput");
+  const walkInContactNumberInput = document.getElementById("walkInContactNumberInput");
+  const walkInClientTypeInput = document.getElementById("walkInClientTypeInput");
+  const walkInClientTypeOtherInput = document.getElementById("walkInClientTypeOtherInput");
+  const walkInClientTypeOtherWrap = document.getElementById("walkInClientTypeOtherWrap");
+  const walkInAgencyOrganizationInput = document.getElementById("walkInAgencyOrganizationInput");
+  const walkInProjectDescriptionInput = document.getElementById("walkInProjectDescriptionInput");
+  const walkInProjectDescriptionOtherInput = document.getElementById("walkInProjectDescriptionOtherInput");
+  const walkInProjectDescriptionOtherWrap = document.getElementById("walkInProjectDescriptionOtherWrap");
+  const walkInItemDetailInput = document.getElementById("walkInItemDetailInput");
+  const walkInUnitInput = document.getElementById("walkInUnitInput");
+  const walkInSubtotalCostInput = document.getElementById("walkInSubtotalCostInput");
   const walkInPaymentMethodInput = document.getElementById("walkInPaymentMethodInput");
   const walkInTotalInput = document.getElementById("walkInTotalInput");
-  const walkInStatusInput = document.getElementById("walkInStatusInput");
   const cancelWalkInOrderBtn = document.getElementById("cancelWalkInOrderBtn");
   const saveWalkInOrderBtn = document.getElementById("saveWalkInOrderBtn");
+  const btnCloseWalkInDetails = document.getElementById("btnCloseWalkInDetails");
+
+  const walkInDetailOrderNo = document.getElementById("walkInDetailOrderNo");
+  const walkInDetailName = document.getElementById("walkInDetailName");
+  const walkInDetailAddress = document.getElementById("walkInDetailAddress");
+  const walkInDetailContact = document.getElementById("walkInDetailContact");
+  const walkInDetailClientType = document.getElementById("walkInDetailClientType");
+  const walkInDetailAgency = document.getElementById("walkInDetailAgency");
+  const walkInDetailProject = document.getElementById("walkInDetailProject");
+  const walkInDetailItem = document.getElementById("walkInDetailItem");
+  const walkInDetailUnit = document.getElementById("walkInDetailUnit");
+  const walkInDetailSubtotal = document.getElementById("walkInDetailSubtotal");
+  const walkInDetailTotal = document.getElementById("walkInDetailTotal");
+  const walkInDetailPayment = document.getElementById("walkInDetailPayment");
+  const walkInDetailDate = document.getElementById("walkInDetailDate");
 
   const refreshBtn = document.getElementById("ordersRefreshBtn");
 
@@ -758,7 +783,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state.walkInPage = renderPagedRows({
       rows: state.walkIn,
       tbody: walkInOrdersTbody,
-      colCount: 8,
+      colCount: 13,
       footer: walkInOrdersFooter,
       currentPage: state.walkInPage,
       pageSize: 5,
@@ -766,13 +791,19 @@ document.addEventListener("DOMContentLoaded", () => {
       renderRow: (row) => `
         <tr>
           <td>${escapeHtml(row.order_no || "-")}</td>
-          <td>${escapeHtml(row.order_item || "-")}</td>
-          <td>${escapeHtml(row.order_date_label || formatDateLabel(row.order_date))}</td>
-          <td>${escapeHtml(row.customer || "-")}</td>
-          <td>${escapeHtml(row.payment_method || "-")}</td>
+          <td>${escapeHtml(row.customer_name || row.customer || "-")}</td>
+          <td title="${escapeHtml(row.address || "-")}">${escapeHtml(row.address || "-")}</td>
+          <td>${escapeHtml(row.contact_number || "-")}</td>
+          <td>${escapeHtml(row.client_type || "-")}${row.client_type_other ? `: ${escapeHtml(row.client_type_other)}` : ""}</td>
+          <td>${escapeHtml(row.agency_organization || "-")}</td>
+          <td>${escapeHtml(row.project_description || "-")}${row.project_description_other ? `: ${escapeHtml(row.project_description_other)}` : ""}</td>
+          <td title="${escapeHtml(row.item_detail || row.order_item || "-")}">${escapeHtml(row.item_detail || row.order_item || "-")}</td>
+          <td>${escapeHtml(row.unit || "-")}</td>
+          <td>${escapeHtml(row.subtotal_cost_label || formatMoney(row.subtotal_cost))}</td>
           <td>${escapeHtml(row.total_label || formatMoney(row.total))}</td>
-          <td><span class="status-pill ${lifecycleClass(row.status || "pending")}">${escapeHtml(row.status || "Pending")}</span></td>
+          <td>${escapeHtml(row.payment || row.payment_method || "WALKIN VIA CASHIER")}</td>
           <td class="action-icons sticky-action">
+            <button data-tooltip="View Details" data-walkin-view="${row.id}"><i class="fa-regular fa-eye"></i></button>
             <button data-tooltip="Edit Order" data-walkin-edit="${row.id}"><i class="fa-regular fa-pen-to-square"></i></button>
             <button data-tooltip="Delete Order" data-walkin-delete="${row.id}"><i class="fa-regular fa-trash-can"></i></button>
           </td>
@@ -801,7 +832,7 @@ document.addEventListener("DOMContentLoaded", () => {
       paymentsHistoryTbody.innerHTML = createSkeletons(9);
     }
     if (walkInOrdersTbody && (!walkInOrdersTbody.children.length || walkInOrdersTbody.querySelector(".table-empty-state"))) {
-      walkInOrdersTbody.innerHTML = createSkeletons(8);
+      walkInOrdersTbody.innerHTML = createSkeletons(13);
     }
   };
 
@@ -876,7 +907,7 @@ document.addEventListener("DOMContentLoaded", () => {
       renderEmptyTable(incomingCompactTbody, 7, "Unable to load incoming orders.");
       renderEmptyTable(ordersDirectoryTbody, 8, "Unable to load orders directory.");
       renderEmptyTable(paymentsHistoryTbody, 9, "Unable to load payments history.");
-      renderEmptyTable(walkInOrdersTbody, 8, "Unable to load walk-in orders.");
+      renderEmptyTable(walkInOrdersTbody, 13, "Unable to load walk-in orders.");
 
       if (incomingCardsWrap) {
         incomingCardsWrap.innerHTML = `
@@ -1052,21 +1083,118 @@ document.addEventListener("DOMContentLoaded", () => {
     return local.toISOString().slice(0, 16);
   };
 
+  const normalizePhoneDigits = (raw) => String(raw || "").replace(/\D/g, "").slice(0, 12);
+
+  const formatPhoneDisplay = (raw) => {
+    const digits = normalizePhoneDigits(raw);
+    if (!digits) return "";
+
+    if (digits.startsWith("63")) {
+      const local = digits.slice(2);
+      return `+63 ${local.slice(0, 3)}${local.length > 3 ? ` ${local.slice(3, 6)}` : ""}${local.length > 6 ? ` ${local.slice(6, 10)}` : ""}`.trim();
+    }
+
+    if (digits.startsWith("0")) {
+      return `${digits.slice(0, 4)}${digits.length > 4 ? ` ${digits.slice(4, 7)}` : ""}${digits.length > 7 ? ` ${digits.slice(7, 11)}` : ""}`.trim();
+    }
+
+    return `${digits.slice(0, 3)}${digits.length > 3 ? ` ${digits.slice(3, 6)}` : ""}${digits.length > 6 ? ` ${digits.slice(6, 10)}` : ""}`.trim();
+  };
+
+  const isValidContactNumber = (value) => {
+    const digits = normalizePhoneDigits(value);
+    return digits.length >= 10 && digits.length <= 12;
+  };
+
+  const parseUnitQuantity = (unitText) => {
+    const match = String(unitText || "").match(/\d+(\.\d+)?/);
+    if (!match) return 1;
+    const qty = Number(match[0]);
+    if (!Number.isFinite(qty) || qty <= 0) return 1;
+    return qty;
+  };
+
+  const calculateWalkInTotalFromInputs = () => {
+    if (!walkInSubtotalCostInput || !walkInTotalInput) return;
+    const subtotalCost = Number(walkInSubtotalCostInput.value || 0);
+    const qty = parseUnitQuantity(walkInUnitInput?.value || "");
+    if (!Number.isFinite(subtotalCost) || subtotalCost < 0) {
+      walkInTotalInput.value = "";
+      return;
+    }
+
+    const computed = Math.round(subtotalCost * qty * 100) / 100;
+    walkInTotalInput.value = String(computed.toFixed(2));
+  };
+
+  const setDetailInput = (input, value) => {
+    if (!input) return;
+    input.value = value || "-";
+  };
+
+  const openWalkInDetailsModal = (row) => {
+    if (!row || !modalWalkInDetails) return;
+
+    setDetailInput(walkInDetailOrderNo, row.order_no);
+    setDetailInput(walkInDetailName, row.customer_name || row.customer);
+    setDetailInput(walkInDetailAddress, row.address);
+    setDetailInput(walkInDetailContact, row.contact_number);
+    setDetailInput(
+      walkInDetailClientType,
+      row.client_type_other ? `${row.client_type || ""}: ${row.client_type_other}` : row.client_type,
+    );
+    setDetailInput(walkInDetailAgency, row.agency_organization);
+    setDetailInput(
+      walkInDetailProject,
+      row.project_description_other
+        ? `${row.project_description || ""}: ${row.project_description_other}`
+        : row.project_description,
+    );
+    setDetailInput(walkInDetailItem, row.item_detail || row.order_item);
+    setDetailInput(walkInDetailUnit, row.unit);
+    setDetailInput(walkInDetailSubtotal, row.subtotal_cost_label || formatMoney(row.subtotal_cost));
+    setDetailInput(walkInDetailTotal, row.total_label || formatMoney(row.total));
+    setDetailInput(walkInDetailPayment, row.payment || row.payment_method || "WALKIN VIA CASHIER");
+    setDetailInput(walkInDetailDate, row.order_date_label || formatDateLabel(row.order_date));
+
+    modalWalkInDetails.classList.add("show");
+  };
+
   let activeWalkInOrderId = null;
+
+  const toggleWalkInOtherFields = () => {
+    const isClientOther = (walkInClientTypeInput?.value || "") === "OTHERS (SPECIFY)";
+    const isProjectOther = (walkInProjectDescriptionInput?.value || "") === "OTHERS (SPECIFY)";
+
+    if (walkInClientTypeOtherWrap) walkInClientTypeOtherWrap.style.display = isClientOther ? "" : "none";
+    if (!isClientOther && walkInClientTypeOtherInput) walkInClientTypeOtherInput.value = "";
+
+    if (walkInProjectDescriptionOtherWrap) walkInProjectDescriptionOtherWrap.style.display = isProjectOther ? "" : "none";
+    if (!isProjectOther && walkInProjectDescriptionOtherInput) walkInProjectDescriptionOtherInput.value = "";
+  };
 
   const resetWalkInOrderForm = () => {
     activeWalkInOrderId = null;
     const title = document.getElementById("walkInModalTitle");
-    if (title) title.textContent = "Add Walk-in Order";
-    if (saveWalkInOrderBtn) saveWalkInOrderBtn.innerText = "Save Walk-in Order";
+    if (title) title.textContent = "Add Walk-in Customer";
+    if (saveWalkInOrderBtn) saveWalkInOrderBtn.innerText = "Save Walk-in Customer";
 
     if (walkInOrderNoInput) walkInOrderNoInput.value = "";
-    if (walkInOrderItemInput) walkInOrderItemInput.value = "";
-    if (walkInDateInput) walkInDateInput.value = getCurrentDateTimeLocal();
-    if (walkInCustomerInput) walkInCustomerInput.value = "";
-    if (walkInPaymentMethodInput) walkInPaymentMethodInput.value = "GCash";
+    if (walkInCustomerNameInput) walkInCustomerNameInput.value = "";
+    if (walkInAddressInput) walkInAddressInput.value = "";
+    if (walkInContactNumberInput) walkInContactNumberInput.value = "";
+    if (walkInClientTypeInput) walkInClientTypeInput.value = "MSME/ENTREP";
+    if (walkInClientTypeOtherInput) walkInClientTypeOtherInput.value = "";
+    if (walkInAgencyOrganizationInput) walkInAgencyOrganizationInput.value = "";
+    if (walkInProjectDescriptionInput) walkInProjectDescriptionInput.value = "PRODUCT LABELING AND DESIGNING";
+    if (walkInProjectDescriptionOtherInput) walkInProjectDescriptionOtherInput.value = "";
+    if (walkInItemDetailInput) walkInItemDetailInput.value = "";
+    if (walkInUnitInput) walkInUnitInput.value = "";
+    if (walkInSubtotalCostInput) walkInSubtotalCostInput.value = "";
     if (walkInTotalInput) walkInTotalInput.value = "";
-    if (walkInStatusInput) walkInStatusInput.value = "Pending";
+    if (walkInPaymentMethodInput) walkInPaymentMethodInput.value = "WALKIN VIA CASHIER";
+
+    toggleWalkInOtherFields();
   };
 
   const openWalkInOrderModal = (order = null) => {
@@ -1074,19 +1202,25 @@ document.addEventListener("DOMContentLoaded", () => {
     if (order) {
       activeWalkInOrderId = order.id;
       const title = document.getElementById("walkInModalTitle");
-      if (title) title.textContent = "Edit Walk-in Order";
-      if (saveWalkInOrderBtn) saveWalkInOrderBtn.innerText = "Update Walk-in Order";
+      if (title) title.textContent = "Edit Walk-in Customer";
+      if (saveWalkInOrderBtn) saveWalkInOrderBtn.innerText = "Update Walk-in Customer";
 
       if (walkInOrderNoInput) walkInOrderNoInput.value = order.order_no || "";
-      if (walkInOrderItemInput) walkInOrderItemInput.value = order.order_item || "";
-      if (walkInDateInput && order.order_date) {
-        // Strip out the seconds to match datetime-local format
-        walkInDateInput.value = order.order_date.slice(0, 16);
-      }
-      if (walkInCustomerInput) walkInCustomerInput.value = order.customer || "";
-      if (walkInPaymentMethodInput) walkInPaymentMethodInput.value = order.payment_method || "GCash";
+      if (walkInCustomerNameInput) walkInCustomerNameInput.value = order.customer_name || order.customer || "";
+      if (walkInAddressInput) walkInAddressInput.value = order.address || "";
+      if (walkInContactNumberInput) walkInContactNumberInput.value = order.contact_number || "";
+      if (walkInClientTypeInput) walkInClientTypeInput.value = order.client_type || "MSME/ENTREP";
+      if (walkInClientTypeOtherInput) walkInClientTypeOtherInput.value = order.client_type_other || "";
+      if (walkInAgencyOrganizationInput) walkInAgencyOrganizationInput.value = order.agency_organization || "";
+      if (walkInProjectDescriptionInput) walkInProjectDescriptionInput.value = order.project_description || "PRODUCT LABELING AND DESIGNING";
+      if (walkInProjectDescriptionOtherInput) walkInProjectDescriptionOtherInput.value = order.project_description_other || "";
+      if (walkInItemDetailInput) walkInItemDetailInput.value = order.item_detail || order.order_item || "";
+      if (walkInUnitInput) walkInUnitInput.value = order.unit || "";
+      if (walkInSubtotalCostInput) walkInSubtotalCostInput.value = order.subtotal_cost ?? "";
       if (walkInTotalInput) walkInTotalInput.value = order.total || "";
-      if (walkInStatusInput) walkInStatusInput.value = order.status || "Pending";
+      if (walkInPaymentMethodInput) walkInPaymentMethodInput.value = order.payment || order.payment_method || "WALKIN VIA CASHIER";
+
+      toggleWalkInOtherFields();
     }
     modalAddWalkInOrder?.classList.add("show");
   };
@@ -1098,19 +1232,48 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveWalkInOrder = async () => {
     const orderNo = String(walkInOrderNoInput?.value || "").trim();
-    const orderItem = String(walkInOrderItemInput?.value || "").trim();
-    const orderDate = String(walkInDateInput?.value || "").trim();
-    const customer = String(walkInCustomerInput?.value || "").trim();
-    const paymentMethod = String(walkInPaymentMethodInput?.value || "").trim();
+    const customerName = String(walkInCustomerNameInput?.value || "").trim();
+    const address = String(walkInAddressInput?.value || "").trim();
+    const contactNumber = normalizePhoneDigits(walkInContactNumberInput?.value || "");
+    const clientType = String(walkInClientTypeInput?.value || "").trim();
+    const clientTypeOther = String(walkInClientTypeOtherInput?.value || "").trim();
+    const agencyOrganization = String(walkInAgencyOrganizationInput?.value || "").trim();
+    const projectDescription = String(walkInProjectDescriptionInput?.value || "").trim();
+    const projectDescriptionOther = String(walkInProjectDescriptionOtherInput?.value || "").trim();
+    const itemDetail = String(walkInItemDetailInput?.value || "").trim();
+    const unit = String(walkInUnitInput?.value || "").trim();
+    const subtotalRaw = String(walkInSubtotalCostInput?.value || "").trim();
     const totalRaw = String(walkInTotalInput?.value || "").trim();
-    const status = String(walkInStatusInput?.value || "").trim();
+    const paymentMethod = "WALKIN VIA CASHIER";
 
-    if (!orderNo || !orderItem || !orderDate || !customer || !paymentMethod || !totalRaw || !status) {
+    if (!orderNo || !customerName || !address || !contactNumber || !clientType || !agencyOrganization || !projectDescription || !itemDetail || !unit || !subtotalRaw || !totalRaw) {
       showPopup("Please complete all walk-in order fields.", { title: "Validation" });
       return;
     }
 
+    if (!isValidContactNumber(contactNumber)) {
+      showPopup("Contact Number must be a valid PH mobile/phone format.", { title: "Validation" });
+      walkInContactNumberInput?.focus();
+      return;
+    }
+
+    if (clientType === "OTHERS (SPECIFY)" && !clientTypeOther) {
+      showPopup("Please specify the client type.", { title: "Validation" });
+      return;
+    }
+
+    if (projectDescription === "OTHERS (SPECIFY)" && !projectDescriptionOther) {
+      showPopup("Please specify the project description.", { title: "Validation" });
+      return;
+    }
+
+    const subtotalCost = Number(subtotalRaw);
     const total = Number(totalRaw);
+    if (!Number.isFinite(subtotalCost) || subtotalCost < 0) {
+      showPopup("Subtotal Cost must be a valid number greater than or equal to 0.", { title: "Validation" });
+      return;
+    }
+
     if (!Number.isFinite(total) || total < 0) {
       showPopup("Total must be a valid number greater than or equal to 0.", { title: "Validation" });
       return;
@@ -1129,12 +1292,21 @@ document.addEventListener("DOMContentLoaded", () => {
         method,
         body: {
           order_no: orderNo,
-          order_item: orderItem,
-          order_date: orderDate,
-          customer,
+          customer_name: customerName,
+          address,
+          contact_number: contactNumber,
+          client_type: clientType,
+          client_type_other: clientType === "OTHERS (SPECIFY)" ? clientTypeOther : null,
+          agency_organization: agencyOrganization,
+          project_description: projectDescription,
+          project_description_other: projectDescription === "OTHERS (SPECIFY)" ? projectDescriptionOther : null,
+          item_detail: itemDetail,
+          unit,
+          subtotal_cost: subtotalCost,
           payment_method: paymentMethod,
           total,
-          status,
+          order_date: getCurrentDateTimeLocal(),
+          status: "Pending",
         },
       });
 
@@ -1146,18 +1318,42 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       closeWalkInOrderModal();
-      showPopup(payload?.message || (activeWalkInOrderId ? "Walk-in order updated successfully." : "Walk-in order added successfully."), { title: "Success" });
+      showPopup(payload?.message || (activeWalkInOrderId ? "Walk-in customer record updated successfully." : "Walk-in customer record added successfully."), { title: "Success" });
       notifyOrdersRealtimeUpdate({ type: activeWalkInOrderId ? "walkin-updated" : "walkin-created" });
       void syncOrders(false, { force: true, source: "action" });
     } catch (error) {
-      showPopup(error.message || (activeWalkInOrderId ? "Unable to update walk-in order." : "Unable to add walk-in order."), { title: "Save Failed" });
+      showPopup(error.message || (activeWalkInOrderId ? "Unable to update walk-in customer record." : "Unable to add walk-in customer record."), { title: "Save Failed" });
     } finally {
       if (saveWalkInOrderBtn) {
+        const isUpdating = !!activeWalkInOrderId;
         saveWalkInOrderBtn.disabled = false;
-        saveWalkInOrderBtn.innerText = activeWalkInOrderId ? "Update Walk-in Order" : "Save Walk-in Order";
+        saveWalkInOrderBtn.innerText = isUpdating ? "Update Walk-in Customer" : "Save Walk-in Customer";
       }
     }
   };
+
+  walkInClientTypeInput?.addEventListener("change", toggleWalkInOtherFields);
+  walkInProjectDescriptionInput?.addEventListener("change", toggleWalkInOtherFields);
+
+  walkInSubtotalCostInput?.addEventListener("input", () => {
+    calculateWalkInTotalFromInputs();
+  });
+
+  walkInUnitInput?.addEventListener("input", () => {
+    calculateWalkInTotalFromInputs();
+  });
+
+  walkInContactNumberInput?.addEventListener("input", () => {
+    walkInContactNumberInput.value = formatPhoneDisplay(walkInContactNumberInput.value || "");
+  });
+
+  walkInContactNumberInput?.addEventListener("blur", () => {
+    const value = String(walkInContactNumberInput.value || "").trim();
+    if (value && !isValidContactNumber(value)) {
+      showPopup("Contact Number format looks invalid. Use a valid PH number.", { title: "Validation" });
+      walkInContactNumberInput.focus();
+    }
+  });
 
   openWalkInOrderModalBtn?.addEventListener("click", () => {
     openWalkInOrderModal();
@@ -1165,6 +1361,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   cancelWalkInOrderBtn?.addEventListener("click", () => {
     closeWalkInOrderModal();
+  });
+
+  btnCloseWalkInDetails?.addEventListener("click", () => {
+    modalWalkInDetails?.classList.remove("show");
+  });
+
+  modalWalkInDetails?.addEventListener("click", (event) => {
+    if (event.target === modalWalkInDetails) {
+      modalWalkInDetails.classList.remove("show");
+    }
   });
 
   saveWalkInOrderBtn?.addEventListener("click", () => {
@@ -1369,6 +1575,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const editWalkInBtn = target.closest("[data-walkin-edit]");
+    const viewWalkInBtn = target.closest("[data-walkin-view]");
+    if (viewWalkInBtn) {
+      const id = viewWalkInBtn.getAttribute("data-walkin-view");
+      const order = state.walkIn.find((o) => String(o.id) === String(id));
+      if (order) {
+        openWalkInDetailsModal(order);
+      }
+      return;
+    }
+
     if (editWalkInBtn) {
       const id = editWalkInBtn.getAttribute("data-walkin-edit");
       const order = state.walkIn.find(o => String(o.id) === String(id));

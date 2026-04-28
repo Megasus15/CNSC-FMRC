@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
+use App\Models\InventoryItem;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AdminDashboardController extends Controller
 {
@@ -36,6 +39,95 @@ class AdminDashboardController extends Controller
         $accountsCount = User::query()->count();
         $ordersCount = Order::query()->count();
         $productsCount = Product::query()->count();
+
+        // ─── Total Revenue (from product performance — sum of all order item line totals, excluding rejected) ───
+        $totalRevenue = (float) OrderItem::query()
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->whereNotIn('orders.lifecycle_status', ['rejected'])
+            ->sum('order_items.line_total');
+
+        // ─── Total Inventory Items ───
+        $totalInventoryItems = InventoryItem::query()->count();
+
+        // ─── Analytics Summary (compact, for dashboard overview card) ───
+        // Top 3 selling products (this month)
+        $now = now('Asia/Manila');
+        $topSelling = OrderItem::query()
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->whereNotIn('orders.lifecycle_status', ['rejected'])
+            ->whereMonth('orders.created_at', $now->month)
+            ->whereYear('orders.created_at', $now->year)
+            ->select('order_items.product_name', DB::raw('SUM(order_items.quantity) as total_sold'))
+            ->groupBy('order_items.product_name')
+            ->orderByDesc('total_sold')
+            ->limit(3)
+            ->get()
+            ->map(fn($item) => [
+                'name' => $item->product_name,
+                'total_sold' => (int) $item->total_sold,
+            ]);
+
+        // Sales by category (all time, top 3)
+        $salesByCategory = OrderItem::query()
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->leftJoin('products', 'order_items.product_id', '=', 'products.id')
+            ->whereNotIn('orders.lifecycle_status', ['rejected'])
+            ->select(
+                DB::raw("COALESCE(products.category, 'Uncategorized') as category"),
+                DB::raw('SUM(order_items.quantity) as total_sold'),
+                DB::raw('SUM(order_items.line_total) as total_revenue')
+            )
+            ->groupBy('category')
+            ->orderByDesc('total_revenue')
+            ->limit(3)
+            ->get()
+            ->map(fn($item) => [
+                'category' => $item->category,
+                'total_sold' => (int) $item->total_sold,
+                'total_revenue' => (float) $item->total_revenue,
+            ]);
+
+        // Top 3 performing products (all time)
+        $topPerformance = OrderItem::query()
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->leftJoin('products', 'order_items.product_id', '=', 'products.id')
+            ->whereNotIn('orders.lifecycle_status', ['rejected'])
+            ->select(
+                'order_items.product_name',
+                DB::raw('SUM(order_items.quantity) as total_sold'),
+                DB::raw('SUM(order_items.line_total) as total_revenue')
+            )
+            ->groupBy('order_items.product_name')
+            ->orderByDesc('total_revenue')
+            ->limit(3)
+            ->get()
+            ->map(fn($item) => [
+                'name' => $item->product_name,
+                'total_sold' => (int) $item->total_sold,
+                'total_revenue' => (float) $item->total_revenue,
+            ]);
+
+        // Yearly sales trend (current year, monthly totals)
+        $currentYear = $now->year;
+        $monthlyData = Order::query()
+            ->whereNotIn('lifecycle_status', ['rejected'])
+            ->whereYear('created_at', $currentYear)
+            ->select(
+                DB::raw('MONTH(created_at) as month'),
+                DB::raw('SUM(total) as total_sales')
+            )
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get()
+            ->keyBy('month');
+
+        $yearlyTrend = [];
+        for ($m = 1; $m <= 12; $m++) {
+            $yearlyTrend[] = [
+                'month' => $m,
+                'total_sales' => (float) ($monthlyData[$m]->total_sales ?? 0),
+            ];
+        }
 
         $recentAppointments = Appointment::query()
             ->select(['id', 'first_name', 'last_name', 'purpose', 'appointment_date', 'appointment_time', 'status', 'created_at'])
@@ -99,6 +191,15 @@ class AdminDashboardController extends Controller
                     'accounts' => $accountsCount,
                     'orders' => $ordersCount,
                     'products' => $productsCount,
+                    'total_revenue' => $totalRevenue,
+                    'total_inventory_items' => $totalInventoryItems,
+                ],
+                'analytics_summary' => [
+                    'top_selling' => $topSelling,
+                    'sales_by_category' => $salesByCategory,
+                    'top_performance' => $topPerformance,
+                    'yearly_trend' => $yearlyTrend,
+                    'year' => $currentYear,
                 ],
                 'recent_appointments' => $recentAppointments,
                 'recent_orders' => $recentOrders,

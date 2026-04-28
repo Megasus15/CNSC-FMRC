@@ -169,17 +169,22 @@
                   </button>
                 </div>
               </div>
-              <div class="table-wrapper">
+              <div class="table-wrapper walkin-table-wrapper">
                 <table class="admin-table" id="walkInOrdersTable" data-page-size="5" data-empty-message="No walk-in orders available.">
                   <thead>
                     <tr>
                       <th>Order No.</th>
-                      <th>Order Item</th>
-                      <th>Date</th>
-                      <th>Customer</th>
-                      <th>Payment Method</th>
+                      <th>Name</th>
+                      <th>Address</th>
+                      <th>Contact Number</th>
+                      <th>Type of Client</th>
+                      <th>Agency/Organization</th>
+                      <th>Description of the Project</th>
+                      <th>Item Detail</th>
+                      <th>Unit</th>
+                      <th>Subtotal Cost</th>
                       <th>Total</th>
-                      <th>Status</th>
+                      <th>Payment</th>
                       <th class="sticky-action">Action</th>
                     </tr>
                   </thead>
@@ -311,34 +316,85 @@
     <div class="modal-overlay" id="modalAddWalkInOrder" data-backdrop-close="false">
       <div class="modal-card product-modal">
         <div class="modal-header-fixed">
-          <h3 class="modal-title" id="walkInModalTitle">Add Walk-in Order</h3>
+          <h3 class="modal-title" id="walkInModalTitle">Add Walk-in Customer</h3>
         </div>
         <div class="modal-body-scroll">
           <div class="form-grid">
             <div class="field-stack"><label>Order No.</label><input id="walkInOrderNoInput" class="input-field" /></div>
-            <div class="field-stack"><label>Date</label><input id="walkInDateInput" class="input-field" type="datetime-local" /></div>
-            <div class="field-stack full"><label>Order Item</label><input id="walkInOrderItemInput" class="input-field" /></div>
-            <div class="field-stack"><label>Customer</label><input id="walkInCustomerInput" class="input-field" /></div>
-            <div class="field-stack"><label>Payment Method</label>
-              <select id="walkInPaymentMethodInput" class="filter-select">
-                <option value="GCash">GCash</option>
-                <option value="COP">COP</option>
-                <option value="COD">COD</option>
+            <div class="field-stack"><label>Name</label><input id="walkInCustomerNameInput" class="input-field" /></div>
+            <div class="field-stack full"><label>Address</label><input id="walkInAddressInput" class="input-field" /></div>
+            <div class="field-stack"><label>Contact Number</label><input id="walkInContactNumberInput" class="input-field" /></div>
+
+            <div class="field-stack"><label>Type of Client</label>
+              <select id="walkInClientTypeInput" class="filter-select">
+                <option value="MSME/ENTREP">MSME/ENTREP</option>
+                <option value="STUDENT">STUDENT</option>
+                <option value="EDUCATOR">EDUCATOR</option>
+                <option value="RESEARCHER">RESEARCHER</option>
+                <option value="COOPERATIVE">COOPERATIVE</option>
+                <option value="ASSOCIATION">ASSOCIATION</option>
+                <option value="OTHERS (SPECIFY)">OTHERS (SPECIFY)</option>
               </select>
             </div>
+            <div class="field-stack" id="walkInClientTypeOtherWrap" style="display:none;"><label>Specify Client Type</label><input id="walkInClientTypeOtherInput" class="input-field" /></div>
+
+            <div class="field-stack full"><label>Agency/Organization</label><input id="walkInAgencyOrganizationInput" class="input-field" /></div>
+
+            <div class="field-stack full"><label>Description of the Project</label>
+              <select id="walkInProjectDescriptionInput" class="filter-select">
+                <option value="PRODUCT LABELING AND DESIGNING">PRODUCT LABELING AND DESIGNING</option>
+                <option value="3D PRINTING">3D PRINTING</option>
+                <option value="3D SCANNING">3D SCANNING</option>
+                <option value="LASER-CUTTING/ENGRAVING">LASER-CUTTING/ENGRAVING</option>
+                <option value="LARGE FORMAT PRINTING AND CUTTING">LARGE FOMAT, PRINTING AND CUTTING</option>
+                <option value="CNC MILLING">CNC MILLING</option>
+                <option value="DIGITAL EMBROIDERY">DIGITAL EMBROIDERY</option>
+                <option value="HEAT PRESS">HEAT PRESS</option>
+                <option value="TRAINING/WORKSHOP/TOUR">TRAINING/WORKSHOP/TOUR</option>
+                <option value="PARTNERSHIP">PARTNERSHIP</option>
+                <option value="OTHERS (SPECIFY)">OTHERS (SPECIFY)</option>
+              </select>
+            </div>
+            <div class="field-stack full" id="walkInProjectDescriptionOtherWrap" style="display:none;"><label>Specify Project Description</label><input id="walkInProjectDescriptionOtherInput" class="input-field" /></div>
+
+            <div class="field-stack full"><label>Item Detail</label><input id="walkInItemDetailInput" class="input-field" /></div>
+            <div class="field-stack"><label>Unit</label><input id="walkInUnitInput" class="input-field" /></div>
+            <div class="field-stack"><label>Subtotal Cost</label><input id="walkInSubtotalCostInput" class="input-field" type="number" min="0" step="0.01" /></div>
             <div class="field-stack"><label>Total</label><input id="walkInTotalInput" class="input-field" type="number" min="0" step="0.01" /></div>
-            <div class="field-stack"><label>Status</label>
-              <select id="walkInStatusInput" class="filter-select">
-                <option value="Pending">Pending</option>
-                <option value="Completed">Completed</option>
-                <option value="Rejected">Rejected</option>
-              </select>
-            </div>
+            <div class="field-stack"><label>Payment</label><input id="walkInPaymentMethodInput" class="input-field" value="WALKIN VIA CASHIER" readonly /></div>
           </div>
         </div>
         <div class="modal-footer-fixed">
           <button class="btn-admin btn-secondary" id="cancelWalkInOrderBtn" type="button">Cancel</button>
-          <button class="btn-admin" id="saveWalkInOrderBtn" type="button">Save Walk-in Order</button>
+          <button class="btn-admin" id="saveWalkInOrderBtn" type="button">Save Walk-in Customer</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="modalWalkInDetails" data-backdrop-close="false">
+      <div class="modal-card product-modal">
+        <div class="modal-header-fixed">
+          <h3 class="modal-title">Walk-in Customer Details</h3>
+        </div>
+        <div class="modal-body-scroll">
+          <div class="form-grid">
+            <div class="field-stack"><label>Order No.</label><input id="walkInDetailOrderNo" class="input-field" readonly /></div>
+            <div class="field-stack"><label>Name</label><input id="walkInDetailName" class="input-field" readonly /></div>
+            <div class="field-stack full"><label>Address</label><input id="walkInDetailAddress" class="input-field" readonly /></div>
+            <div class="field-stack"><label>Contact Number</label><input id="walkInDetailContact" class="input-field" readonly /></div>
+            <div class="field-stack"><label>Type of Client</label><input id="walkInDetailClientType" class="input-field" readonly /></div>
+            <div class="field-stack full"><label>Agency/Organization</label><input id="walkInDetailAgency" class="input-field" readonly /></div>
+            <div class="field-stack full"><label>Description of the Project</label><input id="walkInDetailProject" class="input-field" readonly /></div>
+            <div class="field-stack full"><label>Item Detail</label><input id="walkInDetailItem" class="input-field" readonly /></div>
+            <div class="field-stack"><label>Unit</label><input id="walkInDetailUnit" class="input-field" readonly /></div>
+            <div class="field-stack"><label>Subtotal Cost</label><input id="walkInDetailSubtotal" class="input-field" readonly /></div>
+            <div class="field-stack"><label>Total</label><input id="walkInDetailTotal" class="input-field" readonly /></div>
+            <div class="field-stack"><label>Payment</label><input id="walkInDetailPayment" class="input-field" readonly /></div>
+            <div class="field-stack"><label>Date Recorded</label><input id="walkInDetailDate" class="input-field" readonly /></div>
+          </div>
+        </div>
+        <div class="modal-footer-fixed">
+          <button class="btn-admin btn-secondary" id="btnCloseWalkInDetails" type="button">Close</button>
         </div>
       </div>
     </div>

@@ -587,9 +587,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const dashboardAccountsCount = document.getElementById("dashboardAccountsCount");
     const dashboardOrdersCount = document.getElementById("dashboardOrdersCount");
     const dashboardProductsCount = document.getElementById("dashboardProductsCount");
+    const dashboardRevenueAmount = document.getElementById("dashboardRevenueAmount");
+    const dashboardInventoryCount = document.getElementById("dashboardInventoryCount");
     const dashboardRecentAppointments = document.getElementById("dashboardRecentAppointments");
     const dashboardRecentOrders = document.getElementById("dashboardRecentOrders");
     const dashboardRefreshBtn = document.getElementById("dashboardRefreshBtn");
+
+    // Analytics overview elements
+    const aovTopSelling = document.getElementById("aovTopSelling");
+    const aovSalesByCategory = document.getElementById("aovSalesByCategory");
+    const aovProductPerformance = document.getElementById("aovProductPerformance");
+    const aovYearlySalesTrend = document.getElementById("aovYearlySalesTrend");
+    const aovTrendYear = document.getElementById("aovTrendYear");
 
     const escapeHtml = (value) =>
       String(value ?? "")
@@ -636,6 +645,21 @@ document.addEventListener("DOMContentLoaded", () => {
       return Number.isFinite(number) ? number.toLocaleString("en-PH") : "--";
     };
 
+    const formatCurrency = (value) => {
+      if (value === null || value === undefined) return "₱ --";
+      const number = Number(value || 0);
+      if (!Number.isFinite(number)) return "₱ --";
+      return `₱ ${number.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    };
+
+    const formatCurrencyCompact = (value) => {
+      const number = Number(value || 0);
+      if (!Number.isFinite(number)) return "₱0";
+      if (number >= 1000000) return `₱${(number / 1000000).toFixed(1)}M`;
+      if (number >= 1000) return `₱${(number / 1000).toFixed(1)}k`;
+      return `₱${number.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    };
+
     const appointmentStatusClass = (status) => {
       const normalized = String(status || "").toLowerCase();
       if (normalized.includes("completed")) return "priority-low";
@@ -652,11 +676,13 @@ document.addEventListener("DOMContentLoaded", () => {
       return "priority-high";
     };
 
-    const setCountCards = ({ appointments, accounts, orders, products }) => {
+    const setCountCards = ({ appointments, accounts, orders, products, total_revenue, total_inventory_items }) => {
       if (dashboardAppointmentsCount) dashboardAppointmentsCount.textContent = formatCount(appointments);
       if (dashboardAccountsCount) dashboardAccountsCount.textContent = formatCount(accounts);
       if (dashboardOrdersCount) dashboardOrdersCount.textContent = formatCount(orders);
       if (dashboardProductsCount) dashboardProductsCount.textContent = formatCount(products);
+      if (dashboardRevenueAmount) dashboardRevenueAmount.textContent = formatCurrency(total_revenue);
+      if (dashboardInventoryCount) dashboardInventoryCount.textContent = formatCount(total_inventory_items);
     };
 
     const renderRecentAppointments = (appointments) => {
@@ -871,6 +897,99 @@ document.addEventListener("DOMContentLoaded", () => {
       return payload;
     };
 
+    const ANALYTICS_PALETTE = [
+      "#800000", "#d4a017", "#0284c7", "#16a34a", "#7c3aed",
+      "#db2777", "#ea580c", "#0d9488", "#6366f1", "#94a3b8",
+    ];
+
+    const renderAnalyticsOverview = (analyticsSummary) => {
+      if (!analyticsSummary) return;
+
+      // ── Top Selling Products ──
+      if (aovTopSelling) {
+        const topSelling = Array.isArray(analyticsSummary?.top_selling) ? analyticsSummary.top_selling : [];
+        if (!topSelling.length) {
+          aovTopSelling.innerHTML = '<div class="aov-empty"><i class="fa-solid fa-chart-bar"></i> No sales data this month</div>';
+        } else {
+          aovTopSelling.innerHTML = topSelling.map((item, idx) => `
+            <div class="aov-item">
+              <div class="aov-item-left">
+                <span class="aov-rank ${idx < 3 ? `rank-${idx + 1}` : ''}">${idx + 1}</span>
+                <span class="aov-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+              </div>
+              <span class="aov-value">${Number(item.total_sold || 0).toLocaleString("en-PH")} sold</span>
+            </div>
+          `).join("");
+        }
+      }
+
+      // ── Sales by Category ──
+      if (aovSalesByCategory) {
+        const categories = Array.isArray(analyticsSummary?.sales_by_category) ? analyticsSummary.sales_by_category : [];
+        if (!categories.length) {
+          aovSalesByCategory.innerHTML = '<div class="aov-empty"><i class="fa-solid fa-chart-pie"></i> No category data yet</div>';
+        } else {
+          aovSalesByCategory.innerHTML = categories.map((item, idx) => `
+            <div class="aov-item">
+              <div class="aov-item-left">
+                <span class="aov-category-dot" style="background:${ANALYTICS_PALETTE[idx % ANALYTICS_PALETTE.length]}"></span>
+                <span class="aov-name" title="${escapeHtml(item.category)}">${escapeHtml(item.category)}</span>
+              </div>
+              <div style="text-align:right;">
+                <span class="aov-value">${formatCurrencyCompact(item.total_revenue)}</span>
+                <span class="aov-category-revenue">${Number(item.total_sold || 0)} sold</span>
+              </div>
+            </div>
+          `).join("");
+        }
+      }
+
+      // ── Product Performance ──
+      if (aovProductPerformance) {
+        const performance = Array.isArray(analyticsSummary?.top_performance) ? analyticsSummary.top_performance : [];
+        if (!performance.length) {
+          aovProductPerformance.innerHTML = '<div class="aov-empty"><i class="fa-solid fa-ranking-star"></i> No performance data yet</div>';
+        } else {
+          aovProductPerformance.innerHTML = performance.map((item, idx) => `
+            <div class="aov-item">
+              <div class="aov-item-left">
+                <span class="aov-rank ${idx < 3 ? `rank-${idx + 1}` : ''}">${idx + 1}</span>
+                <span class="aov-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
+              </div>
+              <span class="aov-value">${formatCurrencyCompact(item.total_revenue)}</span>
+            </div>
+          `).join("");
+        }
+      }
+
+      // ── Yearly Sales Trend (mini bar chart) ──
+      if (aovYearlySalesTrend) {
+        const trend = Array.isArray(analyticsSummary?.yearly_trend) ? analyticsSummary.yearly_trend : [];
+        const year = analyticsSummary?.year || new Date().getFullYear();
+        if (aovTrendYear) aovTrendYear.textContent = `${year} monthly totals`;
+
+        const maxSales = Math.max(...trend.map(m => m.total_sales || 0), 1);
+        const hasTrendData = trend.some(m => (m.total_sales || 0) > 0);
+
+        if (!hasTrendData) {
+          aovYearlySalesTrend.innerHTML = '<div class="aov-empty"><i class="fa-solid fa-chart-line"></i> No sales data for this year</div>';
+        } else {
+          const monthLabels = ["J","F","M","A","M","J","J","A","S","O","N","D"];
+          const bars = trend.map((m, i) => {
+            const pct = maxSales > 0 ? Math.max(((m.total_sales || 0) / maxSales) * 100, 4) : 4;
+            return `<div class="aov-trend-bar" style="height:${pct}%" title="${monthLabels[i]}: ${formatCurrencyCompact(m.total_sales)}"></div>`;
+          }).join("");
+
+          aovYearlySalesTrend.innerHTML = `
+            <div class="aov-trend-bars">${bars}</div>
+            <div class="aov-trend-label">
+              <span>Jan</span><span>Jun</span><span>Dec</span>
+            </div>
+          `;
+        }
+      }
+    };
+
     const applyDashboardSummaryPayload = (summary) => {
       const counts = summary?.counts || {};
       const appointments = Array.isArray(summary?.recent_appointments)
@@ -885,10 +1004,15 @@ document.addEventListener("DOMContentLoaded", () => {
         accounts: counts?.accounts,
         orders: counts?.orders,
         products: counts?.products,
+        total_revenue: counts?.total_revenue,
+        total_inventory_items: counts?.total_inventory_items,
       });
 
       renderRecentAppointments(appointments);
       renderRecentOrders(orders, []);
+
+      // Render analytics overview
+      renderAnalyticsOverview(summary?.analytics_summary || null);
     };
 
     const syncDashboardDataLegacy = async () => {
@@ -974,7 +1098,7 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
-        setCountCards({ appointments: "--", accounts: "--", orders: "--", products: "--" });
+        setCountCards({ appointments: "--", accounts: "--", orders: "--", products: "--", total_revenue: null, total_inventory_items: null });
         renderDashboardSyncError(error?.message || "Please check your network and backend server.");
       } finally {
         if (requestId === dashboardSyncRequestId) {
