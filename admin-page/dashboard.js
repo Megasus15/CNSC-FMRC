@@ -435,7 +435,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const performLogout = async () => {
-      const token = localStorage.getItem("auth_token");
+      const token = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token");
       setLoading(true);
       try {
         if (token) {
@@ -450,6 +450,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch {
         // Local session cleanup is still required.
       } finally {
+        if (window.AdminSession) { window.AdminSession.clearSession(); }
         localStorage.removeItem("auth_token");
         localStorage.removeItem("user_info");
         setLoading(false);
@@ -716,7 +717,7 @@ document.addEventListener("DOMContentLoaded", () => {
         Pragma: "no-cache",
       };
 
-      const token = localStorage.getItem("auth_token");
+      const token = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token");
       if (requiresAuth) {
         if (!token) {
           const authError = new Error("Session expired. Please login again.");
@@ -978,6 +979,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (error?.code === "AUTH") {
+          if (window.AdminSession) { window.AdminSession.clearSession(); }
           localStorage.removeItem("auth_token");
           localStorage.removeItem("user_info");
           window.location.href = "../admin-auth/auth.html";

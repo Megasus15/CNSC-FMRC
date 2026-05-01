@@ -35,7 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const API_BASE_URL = resolveApiBaseUrl();
 
-  const token = localStorage.getItem("auth_token");
+  const token = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token");
   if (!token) {
     window.location.href = "../admin-auth/auth.html";
     return;
@@ -166,6 +166,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const arrayToLines = (arr) => (Array.isArray(arr) ? arr.join("\n") : "");
 
   const setUnauthorized = () => {
+    if (window.AdminSession) { window.AdminSession.clearSession(); }
     localStorage.removeItem("auth_token");
     localStorage.removeItem("user_info");
     window.location.href = "../admin-auth/auth.html";

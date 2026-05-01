@@ -4,9 +4,18 @@ document.addEventListener("DOMContentLoaded", () => {
     document.querySelector('meta[name="api-base-url"]')?.getAttribute("content") ||
     `${window.location.protocol}//${window.location.hostname}:8000/api`;
 
-  const token = localStorage.getItem("auth_token");
+  const token = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token");
   if (!token) {
     window.location.href = "../admin-auth/auth.html";
+    return;
+  }
+
+  // ── Staff guard: only admin may access User Management ──
+  const cachedUser = window.AdminSession ? window.AdminSession.getUserInfo() : null;
+  const currentRole = (cachedUser?.role || cachedUser?.data?.role || "").toLowerCase();
+  if (currentRole === "staff") {
+    // Staff should never see User Management — redirect to their dashboard.
+    window.location.href = "../staff-page/dashboard.html";
     return;
   }
 
@@ -176,6 +185,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const setUnauthorizedState = () => {
+    if (window.AdminSession) {
+      window.AdminSession.clearSession();
+    }
     localStorage.removeItem("auth_token");
     localStorage.removeItem("user_info");
     window.location.href = "../admin-auth/auth.html";

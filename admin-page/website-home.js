@@ -2,7 +2,7 @@
 'use strict';
 
 const API = 'http://127.0.0.1:8000/api';
-const token = () => localStorage.getItem('auth_token');
+const token = () => (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem('auth_token');
 
 // ── State ───────────────────────────────────────────────────────────────────
 let currentSettings = {};

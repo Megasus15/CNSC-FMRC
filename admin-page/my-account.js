@@ -27,7 +27,7 @@
       return `${proto}//${host}/api`;
     })();
 
-    const getToken = () => localStorage.getItem('auth_token') || '';
+    const getToken = () => (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem('auth_token') || '';
 
     const setLoadingLocal = (active) => {
       const loader = document.getElementById('global-loader') || document.querySelector('.global-loader-overlay');
@@ -57,11 +57,15 @@
         });
         if (popupIdentity) popupIdentity.textContent = newEmail;
         try {
-          const raw = localStorage.getItem('user_info');
+          const raw = (window.AdminSession && window.AdminSession.getUserInfo()) ? JSON.stringify(window.AdminSession.getUserInfo()) : localStorage.getItem('user_info');
           if (raw) {
-            const info = JSON.parse(raw);
+            const info = typeof raw === 'string' ? JSON.parse(raw) : raw;
             info.email = newEmail;
-            localStorage.setItem('user_info', JSON.stringify(info));
+            if (window.AdminSession) {
+              window.AdminSession.setUserInfo(info);
+            } else {
+              localStorage.setItem('user_info', JSON.stringify(info));
+            }
           }
         } catch (e) { /* ignore */ }
       }
@@ -149,7 +153,12 @@
           const res = await fetch(`${API_BASE}/user`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } });
           if (res.status === 401 || res.status === 403) {
             // Unauthorized - clear session and redirect to login to avoid stale cached user info
-            try { localStorage.removeItem('auth_token'); localStorage.removeItem('user_info'); } catch (e) { /* ignore */ }
+            try {
+              if (window.AdminSession) {
+                window.AdminSession.clearSession();
+              }
+              localStorage.removeItem('auth_token'); localStorage.removeItem('user_info');
+            } catch (e) { /* ignore */ }
             showStatusLocal('Session expired. Please sign in again.');
             window.location.href = '../admin-auth/auth.html';
             return;
@@ -157,7 +166,13 @@
           if (res.ok) {
             const payload = await res.json();
             user = payload?.data || payload;
-            try { localStorage.setItem('user_info', JSON.stringify(payload)); } catch (e) { /* ignore */ }
+            try {
+              if (window.AdminSession) {
+                window.AdminSession.setUserInfo(payload);
+              } else {
+                localStorage.setItem('user_info', JSON.stringify(payload));
+              }
+            } catch (e) { /* ignore */ }
           }
         } catch (e) {
           // network error, will try fallback below
@@ -169,10 +184,16 @@
       // Fallback to cached user_info when API not available or not authorized
       if (!user) {
         try {
-          const raw = localStorage.getItem('user_info');
+          let raw;
+          if (window.AdminSession) {
+            raw = window.AdminSession.getUserInfo();
+            if (raw) raw = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          } else {
+            const rawStr = localStorage.getItem('user_info');
+            if (rawStr) raw = JSON.parse(rawStr);
+          }
           if (raw) {
-            const parsed = JSON.parse(raw);
-            user = parsed?.data || parsed;
+            user = raw?.data || raw;
           }
         } catch (e) { /* ignore */ }
       }

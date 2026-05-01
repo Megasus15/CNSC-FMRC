@@ -152,8 +152,19 @@ document.addEventListener("DOMContentLoaded", () => {
           const data = await response.json();
 
           if (response.ok) {
-            localStorage.setItem('auth_token', data.access_token);
-            localStorage.setItem('user_info', JSON.stringify(data.user));
+            // Store token under role-specific keys so admin & staff sessions don't collide.
+            const userRole = (data.user.role || '').toLowerCase();
+            if (userRole === 'staff') {
+              localStorage.setItem('staff_auth_token', data.access_token);
+              localStorage.setItem('staff_user_info', JSON.stringify(data.user));
+            } else {
+              localStorage.setItem('admin_auth_token', data.access_token);
+              localStorage.setItem('admin_user_info', JSON.stringify(data.user));
+            }
+            // Remove any legacy keys to prevent conflicts
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('user_info');
+
             showStatus("Login successful. Opening dashboard...");
 
             if (data.user.role === 'admin') {

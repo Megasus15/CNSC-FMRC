@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return `${proto}//${host}/api`;
   })();
 
-  const token = localStorage.getItem("auth_token") || "";
+  const token = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token") || "";
   const showPopup = (msg, opts = {}) => window.showAdminPopup?.(msg, opts);
   const escHtml = (str) => String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 

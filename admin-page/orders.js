@@ -34,7 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const API_BASE_URL = resolveApiBaseUrl();
-  const authToken = localStorage.getItem("auth_token");
+  const authToken = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token");
   const PHILIPPINES_TIME_ZONE = "Asia/Manila";
   const REQUEST_TIMEOUT_MS = 15000;
   const ORDERS_REALTIME_CHANNEL = "fmrc-orders-realtime";

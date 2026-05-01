@@ -276,7 +276,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return `${proto}//${host}/api`;
     })();
 
-    const token = localStorage.getItem('auth_token') || '';
+    const token = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem('auth_token') || '';
     if (!token) return;
 
     fetch(`${API_BASE}/user`, {
@@ -296,7 +296,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if (popupIdentity) popupIdentity.textContent = email;
       const currentGmailEl = document.getElementById('currentGmailValue');
       if (currentGmailEl) currentGmailEl.textContent = email;
-      try { localStorage.setItem('user_info', JSON.stringify(user)); } catch (e) { /* ignore */ }
+      try {
+        if (window.AdminSession) {
+          window.AdminSession.setUserInfo(user);
+        } else {
+          localStorage.setItem('user_info', JSON.stringify(user));
+        }
+      } catch (e) { /* ignore */ }
     }).catch(() => { /* ignore network errors */ });
   })();
 
@@ -366,7 +372,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const notifBadge      = notifBtn.querySelector(".badge") || notifBtn.querySelector("#notifBadge");
 
     // Helper: get auth token
-    const getToken = () => localStorage.getItem("auth_token") || "";
+    const getToken = () => (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token") || "";
 
     // Helper: update badge display
     const updateBadge = (count) => {
@@ -689,7 +695,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const performLogout = async () => {
-    const token = localStorage.getItem("auth_token");
+    const token = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token");
     setLoading(true);
     try {
       if (token) {
@@ -704,6 +710,11 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch {
       // Local session cleanup is still required.
     } finally {
+      // Clear role-specific session via helper
+      if (window.AdminSession) {
+        window.AdminSession.clearSession();
+      }
+      // Also clear any legacy keys
       localStorage.removeItem("auth_token");
       localStorage.removeItem("user_info");
       setLoading(false);

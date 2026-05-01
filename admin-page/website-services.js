@@ -35,7 +35,7 @@ const resolveApiBaseUrl = () => {
 };
 
 const API = resolveApiBaseUrl();
-const token = () => localStorage.getItem('auth_token');
+const token = () => (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem('auth_token');
 
 let servicesData = [];
 let svcImageData = null;

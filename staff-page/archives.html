@@ -104,78 +104,7 @@
             </div>
           </div>
 
-          <div class="account-layout" style="margin: 18px 0 10px;">
-            <div class="account-summary-card" style="margin-right:16px;">
-              <div class="account-avatar profile-initial" data-email="staff@cnsc.edu.ph">A</div>
-              <div class="account-name">Staff Member</div>
-              <span class="account-role-badge">Staff</span>
-
-              <div class="account-meta-list">
-                <div class="account-meta-item">
-                  <div class="account-meta-label">Current Username</div>
-                  <div id="currentUsernameValue" class="account-meta-value">-</div>
-                </div>
-                <div class="account-meta-item">
-                  <div class="account-meta-label">Full Name</div>
-                  <div id="currentFullnameValue" class="account-meta-value">-</div>
-                </div>
-                <div class="account-meta-item">
-                  <div class="account-meta-label">Current Gmail</div>
-                  <div id="currentGmailValue" class="account-meta-value">staff@cnsc.edu.ph</div>
-                </div>
-                <div class="account-meta-item">
-                  <div class="account-meta-label">Current Role</div>
-                  <div class="account-meta-value">Staff</div>
-                </div>
-              </div>
-            </div>
-
-            <div class="account-form-card">
-              <h3>Update Credentials</h3>
-              <p class="account-form-subtext">Manage your account credentials and profile information. Changes are persisted to the backend.</p>
-
-              <div class="form-grid">
-                <div class="field-stack full">
-                  <label>Username</label>
-                  <input id="usernameInput" class="input-field" type="text" placeholder="Enter username" />
-                </div>
-                <div class="field-stack full">
-                  <label>Full Name</label>
-                  <input id="fullNameInput" class="input-field" type="text" placeholder="Full name" disabled />
-                </div>
-                <div class="field-stack full">
-                  <label>New Gmail</label>
-                  <input id="emailInput" class="input-field" type="email" placeholder="Enter new Gmail address" />
-                </div>
-                <div class="field-stack full password-field">
-                  <label>Current Password</label>
-                  <div class="input-icon-group">
-                    <input id="currentPassword" class="input-field" type="password" placeholder="Enter current password" />
-                    <button id="toggleCurrentPassword" class="toggle-pass" type="button" aria-label="Toggle password visibility"><i class="fa-solid fa-eye-slash"></i></button>
-                  </div>
-                </div>
-                <div class="field-stack password-field">
-                  <label>New Password</label>
-                  <div class="input-icon-group">
-                    <input id="newPassword" class="input-field" type="password" placeholder="Enter new password" />
-                    <button id="toggleNewPassword" class="toggle-pass" type="button" aria-label="Toggle password visibility"><i class="fa-solid fa-eye-slash"></i></button>
-                  </div>
-                </div>
-                <div class="field-stack password-field">
-                  <label>Confirm New Password</label>
-                  <div class="input-icon-group">
-                    <input id="confirmPassword" class="input-field" type="password" placeholder="Confirm new password" />
-                    <button id="toggleConfirmPassword" class="toggle-pass" type="button" aria-label="Toggle password visibility"><i class="fa-solid fa-eye-slash"></i></button>
-                  </div>
-                </div>
-              </div>
-
-              <div class="modal-actions">
-                <button id="cancelCredentialsBtn" class="btn-admin btn-secondary" type="button">Cancel</button>
-                <button id="saveCredentialsBtn" class="btn-admin" type="button">Save Changes</button>
-              </div>
-            </div>
-          </div>
+          
 
           <div class="panel">
             <div class="panel-header">
@@ -284,18 +213,8 @@
       </div>
     </div>
 
+    <script src="../admin-page/session-helper.js"></script>
     <script src="../admin-page/admin-common.js"></script>
-    <script src="../admin-page/my-account.js"></script>
-    <!-- Page-local success modal (stays open until user clicks OK) -->
-    <div id="credSuccessModal" class="success-modal" role="dialog" aria-modal="true" aria-labelledby="credSuccessTitle">
-      <div class="success-box">
-        <div class="success-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-        </div>
-        <h3 id="credSuccessTitle">Success</h3>
-        <p id="credSuccessMessage">Credentials updated successfully.</p>
-        <button id="credSuccessOk" class="btn-admin" type="button">Okay</button>
-      </div>
-    </div>
+    
   </body>
 </html>
