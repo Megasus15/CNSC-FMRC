@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\WalkInOrder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -15,14 +16,14 @@ class ProductAnalyticsController extends Controller
 {
     private const ALLOWED_ADMIN_ROLES = ['admin', 'staff'];
 
-    private const COUNTED_ORDER_STATUSES = ['incoming', 'pending', 'completed'];
+    private const COUNTED_ORDER_STATUSES = ['completed'];
 
     private const YEARLY_TREND_DATE_COLUMN_CREATED = 'created_at';
 
     private const YEARLY_TREND_DATE_COLUMN_COMPLETED = 'completed_at';
 
     /**
-     * Top Selling Products based on actual order quantities.
+     * Top Selling Products based on completed order quantities + walk-in orders.
      * Supports period filter: month, week, day
      */
     public function topSelling(Request $request): JsonResponse
@@ -32,42 +33,65 @@ class ProductAnalyticsController extends Controller
 
         $period = $request->query('period', 'month'); // month, week, day
 
-        $query = OrderItem::query()
-            ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES);
-
-        // Apply period filter
         $now = Carbon::now('Asia/Manila');
+
+        // ── Determine date range based on period ──
         switch ($period) {
             case 'day':
-                $query->whereDate('orders.created_at', $now->toDateString());
+                $startDate = $now->copy()->startOfDay();
+                $endDate   = $now->copy()->endOfDay();
                 break;
             case 'week':
-                $query->whereBetween('orders.created_at', [
-                    $now->copy()->startOfWeek(),
-                    $now->copy()->endOfWeek(),
-                ]);
+                $startDate = $now->copy()->startOfWeek(Carbon::SUNDAY);
+                $endDate   = $now->copy()->endOfWeek(Carbon::SATURDAY)->endOfDay();
                 break;
             case 'month':
             default:
-                $query->whereMonth('orders.created_at', $now->month)
-                      ->whereYear('orders.created_at', $now->year);
+                $startDate = $now->copy()->startOfMonth();
+                $endDate   = $now->copy()->endOfMonth()->endOfDay();
                 break;
         }
 
-        $topProducts = $query
+        // ── Source 1: Completed online orders (from order_items + orders) ──
+        // Use COALESCE(completed_at, created_at) so orders that are completed
+        // but missing a completed_at timestamp still get counted.
+        $onlineQuery = OrderItem::query()
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES)
+            ->whereBetween(DB::raw('COALESCE(orders.completed_at, orders.created_at)'), [$startDate, $endDate])
             ->select(
-                'order_items.product_name',
+                'order_items.product_name as product_name',
                 DB::raw('SUM(order_items.quantity) as total_sold')
             )
-            ->groupBy('order_items.product_name')
-            ->orderByDesc('total_sold')
-            ->limit(8)
-            ->get();
+            ->groupBy('order_items.product_name');
+
+        // ── Source 2: Walk-in orders (from walk_in_orders) ──
+        // Walk-in orders use order_item as product name and order_date for filtering.
+        $walkInQuery = WalkInOrder::query()
+            ->whereBetween(DB::raw('COALESCE(order_date, created_at)'), [$startDate, $endDate])
+            ->select(
+                DB::raw("COALESCE(NULLIF(TRIM(item_detail), ''), NULLIF(TRIM(order_item), ''), 'Walk-in Item') as product_name"),
+                DB::raw('1 as total_sold')
+            );
+
+        // ── Combine both sources using UNION ALL and aggregate ──
+        $onlineSql = $onlineQuery->toSql();
+        $onlineBindings = $onlineQuery->getBindings();
+
+        $walkInSql = $walkInQuery->toSql();
+        $walkInBindings = $walkInQuery->getBindings();
+
+        $combinedSql = "SELECT product_name as name, SUM(total_sold) as total_sold FROM ("
+            . "({$onlineSql}) UNION ALL ({$walkInSql})"
+            . ") as combined GROUP BY product_name ORDER BY total_sold DESC LIMIT 8";
+
+        $combinedBindings = array_merge($onlineBindings, $walkInBindings);
+
+        $topProducts = DB::select($combinedSql, $combinedBindings);
 
         return response()->json([
-            'data' => $topProducts->map(fn($item) => [
-                'name' => $item->product_name,
+            'data' => collect($topProducts)->map(fn($item) => [
+                'name' => $item->name,
                 'total_sold' => (int) $item->total_sold,
             ]),
         ]);

@@ -42,8 +42,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const prevBtn = document.getElementById("appointmentsPrevPage");
   const nextBtn = document.getElementById("appointmentsNextPage");
   const searchInput = document.getElementById("appointmentSearchInput");
-  const deleteAppointmentTargetLabel = document.getElementById("deleteAppointmentTargetLabel");
-  const btnConfirmDeleteAppointment = document.getElementById("btnConfirmDeleteAppointment");
+
   const tableWrapper = document.querySelector(".table-wrapper");
 
   const calGrid = document.getElementById("adminCalDaysGrid");
@@ -96,7 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentYear = normalizedToday.getFullYear();
   let selectedDateKey = null;
   let currentPage = 1;
-  let activeDeleteId = 0;
+
   let pollTimer = null;
   let editingSlotId = null;
   let activeTimePickerContext = null;
@@ -517,7 +516,6 @@ document.addEventListener("DOMContentLoaded", () => {
           <td><span class="status-pill ${statusClass(item.status)}">${safe(item.status)}</span></td>
           <td class="action-icons sticky-action">
             <button type="button" data-tooltip="View Appointment" data-view-id="${item.id}"><i class="fa-regular fa-eye"></i></button>
-            <button type="button" data-tooltip="Delete Appointment" data-delete-id="${item.id}"><i class="fa-regular fa-trash-can"></i></button>
           </td>
         </tr>`;
       })
@@ -846,19 +844,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  const removeAppointment = async (id) => {
-    const response = await fetch(`${API_BASE_URL}/appointments/${id}`, {
-      method: "DELETE",
-      headers: { Accept: "application/json" },
-    });
-
-    if (!response.ok) {
-      alert("Unable to delete appointment. Please try again.");
-      return;
-    }
-
-    await refreshAll();
-  };
 
 
   const renderSlotManager = () => {
@@ -982,21 +967,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderCalendar();
   };
 
-  tableBody?.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
 
-    const deleteBtn = target.closest("[data-delete-id]");
-    if (deleteBtn) {
-      const id = Number(deleteBtn.getAttribute("data-delete-id") || 0);
-      activeDeleteId = id;
-      const selected = state.appointments.find((item) => Number(item.id) === id);
-      if (deleteAppointmentTargetLabel) {
-        deleteAppointmentTargetLabel.textContent = selected?.client_name || "this appointment";
-      }
-      document.getElementById("modalDeleteAppointment")?.classList.add("show");
-    }
-  });
 
   document.addEventListener("click", (event) => {
     const target = event.target;
@@ -1037,13 +1008,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  btnConfirmDeleteAppointment?.addEventListener("click", async (event) => {
-    event.preventDefault();
-    if (!activeDeleteId) return;
-    await removeAppointment(activeDeleteId);
-    activeDeleteId = 0;
-    document.getElementById("modalDeleteAppointment")?.classList.remove("show");
-  });
+
 
   prevBtn?.addEventListener("click", () => {
     if (currentPage <= 1) return;

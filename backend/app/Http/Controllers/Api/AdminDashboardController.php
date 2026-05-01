@@ -47,7 +47,7 @@ class AdminDashboardController extends Controller
             ->sum('total');
 
         $walkInRevenue = (float) WalkInOrder::query()
-            ->sum('subtotal_cost');
+            ->sum('total');
 
         $totalRevenue = $completedOrdersRevenue + $walkInRevenue;
 
@@ -59,7 +59,7 @@ class AdminDashboardController extends Controller
         $now = now('Asia/Manila');
         $topSelling = OrderItem::query()
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->whereNotIn('orders.lifecycle_status', ['rejected'])
+            ->where('orders.lifecycle_status', 'completed')
             ->whereMonth('orders.created_at', $now->month)
             ->whereYear('orders.created_at', $now->year)
             ->select('order_items.product_name', DB::raw('SUM(order_items.quantity) as total_sold'))
@@ -76,7 +76,7 @@ class AdminDashboardController extends Controller
         $salesByCategory = OrderItem::query()
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->leftJoin('products', 'order_items.product_id', '=', 'products.id')
-            ->whereNotIn('orders.lifecycle_status', ['rejected'])
+            ->where('orders.lifecycle_status', 'completed')
             ->select(
                 DB::raw("COALESCE(products.category, 'Uncategorized') as category"),
                 DB::raw('SUM(order_items.quantity) as total_sold'),
@@ -96,7 +96,7 @@ class AdminDashboardController extends Controller
         $topPerformance = OrderItem::query()
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->leftJoin('products', 'order_items.product_id', '=', 'products.id')
-            ->whereNotIn('orders.lifecycle_status', ['rejected'])
+            ->where('orders.lifecycle_status', 'completed')
             ->select(
                 'order_items.product_name',
                 DB::raw('SUM(order_items.quantity) as total_sold'),
@@ -115,7 +115,7 @@ class AdminDashboardController extends Controller
         // Yearly sales trend (current year, monthly totals)
         $currentYear = $now->year;
         $monthlyData = Order::query()
-            ->whereNotIn('lifecycle_status', ['rejected'])
+            ->where('lifecycle_status', 'completed')
             ->whereYear('created_at', $currentYear)
             ->select(
                 DB::raw('MONTH(created_at) as month'),
