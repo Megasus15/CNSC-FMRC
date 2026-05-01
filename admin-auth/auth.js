@@ -156,8 +156,10 @@ document.addEventListener("DOMContentLoaded", () => {
             localStorage.setItem('user_info', JSON.stringify(data.user));
             showStatus("Login successful. Opening dashboard...");
 
-            if (data.user.role === 'admin' || data.user.role === 'staff') {
+            if (data.user.role === 'admin') {
               window.location.href = "../admin-page/dashboard.html";
+            } else if (data.user.role === 'staff') {
+              window.location.href = "../staff-page/dashboard.html";
             } else if (data.user.role === 'cashier') {
               window.location.href = "../cashier-page/dashboard.html";
             } else {

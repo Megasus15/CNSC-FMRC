@@ -8,6 +8,7 @@ use App\Models\InventoryItem;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\WalkInOrder;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -40,11 +41,15 @@ class AdminDashboardController extends Controller
         $ordersCount = Order::query()->count();
         $productsCount = Product::query()->count();
 
-        // ─── Total Revenue (from product performance — sum of all order item line totals, excluding rejected) ───
-        $totalRevenue = (float) OrderItem::query()
-            ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->whereNotIn('orders.lifecycle_status', ['rejected'])
-            ->sum('order_items.line_total');
+        // ─── Total Revenue (completed orders + walk-in subtotal costs) ───
+        $completedOrdersRevenue = (float) Order::query()
+            ->where('lifecycle_status', 'completed')
+            ->sum('total');
+
+        $walkInRevenue = (float) WalkInOrder::query()
+            ->sum('subtotal_cost');
+
+        $totalRevenue = $completedOrdersRevenue + $walkInRevenue;
 
         // ─── Total Inventory Items ───
         $totalInventoryItems = InventoryItem::query()->count();

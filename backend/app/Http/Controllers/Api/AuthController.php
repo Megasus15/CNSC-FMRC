@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
@@ -124,9 +125,9 @@ class AuthController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'username' => 'nullable|required_without:email|string|max:255|alpha_dash|unique:users,username',
-            'email' => 'nullable|required_without:username|string|email|max:255|regex:/^[A-Za-z0-9._%+-]+@gmail\.com$/i|unique:users,email',
-            'role' => 'required|in:customer,cashier,staff',
+            'username' => 'required|string|max:255|alpha_dash|unique:users,username',
+            'email' => 'required|string|email|max:255|regex:/^[A-Za-z0-9._%+-]+@gmail\.com$/i|unique:users,email',
+            'role' => 'required|in:customer,staff',
             'password' => 'required|string|min:8|confirmed',
         ]);
 
@@ -283,6 +284,46 @@ class AuthController extends Controller
             'customer_type' => $user->customer_type,
             'updated_at' => optional($user->updated_at)->toIso8601String(),
         ];
+    }
+    
+    /**
+     * Update the authenticated user's email (self profile update).
+     */
+    public function updateSelfProfile(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized.'], 401);
+        }
+
+        // Allow updating of email and username for the authenticated user.
+        $validated = $request->validate([
+            'email' => ['nullable', 'string', 'email', 'max:255', 'regex:/^[A-Za-z0-9._%+-]+@gmail\.com$/i', Rule::unique('users', 'email')->ignore($user->id)],
+            'username' => ['nullable', 'string', 'max:255', 'alpha_dash', Rule::unique('users', 'username')->ignore($user->id)],
+        ]);
+
+        if (array_key_exists('email', $validated) && $validated['email']) {
+            $user->email = $validated['email'];
+        }
+
+        if (array_key_exists('username', $validated) && $validated['username']) {
+            $user->username = $validated['username'];
+        }
+
+        $user->save();
+
+        return response()->json([
+            'message' => 'Profile updated successfully.',
+            'data' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'username' => $user->username,
+                'email' => $user->email,
+                'role' => $user->role,
+                'updated_at' => optional($user->updated_at)->toIso8601String(),
+            ],
+        ]);
     }
     
     // Change password function

@@ -107,6 +107,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const walkInDetailTotal = document.getElementById("walkInDetailTotal");
   const walkInDetailPayment = document.getElementById("walkInDetailPayment");
   const walkInDetailDate = document.getElementById("walkInDetailDate");
+  const btnEditWalkInFromView = document.getElementById("btnEditWalkInFromView");
+
+  const modalDeletePaymentHistory = document.getElementById("modalDeletePaymentHistory");
+  const paymentDeleteTargetLabel = document.getElementById("paymentDeleteTargetLabel");
+  const btnCancelDeletePaymentHistory = document.getElementById("btnCancelDeletePaymentHistory");
+  const btnConfirmDeletePaymentHistory = document.getElementById("btnConfirmDeletePaymentHistory");
 
   const refreshBtn = document.getElementById("ordersRefreshBtn");
 
@@ -121,8 +127,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const trackingCourierName = document.getElementById("trackingCourierName");
   const trackingCourierNo = document.getElementById("trackingCourierNo");
   const trackingLocationName = document.getElementById("trackingLocationName");
-  const trackingLatitude = document.getElementById("trackingLatitude");
-  const trackingLongitude = document.getElementById("trackingLongitude");
   const btnSaveTrackingUpdate = document.getElementById("btnSaveTrackingUpdate");
 
   const state = {
@@ -144,6 +148,9 @@ document.addEventListener("DOMContentLoaded", () => {
     pendingForceSync: false,
     lastRealtimeSignalTs: 0,
   };
+
+  let viewingWalkInOrderId = null;
+  let deletingPaymentOrderId = null;
 
   const shouldProcessRealtimeSignal = (payload = {}) => {
     const ts = Number(payload?.timestamp || 0);
@@ -233,8 +240,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const normalizeStateOrdering = () => {
     state.incoming = sortOrdersByCreatedAsc(state.incoming);
     state.directory = sortOrdersByCreatedAsc(state.directory);
-    state.payments = sortPaymentsByOrderAsc(state.payments);
     state.walkIn = sortWalkInByDateDesc(state.walkIn);
+  };
+
+  const getCompletedDirectoryRows = () =>
+    state.directory.filter((order) => String(order?.lifecycle_status || "").toLowerCase() === "completed");
+
+  const refreshPaymentsFromDirectory = () => {
+    state.payments = sortPaymentsByOrderAsc(getCompletedDirectoryRows());
   };
 
   const formatMoney = (amount) => {
@@ -492,8 +505,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     state.incoming = state.incoming.filter((order) => String(order?.id || "") !== key);
     state.directory = state.directory.filter((order) => String(order?.id || "") !== key);
-    state.payments = state.payments.filter((payment) => String(payment?.order_id || "") !== key);
     normalizeStateOrdering();
+    refreshPaymentsFromDirectory();
     mapOrderById();
   };
 
@@ -512,20 +525,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     normalizeStateOrdering();
+    refreshPaymentsFromDirectory();
     mapOrderById();
-  };
-
-  const upsertPaymentInState = (paymentRow) => {
-    if (!paymentRow?.order_id) return;
-    state.payments = replaceOrAppendById(state.payments, paymentRow, "order_id");
-    normalizeStateOrdering();
-  };
-
-  const removePaymentFromState = (orderId) => {
-    const key = String(orderId || "");
-    if (!key) return;
-    state.payments = state.payments.filter((payment) => String(payment?.order_id || "") !== key);
-    normalizeStateOrdering();
   };
 
   const populateOrderDetailsModal = (order) => {
@@ -635,6 +636,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const search = (directorySearch?.value || "").trim().toLowerCase();
 
     return state.directory.filter((order) => {
+      if (String(order.lifecycle_status || "").toLowerCase() === "completed") return false;
       const statusOk = statusFilter === "all" || String(order.lifecycle_status || "").toLowerCase() === statusFilter;
       if (!statusOk) return false;
 
@@ -657,7 +659,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     return state.payments.filter((payment) => {
       if (methodFilter === "all") return true;
-      return String(payment.method || "").toLowerCase() === methodFilter;
+      return String(payment.payment_method || payment.method || "").toLowerCase() === methodFilter;
     });
   };
 
@@ -731,12 +733,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  const applyPaymentSelectStyle = (select) => {
-    if (!(select instanceof HTMLSelectElement)) return;
-    select.classList.remove("status-green", "status-blue", "status-red");
-    select.classList.add(paymentStatusClass(select.value));
-  };
-
   const renderPaymentsTable = () => {
     const rows = getPaymentRows();
 
@@ -749,34 +745,31 @@ document.addEventListener("DOMContentLoaded", () => {
       pageSize: 5,
       emptyMessage: "No payments available.",
       renderRow: (payment) => {
+        const orderId = payment.id || payment.order_id || "";
+        const orderNo = payment.order_no_display || `#${payment.order_no || payment.order_id || payment.id}`;
+        const paymentId = payment.payment_id || payment.payment_no || orderNo;
+        const paidAt = payment.date_paid || payment.completed_at || payment.updated_at || payment.created_at;
+        const paymentMethod = payment.payment_method || payment.method || "N/A";
+        const paymentReference = payment.payment_reference || payment.reference || "Pending reference";
+        const paymentAmountLabel = payment.total_label || payment.amount_label || formatMoney(payment.total_amount || payment.amount);
         return `
           <tr>
-            <td>${escapeHtml(payment.payment_id || "-")}</td>
-            <td>${escapeHtml(payment.order_no_display || `#${payment.order_no || payment.order_id}`)}</td>
+            <td>${escapeHtml(paymentId)}</td>
+            <td>${escapeHtml(orderNo)}</td>
             <td>${escapeHtml(payment.customer_name || "Customer")}</td>
-            <td>${escapeHtml(payment.method || "N/A")}</td>
-            <td>${escapeHtml(payment.reference || "Pending reference")}</td>
-            <td>${escapeHtml(payment.amount_label || formatMoney(payment.amount))}</td>
-            <td>
-              <select class="filter-select payment-status-select" data-payment-status-select="1" data-order-id="${payment.order_id}" data-previous-value="${escapeHtml(payment.status || "pending")}">
-                <option value="paid" ${payment.status === "paid" ? "selected" : ""}>Paid</option>
-                <option value="pending" ${payment.status === "pending" ? "selected" : ""}>Pending</option>
-                <option value="refunded" ${payment.status === "refunded" ? "selected" : ""}>Refunded</option>
-              </select>
-            </td>
-            <td>${escapeHtml(payment.date_paid ? formatDateLabel(payment.date_paid) : "-")}</td>
+            <td>${escapeHtml(paymentMethod)}</td>
+            <td>${escapeHtml(paymentReference)}</td>
+            <td>${escapeHtml(paymentAmountLabel)}</td>
+            <td><span class="status-pill status-green">Completed</span></td>
+            <td>${escapeHtml(paidAt ? formatDateLabel(paidAt) : "-")}</td>
             <td class="action-icons sticky-action">
-              <button data-tooltip="View Order Info" data-order-view="${payment.order_id}"><i class="fa-regular fa-eye"></i></button>
-              <button data-tooltip="Delete Payment" data-payment-delete="${payment.order_id}"><i class="fa-regular fa-trash-can"></i></button>
+              <button data-tooltip="View Order Info" data-order-view="${orderId}"><i class="fa-regular fa-eye"></i></button>
+              <button data-tooltip="Delete Payment" data-payment-delete="${orderId}"><i class="fa-regular fa-trash-can"></i></button>
             </td>
           </tr>
         `;
       },
     });
-
-    paymentsHistoryTbody
-      ?.querySelectorAll('select[data-payment-status-select="1"]')
-      .forEach((select) => applyPaymentSelectStyle(select));
   };
 
   const renderWalkInTable = () => {
@@ -804,7 +797,6 @@ document.addEventListener("DOMContentLoaded", () => {
           <td>${escapeHtml(row.payment || row.payment_method || "WALKIN VIA CASHIER")}</td>
           <td class="action-icons sticky-action">
             <button data-tooltip="View Details" data-walkin-view="${row.id}"><i class="fa-regular fa-eye"></i></button>
-            <button data-tooltip="Edit Order" data-walkin-edit="${row.id}"><i class="fa-regular fa-pen-to-square"></i></button>
             <button data-tooltip="Delete Order" data-walkin-delete="${row.id}"><i class="fa-regular fa-trash-can"></i></button>
           </td>
         </tr>
@@ -876,9 +868,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
       state.incoming = Array.isArray(response.incoming) ? response.incoming : [];
       state.directory = Array.isArray(response.directory) ? response.directory : [];
-      state.payments = Array.isArray(response.payments) ? response.payments : [];
       state.walkIn = Array.isArray(walkInResponse?.data) ? walkInResponse.data : [];
       normalizeStateOrdering();
+      refreshPaymentsFromDirectory();
       mapOrderById();
       renderAll();
       state.lastSyncAt = Date.now();
@@ -948,74 +940,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (trackingCourierName) trackingCourierName.value = order.courier_name || "J&T Express";
     if (trackingCourierNo) trackingCourierNo.value = order.courier_tracking_no || "";
     if (trackingLocationName) trackingLocationName.value = order.location_name || "";
-    if (trackingLatitude) trackingLatitude.value = order.latitude ?? "";
-    if (trackingLongitude) trackingLongitude.value = order.longitude ?? "";
 
     modalTrackingUpdate.classList.add("show");
-  };
-
-  const updatePaymentStatus = async (orderId, status, selectElement) => {
-    if (!orderId || !status) return;
-
-    const previousValue = selectElement.dataset.previousValue || "pending";
-
-    try {
-      const payload = await request(`/admin/orders/${orderId}/payment-status`, {
-        method: "PATCH",
-        body: { status },
-      });
-
-      selectElement.dataset.previousValue = status;
-      applyPaymentSelectStyle(selectElement);
-
-      if (payload?.payment) {
-        upsertPaymentInState(payload.payment);
-      }
-
-      if (payload?.order) {
-        upsertOrderSummaryInState(payload.order);
-      }
-
-      renderAll();
-      notifyOrdersRealtimeUpdate({
-        type: "payment-status-updated",
-        orderId: String(orderId),
-      });
-      void syncOrders(false, { force: true, source: "action" });
-    } catch (error) {
-      selectElement.value = previousValue;
-      applyPaymentSelectStyle(selectElement);
-      showPopup(error.message || "Unable to update payment status.", { title: "Update Failed" });
-    }
-  };
-
-  const deletePayment = async (orderId) => {
-    const key = String(orderId || "");
-    if (!key) return;
-
-    const shouldContinue = await askConfirm("Delete this payment record from history?", {
-      title: "Delete Payment Record",
-      confirmText: "Delete",
-      cancelText: "Cancel",
-    });
-
-    if (!shouldContinue) return;
-
-    try {
-      await request(`/admin/orders/${key}/payment`, {
-        method: "DELETE",
-      });
-
-      removePaymentFromState(key);
-      renderPaymentsTable();
-      showPopup("Payment record deleted successfully.", { title: "Deleted" });
-      notifyOrdersRealtimeUpdate({ type: "payment-deleted", orderId: key });
-      void syncOrders(false, { force: true, source: "action" });
-    } catch (error) {
-      showPopup(error.message || "Unable to delete payment record.", {
-        title: "Delete Failed",
-      });
-    }
   };
 
   const mutateOrder = async (orderId, action) => {
@@ -1077,6 +1003,41 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const openPaymentDeleteModal = (payment) => {
+    if (!modalDeletePaymentHistory || !payment) return;
+
+    deletingPaymentOrderId = String(payment.id || payment.order_id || "");
+    if (paymentDeleteTargetLabel) {
+      paymentDeleteTargetLabel.textContent = payment.order_no_display || `#${payment.order_no || payment.id || payment.order_id}`;
+    }
+
+    modalDeletePaymentHistory.classList.add("show");
+  };
+
+  const closePaymentDeleteModal = () => {
+    modalDeletePaymentHistory?.classList.remove("show");
+    deletingPaymentOrderId = null;
+  };
+
+  const deletePayment = async (orderId) => {
+    const key = String(orderId || "");
+    if (!key) return;
+
+    try {
+      await request(`/admin/orders/${key}/payment`, {
+        method: "DELETE",
+      });
+
+      showPopup("Payment record deleted successfully.", { title: "Deleted" });
+      notifyOrdersRealtimeUpdate({ type: "payment-deleted", orderId: key });
+      void syncOrders(false, { force: true, source: "action" });
+    } catch (error) {
+      showPopup(error.message || "Unable to delete payment record.", {
+        title: "Delete Failed",
+      });
+    }
+  };
+
   const getCurrentDateTimeLocal = () => {
     const now = new Date();
     const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
@@ -1134,6 +1095,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const openWalkInDetailsModal = (row) => {
     if (!row || !modalWalkInDetails) return;
+
+    viewingWalkInOrderId = row.id;
 
     setDetailInput(walkInDetailOrderNo, row.order_no);
     setDetailInput(walkInDetailName, row.customer_name || row.customer);
@@ -1223,6 +1186,16 @@ document.addEventListener("DOMContentLoaded", () => {
       toggleWalkInOtherFields();
     }
     modalAddWalkInOrder?.classList.add("show");
+  };
+
+  const openWalkInOrderModalFromView = () => {
+    const order = state.walkIn.find((item) => String(item.id) === String(viewingWalkInOrderId || ""));
+    if (!order) return;
+
+    modalWalkInDetails?.classList.remove("show");
+    requestAnimationFrame(() => {
+      openWalkInOrderModal(order);
+    });
   };
 
   const closeWalkInOrderModal = () => {
@@ -1365,11 +1338,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
   btnCloseWalkInDetails?.addEventListener("click", () => {
     modalWalkInDetails?.classList.remove("show");
+    viewingWalkInOrderId = null;
+  });
+
+  btnEditWalkInFromView?.addEventListener("click", () => {
+    openWalkInOrderModalFromView();
   });
 
   modalWalkInDetails?.addEventListener("click", (event) => {
     if (event.target === modalWalkInDetails) {
       modalWalkInDetails.classList.remove("show");
+      viewingWalkInOrderId = null;
     }
   });
 
@@ -1462,6 +1441,23 @@ document.addEventListener("DOMContentLoaded", () => {
     window.location.reload();
   });
 
+  btnCancelDeletePaymentHistory?.addEventListener("click", () => {
+    closePaymentDeleteModal();
+  });
+
+  btnConfirmDeletePaymentHistory?.addEventListener("click", () => {
+    if (!deletingPaymentOrderId) return;
+    btnConfirmDeletePaymentHistory.disabled = true;
+    btnConfirmDeletePaymentHistory.textContent = "Deleting...";
+
+    void deletePayment(deletingPaymentOrderId)
+      .finally(() => {
+        btnConfirmDeletePaymentHistory.disabled = false;
+        btnConfirmDeletePaymentHistory.textContent = "Delete Payment";
+        closePaymentDeleteModal();
+      });
+  });
+
   btnSaveTrackingUpdate?.addEventListener("click", async () => {
     const orderId = trackingOrderId?.value || "";
     if (!orderId) {
@@ -1477,19 +1473,7 @@ document.addEventListener("DOMContentLoaded", () => {
       courier_name: trackingCourierName?.value?.trim() || null,
       courier_tracking_no: trackingCourierNo?.value?.trim() || null,
       location_name: trackingLocationName?.value?.trim() || null,
-      latitude: trackingLatitude?.value ? Number(trackingLatitude.value) : null,
-      longitude: trackingLongitude?.value ? Number(trackingLongitude.value) : null,
     };
-
-    if (payload.latitude !== null && !Number.isFinite(payload.latitude)) {
-      showPopup("Latitude must be a valid number.", { title: "Validation Error" });
-      return;
-    }
-
-    if (payload.longitude !== null && !Number.isFinite(payload.longitude)) {
-      showPopup("Longitude must be a valid number.", { title: "Validation Error" });
-      return;
-    }
 
     const shouldSave = await askConfirm("Save this tracking update?", {
       title: "Confirm Tracking Update",
@@ -1569,8 +1553,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const deletePaymentBtn = target.closest("[data-payment-delete]");
     if (deletePaymentBtn) {
       const orderId = String(deletePaymentBtn.getAttribute("data-payment-delete") || "");
-      if (!orderId) return;
-      void deletePayment(orderId);
+      const payment = state.payments.find((item) => String(item.id || item.order_id || "") === orderId);
+      if (payment) openPaymentDeleteModal(payment);
       return;
     }
 
@@ -1641,18 +1625,6 @@ document.addEventListener("DOMContentLoaded", () => {
         confirmBtn?.addEventListener("click", onConfirm);
       }
       return;
-    }
-  });
-
-  document.addEventListener("change", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLSelectElement)) return;
-
-    if (target.matches('select[data-payment-status-select="1"]')) {
-      const orderId = target.getAttribute("data-order-id") || "";
-      const status = target.value || "pending";
-      applyPaymentSelectStyle(target);
-      void updatePaymentStatus(orderId, status, target);
     }
   });
 

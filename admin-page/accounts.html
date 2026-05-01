@@ -80,7 +80,6 @@
                   <select id="accountsRoleFilter" class="filter-select">
                     <option value="all">All Roles</option>
                     <option value="admin">Admin</option>
-                    <option value="cashier">Cashier</option>
                     <option value="staff">Staff</option>
                     <option value="customer">Customer</option>
                   </select>
@@ -108,7 +107,6 @@
               <div class="panel-header">
                 <h3>Add System User</h3>
               </div>
-              <p class="field-hint">Create a new account and assign role access for the Admin Portal.</p>
               <form id="adminCreateUserForm" class="accounts-form-grid">
                 <div class="field-stack">
                   <label for="createUserName">Full Name</label>
@@ -118,27 +116,42 @@
                   <label for="createUserRole">Role</label>
                   <select id="createUserRole" class="filter-select" required>
                     <option value="customer">Customer</option>
-                    <option value="cashier">Cashier</option>
                     <option value="staff">Staff</option>
                   </select>
                 </div>
                 <div class="field-stack">
-                  <label for="createUserUsername">Username (optional)</label>
-                  <input id="createUserUsername" class="input-field" type="text" maxlength="255" placeholder="e.g. staff_jane" />
+                  <label for="createUserUsername">Username</label>
+                  <input id="createUserUsername" class="input-field" type="text" maxlength="255" placeholder="e.g. staff_jane" required />
+                  <select id="createUserUsernameSelect" class="input-field" style="display:none;" aria-hidden="true"></select>
                 </div>
                 <div class="field-stack">
-                  <label for="createUserEmail">Gmail (optional)</label>
-                  <input id="createUserEmail" class="input-field" type="email" maxlength="255" placeholder="name@gmail.com" />
+                  <label for="createUserEmail">Gmail</label>
+                  <input id="createUserEmail" class="input-field" type="email" maxlength="255" placeholder="name@gmail.com" required />
                 </div>
                 <div class="field-stack">
                   <label for="createUserPassword">Password</label>
-                  <input id="createUserPassword" class="input-field" type="password" minlength="8" required />
+                  <div class="password-field input-icon-group">
+                    <input id="createUserPassword" class="input-field" type="password" minlength="8" required />
+                    <button class="toggle-pass" type="button" data-target="createUserPassword" aria-label="Show password">
+                      <svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                        <line x1="1" y1="1" x2="23" y2="23"></line>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <div class="field-stack">
                   <label for="createUserPasswordConfirm">Confirm Password</label>
-                  <input id="createUserPasswordConfirm" class="input-field" type="password" minlength="8" required />
+                  <div class="password-field input-icon-group">
+                    <input id="createUserPasswordConfirm" class="input-field" type="password" minlength="8" required />
+                    <button class="toggle-pass" type="button" data-target="createUserPasswordConfirm" aria-label="Show password">
+                      <svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                        <line x1="1" y1="1" x2="23" y2="23"></line>
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-                <p class="field-hint accounts-form-note">Required: Provide at least one login identifier (Username or Gmail).</p>
                 <div class="accounts-form-actions">
                   <button id="btnCreateUser" class="btn-admin" type="submit"><i class="fa-solid fa-user-plus"></i> Create Account</button>
                 </div>

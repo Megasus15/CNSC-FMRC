@@ -83,6 +83,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
+    // Update current authenticated user's profile (email)
+    Route::put('/user', [AuthController::class, 'updateSelfProfile']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
 
@@ -103,5 +105,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/inventory', [InventoryItemController::class, 'index']);
     Route::post('/admin/inventory', [InventoryItemController::class, 'store']);
     Route::put('/admin/inventory/{id}', [InventoryItemController::class, 'update']);
+    Route::post('/admin/inventory/{id}/deduct', [InventoryItemController::class, 'deduct']);
     Route::delete('/admin/inventory/{id}', [InventoryItemController::class, 'destroy']);
 });

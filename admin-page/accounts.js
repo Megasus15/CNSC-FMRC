@@ -25,6 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const createName = document.getElementById("createUserName");
   const createRole = document.getElementById("createUserRole");
   const createUsername = document.getElementById("createUserUsername");
+  const createUsernameSelect = document.getElementById("createUserUsernameSelect");
   const createEmail = document.getElementById("createUserEmail");
   const createPassword = document.getElementById("createUserPassword");
   const createPasswordConfirm = document.getElementById("createUserPasswordConfirm");
@@ -67,7 +68,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const clearCreateFormErrors = () => {
-    [createName, createRole, createUsername, createEmail, createPassword, createPasswordConfirm].forEach(
+    [createName, createRole, createUsername, createUsernameSelect, createEmail, createPassword, createPasswordConfirm].forEach(
       (input) => clearFieldError(input)
     );
   };
@@ -268,13 +269,116 @@ document.addEventListener("DOMContentLoaded", () => {
     formStatus.style.color = isError ? "#991b1b" : "#475569";
   };
 
+  // Password Toggle Logic with SVG swapping
+  const eyeOpenSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+  const eyeClosedSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+
+  // Setup password visibility toggles
+  const setupPasswordToggles = () => {
+    document.querySelectorAll(".toggle-pass").forEach((toggleBtn) => {
+      toggleBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        const targetId = toggleBtn.getAttribute("data-target");
+        const input = targetId ? document.getElementById(targetId) : null;
+        if (!input) return;
+
+        const isPassword = input.type === "password";
+        input.type = isPassword ? "text" : "password";
+
+        toggleBtn.innerHTML = isPassword ? eyeOpenSVG : eyeClosedSVG;
+        toggleBtn.setAttribute(
+          "aria-label",
+          isPassword ? "Hide password" : "Show password",
+        );
+      });
+    });
+  };
+
+  // Fetch staff members from backend
+  const fetchStaffMembers = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/staff`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      });
+
+      if (response.ok) {
+        const payload = await response.json();
+        return Array.isArray(payload?.data) ? payload.data : [];
+      }
+    } catch (error) {
+      console.error("Failed to fetch staff members:", error);
+    }
+    return [];
+  };
+
+  // Handle role change to show/hide Staff username selector
+  const handleRoleChange = async (event) => {
+    const selectedRole = String(createRole?.value || "customer").toLowerCase();
+    if (selectedRole === "staff") {
+      // Attempt to load staff members silently; do not block the form if none exist.
+      const staffMembers = await fetchStaffMembers();
+
+      if (Array.isArray(staffMembers) && staffMembers.length > 0) {
+        // Populate the username select with available staff usernames
+        if (createUsernameSelect) {
+          createUsernameSelect.innerHTML = staffMembers
+            .map((s) => `<option value="${escapeHtml(s.username || "")}">${escapeHtml(s.name || s.username || "")} (${escapeHtml(s.username || "")})</option>`)
+            .join("");
+          createUsernameSelect.style.display = "block";
+          createUsernameSelect.removeAttribute("aria-hidden");
+        }
+        if (createUsername) createUsername.style.display = "none";
+      } else {
+        // No staff available — show the manual username input so admin can type one.
+        if (createUsernameSelect) {
+          createUsernameSelect.style.display = "none";
+          createUsernameSelect.setAttribute("aria-hidden", "true");
+          createUsernameSelect.innerHTML = "";
+        }
+        if (createUsername) {
+          createUsername.style.display = "block";
+          createUsername.readOnly = false;
+          createUsername.placeholder = "e.g. staff_jane";
+        }
+      }
+    } else {
+      // For customer role, username is editable
+      if (createUsernameSelect) {
+        createUsernameSelect.style.display = "none";
+        createUsernameSelect.setAttribute("aria-hidden", "true");
+        createUsernameSelect.innerHTML = "";
+      }
+      if (createUsername) {
+        createUsername.style.display = "block";
+        createUsername.readOnly = false;
+        createUsername.placeholder = "e.g. customer_name";
+      }
+    }
+  };
+
+  const getUsernameValue = () => {
+    const sel = document.getElementById("createUserUsernameSelect");
+    if (sel && sel.style.display !== "none") return String(sel.value || "").trim();
+    const inp = document.getElementById("createUserUsername");
+    return String(inp?.value || "").trim();
+  };
+
+  const getUsernameElementForValidation = () => {
+    const sel = document.getElementById("createUserUsernameSelect");
+    if (sel && sel.style.display !== "none") return sel;
+    return document.getElementById("createUserUsername");
+  };
+
   const createAccount = async (event) => {
     event.preventDefault();
     clearCreateFormErrors();
 
     const name = String(createName?.value || "").trim();
     const role = String(createRole?.value || "customer").trim().toLowerCase();
-    const username = String(createUsername?.value || "").trim();
+    const username = getUsernameValue();
     const email = String(createEmail?.value || "").trim();
     const password = String(createPassword?.value || "");
     const passwordConfirmation = String(createPasswordConfirm?.value || "");
@@ -286,22 +390,32 @@ document.addEventListener("DOMContentLoaded", () => {
       updateFormStatus("Full Name is required.", true);
       hasError = true;
     }
-    if (!username && !email) {
-      setFieldError(createUsername, "Provide username or Gmail.");
-      setFieldError(createEmail, "Provide username or Gmail.");
-      updateFormStatus("Please provide at least a Username or Gmail.", true);
+
+    // Both Username and Gmail are now required
+    if (!username) {
+      setFieldError(getUsernameElementForValidation(), "Username is required.");
+      updateFormStatus("Username is required.", true);
       hasError = true;
     }
+
+    if (!email) {
+      setFieldError(createEmail, "Gmail is required.");
+      updateFormStatus("Gmail is required.", true);
+      hasError = true;
+    }
+
     if (email && !/^[A-Za-z0-9._%+-]+@gmail\.com$/i.test(email)) {
       setFieldError(createEmail, "Use a valid @gmail.com address.");
       updateFormStatus("Gmail must be a valid @gmail.com address.", true);
       hasError = true;
     }
+
     if (password.length < 8) {
       setFieldError(createPassword, "Password must be at least 8 characters.");
       updateFormStatus("Password must be at least 8 characters.", true);
       hasError = true;
     }
+
     if (password !== passwordConfirmation) {
       setFieldError(createPasswordConfirm, "Confirm Password does not match.");
       updateFormStatus("Confirm Password does not match.", true);
@@ -314,8 +428,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    updateFormStatus("Creating account...");
-
     try {
       const response = await fetch(`${API_BASE_URL}/users`, {
         method: "POST",
@@ -327,8 +439,8 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify({
           name,
           role,
-          username: username || null,
-          email: email || null,
+          username,
+          email,
           password,
           password_confirmation: passwordConfirmation,
         }),
@@ -359,7 +471,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
       createForm?.reset();
       clearCreateFormErrors();
-      updateFormStatus("Account created successfully.");
       window.showAdminPopup?.("New user account created successfully.", { title: "Account Created" });
       await loadAccounts();
     } catch (error) {
@@ -452,7 +563,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderTable();
   });
 
-  [createName, createRole, createUsername, createEmail, createPassword, createPasswordConfirm].forEach(
+    [createName, createRole, createUsername, createUsernameSelect, createEmail, createPassword, createPasswordConfirm].forEach(
     (input) => {
       input?.addEventListener("input", () => {
         clearFieldError(input);
@@ -463,7 +574,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   );
 
+  // Add event listener for role changes to handle Staff username behavior
+  createRole?.addEventListener("change", handleRoleChange);
+
   createForm?.addEventListener("submit", createAccount);
+
+  // Initialize password toggles on page load
+  setupPasswordToggles();
 
   void loadAccounts();
 });

@@ -228,42 +228,8 @@ document.addEventListener("DOMContentLoaded", () => {
     indicatorThumb.style.transform = `translateY(${thumbTop}%)`;
   };
 
-  // 1. Sidebar 'Admin Control' Dropdown Logic
-  const WEBSITE_MGMT_ROUTES = ["website-home.html", "website-services.html", "website-contact.html", "website-footer.html"];
-  const isWebsiteMgmtPage = WEBSITE_MGMT_ROUTES.some(route => window.location.pathname.toLowerCase().endsWith(`/${route}`));
-
-  const adminControlBtn = document.getElementById("adminControlBtn");
-
-  if (adminControlBtn) {
-    const hasDropdown = adminControlBtn.parentElement;
-
-    // Restore dropdown state from localStorage on load
-    if (isWebsiteMgmtPage) {
-      hasDropdown.classList.add("open");
-      localStorage.setItem("websiteMgmtDropdownState", "open");
-    } else {
-      const savedState = localStorage.getItem("websiteMgmtDropdownState");
-      if (savedState === "open") {
-        hasDropdown.classList.add("open");
-      } else {
-        hasDropdown.classList.remove("open");
-      }
-    }
-
-    adminControlBtn.addEventListener("click", (e) => {
-      if (isMobileSidebarMode() && !body.classList.contains("admin-sidebar-open")) {
-        e.preventDefault();
-        openMobileSidebar();
-        return;
-      }
-      e.preventDefault(); // Prevents page reload
-      hasDropdown.classList.toggle("open");
-      localStorage.setItem("websiteMgmtDropdownState", hasDropdown.classList.contains("open") ? "open" : "closed");
-
-      // Wait for layout update so scrollHeight reflects expanded/collapsed content.
-      requestAnimationFrame(updateSidebarScrollIndicator);
-    });
-  }
+  // Note: Dropdown logic is handled by admin-common.js with direct event listener on #adminControlBtn
+  // Do not add duplicate listeners here to avoid conflicts
 
   sidebarNav?.addEventListener("scroll", updateSidebarScrollIndicator);
   window.addEventListener("resize", syncSidebarMode);
@@ -351,86 +317,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   });
-
-  // 3. Profile Message Box (Popup) Logic
-  const userProfile = document.querySelector(".user-profile");
-  const profilePopup = document.getElementById("profilePopup");
-  const profileInitials = document.querySelectorAll(".profile-initial");
-
-  profileInitials.forEach((profileInitial) => {
-    const seedValue =
-      profileInitial.dataset.email ||
-      profilePopup?.querySelector(".popup-identity")?.textContent ||
-      userProfile?.querySelector(".role")?.textContent ||
-      "A";
-
-    profileInitial.textContent = seedValue.trim().charAt(0).toUpperCase();
-  });
-
-  if (userProfile && profilePopup) {
-    userProfile.addEventListener("click", (e) => {
-      e.stopPropagation(); // Stops click from triggering document click immediately
-      profilePopup.classList.toggle("show");
-    });
-
-    // Close the popup if clicking anywhere else on the screen
-    document.addEventListener("click", (e) => {
-      if (!userProfile.contains(e.target)) {
-        profilePopup.classList.remove("show");
-      }
-    });
-
-    // Keeps popup open if you click inside it
-    profilePopup.addEventListener("click", (e) => {
-      e.stopPropagation();
-    });
-  }
-
-  // --- NOTIFICATION BELL LOGIC (Dashboard) ---
-  const notifBtn = document.querySelector(".notifications");
-
-  if (notifBtn) {
-    let notifDropdown = document.getElementById("notificationDropdown");
-    if (!notifDropdown) {
-      notifDropdown = document.createElement("div");
-      notifDropdown.id = "notificationDropdown";
-      notifDropdown.className = "notification-dropdown";
-      notifDropdown.innerHTML = `
-        <div class="notif-header">
-          <h3>Notifications</h3>
-        </div>
-        <div class="notif-body">
-          <div class="notif-empty">
-            <i class="fa-regular fa-bell-slash"></i>
-            <p>Nothing right now</p>
-          </div>
-        </div>
-      `;
-      notifBtn.appendChild(notifDropdown);
-    }
-
-    notifBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      notifDropdown.classList.toggle("show");
-      if (profilePopup) profilePopup.classList.remove("show");
-      notifBtn.classList.remove("has-new");
-    });
-
-    document.addEventListener("click", (e) => {
-      if (!notifBtn.contains(e.target) && !notifDropdown.contains(e.target)) {
-        notifDropdown.classList.remove("show");
-      }
-    });
-
-    notifDropdown.addEventListener("click", (e) => {
-      e.stopPropagation();
-    });
-
-    const badge = notifBtn.querySelector(".badge");
-    if (badge && parseInt(badge.textContent) > 0) {
-      notifBtn.classList.add("has-new");
-    }
-  }
 
     const ensureLoader = () => {
       let loader = document.getElementById("global-loader");
@@ -1206,11 +1092,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (dashboardRefreshBtn) {
       dashboardRefreshBtn.addEventListener("click", () => {
+        // Make refresh consistent with Inventory page: perform a full reload
         dashboardRefreshBtn.disabled = true;
-        queueDashboardSync({ force: true, source: "manual" });
-        window.setTimeout(() => {
-          dashboardRefreshBtn.disabled = false;
-        }, 900);
+        try {
+          window.location.reload();
+        } finally {
+          // ensure button isn't permanently disabled if reload is blocked
+          window.setTimeout(() => {
+            dashboardRefreshBtn.disabled = false;
+          }, 900);
+        }
       });
     }
 

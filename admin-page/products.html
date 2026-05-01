@@ -242,6 +242,7 @@
         overflow: hidden;
         display: flex;
         flex-direction: column;
+        height: 100%;
         transition: box-shadow 0.25s ease, transform 0.25s ease;
       }
       .analytics-card:hover {
@@ -278,12 +279,21 @@
         padding: 14px 20px 16px;
         flex: 1;
         min-height: 0;
+        overflow: hidden;
       }
       .analytics-card-body--donut {
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 10px 20px 16px;
+      }
+      #topSellingBody {
+        min-height: 280px;
+      }
+      #topSellingBody canvas {
+        display: block;
+        width: 100% !important;
+        height: 220px !important;
       }
       .analytics-card-body--table {
         padding: 0 0 8px;
@@ -397,6 +407,7 @@
         display: flex;
         align-items: center;
         gap: 16px;
+        min-height: 0;
       }
       .sales-category-chart-wrap {
         position: relative;
@@ -445,18 +456,24 @@
         flex-direction: column;
         gap: 10px;
         flex: 1 1 auto;
+        min-width: 0;
+        max-height: 220px;
+        overflow-y: auto;
+        padding-right: 4px;
       }
       .sales-category-item {
         display: flex;
         align-items: center;
         justify-content: flex-end;
         gap: 10px;
+        min-width: 0;
       }
       .sales-category-item-left {
         display: flex;
         align-items: center;
         gap: 8px;
         min-width: 0;
+        flex: 1 1 auto;
       }
       .sales-category-dot {
         width: 10px;
@@ -487,6 +504,10 @@
         .sales-category-layout {
           flex-direction: column;
           align-items: center;
+        }
+        .sales-category-list {
+          width: 100%;
+          max-height: 180px;
         }
         .sales-category-name {
           max-width: 190px;

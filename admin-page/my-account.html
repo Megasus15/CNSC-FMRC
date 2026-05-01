@@ -10,6 +10,22 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
+    <style>
+      /* Page-local password toggle styles (kept local to avoid changing global CSS) */
+      .password-field .input-icon-group { position: relative; }
+      .password-field .input-icon-group .input-field { padding-right: 44px; }
+      .password-field .toggle-pass { right: 12px; z-index: 2; }
+
+      /* Success modal (copy of global success-modal design) */
+      .success-modal { position: fixed; inset: 0; background: rgba(45, 55, 72, 0.8); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; padding: 16px; opacity: 0; visibility: hidden; pointer-events: none; transition: all 0.3s ease; z-index: 9999; }
+      .success-modal.show { opacity: 1; visibility: visible; pointer-events: auto; }
+      .success-box { width: 100%; max-width: 380px; background: #fff; border-radius: 16px; padding: 32px 24px; text-align: center; transform: scale(0.95); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15); }
+      .success-modal.show .success-box { transform: scale(1); }
+      .success-icon { width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 50%; background: #e6f4ea; color: #34a853; display: flex; align-items: center; justify-content: center; }
+      .success-icon svg { width: 32px; height: 32px; }
+      .success-box h3 { font-family: "Montserrat", sans-serif; font-size: 22px; color: var(--text-main); margin-bottom: 8px; }
+      .success-box p { color: var(--text-muted); font-size: 14px; line-height: 1.5; margin-bottom: 24px; }
+    </style>
   </head>
   <body>
     <div class="dashboard-container">
@@ -85,7 +101,12 @@
           <div class="page-toolbar">
             <div class="toolbar-title">
               <h2>Account Settings</h2>
-              <p>Design-only profile page for admin credentials and account details.</p>
+              <p>Manage your account credentials and profile information. Changes are persisted to the backend.</p>
+            </div>
+            <div class="toolbar-actions">
+              <button class="btn-admin btn-secondary" id="accountRefreshBtn" type="button" title="Refresh Data">
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+              </button>
             </div>
           </div>
 
@@ -98,7 +119,7 @@
               <div class="account-meta-list">
                 <div class="account-meta-item">
                   <div class="account-meta-label">Current Gmail</div>
-                  <div class="account-meta-value">admin@cnsc.edu.ph</div>
+                  <div id="currentGmailValue" class="account-meta-value">admin@cnsc.edu.ph</div>
                 </div>
                 <div class="account-meta-item">
                   <div class="account-meta-label">Current Role</div>
@@ -109,30 +130,39 @@
 
             <div class="account-form-card">
               <h3>Update Credentials</h3>
-              <p class="account-form-subtext">This page is design-only for now. Buttons and fields do not submit changes yet.</p>
+              <p class="account-form-subtext">Manage your account credentials and profile information. Changes are persisted to the backend.</p>
 
               <div class="form-grid">
                 <div class="field-stack full">
                   <label>New Gmail</label>
-                  <input class="input-field" type="email" placeholder="Enter new Gmail address" />
+                  <input id="emailInput" class="input-field" type="email" placeholder="Enter new Gmail address" />
                 </div>
-                <div class="field-stack full">
+                <div class="field-stack full password-field">
                   <label>Current Password</label>
-                  <input class="input-field" type="password" placeholder="Enter current password" />
+                  <div class="input-icon-group">
+                    <input id="currentPassword" class="input-field" type="password" placeholder="Enter current password" />
+                    <button id="toggleCurrentPassword" class="toggle-pass" type="button" aria-label="Toggle password visibility"><i class="fa-solid fa-eye-slash"></i></button>
+                  </div>
                 </div>
-                <div class="field-stack">
+                <div class="field-stack password-field">
                   <label>New Password</label>
-                  <input class="input-field" type="password" placeholder="Enter new password" />
+                  <div class="input-icon-group">
+                    <input id="newPassword" class="input-field" type="password" placeholder="Enter new password" />
+                    <button id="toggleNewPassword" class="toggle-pass" type="button" aria-label="Toggle password visibility"><i class="fa-solid fa-eye-slash"></i></button>
+                  </div>
                 </div>
-                <div class="field-stack">
+                <div class="field-stack password-field">
                   <label>Confirm New Password</label>
-                  <input class="input-field" type="password" placeholder="Confirm new password" />
+                  <div class="input-icon-group">
+                    <input id="confirmPassword" class="input-field" type="password" placeholder="Confirm new password" />
+                    <button id="toggleConfirmPassword" class="toggle-pass" type="button" aria-label="Toggle password visibility"><i class="fa-solid fa-eye-slash"></i></button>
+                  </div>
                 </div>
               </div>
 
               <div class="modal-actions">
-                <button class="btn-admin btn-secondary" type="button">Cancel</button>
-                <button class="btn-admin" type="button">Save Changes</button>
+                <button id="cancelCredentialsBtn" class="btn-admin btn-secondary" type="button">Cancel</button>
+                <button id="saveCredentialsBtn" class="btn-admin" type="button">Save Changes</button>
               </div>
             </div>
           </div>
@@ -140,7 +170,20 @@
       </main>
     </div>
 
+    <!-- Page-local success modal (replicates global design). Stays open until user clicks OK -->
+    <div id="credSuccessModal" class="success-modal" role="dialog" aria-modal="true" aria-labelledby="credSuccessTitle">
+      <div class="success-box">
+        <div class="success-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+        <h3 id="credSuccessTitle">Success</h3>
+        <p id="credSuccessMessage">Credentials updated successfully.</p>
+        <button id="credSuccessOk" class="btn-admin" type="button">Okay</button>
+      </div>
+    </div>
+
     <script src="admin-common.js"></script>
+    <script src="my-account.js"></script>
   </body>
 </html>
 

@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Account | CNSC-FMRC Staff</title>
+    <link rel="stylesheet" href="../admin-page/dashboard.css" />
+    <link rel="stylesheet" href="../admin-page/admin-modules.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+      /* Make disabled full-name input clearly muted */
+      .input-field:disabled { background-color: #f3f4f6; color: #6b7280; cursor: not-allowed; }
+      /* Success modal (copy of global success-modal design) */
+      .success-modal { position: fixed; inset: 0; background: rgba(45, 55, 72, 0.8); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; padding: 16px; opacity: 0; visibility: hidden; pointer-events: none; transition: all 0.3s ease; z-index: 9999; }
+      .success-modal.show { opacity: 1; visibility: visible; pointer-events: auto; }
+      .success-box { width: 100%; max-width: 380px; background: #fff; border-radius: 16px; padding: 32px 24px; text-align: center; transform: scale(0.95); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15); }
+      .success-modal.show .success-box { transform: scale(1); }
+      .success-icon { width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 50%; background: #e6f4ea; color: #34a853; display: flex; align-items: center; justify-content: center; }
+      .success-icon svg { width: 32px; height: 32px; }
+      .success-box h3 { font-family: "Montserrat", sans-serif; font-size: 22px; color: var(--text-main); margin-bottom: 8px; }
+      .success-box p { color: var(--text-muted); font-size: 14px; line-height: 1.5; margin-bottom: 24px; }
+    </style>
+  </head>
+  <body>
+    <div class="dashboard-container">
+      <aside class="sidebar">
+        <div class="sidebar-header"><img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" /><h2>CNSC-FMRC</h2></div>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html" class="nav-link"><i class="fa-solid fa-house"></i> Dashboard</a>
+          <a href="inventory.html" class="nav-link"><i class="fa-solid fa-box"></i> Inventory</a>
+          <a href="products.html" class="nav-link"><i class="fa-solid fa-tags"></i> Products</a>
+          <a href="appointments.html" class="nav-link"><i class="fa-regular fa-calendar-check"></i> Appointment</a>
+          <a href="reports.html" class="nav-link"><i class="fa-solid fa-chart-line"></i> Reports</a>
+          <a href="orders.html" class="nav-link"><i class="fa-solid fa-box-open"></i> Orders</a>
+
+          <div class="nav-item has-dropdown">
+            <a href="#" class="nav-link dropdown-toggle" id="staffControlBtn">
+              <div class="dropdown-title">
+                <i class="fa-solid fa-screwdriver-wrench"></i> Website Management
+              </div>
+              <i class="fa-solid fa-chevron-down arrow"></i>
+            </a>
+            <div class="dropdown-menu">
+              <a href="website-home.html" class="sub-link">Home</a>
+              <a href="website-services.html" class="sub-link">Services</a>
+              <a href="website-contact.html" class="sub-link">Contact</a>
+              <a href="website-footer.html" class="sub-link">Footer</a>
+            </div>
+          </div>
+
+          <a href="archives.html" class="nav-link"><i class="fa-solid fa-box-archive"></i> Archives</a>
+          <a href="my-account.html" class="nav-link active"><i class="fa-regular fa-id-card"></i> My Account</a>
+        </nav>
+        <div class="sidebar-footer"><button class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div>
+      </aside>
+
+      <main class="main-content">
+        <header class="top-header">
+          <div class="header-left"><h1>My Account</h1></div>
+          <div class="header-right"><div class="notifications" id="notifBell"><i class="fa-regular fa-bell"></i><span class="badge" id="notifBadge" style="display:none;"></span></div><div class="user-profile"><div class="user-info"><span class="role">Staff</span></div><span class="profile-icon profile-initial" data-email="staff@cnsc.edu.ph"></span><div class="profile-popup" id="profilePopup"><div class="popup-header">
+                  <div class="popup-profile-row">
+                    <span class="popup-profile-icon profile-initial" data-email="staff@cnsc.edu.ph"></span>
+                    <div class="popup-profile-meta">
+                      <p class="popup-identity">staff@cnsc.edu.ph</p>
+                      <span class="popup-role">Staff</span>
+                    </div>
+                  </div>
+                </div>
+                <a href="my-account.html" class="profile-popup-link"><i class="fa-regular fa-id-card"></i> My Account</a>
+                <hr /><button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div></div></div>
+        </header>
+
+        <section class="module-content">
+          <div class="page-toolbar">
+            <div class="toolbar-title">
+              <h2>Account Settings</h2>
+              <p>Manage your account credentials and profile information. Changes are persisted to the backend.</p>
+            </div>
+            <div class="toolbar-actions">
+              <button class="btn-admin btn-secondary" id="accountRefreshBtn" type="button" title="Refresh Data">
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+              </button>
+            </div>
+          </div>
+
+          <div id="myAccountContent">
+            <div class="account-layout">
+              <div class="account-summary-card">
+                <div class="account-avatar profile-initial" data-email="staff@cnsc.edu.ph">A</div>
+                <div class="account-name">Staff Member</div>
+                <span class="account-role-badge">Staff</span>
+
+                <div class="account-meta-list">
+                  <div class="account-meta-item">
+                    <div class="account-meta-label">Current Username</div>
+                    <div id="currentUsernameValue" class="account-meta-value">-</div>
+                  </div>
+                  <div class="account-meta-item">
+                    <div class="account-meta-label">Full Name</div>
+                    <div id="currentFullnameValue" class="account-meta-value">-</div>
+                  </div>
+                  <div class="account-meta-item">
+                    <div class="account-meta-label">Current Gmail</div>
+                    <div id="currentGmailValue" class="account-meta-value">staff@cnsc.edu.ph</div>
+                  </div>
+                  <div class="account-meta-item">
+                    <div class="account-meta-label">Current Role</div>
+                    <div class="account-meta-value">Staff</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="account-form-card">
+                <h3>Update Credentials</h3>
+                <p class="account-form-subtext">Manage your account credentials and profile information. Changes are persisted to the backend.</p>
+
+                <div class="form-grid">
+                  <div class="field-stack full">
+                    <label>Username</label>
+                    <input id="usernameInput" class="input-field" type="text" placeholder="Enter username" />
+                  </div>
+
+                  <div class="field-stack full">
+                    <label>Full Name</label>
+                    <input id="fullNameInput" class="input-field" type="text" placeholder="Full name" disabled />
+                  </div>
+
+                  <div class="field-stack full">
+                    <label>New Gmail</label>
+                    <input id="emailInput" class="input-field" type="email" placeholder="Enter new Gmail address" />
+                  </div>
+                  <div class="field-stack full password-field">
+                    <label>Current Password</label>
+                    <div class="input-icon-group">
+                      <input id="currentPassword" class="input-field" type="password" placeholder="Enter current password" />
+                      <button id="toggleCurrentPassword" class="toggle-pass" type="button" aria-label="Toggle password visibility"><i class="fa-solid fa-eye-slash"></i></button>
+                    </div>
+                  </div>
+                  <div class="field-stack password-field">
+                    <label>New Password</label>
+                    <div class="input-icon-group">
+                      <input id="newPassword" class="input-field" type="password" placeholder="Enter new password" />
+                      <button id="toggleNewPassword" class="toggle-pass" type="button" aria-label="Toggle password visibility"><i class="fa-solid fa-eye-slash"></i></button>
+                    </div>
+                  </div>
+                  <div class="field-stack password-field">
+                    <label>Confirm New Password</label>
+                    <div class="input-icon-group">
+                      <input id="confirmPassword" class="input-field" type="password" placeholder="Confirm new password" />
+                      <button id="toggleConfirmPassword" class="toggle-pass" type="button" aria-label="Toggle password visibility"><i class="fa-solid fa-eye-slash"></i></button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="modal-actions">
+                  <button id="cancelCredentialsBtn" class="btn-admin btn-secondary" type="button">Cancel</button>
+                  <button id="saveCredentialsBtn" class="btn-admin" type="button">Save Changes</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="../admin-page/admin-common.js"></script>
+    <script src="../admin-page/my-account.js"></script>
+    <!-- Page-local success modal (stays open until user clicks OK) -->
+    <div id="credSuccessModal" class="success-modal" role="dialog" aria-modal="true" aria-labelledby="credSuccessTitle">
+      <div class="success-box">
+        <div class="success-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+        <h3 id="credSuccessTitle">Success</h3>
+        <p id="credSuccessMessage">Credentials updated successfully.</p>
+        <button id="credSuccessOk" class="btn-admin" type="button">Okay</button>
+      </div>
+    </div>
+  </body>
+</html>

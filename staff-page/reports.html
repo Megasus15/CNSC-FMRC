@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reports | CNSC-FMRC Staff</title>
+    <link rel="stylesheet" href="../admin-page/dashboard.css" />
+    <link rel="stylesheet" href="../admin-page/admin-modules.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+  </head>
+  <body class="reports-page">
+    <div class="dashboard-container">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" />
+          <h2>CNSC-FMRC</h2>
+        </div>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html" class="nav-link"><i class="fa-solid fa-house"></i> Dashboard</a>
+          <a href="inventory.html" class="nav-link"><i class="fa-solid fa-box"></i> Inventory</a>
+          <a href="products.html" class="nav-link"><i class="fa-solid fa-tags"></i> Products</a>
+          <a href="appointments.html" class="nav-link"><i class="fa-regular fa-calendar-check"></i> Appointment</a>
+          <a href="reports.html" class="nav-link active"><i class="fa-solid fa-chart-line"></i> Reports</a>
+          <a href="orders.html" class="nav-link"><i class="fa-solid fa-box-open"></i> Orders</a>
+
+          <div class="nav-item has-dropdown">
+            <a href="#" class="nav-link dropdown-toggle" id="staffControlBtn">
+              <div class="dropdown-title">
+                <i class="fa-solid fa-screwdriver-wrench"></i> Website Management
+              </div>
+              <i class="fa-solid fa-chevron-down arrow"></i>
+            </a>
+            <div class="dropdown-menu">
+              <a href="website-home.html" class="sub-link">Home</a>
+              <a href="website-services.html" class="sub-link">Services</a>
+              <a href="website-contact.html" class="sub-link">Contact</a>
+              <a href="website-footer.html" class="sub-link">Footer</a>
+            </div>
+          </div>
+
+          <a href="archives.html" class="nav-link"><i class="fa-solid fa-box-archive"></i> Archives</a>
+          <a href="my-account.html" class="nav-link"><i class="fa-regular fa-id-card"></i> My Account</a>
+        </nav>
+        <div class="sidebar-footer">
+          <button class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="top-header">
+          <div class="header-left"><h1>Reports Center</h1></div>
+          <div class="header-right">
+            <div class="notifications" id="notifBell">
+              <i class="fa-regular fa-bell"></i><span class="badge" id="notifBadge" style="display:none;"></span>
+            </div>
+            <div class="user-profile">
+              <div class="user-info"><span class="role">Staff</span></div>
+              <span
+                class="profile-icon profile-initial"
+                data-email="staff@cnsc.edu.ph"
+              ></span>
+              <div class="profile-popup" id="profilePopup">
+                <div class="popup-header">
+                  <div class="popup-profile-row">
+                    <span
+                      class="popup-profile-icon profile-initial"
+                      data-email="staff@cnsc.edu.ph"
+                    ></span>
+                    <div class="popup-profile-meta">
+                      <p class="popup-identity">staff@cnsc.edu.ph</p>
+                      <span class="popup-role">Staff</span>
+                    </div>
+                  </div>
+                </div>
+                <a href="my-account.html" class="profile-popup-link"><i class="fa-regular fa-id-card"></i> My Account</a>
+                <hr />
+                <button class="logout-btn popup-logout">
+                  <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section class="module-content">
+          <div class="page-toolbar">
+            <div class="toolbar-title">
+              <h2>Reports Center</h2>
+              <p>
+                Generate operational and financial reports for monthly and
+                quarterly review.
+              </p>
+            </div>
+            <div class="toolbar-actions">
+              <button class="btn-admin btn-secondary" onclick="window.location.reload();" title="Refresh Data">
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+              </button>
+              <button class="btn-admin"><i class="fa-solid fa-chart-line"></i> Generate Monthly Report</button>
+              <button class="btn-admin btn-secondary"><i class="fa-solid fa-file-export"></i> Export PDF</button>
+            </div>
+          </div>
+          <div class="grid-two">
+            <div class="panel">
+              <div class="panel-header"><h3>Production Performance</h3></div>
+              <div class="chart-placeholder">
+                Chart area for completed jobs, turnaround time, and machine
+                utilization.
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-header"><h3>Payment Distribution</h3></div>
+              <div class="chart-placeholder">
+                Chart area for payment channels, paid vs pending, and trend over
+                time.
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-header"><h3>Generated Reports</h3></div>
+            <div class="table-wrapper">
+              <table class="admin-table enhanced-table">
+                <thead>
+                  <tr>
+                    <th>Report ID</th>
+                    <th>Type</th>
+                    <th>Date Range</th>
+                    <th>Prepared By</th>
+                    <th>Status</th>
+                    <th class="sticky-action">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>RPT-001</td>
+                    <td>Monthly Operations</td>
+                    <td>Mar 1 - Mar 31, 2026</td>
+                    <td>System Admin</td>
+                    <td><span class="status-pill status-blue">Ready</span></td>
+                    <td class="action-icons sticky-action">
+                      <button data-tooltip="Download Report">
+                        <i class="fa-solid fa-download"></i>
+                      </button>
+                      <button data-tooltip="View Report">
+                        <i class="fa-regular fa-eye"></i>
+                      </button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>RPT-002</td>
+                    <td>Payment Summary</td>
+                    <td>Q1 2026</td>
+                    <td>System Admin</td>
+                    <td>
+                      <span class="status-pill status-green">Released</span>
+                    </td>
+                    <td class="action-icons sticky-action">
+                      <button data-tooltip="Download Report">
+                        <i class="fa-solid fa-download"></i>
+                      </button>
+                      <button data-tooltip="View Report">
+                        <i class="fa-regular fa-eye"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="table-footer">
+              <div class="table-footer-meta">Page 1 of 1</div>
+              <div class="table-pagination">
+                <button class="page-btn" disabled>
+                  <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <div class="page-number">1</div>
+                <button class="page-btn" disabled>
+                  <i class="fa-solid fa-chevron-right"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="../admin-page/admin-common.js"></script>
+  </body>
+</html>

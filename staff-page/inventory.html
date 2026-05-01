@@ -3,9 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Inventory | CNSC-FMRC Admin</title>
-    <link rel="stylesheet" href="dashboard.css" />
-    <link rel="stylesheet" href="admin-modules.css" />
+    <title>Inventory | CNSC-FMRC Staff</title>
+    <link rel="stylesheet" href="../admin-page/dashboard.css" />
+    <link rel="stylesheet" href="../admin-page/admin-modules.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
       /* ─── Inventory Summary Cards ──────────────────────────────────── */
@@ -164,18 +164,21 @@
   <body>
     <div class="dashboard-container">
       <aside class="sidebar">
-        <div class="sidebar-header"><img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" /><h2>CNSC-FMRC</h2></div>
-                <nav class="sidebar-nav">
+        <div class="sidebar-header">
+          <img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" />
+          <h2>CNSC-FMRC</h2>
+        </div>
+
+        <nav class="sidebar-nav">
           <a href="dashboard.html" class="nav-link"><i class="fa-solid fa-house"></i> Dashboard</a>
           <a href="inventory.html" class="nav-link active"><i class="fa-solid fa-box"></i> Inventory</a>
           <a href="products.html" class="nav-link"><i class="fa-solid fa-tags"></i> Products</a>
           <a href="appointments.html" class="nav-link"><i class="fa-regular fa-calendar-check"></i> Appointment</a>
-          <a href="accounts.html" class="nav-link"><i class="fa-solid fa-users"></i> User Management</a>
           <a href="reports.html" class="nav-link"><i class="fa-solid fa-chart-line"></i> Reports</a>
           <a href="orders.html" class="nav-link"><i class="fa-solid fa-box-open"></i> Orders</a>
 
           <div class="nav-item has-dropdown">
-            <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn">
+            <a href="#" class="nav-link dropdown-toggle" id="staffControlBtn">
               <div class="dropdown-title">
                 <i class="fa-solid fa-screwdriver-wrench"></i> Website Management
               </div>
@@ -193,28 +196,40 @@
           <a href="my-account.html" class="nav-link"><i class="fa-regular fa-id-card"></i> My Account</a>
         </nav>
 
-        <div class="sidebar-footer"><button class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div>
+        <div class="sidebar-footer">
+          <button class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+        </div>
       </aside>
 
       <main class="main-content">
         <header class="top-header">
-          <div class="header-left"><h1>Inventory Management</h1></div>
+          <div class="header-left">
+            <h1>Inventory Management</h1>
+          </div>
           <div class="header-right">
-            <div class="notifications" id="notifBell"><i class="fa-regular fa-bell"></i><span class="badge" id="notifBadge" style="display:none;"></span></div>
+            <div class="notifications" id="notifBell">
+              <i class="fa-regular fa-bell"></i>
+              <span class="badge" id="notifBadge" style="display:none;"></span>
+            </div>
             <div class="user-profile">
-              <div class="user-info"><span class="role">Admin</span></div>
-              <span class="profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
-              <div class="profile-popup" id="profilePopup"><div class="popup-header">
+              <div class="user-info">
+                <span class="role">Staff</span>
+              </div>
+              <span class="profile-icon profile-initial" data-email="staff@cnsc.edu.ph"></span>
+              <div class="profile-popup" id="profilePopup">
+                <div class="popup-header">
                   <div class="popup-profile-row">
-                    <span class="popup-profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
+                    <span class="popup-profile-icon profile-initial" data-email="staff@cnsc.edu.ph"></span>
                     <div class="popup-profile-meta">
-                      <p class="popup-identity">admin@cnsc.edu.ph</p>
-                      <span class="popup-role">Admin</span>
+                      <p class="popup-identity">staff@cnsc.edu.ph</p>
+                      <span class="popup-role">Staff</span>
                     </div>
                   </div>
                 </div>
                 <a href="my-account.html" class="profile-popup-link"><i class="fa-regular fa-id-card"></i> My Account</a>
-                <hr /><button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div>
+                <hr />
+                <button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+              </div>
             </div>
           </div>
         </header>
@@ -255,7 +270,6 @@
             </div>
           </div>
 
-          <!-- Filters Row -->
           <div class="panel" style="margin-bottom: 18px;">
             <div class="panel-header">
               <div>
@@ -275,13 +289,11 @@
             </div>
           </div>
 
-          <!-- Category Tables Container -->
           <div id="inventoryCategoryTables" style="display:flex;flex-direction:column;gap:18px;"></div>
         </section>
       </main>
     </div>
 
-    <!-- ────────────── ADD / EDIT ITEM MODAL ────────────── -->
     <div class="modal-overlay" id="modalAddInventoryItem" data-backdrop-close="false">
       <div class="modal-card product-modal">
         <div class="modal-header-fixed">
@@ -328,7 +340,6 @@
       </div>
     </div>
 
-    <!-- ────────────── VIEW ITEM MODAL ────────────── -->
     <div class="modal-overlay" id="modalViewInventoryItem" data-backdrop-close="false">
       <div class="modal-card" style="min-width:480px;max-width:600px;width:100%;">
         <h3 class="modal-title" id="invViewTitle" style="margin-bottom:4px;">Item Details</h3>
@@ -343,7 +354,6 @@
       </div>
     </div>
 
-    <!-- ────────────── DELETE CONFIRMATION MODAL ────────────── -->
     <div class="modal-overlay" id="modalDeleteInventoryItem" data-backdrop-close="false">
       <div class="modal-card modal-confirm">
         <h3 class="modal-title">Delete Confirmation</h3>
@@ -360,7 +370,6 @@
       </div>
     </div>
 
-    <!-- ────────────── DEDUCT / TRANSACTION MODAL ────────────── -->
     <div class="modal-overlay" id="modalDeductInventoryItem" data-backdrop-close="false">
       <div class="modal-card" style="min-width:420px;max-width:640px;width:100%;">
         <h3 class="modal-title" id="deductModalTitle" style="margin-bottom:4px;">Deduct Stocks</h3>
@@ -383,7 +392,7 @@
       </div>
     </div>
 
-    <script src="admin-common.js"></script>
-    <script src="inventory.js"></script>
+    <script src="../admin-page/admin-common.js"></script>
+    <script src="../admin-page/inventory.js"></script>
   </body>
 </html>

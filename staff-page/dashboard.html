@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Staff Dashboard | CNSC-FMRC</title>
+    <link rel="stylesheet" href="../admin-page/dashboard.css" />
+    <link rel="stylesheet" href="../admin-page/admin-modules.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+  </head>
+  <body>
+    <div class="dashboard-container">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" />
+          <h2>CNSC-FMRC</h2>
+        </div>
+
+        <nav class="sidebar-nav">
+          <a href="dashboard.html" class="nav-link active"><i class="fa-solid fa-house"></i> Dashboard</a>
+          <a href="inventory.html" class="nav-link"><i class="fa-solid fa-box"></i> Inventory</a>
+          <a href="products.html" class="nav-link"><i class="fa-solid fa-tags"></i> Products</a>
+          <a href="appointments.html" class="nav-link"><i class="fa-regular fa-calendar-check"></i> Appointment</a>
+          <a href="reports.html" class="nav-link"><i class="fa-solid fa-chart-line"></i> Reports</a>
+          <a href="orders.html" class="nav-link"><i class="fa-solid fa-box-open"></i> Orders</a>
+
+          <div class="nav-item has-dropdown">
+            <a href="#" class="nav-link dropdown-toggle" id="staffControlBtn">
+              <div class="dropdown-title">
+                <i class="fa-solid fa-screwdriver-wrench"></i> Website Management
+              </div>
+              <i class="fa-solid fa-chevron-down arrow"></i>
+            </a>
+            <div class="dropdown-menu">
+              <a href="website-home.html" class="sub-link">Home</a>
+              <a href="website-services.html" class="sub-link">Services</a>
+              <a href="website-contact.html" class="sub-link">Contact</a>
+              <a href="website-footer.html" class="sub-link">Footer</a>
+            </div>
+          </div>
+
+          <a href="archives.html" class="nav-link"><i class="fa-solid fa-box-archive"></i> Archives</a>
+          <a href="my-account.html" class="nav-link"><i class="fa-regular fa-id-card"></i> My Account</a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <button class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="top-header">
+          <div class="header-left">
+            <h1>Dashboard Overview</h1>
+          </div>
+          <div class="header-right">
+            <div class="notifications" id="notifBell">
+              <i class="fa-regular fa-bell"></i>
+              <span class="badge" id="notifBadge" style="display:none;"></span>
+            </div>
+
+            <div class="user-profile">
+              <div class="user-info">
+                <span class="role">Staff</span>
+              </div>
+              <span class="profile-icon profile-initial" data-email="staff@cnsc.edu.ph"></span>
+
+              <div class="profile-popup" id="profilePopup">
+                <div class="popup-header">
+                  <div class="popup-profile-row">
+                    <span class="popup-profile-icon profile-initial" data-email="staff@cnsc.edu.ph"></span>
+                    <div class="popup-profile-meta">
+                      <p class="popup-identity">staff@cnsc.edu.ph</p>
+                      <span class="popup-role">Staff</span>
+                    </div>
+                  </div>
+                </div>
+                <a href="my-account.html" class="profile-popup-link"><i class="fa-regular fa-id-card"></i> My Account</a>
+                <hr />
+                <button class="logout-btn popup-logout">
+                  <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section class="dashboard-content">
+          <div class="page-toolbar" style="margin-bottom: 25px;">
+            <div class="toolbar-title">
+              <h2>Dashboard Controls</h2>
+              <p>Overview of all activities and quick summaries.</p>
+            </div>
+            <div class="toolbar-actions">
+              <button class="btn-admin btn-secondary" id="dashboardRefreshBtn" type="button" title="Refresh Data">
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+              </button>
+            </div>
+          </div>
+
+          <div class="summary-cards">
+            <!-- Cards copied from admin dashboard (reuse admin-page scripts for data) -->
+            <a class="card card-link" href="products.html" data-nav-label="Products">
+              <div class="card-info">
+                <h3 id="dashboardRevenueAmount"><span class="card-value-loading"></span></h3>
+                <p>Total Revenue</p>
+              </div>
+              <div class="card-icon-box card-icon-maroon"><i class="fa-solid fa-wallet"></i></div>
+            </a>
+
+            <a class="card card-link" href="inventory.html" data-nav-label="Inventory">
+              <div class="card-info">
+                <h3 id="dashboardInventoryCount"><span class="card-value-loading"></span></h3>
+                <p>Total Inventory Items</p>
+              </div>
+              <div class="card-icon-box card-icon-green"><i class="fa-solid fa-boxes-stacked"></i></div>
+            </a>
+
+            <a class="card card-link" href="products.html" data-nav-label="Products">
+              <div class="card-info">
+                <h3 id="dashboardProductsCount"><span class="card-value-loading"></span></h3>
+                <p>Total Products</p>
+              </div>
+              <div class="card-icon-box card-icon-purple"><i class="fa-solid fa-tags"></i></div>
+            </a>
+
+            <a class="card card-link" href="appointments.html" data-nav-label="Appointment">
+              <div class="card-info">
+                <h3 id="dashboardAppointmentsCount"><span class="card-value-loading"></span></h3>
+                <p>Total Appointments</p>
+              </div>
+              <div class="card-icon-box card-icon-blue"><i class="fa-regular fa-calendar-check"></i></div>
+            </a>
+
+            <a class="card card-link" href="orders.html" data-nav-label="Orders">
+              <div class="card-info">
+                <h3 id="dashboardOrdersCount"><span class="card-value-loading"></span></h3>
+                <p>Total Orders</p>
+              </div>
+              <div class="card-icon-box card-icon-red"><i class="fa-solid fa-box-open"></i></div>
+            </a>
+
+            <a class="card card-link" href="reports.html" data-nav-label="Reports">
+              <div class="card-info">
+                <h3>24</h3>
+                <p>Generated Reports</p>
+              </div>
+              <div class="card-icon-box card-icon-amber"><i class="fa-solid fa-chart-line"></i></div>
+            </a>
+
+            <a class="card card-link" href="archives.html" data-nav-label="Archives">
+              <div class="card-info">
+                <h3>89</h3>
+                <p>Archived Records</p>
+              </div>
+              <div class="card-icon-box card-icon-slate"><i class="fa-solid fa-box-archive"></i></div>
+            </a>
+          </div>
+
+          <!-- Product Analytics Overview Widget -->
+          <div class="dashboard-analytics-overview" id="dashboardAnalyticsOverview">
+            <div class="widget analytics-overview-widget">
+              <div class="widget-header">
+                <h3><i class="fa-solid fa-chart-pie" style="margin-right: 8px; color: var(--primary-color);"></i> Product Analytics Overview</h3>
+                <a href="products.html" class="view-all-link">See All <i class="fa-solid fa-arrow-right"></i></a>
+              </div>
+              <div class="analytics-overview-grid" id="analyticsOverviewGrid">
+                <!-- Top Selling -->
+                <div class="analytics-overview-card">
+                  <div class="aov-header">
+                    <div class="aov-icon aov-icon-fire"><i class="fa-solid fa-fire-flame-curved"></i></div>
+                    <div>
+                      <h4>Top Selling</h4>
+                      <span>This month's best sellers</span>
+                    </div>
+                  </div>
+                  <div class="aov-body" id="aovTopSelling">
+                    <div class="aov-shimmer-list">
+                      <div class="aov-shimmer-row"></div>
+                      <div class="aov-shimmer-row"></div>
+                      <div class="aov-shimmer-row"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Sales by Category -->
+                <div class="analytics-overview-card">
+                  <div class="aov-header">
+                    <div class="aov-icon aov-icon-category"><i class="fa-solid fa-layer-group"></i></div>
+                    <div>
+                      <h4>Sales by Category</h4>
+                      <span>Revenue distribution</span>
+                    </div>
+                  </div>
+                  <div class="aov-body" id="aovSalesByCategory">
+                    <div class="aov-shimmer-list">
+                      <div class="aov-shimmer-row"></div>
+                      <div class="aov-shimmer-row"></div>
+                      <div class="aov-shimmer-row"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Product Performance -->
+                <div class="analytics-overview-card">
+                  <div class="aov-header">
+                    <div class="aov-icon aov-icon-performance"><i class="fa-solid fa-ranking-star"></i></div>
+                    <div>
+                      <h4>Product Performance</h4>
+                      <span>Top revenue generators</span>
+                    </div>
+                  </div>
+                  <div class="aov-body" id="aovProductPerformance">
+                    <div class="aov-shimmer-list">
+                      <div class="aov-shimmer-row"></div>
+                      <div class="aov-shimmer-row"></div>
+                      <div class="aov-shimmer-row"></div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Yearly Sales Trend -->
+                <div class="analytics-overview-card">
+                  <div class="aov-header">
+                    <div class="aov-icon aov-icon-trend"><i class="fa-solid fa-chart-line"></i></div>
+                    <div>
+                      <h4>Yearly Sales Trend</h4>
+                      <span id="aovTrendYear">Monthly totals</span>
+                    </div>
+                  </div>
+                  <div class="aov-body" id="aovYearlySalesTrend">
+                    <div class="aov-shimmer-list">
+                      <div class="aov-shimmer-row"></div>
+                      <div class="aov-shimmer-row"></div>
+                      <div class="aov-shimmer-row"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dashboard-widgets">
+            <!-- Recent Appointments -->
+            <div class="widget recent-panel">
+              <div class="widget-header">
+                <h3><i class="fa-regular fa-calendar-check" style="margin-right: 8px; color: var(--primary-color);"></i> Recent Appointments</h3>
+                <a href="appointments.html" class="view-all-link">See All <i class="fa-solid fa-arrow-right"></i></a>
+              </div>
+              <ul class="recent-list" id="dashboardRecentAppointments">
+                <li class="recent-loading">
+                  <div class="recent-info">
+                    <strong>Loading appointments...</strong>
+                    <span>Please wait while dashboard syncs.</span>
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Recent Orders -->
+            <div class="widget recent-panel">
+              <div class="widget-header">
+                <h3><i class="fa-solid fa-box-open" style="margin-right: 8px; color: var(--primary-color);"></i> Recent Orders</h3>
+                <a href="orders.html" class="view-all-link">See All <i class="fa-solid fa-arrow-right"></i></a>
+              </div>
+              <ul class="recent-list" id="dashboardRecentOrders">
+                <li class="recent-loading">
+                  <div class="recent-info">
+                    <strong>Loading orders...</strong>
+                    <span>Please wait while dashboard syncs.</span>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="../admin-page/admin-common.js"></script>
+    <script src="../admin-page/dashboard.js"></script>
+  </body>
+</html>

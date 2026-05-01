@@ -1,11 +1,11 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Home Page Management | CNSC-FMRC Admin</title>
-    <link rel="stylesheet" href="dashboard.css" />
-    <link rel="stylesheet" href="admin-modules.css" />
+    <title>Home Page Management | CNSC-FMRC Staff</title>
+    <link rel="stylesheet" href="../admin-page/dashboard.css" />
+    <link rel="stylesheet" href="../admin-page/admin-modules.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
       .wm-section { background:#fff; border:1px solid var(--border-color); border-radius:12px; padding:22px 24px; margin-bottom:0; }
@@ -26,7 +26,6 @@
       .color-row { display:flex; align-items:center; gap:10px; }
       .color-row input[type="color"] { width:44px; height:36px; border:1px solid #d8dde3; border-radius:8px; padding:2px; cursor:pointer; }
       .section-stack { display:flex; flex-direction:column; gap:18px; }
-      /* Cards list */
       .wm-cards-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; }
       .wm-service-card { background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; overflow:hidden; display:flex; flex-direction:column; }
       .wm-service-card .card-img { height:130px; background:#eee; display:flex; align-items:center; justify-content:center; overflow:hidden; }
@@ -41,10 +40,8 @@
       .btn-del-sm { background:#fff5f5; border:1px solid #fca5a5; color:#b91c1c; border-radius:6px; padding:5px 10px; font-size:0.74rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:5px; }
       .btn-edit-sm:hover { background:var(--primary-color); color:#fff; }
       .btn-del-sm:hover { background:#b91c1c; color:#fff; border-color:#b91c1c; }
-      /* Save bar */
       .wm-save-bar { background:#fff; border:1px solid var(--border-color); border-radius:12px; padding:16px 24px; display:flex; align-items:center; justify-content:space-between; gap:10px; position:sticky; bottom:20px; box-shadow:0 4px 20px rgba(0,0,0,.08); }
       .wm-save-bar p { font-size:0.82rem; color:#6b7280; margin:0; }
-      /* Modal */
       .wm-modal-overlay { position:fixed; inset:0; background:rgba(17,24,39,.5); backdrop-filter:blur(3px); z-index:9000; display:none; align-items:center; justify-content:center; }
       .wm-modal-overlay.show { display:flex; }
       .wm-modal-card { background:#fff; border-radius:14px; width:min(640px,96%); max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 20px 40px rgba(0,0,0,.15); }
@@ -53,15 +50,12 @@
       .wm-modal-body { padding:20px 22px; overflow-y:auto; flex:1; }
       .wm-modal-footer { padding:14px 22px; border-top:1px solid #e5e7eb; background:#fff; flex-shrink:0; display:flex; justify-content:flex-end; gap:10px; }
       .btn-close-x { background:none; border:none; font-size:1.3rem; cursor:pointer; color:#6b7280; line-height:1; }
-      /* Chip input */
       .chip-input-area { border:1px solid #d8dde3; border-radius:8px; padding:8px; display:flex; flex-wrap:wrap; gap:6px; min-height:42px; cursor:text; }
       .chip-tag-item { background:#f0f9ff; border:1px solid #bae6fd; border-radius:20px; padding:3px 8px 3px 10px; font-size:0.76rem; color:#0369a1; display:inline-flex; align-items:center; gap:4px; }
       .chip-remove { background:none; border:none; cursor:pointer; font-size:0.9rem; color:#0369a1; padding:0; line-height:1; }
       .chip-hidden-input { border:none; outline:none; font-size:0.8rem; min-width:120px; flex:1; }
-      /* Skeleton */
       .wm-skeleton { background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:8px; }
       @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-      /* Crop modal */
       .crop-circle-wrapper { width:220px; height:220px; border-radius:50%; overflow:hidden; border:3px dashed #d1d5db; margin:0 auto 14px; background:#111; display:flex; align-items:center; justify-content:center; position:relative; cursor:grab; }
       .crop-circle-wrapper.grabbing { cursor:grabbing; }
       .crop-circle-wrapper img { position:absolute; transform-origin:center; user-select:none; }
@@ -103,12 +97,12 @@
           <div class="header-right">
             <div class="notifications" id="notifBell"><i class="fa-regular fa-bell"></i><span class="badge" id="notifBadge" style="display:none;"></span></div>
             <div class="user-profile">
-              <div class="user-info"><span class="role">Admin</span></div>
-              <span class="profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
+              <div class="user-info"><span class="role">Staff</span></div>
+              <span class="profile-icon profile-initial" data-email="staff@cnsc.edu.ph"></span>
               <div class="profile-popup" id="profilePopup">
                 <div class="popup-header"><div class="popup-profile-row">
-                  <span class="popup-profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
-                  <div class="popup-profile-meta"><p class="popup-identity">admin@cnsc.edu.ph</p><span class="popup-role">Admin</span></div>
+                  <span class="popup-profile-icon profile-initial" data-email="staff@cnsc.edu.ph"></span>
+                  <div class="popup-profile-meta"><p class="popup-identity">staff@cnsc.edu.ph</p><span class="popup-role">Staff</span></div>
                 </div></div>
                 <a href="my-account.html" class="profile-popup-link"><i class="fa-regular fa-id-card"></i> My Account</a>
                 <hr /><button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
@@ -124,13 +118,12 @@
               <p>Edit content displayed on the customer-facing Home page. Click "Save All Changes" when done.</p>
             </div>
             <div class="toolbar-actions">
-                <button class="btn-admin btn-secondary" type="button" onclick="window.location.reload();" title="Refresh Data"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
-              <a href="/home-page/main.html" target="_blank" class="btn-admin btn-secondary"><i class="fa-solid fa-eye"></i> Preview Site</a>
+              <button class="btn-admin btn-secondary" type="button" onclick="window.location.reload();" title="Refresh Data"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+              <a href="../home-page/main.html" target="_blank" class="btn-admin btn-secondary"><i class="fa-solid fa-eye"></i> Preview Site</a>
             </div>
           </div>
 
           <div class="section-stack">
-            <!-- HERO SECTION -->
             <div class="wm-section">
               <div class="wm-section-header"><i class="fa-solid fa-star"></i><h3>Hero Section</h3></div>
               <div class="wm-form-grid">
@@ -172,7 +165,6 @@
               </div>
             </div>
 
-            <!-- ABOUT US -->
             <div class="wm-section">
               <div class="wm-section-header"><i class="fa-solid fa-circle-info"></i><h3>About Us Section</h3></div>
               <div class="wm-form-grid">
@@ -201,7 +193,6 @@
               </div>
             </div>
 
-            <!-- VISION -->
             <div class="wm-section">
               <div class="wm-section-header"><i class="fa-solid fa-eye"></i><h3>Vision Section</h3></div>
               <div class="wm-form-grid">
@@ -225,7 +216,6 @@
               </div>
             </div>
 
-            <!-- MISSION -->
             <div class="wm-section">
               <div class="wm-section-header"><i class="fa-solid fa-bullseye"></i><h3>Mission Section</h3></div>
               <div class="wm-form-grid">
@@ -249,7 +239,6 @@
               </div>
             </div>
 
-            <!-- WHAT WE OFFER -->
             <div class="wm-section">
               <div class="wm-section-header">
                 <i class="fa-solid fa-grid-2"></i><h3>What We Offer Section</h3>
@@ -264,7 +253,6 @@
               </div>
             </div>
 
-            <!-- SAVE BAR -->
             <div class="wm-save-bar">
               <p><i class="fa-solid fa-circle-info" style="margin-right:5px;color:var(--primary-color);"></i>Changes only apply after clicking Save All Changes.</p>
               <button class="btn-admin" id="btnSaveAllHome"><i class="fa-solid fa-floppy-disk"></i> Save All Changes</button>
@@ -274,7 +262,6 @@
       </main>
     </div>
 
-    <!-- ── CROP MODAL (Logo / BG Image) ── -->
     <div class="wm-modal-overlay" id="cropModal">
       <div class="wm-modal-card" style="max-width:480px;">
         <div class="wm-modal-header">
@@ -304,7 +291,6 @@
       </div>
     </div>
 
-    <!-- ── SERVICE ADD/EDIT MODAL ── -->
     <div class="wm-modal-overlay" id="serviceModal">
       <div class="wm-modal-card">
         <div class="wm-modal-header">
@@ -349,7 +335,7 @@
       </div>
     </div>
 
-    <script src="admin-common.js"></script>
-    <script src="website-home.js"></script>
+    <script src="../admin-page/admin-common.js"></script>
+    <script src="../admin-page/website-home.js"></script>
   </body>
 </html>

@@ -161,10 +161,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const WEBSITE_MGMT_ROUTES = ["website-home.html", "website-services.html", "website-contact.html", "website-footer.html"];
   const isWebsiteMgmtPage = WEBSITE_MGMT_ROUTES.some(route => window.location.pathname.toLowerCase().endsWith(`/${route}`));
   
-  const adminControlBtn = document.getElementById("adminControlBtn");
-  if (adminControlBtn) {
-    const hasDropdown = adminControlBtn.parentElement;
-    
+  // Support both admin and staff control button IDs (adminControlBtn, staffControlBtn)
+  const controlBtn = document.getElementById("adminControlBtn") || document.getElementById("staffControlBtn");
+  if (controlBtn) {
+    const hasDropdown = controlBtn.parentElement;
+
     if (isWebsiteMgmtPage) {
       hasDropdown.classList.add("open");
       localStorage.setItem("websiteMgmtDropdownState", "open");
@@ -177,16 +178,19 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    adminControlBtn.addEventListener("click", (e) => {
-      if (isMobileSidebarMode() && !body.classList.contains("admin-sidebar-open")) {
+    if (!controlBtn.dataset.boundDropdown) {
+      controlBtn.addEventListener("click", (e) => {
+        if (isMobileSidebarMode() && !body.classList.contains("admin-sidebar-open")) {
+          e.preventDefault();
+          openMobileSidebar();
+          return;
+        }
         e.preventDefault();
-        openMobileSidebar();
-        return;
-      }
-      e.preventDefault();
-      hasDropdown.classList.toggle("open");
-      localStorage.setItem("websiteMgmtDropdownState", hasDropdown.classList.contains("open") ? "open" : "closed");
-    });
+        hasDropdown.classList.toggle("open");
+        localStorage.setItem("websiteMgmtDropdownState", hasDropdown.classList.contains("open") ? "open" : "closed");
+      });
+      controlBtn.dataset.boundDropdown = "1";
+    }
   }
 
   window.addEventListener("resize", syncSidebarMode);
@@ -258,6 +262,43 @@ document.addEventListener("DOMContentLoaded", () => {
 
     profileInitial.textContent = seedValue.trim().charAt(0).toUpperCase();
   });
+
+  // Fetch current authenticated user and update UI (keeps email in sync after changes)
+  (function fetchAndApplyUserProfile() {
+    const API_BASE = (() => {
+      const configured = window.APP_API_BASE_URL || document.querySelector('meta[name="api-base-url"]')?.getAttribute('content') || "";
+      if (configured.trim()) return configured.replace(/\/+$/, '');
+      const proto = window.location.protocol;
+      const host  = window.location.hostname;
+      const port  = window.location.port;
+      if (port === '8000') return `${proto}//${host}:${port}/api`;
+      if (host === 'localhost' || host === '127.0.0.1') return `${proto}//${host}:8000/api`;
+      return `${proto}//${host}/api`;
+    })();
+
+    const token = localStorage.getItem('auth_token') || '';
+    if (!token) return;
+
+    fetch(`${API_BASE}/user`, {
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+    }).then((res) => {
+      if (!res.ok) return null;
+      return res.json();
+    }).then((user) => {
+      if (!user) return;
+      const email = user.email || (user.data && user.data.email) || '';
+      if (!email) return;
+      document.querySelectorAll('.profile-initial').forEach((el) => {
+        el.dataset.email = email;
+        el.textContent = email.trim().charAt(0).toUpperCase();
+      });
+      const popupIdentity = document.querySelector('.popup-identity');
+      if (popupIdentity) popupIdentity.textContent = email;
+      const currentGmailEl = document.getElementById('currentGmailValue');
+      if (currentGmailEl) currentGmailEl.textContent = email;
+      try { localStorage.setItem('user_info', JSON.stringify(user)); } catch (e) { /* ignore */ }
+    }).catch(() => { /* ignore network errors */ });
+  })();
 
   if (userProfile && profilePopup) {
     userProfile.addEventListener("click", (e) => {

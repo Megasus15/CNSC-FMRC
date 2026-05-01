@@ -415,6 +415,56 @@
   width: 100%;
 }
 
+/* Password Field with Toggle */
+.field-stack .password-field {
+  position: relative;
+}
+
+.input-icon-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.password-field input {
+  padding-right: 44px;
+  width: 100%;
+}
+
+.toggle-pass {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: #a0aec0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+  padding: 6px;
+  line-height: 1;
+}
+
+.toggle-pass svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.toggle-pass:hover,
+.toggle-pass:focus {
+  color: var(--primary-color);
+  outline: none;
+}
+
+.toggle-pass:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
 .upload-row {
   display: flex;
   flex-wrap: wrap;
