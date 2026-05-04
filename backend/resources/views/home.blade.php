@@ -629,24 +629,24 @@
 
               <div class="apt-input-group">
                 <label>Last Name</label>
-                <input type="text" id="aptLName" class="c-input" placeholder="e.g. Dela Cruz"/>
+                <input type="text" id="aptLName" class="c-input" placeholder="e.g. Dela Cruz" maxlength="20"/>
               </div>
               <div class="apt-input-group">
                 <label>First Name</label>
-                <input type="text" id="aptFName" class="c-input" placeholder="e.g. Juan"/>
+                <input type="text" id="aptFName" class="c-input" placeholder="e.g. Juan" maxlength="25"/>
               </div>
               <div class="apt-input-group">
                 <label>M.I. (Optional)</label>
-                <input type="text" class="c-input" placeholder="M"/>
+                <input type="text" id="aptMI" class="c-input" placeholder="M" maxlength="1"/>
               </div>
 
               <div class="apt-input-group">
                 <label>Mobile Number</label>
-                <input type="tel" id="aptPhone" class="c-input" placeholder="09xxxxxxxxx"/>
+                <input type="tel" id="aptPhone" class="c-input" placeholder="09xxxxxxxxx" maxlength="11" inputmode="numeric"/>
               </div>
               <div class="apt-input-group" style="grid-column: span 2">
                 <label>Email Address</label>
-                <input type="email" id="aptEmail" class="c-input" placeholder="email@example.com"/>
+                <input type="email" id="aptEmail" class="c-input" placeholder="example@gmail.com"/>
               </div>
 
               <!-- Section 2: Address -->
@@ -655,22 +655,46 @@
               </div>
 
               <div class="apt-input-group">
-                <label>Province</label>
-                <select id="aptProvince" class="c-input">
-                  <option value="" selected disabled hidden>Select Province</option>
+                <label>Country</label>
+                <select id="aptCountry" class="c-input">
+                  <option value="Philippines" selected>Philippines</option>
+                  <option value="Outside Philippines">Other Country</option>
                 </select>
               </div>
-              <div class="apt-input-group">
-                <label>Municipality</label>
-                <select id="aptMunicipality" class="c-input" disabled>
-                  <option value="" selected disabled hidden>Select Municipality</option>
-                </select>
+
+              <div id="aptPhAddressFields" style="display: contents;">
+                <div class="apt-input-group">
+                  <label>Region</label>
+                  <select id="aptRegion" class="c-input">
+                    <option value="" selected disabled hidden>Select Region</option>
+                  </select>
+                </div>
+
+                <div class="apt-input-group">
+                  <label>Province</label>
+                  <select id="aptProvince" class="c-input" disabled>
+                    <option value="" selected disabled hidden>Select Province</option>
+                  </select>
+                </div>
+
+                <div class="apt-input-group">
+                  <label>Municipality</label>
+                  <select id="aptMunicipality" class="c-input" disabled>
+                    <option value="" selected disabled hidden>Select Municipality</option>
+                  </select>
+                </div>
+
+                <div class="apt-input-group">
+                  <label>Barangay</label>
+                  <select id="aptAddress" class="c-input" disabled>
+                    <option value="" selected disabled hidden>Select Barangay</option>
+                  </select>
+                </div>
               </div>
-              <div class="apt-input-group">
-                <label>Barangay</label>
-                <select id="aptAddress" class="c-input" disabled>
-                  <option value="" selected disabled hidden>Select Barangay</option>
-                </select>
+
+              <div class="apt-input-group" id="aptIntlAddressField" style="display: none; grid-column: span 3;">
+                <label>Complete Residential Address</label>
+                <textarea id="aptIntlAddress" class="c-input" rows="3" placeholder="Enter your full address (street, city/state, postal code, country)"></textarea>
               </div>
 
               <!-- Section 3: Appointment Details -->
@@ -693,8 +717,9 @@
                 
                 <div class="file-upload-wrapper" style="margin-top: 10px;">
                     <div class="file-upload-icon">+</div>
-                    <span class="file-upload-text">Click to Attach Design File (Optional)</span>
-                    <input type="file" id="aptFile" style="position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer;">
+                  <span class="file-upload-text" id="aptFileLabel">Click to Attach Design File (Optional)</span>
+                  <small id="aptFileName" style="font-size: 11px; color: #7a7a7a; margin-top: 4px; text-align: center;">No file selected</small>
+                  <input type="file" id="aptFile" accept="image/*,.pdf,.doc,.docx" style="position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer;">
                 </div>
               </div>
 
@@ -712,7 +737,7 @@
 
               <div class="apt-input-group" style="grid-column: span 3">
                 <label>Additional Description / Notes</label>
-                <textarea id="aptDesc" class="c-input" rows="3" placeholder="Please describe your request in detail..."></textarea>
+                <textarea id="aptDesc" class="c-input apt-fixed-scroll-textarea" rows="3" placeholder="Please describe your request in detail..."></textarea>
               </div>
             </div>
           </div>
@@ -775,8 +800,9 @@
               <!-- Right Side: Time Slots -->
               <div class="apt-time-right">
                 <h4 id="selectedDateDisplay">Select a Date</h4>
+                <div id="userDateEventsDisplay" class="date-note-card" aria-live="polite"></div>
                 <div class="slot-counter-wrapper" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                  <span id="slotCounter" style="font-size: 13px; font-weight: 600; color: #555; display: none;">Allowed: 1 time slot for this selected date</span>
+                  <span id="slotCounter" style="font-size: 13px; font-weight: 600; color: #555; display: none;">Allowed: 1 time slot for this appointment</span>
                 </div>
                 <div class="time-slots-container" id="timeSlotsContainer">
                   <p class="time-placeholder">Please pick a date first.</p>
@@ -799,90 +825,105 @@
 
         <div class="apt-content-section" id="aptStep4">
           <div class="ticket-container">
-            <div class="ticket-header">
-                <div>
-                    <span style="display:block; font-size: 11px; opacity: 0.8; letter-spacing: 1px;">PREVIEW APPOINTMENT</span>
-                    <h3 style="margin: 5px 0 0; font-size: 24px; font-weight: 800;">Ticket #AN-0012026</h3>
-                </div>
-                <div style="text-align: right;">
-                    <span style="font-size: 12px; font-weight: 600; background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 4px;">DRAFT</span>
-                </div>
+          <div class="ticket-header">
+            <div>
+              <span style="display:block; font-size: 11px; opacity: 0.8; letter-spacing: 1px;">PREVIEW APPOINTMENT</span>
+            <h3 id="revTicketNo" style="margin: 5px 0 0; font-size: 24px; font-weight: 800;">Ticket #PENDING</h3>
             </div>
+            <div style="text-align: right;">
+              <span style="font-size: 12px; font-weight: 600; background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 4px;">DRAFT</span>
+            </div>
+          </div>
             
-            <div class="ticket-body">
-                <div class="ticket-row">
-                    <div class="ticket-column">
-                        <div class="t-label">FULL NAME</div>
-                        <div class="t-value" id="revName">Kevin Arevalo</div>
-                    </div>
-                    <div class="ticket-column">
-                        <div class="t-label">CONTACT</div>
-                        <div class="t-value" id="revPhone">09911341158</div>
-                    </div>
-                </div>
+          <div class="ticket-body">
+            <div class="ticket-row">
+              <div class="ticket-column">
+                <div class="t-label">FULL NAME</div>
+                <div class="t-value" id="revName">Kevin Arevalo</div>
+              </div>
+              <div class="ticket-column">
+                <div class="t-label">CONTACT</div>
+                <div class="t-value" id="revPhone">09911341158</div>
+              </div>
+            </div>
                 
-                <div class="ticket-row">
-                    <div class="ticket-column">
-                        <div class="t-label">EMAIL ADDRESS</div>
-                        <div class="t-value" id="revEmail">kevin@gmail.com</div>
-                    </div>
-                    <div class="ticket-column">
-                        <div class="t-label">HOME ADDRESS</div>
-                        <div class="t-value" id="revAddress">Masalong, Labo</div>
-                    </div>
-                </div>
-
-                <div class="ticket-row">
-                    <div class="ticket-column">
-                         <div class="t-label">PURPOSE</div>
-                        <div class="t-value" id="revPurpose">Inquiries</div>
-                    </div>
-                </div>
-
-                <div class="ticket-row">
-                    <div class="ticket-column">
-                        <div class="t-label">SCHEDULED DATE & TIME</div>
-                        <div class="t-value highlight" id="revSched" style="font-size: 18px;">
-                            March 13, 2026 @ 9:00 AM
-                        </div>
-                    </div>
-                </div>
-
-                <div class="ticket-row">
-                    <div class="ticket-column">
-                        <div class="t-label">ADDITIONAL NOTES</div>
-                        <div class="t-value" id="revDesc" style="font-style: italic; color: #666;">Meeting with head...</div>
-                    </div>
-                </div>
+            <div class="ticket-row">
+              <div class="ticket-column">
+                <div class="t-label">EMAIL ADDRESS</div>
+                <div class="t-value" id="revEmail">kevin@gmail.com</div>
+              </div>
+              <div class="ticket-column">
+                <div class="t-label">HOME ADDRESS</div>
+                <div class="t-value" id="revAddress">Masalong, Labo</div>
+              </div>
             </div>
+
+            <div class="ticket-row">
+              <div class="ticket-column">
+                 <div class="t-label">PURPOSE</div>
+                <div class="t-value" id="revPurpose">Inquiries</div>
+              </div>
+              <div class="ticket-column">
+              <div class="t-label">TYPE OF CLIENT</div>
+              <div class="t-value" id="revClientType">Student</div>
+              </div>
+            </div>
+
+            <div class="ticket-row">
+              <div class="ticket-column">
+                <div class="t-label">SCHEDULED DATE & TIME</div>
+                <div class="t-value highlight" id="revSched" style="font-size: 18px;">
+                  March 13, 2026 @ 9:00 AM
+                </div>
+              </div>
+            </div>
+
+            <div class="ticket-row">
+              <div class="ticket-column">
+                <div class="t-label">ADDITIONAL NOTES</div>
+                <div class="t-value" id="revDesc" style="font-style: italic; color: #666;">Meeting with head...</div>
+              </div>
+            </div>
+
+            <div class="ticket-row">
+              <div class="ticket-column">
+              <div class="t-label">ATTACHED FILE</div>
+              <div class="t-value" id="revFileAttach">N/A</div>
+              </div>
+              <div class="ticket-column">
+              <div class="t-label">COUNTRY</div>
+              <div class="t-value" id="revCountry">Philippines</div>
+              </div>
+            </div>
+          </div>
             
-            <!-- Bottom perforated edge visual could be added via CSS if needed -->
+          <!-- Bottom perforated edge visual could be added via CSS if needed -->
           </div>
           <div class="apt-footer-actions" style="margin-top: 20px;">
-            <button class="apt-btn apt-btn-back" id="btnCancelTo3">
-              Back to Calendar
-            </button>
-            <button class="apt-btn apt-btn-blue" id="btnGoToStep5">
-              Confirm & Submit
-            </button>
+          <button class="apt-btn apt-btn-back" id="btnCancelTo3">
+            Back to Calendar
+          </button>
+          <button class="apt-btn apt-btn-blue" id="btnGoToStep5">
+            Confirm & Submit
+          </button>
           </div>
         </div>
 
         <div class="apt-content-section" id="aptStep5">
-          <div class="ticket-container">
+          <div class="ticket-container" id="officialReceiptCard">
             <div class="ticket-header">
                 <div>
                     <span style="display:block; font-size: 11px; opacity: 0.8; letter-spacing: 1px;">OFFICIAL RECEIPT</span>
-                    <h3 style="margin: 5px 0 0; font-size: 24px; font-weight: 800;">Ticket #AN-0012026</h3>
+              <h3 id="comTicketNo" style="margin: 5px 0 0; font-size: 24px; font-weight: 800;">Ticket #PENDING</h3>
                 </div>
                 <div style="text-align: right;">
                     <span style="font-size: 12px; font-weight: 600; background: #4caf50; color: #fff; padding: 4px 10px; border-radius: 4px;">CONFIRMED</span>
                 </div>
             </div>
             
-            <div class="ticket-body" style="display: flex; gap: 20px;">
+          <div class="ticket-body" style="display: flex; gap: 20px; align-items: stretch;">
                 <!-- Left Side Details -->
-                <div style="flex: 1;">
+            <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
                     <div class="ticket-row">
                         <div class="ticket-column">
                             <div class="t-label">FULL NAME</div>
@@ -896,6 +937,13 @@
                             <div class="t-value" id="comPurpose">Inquiries</div>
                         </div>
                     </div>
+
+                        <div class="ticket-row">
+                          <div class="ticket-column">
+                            <div class="t-label">TYPE OF CLIENT</div>
+                            <div class="t-value" id="comClientType">Student</div>
+                          </div>
+                        </div>
     
                     <div class="ticket-row">
                         <div class="ticket-column">
@@ -912,25 +960,57 @@
                             <div class="t-value" id="comPhone">09911341158</div>
                         </div>
                     </div>
+
+                        <div class="ticket-row">
+                          <div class="ticket-column">
+                            <div class="t-label">EMAIL</div>
+                            <div class="t-value" id="comEmail">kevin@gmail.com</div>
+                          </div>
+                        </div>
+
+                        <div class="ticket-row">
+                          <div class="ticket-column">
+                            <div class="t-label">ADDRESS</div>
+                            <div class="t-value" id="comAddress">Masalong, Labo</div>
+                          </div>
+                        </div>
+
+                        <div class="ticket-row">
+                          <div class="ticket-column">
+                            <div class="t-label">NOTES</div>
+                            <div class="t-value" id="comDesc">N/A</div>
+                          </div>
+                        </div>
+
+                        <div class="ticket-row">
+                          <div class="ticket-column">
+                            <div class="t-label">ATTACHED FILE</div>
+                            <div class="t-value" id="comFileAttach">N/A</div>
+                          </div>
+                        </div>
                 </div>
 
                 <!-- Right Side QR -->
                 <div style="width: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-left: 1px dashed #ccc; padding-left: 20px;">
-                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=AN-0012026" alt="QR Code" style="width: 100%; height: auto; display: block; mix-blend-mode: multiply;">
-                    <span style="font-size: 10px; color: #666; margin-top: 5px; text-align: center;">Scan at Kiosk</span>
+                        <img id="receiptQrImage" src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=FMRC-Appointment" alt="QR Code" style="width: 100%; height: auto; display: block; mix-blend-mode: multiply;">
+                        <span style="font-size: 10px; color: #666; margin-top: 5px; text-align: center;">Scan to verify appointment</span>
+                        <a id="receiptQrLink" href="#" target="_blank" rel="noopener" style="font-size: 10px; margin-top: 8px; color: #8b0000; text-align: center;">Open verification page</a>
                 </div>
             </div>
             
              <!-- Footer Reminder -->
-             <div style="background: #f9f9f9; padding: 15px 25px; border-top: 1px dashed #ddd; font-size: 12px; color: #666; font-style: italic;">
-                Please present this ticket or QR code upon arrival at the FMRC office.
+             <div style="background: #f9f9f9; padding: 15px 25px; border-top: 1px dashed #ddd; font-size: 12px; color: #444; line-height: 1.6;">
+               <strong>Important:</strong> Please download or screenshot your QR Code and keep your reference number before closing this window.
+               Present your QR code at the FMRC office for fast verification of your online appointment.
              </div>
           </div>
 
           <div class="apt-footer-actions" style="margin-top: 20px;">
-             <!-- Generate Report triggers the PDF alert -->
             <button class="apt-btn apt-btn-outline" id="btnGenerateReport">
-               <span style="margin-right: 5px;">📄</span> Generate Report
+              <span style="margin-right: 5px;">&#128196;</span> Download Receipt
+            </button>
+            <button class="apt-btn apt-btn-outline apt-btn-qr" id="btnDownloadQr">
+              <span style="margin-right: 5px;">&#128247;</span> Download QR Code
             </button>
              <!-- Final Finish triggers Success Modal/Home -->
             <button class="apt-btn apt-btn-blue" id="btnFinishStep5">
@@ -943,17 +1023,19 @@
 
     <!-- SUCCESS MODAL OVERLAY -->
     <div class="success-modal-overlay" id="successAppointmentModal">
-        <div class="success-card">
-            <div class="success-icon">✓</div>
-            <h3 class="success-title">Success!</h3>
-            <p class="success-desc">
-                Your appointment has been successfully booked. <br>
-                Reference Number: <strong>AN-0012026</strong>
-            </p>
-            <button class="apt-btn apt-btn-blue" id="btnSuccessHome" style="width: 100%;">
-                Return to Homepage
-            </button>
+      <div class="success-modal">
+        <button class="success-close-btn" id="btnCloseSuccess">&times;</button>
+        <div class="success-icon">&#10004;</div>
+        <h2>Appointment Submitted!</h2>
+        <p>Your appointment has been successfully submitted. You can now download your QR code and receipt below.</p>
+        <div class="success-reference">
+          Reference No: <span id="successReferenceNo">FMRC-2024-00001</span>
         </div>
+        <div class="success-actions">
+          <button class="success-ok-btn" id="btnSuccessDownload">Download QR Code</button>
+          <button class="success-ok-btn" id="btnOkSuccess">Okay, Got it!</button>
+        </div>
+      </div>
     </div>
 
     <div class="apt-nested-modal" id="aptPrivacyModal">

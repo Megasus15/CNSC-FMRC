@@ -251,13 +251,6 @@ document.addEventListener("DOMContentLoaded", () => {
     showLogin();
   });
 
-  signupSuccessModal?.addEventListener("click", (event) => {
-    if (event.target === signupSuccessModal) {
-      signupSuccessModal.classList.remove("show");
-      document.body.style.overflow = "";
-      showLogin();
-    }
-  });
 
   if (loginForm) {
     loginForm.addEventListener("submit", async (event) => {

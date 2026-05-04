@@ -3157,7 +3157,32 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   bindClick("btnCancelTo3", () => switchAptStep(3));
-  bindClick("btnGoToStep5", () => switchAptStep(5));
+  // Step 4: "Confirm & Submit" — actually submits the appointment to backend
+  bindClick("btnGoToStep5", async () => {
+    const btn = document.getElementById("btnGoToStep5");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Submitting...";
+    }
+    try {
+      if (!appointmentSubmitted) {
+        const ok = await submitAppointment();
+        if (!ok) {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = "Confirm & Submit";
+          }
+          return;
+        }
+      }
+      switchAptStep(5);
+    } catch {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Confirm & Submit";
+      }
+    }
+  });
 
   bindClick("btnGenerateReport", () => {
     void downloadAppointmentReceipt();
@@ -3165,14 +3190,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   bindClick("btnDownloadQr", downloadQrCodeCard);
 
-  bindClick("btnFinishStep5", async () => {
-    if (appointmentSubmitted) {
-      successModal?.classList.add("active");
-      return;
-    }
-
-    const ok = await submitAppointment();
-    if (!ok) return;
+  // Step 5: "Finish Transaction" — appointment already submitted, just show success
+  bindClick("btnFinishStep5", () => {
     successModal?.classList.add("active");
   });
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminNotification;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderTrackingEvent;
@@ -13,6 +14,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class OrderController extends Controller
 {
@@ -222,7 +225,7 @@ class OrderController extends Controller
                     'stage' => 'to_pay',
                     'event_type' => 'system',
                     'title' => "Order placed: {$trackingLabel}",
-                    'description' => 'Your order has been received and is waiting for admin review.',
+                    'description' => 'Your order has been received and is currently being reviewed.',
                     'location_name' => $validated['location_name'] ?? null,
                     'latitude' => $validated['latitude'] ?? null,
                     'longitude' => $validated['longitude'] ?? null,
@@ -239,7 +242,7 @@ class OrderController extends Controller
                     'title' => $paymentStatus === 'paid' ? 'Payment confirmed' : 'Awaiting payment confirmation',
                     'description' => $paymentStatus === 'paid'
                         ? 'Payment was confirmed and the order is queued for shipping.'
-                        : 'Payment is pending. Admin will verify and continue processing.',
+                        : 'Payment is pending. We will verify and continue processing your order shortly.',
                     'occurred_at' => now(),
                     'metadata' => [
                         'payment_status' => $paymentStatus,
@@ -254,6 +257,26 @@ class OrderController extends Controller
                 'payment',
                 'trackingEvents' => fn ($query) => $query->orderByDesc('occurred_at')->orderByDesc('id'),
             ]);
+
+            // --- Admin/Staff Notification: New Order ---
+            $customerName = $createdOrder->customer_name ?? 'A customer';
+            $orderNoLabel = $createdOrder->order_no ?? "ORD-{$createdOrder->id}";
+            $itemLabel = $this->buildOrderItemLabelFromOrder($createdOrder);
+            $this->createAdminNotification(
+                'order',
+                "New Order: {$orderNoLabel}",
+                "{$customerName} placed a new order for {$itemLabel}. Total: ₱" . number_format((float) $createdOrder->total, 2, '.', ','),
+                ['order_id' => $createdOrder->id, 'order_no' => $orderNoLabel]
+            );
+
+            // --- Customer Email: Order Confirmed ---
+            $emailHtml = $this->buildOrderEmailHtml(
+                $createdOrder,
+                'Your Order Has Been Received',
+                "Hi {$customerName},\n\nThank you for placing your order with CNSC-FMRC. We have received your order and it is currently under review. You will be notified once it has been processed.\n\nPlease keep your order number for your reference.",
+                '#800000'
+            );
+            $this->sendCustomerOrderEmail($createdOrder, "Order Received – {$orderNoLabel}", $emailHtml);
 
             return response()->json([
                 'message' => 'Order placed successfully.',
@@ -412,7 +435,7 @@ class OrderController extends Controller
             'stage' => $order->customer_stage,
             'event_type' => 'admin_update',
             'title' => 'Order approved',
-            'description' => 'Admin approved the order and moved it to pending processing.',
+            'description' => 'Your order has been confirmed and is now being processed.',
             'occurred_at' => now(),
             'metadata' => [
                 'lifecycle_status' => 'pending',
@@ -420,6 +443,24 @@ class OrderController extends Controller
         ]);
 
         $order->load(['items', 'payment', 'latestTrackingEvent']);
+
+        // --- Admin/Staff Notification: Order Approved ---
+        $orderNoLabel = $order->order_no ?? "ORD-{$order->id}";
+        $this->createAdminNotification(
+            'success',
+            "Order Approved: {$orderNoLabel}",
+            "Order {$orderNoLabel} for {$order->customer_name} has been approved and moved to pending processing.",
+            ['order_id' => $order->id, 'order_no' => $orderNoLabel]
+        );
+
+        // --- Customer Email: Order Approved ---
+        $emailHtml = $this->buildOrderEmailHtml(
+            $order,
+            'Your Order Has Been Approved',
+            "Hi {$order->customer_name},\n\nGreat news! Your order {$orderNoLabel} has been approved and is now being processed. We will update you again once your order is ready for shipping or pickup.",
+            '#059669'
+        );
+        $this->sendCustomerOrderEmail($order, "Order Approved – {$orderNoLabel}", $emailHtml);
 
         return response()->json([
             'message' => 'Order approved successfully.',
@@ -456,7 +497,7 @@ class OrderController extends Controller
             'stage' => $order->customer_stage,
             'event_type' => 'admin_update',
             'title' => 'Order rejected',
-            'description' => $validated['reason'] ?? 'Order was rejected by admin after review.',
+            'description' => $validated['reason'] ?? 'Your order could not be processed at this time.',
             'occurred_at' => now(),
             'metadata' => [
                 'lifecycle_status' => 'rejected',
@@ -464,6 +505,25 @@ class OrderController extends Controller
         ]);
 
         $order->load(['items', 'payment', 'latestTrackingEvent']);
+
+        // --- Admin/Staff Notification: Order Rejected ---
+        $orderNoLabel = $order->order_no ?? "ORD-{$order->id}";
+        $reason = $validated['reason'] ?? 'No reason provided';
+        $this->createAdminNotification(
+            'warning',
+            "Order Rejected: {$orderNoLabel}",
+            "Order {$orderNoLabel} for {$order->customer_name} was rejected. Reason: {$reason}",
+            ['order_id' => $order->id, 'order_no' => $orderNoLabel]
+        );
+
+        // --- Customer Email: Order Rejected ---
+        $emailHtml = $this->buildOrderEmailHtml(
+            $order,
+            'Your Order Could Not Be Processed',
+            "Hi {$order->customer_name},\n\nUnfortunately, your order {$orderNoLabel} could not be processed at this time.\n\nReason: {$reason}\n\nIf you have questions, please contact us directly or place a new order. We apologize for any inconvenience.",
+            '#dc2626'
+        );
+        $this->sendCustomerOrderEmail($order, "Order Update – {$orderNoLabel}", $emailHtml);
 
         return response()->json([
             'message' => 'Order rejected successfully.',
@@ -494,7 +554,7 @@ class OrderController extends Controller
             'stage' => 'completed',
             'event_type' => 'admin_update',
             'title' => 'Order completed',
-            'description' => 'Admin marked the order as completed.',
+            'description' => 'Your order has been fulfilled and is now complete. Thank you for your purchase!',
             'occurred_at' => now(),
             'metadata' => [
                 'lifecycle_status' => 'completed',
@@ -502,6 +562,24 @@ class OrderController extends Controller
         ]);
 
         $order->load(['items', 'payment', 'latestTrackingEvent']);
+
+        // --- Admin/Staff Notification: Order Completed ---
+        $orderNoLabel = $order->order_no ?? "ORD-{$order->id}";
+        $this->createAdminNotification(
+            'success',
+            "Order Completed: {$orderNoLabel}",
+            "Order {$orderNoLabel} for {$order->customer_name} has been marked as completed. Total collected: ₱" . number_format((float) $order->total, 2, '.', ','),
+            ['order_id' => $order->id, 'order_no' => $orderNoLabel]
+        );
+
+        // --- Customer Email: Order Completed ---
+        $emailHtml = $this->buildOrderEmailHtml(
+            $order,
+            'Your Order Is Complete!',
+            "Hi {$order->customer_name},\n\nYour order {$orderNoLabel} has been marked as completed. Thank you for choosing CNSC-FMRC!\n\nWe hope to serve you again. If you have any feedback, feel free to reach out to us.",
+            '#800000'
+        );
+        $this->sendCustomerOrderEmail($order, "Order Completed – {$orderNoLabel}", $emailHtml);
 
         return response()->json([
             'message' => 'Order marked as completed.',
@@ -632,6 +710,26 @@ class OrderController extends Controller
             'trackingEvents' => fn ($query) => $query->orderByDesc('occurred_at')->orderByDesc('id'),
         ]);
 
+        // --- Admin/Staff Notification: Tracking Updated ---
+        $orderNoLabel = $order->order_no ?? "ORD-{$order->id}";
+        $this->createAdminNotification(
+            'info',
+            "Tracking Updated: {$orderNoLabel}",
+            "Order {$orderNoLabel} status updated to '{$title}' (Stage: " . (self::STAGE_LABELS[$nextStage] ?? $nextStage) . ").",
+            ['order_id' => $order->id, 'order_no' => $orderNoLabel, 'stage' => $nextStage]
+        );
+
+        // --- Customer Email: Tracking / Stage Update ---
+        $stageLabel = self::STAGE_LABELS[$nextStage] ?? ucfirst(str_replace('_', ' ', $nextStage));
+        $emailHtml = $this->buildOrderEmailHtml(
+            $order,
+            "Order Update: {$stageLabel}",
+            "Hi {$order->customer_name},\n\nYour order {$orderNoLabel} has a new status update.\n\nUpdate: {$title}\n" .
+                (!empty($validated['description']) ? "Details: {$validated['description']}" : ''),
+            '#1d4ed8'
+        );
+        $this->sendCustomerOrderEmail($order, "Order Update – {$orderNoLabel}", $emailHtml);
+
         return response()->json([
             'message' => 'Tracking update saved.',
             'data' => $this->transformOrderDetail($order),
@@ -696,6 +794,26 @@ class OrderController extends Controller
 
         $order->load(['items', 'payment', 'latestTrackingEvent']);
 
+        // --- Admin/Staff Notification: Payment Status Updated ---
+        $orderNoLabel = $order->order_no ?? "ORD-{$order->id}";
+        $this->createAdminNotification(
+            'info',
+            "Payment Updated: {$orderNoLabel}",
+            "Payment for order {$orderNoLabel} ({$order->customer_name}) changed to " . strtoupper($nextStatus) . ".",
+            ['order_id' => $order->id, 'order_no' => $orderNoLabel, 'payment_status' => $nextStatus]
+        );
+
+        // --- Customer Email: Payment Confirmed ---
+        if ($nextStatus === 'paid') {
+            $emailHtml = $this->buildOrderEmailHtml(
+                $order,
+                'Payment Confirmed',
+                "Hi {$order->customer_name},\n\nYour payment for order {$orderNoLabel} has been confirmed. Your order is now being prepared for shipping or pickup.\n\nThank you for your purchase!",
+                '#059669'
+            );
+            $this->sendCustomerOrderEmail($order, "Payment Confirmed – {$orderNoLabel}", $emailHtml);
+        }
+
         return response()->json([
             'message' => 'Payment status updated.',
             'payment' => $this->transformPaymentRow($order),
@@ -725,6 +843,154 @@ class OrderController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Create an in-app notification for admin & staff.
+     */
+    private function createAdminNotification(string $type, string $title, string $message, array $metadata = []): void
+    {
+        try {
+            AdminNotification::create([
+                'type'     => $type,
+                'title'    => $title,
+                'message'  => $message,
+                'is_read'  => false,
+                'metadata' => $metadata ?: null,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Could not create admin notification: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Send a transactional order-status email to the customer.
+     * Falls back gracefully when mail is not configured (log driver).
+     */
+    private function sendCustomerOrderEmail(Order $order, string $subject, string $htmlBody): void
+    {
+        // Ensure customer relation is loaded so we can grab their email
+        if (!$order->relationLoaded('customer') && $order->customer_id) {
+            $order->load('customer');
+        }
+
+        // Priority: User.email → customer_contact (only if it looks like email)
+        $emailAddress = $order->customer?->email ?? null;
+
+        if (!$emailAddress && $order->customer_contact) {
+            $contact = trim($order->customer_contact);
+            if (filter_var($contact, FILTER_VALIDATE_EMAIL)) {
+                $emailAddress = $contact;
+            }
+        }
+
+        if (!$emailAddress) {
+            Log::info("Skipping order email — no valid customer email for Order #{$order->id}");
+            return;
+        }
+
+        $orderId = (string) $order->id;
+        $fromAddress = config('mail.from.address', 'noreply@cnsc-fmrc.edu.ph');
+        $fromName = config('mail.from.name', 'CNSC-FMRC');
+
+        $emailDispatch = function () use ($emailAddress, $subject, $htmlBody, $orderId, $fromAddress, $fromName) {
+            try {
+                Mail::html($htmlBody, function ($message) use ($emailAddress, $subject, $fromAddress, $fromName) {
+                    $message->to($emailAddress)
+                        ->subject($subject)
+                        ->from($fromAddress, $fromName);
+                });
+
+                Log::info("Customer order email sent to {$emailAddress} | Subject: {$subject} | Order #{$orderId}");
+            } catch (\Throwable $e) {
+                Log::error("Customer order email FAILED for Order #{$orderId} to {$emailAddress}: " . $e->getMessage());
+            }
+        };
+
+        $this->dispatchAfterResponse($emailDispatch);
+    }
+
+    /**
+     * Build the styled HTML email body for order status notifications.
+     */
+    private function buildOrderEmailHtml(Order $order, string $headline, string $bodyText, string $statusColor = '#800000'): string
+    {
+        $orderNo   = htmlspecialchars($order->order_no ?? "ORD-{$order->id}", ENT_QUOTES);
+        $headline  = htmlspecialchars($headline, ENT_QUOTES);
+        $bodyText  = nl2br(htmlspecialchars($bodyText, ENT_QUOTES));
+        $total     = '₱ ' . number_format((float) $order->total, 2, '.', ',');
+        $stage     = self::STAGE_LABELS[$order->customer_stage] ?? 'Processing';
+        $stageHtml = htmlspecialchars($stage, ENT_QUOTES);
+
+        return <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{$headline}</title>
+</head>
+<body style="margin:0;padding:0;background:#f4f4f6;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f6;padding:30px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.09);max-width:600px;">
+        <!-- Header -->
+        <tr>
+          <td style="background:{$statusColor};padding:28px 36px;text-align:center;">
+            <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;letter-spacing:.3px;">CNSC-FMRC</h1>
+            <p style="margin:6px 0 0;color:rgba(255,255,255,.85);font-size:13px;">Fabrication &amp; Manufacturing Research Center</p>
+          </td>
+        </tr>
+        <!-- Body -->
+        <tr>
+          <td style="padding:32px 36px;">
+            <h2 style="margin:0 0 12px;color:#1a202c;font-size:18px;">{$headline}</h2>
+            <p style="margin:0 0 20px;color:#4a5568;font-size:14px;line-height:1.7;">{$bodyText}</p>
+            <!-- Order summary chip -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fb;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:24px;">
+              <tr>
+                <td style="padding:18px 22px;">
+                  <table width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="font-size:13px;color:#718096;padding-bottom:8px;">Order Number</td>
+                      <td align="right" style="font-size:13px;font-weight:700;color:#1a202c;padding-bottom:8px;">{$orderNo}</td>
+                    </tr>
+                    <tr>
+                      <td style="font-size:13px;color:#718096;padding-bottom:8px;">Status</td>
+                      <td align="right" style="font-size:13px;font-weight:700;color:{$statusColor};padding-bottom:8px;">{$stageHtml}</td>
+                    </tr>
+                    <tr>
+                      <td style="font-size:13px;color:#718096;">Total Amount</td>
+                      <td align="right" style="font-size:14px;font-weight:700;color:#1a202c;">{$total}</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:0;color:#718096;font-size:12px;">You can track your order status by logging into your account at any time.</p>
+          </td>
+        </tr>
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f8f9fb;border-top:1px solid #e2e8f0;padding:18px 36px;text-align:center;">
+            <p style="margin:0;color:#a0aec0;font-size:11px;">© 2025 CNSC-FMRC · Camarines Norte State College</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
+HTML;
+    }
+
+    private function dispatchAfterResponse(callable $callback): void
+    {
+        try {
+            app()->terminating($callback);
+        } catch (\Throwable $e) {
+            $callback();
+        }
     }
 
     private function normalizePaymentMethod(string $raw): ?string

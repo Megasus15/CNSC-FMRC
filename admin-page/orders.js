@@ -36,7 +36,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const API_BASE_URL = resolveApiBaseUrl();
   const authToken = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token");
   const PHILIPPINES_TIME_ZONE = "Asia/Manila";
-  const REQUEST_TIMEOUT_MS = 15000;
+  const REQUEST_TIMEOUT_MS = 25000; // Increased to 25s because local Laravel SMTP blocking causes long load times
   const ORDERS_REALTIME_CHANNEL = "fmrc-orders-realtime";
   const ORDERS_BACKGROUND_SYNC_MS = 6000;
   const MIN_SYNC_GAP_MS = 2500;
@@ -318,6 +318,40 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     window.alert(message);
+  };
+
+  const ORDERS_SUCCESS_FLASH_KEY = "fmrc_orders_success_flash";
+
+  const queueSuccessFlash = (message, title = "Success") => {
+    try {
+      sessionStorage.setItem(
+        ORDERS_SUCCESS_FLASH_KEY,
+        JSON.stringify({ message: String(message || "Success"), title: String(title || "Success") }),
+      );
+    } catch {
+      // Ignore storage failures (private mode/quota).
+    }
+  };
+
+  const showQueuedSuccess = () => {
+    let payload = null;
+    try {
+      payload = JSON.parse(sessionStorage.getItem(ORDERS_SUCCESS_FLASH_KEY) || "null");
+    } catch {
+      payload = null;
+    }
+
+    if (!payload?.message) return;
+
+    try {
+      sessionStorage.removeItem(ORDERS_SUCCESS_FLASH_KEY);
+    } catch {
+      // Ignore storage failures.
+    }
+
+    window.setTimeout(() => {
+      showPopup(payload.message, { title: payload.title || "Success" });
+    }, 0);
   };
 
   const askConfirm = (message, options = {}) =>
@@ -890,10 +924,12 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      if (showErrorPopup) {
+      if (showErrorPopup && source === "manual") {
         showPopup(error.message || "Unable to load orders from the server.", {
           title: "Sync Failed",
         });
+      } else {
+        console.warn("[Orders] Background sync failed:", error?.message || error);
       }
 
       renderEmptyTable(incomingCompactTbody, 7, "Unable to load incoming orders.");
@@ -995,9 +1031,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       renderAll();
-      showPopup(config.success, { title: "Success" });
       notifyOrdersRealtimeUpdate({ type: `order-${action}`, orderId: String(orderId) });
-      void syncOrders(false, { force: true, source: "action" });
+      queueSuccessFlash(config.success, "Success");
+      window.location.reload();
     } catch (error) {
       showPopup(error.message || "Action failed.", { title: "Action Failed" });
     }
@@ -1028,9 +1064,9 @@ document.addEventListener("DOMContentLoaded", () => {
         method: "DELETE",
       });
 
-      showPopup("Payment record deleted successfully.", { title: "Deleted" });
       notifyOrdersRealtimeUpdate({ type: "payment-deleted", orderId: key });
-      void syncOrders(false, { force: true, source: "action" });
+      queueSuccessFlash("Payment record deleted successfully.", "Deleted");
+      window.location.reload();
     } catch (error) {
       showPopup(error.message || "Unable to delete payment record.", {
         title: "Delete Failed",
@@ -1291,9 +1327,13 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       closeWalkInOrderModal();
-      showPopup(payload?.message || (activeWalkInOrderId ? "Walk-in customer record updated successfully." : "Walk-in customer record added successfully."), { title: "Success" });
       notifyOrdersRealtimeUpdate({ type: activeWalkInOrderId ? "walkin-updated" : "walkin-created" });
-      void syncOrders(false, { force: true, source: "action" });
+      queueSuccessFlash(
+        payload?.message ||
+          (activeWalkInOrderId ? "Walk-in customer record updated successfully." : "Walk-in customer record added successfully."),
+        "Success",
+      );
+      window.location.reload();
     } catch (error) {
       showPopup(error.message || (activeWalkInOrderId ? "Unable to update walk-in customer record." : "Unable to add walk-in customer record."), { title: "Save Failed" });
     } finally {
@@ -1494,9 +1534,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       modalTrackingUpdate?.classList.remove("show");
-      showPopup("Tracking update saved successfully.", { title: "Success" });
       notifyOrdersRealtimeUpdate({ type: "tracking-updated", orderId: String(orderId) });
-      void syncOrders(false, { force: true, source: "action" });
+      queueSuccessFlash("Tracking update saved successfully.", "Success");
+      window.location.reload();
     } catch (error) {
       showPopup(error.message || "Unable to save tracking update.", {
         title: "Update Failed",
@@ -1604,9 +1644,9 @@ document.addEventListener("DOMContentLoaded", () => {
             state.walkIn = state.walkIn.filter(o => String(o.id) !== String(id));
             renderWalkInTable();
             modalDelete?.classList.remove("show");
-            showPopup("Walk-in order deleted successfully.", { title: "Deleted" });
             notifyOrdersRealtimeUpdate({ type: "walkin-deleted" });
-            void syncOrders(false, { force: true, source: "action" });
+            queueSuccessFlash("Walk-in order deleted successfully.", "Deleted");
+            window.location.reload();
           } catch (error) {
             showPopup(error.message || "Failed to delete walk-in order.", { title: "Error" });
           } finally {
@@ -1638,8 +1678,16 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
+  showQueuedSuccess();
+
+  const isPopupVisible = () => {
+    const popup = document.getElementById("adminSystemPopup");
+    return popup && popup.classList.contains("show");
+  };
+
   state.pollTimer = window.setInterval(() => {
     if (document.hidden) return;
+    if (isPopupVisible()) return; // Pause auto-sync if a popup is visible
     void syncOrders(false, { source: "auto" });
   }, ORDERS_BACKGROUND_SYNC_MS);
 
@@ -1654,6 +1702,7 @@ document.addEventListener("DOMContentLoaded", () => {
       payload = {};
     }
     if (!shouldProcessRealtimeSignal(payload)) return;
+    if (isPopupVisible()) return;
 
     void syncOrders(false, { force: true, source: "realtime" });
   });
@@ -1663,6 +1712,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (payload?.source === "admin-orders") return;
     if (document.hidden) return;
     if (!shouldProcessRealtimeSignal(payload)) return;
+    if (isPopupVisible()) return;
     void syncOrders(false, { force: true, source: "realtime" });
   });
 
@@ -1672,16 +1722,19 @@ document.addEventListener("DOMContentLoaded", () => {
     if (payload?.source === "admin-orders") return;
     if (document.hidden) return;
     if (!shouldProcessRealtimeSignal(payload)) return;
+    if (isPopupVisible()) return;
     void syncOrders(false, { force: true, source: "realtime" });
   });
 
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) return;
+    if (isPopupVisible()) return;
     void syncOrders(false, { force: true, source: "realtime" });
   });
 
   window.addEventListener("focus", () => {
     if (document.hidden) return;
+    if (isPopupVisible()) return;
     void syncOrders(false, { force: true, source: "realtime" });
   });
 

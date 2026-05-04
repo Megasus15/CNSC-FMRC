@@ -8,6 +8,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
@@ -52,6 +54,37 @@ class AuthController extends Controller
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
+
+        // --- Welcome Email ---
+        $emailDispatch = null;
+        try {
+            $emailAddress = $user->email;
+            if ($emailAddress && filter_var($emailAddress, FILTER_VALIDATE_EMAIL)) {
+                $emailHtml = $this->buildWelcomeEmailHtml($user);
+                $userId = (string) $user->id;
+                $fromAddress = config('mail.from.address', 'noreply@cnsc-fmrc.edu.ph');
+                $fromName = config('mail.from.name', 'CNSC-FMRC');
+
+                $emailDispatch = function () use ($emailAddress, $emailHtml, $userId, $fromAddress, $fromName) {
+                    try {
+                        Mail::html($emailHtml, function ($message) use ($emailAddress, $fromAddress, $fromName) {
+                            $message->to($emailAddress)
+                                ->subject('Welcome to CNSC-FMRC!')
+                                ->from($fromAddress, $fromName);
+                        });
+                        Log::info("Welcome email sent to {$emailAddress} for user #{$userId}");
+                    } catch (\Throwable $e) {
+                        Log::error("Welcome email FAILED for user #{$userId}: " . $e->getMessage());
+                    }
+                };
+            }
+        } catch (\Throwable $e) {
+            Log::error("Welcome email dispatch setup FAILED for user #{$user->id}: " . $e->getMessage());
+        }
+
+        if ($emailDispatch) {
+            $this->dispatchAfterResponse($emailDispatch);
+        }
 
         return response()->json([
             'user' => $user,
@@ -344,5 +377,91 @@ class AuthController extends Controller
         $user->save();
 
         return response()->json(['message' => 'Password changed successfully']);
+    }
+
+    private function buildWelcomeEmailHtml(User $user): string
+    {
+        $name    = e($user->name ?? 'Valued Customer');
+        $email   = e($user->email);
+        $appName = config('app.name') ?: 'CNSC-FMRC';
+        if (strtolower($appName) === 'laravel') {
+            $appName = 'CNSC-FMRC';
+        }
+        $year    = now()->year;
+        $accent  = '#800000';
+
+        return <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f4f6f9;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:32px 16px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+<!-- Header -->
+<tr><td style="background:{$accent};padding:28px 32px;text-align:center;">
+    <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.3px;">CNSC-FMRC</h1>
+    <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">Customer Portal &middot; Fabrication &amp; Manufacturing Research Center</p>
+</td></tr>
+
+<!-- Body -->
+<tr><td style="padding:32px;">
+    <h2 style="margin:0 0 12px;color:#1f2937;font-size:20px;font-weight:700;">Welcome to the CNSC-FMRC Customer Portal, {$name}!</h2>
+    <p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.7;">
+        We're pleased to have you on the platform. Your account has been created for the <strong>Camarines Norte State College &mdash; Fabrication and Manufacturing Research Center (CNSC-FMRC)</strong>, and you can now access appointments, orders, and updates.
+    </p>
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;">
+    <tr>
+      <td style="padding:14px 20px;border-bottom:1px solid #f1f4f8;">
+        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Account Name</span><br>
+        <span style="color:#111827;font-size:15px;font-weight:700;">{$name}</span>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:14px 20px;">
+        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Email</span><br>
+        <span style="color:#111827;font-size:15px;font-weight:700;">{$email}</span>
+      </td>
+    </tr>
+  </table>
+
+  <p style="margin:0 0 10px;color:#374151;font-size:14px;line-height:1.7;">With your new account, you can:</p>
+  <ul style="margin:0 0 20px;padding-left:20px;color:#374151;font-size:14px;line-height:2;">
+    <li>Browse and order fabrication products</li>
+    <li>Schedule appointments with the FMRC team</li>
+    <li>Track your orders in real-time</li>
+    <li>Manage your profile and preferences</li>
+  </ul>
+
+  <p style="color:#6b7280;font-size:13px;line-height:1.6;margin:0;">
+    If you did not create this account, please disregard this email or contact us immediately.
+  </p>
+</td></tr>
+
+<!-- Footer -->
+<tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 32px;text-align:center;">
+  <p style="margin:0;color:#9ca3af;font-size:12px;">
+    &copy; {$year} {$appName}. All rights reserved.<br>
+    This is an automated notification &mdash; please do not reply to this email.
+  </p>
+</td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>
+HTML;
+    }
+
+    private function dispatchAfterResponse(callable $callback): void
+    {
+        try {
+            app()->terminating($callback);
+        } catch (\Throwable $e) {
+            $callback();
+        }
     }
 }

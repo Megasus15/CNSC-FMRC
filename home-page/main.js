@@ -18,7 +18,7 @@ const getCustomerSession = () => {
 
 const ORDER_STAGE_FLOW = ["to_pay", "to_ship", "to_receive", "completed"];
 const PHILIPPINES_TIME_ZONE = "Asia/Manila";
-const API_REQUEST_TIMEOUT_MS = 15000;
+const API_REQUEST_TIMEOUT_MS = 8000;
 const ORDERS_REALTIME_SIGNAL_KEY = "fmrc_orders_updated_at";
 const ORDERS_REALTIME_CHANNEL = "fmrc-orders-realtime";
 const CUSTOMER_ORDERS_FALLBACK_SYNC_MS = 6000;
@@ -31,7 +31,9 @@ let ordersRealtimeChannel = null;
 const getOrdersRealtimeChannel = () => {
   if (typeof window.BroadcastChannel !== "function") return null;
   if (!ordersRealtimeChannel) {
-    ordersRealtimeChannel = new window.BroadcastChannel(ORDERS_REALTIME_CHANNEL);
+    ordersRealtimeChannel = new window.BroadcastChannel(
+      ORDERS_REALTIME_CHANNEL,
+    );
   }
   return ordersRealtimeChannel;
 };
@@ -39,7 +41,9 @@ const getOrdersRealtimeChannel = () => {
 const resolveApiBaseUrl = () => {
   const configured =
     window.APP_API_BASE_URL ||
-    document.querySelector('meta[name="api-base-url"]')?.getAttribute("content") ||
+    document
+      .querySelector('meta[name="api-base-url"]')
+      ?.getAttribute("content") ||
     "";
 
   if (configured.trim()) {
@@ -79,7 +83,9 @@ const emitCustomerOrdersUpdated = (detail = {}) => {
     ...detail,
   };
 
-  window.dispatchEvent(new CustomEvent("fmrc:orders-updated", { detail: payload }));
+  window.dispatchEvent(
+    new CustomEvent("fmrc:orders-updated", { detail: payload }),
+  );
 
   try {
     localStorage.setItem(ORDERS_REALTIME_SIGNAL_KEY, JSON.stringify(payload));
@@ -103,7 +109,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const logoContainer = siteHeader?.querySelector(".logo-container");
   const headerActions = siteHeader?.querySelector(".header-right-actions");
 
-  if (siteHeader && mainNav && logoContainer && !document.querySelector(".mobile-menu-toggle")) {
+  if (
+    siteHeader &&
+    mainNav &&
+    logoContainer &&
+    !document.querySelector(".mobile-menu-toggle")
+  ) {
     const menuToggle = document.createElement("button");
     menuToggle.type = "button";
     menuToggle.className = "mobile-menu-toggle";
@@ -132,7 +143,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const sidebarBrand = document.createElement("a");
     sidebarBrand.className = "sidebar-logo-container";
-    sidebarBrand.href = logoContainer.getAttribute("href") || "/home-page/main.html";
+    sidebarBrand.href =
+      logoContainer.getAttribute("href") || "/home-page/main.html";
     sidebarBrand.innerHTML = logoContainer.innerHTML;
 
     sidebarHeader.append(sidebarCloseBtn, sidebarBrand);
@@ -230,10 +242,12 @@ document.addEventListener("DOMContentLoaded", () => {
       `;
       document.body.appendChild(modal);
 
-      modal.querySelector("#closeGuestAccessModal")?.addEventListener("click", () => {
-        modal.classList.remove("show");
-        document.body.style.overflow = "";
-      });
+      modal
+        .querySelector("#closeGuestAccessModal")
+        ?.addEventListener("click", () => {
+          modal.classList.remove("show");
+          document.body.style.overflow = "";
+        });
 
       modal.addEventListener("click", (event) => {
         if (event.target === modal) {
@@ -261,7 +275,11 @@ document.addEventListener("DOMContentLoaded", () => {
     return false;
   };
 
-  const fetchWithTimeout = async (url, options = {}, timeoutMs = API_REQUEST_TIMEOUT_MS) => {
+  const fetchWithTimeout = async (
+    url,
+    options = {},
+    timeoutMs = API_REQUEST_TIMEOUT_MS,
+  ) => {
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
     const { signal: _ignoredSignal, ...restOptions } = options;
@@ -273,7 +291,9 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     } catch (error) {
       if (error?.name === "AbortError") {
-        throw new Error("Request timed out. Please check your connection and try again.");
+        throw new Error(
+          "Request timed out. Please check your connection and try again.",
+        );
       }
 
       throw error;
@@ -512,12 +532,24 @@ document.addEventListener("DOMContentLoaded", () => {
   const modalImage = document.getElementById("modalImage");
   const modalDesc = document.querySelector("#serviceModal .modal-desc");
   const featureChips = document.querySelector("#serviceModal .feature-chips");
-  const modalList1 = document.querySelector("#serviceModal .modal-columns .modal-col:first-child .modal-list");
-  const modalList2 = document.querySelector("#serviceModal .modal-columns .modal-col:last-child .modal-list");
-  const modalSub1 = document.querySelector("#serviceModal .modal-columns .modal-col:first-child .modal-subtitle");
-  const modalSub2 = document.querySelector("#serviceModal .modal-columns .modal-col:last-child .modal-subtitle");
+  const modalList1 = document.querySelector(
+    "#serviceModal .modal-columns .modal-col:first-child .modal-list",
+  );
+  const modalList2 = document.querySelector(
+    "#serviceModal .modal-columns .modal-col:last-child .modal-list",
+  );
+  const modalSub1 = document.querySelector(
+    "#serviceModal .modal-columns .modal-col:first-child .modal-subtitle",
+  );
+  const modalSub2 = document.querySelector(
+    "#serviceModal .modal-columns .modal-col:last-child .modal-subtitle",
+  );
 
-  function escHtmlModal(str) { const d = document.createElement("div"); d.textContent = str || ""; return d.innerHTML; }
+  function escHtmlModal(str) {
+    const d = document.createElement("div");
+    d.textContent = str || "";
+    return d.innerHTML;
+  }
 
   document.body.addEventListener("click", function (e) {
     // Open Modal logic
@@ -527,43 +559,62 @@ document.addEventListener("DOMContentLoaded", () => {
         const card = openBtn.closest(".service-card");
         if (card) {
           // Title
-          const title = openBtn.dataset.title || card.querySelector(".card-title")?.innerText || "";
+          const title =
+            openBtn.dataset.title ||
+            card.querySelector(".card-title")?.innerText ||
+            "";
           if (modalTitle) modalTitle.innerText = title;
 
           // Image
           if (modalImage) {
-            const img = openBtn.dataset.img || card.querySelector(".card-img-holder img")?.src || "";
+            const img =
+              openBtn.dataset.img ||
+              card.querySelector(".card-img-holder img")?.src ||
+              "";
             modalImage.src = img;
             modalImage.style.display = img ? "block" : "none";
           }
 
           // Description
           if (modalDesc) {
-            modalDesc.textContent = openBtn.dataset.desc || card.querySelector(".card-desc")?.innerText || "";
+            modalDesc.textContent =
+              openBtn.dataset.desc ||
+              card.querySelector(".card-desc")?.innerText ||
+              "";
           }
 
           // Feature chips
           let features = [];
-          try { features = JSON.parse(openBtn.dataset.features || "[]"); } catch {}
+          try {
+            features = JSON.parse(openBtn.dataset.features || "[]");
+          } catch {}
           if (featureChips) {
             const subEl = featureChips.previousElementSibling;
             if (features.length) {
-              featureChips.innerHTML = features.map(f => `<span class="chip">${escHtmlModal(f)}</span>`).join("");
+              featureChips.innerHTML = features
+                .map((f) => `<span class="chip">${escHtmlModal(f)}</span>`)
+                .join("");
               featureChips.style.display = "";
-              if (subEl && subEl.classList.contains("modal-subtitle")) subEl.style.display = "";
+              if (subEl && subEl.classList.contains("modal-subtitle"))
+                subEl.style.display = "";
             } else {
               featureChips.innerHTML = "";
               featureChips.style.display = "none";
-              if (subEl && subEl.classList.contains("modal-subtitle")) subEl.style.display = "none";
+              if (subEl && subEl.classList.contains("modal-subtitle"))
+                subEl.style.display = "none";
             }
           }
 
           // Materials
           let materials = [];
-          try { materials = JSON.parse(openBtn.dataset.materials || "[]"); } catch {}
+          try {
+            materials = JSON.parse(openBtn.dataset.materials || "[]");
+          } catch {}
           if (modalList1) {
             if (materials.length) {
-              modalList1.innerHTML = materials.map(m => `<li>${escHtmlModal(m)}</li>`).join("");
+              modalList1.innerHTML = materials
+                .map((m) => `<li>${escHtmlModal(m)}</li>`)
+                .join("");
               if (modalSub1) modalSub1.style.display = "";
               modalList1.style.display = "";
             } else {
@@ -574,10 +625,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
           // Best For
           let bestFor = [];
-          try { bestFor = JSON.parse(openBtn.dataset.bestFor || openBtn.dataset["best-for"] || "[]"); } catch {}
+          try {
+            bestFor = JSON.parse(
+              openBtn.dataset.bestFor || openBtn.dataset["best-for"] || "[]",
+            );
+          } catch {}
           if (modalList2) {
             if (bestFor.length) {
-              modalList2.innerHTML = bestFor.map(b => `<li>${escHtmlModal(b)}</li>`).join("");
+              modalList2.innerHTML = bestFor
+                .map((b) => `<li>${escHtmlModal(b)}</li>`)
+                .join("");
               if (modalSub2) modalSub2.style.display = "";
               modalList2.style.display = "";
             } else {
@@ -615,21 +672,32 @@ document.addEventListener("DOMContentLoaded", () => {
   if (isServicesPage) {
     const searchInput = document.querySelector(".toolbar-search .search-input");
     const categorySelect = document.querySelector(".category-select");
-    const serviceCards = Array.from(document.querySelectorAll(".services-grid .service-card"));
+    const serviceCards = Array.from(
+      document.querySelectorAll(".services-grid .service-card"),
+    );
 
-    const normalize = (value) => String(value || "").toLowerCase().trim();
+    const normalize = (value) =>
+      String(value || "")
+        .toLowerCase()
+        .trim();
 
     const applyServiceFilters = () => {
       const query = normalize(searchInput?.value || "");
       const selectedCategory = normalize(categorySelect?.value || "all");
 
       serviceCards.forEach((card) => {
-        const title = normalize(card.querySelector(".card-title")?.textContent || "");
-        const desc = normalize(card.querySelector(".card-desc")?.textContent || "");
+        const title = normalize(
+          card.querySelector(".card-title")?.textContent || "",
+        );
+        const desc = normalize(
+          card.querySelector(".card-desc")?.textContent || "",
+        );
         const category = normalize(card.dataset.category || "");
 
-        const matchesSearch = !query || title.includes(query) || desc.includes(query);
-        const matchesCategory = selectedCategory === "all" || category === selectedCategory;
+        const matchesSearch =
+          !query || title.includes(query) || desc.includes(query);
+        const matchesCategory =
+          selectedCategory === "all" || category === selectedCategory;
         card.style.display = matchesSearch && matchesCategory ? "" : "none";
       });
     };
@@ -660,11 +728,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
           if (index === currentIndex) {
             item.classList.add("active");
-          } else if (index === (currentIndex - 1 + items.length) % items.length) {
+          } else if (
+            index ===
+            (currentIndex - 1 + items.length) % items.length
+          ) {
             item.classList.add("prev");
           } else if (index === (currentIndex + 1) % items.length) {
             item.classList.add("next");
-          } else if (index === (currentIndex - 2 + items.length) % items.length) {
+          } else if (
+            index ===
+            (currentIndex - 2 + items.length) % items.length
+          ) {
             item.classList.add("prev-hidden");
           } else if (index === (currentIndex + 2) % items.length) {
             item.classList.add("next-hidden");
@@ -738,7 +812,9 @@ document.addEventListener("DOMContentLoaded", () => {
         startAutoPlay();
       });
 
-      wrapper.addEventListener("mouseenter", () => clearInterval(autoPlayInterval));
+      wrapper.addEventListener("mouseenter", () =>
+        clearInterval(autoPlayInterval),
+      );
       wrapper.addEventListener("mouseleave", startAutoPlay);
 
       updateCarousel();
@@ -784,14 +860,22 @@ document.addEventListener("DOMContentLoaded", () => {
     const filterSelect = document.getElementById("productFilterSelect");
 
     const productInfoModal = document.getElementById("productInfoModal");
-    const closeProductInfoModal = document.getElementById("closeProductInfoModal");
+    const closeProductInfoModal = document.getElementById(
+      "closeProductInfoModal",
+    );
     const productInfoTitle = document.getElementById("productInfoTitle");
     const productInfoImage = document.getElementById("productInfoImage");
     const productInfoSummary = document.getElementById("productInfoSummary");
     const productInfoChips = document.getElementById("productInfoChips");
-    const productInfoAvailability = document.getElementById("productInfoAvailability");
-    const productInfoRecommended = document.getElementById("productInfoRecommended");
-    const productInfoAddToCart = document.getElementById("productInfoAddToCart");
+    const productInfoAvailability = document.getElementById(
+      "productInfoAvailability",
+    );
+    const productInfoRecommended = document.getElementById(
+      "productInfoRecommended",
+    );
+    const productInfoAddToCart = document.getElementById(
+      "productInfoAddToCart",
+    );
     const productInfoBuyNow = document.getElementById("productInfoBuyNow");
 
     let activeProductCard = null;
@@ -813,7 +897,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     productCards.forEach((card, index) => {
       const nameEl = card.querySelector(".product-name");
-      const nameText = nameEl ? nameEl.innerText.trim() : `Product ${index + 1}`;
+      const nameText = nameEl
+        ? nameEl.innerText.trim()
+        : `Product ${index + 1}`;
       const inferredCategory = getCategoryFromName(nameText);
 
       card.dataset.category = card.dataset.category || inferredCategory;
@@ -822,7 +908,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const productInfo = card.querySelector(".product-info");
       const priceEl = card.querySelector(".product-price");
 
-      if (productInfo && priceEl && !card.querySelector(".product-rating-row")) {
+      if (
+        productInfo &&
+        priceEl &&
+        !card.querySelector(".product-rating-row")
+      ) {
         const ratingRow = document.createElement("div");
         ratingRow.className = "product-rating-row";
         ratingRow.innerHTML = `
@@ -951,7 +1041,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (productInfoAddToCart) {
       productInfoAddToCart.addEventListener("click", () => {
-        const addBtn = activeProductCard?.querySelector(".btn-add-cart:not(.disabled)");
+        const addBtn = activeProductCard?.querySelector(
+          ".btn-add-cart:not(.disabled)",
+        );
         if (addBtn) {
           closeInfoModal();
           addBtn.click();
@@ -961,7 +1053,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (productInfoBuyNow) {
       productInfoBuyNow.addEventListener("click", () => {
-        const buyBtn = activeProductCard?.querySelector(".btn-buy-now:not(.disabled)");
+        const buyBtn = activeProductCard?.querySelector(
+          ".btn-buy-now:not(.disabled)",
+        );
         if (buyBtn) {
           closeInfoModal();
           buyBtn.click();
@@ -977,7 +1071,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const cards = Array.from(shopGrid?.querySelectorAll(".shop-card") || []);
 
       cards.forEach((card) => {
-        const nameText = card.querySelector(".product-name")?.innerText.toLowerCase() || "";
+        const nameText =
+          card.querySelector(".product-name")?.innerText.toLowerCase() || "";
         const category = card.dataset.category || "all";
         const stockBadge = card.querySelector(".stock-badge");
         const isOutOfStock = stockBadge?.classList.contains("out-of-stock");
@@ -996,8 +1091,14 @@ document.addEventListener("DOMContentLoaded", () => {
         card.style.display = visible ? "flex" : "none";
       });
 
-      if (selectedFilter === "price-low" || selectedFilter === "price-high" || selectedFilter === "top-rated") {
-        const visibleCards = cards.filter((card) => card.style.display !== "none");
+      if (
+        selectedFilter === "price-low" ||
+        selectedFilter === "price-high" ||
+        selectedFilter === "top-rated"
+      ) {
+        const visibleCards = cards.filter(
+          (card) => card.style.display !== "none",
+        );
 
         visibleCards.sort((a, b) => {
           if (selectedFilter === "top-rated") {
@@ -1008,13 +1109,16 @@ document.addEventListener("DOMContentLoaded", () => {
           }
 
           const getPrice = (cardEl) => {
-            const priceText = cardEl.querySelector(".product-price")?.innerText || "₱0";
+            const priceText =
+              cardEl.querySelector(".product-price")?.innerText || "₱0";
             return parseFloat(priceText.replace(/[^0-9.]/g, ""));
           };
 
           const priceA = getPrice(a);
           const priceB = getPrice(b);
-          return selectedFilter === "price-low" ? priceA - priceB : priceB - priceA;
+          return selectedFilter === "price-low"
+            ? priceA - priceB
+            : priceB - priceA;
         });
 
         visibleCards.forEach((card) => shopGrid.appendChild(card));
@@ -1024,7 +1128,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (searchInput) searchInput.addEventListener("input", applyProductFilters);
     if (categorySelect)
       categorySelect.addEventListener("change", applyProductFilters);
-    if (filterSelect) filterSelect.addEventListener("change", applyProductFilters);
+    if (filterSelect)
+      filterSelect.addEventListener("change", applyProductFilters);
 
     applyProductFilters();
   }
@@ -1108,9 +1213,12 @@ document.addEventListener("DOMContentLoaded", () => {
   if (btnMinusQty && btnPlusQty && inputQty) {
     btnMinusQty.addEventListener("click", () => {
       if (isCheckoutQtyLocked) {
-        void showCustomerPopup("Edit quantities directly in your cart for cart checkout.", {
-          title: "Quantity Locked",
-        });
+        void showCustomerPopup(
+          "Edit quantities directly in your cart for cart checkout.",
+          {
+            title: "Quantity Locked",
+          },
+        );
         return;
       }
 
@@ -1122,9 +1230,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     btnPlusQty.addEventListener("click", () => {
       if (isCheckoutQtyLocked) {
-        void showCustomerPopup("Edit quantities directly in your cart for cart checkout.", {
-          title: "Quantity Locked",
-        });
+        void showCustomerPopup(
+          "Edit quantities directly in your cart for cart checkout.",
+          {
+            title: "Quantity Locked",
+          },
+        );
         return;
       }
 
@@ -1162,13 +1273,17 @@ document.addEventListener("DOMContentLoaded", () => {
         currentCheckoutMode = "single";
         currentCheckoutItems = [];
         setCheckoutQtyLock(false);
-        currentProductId = Number(card.getAttribute("data-product-id") || "") || null;
+        currentProductId =
+          Number(card.getAttribute("data-product-id") || "") || null;
 
         if (stockText.toLowerCase().includes("unlimited")) {
           currentMaxStock = 9999;
           setCheckoutStockNotice("Unlimited");
         } else {
-          currentMaxStock = Math.max(0, parseInt(stockText.replace(/[^0-9]/g, ""), 10) || 0);
+          currentMaxStock = Math.max(
+            0,
+            parseInt(stockText.replace(/[^0-9]/g, ""), 10) || 0,
+          );
           setCheckoutStockNotice(currentMaxStock);
         }
 
@@ -1203,25 +1318,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const imgScr = product.image_data || "/images/FMRC Logo.png";
     const title = String(product.name || "");
-    const unitPrice = Number.isFinite(Number(product.price)) ? Number(product.price) : 0;
+    const unitPrice = Number.isFinite(Number(product.price))
+      ? Number(product.price)
+      : 0;
 
     currentCheckoutMode = "single";
     currentCheckoutItems = [];
     setCheckoutQtyLock(false);
-    currentMaxStock = product.stock_status === "in_stock" ? Math.max(0, Number(product.stock) || 0) : 0;
-    setCheckoutStockNotice(currentMaxStock === 0 ? "Out of Stock" : currentMaxStock);
+    currentMaxStock =
+      product.stock_status === "in_stock"
+        ? Math.max(0, Number(product.stock) || 0)
+        : 0;
+    setCheckoutStockNotice(
+      currentMaxStock === 0 ? "Out of Stock" : currentMaxStock,
+    );
 
     currentItemPrice = unitPrice;
     currentProductId = product.id || null;
     if (inputQty) {
-        inputQty.value = 1;
-        inputQty.max = currentMaxStock;
+      inputQty.value = 1;
+      inputQty.max = currentMaxStock;
     }
     if (protectionCheck) protectionCheck.checked = false;
 
     if (checkoutImg) checkoutImg.src = imgScr;
     if (checkoutTitle) checkoutTitle.innerText = title;
-    if (checkoutPrice) checkoutPrice.innerText = typeof formatPrice === 'function' ? formatPrice(unitPrice) : '₱' + unitPrice.toFixed(2);
+    if (checkoutPrice)
+      checkoutPrice.innerText =
+        typeof formatPrice === "function"
+          ? formatPrice(unitPrice)
+          : "₱" + unitPrice.toFixed(2);
 
     if (guideImg) guideImg.src = imgScr;
     if (guideTitle) guideTitle.innerText = title;
@@ -1266,11 +1392,17 @@ document.addEventListener("DOMContentLoaded", () => {
   // Select and manage checkout addresses using profile data + local address book.
   const openAddAddressBtn = document.getElementById("openAddAddressBtn");
   const addInfoModal = document.getElementById("addInfoModal");
-  const addressList = document.getElementById("addressList") || document.querySelector(".address-list");
+  const addressList =
+    document.getElementById("addressList") ||
+    document.querySelector(".address-list");
   const addressEditModeBtn = document.getElementById("addressEditModeBtn");
-  const addressSelectionFooter = document.getElementById("addressSelectionFooter");
+  const addressSelectionFooter = document.getElementById(
+    "addressSelectionFooter",
+  );
   const selectAllAddressBtn = document.getElementById("selectAllAddressBtn");
-  const deleteSelectedAddressBtn = document.getElementById("deleteSelectedAddressBtn");
+  const deleteSelectedAddressBtn = document.getElementById(
+    "deleteSelectedAddressBtn",
+  );
   const deleteAllAddressBtn = document.getElementById("deleteAllAddressBtn");
   const cartShortAddressText = document.getElementById("cartShortAddressText");
 
@@ -1296,7 +1428,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const saveInfoBtn = document.getElementById("saveInfoBtn");
   const saveNewInfoBtn = document.getElementById("saveNewInfoBtn");
   const backToAddressBtn = document.getElementById("backToAddressBtn");
-  const backToAddressFromAddBtn = document.getElementById("backToAddressFromAddBtn");
+  const backToAddressFromAddBtn = document.getElementById(
+    "backToAddressFromAddBtn",
+  );
 
   const ADDRESS_STORAGE_NAMESPACE = "fmrc_checkout_addresses_v1";
 
@@ -1323,7 +1457,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const getShortAddress = (addressLine) => {
-    const clean = String(addressLine || "").replace(/\s+/g, " ").trim();
+    const clean = String(addressLine || "")
+      .replace(/\s+/g, " ")
+      .trim();
     if (!clean) return "No saved address";
     if (clean.length <= 40) return clean;
     return `${clean.slice(0, 37)}...`;
@@ -1339,9 +1475,13 @@ document.addEventListener("DOMContentLoaded", () => {
     return `${ADDRESS_STORAGE_NAMESPACE}:${String(customerKey).toLowerCase()}`;
   };
 
-  const normalizePhoneDigits = (value) => String(value || "").replace(/\D/g, "").slice(0, 11);
+  const normalizePhoneDigits = (value) =>
+    String(value || "")
+      .replace(/\D/g, "")
+      .slice(0, 11);
 
-  const createAddressId = () => `addr-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  const createAddressId = () =>
+    `addr-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
   const normalizeAddressEntry = (entry = {}) => ({
     id: String(entry.id || createAddressId()),
@@ -1441,7 +1581,9 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    let defaultIndex = customerAddressBook.findIndex((entry) => entry.is_default);
+    let defaultIndex = customerAddressBook.findIndex(
+      (entry) => entry.is_default,
+    );
     if (defaultIndex < 0) {
       defaultIndex = 0;
       customerAddressBook[0].is_default = true;
@@ -1456,7 +1598,10 @@ document.addEventListener("DOMContentLoaded", () => {
       (entry) => String(entry.id) === String(selectedCheckoutAddressId),
     );
     if (!hasSelected) {
-      selectedCheckoutAddressId = customerAddressBook[defaultIndex]?.id || customerAddressBook[0]?.id || null;
+      selectedCheckoutAddressId =
+        customerAddressBook[defaultIndex]?.id ||
+        customerAddressBook[0]?.id ||
+        null;
     }
   };
 
@@ -1476,7 +1621,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const saveAddressBookToStorage = () => {
     try {
-      localStorage.setItem(getAddressStorageKey(), JSON.stringify(customerAddressBook));
+      localStorage.setItem(
+        getAddressStorageKey(),
+        JSON.stringify(customerAddressBook),
+      );
     } catch {
       // Ignore localStorage quota/write issues.
     }
@@ -1490,31 +1638,51 @@ document.addEventListener("DOMContentLoaded", () => {
     );
     if (selected) return selected;
 
-    return customerAddressBook.find((entry) => entry.is_default) || customerAddressBook[0] || null;
+    return (
+      customerAddressBook.find((entry) => entry.is_default) ||
+      customerAddressBook[0] ||
+      null
+    );
   };
 
   const renderCheckoutAddress = () => {
     const selected = getSelectedCheckoutAddress();
-    const fallbackName = customerCheckoutProfile?.name || customerSession.userInfo?.name || "No Name Provided";
+    const fallbackName =
+      customerCheckoutProfile?.name ||
+      customerSession.userInfo?.name ||
+      "No Name Provided";
     const name = selected?.name || fallbackName;
-    const phone = selected?.phone_number || customerCheckoutProfile?.phone_number || "";
-    const addressLine = selected?.address_line || customerCheckoutProfile?.address_line || "";
-    const addressDetails = selected?.address_details || customerCheckoutProfile?.address_details || "";
-    const department = selected?.department || customerCheckoutProfile?.department || "Not set";
-    const role = selected?.customer_type || customerCheckoutProfile?.customer_type || "Not set";
+    const phone =
+      selected?.phone_number || customerCheckoutProfile?.phone_number || "";
+    const addressLine =
+      selected?.address_line || customerCheckoutProfile?.address_line || "";
+    const addressDetails =
+      selected?.address_details ||
+      customerCheckoutProfile?.address_details ||
+      "";
+    const department =
+      selected?.department || customerCheckoutProfile?.department || "Not set";
+    const role =
+      selected?.customer_type ||
+      customerCheckoutProfile?.customer_type ||
+      "Not set";
 
     if (displayClientName) displayClientName.innerText = name;
-    if (displayClientPhone) displayClientPhone.innerText = getMaskedPhone(phone);
+    if (displayClientPhone)
+      displayClientPhone.innerText = getMaskedPhone(phone);
     if (displayClientAddress) {
-      displayClientAddress.innerHTML = [addressLine, addressDetails]
-        .filter(Boolean)
-        .map((entry) => escapeCustomerHtml(entry))
-        .join("<br>") || "No saved address yet. Add your details first.";
+      displayClientAddress.innerHTML =
+        [addressLine, addressDetails]
+          .filter(Boolean)
+          .map((entry) => escapeCustomerHtml(entry))
+          .join("<br>") || "No saved address yet. Add your details first.";
     }
     if (displayClientRole) displayClientRole.innerText = role;
     if (displayClientDept) displayClientDept.innerText = department;
     if (cartShortAddressText) {
-      cartShortAddressText.innerText = getShortAddress(addressLine || addressDetails);
+      cartShortAddressText.innerText = getShortAddress(
+        addressLine || addressDetails,
+      );
     }
   };
 
@@ -1530,7 +1698,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (addressSelectionFooter) {
-      addressSelectionFooter.style.display = isAddressEditMode ? "flex" : "none";
+      addressSelectionFooter.style.display = isAddressEditMode
+        ? "flex"
+        : "none";
     }
 
     const total = customerAddressBook.length;
@@ -1538,12 +1708,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (selectAllAddressBtn) {
       selectAllAddressBtn.disabled = !isAddressEditMode || total === 0;
-      selectAllAddressBtn.checked = isAddressEditMode && total > 0 && selectedCount === total;
-      selectAllAddressBtn.indeterminate = isAddressEditMode && selectedCount > 0 && selectedCount < total;
+      selectAllAddressBtn.checked =
+        isAddressEditMode && total > 0 && selectedCount === total;
+      selectAllAddressBtn.indeterminate =
+        isAddressEditMode && selectedCount > 0 && selectedCount < total;
     }
 
     if (deleteSelectedAddressBtn) {
-      deleteSelectedAddressBtn.disabled = !isAddressEditMode || selectedCount === 0;
+      deleteSelectedAddressBtn.disabled =
+        !isAddressEditMode || selectedCount === 0;
     }
 
     if (deleteAllAddressBtn) {
@@ -1569,7 +1742,8 @@ document.addEventListener("DOMContentLoaded", () => {
     addressList.innerHTML = customerAddressBook
       .map((entry) => {
         const safeId = escapeCustomerHtml(entry.id);
-        const isSelected = String(entry.id) === String(selectedCheckoutAddressId);
+        const isSelected =
+          String(entry.id) === String(selectedCheckoutAddressId);
         const isChecked = addressDeleteSelection.has(String(entry.id));
         const displayAddress = [entry.address_line, entry.address_details]
           .filter(Boolean)
@@ -1617,20 +1791,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (isAddMode) {
       if (addInpFullName) {
-        addInpFullName.value = source.name || customerSession.userInfo?.name || "";
+        addInpFullName.value =
+          source.name || customerSession.userInfo?.name || "";
       }
       if (addInpPhone) addInpPhone.value = source.phone_number || "";
       if (addInpAddress) addInpAddress.value = source.address_line || "";
       if (addInpDetails) addInpDetails.value = source.address_details || "";
       if (addInpDept) addInpDept.value = source.department || "";
       if (addInpSetDefault) {
-        addInpSetDefault.checked = customerAddressBook.length === 0 || Boolean(source.is_default);
+        addInpSetDefault.checked =
+          customerAddressBook.length === 0 || Boolean(source.is_default);
       }
       setRoleByRadioName("addUserRole", source.customer_type || "Student");
       return;
     }
 
-    if (inpFullName) inpFullName.value = source.name || customerSession.userInfo?.name || "";
+    if (inpFullName)
+      inpFullName.value = source.name || customerSession.userInfo?.name || "";
     if (inpPhone) inpPhone.value = source.phone_number || "";
     if (inpAddress) inpAddress.value = source.address_line || "";
     if (inpDetails) inpDetails.value = source.address_details || "";
@@ -1656,8 +1833,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const addressLine = String(addressInput?.value || "").trim();
     const addressDetails = String(detailsInput?.value || "").trim();
     const department = String(deptInput?.value || "").trim();
-    const customerType = getSelectedRole(isAddMode ? "addUserRole" : "userRole");
-    const setDefault = isAddMode ? Boolean(addInpSetDefault?.checked) : Boolean(inpSetDefault?.checked);
+    const customerType = getSelectedRole(
+      isAddMode ? "addUserRole" : "userRole",
+    );
+    const setDefault = isAddMode
+      ? Boolean(addInpSetDefault?.checked)
+      : Boolean(inpSetDefault?.checked);
 
     if (phoneInput instanceof HTMLInputElement) {
       phoneInput.value = phone;
@@ -1679,7 +1860,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!phone) {
       registerError(ids.phone, "Please enter your mobile number.");
     } else if (!/^9\d{9,10}$/.test(phone)) {
-      registerError(ids.phone, "Use a valid PH number after +63. Example: 9XXXXXXXXX.");
+      registerError(
+        ids.phone,
+        "Use a valid PH number after +63. Example: 9XXXXXXXXX.",
+      );
     }
 
     if (!addressLine) {
@@ -1687,7 +1871,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (!addressDetails) {
-      registerError(ids.details, "Please add a detail like room, unit, or landmark.");
+      registerError(
+        ids.details,
+        "Please add a detail like room, unit, or landmark.",
+      );
     }
 
     if (!department) {
@@ -1737,7 +1924,8 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const syncProfileFromAddress = async (addressEntry) => {
-    const token = customerSession.token || localStorage.getItem("customer_token") || "";
+    const token =
+      customerSession.token || localStorage.getItem("customer_token") || "";
     if (!token) {
       return {
         ok: false,
@@ -1755,15 +1943,18 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     try {
-      const response = await fetchWithTimeout(`${API_BASE_URL}/customer/profile`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/customer/profile`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
         },
-        body: JSON.stringify(payload),
-      });
+      );
 
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -1782,7 +1973,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (customerSession.userInfo && customerCheckoutProfile?.name) {
         customerSession.userInfo.name = customerCheckoutProfile.name;
         try {
-          localStorage.setItem("customer_info", JSON.stringify(customerSession.userInfo));
+          localStorage.setItem(
+            "customer_info",
+            JSON.stringify(customerSession.userInfo),
+          );
         } catch {
           // Ignore storage write issues.
         }
@@ -1813,7 +2007,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const removeAddressesByIds = async (addressIds, message, title) => {
-    const idsToRemove = Array.from(new Set((addressIds || []).map((id) => String(id || "")).filter(Boolean)));
+    const idsToRemove = Array.from(
+      new Set((addressIds || []).map((id) => String(id || "")).filter(Boolean)),
+    );
     if (!idsToRemove.length) return;
 
     const confirmed = await showCustomerPopup(message, {
@@ -1833,14 +2029,22 @@ document.addEventListener("DOMContentLoaded", () => {
     saveAddressBookToStorage();
     renderAddressList();
     renderCheckoutAddress();
-    applyAddressToForm("edit", getSelectedCheckoutAddress() || customerCheckoutProfile);
-    applyAddressToForm("add", getSelectedCheckoutAddress() || customerCheckoutProfile);
+    applyAddressToForm(
+      "edit",
+      getSelectedCheckoutAddress() || customerCheckoutProfile,
+    );
+    applyAddressToForm(
+      "add",
+      getSelectedCheckoutAddress() || customerCheckoutProfile,
+    );
 
     if (!customerAddressBook.length) {
       isAddressEditMode = false;
     }
 
-    const profileSyncResult = await syncProfileFromAddress(getSelectedCheckoutAddress());
+    const profileSyncResult = await syncProfileFromAddress(
+      getSelectedCheckoutAddress(),
+    );
     if (profileSyncResult.ok) {
       emitCustomerOrdersUpdated({ type: "profile-updated" });
     }
@@ -1855,7 +2059,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const openEditAddressModal = (addressId) => {
-    const target = customerAddressBook.find((entry) => String(entry.id) === String(addressId));
+    const target = customerAddressBook.find(
+      (entry) => String(entry.id) === String(addressId),
+    );
     if (!target || !editInfoModal) return;
 
     editingCheckoutAddressId = String(target.id);
@@ -1917,13 +2123,19 @@ document.addEventListener("DOMContentLoaded", () => {
       setSelectedAddress(nextEntry.id, nextEntry.is_default);
     } else {
       if (!editingCheckoutAddressId) {
-        applyServerAddressErrors("edit", null, "Choose an address first, then try again.");
+        applyServerAddressErrors(
+          "edit",
+          null,
+          "Choose an address first, then try again.",
+        );
         return false;
       }
 
       customerAddressBook = customerAddressBook.map((entry) => {
         if (String(entry.id) !== String(editingCheckoutAddressId)) {
-          return validated.entry.is_default ? { ...entry, is_default: false } : entry;
+          return validated.entry.is_default
+            ? { ...entry, is_default: false }
+            : entry;
         }
 
         return {
@@ -1933,19 +2145,34 @@ document.addEventListener("DOMContentLoaded", () => {
         };
       });
 
-      setSelectedAddress(editingCheckoutAddressId, Boolean(validated.entry.is_default));
+      setSelectedAddress(
+        editingCheckoutAddressId,
+        Boolean(validated.entry.is_default),
+      );
     }
 
     ensureSingleDefaultAddress();
     saveAddressBookToStorage();
     renderAddressList();
     renderCheckoutAddress();
-    applyAddressToForm("edit", getSelectedCheckoutAddress() || customerCheckoutProfile);
-    applyAddressToForm("add", getSelectedCheckoutAddress() || customerCheckoutProfile);
+    applyAddressToForm(
+      "edit",
+      getSelectedCheckoutAddress() || customerCheckoutProfile,
+    );
+    applyAddressToForm(
+      "add",
+      getSelectedCheckoutAddress() || customerCheckoutProfile,
+    );
 
-    const syncResult = await syncProfileFromAddress(getSelectedCheckoutAddress());
+    const syncResult = await syncProfileFromAddress(
+      getSelectedCheckoutAddress(),
+    );
     if (!syncResult.ok) {
-      applyServerAddressErrors(mode, syncResult.errors, syncResult.message || "Unable to save your details.");
+      applyServerAddressErrors(
+        mode,
+        syncResult.errors,
+        syncResult.message || "Unable to save your details.",
+      );
       return false;
     }
 
@@ -1956,10 +2183,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const seedAddressBookFromProfile = (profile) => {
     const hasSeedData = Boolean(
       profile?.name ||
-        profile?.phone_number ||
-        profile?.address_line ||
-        profile?.address_details ||
-        profile?.department,
+      profile?.phone_number ||
+      profile?.address_line ||
+      profile?.address_details ||
+      profile?.department,
     );
 
     if (!hasSeedData || customerAddressBook.length) return;
@@ -1981,16 +2208,20 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const fetchCustomerCheckoutProfile = async () => {
-    const token = customerSession.token || localStorage.getItem("customer_token") || "";
+    const token =
+      customerSession.token || localStorage.getItem("customer_token") || "";
     if (!token) return;
 
     try {
-      const response = await fetchWithTimeout(`${API_BASE_URL}/customer/profile`, {
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/customer/profile`,
+        {
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
         },
-      });
+      );
 
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -2002,8 +2233,14 @@ document.addEventListener("DOMContentLoaded", () => {
       ensureSingleDefaultAddress();
       renderAddressList();
       renderCheckoutAddress();
-      applyAddressToForm("edit", getSelectedCheckoutAddress() || customerCheckoutProfile);
-      applyAddressToForm("add", getSelectedCheckoutAddress() || customerCheckoutProfile);
+      applyAddressToForm(
+        "edit",
+        getSelectedCheckoutAddress() || customerCheckoutProfile,
+      );
+      applyAddressToForm(
+        "add",
+        getSelectedCheckoutAddress() || customerCheckoutProfile,
+      );
     } catch {
       // Keep UI usable with local/session fallback values.
     }
@@ -2066,14 +2303,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const deleteBtn = target.closest("[data-address-delete]");
       if (deleteBtn) {
-        const addressId = String(deleteBtn.getAttribute("data-address-delete") || "");
-        void removeAddressesByIds([addressId], "Delete this saved address?", "Delete Address");
+        const addressId = String(
+          deleteBtn.getAttribute("data-address-delete") || "",
+        );
+        void removeAddressesByIds(
+          [addressId],
+          "Delete this saved address?",
+          "Delete Address",
+        );
         return;
       }
 
       const checkInput = target.closest(".address-edit-check");
       if (checkInput instanceof HTMLInputElement) {
-        const checkId = String(checkInput.getAttribute("data-address-check") || "");
+        const checkId = String(
+          checkInput.getAttribute("data-address-check") || "",
+        );
         if (!checkId) return;
 
         if (checkInput.checked) {
@@ -2115,7 +2360,9 @@ document.addEventListener("DOMContentLoaded", () => {
       addressSelectionModal?.classList.remove("show-modal");
 
       void (async () => {
-        const syncResult = await syncProfileFromAddress(getSelectedCheckoutAddress());
+        const syncResult = await syncProfileFromAddress(
+          getSelectedCheckoutAddress(),
+        );
         if (syncResult.ok) {
           emitCustomerOrdersUpdated({ type: "profile-updated" });
         }
@@ -2155,8 +2402,14 @@ document.addEventListener("DOMContentLoaded", () => {
   loadAddressBookFromStorage();
   renderAddressList();
   renderCheckoutAddress();
-  applyAddressToForm("edit", getSelectedCheckoutAddress() || customerCheckoutProfile);
-  applyAddressToForm("add", getSelectedCheckoutAddress() || customerCheckoutProfile);
+  applyAddressToForm(
+    "edit",
+    getSelectedCheckoutAddress() || customerCheckoutProfile,
+  );
+  applyAddressToForm(
+    "add",
+    getSelectedCheckoutAddress() || customerCheckoutProfile,
+  );
   if (!isGuestUser) {
     void fetchCustomerCheckoutProfile();
   }
@@ -2167,15 +2420,23 @@ document.addEventListener("DOMContentLoaded", () => {
     submitOrderBtn.addEventListener("click", async function () {
       const terms = document.getElementById("orderTerms");
       if (terms && !terms.checked) {
-        await showCustomerPopup("Please check the terms and payment agreement box first.", {
-          title: "Validation",
-        });
+        await showCustomerPopup(
+          "Please check the terms and payment agreement box first.",
+          {
+            title: "Validation",
+          },
+        );
         return;
       }
 
-      const paymentSelect = document.querySelector("#checkoutModal .payment-select");
+      const paymentSelect = document.querySelector(
+        "#checkoutModal .payment-select",
+      );
       const paymentMethod = String(paymentSelect?.value || "").trim();
-      if (!paymentMethod || paymentMethod.toLowerCase().includes("choose payment method")) {
+      if (
+        !paymentMethod ||
+        paymentMethod.toLowerCase().includes("choose payment method")
+      ) {
         await showCustomerPopup("Please choose a payment method first.", {
           title: "Validation",
         });
@@ -2184,9 +2445,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const selectedAddress = getSelectedCheckoutAddress();
       if (!selectedAddress) {
-        await showCustomerPopup("Please add and select your delivery details first.", {
-          title: "Address Required",
-        });
+        await showCustomerPopup(
+          "Please add and select your delivery details first.",
+          {
+            title: "Address Required",
+          },
+        );
         return;
       }
 
@@ -2197,16 +2461,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const quantity = useCartCheckout
         ? currentCheckoutItems.reduce(
-            (sum, item) => sum + Math.max(1, Number.parseInt(item?.quantity || "1", 10) || 1),
+            (sum, item) =>
+              sum +
+              Math.max(1, Number.parseInt(item?.quantity || "1", 10) || 1),
             0,
           )
         : Math.max(1, Number.parseInt(inputQty?.value || "1", 10) || 1);
 
-      const totalText = checkoutGrandTotal?.innerText || checkoutPrice?.innerText || "₱0.00";
-      const parsedDisplayedTotal = Number.isFinite(parsePrice(totalText)) ? parsePrice(totalText) : 0;
+      const totalText =
+        checkoutGrandTotal?.innerText || checkoutPrice?.innerText || "₱0.00";
+      const parsedDisplayedTotal = Number.isFinite(parsePrice(totalText))
+        ? parsePrice(totalText)
+        : 0;
       const totalAmount = useCartCheckout
         ? currentCheckoutItems.reduce((sum, item) => {
-            const qty = Math.max(1, Number.parseInt(item?.quantity || "1", 10) || 1);
+            const qty = Math.max(
+              1,
+              Number.parseInt(item?.quantity || "1", 10) || 1,
+            );
             const lineTotal = Number(item?.line_total);
             if (Number.isFinite(lineTotal) && lineTotal >= 0) {
               return sum + lineTotal;
@@ -2221,17 +2493,24 @@ document.addEventListener("DOMContentLoaded", () => {
       this.innerText = "Processing...";
 
       try {
-        const token = customerSession.token || localStorage.getItem("customer_token") || "";
+        const token =
+          customerSession.token || localStorage.getItem("customer_token") || "";
         if (!token) {
           throw new Error("Login session not found. Please sign in again.");
         }
 
-        const contactNumber = String(selectedAddress.phone_number || "").replace(/\D/g, "");
+        const contactNumber = String(
+          selectedAddress.phone_number || "",
+        ).replace(/\D/g, "");
         const orderNotes = [
           selectedAddress.address_line,
           selectedAddress.address_details,
-          selectedAddress.department ? `Department: ${selectedAddress.department}` : "",
-          selectedAddress.customer_type ? `Role: ${selectedAddress.customer_type}` : "",
+          selectedAddress.department
+            ? `Department: ${selectedAddress.department}`
+            : "",
+          selectedAddress.customer_type
+            ? `Role: ${selectedAddress.customer_type}`
+            : "",
         ]
           .filter(Boolean)
           .join(" | ");
@@ -2253,7 +2532,10 @@ document.addEventListener("DOMContentLoaded", () => {
           customer_name: customerName,
           customer_contact: customerContact,
           notes: orderNotes,
-          location_name: selectedAddress.address_line || customerCheckoutProfile?.address_line || null,
+          location_name:
+            selectedAddress.address_line ||
+            customerCheckoutProfile?.address_line ||
+            null,
           courier_name: "J&T Express",
         };
 
@@ -2261,8 +2543,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (useCartCheckout) {
           const items = currentCheckoutItems.map((item) => {
-            const lineQty = Math.max(1, Number.parseInt(item?.quantity || "1", 10) || 1);
-            const lineUnitPrice = Number.isFinite(Number(item?.unit_price)) ? Number(item.unit_price) : 0;
+            const lineQty = Math.max(
+              1,
+              Number.parseInt(item?.quantity || "1", 10) || 1,
+            );
+            const lineUnitPrice = Number.isFinite(Number(item?.unit_price))
+              ? Number(item.unit_price)
+              : 0;
             const lineTotal = Number.isFinite(Number(item?.line_total))
               ? Number(item.line_total)
               : lineUnitPrice * lineQty;
@@ -2270,7 +2557,9 @@ document.addEventListener("DOMContentLoaded", () => {
             return {
               product_id: item?.product_id ?? null,
               product_name: String(item?.product_name || "Custom Order"),
-              product_image: String(item?.product_image || "/images/FMRC Logo.png"),
+              product_image: String(
+                item?.product_image || "/images/FMRC Logo.png",
+              ),
               quantity: lineQty,
               unit_price: lineUnitPrice,
               line_total: lineTotal,
@@ -2287,9 +2576,13 @@ document.addEventListener("DOMContentLoaded", () => {
             ...basePayload,
             product_id: firstItem.product_id ?? null,
             product_name: summaryName,
-            product_image: firstItem.product_image || checkoutImg?.src || "/images/FMRC Logo.png",
+            product_image:
+              firstItem.product_image ||
+              checkoutImg?.src ||
+              "/images/FMRC Logo.png",
             quantity,
-            unit_price: quantity > 0 ? Number((totalAmount / quantity).toFixed(2)) : 0,
+            unit_price:
+              quantity > 0 ? Number((totalAmount / quantity).toFixed(2)) : 0,
             total_amount: totalAmount,
             items,
           };
@@ -2300,34 +2593,50 @@ document.addEventListener("DOMContentLoaded", () => {
             product_name: checkoutTitle?.innerText?.trim() || "Custom Order",
             product_image: checkoutImg?.src || "/images/FMRC Logo.png",
             quantity,
-            unit_price: Number.isFinite(currentItemPrice) ? Number(currentItemPrice) : 0,
+            unit_price: Number.isFinite(currentItemPrice)
+              ? Number(currentItemPrice)
+              : 0,
             total_amount: totalAmount,
           };
         }
 
-        const response = await fetchWithTimeout(`${API_BASE_URL}/orders`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
+        const response = await fetchWithTimeout(
+          `${API_BASE_URL}/orders`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
           },
-          body: JSON.stringify(payload),
-        });
+          25000,
+        ); // 25s timeout since SMTP email might take a few seconds on Windows local server
 
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
-          throw new Error(data.message || "Unable to place order at the moment.");
+          throw new Error(
+            data.message || "Unable to place order at the moment.",
+          );
         }
 
         const orderNo = data?.data?.order_no_display || "";
-        await showCustomerPopup(`Order placed successfully${orderNo ? ` (${orderNo})` : ""}!`, {
-          title: "Success",
+        await showCustomerPopup(
+          `Order placed successfully${orderNo ? ` (${orderNo})` : ""}!`,
+          {
+            title: "Success",
+          },
+        );
+        emitCustomerOrdersUpdated({
+          type: "created",
+          orderId: data?.data?.id || null,
         });
-        emitCustomerOrdersUpdated({ type: "created", orderId: data?.data?.id || null });
 
         if (useCartCheckout && cartItemsContainer) {
-          const checkedCartInputs = cartItemsContainer.querySelectorAll(".cart-item-check:checked");
+          const checkedCartInputs = cartItemsContainer.querySelectorAll(
+            ".cart-item-check:checked",
+          );
           checkedCartInputs.forEach((checkedInput) => {
             checkedInput.closest(".cart-item-card")?.remove();
           });
@@ -2342,9 +2651,12 @@ document.addEventListener("DOMContentLoaded", () => {
         checkoutModal.classList.remove("show-modal");
         document.body.style.overflow = "";
       } catch (error) {
-        await showCustomerPopup(error?.message || "Unable to place order. Please try again.", {
-          title: "Order Failed",
-        });
+        await showCustomerPopup(
+          error?.message || "Unable to place order. Please try again.",
+          {
+            title: "Order Failed",
+          },
+        );
       } finally {
         this.disabled = false;
         this.innerText = originalText;
@@ -2377,11 +2689,20 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  const createCartItemCard = ({ product_id, title, image, unitPrice, quantity = 1, checked = true }) => {
+  const createCartItemCard = ({
+    product_id,
+    title,
+    image,
+    unitPrice,
+    quantity = 1,
+    checked = true,
+  }) => {
     const rawTitle = String(title || "Product");
     const safeTitle = escapeCustomerHtml(rawTitle);
     const safeImage = String(image || "/images/FMRC Logo.png");
-    const numericPrice = Number.isFinite(Number(unitPrice)) ? Number(unitPrice) : 0;
+    const numericPrice = Number.isFinite(Number(unitPrice))
+      ? Number(unitPrice)
+      : 0;
     const qty = Math.max(1, Number.parseInt(String(quantity || "1"), 10) || 1);
     const pid = product_id != null ? String(product_id) : "";
 
@@ -2415,13 +2736,25 @@ document.addEventListener("DOMContentLoaded", () => {
   const collectCartItemsFromDom = () => {
     if (!cartItemsContainer) return [];
 
-    return Array.from(cartItemsContainer.querySelectorAll(".cart-item-card")).map((item) => {
+    return Array.from(
+      cartItemsContainer.querySelectorAll(".cart-item-card"),
+    ).map((item) => {
       const title = item.querySelector("h4")?.innerText || "Product";
-      const image = item.querySelector("img")?.getAttribute("src") || "/images/FMRC Logo.png";
-      const unitPrice = Number(item.querySelector(".c-price")?.dataset.price || 0);
-      const quantity = Math.max(1, Number.parseInt(item.querySelector(".c-qty-input")?.value || "1", 10) || 1);
+      const image =
+        item.querySelector("img")?.getAttribute("src") ||
+        "/images/FMRC Logo.png";
+      const unitPrice = Number(
+        item.querySelector(".c-price")?.dataset.price || 0,
+      );
+      const quantity = Math.max(
+        1,
+        Number.parseInt(item.querySelector(".c-qty-input")?.value || "1", 10) ||
+          1,
+      );
       const checked = Boolean(item.querySelector(".cart-item-check")?.checked);
-      const product_id = item.dataset.productId ? Number(item.dataset.productId) : null;
+      const product_id = item.dataset.productId
+        ? Number(item.dataset.productId)
+        : null;
 
       return {
         product_id,
@@ -2439,8 +2772,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const persistCartItems = async () => {
     const items = collectCartItemsFromDom();
-    const storageKey = customerSession.isAuthenticated ? `${CART_STORAGE_KEY}_${customerSession.userInfo.id}` : CART_STORAGE_KEY;
-    
+    const storageKey = customerSession.isAuthenticated
+      ? `${CART_STORAGE_KEY}_${customerSession.userInfo.id}`
+      : CART_STORAGE_KEY;
+
     // Always save full data (including images) to localStorage immediately
     try {
       localStorage.setItem(storageKey, JSON.stringify(items));
@@ -2458,15 +2793,16 @@ document.addEventListener("DOMContentLoaded", () => {
           // Keep only URL references (non-base64) to avoid payload size issues.
           const serverItems = items.map((item) => ({
             ...item,
-            image: item.image && !item.image.startsWith("data:") ? item.image : null,
+            image:
+              item.image && !item.image.startsWith("data:") ? item.image : null,
           }));
 
           await fetchWithTimeout(`${API_BASE_URL}/customer/cart/sync`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              "Accept": "application/json",
-              "Authorization": `Bearer ${customerSession.token}`,
+              Accept: "application/json",
+              Authorization: `Bearer ${customerSession.token}`,
             },
             body: JSON.stringify({ items: serverItems }),
           });
@@ -2484,7 +2820,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!cartItemsContainer) return;
 
     let savedItems = [];
-    const storageKey = customerSession.isAuthenticated ? `${CART_STORAGE_KEY}_${customerSession.userInfo.id}` : CART_STORAGE_KEY;
+    const storageKey = customerSession.isAuthenticated
+      ? `${CART_STORAGE_KEY}_${customerSession.userInfo.id}`
+      : CART_STORAGE_KEY;
 
     // Helper to read from localStorage
     const readLocalStorage = () => {
@@ -2503,9 +2841,9 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         const res = await fetchWithTimeout(`${API_BASE_URL}/customer/cart`, {
           headers: {
-            "Accept": "application/json",
-            "Authorization": `Bearer ${customerSession.token}`,
-          }
+            Accept: "application/json",
+            Authorization: `Bearer ${customerSession.token}`,
+          },
         });
         if (res.ok) {
           const payload = await res.json();
@@ -2537,7 +2875,9 @@ document.addEventListener("DOMContentLoaded", () => {
       savedItems = readLocalStorage();
     }
 
-    cartItemsContainer.querySelectorAll(".cart-item-card").forEach((item) => item.remove());
+    cartItemsContainer
+      .querySelectorAll(".cart-item-card")
+      .forEach((item) => item.remove());
 
     savedItems.forEach((entry) => {
       cartItemsContainer.appendChild(createCartItemCard(entry));
@@ -2661,7 +3001,9 @@ document.addEventListener("DOMContentLoaded", () => {
       flyToCart(imgElement, cartIconTrigger); // Trigger the slow fly animation
 
       const unitPrice = parsePrice(priceStr);
-      const existingItem = Array.from(cartItemsContainer.querySelectorAll(".cart-item-card")).find(
+      const existingItem = Array.from(
+        cartItemsContainer.querySelectorAll(".cart-item-card"),
+      ).find(
         (item) =>
           item.dataset.productName === title &&
           Number(item.dataset.unitPrice || 0) === unitPrice,
@@ -2670,7 +3012,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (existingItem) {
         const qtyInput = existingItem.querySelector(".c-qty-input");
         if (qtyInput) {
-          qtyInput.value = String(Math.max(1, Number.parseInt(qtyInput.value || "1", 10) + 1));
+          qtyInput.value = String(
+            Math.max(1, Number.parseInt(qtyInput.value || "1", 10) + 1),
+          );
         }
         const checkbox = existingItem.querySelector(".cart-item-check");
         if (checkbox) checkbox.checked = true;
@@ -2698,17 +3042,25 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!requireCustomerAuth("add products to cart")) return;
 
     const title = String(product.name || "");
-    const unitPrice = Number.isFinite(Number(product.price)) ? Number(product.price) : 0;
+    const unitPrice = Number.isFinite(Number(product.price))
+      ? Number(product.price)
+      : 0;
     const imageSrc = product.image_data || "/images/FMRC Logo.png";
 
     // Trigger animation if card exists
-    const card = document.querySelector(`.action-btn[data-product-id="${product.id}"]`)?.closest(".shop-card");
-    const imgElement = card ? card.querySelector(".product-img-wrapper img") : null;
+    const card = document
+      .querySelector(`.action-btn[data-product-id="${product.id}"]`)
+      ?.closest(".shop-card");
+    const imgElement = card
+      ? card.querySelector(".product-img-wrapper img")
+      : null;
     if (imgElement && typeof flyToCart === "function" && cartIconTrigger) {
       flyToCart(imgElement, cartIconTrigger);
     }
 
-    const existingItem = Array.from(cartItemsContainer?.querySelectorAll(".cart-item-card") || []).find(
+    const existingItem = Array.from(
+      cartItemsContainer?.querySelectorAll(".cart-item-card") || [],
+    ).find(
       (item) =>
         item.dataset.productName === title &&
         Number(item.dataset.unitPrice || 0) === unitPrice,
@@ -2717,7 +3069,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (existingItem) {
       const qtyInput = existingItem.querySelector(".c-qty-input");
       if (qtyInput) {
-        qtyInput.value = String(Math.max(1, Number.parseInt(qtyInput.value || "1", 10) + 1));
+        qtyInput.value = String(
+          Math.max(1, Number.parseInt(qtyInput.value || "1", 10) + 1),
+        );
       }
       const checkbox = existingItem.querySelector(".cart-item-check");
       if (checkbox) checkbox.checked = true;
@@ -2863,12 +3217,16 @@ document.addEventListener("DOMContentLoaded", () => {
           const qtyInput = card.querySelector(".c-qty-input");
           const priceEl = card.querySelector(".c-price");
           const title = card.querySelector("h4")?.innerText || "Custom Order";
-          const image = card.querySelector("img")?.getAttribute("src") || "/images/FMRC Logo.png";
+          const image =
+            card.querySelector("img")?.getAttribute("src") ||
+            "/images/FMRC Logo.png";
           const qty = Math.max(1, parseInt(qtyInput?.value || "1", 10) || 1);
           const price = parseFloat(priceEl?.dataset?.price || "0");
 
           return {
-            product_id: card.dataset.productId ? Number(card.dataset.productId) : null,
+            product_id: card.dataset.productId
+              ? Number(card.dataset.productId)
+              : null,
             product_name: title,
             product_image: image,
             quantity: qty,
@@ -2898,21 +3256,29 @@ document.addEventListener("DOMContentLoaded", () => {
           });
 
           if (!stockRes.ok) {
-            throw new Error("Unable to refresh product stock. Please try again.");
+            throw new Error(
+              "Unable to refresh product stock. Please try again.",
+            );
           }
 
           const stockPayload = await stockRes.json().catch(() => ({}));
-          const products = Array.isArray(stockPayload?.data) ? stockPayload.data : [];
+          const products = Array.isArray(stockPayload?.data)
+            ? stockPayload.data
+            : [];
           products.forEach((product) => {
-            const stockQty = product?.stock_status === "in_stock"
-              ? Math.max(0, Number(product?.stock || 0))
-              : 0;
+            const stockQty =
+              product?.stock_status === "in_stock"
+                ? Math.max(0, Number(product?.stock || 0))
+                : 0;
             liveStocks.set(Number(product?.id || 0), stockQty);
           });
         } catch (error) {
-          void showCustomerPopup(error?.message || "Unable to verify stocks right now.", {
-            title: "Stock Check Failed",
-          });
+          void showCustomerPopup(
+            error?.message || "Unable to verify stocks right now.",
+            {
+              title: "Stock Check Failed",
+            },
+          );
           return;
         }
       }
@@ -2929,7 +3295,10 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
           }
 
-          const availableStock = Math.max(0, Number(liveStocks.get(productId) || 0));
+          const availableStock = Math.max(
+            0,
+            Number(liveStocks.get(productId) || 0),
+          );
           if (availableStock <= 0) {
             void showCustomerPopup(
               `\"${item.product_name}\" is now out of stock.`,
@@ -2962,15 +3331,22 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const firstItem = validatedItems[0];
-      const totalQty = validatedItems.reduce((sum, item) => sum + item.quantity, 0);
-      const totalAmount = validatedItems.reduce((sum, item) => sum + item.line_total, 0);
+      const totalQty = validatedItems.reduce(
+        (sum, item) => sum + item.quantity,
+        0,
+      );
+      const totalAmount = validatedItems.reduce(
+        (sum, item) => sum + item.line_total,
+        0,
+      );
 
       currentCheckoutMode = "cart";
       currentCheckoutItems = validatedItems;
       currentProductId = firstItem?.product_id ?? null;
       currentItemPrice = totalQty > 0 ? totalAmount / totalQty : 0;
 
-      if (checkoutImg) checkoutImg.src = firstItem?.product_image || "/images/FMRC Logo.png";
+      if (checkoutImg)
+        checkoutImg.src = firstItem?.product_image || "/images/FMRC Logo.png";
       if (checkoutTitle) {
         checkoutTitle.innerText =
           validatedItems.length > 1
@@ -2981,7 +3357,8 @@ document.addEventListener("DOMContentLoaded", () => {
         checkoutPrice.innerText = formatPrice(currentItemPrice);
       }
 
-      if (guideImg) guideImg.src = firstItem?.product_image || "/images/FMRC Logo.png";
+      if (guideImg)
+        guideImg.src = firstItem?.product_image || "/images/FMRC Logo.png";
       if (guideTitle) {
         guideTitle.innerText =
           validatedItems.length > 1
@@ -2989,9 +3366,14 @@ document.addEventListener("DOMContentLoaded", () => {
             : firstItem?.product_name || "Custom Order";
       }
 
-      if (validatedItems.length === 1 && Number.isFinite(Number(firstItem?.max_stock))) {
+      if (
+        validatedItems.length === 1 &&
+        Number.isFinite(Number(firstItem?.max_stock))
+      ) {
         currentMaxStock = Math.max(0, Number(firstItem.max_stock));
-        setCheckoutStockNotice(currentMaxStock === 0 ? "Out of Stock" : currentMaxStock);
+        setCheckoutStockNotice(
+          currentMaxStock === 0 ? "Out of Stock" : currentMaxStock,
+        );
       } else {
         currentMaxStock = 9999;
         setCheckoutStockNotice(`Multiple products (${validatedItems.length})`);
@@ -3015,7 +3397,12 @@ document.addEventListener("DOMContentLoaded", () => {
   updateCartTotals();
 
   window.addEventListener("storage", (event) => {
-    if (!event.key || (!event.key.startsWith(CART_STORAGE_KEY) && event.key !== CART_STORAGE_SIGNAL_KEY)) return;
+    if (
+      !event.key ||
+      (!event.key.startsWith(CART_STORAGE_KEY) &&
+        event.key !== CART_STORAGE_SIGNAL_KEY)
+    )
+      return;
     restoreCartItems();
     updateCartTotals();
   });
@@ -3045,7 +3432,11 @@ document.addEventListener("DOMContentLoaded", () => {
   let submittedAppointment = null;
   let selectedDateKey = null;
   const today = new Date();
-  const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const todayOnly = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
   let currentMonth = todayOnly.getMonth();
   let currentYear = todayOnly.getFullYear();
   let uploadedAppointmentFile = null;
@@ -3093,7 +3484,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let hh = Number(match[1]);
     const mm = Number(match[2] || "0");
-    if (Number.isNaN(hh) || Number.isNaN(mm) || hh < 1 || hh > 12 || mm < 0 || mm > 59) {
+    if (
+      Number.isNaN(hh) ||
+      Number.isNaN(mm) ||
+      hh < 1 ||
+      hh > 12 ||
+      mm < 0 ||
+      mm > 59
+    ) {
       return Number.MAX_SAFE_INTEGER;
     }
 
@@ -3151,33 +3549,44 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const getAppointmentAddress = () => {
-    const country = document.getElementById("aptCountry")?.value?.trim() || "Philippines";
+    const country =
+      document.getElementById("aptCountry")?.value?.trim() || "Philippines";
 
     if (country !== "Philippines") {
-      const intlAddress = document.getElementById("aptIntlAddress")?.value?.trim() || "";
+      const intlAddress =
+        document.getElementById("aptIntlAddress")?.value?.trim() || "";
       return [intlAddress, country].filter(Boolean).join(", ");
     }
 
     const region = document.getElementById("aptRegion")?.value?.trim() || "";
-    const province = document.getElementById("aptProvince")?.value?.trim() || "";
-    const municipality = document.getElementById("aptMunicipality")?.value?.trim() || "";
+    const province =
+      document.getElementById("aptProvince")?.value?.trim() || "";
+    const municipality =
+      document.getElementById("aptMunicipality")?.value?.trim() || "";
     const barangay = document.getElementById("aptAddress")?.value?.trim() || "";
 
-    return [barangay, municipality, province, region, country].filter(Boolean).join(", ");
+    return [barangay, municipality, province, region, country]
+      .filter(Boolean)
+      .join(", ");
   };
 
   const fetchCalendarAvailability = async () => {
     try {
-      const response = await fetchWithTimeout(`${API_BASE_URL}/appointments/calendar`, {
-        headers: {
-          Accept: "application/json",
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/appointments/calendar`,
+        {
+          headers: {
+            Accept: "application/json",
+          },
         },
-      });
+      );
 
       if (!response.ok) return;
       const data = await response.json();
 
-      const incomingSlots = Array.isArray(data?.time_slots) ? data.time_slots : [];
+      const incomingSlots = Array.isArray(data?.time_slots)
+        ? data.time_slots
+        : [];
       calendarState.timeSlots = incomingSlots.length
         ? incomingSlots
             .map((slot) => ({
@@ -3191,19 +3600,26 @@ document.addEventListener("DOMContentLoaded", () => {
         : [...defaultTimeSlots];
 
       calendarState.daySettings = {};
-      (Array.isArray(data?.day_settings) ? data.day_settings : []).forEach((entry) => {
-        if (!entry?.date) return;
-        calendarState.daySettings[String(entry.date)] = {
-          is_blocked: Boolean(entry.is_blocked),
-          blocked_slots: Array.isArray(entry.blocked_slots) ? entry.blocked_slots : [],
-          events: Array.isArray(entry.events) ? entry.events : [],
-          custom_slots: Array.isArray(entry.custom_slots) ? entry.custom_slots : [],
-        };
-      });
+      (Array.isArray(data?.day_settings) ? data.day_settings : []).forEach(
+        (entry) => {
+          if (!entry?.date) return;
+          calendarState.daySettings[String(entry.date)] = {
+            is_blocked: Boolean(entry.is_blocked),
+            blocked_slots: Array.isArray(entry.blocked_slots)
+              ? entry.blocked_slots
+              : [],
+            events: Array.isArray(entry.events) ? entry.events : [],
+            custom_slots: Array.isArray(entry.custom_slots)
+              ? entry.custom_slots
+              : [],
+          };
+        },
+      );
 
-      calendarState.bookedSlots = data?.booked_slots && typeof data.booked_slots === "object"
-        ? data.booked_slots
-        : {};
+      calendarState.bookedSlots =
+        data?.booked_slots && typeof data.booked_slots === "object"
+          ? data.booked_slots
+          : {};
     } catch {
       // Keep defaults when API is temporarily unavailable.
     }
@@ -3286,7 +3702,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const email = document.getElementById("aptEmail")?.value?.trim() || "";
     const purpose = document.getElementById("aptPurpose")?.value?.trim() || "";
     const clientType = document.getElementById("aptRole")?.value?.trim() || "";
-    const country = document.getElementById("aptCountry")?.value?.trim() || "Philippines";
+    const country =
+      document.getElementById("aptCountry")?.value?.trim() || "Philippines";
 
     let firstInvalidId = "";
     const markError = (id, message) => {
@@ -3323,7 +3740,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!email) {
       markError("aptEmail", "Email Address is required.");
     } else if (!/^[A-Za-z0-9._%+-]+@gmail\.com$/i.test(email)) {
-      markError("aptEmail", "Email Address is invalid. Please use a Gmail address only.");
+      markError(
+        "aptEmail",
+        "Email Address is invalid. Please use a Gmail address only.",
+      );
     }
 
     if (!purpose) {
@@ -3348,9 +3768,13 @@ document.addEventListener("DOMContentLoaded", () => {
         markError("aptAddress", "Barangay is required.");
       }
     } else {
-      const intlAddress = document.getElementById("aptIntlAddress")?.value?.trim() || "";
+      const intlAddress =
+        document.getElementById("aptIntlAddress")?.value?.trim() || "";
       if (!intlAddress) {
-        markError("aptIntlAddress", "Complete Residential Address is required.");
+        markError(
+          "aptIntlAddress",
+          "Complete Residential Address is required.",
+        );
       }
     }
 
@@ -3365,7 +3789,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const updateQrDetails = (referenceNo, verifyUrl) => {
     const qrImage = document.getElementById("receiptQrImage");
     const qrLink = document.getElementById("receiptQrLink");
-    const payloadUrl = verifyUrl || `${window.location.origin}/appointments/verify/${referenceNo || "PENDING"}`;
+    const payloadUrl =
+      verifyUrl ||
+      `${window.location.origin}/appointments/verify/${referenceNo || "PENDING"}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(payloadUrl)}`;
 
     if (qrImage) {
@@ -3390,15 +3816,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const phone = document.getElementById("aptPhone")?.value?.trim() || "N/A";
     const email = document.getElementById("aptEmail")?.value?.trim() || "N/A";
-    const purpose = document.getElementById("aptPurpose")?.value?.trim() || "N/A";
-    const clientType = document.getElementById("aptRole")?.value?.trim() || "N/A";
-    const country = document.getElementById("aptCountry")?.value?.trim() || "Philippines";
+    const purpose =
+      document.getElementById("aptPurpose")?.value?.trim() || "N/A";
+    const clientType =
+      document.getElementById("aptRole")?.value?.trim() || "N/A";
+    const country =
+      document.getElementById("aptCountry")?.value?.trim() || "Philippines";
     const notes = document.getElementById("aptDesc")?.value?.trim() || "N/A";
     const address = getAppointmentAddress() || "N/A";
     const attachmentName = uploadedAppointmentFile?.name || "N/A";
 
     const { date, time } = getSelectedSchedule();
-    const scheduleText = date && time ? `${toReadableDate(date)} @ ${time}` : "Not selected";
+    const scheduleText =
+      date && time ? `${toReadableDate(date)} @ ${time}` : "Not selected";
     const referenceNo = submittedAppointment?.reference_no || "PENDING";
 
     setText(`${prefix}Name`, fullName);
@@ -3418,7 +3848,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const switchAptStep = (stepNumber) => {
-    document.querySelectorAll(".apt-content-section").forEach((sec) => sec.classList.remove("active"));
+    document
+      .querySelectorAll(".apt-content-section")
+      .forEach((sec) => sec.classList.remove("active"));
     document.querySelectorAll(".apt-step").forEach((step, index) => {
       const icon = step.querySelector(".apt-icon");
       if (index < stepNumber) {
@@ -3444,7 +3876,10 @@ document.addEventListener("DOMContentLoaded", () => {
       clearSlotMessage();
       renderCalendar(currentMonth, currentYear);
       if (selectedDateKey) renderTimeSlots(selectedDateKey);
-      showSlotMessage("Reminder: You can select only 1 time slot for this appointment.", "#9a6a00");
+      showSlotMessage(
+        "Reminder: You can select only 1 time slot for this appointment.",
+        "#9a6a00",
+      );
     }
 
     if (stepNumber === 4 || stepNumber === 5) {
@@ -3460,21 +3895,63 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const formData = new FormData();
-    formData.append("last_name", document.getElementById("aptLName")?.value?.trim() || "");
-    formData.append("first_name", document.getElementById("aptFName")?.value?.trim() || "");
-    formData.append("middle_initial", document.getElementById("aptMI")?.value?.trim() || "");
-    formData.append("contact_number", document.getElementById("aptPhone")?.value?.trim() || "");
-    formData.append("email", document.getElementById("aptEmail")?.value?.trim() || "");
-    formData.append("country", document.getElementById("aptCountry")?.value?.trim() || "Philippines");
-    formData.append("region", document.getElementById("aptRegion")?.value?.trim() || "");
-    formData.append("province", document.getElementById("aptProvince")?.value?.trim() || "");
-    formData.append("municipality", document.getElementById("aptMunicipality")?.value?.trim() || "");
-    formData.append("barangay", document.getElementById("aptAddress")?.value?.trim() || "");
-    formData.append("intl_address", document.getElementById("aptIntlAddress")?.value?.trim() || "");
+    formData.append(
+      "last_name",
+      document.getElementById("aptLName")?.value?.trim() || "",
+    );
+    formData.append(
+      "first_name",
+      document.getElementById("aptFName")?.value?.trim() || "",
+    );
+    formData.append(
+      "middle_initial",
+      document.getElementById("aptMI")?.value?.trim() || "",
+    );
+    formData.append(
+      "contact_number",
+      document.getElementById("aptPhone")?.value?.trim() || "",
+    );
+    formData.append(
+      "email",
+      document.getElementById("aptEmail")?.value?.trim() || "",
+    );
+    formData.append(
+      "country",
+      document.getElementById("aptCountry")?.value?.trim() || "Philippines",
+    );
+    formData.append(
+      "region",
+      document.getElementById("aptRegion")?.value?.trim() || "",
+    );
+    formData.append(
+      "province",
+      document.getElementById("aptProvince")?.value?.trim() || "",
+    );
+    formData.append(
+      "municipality",
+      document.getElementById("aptMunicipality")?.value?.trim() || "",
+    );
+    formData.append(
+      "barangay",
+      document.getElementById("aptAddress")?.value?.trim() || "",
+    );
+    formData.append(
+      "intl_address",
+      document.getElementById("aptIntlAddress")?.value?.trim() || "",
+    );
     formData.append("full_address", getAppointmentAddress() || "");
-    formData.append("client_type", document.getElementById("aptRole")?.value?.trim() || "");
-    formData.append("purpose", document.getElementById("aptPurpose")?.value?.trim() || "");
-    formData.append("additional_notes", document.getElementById("aptDesc")?.value?.trim() || "");
+    formData.append(
+      "client_type",
+      document.getElementById("aptRole")?.value?.trim() || "",
+    );
+    formData.append(
+      "purpose",
+      document.getElementById("aptPurpose")?.value?.trim() || "",
+    );
+    formData.append(
+      "additional_notes",
+      document.getElementById("aptDesc")?.value?.trim() || "",
+    );
     formData.append("appointment_date", date);
     formData.append("appointment_time", time);
 
@@ -3485,30 +3962,38 @@ document.addEventListener("DOMContentLoaded", () => {
     const token = localStorage.getItem("customer_token");
 
     try {
-      const response = await fetchWithTimeout(`${API_BASE_URL}/appointments`, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/appointments`,
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: formData,
         },
-        body: formData,
-      });
+        15000,
+      ); // 15s timeout — backend now returns immediately; email sends in background
 
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        const message = payload?.message || "Unable to submit appointment. Please review your details and try again.";
+        const message =
+          payload?.message ||
+          "Unable to submit appointment. Please review your details and try again.";
         showSlotMessage(message);
         return false;
       }
 
       submittedAppointment = payload?.data || null;
       appointmentSubmitted = true;
+      stopAptPolling();
       populateReviewData(5);
       return true;
     } catch (error) {
       showSlotMessage(
-        error?.message || "Cannot connect to server. Please make sure Laravel is running.",
+        error?.message ||
+          "Cannot connect to server. Please make sure Laravel is running.",
       );
       return false;
     }
@@ -3519,7 +4004,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const referenceNo = submittedAppointment?.reference_no || "PENDING";
 
     if (!receipt || typeof window.html2canvas !== "function") {
-      showSlotMessage("Receipt download is unavailable right now. Please try again.");
+      showSlotMessage(
+        "Receipt download is unavailable right now. Please try again.",
+      );
       return;
     }
 
@@ -3601,7 +4088,10 @@ document.addEventListener("DOMContentLoaded", () => {
       slotCounter.innerText = "Allowed: 1 time slot for this appointment";
       slotCounter.style.color = "#555";
     }
-    showSlotMessage("Reminder: You can select only 1 time slot for this appointment.", "#9a6a00");
+    showSlotMessage(
+      "Reminder: You can select only 1 time slot for this appointment.",
+      "#9a6a00",
+    );
     renderCalendar(currentMonth, currentYear);
     renderTimeSlots(dateKey);
   };
@@ -3616,7 +4106,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const getRenderableSlotsForDate = (dateKey) => {
     const baseSlots = [...calendarState.timeSlots].sort(slotSortComparator);
     const day = calendarState.daySettings[dateKey] || {};
-    const customSlots = (Array.isArray(day.custom_slots) ? day.custom_slots : [])
+    const customSlots = (
+      Array.isArray(day.custom_slots) ? day.custom_slots : []
+    )
       .map((slot) => ({
         label: String(slot?.label || "").trim(),
         type: String(slot?.type || "AM") === "PM" ? "PM" : "AM",
@@ -3691,7 +4183,9 @@ document.addEventListener("DOMContentLoaded", () => {
         cell.classList.add("disabled", "unavailable");
         cell.setAttribute("title", "Unavailable: Blocked by admin");
       } else {
-        cell.addEventListener("click", () => handleDateClick(dateKey, day, month, year));
+        cell.addEventListener("click", () =>
+          handleDateClick(dateKey, day, month, year),
+        );
         updateDayIndicators(cell, dateKey);
       }
 
@@ -3710,9 +4204,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const renderTimeSlots = (dateKey) => {
     if (!timeContainer) return;
     const eventsDisplay = document.getElementById("userDateEventsDisplay");
-    
+
     if (!dateKey) {
-      timeContainer.innerHTML = '<p class="time-placeholder">Please pick a date first.</p>';
+      timeContainer.innerHTML =
+        '<p class="time-placeholder">Please pick a date first.</p>';
       if (eventsDisplay) {
         eventsDisplay.style.display = "none";
         eventsDisplay.innerHTML = "";
@@ -3721,7 +4216,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const selectedSchedule = getSelectedSchedule();
-    const selectedSlot = selectedSchedule.date === dateKey ? selectedSchedule.time : "";
+    const selectedSlot =
+      selectedSchedule.date === dateKey ? selectedSchedule.time : "";
     const daySettings = calendarState.daySettings[dateKey] || {
       is_blocked: false,
       blocked_slots: [],
@@ -3750,7 +4246,9 @@ document.addEventListener("DOMContentLoaded", () => {
       button.innerHTML = `<span>${slot.label}</span><span class="time-slot-label">${slot.type}</span>`;
 
       const isBooked = bookedSlots.includes(slot.label);
-      const isBlocked = daySettings.blocked_slots.includes(slot.label) || daySettings.is_blocked;
+      const isBlocked =
+        daySettings.blocked_slots.includes(slot.label) ||
+        daySettings.is_blocked;
       const isSelected = selectedSlot === slot.label;
 
       if (isSelected) button.classList.add("selected");
@@ -3763,24 +4261,40 @@ document.addEventListener("DOMContentLoaded", () => {
 
       button.addEventListener("click", () => {
         if (isBooked) {
-          showSlotMessage("This time slot is already booked by another customer.");
+          showSlotMessage(
+            "This time slot is already booked by another customer.",
+          );
           return;
         }
         if (isBlocked) {
-          showSlotMessage("This time slot is blocked by admin for the selected date.");
+          showSlotMessage(
+            "This time slot is blocked by admin for the selected date.",
+          );
           return;
         }
 
-        const hasExistingSelection = Boolean(selectedSchedule.date && selectedSchedule.time);
-        const isReplacingSelection = hasExistingSelection && (selectedSchedule.date !== dateKey || selectedSchedule.time !== slot.label);
+        const hasExistingSelection = Boolean(
+          selectedSchedule.date && selectedSchedule.time,
+        );
+        const isReplacingSelection =
+          hasExistingSelection &&
+          (selectedSchedule.date !== dateKey ||
+            selectedSchedule.time !== slot.label);
 
-        Object.keys(appointmentSelections).forEach((key) => delete appointmentSelections[key]);
+        Object.keys(appointmentSelections).forEach(
+          (key) => delete appointmentSelections[key],
+        );
         appointmentSelections[dateKey] = [slot.label];
 
         if (isReplacingSelection) {
-          showSlotMessage("Only 1 slot is allowed per appointment. Your previous slot was replaced.");
+          showSlotMessage(
+            "Only 1 slot is allowed per appointment. Your previous slot was replaced.",
+          );
         } else {
-          showSlotMessage("Reminder: You can select only 1 time slot for this appointment.", "#9a6a00");
+          showSlotMessage(
+            "Reminder: You can select only 1 time slot for this appointment.",
+            "#9a6a00",
+          );
         }
         renderTimeSlots(dateKey);
         renderCalendar(currentMonth, currentYear);
@@ -3791,7 +4305,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const resetAppointmentFlowState = () => {
-    Object.keys(appointmentSelections).forEach((key) => delete appointmentSelections[key]);
+    Object.keys(appointmentSelections).forEach(
+      (key) => delete appointmentSelections[key],
+    );
     selectedDateKey = null;
     clearSlotMessage();
     submittedAppointment = null;
@@ -3813,7 +4329,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const aptPhAddressFields = document.getElementById("aptPhAddressFields");
   const aptIntlAddressField = document.getElementById("aptIntlAddressField");
 
-  if (aptCountry && aptRegion && aptProvince && aptMunicipality && aptBarangay) {
+  if (
+    aptCountry &&
+    aptRegion &&
+    aptProvince &&
+    aptMunicipality &&
+    aptBarangay
+  ) {
     const phAddressData = {
       "Bicol Region": {
         "Camarines Norte": {
@@ -3824,8 +4346,18 @@ document.addEventListener("DOMContentLoaded", () => {
       },
       "National Capital Region (NCR)": {
         "Metro Manila": {
-          Manila: ["Barangay 659", "Barangay 699", "Barangay 734", "Barangay 750"],
-          "Quezon City": ["Bagumbayan", "Batasan Hills", "Commonwealth", "UP Campus"],
+          Manila: [
+            "Barangay 659",
+            "Barangay 699",
+            "Barangay 734",
+            "Barangay 750",
+          ],
+          "Quezon City": [
+            "Bagumbayan",
+            "Batasan Hills",
+            "Commonwealth",
+            "UP Campus",
+          ],
         },
       },
     };
@@ -3852,8 +4384,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const updateAddressMode = () => {
       const isPhilippines = aptCountry.value === "Philippines";
-      if (aptPhAddressFields) aptPhAddressFields.style.display = isPhilippines ? "contents" : "none";
-      if (aptIntlAddressField) aptIntlAddressField.style.display = isPhilippines ? "none" : "block";
+      if (aptPhAddressFields)
+        aptPhAddressFields.style.display = isPhilippines ? "contents" : "none";
+      if (aptIntlAddressField)
+        aptIntlAddressField.style.display = isPhilippines ? "none" : "block";
       if (aptIntlAddress) aptIntlAddress.required = !isPhilippines;
     };
 
@@ -3873,7 +4407,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     aptProvince.addEventListener("change", () => {
-      const municipalities = Object.keys(phAddressData[aptRegion.value]?.[aptProvince.value] || {});
+      const municipalities = Object.keys(
+        phAddressData[aptRegion.value]?.[aptProvince.value] || {},
+      );
       fillSelect(aptMunicipality, municipalities, "Select Municipality");
       fillSelect(aptBarangay, [], "Select Barangay");
       aptMunicipality.disabled = !municipalities.length;
@@ -3881,7 +4417,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     aptMunicipality.addEventListener("change", () => {
-      const barangays = phAddressData[aptRegion.value]?.[aptProvince.value]?.[aptMunicipality.value] || [];
+      const barangays =
+        phAddressData[aptRegion.value]?.[aptProvince.value]?.[
+          aptMunicipality.value
+        ] || [];
       fillSelect(aptBarangay, barangays, "Select Barangay");
       aptBarangay.disabled = !barangays.length;
     });
@@ -3903,13 +4442,19 @@ document.addEventListener("DOMContentLoaded", () => {
       file.type === "application/msword" ||
       file.type ===
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    const isAllowedExt = /\.(png|jpg|jpeg|webp|gif|pdf|doc|docx)$/i.test(file.name);
+    const isAllowedExt = /\.(png|jpg|jpeg|webp|gif|pdf|doc|docx)$/i.test(
+      file.name,
+    );
 
     if (!isAllowedMime && !isAllowedExt) {
       uploadedAppointmentFile = null;
       aptFileInput.value = "";
-      if (aptFileName) aptFileName.textContent = "Invalid file. Use image, DOC/DOCX, or PDF only.";
-      showSlotMessage("Attachment is invalid. Please upload an image, DOC/DOCX, or PDF file only.");
+      if (aptFileName)
+        aptFileName.textContent =
+          "Invalid file. Use image, DOC/DOCX, or PDF only.";
+      showSlotMessage(
+        "Attachment is invalid. Please upload an image, DOC/DOCX, or PDF file only.",
+      );
       return;
     }
 
@@ -3932,7 +4477,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   aptMI?.addEventListener("input", () => {
-    aptMI.value = aptMI.value.replace(/[^A-Za-z]/g, "").slice(0, 1).toUpperCase();
+    aptMI.value = aptMI.value
+      .replace(/[^A-Za-z]/g, "")
+      .slice(0, 1)
+      .toUpperCase();
   });
 
   aptPhone?.addEventListener("input", () => {
@@ -3949,7 +4497,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (aptPollTimer) clearInterval(aptPollTimer);
     aptPollTimer = setInterval(async () => {
       // Only fetch if Step 3 is visible inside the modal
-      if (document.getElementById("aptStep3")?.classList.contains("active") && appointmentOverlay?.classList.contains("show-modal")) {
+      if (
+        document.getElementById("aptStep3")?.classList.contains("active") &&
+        appointmentOverlay?.classList.contains("show-modal")
+      ) {
         await fetchCalendarAvailability();
         renderCalendar(currentMonth, currentYear);
         renderTimeSlots(selectedDateKey);
@@ -4018,7 +4569,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   bindClick("btnGoToPrivacy", () => privacyModal?.classList.add("show-modal"));
-  bindClick("cancelPrivacyBtn", () => privacyModal?.classList.remove("show-modal"));
+  bindClick("cancelPrivacyBtn", () =>
+    privacyModal?.classList.remove("show-modal"),
+  );
   bindClick("acceptPrivacyBtn", () => {
     privacyModal?.classList.remove("show-modal");
     switchAptStep(2);
@@ -4042,14 +4595,50 @@ document.addEventListener("DOMContentLoaded", () => {
     confirmModal?.classList.add("show-modal");
   });
 
-  bindClick("cancelConfirmBtn", () => confirmModal?.classList.remove("show-modal"));
+  bindClick("cancelConfirmBtn", () =>
+    confirmModal?.classList.remove("show-modal"),
+  );
   bindClick("acceptConfirmBtn", () => {
     confirmModal?.classList.remove("show-modal");
     switchAptStep(4);
   });
 
   bindClick("btnCancelTo3", () => switchAptStep(3));
-  bindClick("btnGoToStep5", () => switchAptStep(5));
+
+  // Step 4: "Confirm & Submit" — actually submits the appointment to backend
+  bindClick("btnGoToStep5", async () => {
+    const btn = document.getElementById("btnGoToStep5");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Submitting...";
+    }
+    try {
+      if (!appointmentSubmitted) {
+        const ok = await submitAppointment();
+        if (!ok) {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = "Confirm & Submit";
+          }
+          // The error message from submitAppointment might be hidden on Step 3, so show a popup here:
+          const errorMsg =
+            document.getElementById("maxLimitMsg")?.innerText ||
+            "Unable to submit appointment. Please check your details.";
+          void showCustomerPopup(errorMsg, { title: "Submission Failed" });
+          return;
+        }
+      }
+      switchAptStep(5);
+    } catch {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Confirm & Submit";
+      }
+      void showCustomerPopup("Network error or timeout. Please try again.", {
+        title: "Error",
+      });
+    }
+  });
 
   bindClick("btnGenerateReport", () => {
     void downloadAppointmentReceipt();
@@ -4057,14 +4646,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   bindClick("btnDownloadQr", downloadQrCodeCard);
 
-  bindClick("btnFinishStep5", async () => {
-    if (appointmentSubmitted) {
-      successModal?.classList.add("active");
-      return;
-    }
-
-    const ok = await submitAppointment();
-    if (!ok) return;
+  // Step 5: "Finish Transaction" — appointment already submitted, just show success
+  bindClick("btnFinishStep5", () => {
     successModal?.classList.add("active");
   });
 
@@ -4074,6 +4657,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.style.overflow = "";
     resetAppointmentFlowState();
     switchAptStep(1);
+    stopAptPolling();
   });
 
   bindClick("btnSuccessDownload", () => {
@@ -4084,9 +4668,12 @@ document.addEventListener("DOMContentLoaded", () => {
   if (contactMessageForm) {
     contactMessageForm.addEventListener("submit", (event) => {
       event.preventDefault();
-      void showCustomerPopup("Thank you! Your message has been sent successfully.", {
-        title: "Message Sent",
-      });
+      void showCustomerPopup(
+        "Thank you! Your message has been sent successfully.",
+        {
+          title: "Message Sent",
+        },
+      );
       contactMessageForm.reset();
     });
   }
@@ -4206,9 +4793,11 @@ document.addEventListener("DOMContentLoaded", () => {
       document.body.appendChild(overlay);
 
       // Password Toggle Logic
-      const eyeClosedSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
-      const eyeOpenSvg = '<svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
-      
+      const eyeClosedSvg =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
+      const eyeOpenSvg =
+        '<svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+
       overlay.querySelectorAll(".toggle-pass").forEach((toggleBtn) => {
         toggleBtn.addEventListener("click", () => {
           const targetId = toggleBtn.getAttribute("data-target");
@@ -4249,9 +4838,11 @@ document.addEventListener("DOMContentLoaded", () => {
     overlay.classList.add("show");
     document.body.style.overflow = "hidden";
 
-    overlay.querySelector("#closeProfileModal")?.addEventListener("click", closeModal, {
-      once: true,
-    });
+    overlay
+      .querySelector("#closeProfileModal")
+      ?.addEventListener("click", closeModal, {
+        once: true,
+      });
 
     overlay.addEventListener(
       "click",
@@ -4270,9 +4861,11 @@ document.addEventListener("DOMContentLoaded", () => {
       form.onsubmit = async (event) => {
         event.preventDefault();
 
-        const currentPassword = overlay.querySelector("#cp_current")?.value || "";
+        const currentPassword =
+          overlay.querySelector("#cp_current")?.value || "";
         const newPassword = overlay.querySelector("#cp_new")?.value || "";
-        const confirmPassword = overlay.querySelector("#cp_confirm")?.value || "";
+        const confirmPassword =
+          overlay.querySelector("#cp_confirm")?.value || "";
 
         if (!currentPassword) {
           msgBox.style.display = "block";
@@ -4320,9 +4913,10 @@ document.addEventListener("DOMContentLoaded", () => {
           msgBox.style.display = "block";
           if (response.ok) {
             msgBox.style.color = "#0f7b35";
-            msgBox.innerHTML = "<i class=\"fa-solid fa-circle-check\"></i> you have changed your password successfully.";
+            msgBox.innerHTML =
+              '<i class="fa-solid fa-circle-check"></i> you have changed your password successfully.';
             form.reset();
-            
+
             setTimeout(() => {
               msgBox.style.display = "none";
               msgBox.textContent = "";
@@ -4333,7 +4927,11 @@ document.addEventListener("DOMContentLoaded", () => {
             const confirmErr = data.errors.new_password_confirmation?.[0];
             msgBox.style.color = "#b91c1c";
             msgBox.textContent =
-              currentErr || newErr || confirmErr || data.message || "Unable to update password.";
+              currentErr ||
+              newErr ||
+              confirmErr ||
+              data.message ||
+              "Unable to update password.";
           } else {
             msgBox.style.color = "#b91c1c";
             msgBox.textContent = data.message || "Unable to update password.";
@@ -4341,7 +4939,8 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch {
           msgBox.style.display = "block";
           msgBox.style.color = "#b91c1c";
-          msgBox.textContent = "Cannot connect to server. Ensure Laravel is running.";
+          msgBox.textContent =
+            "Cannot connect to server. Ensure Laravel is running.";
         } finally {
           setLoader(false);
         }
@@ -4395,7 +4994,11 @@ document.addEventListener("DOMContentLoaded", () => {
   let customerOrdersController = null;
   const customerOrdersCache = new Map();
 
-  const fetchJsonWithTimeout = async (url, options = {}, timeoutMs = API_REQUEST_TIMEOUT_MS) => {
+  const fetchJsonWithTimeout = async (
+    url,
+    options = {},
+    timeoutMs = API_REQUEST_TIMEOUT_MS,
+  ) => {
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
     const {
@@ -4421,7 +5024,9 @@ document.addEventListener("DOMContentLoaded", () => {
       return { response, data };
     } catch (error) {
       if (error?.name === "AbortError") {
-        throw new Error("Request timed out. Please check your connection and try again.");
+        throw new Error(
+          "Request timed out. Please check your connection and try again.",
+        );
       }
 
       throw error;
@@ -4431,12 +5036,15 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const fetchCustomerOrders = async (customerToken) => {
-    const { response, data } = await fetchJsonWithTimeout(`${API_BASE_URL}/customer/orders`, {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${customerToken}`,
+    const { response, data } = await fetchJsonWithTimeout(
+      `${API_BASE_URL}/customer/orders`,
+      {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${customerToken}`,
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       throw new Error(data.message || "Unable to load your orders.");
@@ -4446,12 +5054,15 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const fetchCustomerOrderDetail = async (customerToken, orderId) => {
-    const { response, data } = await fetchJsonWithTimeout(`${API_BASE_URL}/customer/orders/${orderId}`, {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${customerToken}`,
+    const { response, data } = await fetchJsonWithTimeout(
+      `${API_BASE_URL}/customer/orders/${orderId}`,
+      {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${customerToken}`,
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       throw new Error(data.message || "Unable to load order details.");
@@ -4505,15 +5116,25 @@ document.addEventListener("DOMContentLoaded", () => {
       document.body.appendChild(overlay);
 
       const tabs = Array.from(overlay.querySelectorAll(".customer-orders-tab"));
-      const panels = Array.from(overlay.querySelectorAll(".customer-orders-panel"));
+      const panels = Array.from(
+        overlay.querySelectorAll(".customer-orders-panel"),
+      );
       const track = overlay.querySelector("#customerOrdersTrack");
       const viewport = overlay.querySelector("#customerOrdersViewport");
       const closeBtn = overlay.querySelector("#closeCustomerOrdersModal");
       const detailModal = overlay.querySelector("#customerOrderDetailModal");
-      const detailContent = overlay.querySelector("#customerOrderDetailContent");
+      const detailContent = overlay.querySelector(
+        "#customerOrderDetailContent",
+      );
       const detailTitle = overlay.querySelector("#customerOrderDetailTitle");
       const closeDetailBtn = overlay.querySelector("#closeCustomerOrderDetail");
-      const stageByPanel = ["all", "to_pay", "to_ship", "to_receive", "completed"];
+      const stageByPanel = [
+        "all",
+        "to_pay",
+        "to_ship",
+        "to_receive",
+        "completed",
+      ];
 
       const state = {
         activeIndex: 0,
@@ -4555,6 +5176,9 @@ document.addEventListener("DOMContentLoaded", () => {
         state.refreshTimer = window.setInterval(() => {
           if (!overlay.classList.contains("show") || document.hidden) return;
           if (state.refreshInProgress) return;
+
+          const popup = document.getElementById("customerSystemPopup");
+          if (popup && popup.classList.contains("show")) return;
 
           const elapsed = Date.now() - state.lastRefreshAt;
           if (elapsed < CUSTOMER_ORDERS_MIN_REFRESH_GAP_MS) return;
@@ -4620,7 +5244,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const renderLoadingState = () => `
         <div class="customer-orders-empty">
           <i class="fa-solid fa-spinner fa-spin"></i>
-          <p>Loading orders from server...</p>
+          <p>Fetching your orders...</p>
         </div>
       `;
 
@@ -4629,7 +5253,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (stageKey === "completed") {
           return state.orders.filter(
             (order) =>
-              String(order.lifecycle_status || "").toLowerCase() !== "rejected" &&
+              String(order.lifecycle_status || "").toLowerCase() !==
+                "rejected" &&
               String(order.customer_stage || "") === "completed",
           );
         }
@@ -4655,7 +5280,9 @@ document.addEventListener("DOMContentLoaded", () => {
       };
 
       const resolveOrderStatusMeta = (order) => {
-        const lifecycle = String(order?.lifecycle_status || "pending").toLowerCase();
+        const lifecycle = String(
+          order?.lifecycle_status || "pending",
+        ).toLowerCase();
         const stage = ORDER_STAGE_FLOW.includes(order?.customer_stage)
           ? order.customer_stage
           : "to_pay";
@@ -4675,7 +5302,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         return {
-          label: ORDER_STAGE_LABELS[stage] || ORDER_LIFECYCLE_LABELS[lifecycle] || "Pending",
+          label:
+            ORDER_STAGE_LABELS[stage] ||
+            ORDER_LIFECYCLE_LABELS[lifecycle] ||
+            "Pending",
           className: `status-${stage.replace("_", "-")}`,
         };
       };
@@ -4706,15 +5336,27 @@ document.addEventListener("DOMContentLoaded", () => {
           panel.innerHTML = scopedOrders
             .map((order) => {
               const statusMeta = resolveOrderStatusMeta(order);
-              const quantity = Math.max(1, Number.parseInt(order.quantity || "1", 10) || 1);
+              const quantity = Math.max(
+                1,
+                Number.parseInt(order.quantity || "1", 10) || 1,
+              );
               const quantityLabel = `${quantity} item${quantity > 1 ? "s" : ""}`;
-              const productImage = escapeHtml(order.product_image || "/images/FMRC Logo.png");
-              const productName = escapeHtml(order.product_name || "Custom Order");
-              const orderNo = escapeHtml(order.order_no_display || `#${order.order_no || order.id || "-"}`);
+              const productImage = escapeHtml(
+                order.product_image || "/images/FMRC Logo.png",
+              );
+              const productName = escapeHtml(
+                order.product_name || "Custom Order",
+              );
+              const orderNo = escapeHtml(
+                order.order_no_display ||
+                  `#${order.order_no || order.id || "-"}`,
+              );
               const paymentMethod = escapeHtml(order.payment_method || "N/A");
 
               const numericTotal = Number(order.total_amount || 0);
-              const totalLabel = formatOrderCurrency(Number.isFinite(numericTotal) ? numericTotal : 0);
+              const totalLabel = formatOrderCurrency(
+                Number.isFinite(numericTotal) ? numericTotal : 0,
+              );
 
               return `
                 <article class="customer-order-card">
@@ -4750,22 +5392,39 @@ document.addEventListener("DOMContentLoaded", () => {
       const renderDetailModal = (detail) => {
         if (!detailModal || !detailContent || !detailTitle) return;
 
-        const safeOrderNo = escapeHtml(detail.order_no_display || `#${detail.order_no || detail.id || "-"}`);
+        const safeOrderNo = escapeHtml(
+          detail.order_no_display || `#${detail.order_no || detail.id || "-"}`,
+        );
         const safeTitle = escapeHtml(detail.product_name || "Order Details");
         const safeStatus = escapeHtml(
-          ORDER_LIFECYCLE_LABELS[String(detail.lifecycle_status || "").toLowerCase()] ||
-            ORDER_STAGE_LABELS[String(detail.customer_stage || "").toLowerCase()] ||
+          ORDER_LIFECYCLE_LABELS[
+            String(detail.lifecycle_status || "").toLowerCase()
+          ] ||
+            ORDER_STAGE_LABELS[
+              String(detail.customer_stage || "").toLowerCase()
+            ] ||
             "Pending",
         );
 
         const timeline = Array.isArray(detail.timeline) ? detail.timeline : [];
         const withCoords =
-          timeline.find((entry) => Number.isFinite(Number(entry?.latitude)) && Number.isFinite(Number(entry?.longitude))) ||
-          detail;
-        const mapEmbedUrl = buildGoogleMapEmbedUrl(withCoords?.latitude, withCoords?.longitude);
-        const mapOpenUrl = buildGoogleMapOpenUrl(withCoords?.latitude, withCoords?.longitude);
+          timeline.find(
+            (entry) =>
+              Number.isFinite(Number(entry?.latitude)) &&
+              Number.isFinite(Number(entry?.longitude)),
+          ) || detail;
+        const mapEmbedUrl = buildGoogleMapEmbedUrl(
+          withCoords?.latitude,
+          withCoords?.longitude,
+        );
+        const mapOpenUrl = buildGoogleMapOpenUrl(
+          withCoords?.latitude,
+          withCoords?.longitude,
+        );
         const courierName = escapeHtml(detail.courier_name || "J&T Express");
-        const courierTrackingNo = String(detail.courier_tracking_no || "").trim();
+        const courierTrackingNo = String(
+          detail.courier_tracking_no || "",
+        ).trim();
         const jntUrl = buildJntTrackingUrl(courierTrackingNo);
 
         detailTitle.textContent = `Order ${safeOrderNo}`;
@@ -4784,7 +5443,7 @@ document.addEventListener("DOMContentLoaded", () => {
             ${
               jntUrl
                 ? `<a class="customer-order-logistics-link" href="${escapeHtml(jntUrl)}" target="_blank" rel="noopener noreferrer">Track on J&T Express</a>`
-                : '<p class="customer-order-logistics-note">Tracking number will appear once admin updates shipment info.</p>'
+                : '<p class="customer-order-logistics-note">Tracking number will appear here once shipment info is available.</p>'
             }
           </div>
 
@@ -4798,7 +5457,7 @@ document.addEventListener("DOMContentLoaded", () => {
                        ? `<a href="${escapeHtml(mapOpenUrl)}" target="_blank" rel="noopener noreferrer">Open in Google Maps</a>`
                        : ""
                    }</div>`
-                : '<div class="customer-order-map-empty"><i class="fa-solid fa-map-location-dot"></i><p>Location updates will appear here once posted by admin or courier.</p></div>'
+                : '<div class="customer-order-map-empty"><i class="fa-solid fa-map-location-dot"></i><p>Location updates will appear here once available.</p></div>'
             }
           </div>
 
@@ -4860,11 +5519,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
         state.detailLoading = true;
         state.activeDetailId = key;
-        detailTitle.textContent = "Loading Order Details";
+        detailTitle.textContent = "Order Details";
         detailContent.innerHTML = `
           <div class="customer-orders-empty">
             <i class="fa-solid fa-spinner fa-spin"></i>
-            <p>Loading order timeline...</p>
+            <p>Preparing order details...</p>
           </div>
         `;
         detailModal.classList.add("show");
@@ -4898,7 +5557,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         state.detailLoading = true;
         try {
-          const detail = await fetchCustomerOrderDetail(state.token, state.activeDetailId);
+          const detail = await fetchCustomerOrderDetail(
+            state.token,
+            state.activeDetailId,
+          );
           if (detail) {
             state.detailsById.set(String(state.activeDetailId), detail);
             renderDetailModal(detail);
@@ -4918,7 +5580,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const now = Date.now();
-        if (!force && now - state.lastRefreshAt < CUSTOMER_ORDERS_MIN_REFRESH_GAP_MS) {
+        if (
+          !force &&
+          now - state.lastRefreshAt < CUSTOMER_ORDERS_MIN_REFRESH_GAP_MS
+        ) {
           return;
         }
 
@@ -5007,7 +5672,8 @@ document.addEventListener("DOMContentLoaded", () => {
       closeDetailBtn?.addEventListener("click", closeDetailModal);
 
       document.addEventListener("keydown", (event) => {
-        if (event.key !== "Escape" || !overlay.classList.contains("show")) return;
+        if (event.key !== "Escape" || !overlay.classList.contains("show"))
+          return;
         if (detailModal?.classList.contains("show")) {
           closeDetailModal();
           return;
@@ -5035,7 +5701,8 @@ document.addEventListener("DOMContentLoaded", () => {
           const deltaX = touch.clientX - state.touchStartX;
           const deltaY = touch.clientY - state.touchStartY;
 
-          if (Math.abs(deltaX) < 45 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
+          if (Math.abs(deltaX) < 45 || Math.abs(deltaX) <= Math.abs(deltaY))
+            return;
           if (deltaX < 0) {
             setActivePanel(state.activeIndex + 1);
           } else {
@@ -5047,6 +5714,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       window.addEventListener("fmrc:orders-updated", (event) => {
         if (!overlay.classList.contains("show")) return;
+        const popup = document.getElementById("customerSystemPopup");
+        if (popup && popup.classList.contains("show")) return;
         const payload = event?.detail || {};
         if (!shouldProcessRealtimeSignal(payload)) return;
         state.lastDetailRefreshAt = 0;
@@ -5056,6 +5725,8 @@ document.addEventListener("DOMContentLoaded", () => {
       window.addEventListener("storage", (event) => {
         if (event.key !== ORDERS_REALTIME_SIGNAL_KEY) return;
         if (!overlay.classList.contains("show") || document.hidden) return;
+        const popup = document.getElementById("customerSystemPopup");
+        if (popup && popup.classList.contains("show")) return;
 
         let payload = {};
         try {
@@ -5072,6 +5743,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const realtimeChannel = getOrdersRealtimeChannel();
       realtimeChannel?.addEventListener("message", (event) => {
         if (!overlay.classList.contains("show") || document.hidden) return;
+        const popup = document.getElementById("customerSystemPopup");
+        if (popup && popup.classList.contains("show")) return;
         const payload = event?.data || {};
         if (payload?.source === "customer-portal") return;
         if (!shouldProcessRealtimeSignal(payload)) return;
@@ -5081,6 +5754,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       document.addEventListener("visibilitychange", () => {
         if (document.hidden || !overlay.classList.contains("show")) return;
+        const popup = document.getElementById("customerSystemPopup");
+        if (popup && popup.classList.contains("show")) return;
         state.lastDetailRefreshAt = 0;
         void refreshOrders(false, true);
       });
@@ -5094,7 +5769,9 @@ document.addEventListener("DOMContentLoaded", () => {
       customerOrdersController = {
         open: async (nextUserInfo) => {
           state.userInfo = nextUserInfo;
-          state.cacheKey = String(nextUserInfo?.id || nextUserInfo?.email || "customer-orders");
+          state.cacheKey = String(
+            nextUserInfo?.id || nextUserInfo?.email || "customer-orders",
+          );
           state.token = localStorage.getItem("customer_token") || "";
           state.detailsById.clear();
           state.refreshQueued = false;
@@ -5109,7 +5786,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
           overlay.classList.add("show");
           document.body.style.overflow = "hidden";
-          await refreshOrders(!Array.isArray(cachedOrders) || !cachedOrders.length, true);
+          await refreshOrders(
+            !Array.isArray(cachedOrders) || !cachedOrders.length,
+            true,
+          );
           startRealtimeRefresh();
         },
       };
@@ -5197,7 +5877,7 @@ document.addEventListener("DOMContentLoaded", () => {
   userProfileBtn.addEventListener("click", (event) => {
     // If we click inside the popup (but not the main button itself), do nothing
     if (event.target.closest(".profile-popup")) return;
-    
+
     if (dropdown.classList.contains("show")) {
       hideDropdown(dropdown);
     } else {
@@ -5216,11 +5896,13 @@ document.addEventListener("DOMContentLoaded", () => {
     openProfileModal(userInfo, token);
   });
 
-  dropdown.querySelector("#viewOrdersBtn")?.addEventListener("click", (event) => {
-    event.preventDefault();
-    hideDropdown(dropdown);
-    openOrdersModal(userInfo);
-  });
+  dropdown
+    .querySelector("#viewOrdersBtn")
+    ?.addEventListener("click", (event) => {
+      event.preventDefault();
+      hideDropdown(dropdown);
+      openOrdersModal(userInfo);
+    });
 
   const showLogoutConfirmModal = (onConfirm) => {
     let modal = document.getElementById("laravelLogoutModal");
@@ -5250,7 +5932,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const cancelBtn = modal.querySelector("#cancelLogoutBtn");
       const confirmBtn = modal.querySelector("#confirmLogoutBtn");
-      
+
       cancelBtn.onmouseenter = () => {
         cancelBtn.style.backgroundColor = "#fee2e2";
         cancelBtn.style.color = "#dc2626";
@@ -5262,20 +5944,22 @@ document.addEventListener("DOMContentLoaded", () => {
         cancelBtn.style.borderColor = "#d1d5db";
         cancelBtn.style.transform = "scale(1)";
       };
-      cancelBtn.onmousedown = () => cancelBtn.style.transform = "scale(0.96)";
-      cancelBtn.onmouseup = () => cancelBtn.style.transform = "scale(1)";
+      cancelBtn.onmousedown = () => (cancelBtn.style.transform = "scale(0.96)");
+      cancelBtn.onmouseup = () => (cancelBtn.style.transform = "scale(1)");
 
       confirmBtn.onmouseenter = () => {
         confirmBtn.style.backgroundColor = "#7f1d1d"; // Darker red
-        confirmBtn.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)";
+        confirmBtn.style.boxShadow =
+          "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)";
       };
       confirmBtn.onmouseleave = () => {
         confirmBtn.style.backgroundColor = "var(--primary-color, #a80f0f)";
         confirmBtn.style.boxShadow = "none";
         confirmBtn.style.transform = "scale(1)";
       };
-      confirmBtn.onmousedown = () => confirmBtn.style.transform = "scale(0.96)";
-      confirmBtn.onmouseup = () => confirmBtn.style.transform = "scale(1)";
+      confirmBtn.onmousedown = () =>
+        (confirmBtn.style.transform = "scale(0.96)");
+      confirmBtn.onmouseup = () => (confirmBtn.style.transform = "scale(1)");
 
       cancelBtn.addEventListener("click", () => {
         modal.children[0].style.opacity = "0";
@@ -5330,153 +6014,320 @@ document.addEventListener("DOMContentLoaded", () => {
 // DYNAMIC SITE CONTENT LOADER
 // ============================================================================
 (function () {
-  'use strict';
+  "use strict";
 
-  const _API = (function() {
-    if (typeof API_BASE_URL !== 'undefined') return API_BASE_URL;
-    return 'http://127.0.0.1:8000/api';
+  const _API = (function () {
+    if (typeof API_BASE_URL !== "undefined") return API_BASE_URL;
+    return "http://127.0.0.1:8000/api";
   })();
 
-  function _txt(id, val) { const el = document.getElementById(id); if (el && val) el.textContent = val; }
-  function _html(id, val) { const el = document.getElementById(id); if (el && val) el.innerHTML = val; }
-  function _src(id, val) { const el = document.getElementById(id); if (el && val) el.src = val; }
-  function _esc(str) { const d = document.createElement('div'); d.textContent = str||''; return d.innerHTML; }
-  function _attr(str) { return String(str||'').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  function _txt(id, val) {
+    const el = document.getElementById(id);
+    if (el && val) el.textContent = val;
+  }
+  function _html(id, val) {
+    const el = document.getElementById(id);
+    if (el && val) el.innerHTML = val;
+  }
+  function _src(id, val) {
+    const el = document.getElementById(id);
+    if (el && val) el.src = val;
+  }
+  function _esc(str) {
+    const d = document.createElement("div");
+    d.textContent = str || "";
+    return d.innerHTML;
+  }
+  function _attr(str) {
+    return String(str || "")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
 
   async function loadSiteContent() {
     try {
       const [sRes, svRes] = await Promise.all([
-        fetch(_API + '/site-settings'),
-        fetch(_API + '/services'),
+        fetch(_API + "/site-settings"),
+        fetch(_API + "/services"),
       ]);
-      if (sRes.ok) { const { data } = await sRes.json(); applySettings(data || {}); }
-      if (svRes.ok) { const { data } = await svRes.json(); applyServices(data || []); }
-    } catch { /* silent fallback */ }
+      if (sRes.ok) {
+        const { data } = await sRes.json();
+        applySettings(data || {});
+      }
+      if (svRes.ok) {
+        const { data } = await svRes.json();
+        applyServices(data || []);
+      }
+    } catch {
+      /* silent fallback */
+    }
   }
 
   function applySettings(s) {
     // Hero title
     if (s.hero_title) {
-      const el = document.getElementById('heroTitleEl');
+      const el = document.getElementById("heroTitleEl");
       if (el) {
-        const lines = s.hero_title.split('\n');
-        el.innerHTML = lines.map((l,i) => i===lines.length-1 ? `<span class="hero-research-line">${_esc(l)}</span>` : _esc(l)+'<br />').join('');
+        const lines = s.hero_title.split("\n");
+        el.innerHTML = lines
+          .map((l, i) =>
+            i === lines.length - 1
+              ? `<span class="hero-research-line">${_esc(l)}</span>`
+              : _esc(l) + "<br />",
+          )
+          .join("");
       }
     }
-    if (s.hero_logo_image) _src('heroLogoEl', s.hero_logo_image);
+    if (s.hero_logo_image) _src("heroLogoEl", s.hero_logo_image);
     // Hero bg
-    const heroSec = document.querySelector('.hero-section');
-    if (heroSec && s.hero_bg_type === 'color' && s.hero_bg_color) heroSec.style.background = s.hero_bg_color;
-    if (heroSec && s.hero_bg_type === 'image' && s.hero_bg_image) {
-      heroSec.style.backgroundImage = "url('"+s.hero_bg_image+"')";
-      heroSec.style.backgroundSize = 'cover';
-      heroSec.style.backgroundPosition = 'center';
+    const heroSec = document.querySelector(".hero-section");
+    if (heroSec && s.hero_bg_type === "color" && s.hero_bg_color)
+      heroSec.style.background = s.hero_bg_color;
+    if (heroSec && s.hero_bg_type === "image" && s.hero_bg_image) {
+      heroSec.style.backgroundImage = "url('" + s.hero_bg_image + "')";
+      heroSec.style.backgroundSize = "cover";
+      heroSec.style.backgroundPosition = "center";
     }
     // About
-    _txt('aboutHeadingEl', s.about_heading);
-    _html('aboutText1El', s.about_text_1);
-    _html('aboutText2El', s.about_text_2);
+    _txt("aboutHeadingEl", s.about_heading);
+    _html("aboutText1El", s.about_text_1);
+    _html("aboutText2El", s.about_text_2);
     if (s.about_video_url) {
-      ['aboutVideoSrc','aboutFullVideoSrc'].forEach(function(id) {
+      ["aboutVideoSrc", "aboutFullVideoSrc"].forEach(function (id) {
         const src = document.getElementById(id);
-        if (src) { src.src = s.about_video_url; src.parentElement && src.parentElement.load && src.parentElement.load(); }
+        if (src) {
+          src.src = s.about_video_url;
+          src.parentElement &&
+            src.parentElement.load &&
+            src.parentElement.load();
+        }
       });
     }
     // Vision / Mission
-    _txt('visionHeadingEl', s.vision_heading); _txt('visionTextEl', s.vision_text);
-    if (s.vision_image) _src('visionImgEl', s.vision_image);
-    _txt('missionHeadingEl', s.mission_heading); _txt('missionTextEl', s.mission_text);
-    if (s.mission_image) _src('missionImgEl', s.mission_image);
+    _txt("visionHeadingEl", s.vision_heading);
+    _txt("visionTextEl", s.vision_text);
+    if (s.vision_image) _src("visionImgEl", s.vision_image);
+    _txt("missionHeadingEl", s.mission_heading);
+    _txt("missionTextEl", s.mission_text);
+    if (s.mission_image) _src("missionImgEl", s.mission_image);
     // Footer
-    _txt('footerBrandNameEl', s.footer_brand_name); _txt('footerBrandDescEl', s.footer_brand_desc);
-    _txt('footerHoursDaysEl', s.footer_hours_days); _txt('footerHoursTimeEl', s.footer_hours_time);
-    _txt('footerCopyrightEl', s.footer_copyright);
+    _txt("footerBrandNameEl", s.footer_brand_name);
+    _txt("footerBrandDescEl", s.footer_brand_desc);
+    _txt("footerHoursDaysEl", s.footer_hours_days);
+    _txt("footerHoursTimeEl", s.footer_hours_time);
+    _txt("footerCopyrightEl", s.footer_copyright);
     if (s.footer_quick_links) {
       try {
         var links = JSON.parse(s.footer_quick_links);
-        var ul = document.getElementById('footerQuickLinksEl');
-        if (ul && links.length) ul.innerHTML = links.map(function(l){return '<li><a href="'+_attr(l.url||'#')+'">'+_esc(l.label||'')+'</a></li>';}).join('');
-      } catch(e){}
+        var ul = document.getElementById("footerQuickLinksEl");
+        if (ul && links.length)
+          ul.innerHTML = links
+            .map(function (l) {
+              return (
+                '<li><a href="' +
+                _attr(l.url || "#") +
+                '">' +
+                _esc(l.label || "") +
+                "</a></li>"
+              );
+            })
+            .join("");
+      } catch (e) {}
     }
-    var fLoc = document.getElementById('footerLocationLink');
-    if (fLoc) { if(s.footer_contact_location) fLoc.textContent=s.footer_contact_location; if(s.footer_contact_location_url) fLoc.href=s.footer_contact_location_url; }
-    var fEmail = document.getElementById('footerEmailLink');
-    if (fEmail && s.footer_contact_email) { fEmail.textContent=s.footer_contact_email; fEmail.href='mailto:'+s.footer_contact_email; }
-    var fPhone = document.getElementById('footerPhoneLink');
-    if (fPhone && s.footer_contact_phone) { fPhone.textContent=s.footer_contact_phone; fPhone.href='tel:'+s.footer_contact_phone.replace(/[\s-]/g,''); }
-    var fFb = document.getElementById('footerFacebookLink');
-    if (fFb) { if(s.footer_contact_facebook) fFb.textContent=s.footer_contact_facebook; if(s.footer_contact_facebook_url) fFb.href=s.footer_contact_facebook_url; }
+    var fLoc = document.getElementById("footerLocationLink");
+    if (fLoc) {
+      if (s.footer_contact_location)
+        fLoc.textContent = s.footer_contact_location;
+      if (s.footer_contact_location_url)
+        fLoc.href = s.footer_contact_location_url;
+    }
+    var fEmail = document.getElementById("footerEmailLink");
+    if (fEmail && s.footer_contact_email) {
+      fEmail.textContent = s.footer_contact_email;
+      fEmail.href = "mailto:" + s.footer_contact_email;
+    }
+    var fPhone = document.getElementById("footerPhoneLink");
+    if (fPhone && s.footer_contact_phone) {
+      fPhone.textContent = s.footer_contact_phone;
+      fPhone.href = "tel:" + s.footer_contact_phone.replace(/[\s-]/g, "");
+    }
+    var fFb = document.getElementById("footerFacebookLink");
+    if (fFb) {
+      if (s.footer_contact_facebook)
+        fFb.textContent = s.footer_contact_facebook;
+      if (s.footer_contact_facebook_url)
+        fFb.href = s.footer_contact_facebook_url;
+    }
     // Contact page
-    _txt('contactTitleEl', s.contact_heading); _txt('contactLeadEl', s.contact_lead);
-    var cLoc = document.getElementById('contactLocationLink');
-    if (cLoc) { if(s.contact_location) cLoc.textContent=s.contact_location; if(s.contact_location_url) cLoc.href=s.contact_location_url; }
-    var cEmail = document.getElementById('contactEmailLink');
-    if (cEmail && s.contact_email) { cEmail.textContent=s.contact_email; cEmail.href='mailto:'+s.contact_email; }
-    var cPhone = document.getElementById('contactPhoneLink');
-    if (cPhone && s.contact_phone) { cPhone.textContent=s.contact_phone; cPhone.href='tel:'+s.contact_phone.replace(/[\s-]/g,''); }
-    var cFb = document.getElementById('contactFacebookLink');
-    if (cFb) { if(s.contact_facebook) cFb.textContent=s.contact_facebook; if(s.contact_facebook_url) cFb.href=s.contact_facebook_url; }
-    _txt('contactFormHeadingEl', s.contact_form_heading);
-    _txt('contactFormSubtitleEl', s.contact_form_subtitle);
-    _txt('contactConsentTextEl', s.contact_consent_text || 'I hereby consent to the collection, processing, and storage of my personal information in accordance with the Data Privacy Act of 2012 (R.A. 10173).');
+    _txt("contactTitleEl", s.contact_heading);
+    _txt("contactLeadEl", s.contact_lead);
+    var cLoc = document.getElementById("contactLocationLink");
+    if (cLoc) {
+      if (s.contact_location) cLoc.textContent = s.contact_location;
+      if (s.contact_location_url) cLoc.href = s.contact_location_url;
+    }
+    var cEmail = document.getElementById("contactEmailLink");
+    if (cEmail && s.contact_email) {
+      cEmail.textContent = s.contact_email;
+      cEmail.href = "mailto:" + s.contact_email;
+    }
+    var cPhone = document.getElementById("contactPhoneLink");
+    if (cPhone && s.contact_phone) {
+      cPhone.textContent = s.contact_phone;
+      cPhone.href = "tel:" + s.contact_phone.replace(/[\s-]/g, "");
+    }
+    var cFb = document.getElementById("contactFacebookLink");
+    if (cFb) {
+      if (s.contact_facebook) cFb.textContent = s.contact_facebook;
+      if (s.contact_facebook_url) cFb.href = s.contact_facebook_url;
+    }
+    _txt("contactFormHeadingEl", s.contact_form_heading);
+    _txt("contactFormSubtitleEl", s.contact_form_subtitle);
+    _txt(
+      "contactConsentTextEl",
+      s.contact_consent_text ||
+        "I hereby consent to the collection, processing, and storage of my personal information in accordance with the Data Privacy Act of 2012 (R.A. 10173).",
+    );
   }
 
   function applyServices(services) {
     // Home carousel
-    var track = document.getElementById('whatWeOfferTrack');
+    var track = document.getElementById("whatWeOfferTrack");
     if (track && services.length) {
-      track.innerHTML = services.map(function(s) {
-        return '<div class="carousel-item"><div class="service-card landscape-card" data-service-id="'+s.id+'" data-category="'+_attr(s.category||'')+'">'
-          +'<div class="card-img-holder">'+(s.image_data?'<img src="'+_attr(s.image_data)+'" alt="'+_attr(s.title)+'" />':'<div style="width:100%;height:100%;background:#f3f4f6;display:flex;align-items:center;justify-content:center;"><span style="color:#9ca3af;font-size:.78rem;">No image</span></div>')+'</div>'
-          +'<div class="card-content"><h3 class="card-title">'+_esc(s.title)+'</h3><p class="card-desc">'+_esc(s.description||'')+'</p></div>'
-          +'</div></div>';
-      }).join('');
+      track.innerHTML = services
+        .map(function (s) {
+          return (
+            '<div class="carousel-item"><div class="service-card landscape-card" data-service-id="' +
+            s.id +
+            '" data-category="' +
+            _attr(s.category || "") +
+            '">' +
+            '<div class="card-img-holder">' +
+            (s.image_data
+              ? '<img src="' +
+                _attr(s.image_data) +
+                '" alt="' +
+                _attr(s.title) +
+                '" />'
+              : '<div style="width:100%;height:100%;background:#f3f4f6;display:flex;align-items:center;justify-content:center;"><span style="color:#9ca3af;font-size:.78rem;">No image</span></div>') +
+            "</div>" +
+            '<div class="card-content"><h3 class="card-title">' +
+            _esc(s.title) +
+            '</h3><p class="card-desc">' +
+            _esc(s.description || "") +
+            "</p></div>" +
+            "</div></div>"
+          );
+        })
+        .join("");
       initCarousel(track);
     }
     // Services page grid
-    var grid = document.getElementById('servicesGrid');
+    var grid = document.getElementById("servicesGrid");
     if (grid && services.length) {
-      grid.innerHTML = services.map(function(s) {
-        return '<article class="service-card" data-category="'+_attr((s.category||'').toLowerCase().replace(/\s+/g,'-'))+'">'
-          +'<div class="card-img-holder">'+(s.image_data?'<img src="'+_attr(s.image_data)+'" alt="'+_attr(s.title)+'" />':'<div style="width:100%;height:100%;background:#f3f4f6;display:flex;align-items:center;justify-content:center;"><span style="color:#9ca3af;">No image</span></div>')+'</div>'
-          +'<div class="card-content"><span class="service-chip">'+_esc(s.category)+'</span><h3 class="card-title">'+_esc(s.title)+'</h3><p class="card-desc">'+_esc(s.description||'')+'</p>'
-          +'<button class="details-btn open-modal-btn" style="background:none;border:none;cursor:pointer;padding:0;text-align:left;display:inline-flex;align-items:center;gap:4px;" data-title="'+_attr(s.title)+'" data-desc="'+_attr(s.modal_description||s.description||'')+'" data-features="'+_attr(JSON.stringify(s.modal_features||[]))+'" data-materials="'+_attr(JSON.stringify(s.modal_materials||[]))+'" data-best-for="'+_attr(JSON.stringify(s.modal_best_for||[]))+'" data-img="'+_attr(s.image_data||'')+'">View service details</button>'
-          +'</div></article>';
-      }).join('');
+      grid.innerHTML = services
+        .map(function (s) {
+          return (
+            '<article class="service-card" data-category="' +
+            _attr((s.category || "").toLowerCase().replace(/\s+/g, "-")) +
+            '">' +
+            '<div class="card-img-holder">' +
+            (s.image_data
+              ? '<img src="' +
+                _attr(s.image_data) +
+                '" alt="' +
+                _attr(s.title) +
+                '" />'
+              : '<div style="width:100%;height:100%;background:#f3f4f6;display:flex;align-items:center;justify-content:center;"><span style="color:#9ca3af;">No image</span></div>') +
+            "</div>" +
+            '<div class="card-content"><span class="service-chip">' +
+            _esc(s.category) +
+            '</span><h3 class="card-title">' +
+            _esc(s.title) +
+            '</h3><p class="card-desc">' +
+            _esc(s.description || "") +
+            "</p>" +
+            '<button class="details-btn open-modal-btn" style="background:none;border:none;cursor:pointer;padding:0;text-align:left;display:inline-flex;align-items:center;gap:4px;" data-title="' +
+            _attr(s.title) +
+            '" data-desc="' +
+            _attr(s.modal_description || s.description || "") +
+            '" data-features="' +
+            _attr(JSON.stringify(s.modal_features || [])) +
+            '" data-materials="' +
+            _attr(JSON.stringify(s.modal_materials || [])) +
+            '" data-best-for="' +
+            _attr(JSON.stringify(s.modal_best_for || [])) +
+            '" data-img="' +
+            _attr(s.image_data || "") +
+            '">View service details</button>' +
+            "</div></article>"
+          );
+        })
+        .join("");
     }
   }
 
   function initCarousel(track) {
-    var items = Array.from(track.querySelectorAll('.carousel-item'));
-    var prevEl = document.querySelector('.prev-btn');
-    var nextEl = document.querySelector('.next-btn');
-    var wrapper = document.querySelector('.carousel-wrapper');
+    var items = Array.from(track.querySelectorAll(".carousel-item"));
+    var prevEl = document.querySelector(".prev-btn");
+    var nextEl = document.querySelector(".next-btn");
+    var wrapper = document.querySelector(".carousel-wrapper");
     if (!items.length || !prevEl || !nextEl || !wrapper) return;
-    var cur = 0, timer;
+    var cur = 0,
+      timer;
     function upd() {
-      items.forEach(function(it,i) {
-        it.className = 'carousel-item';
-        if (i===cur) it.classList.add('active');
-        else if (i===(cur-1+items.length)%items.length) it.classList.add('prev');
-        else if (i===(cur+1)%items.length) it.classList.add('next');
-        else if (i===(cur-2+items.length)%items.length) it.classList.add('prev-hidden');
-        else if (i===(cur+2)%items.length) it.classList.add('next-hidden');
+      items.forEach(function (it, i) {
+        it.className = "carousel-item";
+        if (i === cur) it.classList.add("active");
+        else if (i === (cur - 1 + items.length) % items.length)
+          it.classList.add("prev");
+        else if (i === (cur + 1) % items.length) it.classList.add("next");
+        else if (i === (cur - 2 + items.length) % items.length)
+          it.classList.add("prev-hidden");
+        else if (i === (cur + 2) % items.length)
+          it.classList.add("next-hidden");
       });
     }
-    function nxt() { cur=(cur+1)%items.length; upd(); }
-    function prv() { cur=(cur-1+items.length)%items.length; upd(); }
-    var nn=nextEl.cloneNode(true), np=prevEl.cloneNode(true);
-    nextEl.parentNode.replaceChild(nn,nextEl); prevEl.parentNode.replaceChild(np,prevEl);
-    nn.addEventListener('click',function(){ nxt(); clearInterval(timer); timer=setInterval(nxt,5000); });
-    np.addEventListener('click',function(){ prv(); clearInterval(timer); timer=setInterval(nxt,5000); });
-    items.forEach(function(it){ it.addEventListener('click',function(){ if(it.classList.contains('prev')) prv(); else if(it.classList.contains('next')) nxt(); }); });
-    wrapper.addEventListener('mouseenter',function(){ clearInterval(timer); });
-    wrapper.addEventListener('mouseleave',function(){ timer=setInterval(nxt,5000); });
-    upd(); timer=setInterval(nxt,5000);
+    function nxt() {
+      cur = (cur + 1) % items.length;
+      upd();
+    }
+    function prv() {
+      cur = (cur - 1 + items.length) % items.length;
+      upd();
+    }
+    var nn = nextEl.cloneNode(true),
+      np = prevEl.cloneNode(true);
+    nextEl.parentNode.replaceChild(nn, nextEl);
+    prevEl.parentNode.replaceChild(np, prevEl);
+    nn.addEventListener("click", function () {
+      nxt();
+      clearInterval(timer);
+      timer = setInterval(nxt, 5000);
+    });
+    np.addEventListener("click", function () {
+      prv();
+      clearInterval(timer);
+      timer = setInterval(nxt, 5000);
+    });
+    items.forEach(function (it) {
+      it.addEventListener("click", function () {
+        if (it.classList.contains("prev")) prv();
+        else if (it.classList.contains("next")) nxt();
+      });
+    });
+    wrapper.addEventListener("mouseenter", function () {
+      clearInterval(timer);
+    });
+    wrapper.addEventListener("mouseleave", function () {
+      timer = setInterval(nxt, 5000);
+    });
+    upd();
+    timer = setInterval(nxt, 5000);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadSiteContent);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", loadSiteContent);
   } else {
     loadSiteContent();
   }

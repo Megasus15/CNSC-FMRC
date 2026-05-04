@@ -10,50 +10,41 @@ use Illuminate\Routing\Controller;
 class NotificationController extends Controller
 {
     /**
-     * Admin: Get all notifications (latest first).
+     * Admin: Get all notifications (latest first) + unread count in ONE query.
      */
     public function index(): JsonResponse
     {
-        $notifications = AdminNotification::orderByDesc('created_at')
-            ->limit(50)
-            ->get();
-
-        $unreadCount = AdminNotification::where('is_read', false)->count();
-
-        return response()->json([
-            'data'         => $notifications,
-            'unread_count' => $unreadCount,
-        ]);
+        return $this->respondWithNotifications();
     }
 
     /**
-     * Admin: Mark a specific notification as read.
+     * Admin: Mark a specific notification as read — returns updated list instantly.
      */
     public function markRead(AdminNotification $notification): JsonResponse
     {
         $notification->update(['is_read' => true]);
 
-        return response()->json(['message' => 'Notification marked as read.']);
+        return $this->respondWithNotifications('Notification marked as read.');
     }
 
     /**
-     * Admin: Mark ALL notifications as read.
+     * Admin: Mark ALL notifications as read — returns updated list instantly.
      */
     public function markAllRead(): JsonResponse
     {
         AdminNotification::where('is_read', false)->update(['is_read' => true]);
 
-        return response()->json(['message' => 'All notifications marked as read.']);
+        return $this->respondWithNotifications('All notifications marked as read.');
     }
 
     /**
-     * Admin: Delete a notification.
+     * Admin: Delete a notification — returns updated list instantly.
      */
     public function destroy(AdminNotification $notification): JsonResponse
     {
         $notification->delete();
 
-        return response()->json(['message' => 'Notification deleted.']);
+        return $this->respondWithNotifications('Notification deleted.');
     }
 
     /**
@@ -64,5 +55,29 @@ class NotificationController extends Controller
         $count = AdminNotification::where('is_read', false)->count();
 
         return response()->json(['unread_count' => $count]);
+    }
+
+    /**
+     * Single helper: fetch latest 50 notifications + unread count.
+     * Every mutation endpoint returns this so the frontend always has fresh data.
+     */
+    private function respondWithNotifications(?string $message = null): JsonResponse
+    {
+        $notifications = AdminNotification::orderByDesc('created_at')
+            ->limit(50)
+            ->get();
+
+        $unreadCount = $notifications->where('is_read', false)->count();
+
+        $payload = [
+            'data'         => $notifications,
+            'unread_count' => $unreadCount,
+        ];
+
+        if ($message) {
+            $payload['message'] = $message;
+        }
+
+        return response()->json($payload);
     }
 }

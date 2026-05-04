@@ -339,11 +339,11 @@ document.addEventListener("DOMContentLoaded", () => {
       return `${proto}//${host}/api`;
     })();
 
-    const NOTIF_POLL_INTERVAL = 30000; // 30 seconds
+    const NOTIF_POLL_INTERVAL = 10000; // 10 seconds — near real-time
     let notifPollTimer = null;
     let currentUnreadCount = 0;
 
-    // Ensure dropdown exists
+    // Ensure dropdown exists — attach to body (not notifBtn) for correct positioning
     let notifDropdown = document.getElementById("notificationDropdown");
     if (!notifDropdown) {
       notifDropdown = document.createElement("div");
@@ -362,8 +362,14 @@ document.addEventListener("DOMContentLoaded", () => {
             <p>Nothing right now</p>
           </div>
         </div>
+        <div class="notif-footer">
+          <button type="button" class="notif-view-all-btn" id="notifViewAllBtn">
+            View All Notifications <i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
       `;
-      notifBtn.appendChild(notifDropdown);
+      // Attach to body so it is never a descendant of notifBtn
+      document.body.appendChild(notifDropdown);
     }
 
     const notifBody       = notifDropdown.querySelector("#notifBody");
@@ -409,61 +415,75 @@ document.addEventListener("DOMContentLoaded", () => {
       return `${days}d ago`;
     };
 
-    // Type icon map
-    const typeIcon = {
-      order:       "fa-box-open",
-      appointment: "fa-calendar-check",
-      success:     "fa-circle-check",
-      warning:     "fa-triangle-exclamation",
-      error:       "fa-circle-xmark",
-      info:        "fa-circle-info",
+    // Render notifications (dropdown — 5 most recent)
+    const NOTIF_TYPE_ICONS = {
+      order:       'fa-box-open',
+      appointment: 'fa-calendar-check',
+      success:     'fa-circle-check',
+      warning:     'fa-triangle-exclamation',
+      error:       'fa-circle-xmark',
+      info:        'fa-circle-info',
     };
 
-    // Render notifications
+    const escHtml = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+    const buildNotifItemHTML = (n, compact = true) => {
+      const icon = NOTIF_TYPE_ICONS[n.type] || 'fa-circle-info';
+      const typeClass = `notif-type-${n.type || 'info'}`;
+      const readClass = n.is_read ? '' : ' notif-unread';
+      const msgClamp  = compact ? 'notif-item-msg' : 'notif-item-msg';
+      return `
+        <div class="notif-item${readClass}" data-notif-id="${n.id}">
+          <div class="notif-type-dot ${typeClass}"><i class="fa-solid ${icon}"></i></div>
+          <div class="notif-item-body">
+            <div class="notif-item-title">${escHtml(n.title)}</div>
+            <div class="${msgClamp}">${escHtml(n.message)}</div>
+            <div class="notif-item-time">${formatRelTime(n.created_at)}</div>
+          </div>
+          <div class="notif-item-actions">
+            ${!n.is_read ? `<button class="notif-read-btn" title="Mark as read" data-notif-id="${n.id}"><i class="fa-solid fa-check"></i></button>` : '<div class="notif-unread-dot" style="visibility:hidden"></div>'}
+            <button class="notif-del-btn" title="Dismiss" data-notif-id="${n.id}"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+        </div>`;
+    };
+
+    let _lastNotifData = [];
+
     const renderNotifications = (notifications) => {
       if (!notifBody) return;
+      _lastNotifData = notifications;
 
       // Remove existing items (keep empty state)
       Array.from(notifBody.querySelectorAll(".notif-item")).forEach((el) => el.remove());
 
-      if (!notifications.length) {
-        if (notifEmptyState) notifEmptyState.style.display = "";
-        if (notifMarkAllBtn) notifMarkAllBtn.style.display = "none";
+      const recent = notifications.slice(0, 5);
+
+      if (!recent.length) {
+        if (notifEmptyState) notifEmptyState.style.display = '';
+        if (notifMarkAllBtn) notifMarkAllBtn.style.display = 'none';
         return;
       }
 
-      if (notifEmptyState) notifEmptyState.style.display = "none";
+      if (notifEmptyState) notifEmptyState.style.display = 'none';
 
-      const hasUnread = notifications.some((n) => !n.is_read);
-      if (notifMarkAllBtn) notifMarkAllBtn.style.display = hasUnread ? "" : "none";
+      const hasUnread = recent.some((n) => !n.is_read);
+      if (notifMarkAllBtn) notifMarkAllBtn.style.display = hasUnread ? '' : 'none';
 
       const frag = document.createDocumentFragment();
-      notifications.forEach((n) => {
-        const item = document.createElement("div");
-        item.className = `notif-item${n.is_read ? "" : " notif-unread"}`;
-        item.dataset.notifId = n.id;
-
-        const icon = typeIcon[n.type] || "fa-circle-info";
-        item.innerHTML = `
-          <div class="notif-icon-col">
-            <i class="fa-solid ${icon}"></i>
-          </div>
-          <div class="notif-content-col">
-            <div class="notif-title">${String(n.title || "").replace(/</g, "&lt;")}</div>
-            <div class="notif-msg">${String(n.message || "").replace(/</g, "&lt;")}</div>
-            <div class="notif-time">${formatRelTime(n.created_at)}</div>
-          </div>
-          <div class="notif-actions-col">
-            ${!n.is_read ? `<button class="notif-read-btn" title="Mark as read" data-notif-id="${n.id}"><i class="fa-solid fa-check"></i></button>` : ""}
-            <button class="notif-del-btn" title="Dismiss" data-notif-id="${n.id}"><i class="fa-solid fa-xmark"></i></button>
-          </div>
-        `;
-        frag.appendChild(item);
+      recent.forEach((n) => {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = buildNotifItemHTML(n, true);
+        frag.appendChild(wrapper.firstElementChild);
       });
       if (notifEmptyState) {
         notifBody.insertBefore(frag, notifEmptyState);
       } else {
         notifBody.appendChild(frag);
+      }
+
+      // Sync All-Notif panel if open
+      if (document.getElementById('allNotifOverlay')?.classList.contains('show')) {
+        renderAllNotifPanel(notifications);
       }
     };
 
@@ -486,59 +506,126 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     };
 
-    // Mark single as read
+    // Helper: apply fresh server data (returned by every mutation endpoint)
+    const applyServerNotifData = (json) => {
+      if (!json) return;
+      if (Array.isArray(json.data)) {
+        _lastNotifData = json.data;
+        renderNotifications(_lastNotifData);
+        // Also refresh the All Notifications panel if it's open
+        if (typeof renderAllNotifPanel === 'function') {
+          renderAllNotifPanel(_lastNotifData);
+        }
+      }
+      if (typeof json.unread_count === 'number') {
+        currentUnreadCount = json.unread_count;
+        updateBadge(json.unread_count);
+      }
+    };
+
+    // Mark single as read — INSTANT UI + backend sync
     const markAsRead = async (id) => {
       const token = getToken();
       if (!token) return;
+      // Optimistic: update local data immediately
+      const n = _lastNotifData.find(x => String(x.id) === String(id));
+      if (n && !n.is_read) {
+        n.is_read = true;
+        currentUnreadCount = Math.max(0, currentUnreadCount - 1);
+        updateBadge(currentUnreadCount);
+        renderNotifications(_lastNotifData);
+        if (typeof renderAllNotifPanel === 'function') renderAllNotifPanel(_lastNotifData);
+      }
+      // API returns fresh data — reconcile silently
       try {
-        await fetch(`${NOTIF_API_BASE}/admin/notifications/${id}/read`, {
+        const res = await fetch(`${NOTIF_API_BASE}/admin/notifications/${id}/read`, {
           method: "PATCH",
           headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
         });
-        await fetchNotifications();
-      } catch { /* ignore */ }
+        if (res.ok) applyServerNotifData(await res.json());
+      } catch { /* optimistic already applied */ }
     };
 
-    // Mark all as read
+    // Mark all as read — INSTANT UI + backend sync
     const markAllRead = async () => {
       const token = getToken();
       if (!token) return;
+      // Optimistic
+      _lastNotifData.forEach(n => { n.is_read = true; });
+      currentUnreadCount = 0;
+      updateBadge(0);
+      renderNotifications(_lastNotifData);
+      if (typeof renderAllNotifPanel === 'function') renderAllNotifPanel(_lastNotifData);
+      // API returns fresh data
       try {
-        await fetch(`${NOTIF_API_BASE}/admin/notifications/mark-all-read`, {
+        const res = await fetch(`${NOTIF_API_BASE}/admin/notifications/mark-all-read`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
         });
-        await fetchNotifications();
-      } catch { /* ignore */ }
+        if (res.ok) applyServerNotifData(await res.json());
+      } catch { /* optimistic already applied */ }
     };
 
-    // Delete notification
+    // Delete notification — INSTANT UI + backend sync
     const deleteNotification = async (id) => {
       const token = getToken();
       if (!token) return;
+      // Optimistic: remove from local data immediately
+      const idx = _lastNotifData.findIndex(x => String(x.id) === String(id));
+      if (idx !== -1) {
+        const wasUnread = !_lastNotifData[idx].is_read;
+        _lastNotifData.splice(idx, 1);
+        if (wasUnread) {
+          currentUnreadCount = Math.max(0, currentUnreadCount - 1);
+          updateBadge(currentUnreadCount);
+        }
+        renderNotifications(_lastNotifData);
+        if (typeof renderAllNotifPanel === 'function') renderAllNotifPanel(_lastNotifData);
+      }
+      // API returns fresh data
       try {
-        await fetch(`${NOTIF_API_BASE}/admin/notifications/${id}`, {
+        const res = await fetch(`${NOTIF_API_BASE}/admin/notifications/${id}`, {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
         });
-        await fetchNotifications();
-      } catch { /* ignore */ }
+        if (res.ok) applyServerNotifData(await res.json());
+      } catch { /* optimistic already applied */ }
+    };
+
+    // Helper: position the dropdown below the bell button (works even when attached to body)
+    const positionDropdown = () => {
+      const rect = notifBtn.getBoundingClientRect();
+      const dropW = 320;
+      const gap   = 12;
+      // Right-align dropdown under the bell, with 12px right-edge padding
+      let left = rect.left + rect.width / 2 - dropW / 2;
+      const maxLeft = window.innerWidth - dropW - 12;
+      if (left > maxLeft) left = maxLeft;
+      if (left < 8) left = 8;
+      notifDropdown.style.position = "fixed";
+      notifDropdown.style.top = (rect.bottom + gap + window.scrollY - window.scrollY) + "px";
+      notifDropdown.style.left = left + "px";
+      notifDropdown.style.width = dropW + "px";
     };
 
     // Bell click — open/close dropdown, stop ringing
     notifBtn.addEventListener("click", (e) => {
       e.stopPropagation();
+      // Ignore clicks that already originated inside the dropdown itself
+      if (notifDropdown.contains(e.target)) return;
+      const wasOpen = notifDropdown.classList.contains("show");
       notifDropdown.classList.toggle("show");
       if (profilePopup) profilePopup.classList.remove("show");
-      // When user opens the dropdown, we refresh to show latest
-      if (notifDropdown.classList.contains("show")) {
+      // When user opens the dropdown, position it and refresh to show latest
+      if (!wasOpen && notifDropdown.classList.contains("show")) {
+        positionDropdown();
         void fetchNotifications();
       }
     });
 
     // Close when clicking outside
     document.addEventListener("click", (e) => {
-      if (!notifBtn.contains(e.target)) {
+      if (!notifBtn.contains(e.target) && !notifDropdown.contains(e.target)) {
         notifDropdown.classList.remove("show");
       }
     });
@@ -563,7 +650,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    // Mark all button
+    // Mark all button (dropdown header)
     if (notifMarkAllBtn) {
       notifMarkAllBtn.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -571,12 +658,180 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    // ── All Notifications Panel ───────────────────────────────────
+    let _allNotifFilter = 'all'; // 'all' | 'unread' | 'order' | 'appointment'
+
+    const formatFullDate = (dateStr) => {
+      if (!dateStr) return '';
+      return new Date(dateStr).toLocaleString('en-PH', {
+        month: 'short', day: 'numeric', year: 'numeric',
+        hour: 'numeric', minute: '2-digit'
+      });
+    };
+
+    const getFilteredNotifs = (notifications) => {
+      switch (_allNotifFilter) {
+        case 'unread':      return notifications.filter(n => !n.is_read);
+        case 'order':       return notifications.filter(n => n.type === 'order');
+        case 'appointment': return notifications.filter(n => n.type === 'appointment');
+        default:            return notifications;
+      }
+    };
+
+    const renderAllNotifPanel = (notifications) => {
+      const list = document.getElementById('allNotifList');
+      if (!list) return;
+
+      const filtered = getFilteredNotifs(notifications);
+      list.innerHTML = '';
+
+      if (!filtered.length) {
+        list.innerHTML = `
+          <div class="all-notif-empty">
+            <i class="fa-regular fa-bell-slash"></i>
+            <p>${_allNotifFilter === 'unread' ? 'All caught up!' : 'No notifications here.'}</p>
+          </div>`;
+        return;
+      }
+
+      // Group by date
+      let lastDateLabel = '';
+      filtered.forEach((n) => {
+        const d   = n.created_at ? new Date(n.created_at) : new Date();
+        const lbl = d.toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
+        if (lbl !== lastDateLabel) {
+          lastDateLabel = lbl;
+          const sep = document.createElement('div');
+          sep.className = 'all-notif-date-sep';
+          sep.textContent = lbl;
+          list.appendChild(sep);
+        }
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = buildNotifItemHTML(n, false);
+        list.appendChild(wrapper.firstElementChild);
+      });
+    };
+
+    const openAllNotifPanel = () => {
+      let overlay = document.getElementById('allNotifOverlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'allNotifOverlay';
+        overlay.className = 'all-notif-overlay';
+        overlay.innerHTML = `
+          <div class="all-notif-backdrop" id="allNotifBackdrop"></div>
+          <div class="all-notif-panel" role="dialog" aria-modal="true" aria-label="All Notifications">
+            <div class="all-notif-head">
+              <div class="all-notif-head-left">
+                <h2><i class="fa-solid fa-bell" style="margin-right:8px;font-size:.9em;"></i>All Notifications</h2>
+                <p>Your complete activity feed</p>
+              </div>
+              <button type="button" class="all-notif-close" id="allNotifClose" aria-label="Close">&times;</button>
+            </div>
+            <div class="all-notif-filter">
+              <button type="button" class="all-notif-filter-btn active" data-filter="all">All</button>
+              <button type="button" class="all-notif-filter-btn" data-filter="unread">Unread</button>
+              <button type="button" class="all-notif-filter-btn" data-filter="order">Orders</button>
+              <button type="button" class="all-notif-filter-btn" data-filter="appointment">Appointments</button>
+            </div>
+            <div class="all-notif-actions-bar">
+              <button type="button" class="all-notif-action-btn" id="allNotifMarkAll">
+                <i class="fa-solid fa-check-double"></i> Mark All Read
+              </button>
+              <button type="button" class="all-notif-action-btn danger" id="allNotifClearAll">
+                <i class="fa-solid fa-trash"></i> Clear All
+              </button>
+            </div>
+            <div class="all-notif-list" id="allNotifList">
+              <div class="all-notif-loading">
+                <i class="fa-solid fa-spinner fa-spin"></i>
+                <p>Loading notifications...</p>
+              </div>
+            </div>
+          </div>`;
+        document.body.appendChild(overlay);
+
+        // Filter tabs
+        overlay.querySelectorAll('.all-notif-filter-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            overlay.querySelectorAll('.all-notif-filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            _allNotifFilter = btn.dataset.filter || 'all';
+            renderAllNotifPanel(_lastNotifData);
+          });
+        });
+
+        // Close button & backdrop
+        document.getElementById('allNotifClose')?.addEventListener('click', closeAllNotifPanel);
+        document.getElementById('allNotifBackdrop')?.addEventListener('click', closeAllNotifPanel);
+
+        // Mark all read — optimistic
+        document.getElementById('allNotifMarkAll')?.addEventListener('click', () => {
+          void markAllRead();
+          renderAllNotifPanel(_lastNotifData);
+        });
+
+        // Clear all — optimistic: wipe local data, re-render, API in background
+        document.getElementById('allNotifClearAll')?.addEventListener('click', () => {
+          const token = getToken();
+          if (!token) return;
+          const ids = _lastNotifData.map(n => n.id);
+          // Instant clear
+          _lastNotifData.length = 0;
+          currentUnreadCount = 0;
+          updateBadge(0);
+          renderNotifications(_lastNotifData);
+          renderAllNotifPanel(_lastNotifData);
+          // Background delete
+          ids.forEach(id => {
+            fetch(`${NOTIF_API_BASE}/admin/notifications/${id}`, {
+              method: 'DELETE',
+              headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+            }).catch(() => {});
+          });
+        });
+
+        // Delegation: read/delete inside panel
+        document.getElementById('allNotifList')?.addEventListener('click', (e) => {
+          const readBtn = e.target.closest('.notif-read-btn');
+          if (readBtn) { void markAsRead(readBtn.dataset.notifId); return; }
+          const delBtn = e.target.closest('.notif-del-btn');
+          if (delBtn) { void deleteNotification(delBtn.dataset.notifId); return; }
+        });
+
+        // Keyboard close
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && overlay.classList.contains('show')) closeAllNotifPanel();
+        });
+      }
+
+      // Render current data immediately, then refresh
+      void fetchNotifications().then(() => renderAllNotifPanel(_lastNotifData));
+      // Slight delay to trigger CSS transition
+      requestAnimationFrame(() => { requestAnimationFrame(() => overlay.classList.add('show')); });
+      document.body.style.overflow = 'hidden';
+    };
+
+    const closeAllNotifPanel = () => {
+      const overlay = document.getElementById('allNotifOverlay');
+      overlay?.classList.remove('show');
+      document.body.style.overflow = '';
+    };
+
+    // Wire View All button
+    notifDropdown.querySelector('#notifViewAllBtn')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      notifDropdown.classList.remove('show');
+      openAllNotifPanel();
+    });
+
     // Start polling for notifications
     void fetchNotifications();
     notifPollTimer = setInterval(fetchNotifications, NOTIF_POLL_INTERVAL);
 
     // Expose globally so other scripts can trigger a refresh
     window.refreshAdminNotifications = fetchNotifications;
+    window.openAllNotificationsPanel = openAllNotifPanel;
   }
 
   const ensureLoader = () => {
@@ -916,9 +1171,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (backdrop) {
-      backdrop.onclick = isConfirm
-        ? () => closePopup(options.onCancel)
-        : () => closePopup();
+      // Only allow backdrop dismiss for confirm dialogs (Cancel action)
+      // Success/info popups require explicit OK click
+      if (isConfirm) {
+        backdrop.onclick = () => closePopup(options.onCancel);
+      } else {
+        backdrop.onclick = null; // No backdrop dismiss for success/info popups
+      }
     }
 
     popup.classList.add("show");
