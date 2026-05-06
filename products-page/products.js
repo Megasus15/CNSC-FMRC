@@ -224,6 +224,60 @@ document.addEventListener("DOMContentLoaded", () => {
   categorySelect?.addEventListener("change", renderGrid);
   filterSelect?.addEventListener("change", renderGrid);
 
+  // ── Show order success modal AFTER grid reload ────────────────────────────────
+  // When a customer places an order, main.js saves the order number to
+  // sessionStorage under "fmrc_pending_order_success" and immediately triggers
+  // a real-time grid reload. This function is called at the END of every
+  // loadProducts() run — both on success and on error — so the modal always
+  // appears AFTER the page has fully refreshed, never during it.
+  const checkAndShowPendingOrderSuccess = () => {
+    let raw;
+    try { raw = sessionStorage.getItem("fmrc_pending_order_success"); } catch { return; }
+    if (!raw) return;
+
+    let orderNo = "";
+    try {
+      const parsed = JSON.parse(raw);
+      orderNo = String(parsed?.orderNo || "");
+      const ts = Number(parsed?.ts || 0);
+      // Discard stale entries older than 60 seconds (safety guard)
+      if (Date.now() - ts > 60_000) {
+        try { sessionStorage.removeItem("fmrc_pending_order_success"); } catch { /* ignore */ }
+        return;
+      }
+    } catch {
+      try { sessionStorage.removeItem("fmrc_pending_order_success"); } catch { /* ignore */ }
+      return;
+    }
+
+    // Clear the entry BEFORE showing the modal to prevent duplicate shows
+    try { sessionStorage.removeItem("fmrc_pending_order_success"); } catch { /* ignore */ }
+
+    // Locate the dedicated success modal elements (defined in product.html)
+    const modal = document.getElementById("orderSuccessModal");
+    const numEl  = document.getElementById("orderSuccessNumber");
+    const okBtn  = document.getElementById("orderSuccessOkBtn");
+
+    if (!modal || !okBtn) {
+      // Fallback: dedicated modal not found on this page
+      console.info(`[FMRC] Order placed successfully: ${orderNo}`);
+      return;
+    }
+
+    // Populate and show the modal
+    if (numEl) numEl.textContent = orderNo || "—";
+    modal.style.display = "flex";
+    document.body.style.overflow = "hidden";
+
+    // Single-fire OK handler — cleans itself up on click
+    const handleOk = () => {
+      okBtn.removeEventListener("click", handleOk);
+      modal.style.display = "none";
+      document.body.style.overflow = "";
+    };
+    okBtn.addEventListener("click", handleOk);
+  };
+
   // ── Fetch products from API ──────────────────────────────────────────────────
   const loadProducts = async () => {
     // Show loading skeleton
@@ -247,19 +301,23 @@ document.addEventListener("DOMContentLoaded", () => {
       const payload = await res.json();
       allProducts = Array.isArray(payload?.data) ? payload.data : [];
       renderGrid();
+      // ── Grid has fully loaded — show the success modal if one is pending ──
+      checkAndShowPendingOrderSuccess();
     } catch (err) {
       console.error("Failed to load products:", err);
       allProducts = [];
       if (productGrid) productGrid.innerHTML = "";
       if (emptyState) emptyState.style.display = "flex";
+      // Show the success modal even if the product fetch failed
+      checkAndShowPendingOrderSuccess();
     }
   };
 
   void loadProducts();
 
   // ── Realtime updates ─────────────────────────────────────────────────────────
-  // Debounce guard: prevent multiple rapid loadProducts() calls triggered
-  // by simultaneous BroadcastChannel + window events for the same action.
+  // Debounce guard: prevents multiple rapid loadProducts() calls triggered by
+  // simultaneous BroadcastChannel + window events for the same action.
   let _reloadDebounceTimer = null;
   const debouncedLoadProducts = () => {
     if (_reloadDebounceTimer) clearTimeout(_reloadDebounceTimer);
@@ -274,14 +332,12 @@ document.addEventListener("DOMContentLoaded", () => {
     type === "created" || type === "updated";
 
   // Listen for order events from OTHER tabs (BroadcastChannel only).
-  // Only react to actual order creation/update — not profile changes.
   const ORDERS_REALTIME_CHANNEL = "fmrc-orders-realtime";
   if (typeof window.BroadcastChannel === "function") {
     const ordersChannel = new window.BroadcastChannel(ORDERS_REALTIME_CHANNEL);
     ordersChannel.addEventListener("message", (event) => {
-      if (document.hidden) return; // Don't refresh in background tabs
+      if (document.hidden) return;
       const payload = event?.data || {};
-      // Only refresh stock when an order is actually created/updated
       if (isOrderRelevantType(payload.type)) {
         debouncedLoadProducts();
       }
@@ -293,21 +349,19 @@ document.addEventListener("DOMContentLoaded", () => {
   if (typeof window.BroadcastChannel === "function") {
     const productsChannel = new window.BroadcastChannel(PRODUCTS_REALTIME_CHANNEL);
     productsChannel.addEventListener("message", (event) => {
-      if (document.hidden) return; // Don't refresh in background tabs
+      if (document.hidden) return;
       const payload = event?.data || {};
       if (payload.type === "updated" || payload.type === "created" || payload.type === "deleted") {
         debouncedLoadProducts();
 
-        // If a product was deleted, remove it from the customer's cart
+        // If a product was deleted, remove it from the customer's cart immediately
         if (payload.type === "deleted" && payload.productId) {
           const deletedId = String(payload.productId);
-          // Remove from cart DOM
           const cartContainer = document.getElementById("cartItemsContainer");
           if (cartContainer) {
-            const cartCards = cartContainer.querySelectorAll(`.cart-item-card[data-product-id="${deletedId}"]`);
-            cartCards.forEach((card) => card.remove());
+            cartContainer.querySelectorAll(`.cart-item-card[data-product-id="${deletedId}"]`)
+              .forEach((card) => card.remove());
           }
-          // Remove from localStorage cart
           try {
             const customerInfoRaw = localStorage.getItem("customer_info");
             const customerInfo = customerInfoRaw ? JSON.parse(customerInfoRaw) : null;
@@ -319,7 +373,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 const filtered = cartItems.filter((item) => String(item.product_id) !== deletedId);
                 if (filtered.length !== cartItems.length) {
                   localStorage.setItem(cartKey, JSON.stringify(filtered));
-                  // Signal cart update
                   localStorage.setItem("fmrc_cart_updated_at", JSON.stringify({ type: "updated", timestamp: Date.now() }));
                 }
               }
@@ -330,13 +383,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Listen to the local window event so that the product list refreshes
-  // immediately when the customer places an order on this same page.
-  // Only react to actual order creation — not profile updates.
-  // The debounce ensures this doesn't double-fire with the BroadcastChannel.
+  // Listen to the local window event fired by main.js when the customer places
+  // an order on this same page. loadProducts() will reload the grid and then
+  // automatically call checkAndShowPendingOrderSuccess() — so the success modal
+  // always appears AFTER the grid finishes refreshing.
   window.addEventListener("fmrc:orders-updated", (event) => {
     const payload = event?.detail || {};
-    // Skip profile-updated signals — they don't affect product stock
     if (payload.type === "profile-updated") return;
     if (!isOrderRelevantType(payload.type)) return;
     debouncedLoadProducts();

@@ -1058,6 +1058,7 @@ HTML;
             'id' => $order->id,
             'order_no' => $order->order_no,
             'order_no_display' => '#' . ($order->order_no ?: ('ORD-' . $order->id)),
+            'order_number' => $order->order_no,
             'customer_id' => $order->customer_id,
             'customer_name' => $order->customer_name,
             'customer_contact' => $order->customer_contact,

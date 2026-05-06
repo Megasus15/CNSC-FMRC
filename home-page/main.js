@@ -341,6 +341,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (msgEl) msgEl.textContent = String(message || "Done.");
 
       const isConfirm = Boolean(options.isConfirm);
+      const allowBackdropClose = Boolean(
+        options.allowBackdropClose ?? isConfirm,
+      );
       if (actions) {
         actions.classList.toggle("is-confirm", isConfirm);
       }
@@ -352,26 +355,83 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (okBtn) {
         okBtn.textContent = options.okText || (isConfirm ? "Confirm" : "Okay");
-        okBtn.onclick = () => closePopup(true);
+        okBtn.onclick = (ev) => {
+          ev?.stopPropagation();
+          closePopup(true);
+        };
       }
 
       if (cancelBtn) {
         cancelBtn.textContent = options.cancelText || "Cancel";
         cancelBtn.style.display = isConfirm ? "inline-flex" : "none";
-        cancelBtn.onclick = () => closePopup(false);
+        cancelBtn.onclick = (ev) => {
+          ev?.stopPropagation();
+          closePopup(false);
+        };
       }
+
+      // Prevent the popup from being closed immediately by any residual click
+      // event that bubbled from the original button press. Attach the
+      // backdrop click handler after a short delay so the originating click
+      // cannot close it instantly.
+      popup.classList.add("show");
 
       if (backdrop) {
-        backdrop.onclick = () => closePopup(false);
+        backdrop.onclick = null;
+        if (allowBackdropClose) {
+          setTimeout(() => {
+            backdrop.onclick = (ev) => {
+              ev?.stopPropagation();
+              closePopup(false);
+            };
+          }, 60);
+        }
       }
-
-      popup.classList.add("show");
 
       if (isConfirm && cancelBtn) {
         cancelBtn.focus();
       } else if (okBtn) {
         okBtn.focus();
       }
+    });
+
+  // ── Dedicated Order Success Modal ────────────────────────────────────────────
+  // Opens the #orderSuccessModal (in product.html) with the given order number.
+  // Returns a Promise that resolves ONLY when the customer clicks the OK button.
+  // Falls back to showCustomerPopup on pages that don't have the element.
+  const openOrderSuccessModal = (orderNoDisplay) =>
+    new Promise((resolve) => {
+      const modal = document.getElementById("orderSuccessModal");
+      const numEl  = document.getElementById("orderSuccessNumber");
+      const okBtn  = document.getElementById("orderSuccessOkBtn");
+
+      // Fallback: page doesn't have the dedicated modal
+      if (!modal || !okBtn) {
+        void showCustomerPopup(
+          `Order placed successfully${orderNoDisplay ? ` (${orderNoDisplay})` : ""}!`,
+          { title: "Success", allowBackdropClose: false },
+        ).then(resolve);
+        return;
+      }
+
+      // Populate the order number
+      if (numEl) {
+        numEl.textContent = orderNoDisplay || "—";
+      }
+
+      // Show the modal (flex so it centres correctly)
+      modal.style.display = "flex";
+      document.body.style.overflow = "hidden";
+
+      // Single-fire OK handler — cleans itself up
+      const handleOk = () => {
+        okBtn.removeEventListener("click", handleOk);
+        modal.style.display = "none";
+        document.body.style.overflow = "";
+        resolve();
+      };
+
+      okBtn.addEventListener("click", handleOk);
     });
 
   // Disable sticky header when any modal/overlay/form is open
@@ -2622,18 +2682,26 @@ document.addEventListener("DOMContentLoaded", () => {
           );
         }
 
-        const orderNo = data?.data?.order_no_display || "";
-        await showCustomerPopup(
-          `Order placed successfully${orderNo ? ` (${orderNo})` : ""}!`,
-          {
-            title: "Success",
-          },
-        );
-        emitCustomerOrdersUpdated({
-          type: "created",
-          orderId: data?.data?.id || null,
-        });
+        const orderNoRaw = String(
+          data?.data?.order_no || data?.order_no || "",
+        ).trim();
+        const orderNoDisplay = String(
+          data?.data?.order_no_display ||
+            data?.order_no_display ||
+            (orderNoRaw ? `#${orderNoRaw}` : ""),
+        ).trim();
 
+        // ── Step 1: Persist order-success info so products.js can show the
+        //   success modal AFTER the product grid finishes reloading.
+        //   This prevents the refresh cycle from dismissing the modal.
+        try {
+          sessionStorage.setItem(
+            "fmrc_pending_order_success",
+            JSON.stringify({ orderNo: orderNoDisplay || orderNoRaw || "", ts: Date.now() }),
+          );
+        } catch { /* ignore storage errors (e.g. private browsing) */ }
+
+        // ── Step 2: Clear cart items & close the checkout modal ─────────────────
         if (useCartCheckout && cartItemsContainer) {
           const checkedCartInputs = cartItemsContainer.querySelectorAll(
             ".cart-item-check:checked",
@@ -2651,6 +2719,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
         checkoutModal.classList.remove("show-modal");
         document.body.style.overflow = "";
+
+        // Re-enable the submit button right away
+        this.disabled = false;
+        this.innerText = originalText;
+
+        // ── Step 3: Emit the real-time update immediately ────────────────────────
+        //   products.js will catch this, reload the product grid, and THEN show
+        //   the success modal (after the grid has fully refreshed).
+        emitCustomerOrdersUpdated({
+          type: "created",
+          orderId: data?.data?.id || null,
+        });
+
+        return; // success path done; finally block still runs but is harmless
+
       } catch (error) {
         await showCustomerPopup(
           error?.message || "Unable to place order. Please try again.",
