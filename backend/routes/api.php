@@ -93,6 +93,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/notifications/unread-count', [NotificationController::class, 'unreadCount']);
     Route::patch('/admin/notifications/{notification}/read', [NotificationController::class, 'markRead']);
     Route::post('/admin/notifications/mark-all-read', [NotificationController::class, 'markAllRead']);
+    Route::delete('/admin/notifications/clear-all', [NotificationController::class, 'clearAll']);
     Route::delete('/admin/notifications/{notification}', [NotificationController::class, 'destroy']);
 
     // Admin: Product Analytics (real-time order-based)
@@ -106,5 +107,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/admin/inventory', [InventoryItemController::class, 'store']);
     Route::put('/admin/inventory/{id}', [InventoryItemController::class, 'update']);
     Route::post('/admin/inventory/{id}/deduct', [InventoryItemController::class, 'deduct']);
+    Route::post('/admin/inventory/{id}/adjust', [InventoryItemController::class, 'adjust']);
+    Route::get('/admin/inventory/export', [InventoryItemController::class, 'exportCsv']);
+    Route::get('/admin/inventory/transactions', [InventoryItemController::class, 'transactions']);
     Route::delete('/admin/inventory/{id}', [InventoryItemController::class, 'destroy']);
 });

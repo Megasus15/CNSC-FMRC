@@ -1033,7 +1033,6 @@ document.addEventListener("DOMContentLoaded", () => {
       renderAll();
       notifyOrdersRealtimeUpdate({ type: `order-${action}`, orderId: String(orderId) });
       queueSuccessFlash(config.success, "Success");
-      window.location.reload();
     } catch (error) {
       showPopup(error.message || "Action failed.", { title: "Action Failed" });
     }

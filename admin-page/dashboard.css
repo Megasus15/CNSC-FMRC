@@ -560,14 +560,21 @@ body {
   cursor: pointer;
   padding: 6px 14px;
   border-radius: 8px;
-  transition: background 0.15s ease, transform 0.1s ease;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
   display: flex;
   align-items: center;
   gap: 6px;
   font-family: inherit;
+  text-decoration: none;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
 }
-.notif-view-all-btn:hover { background: #fef2f2; transform: translateX(2px); }
-.notif-view-all-btn:active { transform: scale(0.96); }
+.notif-view-all-btn:hover {
+  text-decoration: underline;
+}
+.notif-view-all-btn:active {
+  opacity: 0.7;
+}
 
 /* Notification header row with mark-all */
 .notif-header {

@@ -28,6 +28,8 @@ document.addEventListener("DOMContentLoaded", () => {
     "Electronics and Electrical Equipments",
   ];
 
+  const UNIT_OPTIONS = ["pcs", "set", "ream", "box", "roll", "pack", "unit", "bottle", "pair"];
+
   const CATEGORY_ICONS = {
     "Consumable Materials": "fa-flask",
     "Office Supplies": "fa-pen-ruler",
@@ -40,12 +42,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const searchInput = document.getElementById("inventorySearchInput");
   const categoryFilter = document.getElementById("inventoryCategoryFilter");
   const btnOpenAdd = document.getElementById("btnOpenAddItem");
+  const btnExportExcelAll = document.getElementById("btnExportExcelAll");
 
   // Summary metrics
   const metricTotal = document.getElementById("metricTotalItems");
   const metricGood = document.getElementById("metricGood");
   const metricLow = document.getElementById("metricLowStock");
-  const metricOut = document.getElementById("metricOutOfStock");
 
   // Add/Edit modal
   const modalForm = document.getElementById("modalAddInventoryItem");
@@ -58,6 +60,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const formRemarks = document.getElementById("invFormRemarks");
   const btnCancelForm = document.getElementById("btnCancelInvForm");
   const btnSaveForm = document.getElementById("btnSaveInvForm");
+  const variantList = document.getElementById("invVariantList");
+  const variantEmpty = document.getElementById("invVariantEmpty");
+  const btnAddVariant = document.getElementById("btnAddVariant");
 
   // View modal
   const modalView = document.getElementById("modalViewInventoryItem");
@@ -77,6 +82,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const modalDeduct = document.getElementById("modalDeductInventoryItem");
   const deductCategory = document.getElementById("deductCategory");
   const deductItemName = document.getElementById("deductItemName");
+  const deductTargetWrap = document.getElementById("deductTargetWrap");
+  const deductTarget = document.getElementById("deductTarget");
   const deductOnHand = document.getElementById("deductOnHand");
   const deductAmount = document.getElementById("deductAmount");
   const deductName = document.getElementById("deductName");
@@ -91,6 +98,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let deletingItemId = null;
   let viewingItemId = null;
   const deductMetaByItemId = new Map();
+  const deductMetaByVariantId = new Map();
+  let activeDeductItem = null;
   const PAGE_SIZE = 5;
   const categoryPages = {};
 
@@ -100,10 +109,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // ─── Status helpers ───────────────────────────────────────────────────────────
   const statusClass = (status) => {
     if (status === "Good") return "status-green";
-    if (status === "Low Stock") return "status-yellow";
-    if (status === "Out of Stock") return "status-red";
+    if (status === "Low Stock" || status === "Out of Stock") return "status-yellow";
     return "status-blue";
   };
+
+  const displayStatus = (status) => (status === "Out of Stock" ? "Low Stock" : status);
 
   const remarksClass = (r) => {
     if (!r) return "remarks-default";
@@ -120,6 +130,156 @@ document.addEventListener("DOMContentLoaded", () => {
     return "Good";
   };
 
+  // ─── Variant form helpers ───────────────────────────────────────────────────
+  const refreshVariantEmptyState = () => {
+    if (!variantEmpty) return;
+    const hasRows = Boolean(variantList?.querySelector(".inv-variant-card"));
+    variantEmpty.style.display = hasRows ? "none" : "block";
+  };
+
+  const refreshVariantIndices = () => {
+    if (!variantList) return;
+    const rows = Array.from(variantList.querySelectorAll(".inv-variant-card"));
+    rows.forEach((row, idx) => {
+      const chip = row.querySelector(".inv-variant-chip");
+      if (chip) chip.textContent = `Variant ${idx + 1}`;
+    });
+  };
+
+  const createVariantCard = (variant = {}, opts = {}) => {
+    const card = document.createElement("div");
+    card.className = "inv-variant-card";
+    const unitOptions = UNIT_OPTIONS.map((unit) => `<option value="${escHtml(unit)}">${escHtml(unit)}</option>`).join("");
+
+    card.innerHTML = `
+      <div class="inv-variant-card-header">
+        <span class="inv-variant-chip">Variant</span>
+        <button class="btn-admin btn-secondary icon-only-btn inv-variant-remove" type="button" data-variant-remove title="Remove variant">
+          <i class="fa-regular fa-trash-can"></i>
+        </button>
+      </div>
+      <div class="inv-variant-grid">
+        <div class="field-stack">
+          <label>Variant Name <span style="color:#dc2626">*</span></label>
+          <input class="input-field" data-variant-name maxlength="255" placeholder="e.g. Size A" />
+        </div>
+        <div class="field-stack">
+          <label>Description</label>
+          <input class="input-field" data-variant-description maxlength="500" placeholder="Optional" />
+        </div>
+        <div class="field-stack">
+          <label>Unit <span style="color:#dc2626">*</span></label>
+          <select class="filter-select" data-variant-unit>${unitOptions}</select>
+        </div>
+        <div class="field-stack">
+          <label>Stocks On Hand <span style="color:#dc2626">*</span></label>
+          <input class="input-field" data-variant-on-hand type="number" min="0" placeholder="0" />
+        </div>
+        <div class="field-stack full">
+          <label>Remarks</label>
+          <input class="input-field" data-variant-remarks maxlength="200" placeholder="Optional remarks" />
+        </div>
+      </div>
+    `;
+
+    const nameInput = card.querySelector("[data-variant-name]");
+    const descInput = card.querySelector("[data-variant-description]");
+    const unitSelect = card.querySelector("[data-variant-unit]");
+    const onHandInput = card.querySelector("[data-variant-on-hand]");
+    const remarksInput = card.querySelector("[data-variant-remarks]");
+
+    if (nameInput) nameInput.value = variant.name || "";
+    if (descInput) descInput.value = variant.description || "";
+    if (unitSelect) {
+      const unitVal = variant.unit || "pcs";
+      unitSelect.value = UNIT_OPTIONS.includes(unitVal) ? unitVal : "pcs";
+    }
+    if (onHandInput) onHandInput.value = variant.on_hand ?? "";
+    if (remarksInput) remarksInput.value = variant.remarks || "";
+
+    if (opts.disableOnHand && onHandInput) {
+      onHandInput.setAttribute("readonly", "true");
+      onHandInput.setAttribute("disabled", "disabled");
+    }
+
+    return card;
+  };
+
+  const setVariantFormRows = (variants = [], opts = {}) => {
+    if (!variantList) return;
+    variantList.innerHTML = "";
+    variants.forEach((variant) => variantList.appendChild(createVariantCard(variant, opts)));
+    refreshVariantIndices();
+    refreshVariantEmptyState();
+  };
+
+  const collectVariantsFromForm = () => {
+    if (!variantList) return [];
+    const rows = Array.from(variantList.querySelectorAll(".inv-variant-card"));
+    const variants = [];
+
+    for (const row of rows) {
+      const nameVal = (row.querySelector("[data-variant-name]")?.value || "").trim();
+      const descVal = (row.querySelector("[data-variant-description]")?.value || "").trim();
+      const unitVal = row.querySelector("[data-variant-unit]")?.value || "pcs";
+      const onHandInput = row.querySelector("[data-variant-on-hand]");
+      const onHandRaw = onHandInput?.value ?? "";
+      const remarksVal = (row.querySelector("[data-variant-remarks]")?.value || "").trim();
+
+      const isEmpty = !nameVal && !descVal && !onHandRaw && !remarksVal;
+      if (isEmpty) continue;
+
+      if (!nameVal) {
+        showPopup("Variant name is required.", { title: "Validation Error" });
+        row.querySelector("[data-variant-name]")?.focus();
+        return null;
+      }
+
+      if (onHandRaw === "") {
+        showPopup("Variant stocks on hand is required.", { title: "Validation Error" });
+        onHandInput?.focus();
+        return null;
+      }
+
+      const onHandNum = Number(onHandRaw);
+      if (Number.isNaN(onHandNum) || onHandNum < 0) {
+        showPopup("Variant stocks on hand must be 0 or higher.", { title: "Validation Error" });
+        onHandInput?.focus();
+        return null;
+      }
+
+      variants.push({
+        name: nameVal,
+        description: descVal,
+        unit: unitVal,
+        on_hand: onHandNum,
+        remarks: remarksVal,
+      });
+    }
+
+    return variants;
+  };
+
+  const updateDeductTargetFields = () => {
+    if (!activeDeductItem) return;
+    const variants = Array.isArray(activeDeductItem.variants) ? activeDeductItem.variants : [];
+    const targetVal = deductTarget?.value || "base";
+    let displayName = activeDeductItem.item_name;
+    let onHandVal = activeDeductItem.on_hand;
+
+    if (targetVal.startsWith("variant:")) {
+      const variantId = Number(targetVal.replace("variant:", ""));
+      const variant = variants.find((v) => Number(v.id) === variantId);
+      if (variant) {
+        displayName = `${activeDeductItem.item_name} — ${variant.name}`;
+        onHandVal = variant.on_hand ?? 0;
+      }
+    }
+
+    if (deductItemName) deductItemName.value = displayName;
+    if (deductOnHand) deductOnHand.value = String(onHandVal ?? 0);
+  };
+
   // ─── Filter items ─────────────────────────────────────────────────────────────
   const getFilteredItemsByCategory = (category) => {
     const q = (searchInput?.value || "").trim().toLowerCase();
@@ -132,7 +292,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (item.category !== category) return false;
       if (q) {
         const haystack = `${item.item_name} ${item.description || ""}`.toLowerCase();
-        if (!haystack.includes(q)) return false;
+        const variants = Array.isArray(item.variants) ? item.variants : [];
+        const variantHit = variants.some((variant) => {
+          const variantText = `${variant.name || ""} ${variant.description || ""}`.toLowerCase();
+          return variantText.includes(q);
+        });
+        if (!haystack.includes(q) && !variantHit) return false;
       }
       return true;
     });
@@ -143,7 +308,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (metricTotal) metricTotal.textContent = String(summary?.total_items ?? 0);
     if (metricGood) metricGood.textContent = String(summary?.good ?? 0);
     if (metricLow) metricLow.textContent = String(summary?.low_stock ?? 0);
-    if (metricOut) metricOut.textContent = String(summary?.out_of_stock ?? 0);
   };
 
   // ─── Render one category table ────────────────────────────────────────────────
@@ -179,28 +343,71 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!paged.length) {
       tableRows = `<tr class="table-empty-row"><td colspan="8"><div class="table-empty-state"><i class="fa-regular fa-folder-open"></i><span>No items found in this category.</span></div></td></tr>`;
     } else {
-      tableRows = paged.map((item, idx) => {
+      const rows = [];
+      paged.forEach((item, idx) => {
         const rowNum = start + idx + 1;
-        const statusHtml = `<span class="status-pill ${statusClass(item.status)}">${escHtml(item.status)}</span>`;
+        const variants = Array.isArray(item.variants) ? item.variants : [];
+        const hasVariants = variants.length > 0;
+        const statusText = displayStatus(item.status);
+        const statusHtml = `<span class="status-pill ${statusClass(statusText)}">${escHtml(statusText)}</span>`;
         const remarksHtml = item.remarks
           ? `<span class="remarks-pill ${remarksClass(item.remarks)}">${escHtml(item.remarks)}</span>`
           : `<span style="color:#9ca3af;font-size:0.75rem;">—</span>`;
-        return `<tr>
-          <td>${rowNum}</td>
-          <td title="${escHtml(item.item_name)}">${escHtml(item.item_name)}</td>
-          <td title="${escHtml(item.description || "")}">${escHtml(item.description || "—")}</td>
-          <td>${escHtml(item.unit)}</td>
-          <td>${item.on_hand}</td>
-          <td>${statusHtml}</td>
-          <td>${remarksHtml}</td>
-          <td class="action-icons sticky-action">
-            <button type="button" data-tooltip="View Item" data-inv-view="${item.id}"><i class="fa-regular fa-eye"></i></button>
-            <button type="button" data-tooltip="Update Stocks" data-inv-deduct="${item.id}"><i class="fa-solid fa-square-minus"></i></button>
-            <button type="button" data-tooltip="Download Item Form" data-inv-download="${item.id}"><i class="fa-solid fa-file-arrow-down"></i></button>
-            <button type="button" data-tooltip="Delete Item" data-inv-delete="${item.id}"><i class="fa-regular fa-trash-can"></i></button>
-          </td>
-        </tr>`;
-      }).join("");
+        const toggleHtml = hasVariants
+          ? `<button type="button" class="inv-variant-toggle" data-inv-toggle="${item.id}" aria-expanded="false" title="Toggle variants">
+              <i class="fa-solid fa-chevron-right"></i>
+            </button>`
+          : "";
+        const itemNameHtml = hasVariants
+          ? `<div class="inv-name-cell">${toggleHtml}<span>${escHtml(item.item_name)}</span><span class="inv-variant-count">${variants.length} variant${variants.length !== 1 ? "s" : ""}</span></div>`
+          : escHtml(item.item_name);
+
+        rows.push(`
+          <tr>
+            <td>${rowNum}</td>
+            <td title="${escHtml(item.item_name)}">${itemNameHtml}</td>
+            <td title="${escHtml(item.description || "")}">${escHtml(item.description || "—")}</td>
+            <td>${escHtml(item.unit)}</td>
+            <td>${item.on_hand}</td>
+            <td>${statusHtml}</td>
+            <td>${remarksHtml}</td>
+            <td class="action-icons sticky-action">
+              <button type="button" data-tooltip="View Item" data-inv-view="${item.id}"><i class="fa-regular fa-eye"></i></button>
+              <button type="button" data-tooltip="Update Stocks" data-inv-deduct="${item.id}"><i class="fa-solid fa-square-minus"></i></button>
+              <button type="button" data-tooltip="Download Item Form" data-inv-download="${item.id}"><i class="fa-solid fa-file-arrow-down"></i></button>
+              <button type="button" data-tooltip="Delete Item" data-inv-delete="${item.id}"><i class="fa-regular fa-trash-can"></i></button>
+            </td>
+          </tr>
+        `);
+
+        if (hasVariants) {
+          variants.forEach((variant) => {
+            const variantStatus = displayStatus(computeStatus(variant.on_hand));
+            const variantStatusHtml = `<span class="status-pill ${statusClass(variantStatus)}">${escHtml(variantStatus)}</span>`;
+            const variantRemarksHtml = variant.remarks
+              ? `<span class="remarks-pill ${remarksClass(variant.remarks)}">${escHtml(variant.remarks)}</span>`
+              : `<span style="color:#9ca3af;font-size:0.75rem;">—</span>`;
+            rows.push(`
+              <tr class="inv-variant-row" data-variant-parent="${item.id}" style="display:none;">
+                <td>&nbsp;</td>
+                <td title="${escHtml(variant.name || "")}">
+                  <span class="inv-variant-name">
+                    <span class="inv-variant-chip">Variant</span>
+                    <span class="inv-variant-indent">${escHtml(variant.name || "—")}</span>
+                  </span>
+                </td>
+                <td title="${escHtml(variant.description || "")}">${escHtml(variant.description || "—")}</td>
+                <td>${escHtml(variant.unit || "—")}</td>
+                <td>${variant.on_hand ?? 0}</td>
+                <td>${variantStatusHtml}</td>
+                <td>${variantRemarksHtml}</td>
+                <td class="sticky-action" aria-hidden="true"><span style="color:#cbd5f5;">—</span></td>
+              </tr>
+            `);
+          });
+        }
+      });
+      tableRows = rows.join("");
     }
 
     const from = items.length ? start + 1 : 0;
@@ -212,7 +419,12 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="inv-category-icon"><i class="fa-solid ${icon}"></i></div>
           <span class="inv-category-title">Inventory of ${escHtml(category)}</span>
         </div>
-        <span class="inv-category-badge">${items.length} item${items.length !== 1 ? "s" : ""}</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="inv-category-badge">${items.length} item${items.length !== 1 ? "s" : ""}</span>
+          <button type="button" class="btn-admin btn-secondary" data-cat-export="${escHtml(category)}" title="Export this category to Excel">
+            <i class="fa-solid fa-file-excel"></i> Export Excel
+          </button>
+        </div>
       </div>
       <div class="inv-category-body">
         <div class="table-wrapper">
@@ -345,6 +557,371 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const formatPHDate = (isoDate) => {
+    const d = isoDate ? new Date(isoDate) : new Date();
+    return d.toLocaleDateString("en-PH", { timeZone: "Asia/Manila" });
+  };
+
+  const todayPH = () => formatPHDate();
+
+  const sanitizeFilename = (name) => String(name || "inventory").replace(/[^a-z0-9\-_]+/gi, "_").replace(/_+/g, "_").replace(/^_+|_+$/g, "").slice(0, 80) || "inventory";
+
+  const fetchTransactions = async (params = {}) => {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== "") qs.set(k, String(v));
+    });
+    const endpoint = `${API_BASE_URL}/admin/inventory/transactions${qs.toString() ? `?${qs.toString()}` : ""}`;
+    const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+    if (res.status === 401 || res.status === 403) { setUnauthorized(); return []; }
+    if (!res.ok) throw new Error("Failed to load inventory transactions");
+    const payload = await res.json();
+    return Array.isArray(payload?.data) ? payload.data : [];
+  };
+
+  const buildHorizontalExportRows = (items, transactions) => {
+    const nowDate = todayPH();
+
+    // Group items with their variants for hierarchical structure
+    const itemsWithVariants = items.map((item, idx) => ({
+      itemNumber: idx + 1,
+      ...item,
+      variants: Array.isArray(item.variants) ? item.variants : [],
+    }));
+
+    // Helper: Get symbol for variant by index
+    const getVariantSymbol = (vIdx) => {
+      const symbolMap = ["*", ">", "▸", "◆", "●"];
+      return symbolMap[vIdx % symbolMap.length];
+    };
+
+    // Build Stock In rows: initial on-hand values
+    const stockInRows = [];
+    itemsWithVariants.forEach((item) => {
+      stockInRows.push({
+        itemNumber: item.itemNumber,
+        variantSymbol: null,
+        date: nowDate,
+        item_name: item.item_name,
+        description: item.description || "—",
+        stock: Number(item.last_invent ?? item.on_hand ?? 0),
+      });
+      item.variants.forEach((variant, vIdx) => {
+        stockInRows.push({
+          itemNumber: item.itemNumber,
+          variantSymbol: getVariantSymbol(vIdx),
+          date: nowDate,
+          item_name: variant.name || "Variant",
+          description: variant.description || "—",
+          stock: Number(variant.initial_on_hand ?? variant.on_hand ?? 0),
+        });
+      });
+    });
+
+    // Build Balance Stock rows: current on-hand values
+    const balanceRows = [];
+    itemsWithVariants.forEach((item) => {
+      balanceRows.push({
+        itemNumber: item.itemNumber,
+        variantSymbol: null,
+        date: nowDate,
+        item_name: item.item_name,
+        description: item.description || "—",
+        stock: Number(item.on_hand ?? 0),
+      });
+      item.variants.forEach((variant, vIdx) => {
+        balanceRows.push({
+          itemNumber: item.itemNumber,
+          variantSymbol: getVariantSymbol(vIdx),
+          date: nowDate,
+          item_name: variant.name || "Variant",
+          description: variant.description || "—",
+          stock: Number(variant.on_hand ?? 0),
+        });
+      });
+    });
+
+    // Build Stock Out rows from transactions
+    const stockOutRows = [];
+    (transactions || []).forEach((tx) => {
+      const matchItem = itemsWithVariants.find((it) => it.id === tx.inventory_item_id);
+      let itemNumber = null;
+      let variantSymbol = null;
+      if (matchItem) {
+        itemNumber = matchItem.itemNumber;
+        if (tx.variant_id) {
+          const variantIdx = matchItem.variants.findIndex((v) => v.id === tx.variant_id);
+          if (variantIdx >= 0) {
+            variantSymbol = getVariantSymbol(variantIdx);
+          }
+        }
+      }
+      stockOutRows.push({
+        itemNumber: itemNumber,
+        variantSymbol: variantSymbol,
+        date: formatPHDate(tx.created_at),
+        item_name: tx.item_name || "—",
+        description: tx.description || "—",
+        stock: Number(tx.signed_amount ?? 0),
+        by: tx.name || "—",
+        purpose: tx.purpose || "—",
+        remarks: tx.remarks || "—",
+      });
+    });
+
+    return { stockInRows, stockOutRows, balanceRows };
+  };
+
+  const createHorizontalWorkbook = ({ stockInRows, stockOutRows, balanceRows, sheetName = "Inventory", isPerItem = false }) => {
+    if (!window.XLSX) {
+      showPopup("Excel library failed to load. Please refresh this page.", { title: "Export Error" });
+      return null;
+    }
+
+    // Prepare column structure
+    const maxRows = Math.max(stockInRows.length, stockOutRows.length, balanceRows.length, 1) + 5;
+    const aoa = Array.from({ length: maxRows }, () => Array(24).fill(""));
+
+    // Column indices for each section
+    const cols = {
+      stockIn: { start: 0, no: 0, date: 1, name: 2, desc: 3, stock: 4 },
+      stockOut: { start: 6, no: 6, date: 7, name: 8, desc: 9, stock: 10, by: 11, purpose: 12, remarks: 13 },
+      balance: { start: 14, no: 14, date: 15, name: 16, desc: 17, stock: 18 },
+    };
+
+    // Row indices
+    const blankRow = 0;
+    const titleRow = 1;
+    const headerRow = 2;
+    const dataStartRow = 3;
+
+    // Title row (centered across first 5 columns)
+    aoa[titleRow][0] = "INVENTORY EXPORT";
+
+    // Table name headers
+    aoa[headerRow][cols.stockIn.start] = "STOCK IN";
+    aoa[headerRow][cols.stockOut.start] = "STOCK OUT";
+    aoa[headerRow][cols.balance.start] = "BALANCE STOCK";
+
+    // Column headers
+    // Stock In
+    aoa[headerRow + 1][cols.stockIn.no] = "No.";
+    aoa[headerRow + 1][cols.stockIn.date] = "Date";
+    aoa[headerRow + 1][cols.stockIn.name] = "Item Name";
+    aoa[headerRow + 1][cols.stockIn.desc] = "Description";
+    aoa[headerRow + 1][cols.stockIn.stock] = "Stock";
+
+    // Stock Out - with extra columns for per-item exports
+    aoa[headerRow + 1][cols.stockOut.no] = "No.";
+    aoa[headerRow + 1][cols.stockOut.date] = "Date";
+    aoa[headerRow + 1][cols.stockOut.name] = "Item Name";
+    aoa[headerRow + 1][cols.stockOut.desc] = "Description";
+    aoa[headerRow + 1][cols.stockOut.stock] = "Stock";
+    if (isPerItem) {
+      aoa[headerRow + 1][cols.stockOut.by] = "By";
+      aoa[headerRow + 1][cols.stockOut.purpose] = "Purpose";
+      aoa[headerRow + 1][cols.stockOut.remarks] = "Remarks";
+    }
+
+    // Balance Stock
+    aoa[headerRow + 1][cols.balance.no] = "No.";
+    aoa[headerRow + 1][cols.balance.date] = "Date";
+    aoa[headerRow + 1][cols.balance.name] = "Item Name";
+    aoa[headerRow + 1][cols.balance.desc] = "Description";
+    aoa[headerRow + 1][cols.balance.stock] = "Stock";
+
+    // Fill data rows
+    const maxDataRows = Math.max(stockInRows.length, stockOutRows.length, balanceRows.length);
+    for (let i = 0; i < maxDataRows; i++) {
+      const rowIdx = dataStartRow + i;
+
+      // Stock In data
+      if (i < stockInRows.length) {
+        const row = stockInRows[i];
+        const no = row.variantSymbol ? row.variantSymbol : String(row.itemNumber || "");
+        aoa[rowIdx][cols.stockIn.no] = no;
+        aoa[rowIdx][cols.stockIn.date] = row.date;
+        aoa[rowIdx][cols.stockIn.name] = row.variantSymbol ? `  ${row.item_name}` : row.item_name;
+        aoa[rowIdx][cols.stockIn.desc] = row.description;
+        aoa[rowIdx][cols.stockIn.stock] = row.stock;
+      }
+
+      // Stock Out data
+      if (i < stockOutRows.length) {
+        const row = stockOutRows[i];
+        const no = row.variantSymbol ? row.variantSymbol : String(row.itemNumber || "");
+        aoa[rowIdx][cols.stockOut.no] = no;
+        aoa[rowIdx][cols.stockOut.date] = row.date;
+        aoa[rowIdx][cols.stockOut.name] = row.variantSymbol ? `  ${row.item_name}` : row.item_name;
+        aoa[rowIdx][cols.stockOut.desc] = row.description;
+        aoa[rowIdx][cols.stockOut.stock] = row.stock;
+        if (isPerItem) {
+          aoa[rowIdx][cols.stockOut.by] = row.by || "—";
+          aoa[rowIdx][cols.stockOut.purpose] = row.purpose || "—";
+          aoa[rowIdx][cols.stockOut.remarks] = row.remarks || "—";
+        }
+      }
+
+      // Balance Stock data
+      if (i < balanceRows.length) {
+        const row = balanceRows[i];
+        const no = row.variantSymbol ? row.variantSymbol : String(row.itemNumber || "");
+        aoa[rowIdx][cols.balance.no] = no;
+        aoa[rowIdx][cols.balance.date] = row.date;
+        aoa[rowIdx][cols.balance.name] = row.variantSymbol ? `  ${row.item_name}` : row.item_name;
+        aoa[rowIdx][cols.balance.desc] = row.description;
+        aoa[rowIdx][cols.balance.stock] = row.stock;
+      }
+    }
+
+    // Create sheet
+    const ws = window.XLSX.utils.aoa_to_sheet(aoa);
+
+    // Set column widths
+    ws["!cols"] = [
+      { wch: 5 },   // Stock In: No.
+      { wch: 12 },  // Date
+      { wch: 24 },  // Item Name
+      { wch: 22 },  // Description
+      { wch: 10 },  // Stock
+      { wch: 2 },   // Gap
+      { wch: 5 },   // Stock Out: No.
+      { wch: 12 },  // Date
+      { wch: 24 },  // Item Name
+      { wch: 22 },  // Description
+      { wch: 10 },  // Stock
+      isPerItem ? { wch: 18 } : { wch: 2 },  // By / Gap
+      isPerItem ? { wch: 20 } : { wch: 2 },  // Purpose / Gap
+      isPerItem ? { wch: 20 } : { wch: 2 },  // Remarks / Gap
+      { wch: 5 },   // Balance: No.
+      { wch: 12 },  // Date
+      { wch: 24 },  // Item Name
+      { wch: 22 },  // Description
+      { wch: 10 },  // Stock
+    ];
+
+    // Set up merges for table name headers
+    ws["!merges"] = [
+      { s: { r: titleRow, c: 0 }, e: { r: titleRow, c: 4 } },
+      { s: { r: headerRow, c: cols.stockIn.start }, e: { r: headerRow, c: cols.stockIn.stock } },
+      { s: { r: headerRow, c: cols.stockOut.start }, e: { r: headerRow, c: isPerItem ? cols.stockOut.remarks : cols.stockOut.stock } },
+      { s: { r: headerRow, c: cols.balance.start }, e: { r: headerRow, c: cols.balance.stock } },
+    ];
+
+    // Apply styling
+    const range = window.XLSX.utils.decode_range(ws["!ref"]);
+    for (let R = range.s.r; R <= range.e.r; R++) {
+      for (let C = range.s.c; C < 19; C++) {
+        const cellRef = window.XLSX.utils.encode_cell({ r: R, c: C });
+        if (!ws[cellRef]) {
+          ws[cellRef] = { v: "", t: "s" };
+        }
+
+        const cellVal = ws[cellRef].v;
+        let style = {
+          border: {
+            top: { style: "thin", color: { rgb: "FF999999" } },
+            bottom: { style: "thin", color: { rgb: "FF999999" } },
+            left: { style: "thin", color: { rgb: "FF999999" } },
+            right: { style: "thin", color: { rgb: "FF999999" } },
+          },
+        };
+
+        // Main title row
+        if (R === titleRow && cellVal === "INVENTORY EXPORT") {
+          style.fill = { fgColor: { rgb: "FF4472C4" } };
+          style.font = { bold: true, sz: 14, color: { rgb: "FFFFFFFF" } };
+          style.alignment = { horizontal: "center", vertical: "center" };
+          style.border = {
+            top: { style: "medium", color: { rgb: "FF000000" } },
+            bottom: { style: "medium", color: { rgb: "FF000000" } },
+            left: { style: "medium", color: { rgb: "FF000000" } },
+            right: { style: "medium", color: { rgb: "FF000000" } },
+          };
+        }
+        // Table name headers (STOCK IN, STOCK OUT, BALANCE STOCK)
+        else if (
+          R === headerRow &&
+          (cellVal === "STOCK IN" || cellVal === "STOCK OUT" || cellVal === "BALANCE STOCK")
+        ) {
+          style.fill = { fgColor: { rgb: "FFD9E1F2" } };
+          style.font = { bold: true, sz: 11, color: { rgb: "FF000000" } };
+          style.alignment = { horizontal: "center", vertical: "center" };
+          style.border = {
+            top: { style: "thin", color: { rgb: "FF000000" } },
+            bottom: { style: "thin", color: { rgb: "FF000000" } },
+            left: { style: "thin", color: { rgb: "FF000000" } },
+            right: { style: "thin", color: { rgb: "FF000000" } },
+          };
+        }
+        // Column headers
+        else if (
+          R === headerRow + 1 &&
+          (cellVal === "No." ||
+            cellVal === "Date" ||
+            cellVal === "Item Name" ||
+            cellVal === "Description" ||
+            cellVal === "Stock" ||
+            cellVal === "By" ||
+            cellVal === "Purpose" ||
+            cellVal === "Remarks")
+        ) {
+          style.fill = { fgColor: { rgb: "FFE8E8E8" } };
+          style.font = { bold: true, sz: 10, color: { rgb: "FF000000" } };
+          style.alignment = { horizontal: "center", vertical: "center" };
+          style.border = {
+            top: { style: "thin", color: { rgb: "FF000000" } },
+            bottom: { style: "thin", color: { rgb: "FF000000" } },
+            left: { style: "thin", color: { rgb: "FF000000" } },
+            right: { style: "thin", color: { rgb: "FF000000" } },
+          };
+        }
+        // Data rows
+        else if (R >= dataStartRow && cellVal !== "") {
+          style.alignment = { horizontal: typeof cellVal === "number" ? "right" : "left", vertical: "center", wrapText: true };
+          if (typeof cellVal === "number") {
+            style.numFmt = "0";
+          }
+        }
+
+        ws[cellRef].s = style;
+      }
+    }
+
+    const wb = window.XLSX.utils.book_new();
+    window.XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31) || "Inventory");
+    return wb;
+  };
+
+  const downloadWorkbook = (wb, filenameBase) => {
+    if (!wb || !window.XLSX) return;
+    window.XLSX.writeFile(wb, `${sanitizeFilename(filenameBase)}.xlsx`);
+  };
+
+  const exportItemsToXlsx = async ({ items, filenameBase, txFilter = {} }) => {
+    if (!Array.isArray(items) || !items.length) {
+      showPopup("No items available to export.", { title: "Export Notice" });
+      return;
+    }
+    const txRows = await fetchTransactions(txFilter);
+    const rows = buildHorizontalExportRows(items, txRows);
+    const isPerItem = items.length === 1;
+    const wb = createHorizontalWorkbook({ ...rows, sheetName: "Inventory", isPerItem });
+    downloadWorkbook(wb, filenameBase);
+  };
+
+  btnExportExcelAll?.addEventListener("click", async () => {
+    try {
+      await exportItemsToXlsx({
+        items: allItems,
+        filenameBase: `inventory_all_${todayPH().replace(/\//g, '-')}`,
+      });
+    } catch (err) {
+      console.error("Export all error:", err);
+      showPopup("Failed to export all inventory items.", { title: "Export Error" });
+    }
+  });
+
   // ─── Form helpers ─────────────────────────────────────────────────────────────
   const resetForm = () => {
     editingItemId = null;
@@ -356,6 +933,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (formUnit) formUnit.value = "pcs";
     if (formOnHand) { formOnHand.value = ""; formOnHand.removeAttribute('readonly'); formOnHand.removeAttribute('disabled'); }
     if (formRemarks) formRemarks.value = "";
+    setVariantFormRows([]);
   };
 
   const populateFormForEdit = (item) => {
@@ -369,6 +947,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // On edit: Category, Item Name, Description, Unit are editable only.
     if (formOnHand) { formOnHand.value = item.on_hand ?? ""; formOnHand.setAttribute('readonly', 'true'); formOnHand.setAttribute('disabled', 'disabled'); }
     if (formRemarks) formRemarks.value = item.remarks || "";
+    setVariantFormRows(Array.isArray(item.variants) ? item.variants : [], { disableOnHand: true });
   };
 
   // ─── Open Add Modal ───────────────────────────────────────────────────────────
@@ -379,6 +958,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
   btnCancelForm?.addEventListener("click", () => closeModal(modalForm));
 
+  btnAddVariant?.addEventListener("click", () => {
+    if (!variantList) return;
+    variantList.appendChild(createVariantCard({}, { disableOnHand: false }));
+    refreshVariantIndices();
+    refreshVariantEmptyState();
+  });
+
+  variantList?.addEventListener("click", (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLElement)) return;
+    const removeBtn = target.closest("[data-variant-remove]");
+    if (removeBtn) {
+      removeBtn.closest(".inv-variant-card")?.remove();
+      refreshVariantIndices();
+      refreshVariantEmptyState();
+    }
+  });
+
   // ─── Save / Update ────────────────────────────────────────────────────────────
   btnSaveForm?.addEventListener("click", async () => {
     const isEditing = editingItemId !== null;
@@ -388,11 +985,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const onHand = Number(formOnHand?.value || 0);
     const remarks = formRemarks?.value || "";
     const description = (formDescription?.value || "").trim();
+    const variants = collectVariantsFromForm();
+    if (variants === null) return;
 
     if (!itemName) { showPopup("Item Name is required.", { title: "Validation Error" }); formItemName?.focus(); return; }
     if (formOnHand?.value === "" || formOnHand?.value === null) { showPopup("Stocks On Hand is required.", { title: "Validation Error" }); formOnHand?.focus(); return; }
 
-    const body = { category, item_name: itemName, description, unit, on_hand: onHand, remarks };
+    const body = { category, item_name: itemName, description, unit, on_hand: onHand, remarks, variants };
 
     btnSaveForm.disabled = true;
     btnSaveForm.textContent = isEditing ? "Updating…" : "Saving…";
@@ -438,11 +1037,57 @@ document.addEventListener("DOMContentLoaded", () => {
     if (invViewTitle) invViewTitle.textContent = item.item_name || "Item Details";
     if (invViewSubtitle) invViewSubtitle.textContent = `${item.category} — ${item.unit}`;
 
-    const statusCls = statusClass(item.status);
+    const statusText = displayStatus(item.status);
+    const statusCls = statusClass(statusText);
     const remarksCls = remarksClass(item.remarks);
     const remarksHtml = item.remarks
       ? `<span class="remarks-pill ${remarksCls}">${escHtml(item.remarks)}</span>`
       : '<span style="color:#9ca3af;">—</span>';
+
+    const variants = Array.isArray(item.variants) ? item.variants : [];
+    const variantRows = variants.map((variant) => {
+      const variantStatus = displayStatus(computeStatus(variant.on_hand));
+      const variantStatusHtml = `<span class="status-pill ${statusClass(variantStatus)}">${escHtml(variantStatus)}</span>`;
+      const variantRemarksHtml = variant.remarks
+        ? `<span class="remarks-pill ${remarksClass(variant.remarks)}">${escHtml(variant.remarks)}</span>`
+        : '<span style="color:#9ca3af;">—</span>';
+      return `
+        <tr>
+          <td>${escHtml(variant.name || "—")}</td>
+          <td>${escHtml(variant.description || "—")}</td>
+          <td>${escHtml(variant.unit || "—")}</td>
+          <td>${variant.on_hand ?? 0}</td>
+          <td>${variantStatusHtml}</td>
+          <td>${variantRemarksHtml}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const variantsHtml = variants.length
+      ? `
+        <div class="inv-view-variants">
+          <div class="inv-view-section-title">Variants</div>
+          <table class="inv-variant-table">
+            <thead>
+              <tr>
+                <th>Variant Name</th>
+                <th>Description</th>
+                <th>Unit</th>
+                <th>Stocks</th>
+                <th>Status</th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody>${variantRows}</tbody>
+          </table>
+        </div>
+      `
+      : `
+        <div class="inv-view-variants">
+          <div class="inv-view-section-title">Variants</div>
+          <div class="field-hint">No variants added.</div>
+        </div>
+      `;
 
     if (invViewContent) {
       invViewContent.innerHTML = `
@@ -450,10 +1095,11 @@ document.addEventListener("DOMContentLoaded", () => {
           <div><div class="inv-view-label">Category</div><div class="inv-view-value">${escHtml(item.category)}</div></div>
           <div><div class="inv-view-label">Unit</div><div class="inv-view-value">${escHtml(item.unit)}</div></div>
           <div><div class="inv-view-label">Stocks On Hand</div><div class="inv-view-value">${item.on_hand}</div></div>
-          <div><div class="inv-view-label">Status</div><div><span class="status-pill ${statusCls}">${escHtml(item.status)}</span></div></div>
+          <div><div class="inv-view-label">Status</div><div><span class="status-pill ${statusCls}">${escHtml(statusText)}</span></div></div>
           <div><div class="inv-view-label">Remarks</div><div>${remarksHtml}</div></div>
           <div class="full"><div class="inv-view-label">Description</div><div class="inv-view-value">${escHtml(item.description || "—")}</div></div>
-        </div>`;
+        </div>
+        ${variantsHtml}`;
     }
     openModal(modalView);
   };
@@ -509,36 +1155,52 @@ document.addEventListener("DOMContentLoaded", () => {
   // Deduct modal actions
   btnCancelDeduct?.addEventListener('click', () => {
     if (modalDeduct) { closeModal(modalDeduct); modalDeduct.removeAttribute('data-inv-id'); }
+    activeDeductItem = null;
+  });
+
+  deductTarget?.addEventListener("change", () => {
+    updateDeductTargetFields();
   });
 
   btnSaveDeduct?.addEventListener('click', async () => {
     const id = Number(modalDeduct?.getAttribute('data-inv-id')) || 0;
     if (!id) return;
+    if (!deductAmount || deductAmount.value === "") { showPopup('Please enter an adjustment amount (positive to add, negative to deduct).', { title: 'Validation Error' }); deductAmount?.focus(); return; }
     const amount = Number(deductAmount?.value || 0);
-    if (!deductAmount || deductAmount.value === "" || amount <= 0) { showPopup('Please enter a valid deduct amount.', { title: 'Validation Error' }); deductAmount?.focus(); return; }
+    if (!Number.isFinite(amount) || amount === 0) { showPopup('Adjustment amount cannot be zero.', { title: 'Validation Error' }); deductAmount?.focus(); return; }
     const nameVal = (deductName?.value || '').trim();
     const purposeVal = (deductPurpose?.value || '').trim();
     const remarksVal = (deductRemarks?.value || '').trim();
+    const targetVal = deductTarget?.value || "base";
+    const variantId = targetVal.startsWith("variant:") ? Number(targetVal.replace("variant:", "")) : null;
 
     btnSaveDeduct.disabled = true; btnSaveDeduct.textContent = 'Saving…';
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/inventory/${id}/deduct`, {
+      const requestBody = { adjust_amount: amount, name: nameVal, purpose: purposeVal, remarks: remarksVal };
+      if (variantId) requestBody.variant_id = variantId;
+      const res = await fetch(`${API_BASE_URL}/admin/inventory/${id}/adjust`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, Accept: 'application/json' },
-        body: JSON.stringify({ deduct_amount: amount, name: nameVal, purpose: purposeVal, remarks: remarksVal }),
+        body: JSON.stringify(requestBody),
       });
       if (res.status === 401 || res.status === 403) { setUnauthorized(); return; }
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) { showPopup(payload?.message || 'Failed to deduct stocks.', { title: 'Error' }); return; }
+      const responsePayload = await res.json().catch(() => ({}));
+      if (!res.ok) { showPopup(responsePayload?.message || 'Failed to update stocks.', { title: 'Error' }); return; }
 
-      deductMetaByItemId.set(id, {
+      const metaPayload = {
         name: nameVal || "--",
         purpose: purposeVal || "--",
         remarks: remarksVal || "--",
-      });
+      };
+      if (variantId) {
+        deductMetaByVariantId.set(variantId, metaPayload);
+      } else {
+        deductMetaByItemId.set(id, metaPayload);
+      }
 
       closeModal(modalDeduct);
       modalDeduct?.removeAttribute('data-inv-id');
+      activeDeductItem = null;
       await loadInventory();
       setTimeout(() => showPopup('Stocks updated successfully.', { title: 'Success ✓' }), 200);
     } catch (err) {
@@ -553,6 +1215,20 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("click", (e) => {
     const target = e.target;
     if (!(target instanceof HTMLElement)) return;
+
+    // Variant toggle button
+    const toggleBtn = target.closest("[data-inv-toggle]");
+    if (toggleBtn) {
+      const id = toggleBtn.getAttribute("data-inv-toggle");
+      const table = toggleBtn.closest("table");
+      if (!id || !table) return;
+      const expanded = toggleBtn.getAttribute("aria-expanded") === "true";
+      table.querySelectorAll(`tr[data-variant-parent="${id}"]`).forEach((row) => {
+        row.style.display = expanded ? "none" : "table-row";
+      });
+      toggleBtn.setAttribute("aria-expanded", String(!expanded));
+      return;
+    }
 
     // View button
     const viewBtn = target.closest("[data-inv-view]");
@@ -579,9 +1255,23 @@ document.addEventListener("DOMContentLoaded", () => {
       const item = allItems.find((x) => x.id === id);
       if (item) {
         // populate deduct modal
+        activeDeductItem = item;
         if (deductCategory) deductCategory.value = item.category;
-        if (deductItemName) deductItemName.value = item.item_name;
-        if (deductOnHand) deductOnHand.value = String(item.on_hand);
+        const variants = Array.isArray(item.variants) ? item.variants : [];
+        if (deductTargetWrap && deductTarget) {
+          if (variants.length) {
+            deductTargetWrap.style.display = "";
+            deductTarget.innerHTML = [
+              '<option value="base">Base Item</option>',
+              ...variants.map((variant) => `<option value="variant:${variant.id}">${escHtml(variant.name || "Variant")}</option>`),
+            ].join("");
+            deductTarget.value = "base";
+          } else {
+            deductTargetWrap.style.display = "none";
+            deductTarget.innerHTML = "";
+          }
+        }
+        updateDeductTargetFields();
         if (deductAmount) deductAmount.value = "";
         if (deductName) deductName.value = "";
         if (deductPurpose) deductPurpose.value = "";
@@ -593,234 +1283,38 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Download row button
+    // Per-item Excel download button
     const dlBtn = target.closest("[data-inv-download]");
     if (dlBtn) {
       const id = Number(dlBtn.getAttribute("data-inv-download"));
       const item = allItems.find((x) => x.id === id);
       if (item) {
-        const deductMeta = deductMetaByItemId.get(id) || {
-          name: "--",
-          purpose: "--",
-          remarks: "--",
-        };
-
-        // Format current date/time for footer
-        const now = new Date();
-        const dateStr = now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-        const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-
-        // Generate professional, printable HTML document
-        const filename = `${item.item_name.replace(/[^a-z0-9]/gi, '_').slice(0, 40)}_form.html`;
-        const html = `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Item Form - ${escHtml(item.item_name)}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      line-height: 1.6;
-      color: #1a1a2e;
-      background: #f8f9fa;
-      padding: 20px;
-    }
-    .document {
-      background: white;
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 40px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      border-radius: 4px;
-    }
-    .header {
-      text-align: center;
-      margin-bottom: 30px;
-      padding-bottom: 20px;
-      border-bottom: 3px solid #800000;
-    }
-    .header h1 {
-      font-size: 28px;
-      font-weight: 700;
-      color: #800000;
-      margin-bottom: 4px;
-    }
-    .header p {
-      font-size: 13px;
-      color: #6b7280;
-      font-weight: 500;
-      letter-spacing: 0.5px;
-    }
-    .section {
-      margin-bottom: 28px;
-    }
-    .section-title {
-      font-size: 12px;
-      font-weight: 700;
-      color: #800000;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 14px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    .field-group {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      margin-bottom: 16px;
-    }
-    .field-group.full {
-      grid-column: 1 / -1;
-    }
-    .field {
-      display: flex;
-      flex-direction: column;
-    }
-    .field-label {
-      font-size: 11px;
-      font-weight: 700;
-      color: #6b7280;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 6px;
-    }
-    .field-value {
-      font-size: 14px;
-      color: #111827;
-      font-weight: 500;
-      word-break: break-word;
-      padding: 10px;
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 3px;
-      min-height: 32px;
-      display: flex;
-      align-items: center;
-    }
-    .status-badge {
-      display: inline-block;
-      padding: 6px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 700;
-      text-align: center;
-      width: fit-content;
-    }
-    .status-good { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
-    .status-low { background: #fef3c7; color: #92400e; border: 1px solid #fde047; }
-    .status-out { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
-    .footer {
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 1px solid #e5e7eb;
-      text-align: right;
-      font-size: 11px;
-      color: #9ca3af;
-    }
-    .footer-item { margin-bottom: 4px; }
-    @media print {
-      body { background: white; padding: 0; }
-      .document { box-shadow: none; border-radius: 0; }
-    }
-  </style>
-</head>
-<body>
-  <div class="document">
-    <div class="header">
-      <h1>CNSC-FMRC INVENTORY ITEM FORM</h1>
-      <p>Stock Management & Deduction Record</p>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Item Information</div>
-      <div class="field-group">
-        <div class="field">
-          <div class="field-label">Item Name</div>
-          <div class="field-value">${escHtml(item.item_name)}</div>
-        </div>
-        <div class="field">
-          <div class="field-label">Category</div>
-          <div class="field-value">${escHtml(item.category)}</div>
-        </div>
-      </div>
-      <div class="field-group full">
-        <div class="field">
-          <div class="field-label">Description</div>
-          <div class="field-value">${escHtml(item.description || '—')}</div>
-        </div>
-      </div>
-      <div class="field-group">
-        <div class="field">
-          <div class="field-label">Unit of Measure</div>
-          <div class="field-value">${escHtml(item.unit)}</div>
-        </div>
-        <div class="field">
-          <div class="field-label">Status</div>
-          <div class="field-value">
-            <span class="status-badge ${item.status === 'Good' ? 'status-good' : item.status === 'Low Stock' ? 'status-low' : 'status-out'}">
-              ${escHtml(item.status)}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Stock Information</div>
-      <div class="field-group">
-        <div class="field">
-          <div class="field-label">Current Stocks On Hand</div>
-          <div class="field-value">${item.on_hand}</div>
-        </div>
-        <div class="field">
-          <div class="field-label">Item Remarks</div>
-          <div class="field-value">${escHtml(item.remarks || '—')}</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="section">
-      <div class="section-title">Deduction Record</div>
-      <div class="field-group">
-        <div class="field">
-          <div class="field-label">Requested By (Name)</div>
-          <div class="field-value">${escHtml(deductMeta.name)}</div>
-        </div>
-        <div class="field">
-          <div class="field-label">Purpose / Project</div>
-          <div class="field-value">${escHtml(deductMeta.purpose)}</div>
-        </div>
-      </div>
-      <div class="field-group full">
-        <div class="field">
-          <div class="field-label">Deduction Remarks</div>
-          <div class="field-value">${escHtml(deductMeta.remarks)}</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="footer">
-      <div class="footer-item"><strong>Generated:</strong> ${dateStr} at ${timeStr}</div>
-      <div class="footer-item">CNSC-FMRC Management System</div>
-    </div>
-  </div>
-</body>
-</html>`;
-
-        // Download as HTML (printable as PDF via browser print dialog)
-        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
+        void exportItemsToXlsx({
+          items: [item],
+          filenameBase: `${item.item_name}_inventory_form_${todayPH().replace(/\//g, '-')}`,
+          txFilter: { item_id: item.id },
+        }).catch((err) => {
+          console.error("Per-item export error:", err);
+          showPopup("Failed to export this item.", { title: "Export Error" });
+        });
       }
+      return;
+    }
+
+    // Category-level Excel export button
+    const catExportBtn = target.closest("[data-cat-export]");
+    if (catExportBtn) {
+      const category = catExportBtn.getAttribute("data-cat-export") || "";
+      if (!category) return;
+      const categoryItems = allItems.filter((item) => item.category === category);
+      void exportItemsToXlsx({
+        items: categoryItems,
+        filenameBase: `inventory_${category}_${todayPH().replace(/\//g, '-')}`,
+        txFilter: { category },
+      }).catch((err) => {
+        console.error("Category export error:", err);
+        showPopup("Failed to export this category.", { title: "Export Error" });
+      });
       return;
     }
 

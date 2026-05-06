@@ -24,7 +24,9 @@ class NotificationController extends Controller
     {
         $notification->update(['is_read' => true]);
 
-        return $this->respondWithNotifications('Notification marked as read.');
+        return response()->json([
+            'message' => 'Notification marked as read.',
+        ]);
     }
 
     /**
@@ -34,7 +36,9 @@ class NotificationController extends Controller
     {
         AdminNotification::where('is_read', false)->update(['is_read' => true]);
 
-        return $this->respondWithNotifications('All notifications marked as read.');
+        return response()->json([
+            'message' => 'All notifications marked as read.',
+        ]);
     }
 
     /**
@@ -44,7 +48,21 @@ class NotificationController extends Controller
     {
         $notification->delete();
 
-        return $this->respondWithNotifications('Notification deleted.');
+        return response()->json([
+            'message' => 'Notification deleted.',
+        ]);
+    }
+
+    /**
+     * Admin: Clear all notifications.
+     */
+    public function clearAll(): JsonResponse
+    {
+        AdminNotification::query()->delete();
+
+        return response()->json([
+            'message' => 'All notifications cleared.',
+        ]);
     }
 
     /**

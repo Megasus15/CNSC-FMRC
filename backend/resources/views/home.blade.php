@@ -903,7 +903,7 @@
           <button class="apt-btn apt-btn-back" id="btnCancelTo3">
             Back to Calendar
           </button>
-          <button class="apt-btn apt-btn-blue" id="btnGoToStep5">
+          <button type="button" class="apt-btn apt-btn-blue" id="btnGoToStep5">
             Confirm & Submit
           </button>
           </div>

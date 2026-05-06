@@ -1900,7 +1900,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (submitOrderBtn) {
-      submitOrderBtn.addEventListener("click", async function () {
+      submitOrderBtn.addEventListener("click", async function (event) {
+        event?.preventDefault();
         if (!orderTermsCheckbox?.checked) {
           await showShopAlert("Please check the terms and payment agreement box first.", {
             title: "Terms Required",
@@ -3158,7 +3159,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   bindClick("btnCancelTo3", () => switchAptStep(3));
   // Step 4: "Confirm & Submit" — actually submits the appointment to backend
-  bindClick("btnGoToStep5", async () => {
+  bindClick("btnGoToStep5", async (event) => {
+    event?.preventDefault();
     const btn = document.getElementById("btnGoToStep5");
     if (btn) {
       btn.disabled = true;

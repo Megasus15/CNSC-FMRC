@@ -15,12 +15,14 @@ class InventoryItem extends Model
         'on_hand',
         'status',
         'remarks',
+        'variants',
         'created_by_user_id',
     ];
 
     protected $casts = [
         'last_invent' => 'integer',
         'on_hand'     => 'integer',
+        'variants'    => 'array',
     ];
 
     public function createdBy()

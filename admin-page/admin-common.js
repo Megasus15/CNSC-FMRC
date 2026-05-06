@@ -342,6 +342,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const NOTIF_POLL_INTERVAL = 10000; // 10 seconds — near real-time
     let notifPollTimer = null;
     let currentUnreadCount = 0;
+    const NOTIF_REALTIME_SIGNAL_KEY = "fmrc_admin_notif_updated_at";
+    const NOTIF_REALTIME_CHANNEL = "fmrc-admin-notifs-realtime";
+    let notifRealtimeChannel = null;
+    let lastNotifSignalTs = 0;
+    let notifSyncTimer = null;
 
     // Ensure dropdown exists — attach to body (not notifBtn) for correct positioning
     let notifDropdown = document.getElementById("notificationDropdown");
@@ -379,6 +384,41 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Helper: get auth token
     const getToken = () => (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token") || "";
+
+    const getNotifRealtimeChannel = () => {
+      if (typeof window.BroadcastChannel !== "function") return null;
+      if (!notifRealtimeChannel) {
+        notifRealtimeChannel = new window.BroadcastChannel(NOTIF_REALTIME_CHANNEL);
+      }
+      return notifRealtimeChannel;
+    };
+
+    const emitNotifSignal = (detail = {}) => {
+      const payload = {
+        source: "admin-notifications",
+        timestamp: Date.now(),
+        ...detail,
+      };
+
+      window.dispatchEvent(new CustomEvent("fmrc:notifs-updated", { detail: payload }));
+
+      try {
+        localStorage.setItem(NOTIF_REALTIME_SIGNAL_KEY, JSON.stringify(payload));
+      } catch {
+        // Ignore storage write issues.
+      }
+
+      const channel = getNotifRealtimeChannel();
+      channel?.postMessage(payload);
+    };
+
+    const shouldProcessNotifSignal = (payload = {}) => {
+      const ts = Number(payload?.timestamp || 0);
+      if (!Number.isFinite(ts) || ts <= 0) return true;
+      if (ts <= lastNotifSignalTs) return false;
+      lastNotifSignalTs = ts;
+      return true;
+    };
 
     // Helper: update badge display
     const updateBadge = (count) => {
@@ -506,21 +546,39 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     };
 
-    // Helper: apply fresh server data (returned by every mutation endpoint)
-    const applyServerNotifData = (json) => {
-      if (!json) return;
-      if (Array.isArray(json.data)) {
-        _lastNotifData = json.data;
-        renderNotifications(_lastNotifData);
-        // Also refresh the All Notifications panel if it's open
-        if (typeof renderAllNotifPanel === 'function') {
-          renderAllNotifPanel(_lastNotifData);
-        }
+    const scheduleNotifSync = (delay = 0) => {
+      if (notifSyncTimer) window.clearTimeout(notifSyncTimer);
+      notifSyncTimer = window.setTimeout(() => {
+        void fetchNotifications();
+      }, delay);
+    };
+
+    const handleNotifSignal = (payload = {}) => {
+      if (!shouldProcessNotifSignal(payload)) return;
+      scheduleNotifSync(0);
+    };
+
+    window.addEventListener("fmrc:notifs-updated", (event) => {
+      handleNotifSignal(event.detail);
+    });
+
+    window.addEventListener("storage", (event) => {
+      if (event.key !== NOTIF_REALTIME_SIGNAL_KEY || !event.newValue) return;
+      try {
+        const payload = JSON.parse(event.newValue);
+        handleNotifSignal(payload);
+      } catch {
+        // Ignore invalid payloads.
       }
-      if (typeof json.unread_count === 'number') {
-        currentUnreadCount = json.unread_count;
-        updateBadge(json.unread_count);
-      }
+    });
+
+    const realtimeChannel = getNotifRealtimeChannel();
+    realtimeChannel?.addEventListener("message", (event) => {
+      handleNotifSignal(event.data);
+    });
+
+    const reconcileNotifications = () => {
+      scheduleNotifSync(150);
     };
 
     // Mark single as read — INSTANT UI + backend sync
@@ -536,14 +594,19 @@ document.addEventListener("DOMContentLoaded", () => {
         renderNotifications(_lastNotifData);
         if (typeof renderAllNotifPanel === 'function') renderAllNotifPanel(_lastNotifData);
       }
-      // API returns fresh data — reconcile silently
+      // API runs in background — reconcile silently
       try {
         const res = await fetch(`${NOTIF_API_BASE}/admin/notifications/${id}/read`, {
           method: "PATCH",
           headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
         });
-        if (res.ok) applyServerNotifData(await res.json());
-      } catch { /* optimistic already applied */ }
+        if (res.ok) {
+          emitNotifSignal({ action: "read", id });
+        }
+        reconcileNotifications();
+      } catch {
+        reconcileNotifications();
+      }
     };
 
     // Mark all as read — INSTANT UI + backend sync
@@ -556,14 +619,19 @@ document.addEventListener("DOMContentLoaded", () => {
       updateBadge(0);
       renderNotifications(_lastNotifData);
       if (typeof renderAllNotifPanel === 'function') renderAllNotifPanel(_lastNotifData);
-      // API returns fresh data
+      // API runs in background
       try {
         const res = await fetch(`${NOTIF_API_BASE}/admin/notifications/mark-all-read`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
         });
-        if (res.ok) applyServerNotifData(await res.json());
-      } catch { /* optimistic already applied */ }
+        if (res.ok) {
+          emitNotifSignal({ action: "mark-all-read" });
+        }
+        reconcileNotifications();
+      } catch {
+        reconcileNotifications();
+      }
     };
 
     // Delete notification — INSTANT UI + backend sync
@@ -582,14 +650,43 @@ document.addEventListener("DOMContentLoaded", () => {
         renderNotifications(_lastNotifData);
         if (typeof renderAllNotifPanel === 'function') renderAllNotifPanel(_lastNotifData);
       }
-      // API returns fresh data
+      // API runs in background
       try {
         const res = await fetch(`${NOTIF_API_BASE}/admin/notifications/${id}`, {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
         });
-        if (res.ok) applyServerNotifData(await res.json());
-      } catch { /* optimistic already applied */ }
+        if (res.ok) {
+          emitNotifSignal({ action: "delete", id });
+        }
+        reconcileNotifications();
+      } catch {
+        reconcileNotifications();
+      }
+    };
+
+    const clearAllNotifications = async () => {
+      const token = getToken();
+      if (!token) return;
+      // Optimistic: wipe local data immediately
+      _lastNotifData.length = 0;
+      currentUnreadCount = 0;
+      updateBadge(0);
+      renderNotifications(_lastNotifData);
+      if (typeof renderAllNotifPanel === 'function') renderAllNotifPanel(_lastNotifData);
+
+      try {
+        const res = await fetch(`${NOTIF_API_BASE}/admin/notifications/clear-all`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        });
+        if (res.ok) {
+          emitNotifSignal({ action: "clear-all" });
+        }
+        reconcileNotifications();
+      } catch {
+        reconcileNotifications();
+      }
     };
 
     // Helper: position the dropdown below the bell button (works even when attached to body)
@@ -773,22 +870,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Clear all — optimistic: wipe local data, re-render, API in background
         document.getElementById('allNotifClearAll')?.addEventListener('click', () => {
-          const token = getToken();
-          if (!token) return;
-          const ids = _lastNotifData.map(n => n.id);
-          // Instant clear
-          _lastNotifData.length = 0;
-          currentUnreadCount = 0;
-          updateBadge(0);
-          renderNotifications(_lastNotifData);
-          renderAllNotifPanel(_lastNotifData);
-          // Background delete
-          ids.forEach(id => {
-            fetch(`${NOTIF_API_BASE}/admin/notifications/${id}`, {
-              method: 'DELETE',
-              headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-            }).catch(() => {});
-          });
+          void clearAllNotifications();
         });
 
         // Delegation: read/delete inside panel
