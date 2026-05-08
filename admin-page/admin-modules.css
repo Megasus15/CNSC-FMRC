@@ -1973,3 +1973,125 @@ body.reports-page .table-wrapper {
   gap: 12px;
   border-radius: 0 0 12px 12px;
 }
+
+/* ─── Item Detail Combobox ────────────────────────────────────────────────── */
+
+.combobox-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.combobox-wrap .combobox-input {
+  width: 100%;
+  padding-right: 34px;
+  box-sizing: border-box;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.combobox-wrap .combobox-input:focus {
+  border-color: var(--primary-color, #800000);
+  box-shadow: 0 0 0 3px rgba(128, 0, 0, 0.1);
+  outline: none;
+}
+
+.combobox-caret {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.7rem;
+  color: #6b7280;
+  background: none;
+  border: none;
+  padding: 5px;
+  cursor: pointer;
+  transition: transform 0.2s ease, color 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.combobox-wrap.open .combobox-caret {
+  transform: translateY(-50%) rotate(180deg);
+  color: var(--primary-color, #800000);
+}
+
+.combobox-list {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  background: #fff;
+  border: 1px solid #d8dde3;
+  border-radius: 8px;
+  padding: 4px 0;
+  margin: 0;
+  list-style: none;
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  animation: combobox-fade-in 0.15s ease;
+}
+
+.combobox-wrap.open .combobox-list {
+  display: block;
+}
+
+@keyframes combobox-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.combobox-list li {
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  color: #333;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.combobox-list li:hover,
+.combobox-list li.combobox-active {
+  background-color: #f8e8e8;
+  color: var(--primary-color, #800000);
+  font-weight: 600;
+}
+
+.combobox-list li.combobox-no-results {
+  color: #9ca3af;
+  font-style: italic;
+  cursor: default;
+}
+
+.combobox-list li.combobox-no-results:hover {
+  background: transparent;
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+.combobox-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.combobox-list::-webkit-scrollbar-thumb {
+  background: #d1cece;
+  border-radius: 999px;
+}
+
+.combobox-list::-webkit-scrollbar-track {
+  background: transparent;
+}

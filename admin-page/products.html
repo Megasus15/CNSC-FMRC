@@ -513,6 +513,21 @@
           max-width: 190px;
         }
       }
+      
+      /* Action column styling */
+      .action-icons.sticky-action {
+        background: #fff !important;
+        position: sticky;
+        right: 0;
+        z-index: 10;
+      }
+      td.action-icons.sticky-action {
+        background: #fff !important;
+        border-left: 1px solid #e5e7eb;
+      }
+      tr.row-blocked td.action-icons.sticky-action {
+        background: #fff !important;
+      }
     </style>
   </head>
   <body>
@@ -736,18 +751,27 @@
           <h3 class="modal-title"><i class="fa-solid fa-plus" style="margin-right:6px;"></i>Add Product</h3>
         </div>
         <div class="modal-body-scroll">
-          <p class="modal-section-title">Product Card Details</p>
-          <p class="field-hint" style="margin-bottom:12px;">These fields are displayed on the customer's product card.</p>
+          <p class="modal-section-title">Product Information</p>
           <div class="form-grid">
-            <div class="field-stack full"><label>Product Name <span style="color:#dc2626">*</span></label><input class="input-field" id="addProductName" maxlength="255" /></div>
             <div class="field-stack"><label>Category <span style="color:#dc2626">*</span></label>
               <select class="filter-select" id="addProductCategory">
                 <option>3D Print</option><option>Laser Cut</option><option>CNC</option>
               </select>
             </div>
-            <div class="field-stack"><label>Product Code</label><input class="input-field" id="addProductCode" placeholder="e.g. S2P-001" maxlength="100" /></div>
-            <div class="field-stack"><label>In Stock (Quantity) <span style="color:#dc2626">*</span></label><input class="input-field" id="addProductStock" type="number" min="0" /></div>
-            <div class="field-stack"><label>Price (?) <span style="color:#dc2626">*</span></label><input class="input-field" id="addProductPrice" type="number" min="0" step="0.01" /></div>
+            <div class="field-stack full">
+              <label>Product Name</label>
+              <select class="filter-select" id="addProductNameSelect">
+                <option value="">Select an existing product</option>
+              </select>
+              <p class="field-hint">Or enter a new product name below</p>
+            </div>
+            <div class="field-stack full">
+              <label>New Product Name</label>
+              <input class="input-field" id="addProductNewName" maxlength="255" placeholder="Leave empty if using existing product above" />
+            </div>
+            <div class="field-stack"><label>Product Code <span style="color:#dc2626">*</span></label><input class="input-field" id="addProductCode" placeholder="e.g. S2P-001" maxlength="100" required /></div>
+            <div class="field-stack"><label>In Stock (Quantity) <span style="color:#dc2626">*</span></label><input class="input-field" id="addProductStock" type="number" min="0" required /></div>
+            <div class="field-stack"><label>Price <span style="color:#dc2626">*</span></label><input class="input-field" id="addProductPrice" type="number" min="0" step="0.01" required /></div>
 
             <div class="field-stack full">
               <label>Stock Status <span style="color:#dc2626">*</span></label>
@@ -767,14 +791,13 @@
               <div class="block-toggle-row" id="addBlockToggleRow">
                 <div class="block-toggle-label">
                   <strong id="addBlockLabel">Product Active (Visible to Customers)</strong>
-                  <span>Toggle to block this product from appearing on the customer website.</span>
+                  <span>Hide product from customers</span>
                 </div>
                 <label class="toggle-switch" style="flex-shrink:0;">
                   <input type="checkbox" id="addProductBlocked" />
                   <span class="toggle-slider"></span>
                 </label>
               </div>
-              <p class="field-hint">When blocked, the product is hidden and not clickable on the customer website.</p>
             </div>
 
             <div class="field-stack full">
@@ -836,8 +859,8 @@
               </select>
             </div>
             <div class="field-stack"><label>Product Code</label><input class="input-field" id="editProductCode" maxlength="100" /></div>
-            <div class="field-stack"><label>In Stock (Quantity) <span style="color:#dc2626">*</span></label><input class="input-field" id="editProductStock" type="number" min="0" /></div>
-            <div class="field-stack"><label>Price (?) <span style="color:#dc2626">*</span></label><input class="input-field" id="editProductPrice" type="number" min="0" step="0.01" /></div>
+            <div class="field-stack"><label>In Stock (Quantity) <span style="color:#dc2626">*</span></label><input class="input-field" id="editProductStock" type="number" min="0" required /></div>
+            <div class="field-stack"><label>Price <span style="color:#dc2626">*</span></label><input class="input-field" id="editProductPrice" type="number" min="0" step="0.01" required /></div>
 
             <div class="field-stack full">
               <label>Stock Status <span style="color:#dc2626">*</span></label>

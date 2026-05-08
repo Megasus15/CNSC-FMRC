@@ -257,9 +257,18 @@ class InventoryItemController extends Controller
 
             $delta = (int) $validated['adjust_amount'];
             $variantId = isset($validated['variant_id']) ? (int) $validated['variant_id'] : null;
+            $variants = $this->normalizeVariants($lockedItem->variants ?? []);
+            $hasVariants = !empty($variants);
+
+            if ($hasVariants && !$variantId) {
+                return 'variant_required';
+            }
+
+            if (!$hasVariants && $variantId) {
+                return 'variant_not_found';
+            }
 
             if ($variantId) {
-                $variants = $this->normalizeVariants($lockedItem->variants ?? []);
                 $variantIndex = null;
                 foreach ($variants as $index => $variant) {
                     if ((int) ($variant['id'] ?? 0) === $variantId) {
@@ -317,6 +326,7 @@ class InventoryItemController extends Controller
 
         if ($result === null) return response()->json(['message' => 'Inventory item not found.'], 404);
         if ($result === 'exceeds') return response()->json(['message' => 'Adjustment would result in negative stocks.'], 422);
+    if ($result === 'variant_required') return response()->json(['message' => 'Please choose a variant to adjust for items with variants.'], 422);
         if ($result === 'variant_not_found') return response()->json(['message' => 'Inventory variant not found.'], 404);
 
         return response()->json([
@@ -511,6 +521,7 @@ class InventoryItemController extends Controller
             'status'      => $item->status,
             'remarks'     => $item->remarks,
             'variants'    => $variants,
+            'has_variants'=> !empty($variants),
             'created_at'  => $item->created_at?->toIso8601String(),
             'updated_at'  => $item->updated_at?->toIso8601String(),
         ];

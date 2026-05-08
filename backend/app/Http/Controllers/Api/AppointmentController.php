@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\AppointmentConfirmation;
 use App\Models\AdminNotification;
 use App\Models\Appointment;
 use App\Models\AppointmentCalendarDay;
@@ -187,35 +188,35 @@ class AppointmentController extends Controller
         }
 
         // --- Customer Email: Appointment Confirmation ---
-        // defer() is a Laravel 13 helper: runs this callback AFTER the HTTP response
-        // is fully sent to the client, so SMTP never blocks the user.
+        // Queued via the AppointmentConfirmation Mailable (ShouldQueue) so the
+        // HTTP 201 response is returned to the browser immediately — SMTP latency
+        // never blocks the response.  The queue worker delivers the email in the
+        // background.  The Mailable class handles its own retries (3 attempts)
+        // and logs permanent failures via its failed() method.
         try {
             $emailAddress = $validated['email'];
             if ($emailAddress && filter_var($emailAddress, FILTER_VALIDATE_EMAIL)) {
-                $clientName  = trim($validated['first_name'] . ' ' . $validated['last_name']);
-                $emailHtml   = $this->buildAppointmentEmailHtml($appointment, $validated, $clientName);
-                $referenceNo = $appointment->reference_no;
-                $fromAddress = config('mail.from.address', 'noreply@cnsc-fmrc.edu.ph');
-                $fromName    = config('mail.from.name', 'CNSC-FMRC');
+                Mail::to($emailAddress)
+                    ->queue(new AppointmentConfirmation($appointment));
 
-                defer(function () use ($emailAddress, $emailHtml, $referenceNo, $fromAddress, $fromName) {
-                    try {
-                        Mail::html($emailHtml, function ($message) use ($emailAddress, $referenceNo, $fromAddress, $fromName) {
-                            $message->to($emailAddress)
-                                    ->subject("Appointment Confirmed - {$referenceNo}")
-                                    ->from($fromAddress, $fromName);
-                        });
-                        Log::info("Appointment email sent to {$emailAddress} | Ref: {$referenceNo}");
-                    } catch (\Throwable $e) {
-                        Log::error("Appointment email FAILED for {$referenceNo}: " . $e->getMessage());
-                    }
-                });
+                Log::info(
+                    '[APPT EMAIL] Queued AppointmentConfirmation for '
+                    . $emailAddress
+                    . ' | Ref: ' . $appointment->reference_no
+                );
             }
         } catch (\Throwable $e) {
-            Log::error("Appointment email setup FAILED for {$appointment->reference_no}: " . $e->getMessage());
+            // Email dispatch failure must NEVER prevent the appointment from being
+            // confirmed. Log and continue so the 201 response is always returned.
+            Log::error(
+                '[APPT EMAIL] Dispatch setup FAILED for '
+                . $appointment->reference_no . ': ' . $e->getMessage()
+            );
         }
 
-        // Return JSON immediately — email sends in background after response is delivered
+        // Return 201 immediately — queued job handles email delivery.
+        // Ensure the queue worker is running in a separate terminal:
+        //   php artisan queue:work --queue=default --tries=3
         return response()->json([
             'message' => 'Appointment created successfully.',
             'data'    => $this->transformAppointment($appointment),

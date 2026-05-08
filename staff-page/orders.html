@@ -189,7 +189,7 @@
                 <table class="admin-table" id="walkInOrdersTable" data-page-size="5" data-empty-message="No walk-in orders available.">
                   <thead>
                     <tr>
-                      <th>Order No.</th>
+                      <th>Payment Order No.</th>
                       <th>Name</th>
                       <th>Address</th>
                       <th>Contact Number</th>
@@ -326,7 +326,7 @@
         </div>
         <div class="modal-body-scroll">
           <div class="form-grid">
-            <div class="field-stack"><label>Order No.</label><input id="walkInOrderNoInput" class="input-field" /></div>
+            <div class="field-stack"><label>Payment Order No.</label><input id="walkInOrderNoInput" class="input-field" placeholder="e.g. ORD-2025-001" /></div>
             <div class="field-stack"><label>Name</label><input id="walkInCustomerNameInput" class="input-field" /></div>
             <div class="field-stack full"><label>Address</label><input id="walkInAddressInput" class="input-field" /></div>
             <div class="field-stack"><label>Contact Number</label><input id="walkInContactNumberInput" class="input-field" /></div>
@@ -363,7 +363,19 @@
             </div>
             <div class="field-stack full" id="walkInProjectDescriptionOtherWrap" style="display:none;"><label>Specify Project Description</label><input id="walkInProjectDescriptionOtherInput" class="input-field" /></div>
 
-            <div class="field-stack full"><label>Item Detail</label><input id="walkInItemDetailInput" class="input-field" /></div>
+            <div class="field-stack full">
+              <label>Item Detail</label>
+              <div class="combobox-wrap" id="walkInItemDetailWrap">
+                <input
+                  id="walkInItemDetailInput"
+                  class="input-field combobox-input"
+                  autocomplete="off"
+                  placeholder="Select from products or type a custom item..."
+                />
+                <button type="button" class="combobox-caret" id="walkInItemDetailCaretBtn" aria-label="Toggle item list" tabindex="-1"><i class="fa-solid fa-chevron-down"></i></button>
+                <ul class="combobox-list" id="walkInItemDetailList" role="listbox"></ul>
+              </div>
+            </div>
             <div class="field-stack"><label>Unit</label><input id="walkInUnitInput" class="input-field" /></div>
             <div class="field-stack"><label>Subtotal Cost</label><input id="walkInSubtotalCostInput" class="input-field" type="number" min="0" step="0.01" /></div>
             <div class="field-stack"><label>Total</label><input id="walkInTotalInput" class="input-field" type="number" min="0" step="0.01" /></div>
@@ -384,7 +396,7 @@
         </div>
         <div class="modal-body-scroll">
           <div class="form-grid">
-            <div class="field-stack"><label>Order No.</label><input id="walkInDetailOrderNo" class="input-field" readonly /></div>
+            <div class="field-stack"><label>Payment Order No.</label><input id="walkInDetailOrderNo" class="input-field" readonly /></div>
             <div class="field-stack"><label>Name</label><input id="walkInDetailName" class="input-field" readonly /></div>
             <div class="field-stack full"><label>Address</label><input id="walkInDetailAddress" class="input-field" readonly /></div>
             <div class="field-stack"><label>Contact Number</label><input id="walkInDetailContact" class="input-field" readonly /></div>

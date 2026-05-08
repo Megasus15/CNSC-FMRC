@@ -31,12 +31,48 @@ class ProductController extends Controller
         return response()->json(['data' => $products]);
     }
 
+    public function catalogOptions(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'category' => 'required|string|max:100',
+        ]);
+
+        $products = Product::query()
+            ->where('category', trim($validated['category']))
+            ->orderBy('name')
+            ->get(['id', 'name', 'code', 'category'])
+            ->map(fn (Product $product) => [
+                'id' => (int) $product->id,
+                'name' => $product->name,
+                'code' => $product->code,
+                'category' => $product->category,
+            ]);
+
+        return response()->json([
+            'data' => $products,
+        ]);
+    }
+
+    // ─── Admin: Product names for walk-in item detail dropdown ──────────────────
+
+    public function productNames(): JsonResponse
+    {
+        $names = Product::orderBy('name')
+            ->pluck('name')
+            ->unique()
+            ->values();
+
+        return response()->json([
+            'data' => $names,
+        ]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'name'           => 'required|string|max:255',
             'category'       => 'required|string|max:100',
-            'code'           => 'nullable|string|max:100|unique:products,code',
+            'code'           => 'required|string|max:100|unique:products,code',
             'stock'          => 'required|integer|min:0',
             'price'          => 'required|numeric|min:0',
             'stock_status'   => 'required|in:in_stock,out_of_stock',
@@ -64,7 +100,7 @@ class ProductController extends Controller
         $validated = $request->validate([
             'name'           => 'required|string|max:255',
             'category'       => 'required|string|max:100',
-            'code'           => 'nullable|string|max:100|unique:products,code,' . $product->id,
+            'code'           => 'required|string|max:100|unique:products,code,' . $product->id,
             'stock'          => 'required|integer|min:0',
             'price'          => 'required|numeric|min:0',
             'stock_status'   => 'required|in:in_stock,out_of_stock',

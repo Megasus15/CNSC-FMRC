@@ -402,8 +402,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const openOrderSuccessModal = (orderNoDisplay) =>
     new Promise((resolve) => {
       const modal = document.getElementById("orderSuccessModal");
-      const numEl  = document.getElementById("orderSuccessNumber");
-      const okBtn  = document.getElementById("orderSuccessOkBtn");
+      const numEl = document.getElementById("orderSuccessNumber");
+      const okBtn = document.getElementById("orderSuccessOkBtn");
 
       // Fallback: page doesn't have the dedicated modal
       if (!modal || !okBtn) {
@@ -2697,9 +2697,14 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
           sessionStorage.setItem(
             "fmrc_pending_order_success",
-            JSON.stringify({ orderNo: orderNoDisplay || orderNoRaw || "", ts: Date.now() }),
+            JSON.stringify({
+              orderNo: orderNoDisplay || orderNoRaw || "",
+              ts: Date.now(),
+            }),
           );
-        } catch { /* ignore storage errors (e.g. private browsing) */ }
+        } catch {
+          /* ignore storage errors (e.g. private browsing) */
+        }
 
         // ── Step 2: Clear cart items & close the checkout modal ─────────────────
         if (useCartCheckout && cartItemsContainer) {
@@ -2733,7 +2738,6 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         return; // success path done; finally block still runs but is harmless
-
       } catch (error) {
         await showCustomerPopup(
           error?.message || "Unable to place order. Please try again.",
@@ -3974,8 +3978,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const submitAppointment = async () => {
     const { date, time } = getSelectedSchedule();
     if (!date || !time) {
-      showSlotMessage("Please select a date and time first before continuing.");
-      return false;
+      const msg = "Please select a date and time first before continuing.";
+      showSlotMessage(msg);
+      return { ok: false, error: msg };
     }
 
     const formData = new FormData();
@@ -4056,8 +4061,8 @@ document.addEventListener("DOMContentLoaded", () => {
           },
           body: formData,
         },
-        15000,
-      ); // 15s timeout — backend now returns immediately; email sends in background
+        20000,
+      ); // 20s timeout — email is now queued so backend returns immediately
 
       const payload = await response.json().catch(() => ({}));
 
@@ -4066,20 +4071,20 @@ document.addEventListener("DOMContentLoaded", () => {
           payload?.message ||
           "Unable to submit appointment. Please review your details and try again.";
         showSlotMessage(message);
-        return false;
+        return { ok: false, error: message };
       }
 
       submittedAppointment = payload?.data || null;
       appointmentSubmitted = true;
       stopAptPolling();
       populateReviewData(5);
-      return true;
+      return { ok: true, error: null };
     } catch (error) {
-      showSlotMessage(
+      const message =
         error?.message ||
-          "Cannot connect to server. Please make sure Laravel is running.",
-      );
-      return false;
+        "Cannot connect to server. Please make sure Laravel is running.";
+      showSlotMessage(message);
+      return { ok: false, error: message };
     }
   };
 
@@ -4598,6 +4603,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (appointmentBtn && appointmentOverlay) {
     appointmentBtn.addEventListener("click", () => {
+      if (!requireCustomerAuth("make an appointment")) return;
+
       appointmentOverlay.classList.add("show-modal");
       document.body.style.overflow = "hidden";
 
@@ -4621,6 +4628,26 @@ document.addEventListener("DOMContentLoaded", () => {
           renderTimeSlots(selectedDateKey);
         }
       })();
+    });
+
+    // Guard: stop clicks that land on the overlay BACKDROP from bubbling to any
+    // outer handler. The appointment flow should ONLY be dismissed via the
+    // dedicated close/back button — never by clicking outside the card.
+    appointmentOverlay.addEventListener("click", (event) => {
+      // Only act when the backdrop itself (not any child) is the target.
+      // We intentionally do NOT close the overlay here — dismissal is
+      // exclusively via closeAppointmentBtn to prevent accidental closure
+      // during the async Step 4 submission.
+      event.stopPropagation();
+    });
+  }
+
+  // Guard: stop all clicks inside the apt-container from ever bubbling past
+  // the overlay, which prevents any external click handler from seeing them.
+  const aptContainerEl = appointmentOverlay?.querySelector(".apt-container");
+  if (aptContainerEl) {
+    aptContainerEl.addEventListener("click", (event) => {
+      event.stopPropagation();
     });
   }
 
@@ -4691,36 +4718,61 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Step 4: "Confirm & Submit" — actually submits the appointment to backend
   bindClick("btnGoToStep5", async (event) => {
+    // Prevent any click from bubbling to the overlay or triggering form submission
     event?.preventDefault();
+    event?.stopPropagation();
+
     const btn = document.getElementById("btnGoToStep5");
+    const backBtn = document.getElementById("btnCancelTo3");
+    // Also lock the top-level close/back button so the user cannot accidentally
+    // navigate away while the async submission is in flight.
+    const closeBtn = closeAppointmentBtn;
+
+    // Lock UI during submission to prevent accidental double-click or navigation
     if (btn) {
       btn.disabled = true;
-      btn.textContent = "Submitting...";
+      btn.textContent = "Submitting\u2026";
     }
+    if (backBtn) backBtn.disabled = true;
+    if (closeBtn) closeBtn.disabled = true;
+
+    const restoreButtons = () => {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Confirm \u0026 Submit";
+      }
+      if (backBtn) backBtn.disabled = false;
+      if (closeBtn) closeBtn.disabled = false;
+    };
+
     try {
       if (!appointmentSubmitted) {
-        const ok = await submitAppointment();
-        if (!ok) {
-          if (btn) {
-            btn.disabled = false;
-            btn.textContent = "Confirm & Submit";
-          }
-          // The error message from submitAppointment might be hidden on Step 3, so show a popup here:
+        const result = await submitAppointment();
+        if (!result.ok) {
+          restoreButtons();
+          // Use the error returned directly from submitAppointment
           const errorMsg =
-            document.getElementById("maxLimitMsg")?.innerText ||
+            result.error ||
             "Unable to submit appointment. Please check your details.";
-          void showCustomerPopup(errorMsg, { title: "Submission Failed" });
+          void showCustomerPopup(errorMsg, {
+            title: "Submission Failed",
+            allowBackdropClose: false,
+          });
           return;
         }
       }
+      // Success — restore close button then transition to Step 5
+      if (closeBtn) closeBtn.disabled = false;
       switchAptStep(5);
-    } catch {
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = "Confirm & Submit";
-      }
-      void showCustomerPopup("Network error or timeout. Please try again.", {
-        title: "Error",
+    } catch (err) {
+      restoreButtons();
+      const catchMsg =
+        typeof err?.message === "string" && err.message.length > 0
+          ? err.message
+          : "Network error or timeout. Please try again.";
+      void showCustomerPopup(catchMsg, {
+        title: "Submission Error",
+        allowBackdropClose: false,
       });
     }
   });

@@ -73,8 +73,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const modalPhotoEditor = document.getElementById("modalProductPhotoEditor");
 
   // Add form fields
-  const addName = document.getElementById("addProductName");
   const addCategory = document.getElementById("addProductCategory");
+  const addNameSelect = document.getElementById("addProductNameSelect");
+  const addNewName = document.getElementById("addProductNewName");
   const addCode = document.getElementById("addProductCode");
   const addStock = document.getElementById("addProductStock");
   const addPrice = document.getElementById("addProductPrice");
@@ -148,6 +149,64 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const formatPrice = (v) =>
     `₱${Number(v || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const getProductsForCategory = (category) =>
+    products.filter((product) => product.category === category).sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+
+  const loadAddProductOptions = async (category, preserveValue = true) => {
+    if (!addNameSelect) return;
+
+    const selectedValue = preserveValue ? addNameSelect.value : "";
+    const normalizedCategory = (category || addCategory?.value || "3D Print").trim();
+
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/admin/products/catalog-options?category=${encodeURIComponent(normalizedCategory)}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+          cache: "no-store",
+        },
+      );
+      if (res.status === 401 || res.status === 403) {
+        setUnauthorized();
+        return;
+      }
+
+      const payload = await res.json();
+      const options = Array.isArray(payload?.data) ? payload.data : [];
+      addNameSelect.innerHTML = [
+        '<option value="">Select an existing product</option>',
+        ...options.map((product) => `<option value="${product.id}" data-code="${escHtml(product.code || "")}" data-name="${escHtml(product.name || "")}">${escHtml(product.name || "Unnamed")}</option>`),
+      ].join("");
+
+      if (selectedValue && options.some((product) => String(product.id) === selectedValue)) {
+        addNameSelect.value = selectedValue;
+      } else {
+        addNameSelect.value = "";
+      }
+
+      syncAddProductCodeFromSelection();
+    } catch (error) {
+      console.error("Load product options error:", error);
+      const fallbackOptions = getProductsForCategory(normalizedCategory);
+      addNameSelect.innerHTML = [
+        '<option value="">Select an existing product</option>',
+        ...fallbackOptions.map((product) => `<option value="${product.id}" data-code="${escHtml(product.code || "")}" data-name="${escHtml(product.name || "")}">${escHtml(product.name || "Unnamed")}</option>`),
+      ].join("");
+      addNameSelect.value = preserveValue ? selectedValue : "";
+      syncAddProductCodeFromSelection();
+    }
+  };
+
+  const syncAddProductCodeFromSelection = () => {
+    const selectedOption = addNameSelect?.selectedOptions?.[0];
+    const selectedCode = selectedOption?.dataset?.code || "";
+    if (addCode) addCode.value = selectedCode;
+    if (selectedCode && addNewName) addNewName.value = "";
+  };
 
   const fileToDataUrl = (file) =>
     new Promise((res, rej) => {
@@ -925,6 +984,9 @@ document.addEventListener("DOMContentLoaded", () => {
       products = Array.isArray(payload?.data) ? payload.data : [];
       currentPage = 1;
       renderTable();
+      if (modalAdd?.classList.contains("show")) {
+        void loadAddProductOptions(addCategory?.value || "3D Print");
+      }
       updateSummaryCards();
     } catch (err) {
       console.error("Load products error:", err);
@@ -937,7 +999,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ─── Add Product ─────────────────────────────────────────────────────────────
   const resetAddForm = () => {
-    addName.value = "";
+    if (addNameSelect) addNameSelect.value = "";
+    if (addNewName) addNewName.value = "";
     addCode.value = "";
     addStock.value = "";
     addPrice.value = "";
@@ -966,14 +1029,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
   btnOpenAddProduct?.addEventListener("click", () => {
     resetAddForm();
+    void loadAddProductOptions(addCategory?.value || "3D Print", false);
     openModal(modalAdd);
   });
 
   btnCancelAddProduct?.addEventListener("click", () => closeModal(modalAdd));
 
+  addCategory?.addEventListener("change", () => {
+    if (addNewName) addNewName.value = "";
+    if (addCode) addCode.value = "";
+    void loadAddProductOptions(addCategory?.value || "3D Print", false);
+  });
+
+  addNameSelect?.addEventListener("change", () => {
+    if (addNameSelect?.value && addNewName) addNewName.value = "";
+    syncAddProductCodeFromSelection();
+  });
+
+  addNewName?.addEventListener("input", () => {
+    if ((addNewName?.value || "").trim()) {
+      if (addNameSelect) addNameSelect.value = "";
+      if (addCode) addCode.value = "";
+    }
+  });
+
   btnSaveProduct?.addEventListener("click", async (e) => {
     if (e) e.preventDefault();
-    const name = (addName?.value || "").trim();
+    const selectedExisting = addNameSelect?.selectedOptions?.[0];
+    const selectedExistingName = selectedExisting?.dataset?.name || selectedExisting?.textContent || "";
+    const name = (addNewName?.value || "").trim() || String(selectedExistingName || "").trim();
+    const code = (addCode?.value || "").trim();
     const stock = addStock?.value;
     const price = addPrice?.value;
     const stockStatus = addStockStatus?.value || "in_stock";
@@ -982,7 +1067,15 @@ document.addEventListener("DOMContentLoaded", () => {
       window.showAdminPopup?.("Product Name is required.", {
         title: "Validation Error",
       });
-      addName?.focus();
+      if ((addNewName?.value || "").trim()) addNewName?.focus();
+      else addNameSelect?.focus();
+      return;
+    }
+    if (!code) {
+      window.showAdminPopup?.("Product Code is required.", {
+        title: "Validation Error",
+      });
+      addCode?.focus();
       return;
     }
     if (stock === "" || stock === null) {
@@ -1003,7 +1096,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const body = {
       name,
       category: addCategory?.value || "3D Print",
-      code: (addCode?.value || "").trim() || null,
+      code: code || null,
       stock: Number(stock),
       price: Number(price),
       stock_status: stockStatus,
@@ -1156,6 +1249,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!activeProductId) return;
 
     const name = (editName?.value || "").trim();
+    const code = (editCode?.value || "").trim();
     const stock = editStock?.value;
     const price = editPrice?.value;
     const stockStatus = editStockStatus?.value || "in_stock";
@@ -1165,6 +1259,13 @@ document.addEventListener("DOMContentLoaded", () => {
         title: "Validation Error",
       });
       editName?.focus();
+      return;
+    }
+    if (!code) {
+      window.showAdminPopup?.("Product Code is required.", {
+        title: "Validation Error",
+      });
+      editCode?.focus();
       return;
     }
     if (stock === "" || stock === null) {
@@ -1185,7 +1286,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const body = {
       name,
       category: editCategory?.value || "3D Print",
-      code: (editCode?.value || "").trim() || null,
+      code: code || null,
       stock: Number(stock),
       price: Number(price),
       stock_status: stockStatus,

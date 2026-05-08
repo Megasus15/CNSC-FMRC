@@ -86,6 +86,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const walkInProjectDescriptionOtherInput = document.getElementById("walkInProjectDescriptionOtherInput");
   const walkInProjectDescriptionOtherWrap = document.getElementById("walkInProjectDescriptionOtherWrap");
   const walkInItemDetailInput = document.getElementById("walkInItemDetailInput");
+  const walkInItemDetailWrap = document.getElementById("walkInItemDetailWrap");
+  const walkInItemDetailList = document.getElementById("walkInItemDetailList");
   const walkInUnitInput = document.getElementById("walkInUnitInput");
   const walkInSubtotalCostInput = document.getElementById("walkInSubtotalCostInput");
   const walkInPaymentMethodInput = document.getElementById("walkInPaymentMethodInput");
@@ -1171,6 +1173,143 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!isProjectOther && walkInProjectDescriptionOtherInput) walkInProjectDescriptionOtherInput.value = "";
   };
 
+  // ── Item Detail Combobox ─────────────────────────────────────────────────────
+
+  let _comboboxAllProducts = [];
+  let _comboboxActiveIdx = -1;
+
+  const closeItemDetailCombobox = () => {
+    if (walkInItemDetailWrap) walkInItemDetailWrap.classList.remove("open");
+    _comboboxActiveIdx = -1;
+  };
+
+  const openItemDetailCombobox = () => {
+    if (walkInItemDetailWrap) walkInItemDetailWrap.classList.add("open");
+  };
+
+  const renderComboboxList = (filterText) => {
+    if (!walkInItemDetailList) return;
+    const filter = String(filterText || "").toLowerCase().trim();
+    const matches = filter
+      ? _comboboxAllProducts.filter((name) => name.toLowerCase().includes(filter))
+      : _comboboxAllProducts;
+
+    if (!matches.length) {
+      walkInItemDetailList.innerHTML = `<li class="combobox-no-results">No products found. Your typed entry will be used.</li>`;
+    } else {
+      walkInItemDetailList.innerHTML = matches
+        .map((name) => `<li role="option" data-value="${escapeHtml(name)}">${escapeHtml(name)}</li>`)
+        .join("");
+    }
+    _comboboxActiveIdx = -1;
+  };
+
+  const setComboboxActiveItem = (idx) => {
+    if (!walkInItemDetailList) return;
+    const items = walkInItemDetailList.querySelectorAll("li:not(.combobox-no-results)");
+    items.forEach((li, i) => li.classList.toggle("combobox-active", i === idx));
+    if (idx >= 0 && idx < items.length) {
+      items[idx].scrollIntoView({ block: "nearest" });
+    }
+    _comboboxActiveIdx = idx;
+  };
+
+  const initItemDetailCombobox = () => {
+    if (!walkInItemDetailInput || !walkInItemDetailList || !walkInItemDetailWrap) return;
+
+    // Open on focus / click
+    walkInItemDetailInput.addEventListener("focus", () => {
+      renderComboboxList(walkInItemDetailInput.value);
+      openItemDetailCombobox();
+    });
+
+    walkInItemDetailInput.addEventListener("click", () => {
+      renderComboboxList(walkInItemDetailInput.value);
+      openItemDetailCombobox();
+    });
+
+    // Caret button toggles the dropdown open / closed
+    const caretBtn = document.getElementById("walkInItemDetailCaretBtn");
+    if (caretBtn) {
+      caretBtn.addEventListener("mousedown", (e) => {
+        e.preventDefault(); // Prevent input blur before toggle
+        if (walkInItemDetailWrap.classList.contains("open")) {
+          closeItemDetailCombobox();
+        } else {
+          renderComboboxList(walkInItemDetailInput.value);
+          openItemDetailCombobox();
+          walkInItemDetailInput.focus();
+        }
+      });
+    }
+
+    // Filter as user types
+    walkInItemDetailInput.addEventListener("input", () => {
+      renderComboboxList(walkInItemDetailInput.value);
+      openItemDetailCombobox();
+    });
+
+    // Keyboard navigation
+    walkInItemDetailInput.addEventListener("keydown", (e) => {
+      const items = walkInItemDetailList.querySelectorAll("li:not(.combobox-no-results)");
+      if (!walkInItemDetailWrap.classList.contains("open")) {
+        if (e.key === "ArrowDown" || e.key === "Enter") {
+          renderComboboxList(walkInItemDetailInput.value);
+          openItemDetailCombobox();
+        }
+        return;
+      }
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setComboboxActiveItem(Math.min(_comboboxActiveIdx + 1, items.length - 1));
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setComboboxActiveItem(Math.max(_comboboxActiveIdx - 1, 0));
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (_comboboxActiveIdx >= 0 && _comboboxActiveIdx < items.length) {
+          walkInItemDetailInput.value = items[_comboboxActiveIdx].dataset.value || "";
+          closeItemDetailCombobox();
+        } else {
+          closeItemDetailCombobox();
+        }
+      } else if (e.key === "Escape") {
+        closeItemDetailCombobox();
+      }
+    });
+
+    // Click on list item
+    walkInItemDetailList.addEventListener("mousedown", (e) => {
+      const li = e.target.closest("li:not(.combobox-no-results)");
+      if (!li) return;
+      e.preventDefault();
+      walkInItemDetailInput.value = li.dataset.value || "";
+      closeItemDetailCombobox();
+    });
+
+    // Close when clicking outside
+    document.addEventListener("click", (e) => {
+      if (walkInItemDetailWrap && !walkInItemDetailWrap.contains(e.target)) {
+        closeItemDetailCombobox();
+      }
+    }, true);
+  };
+
+  const fetchProductNamesAndInitCombobox = async () => {
+    try {
+      const data = await request("/admin/products/names");
+      _comboboxAllProducts = Array.isArray(data?.data) ? data.data.map(String) : [];
+    } catch {
+      _comboboxAllProducts = [];
+    }
+    // Render the list now with current input value
+    renderComboboxList(walkInItemDetailInput?.value || "");
+  };
+
+  // Initialise combobox event listeners once on page load
+  initItemDetailCombobox();
+
   const resetWalkInOrderForm = () => {
     activeWalkInOrderId = null;
     const title = document.getElementById("walkInModalTitle");
@@ -1192,6 +1331,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (walkInTotalInput) walkInTotalInput.value = "";
     if (walkInPaymentMethodInput) walkInPaymentMethodInput.value = "WALKIN VIA CASHIER";
 
+    // Reset combobox
+    closeItemDetailCombobox();
+
     toggleWalkInOtherFields();
   };
 
@@ -1212,6 +1354,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (walkInAgencyOrganizationInput) walkInAgencyOrganizationInput.value = order.agency_organization || "";
       if (walkInProjectDescriptionInput) walkInProjectDescriptionInput.value = order.project_description || "PRODUCT LABELING AND DESIGNING";
       if (walkInProjectDescriptionOtherInput) walkInProjectDescriptionOtherInput.value = order.project_description_other || "";
+      // Set combobox value (the input acts as both textbox and display)
       if (walkInItemDetailInput) walkInItemDetailInput.value = order.item_detail || order.order_item || "";
       if (walkInUnitInput) walkInUnitInput.value = order.unit || "";
       if (walkInSubtotalCostInput) walkInSubtotalCostInput.value = order.subtotal_cost ?? "";
@@ -1220,6 +1363,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       toggleWalkInOtherFields();
     }
+    // Fetch products every time the modal opens to ensure fresh data
+    void fetchProductNamesAndInitCombobox();
     modalAddWalkInOrder?.classList.add("show");
   };
 

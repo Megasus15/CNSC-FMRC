@@ -306,6 +306,66 @@
         cursor: not-allowed;
       }
       .highlight-field label { font-weight: 600; color: inherit; }
+
+      /* ─── Variant Mode: Hide Base Item Fields ──────────────────────────────── */
+      #modalAddInventoryItem.variant-mode .base-item-fields {
+        display: none !important;
+      }
+      #modalAddInventoryItem.variant-mode .inv-table th:nth-child(3),
+      #modalAddInventoryItem.variant-mode .inv-table td:nth-child(3),
+      #modalAddInventoryItem.variant-mode .inv-table th:nth-child(4),
+      #modalAddInventoryItem.variant-mode .inv-table td:nth-child(4),
+      #modalAddInventoryItem.variant-mode .inv-table th:nth-child(5),
+      #modalAddInventoryItem.variant-mode .inv-table td:nth-child(5),
+      #modalAddInventoryItem.variant-mode .inv-table th:nth-child(6),
+      #modalAddInventoryItem.variant-mode .inv-table td:nth-child(6),
+      #modalAddInventoryItem.variant-mode .inv-table th:nth-child(7),
+      #modalAddInventoryItem.variant-mode .inv-table td:nth-child(7) {
+        display: none;
+      }
+
+      /* ─── Adjust Stocks: ADD/DEDUCT Toggle ──────────────────────────────────── */
+      .adjust-amount-mode-toggle {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      .mode-toggle-btn {
+        flex: 1;
+        padding: 10px 16px;
+        border: 2px solid #e5e7eb;
+        background: #f8fafc;
+        color: #6b7280;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.25s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+      .mode-toggle-btn:hover {
+        border-color: #d1d5db;
+        background: #f1f5f9;
+      }
+      .mode-toggle-btn.active {
+        background: var(--primary-color, #800000);
+        color: #fff;
+        border-color: var(--primary-color, #800000);
+        box-shadow: 0 4px 12px rgba(128, 0, 0, 0.2);
+      }
+      .adjust-amount-fields {
+        display: none;
+      }
+      .adjust-amount-fields.active {
+        display: block;
+      }
+      .adjust-amount-fields .field-hint {
+        margin-top: 6px;
+        font-size: 0.75rem;
+        color: #6b7280;
+      }
     </style>
   </head>
   <body>
@@ -445,9 +505,9 @@
               </select>
             </div>
             <div class="field-stack full"><label>Item Name <span style="color:#dc2626">*</span></label><input class="input-field" id="invFormItemName" maxlength="255" placeholder="e.g. 3D Printer Filaments" /></div>
-            <div class="field-stack full"><label>Description</label><input class="input-field" id="invFormDescription" maxlength="500" placeholder="e.g. Black/1.75mm" /></div>
-            <div class="field-stack">
-              <label>Unit <span style="color:#dc2626">*</span></label>
+            <div class="field-stack full base-item-fields"><label>Description</label><input class="input-field" id="invFormDescription" maxlength="500" placeholder="e.g. Black/1.75mm" /></div>
+            <div class="field-stack base-item-fields">
+              <label>Unit <span id="unitRequiredTag" style="color:#dc2626">*</span></label>
               <select class="filter-select" id="invFormUnit">
                 <option value="pcs">pcs</option>
                 <option value="set">set</option>
@@ -460,8 +520,8 @@
                 <option value="pair">pair</option>
               </select>
             </div>
-            <div class="field-stack"><label>Stocks On Hand <span style="color:#dc2626">*</span></label><input class="input-field" id="invFormOnHand" type="number" min="0" placeholder="0" /></div>
-            <div class="field-stack full">
+            <div class="field-stack base-item-fields"><label>Stocks On Hand <span id="onHandRequiredTag" style="color:#dc2626">*</span></label><input class="input-field" id="invFormOnHand" type="number" min="0" placeholder="0" /></div>
+            <div class="field-stack full base-item-fields">
               <label>Remarks</label>
               <input class="input-field" id="invFormRemarks" maxlength="200" placeholder="Optional remarks" />
             </div>
@@ -523,26 +583,54 @@
 
     <!-- ────────────── ADJUST STOCKS MODAL (Add / Deduct) ────────────── -->
     <div class="modal-overlay" id="modalDeductInventoryItem" data-backdrop-close="false">
-      <div class="modal-card" style="min-width:420px;max-width:640px;width:100%;">
-        <h3 class="modal-title" id="deductModalTitle" style="margin-bottom:4px;">Adjust Stocks (Add / Deduct)</h3>
-        <p class="field-hint" style="margin-bottom:12px;">Update stock levels for the selected inventory item or its variant. Use positive numbers to add stock and negative numbers to deduct.</p>
-        <hr class="confirm-separator" />
-        <div class="form-grid" style="padding:12px 18px;">
+      <div class="modal-card" style="min-width:420px;max-width:640px;width:100%;display:flex;flex-direction:column;max-height:90vh;">
+        <div class="modal-header-fixed" style="padding:16px 18px;border-bottom:1px solid var(--border-color, #e5e7eb);flex-shrink:0;">
+          <h3 class="modal-title" id="deductModalTitle" style="margin-bottom:0;font-size:1.2rem;font-weight:700;">Adjust Stocks</h3>
+          <p class="field-hint" style="margin-bottom:0;margin-top:4px;">Select whether to add or deduct stock for the selected inventory item or its variant.</p>
+        </div>
+        <div class="modal-body-scroll" style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0;">
+          <div class="form-grid" style="padding:12px 18px;">
           <div class="field-stack full"><label>Category</label><input class="input-field" id="deductCategory" readonly disabled /></div>
           <div class="field-stack full"><label>Item Name</label><input class="input-field" id="deductItemName" readonly disabled /></div>
           <div class="field-stack full highlight-field" id="deductTargetWrap" style="display:none;">
             <label>Apply To</label>
             <select class="filter-select" id="deductTarget"></select>
-            <div class="field-hint" id="deductTargetHint">Choose base item or a variant to update.</div>
+            <div class="field-hint" id="deductTargetHint">Choose a variant to update.</div>
           </div>
           <div class="field-stack highlight-field"><label>Stocks On Hand</label><input class="input-field" id="deductOnHand" readonly disabled /></div>
-          <div class="field-stack highlight-field"><label>Adjust Amount *</label><input class="input-field" id="deductAmount" type="number" placeholder="e.g. 10 or -5" /></div>
+          
+          <!-- ─── ADD/DEDUCT Mode Toggle ───────────────────────────────── -->
+          <div class="field-stack full">
+            <div class="adjust-amount-mode-toggle">
+              <button class="mode-toggle-btn active" id="btnModeAdd" type="button">
+                <i class="fa-solid fa-plus"></i> Add Stock
+              </button>
+              <button class="mode-toggle-btn" id="btnModeDeduct" type="button">
+                <i class="fa-solid fa-minus"></i> Deduct Stock
+              </button>
+            </div>
+          </div>
+          
+          <!-- ─── ADD Amount Field ───────────────────────────────────── -->
+          <div class="field-stack full adjust-amount-fields active" id="deductAddFields">
+            <label>Add Amount <span style="color:#dc2626">*</span></label>
+            <input class="input-field" id="deductAmountAdd" type="number" min="1" placeholder="Enter quantity to add" />
+            <div class="field-hint"><i class="fa-solid fa-circle-info" style="margin-right:4px;"></i>Enter a positive number only</div>
+          </div>
+          
+          <!-- ─── DEDUCT Amount Field ───────────────────────────────────── -->
+          <div class="field-stack full adjust-amount-fields" id="deductDeductFields">
+            <label>Deduct Amount <span style="color:#dc2626">*</span></label>
+            <input class="input-field" id="deductAmountDeduct" type="number" min="1" placeholder="Enter quantity to deduct" />
+            <div class="field-hint"><i class="fa-solid fa-circle-info" style="margin-right:4px;"></i>Enter a positive number only</div>
+          </div>
+          
           <div class="field-stack full highlight-field"><label>By (Name)</label><input class="input-field" id="deductName" placeholder="Authorized person" /></div>
           <div class="field-stack full highlight-field"><label>Purpose</label><input class="input-field" id="deductPurpose" placeholder="Reason for stock adjustment" /></div>
           <div class="field-stack full highlight-field"><label>Remarks</label><input class="input-field" id="deductRemarks" placeholder="Additional remarks" /></div>
+          </div>
         </div>
-        <hr class="confirm-separator" />
-        <div class="modal-actions">
+        <div class="modal-footer-fixed" style="padding:12px 18px;border-top:1px solid var(--border-color, #e5e7eb);display:flex;gap:10px;justify-content:flex-end;background:#fff;flex-shrink:0;box-shadow:0 -8px 20px rgba(15, 23, 42, 0.06);position:relative;z-index:2;">
           <button class="btn-admin btn-secondary" id="btnCancelDeduct">Cancel</button>
           <button class="btn-admin" id="btnSaveDeduct" type="button"><i class="fa-solid fa-floppy-disk"></i> Save</button>
         </div>

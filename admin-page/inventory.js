@@ -86,11 +86,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const deductTarget = document.getElementById("deductTarget");
   const deductOnHand = document.getElementById("deductOnHand");
   const deductAmount = document.getElementById("deductAmount");
+  const deductAmountAdd = document.getElementById("deductAmountAdd");
+  const deductAmountDeduct = document.getElementById("deductAmountDeduct");
   const deductName = document.getElementById("deductName");
   const deductPurpose = document.getElementById("deductPurpose");
   const deductRemarks = document.getElementById("deductRemarks");
   const btnCancelDeduct = document.getElementById("btnCancelDeduct");
   const btnSaveDeduct = document.getElementById("btnSaveDeduct");
+  const btnModeAdd = document.getElementById("btnModeAdd");
+  const btnModeDeduct = document.getElementById("btnModeDeduct");
+  const deductAddFields = document.getElementById("deductAddFields");
+  const deductDeductFields = document.getElementById("deductDeductFields");
 
   // ─── State ────────────────────────────────────────────────────────────────────
   let allItems = [];
@@ -100,6 +106,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const deductMetaByItemId = new Map();
   const deductMetaByVariantId = new Map();
   let activeDeductItem = null;
+  let deductMode = "add"; // "add" or "deduct"
   const PAGE_SIZE = 5;
   const categoryPages = {};
 
@@ -263,13 +270,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const updateDeductTargetFields = () => {
     if (!activeDeductItem) return;
     const variants = Array.isArray(activeDeductItem.variants) ? activeDeductItem.variants : [];
-    const targetVal = deductTarget?.value || "base";
+    const hasVariants = Boolean(activeDeductItem.has_variants ?? variants.length > 0);
+    const targetVal = deductTarget?.value || "";
     let displayName = activeDeductItem.item_name;
     let onHandVal = activeDeductItem.on_hand;
 
-    if (targetVal.startsWith("variant:")) {
+    if (hasVariants) {
       const variantId = Number(targetVal.replace("variant:", ""));
-      const variant = variants.find((v) => Number(v.id) === variantId);
+      const variant = variants.find((v) => Number(v.id) === variantId) || variants[0];
       if (variant) {
         displayName = `${activeDeductItem.item_name} — ${variant.name}`;
         onHandVal = variant.on_hand ?? 0;
@@ -347,12 +355,17 @@ document.addEventListener("DOMContentLoaded", () => {
       paged.forEach((item, idx) => {
         const rowNum = start + idx + 1;
         const variants = Array.isArray(item.variants) ? item.variants : [];
-        const hasVariants = variants.length > 0;
+        const hasVariants = Boolean(item.has_variants ?? variants.length > 0);
         const statusText = displayStatus(item.status);
         const statusHtml = `<span class="status-pill ${statusClass(statusText)}">${escHtml(statusText)}</span>`;
         const remarksHtml = item.remarks
           ? `<span class="remarks-pill ${remarksClass(item.remarks)}">${escHtml(item.remarks)}</span>`
           : `<span style="color:#9ca3af;font-size:0.75rem;">—</span>`;
+        const baseDescriptionHtml = hasVariants ? "" : escHtml(item.description || "—");
+        const baseUnitHtml = hasVariants ? "" : escHtml(item.unit || "—");
+        const baseOnHandHtml = hasVariants ? "" : escHtml(item.on_hand ?? 0);
+        const baseStatusHtml = hasVariants ? "" : statusHtml;
+        const baseRemarksHtml = hasVariants ? "" : remarksHtml;
         const toggleHtml = hasVariants
           ? `<button type="button" class="inv-variant-toggle" data-inv-toggle="${item.id}" aria-expanded="false" title="Toggle variants">
               <i class="fa-solid fa-chevron-right"></i>
@@ -363,14 +376,14 @@ document.addEventListener("DOMContentLoaded", () => {
           : escHtml(item.item_name);
 
         rows.push(`
-          <tr>
+          <tr${hasVariants ? ' class="inv-has-variants"' : ''}>
             <td>${rowNum}</td>
             <td title="${escHtml(item.item_name)}">${itemNameHtml}</td>
-            <td title="${escHtml(item.description || "")}">${escHtml(item.description || "—")}</td>
-            <td>${escHtml(item.unit)}</td>
-            <td>${item.on_hand}</td>
-            <td>${statusHtml}</td>
-            <td>${remarksHtml}</td>
+            <td title="${hasVariants ? "" : escHtml(item.description || "")}">${baseDescriptionHtml}</td>
+            <td>${baseUnitHtml}</td>
+            <td>${baseOnHandHtml}</td>
+            <td>${baseStatusHtml}</td>
+            <td>${baseRemarksHtml}</td>
             <td class="action-icons sticky-action">
               <button type="button" data-tooltip="View Item" data-inv-view="${item.id}"><i class="fa-regular fa-eye"></i></button>
               <button type="button" data-tooltip="Update Stocks" data-inv-deduct="${item.id}"><i class="fa-solid fa-square-minus"></i></button>
@@ -934,6 +947,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (formOnHand) { formOnHand.value = ""; formOnHand.removeAttribute('readonly'); formOnHand.removeAttribute('disabled'); }
     if (formRemarks) formRemarks.value = "";
     setVariantFormRows([]);
+    // Exit variant mode
+    if (modalForm) modalForm.classList.remove("variant-mode");
+    // Show required asterisks for Unit and Stocks On Hand
+    const unitTag = document.getElementById("unitRequiredTag");
+    const onHandTag = document.getElementById("onHandRequiredTag");
+    if (unitTag) unitTag.style.display = "inline";
+    if (onHandTag) onHandTag.style.display = "inline";
   };
 
   const populateFormForEdit = (item) => {
@@ -960,6 +980,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
   btnAddVariant?.addEventListener("click", () => {
     if (!variantList) return;
+    
+    // Check if this is the first variant
+    const hasVariants = Boolean(variantList.querySelector(".inv-variant-card"));
+    if (!hasVariants) {
+      // Entering variant mode - hide base item fields and clear them
+      if (modalForm) {
+        modalForm.classList.add("variant-mode");
+      }
+      // Clear base item fields so they won't be saved
+      if (formDescription) formDescription.value = "";
+      if (formRemarks) formRemarks.value = "";
+      if (formUnit) formUnit.value = "pcs";
+      if (formOnHand) formOnHand.value = "";
+      
+      // Hide required asterisks for Unit and Stocks On Hand
+      const unitTag = document.getElementById("unitRequiredTag");
+      const onHandTag = document.getElementById("onHandRequiredTag");
+      if (unitTag) unitTag.style.display = "none";
+      if (onHandTag) onHandTag.style.display = "none";
+    }
+    
     variantList.appendChild(createVariantCard({}, { disableOnHand: false }));
     refreshVariantIndices();
     refreshVariantEmptyState();
@@ -973,6 +1014,19 @@ document.addEventListener("DOMContentLoaded", () => {
       removeBtn.closest(".inv-variant-card")?.remove();
       refreshVariantIndices();
       refreshVariantEmptyState();
+      
+      // Check if there are any variants left
+      const hasVariants = Boolean(variantList.querySelector(".inv-variant-card"));
+      if (!hasVariants && modalForm) {
+        // Exiting variant mode - show base item fields again
+        modalForm.classList.remove("variant-mode");
+        
+        // Show required asterisks for Unit and Stocks On Hand
+        const unitTag = document.getElementById("unitRequiredTag");
+        const onHandTag = document.getElementById("onHandRequiredTag");
+        if (unitTag) unitTag.style.display = "inline";
+        if (onHandTag) onHandTag.style.display = "inline";
+      }
     }
   });
 
@@ -989,7 +1043,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (variants === null) return;
 
     if (!itemName) { showPopup("Item Name is required.", { title: "Validation Error" }); formItemName?.focus(); return; }
-    if (formOnHand?.value === "" || formOnHand?.value === null) { showPopup("Stocks On Hand is required.", { title: "Validation Error" }); formOnHand?.focus(); return; }
+    
+    // Unit and Stocks On Hand are only required if there are no variants
+    const hasVariants = variants.length > 0;
+    if (!hasVariants) {
+      if (formOnHand?.value === "" || formOnHand?.value === null) { showPopup("Stocks On Hand is required when no variants are added.", { title: "Validation Error" }); formOnHand?.focus(); return; }
+      if (!unit || unit === "") { showPopup("Unit is required when no variants are added.", { title: "Validation Error" }); formUnit?.focus(); return; }
+    }
 
     const body = { category, item_name: itemName, description, unit, on_hand: onHand, remarks, variants };
 
@@ -1158,6 +1218,32 @@ document.addEventListener("DOMContentLoaded", () => {
     activeDeductItem = null;
   });
 
+  // ─── Deduct Mode Toggle (Add / Deduct) ────────────────────────────────
+  const setDeductMode = (mode) => {
+    deductMode = mode;
+    if (mode === "add") {
+      if (btnModeAdd) btnModeAdd.classList.add("active");
+      if (btnModeDeduct) btnModeDeduct.classList.remove("active");
+      if (deductAddFields) deductAddFields.classList.add("active");
+      if (deductDeductFields) deductDeductFields.classList.remove("active");
+    } else {
+      if (btnModeAdd) btnModeAdd.classList.remove("active");
+      if (btnModeDeduct) btnModeDeduct.classList.add("active");
+      if (deductAddFields) deductAddFields.classList.remove("active");
+      if (deductDeductFields) deductDeductFields.classList.add("active");
+    }
+  };
+
+  btnModeAdd?.addEventListener("click", () => {
+    setDeductMode("add");
+    if (deductAmountDeduct) deductAmountDeduct.value = "";
+  });
+
+  btnModeDeduct?.addEventListener("click", () => {
+    setDeductMode("deduct");
+    if (deductAmountAdd) deductAmountAdd.value = "";
+  });
+
   deductTarget?.addEventListener("change", () => {
     updateDeductTargetFields();
   });
@@ -1165,18 +1251,46 @@ document.addEventListener("DOMContentLoaded", () => {
   btnSaveDeduct?.addEventListener('click', async () => {
     const id = Number(modalDeduct?.getAttribute('data-inv-id')) || 0;
     if (!id) return;
-    if (!deductAmount || deductAmount.value === "") { showPopup('Please enter an adjustment amount (positive to add, negative to deduct).', { title: 'Validation Error' }); deductAmount?.focus(); return; }
-    const amount = Number(deductAmount?.value || 0);
-    if (!Number.isFinite(amount) || amount === 0) { showPopup('Adjustment amount cannot be zero.', { title: 'Validation Error' }); deductAmount?.focus(); return; }
+    
+    // Get amount based on mode
+    let amountInput, amountValue;
+    if (deductMode === "add") {
+      amountInput = deductAmountAdd;
+      amountValue = Number(deductAmountAdd?.value || 0);
+    } else {
+      amountInput = deductAmountDeduct;
+      amountValue = Number(deductAmountDeduct?.value || 0);
+      amountValue = -Math.abs(amountValue); // Make it negative for deduct
+    }
+    
+    if (!amountInput || amountInput.value === "") { 
+      showPopup(`Please enter a ${deductMode === "add" ? "add" : "deduct"} amount.`, { title: 'Validation Error' }); 
+      amountInput?.focus(); 
+      return; 
+    }
+    if (!Number.isFinite(amountValue) || amountValue === 0) { 
+      showPopup(`${deductMode === "add" ? "Add" : "Deduct"} amount cannot be zero.`, { title: 'Validation Error' }); 
+      amountInput?.focus(); 
+      return; 
+    }
+    
     const nameVal = (deductName?.value || '').trim();
     const purposeVal = (deductPurpose?.value || '').trim();
     const remarksVal = (deductRemarks?.value || '').trim();
-    const targetVal = deductTarget?.value || "base";
+    const variants = Array.isArray(activeDeductItem?.variants) ? activeDeductItem.variants : [];
+    const hasVariants = Boolean(activeDeductItem?.has_variants ?? variants.length > 0);
+    const targetVal = deductTarget?.value || "";
     const variantId = targetVal.startsWith("variant:") ? Number(targetVal.replace("variant:", "")) : null;
+
+    if (hasVariants && !variantId) {
+      showPopup("Please choose a variant to adjust stock for this item.", { title: 'Validation Error' });
+      deductTarget?.focus();
+      return;
+    }
 
     btnSaveDeduct.disabled = true; btnSaveDeduct.textContent = 'Saving…';
     try {
-      const requestBody = { adjust_amount: amount, name: nameVal, purpose: purposeVal, remarks: remarksVal };
+      const requestBody = { adjust_amount: amountValue, name: nameVal, purpose: purposeVal, remarks: remarksVal };
       if (variantId) requestBody.variant_id = variantId;
       const res = await fetch(`${API_BASE_URL}/admin/inventory/${id}/adjust`, {
         method: 'POST',
@@ -1258,24 +1372,29 @@ document.addEventListener("DOMContentLoaded", () => {
         activeDeductItem = item;
         if (deductCategory) deductCategory.value = item.category;
         const variants = Array.isArray(item.variants) ? item.variants : [];
+        const hasVariants = Boolean(item.has_variants ?? variants.length > 0);
         if (deductTargetWrap && deductTarget) {
-          if (variants.length) {
+          if (hasVariants) {
             deductTargetWrap.style.display = "";
             deductTarget.innerHTML = [
-              '<option value="base">Base Item</option>',
               ...variants.map((variant) => `<option value="variant:${variant.id}">${escHtml(variant.name || "Variant")}</option>`),
             ].join("");
-            deductTarget.value = "base";
+            deductTarget.value = variants.length ? `variant:${variants[0].id}` : "";
           } else {
             deductTargetWrap.style.display = "none";
             deductTarget.innerHTML = "";
+            deductTarget.value = "";
           }
         }
         updateDeductTargetFields();
+        if (deductAmountAdd) deductAmountAdd.value = "";
+        if (deductAmountDeduct) deductAmountDeduct.value = "";
         if (deductAmount) deductAmount.value = "";
         if (deductName) deductName.value = "";
         if (deductPurpose) deductPurpose.value = "";
         if (deductRemarks) deductRemarks.value = "";
+        // Reset deduct mode to "add"
+        setDeductMode("add");
         // store viewing id in modal dataset
         modalDeduct?.setAttribute('data-inv-id', String(item.id));
         openModal(modalDeduct);
