@@ -188,35 +188,31 @@ class AppointmentController extends Controller
         }
 
         // --- Customer Email: Appointment Confirmation ---
-        // Queued via the AppointmentConfirmation Mailable (ShouldQueue) so the
-        // HTTP 201 response is returned to the browser immediately — SMTP latency
-        // never blocks the response.  The queue worker delivers the email in the
-        // background.  The Mailable class handles its own retries (3 attempts)
-        // and logs permanent failures via its failed() method.
+        // Sent synchronously via SMTP so no queue worker is required.
+        // The try/catch ensures any SMTP failure is only logged and NEVER
+        // prevents the HTTP 201 response from being returned to the browser.
         try {
             $emailAddress = $validated['email'];
             if ($emailAddress && filter_var($emailAddress, FILTER_VALIDATE_EMAIL)) {
                 Mail::to($emailAddress)
-                    ->queue(new AppointmentConfirmation($appointment));
+                    ->send(new AppointmentConfirmation($appointment));
 
                 Log::info(
-                    '[APPT EMAIL] Queued AppointmentConfirmation for '
+                    '[APPT EMAIL] Sent AppointmentConfirmation to '
                     . $emailAddress
                     . ' | Ref: ' . $appointment->reference_no
                 );
             }
         } catch (\Throwable $e) {
-            // Email dispatch failure must NEVER prevent the appointment from being
+            // Email send failure must NEVER prevent the appointment from being
             // confirmed. Log and continue so the 201 response is always returned.
             Log::error(
-                '[APPT EMAIL] Dispatch setup FAILED for '
+                '[APPT EMAIL] SMTP send FAILED for '
                 . $appointment->reference_no . ': ' . $e->getMessage()
             );
         }
 
-        // Return 201 immediately — queued job handles email delivery.
-        // Ensure the queue worker is running in a separate terminal:
-        //   php artisan queue:work --queue=default --tries=3
+        // Return 201 — email was sent (or logged as failed) before this point.
         return response()->json([
             'message' => 'Appointment created successfully.',
             'data'    => $this->transformAppointment($appointment),
@@ -468,134 +464,6 @@ class AppointmentController extends Controller
             'qr_payload' => $appointment->qr_payload,
             'created_at' => optional($appointment->created_at)->toIso8601String(),
         ];
-    }
-
-    private function buildAppointmentEmailHtml(Appointment $appointment, array $validated, string $clientName): string
-    {
-        $refNo     = e($appointment->reference_no);
-        $date      = e($validated['appointment_date']);
-        $time      = e($validated['appointment_time']);
-        $purpose   = e($validated['purpose']);
-        $clientType = e($validated['client_type']);
-        $contact   = e($validated['contact_number']);
-        $email     = e($validated['email']);
-        $address   = e($validated['full_address']);
-        $notes     = e($validated['additional_notes'] ?? '');
-        $name      = e($clientName);
-        $appName   = config('app.name') ?: 'CNSC-FMRC';
-        if (strtolower($appName) === 'laravel') {
-            $appName = 'CNSC-FMRC';
-        }
-        $year      = now()->year;
-        $accent    = '#800000';
-
-        $notesRow = $notes ? "
-        <tr>
-          <td style=\"padding:10px 20px;border-bottom:1px solid #f1f4f8;\">
-            <span style=\"color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;\">Additional Notes</span><br>
-            <span style=\"color:#374151;font-size:14px;font-weight:600;margin-top:4px;display:inline-block;\">{$notes}</span>
-          </td>
-        </tr>" : '';
-
-        return <<<HTML
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#f4f6f9;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:32px 16px;">
-<tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-
-<!-- Header -->
-<tr><td style="background:{$accent};padding:28px 32px;text-align:center;">
-  <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.3px;">{$appName}</h1>
-  <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">Appointment Confirmation</p>
-</td></tr>
-
-<!-- Body -->
-<tr><td style="padding:32px;">
-  <h2 style="margin:0 0 8px;color:#1f2937;font-size:18px;font-weight:700;">Your Appointment Has Been Scheduled</h2>
-  <p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.7;">
-    Hi {$name},<br><br>
-    Thank you for scheduling an appointment with CNSC-FMRC. Below are the details of your booking. Please keep your reference number for your records.
-  </p>
-
-  <!-- Appointment Details Card -->
-  <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;">
-    <tr>
-      <td style="padding:14px 20px;border-bottom:1px solid #f1f4f8;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Reference Number</span><br>
-        <span style="color:{$accent};font-size:18px;font-weight:800;">{$refNo}</span>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:10px 20px;border-bottom:1px solid #f1f4f8;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Schedule</span><br>
-        <span style="color:#111827;font-size:15px;font-weight:700;">{$date} &mdash; {$time}</span>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:10px 20px;border-bottom:1px solid #f1f4f8;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Full Name</span><br>
-        <span style="color:#374151;font-size:14px;font-weight:600;">{$name}</span>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:10px 20px;border-bottom:1px solid #f1f4f8;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Purpose</span><br>
-        <span style="color:#374151;font-size:14px;font-weight:600;">{$purpose}</span>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:10px 20px;border-bottom:1px solid #f1f4f8;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Type of Client</span><br>
-        <span style="color:#374151;font-size:14px;font-weight:600;">{$clientType}</span>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:10px 20px;border-bottom:1px solid #f1f4f8;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Contact Number</span><br>
-        <span style="color:#374151;font-size:14px;font-weight:600;">{$contact}</span>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:10px 20px;border-bottom:1px solid #f1f4f8;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Email</span><br>
-        <span style="color:#374151;font-size:14px;font-weight:600;">{$email}</span>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:10px 20px;border-bottom:1px solid #f1f4f8;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Address</span><br>
-        <span style="color:#374151;font-size:14px;font-weight:600;">{$address}</span>
-      </td>
-    </tr>{$notesRow}
-    <tr>
-      <td style="padding:12px 20px;">
-        <span style="display:inline-block;background:{$accent};color:#fff;padding:5px 16px;border-radius:999px;font-size:12px;font-weight:700;">Status: Scheduled</span>
-      </td>
-    </tr>
-  </table>
-
-  <p style="color:#6b7280;font-size:13px;line-height:1.6;margin:0;">
-    Please arrive at the CNSC-FMRC office at least 10 minutes before your scheduled time. If you need to cancel or reschedule, please contact us directly.
-  </p>
-</td></tr>
-
-<!-- Footer -->
-<tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 32px;text-align:center;">
-  <p style="margin:0;color:#9ca3af;font-size:12px;">
-    &copy; {$year} {$appName}. All rights reserved.<br>
-    This is an automated notification — please do not reply to this email.
-  </p>
-</td></tr>
-
-</table>
-</td></tr>
-</table>
-</body>
-</html>
-HTML;
     }
 
 }

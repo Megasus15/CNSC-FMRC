@@ -78,6 +78,20 @@ class InventoryItemController extends Controller
             'variants.*.remarks'    => 'nullable|string|max:200',
         ]);
 
+        $category = trim($validated['category']);
+        $itemName = trim($validated['item_name']);
+
+        $exists = InventoryItem::query()
+            ->where('category', $category)
+            ->where('item_name', $itemName)
+            ->exists();
+
+        if ($exists) {
+            return response()->json([
+                'message' => "The item '{$itemName}' is already registered under the '{$category}' category. Please enter a unique item name to avoid duplicates.",
+            ], 422);
+        }
+
         $onHand = (int) ($validated['on_hand'] ?? 0);
         $variants = $this->normalizeVariants($validated['variants'] ?? []);
 
@@ -130,6 +144,21 @@ class InventoryItemController extends Controller
             'variants.*.on_hand'    => 'required_with:variants|integer|min:0',
             'variants.*.remarks'    => 'nullable|string|max:200',
         ]);
+
+        $category = trim($validated['category']);
+        $itemName = trim($validated['item_name']);
+
+        $exists = InventoryItem::query()
+            ->where('category', $category)
+            ->where('item_name', $itemName)
+            ->where('id', '!=', $id)
+            ->exists();
+
+        if ($exists) {
+            return response()->json([
+                'message' => "The item '{$itemName}' is already registered under the '{$category}' category. Please enter a unique item name to avoid duplicates.",
+            ], 422);
+        }
 
         $onHand = isset($validated['on_hand']) ? (int) $validated['on_hand'] : (int) $item->on_hand;
         $variants = array_key_exists('variants', $validated)

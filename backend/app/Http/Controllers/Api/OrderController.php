@@ -613,17 +613,22 @@ class OrderController extends Controller
         }
 
         $payment = $order->payment;
-        if (!$payment) {
-            return response()->json([
-                'message' => 'Payment record not found for this order.',
-            ], 404);
+        $paymentNo = null;
+
+        if ($payment) {
+            $paymentNo = $payment->payment_no;
+            $payment->delete();
         }
 
-        $paymentNo = $payment->payment_no;
-        $payment->delete();
+        $order->update([
+            'lifecycle_status' => 'pending',
+            'customer_stage' => 'to_pay',
+            'payment_method' => null,
+            'payment_reference' => null,
+        ]);
 
         return response()->json([
-            'message' => 'Payment record deleted successfully.',
+            'message' => 'Payment record removed successfully.',
             'order_id' => (int) $order->id,
             'payment_no' => $paymentNo,
         ]);

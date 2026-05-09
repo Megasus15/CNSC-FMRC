@@ -705,10 +705,10 @@
             <!-- Bottom perforated edge visual could be added via CSS if needed -->
           </div>
           <div class="apt-footer-actions" style="margin-top: 20px;">
-            <button type="button" class="apt-btn apt-btn-back" id="btnCancelTo3">
+            <button type="button" class="apt-btn apt-btn-back" id="btnCancelTo3" onclick="event.preventDefault();">
               Back to Calendar
             </button>
-            <button type="button" class="apt-btn apt-btn-blue" id="btnGoToStep5">
+            <button type="button" class="apt-btn apt-btn-blue" id="btnGoToStep5" onclick="event.preventDefault();">
               Confirm &amp; Submit
             </button>
           </div>
@@ -1035,7 +1035,7 @@
       </div>
     </footer>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" integrity="sha512-BNa5OZb+5s4N2VNivXzXcX4Jb9V7H5PHeTtQKgJGdwNwp0UrEGouGZWlznImPi0tLxe3LjViw8dkUBaRdOyqLQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script src="main.js"></script>
   </body>
 </html>

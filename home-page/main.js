@@ -4061,8 +4061,8 @@ document.addEventListener("DOMContentLoaded", () => {
           },
           body: formData,
         },
-        20000,
-      ); // 20s timeout — email is now queued so backend returns immediately
+        60000,
+      ); // 60s timeout — email is sent synchronously, so backend may take extra time for SMTP
 
       const payload = await response.json().catch(() => ({}));
 
@@ -4077,9 +4077,9 @@ document.addEventListener("DOMContentLoaded", () => {
       submittedAppointment = payload?.data || null;
       appointmentSubmitted = true;
       stopAptPolling();
-      populateReviewData(5);
       return { ok: true, error: null };
     } catch (error) {
+      console.error("[APPT SUBMIT] Error:", error);
       const message =
         error?.message ||
         "Cannot connect to server. Please make sure Laravel is running.";
@@ -4719,10 +4719,15 @@ document.addEventListener("DOMContentLoaded", () => {
   // Step 4: "Confirm & Submit" — actually submits the appointment to backend
   bindClick("btnGoToStep5", async (event) => {
     // Prevent any click from bubbling to the overlay or triggering form submission
-    event?.preventDefault();
-    event?.stopPropagation();
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    }
 
     const btn = document.getElementById("btnGoToStep5");
+    if (btn) btn.type = "button"; // Force button type to prevent form submission
+
     const backBtn = document.getElementById("btnCancelTo3");
     // Also lock the top-level close/back button so the user cannot accidentally
     // navigate away while the async submission is in flight.
@@ -4763,8 +4768,21 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       // Success — restore close button then transition to Step 5
       if (closeBtn) closeBtn.disabled = false;
-      switchAptStep(5);
+      
+      // Explicitly ensure overlay remains visible using class
+      if (appointmentOverlay && !appointmentOverlay.classList.contains("show-modal")) {
+        appointmentOverlay.classList.add("show-modal");
+      }
+      
+      try {
+        switchAptStep(5);
+      } catch (stepErr) {
+        console.error("switchAptStep Error:", stepErr);
+      }
+      
+      return false;
     } catch (err) {
+      console.error("[APPT SUBMIT] Unexpected Error:", err);
       restoreButtons();
       const catchMsg =
         typeof err?.message === "string" && err.message.length > 0
@@ -4775,6 +4793,7 @@ document.addEventListener("DOMContentLoaded", () => {
         allowBackdropClose: false,
       });
     }
+    return false;
   });
 
   bindClick("btnGenerateReport", () => {
@@ -4791,6 +4810,16 @@ document.addEventListener("DOMContentLoaded", () => {
   bindClick("btnSuccessHome", () => {
     successModal?.classList.remove("active");
     appointmentOverlay?.classList.remove("show-modal");
+    
+    // Safeguard: Strip any inline styles left over from previous bug fixes
+    if (appointmentOverlay) {
+      appointmentOverlay.style.display = "";
+      appointmentOverlay.style.visibility = "";
+      appointmentOverlay.style.opacity = "";
+    }
+    const step5 = document.getElementById("aptStep5");
+    if (step5) step5.style.display = "";
+    
     document.body.style.overflow = "";
     resetAppointmentFlowState();
     switchAptStep(1);

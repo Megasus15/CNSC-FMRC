@@ -1066,8 +1066,8 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       notifyOrdersRealtimeUpdate({ type: "payment-deleted", orderId: key });
-      queueSuccessFlash("Payment record deleted successfully.", "Deleted");
-      window.location.reload();
+      showPopup("Payment record deleted successfully.", { title: "Deleted" });
+      void syncOrders(true, { force: true, source: "manual" });
     } catch (error) {
       showPopup(error.message || "Unable to delete payment record.", {
         title: "Delete Failed",

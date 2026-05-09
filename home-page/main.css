@@ -737,7 +737,11 @@ body {
 .services-list-section {
   padding: 34px 5% 95px;
   background:
-    radial-gradient(1200px 300px at 50% 0%, rgba(176, 28, 28, 0.06), transparent 70%),
+    radial-gradient(
+      1200px 300px at 50% 0%,
+      rgba(176, 28, 28, 0.06),
+      transparent 70%
+    ),
     #f8f9fc;
 }
 
@@ -784,7 +788,10 @@ body {
   overflow: hidden;
   background: #fff;
   box-shadow: 0 14px 28px rgba(15, 23, 42, 0.07);
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
 }
 
 .services-grid .service-card:hover {
@@ -1030,14 +1037,17 @@ body {
   border-radius: 12px;
   overflow: hidden;
   margin-bottom: 25px;
-  background-color: #eaeaea;
+  background-color: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
 }
 
 .modal-img-holder img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 
@@ -1182,14 +1192,14 @@ body {
 .card-img-holder {
   width: 100%;
   height: 220px;
-  background-color: #eaeaea;
+  background-color: #ffffff;
   overflow: hidden;
 }
 
 .card-img-holder img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   transition: transform 0.5s ease;
 }
 
@@ -1420,8 +1430,12 @@ body {
   padding: 15px 30px;
   border-radius: 8px;
   cursor: pointer;
-  transition: background-color 0.24s ease, border-color 0.24s ease,
-    color 0.24s ease, box-shadow 0.24s ease, transform 0.08s ease;
+  transition:
+    background-color 0.24s ease,
+    border-color 0.24s ease,
+    color 0.24s ease,
+    box-shadow 0.24s ease,
+    transform 0.08s ease;
 }
 
 .outline-btn {
@@ -1562,14 +1576,17 @@ body {
 .product-img-wrapper {
   width: 100%;
   height: 220px;
-  background-color: #f9f9f9;
+  background-color: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-bottom: 1px solid #f0f0f0;
 }
 
 .product-img-wrapper img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .product-info {
@@ -1710,8 +1727,12 @@ body {
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease,
-    border-color 0.2s ease, box-shadow 0.2s ease, transform 0.08s ease;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.08s ease;
   white-space: nowrap;
   line-height: 1;
 }
@@ -1932,7 +1953,10 @@ body {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  transition: color 0.2s ease, background-color 0.2s ease, transform 0.08s ease;
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease,
+    transform 0.08s ease;
 }
 .back-shop-modal:hover,
 .trash-btn:hover {
@@ -2122,7 +2146,10 @@ body {
   font-size: 16px;
   color: #555;
   cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease, transform 0.08s ease;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.08s ease;
 }
 
 .qty-btn:hover {
@@ -2282,7 +2309,10 @@ body {
   font-size: 14px;
   border-radius: 20px;
   cursor: pointer;
-  transition: background-color 0.22s ease, box-shadow 0.22s ease, transform 0.08s ease;
+  transition:
+    background-color 0.22s ease,
+    box-shadow 0.22s ease,
+    transform 0.08s ease;
 }
 .btn-place-order:hover {
   background: #8b0000;
@@ -2302,8 +2332,12 @@ body {
   font-size: 13px !important;
   font-weight: 700 !important;
   line-height: 1;
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease,
-    transform 0.08s ease, box-shadow 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.08s ease,
+    box-shadow 0.2s ease;
 }
 
 .cart-edit-btn:hover {
@@ -2429,8 +2463,11 @@ body {
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease,
-    color 0.2s ease, transform 0.08s ease;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.08s ease;
   height: fit-content;
 }
 .edit-address-btn:hover {
@@ -2483,7 +2520,10 @@ body {
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease,
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
     transform 0.08s ease;
 }
 
@@ -3675,7 +3715,7 @@ input:checked + .toggle-slider:before {
   border: 1px solid #eaeaea;
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .apt-time-right {
@@ -3698,7 +3738,7 @@ input:checked + .toggle-slider:before {
 }
 
 .cal-navigation h4 {
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 18px;
   font-weight: 800;
   color: #b01c1c;
@@ -3780,9 +3820,9 @@ input:checked + .toggle-slider:before {
 }
 
 .cal-day-cell.unavailable {
-    background-color: #e0e0e0;
-    color: #999;
-    cursor: not-allowed;
+  background-color: #e0e0e0;
+  color: #999;
+  cursor: not-allowed;
 }
 
 /* Indicators (Circles at the bottom) */
@@ -3803,68 +3843,76 @@ input:checked + .toggle-slider:before {
 */
 
 .indicator-marker {
-    position: absolute;
-    bottom: 2px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 24px;
-    height: 6px;
-    border-radius: 3px;
-    display: none; /* Hidden by default */
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 6px;
+  border-radius: 3px;
+  display: none; /* Hidden by default */
 }
 
 /* Custom Visuals for AM/PM selection on the date cell itself */
 /* We will use a pseudo-element on the cell for the 'Circle' described */
 .cal-day-cell::after {
-    content: '';
-    position: absolute;
-    bottom: 3px;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    display: none;
+  content: "";
+  position: absolute;
+  bottom: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: none;
 }
 
 .cal-day-cell.has-am::after {
-    display: block;
-    background: linear-gradient(to bottom, #b01c1c 50%, #ddd 50%); /* Top Half Shaded */
-    border: 1px solid #b01c1c;
+  display: block;
+  background: linear-gradient(
+    to bottom,
+    #b01c1c 50%,
+    #ddd 50%
+  ); /* Top Half Shaded */
+  border: 1px solid #b01c1c;
 }
 
 .cal-day-cell.has-pm::after {
-    display: block;
-    background: linear-gradient(to bottom, #ddd 50%, #b01c1c 50%); /* Bottom Half Shaded */
-    border: 1px solid #b01c1c;
+  display: block;
+  background: linear-gradient(
+    to bottom,
+    #ddd 50%,
+    #b01c1c 50%
+  ); /* Bottom Half Shaded */
+  border: 1px solid #b01c1c;
 }
 
 .cal-day-cell.has-full::after {
-    display: block;
-    background: #b01c1c; /* Full Shaded */
+  display: block;
+  background: #b01c1c; /* Full Shaded */
 }
 
 /* Tooltip */
 .cal-day-cell[title]:hover::before {
-    content: attr(title);
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #333;
-    color: #fff;
-    padding: 5px 10px;
-    border-radius: 4px;
-    font-size: 11px;
-    white-space: nowrap;
-    z-index: 10;
-    pointer-events: none;
+  content: attr(title);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #333;
+  color: #fff;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  z-index: 10;
+  pointer-events: none;
 }
 
 /* Time Slots Right Panel */
 .time-slots-container {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-top: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 15px;
 }
 
 .date-note-card {
@@ -3898,45 +3946,45 @@ input:checked + .toggle-slider:before {
 }
 
 .time-slot-btn {
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    background: #fff;
-    cursor: pointer;
-    text-align: left;
-    font-size: 15px;
-    font-weight: 700;
-    font-family: 'Montserrat', sans-serif;
-    color: #333;
-    transition: all 0.2s ease;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: "Montserrat", sans-serif;
+  color: #333;
+  transition: all 0.2s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .time-slot-btn:hover {
-    border-color: #b01c1c;
-    color: #b01c1c;
+  border-color: #b01c1c;
+  color: #b01c1c;
 }
 
 .time-slot-btn.selected {
-    background-color: #b01c1c;
-    color: #fff;
-    border-color: #b01c1c;
+  background-color: #b01c1c;
+  color: #fff;
+  border-color: #b01c1c;
 }
 
 .time-slot-btn.disabled {
-    background-color: #f5f5f5;
-    color: #aaa;
-    cursor: not-allowed;
-    border-color: #eaeaea;
+  background-color: #f5f5f5;
+  color: #aaa;
+  cursor: not-allowed;
+  border-color: #eaeaea;
 }
 
 .time-slot-label {
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    opacity: 0.9;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  opacity: 0.9;
 }
 
 .apt-btn-qr {
@@ -3957,35 +4005,47 @@ input:checked + .toggle-slider:before {
 
 /* Legend Styles */
 .cal-legend {
-    display: flex;
-    gap: 15px;
-    flex-wrap: wrap;
-    margin-top: 15px;
-    padding-top: 15px;
-    border-top: 1px solid #eaeaea;
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #eaeaea;
 }
 
 .leg-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: #555;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #555;
 }
 
 .leg-circle {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    border: 1px solid #ccc;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid #ccc;
 }
 
-.leg-am { background: linear-gradient(to bottom, #b01c1c 50%, #fff 50%); border-color: #b01c1c; }
-.leg-pm { background: linear-gradient(to bottom, #fff 50%, #b01c1c 50%); border-color: #b01c1c; }
-.leg-full { background: #b01c1c; border-color: #b01c1c;}
-.leg-unavailable { width: 12px; height: 12px; background: #e0e0e0; border-radius: 4px; }
-
-
+.leg-am {
+  background: linear-gradient(to bottom, #b01c1c 50%, #fff 50%);
+  border-color: #b01c1c;
+}
+.leg-pm {
+  background: linear-gradient(to bottom, #fff 50%, #b01c1c 50%);
+  border-color: #b01c1c;
+}
+.leg-full {
+  background: #b01c1c;
+  border-color: #b01c1c;
+}
+.leg-unavailable {
+  width: 12px;
+  height: 12px;
+  background: #e0e0e0;
+  border-radius: 4px;
+}
 
 /* =========================================
    ENHANCED APPOINTMENT STEPS (1, 2, 4, 5)
@@ -3999,7 +4059,7 @@ input:checked + .toggle-slider:before {
 }
 
 .apt-card-header h3 {
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 20px;
   color: #b01c1c;
   font-weight: 700;
@@ -4015,13 +4075,15 @@ input:checked + .toggle-slider:before {
   border: 1px solid #eaeaea;
   padding: 20px;
   border-radius: 12px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
   height: 100%;
 }
 
 .apt-reminder-item:hover {
   transform: translateY(-3px);
-  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
   border-color: #dcdcdc;
 }
 
@@ -4044,7 +4106,7 @@ input:checked + .toggle-slider:before {
   color: #333;
 }
 
-.apt-reminder-content p, 
+.apt-reminder-content p,
 .apt-reminder-content ol {
   font-size: 14px;
   color: #555;
@@ -4067,7 +4129,7 @@ input:checked + .toggle-slider:before {
 }
 
 .apt-form-header h4 {
-  font-family: 'Montserrat', sans-serif;
+  font-family: "Montserrat", sans-serif;
   font-size: 16px;
   font-weight: 700;
   color: #b01c1c;
@@ -4178,7 +4240,7 @@ input:checked + .toggle-slider:before {
   background-color: #fff;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
   border: 1px solid #eaeaea;
   position: relative;
   max-width: 800px;
@@ -4243,67 +4305,67 @@ input:checked + .toggle-slider:before {
 
 /* Step 5 Specifics */
 .success-modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%; /* Changed from 100vw to 100% to prevent scrollbars */
-    height: 100%; /* Changed from 100vh to 100% for consistency */
-    background: rgba(0,0,0,0.8);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 25000; /* Highest priority */
-    opacity: 0;
-    visibility: hidden;
-    transition: all 0.4s ease;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%; /* Changed from 100vw to 100% to prevent scrollbars */
+  height: 100%; /* Changed from 100vh to 100% for consistency */
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 25000; /* Highest priority */
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.4s ease;
 }
 
 .success-modal-overlay.active {
-    opacity: 1;
-    visibility: visible;
+  opacity: 1;
+  visibility: visible;
 }
 
 .success-card {
-    background: #fff;
-    width: 400px;
-    padding: 40px 30px;
-    border-radius: 20px;
-    text-align: center;
-    transform: scale(0.8);
-    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  background: #fff;
+  width: 400px;
+  padding: 40px 30px;
+  border-radius: 20px;
+  text-align: center;
+  transform: scale(0.8);
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .success-modal-overlay.active .success-card {
-    transform: scale(1);
+  transform: scale(1);
 }
 
 .success-icon {
-    width: 80px;
-    height: 80px;
-    background: #4caf50;
-    color: white;
-    border-radius: 50%;
-    margin: 0 auto 20px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 40px;
-    box-shadow: 0 10px 20px rgba(76, 175, 80, 0.3);
+  width: 80px;
+  height: 80px;
+  background: #4caf50;
+  color: white;
+  border-radius: 50%;
+  margin: 0 auto 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 40px;
+  box-shadow: 0 10px 20px rgba(76, 175, 80, 0.3);
 }
 
 .success-title {
-    font-family: 'Montserrat', sans-serif;
-    font-size: 24px;
-    font-weight: 800;
-    color: #333;
-    margin-bottom: 10px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+  color: #333;
+  margin-bottom: 10px;
 }
 
 .success-desc {
-    font-size: 15px;
-    color: #666;
-    margin-bottom: 30px;
-    line-height: 1.5;
+  font-size: 15px;
+  color: #666;
+  margin-bottom: 30px;
+  line-height: 1.5;
 }
 
 .success-card .apt-btn {
@@ -4321,8 +4383,6 @@ input:checked + .toggle-slider:before {
   color: #8b0000;
   border-color: #8b0000;
 }
-
-
 
 /* Product Ratings & Footer Styles */
 .product-rating {
@@ -4373,7 +4433,11 @@ input:checked + .toggle-slider:before {
 
 .hero-section {
   background:
-    radial-gradient(circle at 80% 18%, rgba(255, 255, 255, 0.26) 0%, transparent 42%),
+    radial-gradient(
+      circle at 80% 18%,
+      rgba(255, 255, 255, 0.26) 0%,
+      transparent 42%
+    ),
     linear-gradient(145deg, #7f0606 0%, #b01c1c 44%, #d32525 100%);
 }
 
@@ -4734,8 +4798,7 @@ input:checked + .toggle-slider:before {
 }
 
 .site-footer {
-  background:
-    linear-gradient(140deg, #7d0000 0%, #8b0000 48%, #640000 100%);
+  background: linear-gradient(140deg, #7d0000 0%, #8b0000 48%, #640000 100%);
   border-top: 4px solid #eef224;
   margin-bottom: 0;
   padding-bottom: 0;
@@ -5791,8 +5854,11 @@ body.sidebar-open {
   position: relative;
   cursor: pointer;
   box-shadow: 0 4px 12px rgba(16, 24, 40, 0.08);
-  transition: background-color 0.2s ease, border-color 0.2s ease,
-    box-shadow 0.2s ease, transform 0.09s ease;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.09s ease;
 }
 
 .user-profile:hover {
@@ -5835,7 +5901,10 @@ body.sidebar-open {
   visibility: hidden;
   pointer-events: none;
   transform: translateY(6px) scale(0.985);
-  transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    visibility 0.2s ease,
+    transform 0.2s ease;
   font-family: inherit;
 }
 .profile-popup::before {
@@ -5927,7 +5996,10 @@ body.sidebar-open {
   border-radius: 10px;
   background: #f8fafc;
   border: 1px solid #e8edf3 !important;
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
   font-family: inherit;
   cursor: pointer;
   margin-block: 2px;
@@ -5946,7 +6018,9 @@ body.sidebar-open {
   transform: scale(0.98);
 }
 
-.profile-popup-link i { color: var(--primary-color, #a80f0f); }
+.profile-popup-link i {
+  color: var(--primary-color, #a80f0f);
+}
 
 .btn-admin {
   display: inline-flex;
@@ -5961,8 +6035,11 @@ body.sidebar-open {
   font-size: 0.82rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.25s ease, color 0.25s ease,
-    border-color 0.25s ease, transform 0.08s ease;
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease,
+    border-color 0.25s ease,
+    transform 0.08s ease;
 }
 
 .btn-admin:hover {
@@ -6062,7 +6139,9 @@ body.sidebar-open {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.2s ease, visibility 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    visibility 0.2s ease;
 }
 
 .customer-orders-overlay.show {
@@ -6140,8 +6219,11 @@ body.sidebar-open {
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: background-color 0.2s ease, border-color 0.2s ease,
-    color 0.2s ease, transform 0.08s ease;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.08s ease;
 }
 
 .customer-orders-close:hover {
@@ -6185,8 +6267,11 @@ body.sidebar-open {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  transition: background-color 0.2s ease, color 0.2s ease,
-    border-color 0.2s ease, transform 0.08s ease;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.08s ease;
 }
 
 .customer-orders-tab:hover {
@@ -6358,8 +6443,11 @@ body.sidebar-open {
   font-weight: 700;
   letter-spacing: 0.01em;
   cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease,
-    border-color 0.2s ease, transform 0.08s ease;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.08s ease;
 }
 
 .customer-order-detail-btn:hover {
@@ -6698,8 +6786,12 @@ body.sidebar-open {
   text-decoration: none;
   font-size: 0.84rem;
   font-weight: 700;
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease,
-    transform 0.08s ease, box-shadow 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.08s ease,
+    box-shadow 0.2s ease;
 }
 
 .guest-auth-login {
@@ -6742,7 +6834,9 @@ body.sidebar-open {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.22s ease, visibility 0.22s ease;
+  transition:
+    opacity 0.22s ease,
+    visibility 0.22s ease;
   padding: 16px;
 }
 
@@ -6781,7 +6875,10 @@ body.sidebar-open {
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease,
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
     transform 0.08s ease;
 }
 
@@ -6836,8 +6933,12 @@ body.sidebar-open {
   justify-content: center;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease,
-    transform 0.08s ease, box-shadow 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.08s ease,
+    box-shadow 0.2s ease;
 }
 
 .guest-access-btn:active {
@@ -6894,7 +6995,12 @@ body.sidebar-open {
   border-radius: 10px;
   cursor: pointer;
   font-weight: 600;
-  transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease, transform 0.08s ease, box-shadow 0.2s ease;
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease,
+    border-color 0.25s ease,
+    transform 0.08s ease,
+    box-shadow 0.2s ease;
 }
 .popup-logout:hover {
   background-color: #8c1010;
@@ -6922,7 +7028,9 @@ body.sidebar-open {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.2s ease, visibility 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    visibility 0.2s ease;
   z-index: 150;
 }
 
@@ -6936,7 +7044,8 @@ body.sidebar-open {
   opacity: 0;
 }
 
-.customer-modal { position: relative;
+.customer-modal {
+  position: relative;
   font-family: inherit;
   width: 100%;
   max-width: 520px;
@@ -6946,10 +7055,13 @@ body.sidebar-open {
   box-shadow: 0 30px 55px rgba(15, 23, 42, 0.26);
   padding: 35px 40px;
   transform: translateY(8px) scale(0.985);
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
 }
 
-.customer-modal-overlay.show .customer-modal { position: relative;
+.customer-modal-overlay.show .customer-modal {
+  position: relative;
   font-family: inherit;
   width: 100%;
   max-width: 520px;
@@ -6959,7 +7071,9 @@ body.sidebar-open {
   box-shadow: 0 30px 55px rgba(15, 23, 42, 0.26);
   padding: 35px 40px;
   transform: translateY(8px) scale(0.985);
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .customer-modal-head {
@@ -6975,7 +7089,10 @@ body.sidebar-open {
   font-size: 1.22rem;
 }
 
-.customer-modal-close { position: absolute; top: 16px; right: 16px;
+.customer-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
   border: none;
   background: #f2f5fa;
   color: #374151;
@@ -7061,7 +7178,9 @@ body.sidebar-open {
   color: #fff;
   font-weight: 700;
   cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease,
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
     transform 0.08s ease;
 }
 
@@ -7153,7 +7272,11 @@ body.sidebar-open {
   display: flex;
   align-items: center;
 }
-.password-wrapper input { width: 100%; padding-right: 44px; box-sizing: border-box; }
+.password-wrapper input {
+  width: 100%;
+  padding-right: 44px;
+  box-sizing: border-box;
+}
 .toggle-pass {
   position: absolute;
   right: 12px;
@@ -7168,14 +7291,14 @@ body.sidebar-open {
   padding: 4px;
   transition: color 0.2s ease;
 }
-.toggle-pass:hover, .toggle-pass.active {
+.toggle-pass:hover,
+.toggle-pass.active {
   color: var(--primary-color, #a11);
 }
 .toggle-pass svg {
   width: 20px;
   height: 20px;
 }
-
 
 /* --- View Info Button (Modernized) --- */
 .product-view-info-btn {

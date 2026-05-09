@@ -4,26 +4,22 @@ namespace App\Mail;
 
 use App\Models\Appointment;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
 
-class AppointmentConfirmation extends Mailable implements ShouldQueue
+// NOTE: ShouldQueue is intentionally NOT implemented here.
+// Emails are sent synchronously so no queue worker is required.
+// The AppointmentController wraps Mail::send() in a try/catch to ensure
+// SMTP failures never prevent the HTTP 201 response from being returned.
+class AppointmentConfirmation extends Mailable
 {
     use Queueable, SerializesModels;
 
     /**
-     * The number of times the job may be attempted.
+     * No queue retry settings needed — mail is sent synchronously.
      */
-    public int $tries = 3;
-
-    /**
-     * The number of seconds to wait before retrying the job.
-     */
-    public int $backoff = 10;
 
     public function __construct(
         public readonly Appointment $appointment,
@@ -193,15 +189,4 @@ class AppointmentConfirmation extends Mailable implements ShouldQueue
 HTML;
     }
 
-    /**
-     * Called by Laravel when all retry attempts have been exhausted.
-     */
-    public function failed(\Throwable $exception): void
-    {
-        Log::error(
-            '[APPT EMAIL] AppointmentConfirmation Mailable permanently failed'
-            . ' for Ref: ' . ($this->appointment->reference_no ?? 'N/A')
-            . ' → ' . $exception->getMessage()
-        );
-    }
 }

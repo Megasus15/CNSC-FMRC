@@ -967,7 +967,15 @@ document.addEventListener("DOMContentLoaded", () => {
     // On edit: Category, Item Name, Description, Unit are editable only.
     if (formOnHand) { formOnHand.value = item.on_hand ?? ""; formOnHand.setAttribute('readonly', 'true'); formOnHand.setAttribute('disabled', 'disabled'); }
     if (formRemarks) formRemarks.value = item.remarks || "";
-    setVariantFormRows(Array.isArray(item.variants) ? item.variants : [], { disableOnHand: true });
+    
+    const hasVariants = Array.isArray(item.variants) && item.variants.length > 0;
+    setVariantFormRows(hasVariants ? item.variants : [], { disableOnHand: true });
+    
+    if (hasVariants) {
+      if (modalForm) modalForm.classList.add("variant-mode");
+    } else {
+      if (modalForm) modalForm.classList.remove("variant-mode");
+    }
   };
 
   // ─── Open Add Modal ───────────────────────────────────────────────────────────
