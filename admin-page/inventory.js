@@ -72,11 +72,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnCloseView = document.getElementById("btnCloseViewInv");
   const btnEditFromView = document.getElementById("btnEditFromViewInv");
 
-  // Delete modal
-  const modalDelete = document.getElementById("modalDeleteInventoryItem");
-  const invDeleteLabel = document.getElementById("invDeleteTargetLabel");
-  const btnCancelDelete = document.getElementById("btnCancelDeleteInv");
-  const btnConfirmDelete = document.getElementById("btnConfirmDeleteInv");
+  // Archive modal
+  const modalDelete = document.getElementById("modalArchiveInventoryItem");
+  const invDeleteLabel = document.getElementById("invArchiveTargetLabel");
+  const btnCancelDelete = document.getElementById("btnCancelArchiveInv");
+  const btnConfirmDelete = document.getElementById("btnConfirmArchiveInv");
 
   // Deduct modal refs
   const modalDeduct = document.getElementById("modalDeductInventoryItem");
@@ -101,6 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ─── State ────────────────────────────────────────────────────────────────────
   let allItems = [];
   let editingItemId = null;
+  let archivingItemId = null;
   let deletingItemId = null;
   let viewingItemId = null;
   const deductMetaByItemId = new Map();
@@ -388,7 +389,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <button type="button" data-tooltip="View Item" data-inv-view="${item.id}"><i class="fa-regular fa-eye"></i></button>
               <button type="button" data-tooltip="Update Stocks" data-inv-deduct="${item.id}"><i class="fa-solid fa-square-minus"></i></button>
               <button type="button" data-tooltip="Download Item Form" data-inv-download="${item.id}"><i class="fa-solid fa-file-arrow-down"></i></button>
-              <button type="button" data-tooltip="Delete Item" data-inv-delete="${item.id}"><i class="fa-regular fa-trash-can"></i></button>
+              <button type="button" data-tooltip="Archive Item" data-inv-archive="${item.id}"><i class="fa-solid fa-box-archive"></i></button>
             </td>
           </tr>
         `);
@@ -1182,41 +1183,41 @@ document.addEventListener("DOMContentLoaded", () => {
     openModal(modalForm);
   });
 
-  // ─── Delete ───────────────────────────────────────────────────────────────────
-  const openDeleteModal = (item) => {
-    deletingItemId = item.id;
+  // ─── Archive ──────────────────────────────────────────────────────────────────
+  const openArchiveModal = (item) => {
+    archivingItemId = item.id;
     if (invDeleteLabel) invDeleteLabel.textContent = item.item_name || "this item";
     openModal(modalDelete);
   };
 
-  btnCancelDelete?.addEventListener("click", () => { closeModal(modalDelete); deletingItemId = null; });
+  btnCancelDelete?.addEventListener("click", () => { closeModal(modalDelete); archivingItemId = null; });
 
   btnConfirmDelete?.addEventListener("click", async () => {
-    if (!deletingItemId) return;
+    if (!archivingItemId) return;
     btnConfirmDelete.disabled = true;
-    btnConfirmDelete.textContent = "Deleting…";
+    btnConfirmDelete.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Archiving…';
 
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/inventory/${deletingItemId}`, {
-        method: "DELETE",
+      const res = await fetch(`${API_BASE_URL}/admin/inventory/${archivingItemId}/archive`, {
+        method: "PATCH",
         headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
       });
       if (res.status === 401 || res.status === 403) { setUnauthorized(); return; }
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        showPopup(payload?.message || "Failed to delete item.", { title: "Delete Failed" });
+        showPopup(payload?.message || "Failed to archive item.", { title: "Archive Failed" });
         return;
       }
       closeModal(modalDelete);
-      deletingItemId = null;
+      archivingItemId = null;
       await loadInventory();
-      setTimeout(() => showPopup("Item deleted successfully.", { title: "Success ✓" }), 200);
+      setTimeout(() => showPopup("Item has been archived successfully and removed from the inventory list.", { title: "Archived ✓" }), 200);
     } catch (err) {
-      console.error("Delete inventory error:", err);
+      console.error("Archive inventory error:", err);
       showPopup("Cannot connect to server.", { title: "Error" });
     } finally {
       btnConfirmDelete.disabled = false;
-      btnConfirmDelete.textContent = "Delete Item";
+      btnConfirmDelete.innerHTML = '<i class="fa-solid fa-box-archive"></i> Archive Item';
     }
   });
 
@@ -1361,12 +1362,12 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Delete button
-    const deleteBtn = target.closest("[data-inv-delete]");
-    if (deleteBtn) {
-      const id = Number(deleteBtn.getAttribute("data-inv-delete"));
+    // Archive button
+    const archiveBtn = target.closest("[data-inv-archive]");
+    if (archiveBtn) {
+      const id = Number(archiveBtn.getAttribute("data-inv-archive"));
       const item = allItems.find((x) => x.id === id);
-      if (item) openDeleteModal(item);
+      if (item) openArchiveModal(item);
       return;
     }
 

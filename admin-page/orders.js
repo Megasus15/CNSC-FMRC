@@ -111,10 +111,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const walkInDetailDate = document.getElementById("walkInDetailDate");
   const btnEditWalkInFromView = document.getElementById("btnEditWalkInFromView");
 
-  const modalDeletePaymentHistory = document.getElementById("modalDeletePaymentHistory");
-  const paymentDeleteTargetLabel = document.getElementById("paymentDeleteTargetLabel");
-  const btnCancelDeletePaymentHistory = document.getElementById("btnCancelDeletePaymentHistory");
-  const btnConfirmDeletePaymentHistory = document.getElementById("btnConfirmDeletePaymentHistory");
+  const modalDeletePaymentHistory = document.getElementById("modalArchivePaymentHistory");
+  const paymentDeleteTargetLabel = document.getElementById("paymentArchiveTargetLabel");
+  const btnCancelDeletePaymentHistory = document.getElementById("btnCancelArchivePaymentHistory");
+  const btnConfirmDeletePaymentHistory = document.getElementById("btnConfirmArchivePaymentHistory");
 
   const refreshBtn = document.getElementById("ordersRefreshBtn");
 
@@ -775,7 +775,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state.paymentsPage = renderPagedRows({
       rows,
       tbody: paymentsHistoryTbody,
-      colCount: 9,
+      colCount: 8,
       footer: paymentsHistoryFooter,
       currentPage: state.paymentsPage,
       pageSize: 5,
@@ -786,7 +786,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const paymentId = payment.payment_id || payment.payment_no || orderNo;
         const paidAt = payment.date_paid || payment.completed_at || payment.updated_at || payment.created_at;
         const paymentMethod = payment.payment_method || payment.method || "N/A";
-        const paymentReference = payment.payment_reference || payment.reference || "Pending reference";
         const paymentAmountLabel = payment.total_label || payment.amount_label || formatMoney(payment.total_amount || payment.amount);
         return `
           <tr>
@@ -794,13 +793,12 @@ document.addEventListener("DOMContentLoaded", () => {
             <td>${escapeHtml(orderNo)}</td>
             <td>${escapeHtml(payment.customer_name || "Customer")}</td>
             <td>${escapeHtml(paymentMethod)}</td>
-            <td>${escapeHtml(paymentReference)}</td>
             <td>${escapeHtml(paymentAmountLabel)}</td>
             <td><span class="status-pill status-green">Completed</span></td>
             <td>${escapeHtml(paidAt ? formatDateLabel(paidAt) : "-")}</td>
             <td class="action-icons sticky-action">
               <button data-tooltip="View Order Info" data-order-view="${orderId}"><i class="fa-regular fa-eye"></i></button>
-              <button data-tooltip="Delete Payment" data-payment-delete="${orderId}"><i class="fa-regular fa-trash-can"></i></button>
+              <button data-tooltip="Archive Payment" data-payment-archive="${orderId}"><i class="fa-solid fa-box-archive"></i></button>
             </td>
           </tr>
         `;
@@ -1061,16 +1059,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!key) return;
 
     try {
-      await request(`/admin/orders/${key}/payment`, {
-        method: "DELETE",
+      await request(`/admin/orders/${key}/archive-payment`, {
+        method: "PATCH",
       });
 
-      notifyOrdersRealtimeUpdate({ type: "payment-deleted", orderId: key });
-      showPopup("Payment record deleted successfully.", { title: "Deleted" });
+      notifyOrdersRealtimeUpdate({ type: "payment-archived", orderId: key });
+      showPopup("Payment record archived successfully and moved to Archives.", { title: "Archived ✓" });
       void syncOrders(true, { force: true, source: "manual" });
     } catch (error) {
-      showPopup(error.message || "Unable to delete payment record.", {
-        title: "Delete Failed",
+      showPopup(error.message || "Unable to archive payment record.", {
+        title: "Archive Failed",
       });
     }
   };
@@ -1734,9 +1732,9 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const deletePaymentBtn = target.closest("[data-payment-delete]");
+    const deletePaymentBtn = target.closest("[data-payment-archive]");
     if (deletePaymentBtn) {
-      const orderId = String(deletePaymentBtn.getAttribute("data-payment-delete") || "");
+      const orderId = String(deletePaymentBtn.getAttribute("data-payment-archive") || "");
       const payment = state.payments.find((item) => String(item.id || item.order_id || "") === orderId);
       if (payment) openPaymentDeleteModal(payment);
       return;

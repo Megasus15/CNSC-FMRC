@@ -30,7 +30,7 @@ class InventoryItemController extends Controller
             return $denied;
         }
 
-        $query = InventoryItem::query()->orderByDesc('id');
+        $query = InventoryItem::query()->where('is_archived', false)->orderByDesc('id');
 
         if ($category = $request->query('category')) {
             $query->where('category', $category);
@@ -44,11 +44,31 @@ class InventoryItemController extends Controller
         }
 
         $items = $query->get();
-        $allItems = InventoryItem::query()->get();
+        $allItems = InventoryItem::query()->where('is_archived', false)->get();
 
         return response()->json([
             'data'    => $items->map(fn (InventoryItem $item) => $this->transformRow($item))->values(),
             'summary' => $this->buildSummary($allItems),
+        ]);
+    }
+
+    /**
+     * Return all archived inventory items.
+     */
+    public function archived(Request $request): JsonResponse
+    {
+        $denied = $this->ensureAdmin($request);
+        if ($denied) {
+            return $denied;
+        }
+
+        $items = InventoryItem::query()
+            ->where('is_archived', true)
+            ->orderByDesc('archived_at')
+            ->get();
+
+        return response()->json([
+            'data' => $items->map(fn (InventoryItem $item) => $this->transformRow($item))->values(),
         ]);
     }
 
@@ -500,7 +520,57 @@ class InventoryItemController extends Controller
     }
 
     /**
-     * Delete an inventory item.
+     * Archive an inventory item (soft-archive: hide from main list).
+     */
+    public function archive(Request $request, int $id): JsonResponse
+    {
+        $denied = $this->ensureAdmin($request);
+        if ($denied) {
+            return $denied;
+        }
+
+        $item = InventoryItem::query()->find($id);
+        if (!$item) {
+            return response()->json(['message' => 'Inventory item not found.'], 404);
+        }
+
+        $item->is_archived = true;
+        $item->archived_at = now();
+        $item->save();
+
+        return response()->json([
+            'message' => 'Inventory item archived successfully.',
+            'data'    => $this->transformRow($item),
+        ]);
+    }
+
+    /**
+     * Restore (un-archive) an inventory item.
+     */
+    public function unarchive(Request $request, int $id): JsonResponse
+    {
+        $denied = $this->ensureAdmin($request);
+        if ($denied) {
+            return $denied;
+        }
+
+        $item = InventoryItem::query()->find($id);
+        if (!$item) {
+            return response()->json(['message' => 'Inventory item not found.'], 404);
+        }
+
+        $item->is_archived = false;
+        $item->archived_at = null;
+        $item->save();
+
+        return response()->json([
+            'message' => 'Inventory item restored successfully.',
+            'data'    => $this->transformRow($item),
+        ]);
+    }
+
+    /**
+     * Permanently delete an inventory item.
      */
     public function destroy(Request $request, int $id): JsonResponse
     {
@@ -551,6 +621,8 @@ class InventoryItemController extends Controller
             'remarks'     => $item->remarks,
             'variants'    => $variants,
             'has_variants'=> !empty($variants),
+            'is_archived' => (bool) $item->is_archived,
+            'archived_at' => $item->archived_at?->toIso8601String(),
             'created_at'  => $item->created_at?->toIso8601String(),
             'updated_at'  => $item->updated_at?->toIso8601String(),
         ];

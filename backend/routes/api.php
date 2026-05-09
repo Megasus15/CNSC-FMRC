@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ProductAnalyticsController;
 use App\Http\Controllers\Api\WalkInOrderController;
 use App\Http\Controllers\Api\InventoryItemController;
+use App\Http\Controllers\Api\ArchiveController;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
@@ -21,6 +22,7 @@ Route::get('/appointments', [AppointmentController::class, 'index']);
 Route::post('/appointments', [AppointmentController::class, 'store']);
 Route::delete('/appointments/{appointment}', [AppointmentController::class, 'destroy']);
 Route::patch('/appointments/{appointment}/archive', [AppointmentController::class, 'archive']);
+Route::patch('/appointments/{appointment}/unarchive', [AppointmentController::class, 'unarchive']);
 Route::get('/appointments/calendar', [AppointmentController::class, 'calendar']);
 Route::put('/appointments/calendar', [AppointmentController::class, 'updateCalendar']);
 Route::get('/appointments/{reference}/verify', [AppointmentController::class, 'verifyByReference']);
@@ -57,6 +59,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/admin/orders/{order}/complete', [OrderController::class, 'complete']);
     Route::patch('/admin/orders/{order}/tracking', [OrderController::class, 'updateTracking']);
     Route::patch('/admin/orders/{order}/payment-status', [OrderController::class, 'updatePaymentStatus']);
+    Route::patch('/admin/orders/{order}/archive', [OrderController::class, 'adminArchive']);
+    Route::patch('/admin/orders/{order}/archive-payment', [OrderController::class, 'adminArchivePayment']);
+    Route::patch('/admin/orders/{order}/unarchive', [OrderController::class, 'adminUnarchivePayment']);
     Route::delete('/admin/orders/{order}/payment', [OrderController::class, 'adminDestroyPayment']);
     Route::delete('/admin/orders/{order}', [OrderController::class, 'adminDestroy']);
 
@@ -104,13 +109,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/product-analytics/product-performance', [ProductAnalyticsController::class, 'productPerformance']);
     Route::get('/admin/product-analytics/yearly-sales-trend', [ProductAnalyticsController::class, 'yearlySalesTrend']);
 
-    // Admin: Inventory CRUD
+    // Admin: Inventory CRUD + Archive
     Route::get('/admin/inventory', [InventoryItemController::class, 'index']);
+    Route::get('/admin/inventory/archived', [InventoryItemController::class, 'archived']);
     Route::post('/admin/inventory', [InventoryItemController::class, 'store']);
     Route::put('/admin/inventory/{id}', [InventoryItemController::class, 'update']);
     Route::post('/admin/inventory/{id}/deduct', [InventoryItemController::class, 'deduct']);
     Route::post('/admin/inventory/{id}/adjust', [InventoryItemController::class, 'adjust']);
+    Route::patch('/admin/inventory/{id}/archive', [InventoryItemController::class, 'archive']);
+    Route::patch('/admin/inventory/{id}/unarchive', [InventoryItemController::class, 'unarchive']);
     Route::get('/admin/inventory/export', [InventoryItemController::class, 'exportCsv']);
     Route::get('/admin/inventory/transactions', [InventoryItemController::class, 'transactions']);
     Route::delete('/admin/inventory/{id}', [InventoryItemController::class, 'destroy']);
+
+    // Admin: Unified Archives page
+    Route::get('/admin/archives', [ArchiveController::class, 'index']);
 });

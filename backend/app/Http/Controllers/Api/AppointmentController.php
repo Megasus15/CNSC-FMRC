@@ -30,6 +30,7 @@ class AppointmentController extends Controller
     public function index(): JsonResponse
     {
         $appointments = Appointment::query()
+            ->whereNotIn('status', ['Cancelled', 'Archived'])
             ->orderBy('created_at', 'asc')
             ->get()
             ->map(fn (Appointment $appointment) => $this->transformAppointment($appointment));
@@ -237,6 +238,17 @@ class AppointmentController extends Controller
 
         return response()->json([
             'message' => 'Appointment archived successfully.',
+            'data' => $this->transformAppointment($appointment),
+        ]);
+    }
+
+    public function unarchive(Appointment $appointment): JsonResponse
+    {
+        $appointment->status = 'Pending';
+        $appointment->save();
+
+        return response()->json([
+            'message' => 'Appointment restored successfully.',
             'data' => $this->transformAppointment($appointment),
         ]);
     }

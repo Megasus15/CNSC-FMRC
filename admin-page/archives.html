@@ -6,10 +6,53 @@
     <title>Archives | CNSC-FMRC Admin</title>
     <link rel="stylesheet" href="dashboard.css" />
     <link rel="stylesheet" href="admin-modules.css" />
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-    />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+      .archive-module-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+      .archive-tab-btn {
+        padding:8px 18px; border-radius:8px; border:2px solid #e0e6ed;
+        background:#fff; font-size:0.82rem; font-weight:700; cursor:pointer;
+        color:#5a6272; transition:all 0.18s ease; display:flex; align-items:center; gap:7px;
+      }
+      .archive-tab-btn.active { border-color:#800000; background:#800000; color:#fff; }
+      .archive-tab-btn .tab-count {
+        background:rgba(255,255,255,0.25); border-radius:99px;
+        padding:1px 7px; font-size:0.72rem;
+      }
+      .archive-tab-btn:not(.active) .tab-count { background:#f0f2f5; color:#5a6272; }
+      .archive-section { display:none; }
+      .archive-section.active { display:block; }
+      .archive-search-bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+      .archive-badge {
+        display:inline-flex; align-items:center; gap:4px;
+        padding:3px 9px; border-radius:99px; font-size:0.72rem; font-weight:700;
+      }
+      .badge-inventory { background:#dcfce7; color:#15803d; }
+      .badge-appointment { background:#dbeafe; color:#1d4ed8; }
+      .badge-order { background:#f3e8ff; color:#7e22ce; }
+      .inv-name-cell { display: flex; align-items: center; gap: 8px; }
+      .inv-variant-toggle { width: 22px; height: 22px; border-radius: 6px; border: 1px solid #e5e7eb; background: #f8fafc; color: #6b7280; display: grid; place-items: center; cursor: pointer; transition: background-color 0.2s ease, color 0.2s ease; }
+      .inv-variant-toggle:hover { background: #f1f5f9; color: #111827; }
+      .inv-variant-toggle i { font-size: 0.7rem; transition: transform 0.2s ease; }
+      .inv-variant-toggle[aria-expanded="true"] i { transform: rotate(90deg); }
+      .inv-variant-count { font-size: 0.68rem; color: #6b7280; background: #f3f4f6; padding: 2px 6px; border-radius: 999px; font-weight: 600; }
+      .inv-variant-row { background: #fcfcfd; }
+      .inv-variant-row td { color: #475569; }
+      .inv-variant-name { font-weight: 600; color: #111827; }
+      .inv-variant-indent { display: inline-flex; align-items: center; gap: 6px; }
+      .inv-variant-indent::before { content: ""; width: 14px; height: 2px; background: #e5e7eb; display: inline-block; }
+      .inv-variant-row .sticky-action { background: #fcfcfd; }
+      .action-icons { display: flex; gap: 6px; justify-content: center; align-items: center; }
+      .action-icons button {
+        background: none; border: none; font-size: 1.1rem; color: #64748b; cursor: pointer; transition: all 0.2s ease;
+        padding: 4px; border-radius: 4px;
+      }
+      .action-icons button:hover { background: #800000; color: #fff; }
+      th.sticky-action, td.sticky-action {
+        position: sticky; right: 0; background: #fff; z-index: 10; border-left: 1px solid var(--border-color);
+      }
+      th.sticky-action { background: var(--th-bg, #f8fafc); z-index: 11; }
+    </style>
   </head>
   <body>
     <div class="dashboard-container">
@@ -26,12 +69,9 @@
           <a href="accounts.html" class="nav-link"><i class="fa-solid fa-users"></i> User Management</a>
           <a href="reports.html" class="nav-link"><i class="fa-solid fa-chart-line"></i> Reports</a>
           <a href="orders.html" class="nav-link"><i class="fa-solid fa-box-open"></i> Orders</a>
-
           <div class="nav-item has-dropdown">
             <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn">
-              <div class="dropdown-title">
-                <i class="fa-solid fa-screwdriver-wrench"></i> Website Management
-              </div>
+              <div class="dropdown-title"><i class="fa-solid fa-screwdriver-wrench"></i> Website Management</div>
               <i class="fa-solid fa-chevron-down arrow"></i>
             </a>
             <div class="dropdown-menu">
@@ -41,14 +81,11 @@
               <a href="website-footer.html" class="sub-link">Footer</a>
             </div>
           </div>
-
           <a href="archives.html" class="nav-link active"><i class="fa-solid fa-box-archive"></i> Archives</a>
           <a href="my-account.html" class="nav-link"><i class="fa-regular fa-id-card"></i> My Account</a>
         </nav>
         <div class="sidebar-footer">
-          <button class="logout-btn">
-            <i class="fa-solid fa-right-from-bracket"></i> Logout
-          </button>
+          <button class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
         </div>
       </aside>
 
@@ -59,32 +96,19 @@
             <div class="notifications" id="notifBell"><i class="fa-regular fa-bell"></i><span class="badge" id="notifBadge" style="display:none;"></span></div>
             <div class="user-profile">
               <div class="user-info"><span class="role">Admin</span></div>
-              <span
-                class="profile-icon profile-initial"
-                data-email="admin@cnsc.edu.ph"
-              ></span>
+              <span class="profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
               <div class="profile-popup" id="profilePopup">
                 <div class="popup-header">
                   <div class="popup-profile-row">
-                    <span
-                      class="popup-profile-icon profile-initial"
-                      data-email="admin@cnsc.edu.ph"
-                    ></span>
+                    <span class="popup-profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
                     <div class="popup-profile-meta">
                       <p class="popup-identity">admin@cnsc.edu.ph</p>
                       <span class="popup-role">Admin</span>
                     </div>
                   </div>
                 </div>
-                <a
-                  href="my-account.html"
-                  class="profile-popup-link"
-                  ><i class="fa-regular fa-id-card"></i> My Account</a
-                >
-                <hr />
-                <button class="logout-btn popup-logout">
-                  <i class="fa-solid fa-right-from-bracket"></i> Logout
-                </button>
+                <a href="my-account.html" class="profile-popup-link"><i class="fa-regular fa-id-card"></i> My Account</a>
+                <hr /><button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
               </div>
             </div>
           </div>
@@ -94,198 +118,176 @@
           <div class="page-toolbar">
             <div class="toolbar-title">
               <h2>Archives</h2>
-              <p>
-                Keep historical records for payments, appointments, and orders.
-              </p>
+              <p>All archived records from Inventory, Appointments, and Orders. Archived items are removed from their source pages.</p>
             </div>
             <div class="toolbar-actions">
-              <button
-                class="btn-admin btn-secondary"
-                onclick="window.location.reload()"
-                title="Refresh Data"
-              >
+              <button class="btn-admin btn-secondary" id="archivesRefreshBtn">
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
-              <button
-                class="btn-admin btn-secondary"
-                data-modal-open="#modalBulkRestore"
-              >
-                <i class="fa-solid fa-rotate-left"></i> Bulk Restore
-              </button>
             </div>
           </div>
-          <div class="panel">
-            <div class="panel-header">
-              <h3>Archived Records</h3>
-              <div class="filters-row">
-                <select class="filter-select">
-                  <option>All Modules</option>
-                  <option>Inventory</option>
-                  <option>Products</option>
-                  <option>Appointments</option>
-                  <option>Payment Monitoring</option>
-                  <option>Payments</option>
-                  <option>Orders</option></select
-                ><input class="search-input" placeholder="Search archive..." />
+
+          <!-- Module Tabs -->
+          <div class="archive-module-tabs">
+            <button class="archive-tab-btn active" data-tab="inventory">
+              <i class="fa-solid fa-box"></i> Inventory
+              <span class="tab-count" id="tabCountInventory">0</span>
+            </button>
+            <button class="archive-tab-btn" data-tab="appointment">
+              <i class="fa-regular fa-calendar-check"></i> Appointments
+              <span class="tab-count" id="tabCountAppointment">0</span>
+            </button>
+            <button class="archive-tab-btn" data-tab="order">
+              <i class="fa-solid fa-box-open"></i> Orders
+              <span class="tab-count" id="tabCountOrder">0</span>
+            </button>
+          </div>
+
+          <!-- Global Search -->
+          <div class="archive-search-bar" style="margin-bottom:14px;">
+            <input class="search-input" id="archiveSearchInput" placeholder="Search archived records…" style="max-width:320px;" />
+          </div>
+
+          <!-- ═══════════════ INVENTORY TABLE ═══════════════ -->
+          <div class="archive-section active" id="sectionInventory">
+            <div class="panel">
+              <div class="panel-header">
+                <h3><span class="archive-badge badge-inventory"><i class="fa-solid fa-box"></i> Inventory</span> &nbsp;Archived Items</h3>
               </div>
-            </div>
-            <div class="table-wrapper">
-              <table class="admin-table enhanced-table">
-                <thead>
-                  <tr>
-                    <th>Archive ID</th>
-                    <th>Module</th>
-                    <th>Record Title</th>
-                    <th>Date Archived</th>
-                    <th>Archived By</th>
-                    <th class="sticky-action">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>ARC-001</td>
-                    <td>Orders</td>
-                    <td>#ORD-3202 Fabrication Batch</td>
-                    <td>Mar 22, 2026</td>
-                    <td>System Admin</td>
-                    <td class="action-icons sticky-action">
-                      <button
-                        data-tooltip="Restore Record"
-                        data-modal-open="#modalRestoreRecord"
-                      >
-                        <i class="fa-solid fa-rotate-left"></i></button
-                      ><button data-tooltip="View Record">
-                        <i class="fa-regular fa-eye"></i></button
-                      ><button
-                        data-tooltip="Delete Record"
-                        data-modal-open="#modalDeleteArchivedRecord"
-                      >
-                        <i class="fa-regular fa-trash-can"></i>
-                      </button>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td>ARC-002</td>
-                    <td>Payments</td>
-                    <td>Payment Slip - Office of President</td>
-                    <td>Mar 18, 2026</td>
-                    <td>System Admin</td>
-                    <td class="action-icons sticky-action">
-                      <button
-                        data-tooltip="Restore Record"
-                        data-modal-open="#modalRestoreRecord"
-                      >
-                        <i class="fa-solid fa-rotate-left"></i></button
-                      ><button data-tooltip="View Record">
-                        <i class="fa-regular fa-eye"></i></button
-                      ><button
-                        data-tooltip="Delete Record"
-                        data-modal-open="#modalDeleteArchivedRecord"
-                      >
-                        <i class="fa-regular fa-trash-can"></i>
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="table-footer">
-              <div class="table-footer-meta">Page 1 of 1</div>
-              <div class="table-pagination">
-                <button class="page-btn" disabled>
-                  <i class="fa-solid fa-chevron-left"></i>
-                </button>
-                <div class="page-number">1</div>
-                <button class="page-btn" disabled>
-                  <i class="fa-solid fa-chevron-right"></i>
-                </button>
+              <div class="table-scroll-hint"><i class="fa-solid fa-left-right"></i> Scroll horizontally to see all columns.</div>
+              <div class="table-wrapper">
+                <table class="admin-table inventory-table">
+                  <thead>
+                    <tr>
+                      <th>No.</th>
+                      <th>Item Name</th>
+                      <th>Description</th>
+                      <th>Unit</th>
+                      <th>On Hand</th>
+                      <th>Status</th>
+                      <th>Remarks</th>
+                      <th>Category</th>
+                      <th>Date Archived</th>
+                      <th class="sticky-action">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="invArchiveTbody">
+                    <tr><td colspan="9"><div class="table-empty-state"><i class="fa-solid fa-spinner fa-spin"></i><span>Loading…</span></div></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="table-footer" id="invArchiveFooter">
+                <div class="table-footer-meta" id="invArchiveMeta">—</div>
+                <div class="table-pagination">
+                  <button class="page-btn" id="invPrevBtn"><i class="fa-solid fa-chevron-left"></i></button>
+                  <div class="page-number" id="invCurrentPage">1</div>
+                  <button class="page-btn" id="invNextBtn"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
               </div>
             </div>
           </div>
+
+          <!-- ═══════════════ APPOINTMENTS TABLE ═══════════════ -->
+          <div class="archive-section" id="sectionAppointment">
+            <div class="panel">
+              <div class="panel-header">
+                <h3><span class="archive-badge badge-appointment"><i class="fa-regular fa-calendar-check"></i> Appointment</span> &nbsp;Archived Appointments</h3>
+              </div>
+              <div class="table-scroll-hint"><i class="fa-solid fa-left-right"></i> Scroll horizontally to see all columns.</div>
+              <div class="table-wrapper">
+                <table class="admin-table inventory-table">
+                  <thead>
+                    <tr>
+                      <th>AP-No</th>
+                      <th>Client Name</th>
+                      <th>Contact Number</th>
+                      <th>Email</th>
+                      <th>Address</th>
+                      <th>Type</th>
+                      <th>Purpose</th>
+                      <th>Date</th>
+                      <th>Time</th>
+                      <th>Status</th>
+                      <th>Date Archived</th>
+                      <th class="sticky-action">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="apptArchiveTbody">
+                    <tr><td colspan="11"><div class="table-empty-state"><i class="fa-solid fa-spinner fa-spin"></i><span>Loading…</span></div></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="table-footer" id="apptArchiveFooter">
+                <div class="table-footer-meta" id="apptArchiveMeta">—</div>
+                <div class="table-pagination">
+                  <button class="page-btn" id="apptPrevBtn"><i class="fa-solid fa-chevron-left"></i></button>
+                  <div class="page-number" id="apptCurrentPage">1</div>
+                  <button class="page-btn" id="apptNextBtn"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════════════ ORDERS TABLE ═══════════════ -->
+          <div class="archive-section" id="sectionOrder">
+            <div class="panel">
+              <div class="panel-header">
+                <h3><span class="archive-badge badge-order"><i class="fa-solid fa-box-open"></i> Orders</span> &nbsp;Archived Orders</h3>
+              </div>
+              <div class="table-scroll-hint"><i class="fa-solid fa-left-right"></i> Scroll horizontally to see all columns.</div>
+              <div class="table-wrapper">
+                <table class="admin-table inventory-table">
+                  <thead>
+                    <tr>
+                      <th>Order No.</th>
+                      <th>Order Item</th>
+                      <th>Date</th>
+                      <th>Customer</th>
+                      <th>Payment Method</th>
+                      <th>Total</th>
+                      <th>Status</th>
+                      <th>Date Archived</th>
+                      <th class="sticky-action">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="orderArchiveTbody">
+                    <tr><td colspan="8"><div class="table-empty-state"><i class="fa-solid fa-spinner fa-spin"></i><span>Loading…</span></div></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="table-footer" id="orderArchiveFooter">
+                <div class="table-footer-meta" id="orderArchiveMeta">—</div>
+                <div class="table-pagination">
+                  <button class="page-btn" id="orderPrevBtn"><i class="fa-solid fa-chevron-left"></i></button>
+                  <div class="page-number" id="orderCurrentPage">1</div>
+                  <button class="page-btn" id="orderNextBtn"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </section>
       </main>
     </div>
 
-    <div
-      class="modal-overlay"
-      id="modalRestoreRecord"
-      data-backdrop-close="false"
-    >
+    <script src="session-helper.js"></script>
+    <script src="admin-common.js"></script>
+    <div class="modal-overlay" id="modalRestoreRecord" data-backdrop-close="false">
       <div class="modal-card modal-confirm">
         <h3 class="modal-title">Restore Confirmation</h3>
         <hr class="confirm-separator" />
         <p class="confirm-text">
-          You are about to restore <strong>this archived record</strong>.
+          You are about to restore <strong id="restoreTargetLabel"></strong>.
         </p>
-        <p class="field-hint">This is a design-only confirmation for now.</p>
+        <p class="field-hint">This record will be moved back to its original table.</p>
         <hr class="confirm-separator" />
         <div class="modal-actions">
-          <button
-            class="btn-admin btn-secondary"
-            data-modal-close="#modalRestoreRecord"
-          >
-            Cancel
-          </button>
-          <button class="btn-admin" type="button">Restore Record</button>
+          <button class="btn-admin btn-secondary" data-modal-close="#modalRestoreRecord" type="button">Cancel</button>
+          <button class="btn-admin" id="btnConfirmRestore" type="button">Restore Record</button>
         </div>
       </div>
     </div>
-
-    <div
-      class="modal-overlay"
-      id="modalDeleteArchivedRecord"
-      data-backdrop-close="false"
-    >
-      <div class="modal-card modal-confirm">
-        <h3 class="modal-title">Delete Confirmation</h3>
-        <hr class="confirm-separator" />
-        <p class="confirm-text">
-          You are about to delete <strong>this archived record</strong>.
-        </p>
-        <p class="field-hint">This is a design-only confirmation for now.</p>
-        <hr class="confirm-separator" />
-        <div class="modal-actions">
-          <button
-            class="btn-admin btn-secondary"
-            data-modal-close="#modalDeleteArchivedRecord"
-          >
-            Cancel
-          </button>
-          <button class="btn-admin" type="button">Delete Record</button>
-        </div>
-      </div>
-    </div>
-
-    <div
-      class="modal-overlay"
-      id="modalBulkRestore"
-      data-backdrop-close="false"
-    >
-      <div class="modal-card modal-confirm">
-        <h3 class="modal-title">Bulk Restore Confirmation</h3>
-        <hr class="confirm-separator" />
-        <p class="confirm-text">
-          You are about to restore
-          <strong>all selected archived records</strong>.
-        </p>
-        <p class="field-hint">This is a design-only confirmation for now.</p>
-        <hr class="confirm-separator" />
-        <div class="modal-actions">
-          <button
-            class="btn-admin btn-secondary"
-            data-modal-close="#modalBulkRestore"
-          >
-            Cancel
-          </button>
-          <button class="btn-admin" type="button">Bulk Restore</button>
-        </div>
-      </div>
-    </div>
-
-    <script src="session-helper.js"></script>
-    <script src="admin-common.js"></script>
+    
+    <script src="archives.js"></script>
   </body>
 </html>
-
-
-

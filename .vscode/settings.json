@@ -1,9 +1,9 @@
 {
-    "liveServer.settings.ignoreFiles": [
-        ".vscode/**",
-        "backend/**",
-        "**/*.log",
-        "**/*.sqlite"
-    ],
-    "liveServer.settings.port": 5501
+  "liveServer.settings.ignoreFiles": [
+    ".vscode/**",
+    "backend/**",
+    "**/*.log",
+    "**/*.sqlite"
+  ],
+  "liveServer.settings.port": 5505
 }

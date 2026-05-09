@@ -360,6 +360,7 @@ class OrderController extends Controller
                 'payment:id,order_id,payment_no,method,reference,amount,status,paid_at',
                 'latestTrackingEvent',
             ])
+            ->where('is_archived', false)
             ->orderBy('created_at', 'asc')
             ->get();
 
@@ -584,6 +585,60 @@ class OrderController extends Controller
         return response()->json([
             'message' => 'Order marked as completed.',
             'data' => $this->transformOrderSummary($order),
+        ]);
+    }
+
+    public function adminArchive(Request $request, Order $order): JsonResponse
+    {
+        $denied = $this->ensureAdmin($request);
+        if ($denied) {
+            return $denied;
+        }
+
+        $order->is_archived = true;
+        $order->archived_at = now();
+        $order->save();
+
+        return response()->json([
+            'message' => 'Order archived successfully.',
+            'order_id' => (int) $order->id,
+            'order_no' => $order->order_no,
+        ]);
+    }
+
+    public function adminArchivePayment(Request $request, Order $order): JsonResponse
+    {
+        $denied = $this->ensureAdmin($request);
+        if ($denied) {
+            return $denied;
+        }
+
+        // Archive the order (moves it out of payment history)
+        $order->is_archived = true;
+        $order->archived_at = now();
+        $order->save();
+
+        return response()->json([
+            'message' => 'Payment record archived successfully.',
+            'order_id' => (int) $order->id,
+        ]);
+    }
+
+    public function adminUnarchivePayment(Request $request, Order $order): JsonResponse
+    {
+        $denied = $this->ensureAdmin($request);
+        if ($denied) {
+            return $denied;
+        }
+
+        // Unarchive the order
+        $order->is_archived = false;
+        $order->archived_at = null;
+        $order->save();
+
+        return response()->json([
+            'message' => 'Payment record restored successfully.',
+            'order_id' => (int) $order->id,
         ]);
     }
 

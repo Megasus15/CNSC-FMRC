@@ -2095,3 +2095,113 @@ body.reports-page .table-wrapper {
 .combobox-list::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* ─── Inventory / Appointment View Modal Styles ────────────────────────────── */
+.inv-view-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #7a838d;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+.inv-view-value {
+  font-size: 0.88rem;
+  color: #2f3742;
+  font-weight: 600;
+  word-break: break-word;
+}
+.inv-view-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 18px;
+}
+.inv-view-grid .full {
+  grid-column: 1 / -1;
+}
+.inv-view-variants {
+  margin-top: 16px;
+}
+.inv-view-section-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #800000;
+  border-bottom: 2px solid #f3e8e8;
+  padding-bottom: 5px;
+  margin-bottom: 10px;
+}
+.inv-variant-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+.inv-variant-table th, .inv-variant-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid #f0f4f8;
+  text-align: left;
+}
+.inv-variant-table thead th {
+  background: #f7fafc;
+  color: #5a6272;
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* ─── Appointment View Modal Extra Styles ──────────────────────────────────── */
+.appt-view-header-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 2px;
+}
+.appt-view-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #800000, #c0392b);
+  color: #fff;
+  font-size: 1.35rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.appt-view-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.appt-view-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+.appt-view-ref {
+  font-size: 0.78rem;
+  color: #7a838d;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.appt-view-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 18px;
+}
+.appt-view-grid .full {
+  grid-column: 1 / -1;
+}
+.appt-view-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+@media (max-width: 540px) {
+  .appt-view-grid,
+  .inv-view-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -17,12 +17,16 @@ class InventoryItem extends Model
         'remarks',
         'variants',
         'created_by_user_id',
+        'is_archived',
+        'archived_at',
     ];
 
     protected $casts = [
         'last_invent' => 'integer',
         'on_hand'     => 'integer',
         'variants'    => 'array',
+        'is_archived' => 'boolean',
+        'archived_at' => 'datetime',
     ];
 
     public function createdBy()

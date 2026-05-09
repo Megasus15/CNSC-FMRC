@@ -33,16 +33,20 @@ class Order extends Model
         'approved_at',
         'rejected_at',
         'completed_at',
+        'is_archived',
+        'archived_at',
     ];
 
     protected $casts = [
-        'subtotal' => 'decimal:2',
-        'total' => 'decimal:2',
+        'subtotal'    => 'decimal:2',
+        'total'       => 'decimal:2',
         'last_known_lat' => 'decimal:7',
         'last_known_lng' => 'decimal:7',
         'approved_at' => 'datetime',
         'rejected_at' => 'datetime',
         'completed_at' => 'datetime',
+        'is_archived' => 'boolean',
+        'archived_at' => 'datetime',
     ];
 
     public function customer(): BelongsTo

@@ -99,6 +99,8 @@ document.addEventListener("DOMContentLoaded", () => {
   let pollTimer = null;
   let editingSlotId = null;
   let activeTimePickerContext = null;
+  let viewingAppointment = null;
+  let archivingAppointmentId = null;
 
   const state = {
     appointments: [],
@@ -516,6 +518,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <td><span class="status-pill ${statusClass(item.status)}">${safe(item.status)}</span></td>
           <td class="action-icons sticky-action">
             <button type="button" data-tooltip="View Appointment" data-view-id="${item.id}"><i class="fa-regular fa-eye"></i></button>
+            <button type="button" data-tooltip="Archive Appointment" data-archive-id="${item.id}"><i class="fa-solid fa-box-archive"></i></button>
           </td>
         </tr>`;
       })
@@ -807,7 +810,145 @@ document.addEventListener("DOMContentLoaded", () => {
     renderSlotManager();
   };
 
+
+  // ─── Appointment View Modal ─────────────────────────────────────────────────
+  const openAppointmentViewModal = (appt) => {
+    viewingAppointment = appt;
+    const modal = document.getElementById("modalViewAppointment");
+    if (!modal) return;
+
+    const fullName = safe(appt.client_name);
+    const apNo = formatApNo(appt.reference_no);
+    const status = safe(appt.status);
+    const statusCls = statusClass(status);
+    const fileUrl = String(appt.attachment_url || "").trim();
+    const fileName = safe(appt.attachment_name);
+    const fileHtml = fileName === "N/A"
+      ? '<span style="color:#9ca3af;">No file attached</span>'
+      : fileUrl
+        ? `<a href="${fileUrl}" target="_blank" rel="noopener" class="photo-link">${fileName}</a>`
+        : `<span class="photo-link">${fileName}</span>`;
+
+    const body = document.getElementById("apptViewBody");
+    if (body) {
+      body.innerHTML = `
+        <div class="appt-view-header-row">
+          <div class="appt-view-avatar">${fullName.charAt(0).toUpperCase()}</div>
+          <div class="appt-view-title-block">
+            <h4 class="appt-view-name">${fullName}</h4>
+            <span class="appt-view-ref">${apNo}</span>
+            <span class="status-pill ${statusCls}" style="margin-left:8px;">${status}</span>
+          </div>
+        </div>
+        <hr class="confirm-separator" style="margin:12px 0;" />
+        <div class="appt-view-grid">
+          <div class="appt-view-field">
+            <div class="inv-view-label"><i class="fa-solid fa-phone" style="margin-right:6px;color:#800000;"></i>Contact Number</div>
+            <div class="inv-view-value">${safe(appt.contact_number)}</div>
+          </div>
+          <div class="appt-view-field">
+            <div class="inv-view-label"><i class="fa-regular fa-envelope" style="margin-right:6px;color:#800000;"></i>Email Address</div>
+            <div class="inv-view-value">${safe(appt.email)}</div>
+          </div>
+          <div class="appt-view-field full">
+            <div class="inv-view-label"><i class="fa-solid fa-location-dot" style="margin-right:6px;color:#800000;"></i>Address</div>
+            <div class="inv-view-value">${safe(appt.full_address)}</div>
+          </div>
+          <div class="appt-view-field">
+            <div class="inv-view-label"><i class="fa-solid fa-user-tag" style="margin-right:6px;color:#800000;"></i>Client Type</div>
+            <div class="inv-view-value">${safe(appt.client_type)}</div>
+          </div>
+          <div class="appt-view-field">
+            <div class="inv-view-label"><i class="fa-solid fa-calendar-day" style="margin-right:6px;color:#800000;"></i>Appointment Date</div>
+            <div class="inv-view-value">${prettyDate(appt.appointment_date)}</div>
+          </div>
+          <div class="appt-view-field">
+            <div class="inv-view-label"><i class="fa-regular fa-clock" style="margin-right:6px;color:#800000;"></i>Appointment Time</div>
+            <div class="inv-view-value">${safe(appt.appointment_time)}</div>
+          </div>
+          <div class="appt-view-field full">
+            <div class="inv-view-label"><i class="fa-solid fa-bullseye" style="margin-right:6px;color:#800000;"></i>Purpose / Service</div>
+            <div class="inv-view-value">${safe(appt.purpose)}</div>
+          </div>
+          <div class="appt-view-field full">
+            <div class="inv-view-label"><i class="fa-regular fa-note-sticky" style="margin-right:6px;color:#800000;"></i>Additional Notes</div>
+            <div class="inv-view-value">${safe(appt.additional_notes)}</div>
+          </div>
+          <div class="appt-view-field full">
+            <div class="inv-view-label"><i class="fa-solid fa-paperclip" style="margin-right:6px;color:#800000;"></i>Attached File</div>
+            <div class="inv-view-value">${fileHtml}</div>
+          </div>
+        </div>`;
+    }
+
+    modal.classList.add("show");
+  };
+
+  document.getElementById("btnCloseApptView")?.addEventListener("click", () => {
+    document.getElementById("modalViewAppointment")?.classList.remove("show");
+    viewingAppointment = null;
+  });
+
+  document.getElementById("btnArchiveFromView")?.addEventListener("click", () => {
+    document.getElementById("modalViewAppointment")?.classList.remove("show");
+    if (viewingAppointment) openAppointmentArchiveModal(viewingAppointment);
+  });
+
+  // ─── Appointment Archive Modal ──────────────────────────────────────────────
+  const openAppointmentArchiveModal = (appt) => {
+    archivingAppointmentId = appt.id;
+    const labelEl = document.getElementById("archiveAppointmentTargetLabel");
+    if (labelEl) labelEl.textContent = `${formatApNo(appt.reference_no)} – ${safe(appt.client_name)}`;
+    document.getElementById("modalArchiveAppointment")?.classList.add("show");
+  };
+
+  document.getElementById("btnCancelArchiveAppt")?.addEventListener("click", () => {
+    document.getElementById("modalArchiveAppointment")?.classList.remove("show");
+    archivingAppointmentId = null;
+  });
+
+  document.getElementById("btnConfirmArchiveAppt")?.addEventListener("click", async () => {
+    if (!archivingAppointmentId) return;
+
+    const confirmBtn = document.getElementById("btnConfirmArchiveAppt");
+    if (confirmBtn) {
+      confirmBtn.disabled = true;
+      confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Archiving…';
+    }
+
+    const token = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token") || localStorage.getItem("admin_auth_token") || "";
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/appointments/${archivingAppointmentId}/archive`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+      });
+
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        window.showAdminPopup?.(payload?.message || "Failed to archive appointment.", { title: "Archive Failed" });
+        return;
+      }
+
+      document.getElementById("modalArchiveAppointment")?.classList.remove("show");
+      archivingAppointmentId = null;
+      await refreshAll();
+      setTimeout(() => {
+        window.showAdminPopup?.("Appointment has been archived and moved to the Archives page.", { title: "Archived ✓" });
+      }, 200);
+    } catch (err) {
+      console.error("Archive appointment error:", err);
+      window.showAdminPopup?.("Cannot connect to server.", { title: "Error" });
+    } finally {
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = '<i class="fa-solid fa-box-archive"></i> Archive';
+      }
+    }
+  });
+
   const refreshAll = async () => {
+
     try {
       const isCalendarOpen = modalCalendar?.classList.contains("show");
       
@@ -1005,6 +1146,24 @@ document.addEventListener("DOMContentLoaded", () => {
       renderDaySlotList();
       renderTimeSlots();
       renderCalendar();
+    }
+
+    // ─── View Appointment ────────────────────────────────────────────────────
+    const viewBtn = target.closest("[data-view-id]");
+    if (viewBtn) {
+      const id = viewBtn.getAttribute("data-view-id");
+      const appt = state.appointments.find((a) => String(a.id) === String(id));
+      if (appt) openAppointmentViewModal(appt);
+      return;
+    }
+
+    // ─── Archive Appointment ─────────────────────────────────────────────────
+    const archiveBtn = target.closest("[data-archive-id]");
+    if (archiveBtn) {
+      const id = archiveBtn.getAttribute("data-archive-id");
+      const appt = state.appointments.find((a) => String(a.id) === String(id));
+      if (appt) openAppointmentArchiveModal(appt);
+      return;
     }
   });
 

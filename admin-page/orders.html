@@ -220,7 +220,6 @@
                       <th>Order No.</th>
                       <th>Customer</th>
                       <th>Method</th>
-                      <th>Reference</th>
                       <th>Amount</th>
                       <th>Status</th>
                       <th>Date Paid</th>
@@ -418,18 +417,25 @@
       </div>
     </div>
 
-    <div class="modal-overlay" id="modalDeletePaymentHistory" data-backdrop-close="false">
+    <div class="modal-overlay" id="modalArchivePaymentHistory" data-backdrop-close="false">
       <div class="modal-card modal-confirm">
-        <h3 class="modal-title">Delete Payment Confirmation</h3>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
+          <div style="width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#78350f,#d97706);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i class="fa-solid fa-box-archive" style="color:#fff;font-size:1.1rem;"></i>
+          </div>
+          <h3 class="modal-title" style="margin-bottom:0;">Archive Payment Record</h3>
+        </div>
         <hr class="confirm-separator" />
         <p class="confirm-text">
-          You are about to delete payment history for <strong id="paymentDeleteTargetLabel"></strong>.
+          You are about to archive payment for <strong id="paymentArchiveTargetLabel"></strong>.
         </p>
-        <p class="field-hint">This action cannot be undone.</p>
+        <p class="field-hint">The payment record will be moved to the Archives page. You can still view it from the Archives module.</p>
         <hr class="confirm-separator" />
         <div class="modal-actions">
-          <button class="btn-admin btn-secondary" id="btnCancelDeletePaymentHistory" type="button">Cancel</button>
-          <button class="btn-admin" id="btnConfirmDeletePaymentHistory" type="button">Delete Payment</button>
+          <button class="btn-admin btn-secondary" id="btnCancelArchivePaymentHistory" type="button">Cancel</button>
+          <button class="btn-admin" id="btnConfirmArchivePaymentHistory" type="button" style="background:linear-gradient(135deg,#78350f,#d97706);border-color:#d97706;">
+            <i class="fa-solid fa-box-archive"></i> Archive Payment
+          </button>
         </div>
       </div>
     </div>
