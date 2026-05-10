@@ -231,7 +231,31 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const ensureCustomerInquiriesEntry = () => {
+    if (!sidebarNav) return;
+
+    let inquiriesLink = sidebarNav.querySelector('a[href="customer-inquiries.html"]');
+    if (!inquiriesLink) {
+      const ordersLink = sidebarNav.querySelector('a[href="orders.html"]');
+      inquiriesLink = document.createElement("a");
+      inquiriesLink.href = "customer-inquiries.html";
+      inquiriesLink.className = "nav-link";
+      inquiriesLink.innerHTML = '<i class="fa-regular fa-envelope-open"></i> Customer Inquiries';
+
+      if (ordersLink) {
+        ordersLink.insertAdjacentElement("afterend", inquiriesLink);
+      } else {
+        sidebarNav.appendChild(inquiriesLink);
+      }
+    }
+
+    if (window.location.pathname.toLowerCase().endsWith("/customer-inquiries.html")) {
+      inquiriesLink.classList.add("active");
+    }
+  };
+
   ensureMyAccountEntry();
+  ensureCustomerInquiriesEntry();
   sanitizeRemovedPageLinks();
   decorateSidebarLabels();
   ensureMobileSidebarChrome();

@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Customer Inquiries | CNSC-FMRC Admin</title>
+    <link rel="stylesheet" href="dashboard.css" />
+    <link rel="stylesheet" href="admin-modules.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+      .inquiry-stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; }
+      .inquiry-stat-card { background:#fff; border:1px solid var(--border-color); border-radius:12px; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+      .inquiry-stat-card h4 { margin:0; font-size:.78rem; letter-spacing:.05em; text-transform:uppercase; color:#7b818c; }
+      .inquiry-stat-card p { margin:6px 0 0; font-size:1.5rem; font-weight:700; color:#1f2937; line-height:1; }
+      .inquiry-stat-icon { width:40px; height:40px; border-radius:10px; display:grid; place-items:center; color:#fff; font-size:.95rem; }
+
+      .inquiry-filters { display:grid; grid-template-columns:minmax(180px,240px) minmax(220px,1fr); gap:10px; }
+      .inquiry-input { height:38px; border:1px solid #d8dde3; border-radius:9px; padding:0 12px; font-size:.82rem; color:#222; background:#fff; }
+
+      #inquiriesTable { min-width: 1080px; }
+      .inq-text-muted { color:#6b7280; font-size:.75rem; }
+      .inq-name-cell { min-width:170px; }
+      .inq-message-preview { white-space:normal; display:-webkit-box; -webkit-line-clamp:2; line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; max-width:340px; line-height:1.4; }
+      .inq-status-pill { display:inline-flex; align-items:center; justify-content:center; min-width:82px; border-radius:999px; padding:5px 10px; font-size:.68rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
+      .inq-status-new { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
+      .inq-status-resolved { background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; }
+      .inq-read-badge { font-size:.66rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; border-radius:999px; padding:4px 8px; border:1px solid #dbe2ea; }
+      .inq-read-badge.unread { background:#eff6ff; color:#1d4ed8; border-color:#bfdbfe; }
+      .inq-read-badge.read { background:#f8fafc; color:#475569; }
+
+      .inquiry-table-actions { display:flex; align-items:center; gap:8px; }
+      .inquiry-table-actions .btn-compact { width:29px; height:29px; border-radius:8px; border:1px solid #dbe2ea; background:#fff; color:#475569; cursor:pointer; display:grid; place-items:center; transition:all .2s ease; }
+      .inquiry-table-actions .btn-compact:hover { color:#fff; border-color:var(--primary-color); background:var(--primary-color); }
+      .inquiry-table-actions .btn-compact.btn-danger:hover { border-color:#dc2626; background:#dc2626; }
+      .inquiry-table-actions .btn-compact:disabled { opacity:.45; pointer-events:none; }
+
+      .inquiry-loading-state { display:flex; align-items:center; justify-content:center; gap:10px; min-height:160px; color:#6b7280; font-size:.82rem; }
+
+      .inquiry-detail-grid { display:grid; grid-template-columns:repeat(2,minmax(170px,1fr)); gap:10px; margin-top:8px; }
+      .inquiry-detail-box { border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px; background:#fff; }
+      .inquiry-detail-box h5 { margin:0 0 5px; font-size:.66rem; color:#6b7280; letter-spacing:.05em; text-transform:uppercase; }
+      .inquiry-detail-box p { margin:0; font-size:.8rem; color:#1f2937; word-break:break-word; }
+      .inquiry-detail-box.full { grid-column:1 / -1; }
+      .inquiry-detail-message { white-space:pre-wrap; line-height:1.55; min-height:96px; }
+
+      @media (max-width: 900px) {
+        .inquiry-filters { grid-template-columns:1fr; }
+        .inquiry-detail-grid { grid-template-columns:1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="dashboard-container">
+      <aside class="sidebar">
+        <div class="sidebar-header"><img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" /><h2>CNSC-FMRC</h2></div>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html" class="nav-link"><i class="fa-solid fa-house"></i> Dashboard</a>
+          <a href="inventory.html" class="nav-link"><i class="fa-solid fa-box"></i> Inventory</a>
+          <a href="products.html" class="nav-link"><i class="fa-solid fa-tags"></i> Products</a>
+          <a href="appointments.html" class="nav-link"><i class="fa-regular fa-calendar-check"></i> Appointment</a>
+          <a href="accounts.html" class="nav-link"><i class="fa-solid fa-users"></i> User Management</a>
+          <a href="reports.html" class="nav-link"><i class="fa-solid fa-chart-line"></i> Reports</a>
+          <a href="orders.html" class="nav-link"><i class="fa-solid fa-box-open"></i> Orders</a>
+          <a href="customer-inquiries.html" class="nav-link active"><i class="fa-regular fa-envelope-open"></i> Customer Inquiries</a>
+
+          <div class="nav-item has-dropdown">
+            <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn">
+              <div class="dropdown-title">
+                <i class="fa-solid fa-screwdriver-wrench"></i> Website Management
+              </div>
+              <i class="fa-solid fa-chevron-down arrow"></i>
+            </a>
+            <div class="dropdown-menu">
+              <a href="website-home.html" class="sub-link">Home</a>
+              <a href="website-services.html" class="sub-link">Services</a>
+              <a href="website-contact.html" class="sub-link">Contact</a>
+              <a href="website-footer.html" class="sub-link">Footer</a>
+            </div>
+          </div>
+
+          <a href="archives.html" class="nav-link"><i class="fa-solid fa-box-archive"></i> Archives</a>
+          <a href="my-account.html" class="nav-link"><i class="fa-regular fa-id-card"></i> My Account</a>
+        </nav>
+        <div class="sidebar-footer"><button class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div>
+      </aside>
+
+      <main class="main-content">
+        <header class="top-header">
+          <div class="header-left"><h1>Customer Inquiries</h1></div>
+          <div class="header-right"><div class="notifications" id="notifBell"><i class="fa-regular fa-bell"></i><span class="badge" id="notifBadge" style="display:none;"></span></div><div class="user-profile"><div class="user-info"><span class="role">Admin</span></div><span class="profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span><div class="profile-popup" id="profilePopup"><div class="popup-header">
+                  <div class="popup-profile-row">
+                    <span class="popup-profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
+                    <div class="popup-profile-meta">
+                      <p class="popup-identity">admin@cnsc.edu.ph</p>
+                      <span class="popup-role">Admin</span>
+                    </div>
+                  </div>
+                </div>
+                <a href="my-account.html" class="profile-popup-link"><i class="fa-regular fa-id-card"></i> My Account</a>
+                <hr /><button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div></div></div>
+        </header>
+
+        <section class="module-content">
+          <div class="page-toolbar">
+            <div class="toolbar-title">
+              <h2>Contact Form Inbox</h2>
+              <p>Monitor and manage messages submitted by authenticated customers from the website Contact page.</p>
+            </div>
+            <div class="toolbar-actions">
+              <button class="btn-admin btn-secondary" id="inquiriesRefreshBtn" type="button" title="Refresh Data">
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+              </button>
+            </div>
+          </div>
+
+          <div class="inquiry-stats-grid" id="inquiryStatsGrid">
+            <div class="inquiry-stat-card"><div><h4>Total Messages</h4><p id="statTotal">0</p></div><span class="inquiry-stat-icon total card-icon-maroon"><i class="fa-regular fa-envelope"></i></span></div>
+            <div class="inquiry-stat-card"><div><h4>New</h4><p id="statNew">0</p></div><span class="inquiry-stat-icon new card-icon-blue"><i class="fa-solid fa-bolt"></i></span></div>
+            <div class="inquiry-stat-card"><div><h4>Unread</h4><p id="statUnread">0</p></div><span class="inquiry-stat-icon unread card-icon-cyan"><i class="fa-regular fa-eye"></i></span></div>
+            <div class="inquiry-stat-card"><div><h4>Resolved</h4><p id="statResolved">0</p></div><span class="inquiry-stat-icon resolved card-icon-green"><i class="fa-solid fa-check-double"></i></span></div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header" style="margin-bottom:14px;">
+              <h3>Inbox Directory</h3>
+              <div class="inquiry-filters">
+                <select id="inquiryStatusFilter" class="inquiry-input" aria-label="Filter by status">
+                  <option value="all">All Status</option>
+                  <option value="new">New</option>
+                  <option value="unread">Unread</option>
+                  <option value="resolved">Resolved</option>
+                </select>
+                <input id="inquirySearchInput" class="inquiry-input" placeholder="Search sender name, email, or message..." />
+              </div>
+            </div>
+
+            <div class="table-wrapper">
+              <table class="admin-table enhanced-table" id="inquiriesTable" data-page-size="8" data-empty-message="No customer inquiries found.">
+                <thead>
+                  <tr>
+                    <th>Sender</th>
+                    <th>Message Preview</th>
+                    <th>Submitted</th>
+                    <th>Status</th>
+                    <th>Read</th>
+                    <th class="sticky-action">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="inquiriesTableBody"></tbody>
+              </table>
+            </div>
+            <div class="table-footer" id="inquiriesFooter">
+              <div class="table-footer-meta" id="inquiriesMeta">Page 1 of 1</div>
+              <div class="table-pagination">
+                <button class="page-btn" id="inquiriesPrevBtn" aria-label="Previous page"><i class="fa-solid fa-chevron-left"></i></button>
+                <div class="page-number" id="inquiriesPageNumber">1</div>
+                <button class="page-btn" id="inquiriesNextBtn" aria-label="Next page"><i class="fa-solid fa-chevron-right"></i></button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-overlay" id="inquiryDetailModal" data-backdrop-close="false">
+      <div class="modal-card" style="max-width: 720px; width:100%;">
+        <h3 class="modal-title">Inquiry Details</h3>
+        <div class="inquiry-detail-grid">
+          <div class="inquiry-detail-box">
+            <h5>Sender Name</h5>
+            <p id="detailSenderName">-</p>
+          </div>
+          <div class="inquiry-detail-box">
+            <h5>Email Address</h5>
+            <p id="detailSenderEmail">-</p>
+          </div>
+          <div class="inquiry-detail-box">
+            <h5>Submitted</h5>
+            <p id="detailSubmittedAt">-</p>
+          </div>
+          <div class="inquiry-detail-box">
+            <h5>Current Status</h5>
+            <p id="detailStatus">-</p>
+          </div>
+          <div class="inquiry-detail-box full">
+            <h5>Message</h5>
+            <p id="detailMessage" class="inquiry-detail-message">-</p>
+          </div>
+        </div>
+        <div class="form-actions" style="margin-top:16px; display:flex; justify-content:flex-end; gap:10px;">
+          <button type="button" class="btn-admin btn-secondary" data-modal-close="#inquiryDetailModal">Close</button>
+          <button type="button" class="btn-admin" id="detailResolveBtn">Mark as Resolved</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="session-helper.js"></script>
+    <script src="admin-common.js"></script>
+    <script src="customer-inquiries.js"></script>
+  </body>
+</html>

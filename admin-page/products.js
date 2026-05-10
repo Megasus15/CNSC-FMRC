@@ -153,11 +153,35 @@ document.addEventListener("DOMContentLoaded", () => {
   const getProductsForCategory = (category) =>
     products.filter((product) => product.category === category).sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
 
+  const renderAddProductOptions = (category, selectedValue = "", preserveValue = true) => {
+    if (!addNameSelect) return;
+
+    const normalizedCategory = (category || addCategory?.value || "3D Print").trim();
+    const sourceOptions = getProductsForCategory(normalizedCategory);
+
+    addNameSelect.innerHTML = [
+      '<option value="">Select an existing product</option>',
+      ...sourceOptions.map((product) =>
+        `<option value="${product.id}" data-code="${escHtml(product.code || "")}" data-name="${escHtml(product.name || "")}">${escHtml(product.name || "Unnamed")}</option>`,
+      ),
+    ].join("");
+
+    if (preserveValue && selectedValue && sourceOptions.some((product) => String(product.id) === String(selectedValue))) {
+      addNameSelect.value = String(selectedValue);
+    } else {
+      addNameSelect.value = "";
+    }
+
+    syncAddProductCodeFromSelection();
+  };
+
   const loadAddProductOptions = async (category, preserveValue = true) => {
     if (!addNameSelect) return;
 
     const selectedValue = preserveValue ? addNameSelect.value : "";
     const normalizedCategory = (category || addCategory?.value || "3D Print").trim();
+
+    renderAddProductOptions(normalizedCategory, selectedValue, preserveValue);
 
     try {
       const res = await fetch(
@@ -182,8 +206,8 @@ document.addEventListener("DOMContentLoaded", () => {
         ...options.map((product) => `<option value="${product.id}" data-code="${escHtml(product.code || "")}" data-name="${escHtml(product.name || "")}">${escHtml(product.name || "Unnamed")}</option>`),
       ].join("");
 
-      if (selectedValue && options.some((product) => String(product.id) === selectedValue)) {
-        addNameSelect.value = selectedValue;
+      if (selectedValue && options.some((product) => String(product.id) === String(selectedValue))) {
+        addNameSelect.value = String(selectedValue);
       } else {
         addNameSelect.value = "";
       }
@@ -191,13 +215,7 @@ document.addEventListener("DOMContentLoaded", () => {
       syncAddProductCodeFromSelection();
     } catch (error) {
       console.error("Load product options error:", error);
-      const fallbackOptions = getProductsForCategory(normalizedCategory);
-      addNameSelect.innerHTML = [
-        '<option value="">Select an existing product</option>',
-        ...fallbackOptions.map((product) => `<option value="${product.id}" data-code="${escHtml(product.code || "")}" data-name="${escHtml(product.name || "")}">${escHtml(product.name || "Unnamed")}</option>`),
-      ].join("");
-      addNameSelect.value = preserveValue ? selectedValue : "";
-      syncAddProductCodeFromSelection();
+      renderAddProductOptions(normalizedCategory, selectedValue, preserveValue);
     }
   };
 
@@ -984,6 +1002,9 @@ document.addEventListener("DOMContentLoaded", () => {
       products = Array.isArray(payload?.data) ? payload.data : [];
       currentPage = 1;
       renderTable();
+      if (addNameSelect) {
+        renderAddProductOptions(addCategory?.value || "3D Print", addNameSelect.value, true);
+      }
       if (modalAdd?.classList.contains("show")) {
         void loadAddProductOptions(addCategory?.value || "3D Print");
       }

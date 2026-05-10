@@ -2661,19 +2661,15 @@ document.addEventListener("DOMContentLoaded", () => {
           };
         }
 
-        // Build headers with Bearer token. Keep changes narrow to order
-        // submission only so other pages are not affected.
-        const headers = {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        };
-        if (token) headers.Authorization = `Bearer ${token}`;
-
         const response = await fetchWithTimeout(
           `${API_BASE_URL}/orders`,
           {
             method: "POST",
-            headers,
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
             body: JSON.stringify(payload),
           },
           25000,
@@ -2681,22 +2677,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
-          // Handle authentication failures explicitly so users see a clear
-          // recovery path instead of a generic "Unauthenticated" error.
-          if (response.status === 401) {
-            try {
-              localStorage.removeItem("customer_token");
-              localStorage.removeItem("customer_info");
-            } catch {}
-            await showCustomerPopup(
-              "Your session has expired. Please sign in again to place orders.",
-              { title: "Authentication Required" },
-            );
-            window.location.href = "../customer-auth/auth.html#login";
-            return;
-          }
-
-          throw new Error(data.message || "Unable to place order at the moment.");
+          throw new Error(
+            data.message || "Unable to place order at the moment.",
+          );
         }
 
         const orderNoRaw = String(
@@ -4849,15 +4832,91 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const contactMessageForm = document.getElementById("contactMessageForm");
   if (contactMessageForm) {
-    contactMessageForm.addEventListener("submit", (event) => {
+    contactMessageForm.addEventListener("submit", async (event) => {
       event.preventDefault();
-      void showCustomerPopup(
-        "Thank you! Your message has been sent successfully.",
+
+      if (!requireCustomerAuth("send a message")) {
+        return;
+      }
+
+      const nameInput = document.getElementById("contactName");
+      const emailInput = document.getElementById("contactEmail");
+      const messageInput = document.getElementById("contactMessage");
+      const submitBtn = contactMessageForm.querySelector(".contact-submit-btn");
+
+      const payload = {
+        name: String(nameInput?.value || "").trim(),
+        email: String(emailInput?.value || "").trim(),
+        message: String(messageInput?.value || "").trim(),
+      };
+
+      if (!payload.name || !payload.email || !payload.message) {
+        await showCustomerPopup("Please complete Name, Email, and Message before sending.", {
+          title: "Incomplete Form",
+        });
+        return;
+      }
+
+      const confirmed = await showCustomerPopup(
+        "Send this message to the FMRC customer support team now?",
         {
-          title: "Message Sent",
+          title: "Confirm Send",
+          isConfirm: true,
         },
       );
-      contactMessageForm.reset();
+
+      if (!confirmed) {
+        return;
+      }
+
+      const previousText = submitBtn?.textContent || "Send Message";
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.classList.add("is-loading");
+        submitBtn.textContent = "Sending...";
+      }
+
+      try {
+        const authToken = customerSession.token || localStorage.getItem("customer_token") || "";
+        const response = await fetchWithTimeout(`${API_BASE_URL}/customer/messages`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(payload),
+        }, 15000);
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data?.message || "Unable to send your message right now.");
+        }
+
+        contactMessageForm.reset();
+        await showCustomerPopup(
+          data?.message || "Thank you. Your message has been sent successfully.",
+          {
+            title: "Message Sent",
+            allowBackdropClose: false,
+          },
+        );
+      } catch (error) {
+        await showCustomerPopup(
+          error?.message || "Unable to send your message. Please try again.",
+          {
+            title: "Send Failed",
+          },
+        );
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.classList.remove("is-loading");
+          submitBtn.textContent = previousText;
+        }
+      }
+
     });
   }
 });

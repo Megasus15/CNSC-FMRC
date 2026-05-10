@@ -9,10 +9,10 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\WalkInOrder;
-use App\Models\User;
-use Illuminate\Http\JsonResponse;
+use App\Models\User;use App\Models\CustomerMessage;use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class AdminDashboardController extends Controller
 {
@@ -40,6 +40,13 @@ class AdminDashboardController extends Controller
         $accountsCount = User::query()->count();
         $ordersCount = Order::query()->count();
         $productsCount = Product::query()->count();
+        $customerInquiriesCount = CustomerMessage::query()->count();
+
+        // ─── Archive Counts ───
+        $archivedInventoryCount = InventoryItem::query()->where('is_archived', true)->count();
+        $archivedAppointmentsCount = Appointment::query()->where('status', 'Archived')->count();
+        $archivedOrdersCount = Order::query()->where('is_archived', true)->count();
+        $totalArchivesCount = $archivedInventoryCount + $archivedAppointmentsCount + $archivedOrdersCount;
 
         // ─── Total Revenue (completed orders + walk-in subtotal costs) ───
         $completedOrdersRevenue = (float) Order::query()
@@ -189,6 +196,24 @@ class AdminDashboardController extends Controller
             })
             ->values();
 
+        $recentCustomerInquiries = CustomerMessage::query()
+            ->select(['id', 'sender_name', 'sender_email', 'message', 'status', 'is_read', 'created_at'])
+            ->orderByDesc('created_at')
+            ->limit(3)
+            ->get()
+            ->map(function (CustomerMessage $msg) {
+                return [
+                    'id' => $msg->id,
+                    'sender_name' => $msg->sender_name,
+                    'sender_email' => $msg->sender_email,
+                    'message_preview' => Str::limit($msg->message, 50),
+                    'status' => $msg->status,
+                    'is_read' => (bool) $msg->is_read,
+                    'created_at' => optional($msg->created_at)->toIso8601String(),
+                ];
+            })
+            ->values();
+
         return response()->json([
             'data' => [
                 'counts' => [
@@ -196,6 +221,8 @@ class AdminDashboardController extends Controller
                     'accounts' => $accountsCount,
                     'orders' => $ordersCount,
                     'products' => $productsCount,
+                    'customer_inquiries' => $customerInquiriesCount,
+                    'total_archives' => $totalArchivesCount,
                     'total_revenue' => $totalRevenue,
                     'total_inventory_items' => $totalInventoryItems,
                 ],
@@ -208,6 +235,7 @@ class AdminDashboardController extends Controller
                 ],
                 'recent_appointments' => $recentAppointments,
                 'recent_orders' => $recentOrders,
+                'recent_customer_inquiries' => $recentCustomerInquiries,
                 'generated_at' => now()->toIso8601String(),
             ],
         ]);

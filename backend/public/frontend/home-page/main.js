@@ -3211,10 +3211,90 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const contactMessageForm = document.getElementById("contactMessageForm");
   if (contactMessageForm) {
-    contactMessageForm.addEventListener("submit", (event) => {
+    contactMessageForm.addEventListener("submit", async (event) => {
       event.preventDefault();
-      alert("Thank you! Your message has been sent successfully.");
-      contactMessageForm.reset();
+
+      if (!requireCustomerAuth("send a message")) {
+        return;
+      }
+
+      const nameInput = document.getElementById("contactName");
+      const emailInput = document.getElementById("contactEmail");
+      const messageInput = document.getElementById("contactMessage");
+      const submitBtn = contactMessageForm.querySelector(".contact-submit-btn");
+
+      const payload = {
+        name: String(nameInput?.value || "").trim(),
+        email: String(emailInput?.value || "").trim(),
+        message: String(messageInput?.value || "").trim(),
+      };
+
+      if (!payload.name || !payload.email || !payload.message) {
+        await showCustomerPopup("Please complete Name, Email, and Message before sending.", {
+          title: "Incomplete Form",
+        });
+        return;
+      }
+
+      const confirmed = await showCustomerPopup(
+        "Send this message to the FMRC customer support team now?",
+        {
+          title: "Confirm Send",
+          isConfirm: true,
+        },
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      const previousText = submitBtn?.textContent || "Send Message";
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.classList.add("is-loading");
+        submitBtn.textContent = "Sending...";
+      }
+
+      try {
+        const authToken = customerSession.token || localStorage.getItem("customer_token") || "";
+        const response = await fetchWithTimeout(`${API_BASE_URL}/customer/messages`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(payload),
+        }, 15000);
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data?.message || "Unable to send your message right now.");
+        }
+
+        contactMessageForm.reset();
+        await showCustomerPopup(
+          data?.message || "Thank you. Your message has been sent successfully.",
+          {
+            title: "Message Sent",
+            allowBackdropClose: false,
+          },
+        );
+      } catch (error) {
+        await showCustomerPopup(
+          error?.message || "Unable to send your message. Please try again.",
+          {
+            title: "Send Failed",
+          },
+        );
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.classList.remove("is-loading");
+          submitBtn.textContent = previousText;
+        }
+      }
     });
   }
 });

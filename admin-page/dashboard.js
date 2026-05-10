@@ -476,8 +476,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const dashboardProductsCount = document.getElementById("dashboardProductsCount");
     const dashboardRevenueAmount = document.getElementById("dashboardRevenueAmount");
     const dashboardInventoryCount = document.getElementById("dashboardInventoryCount");
+    const dashboardArchivesCount = document.getElementById("dashboardArchivesCount");
     const dashboardRecentAppointments = document.getElementById("dashboardRecentAppointments");
     const dashboardRecentOrders = document.getElementById("dashboardRecentOrders");
+    const dashboardRecentInquiries = document.getElementById("dashboardRecentInquiries");
     const dashboardRefreshBtn = document.getElementById("dashboardRefreshBtn");
 
     // Analytics overview elements
@@ -563,11 +565,18 @@ document.addEventListener("DOMContentLoaded", () => {
       return "priority-high";
     };
 
-    const setCountCards = ({ appointments, accounts, orders, products, total_revenue, total_inventory_items }) => {
+    const inquiryStatusClass = (status) => {
+      const normalized = String(status || "").toLowerCase();
+      if (normalized === "resolved") return "priority-low";
+      return "priority-high";
+    };
+
+    const setCountCards = ({ appointments, accounts, orders, products, total_archives, total_revenue, total_inventory_items }) => {
       if (dashboardAppointmentsCount) dashboardAppointmentsCount.textContent = formatCount(appointments);
       if (dashboardAccountsCount) dashboardAccountsCount.textContent = formatCount(accounts);
       if (dashboardOrdersCount) dashboardOrdersCount.textContent = formatCount(orders);
       if (dashboardProductsCount) dashboardProductsCount.textContent = formatCount(products);
+      if (dashboardArchivesCount) dashboardArchivesCount.textContent = formatCount(total_archives);
       if (dashboardRevenueAmount) dashboardRevenueAmount.textContent = formatCurrency(total_revenue);
       if (dashboardInventoryCount) dashboardInventoryCount.textContent = formatCount(total_inventory_items);
     };
@@ -658,6 +667,45 @@ document.addEventListener("DOMContentLoaded", () => {
         .join("");
     };
 
+    const renderRecentCustomerInquiries = (inquiries) => {
+      if (!dashboardRecentInquiries) return;
+
+      const latest = sortLatestFirst(inquiries).slice(0, 3);
+      if (!latest.length) {
+        dashboardRecentInquiries.innerHTML = `
+          <li class="recent-empty">
+            <div class="recent-info">
+              <strong>No customer inquiries yet.</strong>
+              <span>Recent inquiries will appear once customers submit messages.</span>
+            </div>
+          </li>
+        `;
+        return;
+      }
+
+      dashboardRecentInquiries.innerHTML = latest
+        .map((inquiry, index) => {
+          const status = inquiry?.status || "New";
+          const senderName = inquiry?.sender_name || "Anonymous";
+          const messagePreview = inquiry?.message_preview || "No message";
+
+          return `
+            <li class="${index === 0 ? "latest-entry" : ""}">
+              <div class="recent-info">
+                <strong>${escapeHtml(senderName)}</strong>
+                <span>${escapeHtml(messagePreview)}</span>
+              </div>
+              <div class="recent-side">
+                ${index === 0 ? '<span class="latest-chip">Latest</span>' : ""}
+                <span class="badge-status ${inquiryStatusClass(status)}">${escapeHtml(status)}</span>
+                <span class="recent-date">${escapeHtml(formatCompactDate(inquiry?.created_at))}</span>
+              </div>
+            </li>
+          `;
+        })
+        .join("");
+    };
+
     const renderDashboardLoading = () => {
       const loaderHTML = `
         <li class="recent-item" style="pointer-events:none; padding:12px 16px; border-bottom:1px solid #f3f4f6; display:flex; align-items:center;">
@@ -676,6 +724,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (dashboardRecentOrders) {
         dashboardRecentOrders.innerHTML = loaderHTML;
+      }
+      if (dashboardRecentInquiries) {
+        dashboardRecentInquiries.innerHTML = loaderHTML;
       }
     };
 
@@ -696,6 +747,17 @@ document.addEventListener("DOMContentLoaded", () => {
           <li class="recent-empty">
             <div class="recent-info">
               <strong>Unable to load orders.</strong>
+              <span>${escapeHtml(message)}</span>
+            </div>
+          </li>
+        `;
+      }
+
+      if (dashboardRecentInquiries) {
+        dashboardRecentInquiries.innerHTML = `
+          <li class="recent-empty">
+            <div class="recent-info">
+              <strong>Unable to load inquiries.</strong>
               <span>${escapeHtml(message)}</span>
             </div>
           </li>
@@ -885,18 +947,23 @@ document.addEventListener("DOMContentLoaded", () => {
       const orders = Array.isArray(summary?.recent_orders)
         ? summary.recent_orders
         : [];
+      const inquiries = Array.isArray(summary?.recent_customer_inquiries)
+        ? summary.recent_customer_inquiries
+        : [];
 
       setCountCards({
         appointments: counts?.appointments,
         accounts: counts?.accounts,
         orders: counts?.orders,
         products: counts?.products,
+        total_archives: counts?.total_archives,
         total_revenue: counts?.total_revenue,
         total_inventory_items: counts?.total_inventory_items,
       });
 
       renderRecentAppointments(appointments);
       renderRecentOrders(orders, []);
+      renderRecentCustomerInquiries(inquiries);
 
       // Render analytics overview
       renderAnalyticsOverview(summary?.analytics_summary || null);

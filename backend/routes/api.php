@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\ProductAnalyticsController;
 use App\Http\Controllers\Api\WalkInOrderController;
 use App\Http\Controllers\Api\InventoryItemController;
 use App\Http\Controllers\Api\ArchiveController;
+use App\Http\Controllers\Api\CustomerMessageController;
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
@@ -50,6 +51,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/customer/cart', [\App\Http\Controllers\CartItemController::class, 'index']);
     Route::post('/customer/cart/sync', [\App\Http\Controllers\CartItemController::class, 'sync']);
+    Route::post('/customer/messages', [CustomerMessageController::class, 'store']);
 
     Route::get('/admin/orders', [OrderController::class, 'adminIndex']);
     Route::get('/admin/dashboard/summary', [AdminDashboardController::class, 'summary']);
@@ -102,6 +104,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/admin/notifications/mark-all-read', [NotificationController::class, 'markAllRead']);
     Route::delete('/admin/notifications/clear-all', [NotificationController::class, 'clearAll']);
     Route::delete('/admin/notifications/{notification}', [NotificationController::class, 'destroy']);
+
+    // Admin/Staff: Customer inquiries from Contact page
+    Route::get('/admin/customer-messages', [CustomerMessageController::class, 'index']);
+    Route::get('/admin/customer-messages/summary', [CustomerMessageController::class, 'summary']);
+    Route::patch('/admin/customer-messages/{customerMessage}/read', [CustomerMessageController::class, 'markRead']);
+    Route::patch('/admin/customer-messages/{customerMessage}/resolve', [CustomerMessageController::class, 'resolve']);
+    Route::delete('/admin/customer-messages/{customerMessage}', [CustomerMessageController::class, 'destroy']);
 
     // Admin: Product Analytics (real-time order-based)
     Route::get('/admin/product-analytics/top-selling', [ProductAnalyticsController::class, 'topSelling']);

@@ -155,7 +155,7 @@
 
             <a class="card card-link" href="archives.html" data-nav-label="Archives">
               <div class="card-info">
-                <h3>89</h3>
+                <h3 id="dashboardArchivesCount"><span class="card-value-loading"></span></h3>
                 <p>Archived Records</p>
               </div>
               <div class="card-icon-box card-icon-slate"><i class="fa-solid fa-box-archive"></i></div>
@@ -272,6 +272,22 @@
                 <li class="recent-loading">
                   <div class="recent-info">
                     <strong>Loading orders...</strong>
+                    <span>Please wait while dashboard syncs.</span>
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Recent Customer Inquiries -->
+            <div class="widget recent-panel">
+              <div class="widget-header">
+                <h3><i class="fa-regular fa-envelope" style="margin-right: 8px; color: var(--primary-color);"></i> Recent Customer Inquiries</h3>
+                <a href="customer-inquiries.html" class="view-all-link">See All <i class="fa-solid fa-arrow-right"></i></a>
+              </div>
+              <ul class="recent-list" id="dashboardRecentInquiries">
+                <li class="recent-loading">
+                  <div class="recent-info">
+                    <strong>Loading inquiries...</strong>
                     <span>Please wait while dashboard syncs.</span>
                   </div>
                 </li>

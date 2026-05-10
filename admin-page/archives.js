@@ -283,10 +283,28 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ─── Fetch from Backend ──────────────────────────────────────────────────────
+  const buildSkeletonRows = (cols) => {
+    const widths = [90, 80, 70, 65, 55, 75, 45, 60, 85, 50, 40];
+    return Array.from({ length: PAGE_SIZE }, () => {
+      return `<tr>${Array.from({ length: cols }, (_, index) => `<td><div class="skeleton-text" style="width:${widths[index % widths.length]}%;min-height:14px;"></div></td>`).join("")}</tr>`;
+    }).join("");
+  };
+
   const setLoading = () => {
-    if (invTbody)   invTbody.innerHTML   = `<tr><td colspan="9"><div class="table-empty-state"><i class="fa-solid fa-spinner fa-spin"></i><span>Loading…</span></div></td></tr>`;
-    if (apptTbody)  apptTbody.innerHTML  = `<tr><td colspan="11"><div class="table-empty-state"><i class="fa-solid fa-spinner fa-spin"></i><span>Loading…</span></div></td></tr>`;
-    if (orderTbody) orderTbody.innerHTML = `<tr><td colspan="8"><div class="table-empty-state"><i class="fa-solid fa-spinner fa-spin"></i><span>Loading…</span></div></td></tr>`;
+    if (invTbody)   invTbody.innerHTML   = buildSkeletonRows(9);
+    if (apptTbody)  apptTbody.innerHTML  = buildSkeletonRows(11);
+    if (orderTbody) orderTbody.innerHTML = buildSkeletonRows(8);
+
+    if (invMeta)    invMeta.textContent   = "Loading…";
+    if (apptMeta)   apptMeta.textContent  = "Loading…";
+    if (orderMeta)  orderMeta.textContent = "Loading…";
+
+    if (invPrev)    invPrev.disabled     = true;
+    if (invNext)    invNext.disabled     = true;
+    if (apptPrev)   apptPrev.disabled    = true;
+    if (apptNext)   apptNext.disabled    = true;
+    if (orderPrev)  orderPrev.disabled   = true;
+    if (orderNext)  orderNext.disabled   = true;
   };
 
   const setError = (msg) => {

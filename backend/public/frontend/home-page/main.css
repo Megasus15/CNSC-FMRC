@@ -4512,6 +4512,25 @@ input:checked + .toggle-slider:before {
   transform: scale(0.98);
 }
 
+.contact-submit-btn.is-loading {
+  opacity: 0.85;
+  cursor: wait;
+  pointer-events: none;
+}
+
+.contact-submit-btn.is-loading::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 8px;
+  animation: spinner 0.8s linear infinite;
+}
+
 .vision-section {
   background: #ffffff;
 }
