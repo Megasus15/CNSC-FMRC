@@ -33,6 +33,15 @@ class DatabaseSeeder extends Seeder
             'role' => 'cashier',
         ]);
 
+        // Test Customer Account (for order testing)
+        User::factory()->create([
+            'name' => 'Test Customer',
+            'username' => 'kevinarevaio',
+            'email' => 'arevalokevin9696@gmail.com',
+            'password' => bcrypt('thekevin146'),
+            'role' => 'customer',
+        ]);
+
         // Site Settings & Services
         $this->call(SiteSettingSeeder::class);
     }

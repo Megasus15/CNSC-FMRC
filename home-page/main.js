@@ -2661,15 +2661,19 @@ document.addEventListener("DOMContentLoaded", () => {
           };
         }
 
+        // Build headers with Bearer token. Keep changes narrow to order
+        // submission only so other pages are not affected.
+        const headers = {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        };
+        if (token) headers.Authorization = `Bearer ${token}`;
+
         const response = await fetchWithTimeout(
           `${API_BASE_URL}/orders`,
           {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
+            headers,
             body: JSON.stringify(payload),
           },
           25000,
@@ -2677,9 +2681,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
-          throw new Error(
-            data.message || "Unable to place order at the moment.",
-          );
+          // Handle authentication failures explicitly so users see a clear
+          // recovery path instead of a generic "Unauthenticated" error.
+          if (response.status === 401) {
+            try {
+              localStorage.removeItem("customer_token");
+              localStorage.removeItem("customer_info");
+            } catch {}
+            await showCustomerPopup(
+              "Your session has expired. Please sign in again to place orders.",
+              { title: "Authentication Required" },
+            );
+            window.location.href = "../customer-auth/auth.html#login";
+            return;
+          }
+
+          throw new Error(data.message || "Unable to place order at the moment.");
         }
 
         const orderNoRaw = String(
