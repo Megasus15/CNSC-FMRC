@@ -169,7 +169,7 @@ function bindEvents() {
   });
   setupImgInput('svcImgInput', 'svcImgPreview', 'svcImgPlaceholder', (b64) => {
     svcImageData = b64;
-  });
+  }, true); // requireSquare = true for service card images
 
   // Crop sliders
   document.getElementById('cropScale').addEventListener('input', function() {
@@ -343,17 +343,49 @@ function deleteService(id, name) {
 }
 
 // ── Image helpers ─────────────────────────────────────────────────────────────
-function setupImgInput(inputId, previewId, placeholderId, callback) {
+function setupImgInput(inputId, previewId, placeholderId, callback, requireSquare = false) {
   document.getElementById(inputId).addEventListener('change', function() {
     const file = this.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      const b64 = e.target.result;
-      setImgPreview(previewId, placeholderId, b64);
-      callback(b64);
-    };
-    reader.readAsDataURL(file);
+    
+    // For service card images, validate 1:1 aspect ratio
+    if (requireSquare) {
+      const img = new Image();
+      const reader = new FileReader();
+      reader.onload = e => {
+        img.src = e.target.result;
+        img.onload = () => {
+          const width = img.naturalWidth || img.width;
+          const height = img.naturalHeight || img.height;
+          const aspectRatio = width / height;
+          
+          // Check if aspect ratio is 1:1 (allow small tolerance)
+          if (Math.abs(aspectRatio - 1) > 0.01) {
+            window.showAdminPopup?.(
+              `Service card image must have a 1:1 aspect ratio (square). Current ratio: ${aspectRatio.toFixed(2)}:1\n\nImage dimensions: ${width} × ${height}px`,
+              { title: 'Invalid Image Dimensions' }
+            );
+            this.value = '';
+            return;
+          }
+          
+          // Valid aspect ratio, proceed
+          const b64 = e.target.result;
+          setImgPreview(previewId, placeholderId, b64);
+          callback(b64);
+        };
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // No aspect ratio requirement
+      const reader = new FileReader();
+      reader.onload = e => {
+        const b64 = e.target.result;
+        setImgPreview(previewId, placeholderId, b64);
+        callback(b64);
+      };
+      reader.readAsDataURL(file);
+    }
   });
 }
 

@@ -97,16 +97,37 @@ function bindEvents() {
   document.getElementById('svcImgInput').addEventListener('change', function() {
     const file = this.files[0];
     if (!file) return;
+    
+    // Validate 1:1 aspect ratio for service card images
+    const img = new Image();
     const reader = new FileReader();
     reader.onload = e => {
-      svcImageData = e.target.result;
-      const preview = document.getElementById('svcImgPreview');
-      const placeholder = document.getElementById('svcImgPlaceholder');
-      const removeBtn = document.getElementById('svcImgPreviewRemoveBtn');
-      preview.src = svcImageData;
-      preview.classList.add('visible');
-      placeholder.classList.add('hidden');
-      if (removeBtn) removeBtn.style.display = 'inline-flex';
+      img.src = e.target.result;
+      img.onload = () => {
+        const width = img.naturalWidth || img.width;
+        const height = img.naturalHeight || img.height;
+        const aspectRatio = width / height;
+        
+        // Check if aspect ratio is 1:1 (allow small tolerance)
+        if (Math.abs(aspectRatio - 1) > 0.01) {
+          window.showAdminPopup?.(
+            `Service card image must have a 1:1 aspect ratio (square). Current ratio: ${aspectRatio.toFixed(2)}:1\n\nImage dimensions: ${width} × ${height}px`,
+            { title: 'Invalid Image Dimensions' }
+          );
+          this.value = '';
+          return;
+        }
+        
+        // Valid aspect ratio, proceed
+        svcImageData = e.target.result;
+        const preview = document.getElementById('svcImgPreview');
+        const placeholder = document.getElementById('svcImgPlaceholder');
+        const removeBtn = document.getElementById('svcImgPreviewRemoveBtn');
+        preview.src = svcImageData;
+        preview.classList.add('visible');
+        placeholder.classList.add('hidden');
+        if (removeBtn) removeBtn.style.display = 'inline-flex';
+      };
     };
     reader.readAsDataURL(file);
   });

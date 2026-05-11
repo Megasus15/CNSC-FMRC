@@ -121,6 +121,106 @@
         color: #b91c1c;
       }
 
+      .custom-select-wrapper {
+        position: relative;
+      }
+      .custom-select-trigger {
+        width: 100%;
+        border: 1.5px solid #d1d5db;
+        border-radius: 12px;
+        background: #fff;
+        color: #111827;
+        padding: 12px 14px;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        cursor: pointer;
+        min-height: 46px;
+      }
+      .custom-select-trigger:focus-visible {
+        outline: 2px solid #800000;
+        outline-offset: 3px;
+      }
+      .custom-select-arrow {
+        display: inline-flex;
+        align-items: center;
+        color: #6b7280;
+      }
+      .custom-select-dropdown {
+        position: absolute;
+        top: calc(100% + 10px);
+        left: 0;
+        right: 0;
+        z-index: 55;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.15);
+        overflow: hidden;
+        display: none;
+      }
+      .custom-select-dropdown.open {
+        display: block;
+      }
+      .custom-select-search {
+        width: 100%;
+        border: none;
+        border-bottom: 1px solid #e5e7eb;
+        padding: 12px 14px;
+        box-sizing: border-box;
+        border-radius: 0;
+      }
+      .custom-select-search:focus {
+        outline: none;
+      }
+      .custom-select-list {
+        max-height: calc(6 * 44px);
+        overflow-y: auto;
+      }
+      .custom-select-list::-webkit-scrollbar {
+        width: 7px;
+      }
+      .custom-select-list::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 999px;
+      }
+      .custom-select-item {
+        padding: 11px 14px;
+        border-bottom: 1px solid #f3f4f6;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        color: #111827;
+        transition: background-color 0.18s ease;
+      }
+      .custom-select-item:hover,
+      .custom-select-item.active {
+        background: #f8fafc;
+      }
+      .custom-select-no-results {
+        padding: 14px;
+        color: #6b7280;
+        font-size: 0.92rem;
+      }
+      .custom-select-footer {
+        width: 100%;
+        border: none;
+        border-top: 1px solid #e5e7eb;
+        padding: 14px 16px;
+        background: #f8fafc;
+        color: #800000;
+        font-weight: 700;
+        text-align: left;
+        cursor: pointer;
+      }
+      .custom-select-footer:hover {
+        background: #fff5f5;
+      }
+
       /* Upload image area */
       .upload-area {
         border: 1.5px dashed #d1d5db;
@@ -760,16 +860,27 @@
             </div>
             <div class="field-stack full">
               <label>Product Name</label>
-              <select class="filter-select" id="addProductNameSelect">
+              <div class="custom-select-wrapper" id="addProductNameWrapper">
+                <button type="button" class="custom-select-trigger" id="addProductNameTrigger" aria-haspopup="listbox" aria-expanded="false">
+                  Select an existing product
+                  <span class="custom-select-arrow"><i class="fa-solid fa-chevron-down"></i></span>
+                </button>
+                <div class="custom-select-dropdown" id="addProductNameDropdown" role="listbox" aria-label="Product name options">
+                  <input type="search" class="input-field custom-select-search" id="addProductNameSearch" placeholder="Search existing products..." autocomplete="off" />
+                  <div class="custom-select-list" id="addProductNameOptions" tabindex="0"></div>
+                  <button type="button" class="custom-select-footer" id="addProductNameAddNewBtn">+ Add New Product</button>
+                </div>
+              </div>
+              <select class="filter-select" id="addProductNameSelect" hidden>
                 <option value="">Select an existing product</option>
               </select>
-              <p class="field-hint">Or enter a new product name below</p>
+              <p class="field-hint">Search existing products or choose to add a new product.</p>
             </div>
-            <div class="field-stack full">
+            <div class="field-stack full" id="addProductNewNameWrap" style="display:none;">
               <label>New Product Name</label>
-              <input class="input-field" id="addProductNewName" maxlength="255" placeholder="Leave empty if using existing product above" />
+              <input class="input-field" id="addProductNewName" maxlength="255" placeholder="Enter a new product name" />
             </div>
-            <div class="field-stack"><label>Product Code <span style="color:#dc2626">*</span></label><input class="input-field" id="addProductCode" placeholder="e.g. S2P-001" maxlength="100" required /></div>
+            <div class="field-stack"><label>New Product Code <span style="color:#dc2626">*</span></label><input class="input-field" id="addProductCode" placeholder="e.g. S2P-001" maxlength="100" required /></div>
             <div class="field-stack"><label>In Stock (Quantity) <span style="color:#dc2626">*</span></label><input class="input-field" id="addProductStock" type="number" min="0" required /></div>
             <div class="field-stack"><label>Price <span style="color:#dc2626">*</span></label><input class="input-field" id="addProductPrice" type="number" min="0" step="0.01" required /></div>
 

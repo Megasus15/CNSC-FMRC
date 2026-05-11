@@ -7,6 +7,14 @@
     <link rel="stylesheet" href="dashboard.css" />
     <link rel="stylesheet" href="admin-modules.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+      .walkin-calc-field:disabled {
+        background: #e5e7eb;
+        color: #4b5563;
+        cursor: not-allowed;
+        opacity: 1;
+      }
+    </style>
   </head>
   <body>
     <div class="dashboard-container">
@@ -180,7 +188,7 @@
                       <th>Agency/Organization</th>
                       <th>Description of the Project</th>
                       <th>Item Detail</th>
-                      <th>Unit</th>
+                      <th>Quantity</th>
                       <th>Subtotal Cost</th>
                       <th>Total</th>
                       <th>Payment</th>
@@ -358,10 +366,10 @@
                 <ul class="combobox-list" id="walkInItemDetailList" role="listbox"></ul>
               </div>
             </div>
-            <div class="field-stack"><label>Unit</label><input id="walkInUnitInput" class="input-field" /></div>
+            <div class="field-stack"><label>Quantity</label><input id="walkInUnitInput" class="input-field" type="number" min="1" step="1" value="1" /></div>
             <div class="field-stack"><label>Subtotal Cost</label><input id="walkInSubtotalCostInput" class="input-field" type="number" min="0" step="0.01" /></div>
-            <div class="field-stack"><label>Total</label><input id="walkInTotalInput" class="input-field" type="number" min="0" step="0.01" /></div>
-            <div class="field-stack"><label>Payment</label><input id="walkInPaymentMethodInput" class="input-field" value="WALKIN VIA CASHIER" readonly /></div>
+            <div class="field-stack"><label>Total</label><input id="walkInTotalInput" class="input-field walkin-calc-field" type="number" min="0" step="0.01" disabled /></div>
+            <div class="field-stack"><label>Payment</label><input id="walkInPaymentMethodInput" class="input-field walkin-calc-field" value="WALKIN VIA CASHIER" disabled /></div>
           </div>
         </div>
         <div class="modal-footer-fixed">
@@ -386,7 +394,7 @@
             <div class="field-stack full"><label>Agency/Organization</label><input id="walkInDetailAgency" class="input-field" readonly /></div>
             <div class="field-stack full"><label>Description of the Project</label><input id="walkInDetailProject" class="input-field" readonly /></div>
             <div class="field-stack full"><label>Item Detail</label><input id="walkInDetailItem" class="input-field" readonly /></div>
-            <div class="field-stack"><label>Unit</label><input id="walkInDetailUnit" class="input-field" readonly /></div>
+            <div class="field-stack"><label>Quantity</label><input id="walkInDetailUnit" class="input-field" readonly /></div>
             <div class="field-stack"><label>Subtotal Cost</label><input id="walkInDetailSubtotal" class="input-field" readonly /></div>
             <div class="field-stack"><label>Total</label><input id="walkInDetailTotal" class="input-field" readonly /></div>
             <div class="field-stack"><label>Payment</label><input id="walkInDetailPayment" class="input-field" readonly /></div>

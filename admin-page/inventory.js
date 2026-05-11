@@ -121,7 +121,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return "status-blue";
   };
 
-  const displayStatus = (status) => (status === "Out of Stock" ? "Low Stock" : status);
+  const displayStatus = (status) => status;
 
   const remarksClass = (r) => {
     if (!r) return "remarks-default";
@@ -133,7 +133,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const computeStatus = (onHand) => {
     const n = Number(onHand || 0);
-    if (n <= 0) return "Out of Stock";
+    if (n === 0) return "Out of Stock";
+    if (n < 0) return "Out of Stock";
     if (n <= 5) return "Low Stock";
     return "Good";
   };
@@ -1158,16 +1159,24 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       `;
 
+    const hasVariants = variants.length > 0;
+    if (invViewSubtitle) {
+      invViewSubtitle.textContent = hasVariants
+        ? `${variants.length} variant${variants.length !== 1 ? "s" : ""}`
+        : `${item.category} — ${item.unit}`;
+    }
+
     if (invViewContent) {
       invViewContent.innerHTML = `
-        <div class="inv-view-grid">
-          <div><div class="inv-view-label">Category</div><div class="inv-view-value">${escHtml(item.category)}</div></div>
-          <div><div class="inv-view-label">Unit</div><div class="inv-view-value">${escHtml(item.unit)}</div></div>
-          <div><div class="inv-view-label">Stocks On Hand</div><div class="inv-view-value">${item.on_hand}</div></div>
-          <div><div class="inv-view-label">Status</div><div><span class="status-pill ${statusCls}">${escHtml(statusText)}</span></div></div>
-          <div><div class="inv-view-label">Remarks</div><div>${remarksHtml}</div></div>
-          <div class="full"><div class="inv-view-label">Description</div><div class="inv-view-value">${escHtml(item.description || "—")}</div></div>
-        </div>
+        ${hasVariants ? `<div class="field-hint" style="margin-bottom:12px;">This item has ${variants.length} variant${variants.length !== 1 ? "s" : ""}. See individual variant stock details below.</div>` : `
+          <div class="inv-view-grid">
+            <div><div class="inv-view-label">Category</div><div class="inv-view-value">${escHtml(item.category)}</div></div>
+            <div><div class="inv-view-label">Unit</div><div class="inv-view-value">${escHtml(item.unit)}</div></div>
+            <div><div class="inv-view-label">Stocks On Hand</div><div class="inv-view-value">${item.on_hand}</div></div>
+            <div><div class="inv-view-label">Status</div><div><span class="status-pill ${statusCls}">${escHtml(statusText)}</span></div></div>
+            <div><div class="inv-view-label">Remarks</div><div>${remarksHtml}</div></div>
+            <div class="full"><div class="inv-view-label">Description</div><div class="inv-view-value">${escHtml(item.description || "—")}</div></div>
+          </div>`}
         ${variantsHtml}`;
     }
     openModal(modalView);

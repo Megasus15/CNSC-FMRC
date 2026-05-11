@@ -775,8 +775,8 @@ body {
 
 .services-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 25px;
   align-items: stretch;
 }
 
@@ -801,7 +801,8 @@ body {
 }
 
 .services-grid .card-img-holder {
-  height: 205px;
+  aspect-ratio: 1 / 1;
+  height: auto;
 }
 
 .services-grid .card-content {
@@ -1191,15 +1192,19 @@ body {
 
 .card-img-holder {
   width: 100%;
-  height: 220px;
+  aspect-ratio: 1 / 1;
   background-color: #ffffff;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .card-img-holder img {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  object-position: center;
   transition: transform 0.5s ease;
 }
 
@@ -1550,7 +1555,7 @@ body {
   max-width: 1400px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 25px;
 }
 
@@ -1575,7 +1580,7 @@ body {
 
 .product-img-wrapper {
   width: 100%;
-  height: 220px;
+  aspect-ratio: 1 / 1;
   background-color: #f3f4f6;
   display: flex;
   align-items: center;
@@ -1586,7 +1591,7 @@ body {
 .product-img-wrapper img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
 }
 
 .product-info {
@@ -1707,24 +1712,25 @@ body {
 
 /* --- Card Footer Buttons --- */
 .product-actions {
-  display: flex;
-  padding: 12px;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 10px;
+  gap: 6px;
   border-top: 1px dashed #eaeaea;
   background-color: #fafafa;
   align-items: center;
 }
 
 .action-btn {
-  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 11px 10px;
+  gap: 6px;
+  padding: 10px 8px;
   border-radius: 8px;
   font-family: "Montserrat", sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   cursor: pointer;
   transition:
@@ -1747,7 +1753,6 @@ body {
   background-color: #ffffff;
   border: 1.5px solid #b01c1c;
   color: #b01c1c;
-  flex: 0.9;
 }
 
 .btn-view-info:hover:not(.disabled) {
@@ -1765,7 +1770,6 @@ body {
   background-color: #ffffff;
   border: 1.5px solid #b01c1c;
   color: #b01c1c;
-  flex: 1.25;
 }
 
 .btn-add-cart:hover:not(.disabled) {
@@ -1777,7 +1781,6 @@ body {
   background-color: #b01c1c;
   border: 1.5px solid #b01c1c;
   color: #ffffff;
-  flex: 1;
 }
 
 .btn-buy-now:hover:not(.disabled) {
@@ -1792,17 +1795,38 @@ body {
 
 @media (max-width: 1180px) {
   .shop-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .services-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1024px) {
+  .shop-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .services-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 768px) {
   .shop-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .services-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .product-actions {
+    padding: 9px;
+    gap: 5px;
   }
 
   .action-btn {
     font-size: 11px;
+    padding: 9px 6px;
   }
 }
 
@@ -3651,7 +3675,8 @@ input:checked + .toggle-slider:before {
     height: 350px;
   }
   .landscape-card .card-img-holder {
-    height: 160px;
+    aspect-ratio: 1 / 1;
+    height: auto;
   }
 
   .service-card {
@@ -3694,6 +3719,18 @@ input:checked + .toggle-slider:before {
   }
   .shop-modal-overlay.show-modal .shop-modal-box {
     transform: translateX(0);
+  }
+}
+
+/* Extra small phones */
+@media (max-width: 480px) {
+  .shop-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .services-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
   }
 }
 

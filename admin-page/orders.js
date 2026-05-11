@@ -761,7 +761,6 @@ document.addEventListener("DOMContentLoaded", () => {
             <td class="action-icons sticky-action">
               <button data-tooltip="View Order Info" data-order-view="${order.id}"><i class="fa-regular fa-eye"></i></button>
               <button data-tooltip="Update Tracking" data-order-track="${order.id}" ${canTrack ? "" : "disabled class=\"is-disabled\""}><i class="fa-solid fa-route"></i></button>
-              <button data-tooltip="Delete Order" data-order-delete="${order.id}"><i class="fa-regular fa-trash-can"></i></button>
             </td>
           </tr>
         `;
@@ -830,8 +829,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <td>${escapeHtml(row.total_label || formatMoney(row.total))}</td>
           <td>${escapeHtml(row.payment || row.payment_method || "WALKIN VIA CASHIER")}</td>
           <td class="action-icons sticky-action">
-            <button data-tooltip="View Details" data-walkin-view="${row.id}"><i class="fa-regular fa-eye"></i></button>
-            <button data-tooltip="Delete Order" data-walkin-delete="${row.id}"><i class="fa-regular fa-trash-can"></i></button>
+            <button data-tooltip="View Order Info" data-walkin-view="${row.id}"><i class="fa-regular fa-eye"></i></button>
           </td>
         </tr>
       `,
@@ -988,6 +986,7 @@ document.addEventListener("DOMContentLoaded", () => {
         title: "Approve Incoming Order",
         message: "Approve this incoming order and move it to pending?",
         confirmText: "Approve",
+        loadingText: "Approving...",
         success: "Order approved and moved to pending.",
       },
       reject: {
@@ -996,6 +995,7 @@ document.addEventListener("DOMContentLoaded", () => {
         title: "Reject Incoming Order",
         message: "Reject this incoming order?",
         confirmText: "Reject",
+        loadingText: "Rejecting...",
         success: "Order rejected.",
       },
       delete: {
@@ -1010,6 +1010,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const config = actionMap[action];
     if (!config) return;
+
+    if (action === "approve" || action === "reject") {
+      window.showAdminConfirmPopup?.(config.message, {
+        title: config.title,
+        confirmText: config.confirmText,
+        cancelText: "Cancel",
+        loadingText: config.loadingText,
+        keepOpenWhilePending: true,
+        onConfirm: async () => {
+          const payload = await request(config.path, {
+            method: config.method || "POST",
+            body: action === "reject" ? { reason: null } : undefined,
+          });
+
+          if (payload?.data) {
+            upsertOrderSummaryInState(payload.data);
+          }
+
+          renderAll();
+          notifyOrdersRealtimeUpdate({ type: `order-${action}`, orderId: String(orderId) });
+          window.setTimeout(() => {
+            showPopup(config.success, { title: "Success" });
+          }, 150);
+        },
+        onError: (error) => {
+          showPopup(error?.message || "Action failed.", { title: "Action Failed" });
+        },
+      });
+      return;
+    }
 
     const shouldContinue = await askConfirm(config.message, {
       title: config.title,
@@ -1110,17 +1140,40 @@ document.addEventListener("DOMContentLoaded", () => {
     return qty;
   };
 
-  const calculateWalkInTotalFromInputs = () => {
+  const findWalkInProductByName = (name) => {
+    const normalizedName = String(name || "").trim().toLowerCase();
+    if (!normalizedName) return null;
+    return _comboboxAllProducts.find((product) => String(product?.name || "").trim().toLowerCase() === normalizedName) || null;
+  };
+
+  const syncWalkInCalculatedFields = () => {
     if (!walkInSubtotalCostInput || !walkInTotalInput) return;
-    const subtotalCost = Number(walkInSubtotalCostInput.value || 0);
-    const qty = parseUnitQuantity(walkInUnitInput?.value || "");
-    if (!Number.isFinite(subtotalCost) || subtotalCost < 0) {
+
+    const quantityValue = Math.max(1, Number.parseInt(String(walkInUnitInput?.value || "1"), 10) || 1);
+    const subtotalValue = Number(walkInSubtotalCostInput.value || 0);
+
+    if (!Number.isFinite(subtotalValue) || subtotalValue < 0) {
       walkInTotalInput.value = "";
       return;
     }
 
-    const computed = Math.round(subtotalCost * qty * 100) / 100;
-    walkInTotalInput.value = String(computed.toFixed(2));
+    const subtotalCost = Math.round(subtotalValue * quantityValue * 100) / 100;
+    const formatted = subtotalCost.toFixed(2);
+    walkInTotalInput.value = formatted;
+  };
+
+  const syncWalkInProductSelection = (itemName) => {
+    walkInSelectedProduct = findWalkInProductByName(itemName);
+
+    if (walkInSelectedProduct && walkInSubtotalCostInput) {
+      walkInSubtotalCostInput.value = String(Number(walkInSelectedProduct.price || 0).toFixed(2));
+    }
+
+    syncWalkInCalculatedFields();
+  };
+
+  const calculateWalkInTotalFromInputs = () => {
+    syncWalkInCalculatedFields();
   };
 
   const setDetailInput = (input, value) => {
@@ -1175,6 +1228,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let _comboboxAllProducts = [];
   let _comboboxActiveIdx = -1;
+  let walkInSelectedProduct = null;
 
   const closeItemDetailCombobox = () => {
     if (walkInItemDetailWrap) walkInItemDetailWrap.classList.remove("open");
@@ -1189,14 +1243,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!walkInItemDetailList) return;
     const filter = String(filterText || "").toLowerCase().trim();
     const matches = filter
-      ? _comboboxAllProducts.filter((name) => name.toLowerCase().includes(filter))
+      ? _comboboxAllProducts.filter((product) => String(product?.name || "").toLowerCase().includes(filter))
       : _comboboxAllProducts;
 
     if (!matches.length) {
       walkInItemDetailList.innerHTML = `<li class="combobox-no-results">No products found. Your typed entry will be used.</li>`;
     } else {
       walkInItemDetailList.innerHTML = matches
-        .map((name) => `<li role="option" data-value="${escapeHtml(name)}">${escapeHtml(name)}</li>`)
+        .map((product) => `<li role="option" data-value="${escapeHtml(product.name)}">${escapeHtml(product.name)}</li>`)
         .join("");
     }
     _comboboxActiveIdx = -1;
@@ -1218,11 +1272,13 @@ document.addEventListener("DOMContentLoaded", () => {
     // Open on focus / click
     walkInItemDetailInput.addEventListener("focus", () => {
       renderComboboxList(walkInItemDetailInput.value);
+      syncWalkInProductSelection(walkInItemDetailInput.value);
       openItemDetailCombobox();
     });
 
     walkInItemDetailInput.addEventListener("click", () => {
       renderComboboxList(walkInItemDetailInput.value);
+      syncWalkInProductSelection(walkInItemDetailInput.value);
       openItemDetailCombobox();
     });
 
@@ -1235,6 +1291,7 @@ document.addEventListener("DOMContentLoaded", () => {
           closeItemDetailCombobox();
         } else {
           renderComboboxList(walkInItemDetailInput.value);
+          syncWalkInProductSelection(walkInItemDetailInput.value);
           openItemDetailCombobox();
           walkInItemDetailInput.focus();
         }
@@ -1244,6 +1301,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Filter as user types
     walkInItemDetailInput.addEventListener("input", () => {
       renderComboboxList(walkInItemDetailInput.value);
+      syncWalkInProductSelection(walkInItemDetailInput.value);
       openItemDetailCombobox();
     });
 
@@ -1268,6 +1326,7 @@ document.addEventListener("DOMContentLoaded", () => {
         e.preventDefault();
         if (_comboboxActiveIdx >= 0 && _comboboxActiveIdx < items.length) {
           walkInItemDetailInput.value = items[_comboboxActiveIdx].dataset.value || "";
+          syncWalkInProductSelection(walkInItemDetailInput.value);
           closeItemDetailCombobox();
         } else {
           closeItemDetailCombobox();
@@ -1283,6 +1342,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!li) return;
       e.preventDefault();
       walkInItemDetailInput.value = li.dataset.value || "";
+      syncWalkInProductSelection(walkInItemDetailInput.value);
       closeItemDetailCombobox();
     });
 
@@ -1296,13 +1356,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const fetchProductNamesAndInitCombobox = async () => {
     try {
-      const data = await request("/admin/products/names");
-      _comboboxAllProducts = Array.isArray(data?.data) ? data.data.map(String) : [];
+      const data = await request("/admin/products");
+      _comboboxAllProducts = Array.isArray(data?.data)
+        ? data.data
+            .map((product) => ({
+              name: String(product?.name || "").trim(),
+              price: Number(product?.price || 0),
+            }))
+            .filter((product) => product.name)
+        : [];
     } catch {
       _comboboxAllProducts = [];
     }
     // Render the list now with current input value
     renderComboboxList(walkInItemDetailInput?.value || "");
+    syncWalkInProductSelection(walkInItemDetailInput?.value || "");
   };
 
   // Initialise combobox event listeners once on page load
@@ -1324,10 +1392,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (walkInProjectDescriptionInput) walkInProjectDescriptionInput.value = "PRODUCT LABELING AND DESIGNING";
     if (walkInProjectDescriptionOtherInput) walkInProjectDescriptionOtherInput.value = "";
     if (walkInItemDetailInput) walkInItemDetailInput.value = "";
-    if (walkInUnitInput) walkInUnitInput.value = "";
+    if (walkInUnitInput) walkInUnitInput.value = "1";
     if (walkInSubtotalCostInput) walkInSubtotalCostInput.value = "";
     if (walkInTotalInput) walkInTotalInput.value = "";
     if (walkInPaymentMethodInput) walkInPaymentMethodInput.value = "WALKIN VIA CASHIER";
+    walkInSelectedProduct = null;
 
     // Reset combobox
     closeItemDetailCombobox();
@@ -1354,11 +1423,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (walkInProjectDescriptionOtherInput) walkInProjectDescriptionOtherInput.value = order.project_description_other || "";
       // Set combobox value (the input acts as both textbox and display)
       if (walkInItemDetailInput) walkInItemDetailInput.value = order.item_detail || order.order_item || "";
-      if (walkInUnitInput) walkInUnitInput.value = order.unit || "";
+      if (walkInUnitInput) walkInUnitInput.value = order.unit || "1";
       if (walkInSubtotalCostInput) walkInSubtotalCostInput.value = order.subtotal_cost ?? "";
       if (walkInTotalInput) walkInTotalInput.value = order.total || "";
       if (walkInPaymentMethodInput) walkInPaymentMethodInput.value = order.payment || order.payment_method || "WALKIN VIA CASHIER";
 
+      syncWalkInProductSelection(walkInItemDetailInput?.value || "");
       toggleWalkInOtherFields();
     }
     // Fetch products every time the modal opens to ensure fresh data
@@ -1392,14 +1462,26 @@ document.addEventListener("DOMContentLoaded", () => {
     const projectDescription = String(walkInProjectDescriptionInput?.value || "").trim();
     const projectDescriptionOther = String(walkInProjectDescriptionOtherInput?.value || "").trim();
     const itemDetail = String(walkInItemDetailInput?.value || "").trim();
-    const unit = String(walkInUnitInput?.value || "").trim();
+    const quantity = Math.max(1, Number.parseInt(String(walkInUnitInput?.value || "1"), 10) || 1);
     const subtotalRaw = String(walkInSubtotalCostInput?.value || "").trim();
     const totalRaw = String(walkInTotalInput?.value || "").trim();
     const paymentMethod = "WALKIN VIA CASHIER";
 
-    if (!orderNo || !customerName || !address || !contactNumber || !clientType || !agencyOrganization || !projectDescription || !itemDetail || !unit || !subtotalRaw || !totalRaw) {
+    if (!orderNo || !customerName || !address || !contactNumber || !clientType || !agencyOrganization || !projectDescription || !itemDetail || !quantity || !subtotalRaw || !totalRaw) {
       showPopup("Please complete all walk-in order fields.", { title: "Validation" });
       return;
+    }
+
+    if (!walkInSelectedProduct) {
+      showPopup("Please select a product from the list so the quantity and subtotal can be calculated.", { title: "Validation" });
+      return;
+    }
+
+    if (walkInSubtotalCostInput && walkInSubtotalCostInput.value !== "") {
+      const subtotalNumeric = Number(walkInSubtotalCostInput.value);
+      if (Number.isFinite(subtotalNumeric) && subtotalNumeric >= 0) {
+        walkInSubtotalCostInput.value = String(subtotalNumeric.toFixed(2));
+      }
     }
 
     if (!isValidContactNumber(contactNumber)) {
@@ -1452,7 +1534,7 @@ document.addEventListener("DOMContentLoaded", () => {
           project_description: projectDescription,
           project_description_other: projectDescription === "OTHERS (SPECIFY)" ? projectDescriptionOther : null,
           item_detail: itemDetail,
-          unit,
+          unit: String(quantity),
           subtotal_cost: subtotalCost,
           payment_method: paymentMethod,
           total,
@@ -1724,14 +1806,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const deleteBtn = target.closest("[data-order-delete]");
-    if (deleteBtn) {
-      const orderId = String(deleteBtn.getAttribute("data-order-delete") || "");
-      if (!orderId) return;
-      void mutateOrder(orderId, "delete");
-      return;
-    }
-
     const deletePaymentBtn = target.closest("[data-payment-archive]");
     if (deletePaymentBtn) {
       const orderId = String(deletePaymentBtn.getAttribute("data-payment-archive") || "");
@@ -1760,54 +1834,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const deleteWalkInBtn = target.closest("[data-walkin-delete]");
-    if (deleteWalkInBtn) {
-      const id = deleteWalkInBtn.getAttribute("data-walkin-delete");
-      const order = state.walkIn.find(o => String(o.id) === String(id));
-      if (order) {
-        const modalDelete = document.getElementById("modalDeleteWalkInOrder");
-        const label = document.getElementById("deleteWalkInOrderTargetLabel");
-        if (label) label.textContent = `#${order.order_no}`;
-        modalDelete?.classList.add("show");
-        
-        const confirmBtn = document.getElementById("btnConfirmWalkInOrderDelete");
-        const cancelBtn = document.getElementById("btnCancelDeleteWalkInOrder");
-        
-        const onCancel = () => {
-          modalDelete?.classList.remove("show");
-          cleanup();
-        };
-        
-        const onConfirm = async () => {
-          confirmBtn.disabled = true;
-          confirmBtn.textContent = "Deleting...";
-          try {
-            await request(`/admin/walkin-orders/${id}`, { method: "DELETE" });
-            state.walkIn = state.walkIn.filter(o => String(o.id) !== String(id));
-            renderWalkInTable();
-            modalDelete?.classList.remove("show");
-            notifyOrdersRealtimeUpdate({ type: "walkin-deleted" });
-            queueSuccessFlash("Walk-in order deleted successfully.", "Deleted");
-            window.location.reload();
-          } catch (error) {
-            showPopup(error.message || "Failed to delete walk-in order.", { title: "Error" });
-          } finally {
-            confirmBtn.disabled = false;
-            confirmBtn.textContent = "Delete Order";
-            cleanup();
-          }
-        };
-        
-        const cleanup = () => {
-          cancelBtn?.removeEventListener("click", onCancel);
-          confirmBtn?.removeEventListener("click", onConfirm);
-        };
-        
-        cancelBtn?.addEventListener("click", onCancel);
-        confirmBtn?.addEventListener("click", onConfirm);
-      }
-      return;
-    }
   });
 
   if (!authToken) {

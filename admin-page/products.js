@@ -75,6 +75,13 @@ document.addEventListener("DOMContentLoaded", () => {
   // Add form fields
   const addCategory = document.getElementById("addProductCategory");
   const addNameSelect = document.getElementById("addProductNameSelect");
+  const addProductNameWrapper = document.getElementById("addProductNameWrapper");
+  const addProductNameTrigger = document.getElementById("addProductNameTrigger");
+  const addProductNameDropdown = document.getElementById("addProductNameDropdown");
+  const addProductNameSearch = document.getElementById("addProductNameSearch");
+  const addProductNameOptions = document.getElementById("addProductNameOptions");
+  const addProductNameAddNewBtn = document.getElementById("addProductNameAddNewBtn");
+  const addProductNewNameWrap = document.getElementById("addProductNewNameWrap");
   const addNewName = document.getElementById("addProductNewName");
   const addCode = document.getElementById("addProductCode");
   const addStock = document.getElementById("addProductStock");
@@ -153,6 +160,59 @@ document.addEventListener("DOMContentLoaded", () => {
   const getProductsForCategory = (category) =>
     products.filter((product) => product.category === category).sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
 
+  const getAddProductSelectedName = () => {
+    const selectedOption = addNameSelect?.selectedOptions?.[0];
+    return selectedOption?.dataset?.name || selectedOption?.textContent || "";
+  };
+
+  const updateAddProductTriggerLabel = () => {
+    if (!addProductNameTrigger) return;
+    const selectedName = getAddProductSelectedName();
+    const label = selectedName ? selectedName : "Select an existing product";
+    addProductNameTrigger.innerHTML = `${escHtml(label)} <span class="custom-select-arrow"><i class="fa-solid fa-chevron-down"></i></span>`;
+    addProductNameTrigger.setAttribute("aria-expanded", addProductNameDropdown?.classList.contains("open") ? "true" : "false");
+  };
+
+  const renderAddProductDropdownItems = (filter = "") => {
+    if (!addNameSelect || !addProductNameOptions) return;
+    const query = String(filter || "").trim().toLowerCase();
+    const items = Array.from(addNameSelect.options).slice(1);
+    const filtered = items.filter((option) => {
+      if (!query) return true;
+      const name = String(option.dataset.name || option.textContent || "").toLowerCase();
+      return name.includes(query);
+    });
+
+    if (!filtered.length) {
+      addProductNameOptions.innerHTML = `<div class="custom-select-no-results">No products found. Try another search or add a new product.</div>`;
+      return;
+    }
+
+    const selectedValue = addNameSelect.value;
+    addProductNameOptions.innerHTML = filtered
+      .map(
+        (option) =>
+          `<div class="custom-select-item" role="option" data-value="${escHtml(option.value)}">${escHtml(option.dataset.name || option.textContent || "Unnamed Product")}</div>`,
+      )
+      .join("");
+
+    if (selectedValue) {
+      const activeOption = addProductNameOptions.querySelector(`[data-value="${escHtml(selectedValue)}"]`);
+      activeOption?.classList.add("active");
+    }
+  };
+
+  const closeAddProductDropdown = () => {
+    addProductNameDropdown?.classList.remove("open");
+    addProductNameTrigger?.setAttribute("aria-expanded", "false");
+  };
+
+  const openAddProductDropdown = () => {
+    addProductNameDropdown?.classList.add("open");
+    addProductNameTrigger?.setAttribute("aria-expanded", "true");
+    addProductNameSearch?.focus();
+  };
+
   const renderAddProductOptions = (category, selectedValue = "", preserveValue = true) => {
     if (!addNameSelect) return;
 
@@ -172,7 +232,8 @@ document.addEventListener("DOMContentLoaded", () => {
       addNameSelect.value = "";
     }
 
-    syncAddProductCodeFromSelection();
+    renderAddProductDropdownItems(addProductNameSearch?.value || "");
+    updateAddProductTriggerLabel();
   };
 
   const loadAddProductOptions = async (category, preserveValue = true) => {
@@ -212,7 +273,8 @@ document.addEventListener("DOMContentLoaded", () => {
         addNameSelect.value = "";
       }
 
-      syncAddProductCodeFromSelection();
+      renderAddProductDropdownItems(addProductNameSearch?.value || "");
+      updateAddProductTriggerLabel();
     } catch (error) {
       console.error("Load product options error:", error);
       renderAddProductOptions(normalizedCategory, selectedValue, preserveValue);
@@ -220,10 +282,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const syncAddProductCodeFromSelection = () => {
-    const selectedOption = addNameSelect?.selectedOptions?.[0];
-    const selectedCode = selectedOption?.dataset?.code || "";
-    if (addCode) addCode.value = selectedCode;
-    if (selectedCode && addNewName) addNewName.value = "";
+    if (!addNameSelect) return;
+    if (addNameSelect.value && addNewName) addNewName.value = "";
+    updateAddProductTriggerLabel();
   };
 
   const fileToDataUrl = (file) =>
@@ -295,7 +356,7 @@ document.addEventListener("DOMContentLoaded", () => {
   addUploadArea?.addEventListener("click", () => addPhoto?.click());
   editUploadArea?.addEventListener("click", () => editPhoto?.click());
 
-  // ─── Photo Selection → open editor ───────────────────────────────────────────
+  // ─── Photo Selection → validate aspect ratio and open editor ─────────────────
   const handlePhotoSelect = async (input, source) => {
     const file = input.files?.[0];
     if (!file) return;
@@ -306,8 +367,32 @@ document.addEventListener("DOMContentLoaded", () => {
       input.value = "";
       return;
     }
-    photoEditSource = source;
+    
+    // Validate 1:1 aspect ratio
+    const img = new Image();
     const dataUrl = await fileToDataUrl(file);
+    img.src = dataUrl;
+    
+    await new Promise((resolve) => {
+      if (img.complete) resolve(null);
+      else img.onload = resolve;
+    });
+    
+    const width = img.naturalWidth || img.width;
+    const height = img.naturalHeight || img.height;
+    const aspectRatio = width / height;
+    
+    // Check if aspect ratio is 1:1 (allow very small tolerance like 0.99 to 1.01)
+    if (Math.abs(aspectRatio - 1) > 0.01) {
+      window.showAdminPopup?.(
+        `Image must have a 1:1 aspect ratio (square). Current ratio: ${aspectRatio.toFixed(2)}:1\n\nImage dimensions: ${width} × ${height}px`,
+        { title: "Invalid Image Dimensions" }
+      );
+      input.value = "";
+      return;
+    }
+    
+    photoEditSource = source;
     photoEditorPreview.src = dataUrl;
     if (photoRotate) {
       photoRotate.value = "0";
@@ -1022,6 +1107,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const resetAddForm = () => {
     if (addNameSelect) addNameSelect.value = "";
     if (addNewName) addNewName.value = "";
+    if (addProductNameSearch) addProductNameSearch.value = "";
+    if (addProductNewNameWrap) addProductNewNameWrap.style.display = "none";
+    if (addProductNameDropdown) closeAddProductDropdown();
+    updateAddProductTriggerLabel();
     addCode.value = "";
     addStock.value = "";
     addPrice.value = "";
@@ -1050,6 +1139,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   btnOpenAddProduct?.addEventListener("click", () => {
     resetAddForm();
+    if (addProductNameDropdown) closeAddProductDropdown();
     void loadAddProductOptions(addCategory?.value || "3D Print", false);
     openModal(modalAdd);
   });
@@ -1059,18 +1149,65 @@ document.addEventListener("DOMContentLoaded", () => {
   addCategory?.addEventListener("change", () => {
     if (addNewName) addNewName.value = "";
     if (addCode) addCode.value = "";
+    if (addNameSelect) addNameSelect.value = "";
+    if (addProductNameSearch) addProductNameSearch.value = "";
+    if (addProductNewNameWrap) addProductNewNameWrap.style.display = "none";
     void loadAddProductOptions(addCategory?.value || "3D Print", false);
   });
 
-  addNameSelect?.addEventListener("change", () => {
-    if (addNameSelect?.value && addNewName) addNewName.value = "";
-    syncAddProductCodeFromSelection();
+  addProductNameTrigger?.addEventListener("click", () => {
+    if (!addProductNameDropdown) return;
+    if (addProductNameDropdown.classList.contains("open")) {
+      closeAddProductDropdown();
+    } else {
+      renderAddProductDropdownItems(addProductNameSearch?.value || "");
+      openAddProductDropdown();
+    }
+  });
+
+  addProductNameSearch?.addEventListener("input", () => {
+    renderAddProductDropdownItems(addProductNameSearch.value);
+  });
+
+  addProductNameOptions?.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const item = target.closest(".custom-select-item");
+    if (!item) return;
+    const value = item.dataset.value || "";
+    if (!value) return;
+    if (addNameSelect) addNameSelect.value = value;
+    if (addNewName) addNewName.value = "";
+    if (addProductNameSearch) addProductNameSearch.value = "";
+    if (addProductNewNameWrap) addProductNewNameWrap.style.display = "none";
+    updateAddProductTriggerLabel();
+    renderAddProductDropdownItems();
+    closeAddProductDropdown();
+  });
+
+  addProductNameAddNewBtn?.addEventListener("click", () => {
+    if (addNameSelect) addNameSelect.value = "";
+    if (addProductNameSearch) addProductNameSearch.value = "";
+    if (addProductNewNameWrap) addProductNewNameWrap.style.display = "";
+    if (addNewName) addNewName.value = "";
+    if (addProductNameDropdown) closeAddProductDropdown();
+    if (addProductNameTrigger) addProductNameTrigger.innerHTML = `Add new product<span class="custom-select-arrow"><i class="fa-solid fa-chevron-down"></i></span>`;
+    if (addNewName) addNewName.focus();
+  });
+
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (!addProductNameWrapper?.contains(target)) {
+      closeAddProductDropdown();
+    }
   });
 
   addNewName?.addEventListener("input", () => {
     if ((addNewName?.value || "").trim()) {
       if (addNameSelect) addNameSelect.value = "";
       if (addCode) addCode.value = "";
+      if (addProductNameTrigger) addProductNameTrigger.innerHTML = `Add new product<span class="custom-select-arrow"><i class="fa-solid fa-chevron-down"></i></span>`;
     }
   });
 
@@ -1148,10 +1285,13 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       const payload = await res.json();
       if (!res.ok) {
-        const msg =
-          payload?.message ||
-          Object.values(payload?.errors || {})[0]?.[0] ||
-          "Failed to save product.";
+        let msg = payload?.message || Object.values(payload?.errors || {})[0]?.[0] || "Failed to save product.";
+        const codeErrors = payload?.errors?.code;
+        if (Array.isArray(codeErrors) && codeErrors.length) {
+          msg = "Save Failed, The code has already been taken.";
+        } else if (typeof msg === "string" && /code.*taken/i.test(msg)) {
+          msg = "Save Failed, The code has already been taken.";
+        }
         window.showAdminPopup?.(msg, { title: "Save Failed" });
         return;
       }

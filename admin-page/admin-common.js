@@ -1259,6 +1259,20 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     };
 
+    const setConfirmLoading = (isLoading) => {
+      if (!okBtn) return;
+      if (isLoading) {
+        okBtn.disabled = true;
+        okBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${options.loadingText || "Processing..."}`;
+      } else {
+        okBtn.disabled = false;
+        okBtn.textContent = options.okText || (isConfirm ? "Confirm" : "Okay");
+      }
+      if (cancelBtn) {
+        cancelBtn.disabled = isLoading;
+      }
+    };
+
     const isConfirm = Boolean(options.isConfirm);
 
     if (actions) {
@@ -1266,11 +1280,32 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (okBtn) {
+      okBtn.disabled = false;
       okBtn.textContent = options.okText || (isConfirm ? "Confirm" : "Okay");
-      okBtn.onclick = () => closePopup(options.onOk);
+      okBtn.onclick = async () => {
+        if (!options.keepOpenWhilePending) {
+          closePopup(options.onOk);
+          return;
+        }
+
+        try {
+          setConfirmLoading(true);
+          const result = typeof options.onOk === "function" ? options.onOk() : undefined;
+          if (result && typeof result.then === "function") {
+            await result;
+          }
+          closePopup();
+        } catch (error) {
+          setConfirmLoading(false);
+          if (typeof options.onError === "function") {
+            options.onError(error);
+          }
+        }
+      };
     }
 
     if (cancelBtn) {
+      cancelBtn.disabled = false;
       cancelBtn.textContent = options.cancelText || "Cancel";
       cancelBtn.style.display = isConfirm ? "inline-flex" : "none";
       cancelBtn.onclick = () => closePopup(options.onCancel);
@@ -1311,6 +1346,9 @@ document.addEventListener("DOMContentLoaded", () => {
       cancelText: options.cancelText || "Cancel",
       onOk: options.onConfirm,
       onCancel: options.onCancel,
+      keepOpenWhilePending: Boolean(options.keepOpenWhilePending),
+      loadingText: options.loadingText,
+      onError: options.onError,
       isConfirm: true,
     });
   };
