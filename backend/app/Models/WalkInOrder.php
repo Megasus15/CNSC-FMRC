@@ -17,6 +17,7 @@ class WalkInOrder extends Model
         'project_description',
         'project_description_other',
         'item_detail',
+        'product_id',
         'unit',
         'subtotal_cost',
         'order_item',

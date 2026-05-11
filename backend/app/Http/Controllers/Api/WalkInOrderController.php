@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Product;
 use App\Models\WalkInOrder;
 use DateTimeInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class WalkInOrderController extends Controller
 {
@@ -67,33 +69,50 @@ class WalkInOrderController extends Controller
 
         $validated = $this->validatePayload($request);
 
-        $walkInOrder = WalkInOrder::query()->create([
-            'order_no' => trim((string) $validated['order_no']),
-            'customer_name' => trim((string) $validated['customer_name']),
-            'address' => trim((string) $validated['address']),
-            'contact_number' => trim((string) $validated['contact_number']),
-            'client_type' => trim((string) $validated['client_type']),
-            'client_type_other' => $this->normalizeOtherField($validated['client_type'] ?? '', $validated['client_type_other'] ?? null),
-            'agency_organization' => trim((string) $validated['agency_organization']),
-            'project_description' => trim((string) $validated['project_description']),
-            'project_description_other' => $this->normalizeOtherField($validated['project_description'] ?? '', $validated['project_description_other'] ?? null),
-            'item_detail' => trim((string) $validated['item_detail']),
-            'unit' => trim((string) $validated['unit']),
-            'subtotal_cost' => (float) $validated['subtotal_cost'],
-            'order_item' => trim((string) $validated['item_detail']),
-            'order_date' => isset($validated['order_date'])
-                ? Carbon::parse($validated['order_date'], self::PH_TIME_ZONE)
-                : now(self::PH_TIME_ZONE),
-            'customer' => trim((string) $validated['customer_name']),
-            'payment_method' => self::WALKIN_PAYMENT_METHOD,
-            'total' => (float) $validated['total'],
-            'status' => trim((string) ($validated['status'] ?? 'Pending')),
-            'created_by_user_id' => $request->user()?->id,
-        ]);
+        $productId = isset($validated['product_id']) ? (int) $validated['product_id'] : null;
+        $quantity  = max(1, (int) ($validated['unit'] ?? 1));
+
+        $walkInOrder = DB::transaction(function () use ($validated, $request, $productId, $quantity) {
+            // Reduce product stock if a product was selected
+            if ($productId) {
+                $product = Product::find($productId);
+                if ($product) {
+                    $newStock = max(0, (int) $product->stock - $quantity);
+                    $product->stock = $newStock;
+                    $product->stock_status = $newStock > 0 ? 'in_stock' : 'out_of_stock';
+                    $product->save();
+                }
+            }
+
+            return WalkInOrder::query()->create([
+                'order_no'                    => trim((string) $validated['order_no']),
+                'customer_name'               => trim((string) $validated['customer_name']),
+                'address'                     => trim((string) $validated['address']),
+                'contact_number'              => trim((string) $validated['contact_number']),
+                'client_type'                 => trim((string) $validated['client_type']),
+                'client_type_other'           => $this->normalizeOtherField($validated['client_type'] ?? '', $validated['client_type_other'] ?? null),
+                'agency_organization'         => trim((string) $validated['agency_organization']),
+                'project_description'         => trim((string) $validated['project_description']),
+                'project_description_other'   => $this->normalizeOtherField($validated['project_description'] ?? '', $validated['project_description_other'] ?? null),
+                'item_detail'                 => trim((string) $validated['item_detail']),
+                'product_id'                  => $productId,
+                'unit'                        => trim((string) $validated['unit']),
+                'subtotal_cost'               => (float) $validated['subtotal_cost'],
+                'order_item'                  => trim((string) $validated['item_detail']),
+                'order_date'                  => isset($validated['order_date'])
+                    ? Carbon::parse($validated['order_date'], self::PH_TIME_ZONE)
+                    : now(self::PH_TIME_ZONE),
+                'customer'                    => trim((string) $validated['customer_name']),
+                'payment_method'              => self::WALKIN_PAYMENT_METHOD,
+                'total'                       => (float) $validated['total'],
+                'status'                      => trim((string) ($validated['status'] ?? 'Pending')),
+                'created_by_user_id'          => $request->user()?->id,
+            ]);
+        });
 
         return response()->json([
             'message' => 'Walk-in order added successfully.',
-            'data' => $this->transformRow($walkInOrder),
+            'data'    => $this->transformRow($walkInOrder),
         ], 201);
     }
 
@@ -152,7 +171,19 @@ class WalkInOrderController extends Controller
             return response()->json(['message' => 'Walk-in order not found.'], 404);
         }
 
-        $walkInOrder->delete();
+        DB::transaction(function () use ($walkInOrder) {
+            // Restore product stock when walk-in order is deleted
+            if ($walkInOrder->product_id) {
+                $product = Product::find($walkInOrder->product_id);
+                if ($product) {
+                    $restoredQty = max(1, (int) $walkInOrder->unit);
+                    $product->stock = (int) $product->stock + $restoredQty;
+                    $product->stock_status = $product->stock > 0 ? 'in_stock' : 'out_of_stock';
+                    $product->save();
+                }
+            }
+            $walkInOrder->delete();
+        });
 
         return response()->json([
             'message' => 'Walk-in order deleted successfully.',
@@ -214,21 +245,22 @@ class WalkInOrderController extends Controller
         }
 
         return $request->validate([
-            'order_no' => $orderNoRule,
-            'customer_name' => 'required|string|max:160',
-            'address' => 'required|string|max:255',
-            'contact_number' => 'required|string|max:40',
-            'client_type' => 'required|in:' . implode(',', self::ALLOWED_CLIENT_TYPES),
-            'client_type_other' => 'nullable|string|max:180|required_if:client_type,OTHERS (SPECIFY)',
-            'agency_organization' => 'required|string|max:180',
-            'project_description' => 'required|in:' . implode(',', self::ALLOWED_PROJECT_DESCRIPTIONS),
-            'project_description_other' => 'nullable|string|max:180|required_if:project_description,OTHERS (SPECIFY)',
-            'item_detail' => 'required|string|max:300',
-            'unit' => 'required|string|max:50',
-            'subtotal_cost' => 'required|numeric|min:0|max:9999999.99',
-            'total' => 'required|numeric|min:0|max:9999999.99',
-            'order_date' => 'nullable|date',
-            'status' => 'nullable|string|max:40',
+            'order_no'                    => $orderNoRule,
+            'customer_name'               => 'required|string|max:160',
+            'address'                     => 'required|string|max:255',
+            'contact_number'              => 'required|string|max:40',
+            'client_type'                 => 'required|in:' . implode(',', self::ALLOWED_CLIENT_TYPES),
+            'client_type_other'           => 'nullable|string|max:180|required_if:client_type,OTHERS (SPECIFY)',
+            'agency_organization'         => 'required|string|max:180',
+            'project_description'         => 'required|in:' . implode(',', self::ALLOWED_PROJECT_DESCRIPTIONS),
+            'project_description_other'   => 'nullable|string|max:180|required_if:project_description,OTHERS (SPECIFY)',
+            'item_detail'                 => 'required|string|max:300',
+            'product_id'                  => 'nullable|integer|exists:products,id',
+            'unit'                        => 'required|string|max:50',
+            'subtotal_cost'               => 'required|numeric|min:0|max:9999999.99',
+            'total'                       => 'required|numeric|min:0|max:9999999.99',
+            'order_date'                  => 'nullable|date',
+            'status'                      => 'nullable|string|max:40',
         ]);
     }
 

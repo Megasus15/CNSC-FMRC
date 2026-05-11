@@ -16,6 +16,11 @@ const getCustomerSession = () => {
   };
 };
 
+const getCustomerToken = () => {
+  const raw = localStorage.getItem("customer_token") || "";
+  return raw.replace(/^Bearer\s+/i, "").trim();
+};
+
 const ORDER_STAGE_FLOW = ["to_pay", "to_ship", "to_receive", "completed"];
 const PHILIPPINES_TIME_ZONE = "Asia/Manila";
 const API_REQUEST_TIMEOUT_MS = 8000;
@@ -2554,8 +2559,7 @@ document.addEventListener("DOMContentLoaded", () => {
       this.innerText = "Processing...";
 
       try {
-        const token =
-          customerSession.token || localStorage.getItem("customer_token") || "";
+        const token = getCustomerToken() || customerSession.token || "";
         if (!token) {
           throw new Error("Login session not found. Please sign in again.");
         }
@@ -2676,6 +2680,15 @@ document.addEventListener("DOMContentLoaded", () => {
         ); // 25s timeout since SMTP email might take a few seconds on Windows local server
 
         const data = await response.json().catch(() => ({}));
+        if (response.status === 401) {
+          try {
+            localStorage.removeItem("customer_token");
+            localStorage.removeItem("customer_info");
+          } catch {
+            // Ignore storage write issues.
+          }
+          throw new Error("Session expired. Please sign in again.");
+        }
         if (!response.ok) {
           throw new Error(
             data.message || "Unable to place order at the moment.",
@@ -3646,17 +3659,25 @@ document.addEventListener("DOMContentLoaded", () => {
       return [intlAddress, country].filter(Boolean).join(", ");
     }
 
-    const region = document.getElementById("aptRegion")?.value?.trim() || "";
-    const province =
-      document.getElementById("aptProvince")?.value?.trim() || "";
-    const municipality =
-      document.getElementById("aptMunicipality")?.value?.trim() || "";
-    const barangay = document.getElementById("aptAddress")?.value?.trim() || "";
+    // Use selectedOptions[0].text to get the human-readable name (not the PSGC code)
+    const getSelectText = (id) => {
+      const el = document.getElementById(id);
+      return el?.selectedOptions?.[0]?.text?.trim() || el?.value?.trim() || "";
+    };
+
+    const region       = getSelectText("aptRegion");
+    const province     = getSelectText("aptProvince");
+    const municipality = getSelectText("aptMunicipality");
+    const barangay     = getSelectText("aptAddress");
+
+    // Filter out any placeholder strings that look like "Select …" or "Loading …"
+    const isPlaceholder = (s) => /^(Select|Loading|No )/i.test(s);
 
     return [barangay, municipality, province, region, country]
-      .filter(Boolean)
+      .filter((s) => Boolean(s) && !isPlaceholder(s))
       .join(", ");
   };
+
 
   const fetchCalendarAvailability = async () => {
     try {
@@ -4008,22 +4029,34 @@ document.addEventListener("DOMContentLoaded", () => {
       "country",
       document.getElementById("aptCountry")?.value?.trim() || "Philippines",
     );
+    // Helper: get the human-readable text label of a PSGC dropdown (not the numeric code)
+    const getSelectName = (id) => {
+      const el = document.getElementById(id);
+      return el?.selectedOptions?.[0]?.text?.trim() || el?.value?.trim() || "";
+    };
+    const isPlaceholder = (s) => /^(Select|Loading|No )/i.test(s);
+    const psgcName = (id) => {
+      const name = getSelectName(id);
+      return isPlaceholder(name) ? "" : name;
+    };
+
     formData.append(
       "region",
-      document.getElementById("aptRegion")?.value?.trim() || "",
+      psgcName("aptRegion"),
     );
     formData.append(
       "province",
-      document.getElementById("aptProvince")?.value?.trim() || "",
+      psgcName("aptProvince"),
     );
     formData.append(
       "municipality",
-      document.getElementById("aptMunicipality")?.value?.trim() || "",
+      psgcName("aptMunicipality"),
     );
     formData.append(
       "barangay",
-      document.getElementById("aptAddress")?.value?.trim() || "",
+      psgcName("aptAddress"),
     );
+
     formData.append(
       "intl_address",
       document.getElementById("aptIntlAddress")?.value?.trim() || "",
@@ -4408,15 +4441,143 @@ document.addEventListener("DOMContentLoaded", () => {
     updateQrDetails("PENDING", "");
   };
 
-  // Address dropdown behavior.
-  const aptCountry = document.getElementById("aptCountry");
-  const aptRegion = document.getElementById("aptRegion");
-  const aptProvince = document.getElementById("aptProvince");
-  const aptMunicipality = document.getElementById("aptMunicipality");
-  const aptBarangay = document.getElementById("aptAddress");
-  const aptIntlAddress = document.getElementById("aptIntlAddress");
-  const aptPhAddressFields = document.getElementById("aptPhAddressFields");
-  const aptIntlAddressField = document.getElementById("aptIntlAddressField");
+  // ─── PSGC Live Address Dropdowns ────────────────────────────────────────────
+  // Cascading dropdowns: Region → Province → City/Municipality → Barangay
+  // Data is fetched from our Laravel backend which proxies the PSGC Cloud API
+  // (https://psgc.cloud/api) with 24-hour server-side caching.
+  const aptCountry        = document.getElementById('aptCountry');
+  const aptRegion         = document.getElementById('aptRegion');
+  const aptProvince       = document.getElementById('aptProvince');
+  const aptMunicipality   = document.getElementById('aptMunicipality');
+  const aptBarangay       = document.getElementById('aptAddress');
+  const aptIntlAddress    = document.getElementById('aptIntlAddress');
+  const aptPhAddressFields  = document.getElementById('aptPhAddressFields');
+  const aptIntlAddressField = document.getElementById('aptIntlAddressField');
+
+  /** Base URL for PSGC proxy endpoints — uses the same resolved backend URL as all other API calls */
+  const PSGC_BASE = `${API_BASE_URL}/psgc`;
+
+
+  /** In-memory cache so repeated visits to the same step skip re-fetching. */
+  const _psgcCache = {};
+
+  /**
+   * Fetch a PSGC proxy endpoint with simple in-memory caching.
+   * @param {string} url  Full URL to fetch
+   * @returns {Promise<Array>} Parsed JSON array, or [] on failure
+   */
+  const psgcGet = async (url) => {
+    if (_psgcCache[url]) return _psgcCache[url];
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      _psgcCache[url] = Array.isArray(json) ? json : [];
+      return _psgcCache[url];
+    } catch (err) {
+      console.error('[PSGC] Fetch error:', url, err);
+      return [];
+    }
+  };
+
+  /**
+   * Set a select element to a loading placeholder and disable it.
+   * @param {HTMLSelectElement} el
+   * @param {string} label  e.g. "Region"
+   */
+  const setLoading = (el, label) => {
+    if (!el) return;
+    el.innerHTML = `<option value="" disabled selected>Loading ${label}s…</option>`;
+    el.disabled = true;
+  };
+
+  /**
+   * Fill a select element with an array of { code, name } objects.
+   * @param {HTMLSelectElement} el
+   * @param {Array}   items         Array of { code, name }
+   * @param {string}  placeholder   e.g. "Select Region"
+   * @param {boolean} keepDisabled  Leave the select disabled even if items loaded
+   */
+  const fillSelect = (el, items, placeholder, keepDisabled = false) => {
+    if (!el) return;
+    el.innerHTML = `<option value="" selected disabled hidden>${placeholder}</option>`;
+    if (items.length === 0) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = `No ${placeholder.replace('Select ', '')} available`;
+      opt.disabled = true;
+      el.appendChild(opt);
+      el.disabled = true;
+      return;
+    }
+    items.forEach(({ code, name }) => {
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = name;
+      el.appendChild(opt);
+    });
+    el.disabled = keepDisabled;
+  };
+
+  /** Reset all PH-address selects back to their placeholder state. */
+  const resetPhSelects = () => {
+    fillSelect(aptRegion,       [], 'Select Region',       true);
+    fillSelect(aptProvince,     [], 'Select Province',     true);
+    fillSelect(aptMunicipality, [], 'Select Municipality', true);
+    fillSelect(aptBarangay,     [], 'Select Barangay',     true);
+    // Immediately load regions (they're the top of the chain)
+    loadRegions();
+  };
+
+  /** Show/hide PH vs international address fields based on country selection. */
+  const updateAddressMode = () => {
+    const isPh = aptCountry?.value === 'Philippines';
+    if (aptPhAddressFields)   aptPhAddressFields.style.display   = isPh ? 'contents' : 'none';
+    if (aptIntlAddressField)  aptIntlAddressField.style.display  = isPh ? 'none' : 'block';
+    if (aptIntlAddress)       aptIntlAddress.required            = !isPh;
+  };
+
+  // ── Loader functions (each cascades to the next) ──────────────────────────
+
+  /** Load all Philippine regions into aptRegion. */
+  const loadRegions = async () => {
+    setLoading(aptRegion, 'Region');
+    const regions = await psgcGet(`${PSGC_BASE}/regions`);
+    fillSelect(aptRegion, regions, 'Select Region', false);
+    // Reset downstream selects
+    fillSelect(aptProvince,     [], 'Select Province',     true);
+    fillSelect(aptMunicipality, [], 'Select Municipality', true);
+    fillSelect(aptBarangay,     [], 'Select Barangay',     true);
+  };
+
+  /** Load provinces for the selected region. */
+  const loadProvinces = async (regionCode) => {
+    setLoading(aptProvince,     'Province');
+    fillSelect(aptMunicipality, [], 'Select Municipality', true);
+    fillSelect(aptBarangay,     [], 'Select Barangay',     true);
+
+    const provinces = await psgcGet(`${PSGC_BASE}/regions/${regionCode}/provinces`);
+    fillSelect(aptProvince, provinces, 'Select Province', false);
+  };
+
+  /** Load cities/municipalities for the selected province. */
+  const loadCitiesMunicipalities = async (provinceCode) => {
+    setLoading(aptMunicipality, 'Municipality');
+    fillSelect(aptBarangay, [], 'Select Barangay', true);
+
+    const cities = await psgcGet(`${PSGC_BASE}/provinces/${provinceCode}/cities-municipalities`);
+    fillSelect(aptMunicipality, cities, 'Select Municipality', false);
+  };
+
+  /** Load barangays for the selected city/municipality. */
+  const loadBarangays = async (cityMunCode) => {
+    setLoading(aptBarangay, 'Barangay');
+
+    const barangays = await psgcGet(`${PSGC_BASE}/cities-municipalities/${cityMunCode}/barangays`);
+    fillSelect(aptBarangay, barangays, 'Select Barangay', false);
+  };
+
+  // ── Wire up change events ─────────────────────────────────────────────────
 
   if (
     aptCountry &&
@@ -4425,95 +4586,29 @@ document.addEventListener("DOMContentLoaded", () => {
     aptMunicipality &&
     aptBarangay
   ) {
-    const phAddressData = {
-      "Bicol Region": {
-        "Camarines Norte": {
-          Daet: ["Barangay I", "Barangay II", "Barangay III", "Barangay IV"],
-          Labo: ["Baay", "Canapawan", "Daguit", "Talobatib"],
-          Basud: ["Angas", "Bactas", "Mocong", "Poblacion 1"],
-        },
-      },
-      "National Capital Region (NCR)": {
-        "Metro Manila": {
-          Manila: [
-            "Barangay 659",
-            "Barangay 699",
-            "Barangay 734",
-            "Barangay 750",
-          ],
-          "Quezon City": [
-            "Bagumbayan",
-            "Batasan Hills",
-            "Commonwealth",
-            "UP Campus",
-          ],
-        },
-      },
-    };
+    aptCountry.addEventListener('change', updateAddressMode);
 
-    const fillSelect = (selectElement, options, placeholder) => {
-      selectElement.innerHTML = `<option value="" selected disabled hidden>${placeholder}</option>`;
-      options.forEach((optionText) => {
-        const option = document.createElement("option");
-        option.value = optionText;
-        option.textContent = optionText;
-        selectElement.appendChild(option);
-      });
-    };
+    aptRegion.addEventListener('change', () => {
+      const code = aptRegion.value;
+      if (code) loadProvinces(code);
+    });
 
-    const resetPhSelects = () => {
-      fillSelect(aptRegion, Object.keys(phAddressData), "Select Region");
-      fillSelect(aptProvince, [], "Select Province");
-      fillSelect(aptMunicipality, [], "Select Municipality");
-      fillSelect(aptBarangay, [], "Select Barangay");
-      aptProvince.disabled = true;
-      aptMunicipality.disabled = true;
-      aptBarangay.disabled = true;
-    };
+    aptProvince.addEventListener('change', () => {
+      const code = aptProvince.value;
+      if (code) loadCitiesMunicipalities(code);
+    });
 
-    const updateAddressMode = () => {
-      const isPhilippines = aptCountry.value === "Philippines";
-      if (aptPhAddressFields)
-        aptPhAddressFields.style.display = isPhilippines ? "contents" : "none";
-      if (aptIntlAddressField)
-        aptIntlAddressField.style.display = isPhilippines ? "none" : "block";
-      if (aptIntlAddress) aptIntlAddress.required = !isPhilippines;
-    };
+    aptMunicipality.addEventListener('change', () => {
+      const code = aptMunicipality.value;
+      if (code) loadBarangays(code);
+    });
 
+    // Initialise on first load
     resetPhSelects();
     updateAddressMode();
-
-    aptCountry.addEventListener("change", updateAddressMode);
-
-    aptRegion.addEventListener("change", () => {
-      const provinces = Object.keys(phAddressData[aptRegion.value] || {});
-      fillSelect(aptProvince, provinces, "Select Province");
-      fillSelect(aptMunicipality, [], "Select Municipality");
-      fillSelect(aptBarangay, [], "Select Barangay");
-      aptProvince.disabled = !provinces.length;
-      aptMunicipality.disabled = true;
-      aptBarangay.disabled = true;
-    });
-
-    aptProvince.addEventListener("change", () => {
-      const municipalities = Object.keys(
-        phAddressData[aptRegion.value]?.[aptProvince.value] || {},
-      );
-      fillSelect(aptMunicipality, municipalities, "Select Municipality");
-      fillSelect(aptBarangay, [], "Select Barangay");
-      aptMunicipality.disabled = !municipalities.length;
-      aptBarangay.disabled = true;
-    });
-
-    aptMunicipality.addEventListener("change", () => {
-      const barangays =
-        phAddressData[aptRegion.value]?.[aptProvince.value]?.[
-          aptMunicipality.value
-        ] || [];
-      fillSelect(aptBarangay, barangays, "Select Barangay");
-      aptBarangay.disabled = !barangays.length;
-    });
   }
+  // ─────────────────────────────────────────────────────────────────────────────
+
 
   aptFileInput?.addEventListener("change", () => {
     const file = aptFileInput.files?.[0];
@@ -4800,7 +4895,6 @@ document.addEventListener("DOMContentLoaded", () => {
     void downloadAppointmentReceipt();
   });
 
-  bindClick("btnDownloadQr", downloadQrCodeCard);
 
   // Step 5: "Finish Transaction" — appointment already submitted, just show success
   bindClick("btnFinishStep5", () => {
@@ -4826,9 +4920,6 @@ document.addEventListener("DOMContentLoaded", () => {
     stopAptPolling();
   });
 
-  bindClick("btnSuccessDownload", () => {
-    downloadQrCodeCard();
-  });
 
   const contactMessageForm = document.getElementById("contactMessageForm");
   if (contactMessageForm) {

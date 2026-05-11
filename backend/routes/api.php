@@ -16,6 +16,14 @@ use App\Http\Controllers\Api\WalkInOrderController;
 use App\Http\Controllers\Api\InventoryItemController;
 use App\Http\Controllers\Api\ArchiveController;
 use App\Http\Controllers\Api\CustomerMessageController;
+use App\Http\Controllers\Api\PsgcController;
+
+// ─── PSGC Address Proxy (public, no auth needed) ──────────────────────────
+Route::get('/psgc/regions', [PsgcController::class, 'regions']);
+Route::get('/psgc/regions/{regionCode}/provinces', [PsgcController::class, 'provinces']);
+Route::get('/psgc/provinces/{provinceCode}/cities-municipalities', [PsgcController::class, 'citiesMunicipalities']);
+Route::get('/psgc/cities-municipalities/{cityMunCode}/barangays', [PsgcController::class, 'barangays']);
+// ────────────────────────────────────────────────────────────────────────────
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);

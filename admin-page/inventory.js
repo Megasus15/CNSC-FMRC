@@ -942,7 +942,11 @@ document.addEventListener("DOMContentLoaded", () => {
     editingItemId = null;
     if (invModalTitle) invModalTitle.innerHTML = '<i class="fa-solid fa-plus" style="margin-right:6px;"></i>Add New Item';
     if (btnSaveForm) btnSaveForm.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Add to Inventory';
-    if (formCategory) formCategory.value = "Consumable Materials";
+    // Restore last-used category from localStorage; default to "Consumable Materials"
+    if (formCategory) {
+      const lastCat = localStorage.getItem('fmrc_inv_last_category');
+      formCategory.value = lastCat || 'Consumable Materials';
+    }
     if (formItemName) formItemName.value = "";
     if (formDescription) formDescription.value = "";
     if (formUnit) formUnit.value = "pcs";
@@ -986,7 +990,21 @@ document.addEventListener("DOMContentLoaded", () => {
     openModal(modalForm);
   });
 
-  btnCancelForm?.addEventListener("click", () => closeModal(modalForm));
+  // Save category to localStorage whenever it changes in the Add New Item modal
+  formCategory?.addEventListener("change", () => {
+    if (editingItemId === null) {
+      // Only persist when in "Add" mode, not Edit mode
+      localStorage.setItem('fmrc_inv_last_category', formCategory.value);
+    }
+  });
+
+  btnCancelForm?.addEventListener("click", () => {
+    // Persist current category before closing (only for Add mode)
+    if (editingItemId === null && formCategory) {
+      localStorage.setItem('fmrc_inv_last_category', formCategory.value);
+    }
+    closeModal(modalForm);
+  });
 
   btnAddVariant?.addEventListener("click", () => {
     if (!variantList) return;

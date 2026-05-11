@@ -16,20 +16,29 @@ const getCustomerSession = () => {
   };
 };
 
+const getCustomerToken = () => {
+  const raw = localStorage.getItem("customer_token") || "";
+  return raw.replace(/^Bearer\s+/i, "").trim();
+};
+
 const ORDER_STAGE_FLOW = ["to_pay", "to_ship", "to_receive", "completed"];
 const PHILIPPINES_TIME_ZONE = "Asia/Manila";
-const API_REQUEST_TIMEOUT_MS = 15000;
+const API_REQUEST_TIMEOUT_MS = 8000;
 const ORDERS_REALTIME_SIGNAL_KEY = "fmrc_orders_updated_at";
 const ORDERS_REALTIME_CHANNEL = "fmrc-orders-realtime";
 const CUSTOMER_ORDERS_FALLBACK_SYNC_MS = 6000;
 const CUSTOMER_ORDERS_MIN_REFRESH_GAP_MS = 2500;
+const CART_STORAGE_KEY = "fmrc_cart_items";
+const CART_STORAGE_SIGNAL_KEY = "fmrc_cart_updated_at";
 
 let ordersRealtimeChannel = null;
 
 const getOrdersRealtimeChannel = () => {
   if (typeof window.BroadcastChannel !== "function") return null;
   if (!ordersRealtimeChannel) {
-    ordersRealtimeChannel = new window.BroadcastChannel(ORDERS_REALTIME_CHANNEL);
+    ordersRealtimeChannel = new window.BroadcastChannel(
+      ORDERS_REALTIME_CHANNEL,
+    );
   }
   return ordersRealtimeChannel;
 };
@@ -37,7 +46,9 @@ const getOrdersRealtimeChannel = () => {
 const resolveApiBaseUrl = () => {
   const configured =
     window.APP_API_BASE_URL ||
-    document.querySelector('meta[name="api-base-url"]')?.getAttribute("content") ||
+    document
+      .querySelector('meta[name="api-base-url"]')
+      ?.getAttribute("content") ||
     "";
 
   if (configured.trim()) {
@@ -77,7 +88,9 @@ const emitCustomerOrdersUpdated = (detail = {}) => {
     ...detail,
   };
 
-  window.dispatchEvent(new CustomEvent("fmrc:orders-updated", { detail: payload }));
+  window.dispatchEvent(
+    new CustomEvent("fmrc:orders-updated", { detail: payload }),
+  );
 
   try {
     localStorage.setItem(ORDERS_REALTIME_SIGNAL_KEY, JSON.stringify(payload));
@@ -101,7 +114,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const logoContainer = siteHeader?.querySelector(".logo-container");
   const headerActions = siteHeader?.querySelector(".header-right-actions");
 
-  if (siteHeader && mainNav && logoContainer && !document.querySelector(".mobile-menu-toggle")) {
+  if (
+    siteHeader &&
+    mainNav &&
+    logoContainer &&
+    !document.querySelector(".mobile-menu-toggle")
+  ) {
     const menuToggle = document.createElement("button");
     menuToggle.type = "button";
     menuToggle.className = "mobile-menu-toggle";
@@ -130,7 +148,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const sidebarBrand = document.createElement("a");
     sidebarBrand.className = "sidebar-logo-container";
-    sidebarBrand.href = logoContainer.getAttribute("href") || "/home-page/main.html";
+    sidebarBrand.href =
+      logoContainer.getAttribute("href") || "/home-page/main.html";
     sidebarBrand.innerHTML = logoContainer.innerHTML;
 
     sidebarHeader.append(sidebarCloseBtn, sidebarBrand);
@@ -228,10 +247,12 @@ document.addEventListener("DOMContentLoaded", () => {
       `;
       document.body.appendChild(modal);
 
-      modal.querySelector("#closeGuestAccessModal")?.addEventListener("click", () => {
-        modal.classList.remove("show");
-        document.body.style.overflow = "";
-      });
+      modal
+        .querySelector("#closeGuestAccessModal")
+        ?.addEventListener("click", () => {
+          modal.classList.remove("show");
+          document.body.style.overflow = "";
+        });
 
       modal.addEventListener("click", (event) => {
         if (event.target === modal) {
@@ -258,6 +279,165 @@ document.addEventListener("DOMContentLoaded", () => {
     openGuestAccessModal(actionLabel);
     return false;
   };
+
+  const fetchWithTimeout = async (
+    url,
+    options = {},
+    timeoutMs = API_REQUEST_TIMEOUT_MS,
+  ) => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+    const { signal: _ignoredSignal, ...restOptions } = options;
+
+    try {
+      return await fetch(url, {
+        ...restOptions,
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        throw new Error(
+          "Request timed out. Please check your connection and try again.",
+        );
+      }
+
+      throw error;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  };
+
+  const ensureCustomerSystemPopup = () => {
+    let popup = document.getElementById("customerSystemPopup");
+    if (popup) return popup;
+
+    popup = document.createElement("div");
+    popup.id = "customerSystemPopup";
+    popup.className = "admin-system-popup";
+    popup.innerHTML = `
+      <div class="admin-system-popup__backdrop"></div>
+      <div class="admin-system-popup__card" role="dialog" aria-modal="true" aria-labelledby="customerSystemPopupTitle">
+        <h3 id="customerSystemPopupTitle" class="admin-system-popup__title">System Message</h3>
+        <hr class="admin-system-popup__separator" />
+        <p id="customerSystemPopupMessage" class="admin-system-popup__message"></p>
+        <hr class="admin-system-popup__separator" />
+        <div class="admin-system-popup__actions">
+          <button id="customerSystemPopupCancel" type="button" class="btn-admin btn-secondary">Cancel</button>
+          <button id="customerSystemPopupOk" type="button" class="btn-admin">Okay</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(popup);
+    return popup;
+  };
+
+  const showCustomerPopup = (message, options = {}) =>
+    new Promise((resolve) => {
+      const popup = ensureCustomerSystemPopup();
+      const titleEl = popup.querySelector("#customerSystemPopupTitle");
+      const msgEl = popup.querySelector("#customerSystemPopupMessage");
+      const okBtn = popup.querySelector("#customerSystemPopupOk");
+      const cancelBtn = popup.querySelector("#customerSystemPopupCancel");
+      const actions = popup.querySelector(".admin-system-popup__actions");
+      const backdrop = popup.querySelector(".admin-system-popup__backdrop");
+
+      if (titleEl) titleEl.textContent = options.title || "System Message";
+      if (msgEl) msgEl.textContent = String(message || "Done.");
+
+      const isConfirm = Boolean(options.isConfirm);
+      const allowBackdropClose = Boolean(
+        options.allowBackdropClose ?? isConfirm,
+      );
+      if (actions) {
+        actions.classList.toggle("is-confirm", isConfirm);
+      }
+
+      const closePopup = (accepted) => {
+        popup.classList.remove("show");
+        resolve(Boolean(accepted));
+      };
+
+      if (okBtn) {
+        okBtn.textContent = options.okText || (isConfirm ? "Confirm" : "Okay");
+        okBtn.onclick = (ev) => {
+          ev?.stopPropagation();
+          closePopup(true);
+        };
+      }
+
+      if (cancelBtn) {
+        cancelBtn.textContent = options.cancelText || "Cancel";
+        cancelBtn.style.display = isConfirm ? "inline-flex" : "none";
+        cancelBtn.onclick = (ev) => {
+          ev?.stopPropagation();
+          closePopup(false);
+        };
+      }
+
+      // Prevent the popup from being closed immediately by any residual click
+      // event that bubbled from the original button press. Attach the
+      // backdrop click handler after a short delay so the originating click
+      // cannot close it instantly.
+      popup.classList.add("show");
+
+      if (backdrop) {
+        backdrop.onclick = null;
+        if (allowBackdropClose) {
+          setTimeout(() => {
+            backdrop.onclick = (ev) => {
+              ev?.stopPropagation();
+              closePopup(false);
+            };
+          }, 60);
+        }
+      }
+
+      if (isConfirm && cancelBtn) {
+        cancelBtn.focus();
+      } else if (okBtn) {
+        okBtn.focus();
+      }
+    });
+
+  // ── Dedicated Order Success Modal ────────────────────────────────────────────
+  // Opens the #orderSuccessModal (in product.html) with the given order number.
+  // Returns a Promise that resolves ONLY when the customer clicks the OK button.
+  // Falls back to showCustomerPopup on pages that don't have the element.
+  const openOrderSuccessModal = (orderNoDisplay) =>
+    new Promise((resolve) => {
+      const modal = document.getElementById("orderSuccessModal");
+      const numEl = document.getElementById("orderSuccessNumber");
+      const okBtn = document.getElementById("orderSuccessOkBtn");
+
+      // Fallback: page doesn't have the dedicated modal
+      if (!modal || !okBtn) {
+        void showCustomerPopup(
+          `Order placed successfully${orderNoDisplay ? ` (${orderNoDisplay})` : ""}!`,
+          { title: "Success", allowBackdropClose: false },
+        ).then(resolve);
+        return;
+      }
+
+      // Populate the order number
+      if (numEl) {
+        numEl.textContent = orderNoDisplay || "—";
+      }
+
+      // Show the modal (flex so it centres correctly)
+      modal.style.display = "flex";
+      document.body.style.overflow = "hidden";
+
+      // Single-fire OK handler — cleans itself up
+      const handleOk = () => {
+        okBtn.removeEventListener("click", handleOk);
+        modal.style.display = "none";
+        document.body.style.overflow = "";
+        resolve();
+      };
+
+      okBtn.addEventListener("click", handleOk);
+    });
 
   // Disable sticky header when any modal/overlay/form is open
   const headerBlockingSelectors = [
@@ -414,29 +594,117 @@ document.addEventListener("DOMContentLoaded", () => {
   // Modal Logic
   const modal = document.getElementById("serviceModal");
   const modalTitle = document.getElementById("modalTitle");
-  const modalImage = document.getElementById("modalImage"); // Grab the new modal image element
+  const modalImage = document.getElementById("modalImage");
+  const modalDesc = document.querySelector("#serviceModal .modal-desc");
+  const featureChips = document.querySelector("#serviceModal .feature-chips");
+  const modalList1 = document.querySelector(
+    "#serviceModal .modal-columns .modal-col:first-child .modal-list",
+  );
+  const modalList2 = document.querySelector(
+    "#serviceModal .modal-columns .modal-col:last-child .modal-list",
+  );
+  const modalSub1 = document.querySelector(
+    "#serviceModal .modal-columns .modal-col:first-child .modal-subtitle",
+  );
+  const modalSub2 = document.querySelector(
+    "#serviceModal .modal-columns .modal-col:last-child .modal-subtitle",
+  );
+
+  function escHtmlModal(str) {
+    const d = document.createElement("div");
+    d.textContent = str || "";
+    return d.innerHTML;
+  }
 
   document.body.addEventListener("click", function (e) {
     // Open Modal logic
     const openBtn = e.target.closest(".open-modal-btn");
     if (openBtn) {
       if (modal) {
-        // Find the specific card that was clicked
         const card = openBtn.closest(".service-card");
-
         if (card) {
-          // 1. Update Title
-          if (modalTitle) {
-            const title = card.querySelector(".card-title").innerText;
-            modalTitle.innerText = title;
+          // Title
+          const title =
+            openBtn.dataset.title ||
+            card.querySelector(".card-title")?.innerText ||
+            "";
+          if (modalTitle) modalTitle.innerText = title;
+
+          // Image
+          if (modalImage) {
+            const img =
+              openBtn.dataset.img ||
+              card.querySelector(".card-img-holder img")?.src ||
+              "";
+            modalImage.src = img;
+            modalImage.style.display = img ? "block" : "none";
           }
 
-          // 2. Update Image
-          if (modalImage) {
-            const cardImg = card.querySelector(".card-img-holder img");
-            if (cardImg) {
-              modalImage.src = cardImg.src;
-              modalImage.alt = cardImg.alt;
+          // Description
+          if (modalDesc) {
+            modalDesc.textContent =
+              openBtn.dataset.desc ||
+              card.querySelector(".card-desc")?.innerText ||
+              "";
+          }
+
+          // Feature chips
+          let features = [];
+          try {
+            features = JSON.parse(openBtn.dataset.features || "[]");
+          } catch {}
+          if (featureChips) {
+            const subEl = featureChips.previousElementSibling;
+            if (features.length) {
+              featureChips.innerHTML = features
+                .map((f) => `<span class="chip">${escHtmlModal(f)}</span>`)
+                .join("");
+              featureChips.style.display = "";
+              if (subEl && subEl.classList.contains("modal-subtitle"))
+                subEl.style.display = "";
+            } else {
+              featureChips.innerHTML = "";
+              featureChips.style.display = "none";
+              if (subEl && subEl.classList.contains("modal-subtitle"))
+                subEl.style.display = "none";
+            }
+          }
+
+          // Materials
+          let materials = [];
+          try {
+            materials = JSON.parse(openBtn.dataset.materials || "[]");
+          } catch {}
+          if (modalList1) {
+            if (materials.length) {
+              modalList1.innerHTML = materials
+                .map((m) => `<li>${escHtmlModal(m)}</li>`)
+                .join("");
+              if (modalSub1) modalSub1.style.display = "";
+              modalList1.style.display = "";
+            } else {
+              modalList1.innerHTML = "";
+              if (modalSub1) modalSub1.style.display = "none";
+            }
+          }
+
+          // Best For
+          let bestFor = [];
+          try {
+            bestFor = JSON.parse(
+              openBtn.dataset.bestFor || openBtn.dataset["best-for"] || "[]",
+            );
+          } catch {}
+          if (modalList2) {
+            if (bestFor.length) {
+              modalList2.innerHTML = bestFor
+                .map((b) => `<li>${escHtmlModal(b)}</li>`)
+                .join("");
+              if (modalSub2) modalSub2.style.display = "";
+              modalList2.style.display = "";
+            } else {
+              modalList2.innerHTML = "";
+              if (modalSub2) modalSub2.style.display = "none";
             }
           }
         }
@@ -450,14 +718,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (e.target.closest(".close-modal-btn")) {
       if (modal) {
         modal.classList.remove("show-modal");
-        document.body.style.overflow = ""; // Resets to CSS
+        document.body.style.overflow = "";
       }
     }
 
     // Close Modal by clicking the dark overlay background
     if (e.target === modal) {
       modal.classList.remove("show-modal");
-      document.body.style.overflow = ""; // Resets to CSS
+      document.body.style.overflow = "";
     }
   });
 
@@ -469,21 +737,32 @@ document.addEventListener("DOMContentLoaded", () => {
   if (isServicesPage) {
     const searchInput = document.querySelector(".toolbar-search .search-input");
     const categorySelect = document.querySelector(".category-select");
-    const serviceCards = Array.from(document.querySelectorAll(".services-grid .service-card"));
+    const serviceCards = Array.from(
+      document.querySelectorAll(".services-grid .service-card"),
+    );
 
-    const normalize = (value) => String(value || "").toLowerCase().trim();
+    const normalize = (value) =>
+      String(value || "")
+        .toLowerCase()
+        .trim();
 
     const applyServiceFilters = () => {
       const query = normalize(searchInput?.value || "");
       const selectedCategory = normalize(categorySelect?.value || "all");
 
       serviceCards.forEach((card) => {
-        const title = normalize(card.querySelector(".card-title")?.textContent || "");
-        const desc = normalize(card.querySelector(".card-desc")?.textContent || "");
+        const title = normalize(
+          card.querySelector(".card-title")?.textContent || "",
+        );
+        const desc = normalize(
+          card.querySelector(".card-desc")?.textContent || "",
+        );
         const category = normalize(card.dataset.category || "");
 
-        const matchesSearch = !query || title.includes(query) || desc.includes(query);
-        const matchesCategory = selectedCategory === "all" || category === selectedCategory;
+        const matchesSearch =
+          !query || title.includes(query) || desc.includes(query);
+        const matchesCategory =
+          selectedCategory === "all" || category === selectedCategory;
         card.style.display = matchesSearch && matchesCategory ? "" : "none";
       });
     };
@@ -514,11 +793,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
           if (index === currentIndex) {
             item.classList.add("active");
-          } else if (index === (currentIndex - 1 + items.length) % items.length) {
+          } else if (
+            index ===
+            (currentIndex - 1 + items.length) % items.length
+          ) {
             item.classList.add("prev");
           } else if (index === (currentIndex + 1) % items.length) {
             item.classList.add("next");
-          } else if (index === (currentIndex - 2 + items.length) % items.length) {
+          } else if (
+            index ===
+            (currentIndex - 2 + items.length) % items.length
+          ) {
             item.classList.add("prev-hidden");
           } else if (index === (currentIndex + 2) % items.length) {
             item.classList.add("next-hidden");
@@ -592,7 +877,9 @@ document.addEventListener("DOMContentLoaded", () => {
         startAutoPlay();
       });
 
-      wrapper.addEventListener("mouseenter", () => clearInterval(autoPlayInterval));
+      wrapper.addEventListener("mouseenter", () =>
+        clearInterval(autoPlayInterval),
+      );
       wrapper.addEventListener("mouseleave", startAutoPlay);
 
       updateCarousel();
@@ -638,14 +925,22 @@ document.addEventListener("DOMContentLoaded", () => {
     const filterSelect = document.getElementById("productFilterSelect");
 
     const productInfoModal = document.getElementById("productInfoModal");
-    const closeProductInfoModal = document.getElementById("closeProductInfoModal");
+    const closeProductInfoModal = document.getElementById(
+      "closeProductInfoModal",
+    );
     const productInfoTitle = document.getElementById("productInfoTitle");
     const productInfoImage = document.getElementById("productInfoImage");
     const productInfoSummary = document.getElementById("productInfoSummary");
     const productInfoChips = document.getElementById("productInfoChips");
-    const productInfoAvailability = document.getElementById("productInfoAvailability");
-    const productInfoRecommended = document.getElementById("productInfoRecommended");
-    const productInfoAddToCart = document.getElementById("productInfoAddToCart");
+    const productInfoAvailability = document.getElementById(
+      "productInfoAvailability",
+    );
+    const productInfoRecommended = document.getElementById(
+      "productInfoRecommended",
+    );
+    const productInfoAddToCart = document.getElementById(
+      "productInfoAddToCart",
+    );
     const productInfoBuyNow = document.getElementById("productInfoBuyNow");
 
     let activeProductCard = null;
@@ -653,8 +948,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const getCategoryFromName = (name) => {
       const normalized = name.toLowerCase();
       if (normalized.includes("laser")) return "laser";
-      if (normalized.includes("heat press") || normalized.includes("shirt"))
-        return "apparel";
+      if (normalized.includes("cnc")) return "cnc";
       return "3dprint";
     };
 
@@ -668,7 +962,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     productCards.forEach((card, index) => {
       const nameEl = card.querySelector(".product-name");
-      const nameText = nameEl ? nameEl.innerText.trim() : `Product ${index + 1}`;
+      const nameText = nameEl
+        ? nameEl.innerText.trim()
+        : `Product ${index + 1}`;
       const inferredCategory = getCategoryFromName(nameText);
 
       card.dataset.category = card.dataset.category || inferredCategory;
@@ -677,7 +973,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const productInfo = card.querySelector(".product-info");
       const priceEl = card.querySelector(".product-price");
 
-      if (productInfo && priceEl && !card.querySelector(".product-rating-row")) {
+      if (
+        productInfo &&
+        priceEl &&
+        !card.querySelector(".product-rating-row")
+      ) {
         const ratingRow = document.createElement("div");
         ratingRow.className = "product-rating-row";
         ratingRow.innerHTML = `
@@ -806,7 +1106,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (productInfoAddToCart) {
       productInfoAddToCart.addEventListener("click", () => {
-        const addBtn = activeProductCard?.querySelector(".btn-add-cart:not(.disabled)");
+        const addBtn = activeProductCard?.querySelector(
+          ".btn-add-cart:not(.disabled)",
+        );
         if (addBtn) {
           closeInfoModal();
           addBtn.click();
@@ -816,7 +1118,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (productInfoBuyNow) {
       productInfoBuyNow.addEventListener("click", () => {
-        const buyBtn = activeProductCard?.querySelector(".btn-buy-now:not(.disabled)");
+        const buyBtn = activeProductCard?.querySelector(
+          ".btn-buy-now:not(.disabled)",
+        );
         if (buyBtn) {
           closeInfoModal();
           buyBtn.click();
@@ -832,7 +1136,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const cards = Array.from(shopGrid?.querySelectorAll(".shop-card") || []);
 
       cards.forEach((card) => {
-        const nameText = card.querySelector(".product-name")?.innerText.toLowerCase() || "";
+        const nameText =
+          card.querySelector(".product-name")?.innerText.toLowerCase() || "";
         const category = card.dataset.category || "all";
         const stockBadge = card.querySelector(".stock-badge");
         const isOutOfStock = stockBadge?.classList.contains("out-of-stock");
@@ -851,8 +1156,14 @@ document.addEventListener("DOMContentLoaded", () => {
         card.style.display = visible ? "flex" : "none";
       });
 
-      if (selectedFilter === "price-low" || selectedFilter === "price-high" || selectedFilter === "top-rated") {
-        const visibleCards = cards.filter((card) => card.style.display !== "none");
+      if (
+        selectedFilter === "price-low" ||
+        selectedFilter === "price-high" ||
+        selectedFilter === "top-rated"
+      ) {
+        const visibleCards = cards.filter(
+          (card) => card.style.display !== "none",
+        );
 
         visibleCards.sort((a, b) => {
           if (selectedFilter === "top-rated") {
@@ -863,13 +1174,16 @@ document.addEventListener("DOMContentLoaded", () => {
           }
 
           const getPrice = (cardEl) => {
-            const priceText = cardEl.querySelector(".product-price")?.innerText || "₱0";
+            const priceText =
+              cardEl.querySelector(".product-price")?.innerText || "₱0";
             return parseFloat(priceText.replace(/[^0-9.]/g, ""));
           };
 
           const priceA = getPrice(a);
           const priceB = getPrice(b);
-          return selectedFilter === "price-low" ? priceA - priceB : priceB - priceA;
+          return selectedFilter === "price-low"
+            ? priceA - priceB
+            : priceB - priceA;
         });
 
         visibleCards.forEach((card) => shopGrid.appendChild(card));
@@ -879,7 +1193,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (searchInput) searchInput.addEventListener("input", applyProductFilters);
     if (categorySelect)
       categorySelect.addEventListener("change", applyProductFilters);
-    if (filterSelect) filterSelect.addEventListener("change", applyProductFilters);
+    if (filterSelect)
+      filterSelect.addEventListener("change", applyProductFilters);
 
     applyProductFilters();
   }
@@ -887,1249 +1202,2311 @@ document.addEventListener("DOMContentLoaded", () => {
   // =========================================
   // E-COMMERCE CHECKOUT LOGIC (3-STEP FLOW)
   // =========================================
-  if (document.body.classList.contains("products-page-body")) {
-    const checkoutModal = document.getElementById("checkoutModal");
-    const addressSelectionModal = document.getElementById("addressSelectionModal");
-    const editInfoModal = document.getElementById("editInfoModal");
-    const addInfoModal = document.getElementById("addInfoModal");
+  const checkoutModal = document.getElementById("checkoutModal");
+  const addressSelectionModal = document.getElementById(
+    "addressSelectionModal",
+  );
+  const editInfoModal = document.getElementById("editInfoModal");
 
-    const checkoutImg = document.getElementById("checkoutProductImg");
-    const checkoutTitle = document.getElementById("checkoutProductTitle");
-    const checkoutPrice = document.getElementById("checkoutProductPrice");
-    const checkoutSubtotal = document.getElementById("checkoutSubtotal");
-    const checkoutGrandTotal = document.getElementById("checkoutGrandTotal");
-    const footerTotalDisplay = document.getElementById("footerTotalDisplay");
-    const checkoutMaxStock = document.getElementById("checkoutMaxStock");
-    const footerItemCount = document.getElementById("footerItemCount");
-    const paymentSelect = document.querySelector("#checkoutModal .payment-select");
-    const orderTermsCheckbox = document.getElementById("orderTerms");
+  // Checkout DOM elements
+  const checkoutImg = document.getElementById("checkoutProductImg");
+  const checkoutTitle = document.getElementById("checkoutProductTitle");
+  const checkoutPrice = document.getElementById("checkoutProductPrice");
+  const checkoutSubtotal = document.getElementById("checkoutSubtotal");
+  const checkoutGrandTotal = document.getElementById("checkoutGrandTotal");
+  const footerTotalDisplay = document.getElementById("footerTotalDisplay");
+  const checkoutMaxStock = document.getElementById("checkoutMaxStock");
 
-    const inputQty = document.getElementById("inputQty");
-    const btnMinusQty = document.getElementById("btnMinusQty");
-    const btnPlusQty = document.getElementById("btnPlusQty");
+  // Quantity DOM elements
+  const inputQty = document.getElementById("inputQty");
+  const btnMinusQty = document.getElementById("btnMinusQty");
+  const btnPlusQty = document.getElementById("btnPlusQty");
+  const footerItemCount = document.getElementById("footerItemCount");
+
+  // Edit Guide DOM elements
+  const guideImg = document.getElementById("guideProductImg");
+  const guideTitle = document.getElementById("guideProductTitle");
+
+  let currentItemPrice = 0;
+  let currentMaxStock = Infinity;
+  let currentProductId = null;
+  let currentCheckoutMode = "single";
+  let currentCheckoutItems = [];
+  let isCheckoutQtyLocked = false;
+  let protectionFee = 5.0;
+
+  const setCheckoutQtyLock = (locked) => {
+    isCheckoutQtyLocked = Boolean(locked);
+    if (btnMinusQty) btnMinusQty.disabled = isCheckoutQtyLocked;
+    if (btnPlusQty) btnPlusQty.disabled = isCheckoutQtyLocked;
+  };
+
+  const setCheckoutStockNotice = (value) => {
+    if (!checkoutMaxStock) return;
+    checkoutMaxStock.innerText = String(value || "0");
+  };
+
+  function parsePrice(priceStr) {
+    return parseFloat(priceStr.replace(/[^0-9.-]+/g, ""));
+  }
+  function formatPrice(num) {
+    return "₱" + num.toFixed(2);
+  }
+
+  function updateCheckoutMath() {
+    let qty = parseInt(inputQty.value);
+    let total = currentItemPrice * qty;
+
+    // Add protection fee if checked
     const protectionCheck = document.getElementById("protectionCheck");
+    if (protectionCheck && protectionCheck.checked) {
+      total += protectionFee;
+    }
 
-    const guideImg = document.getElementById("guideProductImg");
-    const guideTitle = document.getElementById("guideProductTitle");
-    const guideImgAdd = document.getElementById("guideProductImgAdd");
-    const guideTitleAdd = document.getElementById("guideProductTitleAdd");
+    checkoutSubtotal.innerText = formatPrice(currentItemPrice * qty);
+    checkoutGrandTotal.innerText = formatPrice(total);
+    footerTotalDisplay.innerText = formatPrice(total);
+    footerItemCount.innerText = qty;
+  }
 
-    const openAddressSelectionBtn = document.getElementById("openAddressSelectionBtn");
-    const backToCheckoutFromAddressBtn = document.getElementById("backToCheckoutFromAddressBtn");
-    const openAddAddressBtn = document.getElementById("openAddAddressBtn");
-    const backToAddressBtn = document.getElementById("backToAddressBtn");
-    const backToAddressFromAddBtn = document.getElementById("backToAddressFromAddBtn");
-    const saveInfoBtn = document.getElementById("saveInfoBtn");
-    const saveNewInfoBtn = document.getElementById("saveNewInfoBtn");
-    const deleteAddressBtn = document.getElementById("deleteAddressBtn");
-    const submitOrderBtn = document.getElementById("submitOrderBtn");
+  // Update math when Protection checkbox is clicked
+  const protectionCheck = document.getElementById("protectionCheck");
+  if (protectionCheck) {
+    protectionCheck.addEventListener("change", updateCheckoutMath);
+  }
 
-    const displayClientName = document.getElementById("displayClientName");
-    const displayClientPhone = document.getElementById("displayClientPhone");
-    const displayClientAddress = document.getElementById("displayClientAddress");
-    const displayClientRole = document.getElementById("displayClientRole");
-    const displayClientDept = document.getElementById("displayClientDept");
-    const cartShortAddressText = document.getElementById("cartShortAddressText");
-    const addressList = document.getElementById("addressList");
-
-    const cartIconTrigger = document.querySelector(".cart-icon-container");
-    const cartModal = document.getElementById("cartModal");
-    const closeCartBtn = document.getElementById("closeCartBtn");
-    const cartItemsContainer = document.getElementById("cartItemsContainer");
-    const headerCartBadge = document.querySelector(".cart-badge");
-    const cartHeaderCount = document.getElementById("cartHeaderCount");
-    const selectAllCartBtn = document.getElementById("selectAllCartBtn");
-    const cartEditBtn = document.getElementById("cartEditBtn");
-    const cartCheckoutView = document.getElementById("cartCheckoutView");
-    const cartDeleteView = document.getElementById("cartDeleteView");
-    const cartDeleteBtn = document.getElementById("cartDeleteBtn");
-    const cartAddressTrigger = document.getElementById("cartAddressTrigger");
-    const cartCheckoutSubmitBtn = document.getElementById("cartCheckoutSubmitBtn");
-    const cartTotalPrice = document.getElementById("cartTotalPrice");
-
-    const closeCheckoutBtn = document.getElementById("closeCheckoutBtn");
-    const buyNowBtns = document.querySelectorAll(".btn-buy-now:not(.disabled)");
-    const addToCartBtns = document.querySelectorAll(".btn-add-cart:not(.disabled)");
-
-    let currentItemPrice = 0;
-    let currentMaxStock = 1;
-    const protectionFee = 5.0;
-
-    let checkoutSource = "product";
-    let checkoutCartItemIds = [];
-
-    let isCartEditMode = false;
-    let cartEntries = [];
-    let cartRealtimeTimer = null;
-
-    let customerAddresses = [];
-    let selectedAddressId = null;
-    let editingAddressId = null;
-
-    const escapeHtml = (value) =>
-      String(value || "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/\"/g, "&quot;")
-        .replace(/'/g, "&#39;");
-
-    const parsePrice = (priceStr) => {
-      const parsed = Number.parseFloat(String(priceStr || "0").replace(/[^0-9.-]+/g, ""));
-      return Number.isFinite(parsed) ? parsed : 0;
-    };
-
-    const formatPrice = (num) => {
-      const safe = Number.isFinite(Number(num)) ? Number(num) : 0;
-      return `₱${safe.toFixed(2)}`;
-    };
-
-    const normalizePhoneDigits = (value) => {
-      let digits = String(value || "").replace(/\D/g, "");
-      if (digits.startsWith("63") && digits.length > 10) {
-        digits = digits.slice(2);
-      }
-      if (digits.startsWith("0") && digits.length === 11) {
-        digits = digits.slice(1);
-      }
-      return digits;
-    };
-
-    const formatPhoneDisplay = (digits) => {
-      const normalized = normalizePhoneDigits(digits);
-      return normalized ? `+63${normalized}` : "";
-    };
-
-    const formatPhoneMasked = (digits) => {
-      const normalized = normalizePhoneDigits(digits);
-      if (!normalized) return "";
-      if (normalized.length <= 4) return `(+63)${normalized}`;
-      return `(+63)${normalized.slice(0, 2)}******${normalized.slice(-2)}`;
-    };
-
-    const toPaymentMethodCode = (value) => {
-      const normalized = String(value || "").trim().toLowerCase();
-      if (!normalized || normalized.includes("choose")) return null;
-      if (normalized.includes("pickup")) return "COP";
-      if (normalized.includes("delivery")) return "COD";
-      if (normalized.includes("gcash") || normalized.includes("g-cash")) return "GCash";
-      return null;
-    };
-
-    const getCustomerToken = () => customerSession.token || localStorage.getItem("customer_token") || "";
-
-    const ensureShopDialog = () => {
-      let overlay = document.getElementById("shopDialogOverlay");
-      if (!overlay) {
-        overlay = document.createElement("div");
-        overlay.id = "shopDialogOverlay";
-        overlay.className = "shop-dialog-overlay";
-        overlay.innerHTML = `
-          <div class="shop-dialog-card" role="dialog" aria-modal="true" aria-labelledby="shopDialogTitle">
-            <h3 id="shopDialogTitle" class="shop-dialog-title">Notice</h3>
-            <p id="shopDialogMessage" class="shop-dialog-message"></p>
-            <div class="shop-dialog-actions">
-              <button type="button" id="shopDialogCancel" class="shop-dialog-btn cancel">Cancel</button>
-              <button type="button" id="shopDialogConfirm" class="shop-dialog-btn confirm">OK</button>
-            </div>
-          </div>
-        `;
-        document.body.appendChild(overlay);
-      }
-      return {
-        overlay,
-        title: overlay.querySelector("#shopDialogTitle"),
-        message: overlay.querySelector("#shopDialogMessage"),
-        cancel: overlay.querySelector("#shopDialogCancel"),
-        confirm: overlay.querySelector("#shopDialogConfirm"),
-      };
-    };
-
-    const showShopDialog = ({
-      title = "Notice",
-      message = "",
-      confirmText = "OK",
-      cancelText = "",
-      danger = false,
-    }) =>
-      new Promise((resolve) => {
-        const dialog = ensureShopDialog();
-
-        dialog.title.textContent = title;
-        dialog.message.textContent = message;
-        dialog.confirm.textContent = confirmText;
-        dialog.confirm.classList.toggle("danger", Boolean(danger));
-
-        const hasCancel = Boolean(cancelText);
-        dialog.cancel.textContent = cancelText || "Cancel";
-        dialog.cancel.style.display = hasCancel ? "inline-flex" : "none";
-
-        const close = (result) => {
-          dialog.overlay.classList.remove("show");
-          dialog.confirm.onclick = null;
-          dialog.cancel.onclick = null;
-          dialog.overlay.onclick = null;
-          resolve(result);
-        };
-
-        dialog.confirm.onclick = () => close(true);
-        dialog.cancel.onclick = () => close(false);
-        dialog.overlay.onclick = (event) => {
-          if (event.target === dialog.overlay) {
-            close(hasCancel ? false : true);
-          }
-        };
-
-        dialog.overlay.classList.add("show");
-      });
-
-    const showShopAlert = (message, options = {}) =>
-      showShopDialog({
-        title: options.title || "Notice",
-        message,
-        confirmText: options.confirmText || "OK",
-      });
-
-    const showShopConfirm = (message, options = {}) =>
-      showShopDialog({
-        title: options.title || "Please Confirm",
-        message,
-        confirmText: options.confirmText || "Confirm",
-        cancelText: options.cancelText || "Cancel",
-        danger: Boolean(options.danger),
-      });
-
-    const requestCustomerApi = async (path, options = {}) => {
-      const token = getCustomerToken();
-      if (!token) {
-        throw new Error("Login session not found. Please sign in again.");
+  if (btnMinusQty && btnPlusQty && inputQty) {
+    btnMinusQty.addEventListener("click", () => {
+      if (isCheckoutQtyLocked) {
+        void showCustomerPopup(
+          "Edit quantities directly in your cart for cart checkout.",
+          {
+            title: "Quantity Locked",
+          },
+        );
+        return;
       }
 
-      const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => controller.abort(), API_REQUEST_TIMEOUT_MS);
-
-      const hasBody = Object.prototype.hasOwnProperty.call(options, "body");
-      const headers = {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      };
-
-      if (hasBody) {
-        headers["Content-Type"] = "application/json";
+      let currentVal = parseInt(inputQty.value);
+      if (currentVal > 1) {
+        inputQty.value = currentVal - 1;
+        updateCheckoutMath();
+      }
+    });
+    btnPlusQty.addEventListener("click", () => {
+      if (isCheckoutQtyLocked) {
+        void showCustomerPopup(
+          "Edit quantities directly in your cart for cart checkout.",
+          {
+            title: "Quantity Locked",
+          },
+        );
+        return;
       }
 
-      try {
-        const response = await fetch(`${API_BASE_URL}${path}`, {
-          method: options.method || "GET",
-          headers,
-          body: hasBody ? JSON.stringify(options.body) : undefined,
-          signal: controller.signal,
+      let currentVal = parseInt(inputQty.value);
+      if (currentVal < currentMaxStock) {
+        inputQty.value = currentVal + 1;
+        updateCheckoutMath();
+      } else if (currentMaxStock === 9999) {
+        inputQty.value = currentVal + 1;
+        updateCheckoutMath();
+      } else {
+        void showCustomerPopup("Maximum stock reached for this item.", {
+          title: "Stock Limit",
         });
+      }
+    });
+  }
 
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(data.message || "Unable to process your request right now.");
+  // --- MODAL 1: OPEN CHECKOUT ---
+  const buyNowBtns = document.querySelectorAll(".btn-buy-now:not(.disabled)");
+  buyNowBtns.forEach((btn) => {
+    btn.addEventListener("click", function (e) {
+      if (!requireCustomerAuth("buy products")) return;
+      if (!isGuestUser) {
+        void fetchCustomerCheckoutProfile();
+      }
+
+      const card = e.target.closest(".shop-card");
+      if (card) {
+        const imgScr = card.querySelector(".product-img-wrapper img").src;
+        const title = card.querySelector(".product-name").innerText;
+        const priceStr = card.querySelector(".product-price").innerText;
+        const stockText = card.querySelector(".stock-text").innerText;
+
+        currentCheckoutMode = "single";
+        currentCheckoutItems = [];
+        setCheckoutQtyLock(false);
+        currentProductId =
+          Number(card.getAttribute("data-product-id") || "") || null;
+
+        if (stockText.toLowerCase().includes("unlimited")) {
+          currentMaxStock = 9999;
+          setCheckoutStockNotice("Unlimited");
+        } else {
+          currentMaxStock = Math.max(
+            0,
+            parseInt(stockText.replace(/[^0-9]/g, ""), 10) || 0,
+          );
+          setCheckoutStockNotice(currentMaxStock);
         }
 
-        return data;
-      } catch (error) {
-        if (error?.name === "AbortError") {
-          throw new Error("Request timed out. Please try again.");
-        }
-        throw error;
-      } finally {
-        window.clearTimeout(timeoutId);
+        currentItemPrice = parsePrice(priceStr);
+        inputQty.value = 1;
+        inputQty.max = currentMaxStock;
+        if (protectionCheck) protectionCheck.checked = false; // Reset protection
+
+        if (checkoutImg) checkoutImg.src = imgScr;
+        if (checkoutTitle) checkoutTitle.innerText = title;
+        if (checkoutPrice) checkoutPrice.innerText = priceStr;
+
+        updateCheckoutMath();
+
+        if (guideImg) guideImg.src = imgScr;
+        if (guideTitle) guideTitle.innerText = title;
+
+        checkoutModal.classList.add("show-modal");
+        document.body.style.overflow = "hidden";
       }
+    });
+  });
+
+  // Dynamically rendered products buy-now listener
+  document.addEventListener("product:buy-now", (e) => {
+    const product = e.detail;
+    if (!product) return;
+    if (!requireCustomerAuth("buy products")) return;
+    if (!isGuestUser) {
+      void fetchCustomerCheckoutProfile();
+    }
+
+    const imgScr = product.image_data || "/images/FMRC Logo.png";
+    const title = String(product.name || "");
+    const unitPrice = Number.isFinite(Number(product.price))
+      ? Number(product.price)
+      : 0;
+
+    currentCheckoutMode = "single";
+    currentCheckoutItems = [];
+    setCheckoutQtyLock(false);
+    currentMaxStock =
+      product.stock_status === "in_stock"
+        ? Math.max(0, Number(product.stock) || 0)
+        : 0;
+    setCheckoutStockNotice(
+      currentMaxStock === 0 ? "Out of Stock" : currentMaxStock,
+    );
+
+    currentItemPrice = unitPrice;
+    currentProductId = product.id || null;
+    if (inputQty) {
+      inputQty.value = 1;
+      inputQty.max = currentMaxStock;
+    }
+    if (protectionCheck) protectionCheck.checked = false;
+
+    if (checkoutImg) checkoutImg.src = imgScr;
+    if (checkoutTitle) checkoutTitle.innerText = title;
+    if (checkoutPrice)
+      checkoutPrice.innerText =
+        typeof formatPrice === "function"
+          ? formatPrice(unitPrice)
+          : "₱" + unitPrice.toFixed(2);
+
+    if (guideImg) guideImg.src = imgScr;
+    if (guideTitle) guideTitle.innerText = title;
+
+    updateCheckoutMath();
+    checkoutModal.classList.add("show-modal");
+    document.body.style.overflow = "hidden";
+  });
+
+  const closeCheckoutBtn = document.getElementById("closeCheckoutBtn");
+  if (closeCheckoutBtn) {
+    closeCheckoutBtn.addEventListener("click", () => {
+      checkoutModal.classList.remove("show-modal");
+      document.body.style.overflow = "auto";
+      currentCheckoutMode = "single";
+      currentCheckoutItems = [];
+      setCheckoutQtyLock(false);
+    });
+  }
+
+  // --- MODAL 2: OPEN ADDRESS SELECTION ---
+  const openAddressSelectionBtn = document.getElementById(
+    "openAddressSelectionBtn",
+  );
+  if (openAddressSelectionBtn) {
+    openAddressSelectionBtn.addEventListener("click", () => {
+      setAddressEditMode(false);
+      addressSelectionModal.classList.add("show-modal");
+    });
+  }
+
+  const backToCheckoutFromAddressBtn = document.getElementById(
+    "backToCheckoutFromAddressBtn",
+  );
+  if (backToCheckoutFromAddressBtn) {
+    backToCheckoutFromAddressBtn.addEventListener("click", () => {
+      setAddressEditMode(false);
+      addressSelectionModal.classList.remove("show-modal");
+    });
+  }
+
+  // Select and manage checkout addresses using profile data + local address book.
+  const openAddAddressBtn = document.getElementById("openAddAddressBtn");
+  const addInfoModal = document.getElementById("addInfoModal");
+  const addressList =
+    document.getElementById("addressList") ||
+    document.querySelector(".address-list");
+  const addressEditModeBtn = document.getElementById("addressEditModeBtn");
+  const addressSelectionFooter = document.getElementById(
+    "addressSelectionFooter",
+  );
+  const selectAllAddressBtn = document.getElementById("selectAllAddressBtn");
+  const deleteSelectedAddressBtn = document.getElementById(
+    "deleteSelectedAddressBtn",
+  );
+  const deleteAllAddressBtn = document.getElementById("deleteAllAddressBtn");
+  const cartShortAddressText = document.getElementById("cartShortAddressText");
+
+  const displayClientName = document.getElementById("displayClientName");
+  const displayClientPhone = document.getElementById("displayClientPhone");
+  const displayClientAddress = document.getElementById("displayClientAddress");
+  const displayClientRole = document.getElementById("displayClientRole");
+  const displayClientDept = document.getElementById("displayClientDept");
+
+  const inpFullName = document.getElementById("inpFullName");
+  const inpPhone = document.getElementById("inpPhone");
+  const inpAddress = document.getElementById("inpAddress");
+  const inpDetails = document.getElementById("inpDetails");
+  const inpDept = document.getElementById("inpDept");
+  const inpSetDefault = document.getElementById("inpSetDefault");
+  const addInpFullName = document.getElementById("addInpFullName");
+  const addInpPhone = document.getElementById("addInpPhone");
+  const addInpAddress = document.getElementById("addInpAddress");
+  const addInpDetails = document.getElementById("addInpDetails");
+  const addInpDept = document.getElementById("addInpDept");
+  const addInpSetDefault = document.getElementById("addInpSetDefault");
+
+  const saveInfoBtn = document.getElementById("saveInfoBtn");
+  const saveNewInfoBtn = document.getElementById("saveNewInfoBtn");
+  const backToAddressBtn = document.getElementById("backToAddressBtn");
+  const backToAddressFromAddBtn = document.getElementById(
+    "backToAddressFromAddBtn",
+  );
+
+  const ADDRESS_STORAGE_NAMESPACE = "fmrc_checkout_addresses_v1";
+
+  let customerCheckoutProfile = null;
+  let customerAddressBook = [];
+  let selectedCheckoutAddressId = null;
+  let editingCheckoutAddressId = null;
+  let isAddressEditMode = false;
+  const addressDeleteSelection = new Set();
+
+  const escapeCustomerHtml = (value) =>
+    String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const getMaskedPhone = (rawDigits) => {
+    const digits = String(rawDigits || "").replace(/\D/g, "");
+    if (!digits) return "(+63)N/A";
+    if (digits.length <= 4) return `(+63)${digits}`;
+    return `(+63)${digits.substring(0, 2)}******${digits.substring(digits.length - 2)}`;
+  };
+
+  const getShortAddress = (addressLine) => {
+    const clean = String(addressLine || "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (!clean) return "No saved address";
+    if (clean.length <= 40) return clean;
+    return `${clean.slice(0, 37)}...`;
+  };
+
+  const getAddressStorageKey = () => {
+    const customerKey =
+      customerSession.userInfo?.id ||
+      customerSession.userInfo?.email ||
+      customerSession.userInfo?.username ||
+      "guest";
+
+    return `${ADDRESS_STORAGE_NAMESPACE}:${String(customerKey).toLowerCase()}`;
+  };
+
+  const normalizePhoneDigits = (value) =>
+    String(value || "")
+      .replace(/\D/g, "")
+      .slice(0, 11);
+
+  const createAddressId = () =>
+    `addr-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+  const normalizeAddressEntry = (entry = {}) => ({
+    id: String(entry.id || createAddressId()),
+    name: String(entry.name || "").trim(),
+    phone_number: normalizePhoneDigits(entry.phone_number || entry.phone || ""),
+    address_line: String(entry.address_line || "").trim(),
+    address_details: String(entry.address_details || "").trim(),
+    department: String(entry.department || "").trim(),
+    customer_type: String(entry.customer_type || "Student").trim() || "Student",
+    is_default: Boolean(entry.is_default),
+    updated_at: String(entry.updated_at || new Date().toISOString()),
+  });
+
+  const setRoleByRadioName = (radioName, value) => {
+    const targetValue = String(value || "Student");
+    const radios = document.querySelectorAll(`input[name="${radioName}"]`);
+    let matched = false;
+    radios.forEach((radio) => {
+      if (!(radio instanceof HTMLInputElement)) return;
+      const isMatch = radio.value === targetValue;
+      radio.checked = isMatch;
+      if (isMatch) matched = true;
+    });
+
+    if (!matched) {
+      const first = radios[0];
+      if (first instanceof HTMLInputElement) {
+        first.checked = true;
+      }
+    }
+  };
+
+  const getSelectedRole = (name) => {
+    const checked = document.querySelector(`input[name="${name}"]:checked`);
+    return checked instanceof HTMLInputElement ? checked.value : "Student";
+  };
+
+  const getAddressFieldIds = (mode) => {
+    if (mode === "add") {
+      return {
+        name: "addInpFullName",
+        phone: "addInpPhone",
+        address: "addInpAddress",
+        details: "addInpDetails",
+        dept: "addInpDept",
+      };
+    }
+
+    return {
+      name: "inpFullName",
+      phone: "inpPhone",
+      address: "inpAddress",
+      details: "inpDetails",
+      dept: "inpDept",
     };
+  };
 
-    const getAddressById = (id) =>
-      customerAddresses.find((address) => Number(address.id) === Number(id)) || null;
+  const clearCheckoutFieldError = (fieldId) => {
+    const field = document.getElementById(fieldId);
+    if (!(field instanceof HTMLElement)) return;
 
-    const getSelectedAddress = () => {
-      if (selectedAddressId) {
-        const selected = getAddressById(selectedAddressId);
-        if (selected) return selected;
-      }
-      return customerAddresses.find((address) => Boolean(address.is_default)) || customerAddresses[0] || null;
-    };
+    const group = field.closest(".form-group");
+    if (!(group instanceof HTMLElement)) return;
 
-    const toAddressDisplayHtml = (address) => {
-      const lines = [address?.address_line, address?.address_details]
-        .filter(Boolean)
-        .join("\n");
-      return escapeHtml(lines || "No address provided").replace(/\n/g, "<br>");
-    };
+    group.classList.remove("has-error");
+    field.removeAttribute("aria-invalid");
+  };
 
-    const updateSelectedAddressDisplay = () => {
-      const selectedAddress = getSelectedAddress();
+  const setCheckoutFieldError = (fieldId, message) => {
+    const field = document.getElementById(fieldId);
+    if (!(field instanceof HTMLElement)) return;
 
-      if (!selectedAddress) {
-        if (displayClientName) displayClientName.innerText = "Select delivery details";
-        if (displayClientPhone) displayClientPhone.innerText = "";
-        if (displayClientAddress) {
-          displayClientAddress.innerHTML = "No saved address yet. Add details to continue.";
-        }
-        if (displayClientRole) displayClientRole.innerText = "Customer";
-        if (displayClientDept) displayClientDept.innerText = "N/A";
-        if (cartShortAddressText) cartShortAddressText.innerText = "No address selected";
-        return;
-      }
+    const group = field.closest(".form-group");
+    if (!(group instanceof HTMLElement)) return;
 
-      selectedAddressId = Number(selectedAddress.id);
+    let bubble = group.querySelector(".checkout-field-error-bubble");
+    if (!(bubble instanceof HTMLElement)) {
+      bubble = document.createElement("div");
+      bubble.className = "checkout-field-error-bubble";
+      bubble.setAttribute("role", "alert");
+      group.appendChild(bubble);
+    }
 
-      if (displayClientName) {
-        displayClientName.innerText = selectedAddress.full_name || "Customer";
-      }
-      if (displayClientPhone) {
-        displayClientPhone.innerText =
-          selectedAddress.phone_masked || formatPhoneMasked(selectedAddress.phone || "");
-      }
-      if (displayClientAddress) {
-        displayClientAddress.innerHTML = toAddressDisplayHtml(selectedAddress);
-      }
-      if (displayClientRole) {
-        displayClientRole.innerText = selectedAddress.role || "Customer";
-      }
-      if (displayClientDept) {
-        displayClientDept.innerText = selectedAddress.department || "N/A";
-      }
-      if (cartShortAddressText) {
-        const shortAddress = String(selectedAddress.address_line || "")
-          .split(/[\n,]/)
-          .map((part) => part.trim())
-          .filter(Boolean)[0];
-        cartShortAddressText.innerText = shortAddress || "Address selected";
-      }
-    };
+    bubble.textContent = String(message || "Please check this field.");
+    group.classList.add("has-error");
+    field.setAttribute("aria-invalid", "true");
+  };
 
-    const renderAddressList = () => {
-      if (!addressList) return;
+  const clearCheckoutFormErrors = (mode) => {
+    const ids = getAddressFieldIds(mode);
+    Object.values(ids).forEach((fieldId) => clearCheckoutFieldError(fieldId));
+  };
 
-      if (!customerAddresses.length) {
-        addressList.innerHTML = `
-          <div class="address-item address-item-empty">
-            <div class="address-item-left">
-              <div class="a-address-text">No saved address yet. Tap <strong>Add details</strong> to create one.</div>
-            </div>
+  const ensureSingleDefaultAddress = () => {
+    if (!customerAddressBook.length) {
+      selectedCheckoutAddressId = null;
+      return;
+    }
+
+    let defaultIndex = customerAddressBook.findIndex(
+      (entry) => entry.is_default,
+    );
+    if (defaultIndex < 0) {
+      defaultIndex = 0;
+      customerAddressBook[0].is_default = true;
+    }
+
+    customerAddressBook = customerAddressBook.map((entry, index) => ({
+      ...entry,
+      is_default: index === defaultIndex,
+    }));
+
+    const hasSelected = customerAddressBook.some(
+      (entry) => String(entry.id) === String(selectedCheckoutAddressId),
+    );
+    if (!hasSelected) {
+      selectedCheckoutAddressId =
+        customerAddressBook[defaultIndex]?.id ||
+        customerAddressBook[0]?.id ||
+        null;
+    }
+  };
+
+  const loadAddressBookFromStorage = () => {
+    try {
+      const raw = localStorage.getItem(getAddressStorageKey());
+      const parsed = JSON.parse(raw || "[]");
+      customerAddressBook = Array.isArray(parsed)
+        ? parsed.map((entry) => normalizeAddressEntry(entry))
+        : [];
+    } catch {
+      customerAddressBook = [];
+    }
+
+    ensureSingleDefaultAddress();
+  };
+
+  const saveAddressBookToStorage = () => {
+    try {
+      localStorage.setItem(
+        getAddressStorageKey(),
+        JSON.stringify(customerAddressBook),
+      );
+    } catch {
+      // Ignore localStorage quota/write issues.
+    }
+  };
+
+  const getSelectedCheckoutAddress = () => {
+    if (!customerAddressBook.length) return null;
+
+    const selected = customerAddressBook.find(
+      (entry) => String(entry.id) === String(selectedCheckoutAddressId),
+    );
+    if (selected) return selected;
+
+    return (
+      customerAddressBook.find((entry) => entry.is_default) ||
+      customerAddressBook[0] ||
+      null
+    );
+  };
+
+  const renderCheckoutAddress = () => {
+    const selected = getSelectedCheckoutAddress();
+    const fallbackName =
+      customerCheckoutProfile?.name ||
+      customerSession.userInfo?.name ||
+      "No Name Provided";
+    const name = selected?.name || fallbackName;
+    const phone =
+      selected?.phone_number || customerCheckoutProfile?.phone_number || "";
+    const addressLine =
+      selected?.address_line || customerCheckoutProfile?.address_line || "";
+    const addressDetails =
+      selected?.address_details ||
+      customerCheckoutProfile?.address_details ||
+      "";
+    const department =
+      selected?.department || customerCheckoutProfile?.department || "Not set";
+    const role =
+      selected?.customer_type ||
+      customerCheckoutProfile?.customer_type ||
+      "Not set";
+
+    if (displayClientName) displayClientName.innerText = name;
+    if (displayClientPhone)
+      displayClientPhone.innerText = getMaskedPhone(phone);
+    if (displayClientAddress) {
+      displayClientAddress.innerHTML =
+        [addressLine, addressDetails]
+          .filter(Boolean)
+          .map((entry) => escapeCustomerHtml(entry))
+          .join("<br>") || "No saved address yet. Add your details first.";
+    }
+    if (displayClientRole) displayClientRole.innerText = role;
+    if (displayClientDept) displayClientDept.innerText = department;
+    if (cartShortAddressText) {
+      cartShortAddressText.innerText = getShortAddress(
+        addressLine || addressDetails,
+      );
+    }
+  };
+
+  const syncAddressEditUi = () => {
+    if (!customerAddressBook.length) {
+      isAddressEditMode = false;
+      addressDeleteSelection.clear();
+    }
+
+    if (addressEditModeBtn) {
+      addressEditModeBtn.innerText = isAddressEditMode ? "Done" : "Edit";
+      addressEditModeBtn.disabled = !customerAddressBook.length;
+    }
+
+    if (addressSelectionFooter) {
+      addressSelectionFooter.style.display = isAddressEditMode
+        ? "flex"
+        : "none";
+    }
+
+    const total = customerAddressBook.length;
+    const selectedCount = addressDeleteSelection.size;
+
+    if (selectAllAddressBtn) {
+      selectAllAddressBtn.disabled = !isAddressEditMode || total === 0;
+      selectAllAddressBtn.checked =
+        isAddressEditMode && total > 0 && selectedCount === total;
+      selectAllAddressBtn.indeterminate =
+        isAddressEditMode && selectedCount > 0 && selectedCount < total;
+    }
+
+    if (deleteSelectedAddressBtn) {
+      deleteSelectedAddressBtn.disabled =
+        !isAddressEditMode || selectedCount === 0;
+    }
+
+    if (deleteAllAddressBtn) {
+      deleteAllAddressBtn.disabled = !isAddressEditMode || total === 0;
+    }
+  };
+
+  const renderAddressList = () => {
+    if (!addressList) return;
+
+    if (!customerAddressBook.length) {
+      addressList.innerHTML = `
+        <div class="address-item address-item-empty">
+          <div class="address-item-left">
+            <div class="a-address-text">No saved address yet. Tap <strong>Add details</strong> to create one.</div>
           </div>
-        `;
-        return;
-      }
+        </div>
+      `;
+      syncAddressEditUi();
+      return;
+    }
 
-      addressList.innerHTML = customerAddresses
-        .map((address) => {
-          const isSelected = Number(address.id) === Number(selectedAddressId);
-          return `
-            <div class="address-item${isSelected ? " selected" : ""}" data-address-id="${Number(address.id)}">
+    addressList.innerHTML = customerAddressBook
+      .map((entry) => {
+        const safeId = escapeCustomerHtml(entry.id);
+        const isSelected =
+          String(entry.id) === String(selectedCheckoutAddressId);
+        const isChecked = addressDeleteSelection.has(String(entry.id));
+        const displayAddress = [entry.address_line, entry.address_details]
+          .filter(Boolean)
+          .map((part) => escapeCustomerHtml(part))
+          .join("<br>");
+
+        return `
+          <div class="address-item ${isSelected ? "selected" : ""} ${isAddressEditMode ? "select-mode" : ""}" data-address-id="${safeId}">
+            <div class="address-item-main">
+              <div class="address-edit-selector">
+                <label class="cart-checkbox-container">
+                  <input type="checkbox" class="address-edit-check" data-address-check="${safeId}" ${isChecked ? "checked" : ""}>
+                  <span class="cart-checkmark"></span>
+                </label>
+              </div>
+
               <div class="address-item-left">
                 <div class="address-name-row">
-                  <span class="a-name">${escapeHtml(address.full_name || "Customer")}</span>
-                  <span class="a-phone">${escapeHtml(address.phone_masked || formatPhoneMasked(address.phone || ""))}</span>
+                  <span class="a-name">${escapeCustomerHtml(entry.name || "No Name Provided")}</span>
+                  <span class="a-phone">${getMaskedPhone(entry.phone_number)}</span>
                 </div>
-                <div class="a-address-text">${toAddressDisplayHtml(address)}</div>
+                <div class="a-address-text">${displayAddress || "No saved address"}</div>
                 <div class="a-badges">
-                  ${address.is_default ? '<span class="a-badge default-badge">Default</span>' : ""}
+                  ${entry.is_default ? '<span class="a-badge default-badge">Default</span>' : ""}
                 </div>
               </div>
-              <div class="address-item-right">
-                <button class="edit-address-btn" data-address-edit="${Number(address.id)}">Edit</button>
-              </div>
+
+              ${
+                isAddressEditMode
+                  ? `<button class="delete-address-inline" type="button" data-address-delete="${safeId}">Delete</button>`
+                  : `<div class="address-item-right"><button class="edit-address-btn" type="button" data-address-edit="${safeId}">Edit</button></div>`
+              }
             </div>
-          `;
-        })
-        .join("");
-    };
-
-    const openAddressModal = async () => {
-      if (!addressSelectionModal) return;
-      await loadAddresses({ silent: false });
-      addressSelectionModal.classList.add("show-modal");
-    };
-
-    const closeAddressModal = () => {
-      if (!addressSelectionModal) return;
-      addressSelectionModal.classList.remove("show-modal");
-    };
-
-    const hydrateGuideMedia = (imgSrc, titleText) => {
-      if (guideImg && imgSrc) guideImg.src = imgSrc;
-      if (guideTitle && titleText) guideTitle.innerText = titleText;
-      if (guideImgAdd && imgSrc) guideImgAdd.src = imgSrc;
-      if (guideTitleAdd && titleText) guideTitleAdd.innerText = titleText;
-    };
-
-    const getAddressFormData = (formType) => {
-      const isEdit = formType === "edit";
-      const fullNameInput = document.getElementById(isEdit ? "inpFullName" : "addInpFullName");
-      const phoneInput = document.getElementById(isEdit ? "inpPhone" : "addInpPhone");
-      const addressInput = document.getElementById(isEdit ? "inpAddress" : "addInpAddress");
-      const detailsInput = document.getElementById(isEdit ? "inpDetails" : "addInpDetails");
-      const deptInput = document.getElementById(isEdit ? "inpDept" : "addInpDept");
-      const defaultInput = document.getElementById(isEdit ? "inpSetDefault" : "addInpSetDefault");
-
-      const roleRadio = document.querySelector(
-        isEdit ? 'input[name="userRole"]:checked' : 'input[name="addUserRole"]:checked',
-      );
-
-      const fullName = String(fullNameInput?.value || "").trim();
-      const phoneDigits = normalizePhoneDigits(phoneInput?.value || "");
-      const addressLine = String(addressInput?.value || "").trim();
-
-      if (!fullName) {
-        fullNameInput?.focus();
-        return { error: "Please enter the recipient name." };
-      }
-      if (phoneDigits.length < 10 || phoneDigits.length > 11) {
-        phoneInput?.focus();
-        return { error: "Please enter a valid PH phone number." };
-      }
-      if (!addressLine) {
-        addressInput?.focus();
-        return { error: "Please enter your delivery address." };
-      }
-
-      return {
-        full_name: fullName,
-        phone: phoneDigits,
-        address_line: addressLine,
-        address_details: String(detailsInput?.value || "").trim() || null,
-        department: String(deptInput?.value || "").trim() || null,
-        role: roleRadio?.value || "Customer",
-        is_default: Boolean(defaultInput?.checked),
-      };
-    };
-
-    const openEditAddressModal = (address) => {
-      if (!editInfoModal || !address) return;
-      editingAddressId = Number(address.id);
-
-      const fullNameInput = document.getElementById("inpFullName");
-      const phoneInput = document.getElementById("inpPhone");
-      const addressInput = document.getElementById("inpAddress");
-      const detailsInput = document.getElementById("inpDetails");
-      const deptInput = document.getElementById("inpDept");
-      const defaultInput = document.getElementById("inpSetDefault");
-
-      if (fullNameInput) fullNameInput.value = address.full_name || "";
-      if (phoneInput) phoneInput.value = normalizePhoneDigits(address.phone || "");
-      if (addressInput) addressInput.value = address.address_line || "";
-      if (detailsInput) detailsInput.value = address.address_details || "";
-      if (deptInput) deptInput.value = address.department || "";
-      if (defaultInput) defaultInput.checked = Boolean(address.is_default);
-
-      const role = address.role || "Student";
-      const radios = document.querySelectorAll('input[name="userRole"]');
-      let roleMatched = false;
-      radios.forEach((radio) => {
-        const shouldCheck = radio.value === role;
-        radio.checked = shouldCheck;
-        if (shouldCheck) roleMatched = true;
-      });
-      if (!roleMatched) {
-        const fallback = document.querySelector('input[name="userRole"][value="Others"]');
-        if (fallback) fallback.checked = true;
-      }
-
-      editInfoModal.classList.add("show-modal");
-    };
-
-    const openAddAddressModal = () => {
-      if (!addInfoModal) return;
-      const fullNameInput = document.getElementById("addInpFullName");
-      const phoneInput = document.getElementById("addInpPhone");
-      const addressInput = document.getElementById("addInpAddress");
-      const detailsInput = document.getElementById("addInpDetails");
-      const deptInput = document.getElementById("addInpDept");
-      const defaultInput = document.getElementById("addInpSetDefault");
-
-      if (fullNameInput) {
-        fullNameInput.value = customerSession.userInfo?.name || customerSession.userInfo?.username || "";
-      }
-      if (phoneInput) phoneInput.value = "";
-      if (addressInput) addressInput.value = "";
-      if (detailsInput) detailsInput.value = "";
-      if (deptInput) deptInput.value = "";
-      if (defaultInput) defaultInput.checked = customerAddresses.length === 0;
-
-      const radios = document.querySelectorAll('input[name="addUserRole"]');
-      radios.forEach((radio) => {
-        radio.checked = radio.value === "Student";
-      });
-
-      addInfoModal.classList.add("show-modal");
-    };
-
-    const loadAddresses = async ({ silent = true } = {}) => {
-      if (!getCustomerToken()) {
-        customerAddresses = [];
-        selectedAddressId = null;
-        renderAddressList();
-        updateSelectedAddressDisplay();
-        return;
-      }
-
-      try {
-        const data = await requestCustomerApi("/customer/addresses");
-        customerAddresses = Array.isArray(data?.data) ? data.data : [];
-
-        if (!customerAddresses.length) {
-          selectedAddressId = null;
-        } else if (selectedAddressId && getAddressById(selectedAddressId)) {
-          // Keep active selection.
-        } else if (data?.selected_address_id && getAddressById(data.selected_address_id)) {
-          selectedAddressId = Number(data.selected_address_id);
-        } else {
-          selectedAddressId = Number(
-            customerAddresses.find((address) => Boolean(address.is_default))?.id || customerAddresses[0].id,
-          );
-        }
-
-        renderAddressList();
-        updateSelectedAddressDisplay();
-      } catch (error) {
-        if (!silent) {
-          await showShopAlert(error?.message || "Unable to load your saved addresses.", {
-            title: "Address Error",
-          });
-        }
-      }
-    };
-
-    const renderCartTotals = () => {
-      const selected = cartEntries.filter((item) => Boolean(item.selected));
-      const selectedTotal = selected.reduce(
-        (sum, item) => sum + Number(item.unit_price || 0) * Number(item.quantity || 0),
-        0,
-      );
-      const badgeCount = cartEntries.reduce(
-        (sum, item) => sum + Math.max(1, Number.parseInt(String(item.quantity || "1"), 10) || 1),
-        0,
-      );
-
-      if (cartTotalPrice) cartTotalPrice.innerText = formatPrice(selectedTotal);
-      if (cartHeaderCount) cartHeaderCount.innerText = String(cartEntries.length);
-      if (headerCartBadge) headerCartBadge.innerText = String(badgeCount);
-
-      if (selectAllCartBtn) {
-        selectAllCartBtn.checked = cartEntries.length > 0 && cartEntries.every((item) => Boolean(item.selected));
-      }
-    };
-
-    const renderCartItems = () => {
-      if (!cartItemsContainer) return;
-
-      if (!cartEntries.length) {
-        cartItemsContainer.innerHTML = `
-          <div
-            class="empty-cart-message"
-            id="emptyCartMessage"
-            style="text-align: center; padding: 40px 20px; color: #888; font-size: 14px;"
-          >
-            Your cart is empty.
           </div>
         `;
-        renderCartTotals();
-        return;
+      })
+      .join("");
+
+    syncAddressEditUi();
+  };
+
+  const applyAddressToForm = (mode, addressEntry) => {
+    const source = addressEntry || {};
+    const isAddMode = mode === "add";
+
+    if (isAddMode) {
+      if (addInpFullName) {
+        addInpFullName.value =
+          source.name || customerSession.userInfo?.name || "";
       }
-
-      cartItemsContainer.innerHTML = cartEntries
-        .map((item) => {
-          const quantity = Math.max(1, Number.parseInt(String(item.quantity || "1"), 10) || 1);
-          const unitPrice = Number(item.unit_price || 0);
-          return `
-            <div class="cart-item-card" data-cart-id="${Number(item.id)}">
-              <label class="cart-checkbox-container">
-                <input type="checkbox" class="cart-item-check" ${item.selected ? "checked" : ""}>
-                <span class="cart-checkmark"></span>
-              </label>
-              <div class="cart-item-img">
-                <img src="${escapeHtml(item.product_image || "/images/FMRC Logo.png")}" alt="Product">
-              </div>
-              <div class="cart-item-details">
-                <h4>${escapeHtml(item.product_name || "Custom Product")}</h4>
-                <div class="cart-item-bottom">
-                  <span class="c-price" data-price="${unitPrice}">${escapeHtml(item.unit_price_label || formatPrice(unitPrice))}</span>
-                  <div class="qty-selector">
-                    <button type="button" class="qty-btn c-minus-btn">-</button>
-                    <input type="number" class="c-qty-input" value="${quantity}" min="1" max="99" readonly>
-                    <button type="button" class="qty-btn c-plus-btn">+</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          `;
-        })
-        .join("");
-
-      renderCartTotals();
-    };
-
-    const loadCart = async ({ silent = true } = {}) => {
-      if (!getCustomerToken()) {
-        cartEntries = [];
-        renderCartItems();
-        return;
+      if (addInpPhone) addInpPhone.value = source.phone_number || "";
+      if (addInpAddress) addInpAddress.value = source.address_line || "";
+      if (addInpDetails) addInpDetails.value = source.address_details || "";
+      if (addInpDept) addInpDept.value = source.department || "";
+      if (addInpSetDefault) {
+        addInpSetDefault.checked =
+          customerAddressBook.length === 0 || Boolean(source.is_default);
       }
+      setRoleByRadioName("addUserRole", source.customer_type || "Student");
+      return;
+    }
 
-      try {
-        const data = await requestCustomerApi("/customer/cart");
-        cartEntries = Array.isArray(data?.data) ? data.data : [];
-        renderCartItems();
-      } catch (error) {
-        if (!silent) {
-          await showShopAlert(error?.message || "Unable to load your cart right now.", {
-            title: "Cart Error",
-          });
-        }
-      }
-    };
+    if (inpFullName)
+      inpFullName.value = source.name || customerSession.userInfo?.name || "";
+    if (inpPhone) inpPhone.value = source.phone_number || "";
+    if (inpAddress) inpAddress.value = source.address_line || "";
+    if (inpDetails) inpDetails.value = source.address_details || "";
+    if (inpDept) inpDept.value = source.department || "";
+    if (inpSetDefault) inpSetDefault.checked = Boolean(source.is_default);
+    setRoleByRadioName("userRole", source.customer_type || "Student");
+  };
 
-    const updateCheckoutMath = () => {
-      if (!inputQty) return;
+  const validateAddressForm = (mode) => {
+    const ids = getAddressFieldIds(mode);
+    const isAddMode = mode === "add";
 
-      const qty = Math.max(1, Number.parseInt(String(inputQty.value || "1"), 10) || 1);
-      let total = currentItemPrice * qty;
+    clearCheckoutFormErrors(mode);
 
-      if (protectionCheck?.checked) {
-        total += protectionFee;
-      }
+    const nameInput = document.getElementById(ids.name);
+    const phoneInput = document.getElementById(ids.phone);
+    const addressInput = document.getElementById(ids.address);
+    const detailsInput = document.getElementById(ids.details);
+    const deptInput = document.getElementById(ids.dept);
 
-      if (checkoutSubtotal) checkoutSubtotal.innerText = formatPrice(currentItemPrice * qty);
-      if (checkoutGrandTotal) checkoutGrandTotal.innerText = formatPrice(total);
-      if (footerTotalDisplay) footerTotalDisplay.innerText = formatPrice(total);
-      if (footerItemCount) footerItemCount.innerText = String(qty);
-    };
+    const name = String(nameInput?.value || "").trim();
+    const phone = normalizePhoneDigits(phoneInput?.value || "");
+    const addressLine = String(addressInput?.value || "").trim();
+    const addressDetails = String(detailsInput?.value || "").trim();
+    const department = String(deptInput?.value || "").trim();
+    const customerType = getSelectedRole(
+      isAddMode ? "addUserRole" : "userRole",
+    );
+    const setDefault = isAddMode
+      ? Boolean(addInpSetDefault?.checked)
+      : Boolean(inpSetDefault?.checked);
 
-    const openCheckoutModal = () => {
-      if (!checkoutModal) return;
-      checkoutModal.classList.add("show-modal");
-      document.body.style.overflow = "hidden";
-    };
+    if (phoneInput instanceof HTMLInputElement) {
+      phoneInput.value = phone;
+    }
 
-    const closeCheckoutModal = () => {
-      if (!checkoutModal) return;
-      checkoutModal.classList.remove("show-modal");
-      document.body.style.overflow = "";
-    };
+    let firstInvalidInput = null;
 
-    const closeCartModal = () => {
-      if (!cartModal) return;
-      cartModal.classList.remove("show-modal");
-      document.body.style.overflow = "";
-    };
-
-    const readStockLimit = (card) => {
-      const stockText = card.querySelector(".stock-text")?.innerText || "";
-      if (stockText.toLowerCase().includes("unlimited")) return 9999;
-      const stock = Number.parseInt(stockText.replace(/[^0-9]/g, ""), 10);
-      return Number.isInteger(stock) && stock > 0 ? stock : 9999;
-    };
-
-    const openCheckoutForProductCard = (card) => {
-      if (!card || !inputQty) return;
-
-      const imgSrc = card.querySelector(".product-img-wrapper img")?.src || "/images/FMRC Logo.png";
-      const title = card.querySelector(".product-name")?.innerText?.trim() || "Custom Product";
-      const priceText = card.querySelector(".product-price")?.innerText || "₱0.00";
-
-      checkoutSource = "product";
-      checkoutCartItemIds = [];
-
-      currentItemPrice = parsePrice(priceText);
-      currentMaxStock = readStockLimit(card);
-
-      inputQty.value = "1";
-      inputQty.max = String(currentMaxStock);
-      if (checkoutMaxStock) {
-        checkoutMaxStock.innerText = currentMaxStock >= 9999 ? "Unlimited" : String(currentMaxStock);
-      }
-
-      if (protectionCheck) protectionCheck.checked = false;
-      if (checkoutImg) checkoutImg.src = imgSrc;
-      if (checkoutTitle) checkoutTitle.innerText = title;
-      if (checkoutPrice) checkoutPrice.innerText = formatPrice(currentItemPrice);
-
-      hydrateGuideMedia(imgSrc, title);
-      updateCheckoutMath();
-      openCheckoutModal();
-    };
-
-    const openCheckoutFromCartItem = async () => {
-      const selectedItems = cartEntries.filter((item) => Boolean(item.selected));
-      if (!selectedItems.length) {
-        await showShopAlert("Please select at least one cart item to continue.", {
-          title: "No Item Selected",
-        });
-        return;
-      }
-
-      if (selectedItems.length > 1) {
-        await showShopAlert("Please select only one cart item for checkout.", {
-          title: "Single-Item Checkout",
-        });
-        return;
-      }
-
-      const item = selectedItems[0];
-      checkoutSource = "cart";
-      checkoutCartItemIds = [Number(item.id)];
-
-      currentItemPrice = Number(item.unit_price || 0);
-      currentMaxStock = 9999;
-
-      if (inputQty) {
-        inputQty.value = String(Math.max(1, Number.parseInt(String(item.quantity || "1"), 10) || 1));
-      }
-
-      if (checkoutImg) checkoutImg.src = item.product_image || "/images/FMRC Logo.png";
-      if (checkoutTitle) checkoutTitle.innerText = item.product_name || "Custom Product";
-      if (checkoutPrice) checkoutPrice.innerText = item.unit_price_label || formatPrice(currentItemPrice);
-      if (checkoutMaxStock) checkoutMaxStock.innerText = "In cart";
-
-      hydrateGuideMedia(item.product_image || "/images/FMRC Logo.png", item.product_name || "Custom Product");
-      updateCheckoutMath();
-
-      closeCartModal();
-      openCheckoutModal();
-    };
-
-    const addCardItemToCart = async (card) => {
-      if (!card) return;
-
-      const imageElement = card.querySelector(".product-img-wrapper img");
-      const title = card.querySelector(".product-name")?.innerText?.trim() || "Custom Product";
-      const priceText = card.querySelector(".product-price")?.innerText || "₱0.00";
-      const unitPrice = parsePrice(priceText);
-
-      if (imageElement && cartIconTrigger) {
-        const imgRect = imageElement.getBoundingClientRect();
-        const cartRect = cartIconTrigger.getBoundingClientRect();
-
-        const clone = imageElement.cloneNode(true);
-        clone.style.position = "fixed";
-        clone.style.zIndex = "99999";
-        clone.style.left = `${imgRect.left}px`;
-        clone.style.top = `${imgRect.top}px`;
-        clone.style.width = `${imgRect.width}px`;
-        clone.style.height = `${imgRect.height}px`;
-        clone.style.borderRadius = "6px";
-        clone.style.transition =
-          "transform 1.2s cubic-bezier(0.1, 0.7, 0.2, 1), opacity 1.2s ease";
-        clone.style.pointerEvents = "none";
-
-        document.body.appendChild(clone);
-        clone.getBoundingClientRect();
-
-        const translateX =
-          cartRect.left - imgRect.left + cartRect.width / 2 - imgRect.width / 2;
-        const translateY =
-          cartRect.top - imgRect.top + cartRect.height / 2 - imgRect.height / 2;
-
-        clone.style.transform = `translate(${translateX}px, ${translateY}px) scale(0.1)`;
-        clone.style.opacity = "0.3";
-
-        setTimeout(() => clone.remove(), 1200);
-      }
-
-      try {
-        await requestCustomerApi("/customer/cart", {
-          method: "POST",
-          body: {
-            product_name: title,
-            product_image: imageElement?.src || "/images/FMRC Logo.png",
-            unit_price: unitPrice,
-            quantity: 1,
-            selected: true,
-          },
-        });
-
-        await loadCart({ silent: true });
-      } catch (error) {
-        await showShopAlert(error?.message || "Unable to add this item to your cart.", {
-          title: "Cart Error",
-        });
+    const registerError = (fieldId, message) => {
+      setCheckoutFieldError(fieldId, message);
+      if (!firstInvalidInput) {
+        firstInvalidInput = document.getElementById(fieldId);
       }
     };
 
-    const updateCartItem = async (cartId, payload) => {
-      await requestCustomerApi(`/customer/cart/${cartId}`, {
-        method: "PATCH",
-        body: payload,
-      });
-      await loadCart({ silent: true });
+    if (!name) {
+      registerError(ids.name, "Please enter your full name.");
+    }
+
+    if (!phone) {
+      registerError(ids.phone, "Please enter your mobile number.");
+    } else if (!/^9\d{9,10}$/.test(phone)) {
+      registerError(
+        ids.phone,
+        "Use a valid PH number after +63. Example: 9XXXXXXXXX.",
+      );
+    }
+
+    if (!addressLine) {
+      registerError(ids.address, "Please enter your main address.");
+    }
+
+    if (!addressDetails) {
+      registerError(
+        ids.details,
+        "Please add a detail like room, unit, or landmark.",
+      );
+    }
+
+    if (!department) {
+      registerError(ids.dept, "Please enter your department or organization.");
+    }
+
+    if (firstInvalidInput instanceof HTMLElement) {
+      firstInvalidInput.focus();
+      return null;
+    }
+
+    return {
+      entry: normalizeAddressEntry({
+        name,
+        phone_number: phone,
+        address_line: addressLine,
+        address_details: addressDetails,
+        department,
+        customer_type: customerType || "Student",
+        is_default: setDefault,
+      }),
+    };
+  };
+
+  const applyServerAddressErrors = (mode, errors, fallbackMessage) => {
+    const ids = getAddressFieldIds(mode);
+    let didSetFieldError = false;
+
+    const pushFieldError = (fieldId, message) => {
+      if (!message) return;
+      setCheckoutFieldError(fieldId, message);
+      didSetFieldError = true;
     };
 
-    const removeSelectedCartItems = async () => {
-      const selectedIds = cartEntries
-        .filter((item) => Boolean(item.selected))
-        .map((item) => Number(item.id))
-        .filter((id) => Number.isInteger(id) && id > 0);
+    if (errors && typeof errors === "object") {
+      pushFieldError(ids.name, errors.name?.[0]);
+      pushFieldError(ids.phone, errors.phone_number?.[0]);
+      pushFieldError(ids.address, errors.address_line?.[0]);
+      pushFieldError(ids.details, errors.address_details?.[0]);
+      pushFieldError(ids.dept, errors.department?.[0]);
+      pushFieldError(ids.dept, errors.customer_type?.[0]);
+    }
 
-      if (!selectedIds.length) {
-        await showShopAlert("No selected cart items to remove.", {
-          title: "Nothing to Remove",
-        });
-        return;
-      }
+    if (!didSetFieldError && fallbackMessage) {
+      pushFieldError(ids.address, fallbackMessage);
+    }
+  };
 
-      const confirmed = await showShopConfirm(
-        `Remove ${selectedIds.length} selected item(s) from your cart?`,
+  const syncProfileFromAddress = async (addressEntry) => {
+    const token =
+      customerSession.token || localStorage.getItem("customer_token") || "";
+    if (!token) {
+      return {
+        ok: false,
+        message: "Login session not found. Please sign in again.",
+      };
+    }
+
+    const payload = {
+      name: addressEntry?.name || customerSession.userInfo?.name || null,
+      phone_number: addressEntry?.phone_number || null,
+      address_line: addressEntry?.address_line || null,
+      address_details: addressEntry?.address_details || null,
+      department: addressEntry?.department || null,
+      customer_type: addressEntry?.customer_type || "Student",
+    };
+
+    try {
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/customer/profile`,
         {
-          title: "Remove Items",
-          confirmText: "Remove",
-          danger: true,
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
         },
       );
 
-      if (!confirmed) return;
-
-      try {
-        await requestCustomerApi("/customer/cart", {
-          method: "DELETE",
-          body: { ids: selectedIds },
-        });
-        await loadCart({ silent: true });
-      } catch (error) {
-        await showShopAlert(error?.message || "Unable to remove selected items.", {
-          title: "Cart Error",
-        });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return {
+          ok: false,
+          message: result?.message || "Unable to save your details right now.",
+          errors: result?.errors || null,
+        };
       }
-    };
 
-    const loadInitialCommerceData = async () => {
-      if (!getCustomerToken()) {
-        customerAddresses = [];
-        cartEntries = [];
-        renderAddressList();
-        renderCartItems();
-        updateSelectedAddressDisplay();
+      customerCheckoutProfile = result?.data || {
+        ...(customerCheckoutProfile || {}),
+        ...payload,
+      };
+
+      if (customerSession.userInfo && customerCheckoutProfile?.name) {
+        customerSession.userInfo.name = customerCheckoutProfile.name;
+        try {
+          localStorage.setItem(
+            "customer_info",
+            JSON.stringify(customerSession.userInfo),
+          );
+        } catch {
+          // Ignore storage write issues.
+        }
+      }
+
+      return {
+        ok: true,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        message: error?.message || "Unable to save your details right now.",
+      };
+    }
+  };
+
+  const setSelectedAddress = (addressId, markAsDefault = false) => {
+    const id = String(addressId || "");
+    if (!id) return;
+
+    selectedCheckoutAddressId = id;
+    if (!markAsDefault) return;
+
+    customerAddressBook = customerAddressBook.map((entry) => ({
+      ...entry,
+      is_default: String(entry.id) === id,
+    }));
+  };
+
+  const removeAddressesByIds = async (addressIds, message, title) => {
+    const idsToRemove = Array.from(
+      new Set((addressIds || []).map((id) => String(id || "")).filter(Boolean)),
+    );
+    if (!idsToRemove.length) return;
+
+    const confirmed = await showCustomerPopup(message, {
+      title,
+      isConfirm: true,
+      okText: "Delete",
+      cancelText: "Cancel",
+    });
+
+    if (!confirmed) return;
+
+    customerAddressBook = customerAddressBook.filter(
+      (entry) => !idsToRemove.includes(String(entry.id)),
+    );
+    addressDeleteSelection.clear();
+    ensureSingleDefaultAddress();
+    saveAddressBookToStorage();
+    renderAddressList();
+    renderCheckoutAddress();
+    applyAddressToForm(
+      "edit",
+      getSelectedCheckoutAddress() || customerCheckoutProfile,
+    );
+    applyAddressToForm(
+      "add",
+      getSelectedCheckoutAddress() || customerCheckoutProfile,
+    );
+
+    if (!customerAddressBook.length) {
+      isAddressEditMode = false;
+    }
+
+    const profileSyncResult = await syncProfileFromAddress(
+      getSelectedCheckoutAddress(),
+    );
+    if (profileSyncResult.ok) {
+      emitCustomerOrdersUpdated({ type: "profile-updated" });
+    }
+
+    renderAddressList();
+  };
+
+  const setAddressEditMode = (nextMode) => {
+    isAddressEditMode = Boolean(nextMode) && customerAddressBook.length > 0;
+    addressDeleteSelection.clear();
+    renderAddressList();
+  };
+
+  const openEditAddressModal = (addressId) => {
+    const target = customerAddressBook.find(
+      (entry) => String(entry.id) === String(addressId),
+    );
+    if (!target || !editInfoModal) return;
+
+    editingCheckoutAddressId = String(target.id);
+    clearCheckoutFormErrors("edit");
+    applyAddressToForm("edit", target);
+    editInfoModal.classList.add("show-modal");
+  };
+
+  const openAddAddressModal = () => {
+    if (!addInfoModal) return;
+
+    const selected = getSelectedCheckoutAddress() || customerCheckoutProfile;
+    clearCheckoutFormErrors("add");
+    applyAddressToForm("add", {
+      ...(selected || {}),
+      address_line: "",
+      address_details: "",
+      is_default: customerAddressBook.length === 0,
+    });
+
+    addInfoModal.classList.add("show-modal");
+  };
+
+  const saveAddressFromModal = async (mode) => {
+    const validated = validateAddressForm(mode);
+    if (!validated) return false;
+
+    const isAddMode = mode === "add";
+    const confirmMessage = isAddMode
+      ? "Save this new address?"
+      : "Update this address?";
+
+    const confirmed = await showCustomerPopup(confirmMessage, {
+      title: isAddMode ? "Confirm Save" : "Confirm Update",
+      isConfirm: true,
+      okText: isAddMode ? "Save" : "Update",
+      cancelText: "Cancel",
+    });
+
+    if (!confirmed) return false;
+
+    if (isAddMode) {
+      const nextEntry = {
+        ...validated.entry,
+        id: createAddressId(),
+        is_default:
+          customerAddressBook.length === 0 ||
+          Boolean(validated.entry.is_default),
+      };
+
+      if (nextEntry.is_default) {
+        customerAddressBook = customerAddressBook.map((entry) => ({
+          ...entry,
+          is_default: false,
+        }));
+      }
+
+      customerAddressBook.push(nextEntry);
+      setSelectedAddress(nextEntry.id, nextEntry.is_default);
+    } else {
+      if (!editingCheckoutAddressId) {
+        applyServerAddressErrors(
+          "edit",
+          null,
+          "Choose an address first, then try again.",
+        );
+        return false;
+      }
+
+      customerAddressBook = customerAddressBook.map((entry) => {
+        if (String(entry.id) !== String(editingCheckoutAddressId)) {
+          return validated.entry.is_default
+            ? { ...entry, is_default: false }
+            : entry;
+        }
+
+        return {
+          ...entry,
+          ...validated.entry,
+          id: entry.id,
+        };
+      });
+
+      setSelectedAddress(
+        editingCheckoutAddressId,
+        Boolean(validated.entry.is_default),
+      );
+    }
+
+    ensureSingleDefaultAddress();
+    saveAddressBookToStorage();
+    renderAddressList();
+    renderCheckoutAddress();
+    applyAddressToForm(
+      "edit",
+      getSelectedCheckoutAddress() || customerCheckoutProfile,
+    );
+    applyAddressToForm(
+      "add",
+      getSelectedCheckoutAddress() || customerCheckoutProfile,
+    );
+
+    const syncResult = await syncProfileFromAddress(
+      getSelectedCheckoutAddress(),
+    );
+    if (!syncResult.ok) {
+      applyServerAddressErrors(
+        mode,
+        syncResult.errors,
+        syncResult.message || "Unable to save your details.",
+      );
+      return false;
+    }
+
+    emitCustomerOrdersUpdated({ type: "profile-updated" });
+    return true;
+  };
+
+  const seedAddressBookFromProfile = (profile) => {
+    const hasSeedData = Boolean(
+      profile?.name ||
+      profile?.phone_number ||
+      profile?.address_line ||
+      profile?.address_details ||
+      profile?.department,
+    );
+
+    if (!hasSeedData || customerAddressBook.length) return;
+
+    const seeded = normalizeAddressEntry({
+      id: createAddressId(),
+      name: profile?.name || customerSession.userInfo?.name || "",
+      phone_number: profile?.phone_number || "",
+      address_line: profile?.address_line || "",
+      address_details: profile?.address_details || "",
+      department: profile?.department || "",
+      customer_type: profile?.customer_type || "Student",
+      is_default: true,
+    });
+
+    customerAddressBook = [seeded];
+    selectedCheckoutAddressId = seeded.id;
+    saveAddressBookToStorage();
+  };
+
+  const fetchCustomerCheckoutProfile = async () => {
+    const token =
+      customerSession.token || localStorage.getItem("customer_token") || "";
+    if (!token) return;
+
+    try {
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/customer/profile`,
+        {
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
         return;
       }
 
-      await Promise.all([loadAddresses({ silent: true }), loadCart({ silent: true })]);
-    };
+      customerCheckoutProfile = payload?.data || null;
+      seedAddressBookFromProfile(customerCheckoutProfile);
+      ensureSingleDefaultAddress();
+      renderAddressList();
+      renderCheckoutAddress();
+      applyAddressToForm(
+        "edit",
+        getSelectedCheckoutAddress() || customerCheckoutProfile,
+      );
+      applyAddressToForm(
+        "add",
+        getSelectedCheckoutAddress() || customerCheckoutProfile,
+      );
+    } catch {
+      // Keep UI usable with local/session fallback values.
+    }
+  };
 
-    const startCartRealtimeSync = () => {
-      if (cartRealtimeTimer) {
-        window.clearInterval(cartRealtimeTimer);
+  [inpPhone, addInpPhone].forEach((phoneInput) => {
+    phoneInput?.addEventListener("input", () => {
+      phoneInput.value = normalizePhoneDigits(phoneInput.value);
+    });
+  });
+
+  if (openAddAddressBtn && addInfoModal) {
+    openAddAddressBtn.addEventListener("click", () => {
+      openAddAddressModal();
+    });
+  }
+
+  if (addressEditModeBtn) {
+    addressEditModeBtn.addEventListener("click", () => {
+      setAddressEditMode(!isAddressEditMode);
+    });
+  }
+
+  if (selectAllAddressBtn) {
+    selectAllAddressBtn.addEventListener("change", () => {
+      addressDeleteSelection.clear();
+      if (selectAllAddressBtn.checked) {
+        customerAddressBook.forEach((entry) => {
+          addressDeleteSelection.add(String(entry.id));
+        });
+      }
+      renderAddressList();
+    });
+  }
+
+  if (deleteSelectedAddressBtn) {
+    deleteSelectedAddressBtn.addEventListener("click", () => {
+      void removeAddressesByIds(
+        Array.from(addressDeleteSelection),
+        "Delete selected address details?",
+        "Delete Selected",
+      );
+    });
+  }
+
+  if (deleteAllAddressBtn) {
+    deleteAllAddressBtn.addEventListener("click", () => {
+      void removeAddressesByIds(
+        customerAddressBook.map((entry) => entry.id),
+        "Delete all saved addresses?",
+        "Delete All",
+      );
+    });
+  }
+
+  if (addressList) {
+    addressList.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      const deleteBtn = target.closest("[data-address-delete]");
+      if (deleteBtn) {
+        const addressId = String(
+          deleteBtn.getAttribute("data-address-delete") || "",
+        );
+        void removeAddressesByIds(
+          [addressId],
+          "Delete this saved address?",
+          "Delete Address",
+        );
+        return;
       }
 
-      cartRealtimeTimer = window.setInterval(() => {
-        if (document.hidden || !getCustomerToken()) return;
-        void loadCart({ silent: true });
-      }, 12000);
-    };
+      const checkInput = target.closest(".address-edit-check");
+      if (checkInput instanceof HTMLInputElement) {
+        const checkId = String(
+          checkInput.getAttribute("data-address-check") || "",
+        );
+        if (!checkId) return;
 
-    if (protectionCheck) {
-      protectionCheck.addEventListener("change", updateCheckoutMath);
-    }
-
-    if (btnMinusQty && inputQty) {
-      btnMinusQty.addEventListener("click", () => {
-        const currentQty = Math.max(1, Number.parseInt(String(inputQty.value || "1"), 10) || 1);
-        if (currentQty > 1) {
-          inputQty.value = String(currentQty - 1);
-          updateCheckoutMath();
+        if (checkInput.checked) {
+          addressDeleteSelection.add(checkId);
+        } else {
+          addressDeleteSelection.delete(checkId);
         }
-      });
-    }
+        syncAddressEditUi();
+        return;
+      }
 
-    if (btnPlusQty && inputQty) {
-      btnPlusQty.addEventListener("click", async () => {
-        const currentQty = Math.max(1, Number.parseInt(String(inputQty.value || "1"), 10) || 1);
-        if (currentMaxStock >= 9999 || currentQty < currentMaxStock) {
-          inputQty.value = String(currentQty + 1);
-          updateCheckoutMath();
-          return;
+      const editBtn = target.closest("[data-address-edit]");
+      if (editBtn) {
+        const editId = String(editBtn.getAttribute("data-address-edit") || "");
+        openEditAddressModal(editId);
+        return;
+      }
+
+      const item = target.closest(".address-item");
+      if (!(item instanceof HTMLElement)) return;
+      const addressId = String(item.getAttribute("data-address-id") || "");
+      if (!addressId) return;
+
+      if (isAddressEditMode) {
+        if (addressDeleteSelection.has(addressId)) {
+          addressDeleteSelection.delete(addressId);
+        } else {
+          addressDeleteSelection.add(addressId);
         }
-
-        await showShopAlert("Maximum stock reached for this item.", {
-          title: "Stock Limit",
-        });
-      });
-    }
-
-    buyNowBtns.forEach((btn) => {
-      btn.addEventListener("click", (event) => {
-        if (!requireCustomerAuth("buy products")) return;
-        const card = event.target.closest(".shop-card");
-        if (card) openCheckoutForProductCard(card);
-      });
-    });
-
-    addToCartBtns.forEach((btn) => {
-      btn.addEventListener("click", async (event) => {
-        if (!requireCustomerAuth("add products to cart")) return;
-        const card = event.target.closest(".shop-card");
-        await addCardItemToCart(card);
-      });
-    });
-
-    if (closeCheckoutBtn) {
-      closeCheckoutBtn.addEventListener("click", closeCheckoutModal);
-    }
-
-    if (openAddressSelectionBtn) {
-      openAddressSelectionBtn.addEventListener("click", () => {
-        void openAddressModal();
-      });
-    }
-
-    if (backToCheckoutFromAddressBtn) {
-      backToCheckoutFromAddressBtn.addEventListener("click", closeAddressModal);
-    }
-
-    if (openAddAddressBtn) {
-      openAddAddressBtn.addEventListener("click", () => {
-        openAddAddressModal();
-      });
-    }
-
-    if (backToAddressBtn) {
-      backToAddressBtn.addEventListener("click", () => {
-        editInfoModal?.classList.remove("show-modal");
-      });
-    }
-
-    if (backToAddressFromAddBtn) {
-      backToAddressFromAddBtn.addEventListener("click", () => {
-        addInfoModal?.classList.remove("show-modal");
-      });
-    }
-
-    if (addressList) {
-      addressList.addEventListener("click", (event) => {
-        const editButton = event.target.closest("[data-address-edit]");
-        if (editButton) {
-          const editId = Number.parseInt(String(editButton.getAttribute("data-address-edit") || "0"), 10);
-          const address = getAddressById(editId);
-          if (address) {
-            event.stopPropagation();
-            openEditAddressModal(address);
-          }
-          return;
-        }
-
-        const addressItem = event.target.closest("[data-address-id]");
-        if (!addressItem) return;
-
-        selectedAddressId = Number.parseInt(String(addressItem.getAttribute("data-address-id") || "0"), 10);
         renderAddressList();
-        updateSelectedAddressDisplay();
-        closeAddressModal();
-      });
-    }
+        return;
+      }
 
-    if (saveInfoBtn) {
-      saveInfoBtn.addEventListener("click", async () => {
-        if (!editingAddressId) return;
+      setSelectedAddress(addressId, true);
+      ensureSingleDefaultAddress();
+      saveAddressBookToStorage();
+      renderAddressList();
+      renderCheckoutAddress();
+      addressSelectionModal?.classList.remove("show-modal");
 
-        const payload = getAddressFormData("edit");
-        if (payload?.error) {
-          await showShopAlert(payload.error, { title: "Invalid Address Details" });
-          return;
+      void (async () => {
+        const syncResult = await syncProfileFromAddress(
+          getSelectedCheckoutAddress(),
+        );
+        if (syncResult.ok) {
+          emitCustomerOrdersUpdated({ type: "profile-updated" });
         }
+      })();
+    });
+  }
 
-        try {
-          await requestCustomerApi(`/customer/addresses/${editingAddressId}`, {
-            method: "PUT",
-            body: payload,
-          });
-          await loadAddresses({ silent: false });
-          editInfoModal?.classList.remove("show-modal");
-          await showShopAlert("Address updated successfully.", { title: "Saved" });
-        } catch (error) {
-          await showShopAlert(error?.message || "Unable to update your address.", {
-            title: "Address Error",
-          });
-        }
-      });
-    }
+  if (backToAddressBtn) {
+    backToAddressBtn.addEventListener("click", () => {
+      editInfoModal?.classList.remove("show-modal");
+    });
+  }
 
-    if (saveNewInfoBtn) {
-      saveNewInfoBtn.addEventListener("click", async () => {
-        const payload = getAddressFormData("add");
-        if (payload?.error) {
-          await showShopAlert(payload.error, { title: "Invalid Address Details" });
-          return;
-        }
+  if (backToAddressFromAddBtn && addInfoModal) {
+    backToAddressFromAddBtn.addEventListener("click", () => {
+      addInfoModal.classList.remove("show-modal");
+    });
+  }
 
-        try {
-          await requestCustomerApi("/customer/addresses", {
-            method: "POST",
-            body: payload,
-          });
-          await loadAddresses({ silent: false });
-          addInfoModal?.classList.remove("show-modal");
-          await showShopAlert("Address added successfully.", { title: "Saved" });
-        } catch (error) {
-          await showShopAlert(error?.message || "Unable to save your new address.", {
-            title: "Address Error",
-          });
-        }
-      });
-    }
+  if (saveInfoBtn) {
+    saveInfoBtn.addEventListener("click", async () => {
+      const saved = await saveAddressFromModal("edit");
+      if (!saved) return;
+      editInfoModal?.classList.remove("show-modal");
+    });
+  }
 
-    if (deleteAddressBtn) {
-      deleteAddressBtn.addEventListener("click", async () => {
-        if (!editingAddressId) return;
+  if (saveNewInfoBtn && addInfoModal) {
+    saveNewInfoBtn.addEventListener("click", async () => {
+      const saved = await saveAddressFromModal("add");
+      if (!saved) return;
+      addInfoModal.classList.remove("show-modal");
+      setAddressEditMode(false);
+    });
+  }
 
-        const confirmed = await showShopConfirm("Delete this saved address?", {
-          title: "Delete Address",
-          confirmText: "Delete",
-          danger: true,
+  loadAddressBookFromStorage();
+  renderAddressList();
+  renderCheckoutAddress();
+  applyAddressToForm(
+    "edit",
+    getSelectedCheckoutAddress() || customerCheckoutProfile,
+  );
+  applyAddressToForm(
+    "add",
+    getSelectedCheckoutAddress() || customerCheckoutProfile,
+  );
+  if (!isGuestUser) {
+    void fetchCustomerCheckoutProfile();
+  }
+
+  // Submit Order logic
+  const submitOrderBtn = document.getElementById("submitOrderBtn");
+  if (submitOrderBtn) {
+    submitOrderBtn.addEventListener("click", async function (event) {
+      event?.preventDefault();
+      const terms = document.getElementById("orderTerms");
+      if (terms && !terms.checked) {
+        await showCustomerPopup(
+          "Please check the terms and payment agreement box first.",
+          {
+            title: "Validation",
+          },
+        );
+        return;
+      }
+
+      const paymentSelect = document.querySelector(
+        "#checkoutModal .payment-select",
+      );
+      const paymentMethod = String(paymentSelect?.value || "").trim();
+      if (
+        !paymentMethod ||
+        paymentMethod.toLowerCase().includes("choose payment method")
+      ) {
+        await showCustomerPopup("Please choose a payment method first.", {
+          title: "Validation",
         });
+        return;
+      }
 
-        if (!confirmed) return;
-
-        try {
-          await requestCustomerApi(`/customer/addresses/${editingAddressId}`, {
-            method: "DELETE",
-          });
-
-          editingAddressId = null;
-          editInfoModal?.classList.remove("show-modal");
-          await loadAddresses({ silent: false });
-          await showShopAlert("Address deleted successfully.", { title: "Deleted" });
-        } catch (error) {
-          await showShopAlert(error?.message || "Unable to delete this address.", {
-            title: "Address Error",
-          });
-        }
-      });
-    }
-
-    if (submitOrderBtn) {
-      submitOrderBtn.addEventListener("click", async function (event) {
-        event?.preventDefault();
-        if (!orderTermsCheckbox?.checked) {
-          await showShopAlert("Please check the terms and payment agreement box first.", {
-            title: "Terms Required",
-          });
-          return;
-        }
-
-        const paymentMethod = toPaymentMethodCode(paymentSelect?.value || "");
-        if (!paymentMethod) {
-          await showShopAlert("Please choose a valid payment method first.", {
-            title: "Payment Method Required",
-          });
-          return;
-        }
-
-        const selectedAddress = getSelectedAddress();
-        if (!selectedAddress) {
-          await showShopAlert("Please add and select a delivery address first.", {
+      const selectedAddress = getSelectedCheckoutAddress();
+      if (!selectedAddress) {
+        await showCustomerPopup(
+          "Please add and select your delivery details first.",
+          {
             title: "Address Required",
-          });
-          return;
+          },
+        );
+        return;
+      }
+
+      const useCartCheckout =
+        currentCheckoutMode === "cart" &&
+        Array.isArray(currentCheckoutItems) &&
+        currentCheckoutItems.length > 0;
+
+      const quantity = useCartCheckout
+        ? currentCheckoutItems.reduce(
+            (sum, item) =>
+              sum +
+              Math.max(1, Number.parseInt(item?.quantity || "1", 10) || 1),
+            0,
+          )
+        : Math.max(1, Number.parseInt(inputQty?.value || "1", 10) || 1);
+
+      const totalText =
+        checkoutGrandTotal?.innerText || checkoutPrice?.innerText || "₱0.00";
+      const parsedDisplayedTotal = Number.isFinite(parsePrice(totalText))
+        ? parsePrice(totalText)
+        : 0;
+      const totalAmount = useCartCheckout
+        ? currentCheckoutItems.reduce((sum, item) => {
+            const qty = Math.max(
+              1,
+              Number.parseInt(item?.quantity || "1", 10) || 1,
+            );
+            const lineTotal = Number(item?.line_total);
+            if (Number.isFinite(lineTotal) && lineTotal >= 0) {
+              return sum + lineTotal;
+            }
+            const unitPrice = Number(item?.unit_price || 0);
+            return sum + (Number.isFinite(unitPrice) ? unitPrice * qty : 0);
+          }, 0)
+        : parsedDisplayedTotal;
+
+      const originalText = this.innerText;
+      this.disabled = true;
+      this.innerText = "Processing...";
+
+      try {
+        const token = getCustomerToken() || customerSession.token || "";
+        if (!token) {
+          throw new Error("Login session not found. Please sign in again.");
         }
 
-        const quantity = Math.max(1, Number.parseInt(String(inputQty?.value || "1"), 10) || 1);
-        const totalText = checkoutGrandTotal?.innerText || checkoutPrice?.innerText || "₱0.00";
-        const totalAmount = parsePrice(totalText);
-        const originalText = this.innerText;
+        const contactNumber = String(
+          selectedAddress.phone_number || "",
+        ).replace(/\D/g, "");
+        const orderNotes = [
+          selectedAddress.address_line,
+          selectedAddress.address_details,
+          selectedAddress.department
+            ? `Department: ${selectedAddress.department}`
+            : "",
+          selectedAddress.customer_type
+            ? `Role: ${selectedAddress.customer_type}`
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" | ");
 
-        this.disabled = true;
-        this.innerText = "Processing...";
+        const customerName =
+          selectedAddress.name ||
+          customerCheckoutProfile?.name ||
+          customerSession.userInfo?.name ||
+          customerSession.userInfo?.username ||
+          customerSession.userInfo?.email ||
+          "Customer";
 
-        try {
-          const noteParts = [
-            selectedAddress.address_line,
-            selectedAddress.address_details,
-            selectedAddress.department ? `Department: ${selectedAddress.department}` : "",
-            selectedAddress.role ? `Role: ${selectedAddress.role}` : "",
-          ].filter(Boolean);
+        const customerContact = contactNumber
+          ? `+63${contactNumber}`
+          : customerSession.userInfo?.email || "N/A";
 
-          const payload = {
+        const basePayload = {
+          payment_method: paymentMethod,
+          customer_name: customerName,
+          customer_contact: customerContact,
+          notes: orderNotes,
+          location_name:
+            selectedAddress.address_line ||
+            customerCheckoutProfile?.address_line ||
+            null,
+          courier_name: "J&T Express",
+        };
+
+        let payload;
+
+        if (useCartCheckout) {
+          const items = currentCheckoutItems.map((item) => {
+            const lineQty = Math.max(
+              1,
+              Number.parseInt(item?.quantity || "1", 10) || 1,
+            );
+            const lineUnitPrice = Number.isFinite(Number(item?.unit_price))
+              ? Number(item.unit_price)
+              : 0;
+            const lineTotal = Number.isFinite(Number(item?.line_total))
+              ? Number(item.line_total)
+              : lineUnitPrice * lineQty;
+
+            return {
+              product_id: item?.product_id ?? null,
+              product_name: String(item?.product_name || "Custom Order"),
+              product_image: String(
+                item?.product_image || "/images/FMRC Logo.png",
+              ),
+              quantity: lineQty,
+              unit_price: lineUnitPrice,
+              line_total: lineTotal,
+            };
+          });
+
+          const firstItem = items[0] || {};
+          const summaryName =
+            items.length > 1
+              ? `${firstItem.product_name || "Custom Order"} (+${items.length - 1} more)`
+              : firstItem.product_name || "Custom Order";
+
+          payload = {
+            ...basePayload,
+            product_id: firstItem.product_id ?? null,
+            product_name: summaryName,
+            product_image:
+              firstItem.product_image ||
+              checkoutImg?.src ||
+              "/images/FMRC Logo.png",
+            quantity,
+            unit_price:
+              quantity > 0 ? Number((totalAmount / quantity).toFixed(2)) : 0,
+            total_amount: totalAmount,
+            items,
+          };
+        } else {
+          payload = {
+            ...basePayload,
+            product_id: currentProductId,
             product_name: checkoutTitle?.innerText?.trim() || "Custom Order",
             product_image: checkoutImg?.src || "/images/FMRC Logo.png",
             quantity,
-            unit_price: Number.isFinite(currentItemPrice) ? Number(currentItemPrice) : 0,
+            unit_price: Number.isFinite(currentItemPrice)
+              ? Number(currentItemPrice)
+              : 0,
             total_amount: totalAmount,
-            payment_method: paymentMethod,
-            customer_name:
-              selectedAddress.full_name ||
-              customerSession.userInfo?.name ||
-              customerSession.userInfo?.username ||
-              "Customer",
-            customer_contact:
-              selectedAddress.phone_display ||
-              formatPhoneDisplay(selectedAddress.phone || "") ||
-              customerSession.userInfo?.email ||
-              "N/A",
-            notes: noteParts.join(" | "),
-            courier_name: "J&T Express",
           };
+        }
 
-          const data = await requestCustomerApi("/orders", {
+        const response = await fetchWithTimeout(
+          `${API_BASE_URL}/orders`,
+          {
             method: "POST",
-            body: payload,
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
+          },
+          25000,
+        ); // 25s timeout since SMTP email might take a few seconds on Windows local server
+
+        const data = await response.json().catch(() => ({}));
+        if (response.status === 401) {
+          try {
+            localStorage.removeItem("customer_token");
+            localStorage.removeItem("customer_info");
+          } catch {
+            // Ignore storage write issues.
+          }
+          throw new Error("Session expired. Please sign in again.");
+        }
+        if (!response.ok) {
+          throw new Error(
+            data.message || "Unable to place order at the moment.",
+          );
+        }
+
+        const orderNoRaw = String(
+          data?.data?.order_no || data?.order_no || "",
+        ).trim();
+        const orderNoDisplay = String(
+          data?.data?.order_no_display ||
+            data?.order_no_display ||
+            (orderNoRaw ? `#${orderNoRaw}` : ""),
+        ).trim();
+
+        // ── Step 1: Persist order-success info so products.js can show the
+        //   success modal AFTER the product grid finishes reloading.
+        //   This prevents the refresh cycle from dismissing the modal.
+        try {
+          sessionStorage.setItem(
+            "fmrc_pending_order_success",
+            JSON.stringify({
+              orderNo: orderNoDisplay || orderNoRaw || "",
+              ts: Date.now(),
+            }),
+          );
+        } catch {
+          /* ignore storage errors (e.g. private browsing) */
+        }
+
+        // ── Step 2: Clear cart items & close the checkout modal ─────────────────
+        if (useCartCheckout && cartItemsContainer) {
+          const checkedCartInputs = cartItemsContainer.querySelectorAll(
+            ".cart-item-check:checked",
+          );
+          checkedCartInputs.forEach((checkedInput) => {
+            checkedInput.closest(".cart-item-card")?.remove();
+          });
+          updateCartTotals();
+          await persistCartItems();
+        }
+
+        currentCheckoutMode = "single";
+        currentCheckoutItems = [];
+        setCheckoutQtyLock(false);
+
+        checkoutModal.classList.remove("show-modal");
+        document.body.style.overflow = "";
+
+        // Re-enable the submit button right away
+        this.disabled = false;
+        this.innerText = originalText;
+
+        // ── Step 3: Emit the real-time update immediately ────────────────────────
+        //   products.js will catch this, reload the product grid, and THEN show
+        //   the success modal (after the grid has fully refreshed).
+        emitCustomerOrdersUpdated({
+          type: "created",
+          orderId: data?.data?.id || null,
+        });
+
+        return; // success path done; finally block still runs but is harmless
+      } catch (error) {
+        await showCustomerPopup(
+          error?.message || "Unable to place order. Please try again.",
+          {
+            title: "Order Failed",
+          },
+        );
+      } finally {
+        this.disabled = false;
+        this.innerText = originalText;
+      }
+    });
+  }
+
+  // =========================================
+  // SHOPPING CART & FLY-ANIMATION LOGIC
+  // =========================================
+  const cartIconTrigger = document.querySelector(".cart-icon-container");
+  const cartModal = document.getElementById("cartModal");
+  const closeCartBtn = document.getElementById("closeCartBtn");
+  const cartItemsContainer = document.getElementById("cartItemsContainer");
+  const emptyCartMessage = document.getElementById("emptyCartMessage");
+  const headerCartBadge = document.querySelector(".cart-badge");
+  const cartHeaderCount = document.getElementById("cartHeaderCount");
+
+  const emitCartRealtimeUpdate = (detail = {}) => {
+    const payload = {
+      source: "customer-cart",
+      timestamp: Date.now(),
+      ...detail,
+    };
+
+    try {
+      localStorage.setItem(CART_STORAGE_SIGNAL_KEY, JSON.stringify(payload));
+    } catch {
+      // Ignore storage write issues.
+    }
+  };
+
+  const createCartItemCard = ({
+    product_id,
+    title,
+    image,
+    unitPrice,
+    quantity = 1,
+    checked = true,
+  }) => {
+    const rawTitle = String(title || "Product");
+    const safeTitle = escapeCustomerHtml(rawTitle);
+    const safeImage = String(image || "/images/FMRC Logo.png");
+    const numericPrice = Number.isFinite(Number(unitPrice))
+      ? Number(unitPrice)
+      : 0;
+    const qty = Math.max(1, Number.parseInt(String(quantity || "1"), 10) || 1);
+    const pid = product_id != null ? String(product_id) : "";
+
+    const cartItem = document.createElement("div");
+    cartItem.className = "cart-item-card";
+    cartItem.dataset.productName = rawTitle;
+    cartItem.dataset.unitPrice = String(numericPrice);
+    if (pid) cartItem.dataset.productId = pid;
+    cartItem.innerHTML = `
+      <label class="cart-checkbox-container">
+        <input type="checkbox" class="cart-item-check" ${checked ? "checked" : ""}>
+        <span class="cart-checkmark"></span>
+      </label>
+      <div class="cart-item-img"><img src="${safeImage}" alt="Product"></div>
+      <div class="cart-item-details">
+        <h4>${safeTitle}</h4>
+        <div class="cart-item-bottom">
+          <span class="c-price" data-price="${numericPrice}">${formatPrice(numericPrice)}</span>
+          <div class="qty-selector">
+            <button class="qty-btn c-minus-btn">-</button>
+            <input type="number" class="c-qty-input" value="${qty}" min="1" max="99" readonly>
+            <button class="qty-btn c-plus-btn">+</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    return cartItem;
+  };
+
+  const collectCartItemsFromDom = () => {
+    if (!cartItemsContainer) return [];
+
+    return Array.from(
+      cartItemsContainer.querySelectorAll(".cart-item-card"),
+    ).map((item) => {
+      const title = item.querySelector("h4")?.innerText || "Product";
+      const image =
+        item.querySelector("img")?.getAttribute("src") ||
+        "/images/FMRC Logo.png";
+      const unitPrice = Number(
+        item.querySelector(".c-price")?.dataset.price || 0,
+      );
+      const quantity = Math.max(
+        1,
+        Number.parseInt(item.querySelector(".c-qty-input")?.value || "1", 10) ||
+          1,
+      );
+      const checked = Boolean(item.querySelector(".cart-item-check")?.checked);
+      const product_id = item.dataset.productId
+        ? Number(item.dataset.productId)
+        : null;
+
+      return {
+        product_id,
+        title,
+        image,
+        unitPrice,
+        quantity,
+        checked,
+      };
+    });
+  };
+
+  // Debounce timer for server sync (prevents rapid-fire API calls)
+  let _cartSyncTimer = null;
+
+  const persistCartItems = async () => {
+    const items = collectCartItemsFromDom();
+    const storageKey = customerSession.isAuthenticated
+      ? `${CART_STORAGE_KEY}_${customerSession.userInfo.id}`
+      : CART_STORAGE_KEY;
+
+    // Always save full data (including images) to localStorage immediately
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(items));
+    } catch {
+      // Ignore storage write issues.
+    }
+
+    // Sync to server with debounce (strip large image data to avoid 500 errors)
+    if (customerSession.isAuthenticated) {
+      if (_cartSyncTimer) clearTimeout(_cartSyncTimer);
+      _cartSyncTimer = setTimeout(async () => {
+        _cartSyncTimer = null;
+        try {
+          // Strip base64 data from images before sending to server.
+          // Keep only URL references (non-base64) to avoid payload size issues.
+          const serverItems = items.map((item) => ({
+            ...item,
+            image:
+              item.image && !item.image.startsWith("data:") ? item.image : null,
+          }));
+
+          await fetchWithTimeout(`${API_BASE_URL}/customer/cart/sync`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Bearer ${customerSession.token}`,
+            },
+            body: JSON.stringify({ items: serverItems }),
+          });
+        } catch (err) {
+          // Silently fail — items are safely stored in localStorage
+          console.error("Failed to sync cart to server", err);
+        }
+      }, 800);
+    }
+
+    emitCartRealtimeUpdate({ type: "updated" });
+  };
+
+  const restoreCartItems = async () => {
+    if (!cartItemsContainer) return;
+
+    let savedItems = [];
+    const storageKey = customerSession.isAuthenticated
+      ? `${CART_STORAGE_KEY}_${customerSession.userInfo.id}`
+      : CART_STORAGE_KEY;
+
+    // Helper to read from localStorage
+    const readLocalStorage = () => {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        const parsed = JSON.parse(raw || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    };
+
+    if (customerSession.isAuthenticated) {
+      const localItems = readLocalStorage();
+
+      try {
+        const res = await fetchWithTimeout(`${API_BASE_URL}/customer/cart`, {
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${customerSession.token}`,
+          },
+        });
+        if (res.ok) {
+          const payload = await res.json();
+          const apiItems = Array.isArray(payload?.data) ? payload.data : [];
+
+          // If API returns items, use them and sync localStorage
+          if (apiItems.length > 0) {
+            savedItems = apiItems;
+            const newCartString = JSON.stringify(savedItems);
+            if (localStorage.getItem(storageKey) !== newCartString) {
+              localStorage.setItem(storageKey, newCartString);
+            }
+          } else if (localItems.length > 0) {
+            // API is empty but localStorage has items — keep localStorage
+            // (this happens when server sync previously failed)
+            savedItems = localItems;
+          } else {
+            savedItems = [];
+          }
+        } else {
+          throw new Error("Failed to fetch cart");
+        }
+      } catch (err) {
+        console.error("Failed to fetch cart from server", err);
+        // On any error, fall back to localStorage
+        savedItems = localItems;
+      }
+    } else {
+      savedItems = readLocalStorage();
+    }
+
+    cartItemsContainer
+      .querySelectorAll(".cart-item-card")
+      .forEach((item) => item.remove());
+
+    savedItems.forEach((entry) => {
+      cartItemsContainer.appendChild(createCartItemCard(entry));
+    });
+
+    if (typeof updateCartTotals === "function") {
+      updateCartTotals();
+    }
+  };
+
+  // Open & Close Cart Modal
+  if (cartIconTrigger && cartModal) {
+    cartIconTrigger.addEventListener("click", (e) => {
+      e.preventDefault();
+      if (!requireCustomerAuth("view and manage your cart")) return;
+      cartModal.classList.add("show-modal");
+      document.body.style.overflow = "hidden";
+    });
+  }
+  if (closeCartBtn) {
+    closeCartBtn.addEventListener("click", () => {
+      cartModal.classList.remove("show-modal");
+      document.body.style.overflow = ""; // Resets to CSS
+    });
+  }
+
+  // Animation: Fly product image to top-right cart icon
+  function flyToCart(imgElement, cartIconElement) {
+    const imgRect = imgElement.getBoundingClientRect();
+    const cartRect = cartIconElement.getBoundingClientRect();
+
+    const clone = imgElement.cloneNode(true);
+    clone.style.position = "fixed";
+    clone.style.zIndex = "99999";
+    clone.style.left = `${imgRect.left}px`;
+    clone.style.top = `${imgRect.top}px`;
+    clone.style.width = `${imgRect.width}px`;
+    clone.style.height = `${imgRect.height}px`;
+    clone.style.borderRadius = "6px";
+    clone.style.transition =
+      "transform 1.2s cubic-bezier(0.1, 0.7, 0.2, 1), opacity 1.2s ease";
+    clone.style.pointerEvents = "none";
+
+    document.body.appendChild(clone);
+    clone.getBoundingClientRect(); // Trigger reflow
+
+    const translateX =
+      cartRect.left - imgRect.left + cartRect.width / 2 - imgRect.width / 2;
+    const translateY =
+      cartRect.top - imgRect.top + cartRect.height / 2 - imgRect.height / 2;
+
+    clone.style.transform = `translate(${translateX}px, ${translateY}px) scale(0.1)`;
+    clone.style.opacity = "0.3";
+
+    setTimeout(() => clone.remove(), 1200);
+  }
+
+  // Update Cart Totals and Counters
+  function updateCartTotals() {
+    const items = cartItemsContainer?.querySelectorAll(".cart-item-card") || [];
+    let total = 0;
+    let count = 0;
+
+    items.forEach((item) => {
+      const checkbox = item.querySelector(".cart-item-check");
+      const qtyInput = item.querySelector(".c-qty-input");
+      const priceElem = item.querySelector(".c-price");
+
+      const qty = parseInt(qtyInput.value);
+      const price = parseFloat(priceElem.dataset.price);
+
+      if (checkbox.checked) total += price * qty;
+      count += qty; // Total items in cart regardless of checked state
+    });
+
+    const cartTotalPriceEl = document.getElementById("cartTotalPrice");
+    if (cartTotalPriceEl) {
+      cartTotalPriceEl.innerText = formatPrice(total);
+    }
+    if (cartHeaderCount) cartHeaderCount.innerText = String(count);
+    if (headerCartBadge) {
+      if (count > 0) {
+        headerCartBadge.innerText = String(count);
+        headerCartBadge.style.display = "flex";
+      } else {
+        headerCartBadge.innerText = "";
+        headerCartBadge.style.display = "none";
+      }
+    }
+
+    const allChecked =
+      items.length > 0 &&
+      Array.from(items).every(
+        (i) => i.querySelector(".cart-item-check").checked,
+      );
+    const selectAll = document.getElementById("selectAllCartBtn");
+    if (selectAll) {
+      selectAll.checked = allChecked;
+    }
+
+    if (items.length === 0 && emptyCartMessage)
+      emptyCartMessage.style.display = "block";
+  }
+
+  // Add To Cart Button Listener
+  const addToCartBtns = document.querySelectorAll(
+    ".btn-add-cart:not(.disabled)",
+  );
+  addToCartBtns.forEach((btn) => {
+    btn.addEventListener("click", function (e) {
+      e.preventDefault();
+      if (!requireCustomerAuth("add products to cart")) return;
+
+      const card = e.target.closest(".shop-card");
+      if (!card) return;
+
+      const imgElement = card.querySelector(".product-img-wrapper img");
+      const title = card.querySelector(".product-name").innerText;
+      const priceStr = card.querySelector(".product-price").innerText;
+
+      flyToCart(imgElement, cartIconTrigger); // Trigger the slow fly animation
+
+      const unitPrice = parsePrice(priceStr);
+      const existingItem = Array.from(
+        cartItemsContainer.querySelectorAll(".cart-item-card"),
+      ).find(
+        (item) =>
+          item.dataset.productName === title &&
+          Number(item.dataset.unitPrice || 0) === unitPrice,
+      );
+
+      if (existingItem) {
+        const qtyInput = existingItem.querySelector(".c-qty-input");
+        if (qtyInput) {
+          qtyInput.value = String(
+            Math.max(1, Number.parseInt(qtyInput.value || "1", 10) + 1),
+          );
+        }
+        const checkbox = existingItem.querySelector(".cart-item-check");
+        if (checkbox) checkbox.checked = true;
+      } else {
+        if (emptyCartMessage) emptyCartMessage.style.display = "none";
+        const cartItem = createCartItemCard({
+          title,
+          image: imgElement.src,
+          unitPrice,
+          quantity: 1,
+          checked: true,
+        });
+        cartItemsContainer.appendChild(cartItem);
+      }
+
+      updateCartTotals();
+      persistCartItems();
+    });
+  });
+
+  // Dynamically rendered products add-to-cart listener
+  document.addEventListener("product:add-to-cart", (e) => {
+    const product = e.detail;
+    if (!product) return;
+    if (!requireCustomerAuth("add products to cart")) return;
+
+    const title = String(product.name || "");
+    const unitPrice = Number.isFinite(Number(product.price))
+      ? Number(product.price)
+      : 0;
+    const imageSrc = product.image_data || "/images/FMRC Logo.png";
+
+    // Trigger animation if card exists
+    const card = document
+      .querySelector(`.action-btn[data-product-id="${product.id}"]`)
+      ?.closest(".shop-card");
+    const imgElement = card
+      ? card.querySelector(".product-img-wrapper img")
+      : null;
+    if (imgElement && typeof flyToCart === "function" && cartIconTrigger) {
+      flyToCart(imgElement, cartIconTrigger);
+    }
+
+    const existingItem = Array.from(
+      cartItemsContainer?.querySelectorAll(".cart-item-card") || [],
+    ).find(
+      (item) =>
+        item.dataset.productName === title &&
+        Number(item.dataset.unitPrice || 0) === unitPrice,
+    );
+
+    if (existingItem) {
+      const qtyInput = existingItem.querySelector(".c-qty-input");
+      if (qtyInput) {
+        qtyInput.value = String(
+          Math.max(1, Number.parseInt(qtyInput.value || "1", 10) + 1),
+        );
+      }
+      const checkbox = existingItem.querySelector(".cart-item-check");
+      if (checkbox) checkbox.checked = true;
+    } else {
+      if (emptyCartMessage) emptyCartMessage.style.display = "none";
+      const cartItem = createCartItemCard({
+        product_id: product.id || null,
+        title,
+        image: imageSrc,
+        unitPrice,
+        quantity: 1,
+        checked: true,
+      });
+      if (cartItemsContainer) cartItemsContainer.appendChild(cartItem);
+    }
+
+    updateCartTotals();
+    persistCartItems();
+  });
+
+  // Cart DOM Listeners (Delegation for +/- and checkboxes)
+  if (cartItemsContainer) {
+    cartItemsContainer.addEventListener("click", (e) => {
+      if (e.target.classList.contains("c-minus-btn")) {
+        e.preventDefault();
+        const input = e.target.nextElementSibling;
+        if (parseInt(input.value) > 1) {
+          input.value = parseInt(input.value) - 1;
+          updateCartTotals();
+          persistCartItems();
+        }
+      } else if (e.target.classList.contains("c-plus-btn")) {
+        e.preventDefault();
+        const input = e.target.previousElementSibling;
+        input.value = parseInt(input.value) + 1;
+        updateCartTotals();
+        persistCartItems();
+      } else if (e.target.classList.contains("c-delete-btn")) {
+        e.preventDefault();
+        e.target.closest(".cart-item-card")?.remove();
+        updateCartTotals();
+        persistCartItems();
+      } else if (e.target.classList.contains("cart-item-check")) {
+        updateCartTotals();
+        persistCartItems();
+      }
+    });
+  }
+
+  // Select All Logic
+  const selectAllCartBtn = document.getElementById("selectAllCartBtn");
+  if (selectAllCartBtn) {
+    selectAllCartBtn.addEventListener("change", (e) => {
+      const checks = cartItemsContainer.querySelectorAll(".cart-item-check");
+      checks.forEach((c) => (c.checked = e.target.checked));
+      updateCartTotals();
+      persistCartItems();
+    });
+  }
+
+  // Edit / Remove State Logic
+  const cartEditBtn = document.getElementById("cartEditBtn");
+  const cartCheckoutView = document.getElementById("cartCheckoutView");
+  const cartDeleteView = document.getElementById("cartDeleteView");
+  let isCartEditMode = false;
+
+  if (cartEditBtn) {
+    cartEditBtn.addEventListener("click", () => {
+      isCartEditMode = !isCartEditMode;
+      cartEditBtn.innerText = isCartEditMode ? "Done" : "Edit";
+      cartCheckoutView.style.display = isCartEditMode ? "none" : "flex";
+      cartDeleteView.style.display = isCartEditMode ? "flex" : "none";
+    });
+  }
+
+  // Delete Selected Items
+  const cartDeleteBtn = document.getElementById("cartDeleteBtn");
+  if (cartDeleteBtn) {
+    cartDeleteBtn.addEventListener("click", async () => {
+      const selectedItems = Array.from(
+        cartItemsContainer.querySelectorAll(".cart-item-card"),
+      ).filter((item) => item.querySelector(".cart-item-check")?.checked);
+
+      if (!selectedItems.length) {
+        await showCustomerPopup("Select at least one item to remove.", {
+          title: "No Selection",
+        });
+        return;
+      }
+
+      const shouldDelete = await showCustomerPopup(
+        "Remove selected item(s) from your cart?",
+        {
+          title: "Confirm Removal",
+          isConfirm: true,
+          okText: "Remove",
+          cancelText: "Cancel",
+        },
+      );
+
+      if (!shouldDelete) return;
+
+      selectedItems.forEach((item) => item.remove());
+      updateCartTotals();
+      persistCartItems();
+    });
+  }
+
+  // Connect Cart Address to Address Selection Modal
+  const cartAddressTrigger = document.getElementById("cartAddressTrigger");
+  if (cartAddressTrigger && addressSelectionModal) {
+    cartAddressTrigger.addEventListener("click", () => {
+      addressSelectionModal.classList.add("show-modal");
+    });
+  }
+
+  // Route Cart Checkout directly to Main Checkout
+  const cartCheckoutSubmitBtn = document.getElementById(
+    "cartCheckoutSubmitBtn",
+  );
+  if (cartCheckoutSubmitBtn) {
+    cartCheckoutSubmitBtn.addEventListener("click", async () => {
+      if (!requireCustomerAuth("buy products")) return;
+      if (!isGuestUser) {
+        void fetchCustomerCheckoutProfile();
+      }
+
+      const checkedInputs = Array.from(
+        cartItemsContainer?.querySelectorAll(".cart-item-check:checked") || [],
+      );
+      if (!checkedInputs.length) {
+        void showCustomerPopup("Please select an item to checkout.", {
+          title: "Validation",
+        });
+        return;
+      }
+
+      const selectedItems = checkedInputs
+        .map((inputEl) => {
+          const card = inputEl.closest(".cart-item-card");
+          if (!card) return null;
+
+          const qtyInput = card.querySelector(".c-qty-input");
+          const priceEl = card.querySelector(".c-price");
+          const title = card.querySelector("h4")?.innerText || "Custom Order";
+          const image =
+            card.querySelector("img")?.getAttribute("src") ||
+            "/images/FMRC Logo.png";
+          const qty = Math.max(1, parseInt(qtyInput?.value || "1", 10) || 1);
+          const price = parseFloat(priceEl?.dataset?.price || "0");
+
+          return {
+            product_id: card.dataset.productId
+              ? Number(card.dataset.productId)
+              : null,
+            product_name: title,
+            product_image: image,
+            quantity: qty,
+            unit_price: Number.isFinite(price) ? price : 0,
+          };
+        })
+        .filter(Boolean);
+
+      if (!selectedItems.length) {
+        void showCustomerPopup("Please select at least one valid cart item.", {
+          title: "Validation",
+        });
+        return;
+      }
+
+      const productIds = selectedItems
+        .map((item) => Number(item.product_id || 0))
+        .filter((id) => Number.isFinite(id) && id > 0);
+
+      const liveStocks = new Map();
+      if (productIds.length > 0) {
+        try {
+          const stockRes = await fetchWithTimeout(`${API_BASE_URL}/products`, {
+            headers: {
+              Accept: "application/json",
+            },
           });
 
-          if (checkoutSource === "cart" && checkoutCartItemIds.length) {
-            await requestCustomerApi("/customer/cart", {
-              method: "DELETE",
-              body: { ids: checkoutCartItemIds },
-            });
-            checkoutCartItemIds = [];
-            await loadCart({ silent: true });
+          if (!stockRes.ok) {
+            throw new Error(
+              "Unable to refresh product stock. Please try again.",
+            );
           }
 
-          const orderNo = data?.data?.order_no_display || "";
-          await showShopAlert(
-            `Order placed successfully${orderNo ? ` (${orderNo})` : ""}.`,
-            { title: "Order Placed" },
+          const stockPayload = await stockRes.json().catch(() => ({}));
+          const products = Array.isArray(stockPayload?.data)
+            ? stockPayload.data
+            : [];
+          products.forEach((product) => {
+            const stockQty =
+              product?.stock_status === "in_stock"
+                ? Math.max(0, Number(product?.stock || 0))
+                : 0;
+            liveStocks.set(Number(product?.id || 0), stockQty);
+          });
+        } catch (error) {
+          void showCustomerPopup(
+            error?.message || "Unable to verify stocks right now.",
+            {
+              title: "Stock Check Failed",
+            },
           );
-
-          emitCustomerOrdersUpdated({ type: "created", orderId: data?.data?.id || null });
-          closeCheckoutModal();
-        } catch (error) {
-          await showShopAlert(error?.message || "Unable to place order. Please try again.", {
-            title: "Order Failed",
-          });
-        } finally {
-          this.disabled = false;
-          this.innerText = originalText;
-        }
-      });
-    }
-
-    if (cartIconTrigger && cartModal) {
-      cartIconTrigger.addEventListener("click", async (event) => {
-        event.preventDefault();
-        if (!requireCustomerAuth("view and manage your cart")) return;
-        await loadCart({ silent: false });
-        cartModal.classList.add("show-modal");
-        document.body.style.overflow = "hidden";
-      });
-    }
-
-    if (closeCartBtn) {
-      closeCartBtn.addEventListener("click", closeCartModal);
-    }
-
-    if (cartItemsContainer) {
-      cartItemsContainer.addEventListener("click", async (event) => {
-        const minusBtn = event.target.closest(".c-minus-btn");
-        const plusBtn = event.target.closest(".c-plus-btn");
-        if (!minusBtn && !plusBtn) return;
-
-        const card = event.target.closest("[data-cart-id]");
-        if (!card) return;
-        const cartId = Number.parseInt(String(card.getAttribute("data-cart-id") || "0"), 10);
-        const cartItem = cartEntries.find((item) => Number(item.id) === cartId);
-        if (!cartItem) return;
-
-        const currentQuantity = Math.max(1, Number.parseInt(String(cartItem.quantity || "1"), 10) || 1);
-        const nextQuantity = minusBtn
-          ? Math.max(1, currentQuantity - 1)
-          : Math.min(99, currentQuantity + 1);
-
-        if (nextQuantity === currentQuantity) return;
-
-        try {
-          await updateCartItem(cartId, { quantity: nextQuantity });
-        } catch (error) {
-          await showShopAlert(error?.message || "Unable to update cart quantity.", {
-            title: "Cart Error",
-          });
-        }
-      });
-
-      cartItemsContainer.addEventListener("change", async (event) => {
-        const checkbox = event.target.closest(".cart-item-check");
-        if (!checkbox) return;
-
-        const card = checkbox.closest("[data-cart-id]");
-        if (!card) return;
-
-        const cartId = Number.parseInt(String(card.getAttribute("data-cart-id") || "0"), 10);
-        const selected = Boolean(checkbox.checked);
-
-        try {
-          await updateCartItem(cartId, { selected });
-        } catch (error) {
-          checkbox.checked = !selected;
-          await showShopAlert(error?.message || "Unable to update cart selection.", {
-            title: "Cart Error",
-          });
-        }
-      });
-    }
-
-    if (selectAllCartBtn) {
-      selectAllCartBtn.addEventListener("change", async (event) => {
-        const nextSelected = Boolean(event.target.checked);
-        const targets = cartEntries.filter((item) => Boolean(item.selected) !== nextSelected);
-        if (!targets.length) {
-          renderCartTotals();
           return;
         }
+      }
 
-        try {
-          await Promise.all(
-            targets.map((item) =>
-              requestCustomerApi(`/customer/cart/${Number(item.id)}`, {
-                method: "PATCH",
-                body: { selected: nextSelected },
-              }),
-            ),
+      const validatedItems = [];
+      for (const item of selectedItems) {
+        const productId = Number(item.product_id || 0);
+        if (productId > 0) {
+          if (!liveStocks.has(productId)) {
+            void showCustomerPopup(
+              `Product \"${item.product_name}\" is no longer available. Please update your cart.`,
+              { title: "Product Unavailable" },
+            );
+            return;
+          }
+
+          const availableStock = Math.max(
+            0,
+            Number(liveStocks.get(productId) || 0),
           );
-          await loadCart({ silent: true });
-        } catch (error) {
-          event.target.checked = !nextSelected;
-          await showShopAlert(error?.message || "Unable to update cart selection.", {
-            title: "Cart Error",
+          if (availableStock <= 0) {
+            void showCustomerPopup(
+              `\"${item.product_name}\" is now out of stock.`,
+              { title: "Out of Stock" },
+            );
+            return;
+          }
+
+          if (item.quantity > availableStock) {
+            void showCustomerPopup(
+              `Only ${availableStock} stock(s) left for \"${item.product_name}\". Please reduce quantity in cart.`,
+              { title: "Stock Limit" },
+            );
+            return;
+          }
+
+          validatedItems.push({
+            ...item,
+            max_stock: availableStock,
+            line_total: item.unit_price * item.quantity,
           });
+          continue;
         }
-      });
-    }
 
-    if (cartEditBtn && cartCheckoutView && cartDeleteView) {
-      cartEditBtn.addEventListener("click", () => {
-        isCartEditMode = !isCartEditMode;
-        cartEditBtn.innerText = isCartEditMode ? "Done" : "Edit";
-        cartCheckoutView.style.display = isCartEditMode ? "none" : "flex";
-        cartDeleteView.style.display = isCartEditMode ? "flex" : "none";
-      });
-    }
-
-    if (cartDeleteBtn) {
-      cartDeleteBtn.addEventListener("click", () => {
-        void removeSelectedCartItems();
-      });
-    }
-
-    if (cartAddressTrigger) {
-      cartAddressTrigger.addEventListener("click", () => {
-        void openAddressModal();
-      });
-    }
-
-    if (cartCheckoutSubmitBtn) {
-      cartCheckoutSubmitBtn.addEventListener("click", () => {
-        void openCheckoutFromCartItem();
-      });
-    }
-
-    window.addEventListener("focus", () => {
-      if (!document.hidden) {
-        void loadCart({ silent: true });
+        validatedItems.push({
+          ...item,
+          max_stock: null,
+          line_total: item.unit_price * item.quantity,
+        });
       }
-    });
 
-    window.addEventListener("beforeunload", () => {
-      if (cartRealtimeTimer) {
-        window.clearInterval(cartRealtimeTimer);
+      const firstItem = validatedItems[0];
+      const totalQty = validatedItems.reduce(
+        (sum, item) => sum + item.quantity,
+        0,
+      );
+      const totalAmount = validatedItems.reduce(
+        (sum, item) => sum + item.line_total,
+        0,
+      );
+
+      currentCheckoutMode = "cart";
+      currentCheckoutItems = validatedItems;
+      currentProductId = firstItem?.product_id ?? null;
+      currentItemPrice = totalQty > 0 ? totalAmount / totalQty : 0;
+
+      if (checkoutImg)
+        checkoutImg.src = firstItem?.product_image || "/images/FMRC Logo.png";
+      if (checkoutTitle) {
+        checkoutTitle.innerText =
+          validatedItems.length > 1
+            ? `${firstItem?.product_name || "Custom Order"} (+${validatedItems.length - 1} more)`
+            : firstItem?.product_name || "Custom Order";
       }
-    });
+      if (checkoutPrice) {
+        checkoutPrice.innerText = formatPrice(currentItemPrice);
+      }
 
-    void loadInitialCommerceData();
-    if (getCustomerToken()) {
-      startCartRealtimeSync();
-    }
+      if (guideImg)
+        guideImg.src = firstItem?.product_image || "/images/FMRC Logo.png";
+      if (guideTitle) {
+        guideTitle.innerText =
+          validatedItems.length > 1
+            ? `${firstItem?.product_name || "Custom Order"} (+${validatedItems.length - 1} more)`
+            : firstItem?.product_name || "Custom Order";
+      }
+
+      if (
+        validatedItems.length === 1 &&
+        Number.isFinite(Number(firstItem?.max_stock))
+      ) {
+        currentMaxStock = Math.max(0, Number(firstItem.max_stock));
+        setCheckoutStockNotice(
+          currentMaxStock === 0 ? "Out of Stock" : currentMaxStock,
+        );
+      } else {
+        currentMaxStock = 9999;
+        setCheckoutStockNotice(`Multiple products (${validatedItems.length})`);
+      }
+
+      if (inputQty) {
+        inputQty.value = String(totalQty);
+        inputQty.max = String(totalQty);
+      }
+
+      setCheckoutQtyLock(true);
+      if (protectionCheck) protectionCheck.checked = false;
+      updateCheckoutMath();
+
+      cartModal.classList.remove("show-modal");
+      checkoutModal.classList.add("show-modal");
+    });
   }
+
+  restoreCartItems();
+  updateCartTotals();
+
+  window.addEventListener("storage", (event) => {
+    if (
+      !event.key ||
+      (!event.key.startsWith(CART_STORAGE_KEY) &&
+        event.key !== CART_STORAGE_SIGNAL_KEY)
+    )
+      return;
+    restoreCartItems();
+    updateCartTotals();
+  });
 
   // =========================================
   // APPOINTMENT FLOW LOGIC (HOMEPAGE)
@@ -2156,7 +3533,11 @@ document.addEventListener("DOMContentLoaded", () => {
   let submittedAppointment = null;
   let selectedDateKey = null;
   const today = new Date();
-  const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const todayOnly = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
   let currentMonth = todayOnly.getMonth();
   let currentYear = todayOnly.getFullYear();
   let uploadedAppointmentFile = null;
@@ -2204,7 +3585,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let hh = Number(match[1]);
     const mm = Number(match[2] || "0");
-    if (Number.isNaN(hh) || Number.isNaN(mm) || hh < 1 || hh > 12 || mm < 0 || mm > 59) {
+    if (
+      Number.isNaN(hh) ||
+      Number.isNaN(mm) ||
+      hh < 1 ||
+      hh > 12 ||
+      mm < 0 ||
+      mm > 59
+    ) {
       return Number.MAX_SAFE_INTEGER;
     }
 
@@ -2262,33 +3650,52 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const getAppointmentAddress = () => {
-    const country = document.getElementById("aptCountry")?.value?.trim() || "Philippines";
+    const country =
+      document.getElementById("aptCountry")?.value?.trim() || "Philippines";
 
     if (country !== "Philippines") {
-      const intlAddress = document.getElementById("aptIntlAddress")?.value?.trim() || "";
+      const intlAddress =
+        document.getElementById("aptIntlAddress")?.value?.trim() || "";
       return [intlAddress, country].filter(Boolean).join(", ");
     }
 
-    const region = document.getElementById("aptRegion")?.value?.trim() || "";
-    const province = document.getElementById("aptProvince")?.value?.trim() || "";
-    const municipality = document.getElementById("aptMunicipality")?.value?.trim() || "";
-    const barangay = document.getElementById("aptAddress")?.value?.trim() || "";
+    // Use selectedOptions[0].text to get the human-readable name (not the PSGC code)
+    const getSelectText = (id) => {
+      const el = document.getElementById(id);
+      return el?.selectedOptions?.[0]?.text?.trim() || el?.value?.trim() || "";
+    };
 
-    return [barangay, municipality, province, region, country].filter(Boolean).join(", ");
+    const region       = getSelectText("aptRegion");
+    const province     = getSelectText("aptProvince");
+    const municipality = getSelectText("aptMunicipality");
+    const barangay     = getSelectText("aptAddress");
+
+    // Filter out any placeholder strings that look like "Select …" or "Loading …"
+    const isPlaceholder = (s) => /^(Select|Loading|No )/i.test(s);
+
+    return [barangay, municipality, province, region, country]
+      .filter((s) => Boolean(s) && !isPlaceholder(s))
+      .join(", ");
   };
+
 
   const fetchCalendarAvailability = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/appointments/calendar`, {
-        headers: {
-          Accept: "application/json",
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/appointments/calendar`,
+        {
+          headers: {
+            Accept: "application/json",
+          },
         },
-      });
+      );
 
       if (!response.ok) return;
       const data = await response.json();
 
-      const incomingSlots = Array.isArray(data?.time_slots) ? data.time_slots : [];
+      const incomingSlots = Array.isArray(data?.time_slots)
+        ? data.time_slots
+        : [];
       calendarState.timeSlots = incomingSlots.length
         ? incomingSlots
             .map((slot) => ({
@@ -2302,19 +3709,26 @@ document.addEventListener("DOMContentLoaded", () => {
         : [...defaultTimeSlots];
 
       calendarState.daySettings = {};
-      (Array.isArray(data?.day_settings) ? data.day_settings : []).forEach((entry) => {
-        if (!entry?.date) return;
-        calendarState.daySettings[String(entry.date)] = {
-          is_blocked: Boolean(entry.is_blocked),
-          blocked_slots: Array.isArray(entry.blocked_slots) ? entry.blocked_slots : [],
-          events: Array.isArray(entry.events) ? entry.events : [],
-          custom_slots: Array.isArray(entry.custom_slots) ? entry.custom_slots : [],
-        };
-      });
+      (Array.isArray(data?.day_settings) ? data.day_settings : []).forEach(
+        (entry) => {
+          if (!entry?.date) return;
+          calendarState.daySettings[String(entry.date)] = {
+            is_blocked: Boolean(entry.is_blocked),
+            blocked_slots: Array.isArray(entry.blocked_slots)
+              ? entry.blocked_slots
+              : [],
+            events: Array.isArray(entry.events) ? entry.events : [],
+            custom_slots: Array.isArray(entry.custom_slots)
+              ? entry.custom_slots
+              : [],
+          };
+        },
+      );
 
-      calendarState.bookedSlots = data?.booked_slots && typeof data.booked_slots === "object"
-        ? data.booked_slots
-        : {};
+      calendarState.bookedSlots =
+        data?.booked_slots && typeof data.booked_slots === "object"
+          ? data.booked_slots
+          : {};
     } catch {
       // Keep defaults when API is temporarily unavailable.
     }
@@ -2397,7 +3811,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const email = document.getElementById("aptEmail")?.value?.trim() || "";
     const purpose = document.getElementById("aptPurpose")?.value?.trim() || "";
     const clientType = document.getElementById("aptRole")?.value?.trim() || "";
-    const country = document.getElementById("aptCountry")?.value?.trim() || "Philippines";
+    const country =
+      document.getElementById("aptCountry")?.value?.trim() || "Philippines";
 
     let firstInvalidId = "";
     const markError = (id, message) => {
@@ -2434,7 +3849,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!email) {
       markError("aptEmail", "Email Address is required.");
     } else if (!/^[A-Za-z0-9._%+-]+@gmail\.com$/i.test(email)) {
-      markError("aptEmail", "Email Address is invalid. Please use a Gmail address only.");
+      markError(
+        "aptEmail",
+        "Email Address is invalid. Please use a Gmail address only.",
+      );
     }
 
     if (!purpose) {
@@ -2459,9 +3877,13 @@ document.addEventListener("DOMContentLoaded", () => {
         markError("aptAddress", "Barangay is required.");
       }
     } else {
-      const intlAddress = document.getElementById("aptIntlAddress")?.value?.trim() || "";
+      const intlAddress =
+        document.getElementById("aptIntlAddress")?.value?.trim() || "";
       if (!intlAddress) {
-        markError("aptIntlAddress", "Complete Residential Address is required.");
+        markError(
+          "aptIntlAddress",
+          "Complete Residential Address is required.",
+        );
       }
     }
 
@@ -2476,7 +3898,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const updateQrDetails = (referenceNo, verifyUrl) => {
     const qrImage = document.getElementById("receiptQrImage");
     const qrLink = document.getElementById("receiptQrLink");
-    const payloadUrl = verifyUrl || `${window.location.origin}/appointments/verify/${referenceNo || "PENDING"}`;
+    const payloadUrl =
+      verifyUrl ||
+      `${window.location.origin}/appointments/verify/${referenceNo || "PENDING"}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(payloadUrl)}`;
 
     if (qrImage) {
@@ -2501,15 +3925,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const phone = document.getElementById("aptPhone")?.value?.trim() || "N/A";
     const email = document.getElementById("aptEmail")?.value?.trim() || "N/A";
-    const purpose = document.getElementById("aptPurpose")?.value?.trim() || "N/A";
-    const clientType = document.getElementById("aptRole")?.value?.trim() || "N/A";
-    const country = document.getElementById("aptCountry")?.value?.trim() || "Philippines";
+    const purpose =
+      document.getElementById("aptPurpose")?.value?.trim() || "N/A";
+    const clientType =
+      document.getElementById("aptRole")?.value?.trim() || "N/A";
+    const country =
+      document.getElementById("aptCountry")?.value?.trim() || "Philippines";
     const notes = document.getElementById("aptDesc")?.value?.trim() || "N/A";
     const address = getAppointmentAddress() || "N/A";
     const attachmentName = uploadedAppointmentFile?.name || "N/A";
 
     const { date, time } = getSelectedSchedule();
-    const scheduleText = date && time ? `${toReadableDate(date)} @ ${time}` : "Not selected";
+    const scheduleText =
+      date && time ? `${toReadableDate(date)} @ ${time}` : "Not selected";
     const referenceNo = submittedAppointment?.reference_no || "PENDING";
 
     setText(`${prefix}Name`, fullName);
@@ -2529,7 +3957,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const switchAptStep = (stepNumber) => {
-    document.querySelectorAll(".apt-content-section").forEach((sec) => sec.classList.remove("active"));
+    document
+      .querySelectorAll(".apt-content-section")
+      .forEach((sec) => sec.classList.remove("active"));
     document.querySelectorAll(".apt-step").forEach((step, index) => {
       const icon = step.querySelector(".apt-icon");
       if (index < stepNumber) {
@@ -2555,7 +3985,10 @@ document.addEventListener("DOMContentLoaded", () => {
       clearSlotMessage();
       renderCalendar(currentMonth, currentYear);
       if (selectedDateKey) renderTimeSlots(selectedDateKey);
-      showSlotMessage("Reminder: You can select only 1 time slot for this appointment.", "#9a6a00");
+      showSlotMessage(
+        "Reminder: You can select only 1 time slot for this appointment.",
+        "#9a6a00",
+      );
     }
 
     if (stepNumber === 4 || stepNumber === 5) {
@@ -2566,26 +3999,81 @@ document.addEventListener("DOMContentLoaded", () => {
   const submitAppointment = async () => {
     const { date, time } = getSelectedSchedule();
     if (!date || !time) {
-      showSlotMessage("Please select a date and time first before continuing.");
-      return false;
+      const msg = "Please select a date and time first before continuing.";
+      showSlotMessage(msg);
+      return { ok: false, error: msg };
     }
 
     const formData = new FormData();
-    formData.append("last_name", document.getElementById("aptLName")?.value?.trim() || "");
-    formData.append("first_name", document.getElementById("aptFName")?.value?.trim() || "");
-    formData.append("middle_initial", document.getElementById("aptMI")?.value?.trim() || "");
-    formData.append("contact_number", document.getElementById("aptPhone")?.value?.trim() || "");
-    formData.append("email", document.getElementById("aptEmail")?.value?.trim() || "");
-    formData.append("country", document.getElementById("aptCountry")?.value?.trim() || "Philippines");
-    formData.append("region", document.getElementById("aptRegion")?.value?.trim() || "");
-    formData.append("province", document.getElementById("aptProvince")?.value?.trim() || "");
-    formData.append("municipality", document.getElementById("aptMunicipality")?.value?.trim() || "");
-    formData.append("barangay", document.getElementById("aptAddress")?.value?.trim() || "");
-    formData.append("intl_address", document.getElementById("aptIntlAddress")?.value?.trim() || "");
+    formData.append(
+      "last_name",
+      document.getElementById("aptLName")?.value?.trim() || "",
+    );
+    formData.append(
+      "first_name",
+      document.getElementById("aptFName")?.value?.trim() || "",
+    );
+    formData.append(
+      "middle_initial",
+      document.getElementById("aptMI")?.value?.trim() || "",
+    );
+    formData.append(
+      "contact_number",
+      document.getElementById("aptPhone")?.value?.trim() || "",
+    );
+    formData.append(
+      "email",
+      document.getElementById("aptEmail")?.value?.trim() || "",
+    );
+    formData.append(
+      "country",
+      document.getElementById("aptCountry")?.value?.trim() || "Philippines",
+    );
+    // Helper: get the human-readable text label of a PSGC dropdown (not the numeric code)
+    const getSelectName = (id) => {
+      const el = document.getElementById(id);
+      return el?.selectedOptions?.[0]?.text?.trim() || el?.value?.trim() || "";
+    };
+    const isPlaceholder = (s) => /^(Select|Loading|No )/i.test(s);
+    const psgcName = (id) => {
+      const name = getSelectName(id);
+      return isPlaceholder(name) ? "" : name;
+    };
+
+    formData.append(
+      "region",
+      psgcName("aptRegion"),
+    );
+    formData.append(
+      "province",
+      psgcName("aptProvince"),
+    );
+    formData.append(
+      "municipality",
+      psgcName("aptMunicipality"),
+    );
+    formData.append(
+      "barangay",
+      psgcName("aptAddress"),
+    );
+
+    formData.append(
+      "intl_address",
+      document.getElementById("aptIntlAddress")?.value?.trim() || "",
+    );
     formData.append("full_address", getAppointmentAddress() || "");
-    formData.append("client_type", document.getElementById("aptRole")?.value?.trim() || "");
-    formData.append("purpose", document.getElementById("aptPurpose")?.value?.trim() || "");
-    formData.append("additional_notes", document.getElementById("aptDesc")?.value?.trim() || "");
+    formData.append(
+      "client_type",
+      document.getElementById("aptRole")?.value?.trim() || "",
+    );
+    formData.append(
+      "purpose",
+      document.getElementById("aptPurpose")?.value?.trim() || "",
+    );
+    formData.append(
+      "additional_notes",
+      document.getElementById("aptDesc")?.value?.trim() || "",
+    );
     formData.append("appointment_date", date);
     formData.append("appointment_time", time);
 
@@ -2596,30 +4084,40 @@ document.addEventListener("DOMContentLoaded", () => {
     const token = localStorage.getItem("customer_token");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/appointments`, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/appointments`,
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: formData,
         },
-        body: formData,
-      });
+        60000,
+      ); // 60s timeout — email is sent synchronously, so backend may take extra time for SMTP
 
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        const message = payload?.message || "Unable to submit appointment. Please review your details and try again.";
+        const message =
+          payload?.message ||
+          "Unable to submit appointment. Please review your details and try again.";
         showSlotMessage(message);
-        return false;
+        return { ok: false, error: message };
       }
 
       submittedAppointment = payload?.data || null;
       appointmentSubmitted = true;
-      populateReviewData(5);
-      return true;
-    } catch {
-      showSlotMessage("Cannot connect to server. Please make sure Laravel is running.");
-      return false;
+      stopAptPolling();
+      return { ok: true, error: null };
+    } catch (error) {
+      console.error("[APPT SUBMIT] Error:", error);
+      const message =
+        error?.message ||
+        "Cannot connect to server. Please make sure Laravel is running.";
+      showSlotMessage(message);
+      return { ok: false, error: message };
     }
   };
 
@@ -2628,7 +4126,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const referenceNo = submittedAppointment?.reference_no || "PENDING";
 
     if (!receipt || typeof window.html2canvas !== "function") {
-      showSlotMessage("Receipt download is unavailable right now. Please try again.");
+      showSlotMessage(
+        "Receipt download is unavailable right now. Please try again.",
+      );
       return;
     }
 
@@ -2710,7 +4210,10 @@ document.addEventListener("DOMContentLoaded", () => {
       slotCounter.innerText = "Allowed: 1 time slot for this appointment";
       slotCounter.style.color = "#555";
     }
-    showSlotMessage("Reminder: You can select only 1 time slot for this appointment.", "#9a6a00");
+    showSlotMessage(
+      "Reminder: You can select only 1 time slot for this appointment.",
+      "#9a6a00",
+    );
     renderCalendar(currentMonth, currentYear);
     renderTimeSlots(dateKey);
   };
@@ -2725,7 +4228,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const getRenderableSlotsForDate = (dateKey) => {
     const baseSlots = [...calendarState.timeSlots].sort(slotSortComparator);
     const day = calendarState.daySettings[dateKey] || {};
-    const customSlots = (Array.isArray(day.custom_slots) ? day.custom_slots : [])
+    const customSlots = (
+      Array.isArray(day.custom_slots) ? day.custom_slots : []
+    )
       .map((slot) => ({
         label: String(slot?.label || "").trim(),
         type: String(slot?.type || "AM") === "PM" ? "PM" : "AM",
@@ -2800,7 +4305,9 @@ document.addEventListener("DOMContentLoaded", () => {
         cell.classList.add("disabled", "unavailable");
         cell.setAttribute("title", "Unavailable: Blocked by admin");
       } else {
-        cell.addEventListener("click", () => handleDateClick(dateKey, day, month, year));
+        cell.addEventListener("click", () =>
+          handleDateClick(dateKey, day, month, year),
+        );
         updateDayIndicators(cell, dateKey);
       }
 
@@ -2819,9 +4326,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const renderTimeSlots = (dateKey) => {
     if (!timeContainer) return;
     const eventsDisplay = document.getElementById("userDateEventsDisplay");
-    
+
     if (!dateKey) {
-      timeContainer.innerHTML = '<p class="time-placeholder">Please pick a date first.</p>';
+      timeContainer.innerHTML =
+        '<p class="time-placeholder">Please pick a date first.</p>';
       if (eventsDisplay) {
         eventsDisplay.style.display = "none";
         eventsDisplay.innerHTML = "";
@@ -2830,7 +4338,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const selectedSchedule = getSelectedSchedule();
-    const selectedSlot = selectedSchedule.date === dateKey ? selectedSchedule.time : "";
+    const selectedSlot =
+      selectedSchedule.date === dateKey ? selectedSchedule.time : "";
     const daySettings = calendarState.daySettings[dateKey] || {
       is_blocked: false,
       blocked_slots: [],
@@ -2859,7 +4368,9 @@ document.addEventListener("DOMContentLoaded", () => {
       button.innerHTML = `<span>${slot.label}</span><span class="time-slot-label">${slot.type}</span>`;
 
       const isBooked = bookedSlots.includes(slot.label);
-      const isBlocked = daySettings.blocked_slots.includes(slot.label) || daySettings.is_blocked;
+      const isBlocked =
+        daySettings.blocked_slots.includes(slot.label) ||
+        daySettings.is_blocked;
       const isSelected = selectedSlot === slot.label;
 
       if (isSelected) button.classList.add("selected");
@@ -2872,24 +4383,40 @@ document.addEventListener("DOMContentLoaded", () => {
 
       button.addEventListener("click", () => {
         if (isBooked) {
-          showSlotMessage("This time slot is already booked by another customer.");
+          showSlotMessage(
+            "This time slot is already booked by another customer.",
+          );
           return;
         }
         if (isBlocked) {
-          showSlotMessage("This time slot is blocked by admin for the selected date.");
+          showSlotMessage(
+            "This time slot is blocked by admin for the selected date.",
+          );
           return;
         }
 
-        const hasExistingSelection = Boolean(selectedSchedule.date && selectedSchedule.time);
-        const isReplacingSelection = hasExistingSelection && (selectedSchedule.date !== dateKey || selectedSchedule.time !== slot.label);
+        const hasExistingSelection = Boolean(
+          selectedSchedule.date && selectedSchedule.time,
+        );
+        const isReplacingSelection =
+          hasExistingSelection &&
+          (selectedSchedule.date !== dateKey ||
+            selectedSchedule.time !== slot.label);
 
-        Object.keys(appointmentSelections).forEach((key) => delete appointmentSelections[key]);
+        Object.keys(appointmentSelections).forEach(
+          (key) => delete appointmentSelections[key],
+        );
         appointmentSelections[dateKey] = [slot.label];
 
         if (isReplacingSelection) {
-          showSlotMessage("Only 1 slot is allowed per appointment. Your previous slot was replaced.");
+          showSlotMessage(
+            "Only 1 slot is allowed per appointment. Your previous slot was replaced.",
+          );
         } else {
-          showSlotMessage("Reminder: You can select only 1 time slot for this appointment.", "#9a6a00");
+          showSlotMessage(
+            "Reminder: You can select only 1 time slot for this appointment.",
+            "#9a6a00",
+          );
         }
         renderTimeSlots(dateKey);
         renderCalendar(currentMonth, currentYear);
@@ -2900,7 +4427,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const resetAppointmentFlowState = () => {
-    Object.keys(appointmentSelections).forEach((key) => delete appointmentSelections[key]);
+    Object.keys(appointmentSelections).forEach(
+      (key) => delete appointmentSelections[key],
+    );
     selectedDateKey = null;
     clearSlotMessage();
     submittedAppointment = null;
@@ -2912,89 +4441,174 @@ document.addEventListener("DOMContentLoaded", () => {
     updateQrDetails("PENDING", "");
   };
 
-  // Address dropdown behavior.
-  const aptCountry = document.getElementById("aptCountry");
-  const aptRegion = document.getElementById("aptRegion");
-  const aptProvince = document.getElementById("aptProvince");
-  const aptMunicipality = document.getElementById("aptMunicipality");
-  const aptBarangay = document.getElementById("aptAddress");
-  const aptIntlAddress = document.getElementById("aptIntlAddress");
-  const aptPhAddressFields = document.getElementById("aptPhAddressFields");
-  const aptIntlAddressField = document.getElementById("aptIntlAddressField");
+  // ─── PSGC Live Address Dropdowns ────────────────────────────────────────────
+  // Cascading dropdowns: Region → Province → City/Municipality → Barangay
+  // Data is fetched from our Laravel backend which proxies the PSGC Cloud API
+  // (https://psgc.cloud/api) with 24-hour server-side caching.
+  const aptCountry        = document.getElementById('aptCountry');
+  const aptRegion         = document.getElementById('aptRegion');
+  const aptProvince       = document.getElementById('aptProvince');
+  const aptMunicipality   = document.getElementById('aptMunicipality');
+  const aptBarangay       = document.getElementById('aptAddress');
+  const aptIntlAddress    = document.getElementById('aptIntlAddress');
+  const aptPhAddressFields  = document.getElementById('aptPhAddressFields');
+  const aptIntlAddressField = document.getElementById('aptIntlAddressField');
 
-  if (aptCountry && aptRegion && aptProvince && aptMunicipality && aptBarangay) {
-    const phAddressData = {
-      "Bicol Region": {
-        "Camarines Norte": {
-          Daet: ["Barangay I", "Barangay II", "Barangay III", "Barangay IV"],
-          Labo: ["Baay", "Canapawan", "Daguit", "Talobatib"],
-          Basud: ["Angas", "Bactas", "Mocong", "Poblacion 1"],
-        },
-      },
-      "National Capital Region (NCR)": {
-        "Metro Manila": {
-          Manila: ["Barangay 659", "Barangay 699", "Barangay 734", "Barangay 750"],
-          "Quezon City": ["Bagumbayan", "Batasan Hills", "Commonwealth", "UP Campus"],
-        },
-      },
-    };
+  /** Base URL for PSGC proxy endpoints — uses the same resolved backend URL as all other API calls */
+  const PSGC_BASE = `${API_BASE_URL}/psgc`;
 
-    const fillSelect = (selectElement, options, placeholder) => {
-      selectElement.innerHTML = `<option value="" selected disabled hidden>${placeholder}</option>`;
-      options.forEach((optionText) => {
-        const option = document.createElement("option");
-        option.value = optionText;
-        option.textContent = optionText;
-        selectElement.appendChild(option);
-      });
-    };
 
-    const resetPhSelects = () => {
-      fillSelect(aptRegion, Object.keys(phAddressData), "Select Region");
-      fillSelect(aptProvince, [], "Select Province");
-      fillSelect(aptMunicipality, [], "Select Municipality");
-      fillSelect(aptBarangay, [], "Select Barangay");
-      aptProvince.disabled = true;
-      aptMunicipality.disabled = true;
-      aptBarangay.disabled = true;
-    };
+  /** In-memory cache so repeated visits to the same step skip re-fetching. */
+  const _psgcCache = {};
 
-    const updateAddressMode = () => {
-      const isPhilippines = aptCountry.value === "Philippines";
-      if (aptPhAddressFields) aptPhAddressFields.style.display = isPhilippines ? "contents" : "none";
-      if (aptIntlAddressField) aptIntlAddressField.style.display = isPhilippines ? "none" : "block";
-      if (aptIntlAddress) aptIntlAddress.required = !isPhilippines;
-    };
+  /**
+   * Fetch a PSGC proxy endpoint with simple in-memory caching.
+   * @param {string} url  Full URL to fetch
+   * @returns {Promise<Array>} Parsed JSON array, or [] on failure
+   */
+  const psgcGet = async (url) => {
+    if (_psgcCache[url]) return _psgcCache[url];
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      _psgcCache[url] = Array.isArray(json) ? json : [];
+      return _psgcCache[url];
+    } catch (err) {
+      console.error('[PSGC] Fetch error:', url, err);
+      return [];
+    }
+  };
 
+  /**
+   * Set a select element to a loading placeholder and disable it.
+   * @param {HTMLSelectElement} el
+   * @param {string} label  e.g. "Region"
+   */
+  const setLoading = (el, label) => {
+    if (!el) return;
+    el.innerHTML = `<option value="" disabled selected>Loading ${label}s…</option>`;
+    el.disabled = true;
+  };
+
+  /**
+   * Fill a select element with an array of { code, name } objects.
+   * @param {HTMLSelectElement} el
+   * @param {Array}   items         Array of { code, name }
+   * @param {string}  placeholder   e.g. "Select Region"
+   * @param {boolean} keepDisabled  Leave the select disabled even if items loaded
+   */
+  const fillSelect = (el, items, placeholder, keepDisabled = false) => {
+    if (!el) return;
+    el.innerHTML = `<option value="" selected disabled hidden>${placeholder}</option>`;
+    if (items.length === 0) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = `No ${placeholder.replace('Select ', '')} available`;
+      opt.disabled = true;
+      el.appendChild(opt);
+      el.disabled = true;
+      return;
+    }
+    items.forEach(({ code, name }) => {
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = name;
+      el.appendChild(opt);
+    });
+    el.disabled = keepDisabled;
+  };
+
+  /** Reset all PH-address selects back to their placeholder state. */
+  const resetPhSelects = () => {
+    fillSelect(aptRegion,       [], 'Select Region',       true);
+    fillSelect(aptProvince,     [], 'Select Province',     true);
+    fillSelect(aptMunicipality, [], 'Select Municipality', true);
+    fillSelect(aptBarangay,     [], 'Select Barangay',     true);
+    // Immediately load regions (they're the top of the chain)
+    loadRegions();
+  };
+
+  /** Show/hide PH vs international address fields based on country selection. */
+  const updateAddressMode = () => {
+    const isPh = aptCountry?.value === 'Philippines';
+    if (aptPhAddressFields)   aptPhAddressFields.style.display   = isPh ? 'contents' : 'none';
+    if (aptIntlAddressField)  aptIntlAddressField.style.display  = isPh ? 'none' : 'block';
+    if (aptIntlAddress)       aptIntlAddress.required            = !isPh;
+  };
+
+  // ── Loader functions (each cascades to the next) ──────────────────────────
+
+  /** Load all Philippine regions into aptRegion. */
+  const loadRegions = async () => {
+    setLoading(aptRegion, 'Region');
+    const regions = await psgcGet(`${PSGC_BASE}/regions`);
+    fillSelect(aptRegion, regions, 'Select Region', false);
+    // Reset downstream selects
+    fillSelect(aptProvince,     [], 'Select Province',     true);
+    fillSelect(aptMunicipality, [], 'Select Municipality', true);
+    fillSelect(aptBarangay,     [], 'Select Barangay',     true);
+  };
+
+  /** Load provinces for the selected region. */
+  const loadProvinces = async (regionCode) => {
+    setLoading(aptProvince,     'Province');
+    fillSelect(aptMunicipality, [], 'Select Municipality', true);
+    fillSelect(aptBarangay,     [], 'Select Barangay',     true);
+
+    const provinces = await psgcGet(`${PSGC_BASE}/regions/${regionCode}/provinces`);
+    fillSelect(aptProvince, provinces, 'Select Province', false);
+  };
+
+  /** Load cities/municipalities for the selected province. */
+  const loadCitiesMunicipalities = async (provinceCode) => {
+    setLoading(aptMunicipality, 'Municipality');
+    fillSelect(aptBarangay, [], 'Select Barangay', true);
+
+    const cities = await psgcGet(`${PSGC_BASE}/provinces/${provinceCode}/cities-municipalities`);
+    fillSelect(aptMunicipality, cities, 'Select Municipality', false);
+  };
+
+  /** Load barangays for the selected city/municipality. */
+  const loadBarangays = async (cityMunCode) => {
+    setLoading(aptBarangay, 'Barangay');
+
+    const barangays = await psgcGet(`${PSGC_BASE}/cities-municipalities/${cityMunCode}/barangays`);
+    fillSelect(aptBarangay, barangays, 'Select Barangay', false);
+  };
+
+  // ── Wire up change events ─────────────────────────────────────────────────
+
+  if (
+    aptCountry &&
+    aptRegion &&
+    aptProvince &&
+    aptMunicipality &&
+    aptBarangay
+  ) {
+    aptCountry.addEventListener('change', updateAddressMode);
+
+    aptRegion.addEventListener('change', () => {
+      const code = aptRegion.value;
+      if (code) loadProvinces(code);
+    });
+
+    aptProvince.addEventListener('change', () => {
+      const code = aptProvince.value;
+      if (code) loadCitiesMunicipalities(code);
+    });
+
+    aptMunicipality.addEventListener('change', () => {
+      const code = aptMunicipality.value;
+      if (code) loadBarangays(code);
+    });
+
+    // Initialise on first load
     resetPhSelects();
     updateAddressMode();
-
-    aptCountry.addEventListener("change", updateAddressMode);
-
-    aptRegion.addEventListener("change", () => {
-      const provinces = Object.keys(phAddressData[aptRegion.value] || {});
-      fillSelect(aptProvince, provinces, "Select Province");
-      fillSelect(aptMunicipality, [], "Select Municipality");
-      fillSelect(aptBarangay, [], "Select Barangay");
-      aptProvince.disabled = !provinces.length;
-      aptMunicipality.disabled = true;
-      aptBarangay.disabled = true;
-    });
-
-    aptProvince.addEventListener("change", () => {
-      const municipalities = Object.keys(phAddressData[aptRegion.value]?.[aptProvince.value] || {});
-      fillSelect(aptMunicipality, municipalities, "Select Municipality");
-      fillSelect(aptBarangay, [], "Select Barangay");
-      aptMunicipality.disabled = !municipalities.length;
-      aptBarangay.disabled = true;
-    });
-
-    aptMunicipality.addEventListener("change", () => {
-      const barangays = phAddressData[aptRegion.value]?.[aptProvince.value]?.[aptMunicipality.value] || [];
-      fillSelect(aptBarangay, barangays, "Select Barangay");
-      aptBarangay.disabled = !barangays.length;
-    });
   }
+  // ─────────────────────────────────────────────────────────────────────────────
+
 
   aptFileInput?.addEventListener("change", () => {
     const file = aptFileInput.files?.[0];
@@ -3012,13 +4626,19 @@ document.addEventListener("DOMContentLoaded", () => {
       file.type === "application/msword" ||
       file.type ===
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    const isAllowedExt = /\.(png|jpg|jpeg|webp|gif|pdf|doc|docx)$/i.test(file.name);
+    const isAllowedExt = /\.(png|jpg|jpeg|webp|gif|pdf|doc|docx)$/i.test(
+      file.name,
+    );
 
     if (!isAllowedMime && !isAllowedExt) {
       uploadedAppointmentFile = null;
       aptFileInput.value = "";
-      if (aptFileName) aptFileName.textContent = "Invalid file. Use image, DOC/DOCX, or PDF only.";
-      showSlotMessage("Attachment is invalid. Please upload an image, DOC/DOCX, or PDF file only.");
+      if (aptFileName)
+        aptFileName.textContent =
+          "Invalid file. Use image, DOC/DOCX, or PDF only.";
+      showSlotMessage(
+        "Attachment is invalid. Please upload an image, DOC/DOCX, or PDF file only.",
+      );
       return;
     }
 
@@ -3041,7 +4661,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   aptMI?.addEventListener("input", () => {
-    aptMI.value = aptMI.value.replace(/[^A-Za-z]/g, "").slice(0, 1).toUpperCase();
+    aptMI.value = aptMI.value
+      .replace(/[^A-Za-z]/g, "")
+      .slice(0, 1)
+      .toUpperCase();
   });
 
   aptPhone?.addEventListener("input", () => {
@@ -3058,7 +4681,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (aptPollTimer) clearInterval(aptPollTimer);
     aptPollTimer = setInterval(async () => {
       // Only fetch if Step 3 is visible inside the modal
-      if (document.getElementById("aptStep3")?.classList.contains("active") && appointmentOverlay?.classList.contains("show-modal")) {
+      if (
+        document.getElementById("aptStep3")?.classList.contains("active") &&
+        appointmentOverlay?.classList.contains("show-modal")
+      ) {
         await fetchCalendarAvailability();
         renderCalendar(currentMonth, currentYear);
         renderTimeSlots(selectedDateKey);
@@ -3072,6 +4698,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (appointmentBtn && appointmentOverlay) {
     appointmentBtn.addEventListener("click", () => {
+      if (!requireCustomerAuth("make an appointment")) return;
+
       appointmentOverlay.classList.add("show-modal");
       document.body.style.overflow = "hidden";
 
@@ -3095,6 +4723,26 @@ document.addEventListener("DOMContentLoaded", () => {
           renderTimeSlots(selectedDateKey);
         }
       })();
+    });
+
+    // Guard: stop clicks that land on the overlay BACKDROP from bubbling to any
+    // outer handler. The appointment flow should ONLY be dismissed via the
+    // dedicated close/back button — never by clicking outside the card.
+    appointmentOverlay.addEventListener("click", (event) => {
+      // Only act when the backdrop itself (not any child) is the target.
+      // We intentionally do NOT close the overlay here — dismissal is
+      // exclusively via closeAppointmentBtn to prevent accidental closure
+      // during the async Step 4 submission.
+      event.stopPropagation();
+    });
+  }
+
+  // Guard: stop all clicks inside the apt-container from ever bubbling past
+  // the overlay, which prevents any external click handler from seeing them.
+  const aptContainerEl = appointmentOverlay?.querySelector(".apt-container");
+  if (aptContainerEl) {
+    aptContainerEl.addEventListener("click", (event) => {
+      event.stopPropagation();
     });
   }
 
@@ -3127,7 +4775,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   bindClick("btnGoToPrivacy", () => privacyModal?.classList.add("show-modal"));
-  bindClick("cancelPrivacyBtn", () => privacyModal?.classList.remove("show-modal"));
+  bindClick("cancelPrivacyBtn", () =>
+    privacyModal?.classList.remove("show-modal"),
+  );
   bindClick("acceptPrivacyBtn", () => {
     privacyModal?.classList.remove("show-modal");
     switchAptStep(2);
@@ -3151,46 +4801,100 @@ document.addEventListener("DOMContentLoaded", () => {
     confirmModal?.classList.add("show-modal");
   });
 
-  bindClick("cancelConfirmBtn", () => confirmModal?.classList.remove("show-modal"));
+  bindClick("cancelConfirmBtn", () =>
+    confirmModal?.classList.remove("show-modal"),
+  );
   bindClick("acceptConfirmBtn", () => {
     confirmModal?.classList.remove("show-modal");
     switchAptStep(4);
   });
 
   bindClick("btnCancelTo3", () => switchAptStep(3));
+
   // Step 4: "Confirm & Submit" — actually submits the appointment to backend
   bindClick("btnGoToStep5", async (event) => {
-    event?.preventDefault();
+    // Prevent any click from bubbling to the overlay or triggering form submission
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    }
+
     const btn = document.getElementById("btnGoToStep5");
+    if (btn) btn.type = "button"; // Force button type to prevent form submission
+
+    const backBtn = document.getElementById("btnCancelTo3");
+    // Also lock the top-level close/back button so the user cannot accidentally
+    // navigate away while the async submission is in flight.
+    const closeBtn = closeAppointmentBtn;
+
+    // Lock UI during submission to prevent accidental double-click or navigation
     if (btn) {
       btn.disabled = true;
-      btn.textContent = "Submitting...";
+      btn.textContent = "Submitting\u2026";
     }
+    if (backBtn) backBtn.disabled = true;
+    if (closeBtn) closeBtn.disabled = true;
+
+    const restoreButtons = () => {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Confirm \u0026 Submit";
+      }
+      if (backBtn) backBtn.disabled = false;
+      if (closeBtn) closeBtn.disabled = false;
+    };
+
     try {
       if (!appointmentSubmitted) {
-        const ok = await submitAppointment();
-        if (!ok) {
-          if (btn) {
-            btn.disabled = false;
-            btn.textContent = "Confirm & Submit";
-          }
+        const result = await submitAppointment();
+        if (!result.ok) {
+          restoreButtons();
+          // Use the error returned directly from submitAppointment
+          const errorMsg =
+            result.error ||
+            "Unable to submit appointment. Please check your details.";
+          void showCustomerPopup(errorMsg, {
+            title: "Submission Failed",
+            allowBackdropClose: false,
+          });
           return;
         }
       }
-      switchAptStep(5);
-    } catch {
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = "Confirm & Submit";
+      // Success — restore close button then transition to Step 5
+      if (closeBtn) closeBtn.disabled = false;
+      
+      // Explicitly ensure overlay remains visible using class
+      if (appointmentOverlay && !appointmentOverlay.classList.contains("show-modal")) {
+        appointmentOverlay.classList.add("show-modal");
       }
+      
+      try {
+        switchAptStep(5);
+      } catch (stepErr) {
+        console.error("switchAptStep Error:", stepErr);
+      }
+      
+      return false;
+    } catch (err) {
+      console.error("[APPT SUBMIT] Unexpected Error:", err);
+      restoreButtons();
+      const catchMsg =
+        typeof err?.message === "string" && err.message.length > 0
+          ? err.message
+          : "Network error or timeout. Please try again.";
+      void showCustomerPopup(catchMsg, {
+        title: "Submission Error",
+        allowBackdropClose: false,
+      });
     }
+    return false;
   });
 
   bindClick("btnGenerateReport", () => {
     void downloadAppointmentReceipt();
   });
 
-  bindClick("btnDownloadQr", downloadQrCodeCard);
 
   // Step 5: "Finish Transaction" — appointment already submitted, just show success
   bindClick("btnFinishStep5", () => {
@@ -3200,14 +4904,22 @@ document.addEventListener("DOMContentLoaded", () => {
   bindClick("btnSuccessHome", () => {
     successModal?.classList.remove("active");
     appointmentOverlay?.classList.remove("show-modal");
+    
+    // Safeguard: Strip any inline styles left over from previous bug fixes
+    if (appointmentOverlay) {
+      appointmentOverlay.style.display = "";
+      appointmentOverlay.style.visibility = "";
+      appointmentOverlay.style.opacity = "";
+    }
+    const step5 = document.getElementById("aptStep5");
+    if (step5) step5.style.display = "";
+    
     document.body.style.overflow = "";
     resetAppointmentFlowState();
     switchAptStep(1);
+    stopAptPolling();
   });
 
-  bindClick("btnSuccessDownload", () => {
-    downloadQrCodeCard();
-  });
 
   const contactMessageForm = document.getElementById("contactMessageForm");
   if (contactMessageForm) {
@@ -3295,6 +5007,7 @@ document.addEventListener("DOMContentLoaded", () => {
           submitBtn.textContent = previousText;
         }
       }
+
     });
   }
 });
@@ -3413,9 +5126,11 @@ document.addEventListener("DOMContentLoaded", () => {
       document.body.appendChild(overlay);
 
       // Password Toggle Logic
-      const eyeClosedSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
-      const eyeOpenSvg = '<svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
-      
+      const eyeClosedSvg =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
+      const eyeOpenSvg =
+        '<svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+
       overlay.querySelectorAll(".toggle-pass").forEach((toggleBtn) => {
         toggleBtn.addEventListener("click", () => {
           const targetId = toggleBtn.getAttribute("data-target");
@@ -3456,9 +5171,11 @@ document.addEventListener("DOMContentLoaded", () => {
     overlay.classList.add("show");
     document.body.style.overflow = "hidden";
 
-    overlay.querySelector("#closeProfileModal")?.addEventListener("click", closeModal, {
-      once: true,
-    });
+    overlay
+      .querySelector("#closeProfileModal")
+      ?.addEventListener("click", closeModal, {
+        once: true,
+      });
 
     overlay.addEventListener(
       "click",
@@ -3477,9 +5194,11 @@ document.addEventListener("DOMContentLoaded", () => {
       form.onsubmit = async (event) => {
         event.preventDefault();
 
-        const currentPassword = overlay.querySelector("#cp_current")?.value || "";
+        const currentPassword =
+          overlay.querySelector("#cp_current")?.value || "";
         const newPassword = overlay.querySelector("#cp_new")?.value || "";
-        const confirmPassword = overlay.querySelector("#cp_confirm")?.value || "";
+        const confirmPassword =
+          overlay.querySelector("#cp_confirm")?.value || "";
 
         if (!currentPassword) {
           msgBox.style.display = "block";
@@ -3527,9 +5246,10 @@ document.addEventListener("DOMContentLoaded", () => {
           msgBox.style.display = "block";
           if (response.ok) {
             msgBox.style.color = "#0f7b35";
-            msgBox.innerHTML = "<i class=\"fa-solid fa-circle-check\"></i> you have changed your password successfully.";
+            msgBox.innerHTML =
+              '<i class="fa-solid fa-circle-check"></i> you have changed your password successfully.';
             form.reset();
-            
+
             setTimeout(() => {
               msgBox.style.display = "none";
               msgBox.textContent = "";
@@ -3540,7 +5260,11 @@ document.addEventListener("DOMContentLoaded", () => {
             const confirmErr = data.errors.new_password_confirmation?.[0];
             msgBox.style.color = "#b91c1c";
             msgBox.textContent =
-              currentErr || newErr || confirmErr || data.message || "Unable to update password.";
+              currentErr ||
+              newErr ||
+              confirmErr ||
+              data.message ||
+              "Unable to update password.";
           } else {
             msgBox.style.color = "#b91c1c";
             msgBox.textContent = data.message || "Unable to update password.";
@@ -3548,7 +5272,8 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch {
           msgBox.style.display = "block";
           msgBox.style.color = "#b91c1c";
-          msgBox.textContent = "Cannot connect to server. Ensure Laravel is running.";
+          msgBox.textContent =
+            "Cannot connect to server. Ensure Laravel is running.";
         } finally {
           setLoader(false);
         }
@@ -3600,14 +5325,31 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   let customerOrdersController = null;
+  const customerOrdersCache = new Map();
 
-  const fetchJsonWithTimeout = async (url, options = {}, timeoutMs = API_REQUEST_TIMEOUT_MS) => {
+  const fetchJsonWithTimeout = async (
+    url,
+    options = {},
+    timeoutMs = API_REQUEST_TIMEOUT_MS,
+  ) => {
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+    const {
+      headers: optionHeaders = {},
+      signal: _ignoredSignal,
+      ...restOptions
+    } = options;
+    const requestHeaders = {
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+      ...optionHeaders,
+    };
 
     try {
       const response = await fetch(url, {
-        ...options,
+        ...restOptions,
+        headers: requestHeaders,
+        cache: restOptions.cache || "no-store",
         signal: controller.signal,
       });
 
@@ -3615,7 +5357,9 @@ document.addEventListener("DOMContentLoaded", () => {
       return { response, data };
     } catch (error) {
       if (error?.name === "AbortError") {
-        throw new Error("Request timed out. Please check your connection and try again.");
+        throw new Error(
+          "Request timed out. Please check your connection and try again.",
+        );
       }
 
       throw error;
@@ -3625,12 +5369,15 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const fetchCustomerOrders = async (customerToken) => {
-    const { response, data } = await fetchJsonWithTimeout(`${API_BASE_URL}/customer/orders`, {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${customerToken}`,
+    const { response, data } = await fetchJsonWithTimeout(
+      `${API_BASE_URL}/customer/orders`,
+      {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${customerToken}`,
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       throw new Error(data.message || "Unable to load your orders.");
@@ -3640,12 +5387,15 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const fetchCustomerOrderDetail = async (customerToken, orderId) => {
-    const { response, data } = await fetchJsonWithTimeout(`${API_BASE_URL}/customer/orders/${orderId}`, {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${customerToken}`,
+    const { response, data } = await fetchJsonWithTimeout(
+      `${API_BASE_URL}/customer/orders/${orderId}`,
+      {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${customerToken}`,
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       throw new Error(data.message || "Unable to load order details.");
@@ -3699,19 +5449,30 @@ document.addEventListener("DOMContentLoaded", () => {
       document.body.appendChild(overlay);
 
       const tabs = Array.from(overlay.querySelectorAll(".customer-orders-tab"));
-      const panels = Array.from(overlay.querySelectorAll(".customer-orders-panel"));
+      const panels = Array.from(
+        overlay.querySelectorAll(".customer-orders-panel"),
+      );
       const track = overlay.querySelector("#customerOrdersTrack");
       const viewport = overlay.querySelector("#customerOrdersViewport");
       const closeBtn = overlay.querySelector("#closeCustomerOrdersModal");
       const detailModal = overlay.querySelector("#customerOrderDetailModal");
-      const detailContent = overlay.querySelector("#customerOrderDetailContent");
+      const detailContent = overlay.querySelector(
+        "#customerOrderDetailContent",
+      );
       const detailTitle = overlay.querySelector("#customerOrderDetailTitle");
       const closeDetailBtn = overlay.querySelector("#closeCustomerOrderDetail");
-      const stageByPanel = ["all", "to_pay", "to_ship", "to_receive", "completed"];
+      const stageByPanel = [
+        "all",
+        "to_pay",
+        "to_ship",
+        "to_receive",
+        "completed",
+      ];
 
       const state = {
         activeIndex: 0,
         userInfo: null,
+        cacheKey: "",
         token: "",
         orders: [],
         detailsById: new Map(),
@@ -3748,6 +5509,9 @@ document.addEventListener("DOMContentLoaded", () => {
         state.refreshTimer = window.setInterval(() => {
           if (!overlay.classList.contains("show") || document.hidden) return;
           if (state.refreshInProgress) return;
+
+          const popup = document.getElementById("customerSystemPopup");
+          if (popup && popup.classList.contains("show")) return;
 
           const elapsed = Date.now() - state.lastRefreshAt;
           if (elapsed < CUSTOMER_ORDERS_MIN_REFRESH_GAP_MS) return;
@@ -3813,7 +5577,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const renderLoadingState = () => `
         <div class="customer-orders-empty">
           <i class="fa-solid fa-spinner fa-spin"></i>
-          <p>Loading orders from server...</p>
+          <p>Fetching your orders...</p>
         </div>
       `;
 
@@ -3822,7 +5586,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (stageKey === "completed") {
           return state.orders.filter(
             (order) =>
-              String(order.lifecycle_status || "").toLowerCase() !== "rejected" &&
+              String(order.lifecycle_status || "").toLowerCase() !==
+                "rejected" &&
               String(order.customer_stage || "") === "completed",
           );
         }
@@ -3848,7 +5613,9 @@ document.addEventListener("DOMContentLoaded", () => {
       };
 
       const resolveOrderStatusMeta = (order) => {
-        const lifecycle = String(order?.lifecycle_status || "pending").toLowerCase();
+        const lifecycle = String(
+          order?.lifecycle_status || "pending",
+        ).toLowerCase();
         const stage = ORDER_STAGE_FLOW.includes(order?.customer_stage)
           ? order.customer_stage
           : "to_pay";
@@ -3868,7 +5635,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         return {
-          label: ORDER_STAGE_LABELS[stage] || ORDER_LIFECYCLE_LABELS[lifecycle] || "Pending",
+          label:
+            ORDER_STAGE_LABELS[stage] ||
+            ORDER_LIFECYCLE_LABELS[lifecycle] ||
+            "Pending",
           className: `status-${stage.replace("_", "-")}`,
         };
       };
@@ -3899,15 +5669,27 @@ document.addEventListener("DOMContentLoaded", () => {
           panel.innerHTML = scopedOrders
             .map((order) => {
               const statusMeta = resolveOrderStatusMeta(order);
-              const quantity = Math.max(1, Number.parseInt(order.quantity || "1", 10) || 1);
+              const quantity = Math.max(
+                1,
+                Number.parseInt(order.quantity || "1", 10) || 1,
+              );
               const quantityLabel = `${quantity} item${quantity > 1 ? "s" : ""}`;
-              const productImage = escapeHtml(order.product_image || "/images/FMRC Logo.png");
-              const productName = escapeHtml(order.product_name || "Custom Order");
-              const orderNo = escapeHtml(order.order_no_display || `#${order.order_no || order.id || "-"}`);
+              const productImage = escapeHtml(
+                order.product_image || "/images/FMRC Logo.png",
+              );
+              const productName = escapeHtml(
+                order.product_name || "Custom Order",
+              );
+              const orderNo = escapeHtml(
+                order.order_no_display ||
+                  `#${order.order_no || order.id || "-"}`,
+              );
               const paymentMethod = escapeHtml(order.payment_method || "N/A");
 
               const numericTotal = Number(order.total_amount || 0);
-              const totalLabel = formatOrderCurrency(Number.isFinite(numericTotal) ? numericTotal : 0);
+              const totalLabel = formatOrderCurrency(
+                Number.isFinite(numericTotal) ? numericTotal : 0,
+              );
 
               return `
                 <article class="customer-order-card">
@@ -3943,22 +5725,39 @@ document.addEventListener("DOMContentLoaded", () => {
       const renderDetailModal = (detail) => {
         if (!detailModal || !detailContent || !detailTitle) return;
 
-        const safeOrderNo = escapeHtml(detail.order_no_display || `#${detail.order_no || detail.id || "-"}`);
+        const safeOrderNo = escapeHtml(
+          detail.order_no_display || `#${detail.order_no || detail.id || "-"}`,
+        );
         const safeTitle = escapeHtml(detail.product_name || "Order Details");
         const safeStatus = escapeHtml(
-          ORDER_LIFECYCLE_LABELS[String(detail.lifecycle_status || "").toLowerCase()] ||
-            ORDER_STAGE_LABELS[String(detail.customer_stage || "").toLowerCase()] ||
+          ORDER_LIFECYCLE_LABELS[
+            String(detail.lifecycle_status || "").toLowerCase()
+          ] ||
+            ORDER_STAGE_LABELS[
+              String(detail.customer_stage || "").toLowerCase()
+            ] ||
             "Pending",
         );
 
         const timeline = Array.isArray(detail.timeline) ? detail.timeline : [];
         const withCoords =
-          timeline.find((entry) => Number.isFinite(Number(entry?.latitude)) && Number.isFinite(Number(entry?.longitude))) ||
-          detail;
-        const mapEmbedUrl = buildGoogleMapEmbedUrl(withCoords?.latitude, withCoords?.longitude);
-        const mapOpenUrl = buildGoogleMapOpenUrl(withCoords?.latitude, withCoords?.longitude);
+          timeline.find(
+            (entry) =>
+              Number.isFinite(Number(entry?.latitude)) &&
+              Number.isFinite(Number(entry?.longitude)),
+          ) || detail;
+        const mapEmbedUrl = buildGoogleMapEmbedUrl(
+          withCoords?.latitude,
+          withCoords?.longitude,
+        );
+        const mapOpenUrl = buildGoogleMapOpenUrl(
+          withCoords?.latitude,
+          withCoords?.longitude,
+        );
         const courierName = escapeHtml(detail.courier_name || "J&T Express");
-        const courierTrackingNo = String(detail.courier_tracking_no || "").trim();
+        const courierTrackingNo = String(
+          detail.courier_tracking_no || "",
+        ).trim();
         const jntUrl = buildJntTrackingUrl(courierTrackingNo);
 
         detailTitle.textContent = `Order ${safeOrderNo}`;
@@ -3977,7 +5776,7 @@ document.addEventListener("DOMContentLoaded", () => {
             ${
               jntUrl
                 ? `<a class="customer-order-logistics-link" href="${escapeHtml(jntUrl)}" target="_blank" rel="noopener noreferrer">Track on J&T Express</a>`
-                : '<p class="customer-order-logistics-note">Tracking number will appear once admin updates shipment info.</p>'
+                : '<p class="customer-order-logistics-note">Tracking number will appear here once shipment info is available.</p>'
             }
           </div>
 
@@ -3991,7 +5790,7 @@ document.addEventListener("DOMContentLoaded", () => {
                        ? `<a href="${escapeHtml(mapOpenUrl)}" target="_blank" rel="noopener noreferrer">Open in Google Maps</a>`
                        : ""
                    }</div>`
-                : '<div class="customer-order-map-empty"><i class="fa-solid fa-map-location-dot"></i><p>Location updates will appear here once posted by admin or courier.</p></div>'
+                : '<div class="customer-order-map-empty"><i class="fa-solid fa-map-location-dot"></i><p>Location updates will appear here once available.</p></div>'
             }
           </div>
 
@@ -4053,11 +5852,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
         state.detailLoading = true;
         state.activeDetailId = key;
-        detailTitle.textContent = "Loading Order Details";
+        detailTitle.textContent = "Order Details";
         detailContent.innerHTML = `
           <div class="customer-orders-empty">
             <i class="fa-solid fa-spinner fa-spin"></i>
-            <p>Loading order timeline...</p>
+            <p>Preparing order details...</p>
           </div>
         `;
         detailModal.classList.add("show");
@@ -4091,7 +5890,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         state.detailLoading = true;
         try {
-          const detail = await fetchCustomerOrderDetail(state.token, state.activeDetailId);
+          const detail = await fetchCustomerOrderDetail(
+            state.token,
+            state.activeDetailId,
+          );
           if (detail) {
             state.detailsById.set(String(state.activeDetailId), detail);
             renderDetailModal(detail);
@@ -4111,7 +5913,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const now = Date.now();
-        if (!force && now - state.lastRefreshAt < CUSTOMER_ORDERS_MIN_REFRESH_GAP_MS) {
+        if (
+          !force &&
+          now - state.lastRefreshAt < CUSTOMER_ORDERS_MIN_REFRESH_GAP_MS
+        ) {
           return;
         }
 
@@ -4145,6 +5950,9 @@ document.addEventListener("DOMContentLoaded", () => {
           const orders = await fetchCustomerOrders(state.token);
           state.orders = orders;
           state.lastRefreshAt = Date.now();
+          if (state.cacheKey) {
+            customerOrdersCache.set(state.cacheKey, orders);
+          }
           renderOrders();
 
           void refreshActiveDetail(false);
@@ -4197,7 +6005,8 @@ document.addEventListener("DOMContentLoaded", () => {
       closeDetailBtn?.addEventListener("click", closeDetailModal);
 
       document.addEventListener("keydown", (event) => {
-        if (event.key !== "Escape" || !overlay.classList.contains("show")) return;
+        if (event.key !== "Escape" || !overlay.classList.contains("show"))
+          return;
         if (detailModal?.classList.contains("show")) {
           closeDetailModal();
           return;
@@ -4225,7 +6034,8 @@ document.addEventListener("DOMContentLoaded", () => {
           const deltaX = touch.clientX - state.touchStartX;
           const deltaY = touch.clientY - state.touchStartY;
 
-          if (Math.abs(deltaX) < 45 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
+          if (Math.abs(deltaX) < 45 || Math.abs(deltaX) <= Math.abs(deltaY))
+            return;
           if (deltaX < 0) {
             setActivePanel(state.activeIndex + 1);
           } else {
@@ -4237,6 +6047,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       window.addEventListener("fmrc:orders-updated", (event) => {
         if (!overlay.classList.contains("show")) return;
+        const popup = document.getElementById("customerSystemPopup");
+        if (popup && popup.classList.contains("show")) return;
         const payload = event?.detail || {};
         if (!shouldProcessRealtimeSignal(payload)) return;
         state.lastDetailRefreshAt = 0;
@@ -4246,6 +6058,8 @@ document.addEventListener("DOMContentLoaded", () => {
       window.addEventListener("storage", (event) => {
         if (event.key !== ORDERS_REALTIME_SIGNAL_KEY) return;
         if (!overlay.classList.contains("show") || document.hidden) return;
+        const popup = document.getElementById("customerSystemPopup");
+        if (popup && popup.classList.contains("show")) return;
 
         let payload = {};
         try {
@@ -4262,6 +6076,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const realtimeChannel = getOrdersRealtimeChannel();
       realtimeChannel?.addEventListener("message", (event) => {
         if (!overlay.classList.contains("show") || document.hidden) return;
+        const popup = document.getElementById("customerSystemPopup");
+        if (popup && popup.classList.contains("show")) return;
         const payload = event?.data || {};
         if (payload?.source === "customer-portal") return;
         if (!shouldProcessRealtimeSignal(payload)) return;
@@ -4271,6 +6087,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       document.addEventListener("visibilitychange", () => {
         if (document.hidden || !overlay.classList.contains("show")) return;
+        const popup = document.getElementById("customerSystemPopup");
+        if (popup && popup.classList.contains("show")) return;
         state.lastDetailRefreshAt = 0;
         void refreshOrders(false, true);
       });
@@ -4284,13 +6102,27 @@ document.addEventListener("DOMContentLoaded", () => {
       customerOrdersController = {
         open: async (nextUserInfo) => {
           state.userInfo = nextUserInfo;
+          state.cacheKey = String(
+            nextUserInfo?.id || nextUserInfo?.email || "customer-orders",
+          );
           state.token = localStorage.getItem("customer_token") || "";
           state.detailsById.clear();
           state.refreshQueued = false;
           setActivePanel(0);
+
+          const cachedOrders = customerOrdersCache.get(state.cacheKey);
+          if (Array.isArray(cachedOrders) && cachedOrders.length) {
+            state.loading = false;
+            state.orders = cachedOrders;
+            renderOrders();
+          }
+
           overlay.classList.add("show");
           document.body.style.overflow = "hidden";
-          await refreshOrders(true, true);
+          await refreshOrders(
+            !Array.isArray(cachedOrders) || !cachedOrders.length,
+            true,
+          );
           startRealtimeRefresh();
         },
       };
@@ -4378,7 +6210,7 @@ document.addEventListener("DOMContentLoaded", () => {
   userProfileBtn.addEventListener("click", (event) => {
     // If we click inside the popup (but not the main button itself), do nothing
     if (event.target.closest(".profile-popup")) return;
-    
+
     if (dropdown.classList.contains("show")) {
       hideDropdown(dropdown);
     } else {
@@ -4397,11 +6229,13 @@ document.addEventListener("DOMContentLoaded", () => {
     openProfileModal(userInfo, token);
   });
 
-  dropdown.querySelector("#viewOrdersBtn")?.addEventListener("click", (event) => {
-    event.preventDefault();
-    hideDropdown(dropdown);
-    openOrdersModal(userInfo);
-  });
+  dropdown
+    .querySelector("#viewOrdersBtn")
+    ?.addEventListener("click", (event) => {
+      event.preventDefault();
+      hideDropdown(dropdown);
+      openOrdersModal(userInfo);
+    });
 
   const showLogoutConfirmModal = (onConfirm) => {
     let modal = document.getElementById("laravelLogoutModal");
@@ -4431,7 +6265,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const cancelBtn = modal.querySelector("#cancelLogoutBtn");
       const confirmBtn = modal.querySelector("#confirmLogoutBtn");
-      
+
       cancelBtn.onmouseenter = () => {
         cancelBtn.style.backgroundColor = "#fee2e2";
         cancelBtn.style.color = "#dc2626";
@@ -4443,20 +6277,22 @@ document.addEventListener("DOMContentLoaded", () => {
         cancelBtn.style.borderColor = "#d1d5db";
         cancelBtn.style.transform = "scale(1)";
       };
-      cancelBtn.onmousedown = () => cancelBtn.style.transform = "scale(0.96)";
-      cancelBtn.onmouseup = () => cancelBtn.style.transform = "scale(1)";
+      cancelBtn.onmousedown = () => (cancelBtn.style.transform = "scale(0.96)");
+      cancelBtn.onmouseup = () => (cancelBtn.style.transform = "scale(1)");
 
       confirmBtn.onmouseenter = () => {
         confirmBtn.style.backgroundColor = "#7f1d1d"; // Darker red
-        confirmBtn.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)";
+        confirmBtn.style.boxShadow =
+          "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)";
       };
       confirmBtn.onmouseleave = () => {
         confirmBtn.style.backgroundColor = "var(--primary-color, #a80f0f)";
         confirmBtn.style.boxShadow = "none";
         confirmBtn.style.transform = "scale(1)";
       };
-      confirmBtn.onmousedown = () => confirmBtn.style.transform = "scale(0.96)";
-      confirmBtn.onmouseup = () => confirmBtn.style.transform = "scale(1)";
+      confirmBtn.onmousedown = () =>
+        (confirmBtn.style.transform = "scale(0.96)");
+      confirmBtn.onmouseup = () => (confirmBtn.style.transform = "scale(1)");
 
       cancelBtn.addEventListener("click", () => {
         modal.children[0].style.opacity = "0";
@@ -4505,4 +6341,327 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   });
+})();
+
+// ============================================================================
+// DYNAMIC SITE CONTENT LOADER
+// ============================================================================
+(function () {
+  "use strict";
+
+  const _API = (function () {
+    if (typeof API_BASE_URL !== "undefined") return API_BASE_URL;
+    return "http://127.0.0.1:8000/api";
+  })();
+
+  function _txt(id, val) {
+    const el = document.getElementById(id);
+    if (el && val) el.textContent = val;
+  }
+  function _html(id, val) {
+    const el = document.getElementById(id);
+    if (el && val) el.innerHTML = val;
+  }
+  function _src(id, val) {
+    const el = document.getElementById(id);
+    if (el && val) el.src = val;
+  }
+  function _esc(str) {
+    const d = document.createElement("div");
+    d.textContent = str || "";
+    return d.innerHTML;
+  }
+  function _attr(str) {
+    return String(str || "")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  async function loadSiteContent() {
+    try {
+      const [sRes, svRes] = await Promise.all([
+        fetch(_API + "/site-settings"),
+        fetch(_API + "/services"),
+      ]);
+      if (sRes.ok) {
+        const { data } = await sRes.json();
+        applySettings(data || {});
+      }
+      if (svRes.ok) {
+        const { data } = await svRes.json();
+        applyServices(data || []);
+      }
+    } catch {
+      /* silent fallback */
+    }
+  }
+
+  function applySettings(s) {
+    // Hero title
+    if (s.hero_title) {
+      const el = document.getElementById("heroTitleEl");
+      if (el) {
+        const lines = s.hero_title.split("\n");
+        el.innerHTML = lines
+          .map((l, i) =>
+            i === lines.length - 1
+              ? `<span class="hero-research-line">${_esc(l)}</span>`
+              : _esc(l) + "<br />",
+          )
+          .join("");
+      }
+    }
+    if (s.hero_logo_image) _src("heroLogoEl", s.hero_logo_image);
+    // Hero bg
+    const heroSec = document.querySelector(".hero-section");
+    if (heroSec && s.hero_bg_type === "color" && s.hero_bg_color)
+      heroSec.style.background = s.hero_bg_color;
+    if (heroSec && s.hero_bg_type === "image" && s.hero_bg_image) {
+      heroSec.style.backgroundImage = "url('" + s.hero_bg_image + "')";
+      heroSec.style.backgroundSize = "cover";
+      heroSec.style.backgroundPosition = "center";
+    }
+    // About
+    _txt("aboutHeadingEl", s.about_heading);
+    _html("aboutText1El", s.about_text_1);
+    _html("aboutText2El", s.about_text_2);
+    if (s.about_video_url) {
+      ["aboutVideoSrc", "aboutFullVideoSrc"].forEach(function (id) {
+        const src = document.getElementById(id);
+        if (src) {
+          src.src = s.about_video_url;
+          src.parentElement &&
+            src.parentElement.load &&
+            src.parentElement.load();
+        }
+      });
+    }
+    // Vision / Mission
+    _txt("visionHeadingEl", s.vision_heading);
+    _txt("visionTextEl", s.vision_text);
+    if (s.vision_image) _src("visionImgEl", s.vision_image);
+    _txt("missionHeadingEl", s.mission_heading);
+    _txt("missionTextEl", s.mission_text);
+    if (s.mission_image) _src("missionImgEl", s.mission_image);
+    // Footer
+    _txt("footerBrandNameEl", s.footer_brand_name);
+    _txt("footerBrandDescEl", s.footer_brand_desc);
+    _txt("footerHoursDaysEl", s.footer_hours_days);
+    _txt("footerHoursTimeEl", s.footer_hours_time);
+    _txt("footerCopyrightEl", s.footer_copyright);
+    if (s.footer_quick_links) {
+      try {
+        var links = JSON.parse(s.footer_quick_links);
+        var ul = document.getElementById("footerQuickLinksEl");
+        if (ul && links.length)
+          ul.innerHTML = links
+            .map(function (l) {
+              return (
+                '<li><a href="' +
+                _attr(l.url || "#") +
+                '">' +
+                _esc(l.label || "") +
+                "</a></li>"
+              );
+            })
+            .join("");
+      } catch (e) {}
+    }
+    var fLoc = document.getElementById("footerLocationLink");
+    if (fLoc) {
+      if (s.footer_contact_location)
+        fLoc.textContent = s.footer_contact_location;
+      if (s.footer_contact_location_url)
+        fLoc.href = s.footer_contact_location_url;
+    }
+    var fEmail = document.getElementById("footerEmailLink");
+    if (fEmail && s.footer_contact_email) {
+      fEmail.textContent = s.footer_contact_email;
+      fEmail.href = "mailto:" + s.footer_contact_email;
+    }
+    var fPhone = document.getElementById("footerPhoneLink");
+    if (fPhone && s.footer_contact_phone) {
+      fPhone.textContent = s.footer_contact_phone;
+      fPhone.href = "tel:" + s.footer_contact_phone.replace(/[\s-]/g, "");
+    }
+    var fFb = document.getElementById("footerFacebookLink");
+    if (fFb) {
+      if (s.footer_contact_facebook)
+        fFb.textContent = s.footer_contact_facebook;
+      if (s.footer_contact_facebook_url)
+        fFb.href = s.footer_contact_facebook_url;
+    }
+    // Contact page
+    _txt("contactTitleEl", s.contact_heading);
+    _txt("contactLeadEl", s.contact_lead);
+    var cLoc = document.getElementById("contactLocationLink");
+    if (cLoc) {
+      if (s.contact_location) cLoc.textContent = s.contact_location;
+      if (s.contact_location_url) cLoc.href = s.contact_location_url;
+    }
+    var cEmail = document.getElementById("contactEmailLink");
+    if (cEmail && s.contact_email) {
+      cEmail.textContent = s.contact_email;
+      cEmail.href = "mailto:" + s.contact_email;
+    }
+    var cPhone = document.getElementById("contactPhoneLink");
+    if (cPhone && s.contact_phone) {
+      cPhone.textContent = s.contact_phone;
+      cPhone.href = "tel:" + s.contact_phone.replace(/[\s-]/g, "");
+    }
+    var cFb = document.getElementById("contactFacebookLink");
+    if (cFb) {
+      if (s.contact_facebook) cFb.textContent = s.contact_facebook;
+      if (s.contact_facebook_url) cFb.href = s.contact_facebook_url;
+    }
+    _txt("contactFormHeadingEl", s.contact_form_heading);
+    _txt("contactFormSubtitleEl", s.contact_form_subtitle);
+    _txt(
+      "contactConsentTextEl",
+      s.contact_consent_text ||
+        "I hereby consent to the collection, processing, and storage of my personal information in accordance with the Data Privacy Act of 2012 (R.A. 10173).",
+    );
+  }
+
+  function applyServices(services) {
+    // Home carousel
+    var track = document.getElementById("whatWeOfferTrack");
+    if (track && services.length) {
+      track.innerHTML = services
+        .map(function (s) {
+          return (
+            '<div class="carousel-item"><div class="service-card landscape-card" data-service-id="' +
+            s.id +
+            '" data-category="' +
+            _attr(s.category || "") +
+            '">' +
+            '<div class="card-img-holder">' +
+            (s.image_data
+              ? '<img src="' +
+                _attr(s.image_data) +
+                '" alt="' +
+                _attr(s.title) +
+                '" />'
+              : '<div style="width:100%;height:100%;background:#f3f4f6;display:flex;align-items:center;justify-content:center;"><span style="color:#9ca3af;font-size:.78rem;">No image</span></div>') +
+            "</div>" +
+            '<div class="card-content"><h3 class="card-title">' +
+            _esc(s.title) +
+            '</h3><p class="card-desc">' +
+            _esc(s.description || "") +
+            "</p></div>" +
+            "</div></div>"
+          );
+        })
+        .join("");
+      initCarousel(track);
+    }
+    // Services page grid
+    var grid = document.getElementById("servicesGrid");
+    if (grid && services.length) {
+      grid.innerHTML = services
+        .map(function (s) {
+          return (
+            '<article class="service-card" data-category="' +
+            _attr((s.category || "").toLowerCase().replace(/\s+/g, "-")) +
+            '">' +
+            '<div class="card-img-holder">' +
+            (s.image_data
+              ? '<img src="' +
+                _attr(s.image_data) +
+                '" alt="' +
+                _attr(s.title) +
+                '" />'
+              : '<div style="width:100%;height:100%;background:#f3f4f6;display:flex;align-items:center;justify-content:center;"><span style="color:#9ca3af;">No image</span></div>') +
+            "</div>" +
+            '<div class="card-content"><span class="service-chip">' +
+            _esc(s.category) +
+            '</span><h3 class="card-title">' +
+            _esc(s.title) +
+            '</h3><p class="card-desc">' +
+            _esc(s.description || "") +
+            "</p>" +
+            '<button class="details-btn open-modal-btn" style="background:none;border:none;cursor:pointer;padding:0;text-align:left;display:inline-flex;align-items:center;gap:4px;" data-title="' +
+            _attr(s.title) +
+            '" data-desc="' +
+            _attr(s.modal_description || s.description || "") +
+            '" data-features="' +
+            _attr(JSON.stringify(s.modal_features || [])) +
+            '" data-materials="' +
+            _attr(JSON.stringify(s.modal_materials || [])) +
+            '" data-best-for="' +
+            _attr(JSON.stringify(s.modal_best_for || [])) +
+            '" data-img="' +
+            _attr(s.image_data || "") +
+            '">View service details</button>' +
+            "</div></article>"
+          );
+        })
+        .join("");
+    }
+  }
+
+  function initCarousel(track) {
+    var items = Array.from(track.querySelectorAll(".carousel-item"));
+    var prevEl = document.querySelector(".prev-btn");
+    var nextEl = document.querySelector(".next-btn");
+    var wrapper = document.querySelector(".carousel-wrapper");
+    if (!items.length || !prevEl || !nextEl || !wrapper) return;
+    var cur = 0,
+      timer;
+    function upd() {
+      items.forEach(function (it, i) {
+        it.className = "carousel-item";
+        if (i === cur) it.classList.add("active");
+        else if (i === (cur - 1 + items.length) % items.length)
+          it.classList.add("prev");
+        else if (i === (cur + 1) % items.length) it.classList.add("next");
+        else if (i === (cur - 2 + items.length) % items.length)
+          it.classList.add("prev-hidden");
+        else if (i === (cur + 2) % items.length)
+          it.classList.add("next-hidden");
+      });
+    }
+    function nxt() {
+      cur = (cur + 1) % items.length;
+      upd();
+    }
+    function prv() {
+      cur = (cur - 1 + items.length) % items.length;
+      upd();
+    }
+    var nn = nextEl.cloneNode(true),
+      np = prevEl.cloneNode(true);
+    nextEl.parentNode.replaceChild(nn, nextEl);
+    prevEl.parentNode.replaceChild(np, prevEl);
+    nn.addEventListener("click", function () {
+      nxt();
+      clearInterval(timer);
+      timer = setInterval(nxt, 5000);
+    });
+    np.addEventListener("click", function () {
+      prv();
+      clearInterval(timer);
+      timer = setInterval(nxt, 5000);
+    });
+    items.forEach(function (it) {
+      it.addEventListener("click", function () {
+        if (it.classList.contains("prev")) prv();
+        else if (it.classList.contains("next")) nxt();
+      });
+    });
+    wrapper.addEventListener("mouseenter", function () {
+      clearInterval(timer);
+    });
+    wrapper.addEventListener("mouseleave", function () {
+      timer = setInterval(nxt, 5000);
+    });
+    upd();
+    timer = setInterval(nxt, 5000);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", loadSiteContent);
+  } else {
+    loadSiteContent();
+  }
 })();

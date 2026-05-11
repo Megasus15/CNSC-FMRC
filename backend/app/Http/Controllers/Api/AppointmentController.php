@@ -445,9 +445,15 @@ class AppointmentController extends Controller
             trim((string) $appointment->last_name),
         ]);
 
-        $attachmentUrl = $appointment->attachment_path
-            ? asset('storage/' . ltrim($appointment->attachment_path, '/'))
-            : null;
+        $attachmentUrl = null;
+        if ($appointment->attachment_path) {
+            // Use Storage::url() so it always resolves to the correct Laravel
+            // storage URL (port 8000) regardless of which port the frontend uses.
+            $storagePath = ltrim($appointment->attachment_path, '/');
+            $appUrl = rtrim(config('app.url', url('/')), '/');
+            $attachmentUrl = $appUrl . '/storage/' . $storagePath;
+        }
+
 
         return [
             'id' => $appointment->id,

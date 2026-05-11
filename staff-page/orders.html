@@ -144,7 +144,6 @@
                   <select class="filter-select" id="ordersDirectoryStatusFilter">
                     <option value="all">All Orders</option>
                     <option value="pending">Pending Orders</option>
-                    <option value="rejected">Rejected Orders</option>
                   </select>
                   <input class="search-input" id="ordersDirectorySearch" placeholder="Search order no., customer, or item..." />
                 </div>
@@ -208,6 +207,42 @@
                 </table>
               </div>
               <div class="table-footer" id="walkInOrdersFooter">
+                <div class="table-footer-meta">Page 1 of 1</div>
+                <div class="table-pagination">
+                  <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-left"></i></button>
+                  <div class="page-number">1</div>
+                  <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+              </div>
+            </article>
+
+            <!-- ═══════════ REJECTED ORDERS PANEL ═══════════ -->
+            <article class="panel" id="rejectedOrdersPanel">
+              <div class="panel-header">
+                <h3><i class="fa-solid fa-ban" style="color:#dc2626;margin-right:6px;"></i>Rejected Orders</h3>
+                <span class="status-pill status-red">Rejected</span>
+              </div>
+              <div class="table-scroll-hint">
+                <i class="fa-solid fa-left-right"></i> Scroll horizontally to see all columns.
+              </div>
+              <div class="table-wrapper">
+                <table class="admin-table" id="rejectedOrdersTable" data-page-size="5" data-empty-message="No rejected orders.">
+                  <thead>
+                    <tr>
+                      <th>Order No.</th>
+                      <th>Order Item</th>
+                      <th>Date</th>
+                      <th>Customer</th>
+                      <th>Payment Method</th>
+                      <th>Total</th>
+                      <th>Status</th>
+                      <th class="sticky-action">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <div class="table-footer" id="rejectedOrdersFooter">
                 <div class="table-footer-meta">Page 1 of 1</div>
                 <div class="table-pagination">
                   <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-left"></i></button>
@@ -332,13 +367,13 @@
 
             <div class="field-stack"><label>Type of Client</label>
               <select id="walkInClientTypeInput" class="filter-select">
-                <option value="MSME/ENTREP">MSME/ENTREP</option>
-                <option value="STUDENT">STUDENT</option>
-                <option value="EDUCATOR">EDUCATOR</option>
-                <option value="RESEARCHER">RESEARCHER</option>
-                <option value="COOPERATIVE">COOPERATIVE</option>
-                <option value="ASSOCIATION">ASSOCIATION</option>
-                <option value="OTHERS (SPECIFY)">OTHERS (SPECIFY)</option>
+                <option value="MSME/ENTREP">Msme/Entrep</option>
+                <option value="STUDENT">Student</option>
+                <option value="EDUCATOR">Educator</option>
+                <option value="RESEARCHER">Researcher</option>
+                <option value="COOPERATIVE">Cooperative</option>
+                <option value="ASSOCIATION">Association</option>
+                <option value="OTHERS (SPECIFY)">Others (Specify)</option>
               </select>
             </div>
             <div class="field-stack" id="walkInClientTypeOtherWrap" style="display:none;"><label>Specify Client Type</label><input id="walkInClientTypeOtherInput" class="input-field" /></div>
@@ -347,17 +382,17 @@
 
             <div class="field-stack full"><label>Description of the Project</label>
               <select id="walkInProjectDescriptionInput" class="filter-select">
-                <option value="PRODUCT LABELING AND DESIGNING">PRODUCT LABELING AND DESIGNING</option>
-                <option value="3D PRINTING">3D PRINTING</option>
-                <option value="3D SCANNING">3D SCANNING</option>
-                <option value="LASER-CUTTING/ENGRAVING">LASER-CUTTING/ENGRAVING</option>
-                <option value="LARGE FORMAT PRINTING AND CUTTING">LARGE FOMAT, PRINTING AND CUTTING</option>
-                <option value="CNC MILLING">CNC MILLING</option>
-                <option value="DIGITAL EMBROIDERY">DIGITAL EMBROIDERY</option>
-                <option value="HEAT PRESS">HEAT PRESS</option>
-                <option value="TRAINING/WORKSHOP/TOUR">TRAINING/WORKSHOP/TOUR</option>
-                <option value="PARTNERSHIP">PARTNERSHIP</option>
-                <option value="OTHERS (SPECIFY)">OTHERS (SPECIFY)</option>
+                <option value="PRODUCT LABELING AND DESIGNING">Product Labeling And Designing</option>
+                <option value="3D PRINTING">3D Printing</option>
+                <option value="3D SCANNING">3D Scanning</option>
+                <option value="LASER-CUTTING/ENGRAVING">Laser-Cutting/Engraving</option>
+                <option value="LARGE FORMAT PRINTING AND CUTTING">Large Format, Printing And Cutting</option>
+                <option value="CNC MILLING">Cnc Milling</option>
+                <option value="DIGITAL EMBROIDERY">Digital Embroidery</option>
+                <option value="HEAT PRESS">Heat Press</option>
+                <option value="TRAINING/WORKSHOP/TOUR">Training/Workshop/Tour</option>
+                <option value="PARTNERSHIP">Partnership</option>
+                <option value="OTHERS (SPECIFY)">Others (Specify)</option>
               </select>
             </div>
             <div class="field-stack full" id="walkInProjectDescriptionOtherWrap" style="display:none;"><label>Specify Project Description</label><input id="walkInProjectDescriptionOtherInput" class="input-field" /></div>
@@ -451,6 +486,30 @@
           <button class="btn-admin btn-secondary" id="btnCancelArchivePaymentHistory" type="button">Cancel</button>
           <button class="btn-admin" id="btnConfirmArchivePaymentHistory" type="button" style="background:linear-gradient(135deg,#78350f,#d97706);border-color:#d97706;">
             <i class="fa-solid fa-box-archive"></i> Archive Payment
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---- ARCHIVE REJECTED ORDER MODAL ---- -->
+    <div class="modal-overlay" id="modalArchiveRejectedOrder" data-backdrop-close="false">
+      <div class="modal-card modal-confirm">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
+          <div style="width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#7f1d1d,#dc2626);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <i class="fa-solid fa-box-archive" style="color:#fff;font-size:1.1rem;"></i>
+          </div>
+          <h3 class="modal-title" style="margin-bottom:0;">Archive Rejected Order</h3>
+        </div>
+        <hr class="confirm-separator" />
+        <p class="confirm-text">
+          You are about to archive rejected order <strong id="rejectedArchiveTargetLabel"></strong>.
+        </p>
+        <p class="field-hint">The order will be moved to the Archives page. You can restore it from there if needed.</p>
+        <hr class="confirm-separator" />
+        <div class="modal-actions">
+          <button class="btn-admin btn-secondary" id="btnCancelArchiveRejectedOrder" type="button">Cancel</button>
+          <button class="btn-admin" id="btnConfirmArchiveRejectedOrder" type="button" style="background:linear-gradient(135deg,#7f1d1d,#dc2626);border-color:#dc2626;">
+            <i class="fa-solid fa-box-archive"></i> Archive Order
           </button>
         </div>
       </div>

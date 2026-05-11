@@ -165,16 +165,47 @@ class AuthController extends Controller
         ]);
 
         $user = User::create([
-            'name' => $validated['name'],
+            'name'     => $validated['name'],
             'username' => $validated['username'] ?? null,
-            'email' => $validated['email'] ?? null,
+            'email'    => $validated['email'] ?? null,
             'password' => Hash::make($validated['password']),
-            'role' => $validated['role'],
+            'role'     => $validated['role'],
         ]);
+
+        // --- Admin-Created Account Welcome Email ---
+        $emailDispatch = null;
+        try {
+            $emailAddress = $user->email;
+            if ($emailAddress && filter_var($emailAddress, FILTER_VALIDATE_EMAIL)) {
+                $emailHtml   = $this->buildAdminCreatedAccountEmailHtml($user, $validated['password']);
+                $userId      = (string) $user->id;
+                $fromAddress = config('mail.from.address', 'noreply@cnsc-fmrc.edu.ph');
+                $fromName    = config('mail.from.name', 'CNSC-FMRC');
+
+                $emailDispatch = function () use ($emailAddress, $emailHtml, $userId, $fromAddress, $fromName) {
+                    try {
+                        Mail::html($emailHtml, function ($message) use ($emailAddress, $fromAddress, $fromName) {
+                            $message->to($emailAddress)
+                                ->subject('Your CNSC-FMRC Account Has Been Created')
+                                ->from($fromAddress, $fromName);
+                        });
+                        Log::info("Admin-created account email sent to {$emailAddress} for user #{$userId}");
+                    } catch (\Throwable $e) {
+                        Log::error("Admin-created account email FAILED for user #{$userId}: " . $e->getMessage());
+                    }
+                };
+            }
+        } catch (\Throwable $e) {
+            Log::error("Admin-created email dispatch setup FAILED for user #{$user->id}: " . $e->getMessage());
+        }
+
+        if ($emailDispatch) {
+            $this->dispatchAfterResponse($emailDispatch);
+        }
 
         return response()->json([
             'message' => 'User account created successfully.',
-            'data' => $user,
+            'data'    => $user,
         ], 201);
     }
 
@@ -445,6 +476,109 @@ class AuthController extends Controller
   <p style="margin:0;color:#9ca3af;font-size:12px;">
     &copy; {$year} {$appName}. All rights reserved.<br>
     This is an automated notification &mdash; please do not reply to this email.
+  </p>
+</td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>
+HTML;
+    }
+
+    private function buildAdminCreatedAccountEmailHtml(User $user, string $plainPassword): string
+    {
+        $name     = e($user->name ?? 'Valued User');
+        $email    = e($user->email ?? '');
+        $username = e($user->username ?? $email);
+        $role     = ucfirst(strtolower($user->role ?? 'customer'));
+        $password = e($plainPassword);
+        $appName  = config('app.name') ?: 'CNSC-FMRC';
+        if (strtolower($appName) === 'laravel') {
+            $appName = 'CNSC-FMRC';
+        }
+        $year   = now()->year;
+        $accent = '#800000';
+
+        $portalNote = $role === 'Staff'
+            ? 'As a <strong>Staff</strong> member, you have access to the administrative dashboard for managing orders, appointments, inventory, and more.'
+            : 'As a <strong>Customer</strong>, you can browse products, place orders, schedule appointments, and track your requests through the portal.';
+
+        return <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f4f6f9;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:32px 16px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+<!-- Header -->
+<tr><td style="background:{$accent};padding:28px 32px;text-align:center;">
+    <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.3px;">CNSC-FMRC</h1>
+    <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">Fabrication &amp; Manufacturing Research Center &mdash; Account Notification</p>
+</td></tr>
+
+<!-- Body -->
+<tr><td style="padding:32px;">
+    <h2 style="margin:0 0 8px;color:#1f2937;font-size:20px;font-weight:700;">Your Account Has Been Created, {$name}!</h2>
+    <p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.7;">
+        An authorized administrator has created a new <strong>{$role}</strong> account for you on the
+        <strong>Camarines Norte State College &mdash; Fabrication and Manufacturing Research Center (CNSC-FMRC)</strong> platform.
+        You may use the credentials below to access the system.
+    </p>
+
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;">
+    <tr>
+      <td style="padding:14px 20px;border-bottom:1px solid #f1f4f8;">
+        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Full Name</span><br>
+        <span style="color:#111827;font-size:15px;font-weight:700;">{$name}</span>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:14px 20px;border-bottom:1px solid #f1f4f8;">
+        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Username</span><br>
+        <span style="color:#111827;font-size:15px;font-weight:700;">{$username}</span>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:14px 20px;border-bottom:1px solid #f1f4f8;">
+        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Email Address</span><br>
+        <span style="color:#111827;font-size:15px;font-weight:700;">{$email}</span>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:14px 20px;border-bottom:1px solid #f1f4f8;">
+        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Temporary Password</span><br>
+        <span style="color:#800000;font-size:15px;font-weight:700;letter-spacing:0.04em;">{$password}</span>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:14px 20px;">
+        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Account Role</span><br>
+        <span style="color:#111827;font-size:15px;font-weight:700;">{$role}</span>
+      </td>
+    </tr>
+  </table>
+
+  <p style="margin:0 0 16px;color:#374151;font-size:14px;line-height:1.7;">{$portalNote}</p>
+
+  <p style="margin:0 0 20px;padding:12px 16px;background:#fef3c7;border-left:4px solid #d97706;border-radius:6px;color:#92400e;font-size:13px;line-height:1.6;">
+    <strong>Security Notice:</strong> For your protection, please change your password immediately after your first login. Do not share your credentials with anyone.
+  </p>
+
+  <p style="color:#6b7280;font-size:13px;line-height:1.6;margin:0;">
+    If you believe this account was created in error, or if you did not authorize this action,
+    please contact the CNSC-FMRC administration team immediately.
+  </p>
+</td></tr>
+
+<!-- Footer -->
+<tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 32px;text-align:center;">
+  <p style="margin:0;color:#9ca3af;font-size:12px;">
+    &copy; {$year} {$appName}. All rights reserved.<br>
+    This is an automated system notification &mdash; please do not reply to this email.
   </p>
 </td></tr>
 

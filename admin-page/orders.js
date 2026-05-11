@@ -69,6 +69,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const paymentsHistoryFooter = document.getElementById("paymentsHistoryFooter");
   const paymentsMethodFilter = document.getElementById("paymentsMethodFilter");
 
+  const rejectedOrdersTbody   = document.querySelector("#rejectedOrdersTable tbody");
+  const rejectedOrdersFooter  = document.getElementById("rejectedOrdersFooter");
+
   const walkInOrdersTbody = document.querySelector("#walkInOrdersTable tbody");
   const walkInOrdersFooter = document.getElementById("walkInOrdersFooter");
   const openWalkInOrderModalBtn = document.getElementById("openWalkInOrderModalBtn");
@@ -142,6 +145,7 @@ document.addEventListener("DOMContentLoaded", () => {
     directoryPage: 1,
     paymentsPage: 1,
     walkInPage: 1,
+    rejectedPage: 1,
     isSyncing: false,
     syncController: null,
     pollTimer: null,
@@ -203,6 +207,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const directoryPager = getFooterControls(ordersDirectoryFooter);
   const paymentsPager = getFooterControls(paymentsHistoryFooter);
   const walkInPager = getFooterControls(walkInOrdersFooter);
+
+  const rejectedPager = getFooterControls(rejectedOrdersFooter);
 
   const toTimestamp = (value) => {
     const ts = Date.parse(String(value || ""));
@@ -667,13 +673,18 @@ document.addEventListener("DOMContentLoaded", () => {
     if (incomingNextBtn) incomingNextBtn.disabled = state.incomingCardsPage >= totalPages;
   };
 
+  const getRejectedRows = () =>
+    state.directory.filter((order) => String(order?.lifecycle_status || "").toLowerCase() === "rejected");
+
   const getDirectoryRows = () => {
     const statusFilter = (directoryStatusFilter?.value || "all").trim().toLowerCase();
     const search = (directorySearch?.value || "").trim().toLowerCase();
 
     return state.directory.filter((order) => {
-      if (String(order.lifecycle_status || "").toLowerCase() === "completed") return false;
-      const statusOk = statusFilter === "all" || String(order.lifecycle_status || "").toLowerCase() === statusFilter;
+      const ls = String(order.lifecycle_status || "").toLowerCase();
+      if (ls === "completed") return false;
+      if (ls === "rejected") return false;   // shown only in Rejected Orders panel
+      const statusOk = statusFilter === "all" || ls === statusFilter;
       if (!statusOk) return false;
 
       if (!search) return true;
@@ -836,10 +847,43 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
+  const renderRejectedTable = () => {
+    const rows = getRejectedRows();
+
+    state.rejectedPage = renderPagedRows({
+      rows,
+      tbody: rejectedOrdersTbody,
+      colCount: 8,
+      footer: rejectedOrdersFooter,
+      currentPage: state.rejectedPage,
+      pageSize: 5,
+      emptyMessage: "No rejected orders found.",
+      renderRow: (order) => {
+        const orderNo = escapeHtml(order.order_no_display || `#${order.order_no || order.id}`);
+        return `
+          <tr>
+            <td>${orderNo}</td>
+            <td>${escapeHtml(order.product_name || "Custom Order")}</td>
+            <td>${escapeHtml(formatDateShort(order.created_at))}</td>
+            <td>${escapeHtml(order.customer_name || "Customer")}</td>
+            <td>${escapeHtml(order.payment_method || "N/A")}</td>
+            <td>${escapeHtml(order.total_label || formatMoney(order.total_amount))}</td>
+            <td><span class="status-pill status-red">Rejected</span></td>
+            <td class="action-icons sticky-action">
+              <button data-tooltip="View Order Info" data-order-view="${order.id}"><i class="fa-regular fa-eye"></i></button>
+              <button data-tooltip="Archive Order" data-rejected-archive="${order.id}" data-rejected-label="${orderNo}"><i class="fa-solid fa-box-archive"></i></button>
+            </td>
+          </tr>
+        `;
+      },
+    });
+  };
+
   const renderAll = () => {
     renderIncomingCards();
     renderIncomingCompactTable();
     renderDirectoryTable();
+    renderRejectedTable();
     renderPaymentsTable();
     renderWalkInTable();
   };
@@ -851,6 +895,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (ordersDirectoryTbody && (!ordersDirectoryTbody.children.length || ordersDirectoryTbody.querySelector(".table-empty-state"))) {
       ordersDirectoryTbody.innerHTML = createSkeletons(8);
+    }
+    if (rejectedOrdersTbody && (!rejectedOrdersTbody.children.length || rejectedOrdersTbody.querySelector(".table-empty-state"))) {
+      rejectedOrdersTbody.innerHTML = createSkeletons(8);
     }
     if (paymentsHistoryTbody && (!paymentsHistoryTbody.children.length || paymentsHistoryTbody.querySelector(".table-empty-state"))) {
       paymentsHistoryTbody.innerHTML = createSkeletons(9);
@@ -1067,6 +1114,45 @@ document.addEventListener("DOMContentLoaded", () => {
       showPopup(error.message || "Action failed.", { title: "Action Failed" });
     }
   };
+
+  const openRejectedArchiveModal = (orderId, label) => {
+    const modal = document.getElementById("modalArchiveRejectedOrder");
+    if (!modal) return;
+    const labelEl = document.getElementById("rejectedArchiveTargetLabel");
+    if (labelEl) labelEl.textContent = label || orderId;
+    modal._pendingOrderId = orderId;
+    modal.classList.add("show");
+  };
+
+  const closeRejectedArchiveModal = () => {
+    const modal = document.getElementById("modalArchiveRejectedOrder");
+    modal?.classList.remove("show");
+    if (modal) modal._pendingOrderId = null;
+  };
+
+  document.getElementById("btnCancelArchiveRejectedOrder")?.addEventListener("click", closeRejectedArchiveModal);
+
+  document.getElementById("btnConfirmArchiveRejectedOrder")?.addEventListener("click", async () => {
+    const modal = document.getElementById("modalArchiveRejectedOrder");
+    const orderId = modal?._pendingOrderId;
+    if (!orderId) return;
+
+    const btn = document.getElementById("btnConfirmArchiveRejectedOrder");
+    if (btn) { btn.disabled = true; btn.textContent = "Archiving..."; }
+
+    try {
+      await request(`/admin/orders/${orderId}/archive`, { method: "PATCH" });
+      removeOrderFromState(orderId);
+      renderAll();
+      notifyOrdersRealtimeUpdate({ type: "rejected-archived", orderId: String(orderId) });
+      closeRejectedArchiveModal();
+      showPopup("Rejected order archived successfully.", { title: "Archived ✓" });
+    } catch (error) {
+      showPopup(error.message || "Unable to archive rejected order.", { title: "Archive Failed" });
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-box-archive"></i> Archive Order'; }
+    }
+  });
 
   const openPaymentDeleteModal = (payment) => {
     if (!modalDeletePaymentHistory || !payment) return;
@@ -1360,7 +1446,8 @@ document.addEventListener("DOMContentLoaded", () => {
       _comboboxAllProducts = Array.isArray(data?.data)
         ? data.data
             .map((product) => ({
-              name: String(product?.name || "").trim(),
+              id:    product?.id ?? null,
+              name:  String(product?.name || "").trim(),
               price: Number(product?.price || 0),
             }))
             .filter((product) => product.name)
@@ -1534,6 +1621,8 @@ document.addEventListener("DOMContentLoaded", () => {
           project_description: projectDescription,
           project_description_other: projectDescription === "OTHERS (SPECIFY)" ? projectDescriptionOther : null,
           item_detail: itemDetail,
+          // Send product_id so backend can reduce the product stock
+          product_id: walkInSelectedProduct?.id ?? null,
           unit: String(quantity),
           subtotal_cost: subtotalCost,
           payment_method: paymentMethod,
@@ -1685,6 +1774,19 @@ document.addEventListener("DOMContentLoaded", () => {
     renderWalkInTable();
   });
 
+  rejectedPager.prev?.addEventListener("click", () => {
+    if (state.rejectedPage <= 1) return;
+    state.rejectedPage -= 1;
+    renderRejectedTable();
+  });
+
+  rejectedPager.next?.addEventListener("click", () => {
+    const totalPages = Math.max(1, Math.ceil(getRejectedRows().length / 5));
+    if (state.rejectedPage >= totalPages) return;
+    state.rejectedPage += 1;
+    renderRejectedTable();
+  });
+
   directoryStatusFilter?.addEventListener("change", () => {
     state.directoryPage = 1;
     renderDirectoryTable();
@@ -1803,6 +1905,15 @@ document.addEventListener("DOMContentLoaded", () => {
     if (rejectBtn) {
       const orderId = String(rejectBtn.getAttribute("data-order-reject") || "");
       void mutateOrder(orderId, "reject");
+      return;
+    }
+
+    // Archive rejected order
+    const rejectedArchiveBtn = target.closest("[data-rejected-archive]");
+    if (rejectedArchiveBtn) {
+      const orderId = String(rejectedArchiveBtn.getAttribute("data-rejected-archive") || "");
+      const label   = String(rejectedArchiveBtn.getAttribute("data-rejected-label") || orderId);
+      openRejectedArchiveModal(orderId, label);
       return;
     }
 

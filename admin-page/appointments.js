@@ -500,7 +500,7 @@ document.addEventListener("DOMContentLoaded", () => {
           fileName === "N/A"
             ? "N/A"
             : fileUrl
-              ? `<a href="${fileUrl}" target="_blank" rel="noopener" class="photo-link">${fileName}</a>`
+              ? `<a href="${fileUrl}" download="${fileName}" target="_blank" rel="noopener" class="photo-link">${fileName}</a>`
               : `<span class="photo-link">${fileName}</span>`;
 
         return `<tr>
@@ -826,7 +826,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const fileHtml = fileName === "N/A"
       ? '<span style="color:#9ca3af;">No file attached</span>'
       : fileUrl
-        ? `<a href="${fileUrl}" target="_blank" rel="noopener" class="photo-link">${fileName}</a>`
+        ? `<a href="${fileUrl}" download="${fileName}" target="_blank" rel="noopener" class="photo-link">${fileName}</a>`
         : `<span class="photo-link">${fileName}</span>`;
 
     const body = document.getElementById("apptViewBody");
