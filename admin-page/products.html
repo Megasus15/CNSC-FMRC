@@ -6,12 +6,19 @@
     <title>Products | CNSC-FMRC Admin</title>
     <link rel="stylesheet" href="dashboard.css" />
     <link rel="stylesheet" href="admin-modules.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <style>
       /* -- Product-specific styles -- */
-      .row-blocked td { background: rgba(220,38,38,0.07) !important; }
-      .row-blocked:hover td { background: rgba(220,38,38,0.12) !important; }
+      .row-blocked td {
+        background: rgba(220, 38, 38, 0.07) !important;
+      }
+      .row-blocked:hover td {
+        background: rgba(220, 38, 38, 0.12) !important;
+      }
 
       /* Modal: fixed header/footer, scrollable body */
       .modal-card.product-modal {
@@ -29,7 +36,10 @@
         border-bottom: 1px solid #e5e7eb;
         flex-shrink: 0;
       }
-      .product-modal .modal-title { margin: 0; font-size: 1.05rem; }
+      .product-modal .modal-title {
+        margin: 0;
+        font-size: 1.05rem;
+      }
       .product-modal .modal-body-scroll {
         padding: 20px 24px;
         overflow-y: auto;
@@ -55,7 +65,9 @@
         padding-bottom: 6px;
         border-bottom: 1px solid #f3f4f6;
       }
-      .modal-section-title:first-child { margin-top: 0; }
+      .modal-section-title:first-child {
+        margin-top: 0;
+      }
 
       /* Toggle row (In Stock / Out of Stock) */
       .stock-toggle-group {
@@ -231,16 +243,41 @@
         align-items: center;
         gap: 12px;
         cursor: pointer;
-        transition: border-color 0.18s, background 0.18s;
+        transition:
+          border-color 0.18s,
+          background 0.18s;
       }
-      .upload-area:hover { border-color: #a80f0f; background: #fff5f5; }
-      .upload-area-icon { font-size: 1.5rem; color: #6b7280; flex-shrink: 0; }
-      .upload-area-text { flex: 1; }
-      .upload-area-text strong { display: block; font-size: 0.82rem; color: #374151; }
-      .upload-area-text span { font-size: 0.74rem; color: #9ca3af; }
-      .upload-area.has-image { border-color: #16a34a; background: #f0fdf4; }
-      .upload-area.has-image .upload-area-icon { color: #16a34a; }
-      .upload-area input[type="file"] { display: none; }
+      .upload-area:hover {
+        border-color: #a80f0f;
+        background: #fff5f5;
+      }
+      .upload-area-icon {
+        font-size: 1.5rem;
+        color: #6b7280;
+        flex-shrink: 0;
+      }
+      .upload-area-text {
+        flex: 1;
+      }
+      .upload-area-text strong {
+        display: block;
+        font-size: 0.82rem;
+        color: #374151;
+      }
+      .upload-area-text span {
+        font-size: 0.74rem;
+        color: #9ca3af;
+      }
+      .upload-area.has-image {
+        border-color: #16a34a;
+        background: #f0fdf4;
+      }
+      .upload-area.has-image .upload-area-icon {
+        color: #16a34a;
+      }
+      .upload-area input[type="file"] {
+        display: none;
+      }
 
       /* View product modal content styles */
       .view-product-grid {
@@ -269,9 +306,26 @@
         color: #9ca3af;
         font-size: 0.85rem;
       }
-      .vp-label { font-size: 0.73rem; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
-      .vp-value { font-size: 0.88rem; color: #111827; font-weight: 500; margin-top: 2px; word-break: break-word; }
-      .chips-preview { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+      .vp-label {
+        font-size: 0.73rem;
+        color: #9ca3af;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .vp-value {
+        font-size: 0.88rem;
+        color: #111827;
+        font-weight: 500;
+        margin-top: 2px;
+        word-break: break-word;
+      }
+      .chips-preview {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 4px;
+      }
       .chip-tag {
         padding: 3px 10px;
         border-radius: 20px;
@@ -305,24 +359,55 @@
         transition: transform 0.15s;
         transform-origin: center;
       }
-      .photo-editor-sliders { display: flex; flex-direction: column; gap: 10px; }
-      .slider-row { display: flex; align-items: center; gap: 10px; }
-      .slider-row label { font-size: 0.8rem; font-weight: 600; min-width: 60px; color: #374151; }
-      .slider-row input[type="range"] { flex: 1; }
-      .slider-row .slider-val { font-size: 0.78rem; color: #6b7280; min-width: 36px; text-align: right; }
+      .photo-editor-sliders {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .slider-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .slider-row label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        min-width: 60px;
+        color: #374151;
+      }
+      .slider-row input[type="range"] {
+        flex: 1;
+      }
+      .slider-row .slider-val {
+        font-size: 0.78rem;
+        color: #6b7280;
+        min-width: 36px;
+        text-align: right;
+      }
 
       /* Skeleton rows */
-      .skeleton-row td { padding: 10px 14px; }
+      .skeleton-row td {
+        padding: 10px 14px;
+      }
       .skeleton-cell {
         height: 14px;
         border-radius: 6px;
-        background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+        background: linear-gradient(
+          90deg,
+          #f3f4f6 25%,
+          #e5e7eb 50%,
+          #f3f4f6 75%
+        );
         background-size: 200% 100%;
         animation: shimmer 1.4s infinite;
       }
       @keyframes shimmer {
-        0% { background-position: 200% 0; }
-        100% { background-position: -200% 0; }
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
       }
 
       /* Product Analytics Grid */
@@ -333,7 +418,9 @@
         margin-bottom: 22px;
       }
       @media (max-width: 992px) {
-        .product-analytics-grid { grid-template-columns: 1fr; }
+        .product-analytics-grid {
+          grid-template-columns: 1fr;
+        }
       }
       .analytics-card {
         background: #fff;
@@ -343,19 +430,27 @@
         display: flex;
         flex-direction: column;
         height: 100%;
-        transition: box-shadow 0.25s ease, transform 0.25s ease;
+        transition:
+          box-shadow 0.25s ease,
+          transform 0.25s ease;
       }
       .analytics-card:hover {
-        box-shadow: 0 10px 32px rgba(128,0,0,0.08);
+        box-shadow: 0 10px 32px rgba(128, 0, 0, 0.08);
         transform: translateY(-2px);
       }
       @keyframes analyticsSlideIn {
-        0%   { opacity: 0; transform: translateY(18px); }
-        100% { opacity: 1; transform: translateY(0); }
+        0% {
+          opacity: 0;
+          transform: translateY(18px);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
       .analytics-card-animate {
         opacity: 0;
-        animation: analyticsSlideIn 0.5s cubic-bezier(0.22,1,0.36,1) forwards;
+        animation: analyticsSlideIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
       }
       .analytics-card-header {
         display: flex;
@@ -413,14 +508,23 @@
         gap: 5px;
         transition: color 0.2s;
       }
-      .analytics-view-all:hover { color: #5f0000; text-decoration: underline; }
+      .analytics-view-all:hover {
+        color: #5f0000;
+        text-decoration: underline;
+      }
       .analytics-table-wrapper {
         overflow-x: auto;
         max-height: 260px;
         overflow-y: auto;
       }
-      .analytics-table-wrapper::-webkit-scrollbar { width: 5px; height: 5px; }
-      .analytics-table-wrapper::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+      .analytics-table-wrapper::-webkit-scrollbar {
+        width: 5px;
+        height: 5px;
+      }
+      .analytics-table-wrapper::-webkit-scrollbar-thumb {
+        background: #d1d5db;
+        border-radius: 4px;
+      }
       .analytics-perf-table {
         width: 100%;
         border-collapse: collapse;
@@ -445,7 +549,9 @@
         top: 0;
         z-index: 2;
       }
-      .analytics-perf-table tbody tr:hover td { background: #fef7f7; }
+      .analytics-perf-table tbody tr:hover td {
+        background: #fef7f7;
+      }
       .perf-status {
         display: inline-block;
         padding: 3px 10px;
@@ -453,10 +559,22 @@
         font-size: 0.7rem;
         font-weight: 700;
       }
-      .perf-status--top { background: #dcfce7; color: #15803d; }
-      .perf-status--high { background: #fef3c7; color: #92400e; }
-      .perf-status--low { background: #fee2e2; color: #b91c1c; }
-      .perf-status--out { background: #f1f5f9; color: #64748b; }
+      .perf-status--top {
+        background: #dcfce7;
+        color: #15803d;
+      }
+      .perf-status--high {
+        background: #fef3c7;
+        color: #92400e;
+      }
+      .perf-status--low {
+        background: #fee2e2;
+        color: #b91c1c;
+      }
+      .perf-status--out {
+        background: #f1f5f9;
+        color: #64748b;
+      }
 
       /* Analytics dropdown */
       .analytics-dropdown {
@@ -470,9 +588,11 @@
         cursor: pointer;
         outline: none;
         transition: border-color 0.2s;
-        font-family: 'Poppins', sans-serif;
+        font-family: "Poppins", sans-serif;
       }
-      .analytics-dropdown:focus { border-color: #800000; }
+      .analytics-dropdown:focus {
+        border-color: #800000;
+      }
 
       /* Empty state for analytics cards */
       .analytics-empty-state {
@@ -613,7 +733,7 @@
           max-width: 190px;
         }
       }
-      
+
       /* Action column styling */
       .action-icons.sticky-action {
         background: #fff !important;
@@ -633,20 +753,38 @@
   <body>
     <div class="dashboard-container">
       <aside class="sidebar">
-        <div class="sidebar-header"><img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" /><h2>CNSC-FMRC</h2></div>
-                <nav class="sidebar-nav">
-          <a href="dashboard.html" class="nav-link"><i class="fa-solid fa-house"></i> Dashboard</a>
-          <a href="inventory.html" class="nav-link"><i class="fa-solid fa-box"></i> Inventory</a>
-          <a href="products.html" class="nav-link active"><i class="fa-solid fa-tags"></i> Products</a>
-          <a href="appointments.html" class="nav-link"><i class="fa-regular fa-calendar-check"></i> Appointment</a>
-          <a href="accounts.html" class="nav-link"><i class="fa-solid fa-users"></i> User Management</a>
-          <a href="reports.html" class="nav-link"><i class="fa-solid fa-chart-line"></i> Reports</a>
-          <a href="orders.html" class="nav-link"><i class="fa-solid fa-box-open"></i> Orders</a>
+        <div class="sidebar-header">
+          <img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" />
+          <h2>CNSC-FMRC</h2>
+        </div>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html" class="nav-link"
+            ><i class="fa-solid fa-house"></i> Dashboard</a
+          >
+          <a href="inventory.html" class="nav-link"
+            ><i class="fa-solid fa-box"></i> Inventory</a
+          >
+          <a href="products.html" class="nav-link active"
+            ><i class="fa-solid fa-tags"></i> Products</a
+          >
+          <a href="appointments.html" class="nav-link"
+            ><i class="fa-regular fa-calendar-check"></i> Appointment</a
+          >
+          <a href="accounts.html" class="nav-link"
+            ><i class="fa-solid fa-users"></i> User Management</a
+          >
+          <a href="reports.html" class="nav-link"
+            ><i class="fa-solid fa-chart-line"></i> Reports</a
+          >
+          <a href="orders.html" class="nav-link"
+            ><i class="fa-solid fa-box-open"></i> Orders</a
+          >
 
           <div class="nav-item has-dropdown">
             <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn">
               <div class="dropdown-title">
-                <i class="fa-solid fa-screwdriver-wrench"></i> Website Management
+                <i class="fa-solid fa-screwdriver-wrench"></i> Website
+                Management
               </div>
               <i class="fa-solid fa-chevron-down arrow"></i>
             </a>
@@ -658,49 +796,87 @@
             </div>
           </div>
 
-          <a href="archives.html" class="nav-link"><i class="fa-solid fa-box-archive"></i> Archives</a>
-          <a href="my-account.html" class="nav-link"><i class="fa-regular fa-id-card"></i> My Account</a>
+          <a href="archives.html" class="nav-link"
+            ><i class="fa-solid fa-box-archive"></i> Archives</a
+          >
+          <a href="my-account.html" class="nav-link"
+            ><i class="fa-regular fa-id-card"></i> My Account</a
+          >
         </nav>
-        <div class="sidebar-footer"><button class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div>
+        <div class="sidebar-footer">
+          <button class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
+        </div>
       </aside>
 
       <main class="main-content">
         <header class="top-header">
           <div class="header-left"><h1>Products Management</h1></div>
           <div class="header-right">
-            <div class="notifications" id="notifBell"><i class="fa-regular fa-bell"></i><span class="badge" id="notifBadge" style="display:none;"></span></div>
+            <div class="notifications" id="notifBell">
+              <i class="fa-regular fa-bell"></i
+              ><span class="badge" id="notifBadge" style="display: none"></span>
+            </div>
             <div class="user-profile">
               <div class="user-info"><span class="role">Admin</span></div>
-              <span class="profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
-              <div class="profile-popup" id="profilePopup"><div class="popup-header">
+              <span
+                class="profile-icon profile-initial"
+                data-email="admin@cnsc.edu.ph"
+              ></span>
+              <div class="profile-popup" id="profilePopup">
+                <div class="popup-header">
                   <div class="popup-profile-row">
-                    <span class="popup-profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
+                    <span
+                      class="popup-profile-icon profile-initial"
+                      data-email="admin@cnsc.edu.ph"
+                    ></span>
                     <div class="popup-profile-meta">
                       <p class="popup-identity">admin@cnsc.edu.ph</p>
                       <span class="popup-role">Admin</span>
                     </div>
                   </div>
                 </div>
-                <a href="my-account.html" class="profile-popup-link"><i class="fa-regular fa-id-card"></i> My Account</a>
-                <hr /><button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div>
+                <a href="my-account.html" class="profile-popup-link"
+                  ><i class="fa-regular fa-id-card"></i> My Account</a
+                >
+                <hr />
+                <button class="logout-btn popup-logout">
+                  <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+              </div>
             </div>
           </div>
         </header>
 
         <section class="module-content">
           <div class="page-toolbar">
-            <div class="toolbar-title"><h2>Product Catalog</h2><p>Manage published products, stock display, and pricing details.</p></div>
+            <div class="toolbar-title">
+              <h2>Product Catalog</h2>
+              <p>
+                Manage published products, stock display, and pricing details.
+              </p>
+            </div>
             <div class="toolbar-actions">
-              <button class="btn-admin btn-secondary" onclick="window.location.reload();" title="Refresh Data">
+              <button
+                class="btn-admin btn-secondary"
+                onclick="window.location.reload()"
+                title="Refresh Data"
+              >
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
-              <button class="btn-admin" id="btnOpenAddProduct"><i class="fa-solid fa-plus"></i> Add Product</button>
+              <button class="btn-admin" id="btnOpenAddProduct">
+                <i class="fa-solid fa-plus"></i> Add Product
+              </button>
             </div>
           </div>
 
           <!-- Product Analytics Grid -->
           <div class="product-analytics-grid" id="productAnalyticsGrid">
-            <div class="analytics-card analytics-card-animate" style="animation-delay: 0.05s;">
+            <div
+              class="analytics-card analytics-card-animate"
+              style="animation-delay: 0.05s"
+            >
               <div class="analytics-card-header">
                 <div>
                   <h3 class="analytics-card-title">Top Selling Products</h3>
@@ -714,51 +890,85 @@
               </div>
               <div class="analytics-card-body" id="topSellingBody">
                 <canvas id="topSellingChart" height="220"></canvas>
-                <div class="analytics-empty-state" id="topSellingEmpty" style="display:none;">
+                <div
+                  class="analytics-empty-state"
+                  id="topSellingEmpty"
+                  style="display: none"
+                >
                   <i class="fa-solid fa-chart-bar"></i>
                   <p class="empty-title">No Sales Data</p>
-                  <p class="empty-desc">No products have been sold in this period yet.</p>
+                  <p class="empty-desc">
+                    No products have been sold in this period yet.
+                  </p>
                 </div>
               </div>
               <div class="analytics-card-footer">
-                <a href="#productTable" class="analytics-view-all">View All <i class="fa-solid fa-arrow-right"></i></a>
+                <a href="#productTable" class="analytics-view-all"
+                  >View All <i class="fa-solid fa-arrow-right"></i
+                ></a>
               </div>
             </div>
-            <div class="analytics-card analytics-card-animate" style="animation-delay: 0.12s;">
+            <div
+              class="analytics-card analytics-card-animate"
+              style="animation-delay: 0.12s"
+            >
               <div class="analytics-card-header">
                 <div>
                   <h3 class="analytics-card-title">Sales by Category</h3>
                   <p class="analytics-card-subtitle">Share of total sales</p>
                 </div>
               </div>
-              <div class="analytics-card-body analytics-card-body--donut" id="salesByCategoryBody">
+              <div
+                class="analytics-card-body analytics-card-body--donut"
+                id="salesByCategoryBody"
+              >
                 <div class="sales-category-layout" id="salesByCategoryLayout">
                   <div class="sales-category-chart-wrap">
                     <canvas id="salesByCategoryChart" height="220"></canvas>
-                    <div class="sales-category-center" id="salesCategoryCenterMetric">
+                    <div
+                      class="sales-category-center"
+                      id="salesCategoryCenterMetric"
+                    >
                       <strong id="salesCategoryCenterPercent">0%</strong>
                       <span id="salesCategoryCenterLabel">Top share</span>
                     </div>
                   </div>
                   <ul class="sales-category-list" id="salesByCategoryList"></ul>
                 </div>
-                <div class="analytics-empty-state" id="salesByCategoryEmpty" style="display:none;">
+                <div
+                  class="analytics-empty-state"
+                  id="salesByCategoryEmpty"
+                  style="display: none"
+                >
                   <i class="fa-solid fa-chart-pie"></i>
                   <p class="empty-title">No Category Data</p>
-                  <p class="empty-desc">No sales data available by category yet.</p>
+                  <p class="empty-desc">
+                    No sales data available by category yet.
+                  </p>
                 </div>
               </div>
             </div>
-            <div class="analytics-card analytics-card-animate" style="animation-delay: 0.19s;">
+            <div
+              class="analytics-card analytics-card-animate"
+              style="animation-delay: 0.19s"
+            >
               <div class="analytics-card-header">
                 <div>
                   <h3 class="analytics-card-title">Product Performance</h3>
-                  <p class="analytics-card-subtitle">Detailed performance per product</p>
+                  <p class="analytics-card-subtitle">
+                    Detailed performance per product
+                  </p>
                 </div>
               </div>
               <div class="analytics-card-body analytics-card-body--table">
-                <div class="analytics-table-wrapper" id="productPerformanceTableWrapper">
-                  <table class="analytics-perf-table" id="productPerformanceTable">
+                <div
+                  class="analytics-table-wrapper"
+                  id="productPerformanceTableWrapper"
+                >
+                  <table
+                    class="analytics-perf-table"
+                    id="productPerformanceTable"
+                  >
                     <thead>
                       <tr>
                         <th>Product Code</th>
@@ -771,25 +981,43 @@
                     </thead>
                     <tbody id="productPerformanceBody"></tbody>
                   </table>
-                  <div class="analytics-empty-state" id="productPerformanceEmpty" style="display:none;">
+                  <div
+                    class="analytics-empty-state"
+                    id="productPerformanceEmpty"
+                    style="display: none"
+                  >
                     <i class="fa-solid fa-table"></i>
                     <p class="empty-title">No Performance Data</p>
-                    <p class="empty-desc">No product sales performance data available yet.</p>
+                    <p class="empty-desc">
+                      No product sales performance data available yet.
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
-            <div class="analytics-card analytics-card-animate" style="animation-delay: 0.26s;">
+            <div
+              class="analytics-card analytics-card-animate"
+              style="animation-delay: 0.26s"
+            >
               <div class="analytics-card-header">
                 <div>
                   <h3 class="analytics-card-title">Yearly Sales Trend</h3>
-                  <p class="analytics-card-subtitle">Monthly total sales from orders</p>
+                  <p class="analytics-card-subtitle">
+                    Monthly total sales from orders
+                  </p>
                 </div>
-                <select class="analytics-dropdown" id="yearlySalesTrendYear"></select>
+                <select
+                  class="analytics-dropdown"
+                  id="yearlySalesTrendYear"
+                ></select>
               </div>
               <div class="analytics-card-body" id="yearlySalesTrendBody">
                 <canvas id="yearlySalesTrendChart" height="220"></canvas>
-                <div class="analytics-empty-state" id="yearlySalesTrendEmpty" style="display:none;">
+                <div
+                  class="analytics-empty-state"
+                  id="yearlySalesTrendEmpty"
+                  style="display: none"
+                >
                   <i class="fa-solid fa-chart-line"></i>
                   <p class="empty-title">No Sales Data</p>
                   <p class="empty-desc">No orders found for this year.</p>
@@ -808,10 +1036,17 @@
                   <option value="Laser Cut">Laser Cut</option>
                   <option value="CNC">CNC</option>
                 </select>
-                <input class="search-input" id="productSearchInput" placeholder="Search product..." />
+                <input
+                  class="search-input"
+                  id="productSearchInput"
+                  placeholder="Search product..."
+                />
               </div>
             </div>
-            <div class="table-scroll-hint"><i class="fa-solid fa-left-right"></i> This table is horizontally scrollable. Slide left or right to view all product fields.</div>
+            <div class="table-scroll-hint">
+              <i class="fa-solid fa-left-right"></i> This table is horizontally
+              scrollable. Slide left or right to view all product fields.
+            </div>
             <div class="table-wrapper products-table-wrapper">
               <table class="admin-table inventory-table" id="productTable">
                 <thead>
@@ -832,11 +1067,25 @@
               </table>
             </div>
             <div class="table-footer" id="productTableFooter">
-              <div class="table-footer-meta" id="productTableMeta">Loading...</div>
+              <div class="table-footer-meta" id="productTableMeta">
+                Loading...
+              </div>
               <div class="table-pagination">
-                <button class="page-btn" id="productPrevPage" aria-label="Previous page"><i class="fa-solid fa-chevron-left"></i></button>
+                <button
+                  class="page-btn"
+                  id="productPrevPage"
+                  aria-label="Previous page"
+                >
+                  <i class="fa-solid fa-chevron-left"></i>
+                </button>
                 <div class="page-number" id="productCurrentPage">1</div>
-                <button class="page-btn" id="productNextPage" aria-label="Next page"><i class="fa-solid fa-chevron-right"></i></button>
+                <button
+                  class="page-btn"
+                  id="productNextPage"
+                  aria-label="Next page"
+                >
+                  <i class="fa-solid fa-chevron-right"></i>
+                </button>
               </div>
             </div>
           </div>
@@ -848,63 +1097,158 @@
     <div class="modal-overlay" id="modalAddProduct" data-backdrop-close="false">
       <div class="modal-card product-modal">
         <div class="modal-header-fixed">
-          <h3 class="modal-title"><i class="fa-solid fa-plus" style="margin-right:6px;"></i>Add Product</h3>
+          <h3 class="modal-title">
+            <i class="fa-solid fa-plus" style="margin-right: 6px"></i>Add
+            Product
+          </h3>
         </div>
         <div class="modal-body-scroll">
           <p class="modal-section-title">Product Information</p>
           <div class="form-grid">
-            <div class="field-stack"><label>Category <span style="color:#dc2626">*</span></label>
+            <div class="field-stack">
+              <label>Category <span style="color: #dc2626">*</span></label>
               <select class="filter-select" id="addProductCategory">
-                <option>3D Print</option><option>Laser Cut</option><option>CNC</option>
+                <option>3D Print</option>
+                <option>Laser Cut</option>
+                <option>CNC</option>
               </select>
             </div>
             <div class="field-stack full">
               <label>Product Name</label>
               <div class="custom-select-wrapper" id="addProductNameWrapper">
-                <button type="button" class="custom-select-trigger" id="addProductNameTrigger" aria-haspopup="listbox" aria-expanded="false">
+                <button
+                  type="button"
+                  class="custom-select-trigger"
+                  id="addProductNameTrigger"
+                  aria-haspopup="listbox"
+                  aria-expanded="false"
+                >
                   Select an existing product
-                  <span class="custom-select-arrow"><i class="fa-solid fa-chevron-down"></i></span>
+                  <span class="custom-select-arrow"
+                    ><i class="fa-solid fa-chevron-down"></i
+                  ></span>
                 </button>
-                <div class="custom-select-dropdown" id="addProductNameDropdown" role="listbox" aria-label="Product name options">
-                  <input type="search" class="input-field custom-select-search" id="addProductNameSearch" placeholder="Search existing products..." autocomplete="off" />
-                  <div class="custom-select-list" id="addProductNameOptions" tabindex="0"></div>
-                  <button type="button" class="custom-select-footer" id="addProductNameAddNewBtn">+ Add New Product</button>
+                <div
+                  class="custom-select-dropdown"
+                  id="addProductNameDropdown"
+                  role="listbox"
+                  aria-label="Product name options"
+                >
+                  <input
+                    type="search"
+                    class="input-field custom-select-search"
+                    id="addProductNameSearch"
+                    placeholder="Search existing products..."
+                    autocomplete="off"
+                  />
+                  <div
+                    class="custom-select-list"
+                    id="addProductNameOptions"
+                    tabindex="0"
+                  ></div>
+                  <button
+                    type="button"
+                    class="custom-select-footer"
+                    id="addProductNameAddNewBtn"
+                  >
+                    + Add New Product
+                  </button>
                 </div>
               </div>
               <select class="filter-select" id="addProductNameSelect" hidden>
                 <option value="">Select an existing product</option>
               </select>
-              <p class="field-hint">Search existing products or choose to add a new product.</p>
+              <p class="field-hint">
+                Search existing products or choose to add a new product.
+              </p>
             </div>
-            <div class="field-stack full" id="addProductNewNameWrap" style="display:none;">
+            <div
+              class="field-stack full"
+              id="addProductNewNameWrap"
+              style="display: none"
+            >
               <label>New Product Name</label>
-              <input class="input-field" id="addProductNewName" maxlength="255" placeholder="Enter a new product name" />
+              <input
+                class="input-field"
+                id="addProductNewName"
+                maxlength="255"
+                placeholder="Enter a new product name"
+              />
             </div>
-            <div class="field-stack"><label>New Product Code <span style="color:#dc2626">*</span></label><input class="input-field" id="addProductCode" placeholder="e.g. S2P-001" maxlength="100" required /></div>
-            <div class="field-stack"><label>In Stock (Quantity) <span style="color:#dc2626">*</span></label><input class="input-field" id="addProductStock" type="number" min="0" required /></div>
-            <div class="field-stack"><label>Price <span style="color:#dc2626">*</span></label><input class="input-field" id="addProductPrice" type="number" min="0" step="0.01" required /></div>
+            <div class="field-stack">
+              <label
+                >New Product Code <span style="color: #dc2626">*</span></label
+              ><input
+                class="input-field"
+                id="addProductCode"
+                placeholder="e.g. S2P-001"
+                maxlength="100"
+                required
+              />
+            </div>
+            <div class="field-stack">
+              <label
+                >In Stock (Quantity)
+                <span style="color: #dc2626">*</span></label
+              ><input
+                class="input-field"
+                id="addProductStock"
+                type="number"
+                min="0"
+                required
+              />
+            </div>
+            <div class="field-stack">
+              <label>Price <span style="color: #dc2626">*</span></label
+              ><input
+                class="input-field"
+                id="addProductPrice"
+                type="number"
+                min="0"
+                step="0.01"
+                required
+              />
+            </div>
 
             <div class="field-stack full">
-              <label>Stock Status <span style="color:#dc2626">*</span></label>
+              <label>Stock Status <span style="color: #dc2626">*</span></label>
               <div class="stock-toggle-group">
-                <button type="button" class="stock-toggle-btn active-in-stock" id="addStockStatusInStock" data-form="add" data-value="in_stock">
+                <button
+                  type="button"
+                  class="stock-toggle-btn active-in-stock"
+                  id="addStockStatusInStock"
+                  data-form="add"
+                  data-value="in_stock"
+                >
                   <i class="fa-solid fa-circle-check"></i> In Stock
                 </button>
-                <button type="button" class="stock-toggle-btn" id="addStockStatusOutOfStock" data-form="add" data-value="out_of_stock">
+                <button
+                  type="button"
+                  class="stock-toggle-btn"
+                  id="addStockStatusOutOfStock"
+                  data-form="add"
+                  data-value="out_of_stock"
+                >
                   <i class="fa-solid fa-circle-xmark"></i> Out of Stock
                 </button>
               </div>
-              <input type="hidden" id="addProductStockStatus" value="in_stock" />
+              <input
+                type="hidden"
+                id="addProductStockStatus"
+                value="in_stock"
+              />
             </div>
 
             <div class="field-stack full">
               <label>Product Visibility</label>
               <div class="block-toggle-row" id="addBlockToggleRow">
                 <div class="block-toggle-label">
-                  <strong id="addBlockLabel">Product Active (Visible to Customers)</strong>
+                  <strong id="addBlockLabel"
+                    >Product Active (Visible to Customers)</strong
+                  >
                   <span>Hide product from customers</span>
                 </div>
-                <label class="toggle-switch" style="flex-shrink:0;">
+                <label class="toggle-switch" style="flex-shrink: 0">
                   <input type="checkbox" id="addProductBlocked" />
                   <span class="toggle-slider"></span>
                 </label>
@@ -914,7 +1258,9 @@
             <div class="field-stack full">
               <label>Upload Image</label>
               <div class="upload-area" id="addUploadArea">
-                <div class="upload-area-icon"><i class="fa-regular fa-image"></i></div>
+                <div class="upload-area-icon">
+                  <i class="fa-regular fa-image"></i>
+                </div>
                 <div class="upload-area-text">
                   <strong id="addUploadLabel">Click to choose an image</strong>
                   <span>JPG, PNG, GIF, WEBP — image will open in editor</span>
@@ -924,87 +1270,191 @@
             </div>
           </div>
 
-          <p class="modal-section-title" style="margin-top:22px;">View Info Details</p>
-          <p class="field-hint" style="margin-bottom:12px;">These fields appear inside the "View Info" modal on the customer's product page.</p>
+          <p class="modal-section-title" style="margin-top: 22px">
+            View Info Details
+          </p>
+          <p class="field-hint" style="margin-bottom: 12px">
+            These fields appear inside the "View Info" modal on the customer's
+            product page.
+          </p>
           <div class="form-grid">
             <div class="field-stack full">
               <label>Product Summary / Description</label>
-              <textarea class="textarea-field" id="addProductSummary" rows="3" placeholder="Short description shown in the product info modal..."></textarea>
+              <textarea
+                class="textarea-field"
+                id="addProductSummary"
+                rows="3"
+                placeholder="Short description shown in the product info modal..."
+              ></textarea>
             </div>
             <div class="field-stack full">
               <label>Product Detail Chips</label>
-              <textarea class="textarea-field" id="addProductChips" rows="2" placeholder="One tag per line, e.g.&#10;200gsm material&#10;UV-coated"></textarea>
-              <p class="field-hint">Each line becomes a chip tag in the customer View Info modal.</p>
+              <textarea
+                class="textarea-field"
+                id="addProductChips"
+                rows="2"
+                placeholder="One tag per line, e.g.&#10;200gsm material&#10;UV-coated"
+              ></textarea>
+              <p class="field-hint">
+                Each line becomes a chip tag in the customer View Info modal.
+              </p>
             </div>
             <div class="field-stack">
               <label>Availability</label>
-              <textarea class="textarea-field" id="addProductAvailability" rows="3" placeholder="One item per line, e.g.&#10;Mon – Fri, 8AM–5PM&#10;Campus pickup available"></textarea>
+              <textarea
+                class="textarea-field"
+                id="addProductAvailability"
+                rows="3"
+                placeholder="One item per line, e.g.&#10;Mon – Fri, 8AM–5PM&#10;Campus pickup available"
+              ></textarea>
             </div>
             <div class="field-stack">
               <label>Recommended For</label>
-              <textarea class="textarea-field" id="addProductRecommended" rows="3" placeholder="One item per line, e.g.&#10;Students&#10;Business owners"></textarea>
+              <textarea
+                class="textarea-field"
+                id="addProductRecommended"
+                rows="3"
+                placeholder="One item per line, e.g.&#10;Students&#10;Business owners"
+              ></textarea>
             </div>
           </div>
         </div>
         <div class="modal-footer-fixed">
-          <button class="btn-admin btn-secondary" id="btnCancelAddProduct">Cancel</button>
-          <button class="btn-admin" id="btnSaveProduct" type="button"><i class="fa-solid fa-floppy-disk"></i> Save Product</button>
+          <button class="btn-admin btn-secondary" id="btnCancelAddProduct">
+            Cancel
+          </button>
+          <button class="btn-admin" id="btnSaveProduct" type="button">
+            <i class="fa-solid fa-floppy-disk"></i> Save Product
+          </button>
         </div>
       </div>
     </div>
 
     <!-- ---------------------- EDIT PRODUCT MODAL ---------------------- -->
-    <div class="modal-overlay" id="modalEditProduct" data-backdrop-close="false">
+    <div
+      class="modal-overlay"
+      id="modalEditProduct"
+      data-backdrop-close="false"
+    >
       <div class="modal-card product-modal">
         <div class="modal-header-fixed">
-          <h3 class="modal-title"><i class="fa-regular fa-pen-to-square" style="margin-right:6px;"></i>Edit Product</h3>
+          <h3 class="modal-title">
+            <i class="fa-regular fa-pen-to-square" style="margin-right: 6px"></i
+            >Edit Product
+          </h3>
         </div>
         <div class="modal-body-scroll">
           <p class="modal-section-title">Product Card Details</p>
-          <p class="field-hint" style="margin-bottom:12px;">These fields are displayed on the customer's product card.</p>
+          <p class="field-hint" style="margin-bottom: 12px">
+            These fields are displayed on the customer's product card.
+          </p>
           <div class="form-grid">
-            <div class="field-stack full"><label>Product Name <span style="color:#dc2626">*</span></label><input class="input-field" id="editProductName" maxlength="255" /></div>
-            <div class="field-stack"><label>Category <span style="color:#dc2626">*</span></label>
+            <div class="field-stack full">
+              <label>Product Name <span style="color: #dc2626">*</span></label
+              ><input
+                class="input-field"
+                id="editProductName"
+                maxlength="255"
+              />
+            </div>
+            <div class="field-stack">
+              <label>Category <span style="color: #dc2626">*</span></label>
               <select class="filter-select" id="editProductCategory">
-                <option>3D Print</option><option>Laser Cut</option><option>CNC</option>
+                <option>3D Print</option>
+                <option>Laser Cut</option>
+                <option>CNC</option>
               </select>
             </div>
-            <div class="field-stack"><label>Product Code</label><input class="input-field" id="editProductCode" maxlength="100" /></div>
-            <div class="field-stack"><label>In Stock (Quantity) <span style="color:#dc2626">*</span></label><input class="input-field" id="editProductStock" type="number" min="0" required /></div>
-            <div class="field-stack"><label>Price <span style="color:#dc2626">*</span></label><input class="input-field" id="editProductPrice" type="number" min="0" step="0.01" required /></div>
+            <div class="field-stack">
+              <label>Product Code</label
+              ><input
+                class="input-field"
+                id="editProductCode"
+                maxlength="100"
+              />
+            </div>
+            <div class="field-stack">
+              <label
+                >In Stock (Quantity)
+                <span style="color: #dc2626">*</span></label
+              ><input
+                class="input-field"
+                id="editProductStock"
+                type="number"
+                min="0"
+                required
+              />
+            </div>
+            <div class="field-stack">
+              <label>Price <span style="color: #dc2626">*</span></label
+              ><input
+                class="input-field"
+                id="editProductPrice"
+                type="number"
+                min="0"
+                step="0.01"
+                required
+              />
+            </div>
 
             <div class="field-stack full">
-              <label>Stock Status <span style="color:#dc2626">*</span></label>
+              <label>Stock Status <span style="color: #dc2626">*</span></label>
               <div class="stock-toggle-group">
-                <button type="button" class="stock-toggle-btn active-in-stock" id="editStockStatusInStock" data-form="edit" data-value="in_stock">
+                <button
+                  type="button"
+                  class="stock-toggle-btn active-in-stock"
+                  id="editStockStatusInStock"
+                  data-form="edit"
+                  data-value="in_stock"
+                >
                   <i class="fa-solid fa-circle-check"></i> In Stock
                 </button>
-                <button type="button" class="stock-toggle-btn" id="editStockStatusOutOfStock" data-form="edit" data-value="out_of_stock">
+                <button
+                  type="button"
+                  class="stock-toggle-btn"
+                  id="editStockStatusOutOfStock"
+                  data-form="edit"
+                  data-value="out_of_stock"
+                >
                   <i class="fa-solid fa-circle-xmark"></i> Out of Stock
                 </button>
               </div>
-              <input type="hidden" id="editProductStockStatus" value="in_stock" />
+              <input
+                type="hidden"
+                id="editProductStockStatus"
+                value="in_stock"
+              />
             </div>
 
             <div class="field-stack full">
               <label>Product Visibility</label>
               <div class="block-toggle-row" id="editBlockToggleRow">
                 <div class="block-toggle-label">
-                  <strong id="editBlockLabel">Product Active (Visible to Customers)</strong>
-                  <span>Toggle to block this product from appearing on the customer website.</span>
+                  <strong id="editBlockLabel"
+                    >Product Active (Visible to Customers)</strong
+                  >
+                  <span
+                    >Toggle to block this product from appearing on the customer
+                    website.</span
+                  >
                 </div>
-                <label class="toggle-switch" style="flex-shrink:0;">
+                <label class="toggle-switch" style="flex-shrink: 0">
                   <input type="checkbox" id="editProductBlocked" />
                   <span class="toggle-slider"></span>
                 </label>
               </div>
-              <p class="field-hint">When blocked, the product is hidden and not clickable on the customer website.</p>
+              <p class="field-hint">
+                When blocked, the product is hidden and not clickable on the
+                customer website.
+              </p>
             </div>
 
             <div class="field-stack full">
               <label>Upload Image</label>
               <div class="upload-area" id="editUploadArea">
-                <div class="upload-area-icon"><i class="fa-regular fa-image"></i></div>
+                <div class="upload-area-icon">
+                  <i class="fa-regular fa-image"></i>
+                </div>
                 <div class="upload-area-text">
                   <strong id="editUploadLabel">Click to replace image</strong>
                   <span>JPG, PNG, GIF, WEBP — image will open in editor</span>
@@ -1014,89 +1464,176 @@
             </div>
           </div>
 
-          <p class="modal-section-title" style="margin-top:22px;">View Info Details</p>
-          <p class="field-hint" style="margin-bottom:12px;">These fields appear inside the "View Info" modal on the customer's product page.</p>
+          <p class="modal-section-title" style="margin-top: 22px">
+            View Info Details
+          </p>
+          <p class="field-hint" style="margin-bottom: 12px">
+            These fields appear inside the "View Info" modal on the customer's
+            product page.
+          </p>
           <div class="form-grid">
             <div class="field-stack full">
               <label>Product Summary / Description</label>
-              <textarea class="textarea-field" id="editProductSummary" rows="3" placeholder="Short description shown in the product info modal..."></textarea>
+              <textarea
+                class="textarea-field"
+                id="editProductSummary"
+                rows="3"
+                placeholder="Short description shown in the product info modal..."
+              ></textarea>
             </div>
             <div class="field-stack full">
               <label>Product Detail Chips</label>
-              <textarea class="textarea-field" id="editProductChips" rows="2" placeholder="One tag per line, e.g.&#10;200gsm material&#10;UV-coated"></textarea>
-              <p class="field-hint">Each line becomes a chip tag in the customer View Info modal.</p>
+              <textarea
+                class="textarea-field"
+                id="editProductChips"
+                rows="2"
+                placeholder="One tag per line, e.g.&#10;200gsm material&#10;UV-coated"
+              ></textarea>
+              <p class="field-hint">
+                Each line becomes a chip tag in the customer View Info modal.
+              </p>
             </div>
             <div class="field-stack">
               <label>Availability</label>
-              <textarea class="textarea-field" id="editProductAvailability" rows="3" placeholder="One item per line, e.g.&#10;Mon – Fri, 8AM–5PM&#10;Campus pickup available"></textarea>
+              <textarea
+                class="textarea-field"
+                id="editProductAvailability"
+                rows="3"
+                placeholder="One item per line, e.g.&#10;Mon – Fri, 8AM–5PM&#10;Campus pickup available"
+              ></textarea>
             </div>
             <div class="field-stack">
               <label>Recommended For</label>
-              <textarea class="textarea-field" id="editProductRecommended" rows="3" placeholder="One item per line, e.g.&#10;Students&#10;Business owners"></textarea>
+              <textarea
+                class="textarea-field"
+                id="editProductRecommended"
+                rows="3"
+                placeholder="One item per line, e.g.&#10;Students&#10;Business owners"
+              ></textarea>
             </div>
           </div>
         </div>
         <div class="modal-footer-fixed">
-          <button class="btn-admin btn-secondary" id="btnCancelEditProduct">Cancel</button>
-          <button class="btn-admin" id="btnUpdateProduct" type="button"><i class="fa-solid fa-floppy-disk"></i> Update Product</button>
+          <button class="btn-admin btn-secondary" id="btnCancelEditProduct">
+            Cancel
+          </button>
+          <button class="btn-admin" id="btnUpdateProduct" type="button">
+            <i class="fa-solid fa-floppy-disk"></i> Update Product
+          </button>
         </div>
       </div>
     </div>
 
     <!-- ---------------------- VIEW PRODUCT MODAL ---------------------- -->
-    <div class="modal-overlay" id="modalViewProduct" data-backdrop-close="false">
-      <div class="modal-card" style="min-width:500px;max-width:640px;width:100%;">
-        <h3 class="modal-title" id="viewProductTitle" style="margin-bottom:4px;">Product Details</h3>
-        <p class="field-hint" style="margin-bottom:14px;" id="viewProductSubtitle"></p>
+    <div
+      class="modal-overlay"
+      id="modalViewProduct"
+      data-backdrop-close="false"
+    >
+      <div
+        class="modal-card"
+        style="min-width: 500px; max-width: 640px; width: 100%"
+      >
+        <h3
+          class="modal-title"
+          id="viewProductTitle"
+          style="margin-bottom: 4px"
+        >
+          Product Details
+        </h3>
+        <p
+          class="field-hint"
+          style="margin-bottom: 14px"
+          id="viewProductSubtitle"
+        ></p>
         <hr class="confirm-separator" />
-        <div id="viewProductContent" style="margin-bottom:16px;"></div>
+        <div id="viewProductContent" style="margin-bottom: 16px"></div>
         <hr class="confirm-separator" />
         <div class="modal-actions">
-          <button class="btn-admin btn-secondary" id="btnCloseViewProduct">Close</button>
-          <button class="btn-admin" id="btnOpenEditFromView" type="button"><i class="fa-regular fa-pen-to-square"></i> Edit Product</button>
+          <button class="btn-admin btn-secondary" id="btnCloseViewProduct">
+            Close
+          </button>
+          <button class="btn-admin" id="btnOpenEditFromView" type="button">
+            <i class="fa-regular fa-pen-to-square"></i> Edit Product
+          </button>
         </div>
       </div>
     </div>
 
     <!-- ---------------------- DELETE PRODUCT MODAL ---------------------- -->
-    <div class="modal-overlay" id="modalDeleteProduct" data-backdrop-close="false">
+    <div
+      class="modal-overlay"
+      id="modalDeleteProduct"
+      data-backdrop-close="false"
+    >
       <div class="modal-card modal-confirm">
         <h3 class="modal-title">Delete Confirmation</h3>
         <hr class="confirm-separator" />
         <p class="confirm-text">
-          You are about to permanently delete <strong id="deleteProductTargetLabel">this product</strong>.
+          You are about to permanently delete
+          <strong id="deleteProductTargetLabel">this product</strong>.
         </p>
-        <p class="field-hint">This action cannot be undone. The product will be removed from the database.</p>
+        <p class="field-hint">
+          This action cannot be undone. The product will be removed from the
+          database.
+        </p>
         <hr class="confirm-separator" />
         <div class="modal-actions">
-          <button class="btn-admin btn-secondary" id="btnCancelDeleteProduct">Cancel</button>
-          <button class="btn-admin" id="btnConfirmProductDelete" type="button">Delete Product</button>
+          <button class="btn-admin btn-secondary" id="btnCancelDeleteProduct">
+            Cancel
+          </button>
+          <button class="btn-admin" id="btnConfirmProductDelete" type="button">
+            Delete Product
+          </button>
         </div>
       </div>
     </div>
 
     <!-- ---------------------- PHOTO EDITOR MODAL ---------------------- -->
-    <div class="modal-overlay" id="modalProductPhotoEditor" data-backdrop-close="false">
+    <div
+      class="modal-overlay"
+      id="modalProductPhotoEditor"
+      data-backdrop-close="false"
+    >
       <div class="modal-card photo-editor-modal">
-        <h3 class="modal-title" style="margin-bottom:14px;"><i class="fa-regular fa-image" style="margin-right:6px;"></i>Edit Image</h3>
+        <h3 class="modal-title" style="margin-bottom: 14px">
+          <i class="fa-regular fa-image" style="margin-right: 6px"></i>Edit
+          Image
+        </h3>
         <div class="photo-editor-canvas-wrap">
           <img id="productPhotoEditorPreview" alt="Image editor preview" />
         </div>
         <div class="photo-editor-sliders">
           <div class="slider-row">
             <label for="productPhotoRotate">Rotate</label>
-            <input id="productPhotoRotate" type="range" min="-180" max="180" value="0" />
+            <input
+              id="productPhotoRotate"
+              type="range"
+              min="-180"
+              max="180"
+              value="0"
+            />
             <span class="slider-val" id="rotateVal">0°</span>
           </div>
           <div class="slider-row">
             <label for="productPhotoScale">Resize</label>
-            <input id="productPhotoScale" type="range" min="50" max="200" value="100" />
+            <input
+              id="productPhotoScale"
+              type="range"
+              min="50"
+              max="200"
+              value="100"
+            />
             <span class="slider-val" id="scaleVal">100%</span>
           </div>
         </div>
-        <div class="modal-actions" style="margin-top:14px;">
-          <button class="btn-admin btn-secondary" id="btnCancelPhotoEdit">Cancel</button>
-          <button class="btn-admin" id="btnApplyProductPhotoEdit" type="button"><i class="fa-solid fa-floppy-disk"></i> Save Image</button>
+        <div class="modal-actions" style="margin-top: 14px">
+          <button class="btn-admin btn-secondary" id="btnCancelPhotoEdit">
+            Cancel
+          </button>
+          <button class="btn-admin" id="btnApplyProductPhotoEdit" type="button">
+            <i class="fa-solid fa-floppy-disk"></i> Save Image
+          </button>
         </div>
       </div>
     </div>

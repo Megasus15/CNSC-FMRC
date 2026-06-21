@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const sanitizeRemovedPageLinks = () => {
     const currentPath = window.location.pathname.toLowerCase();
     const openedRemovedPage = REMOVED_ROUTES.some((route) =>
-      currentPath.endsWith(`/${route}`)
+      currentPath.endsWith(`/${route}`),
     );
 
     if (openedRemovedPage) {
@@ -53,14 +53,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const closeMobileSidebar = () => {
     body.classList.remove("admin-sidebar-open");
-    if (sidebarToggleBtn) sidebarToggleBtn.setAttribute("aria-expanded", "false");
+    if (sidebarToggleBtn)
+      sidebarToggleBtn.setAttribute("aria-expanded", "false");
     saveSidebarState(false);
   };
 
   const openMobileSidebar = () => {
     if (!isMobileSidebarMode()) return;
     body.classList.add("admin-sidebar-open");
-    if (sidebarToggleBtn) sidebarToggleBtn.setAttribute("aria-expanded", "true");
+    if (sidebarToggleBtn)
+      sidebarToggleBtn.setAttribute("aria-expanded", "true");
     saveSidebarState(true);
   };
 
@@ -109,12 +111,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!container || container.querySelector(".nav-label")) return;
 
     const textNodes = Array.from(container.childNodes).filter(
-      (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim()
+      (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
     );
 
     if (!textNodes.length) return;
 
-    const labelText = textNodes.map((node) => node.textContent.trim()).join(" ");
+    const labelText = textNodes
+      .map((node) => node.textContent.trim())
+      .join(" ");
     textNodes.forEach((node) => node.remove());
 
     const label = document.createElement("span");
@@ -147,22 +151,34 @@ document.addEventListener("DOMContentLoaded", () => {
     if (isMobileSidebarMode()) {
       if (getSavedSidebarState()) {
         body.classList.add("admin-sidebar-open");
-        if (sidebarToggleBtn) sidebarToggleBtn.setAttribute("aria-expanded", "true");
+        if (sidebarToggleBtn)
+          sidebarToggleBtn.setAttribute("aria-expanded", "true");
       } else {
         body.classList.remove("admin-sidebar-open");
-        if (sidebarToggleBtn) sidebarToggleBtn.setAttribute("aria-expanded", "false");
+        if (sidebarToggleBtn)
+          sidebarToggleBtn.setAttribute("aria-expanded", "false");
       }
     } else {
       body.classList.remove("admin-sidebar-open");
-      if (sidebarToggleBtn) sidebarToggleBtn.setAttribute("aria-expanded", "false");
+      if (sidebarToggleBtn)
+        sidebarToggleBtn.setAttribute("aria-expanded", "false");
     }
   };
 
-  const WEBSITE_MGMT_ROUTES = ["website-home.html", "website-services.html", "website-contact.html", "website-footer.html"];
-  const isWebsiteMgmtPage = WEBSITE_MGMT_ROUTES.some(route => window.location.pathname.toLowerCase().endsWith(`/${route}`));
-  
+  const WEBSITE_MGMT_ROUTES = [
+    "website-home.html",
+    "website-services.html",
+    "website-contact.html",
+    "website-footer.html",
+  ];
+  const isWebsiteMgmtPage = WEBSITE_MGMT_ROUTES.some((route) =>
+    window.location.pathname.toLowerCase().endsWith(`/${route}`),
+  );
+
   // Support both admin and staff control button IDs (adminControlBtn, staffControlBtn)
-  const controlBtn = document.getElementById("adminControlBtn") || document.getElementById("staffControlBtn");
+  const controlBtn =
+    document.getElementById("adminControlBtn") ||
+    document.getElementById("staffControlBtn");
   if (controlBtn) {
     const hasDropdown = controlBtn.parentElement;
 
@@ -180,14 +196,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!controlBtn.dataset.boundDropdown) {
       controlBtn.addEventListener("click", (e) => {
-        if (isMobileSidebarMode() && !body.classList.contains("admin-sidebar-open")) {
+        if (
+          isMobileSidebarMode() &&
+          !body.classList.contains("admin-sidebar-open")
+        ) {
           e.preventDefault();
           openMobileSidebar();
           return;
         }
         e.preventDefault();
         hasDropdown.classList.toggle("open");
-        localStorage.setItem("websiteMgmtDropdownState", hasDropdown.classList.contains("open") ? "open" : "closed");
+        localStorage.setItem(
+          "websiteMgmtDropdownState",
+          hasDropdown.classList.contains("open") ? "open" : "closed",
+        );
       });
       controlBtn.dataset.boundDropdown = "1";
     }
@@ -204,7 +226,8 @@ document.addEventListener("DOMContentLoaded", () => {
       accountLink = document.createElement("a");
       accountLink.href = "my-account.html";
       accountLink.className = "nav-link";
-      accountLink.innerHTML = '<i class="fa-regular fa-id-card"></i> My Account';
+      accountLink.innerHTML =
+        '<i class="fa-regular fa-id-card"></i> My Account';
       if (archivesLink) {
         archivesLink.insertAdjacentElement("afterend", accountLink);
       } else {
@@ -234,13 +257,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const ensureCustomerInquiriesEntry = () => {
     if (!sidebarNav) return;
 
-    let inquiriesLink = sidebarNav.querySelector('a[href="customer-inquiries.html"]');
+    let inquiriesLink = sidebarNav.querySelector(
+      'a[href="customer-inquiries.html"]',
+    );
     if (!inquiriesLink) {
       const ordersLink = sidebarNav.querySelector('a[href="orders.html"]');
       inquiriesLink = document.createElement("a");
       inquiriesLink.href = "customer-inquiries.html";
       inquiriesLink.className = "nav-link";
-      inquiriesLink.innerHTML = '<i class="fa-regular fa-envelope-open"></i> Customer Inquiries';
+      inquiriesLink.innerHTML =
+        '<i class="fa-regular fa-envelope-open"></i> Customer Inquiries';
 
       if (ordersLink) {
         ordersLink.insertAdjacentElement("afterend", inquiriesLink);
@@ -249,7 +275,11 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    if (window.location.pathname.toLowerCase().endsWith("/customer-inquiries.html")) {
+    if (
+      window.location.pathname
+        .toLowerCase()
+        .endsWith("/customer-inquiries.html")
+    ) {
       inquiriesLink.classList.add("active");
     }
   };
@@ -290,44 +320,60 @@ document.addEventListener("DOMContentLoaded", () => {
   // Fetch current authenticated user and update UI (keeps email in sync after changes)
   (function fetchAndApplyUserProfile() {
     const API_BASE = (() => {
-      const configured = window.APP_API_BASE_URL || document.querySelector('meta[name="api-base-url"]')?.getAttribute('content') || "";
-      if (configured.trim()) return configured.replace(/\/+$/, '');
+      const configured =
+        window.APP_API_BASE_URL ||
+        document
+          .querySelector('meta[name="api-base-url"]')
+          ?.getAttribute("content") ||
+        "";
+      if (configured.trim()) return configured.replace(/\/+$/, "");
       const proto = window.location.protocol;
-      const host  = window.location.hostname;
-      const port  = window.location.port;
-      if (port === '8000') return `${proto}//${host}:${port}/api`;
-      if (host === 'localhost' || host === '127.0.0.1') return `${proto}//${host}:8000/api`;
+      const host = window.location.hostname;
+      const port = window.location.port;
+      if (port === "8000") return `${proto}//${host}:${port}/api`;
+      if (host === "localhost" || host === "127.0.0.1")
+        return `${proto}//${host}:8000/api`;
       return `${proto}//${host}/api`;
     })();
 
-    const token = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem('auth_token') || '';
+    const token =
+      (window.AdminSession && window.AdminSession.getToken()) ||
+      localStorage.getItem("auth_token") ||
+      "";
     if (!token) return;
 
     fetch(`${API_BASE}/user`, {
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
-    }).then((res) => {
-      if (!res.ok) return null;
-      return res.json();
-    }).then((user) => {
-      if (!user) return;
-      const email = user.email || (user.data && user.data.email) || '';
-      if (!email) return;
-      document.querySelectorAll('.profile-initial').forEach((el) => {
-        el.dataset.email = email;
-        el.textContent = email.trim().charAt(0).toUpperCase();
-      });
-      const popupIdentity = document.querySelector('.popup-identity');
-      if (popupIdentity) popupIdentity.textContent = email;
-      const currentGmailEl = document.getElementById('currentGmailValue');
-      if (currentGmailEl) currentGmailEl.textContent = email;
-      try {
-        if (window.AdminSession) {
-          window.AdminSession.setUserInfo(user);
-        } else {
-          localStorage.setItem('user_info', JSON.stringify(user));
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    })
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then((user) => {
+        if (!user) return;
+        const email = user.email || (user.data && user.data.email) || "";
+        if (!email) return;
+        document.querySelectorAll(".profile-initial").forEach((el) => {
+          el.dataset.email = email;
+          el.textContent = email.trim().charAt(0).toUpperCase();
+        });
+        const popupIdentity = document.querySelector(".popup-identity");
+        if (popupIdentity) popupIdentity.textContent = email;
+        const currentGmailEl = document.getElementById("currentGmailValue");
+        if (currentGmailEl) currentGmailEl.textContent = email;
+        try {
+          if (window.AdminSession) {
+            window.AdminSession.setUserInfo(user);
+          } else {
+            localStorage.setItem("user_info", JSON.stringify(user));
+          }
+        } catch (e) {
+          /* ignore */
         }
-      } catch (e) { /* ignore */ }
-    }).catch(() => { /* ignore network errors */ });
+      })
+      .catch(() => {
+        /* ignore network errors */
+      });
   })();
 
   if (userProfile && profilePopup) {
@@ -352,14 +398,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (notifBtn) {
     const NOTIF_API_BASE = (() => {
-      const configured = window.APP_API_BASE_URL ||
-        document.querySelector('meta[name="api-base-url"]')?.getAttribute("content") || "";
+      const configured =
+        window.APP_API_BASE_URL ||
+        document
+          .querySelector('meta[name="api-base-url"]')
+          ?.getAttribute("content") ||
+        "";
       if (configured.trim()) return configured.replace(/\/+$/, "");
       const proto = window.location.protocol;
-      const host  = window.location.hostname;
-      const port  = window.location.port;
+      const host = window.location.hostname;
+      const port = window.location.port;
       if (port === "8000") return `${proto}//${host}:${port}/api`;
-      if (host === "localhost" || host === "127.0.0.1") return `${proto}//${host}:8000/api`;
+      if (host === "localhost" || host === "127.0.0.1")
+        return `${proto}//${host}:8000/api`;
       return `${proto}//${host}/api`;
     })();
 
@@ -401,18 +452,24 @@ document.addEventListener("DOMContentLoaded", () => {
       document.body.appendChild(notifDropdown);
     }
 
-    const notifBody       = notifDropdown.querySelector("#notifBody");
+    const notifBody = notifDropdown.querySelector("#notifBody");
     const notifEmptyState = notifDropdown.querySelector("#notifEmptyState");
     const notifMarkAllBtn = notifDropdown.querySelector("#notifMarkAllBtn");
-    const notifBadge      = notifBtn.querySelector(".badge") || notifBtn.querySelector("#notifBadge");
+    const notifBadge =
+      notifBtn.querySelector(".badge") || notifBtn.querySelector("#notifBadge");
 
     // Helper: get auth token
-    const getToken = () => (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token") || "";
+    const getToken = () =>
+      (window.AdminSession && window.AdminSession.getToken()) ||
+      localStorage.getItem("auth_token") ||
+      "";
 
     const getNotifRealtimeChannel = () => {
       if (typeof window.BroadcastChannel !== "function") return null;
       if (!notifRealtimeChannel) {
-        notifRealtimeChannel = new window.BroadcastChannel(NOTIF_REALTIME_CHANNEL);
+        notifRealtimeChannel = new window.BroadcastChannel(
+          NOTIF_REALTIME_CHANNEL,
+        );
       }
       return notifRealtimeChannel;
     };
@@ -424,10 +481,15 @@ document.addEventListener("DOMContentLoaded", () => {
         ...detail,
       };
 
-      window.dispatchEvent(new CustomEvent("fmrc:notifs-updated", { detail: payload }));
+      window.dispatchEvent(
+        new CustomEvent("fmrc:notifs-updated", { detail: payload }),
+      );
 
       try {
-        localStorage.setItem(NOTIF_REALTIME_SIGNAL_KEY, JSON.stringify(payload));
+        localStorage.setItem(
+          NOTIF_REALTIME_SIGNAL_KEY,
+          JSON.stringify(payload),
+        );
       } catch {
         // Ignore storage write issues.
       }
@@ -470,32 +532,37 @@ document.addEventListener("DOMContentLoaded", () => {
     const formatRelTime = (dateStr) => {
       if (!dateStr) return "";
       const diff = Date.now() - new Date(dateStr).getTime();
-      const mins  = Math.floor(diff / 60000);
+      const mins = Math.floor(diff / 60000);
       const hours = Math.floor(diff / 3600000);
-      const days  = Math.floor(diff / 86400000);
-      if (mins < 1)   return "just now";
-      if (mins < 60)  return `${mins}m ago`;
+      const days = Math.floor(diff / 86400000);
+      if (mins < 1) return "just now";
+      if (mins < 60) return `${mins}m ago`;
       if (hours < 24) return `${hours}h ago`;
       return `${days}d ago`;
     };
 
     // Render notifications (dropdown — 5 most recent)
     const NOTIF_TYPE_ICONS = {
-      order:       'fa-box-open',
-      appointment: 'fa-calendar-check',
-      success:     'fa-circle-check',
-      warning:     'fa-triangle-exclamation',
-      error:       'fa-circle-xmark',
-      info:        'fa-circle-info',
+      order: "fa-box-open",
+      appointment: "fa-calendar-check",
+      success: "fa-circle-check",
+      warning: "fa-triangle-exclamation",
+      error: "fa-circle-xmark",
+      info: "fa-circle-info",
     };
 
-    const escHtml = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const escHtml = (s) =>
+      String(s || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
 
     const buildNotifItemHTML = (n, compact = true) => {
-      const icon = NOTIF_TYPE_ICONS[n.type] || 'fa-circle-info';
-      const typeClass = `notif-type-${n.type || 'info'}`;
-      const readClass = n.is_read ? '' : ' notif-unread';
-      const msgClamp  = compact ? 'notif-item-msg' : 'notif-item-msg';
+      const icon = NOTIF_TYPE_ICONS[n.type] || "fa-circle-info";
+      const typeClass = `notif-type-${n.type || "info"}`;
+      const readClass = n.is_read ? "" : " notif-unread";
+      const msgClamp = compact ? "notif-item-msg" : "notif-item-msg";
       return `
         <div class="notif-item${readClass}" data-notif-id="${n.id}">
           <div class="notif-type-dot ${typeClass}"><i class="fa-solid ${icon}"></i></div>
@@ -518,24 +585,27 @@ document.addEventListener("DOMContentLoaded", () => {
       _lastNotifData = notifications;
 
       // Remove existing items (keep empty state)
-      Array.from(notifBody.querySelectorAll(".notif-item")).forEach((el) => el.remove());
+      Array.from(notifBody.querySelectorAll(".notif-item")).forEach((el) =>
+        el.remove(),
+      );
 
       const recent = notifications.slice(0, 5);
 
       if (!recent.length) {
-        if (notifEmptyState) notifEmptyState.style.display = '';
-        if (notifMarkAllBtn) notifMarkAllBtn.style.display = 'none';
+        if (notifEmptyState) notifEmptyState.style.display = "";
+        if (notifMarkAllBtn) notifMarkAllBtn.style.display = "none";
         return;
       }
 
-      if (notifEmptyState) notifEmptyState.style.display = 'none';
+      if (notifEmptyState) notifEmptyState.style.display = "none";
 
       const hasUnread = recent.some((n) => !n.is_read);
-      if (notifMarkAllBtn) notifMarkAllBtn.style.display = hasUnread ? '' : 'none';
+      if (notifMarkAllBtn)
+        notifMarkAllBtn.style.display = hasUnread ? "" : "none";
 
       const frag = document.createDocumentFragment();
       recent.forEach((n) => {
-        const wrapper = document.createElement('div');
+        const wrapper = document.createElement("div");
         wrapper.innerHTML = buildNotifItemHTML(n, true);
         frag.appendChild(wrapper.firstElementChild);
       });
@@ -546,7 +616,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       // Sync All-Notif panel if open
-      if (document.getElementById('allNotifOverlay')?.classList.contains('show')) {
+      if (
+        document.getElementById("allNotifOverlay")?.classList.contains("show")
+      ) {
         renderAllNotifPanel(notifications);
       }
     };
@@ -557,12 +629,16 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!token) return;
       try {
         const res = await fetch(`${NOTIF_API_BASE}/admin/notifications`, {
-          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
         });
         if (!res.ok) return;
         const payload = await res.json();
         const notifications = Array.isArray(payload?.data) ? payload.data : [];
-        const unread = typeof payload?.unread_count === "number" ? payload.unread_count : 0;
+        const unread =
+          typeof payload?.unread_count === "number" ? payload.unread_count : 0;
         updateBadge(unread);
         renderNotifications(notifications);
       } catch {
@@ -610,20 +686,27 @@ document.addEventListener("DOMContentLoaded", () => {
       const token = getToken();
       if (!token) return;
       // Optimistic: update local data immediately
-      const n = _lastNotifData.find(x => String(x.id) === String(id));
+      const n = _lastNotifData.find((x) => String(x.id) === String(id));
       if (n && !n.is_read) {
         n.is_read = true;
         currentUnreadCount = Math.max(0, currentUnreadCount - 1);
         updateBadge(currentUnreadCount);
         renderNotifications(_lastNotifData);
-        if (typeof renderAllNotifPanel === 'function') renderAllNotifPanel(_lastNotifData);
+        if (typeof renderAllNotifPanel === "function")
+          renderAllNotifPanel(_lastNotifData);
       }
       // API runs in background — reconcile silently
       try {
-        const res = await fetch(`${NOTIF_API_BASE}/admin/notifications/${id}/read`, {
-          method: "PATCH",
-          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-        });
+        const res = await fetch(
+          `${NOTIF_API_BASE}/admin/notifications/${id}/read`,
+          {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+          },
+        );
         if (res.ok) {
           emitNotifSignal({ action: "read", id });
         }
@@ -638,17 +721,26 @@ document.addEventListener("DOMContentLoaded", () => {
       const token = getToken();
       if (!token) return;
       // Optimistic
-      _lastNotifData.forEach(n => { n.is_read = true; });
+      _lastNotifData.forEach((n) => {
+        n.is_read = true;
+      });
       currentUnreadCount = 0;
       updateBadge(0);
       renderNotifications(_lastNotifData);
-      if (typeof renderAllNotifPanel === 'function') renderAllNotifPanel(_lastNotifData);
+      if (typeof renderAllNotifPanel === "function")
+        renderAllNotifPanel(_lastNotifData);
       // API runs in background
       try {
-        const res = await fetch(`${NOTIF_API_BASE}/admin/notifications/mark-all-read`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-        });
+        const res = await fetch(
+          `${NOTIF_API_BASE}/admin/notifications/mark-all-read`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+          },
+        );
         if (res.ok) {
           emitNotifSignal({ action: "mark-all-read" });
         }
@@ -663,7 +755,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const token = getToken();
       if (!token) return;
       // Optimistic: remove from local data immediately
-      const idx = _lastNotifData.findIndex(x => String(x.id) === String(id));
+      const idx = _lastNotifData.findIndex((x) => String(x.id) === String(id));
       if (idx !== -1) {
         const wasUnread = !_lastNotifData[idx].is_read;
         _lastNotifData.splice(idx, 1);
@@ -672,13 +764,17 @@ document.addEventListener("DOMContentLoaded", () => {
           updateBadge(currentUnreadCount);
         }
         renderNotifications(_lastNotifData);
-        if (typeof renderAllNotifPanel === 'function') renderAllNotifPanel(_lastNotifData);
+        if (typeof renderAllNotifPanel === "function")
+          renderAllNotifPanel(_lastNotifData);
       }
       // API runs in background
       try {
         const res = await fetch(`${NOTIF_API_BASE}/admin/notifications/${id}`, {
           method: "DELETE",
-          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
         });
         if (res.ok) {
           emitNotifSignal({ action: "delete", id });
@@ -697,13 +793,20 @@ document.addEventListener("DOMContentLoaded", () => {
       currentUnreadCount = 0;
       updateBadge(0);
       renderNotifications(_lastNotifData);
-      if (typeof renderAllNotifPanel === 'function') renderAllNotifPanel(_lastNotifData);
+      if (typeof renderAllNotifPanel === "function")
+        renderAllNotifPanel(_lastNotifData);
 
       try {
-        const res = await fetch(`${NOTIF_API_BASE}/admin/notifications/clear-all`, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-        });
+        const res = await fetch(
+          `${NOTIF_API_BASE}/admin/notifications/clear-all`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+          },
+        );
         if (res.ok) {
           emitNotifSignal({ action: "clear-all" });
         }
@@ -717,14 +820,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const positionDropdown = () => {
       const rect = notifBtn.getBoundingClientRect();
       const dropW = 320;
-      const gap   = 12;
+      const gap = 12;
       // Right-align dropdown under the bell, with 12px right-edge padding
       let left = rect.left + rect.width / 2 - dropW / 2;
       const maxLeft = window.innerWidth - dropW - 12;
       if (left > maxLeft) left = maxLeft;
       if (left < 8) left = 8;
       notifDropdown.style.position = "fixed";
-      notifDropdown.style.top = (rect.bottom + gap + window.scrollY - window.scrollY) + "px";
+      notifDropdown.style.top =
+        rect.bottom + gap + window.scrollY - window.scrollY + "px";
       notifDropdown.style.left = left + "px";
       notifDropdown.style.width = dropW + "px";
     };
@@ -780,65 +884,76 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ── All Notifications Panel ───────────────────────────────────
-    let _allNotifFilter = 'all'; // 'all' | 'unread' | 'order' | 'appointment'
+    let _allNotifFilter = "all"; // 'all' | 'unread' | 'order' | 'appointment'
 
     const formatFullDate = (dateStr) => {
-      if (!dateStr) return '';
-      return new Date(dateStr).toLocaleString('en-PH', {
-        month: 'short', day: 'numeric', year: 'numeric',
-        hour: 'numeric', minute: '2-digit'
+      if (!dateStr) return "";
+      return new Date(dateStr).toLocaleString("en-PH", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
       });
     };
 
     const getFilteredNotifs = (notifications) => {
       switch (_allNotifFilter) {
-        case 'unread':      return notifications.filter(n => !n.is_read);
-        case 'order':       return notifications.filter(n => n.type === 'order');
-        case 'appointment': return notifications.filter(n => n.type === 'appointment');
-        default:            return notifications;
+        case "unread":
+          return notifications.filter((n) => !n.is_read);
+        case "order":
+          return notifications.filter((n) => n.type === "order");
+        case "appointment":
+          return notifications.filter((n) => n.type === "appointment");
+        default:
+          return notifications;
       }
     };
 
     const renderAllNotifPanel = (notifications) => {
-      const list = document.getElementById('allNotifList');
+      const list = document.getElementById("allNotifList");
       if (!list) return;
 
       const filtered = getFilteredNotifs(notifications);
-      list.innerHTML = '';
+      list.innerHTML = "";
 
       if (!filtered.length) {
         list.innerHTML = `
           <div class="all-notif-empty">
             <i class="fa-regular fa-bell-slash"></i>
-            <p>${_allNotifFilter === 'unread' ? 'All caught up!' : 'No notifications here.'}</p>
+            <p>${_allNotifFilter === "unread" ? "All caught up!" : "No notifications here."}</p>
           </div>`;
         return;
       }
 
       // Group by date
-      let lastDateLabel = '';
+      let lastDateLabel = "";
       filtered.forEach((n) => {
-        const d   = n.created_at ? new Date(n.created_at) : new Date();
-        const lbl = d.toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
+        const d = n.created_at ? new Date(n.created_at) : new Date();
+        const lbl = d.toLocaleDateString("en-PH", {
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        });
         if (lbl !== lastDateLabel) {
           lastDateLabel = lbl;
-          const sep = document.createElement('div');
-          sep.className = 'all-notif-date-sep';
+          const sep = document.createElement("div");
+          sep.className = "all-notif-date-sep";
           sep.textContent = lbl;
           list.appendChild(sep);
         }
-        const wrapper = document.createElement('div');
+        const wrapper = document.createElement("div");
         wrapper.innerHTML = buildNotifItemHTML(n, false);
         list.appendChild(wrapper.firstElementChild);
       });
     };
 
     const openAllNotifPanel = () => {
-      let overlay = document.getElementById('allNotifOverlay');
+      let overlay = document.getElementById("allNotifOverlay");
       if (!overlay) {
-        overlay = document.createElement('div');
-        overlay.id = 'allNotifOverlay';
-        overlay.className = 'all-notif-overlay';
+        overlay = document.createElement("div");
+        overlay.id = "allNotifOverlay";
+        overlay.className = "all-notif-overlay";
         overlay.innerHTML = `
           <div class="all-notif-backdrop" id="allNotifBackdrop"></div>
           <div class="all-notif-panel" role="dialog" aria-modal="true" aria-label="All Notifications">
@@ -873,63 +988,86 @@ document.addEventListener("DOMContentLoaded", () => {
         document.body.appendChild(overlay);
 
         // Filter tabs
-        overlay.querySelectorAll('.all-notif-filter-btn').forEach((btn) => {
-          btn.addEventListener('click', () => {
-            overlay.querySelectorAll('.all-notif-filter-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            _allNotifFilter = btn.dataset.filter || 'all';
+        overlay.querySelectorAll(".all-notif-filter-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            overlay
+              .querySelectorAll(".all-notif-filter-btn")
+              .forEach((b) => b.classList.remove("active"));
+            btn.classList.add("active");
+            _allNotifFilter = btn.dataset.filter || "all";
             renderAllNotifPanel(_lastNotifData);
           });
         });
 
         // Close button & backdrop
-        document.getElementById('allNotifClose')?.addEventListener('click', closeAllNotifPanel);
-        document.getElementById('allNotifBackdrop')?.addEventListener('click', closeAllNotifPanel);
+        document
+          .getElementById("allNotifClose")
+          ?.addEventListener("click", closeAllNotifPanel);
+        document
+          .getElementById("allNotifBackdrop")
+          ?.addEventListener("click", closeAllNotifPanel);
 
         // Mark all read — optimistic
-        document.getElementById('allNotifMarkAll')?.addEventListener('click', () => {
-          void markAllRead();
-          renderAllNotifPanel(_lastNotifData);
-        });
+        document
+          .getElementById("allNotifMarkAll")
+          ?.addEventListener("click", () => {
+            void markAllRead();
+            renderAllNotifPanel(_lastNotifData);
+          });
 
         // Clear all — optimistic: wipe local data, re-render, API in background
-        document.getElementById('allNotifClearAll')?.addEventListener('click', () => {
-          void clearAllNotifications();
-        });
+        document
+          .getElementById("allNotifClearAll")
+          ?.addEventListener("click", () => {
+            void clearAllNotifications();
+          });
 
         // Delegation: read/delete inside panel
-        document.getElementById('allNotifList')?.addEventListener('click', (e) => {
-          const readBtn = e.target.closest('.notif-read-btn');
-          if (readBtn) { void markAsRead(readBtn.dataset.notifId); return; }
-          const delBtn = e.target.closest('.notif-del-btn');
-          if (delBtn) { void deleteNotification(delBtn.dataset.notifId); return; }
-        });
+        document
+          .getElementById("allNotifList")
+          ?.addEventListener("click", (e) => {
+            const readBtn = e.target.closest(".notif-read-btn");
+            if (readBtn) {
+              void markAsRead(readBtn.dataset.notifId);
+              return;
+            }
+            const delBtn = e.target.closest(".notif-del-btn");
+            if (delBtn) {
+              void deleteNotification(delBtn.dataset.notifId);
+              return;
+            }
+          });
 
         // Keyboard close
-        document.addEventListener('keydown', (e) => {
-          if (e.key === 'Escape' && overlay.classList.contains('show')) closeAllNotifPanel();
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape" && overlay.classList.contains("show"))
+            closeAllNotifPanel();
         });
       }
 
       // Render current data immediately, then refresh
       void fetchNotifications().then(() => renderAllNotifPanel(_lastNotifData));
       // Slight delay to trigger CSS transition
-      requestAnimationFrame(() => { requestAnimationFrame(() => overlay.classList.add('show')); });
-      document.body.style.overflow = 'hidden';
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => overlay.classList.add("show"));
+      });
+      document.body.style.overflow = "hidden";
     };
 
     const closeAllNotifPanel = () => {
-      const overlay = document.getElementById('allNotifOverlay');
-      overlay?.classList.remove('show');
-      document.body.style.overflow = '';
+      const overlay = document.getElementById("allNotifOverlay");
+      overlay?.classList.remove("show");
+      document.body.style.overflow = "";
     };
 
     // Wire View All button
-    notifDropdown.querySelector('#notifViewAllBtn')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      notifDropdown.classList.remove('show');
-      openAllNotifPanel();
-    });
+    notifDropdown
+      .querySelector("#notifViewAllBtn")
+      ?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        notifDropdown.classList.remove("show");
+        openAllNotifPanel();
+      });
 
     // Start polling for notifications
     void fetchNotifications();
@@ -1005,7 +1143,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const cancelBtn = modal.querySelector("#cancelLogoutBtn");
       const confirmBtn = modal.querySelector("#confirmLogoutBtn");
-      
+
       cancelBtn.onmouseenter = () => {
         cancelBtn.style.backgroundColor = "#fee2e2";
         cancelBtn.style.color = "#dc2626";
@@ -1017,20 +1155,22 @@ document.addEventListener("DOMContentLoaded", () => {
         cancelBtn.style.borderColor = "#d1d5db";
         cancelBtn.style.transform = "scale(1)";
       };
-      cancelBtn.onmousedown = () => cancelBtn.style.transform = "scale(0.96)";
-      cancelBtn.onmouseup = () => cancelBtn.style.transform = "scale(1)";
+      cancelBtn.onmousedown = () => (cancelBtn.style.transform = "scale(0.96)");
+      cancelBtn.onmouseup = () => (cancelBtn.style.transform = "scale(1)");
 
       confirmBtn.onmouseenter = () => {
         confirmBtn.style.backgroundColor = "#7f1d1d"; // Darker red
-        confirmBtn.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)";
+        confirmBtn.style.boxShadow =
+          "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)";
       };
       confirmBtn.onmouseleave = () => {
         confirmBtn.style.backgroundColor = "var(--primary-color, #a80f0f)";
         confirmBtn.style.boxShadow = "none";
         confirmBtn.style.transform = "scale(1)";
       };
-      confirmBtn.onmousedown = () => confirmBtn.style.transform = "scale(0.96)";
-      confirmBtn.onmouseup = () => confirmBtn.style.transform = "scale(1)";
+      confirmBtn.onmousedown = () =>
+        (confirmBtn.style.transform = "scale(0.96)");
+      confirmBtn.onmouseup = () => (confirmBtn.style.transform = "scale(1)");
 
       cancelBtn.addEventListener("click", () => {
         modal.children[0].style.opacity = "0";
@@ -1056,7 +1196,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const performLogout = async () => {
-    const token = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token");
+    const token =
+      (window.AdminSession && window.AdminSession.getToken()) ||
+      localStorage.getItem("auth_token");
     setLoading(true);
     try {
       if (token) {
@@ -1152,7 +1294,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const viewportPadding = 8;
 
     let left = rect.left + rect.width / 2 - tipRect.width / 2;
-    left = Math.max(viewportPadding, Math.min(left, window.innerWidth - tipRect.width - viewportPadding));
+    left = Math.max(
+      viewportPadding,
+      Math.min(left, window.innerWidth - tipRect.width - viewportPadding),
+    );
 
     let top = rect.top - tipRect.height - gap;
     if (top < viewportPadding) {
@@ -1171,7 +1316,8 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   document.addEventListener("mouseover", (e) => {
-    const target = e.target instanceof Element ? e.target.closest("[data-tooltip]") : null;
+    const target =
+      e.target instanceof Element ? e.target.closest("[data-tooltip]") : null;
     if (!target) return;
     activeTooltipTarget = target;
     placeTooltip(target);
@@ -1179,37 +1325,48 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.addEventListener("mousemove", (e) => {
     if (!activeTooltipTarget) return;
-    const current = e.target instanceof Element ? e.target.closest("[data-tooltip]") : null;
+    const current =
+      e.target instanceof Element ? e.target.closest("[data-tooltip]") : null;
     if (current !== activeTooltipTarget) return;
     placeTooltip(activeTooltipTarget);
   });
 
   document.addEventListener("mouseout", (e) => {
     if (!activeTooltipTarget) return;
-    const from = e.target instanceof Element ? e.target.closest("[data-tooltip]") : null;
+    const from =
+      e.target instanceof Element ? e.target.closest("[data-tooltip]") : null;
     if (from !== activeTooltipTarget) return;
-    const to = e.relatedTarget instanceof Element ? e.relatedTarget.closest("[data-tooltip]") : null;
+    const to =
+      e.relatedTarget instanceof Element
+        ? e.relatedTarget.closest("[data-tooltip]")
+        : null;
     if (to === activeTooltipTarget) return;
     hideTooltip();
   });
 
   document.addEventListener("focusin", (e) => {
-    const target = e.target instanceof Element ? e.target.closest("[data-tooltip]") : null;
+    const target =
+      e.target instanceof Element ? e.target.closest("[data-tooltip]") : null;
     if (!target) return;
     activeTooltipTarget = target;
     placeTooltip(target);
   });
 
   document.addEventListener("focusout", (e) => {
-    const target = e.target instanceof Element ? e.target.closest("[data-tooltip]") : null;
+    const target =
+      e.target instanceof Element ? e.target.closest("[data-tooltip]") : null;
     if (target && target === activeTooltipTarget) {
       hideTooltip();
     }
   });
 
-  window.addEventListener("scroll", () => {
-    if (activeTooltipTarget) placeTooltip(activeTooltipTarget);
-  }, true);
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (activeTooltipTarget) placeTooltip(activeTooltipTarget);
+    },
+    true,
+  );
 
   window.addEventListener("resize", () => {
     if (activeTooltipTarget) placeTooltip(activeTooltipTarget);
@@ -1290,7 +1447,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         try {
           setConfirmLoading(true);
-          const result = typeof options.onOk === "function" ? options.onOk() : undefined;
+          const result =
+            typeof options.onOk === "function" ? options.onOk() : undefined;
           if (result && typeof result.then === "function") {
             await result;
           }
@@ -1375,7 +1533,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const cell = document.createElement("td");
       const headerCount = table.querySelectorAll("thead th").length || 1;
-      const emptyMessage = table.dataset.emptyMessage || "No data available yet.";
+      const emptyMessage =
+        table.dataset.emptyMessage || "No data available yet.";
       cell.colSpan = headerCount;
       cell.innerHTML = `<div class="table-empty-state"><i class="fa-regular fa-folder-open"></i><span>${emptyMessage}</span></div>`;
 
@@ -1396,7 +1555,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!tbody) return;
 
     const allRows = Array.from(tbody.querySelectorAll("tr")).filter(
-      (row) => !row.classList.contains("table-empty-row")
+      (row) => !row.classList.contains("table-empty-row"),
     );
 
     const emptyStateRow = ensureEmptyStateRow(table, tbody);
@@ -1426,7 +1585,10 @@ document.addEventListener("DOMContentLoaded", () => {
       ...(toolbar ? toolbar.querySelectorAll(".filter-select") : []),
     ];
 
-    const pageSize = Math.max(Number.parseInt(table.dataset.pageSize || "5", 10), 1);
+    const pageSize = Math.max(
+      Number.parseInt(table.dataset.pageSize || "5", 10),
+      1,
+    );
 
     let currentPage = 1;
     let filteredRows = allRows;
@@ -1441,7 +1603,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const rowText = row.textContent.toLowerCase();
         const matchesSearch = !query || rowText.includes(query);
         const matchesFilters = activeFilters.every((filterValue) =>
-          rowText.includes(filterValue)
+          rowText.includes(filterValue),
         );
         return matchesSearch && matchesFilters;
       });
@@ -1469,7 +1631,8 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       if (pageNumber) pageNumber.textContent = String(currentPage);
-      if (pageMeta) pageMeta.textContent = `Page ${currentPage} of ${totalPages}`;
+      if (pageMeta)
+        pageMeta.textContent = `Page ${currentPage} of ${totalPages}`;
       if (prevButton) prevButton.disabled = currentPage <= 1;
       if (nextButton) nextButton.disabled = currentPage >= totalPages;
     };

@@ -11,9 +11,13 @@
   "use strict";
 
   // ── Detect which portal we are on by inspecting the current URL path ──
-  const currentPath = window.location.pathname.toLowerCase().replace(/\\/g, "/");
+  const currentPath = window.location.pathname
+    .toLowerCase()
+    .replace(/\\/g, "/");
   const isStaffPortal = currentPath.includes("/staff-page/");
-  const isAdminPortal = currentPath.includes("/admin-page/") || currentPath.includes("/admin-auth/");
+  const isAdminPortal =
+    currentPath.includes("/admin-page/") ||
+    currentPath.includes("/admin-auth/");
 
   // Each role stores its token/info under a distinct key so sessions don't collide.
   const TOKEN_KEY = isStaffPortal ? "staff_auth_token" : "admin_auth_token";
@@ -44,7 +48,9 @@
     setToken(token) {
       try {
         localStorage.setItem(TOKEN_KEY, token);
-      } catch { /* ignore storage errors (e.g. incognito) */ }
+      } catch {
+        /* ignore storage errors (e.g. incognito) */
+      }
     },
 
     /** Return the parsed user info object for the current portal role, or null. */
@@ -61,7 +67,9 @@
     setUserInfo(info) {
       try {
         localStorage.setItem(INFO_KEY, JSON.stringify(info));
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     },
 
     /** Clear all session data for the current portal role. */
@@ -69,7 +77,9 @@
       try {
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(INFO_KEY);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     },
 
     /**
@@ -83,7 +93,9 @@
       try {
         localStorage.setItem(tk, token);
         localStorage.setItem(ik, JSON.stringify(userInfo));
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     },
 
     /** Clear session for a specific role. */
@@ -94,7 +106,9 @@
       try {
         localStorage.removeItem(tk);
         localStorage.removeItem(ik);
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     },
 
     /**
@@ -115,9 +129,15 @@
         if (legacyInfo) {
           try {
             const parsed = JSON.parse(legacyInfo);
-            const parsedRole = (parsed?.role || parsed?.data?.role || "").toLowerCase();
+            const parsedRole = (
+              parsed?.role ||
+              parsed?.data?.role ||
+              ""
+            ).toLowerCase();
             if (parsedRole === "staff") role = "staff";
-          } catch { /* ignore parse errors */ }
+          } catch {
+            /* ignore parse errors */
+          }
         }
 
         const tk = role === "staff" ? "staff_auth_token" : "admin_auth_token";
@@ -132,7 +152,9 @@
         // Remove legacy keys
         localStorage.removeItem("auth_token");
         localStorage.removeItem("user_info");
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     },
   };
 

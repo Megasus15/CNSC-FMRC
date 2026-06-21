@@ -2,7 +2,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const resolveApiBaseUrl = () => {
     const configured =
       window.APP_API_BASE_URL ||
-      document.querySelector('meta[name="api-base-url"]')?.getAttribute("content") ||
+      document
+        .querySelector('meta[name="api-base-url"]')
+        ?.getAttribute("content") ||
       "";
 
     if (configured.trim()) {
@@ -34,7 +36,10 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const API_BASE_URL = resolveApiBaseUrl();
-  const token = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token") || "";
+  const token =
+    (window.AdminSession && window.AdminSession.getToken()) ||
+    localStorage.getItem("auth_token") ||
+    "";
   const REALTIME_SIGNAL_KEY = "fmrc_customer_msgs_updated_at";
   const REALTIME_CHANNEL_KEY = "fmrc-customer-messages-realtime";
   const POLL_INTERVAL_MS = 8000;
@@ -114,9 +119,15 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const emitRealtimeUpdate = (detail = {}) => {
-    const payload = { timestamp: Date.now(), source: "customer-inquiries", ...detail };
+    const payload = {
+      timestamp: Date.now(),
+      source: "customer-inquiries",
+      ...detail,
+    };
 
-    window.dispatchEvent(new CustomEvent("fmrc:customer-messages-updated", { detail: payload }));
+    window.dispatchEvent(
+      new CustomEvent("fmrc:customer-messages-updated", { detail: payload }),
+    );
 
     try {
       localStorage.setItem(REALTIME_SIGNAL_KEY, JSON.stringify(payload));
@@ -175,13 +186,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const res = await fetch(`${API_BASE_URL}${path}`, {
       method: options.method || "GET",
       headers,
-      body: Object.prototype.hasOwnProperty.call(options, "body") ? JSON.stringify(options.body) : undefined,
+      body: Object.prototype.hasOwnProperty.call(options, "body")
+        ? JSON.stringify(options.body)
+        : undefined,
       cache: "no-store",
     });
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const err = new Error(data.message || `Request failed with status ${res.status}.`);
+      const err = new Error(
+        data.message || `Request failed with status ${res.status}.`,
+      );
       err.status = res.status;
       throw err;
     }
@@ -245,7 +260,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     tableBody.innerHTML = pageRows
       .map((row) => {
-        const statusClass = row.status === "resolved" ? "inq-status-resolved" : "inq-status-new";
+        const statusClass =
+          row.status === "resolved" ? "inq-status-resolved" : "inq-status-new";
         const statusText = row.status === "resolved" ? "Resolved" : "New";
         const readClass = row.is_read ? "read" : "unread";
         const readText = row.is_read ? "Read" : "Unread";
@@ -301,7 +317,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const syncData = async (isSilent = false) => {
     if (!token) {
       if (!isSilent) {
-        showPopup("Session not found. Please log in again.", { title: "Authentication Required" });
+        showPopup("Session not found. Please log in again.", {
+          title: "Authentication Required",
+        });
       }
       return;
     }
@@ -315,12 +333,19 @@ document.addEventListener("DOMContentLoaded", () => {
       const payload = await request(query);
 
       state.rows = Array.isArray(payload.data) ? payload.data : [];
-      state.summary = payload.summary || { total: 0, new: 0, unread: 0, resolved: 0 };
+      state.summary = payload.summary || {
+        total: 0,
+        new: 0,
+        unread: 0,
+        resolved: 0,
+      };
       updateStats();
       renderRows();
     } catch (error) {
       if (!isSilent) {
-        showPopup(error.message || "Failed to load customer inquiries.", { title: "Load Failed" });
+        showPopup(error.message || "Failed to load customer inquiries.", {
+          title: "Load Failed",
+        });
       }
     } finally {
       if (!isSilent) setLoadingState(false);
@@ -337,14 +362,18 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (error) {
       if (!silent) {
-        showPopup(error.message || "Unable to mark inquiry as read.", { title: "Update Failed" });
+        showPopup(error.message || "Unable to mark inquiry as read.", {
+          title: "Update Failed",
+        });
       }
     }
   };
 
   const resolveInquiry = async (id, silent = false) => {
     try {
-      await request(`/admin/customer-messages/${id}/resolve`, { method: "PATCH" });
+      await request(`/admin/customer-messages/${id}/resolve`, {
+        method: "PATCH",
+      });
       emitRealtimeUpdate({ action: "resolve", id });
       await syncData(true);
       if (!silent) {
@@ -352,7 +381,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (error) {
       if (!silent) {
-        showPopup(error.message || "Unable to resolve inquiry.", { title: "Update Failed" });
+        showPopup(error.message || "Unable to resolve inquiry.", {
+          title: "Update Failed",
+        });
       }
     }
   };
@@ -364,7 +395,9 @@ document.addEventListener("DOMContentLoaded", () => {
       await syncData(true);
       showPopup("Inquiry deleted successfully.", { title: "Deleted" });
     } catch (error) {
-      showPopup(error.message || "Unable to delete inquiry.", { title: "Delete Failed" });
+      showPopup(error.message || "Unable to delete inquiry.", {
+        title: "Delete Failed",
+      });
     }
   };
 
@@ -408,10 +441,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (action === "delete") {
-      const ok = await askConfirm("Delete this inquiry? This cannot be undone.", {
-        title: "Delete Inquiry",
-        confirmText: "Delete",
-      });
+      const ok = await askConfirm(
+        "Delete this inquiry? This cannot be undone.",
+        {
+          title: "Delete Inquiry",
+          confirmText: "Delete",
+        },
+      );
       if (!ok) return;
       await deleteInquiry(id);
     }
@@ -464,12 +500,17 @@ document.addEventListener("DOMContentLoaded", () => {
     showPopup("Inquiry marked as resolved.", { title: "Resolved" });
   });
 
-  detailModal?.querySelectorAll('[data-modal-close="#inquiryDetailModal"]').forEach((btn) => {
-    btn.addEventListener("click", closeDetail);
-  });
+  detailModal
+    ?.querySelectorAll('[data-modal-close="#inquiryDetailModal"]')
+    .forEach((btn) => {
+      btn.addEventListener("click", closeDetail);
+    });
 
   detailModal?.addEventListener("click", (event) => {
-    if (event.target === detailModal && detailModal.dataset.backdropClose !== "false") {
+    if (
+      event.target === detailModal &&
+      detailModal.dataset.backdropClose !== "false"
+    ) {
       closeDetail();
     }
   });

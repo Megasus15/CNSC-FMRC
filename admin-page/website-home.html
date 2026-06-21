@@ -6,82 +6,411 @@
     <title>Home Page Management | CNSC-FMRC Admin</title>
     <link rel="stylesheet" href="dashboard.css" />
     <link rel="stylesheet" href="admin-modules.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
     <style>
-      .wm-section { background:#fff; border:1px solid var(--border-color); border-radius:12px; padding:22px 24px; margin-bottom:0; }
-      .wm-section-header { display:flex; align-items:center; gap:10px; margin-bottom:18px; padding-bottom:12px; border-bottom:1px solid #f0f0f0; }
-      .wm-section-header h3 { font-size:1rem; color:var(--primary-color); margin:0; }
-      .wm-section-header i { color:var(--primary-color); }
-      .wm-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-      .wm-form-grid .full { grid-column:1/-1; }
-      .field-stack { display:flex; flex-direction:column; gap:5px; }
-      .field-stack label { font-size:0.82rem; font-weight:700; color:#111827; }
-      .wm-input, .wm-textarea, .wm-select { border:1px solid #d8dde3; border-radius:8px; padding:8px 10px; font-size:0.82rem; color:#333; width:100%; background:#fff; font-family:inherit; }
-      .wm-textarea { min-height:90px; resize:vertical; }
-      .wm-img-preview { width:100%; max-height:180px; object-fit:contain; border-radius:8px; border:1px solid #e5e7eb; background:#f9fafb; display:none; margin-top:8px; }
-      .wm-img-preview.visible { display:block; }
-      .wm-img-placeholder { width:100%; height:120px; border:1.5px dashed #d1d5db; border-radius:8px; background:#f9fafb; display:flex; align-items:center; justify-content:center; font-size:0.82rem; color:#9ca3af; cursor:pointer; transition:border-color .18s, background .18s; }
-      .wm-img-placeholder:hover { border-color:#a80f0f; background:#fff5f5; }
-      .wm-img-placeholder.hidden { display:none; }
-      .color-row { display:flex; align-items:center; gap:10px; }
-      .color-row input[type="color"] { width:44px; height:36px; border:1px solid #d8dde3; border-radius:8px; padding:2px; cursor:pointer; }
-      .section-stack { display:flex; flex-direction:column; gap:18px; }
+      .wm-section {
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 22px 24px;
+        margin-bottom: 0;
+      }
+      .wm-section-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 18px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #f0f0f0;
+      }
+      .wm-section-header h3 {
+        font-size: 1rem;
+        color: var(--primary-color);
+        margin: 0;
+      }
+      .wm-section-header i {
+        color: var(--primary-color);
+      }
+      .wm-form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .wm-form-grid .full {
+        grid-column: 1/-1;
+      }
+      .field-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .field-stack label {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #111827;
+      }
+      .wm-input,
+      .wm-textarea,
+      .wm-select {
+        border: 1px solid #d8dde3;
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 0.82rem;
+        color: #333;
+        width: 100%;
+        background: #fff;
+        font-family: inherit;
+      }
+      .wm-textarea {
+        min-height: 90px;
+        resize: vertical;
+      }
+      .wm-img-preview {
+        width: 100%;
+        max-height: 180px;
+        object-fit: contain;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        background: #f9fafb;
+        display: none;
+        margin-top: 8px;
+      }
+      .wm-img-preview.visible {
+        display: block;
+      }
+      .wm-img-placeholder {
+        width: 100%;
+        height: 120px;
+        border: 1.5px dashed #d1d5db;
+        border-radius: 8px;
+        background: #f9fafb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.82rem;
+        color: #9ca3af;
+        cursor: pointer;
+        transition:
+          border-color 0.18s,
+          background 0.18s;
+      }
+      .wm-img-placeholder:hover {
+        border-color: #a80f0f;
+        background: #fff5f5;
+      }
+      .wm-img-placeholder.hidden {
+        display: none;
+      }
+      .color-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .color-row input[type="color"] {
+        width: 44px;
+        height: 36px;
+        border: 1px solid #d8dde3;
+        border-radius: 8px;
+        padding: 2px;
+        cursor: pointer;
+      }
+      .section-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
       /* Cards list */
-      .wm-cards-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; }
-      .wm-service-card { background:#f9fafb; border:1px solid #e5e7eb; border-radius:10px; overflow:hidden; display:flex; flex-direction:column; }
-      .wm-service-card .card-img { height:130px; background:#eee; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-      .wm-service-card .card-img img { width:100%; height:100%; object-fit:cover; }
-      .wm-service-card .card-img .no-img { font-size:0.78rem; color:#9ca3af; }
-      .wm-service-card .card-body { padding:12px; flex:1; }
-      .wm-service-card .card-cat { font-size:0.68rem; font-weight:700; text-transform:uppercase; color:var(--primary-color); letter-spacing:.04em; }
-      .wm-service-card .card-title { font-size:0.9rem; font-weight:700; color:#111827; margin:4px 0 4px; }
-      .wm-service-card .card-desc { font-size:0.78rem; color:#6b7280; }
-      .wm-service-card .card-actions { padding:8px 12px; border-top:1px solid #f0f0f0; display:flex; gap:8px; }
-      .btn-edit-sm { background:#fff; border:1px solid var(--primary-color); color:var(--primary-color); border-radius:6px; padding:5px 10px; font-size:0.74rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:5px; }
-      .btn-del-sm { background:#fff5f5; border:1px solid #fca5a5; color:#b91c1c; border-radius:6px; padding:5px 10px; font-size:0.74rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:5px; }
-      .btn-edit-sm:hover { background:var(--primary-color); color:#fff; }
-      .btn-del-sm:hover { background:#b91c1c; color:#fff; border-color:#b91c1c; }
+      .wm-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 14px;
+      }
+      .wm-service-card {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .wm-service-card .card-img {
+        height: 130px;
+        background: #eee;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      .wm-service-card .card-img img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .wm-service-card .card-img .no-img {
+        font-size: 0.78rem;
+        color: #9ca3af;
+      }
+      .wm-service-card .card-body {
+        padding: 12px;
+        flex: 1;
+      }
+      .wm-service-card .card-cat {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--primary-color);
+        letter-spacing: 0.04em;
+      }
+      .wm-service-card .card-title {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #111827;
+        margin: 4px 0 4px;
+      }
+      .wm-service-card .card-desc {
+        font-size: 0.78rem;
+        color: #6b7280;
+      }
+      .wm-service-card .card-actions {
+        padding: 8px 12px;
+        border-top: 1px solid #f0f0f0;
+        display: flex;
+        gap: 8px;
+      }
+      .btn-edit-sm {
+        background: #fff;
+        border: 1px solid var(--primary-color);
+        color: var(--primary-color);
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-size: 0.74rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .btn-del-sm {
+        background: #fff5f5;
+        border: 1px solid #fca5a5;
+        color: #b91c1c;
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-size: 0.74rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .btn-edit-sm:hover {
+        background: var(--primary-color);
+        color: #fff;
+      }
+      .btn-del-sm:hover {
+        background: #b91c1c;
+        color: #fff;
+        border-color: #b91c1c;
+      }
       /* Save bar */
-      .wm-save-bar { background:#fff; border:1px solid var(--border-color); border-radius:12px; padding:16px 24px; display:flex; align-items:center; justify-content:space-between; gap:10px; position:sticky; bottom:20px; box-shadow:0 4px 20px rgba(0,0,0,.08); }
-      .wm-save-bar p { font-size:0.82rem; color:#6b7280; margin:0; }
+      .wm-save-bar {
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 16px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        position: sticky;
+        bottom: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      }
+      .wm-save-bar p {
+        font-size: 0.82rem;
+        color: #6b7280;
+        margin: 0;
+      }
       /* Modal */
-      .wm-modal-overlay { position:fixed; inset:0; background:rgba(17,24,39,.5); backdrop-filter:blur(3px); z-index:9000; display:none; align-items:center; justify-content:center; }
-      .wm-modal-overlay.show { display:flex; }
-      .wm-modal-card { background:#fff; border-radius:14px; width:min(640px,96%); max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 20px 40px rgba(0,0,0,.15); }
-      .wm-modal-header { padding:18px 22px 14px; border-bottom:1px solid #e5e7eb; flex-shrink:0; display:flex; align-items:center; justify-content:space-between; }
-      .wm-modal-header h3 { margin:0; font-size:1rem; color:var(--primary-color); }
-      .wm-modal-body { padding:20px 22px; overflow-y:auto; flex:1; }
-      .wm-modal-footer { padding:14px 22px; border-top:1px solid #e5e7eb; background:#fff; flex-shrink:0; display:flex; justify-content:flex-end; gap:10px; }
-      .btn-close-x { background:none; border:none; font-size:1.3rem; cursor:pointer; color:#6b7280; line-height:1; }
+      .wm-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(17, 24, 39, 0.5);
+        backdrop-filter: blur(3px);
+        z-index: 9000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+      .wm-modal-overlay.show {
+        display: flex;
+      }
+      .wm-modal-card {
+        background: #fff;
+        border-radius: 14px;
+        width: min(640px, 96%);
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+      }
+      .wm-modal-header {
+        padding: 18px 22px 14px;
+        border-bottom: 1px solid #e5e7eb;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .wm-modal-header h3 {
+        margin: 0;
+        font-size: 1rem;
+        color: var(--primary-color);
+      }
+      .wm-modal-body {
+        padding: 20px 22px;
+        overflow-y: auto;
+        flex: 1;
+      }
+      .wm-modal-footer {
+        padding: 14px 22px;
+        border-top: 1px solid #e5e7eb;
+        background: #fff;
+        flex-shrink: 0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+      .btn-close-x {
+        background: none;
+        border: none;
+        font-size: 1.3rem;
+        cursor: pointer;
+        color: #6b7280;
+        line-height: 1;
+      }
       /* Chip input */
-      .chip-input-area { border:1px solid #d8dde3; border-radius:8px; padding:8px; display:flex; flex-wrap:wrap; gap:6px; min-height:42px; cursor:text; }
-      .chip-tag-item { background:#f0f9ff; border:1px solid #bae6fd; border-radius:20px; padding:3px 8px 3px 10px; font-size:0.76rem; color:#0369a1; display:inline-flex; align-items:center; gap:4px; }
-      .chip-remove { background:none; border:none; cursor:pointer; font-size:0.9rem; color:#0369a1; padding:0; line-height:1; }
-      .chip-hidden-input { border:none; outline:none; font-size:0.8rem; min-width:120px; flex:1; }
+      .chip-input-area {
+        border: 1px solid #d8dde3;
+        border-radius: 8px;
+        padding: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        min-height: 42px;
+        cursor: text;
+      }
+      .chip-tag-item {
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-radius: 20px;
+        padding: 3px 8px 3px 10px;
+        font-size: 0.76rem;
+        color: #0369a1;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .chip-remove {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 0.9rem;
+        color: #0369a1;
+        padding: 0;
+        line-height: 1;
+      }
+      .chip-hidden-input {
+        border: none;
+        outline: none;
+        font-size: 0.8rem;
+        min-width: 120px;
+        flex: 1;
+      }
       /* Skeleton */
-      .wm-skeleton { background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:8px; }
-      @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+      .wm-skeleton {
+        background: linear-gradient(
+          90deg,
+          #f3f4f6 25%,
+          #e5e7eb 50%,
+          #f3f4f6 75%
+        );
+        background-size: 200% 100%;
+        animation: shimmer 1.4s infinite;
+        border-radius: 8px;
+      }
+      @keyframes shimmer {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+      }
       /* Crop modal */
-      .crop-circle-wrapper { width:220px; height:220px; border-radius:50%; overflow:hidden; border:3px dashed #d1d5db; margin:0 auto 14px; background:#111; display:flex; align-items:center; justify-content:center; position:relative; cursor:grab; }
-      .crop-circle-wrapper.grabbing { cursor:grabbing; }
-      .crop-circle-wrapper img { position:absolute; transform-origin:center; user-select:none; }
+      .crop-circle-wrapper {
+        width: 220px;
+        height: 220px;
+        border-radius: 50%;
+        overflow: hidden;
+        border: 3px dashed #d1d5db;
+        margin: 0 auto 14px;
+        background: #111;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        cursor: grab;
+      }
+      .crop-circle-wrapper.grabbing {
+        cursor: grabbing;
+      }
+      .crop-circle-wrapper img {
+        position: absolute;
+        transform-origin: center;
+        user-select: none;
+      }
     </style>
   </head>
   <body>
     <div class="dashboard-container">
       <aside class="sidebar">
-        <div class="sidebar-header"><img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" /><h2>CNSC-FMRC</h2></div>
+        <div class="sidebar-header">
+          <img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" />
+          <h2>CNSC-FMRC</h2>
+        </div>
         <nav class="sidebar-nav">
-          <a href="dashboard.html" class="nav-link"><i class="fa-solid fa-house"></i> Dashboard</a>
-          <a href="inventory.html" class="nav-link"><i class="fa-solid fa-box"></i> Inventory</a>
-          <a href="products.html" class="nav-link"><i class="fa-solid fa-tags"></i> Products</a>
-          <a href="appointments.html" class="nav-link"><i class="fa-regular fa-calendar-check"></i> Appointment</a>
-          <a href="accounts.html" class="nav-link"><i class="fa-solid fa-users"></i> User Management</a>
-          <a href="reports.html" class="nav-link"><i class="fa-solid fa-chart-line"></i> Reports</a>
-          <a href="orders.html" class="nav-link"><i class="fa-solid fa-box-open"></i> Orders</a>
+          <a href="dashboard.html" class="nav-link"
+            ><i class="fa-solid fa-house"></i> Dashboard</a
+          >
+          <a href="inventory.html" class="nav-link"
+            ><i class="fa-solid fa-box"></i> Inventory</a
+          >
+          <a href="products.html" class="nav-link"
+            ><i class="fa-solid fa-tags"></i> Products</a
+          >
+          <a href="appointments.html" class="nav-link"
+            ><i class="fa-regular fa-calendar-check"></i> Appointment</a
+          >
+          <a href="accounts.html" class="nav-link"
+            ><i class="fa-solid fa-users"></i> User Management</a
+          >
+          <a href="reports.html" class="nav-link"
+            ><i class="fa-solid fa-chart-line"></i> Reports</a
+          >
+          <a href="orders.html" class="nav-link"
+            ><i class="fa-solid fa-box-open"></i> Orders</a
+          >
           <div class="nav-item has-dropdown open">
             <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn">
-              <div class="dropdown-title"><i class="fa-solid fa-screwdriver-wrench"></i> Website Management</div>
+              <div class="dropdown-title">
+                <i class="fa-solid fa-screwdriver-wrench"></i> Website
+                Management
+              </div>
               <i class="fa-solid fa-chevron-down arrow"></i>
             </a>
             <div class="dropdown-menu">
@@ -91,27 +420,54 @@
               <a href="website-footer.html" class="sub-link">Footer</a>
             </div>
           </div>
-          <a href="archives.html" class="nav-link"><i class="fa-solid fa-box-archive"></i> Archives</a>
-          <a href="my-account.html" class="nav-link"><i class="fa-regular fa-id-card"></i> My Account</a>
+          <a href="archives.html" class="nav-link"
+            ><i class="fa-solid fa-box-archive"></i> Archives</a
+          >
+          <a href="my-account.html" class="nav-link"
+            ><i class="fa-regular fa-id-card"></i> My Account</a
+          >
         </nav>
-        <div class="sidebar-footer"><button class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div>
+        <div class="sidebar-footer">
+          <button class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
+        </div>
       </aside>
 
       <main class="main-content">
         <header class="top-header">
           <div class="header-left"><h1>Home Page Management</h1></div>
           <div class="header-right">
-            <div class="notifications" id="notifBell"><i class="fa-regular fa-bell"></i><span class="badge" id="notifBadge" style="display:none;"></span></div>
+            <div class="notifications" id="notifBell">
+              <i class="fa-regular fa-bell"></i
+              ><span class="badge" id="notifBadge" style="display: none"></span>
+            </div>
             <div class="user-profile">
               <div class="user-info"><span class="role">Admin</span></div>
-              <span class="profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
+              <span
+                class="profile-icon profile-initial"
+                data-email="admin@cnsc.edu.ph"
+              ></span>
               <div class="profile-popup" id="profilePopup">
-                <div class="popup-header"><div class="popup-profile-row">
-                  <span class="popup-profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
-                  <div class="popup-profile-meta"><p class="popup-identity">admin@cnsc.edu.ph</p><span class="popup-role">Admin</span></div>
-                </div></div>
-                <a href="my-account.html" class="profile-popup-link"><i class="fa-regular fa-id-card"></i> My Account</a>
-                <hr /><button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+                <div class="popup-header">
+                  <div class="popup-profile-row">
+                    <span
+                      class="popup-profile-icon profile-initial"
+                      data-email="admin@cnsc.edu.ph"
+                    ></span>
+                    <div class="popup-profile-meta">
+                      <p class="popup-identity">admin@cnsc.edu.ph</p>
+                      <span class="popup-role">Admin</span>
+                    </div>
+                  </div>
+                </div>
+                <a href="my-account.html" class="profile-popup-link"
+                  ><i class="fa-regular fa-id-card"></i> My Account</a
+                >
+                <hr />
+                <button class="logout-btn popup-logout">
+                  <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
               </div>
             </div>
           </div>
@@ -121,23 +477,49 @@
           <div class="page-toolbar">
             <div class="toolbar-title">
               <h2>Home Page Content</h2>
-              <p>Edit content displayed on the customer-facing Home page. Click "Save All Changes" when done.</p>
+              <p>
+                Edit content displayed on the customer-facing Home page. Click
+                "Save All Changes" when done.
+              </p>
             </div>
             <div class="toolbar-actions">
-                <button class="btn-admin btn-secondary" type="button" onclick="window.location.reload();" title="Refresh Data"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
-              <a href="/home-page/main.html" target="_blank" class="btn-admin btn-secondary"><i class="fa-solid fa-eye"></i> Preview Site</a>
+              <button
+                class="btn-admin btn-secondary"
+                type="button"
+                onclick="window.location.reload()"
+                title="Refresh Data"
+              >
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+              </button>
+              <a
+                href="/home-page/main.html"
+                target="_blank"
+                class="btn-admin btn-secondary"
+                ><i class="fa-solid fa-eye"></i> Preview Site</a
+              >
             </div>
           </div>
 
           <div class="section-stack">
             <!-- HERO SECTION -->
             <div class="wm-section">
-              <div class="wm-section-header"><i class="fa-solid fa-star"></i><h3>Hero Section</h3></div>
+              <div class="wm-section-header">
+                <i class="fa-solid fa-star"></i>
+                <h3>Hero Section</h3>
+              </div>
               <div class="wm-form-grid">
                 <div class="field-stack full">
                   <label>Hero Title (shown on homepage banner)</label>
-                  <textarea class="wm-textarea" id="heroTitle" rows="3" placeholder="FABRICATION &amp;\nMANUFACTURING\nRESEARCH CENTER"></textarea>
-                  <span class="field-hint">Use line breaks to control how the title wraps on the banner.</span>
+                  <textarea
+                    class="wm-textarea"
+                    id="heroTitle"
+                    rows="3"
+                    placeholder="FABRICATION &amp;\nMANUFACTURING\nRESEARCH CENTER"
+                  ></textarea>
+                  <span class="field-hint"
+                    >Use line breaks to control how the title wraps on the
+                    banner.</span
+                  >
                 </div>
                 <div class="field-stack">
                   <label>Background</label>
@@ -145,106 +527,322 @@
                     <option value="color">Solid Color</option>
                     <option value="image">Image</option>
                   </select>
-                  <div class="color-row" id="heroBgColorRow" style="margin-top:8px;">
+                  <div
+                    class="color-row"
+                    id="heroBgColorRow"
+                    style="margin-top: 8px"
+                  >
                     <input type="color" id="heroBgColor" value="#8b1a1a" />
                     <span class="field-hint">Pick a background color</span>
                   </div>
-                  <div id="heroBgImageRow" style="margin-top:8px;display:none;">
-                    <div class="wm-img-placeholder" id="heroBgImgPlaceholder" onclick="document.getElementById('heroBgImgInput').click()">
-                      <span><i class="fa-regular fa-image" style="margin-right:6px;"></i>Click to upload background image</span>
+                  <div
+                    id="heroBgImageRow"
+                    style="margin-top: 8px; display: none"
+                  >
+                    <div
+                      class="wm-img-placeholder"
+                      id="heroBgImgPlaceholder"
+                      onclick="
+                        document.getElementById('heroBgImgInput').click()
+                      "
+                    >
+                      <span
+                        ><i
+                          class="fa-regular fa-image"
+                          style="margin-right: 6px"
+                        ></i
+                        >Click to upload background image</span
+                      >
                     </div>
-                    <img id="heroBgImgPreview" class="wm-img-preview" alt="Hero Background Preview" />
-                    <button type="button" class="btn-del-sm" id="heroBgImgPreviewRemoveBtn" style="display:none;margin-top:8px;" onclick="clearImage('heroBg')"><i class="fa-solid fa-xmark"></i> Remove</button>
-                    <input type="file" id="heroBgImgInput" accept="image/*" style="display:none;" />
-                    <button class="btn-edit-sm" style="margin-top:6px;" id="heroBgCropBtn" onclick="openCropModal('heroBg')"><i class="fa-solid fa-crop-simple"></i> Adjust Image</button>
+                    <img
+                      id="heroBgImgPreview"
+                      class="wm-img-preview"
+                      alt="Hero Background Preview"
+                    />
+                    <button
+                      type="button"
+                      class="btn-del-sm"
+                      id="heroBgImgPreviewRemoveBtn"
+                      style="display: none; margin-top: 8px"
+                      onclick="clearImage('heroBg')"
+                    >
+                      <i class="fa-solid fa-xmark"></i> Remove
+                    </button>
+                    <input
+                      type="file"
+                      id="heroBgImgInput"
+                      accept="image/*"
+                      style="display: none"
+                    />
+                    <button
+                      class="btn-edit-sm"
+                      style="margin-top: 6px"
+                      id="heroBgCropBtn"
+                      onclick="openCropModal('heroBg')"
+                    >
+                      <i class="fa-solid fa-crop-simple"></i> Adjust Image
+                    </button>
                   </div>
                 </div>
                 <div class="field-stack">
                   <label>Logo / Hero Graphic</label>
-                  <div class="wm-img-placeholder" id="heroLogoPlaceholder" onclick="document.getElementById('heroLogoInput').click()">
-                    <span><i class="fa-regular fa-image" style="margin-right:6px;"></i>Click to upload logo image</span>
+                  <div
+                    class="wm-img-placeholder"
+                    id="heroLogoPlaceholder"
+                    onclick="document.getElementById('heroLogoInput').click()"
+                  >
+                    <span
+                      ><i
+                        class="fa-regular fa-image"
+                        style="margin-right: 6px"
+                      ></i
+                      >Click to upload logo image</span
+                    >
                   </div>
-                  <img id="heroLogoPreview" class="wm-img-preview" alt="Hero Logo Preview" />
-                  <button type="button" class="btn-del-sm" id="heroLogoPreviewRemoveBtn" style="display:none;margin-top:8px;" onclick="clearImage('heroLogo')"><i class="fa-solid fa-xmark"></i> Remove</button>
-                  <input type="file" id="heroLogoInput" accept="image/*" style="display:none;" />
-                  <button class="btn-edit-sm" style="margin-top:6px;" id="heroLogoCropBtn" onclick="openCropModal('heroLogo')"><i class="fa-solid fa-crop-simple"></i> Adjust in Circle</button>
+                  <img
+                    id="heroLogoPreview"
+                    class="wm-img-preview"
+                    alt="Hero Logo Preview"
+                  />
+                  <button
+                    type="button"
+                    class="btn-del-sm"
+                    id="heroLogoPreviewRemoveBtn"
+                    style="display: none; margin-top: 8px"
+                    onclick="clearImage('heroLogo')"
+                  >
+                    <i class="fa-solid fa-xmark"></i> Remove
+                  </button>
+                  <input
+                    type="file"
+                    id="heroLogoInput"
+                    accept="image/*"
+                    style="display: none"
+                  />
+                  <button
+                    class="btn-edit-sm"
+                    style="margin-top: 6px"
+                    id="heroLogoCropBtn"
+                    onclick="openCropModal('heroLogo')"
+                  >
+                    <i class="fa-solid fa-crop-simple"></i> Adjust in Circle
+                  </button>
                 </div>
               </div>
             </div>
 
             <!-- ABOUT US -->
             <div class="wm-section">
-              <div class="wm-section-header"><i class="fa-solid fa-circle-info"></i><h3>About Us Section</h3></div>
+              <div class="wm-section-header">
+                <i class="fa-solid fa-circle-info"></i>
+                <h3>About Us Section</h3>
+              </div>
               <div class="wm-form-grid">
                 <div class="field-stack">
                   <label>Section Heading</label>
-                  <input type="text" class="wm-input" id="aboutHeading" value="ABOUT US" />
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="aboutHeading"
+                    value="ABOUT US"
+                  />
                 </div>
                 <div class="field-stack full">
                   <label>First Paragraph (supports &lt;strong&gt; tags)</label>
-                  <textarea class="wm-textarea" id="aboutText1" rows="3"></textarea>
+                  <textarea
+                    class="wm-textarea"
+                    id="aboutText1"
+                    rows="3"
+                  ></textarea>
                 </div>
                 <div class="field-stack full">
                   <label>Second Paragraph (supports &lt;strong&gt; tags)</label>
-                  <textarea class="wm-textarea" id="aboutText2" rows="3"></textarea>
+                  <textarea
+                    class="wm-textarea"
+                    id="aboutText2"
+                    rows="3"
+                  ></textarea>
                 </div>
                 <div class="field-stack full">
                   <label>Video</label>
-                  <div class="wm-img-placeholder" id="aboutVideoPlaceholder" onclick="document.getElementById('aboutVideoInput').click()" style="height:90px;">
-                    <span><i class="fa-regular fa-file-video" style="margin-right:6px;"></i>Click to upload video file</span>
+                  <div
+                    class="wm-img-placeholder"
+                    id="aboutVideoPlaceholder"
+                    onclick="document.getElementById('aboutVideoInput').click()"
+                    style="height: 90px"
+                  >
+                    <span
+                      ><i
+                        class="fa-regular fa-file-video"
+                        style="margin-right: 6px"
+                      ></i
+                      >Click to upload video file</span
+                    >
                   </div>
-                  <video id="aboutVideoPreview" style="display:none;width:100%;max-height:200px;border-radius:8px;border:1px solid #e5e7eb;background:#000;margin-top:8px;" controls></video>
-                  <p id="aboutVideoFileName" style="display:none;font-size:0.76rem;color:#6b7280;margin-top:4px;"></p>
-                  <button type="button" class="btn-del-sm" id="aboutVideoRemoveBtn" style="display:none;margin-top:8px;" onclick="clearVideoUpload()"><i class="fa-solid fa-xmark"></i> Remove</button>
-                  <input type="file" id="aboutVideoInput" accept="video/*" style="display:none;" onchange="handleVideoUpload(this)" />
+                  <video
+                    id="aboutVideoPreview"
+                    style="
+                      display: none;
+                      width: 100%;
+                      max-height: 200px;
+                      border-radius: 8px;
+                      border: 1px solid #e5e7eb;
+                      background: #000;
+                      margin-top: 8px;
+                    "
+                    controls
+                  ></video>
+                  <p
+                    id="aboutVideoFileName"
+                    style="
+                      display: none;
+                      font-size: 0.76rem;
+                      color: #6b7280;
+                      margin-top: 4px;
+                    "
+                  ></p>
+                  <button
+                    type="button"
+                    class="btn-del-sm"
+                    id="aboutVideoRemoveBtn"
+                    style="display: none; margin-top: 8px"
+                    onclick="clearVideoUpload()"
+                  >
+                    <i class="fa-solid fa-xmark"></i> Remove
+                  </button>
+                  <input
+                    type="file"
+                    id="aboutVideoInput"
+                    accept="video/*"
+                    style="display: none"
+                    onchange="handleVideoUpload(this)"
+                  />
                 </div>
               </div>
             </div>
 
             <!-- VISION -->
             <div class="wm-section">
-              <div class="wm-section-header"><i class="fa-solid fa-eye"></i><h3>Vision Section</h3></div>
+              <div class="wm-section-header">
+                <i class="fa-solid fa-eye"></i>
+                <h3>Vision Section</h3>
+              </div>
               <div class="wm-form-grid">
                 <div class="field-stack">
                   <label>Section Heading</label>
-                  <input type="text" class="wm-input" id="visionHeading" value="OUR VISION" />
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="visionHeading"
+                    value="OUR VISION"
+                  />
                 </div>
                 <div class="field-stack full">
                   <label>Vision Text</label>
-                  <textarea class="wm-textarea" id="visionText" rows="3"></textarea>
+                  <textarea
+                    class="wm-textarea"
+                    id="visionText"
+                    rows="3"
+                  ></textarea>
                 </div>
                 <div class="field-stack">
                   <label>Vision Image (left side)</label>
-                  <div class="wm-img-placeholder" id="visionImgPlaceholder" onclick="document.getElementById('visionImgInput').click()">
-                    <span><i class="fa-regular fa-image" style="margin-right:6px;"></i>Click to upload image</span>
+                  <div
+                    class="wm-img-placeholder"
+                    id="visionImgPlaceholder"
+                    onclick="document.getElementById('visionImgInput').click()"
+                  >
+                    <span
+                      ><i
+                        class="fa-regular fa-image"
+                        style="margin-right: 6px"
+                      ></i
+                      >Click to upload image</span
+                    >
                   </div>
-                  <img id="visionImgPreview" class="wm-img-preview" alt="Vision image" />
-                  <button type="button" class="btn-del-sm" id="visionImgPreviewRemoveBtn" style="display:none;margin-top:8px;" onclick="clearImage('vision')"><i class="fa-solid fa-xmark"></i> Remove</button>
-                  <input type="file" id="visionImgInput" accept="image/*" style="display:none;" />
+                  <img
+                    id="visionImgPreview"
+                    class="wm-img-preview"
+                    alt="Vision image"
+                  />
+                  <button
+                    type="button"
+                    class="btn-del-sm"
+                    id="visionImgPreviewRemoveBtn"
+                    style="display: none; margin-top: 8px"
+                    onclick="clearImage('vision')"
+                  >
+                    <i class="fa-solid fa-xmark"></i> Remove
+                  </button>
+                  <input
+                    type="file"
+                    id="visionImgInput"
+                    accept="image/*"
+                    style="display: none"
+                  />
                 </div>
               </div>
             </div>
 
             <!-- MISSION -->
             <div class="wm-section">
-              <div class="wm-section-header"><i class="fa-solid fa-bullseye"></i><h3>Mission Section</h3></div>
+              <div class="wm-section-header">
+                <i class="fa-solid fa-bullseye"></i>
+                <h3>Mission Section</h3>
+              </div>
               <div class="wm-form-grid">
                 <div class="field-stack">
                   <label>Section Heading</label>
-                  <input type="text" class="wm-input" id="missionHeading" value="OUR MISSION" />
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="missionHeading"
+                    value="OUR MISSION"
+                  />
                 </div>
                 <div class="field-stack full">
                   <label>Mission Text</label>
-                  <textarea class="wm-textarea" id="missionText" rows="3"></textarea>
+                  <textarea
+                    class="wm-textarea"
+                    id="missionText"
+                    rows="3"
+                  ></textarea>
                 </div>
                 <div class="field-stack">
                   <label>Mission Image (right side)</label>
-                  <div class="wm-img-placeholder" id="missionImgPlaceholder" onclick="document.getElementById('missionImgInput').click()">
-                    <span><i class="fa-regular fa-image" style="margin-right:6px;"></i>Click to upload image</span>
+                  <div
+                    class="wm-img-placeholder"
+                    id="missionImgPlaceholder"
+                    onclick="document.getElementById('missionImgInput').click()"
+                  >
+                    <span
+                      ><i
+                        class="fa-regular fa-image"
+                        style="margin-right: 6px"
+                      ></i
+                      >Click to upload image</span
+                    >
                   </div>
-                  <img id="missionImgPreview" class="wm-img-preview" alt="Mission image" />
-                  <button type="button" class="btn-del-sm" id="missionImgPreviewRemoveBtn" style="display:none;margin-top:8px;" onclick="clearImage('mission')"><i class="fa-solid fa-xmark"></i> Remove</button>
-                  <input type="file" id="missionImgInput" accept="image/*" style="display:none;" />
+                  <img
+                    id="missionImgPreview"
+                    class="wm-img-preview"
+                    alt="Mission image"
+                  />
+                  <button
+                    type="button"
+                    class="btn-del-sm"
+                    id="missionImgPreviewRemoveBtn"
+                    style="display: none; margin-top: 8px"
+                    onclick="clearImage('mission')"
+                  >
+                    <i class="fa-solid fa-xmark"></i> Remove
+                  </button>
+                  <input
+                    type="file"
+                    id="missionImgInput"
+                    accept="image/*"
+                    style="display: none"
+                  />
                 </div>
               </div>
             </div>
@@ -252,22 +850,54 @@
             <!-- WHAT WE OFFER -->
             <div class="wm-section">
               <div class="wm-section-header">
-                <i class="fa-solid fa-grid-2"></i><h3>What We Offer Section</h3>
-                <button class="btn-admin" style="margin-left:auto;" id="btnAddService"><i class="fa-solid fa-plus" style="color:#fff;"></i> Add Service Card</button>
+                <i class="fa-solid fa-grid-2"></i>
+                <h3>What We Offer Section</h3>
+                <button
+                  class="btn-admin"
+                  style="margin-left: auto"
+                  id="btnAddService"
+                >
+                  <i class="fa-solid fa-plus" style="color: #fff"></i> Add
+                  Service Card
+                </button>
               </div>
-              <p class="field-hint" style="margin-bottom:14px;">These cards are shared with the Services page. Changes here update both pages.</p>
+              <p class="field-hint" style="margin-bottom: 14px">
+                These cards are shared with the Services page. Changes here
+                update both pages.
+              </p>
               <div class="wm-cards-grid" id="homeServicesGrid">
-                <div style="grid-column:1/-1;padding:30px;text-align:center;color:#9ca3af;">
-                  <div class="wm-skeleton" style="height:16px;width:60%;margin:0 auto 10px;"></div>
-                  <div class="wm-skeleton" style="height:12px;width:40%;margin:0 auto;"></div>
+                <div
+                  style="
+                    grid-column: 1/-1;
+                    padding: 30px;
+                    text-align: center;
+                    color: #9ca3af;
+                  "
+                >
+                  <div
+                    class="wm-skeleton"
+                    style="height: 16px; width: 60%; margin: 0 auto 10px"
+                  ></div>
+                  <div
+                    class="wm-skeleton"
+                    style="height: 12px; width: 40%; margin: 0 auto"
+                  ></div>
                 </div>
               </div>
             </div>
 
             <!-- SAVE BAR -->
             <div class="wm-save-bar">
-              <p><i class="fa-solid fa-circle-info" style="margin-right:5px;color:var(--primary-color);"></i>Changes only apply after clicking Save All Changes.</p>
-              <button class="btn-admin" id="btnSaveAllHome"><i class="fa-solid fa-floppy-disk"></i> Save All Changes</button>
+              <p>
+                <i
+                  class="fa-solid fa-circle-info"
+                  style="margin-right: 5px; color: var(--primary-color)"
+                ></i
+                >Changes only apply after clicking Save All Changes.
+              </p>
+              <button class="btn-admin" id="btnSaveAllHome">
+                <i class="fa-solid fa-floppy-disk"></i> Save All Changes
+              </button>
             </div>
           </div>
         </section>
@@ -276,30 +906,79 @@
 
     <!-- -- CROP MODAL (Logo / BG Image) -- -->
     <div class="wm-modal-overlay" id="cropModal">
-      <div class="wm-modal-card" style="max-width:480px;">
+      <div class="wm-modal-card" style="max-width: 480px">
         <div class="wm-modal-header">
           <h3 id="cropModalTitle">Adjust Image</h3>
-          <button class="btn-close-x" onclick="closeCropModal()">&times;</button>
+          <button class="btn-close-x" onclick="closeCropModal()">
+            &times;
+          </button>
         </div>
-        <div class="wm-modal-body" style="text-align:center;">
-          <p class="field-hint" style="margin-bottom:12px;">Drag the image to position it within the circle. Use the slider to resize.</p>
+        <div class="wm-modal-body" style="text-align: center">
+          <p class="field-hint" style="margin-bottom: 12px">
+            Drag the image to position it within the circle. Use the slider to
+            resize.
+          </p>
           <div class="crop-circle-wrapper" id="cropCircle">
             <img id="cropImg" alt="Crop preview" draggable="false" />
           </div>
-          <div style="display:flex;align-items:center;gap:10px;margin-top:12px;">
-            <label style="font-size:0.8rem;font-weight:600;min-width:50px;">Scale</label>
-            <input type="range" id="cropScale" min="50" max="300" value="100" style="flex:1;" />
-            <span id="cropScaleVal" style="font-size:0.78rem;color:#6b7280;min-width:40px;">100%</span>
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              margin-top: 12px;
+            "
+          >
+            <label style="font-size: 0.8rem; font-weight: 600; min-width: 50px"
+              >Scale</label
+            >
+            <input
+              type="range"
+              id="cropScale"
+              min="50"
+              max="300"
+              value="100"
+              style="flex: 1"
+            />
+            <span
+              id="cropScaleVal"
+              style="font-size: 0.78rem; color: #6b7280; min-width: 40px"
+              >100%</span
+            >
           </div>
-          <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
-            <label style="font-size:0.8rem;font-weight:600;min-width:50px;">Rotate</label>
-            <input type="range" id="cropRotate" min="-180" max="180" value="0" style="flex:1;" />
-            <span id="cropRotateVal" style="font-size:0.78rem;color:#6b7280;min-width:40px;">0°</span>
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              margin-top: 8px;
+            "
+          >
+            <label style="font-size: 0.8rem; font-weight: 600; min-width: 50px"
+              >Rotate</label
+            >
+            <input
+              type="range"
+              id="cropRotate"
+              min="-180"
+              max="180"
+              value="0"
+              style="flex: 1"
+            />
+            <span
+              id="cropRotateVal"
+              style="font-size: 0.78rem; color: #6b7280; min-width: 40px"
+              >0ï¿½</span
+            >
           </div>
         </div>
         <div class="wm-modal-footer">
-          <button class="btn-admin btn-secondary" onclick="closeCropModal()">Cancel</button>
-          <button class="btn-admin" id="btnApplyCrop"><i class="fa-solid fa-check"></i> Apply</button>
+          <button class="btn-admin btn-secondary" onclick="closeCropModal()">
+            Cancel
+          </button>
+          <button class="btn-admin" id="btnApplyCrop">
+            <i class="fa-solid fa-check"></i> Apply
+          </button>
         </div>
       </div>
     </div>
@@ -309,22 +988,48 @@
       <div class="wm-modal-card">
         <div class="wm-modal-header">
           <h3 id="serviceModalTitle">Add Service Card</h3>
-          <button class="btn-close-x" onclick="closeServiceModal()">&times;</button>
+          <button class="btn-close-x" onclick="closeServiceModal()">
+            &times;
+          </button>
         </div>
         <div class="wm-modal-body">
           <input type="hidden" id="serviceEditId" />
           <div class="wm-form-grid">
             <div class="field-stack full">
               <label>Service Image</label>
-              <div class="wm-img-placeholder" id="svcImgPlaceholder" onclick="document.getElementById('svcImgInput').click()">
-                <span><i class="fa-regular fa-image" style="margin-right:6px;"></i>Click to upload image</span>
+              <div
+                class="wm-img-placeholder"
+                id="svcImgPlaceholder"
+                onclick="document.getElementById('svcImgInput').click()"
+              >
+                <span
+                  ><i class="fa-regular fa-image" style="margin-right: 6px"></i
+                  >Click to upload image</span
+                >
               </div>
-              <img id="svcImgPreview" class="wm-img-preview" alt="Service image" />
-              <button type="button" class="btn-del-sm" id="svcImgPreviewRemoveBtn" style="display:none;margin-top:8px;" onclick="clearImage('svc')"><i class="fa-solid fa-xmark"></i> Remove</button>
-              <input type="file" id="svcImgInput" accept="image/*" style="display:none;" />
+              <img
+                id="svcImgPreview"
+                class="wm-img-preview"
+                alt="Service image"
+              />
+              <button
+                type="button"
+                class="btn-del-sm"
+                id="svcImgPreviewRemoveBtn"
+                style="display: none; margin-top: 8px"
+                onclick="clearImage('svc')"
+              >
+                <i class="fa-solid fa-xmark"></i> Remove
+              </button>
+              <input
+                type="file"
+                id="svcImgInput"
+                accept="image/*"
+                style="display: none"
+              />
             </div>
             <div class="field-stack">
-              <label>Category <span style="color:#dc2626">*</span></label>
+              <label>Category <span style="color: #dc2626">*</span></label>
               <select class="wm-select" id="svcCategory">
                 <option>Prototyping</option>
                 <option>Manufacturing</option>
@@ -333,8 +1038,13 @@
               </select>
             </div>
             <div class="field-stack">
-              <label>Title <span style="color:#dc2626">*</span></label>
-              <input type="text" class="wm-input" id="svcTitle" maxlength="255" />
+              <label>Title <span style="color: #dc2626">*</span></label>
+              <input
+                type="text"
+                class="wm-input"
+                id="svcTitle"
+                maxlength="255"
+              />
             </div>
             <div class="field-stack full">
               <label>Short Description (card text)</label>
@@ -343,8 +1053,12 @@
           </div>
         </div>
         <div class="wm-modal-footer">
-          <button class="btn-admin btn-secondary" onclick="closeServiceModal()">Cancel</button>
-          <button class="btn-admin" id="btnSaveService"><i class="fa-solid fa-floppy-disk"></i> Save Service</button>
+          <button class="btn-admin btn-secondary" onclick="closeServiceModal()">
+            Cancel
+          </button>
+          <button class="btn-admin" id="btnSaveService">
+            <i class="fa-solid fa-floppy-disk"></i> Save Service
+          </button>
         </div>
       </div>
     </div>

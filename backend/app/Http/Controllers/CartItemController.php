@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class CartItemController extends Controller
 {
@@ -48,7 +49,7 @@ class CartItemController extends Controller
         ]);
 
         try {
-            \DB::transaction(function () use ($user, $validated) {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($user, $validated) {
                 // Remove old cart items
                 \App\Models\CartItem::where('user_id', $user->id)->delete();
 
@@ -76,7 +77,7 @@ class CartItemController extends Controller
 
             return response()->json(['message' => 'Cart synced successfully']);
         } catch (\Exception $e) {
-            \Log::error('Cart sync failed: ' . $e->getMessage());
+            Log::error('Cart sync failed: ' . $e->getMessage());
 
             return response()->json([
                 'message' => 'Cart sync failed. Items are saved locally.',

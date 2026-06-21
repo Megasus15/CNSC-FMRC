@@ -87,10 +87,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Live validation feedback while typing.
-  [
-    "loginUser",
-    "loginPass",
-  ].forEach((inputId) => {
+  ["loginUser", "loginPass"].forEach((inputId) => {
     const input = document.getElementById(inputId);
     if (!input) return;
 
@@ -103,97 +100,110 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Handle Login Submit
   if (loginForm) {
-      loginForm.addEventListener("submit", async (event) => {
-        event.preventDefault();
+    loginForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
 
-        clearFormErrors(loginForm);
+      clearFormErrors(loginForm);
 
-        const user = document.getElementById("loginUser").value.trim();
-        const pass = document.getElementById("loginPass").value;
+      const user = document.getElementById("loginUser").value.trim();
+      const pass = document.getElementById("loginPass").value;
 
-        let hasError = false;
+      let hasError = false;
 
-        if (!user) {
+      if (!user) {
+        setFieldError(
+          "loginUser",
+          "Please enter your email or username before logging in.",
+        );
+        hasError = true;
+      }
+
+      if (!pass) {
+        setFieldError(
+          "loginPass",
+          "Password cannot be empty. Please enter your password.",
+        );
+        hasError = true;
+      }
+
+      if (hasError) {
+        const firstErrorInput = loginForm.querySelector(
+          ".input-wrapper.has-error input",
+        );
+        if (firstErrorInput) firstErrorInput.focus();
+        return;
+      }
+
+      toggleLoader(true);
+      try {
+        const response = await fetch("http://127.0.0.1:8000/api/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            login: user,
+            password: pass,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          // Store token under role-specific keys so admin & staff sessions don't collide.
+          const userRole = (data.user.role || "").toLowerCase();
+          if (userRole === "staff") {
+            localStorage.setItem("staff_auth_token", data.access_token);
+            localStorage.setItem("staff_user_info", JSON.stringify(data.user));
+          } else {
+            localStorage.setItem("admin_auth_token", data.access_token);
+            localStorage.setItem("admin_user_info", JSON.stringify(data.user));
+          }
+          // Remove any legacy keys to prevent conflicts
+          localStorage.removeItem("auth_token");
+          localStorage.removeItem("user_info");
+
+          showStatus("Login successful. Opening dashboard...");
+
+          if (data.user.role === "admin") {
+            window.location.href = "../admin-page/dashboard.html";
+          } else if (data.user.role === "staff") {
+            window.location.href = "../staff-page/dashboard.html";
+          } else if (data.user.role === "cashier") {
+            window.location.href = "../cashier-page/dashboard.html";
+          } else {
+            setFieldError(
+              "loginUser",
+              "Unauthorized access. This area is for Admin/Cashier/Staff only.",
+            );
+          }
+        } else if (response.status === 422 && data.errors) {
+          if (data.errors.login?.[0]) {
+            setFieldError("loginUser", data.errors.login[0]);
+          }
+          if (data.errors.password?.[0]) {
+            setFieldError("loginPass", data.errors.password[0]);
+          }
+        } else if (
+          data.message &&
+          /invalid|incorrect|credentials/i.test(data.message)
+        ) {
+          setFieldError("loginPass", "Password is incorrect.");
+        } else {
           setFieldError(
             "loginUser",
-            "Please enter your email or username before logging in.",
+            data.message || "Unable to log in with the provided details.",
           );
-          hasError = true;
         }
-
-        if (!pass) {
-          setFieldError(
-            "loginPass",
-            "Password cannot be empty. Please enter your password.",
-          );
-          hasError = true;
-        }
-
-        if (hasError) {
-          const firstErrorInput = loginForm.querySelector(".input-wrapper.has-error input");
-          if (firstErrorInput) firstErrorInput.focus();
-          return;
-        }
-
-        toggleLoader(true);
-        try {
-          const response = await fetch('http://127.0.0.1:8000/api/login', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-              login: user,
-              password: pass
-            })
-          });
-
-          const data = await response.json();
-
-          if (response.ok) {
-            // Store token under role-specific keys so admin & staff sessions don't collide.
-            const userRole = (data.user.role || '').toLowerCase();
-            if (userRole === 'staff') {
-              localStorage.setItem('staff_auth_token', data.access_token);
-              localStorage.setItem('staff_user_info', JSON.stringify(data.user));
-            } else {
-              localStorage.setItem('admin_auth_token', data.access_token);
-              localStorage.setItem('admin_user_info', JSON.stringify(data.user));
-            }
-            // Remove any legacy keys to prevent conflicts
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('user_info');
-
-            showStatus("Login successful. Opening dashboard...");
-
-            if (data.user.role === 'admin') {
-              window.location.href = "../admin-page/dashboard.html";
-            } else if (data.user.role === 'staff') {
-              window.location.href = "../staff-page/dashboard.html";
-            } else if (data.user.role === 'cashier') {
-              window.location.href = "../cashier-page/dashboard.html";
-            } else {
-              setFieldError("loginUser", "Unauthorized access. This area is for Admin/Cashier/Staff only.");
-            }
-          } else if (response.status === 422 && data.errors) {
-            if (data.errors.login?.[0]) {
-              setFieldError("loginUser", data.errors.login[0]);
-            }
-            if (data.errors.password?.[0]) {
-              setFieldError("loginPass", data.errors.password[0]);
-            }
-          } else if (data.message && /invalid|incorrect|credentials/i.test(data.message)) {
-            setFieldError("loginPass", "Password is incorrect.");
-          } else {
-            setFieldError("loginUser", data.message || "Unable to log in with the provided details.");
-          }
-        } catch {
-          setFieldError("loginUser", "Cannot connect to server. Ensure Laravel is running (php artisan serve).");
-        } finally {
-          toggleLoader(false);
-        }
-      });
+      } catch {
+        setFieldError(
+          "loginUser",
+          "Cannot connect to server. Ensure Laravel is running (php artisan serve).",
+        );
+      } finally {
+        toggleLoader(false);
+      }
+    });
   }
 });
-

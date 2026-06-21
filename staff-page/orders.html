@@ -19,17 +19,30 @@
           <h2>CNSC-FMRC</h2>
         </div>
         <nav class="sidebar-nav">
-          <a href="dashboard.html" class="nav-link"><i class="fa-solid fa-house"></i> Dashboard</a>
-          <a href="inventory.html" class="nav-link"><i class="fa-solid fa-box"></i> Inventory</a>
-          <a href="products.html" class="nav-link"><i class="fa-solid fa-tags"></i> Products</a>
-          <a href="appointments.html" class="nav-link"><i class="fa-regular fa-calendar-check"></i> Appointment</a>
-          <a href="reports.html" class="nav-link"><i class="fa-solid fa-chart-line"></i> Reports</a>
-          <a href="orders.html" class="nav-link active"><i class="fa-solid fa-box-open"></i> Orders</a>
+          <a href="dashboard.html" class="nav-link"
+            ><i class="fa-solid fa-house"></i> Dashboard</a
+          >
+          <a href="inventory.html" class="nav-link"
+            ><i class="fa-solid fa-box"></i> Inventory</a
+          >
+          <a href="products.html" class="nav-link"
+            ><i class="fa-solid fa-tags"></i> Products</a
+          >
+          <a href="appointments.html" class="nav-link"
+            ><i class="fa-regular fa-calendar-check"></i> Appointment</a
+          >
+          <a href="reports.html" class="nav-link"
+            ><i class="fa-solid fa-chart-line"></i> Reports</a
+          >
+          <a href="orders.html" class="nav-link active"
+            ><i class="fa-solid fa-box-open"></i> Orders</a
+          >
 
           <div class="nav-item has-dropdown">
             <a href="#" class="nav-link dropdown-toggle" id="staffControlBtn">
               <div class="dropdown-title">
-                <i class="fa-solid fa-screwdriver-wrench"></i> Website Management
+                <i class="fa-solid fa-screwdriver-wrench"></i> Website
+                Management
               </div>
               <i class="fa-solid fa-chevron-down arrow"></i>
             </a>
@@ -41,11 +54,17 @@
             </div>
           </div>
 
-          <a href="archives.html" class="nav-link"><i class="fa-solid fa-box-archive"></i> Archives</a>
-          <a href="my-account.html" class="nav-link"><i class="fa-regular fa-id-card"></i> My Account</a>
+          <a href="archives.html" class="nav-link"
+            ><i class="fa-solid fa-box-archive"></i> Archives</a
+          >
+          <a href="my-account.html" class="nav-link"
+            ><i class="fa-regular fa-id-card"></i> My Account</a
+          >
         </nav>
         <div class="sidebar-footer">
-          <button class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+          <button class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
         </div>
       </aside>
 
@@ -53,23 +72,36 @@
         <header class="top-header">
           <div class="header-left"><h1>Orders Operations Center</h1></div>
           <div class="header-right">
-            <div class="notifications" id="notifBell"><i class="fa-regular fa-bell"></i><span class="badge" id="notifBadge" style="display:none;"></span></div>
+            <div class="notifications" id="notifBell">
+              <i class="fa-regular fa-bell"></i
+              ><span class="badge" id="notifBadge" style="display: none"></span>
+            </div>
             <div class="user-profile">
               <div class="user-info"><span class="role">Staff</span></div>
-              <span class="profile-icon profile-initial" data-email="staff@cnsc.edu.ph"></span>
+              <span
+                class="profile-icon profile-initial"
+                data-email="staff@cnsc.edu.ph"
+              ></span>
               <div class="profile-popup" id="profilePopup">
                 <div class="popup-header">
                   <div class="popup-profile-row">
-                    <span class="popup-profile-icon profile-initial" data-email="staff@cnsc.edu.ph"></span>
+                    <span
+                      class="popup-profile-icon profile-initial"
+                      data-email="staff@cnsc.edu.ph"
+                    ></span>
                     <div class="popup-profile-meta">
                       <p class="popup-identity">staff@cnsc.edu.ph</p>
                       <span class="popup-role">Staff</span>
                     </div>
                   </div>
                 </div>
-                <a href="my-account.html" class="profile-popup-link"><i class="fa-regular fa-id-card"></i> My Account</a>
+                <a href="my-account.html" class="profile-popup-link"
+                  ><i class="fa-regular fa-id-card"></i> My Account</a
+                >
                 <hr />
-                <button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+                <button class="logout-btn popup-logout">
+                  <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
               </div>
             </div>
           </div>
@@ -79,10 +111,17 @@
           <div class="page-toolbar">
             <div class="toolbar-title">
               <h2>Orders Operations Center</h2>
-              <p>Review incoming requests first, manage all order statuses in one table, and monitor complete payment history.</p>
+              <p>
+                Review incoming requests first, manage all order statuses in one
+                table, and monitor complete payment history.
+              </p>
             </div>
             <div class="toolbar-actions">
-              <button class="btn-admin btn-secondary" onclick="window.location.reload();" title="Refresh Data">
+              <button
+                class="btn-admin btn-secondary"
+                onclick="window.location.reload()"
+                title="Refresh Data"
+              >
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
             </div>
@@ -93,25 +132,43 @@
               <div class="panel-header incoming-panel-header">
                 <div>
                   <h3>Incoming Orders</h3>
-                  <p class="incoming-subtitle">Prioritized queue. Review first, then move orders to processing.</p>
+                  <p class="incoming-subtitle">
+                    Prioritized queue. Review first, then move orders to
+                    processing.
+                  </p>
                 </div>
                 <span class="status-pill status-yellow">Urgent Review</span>
               </div>
 
               <div class="incoming-orders-grid-wrapper">
                 <div class="incoming-orders-scroll">
-                  <div class="incoming-orders-grid" id="incomingOrdersCards"></div>
+                  <div
+                    class="incoming-orders-grid"
+                    id="incomingOrdersCards"
+                  ></div>
                 </div>
-                <div class="incoming-cards-pagination" id="incomingCardsPagination">
-                  <button type="button" class="page-btn" id="incomingPrevBtn"><i class="fa-solid fa-chevron-left"></i></button>
+                <div
+                  class="incoming-cards-pagination"
+                  id="incomingCardsPagination"
+                >
+                  <button type="button" class="page-btn" id="incomingPrevBtn">
+                    <i class="fa-solid fa-chevron-left"></i>
+                  </button>
                   <div class="page-number" id="incomingPageNumber">1</div>
-                  <button type="button" class="page-btn" id="incomingNextBtn"><i class="fa-solid fa-chevron-right"></i></button>
+                  <button type="button" class="page-btn" id="incomingNextBtn">
+                    <i class="fa-solid fa-chevron-right"></i>
+                  </button>
                 </div>
               </div>
 
               <div class="incoming-orders-compact">
                 <div class="table-wrapper">
-                  <table class="admin-table" id="incomingCompactTable" data-page-size="5" data-empty-message="No incoming orders found.">
+                  <table
+                    class="admin-table"
+                    id="incomingCompactTable"
+                    data-page-size="5"
+                    data-empty-message="No incoming orders found."
+                  >
                     <thead>
                       <tr>
                         <th>Order No.</th>
@@ -129,9 +186,13 @@
                 <div class="table-footer" id="incomingCompactFooter">
                   <div class="table-footer-meta">Page 1 of 1</div>
                   <div class="table-pagination">
-                    <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-left"></i></button>
+                    <button class="page-btn" type="button" disabled>
+                      <i class="fa-solid fa-chevron-left"></i>
+                    </button>
                     <div class="page-number">1</div>
-                    <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-right"></i></button>
+                    <button class="page-btn" type="button" disabled>
+                      <i class="fa-solid fa-chevron-right"></i>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -141,15 +202,27 @@
               <div class="panel-header">
                 <h3>Orders Directory</h3>
                 <div class="filters-row">
-                  <select class="filter-select" id="ordersDirectoryStatusFilter">
+                  <select
+                    class="filter-select"
+                    id="ordersDirectoryStatusFilter"
+                  >
                     <option value="all">All Orders</option>
                     <option value="pending">Pending Orders</option>
                   </select>
-                  <input class="search-input" id="ordersDirectorySearch" placeholder="Search order no., customer, or item..." />
+                  <input
+                    class="search-input"
+                    id="ordersDirectorySearch"
+                    placeholder="Search order no., customer, or item..."
+                  />
                 </div>
               </div>
               <div class="table-wrapper">
-                <table class="admin-table" id="ordersDirectoryTable" data-page-size="5" data-empty-message="No orders available.">
+                <table
+                  class="admin-table"
+                  id="ordersDirectoryTable"
+                  data-page-size="5"
+                  data-empty-message="No orders available."
+                >
                   <thead>
                     <tr>
                       <th>Order No.</th>
@@ -168,9 +241,13 @@
               <div class="table-footer" id="ordersDirectoryFooter">
                 <div class="table-footer-meta">Page 1 of 1</div>
                 <div class="table-pagination">
-                  <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-left"></i></button>
+                  <button class="page-btn" type="button" disabled>
+                    <i class="fa-solid fa-chevron-left"></i>
+                  </button>
                   <div class="page-number">1</div>
-                  <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-right"></i></button>
+                  <button class="page-btn" type="button" disabled>
+                    <i class="fa-solid fa-chevron-right"></i>
+                  </button>
                 </div>
               </div>
             </article>
@@ -179,13 +256,22 @@
               <div class="panel-header">
                 <h3>Walk-in Customers</h3>
                 <div class="filters-row">
-                  <button class="btn-admin" id="openWalkInOrderModalBtn" type="button">
+                  <button
+                    class="btn-admin"
+                    id="openWalkInOrderModalBtn"
+                    type="button"
+                  >
                     <i class="fa-solid fa-plus"></i> Add
                   </button>
                 </div>
               </div>
               <div class="table-wrapper walkin-table-wrapper">
-                <table class="admin-table" id="walkInOrdersTable" data-page-size="5" data-empty-message="No walk-in orders available.">
+                <table
+                  class="admin-table"
+                  id="walkInOrdersTable"
+                  data-page-size="5"
+                  data-empty-message="No walk-in orders available."
+                >
                   <thead>
                     <tr>
                       <th>Payment Order No.</th>
@@ -209,9 +295,13 @@
               <div class="table-footer" id="walkInOrdersFooter">
                 <div class="table-footer-meta">Page 1 of 1</div>
                 <div class="table-pagination">
-                  <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-left"></i></button>
+                  <button class="page-btn" type="button" disabled>
+                    <i class="fa-solid fa-chevron-left"></i>
+                  </button>
                   <div class="page-number">1</div>
-                  <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-right"></i></button>
+                  <button class="page-btn" type="button" disabled>
+                    <i class="fa-solid fa-chevron-right"></i>
+                  </button>
                 </div>
               </div>
             </article>
@@ -219,14 +309,26 @@
             <!-- ═══════════ REJECTED ORDERS PANEL ═══════════ -->
             <article class="panel" id="rejectedOrdersPanel">
               <div class="panel-header">
-                <h3><i class="fa-solid fa-ban" style="color:#dc2626;margin-right:6px;"></i>Rejected Orders</h3>
+                <h3>
+                  <i
+                    class="fa-solid fa-ban"
+                    style="color: #dc2626; margin-right: 6px"
+                  ></i
+                  >Rejected Orders
+                </h3>
                 <span class="status-pill status-red">Rejected</span>
               </div>
               <div class="table-scroll-hint">
-                <i class="fa-solid fa-left-right"></i> Scroll horizontally to see all columns.
+                <i class="fa-solid fa-left-right"></i> Scroll horizontally to
+                see all columns.
               </div>
               <div class="table-wrapper">
-                <table class="admin-table" id="rejectedOrdersTable" data-page-size="5" data-empty-message="No rejected orders.">
+                <table
+                  class="admin-table"
+                  id="rejectedOrdersTable"
+                  data-page-size="5"
+                  data-empty-message="No rejected orders."
+                >
                   <thead>
                     <tr>
                       <th>Order No.</th>
@@ -245,9 +347,13 @@
               <div class="table-footer" id="rejectedOrdersFooter">
                 <div class="table-footer-meta">Page 1 of 1</div>
                 <div class="table-pagination">
-                  <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-left"></i></button>
+                  <button class="page-btn" type="button" disabled>
+                    <i class="fa-solid fa-chevron-left"></i>
+                  </button>
                   <div class="page-number">1</div>
-                  <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-right"></i></button>
+                  <button class="page-btn" type="button" disabled>
+                    <i class="fa-solid fa-chevron-right"></i>
+                  </button>
                 </div>
               </div>
             </article>
@@ -265,7 +371,12 @@
                 </div>
               </div>
               <div class="table-wrapper">
-                <table class="admin-table" id="paymentsHistoryTable" data-page-size="5" data-empty-message="No payments available.">
+                <table
+                  class="admin-table"
+                  id="paymentsHistoryTable"
+                  data-page-size="5"
+                  data-empty-message="No payments available."
+                >
                   <thead>
                     <tr>
                       <th>Payment ID</th>
@@ -284,9 +395,13 @@
               <div class="table-footer" id="paymentsHistoryFooter">
                 <div class="table-footer-meta">Page 1 of 1</div>
                 <div class="table-pagination">
-                  <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-left"></i></button>
+                  <button class="page-btn" type="button" disabled>
+                    <i class="fa-solid fa-chevron-left"></i>
+                  </button>
                   <div class="page-number">1</div>
-                  <button class="page-btn" type="button" disabled><i class="fa-solid fa-chevron-right"></i></button>
+                  <button class="page-btn" type="button" disabled>
+                    <i class="fa-solid fa-chevron-right"></i>
+                  </button>
                 </div>
               </div>
             </article>
@@ -295,34 +410,91 @@
       </main>
     </div>
 
-    <div class="modal-overlay" id="modalOrderDetails" data-backdrop-close="false">
+    <div
+      class="modal-overlay"
+      id="modalOrderDetails"
+      data-backdrop-close="false"
+    >
       <div class="modal-card product-modal">
         <div class="modal-header-fixed">
           <h3 class="modal-title">Order Details</h3>
         </div>
         <div class="modal-body-scroll">
           <div class="form-grid">
-            <div class="field-stack"><label>Order No.</label><input id="modalOrderNo" class="input-field" readonly /></div>
-            <div class="field-stack"><label>Date</label><input id="modalOrderDate" class="input-field" readonly /></div>
-            <div class="field-stack full"><label>Order Item</label><input id="modalOrderItem" class="input-field" readonly /></div>
-            <div class="field-stack"><label>Customer</label><input id="modalOrderCustomer" class="input-field" readonly /></div>
-            <div class="field-stack"><label>Contact</label><input id="modalOrderContact" class="input-field" readonly /></div>
-            <div class="field-stack full"><label>Address</label><textarea id="modalOrderAddress" class="textarea-field" readonly></textarea></div>
-            <div class="field-stack"><label>Payment Method</label><input id="modalOrderPayment" class="input-field" readonly /></div>
-            <div class="field-stack"><label>Payment Reference</label><input id="modalOrderReference" class="input-field" readonly /></div>
-            <div class="field-stack"><label>Quantity</label><input id="modalOrderQty" class="input-field" readonly /></div>
-            <div class="field-stack"><label>Total</label><input id="modalOrderTotal" class="input-field" readonly /></div>
-            <div class="field-stack"><label>Status</label><input id="modalOrderStatus" class="input-field" readonly /></div>
-            <div class="field-stack full"><label>Notes</label><textarea id="modalOrderNotes" class="textarea-field" readonly></textarea></div>
+            <div class="field-stack">
+              <label>Order No.</label
+              ><input id="modalOrderNo" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label>Date</label
+              ><input id="modalOrderDate" class="input-field" readonly />
+            </div>
+            <div class="field-stack full">
+              <label>Order Item</label
+              ><input id="modalOrderItem" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label>Customer</label
+              ><input id="modalOrderCustomer" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label>Contact</label
+              ><input id="modalOrderContact" class="input-field" readonly />
+            </div>
+            <div class="field-stack full">
+              <label>Address</label
+              ><textarea
+                id="modalOrderAddress"
+                class="textarea-field"
+                readonly
+              ></textarea>
+            </div>
+            <div class="field-stack">
+              <label>Payment Method</label
+              ><input id="modalOrderPayment" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label>Payment Reference</label
+              ><input id="modalOrderReference" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label>Quantity</label
+              ><input id="modalOrderQty" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label>Total</label
+              ><input id="modalOrderTotal" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label>Status</label
+              ><input id="modalOrderStatus" class="input-field" readonly />
+            </div>
+            <div class="field-stack full">
+              <label>Notes</label
+              ><textarea
+                id="modalOrderNotes"
+                class="textarea-field"
+                readonly
+              ></textarea>
+            </div>
           </div>
         </div>
         <div class="modal-footer-fixed">
-          <button class="btn-admin btn-secondary" data-modal-close="#modalOrderDetails">Close</button>
+          <button
+            class="btn-admin btn-secondary"
+            data-modal-close="#modalOrderDetails"
+          >
+            Close
+          </button>
         </div>
       </div>
     </div>
 
-    <div class="modal-overlay" id="modalTrackingUpdate" data-backdrop-close="false">
+    <div
+      class="modal-overlay"
+      id="modalTrackingUpdate"
+      data-backdrop-close="false"
+    >
       <div class="modal-card product-modal">
         <div class="modal-header-fixed">
           <h3 class="modal-title">Update Tracking Status</h3>
@@ -330,8 +502,12 @@
         <div class="modal-body-scroll">
           <div class="form-grid">
             <input type="hidden" id="trackingOrderId" />
-            <div class="field-stack"><label>Order No.</label><input id="trackingOrderNo" class="input-field" readonly /></div>
-            <div class="field-stack"><label>Customer Stage</label>
+            <div class="field-stack">
+              <label>Order No.</label
+              ><input id="trackingOrderNo" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label>Customer Stage</label>
               <select id="trackingStage" class="filter-select">
                 <option value="to_pay">To Pay</option>
                 <option value="to_ship">To Ship</option>
@@ -339,33 +515,98 @@
                 <option value="completed">Completed</option>
               </select>
             </div>
-            <div class="field-stack full"><label>Timeline Title</label><input id="trackingEventTitle" class="input-field" placeholder="ex. Order prepared for shipping" /></div>
-            <div class="field-stack full"><label>Description</label><textarea id="trackingEventDescription" class="textarea-field" placeholder="Add extra details for customer visibility."></textarea></div>
-            <div class="field-stack"><label>Courier</label><input id="trackingCourierName" class="input-field" placeholder="ex. J&T Express" /></div>
-            <div class="field-stack"><label>Tracking No.</label><input id="trackingCourierNo" class="input-field" placeholder="ex. JT123456789PH" /></div>
-            <div class="field-stack"><label>Location Name</label><input id="trackingLocationName" class="input-field" placeholder="ex. Daet Distribution Hub" /></div>
+            <div class="field-stack full">
+              <label>Timeline Title</label
+              ><input
+                id="trackingEventTitle"
+                class="input-field"
+                placeholder="ex. Order prepared for shipping"
+              />
+            </div>
+            <div class="field-stack full">
+              <label>Description</label
+              ><textarea
+                id="trackingEventDescription"
+                class="textarea-field"
+                placeholder="Add extra details for customer visibility."
+              ></textarea>
+            </div>
+            <div class="field-stack">
+              <label>Courier</label
+              ><input
+                id="trackingCourierName"
+                class="input-field"
+                placeholder="ex. J&T Express"
+              />
+            </div>
+            <div class="field-stack">
+              <label>Tracking No.</label
+              ><input
+                id="trackingCourierNo"
+                class="input-field"
+                placeholder="ex. JT123456789PH"
+              />
+            </div>
+            <div class="field-stack">
+              <label>Location Name</label
+              ><input
+                id="trackingLocationName"
+                class="input-field"
+                placeholder="ex. Daet Distribution Hub"
+              />
+            </div>
           </div>
         </div>
         <div class="modal-footer-fixed">
-          <button class="btn-admin btn-secondary" data-modal-close="#modalTrackingUpdate">Cancel</button>
-          <button class="btn-admin" id="btnSaveTrackingUpdate" type="button">Save Update</button>
+          <button
+            class="btn-admin btn-secondary"
+            data-modal-close="#modalTrackingUpdate"
+          >
+            Cancel
+          </button>
+          <button class="btn-admin" id="btnSaveTrackingUpdate" type="button">
+            Save Update
+          </button>
         </div>
       </div>
     </div>
 
-    <div class="modal-overlay" id="modalAddWalkInOrder" data-backdrop-close="false">
+    <div
+      class="modal-overlay"
+      id="modalAddWalkInOrder"
+      data-backdrop-close="false"
+    >
       <div class="modal-card product-modal">
         <div class="modal-header-fixed">
-          <h3 class="modal-title" id="walkInModalTitle">Add Walk-in Customer</h3>
+          <h3 class="modal-title" id="walkInModalTitle">
+            Add Walk-in Customer
+          </h3>
         </div>
         <div class="modal-body-scroll">
           <div class="form-grid">
-            <div class="field-stack"><label>Payment Order No.</label><input id="walkInOrderNoInput" class="input-field" placeholder="e.g. ORD-2025-001" /></div>
-            <div class="field-stack"><label>Name</label><input id="walkInCustomerNameInput" class="input-field" /></div>
-            <div class="field-stack full"><label>Address</label><input id="walkInAddressInput" class="input-field" /></div>
-            <div class="field-stack"><label>Contact Number</label><input id="walkInContactNumberInput" class="input-field" /></div>
+            <div class="field-stack">
+              <label>Payment Order No.</label
+              ><input
+                id="walkInOrderNoInput"
+                class="input-field"
+                placeholder="e.g. ORD-2025-001"
+              />
+            </div>
+            <div class="field-stack">
+              <label>Name</label
+              ><input id="walkInCustomerNameInput" class="input-field" />
+            </div>
+            <div class="field-stack full">
+              <label>Address</label
+              ><input id="walkInAddressInput" class="input-field" />
+            </div>
+            <div class="field-stack">
+              <label>Contact Number</label
+              ><input id="walkInContactNumberInput" class="input-field" />
+            </div>
 
-            <div class="field-stack"><label>Type of Client</label>
+            <div class="field-stack">
+              <label>Type of Client</label>
               <select id="walkInClientTypeInput" class="filter-select">
                 <option value="MSME/ENTREP">Msme/Entrep</option>
                 <option value="STUDENT">Student</option>
@@ -376,26 +617,55 @@
                 <option value="OTHERS (SPECIFY)">Others (Specify)</option>
               </select>
             </div>
-            <div class="field-stack" id="walkInClientTypeOtherWrap" style="display:none;"><label>Specify Client Type</label><input id="walkInClientTypeOtherInput" class="input-field" /></div>
+            <div
+              class="field-stack"
+              id="walkInClientTypeOtherWrap"
+              style="display: none"
+            >
+              <label>Specify Client Type</label
+              ><input id="walkInClientTypeOtherInput" class="input-field" />
+            </div>
 
-            <div class="field-stack full"><label>Agency/Organization</label><input id="walkInAgencyOrganizationInput" class="input-field" /></div>
+            <div class="field-stack full">
+              <label>Agency/Organization</label
+              ><input id="walkInAgencyOrganizationInput" class="input-field" />
+            </div>
 
-            <div class="field-stack full"><label>Description of the Project</label>
+            <div class="field-stack full">
+              <label>Description of the Project</label>
               <select id="walkInProjectDescriptionInput" class="filter-select">
-                <option value="PRODUCT LABELING AND DESIGNING">Product Labeling And Designing</option>
+                <option value="PRODUCT LABELING AND DESIGNING">
+                  Product Labeling And Designing
+                </option>
                 <option value="3D PRINTING">3D Printing</option>
                 <option value="3D SCANNING">3D Scanning</option>
-                <option value="LASER-CUTTING/ENGRAVING">Laser-Cutting/Engraving</option>
-                <option value="LARGE FORMAT PRINTING AND CUTTING">Large Format, Printing And Cutting</option>
+                <option value="LASER-CUTTING/ENGRAVING">
+                  Laser-Cutting/Engraving
+                </option>
+                <option value="LARGE FORMAT PRINTING AND CUTTING">
+                  Large Format, Printing And Cutting
+                </option>
                 <option value="CNC MILLING">Cnc Milling</option>
                 <option value="DIGITAL EMBROIDERY">Digital Embroidery</option>
                 <option value="HEAT PRESS">Heat Press</option>
-                <option value="TRAINING/WORKSHOP/TOUR">Training/Workshop/Tour</option>
+                <option value="TRAINING/WORKSHOP/TOUR">
+                  Training/Workshop/Tour
+                </option>
                 <option value="PARTNERSHIP">Partnership</option>
                 <option value="OTHERS (SPECIFY)">Others (Specify)</option>
               </select>
             </div>
-            <div class="field-stack full" id="walkInProjectDescriptionOtherWrap" style="display:none;"><label>Specify Project Description</label><input id="walkInProjectDescriptionOtherInput" class="input-field" /></div>
+            <div
+              class="field-stack full"
+              id="walkInProjectDescriptionOtherWrap"
+              style="display: none"
+            >
+              <label>Specify Project Description</label
+              ><input
+                id="walkInProjectDescriptionOtherInput"
+                class="input-field"
+              />
+            </div>
 
             <div class="field-stack full">
               <label>Item Detail</label>
@@ -406,85 +676,253 @@
                   autocomplete="off"
                   placeholder="Select from products or type a custom item..."
                 />
-                <button type="button" class="combobox-caret" id="walkInItemDetailCaretBtn" aria-label="Toggle item list" tabindex="-1"><i class="fa-solid fa-chevron-down"></i></button>
-                <ul class="combobox-list" id="walkInItemDetailList" role="listbox"></ul>
+                <button
+                  type="button"
+                  class="combobox-caret"
+                  id="walkInItemDetailCaretBtn"
+                  aria-label="Toggle item list"
+                  tabindex="-1"
+                >
+                  <i class="fa-solid fa-chevron-down"></i>
+                </button>
+                <ul
+                  class="combobox-list"
+                  id="walkInItemDetailList"
+                  role="listbox"
+                ></ul>
               </div>
             </div>
-            <div class="field-stack"><label>Unit</label><input id="walkInUnitInput" class="input-field" /></div>
-            <div class="field-stack"><label>Subtotal Cost</label><input id="walkInSubtotalCostInput" class="input-field" type="number" min="0" step="0.01" /></div>
-            <div class="field-stack"><label>Total</label><input id="walkInTotalInput" class="input-field" type="number" min="0" step="0.01" /></div>
-            <div class="field-stack"><label>Payment</label><input id="walkInPaymentMethodInput" class="input-field" value="WALKIN VIA CASHIER" readonly /></div>
+            <div class="field-stack">
+              <label>Unit</label
+              ><input id="walkInUnitInput" class="input-field" />
+            </div>
+            <div class="field-stack">
+              <label>Subtotal Cost</label
+              ><input
+                id="walkInSubtotalCostInput"
+                class="input-field"
+                type="number"
+                min="0"
+                step="0.01"
+              />
+            </div>
+            <div class="field-stack">
+              <label>Total</label
+              ><input
+                id="walkInTotalInput"
+                class="input-field"
+                type="number"
+                min="0"
+                step="0.01"
+              />
+            </div>
+            <div class="field-stack">
+              <label>Payment</label
+              ><input
+                id="walkInPaymentMethodInput"
+                class="input-field"
+                value="WALKIN VIA CASHIER"
+                readonly
+              />
+            </div>
           </div>
         </div>
         <div class="modal-footer-fixed">
-          <button class="btn-admin btn-secondary" id="cancelWalkInOrderBtn" type="button">Cancel</button>
-          <button class="btn-admin" id="saveWalkInOrderBtn" type="button">Save Walk-in Customer</button>
+          <button
+            class="btn-admin btn-secondary"
+            id="cancelWalkInOrderBtn"
+            type="button"
+          >
+            Cancel
+          </button>
+          <button class="btn-admin" id="saveWalkInOrderBtn" type="button">
+            Save Walk-in Customer
+          </button>
         </div>
       </div>
     </div>
 
-    <div class="modal-overlay" id="modalWalkInDetails" data-backdrop-close="false">
+    <div
+      class="modal-overlay"
+      id="modalWalkInDetails"
+      data-backdrop-close="false"
+    >
       <div class="modal-card product-modal">
         <div class="modal-header-fixed">
           <h3 class="modal-title">Walk-in Customer Details</h3>
         </div>
         <div class="modal-body-scroll">
           <div class="form-grid">
-            <div class="field-stack"><label>Payment Order No.</label><input id="walkInDetailOrderNo" class="input-field" readonly /></div>
-            <div class="field-stack"><label>Name</label><input id="walkInDetailName" class="input-field" readonly /></div>
-            <div class="field-stack full"><label>Address</label><input id="walkInDetailAddress" class="input-field" readonly /></div>
-            <div class="field-stack"><label>Contact Number</label><input id="walkInDetailContact" class="input-field" readonly /></div>
-            <div class="field-stack"><label>Type of Client</label><input id="walkInDetailClientType" class="input-field" readonly /></div>
-            <div class="field-stack full"><label>Agency/Organization</label><input id="walkInDetailAgency" class="input-field" readonly /></div>
-            <div class="field-stack full"><label>Description of the Project</label><input id="walkInDetailProject" class="input-field" readonly /></div>
-            <div class="field-stack full"><label>Item Detail</label><input id="walkInDetailItem" class="input-field" readonly /></div>
-            <div class="field-stack"><label>Unit</label><input id="walkInDetailUnit" class="input-field" readonly /></div>
-            <div class="field-stack"><label>Subtotal Cost</label><input id="walkInDetailSubtotal" class="input-field" readonly /></div>
-            <div class="field-stack"><label>Total</label><input id="walkInDetailTotal" class="input-field" readonly /></div>
-            <div class="field-stack"><label>Payment</label><input id="walkInDetailPayment" class="input-field" readonly /></div>
-            <div class="field-stack"><label>Date Recorded</label><input id="walkInDetailDate" class="input-field" readonly /></div>
+            <div class="field-stack">
+              <label>Payment Order No.</label
+              ><input id="walkInDetailOrderNo" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label>Name</label
+              ><input id="walkInDetailName" class="input-field" readonly />
+            </div>
+            <div class="field-stack full">
+              <label>Address</label
+              ><input id="walkInDetailAddress" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label>Contact Number</label
+              ><input id="walkInDetailContact" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label>Type of Client</label
+              ><input
+                id="walkInDetailClientType"
+                class="input-field"
+                readonly
+              />
+            </div>
+            <div class="field-stack full">
+              <label>Agency/Organization</label
+              ><input id="walkInDetailAgency" class="input-field" readonly />
+            </div>
+            <div class="field-stack full">
+              <label>Description of the Project</label
+              ><input id="walkInDetailProject" class="input-field" readonly />
+            </div>
+            <div class="field-stack full">
+              <label>Item Detail</label
+              ><input id="walkInDetailItem" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label>Unit</label
+              ><input id="walkInDetailUnit" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label>Subtotal Cost</label
+              ><input id="walkInDetailSubtotal" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label>Total</label
+              ><input id="walkInDetailTotal" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label>Payment</label
+              ><input id="walkInDetailPayment" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label>Date Recorded</label
+              ><input id="walkInDetailDate" class="input-field" readonly />
+            </div>
           </div>
         </div>
         <div class="modal-footer-fixed">
-          <button class="btn-admin btn-secondary" id="btnCloseWalkInDetails" type="button">Close</button>
-          <button class="btn-admin" id="btnEditWalkInFromView" type="button"><i class="fa-regular fa-pen-to-square"></i> Edit Order</button>
+          <button
+            class="btn-admin btn-secondary"
+            id="btnCloseWalkInDetails"
+            type="button"
+          >
+            Close
+          </button>
+          <button class="btn-admin" id="btnEditWalkInFromView" type="button">
+            <i class="fa-regular fa-pen-to-square"></i> Edit Order
+          </button>
         </div>
       </div>
     </div>
 
-    <div class="modal-overlay" id="modalDeleteWalkInOrder" data-backdrop-close="false">
+    <div
+      class="modal-overlay"
+      id="modalDeleteWalkInOrder"
+      data-backdrop-close="false"
+    >
       <div class="modal-card modal-confirm">
         <h3 class="modal-title">Delete Confirmation</h3>
         <hr class="confirm-separator" />
         <p class="confirm-text">
-          You are about to permanently delete walk-in order <strong id="deleteWalkInOrderTargetLabel"></strong>.
+          You are about to permanently delete walk-in order
+          <strong id="deleteWalkInOrderTargetLabel"></strong>.
         </p>
-        <p class="field-hint">This action cannot be undone. The order will be removed from the database.</p>
+        <p class="field-hint">
+          This action cannot be undone. The order will be removed from the
+          database.
+        </p>
         <hr class="confirm-separator" />
         <div class="modal-actions">
-          <button class="btn-admin btn-secondary" id="btnCancelDeleteWalkInOrder">Cancel</button>
-          <button class="btn-admin" id="btnConfirmWalkInOrderDelete" type="button">Delete Order</button>
+          <button
+            class="btn-admin btn-secondary"
+            id="btnCancelDeleteWalkInOrder"
+          >
+            Cancel
+          </button>
+          <button
+            class="btn-admin"
+            id="btnConfirmWalkInOrderDelete"
+            type="button"
+          >
+            Delete Order
+          </button>
         </div>
       </div>
     </div>
 
-    <div class="modal-overlay" id="modalArchivePaymentHistory" data-backdrop-close="false">
+    <div
+      class="modal-overlay"
+      id="modalArchivePaymentHistory"
+      data-backdrop-close="false"
+    >
       <div class="modal-card modal-confirm">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
-          <div style="width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#78350f,#d97706);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-            <i class="fa-solid fa-box-archive" style="color:#fff;font-size:1.1rem;"></i>
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 4px;
+          "
+        >
+          <div
+            style="
+              width: 42px;
+              height: 42px;
+              border-radius: 10px;
+              background: linear-gradient(135deg, #78350f, #d97706);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+            "
+          >
+            <i
+              class="fa-solid fa-box-archive"
+              style="color: #fff; font-size: 1.1rem"
+            ></i>
           </div>
-          <h3 class="modal-title" style="margin-bottom:0;">Archive Payment Record</h3>
+          <h3 class="modal-title" style="margin-bottom: 0">
+            Archive Payment Record
+          </h3>
         </div>
         <hr class="confirm-separator" />
         <p class="confirm-text">
-          You are about to archive payment for <strong id="paymentArchiveTargetLabel"></strong>.
+          You are about to archive payment for
+          <strong id="paymentArchiveTargetLabel"></strong>.
         </p>
-        <p class="field-hint">The payment record will be moved to the Archives page. You can still view it from the Archives module.</p>
+        <p class="field-hint">
+          The payment record will be moved to the Archives page. You can still
+          view it from the Archives module.
+        </p>
         <hr class="confirm-separator" />
         <div class="modal-actions">
-          <button class="btn-admin btn-secondary" id="btnCancelArchivePaymentHistory" type="button">Cancel</button>
-          <button class="btn-admin" id="btnConfirmArchivePaymentHistory" type="button" style="background:linear-gradient(135deg,#78350f,#d97706);border-color:#d97706;">
+          <button
+            class="btn-admin btn-secondary"
+            id="btnCancelArchivePaymentHistory"
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            class="btn-admin"
+            id="btnConfirmArchivePaymentHistory"
+            type="button"
+            style="
+              background: linear-gradient(135deg, #78350f, #d97706);
+              border-color: #d97706;
+            "
+          >
             <i class="fa-solid fa-box-archive"></i> Archive Payment
           </button>
         </div>
@@ -492,23 +930,68 @@
     </div>
 
     <!-- ---- ARCHIVE REJECTED ORDER MODAL ---- -->
-    <div class="modal-overlay" id="modalArchiveRejectedOrder" data-backdrop-close="false">
+    <div
+      class="modal-overlay"
+      id="modalArchiveRejectedOrder"
+      data-backdrop-close="false"
+    >
       <div class="modal-card modal-confirm">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
-          <div style="width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#7f1d1d,#dc2626);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-            <i class="fa-solid fa-box-archive" style="color:#fff;font-size:1.1rem;"></i>
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 4px;
+          "
+        >
+          <div
+            style="
+              width: 42px;
+              height: 42px;
+              border-radius: 10px;
+              background: linear-gradient(135deg, #7f1d1d, #dc2626);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+            "
+          >
+            <i
+              class="fa-solid fa-box-archive"
+              style="color: #fff; font-size: 1.1rem"
+            ></i>
           </div>
-          <h3 class="modal-title" style="margin-bottom:0;">Archive Rejected Order</h3>
+          <h3 class="modal-title" style="margin-bottom: 0">
+            Archive Rejected Order
+          </h3>
         </div>
         <hr class="confirm-separator" />
         <p class="confirm-text">
-          You are about to archive rejected order <strong id="rejectedArchiveTargetLabel"></strong>.
+          You are about to archive rejected order
+          <strong id="rejectedArchiveTargetLabel"></strong>.
         </p>
-        <p class="field-hint">The order will be moved to the Archives page. You can restore it from there if needed.</p>
+        <p class="field-hint">
+          The order will be moved to the Archives page. You can restore it from
+          there if needed.
+        </p>
         <hr class="confirm-separator" />
         <div class="modal-actions">
-          <button class="btn-admin btn-secondary" id="btnCancelArchiveRejectedOrder" type="button">Cancel</button>
-          <button class="btn-admin" id="btnConfirmArchiveRejectedOrder" type="button" style="background:linear-gradient(135deg,#7f1d1d,#dc2626);border-color:#dc2626;">
+          <button
+            class="btn-admin btn-secondary"
+            id="btnCancelArchiveRejectedOrder"
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            class="btn-admin"
+            id="btnConfirmArchiveRejectedOrder"
+            type="button"
+            style="
+              background: linear-gradient(135deg, #7f1d1d, #dc2626);
+              border-color: #dc2626;
+            "
+          >
             <i class="fa-solid fa-box-archive"></i> Archive Order
           </button>
         </div>

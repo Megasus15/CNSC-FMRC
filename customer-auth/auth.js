@@ -114,7 +114,10 @@ document.addEventListener("DOMContentLoaded", () => {
       input.type = isPassword ? "text" : "password";
       // CORRECTED: showing password → open eye; hiding → closed eye
       toggleBtn.innerHTML = isPassword ? eyeOpenSvg : eyeClosedSvg;
-      toggleBtn.setAttribute("aria-label", isPassword ? "Hide password" : "Show password");
+      toggleBtn.setAttribute(
+        "aria-label",
+        isPassword ? "Hide password" : "Show password",
+      );
     });
   });
 
@@ -155,7 +158,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const username = document.getElementById("signupUser").value.trim();
       const email = document.getElementById("signupEmail").value.trim();
       const password = document.getElementById("signupPass").value;
-      const passwordConfirmation = document.getElementById("signupConfirm").value;
+      const passwordConfirmation =
+        document.getElementById("signupConfirm").value;
 
       let hasError = false;
 
@@ -182,7 +186,10 @@ document.addEventListener("DOMContentLoaded", () => {
         setFieldError("signupEmail", "Gmail address is required.");
         hasError = true;
       } else if (!/^[A-Za-z0-9._%+-]+@gmail\.com$/i.test(email)) {
-        setFieldError("signupEmail", "Email must be a valid @gmail.com address.");
+        setFieldError(
+          "signupEmail",
+          "Email must be a valid @gmail.com address.",
+        );
         hasError = true;
       }
 
@@ -193,7 +200,10 @@ document.addEventListener("DOMContentLoaded", () => {
         setFieldError("signupPass", "Password must be at least 8 characters.");
         hasError = true;
       } else if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
-        setFieldError("signupPass", "Password must include at least one letter and one number.");
+        setFieldError(
+          "signupPass",
+          "Password must include at least one letter and one number.",
+        );
         hasError = true;
       }
 
@@ -235,10 +245,16 @@ document.addEventListener("DOMContentLoaded", () => {
         } else if (data.message) {
           setFieldError("signupUser", data.message);
         } else {
-          setFieldError("signupUser", "Registration failed. Please check your details.");
+          setFieldError(
+            "signupUser",
+            "Registration failed. Please check your details.",
+          );
         }
       } catch {
-        setFieldError("signupName", "Cannot connect to server. Ensure Laravel is running.");
+        setFieldError(
+          "signupName",
+          "Cannot connect to server. Ensure Laravel is running.",
+        );
       } finally {
         toggleLoader(false);
       }
@@ -250,7 +266,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.style.overflow = "";
     showLogin();
   });
-
 
   if (loginForm) {
     loginForm.addEventListener("submit", async (event) => {
@@ -290,7 +305,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (response.ok) {
           if (data.user.role !== "customer") {
-            setFieldError("loginUser", "Admins and cashiers must use the admin login page.");
+            setFieldError(
+              "loginUser",
+              "Admins and cashiers must use the admin login page.",
+            );
             return;
           }
 
@@ -302,15 +320,26 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (response.status === 422 && data.errors) {
-          if (data.errors.login?.[0]) setFieldError("loginUser", data.errors.login[0]);
-          if (data.errors.password?.[0]) setFieldError("loginPass", data.errors.password[0]);
-        } else if (data.message && /invalid|incorrect|credentials/i.test(data.message)) {
+          if (data.errors.login?.[0])
+            setFieldError("loginUser", data.errors.login[0]);
+          if (data.errors.password?.[0])
+            setFieldError("loginPass", data.errors.password[0]);
+        } else if (
+          data.message &&
+          /invalid|incorrect|credentials/i.test(data.message)
+        ) {
           setFieldError("loginPass", "Password is incorrect.");
         } else {
-          setFieldError("loginUser", data.message || "Unable to log in with the provided details.");
+          setFieldError(
+            "loginUser",
+            data.message || "Unable to log in with the provided details.",
+          );
         }
       } catch {
-        setFieldError("loginUser", "Cannot connect to server. Ensure Laravel is running.");
+        setFieldError(
+          "loginUser",
+          "Cannot connect to server. Ensure Laravel is running.",
+        );
       } finally {
         toggleLoader(false);
       }

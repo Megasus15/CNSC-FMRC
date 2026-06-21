@@ -2,7 +2,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const resolveApiBaseUrl = () => {
     const configured =
       window.APP_API_BASE_URL ||
-      document.querySelector('meta[name="api-base-url"]')?.getAttribute("content") ||
+      document
+        .querySelector('meta[name="api-base-url"]')
+        ?.getAttribute("content") ||
       "";
 
     if (configured.trim()) {
@@ -49,7 +51,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const monthDisplay = document.getElementById("adminCalMonthYear");
   const calPrevBtn = document.getElementById("adminCalPrevBtn");
   const calNextBtn = document.getElementById("adminCalNextBtn");
-  const selectedDateDisplay = document.getElementById("adminSelectedDateDisplay");
+  const selectedDateDisplay = document.getElementById(
+    "adminSelectedDateDisplay",
+  );
   const timeSlotsContainer = document.getElementById("adminTimeSlotsContainer");
   const btnToggleBlockDay = document.getElementById("btnToggleBlockDay");
   const btnClearDayBlocks = document.getElementById("btnClearDayBlocks");
@@ -61,8 +65,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const adminDaySlotType = document.getElementById("adminDaySlotType");
   const btnAddDaySlot = document.getElementById("btnAddDaySlot");
   const adminDaySlotList = document.getElementById("adminDaySlotList");
-  const btnSaveCalendarChanges = document.getElementById("btnSaveCalendarChanges");
-  const btnOpenCalendar = document.querySelector('[data-modal-open="#modalCalendar"]');
+  const btnSaveCalendarChanges = document.getElementById(
+    "btnSaveCalendarChanges",
+  );
+  const btnOpenCalendar = document.querySelector(
+    '[data-modal-open="#modalCalendar"]',
+  );
   const modalCalendar = document.getElementById("modalCalendar");
   const modalTimePicker = document.getElementById("modalTimePicker");
   const timePickerTitle = document.getElementById("timePickerTitle");
@@ -90,7 +98,11 @@ document.addEventListener("DOMContentLoaded", () => {
   ];
 
   const today = new Date();
-  const normalizedToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const normalizedToday = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  );
   let currentMonth = normalizedToday.getMonth();
   let currentYear = normalizedToday.getFullYear();
   let selectedDateKey = null;
@@ -121,7 +133,8 @@ document.addEventListener("DOMContentLoaded", () => {
   ];
 
   const safe = (value) => {
-    if (value === undefined || value === null || String(value).trim() === "") return "N/A";
+    if (value === undefined || value === null || String(value).trim() === "")
+      return "N/A";
     return String(value);
   };
 
@@ -166,7 +179,13 @@ document.addEventListener("DOMContentLoaded", () => {
       minute = Number(match[2] || "0");
     }
 
-    if (Number.isNaN(hour) || Number.isNaN(minute) || minute > 59 || hour < 1 || hour > 12) {
+    if (
+      Number.isNaN(hour) ||
+      Number.isNaN(minute) ||
+      minute > 59 ||
+      hour < 1 ||
+      hour > 12
+    ) {
       return Number.MAX_SAFE_INTEGER;
     }
 
@@ -186,7 +205,13 @@ document.addEventListener("DOMContentLoaded", () => {
     return String(a?.label || "").localeCompare(String(b?.label || ""));
   };
 
-  const formatSlotLabel = (startHour, startMinute, endHour, endMinute, period) => {
+  const formatSlotLabel = (
+    startHour,
+    startMinute,
+    endHour,
+    endMinute,
+    period,
+  ) => {
     const start = `${startHour}:${String(startMinute).padStart(2, "0")}`;
     const end = `${endHour}:${String(endMinute).padStart(2, "0")}`;
     const meridiem = period === "PM" ? "PM" : "AM";
@@ -213,7 +238,10 @@ document.addEventListener("DOMContentLoaded", () => {
       startMinute: parsed[2],
       endHour: Number(parsed[3]),
       endMinute: parsed[4],
-      period: (parsed[5] || fallbackType || "AM").toUpperCase() === "PM" ? "PM" : "AM",
+      period:
+        (parsed[5] || fallbackType || "AM").toUpperCase() === "PM"
+          ? "PM"
+          : "AM",
     };
   };
 
@@ -227,13 +255,47 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!pickerStartHour || pickerStartHour.options.length) return;
 
     const createOptions = (select, values) => {
-      select.innerHTML = values.map((value) => `<option value="${value}">${value}</option>`).join("");
+      select.innerHTML = values
+        .map((value) => `<option value="${value}">${value}</option>`)
+        .join("");
     };
 
-    createOptions(pickerStartHour, Array.from({ length: 12 }, (_, i) => String(i + 1)));
-    createOptions(pickerEndHour, Array.from({ length: 12 }, (_, i) => String(i + 1)));
-    createOptions(pickerStartMinute, ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"]);
-    createOptions(pickerEndMinute, ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"]);
+    createOptions(
+      pickerStartHour,
+      Array.from({ length: 12 }, (_, i) => String(i + 1)),
+    );
+    createOptions(
+      pickerEndHour,
+      Array.from({ length: 12 }, (_, i) => String(i + 1)),
+    );
+    createOptions(pickerStartMinute, [
+      "00",
+      "05",
+      "10",
+      "15",
+      "20",
+      "25",
+      "30",
+      "35",
+      "40",
+      "45",
+      "50",
+      "55",
+    ]);
+    createOptions(pickerEndMinute, [
+      "00",
+      "05",
+      "10",
+      "15",
+      "20",
+      "25",
+      "30",
+      "35",
+      "40",
+      "45",
+      "50",
+      "55",
+    ]);
     if (pickerPeriod && !pickerPeriod.value) pickerPeriod.value = "AM";
   };
 
@@ -241,19 +303,28 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!select || !select.options.length) return;
     const optionHeight = select.options[0]?.offsetHeight || 22;
     const centerOffset = (select.clientHeight - optionHeight) / 2;
-    const target = Math.max(0, select.selectedIndex * optionHeight - centerOffset);
+    const target = Math.max(
+      0,
+      select.selectedIndex * optionHeight - centerOffset,
+    );
     select.scrollTo({ top: target, behavior: smooth ? "smooth" : "auto" });
   };
 
   const syncActiveWheel = (activeSelect) => {
-    document.querySelectorAll(".time-wheel").forEach((wheel) => wheel.classList.remove("is-active-wheel"));
+    document
+      .querySelectorAll(".time-wheel")
+      .forEach((wheel) => wheel.classList.remove("is-active-wheel"));
     activeSelect?.closest(".time-wheel")?.classList.add("is-active-wheel");
   };
 
   const centerAllPickers = (smooth = true) => {
-    [pickerStartHour, pickerStartMinute, pickerEndHour, pickerEndMinute, pickerPeriod].forEach((select) =>
-      centerPickerSelect(select, smooth)
-    );
+    [
+      pickerStartHour,
+      pickerStartMinute,
+      pickerEndHour,
+      pickerEndMinute,
+      pickerPeriod,
+    ].forEach((select) => centerPickerSelect(select, smooth));
   };
 
   const updateTimePickerPreview = () => {
@@ -263,7 +334,7 @@ document.addEventListener("DOMContentLoaded", () => {
       Number(pickerStartMinute?.value || 0),
       Number(pickerEndHour?.value || 10),
       Number(pickerEndMinute?.value || 0),
-      pickerPeriod?.value || "AM"
+      pickerPeriod?.value || "AM",
     );
     timePickerPreview.textContent = `Selected: ${label}`;
   };
@@ -271,7 +342,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const openTimePicker = ({ context, title, label, type }) => {
     ensureTimePickerOptions();
     activeTimePickerContext = context;
-    if (timePickerTitle) timePickerTitle.textContent = title || "Choose Time Slot";
+    if (timePickerTitle)
+      timePickerTitle.textContent = title || "Choose Time Slot";
 
     const picked = parsePickerValue(label, type || "AM");
     if (pickerStartHour) pickerStartHour.value = String(picked.startHour);
@@ -303,7 +375,13 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const label = formatSlotLabel(startHour, startMinute, endHour, endMinute, period);
+    const label = formatSlotLabel(
+      startHour,
+      startMinute,
+      endHour,
+      endMinute,
+      period,
+    );
 
     if (activeTimePickerContext === "day") {
       if (adminDaySlotLabel) adminDaySlotLabel.value = label;
@@ -348,7 +426,9 @@ document.addEventListener("DOMContentLoaded", () => {
         custom_slots: [],
       });
 
-    day.blocked_slots = Array.isArray(day.blocked_slots) ? day.blocked_slots : [];
+    day.blocked_slots = Array.isArray(day.blocked_slots)
+      ? day.blocked_slots
+      : [];
     day.events = Array.isArray(day.events) ? day.events : [];
     day.custom_slots = Array.isArray(day.custom_slots) ? day.custom_slots : [];
     return day;
@@ -369,7 +449,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }))
       .filter((slot) => slot.label);
 
-    const seen = new Set(globalSlots.map((slot) => `${slot.label}|${slot.type}`));
+    const seen = new Set(
+      globalSlots.map((slot) => `${slot.label}|${slot.type}`),
+    );
     customSlots.forEach((slot) => {
       const key = `${slot.label}|${slot.type}`;
       if (!seen.has(key)) {
@@ -413,7 +495,8 @@ document.addEventListener("DOMContentLoaded", () => {
       (a, b) =>
         toTimestamp(a?.created_at || a?.created_at_label) -
           toTimestamp(b?.created_at || b?.created_at_label) ||
-        toNumericId(a?.id || a?.reference_no) - toNumericId(b?.id || b?.reference_no),
+        toNumericId(a?.id || a?.reference_no) -
+          toNumericId(b?.id || b?.reference_no),
     );
   };
 
@@ -424,7 +507,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!response.ok) throw new Error("Failed to fetch calendar");
 
     const payload = await response.json();
-    const timeSlots = Array.isArray(payload?.time_slots) ? payload.time_slots : [];
+    const timeSlots = Array.isArray(payload?.time_slots)
+      ? payload.time_slots
+      : [];
     state.calendar.time_slots = (timeSlots.length ? timeSlots : defaultSlots)
       .map((slot, idx) => ({
         id: slot.id || null,
@@ -438,16 +523,20 @@ document.addEventListener("DOMContentLoaded", () => {
       .map((slot, index) => ({ ...slot, sort_order: index + 1 }));
 
     const daySettings = {};
-    (Array.isArray(payload?.day_settings) ? payload.day_settings : []).forEach((day) => {
-      if (!day?.date) return;
-      daySettings[day.date] = {
-        date: day.date,
-        is_blocked: Boolean(day.is_blocked),
-        blocked_slots: Array.isArray(day.blocked_slots) ? day.blocked_slots : [],
-        events: Array.isArray(day.events) ? day.events : [],
-        custom_slots: Array.isArray(day.custom_slots) ? day.custom_slots : [],
-      };
-    });
+    (Array.isArray(payload?.day_settings) ? payload.day_settings : []).forEach(
+      (day) => {
+        if (!day?.date) return;
+        daySettings[day.date] = {
+          date: day.date,
+          is_blocked: Boolean(day.is_blocked),
+          blocked_slots: Array.isArray(day.blocked_slots)
+            ? day.blocked_slots
+            : [],
+          events: Array.isArray(day.events) ? day.events : [],
+          custom_slots: Array.isArray(day.custom_slots) ? day.custom_slots : [],
+        };
+      },
+    );
     state.calendar.day_settings = daySettings;
 
     state.calendar.booked_slots =
@@ -530,7 +619,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (tableMeta) {
       const from = source.length ? start + 1 : 0;
-      const to = source.length ? Math.min(source.length, start + rowsPerPage) : 0;
+      const to = source.length
+        ? Math.min(source.length, start + rowsPerPage)
+        : 0;
       tableMeta.textContent = `Page ${currentPage} of ${pageCount} • Showing ${from}-${to} of ${source.length}`;
     }
 
@@ -549,7 +640,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const day = state.calendar.day_settings[selectedDateKey];
     btnToggleBlockDay.disabled = false;
-    btnToggleBlockDay.textContent = day?.is_blocked ? "Unblock Whole Day" : "Block Whole Day";
+    btnToggleBlockDay.textContent = day?.is_blocked
+      ? "Unblock Whole Day"
+      : "Block Whole Day";
   };
 
   const updateDateIndicators = (cell, dateKey) => {
@@ -560,7 +653,9 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const bookedSlots = state.calendar.booked_slots[dateKey] || [];
-    const totalSlots = [...new Set([...(day.blocked_slots || []), ...bookedSlots])];
+    const totalSlots = [
+      ...new Set([...(day.blocked_slots || []), ...bookedSlots]),
+    ];
     const hasAM = totalSlots.some((slot) => String(slot).includes("AM"));
     const hasPM = totalSlots.some((slot) => String(slot).includes("PM"));
 
@@ -613,7 +708,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (isWeekend || isPastDate(currentYear, currentMonth, day)) {
         cell.classList.add("disabled", "unavailable");
-        cell.setAttribute("title", isWeekend ? "Unavailable: Weekend" : "Unavailable: Past Date");
+        cell.setAttribute(
+          "title",
+          isWeekend ? "Unavailable: Weekend" : "Unavailable: Past Date",
+        );
       } else {
         cell.addEventListener("click", () => {
           selectedDateKey = dateKey;
@@ -638,7 +736,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const summaryContainer = document.getElementById("adminDateSummary");
 
     if (!selectedDateKey) {
-      timeSlotsContainer.innerHTML = '<p class="time-placeholder">Please pick a date first.</p>';
+      timeSlotsContainer.innerHTML =
+        '<p class="time-placeholder">Please pick a date first.</p>';
       if (summaryContainer) {
         summaryContainer.style.display = "none";
         summaryContainer.innerHTML = "";
@@ -651,10 +750,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     timeSlotsContainer.innerHTML = "";
     const sortedSlots = getMergedSlotsForSelectedDate();
-    
+
     // For date summary
     let summaryHtml = `<strong>Current Time Slots for ${selectedDateKey}:</strong><ul style="margin: 5px 0 0 15px; padding: 0;">`;
-    const bookedForDay = state.calendar.booked_slots ? (state.calendar.booked_slots[selectedDateKey] || []) : [];
+    const bookedForDay = state.calendar.booked_slots
+      ? state.calendar.booked_slots[selectedDateKey] || []
+      : [];
 
     if (day.is_blocked) {
       summaryHtml += `<li><span style="color: #b01c1c;">Whole day is blocked.</span></li>`;
@@ -668,10 +769,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const isBlocked = day.blocked_slots.includes(slot.label);
       const isBooked = bookedForDay.includes(slot.label);
-      
+
       let statusText = "Available";
-      if (day.is_blocked || isBlocked) statusText = '<span style="color: #b01c1c;">Admin Blocked</span>';
-      else if (isBooked) statusText = '<strong style="color: #0f7b35;">Booked by Client</strong>';
+      if (day.is_blocked || isBlocked)
+        statusText = '<span style="color: #b01c1c;">Admin Blocked</span>';
+      else if (isBooked)
+        statusText =
+          '<strong style="color: #0f7b35;">Booked by Client</strong>';
 
       if (!day.is_blocked) {
         summaryHtml += `<li>${slot.label} (${slot.type}) - ${statusText}</li>`;
@@ -689,7 +793,9 @@ document.addEventListener("DOMContentLoaded", () => {
           const daySettings = ensureDayState(selectedDateKey);
 
           if (daySettings.blocked_slots.includes(slot.label)) {
-            daySettings.blocked_slots = daySettings.blocked_slots.filter((s) => s !== slot.label);
+            daySettings.blocked_slots = daySettings.blocked_slots.filter(
+              (s) => s !== slot.label,
+            );
           } else {
             daySettings.blocked_slots.push(slot.label);
           }
@@ -751,7 +857,9 @@ document.addEventListener("DOMContentLoaded", () => {
         return {
           date,
           is_blocked: Boolean(day?.is_blocked),
-          blocked_slots: Array.isArray(day?.blocked_slots) ? day.blocked_slots : [],
+          blocked_slots: Array.isArray(day?.blocked_slots)
+            ? day.blocked_slots
+            : [],
           events: Array.isArray(day?.events) ? day.events : [],
           custom_slots: Array.isArray(day?.custom_slots)
             ? day.custom_slots
@@ -768,7 +876,7 @@ document.addEventListener("DOMContentLoaded", () => {
           day.is_blocked ||
           day.blocked_slots.length ||
           day.events.length ||
-          day.custom_slots.length
+          day.custom_slots.length,
       );
 
     return {
@@ -810,7 +918,6 @@ document.addEventListener("DOMContentLoaded", () => {
     renderSlotManager();
   };
 
-
   // ─── Appointment View Modal ─────────────────────────────────────────────────
   const openAppointmentViewModal = (appt) => {
     viewingAppointment = appt;
@@ -823,11 +930,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const statusCls = statusClass(status);
     const fileUrl = String(appt.attachment_url || "").trim();
     const fileName = safe(appt.attachment_name);
-    const fileHtml = fileName === "N/A"
-      ? '<span style="color:#9ca3af;">No file attached</span>'
-      : fileUrl
-        ? `<a href="${fileUrl}" download="${fileName}" target="_blank" rel="noopener" class="photo-link">${fileName}</a>`
-        : `<span class="photo-link">${fileName}</span>`;
+    const fileHtml =
+      fileName === "N/A"
+        ? '<span style="color:#9ca3af;">No file attached</span>'
+        : fileUrl
+          ? `<a href="${fileUrl}" download="${fileName}" target="_blank" rel="noopener" class="photo-link">${fileName}</a>`
+          : `<span class="photo-link">${fileName}</span>`;
 
     const body = document.getElementById("apptViewBody");
     if (body) {
@@ -889,70 +997,104 @@ document.addEventListener("DOMContentLoaded", () => {
     viewingAppointment = null;
   });
 
-  document.getElementById("btnArchiveFromView")?.addEventListener("click", () => {
-    document.getElementById("modalViewAppointment")?.classList.remove("show");
-    if (viewingAppointment) openAppointmentArchiveModal(viewingAppointment);
-  });
+  document
+    .getElementById("btnArchiveFromView")
+    ?.addEventListener("click", () => {
+      document.getElementById("modalViewAppointment")?.classList.remove("show");
+      if (viewingAppointment) openAppointmentArchiveModal(viewingAppointment);
+    });
 
   // ─── Appointment Archive Modal ──────────────────────────────────────────────
   const openAppointmentArchiveModal = (appt) => {
     archivingAppointmentId = appt.id;
     const labelEl = document.getElementById("archiveAppointmentTargetLabel");
-    if (labelEl) labelEl.textContent = `${formatApNo(appt.reference_no)} – ${safe(appt.client_name)}`;
+    if (labelEl)
+      labelEl.textContent = `${formatApNo(appt.reference_no)} – ${safe(appt.client_name)}`;
     document.getElementById("modalArchiveAppointment")?.classList.add("show");
   };
 
-  document.getElementById("btnCancelArchiveAppt")?.addEventListener("click", () => {
-    document.getElementById("modalArchiveAppointment")?.classList.remove("show");
-    archivingAppointmentId = null;
-  });
-
-  document.getElementById("btnConfirmArchiveAppt")?.addEventListener("click", async () => {
-    if (!archivingAppointmentId) return;
-
-    const confirmBtn = document.getElementById("btnConfirmArchiveAppt");
-    if (confirmBtn) {
-      confirmBtn.disabled = true;
-      confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Archiving…';
-    }
-
-    const token = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token") || localStorage.getItem("admin_auth_token") || "";
-
-    try {
-      const res = await fetch(`${API_BASE_URL}/appointments/${archivingAppointmentId}/archive`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-      });
-
-      if (!res.ok) {
-        const payload = await res.json().catch(() => ({}));
-        window.showAdminPopup?.(payload?.message || "Failed to archive appointment.", { title: "Archive Failed" });
-        return;
-      }
-
-      document.getElementById("modalArchiveAppointment")?.classList.remove("show");
+  document
+    .getElementById("btnCancelArchiveAppt")
+    ?.addEventListener("click", () => {
+      document
+        .getElementById("modalArchiveAppointment")
+        ?.classList.remove("show");
       archivingAppointmentId = null;
-      await refreshAll();
-      setTimeout(() => {
-        window.showAdminPopup?.("Appointment has been archived and moved to the Archives page.", { title: "Archived ✓" });
-      }, 200);
-    } catch (err) {
-      console.error("Archive appointment error:", err);
-      window.showAdminPopup?.("Cannot connect to server.", { title: "Error" });
-    } finally {
+    });
+
+  document
+    .getElementById("btnConfirmArchiveAppt")
+    ?.addEventListener("click", async () => {
+      if (!archivingAppointmentId) return;
+
+      const confirmBtn = document.getElementById("btnConfirmArchiveAppt");
       if (confirmBtn) {
-        confirmBtn.disabled = false;
-        confirmBtn.innerHTML = '<i class="fa-solid fa-box-archive"></i> Archive';
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML =
+          '<i class="fa-solid fa-spinner fa-spin"></i> Archiving…';
       }
-    }
-  });
+
+      const token =
+        (window.AdminSession && window.AdminSession.getToken()) ||
+        localStorage.getItem("auth_token") ||
+        localStorage.getItem("admin_auth_token") ||
+        "";
+
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/appointments/${archivingAppointmentId}/archive`,
+          {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+          },
+        );
+
+        if (!res.ok) {
+          const payload = await res.json().catch(() => ({}));
+          window.showAdminPopup?.(
+            payload?.message || "Failed to archive appointment.",
+            { title: "Archive Failed" },
+          );
+          return;
+        }
+
+        document
+          .getElementById("modalArchiveAppointment")
+          ?.classList.remove("show");
+        archivingAppointmentId = null;
+        await refreshAll();
+        setTimeout(() => {
+          window.showAdminPopup?.(
+            "Appointment has been archived and moved to the Archives page.",
+            { title: "Archived ✓" },
+          );
+        }, 200);
+      } catch (err) {
+        console.error("Archive appointment error:", err);
+        window.showAdminPopup?.("Cannot connect to server.", {
+          title: "Error",
+        });
+      } finally {
+        if (confirmBtn) {
+          confirmBtn.disabled = false;
+          confirmBtn.innerHTML =
+            '<i class="fa-solid fa-box-archive"></i> Archive';
+        }
+      }
+    });
 
   const refreshAll = async () => {
-
     try {
       const isCalendarOpen = modalCalendar?.classList.contains("show");
-      
-      if (tableBody && (!tableBody.children.length || tableBody.querySelector(".table-empty-state"))) {
+
+      if (
+        tableBody &&
+        (!tableBody.children.length ||
+          tableBody.querySelector(".table-empty-state"))
+      ) {
         tableBody.innerHTML = `<tr>
           <td><div class="skeleton-text" style="width:20px;"></div></td>
           <td><div class="skeleton-text" style="width:120px;"></div></td>
@@ -970,10 +1112,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!isCalendarOpen) {
         tasks.push(fetchCalendar());
       }
-      
+
       await Promise.all(tasks);
       renderTable();
-      
+
       if (!isCalendarOpen) {
         renderCalendar();
         renderTimeSlots();
@@ -984,8 +1126,6 @@ document.addEventListener("DOMContentLoaded", () => {
       // Avoid noisy alerts during polling.
     }
   };
-
-
 
   const renderSlotManager = () => {
     const list = document.getElementById("adminSlotList");
@@ -1010,7 +1150,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const renderDaySlotList = () => {
     if (!adminDaySlotList) return;
     if (!selectedDateKey) {
-      adminDaySlotList.innerHTML = "<p class=\"field-hint\">Select a date first.</p>";
+      adminDaySlotList.innerHTML =
+        '<p class="field-hint">Select a date first.</p>';
       return;
     }
 
@@ -1018,7 +1159,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const slots = day.custom_slots || [];
 
     if (!slots.length) {
-      adminDaySlotList.innerHTML = "<p class=\"field-hint\">No day-specific slots yet.</p>";
+      adminDaySlotList.innerHTML =
+        '<p class="field-hint">No day-specific slots yet.</p>';
       return;
     }
 
@@ -1030,7 +1172,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <span class="admin-slot-list-actions">
               <button type="button" class="btn-admin admin-slot-inline-btn admin-slot-remove-btn" data-day-slot-remove="${index}">Remove</button>
             </span>
-          </div>`
+          </div>`,
       )
       .join("");
   };
@@ -1057,7 +1199,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (editingSlotId) {
       const slot = state.calendar.time_slots.find(
-        (item) => String(item.id || item.sort_order) === String(editingSlotId)
+        (item) => String(item.id || item.sort_order) === String(editingSlotId),
       );
       if (slot) {
         slot.label = label;
@@ -1085,7 +1227,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const removeSlot = (slotKey) => {
     const toRemove = state.calendar.time_slots.find(
-      (slot) => String(slot.id || slot.sort_order) === String(slotKey)
+      (slot) => String(slot.id || slot.sort_order) === String(slotKey),
     );
     if (!toRemove) return;
 
@@ -1095,7 +1237,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     Object.keys(state.calendar.day_settings).forEach((date) => {
       const day = state.calendar.day_settings[date];
-      day.blocked_slots = (day.blocked_slots || []).filter((slot) => slot !== toRemove.label);
+      day.blocked_slots = (day.blocked_slots || []).filter(
+        (slot) => slot !== toRemove.label,
+      );
       state.calendar.day_settings[date] = day;
     });
 
@@ -1108,8 +1252,6 @@ document.addEventListener("DOMContentLoaded", () => {
     renderCalendar();
   };
 
-
-
   document.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -1118,7 +1260,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (editBtn) {
       const key = String(editBtn.getAttribute("data-slot-edit") || "");
       const slot = state.calendar.time_slots.find(
-        (item) => String(item.id || item.sort_order) === key
+        (item) => String(item.id || item.sort_order) === key,
       );
       if (!slot) return;
       editingSlotId = key;
@@ -1166,8 +1308,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
   });
-
-
 
   prevBtn?.addEventListener("click", () => {
     if (currentPage <= 1) return;
@@ -1246,7 +1386,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const day = ensureDayState(selectedDateKey);
     const duplicate = day.custom_slots.some(
-      (slot) => String(slot?.label || "") === label && String(slot?.type || "AM") === type
+      (slot) =>
+        String(slot?.label || "") === label &&
+        String(slot?.type || "AM") === type,
     );
     if (duplicate) {
       alert("This day-specific time slot already exists.");
@@ -1279,7 +1421,13 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   btnConfirmTimePicker?.addEventListener("click", applySelectedTimeSlot);
-  [pickerStartHour, pickerStartMinute, pickerEndHour, pickerEndMinute, pickerPeriod].forEach((picker) => {
+  [
+    pickerStartHour,
+    pickerStartMinute,
+    pickerEndHour,
+    pickerEndMinute,
+    pickerPeriod,
+  ].forEach((picker) => {
     picker?.addEventListener("change", () => {
       updateTimePickerPreview();
       centerPickerSelect(picker, true);
@@ -1333,7 +1481,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   ensureSlotManagerUi();
   const btnSaveSlot = document.getElementById("btnSaveSlot");
-  const btnOpenGlobalTimePicker = document.getElementById("btnOpenGlobalTimePicker");
+  const btnOpenGlobalTimePicker = document.getElementById(
+    "btnOpenGlobalTimePicker",
+  );
   ensureTimePickerOptions();
   updateTimePickerPreview();
   btnSaveSlot?.addEventListener("click", saveSlotFromForm);
@@ -1342,7 +1492,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const typeInput = document.getElementById("adminSlotType");
     openTimePicker({
       context: "global",
-      title: editingSlotId ? "Edit Global Time Slot" : "Choose Global Time Slot",
+      title: editingSlotId
+        ? "Edit Global Time Slot"
+        : "Choose Global Time Slot",
       label: labelInput?.value,
       type: typeInput?.value,
     });

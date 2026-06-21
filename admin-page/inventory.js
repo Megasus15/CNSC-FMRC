@@ -5,18 +5,29 @@ document.addEventListener("DOMContentLoaded", () => {
     const host = window.location.hostname;
     const port = window.location.port;
     if (port === "8000") return `${proto}//${host}:${port}/api`;
-    if (host === "localhost" || host === "127.0.0.1") return `${proto}//${host}:8000/api`;
+    if (host === "localhost" || host === "127.0.0.1")
+      return `${proto}//${host}:8000/api`;
     return `${proto}//${host}/api`;
   })();
 
-  const token = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token") || "";
+  const token =
+    (window.AdminSession && window.AdminSession.getToken()) ||
+    localStorage.getItem("auth_token") ||
+    "";
   const showPopup = (msg, opts = {}) => window.showAdminPopup?.(msg, opts);
-  const escHtml = (str) => String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const escHtml = (str) =>
+    String(str ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
 
   const setUnauthorized = () => {
     showPopup("Session expired or unauthorized. Please login again.", {
       title: "Access Required",
-      onOk: () => { window.location.href = "../admin-auth/auth.html"; },
+      onOk: () => {
+        window.location.href = "../admin-auth/auth.html";
+      },
     });
   };
 
@@ -28,7 +39,17 @@ document.addEventListener("DOMContentLoaded", () => {
     "Electronics and Electrical Equipments",
   ];
 
-  const UNIT_OPTIONS = ["pcs", "set", "ream", "box", "roll", "pack", "unit", "bottle", "pair"];
+  const UNIT_OPTIONS = [
+    "pcs",
+    "set",
+    "ream",
+    "box",
+    "roll",
+    "pack",
+    "unit",
+    "bottle",
+    "pair",
+  ];
 
   const CATEGORY_ICONS = {
     "Consumable Materials": "fa-flask",
@@ -117,7 +138,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // ─── Status helpers ───────────────────────────────────────────────────────────
   const statusClass = (status) => {
     if (status === "Good") return "status-green";
-    if (status === "Low Stock" || status === "Out of Stock") return "status-yellow";
+    if (status === "Low Stock" || status === "Out of Stock")
+      return "status-yellow";
     return "status-blue";
   };
 
@@ -158,7 +180,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const createVariantCard = (variant = {}, opts = {}) => {
     const card = document.createElement("div");
     card.className = "inv-variant-card";
-    const unitOptions = UNIT_OPTIONS.map((unit) => `<option value="${escHtml(unit)}">${escHtml(unit)}</option>`).join("");
+    const unitOptions = UNIT_OPTIONS.map(
+      (unit) => `<option value="${escHtml(unit)}">${escHtml(unit)}</option>`,
+    ).join("");
 
     card.innerHTML = `
       <div class="inv-variant-card-header">
@@ -217,7 +241,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const setVariantFormRows = (variants = [], opts = {}) => {
     if (!variantList) return;
     variantList.innerHTML = "";
-    variants.forEach((variant) => variantList.appendChild(createVariantCard(variant, opts)));
+    variants.forEach((variant) =>
+      variantList.appendChild(createVariantCard(variant, opts)),
+    );
     refreshVariantIndices();
     refreshVariantEmptyState();
   };
@@ -228,12 +254,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const variants = [];
 
     for (const row of rows) {
-      const nameVal = (row.querySelector("[data-variant-name]")?.value || "").trim();
-      const descVal = (row.querySelector("[data-variant-description]")?.value || "").trim();
+      const nameVal = (
+        row.querySelector("[data-variant-name]")?.value || ""
+      ).trim();
+      const descVal = (
+        row.querySelector("[data-variant-description]")?.value || ""
+      ).trim();
       const unitVal = row.querySelector("[data-variant-unit]")?.value || "pcs";
       const onHandInput = row.querySelector("[data-variant-on-hand]");
       const onHandRaw = onHandInput?.value ?? "";
-      const remarksVal = (row.querySelector("[data-variant-remarks]")?.value || "").trim();
+      const remarksVal = (
+        row.querySelector("[data-variant-remarks]")?.value || ""
+      ).trim();
 
       const isEmpty = !nameVal && !descVal && !onHandRaw && !remarksVal;
       if (isEmpty) continue;
@@ -245,14 +277,18 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (onHandRaw === "") {
-        showPopup("Variant stocks on hand is required.", { title: "Validation Error" });
+        showPopup("Variant stocks on hand is required.", {
+          title: "Validation Error",
+        });
         onHandInput?.focus();
         return null;
       }
 
       const onHandNum = Number(onHandRaw);
       if (Number.isNaN(onHandNum) || onHandNum < 0) {
-        showPopup("Variant stocks on hand must be 0 or higher.", { title: "Validation Error" });
+        showPopup("Variant stocks on hand must be 0 or higher.", {
+          title: "Validation Error",
+        });
         onHandInput?.focus();
         return null;
       }
@@ -271,15 +307,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const updateDeductTargetFields = () => {
     if (!activeDeductItem) return;
-    const variants = Array.isArray(activeDeductItem.variants) ? activeDeductItem.variants : [];
-    const hasVariants = Boolean(activeDeductItem.has_variants ?? variants.length > 0);
+    const variants = Array.isArray(activeDeductItem.variants)
+      ? activeDeductItem.variants
+      : [];
+    const hasVariants = Boolean(
+      activeDeductItem.has_variants ?? variants.length > 0,
+    );
     const targetVal = deductTarget?.value || "";
     let displayName = activeDeductItem.item_name;
     let onHandVal = activeDeductItem.on_hand;
 
     if (hasVariants) {
       const variantId = Number(targetVal.replace("variant:", ""));
-      const variant = variants.find((v) => Number(v.id) === variantId) || variants[0];
+      const variant =
+        variants.find((v) => Number(v.id) === variantId) || variants[0];
       if (variant) {
         displayName = `${activeDeductItem.item_name} — ${variant.name}`;
         onHandVal = variant.on_hand ?? 0;
@@ -301,10 +342,12 @@ document.addEventListener("DOMContentLoaded", () => {
     return allItems.filter((item) => {
       if (item.category !== category) return false;
       if (q) {
-        const haystack = `${item.item_name} ${item.description || ""}`.toLowerCase();
+        const haystack =
+          `${item.item_name} ${item.description || ""}`.toLowerCase();
         const variants = Array.isArray(item.variants) ? item.variants : [];
         const variantHit = variants.some((variant) => {
-          const variantText = `${variant.name || ""} ${variant.description || ""}`.toLowerCase();
+          const variantText =
+            `${variant.name || ""} ${variant.description || ""}`.toLowerCase();
           return variantText.includes(q);
         });
         if (!haystack.includes(q) && !variantHit) return false;
@@ -315,7 +358,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ─── Summary metrics ──────────────────────────────────────────────────────────
   const updateMetrics = (summary) => {
-    if (metricTotal) metricTotal.textContent = String(summary?.total_items ?? 0);
+    if (metricTotal)
+      metricTotal.textContent = String(summary?.total_items ?? 0);
     if (metricGood) metricGood.textContent = String(summary?.good ?? 0);
     if (metricLow) metricLow.textContent = String(summary?.low_stock ?? 0);
   };
@@ -363,7 +407,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const remarksHtml = item.remarks
           ? `<span class="remarks-pill ${remarksClass(item.remarks)}">${escHtml(item.remarks)}</span>`
           : `<span style="color:#9ca3af;font-size:0.75rem;">—</span>`;
-        const baseDescriptionHtml = hasVariants ? "" : escHtml(item.description || "—");
+        const baseDescriptionHtml = hasVariants
+          ? ""
+          : escHtml(item.description || "—");
         const baseUnitHtml = hasVariants ? "" : escHtml(item.unit || "—");
         const baseOnHandHtml = hasVariants ? "" : escHtml(item.on_hand ?? 0);
         const baseStatusHtml = hasVariants ? "" : statusHtml;
@@ -378,7 +424,7 @@ document.addEventListener("DOMContentLoaded", () => {
           : escHtml(item.item_name);
 
         rows.push(`
-          <tr${hasVariants ? ' class="inv-has-variants"' : ''}>
+          <tr${hasVariants ? ' class="inv-has-variants"' : ""}>
             <td>${rowNum}</td>
             <td title="${escHtml(item.item_name)}">${itemNameHtml}</td>
             <td title="${hasVariants ? "" : escHtml(item.description || "")}">${baseDescriptionHtml}</td>
@@ -484,7 +530,9 @@ document.addEventListener("DOMContentLoaded", () => {
     categoryTablesWrap.innerHTML = CATEGORIES.map((category) => {
       const containerId = `inv-cat-${category.replace(/\s+/g, "-").toLowerCase()}`;
       const icon = CATEGORY_ICONS[category] || "fa-box";
-      const skeletonRows = Array.from({ length: SKELETON_ROWS_PER_TABLE }).map(() => `
+      const skeletonRows = Array.from({ length: SKELETON_ROWS_PER_TABLE })
+        .map(
+          () => `
         <tr class="inv-skeleton-row">
           <td><div class="inv-skeleton-cell" style="width:28px;"></div></td>
           <td><div class="inv-skeleton-cell" style="width:120px;"></div></td>
@@ -495,7 +543,9 @@ document.addEventListener("DOMContentLoaded", () => {
           <td><div class="inv-skeleton-cell" style="width:80px;"></div></td>
           <td><div class="inv-skeleton-cell" style="width:60px;"></div></td>
         </tr>
-      `).join("");
+      `,
+        )
+        .join("");
 
       return `
         <div class="inv-category-card" id="${containerId}">
@@ -556,9 +606,15 @@ document.addEventListener("DOMContentLoaded", () => {
     renderSkeletonTables();
     try {
       const res = await fetch(`${API_BASE_URL}/admin/inventory`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
       });
-      if (res.status === 401 || res.status === 403) { setUnauthorized(); return; }
+      if (res.status === 401 || res.status === 403) {
+        setUnauthorized();
+        return;
+      }
       if (!res.ok) throw new Error("Failed to load inventory");
       const payload = await res.json();
       allItems = Array.isArray(payload?.data) ? payload.data : [];
@@ -579,7 +635,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const todayPH = () => formatPHDate();
 
-  const sanitizeFilename = (name) => String(name || "inventory").replace(/[^a-z0-9\-_]+/gi, "_").replace(/_+/g, "_").replace(/^_+|_+$/g, "").slice(0, 80) || "inventory";
+  const sanitizeFilename = (name) =>
+    String(name || "inventory")
+      .replace(/[^a-z0-9\-_]+/gi, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 80) || "inventory";
 
   const fetchTransactions = async (params = {}) => {
     const qs = new URLSearchParams();
@@ -587,8 +648,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if (v !== undefined && v !== null && v !== "") qs.set(k, String(v));
     });
     const endpoint = `${API_BASE_URL}/admin/inventory/transactions${qs.toString() ? `?${qs.toString()}` : ""}`;
-    const res = await fetch(endpoint, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
-    if (res.status === 401 || res.status === 403) { setUnauthorized(); return []; }
+    const res = await fetch(endpoint, {
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    });
+    if (res.status === 401 || res.status === 403) {
+      setUnauthorized();
+      return [];
+    }
     if (!res.ok) throw new Error("Failed to load inventory transactions");
     const payload = await res.json();
     return Array.isArray(payload?.data) ? payload.data : [];
@@ -659,13 +725,17 @@ document.addEventListener("DOMContentLoaded", () => {
     // Build Stock Out rows from transactions
     const stockOutRows = [];
     (transactions || []).forEach((tx) => {
-      const matchItem = itemsWithVariants.find((it) => it.id === tx.inventory_item_id);
+      const matchItem = itemsWithVariants.find(
+        (it) => it.id === tx.inventory_item_id,
+      );
       let itemNumber = null;
       let variantSymbol = null;
       if (matchItem) {
         itemNumber = matchItem.itemNumber;
         if (tx.variant_id) {
-          const variantIdx = matchItem.variants.findIndex((v) => v.id === tx.variant_id);
+          const variantIdx = matchItem.variants.findIndex(
+            (v) => v.id === tx.variant_id,
+          );
           if (variantIdx >= 0) {
             variantSymbol = getVariantSymbol(variantIdx);
           }
@@ -687,20 +757,40 @@ document.addEventListener("DOMContentLoaded", () => {
     return { stockInRows, stockOutRows, balanceRows };
   };
 
-  const createHorizontalWorkbook = ({ stockInRows, stockOutRows, balanceRows, sheetName = "Inventory", isPerItem = false }) => {
+  const createHorizontalWorkbook = ({
+    stockInRows,
+    stockOutRows,
+    balanceRows,
+    sheetName = "Inventory",
+    isPerItem = false,
+  }) => {
     if (!window.XLSX) {
-      showPopup("Excel library failed to load. Please refresh this page.", { title: "Export Error" });
+      showPopup("Excel library failed to load. Please refresh this page.", {
+        title: "Export Error",
+      });
       return null;
     }
 
     // Prepare column structure
-    const maxRows = Math.max(stockInRows.length, stockOutRows.length, balanceRows.length, 1) + 5;
+    const maxRows =
+      Math.max(stockInRows.length, stockOutRows.length, balanceRows.length, 1) +
+      5;
     const aoa = Array.from({ length: maxRows }, () => Array(24).fill(""));
 
     // Column indices for each section
     const cols = {
       stockIn: { start: 0, no: 0, date: 1, name: 2, desc: 3, stock: 4 },
-      stockOut: { start: 6, no: 6, date: 7, name: 8, desc: 9, stock: 10, by: 11, purpose: 12, remarks: 13 },
+      stockOut: {
+        start: 6,
+        no: 6,
+        date: 7,
+        name: 8,
+        desc: 9,
+        stock: 10,
+        by: 11,
+        purpose: 12,
+        remarks: 13,
+      },
       balance: { start: 14, no: 14, date: 15, name: 16, desc: 17, stock: 18 },
     };
 
@@ -746,17 +836,25 @@ document.addEventListener("DOMContentLoaded", () => {
     aoa[headerRow + 1][cols.balance.stock] = "Stock";
 
     // Fill data rows
-    const maxDataRows = Math.max(stockInRows.length, stockOutRows.length, balanceRows.length);
+    const maxDataRows = Math.max(
+      stockInRows.length,
+      stockOutRows.length,
+      balanceRows.length,
+    );
     for (let i = 0; i < maxDataRows; i++) {
       const rowIdx = dataStartRow + i;
 
       // Stock In data
       if (i < stockInRows.length) {
         const row = stockInRows[i];
-        const no = row.variantSymbol ? row.variantSymbol : String(row.itemNumber || "");
+        const no = row.variantSymbol
+          ? row.variantSymbol
+          : String(row.itemNumber || "");
         aoa[rowIdx][cols.stockIn.no] = no;
         aoa[rowIdx][cols.stockIn.date] = row.date;
-        aoa[rowIdx][cols.stockIn.name] = row.variantSymbol ? `  ${row.item_name}` : row.item_name;
+        aoa[rowIdx][cols.stockIn.name] = row.variantSymbol
+          ? `  ${row.item_name}`
+          : row.item_name;
         aoa[rowIdx][cols.stockIn.desc] = row.description;
         aoa[rowIdx][cols.stockIn.stock] = row.stock;
       }
@@ -764,10 +862,14 @@ document.addEventListener("DOMContentLoaded", () => {
       // Stock Out data
       if (i < stockOutRows.length) {
         const row = stockOutRows[i];
-        const no = row.variantSymbol ? row.variantSymbol : String(row.itemNumber || "");
+        const no = row.variantSymbol
+          ? row.variantSymbol
+          : String(row.itemNumber || "");
         aoa[rowIdx][cols.stockOut.no] = no;
         aoa[rowIdx][cols.stockOut.date] = row.date;
-        aoa[rowIdx][cols.stockOut.name] = row.variantSymbol ? `  ${row.item_name}` : row.item_name;
+        aoa[rowIdx][cols.stockOut.name] = row.variantSymbol
+          ? `  ${row.item_name}`
+          : row.item_name;
         aoa[rowIdx][cols.stockOut.desc] = row.description;
         aoa[rowIdx][cols.stockOut.stock] = row.stock;
         if (isPerItem) {
@@ -780,10 +882,14 @@ document.addEventListener("DOMContentLoaded", () => {
       // Balance Stock data
       if (i < balanceRows.length) {
         const row = balanceRows[i];
-        const no = row.variantSymbol ? row.variantSymbol : String(row.itemNumber || "");
+        const no = row.variantSymbol
+          ? row.variantSymbol
+          : String(row.itemNumber || "");
         aoa[rowIdx][cols.balance.no] = no;
         aoa[rowIdx][cols.balance.date] = row.date;
-        aoa[rowIdx][cols.balance.name] = row.variantSymbol ? `  ${row.item_name}` : row.item_name;
+        aoa[rowIdx][cols.balance.name] = row.variantSymbol
+          ? `  ${row.item_name}`
+          : row.item_name;
         aoa[rowIdx][cols.balance.desc] = row.description;
         aoa[rowIdx][cols.balance.stock] = row.stock;
       }
@@ -794,33 +900,45 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Set column widths
     ws["!cols"] = [
-      { wch: 5 },   // Stock In: No.
-      { wch: 12 },  // Date
-      { wch: 24 },  // Item Name
-      { wch: 22 },  // Description
-      { wch: 10 },  // Stock
-      { wch: 2 },   // Gap
-      { wch: 5 },   // Stock Out: No.
-      { wch: 12 },  // Date
-      { wch: 24 },  // Item Name
-      { wch: 22 },  // Description
-      { wch: 10 },  // Stock
-      isPerItem ? { wch: 18 } : { wch: 2 },  // By / Gap
-      isPerItem ? { wch: 20 } : { wch: 2 },  // Purpose / Gap
-      isPerItem ? { wch: 20 } : { wch: 2 },  // Remarks / Gap
-      { wch: 5 },   // Balance: No.
-      { wch: 12 },  // Date
-      { wch: 24 },  // Item Name
-      { wch: 22 },  // Description
-      { wch: 10 },  // Stock
+      { wch: 5 }, // Stock In: No.
+      { wch: 12 }, // Date
+      { wch: 24 }, // Item Name
+      { wch: 22 }, // Description
+      { wch: 10 }, // Stock
+      { wch: 2 }, // Gap
+      { wch: 5 }, // Stock Out: No.
+      { wch: 12 }, // Date
+      { wch: 24 }, // Item Name
+      { wch: 22 }, // Description
+      { wch: 10 }, // Stock
+      isPerItem ? { wch: 18 } : { wch: 2 }, // By / Gap
+      isPerItem ? { wch: 20 } : { wch: 2 }, // Purpose / Gap
+      isPerItem ? { wch: 20 } : { wch: 2 }, // Remarks / Gap
+      { wch: 5 }, // Balance: No.
+      { wch: 12 }, // Date
+      { wch: 24 }, // Item Name
+      { wch: 22 }, // Description
+      { wch: 10 }, // Stock
     ];
 
     // Set up merges for table name headers
     ws["!merges"] = [
       { s: { r: titleRow, c: 0 }, e: { r: titleRow, c: 4 } },
-      { s: { r: headerRow, c: cols.stockIn.start }, e: { r: headerRow, c: cols.stockIn.stock } },
-      { s: { r: headerRow, c: cols.stockOut.start }, e: { r: headerRow, c: isPerItem ? cols.stockOut.remarks : cols.stockOut.stock } },
-      { s: { r: headerRow, c: cols.balance.start }, e: { r: headerRow, c: cols.balance.stock } },
+      {
+        s: { r: headerRow, c: cols.stockIn.start },
+        e: { r: headerRow, c: cols.stockIn.stock },
+      },
+      {
+        s: { r: headerRow, c: cols.stockOut.start },
+        e: {
+          r: headerRow,
+          c: isPerItem ? cols.stockOut.remarks : cols.stockOut.stock,
+        },
+      },
+      {
+        s: { r: headerRow, c: cols.balance.start },
+        e: { r: headerRow, c: cols.balance.stock },
+      },
     ];
 
     // Apply styling
@@ -857,7 +975,9 @@ document.addEventListener("DOMContentLoaded", () => {
         // Table name headers (STOCK IN, STOCK OUT, BALANCE STOCK)
         else if (
           R === headerRow &&
-          (cellVal === "STOCK IN" || cellVal === "STOCK OUT" || cellVal === "BALANCE STOCK")
+          (cellVal === "STOCK IN" ||
+            cellVal === "STOCK OUT" ||
+            cellVal === "BALANCE STOCK")
         ) {
           style.fill = { fgColor: { rgb: "FFD9E1F2" } };
           style.font = { bold: true, sz: 11, color: { rgb: "FF000000" } };
@@ -893,7 +1013,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         // Data rows
         else if (R >= dataStartRow && cellVal !== "") {
-          style.alignment = { horizontal: typeof cellVal === "number" ? "right" : "left", vertical: "center", wrapText: true };
+          style.alignment = {
+            horizontal: typeof cellVal === "number" ? "right" : "left",
+            vertical: "center",
+            wrapText: true,
+          };
           if (typeof cellVal === "number") {
             style.numFmt = "0";
           }
@@ -904,7 +1028,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const wb = window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31) || "Inventory");
+    window.XLSX.utils.book_append_sheet(
+      wb,
+      ws,
+      sheetName.slice(0, 31) || "Inventory",
+    );
     return wb;
   };
 
@@ -921,7 +1049,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const txRows = await fetchTransactions(txFilter);
     const rows = buildHorizontalExportRows(items, txRows);
     const isPerItem = items.length === 1;
-    const wb = createHorizontalWorkbook({ ...rows, sheetName: "Inventory", isPerItem });
+    const wb = createHorizontalWorkbook({
+      ...rows,
+      sheetName: "Inventory",
+      isPerItem,
+    });
     downloadWorkbook(wb, filenameBase);
   };
 
@@ -929,28 +1061,38 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       await exportItemsToXlsx({
         items: allItems,
-        filenameBase: `inventory_all_${todayPH().replace(/\//g, '-')}`,
+        filenameBase: `inventory_all_${todayPH().replace(/\//g, "-")}`,
       });
     } catch (err) {
       console.error("Export all error:", err);
-      showPopup("Failed to export all inventory items.", { title: "Export Error" });
+      showPopup("Failed to export all inventory items.", {
+        title: "Export Error",
+      });
     }
   });
 
   // ─── Form helpers ─────────────────────────────────────────────────────────────
   const resetForm = () => {
     editingItemId = null;
-    if (invModalTitle) invModalTitle.innerHTML = '<i class="fa-solid fa-plus" style="margin-right:6px;"></i>Add New Item';
-    if (btnSaveForm) btnSaveForm.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Add to Inventory';
+    if (invModalTitle)
+      invModalTitle.innerHTML =
+        '<i class="fa-solid fa-plus" style="margin-right:6px;"></i>Add New Item';
+    if (btnSaveForm)
+      btnSaveForm.innerHTML =
+        '<i class="fa-solid fa-floppy-disk"></i> Add to Inventory';
     // Restore last-used category from localStorage; default to "Consumable Materials"
     if (formCategory) {
-      const lastCat = localStorage.getItem('fmrc_inv_last_category');
-      formCategory.value = lastCat || 'Consumable Materials';
+      const lastCat = localStorage.getItem("fmrc_inv_last_category");
+      formCategory.value = lastCat || "Consumable Materials";
     }
     if (formItemName) formItemName.value = "";
     if (formDescription) formDescription.value = "";
     if (formUnit) formUnit.value = "pcs";
-    if (formOnHand) { formOnHand.value = ""; formOnHand.removeAttribute('readonly'); formOnHand.removeAttribute('disabled'); }
+    if (formOnHand) {
+      formOnHand.value = "";
+      formOnHand.removeAttribute("readonly");
+      formOnHand.removeAttribute("disabled");
+    }
     if (formRemarks) formRemarks.value = "";
     setVariantFormRows([]);
     // Exit variant mode
@@ -964,19 +1106,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const populateFormForEdit = (item) => {
     editingItemId = item.id;
-    if (invModalTitle) invModalTitle.innerHTML = '<i class="fa-regular fa-pen-to-square" style="margin-right:6px;"></i>Edit Item';
-    if (btnSaveForm) btnSaveForm.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update Item';
+    if (invModalTitle)
+      invModalTitle.innerHTML =
+        '<i class="fa-regular fa-pen-to-square" style="margin-right:6px;"></i>Edit Item';
+    if (btnSaveForm)
+      btnSaveForm.innerHTML =
+        '<i class="fa-solid fa-floppy-disk"></i> Update Item';
     if (formCategory) formCategory.value = item.category;
     if (formItemName) formItemName.value = item.item_name || "";
     if (formDescription) formDescription.value = item.description || "";
     if (formUnit) formUnit.value = item.unit || "pcs";
     // On edit: Category, Item Name, Description, Unit are editable only.
-    if (formOnHand) { formOnHand.value = item.on_hand ?? ""; formOnHand.setAttribute('readonly', 'true'); formOnHand.setAttribute('disabled', 'disabled'); }
+    if (formOnHand) {
+      formOnHand.value = item.on_hand ?? "";
+      formOnHand.setAttribute("readonly", "true");
+      formOnHand.setAttribute("disabled", "disabled");
+    }
     if (formRemarks) formRemarks.value = item.remarks || "";
-    
-    const hasVariants = Array.isArray(item.variants) && item.variants.length > 0;
-    setVariantFormRows(hasVariants ? item.variants : [], { disableOnHand: true });
-    
+
+    const hasVariants =
+      Array.isArray(item.variants) && item.variants.length > 0;
+    setVariantFormRows(hasVariants ? item.variants : [], {
+      disableOnHand: true,
+    });
+
     if (hasVariants) {
       if (modalForm) modalForm.classList.add("variant-mode");
     } else {
@@ -994,21 +1147,21 @@ document.addEventListener("DOMContentLoaded", () => {
   formCategory?.addEventListener("change", () => {
     if (editingItemId === null) {
       // Only persist when in "Add" mode, not Edit mode
-      localStorage.setItem('fmrc_inv_last_category', formCategory.value);
+      localStorage.setItem("fmrc_inv_last_category", formCategory.value);
     }
   });
 
   btnCancelForm?.addEventListener("click", () => {
     // Persist current category before closing (only for Add mode)
     if (editingItemId === null && formCategory) {
-      localStorage.setItem('fmrc_inv_last_category', formCategory.value);
+      localStorage.setItem("fmrc_inv_last_category", formCategory.value);
     }
     closeModal(modalForm);
   });
 
   btnAddVariant?.addEventListener("click", () => {
     if (!variantList) return;
-    
+
     // Check if this is the first variant
     const hasVariants = Boolean(variantList.querySelector(".inv-variant-card"));
     if (!hasVariants) {
@@ -1021,14 +1174,14 @@ document.addEventListener("DOMContentLoaded", () => {
       if (formRemarks) formRemarks.value = "";
       if (formUnit) formUnit.value = "pcs";
       if (formOnHand) formOnHand.value = "";
-      
+
       // Hide required asterisks for Unit and Stocks On Hand
       const unitTag = document.getElementById("unitRequiredTag");
       const onHandTag = document.getElementById("onHandRequiredTag");
       if (unitTag) unitTag.style.display = "none";
       if (onHandTag) onHandTag.style.display = "none";
     }
-    
+
     variantList.appendChild(createVariantCard({}, { disableOnHand: false }));
     refreshVariantIndices();
     refreshVariantEmptyState();
@@ -1042,13 +1195,15 @@ document.addEventListener("DOMContentLoaded", () => {
       removeBtn.closest(".inv-variant-card")?.remove();
       refreshVariantIndices();
       refreshVariantEmptyState();
-      
+
       // Check if there are any variants left
-      const hasVariants = Boolean(variantList.querySelector(".inv-variant-card"));
+      const hasVariants = Boolean(
+        variantList.querySelector(".inv-variant-card"),
+      );
       if (!hasVariants && modalForm) {
         // Exiting variant mode - show base item fields again
         modalForm.classList.remove("variant-mode");
-        
+
         // Show required asterisks for Unit and Stocks On Hand
         const unitTag = document.getElementById("unitRequiredTag");
         const onHandTag = document.getElementById("onHandRequiredTag");
@@ -1070,34 +1225,70 @@ document.addEventListener("DOMContentLoaded", () => {
     const variants = collectVariantsFromForm();
     if (variants === null) return;
 
-    if (!itemName) { showPopup("Item Name is required.", { title: "Validation Error" }); formItemName?.focus(); return; }
-    
+    if (!itemName) {
+      showPopup("Item Name is required.", { title: "Validation Error" });
+      formItemName?.focus();
+      return;
+    }
+
     // Unit and Stocks On Hand are only required if there are no variants
     const hasVariants = variants.length > 0;
     if (!hasVariants) {
-      if (formOnHand?.value === "" || formOnHand?.value === null) { showPopup("Stocks On Hand is required when no variants are added.", { title: "Validation Error" }); formOnHand?.focus(); return; }
-      if (!unit || unit === "") { showPopup("Unit is required when no variants are added.", { title: "Validation Error" }); formUnit?.focus(); return; }
+      if (formOnHand?.value === "" || formOnHand?.value === null) {
+        showPopup("Stocks On Hand is required when no variants are added.", {
+          title: "Validation Error",
+        });
+        formOnHand?.focus();
+        return;
+      }
+      if (!unit || unit === "") {
+        showPopup("Unit is required when no variants are added.", {
+          title: "Validation Error",
+        });
+        formUnit?.focus();
+        return;
+      }
     }
 
-    const body = { category, item_name: itemName, description, unit, on_hand: onHand, remarks, variants };
+    const body = {
+      category,
+      item_name: itemName,
+      description,
+      unit,
+      on_hand: onHand,
+      remarks,
+      variants,
+    };
 
     btnSaveForm.disabled = true;
     btnSaveForm.textContent = isEditing ? "Updating…" : "Saving…";
 
     try {
-      const url = isEditing ? `${API_BASE_URL}/admin/inventory/${editingItemId}` : `${API_BASE_URL}/admin/inventory`;
+      const url = isEditing
+        ? `${API_BASE_URL}/admin/inventory/${editingItemId}`
+        : `${API_BASE_URL}/admin/inventory`;
       const method = isEditing ? "PUT" : "POST";
 
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, Accept: "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
         body: JSON.stringify(body),
       });
 
-      if (res.status === 401 || res.status === 403) { setUnauthorized(); return; }
+      if (res.status === 401 || res.status === 403) {
+        setUnauthorized();
+        return;
+      }
       const payload = await res.json();
       if (!res.ok) {
-        const msg = payload?.message || Object.values(payload?.errors || {})[0]?.[0] || "Failed to save item.";
+        const msg =
+          payload?.message ||
+          Object.values(payload?.errors || {})[0]?.[0] ||
+          "Failed to save item.";
         showPopup(msg, { title: "Save Failed" });
         return;
       }
@@ -1106,7 +1297,10 @@ document.addEventListener("DOMContentLoaded", () => {
       resetForm();
       await loadInventory();
       setTimeout(() => {
-        showPopup(isEditing ? "Item updated successfully." : "Item added successfully.", { title: "Success ✓" });
+        showPopup(
+          isEditing ? "Item updated successfully." : "Item added successfully.",
+          { title: "Success ✓" },
+        );
       }, 200);
     } catch (err) {
       console.error("Save inventory error:", err);
@@ -1122,8 +1316,10 @@ document.addEventListener("DOMContentLoaded", () => {
   // ─── View Modal ───────────────────────────────────────────────────────────────
   const openViewModal = (item) => {
     viewingItemId = item.id;
-    if (invViewTitle) invViewTitle.textContent = item.item_name || "Item Details";
-    if (invViewSubtitle) invViewSubtitle.textContent = `${item.category} — ${item.unit}`;
+    if (invViewTitle)
+      invViewTitle.textContent = item.item_name || "Item Details";
+    if (invViewSubtitle)
+      invViewSubtitle.textContent = `${item.category} — ${item.unit}`;
 
     const statusText = displayStatus(item.status);
     const statusCls = statusClass(statusText);
@@ -1133,13 +1329,14 @@ document.addEventListener("DOMContentLoaded", () => {
       : '<span style="color:#9ca3af;">—</span>';
 
     const variants = Array.isArray(item.variants) ? item.variants : [];
-    const variantRows = variants.map((variant) => {
-      const variantStatus = displayStatus(computeStatus(variant.on_hand));
-      const variantStatusHtml = `<span class="status-pill ${statusClass(variantStatus)}">${escHtml(variantStatus)}</span>`;
-      const variantRemarksHtml = variant.remarks
-        ? `<span class="remarks-pill ${remarksClass(variant.remarks)}">${escHtml(variant.remarks)}</span>`
-        : '<span style="color:#9ca3af;">—</span>';
-      return `
+    const variantRows = variants
+      .map((variant) => {
+        const variantStatus = displayStatus(computeStatus(variant.on_hand));
+        const variantStatusHtml = `<span class="status-pill ${statusClass(variantStatus)}">${escHtml(variantStatus)}</span>`;
+        const variantRemarksHtml = variant.remarks
+          ? `<span class="remarks-pill ${remarksClass(variant.remarks)}">${escHtml(variant.remarks)}</span>`
+          : '<span style="color:#9ca3af;">—</span>';
+        return `
         <tr>
           <td>${escHtml(variant.name || "—")}</td>
           <td>${escHtml(variant.description || "—")}</td>
@@ -1149,7 +1346,8 @@ document.addEventListener("DOMContentLoaded", () => {
           <td>${variantRemarksHtml}</td>
         </tr>
       `;
-    }).join("");
+      })
+      .join("");
 
     const variantsHtml = variants.length
       ? `
@@ -1186,7 +1384,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (invViewContent) {
       invViewContent.innerHTML = `
-        ${hasVariants ? `<div class="field-hint" style="margin-bottom:12px;">This item has ${variants.length} variant${variants.length !== 1 ? "s" : ""}. See individual variant stock details below.</div>` : `
+        ${
+          hasVariants
+            ? `<div class="field-hint" style="margin-bottom:12px;">This item has ${variants.length} variant${variants.length !== 1 ? "s" : ""}. See individual variant stock details below.</div>`
+            : `
           <div class="inv-view-grid">
             <div><div class="inv-view-label">Category</div><div class="inv-view-value">${escHtml(item.category)}</div></div>
             <div><div class="inv-view-label">Unit</div><div class="inv-view-value">${escHtml(item.unit)}</div></div>
@@ -1194,7 +1395,8 @@ document.addEventListener("DOMContentLoaded", () => {
             <div><div class="inv-view-label">Status</div><div><span class="status-pill ${statusCls}">${escHtml(statusText)}</span></div></div>
             <div><div class="inv-view-label">Remarks</div><div>${remarksHtml}</div></div>
             <div class="full"><div class="inv-view-label">Description</div><div class="inv-view-value">${escHtml(item.description || "—")}</div></div>
-          </div>`}
+          </div>`
+        }
         ${variantsHtml}`;
     }
     openModal(modalView);
@@ -1213,44 +1415,71 @@ document.addEventListener("DOMContentLoaded", () => {
   // ─── Archive ──────────────────────────────────────────────────────────────────
   const openArchiveModal = (item) => {
     archivingItemId = item.id;
-    if (invDeleteLabel) invDeleteLabel.textContent = item.item_name || "this item";
+    if (invDeleteLabel)
+      invDeleteLabel.textContent = item.item_name || "this item";
     openModal(modalDelete);
   };
 
-  btnCancelDelete?.addEventListener("click", () => { closeModal(modalDelete); archivingItemId = null; });
+  btnCancelDelete?.addEventListener("click", () => {
+    closeModal(modalDelete);
+    archivingItemId = null;
+  });
 
   btnConfirmDelete?.addEventListener("click", async () => {
     if (!archivingItemId) return;
     btnConfirmDelete.disabled = true;
-    btnConfirmDelete.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Archiving…';
+    btnConfirmDelete.innerHTML =
+      '<i class="fa-solid fa-spinner fa-spin"></i> Archiving…';
 
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/inventory/${archivingItemId}/archive`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-      });
-      if (res.status === 401 || res.status === 403) { setUnauthorized(); return; }
+      const res = await fetch(
+        `${API_BASE_URL}/admin/inventory/${archivingItemId}/archive`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        },
+      );
+      if (res.status === 401 || res.status === 403) {
+        setUnauthorized();
+        return;
+      }
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        showPopup(payload?.message || "Failed to archive item.", { title: "Archive Failed" });
+        showPopup(payload?.message || "Failed to archive item.", {
+          title: "Archive Failed",
+        });
         return;
       }
       closeModal(modalDelete);
       archivingItemId = null;
       await loadInventory();
-      setTimeout(() => showPopup("Item has been archived successfully and removed from the inventory list.", { title: "Archived ✓" }), 200);
+      setTimeout(
+        () =>
+          showPopup(
+            "Item has been archived successfully and removed from the inventory list.",
+            { title: "Archived ✓" },
+          ),
+        200,
+      );
     } catch (err) {
       console.error("Archive inventory error:", err);
       showPopup("Cannot connect to server.", { title: "Error" });
     } finally {
       btnConfirmDelete.disabled = false;
-      btnConfirmDelete.innerHTML = '<i class="fa-solid fa-box-archive"></i> Archive Item';
+      btnConfirmDelete.innerHTML =
+        '<i class="fa-solid fa-box-archive"></i> Archive Item';
     }
   });
 
   // Deduct modal actions
-  btnCancelDeduct?.addEventListener('click', () => {
-    if (modalDeduct) { closeModal(modalDeduct); modalDeduct.removeAttribute('data-inv-id'); }
+  btnCancelDeduct?.addEventListener("click", () => {
+    if (modalDeduct) {
+      closeModal(modalDeduct);
+      modalDeduct.removeAttribute("data-inv-id");
+    }
     activeDeductItem = null;
   });
 
@@ -1284,10 +1513,10 @@ document.addEventListener("DOMContentLoaded", () => {
     updateDeductTargetFields();
   });
 
-  btnSaveDeduct?.addEventListener('click', async () => {
-    const id = Number(modalDeduct?.getAttribute('data-inv-id')) || 0;
+  btnSaveDeduct?.addEventListener("click", async () => {
+    const id = Number(modalDeduct?.getAttribute("data-inv-id")) || 0;
     if (!id) return;
-    
+
     // Get amount based on mode
     let amountInput, amountValue;
     if (deductMode === "add") {
@@ -1298,44 +1527,76 @@ document.addEventListener("DOMContentLoaded", () => {
       amountValue = Number(deductAmountDeduct?.value || 0);
       amountValue = -Math.abs(amountValue); // Make it negative for deduct
     }
-    
-    if (!amountInput || amountInput.value === "") { 
-      showPopup(`Please enter a ${deductMode === "add" ? "add" : "deduct"} amount.`, { title: 'Validation Error' }); 
-      amountInput?.focus(); 
-      return; 
+
+    if (!amountInput || amountInput.value === "") {
+      showPopup(
+        `Please enter a ${deductMode === "add" ? "add" : "deduct"} amount.`,
+        { title: "Validation Error" },
+      );
+      amountInput?.focus();
+      return;
     }
-    if (!Number.isFinite(amountValue) || amountValue === 0) { 
-      showPopup(`${deductMode === "add" ? "Add" : "Deduct"} amount cannot be zero.`, { title: 'Validation Error' }); 
-      amountInput?.focus(); 
-      return; 
+    if (!Number.isFinite(amountValue) || amountValue === 0) {
+      showPopup(
+        `${deductMode === "add" ? "Add" : "Deduct"} amount cannot be zero.`,
+        { title: "Validation Error" },
+      );
+      amountInput?.focus();
+      return;
     }
-    
-    const nameVal = (deductName?.value || '').trim();
-    const purposeVal = (deductPurpose?.value || '').trim();
-    const remarksVal = (deductRemarks?.value || '').trim();
-    const variants = Array.isArray(activeDeductItem?.variants) ? activeDeductItem.variants : [];
-    const hasVariants = Boolean(activeDeductItem?.has_variants ?? variants.length > 0);
+
+    const nameVal = (deductName?.value || "").trim();
+    const purposeVal = (deductPurpose?.value || "").trim();
+    const remarksVal = (deductRemarks?.value || "").trim();
+    const variants = Array.isArray(activeDeductItem?.variants)
+      ? activeDeductItem.variants
+      : [];
+    const hasVariants = Boolean(
+      activeDeductItem?.has_variants ?? variants.length > 0,
+    );
     const targetVal = deductTarget?.value || "";
-    const variantId = targetVal.startsWith("variant:") ? Number(targetVal.replace("variant:", "")) : null;
+    const variantId = targetVal.startsWith("variant:")
+      ? Number(targetVal.replace("variant:", ""))
+      : null;
 
     if (hasVariants && !variantId) {
-      showPopup("Please choose a variant to adjust stock for this item.", { title: 'Validation Error' });
+      showPopup("Please choose a variant to adjust stock for this item.", {
+        title: "Validation Error",
+      });
       deductTarget?.focus();
       return;
     }
 
-    btnSaveDeduct.disabled = true; btnSaveDeduct.textContent = 'Saving…';
+    btnSaveDeduct.disabled = true;
+    btnSaveDeduct.textContent = "Saving…";
     try {
-      const requestBody = { adjust_amount: amountValue, name: nameVal, purpose: purposeVal, remarks: remarksVal };
+      const requestBody = {
+        adjust_amount: amountValue,
+        name: nameVal,
+        purpose: purposeVal,
+        remarks: remarksVal,
+      };
       if (variantId) requestBody.variant_id = variantId;
       const res = await fetch(`${API_BASE_URL}/admin/inventory/${id}/adjust`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, Accept: 'application/json' },
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
         body: JSON.stringify(requestBody),
       });
-      if (res.status === 401 || res.status === 403) { setUnauthorized(); return; }
+      if (res.status === 401 || res.status === 403) {
+        setUnauthorized();
+        return;
+      }
       const responsePayload = await res.json().catch(() => ({}));
-      if (!res.ok) { showPopup(responsePayload?.message || 'Failed to update stocks.', { title: 'Error' }); return; }
+      if (!res.ok) {
+        showPopup(responsePayload?.message || "Failed to update stocks.", {
+          title: "Error",
+        });
+        return;
+      }
 
       const metaPayload = {
         name: nameVal || "--",
@@ -1349,15 +1610,19 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       closeModal(modalDeduct);
-      modalDeduct?.removeAttribute('data-inv-id');
+      modalDeduct?.removeAttribute("data-inv-id");
       activeDeductItem = null;
       await loadInventory();
-      setTimeout(() => showPopup('Stocks updated successfully.', { title: 'Success ✓' }), 200);
+      setTimeout(
+        () => showPopup("Stocks updated successfully.", { title: "Success ✓" }),
+        200,
+      );
     } catch (err) {
-      console.error('Deduct error:', err);
-      showPopup('Cannot connect to server.', { title: 'Error' });
+      console.error("Deduct error:", err);
+      showPopup("Cannot connect to server.", { title: "Error" });
     } finally {
-      btnSaveDeduct.disabled = false; btnSaveDeduct.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save';
+      btnSaveDeduct.disabled = false;
+      btnSaveDeduct.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save';
     }
   });
 
@@ -1373,9 +1638,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const table = toggleBtn.closest("table");
       if (!id || !table) return;
       const expanded = toggleBtn.getAttribute("aria-expanded") === "true";
-      table.querySelectorAll(`tr[data-variant-parent="${id}"]`).forEach((row) => {
-        row.style.display = expanded ? "none" : "table-row";
-      });
+      table
+        .querySelectorAll(`tr[data-variant-parent="${id}"]`)
+        .forEach((row) => {
+          row.style.display = expanded ? "none" : "table-row";
+        });
       toggleBtn.setAttribute("aria-expanded", String(!expanded));
       return;
     }
@@ -1413,9 +1680,14 @@ document.addEventListener("DOMContentLoaded", () => {
           if (hasVariants) {
             deductTargetWrap.style.display = "";
             deductTarget.innerHTML = [
-              ...variants.map((variant) => `<option value="variant:${variant.id}">${escHtml(variant.name || "Variant")}</option>`),
+              ...variants.map(
+                (variant) =>
+                  `<option value="variant:${variant.id}">${escHtml(variant.name || "Variant")}</option>`,
+              ),
             ].join("");
-            deductTarget.value = variants.length ? `variant:${variants[0].id}` : "";
+            deductTarget.value = variants.length
+              ? `variant:${variants[0].id}`
+              : "";
           } else {
             deductTargetWrap.style.display = "none";
             deductTarget.innerHTML = "";
@@ -1432,7 +1704,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Reset deduct mode to "add"
         setDeductMode("add");
         // store viewing id in modal dataset
-        modalDeduct?.setAttribute('data-inv-id', String(item.id));
+        modalDeduct?.setAttribute("data-inv-id", String(item.id));
         openModal(modalDeduct);
       }
       return;
@@ -1446,7 +1718,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (item) {
         void exportItemsToXlsx({
           items: [item],
-          filenameBase: `${item.item_name}_inventory_form_${todayPH().replace(/\//g, '-')}`,
+          filenameBase: `${item.item_name}_inventory_form_${todayPH().replace(/\//g, "-")}`,
           txFilter: { item_id: item.id },
         }).catch((err) => {
           console.error("Per-item export error:", err);
@@ -1461,10 +1733,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (catExportBtn) {
       const category = catExportBtn.getAttribute("data-cat-export") || "";
       if (!category) return;
-      const categoryItems = allItems.filter((item) => item.category === category);
+      const categoryItems = allItems.filter(
+        (item) => item.category === category,
+      );
       void exportItemsToXlsx({
         items: categoryItems,
-        filenameBase: `inventory_${category}_${todayPH().replace(/\//g, '-')}`,
+        filenameBase: `inventory_${category}_${todayPH().replace(/\//g, "-")}`,
         txFilter: { category },
       }).catch((err) => {
         console.error("Category export error:", err);
@@ -1500,12 +1774,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ─── Filters ──────────────────────────────────────────────────────────────────
   searchInput?.addEventListener("input", () => {
-    CATEGORIES.forEach((cat) => { categoryPages[cat] = 1; });
+    CATEGORIES.forEach((cat) => {
+      categoryPages[cat] = 1;
+    });
     renderAllTables();
   });
 
   categoryFilter?.addEventListener("change", () => {
-    CATEGORIES.forEach((cat) => { categoryPages[cat] = 1; });
+    CATEGORIES.forEach((cat) => {
+      categoryPages[cat] = 1;
+    });
     renderAllTables();
   });
 
@@ -1513,7 +1791,9 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!token) {
     showPopup("Please login first to access inventory management.", {
       title: "Session Required",
-      onOk: () => { window.location.href = "../admin-auth/auth.html"; },
+      onOk: () => {
+        window.location.href = "../admin-auth/auth.html";
+      },
     });
     return;
   }

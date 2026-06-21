@@ -1931,8 +1931,12 @@ body.reports-page .table-wrapper {
 
 /* --- Generic Skeleton Loader --- */
 @keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 .skeleton-text {
   height: 14px;
@@ -2008,7 +2012,9 @@ body.reports-page .table-wrapper {
   border: none;
   padding: 5px;
   cursor: pointer;
-  transition: transform 0.2s ease, color 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    color 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2058,7 +2064,9 @@ body.reports-page .table-wrapper {
   font-size: 0.8rem;
   color: #333;
   cursor: pointer;
-  transition: background-color 0.15s ease, color 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2135,7 +2143,8 @@ body.reports-page .table-wrapper {
   border-collapse: collapse;
   font-size: 0.78rem;
 }
-.inv-variant-table th, .inv-variant-table td {
+.inv-variant-table th,
+.inv-variant-table td {
   padding: 7px 10px;
   border-bottom: 1px solid #f0f4f8;
   text-align: left;

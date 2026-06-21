@@ -6,102 +6,418 @@
     <title>Services Management | CNSC-FMRC Staff</title>
     <link rel="stylesheet" href="../admin-page/dashboard.css" />
     <link rel="stylesheet" href="../admin-page/admin-modules.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
     <style>
-      .wm-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px;}
-      .wm-service-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;transition:box-shadow .2s;}
-      .wm-service-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08);}
-      .wm-service-card .card-img{height:160px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;overflow:hidden;}
-      .wm-service-card .card-img img{width:100%;height:100%;object-fit:cover;}
-      .wm-service-card .card-img .no-img{font-size:0.78rem;color:#9ca3af;text-align:center;}
-      .wm-service-card .card-body{padding:14px;flex:1;}
-      .card-cat{font-size:0.68rem;font-weight:700;text-transform:uppercase;color:var(--primary-color);letter-spacing:.04em;}
-      .card-title{font-size:0.95rem;font-weight:700;color:#111827;margin:4px 0;}
-      .card-desc{font-size:0.78rem;color:#6b7280;}
-      .wm-service-card .card-actions{padding:10px 14px;border-top:1px solid #f0f0f0;display:flex;gap:8px;}
-      .btn-edit-sm{background:#fff;border:1px solid var(--primary-color);color:var(--primary-color);border-radius:6px;padding:6px 12px;font-size:0.74rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .18s;}
-      .btn-del-sm{background:#fff5f5;border:1px solid #fca5a5;color:#b91c1c;border-radius:6px;padding:6px 12px;font-size:0.74rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:all .18s;}
-      .btn-edit-sm:hover{background:var(--primary-color);color:#fff;}
-      .btn-del-sm:hover{background:#b91c1c;color:#fff;border-color:#b91c1c;}
-      .wm-modal-overlay{position:fixed;inset:0;background:rgba(17,24,39,.5);backdrop-filter:blur(3px);z-index:9000;display:none;align-items:center;justify-content:center;}
-      .wm-modal-overlay.show{display:flex;}
-      .wm-modal-card{background:#fff;border-radius:14px;width:min(660px,96%);max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 40px rgba(0,0,0,.15);}
-      .wm-modal-header{padding:18px 22px 14px;border-bottom:1px solid #e5e7eb;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;}
-      .wm-modal-header h3{margin:0;font-size:1rem;color:var(--primary-color);}
-      .wm-modal-body{padding:20px 22px;overflow-y:auto;flex:1;}
-      .wm-modal-footer{padding:14px 22px;border-top:1px solid #e5e7eb;background:#fff;flex-shrink:0;display:flex;justify-content:flex-end;gap:10px;}
-      .btn-close-x{background:none;border:none;font-size:1.3rem;cursor:pointer;color:#6b7280;}
-      .wm-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-      .wm-form-grid .full{grid-column:1/-1;}
-      .field-stack{display:flex;flex-direction:column;gap:5px;}
-      .field-stack label{font-size:0.82rem;font-weight:700;color:#111827;}
-      .wm-input,.wm-textarea,.wm-select{border:1px solid #d8dde3;border-radius:8px;padding:8px 10px;font-size:0.82rem;color:#333;width:100%;background:#fff;font-family:inherit;}
-      .wm-textarea{min-height:80px;resize:vertical;}
-      .wm-img-placeholder{width:100%;height:130px;border:1.5px dashed #d1d5db;border-radius:8px;background:#f9fafb;display:flex;align-items:center;justify-content:center;font-size:0.82rem;color:#9ca3af;cursor:pointer;transition:border-color .18s,background .18s;}
-      .wm-img-placeholder:hover{border-color:#a80f0f;background:#fff5f5;}
-      .wm-img-placeholder.hidden{display:none;}
-      .wm-img-preview{width:100%;max-height:160px;object-fit:contain;border-radius:8px;border:1px solid #e5e7eb;background:#f9fafb;display:none;margin-top:8px;}
-      .wm-img-preview.visible{display:block;}
-      .chip-input-area{border:1px solid #d8dde3;border-radius:8px;padding:8px;display:flex;flex-wrap:wrap;gap:6px;min-height:42px;cursor:text;}
-      .chip-tag-item{background:#f0f9ff;border:1px solid #bae6fd;border-radius:20px;padding:3px 8px 3px 10px;font-size:0.76rem;color:#0369a1;display:inline-flex;align-items:center;gap:4px;}
-      .chip-remove{background:none;border:none;cursor:pointer;font-size:0.9rem;color:#0369a1;padding:0;}
-      .chip-hidden-input{border:none;outline:none;font-size:0.8rem;min-width:120px;flex:1;}
-      .wm-skeleton{background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:8px;}
-      @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-      .empty-state{grid-column:1/-1;text-align:center;padding:40px;color:#9ca3af;}
-      .services-toolbar{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;}
-      .services-toolbar .toolbar-title p{max-width:560px;}
-      .services-toolbar .toolbar-title p span{display:block;}
-      .services-toolbar .toolbar-actions{margin-left:auto;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;}
-      @media (max-width: 768px){
-        .services-toolbar .toolbar-actions{width:100%;margin-left:0;justify-content:flex-start;}
+      .wm-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+        gap: 16px;
+      }
+      .wm-service-card {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        transition: box-shadow 0.2s;
+      }
+      .wm-service-card:hover {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      }
+      .wm-service-card .card-img {
+        height: 160px;
+        background: #f3f4f6;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      .wm-service-card .card-img img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .wm-service-card .card-img .no-img {
+        font-size: 0.78rem;
+        color: #9ca3af;
+        text-align: center;
+      }
+      .wm-service-card .card-body {
+        padding: 14px;
+        flex: 1;
+      }
+      .card-cat {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--primary-color);
+        letter-spacing: 0.04em;
+      }
+      .card-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #111827;
+        margin: 4px 0;
+      }
+      .card-desc {
+        font-size: 0.78rem;
+        color: #6b7280;
+      }
+      .wm-service-card .card-actions {
+        padding: 10px 14px;
+        border-top: 1px solid #f0f0f0;
+        display: flex;
+        gap: 8px;
+      }
+      .btn-edit-sm {
+        background: #fff;
+        border: 1px solid var(--primary-color);
+        color: var(--primary-color);
+        border-radius: 6px;
+        padding: 6px 12px;
+        font-size: 0.74rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        transition: all 0.18s;
+      }
+      .btn-del-sm {
+        background: #fff5f5;
+        border: 1px solid #fca5a5;
+        color: #b91c1c;
+        border-radius: 6px;
+        padding: 6px 12px;
+        font-size: 0.74rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        transition: all 0.18s;
+      }
+      .btn-edit-sm:hover {
+        background: var(--primary-color);
+        color: #fff;
+      }
+      .btn-del-sm:hover {
+        background: #b91c1c;
+        color: #fff;
+        border-color: #b91c1c;
+      }
+      .wm-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(17, 24, 39, 0.5);
+        backdrop-filter: blur(3px);
+        z-index: 9000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+      .wm-modal-overlay.show {
+        display: flex;
+      }
+      .wm-modal-card {
+        background: #fff;
+        border-radius: 14px;
+        width: min(660px, 96%);
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+      }
+      .wm-modal-header {
+        padding: 18px 22px 14px;
+        border-bottom: 1px solid #e5e7eb;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .wm-modal-header h3 {
+        margin: 0;
+        font-size: 1rem;
+        color: var(--primary-color);
+      }
+      .wm-modal-body {
+        padding: 20px 22px;
+        overflow-y: auto;
+        flex: 1;
+      }
+      .wm-modal-footer {
+        padding: 14px 22px;
+        border-top: 1px solid #e5e7eb;
+        background: #fff;
+        flex-shrink: 0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+      .btn-close-x {
+        background: none;
+        border: none;
+        font-size: 1.3rem;
+        cursor: pointer;
+        color: #6b7280;
+      }
+      .wm-form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .wm-form-grid .full {
+        grid-column: 1/-1;
+      }
+      .field-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .field-stack label {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #111827;
+      }
+      .wm-input,
+      .wm-textarea,
+      .wm-select {
+        border: 1px solid #d8dde3;
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 0.82rem;
+        color: #333;
+        width: 100%;
+        background: #fff;
+        font-family: inherit;
+      }
+      .wm-textarea {
+        min-height: 80px;
+        resize: vertical;
+      }
+      .wm-img-placeholder {
+        width: 100%;
+        height: 130px;
+        border: 1.5px dashed #d1d5db;
+        border-radius: 8px;
+        background: #f9fafb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.82rem;
+        color: #9ca3af;
+        cursor: pointer;
+        transition:
+          border-color 0.18s,
+          background 0.18s;
+      }
+      .wm-img-placeholder:hover {
+        border-color: #a80f0f;
+        background: #fff5f5;
+      }
+      .wm-img-placeholder.hidden {
+        display: none;
+      }
+      .wm-img-preview {
+        width: 100%;
+        max-height: 160px;
+        object-fit: contain;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        background: #f9fafb;
+        display: none;
+        margin-top: 8px;
+      }
+      .wm-img-preview.visible {
+        display: block;
+      }
+      .chip-input-area {
+        border: 1px solid #d8dde3;
+        border-radius: 8px;
+        padding: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        min-height: 42px;
+        cursor: text;
+      }
+      .chip-tag-item {
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-radius: 20px;
+        padding: 3px 8px 3px 10px;
+        font-size: 0.76rem;
+        color: #0369a1;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .chip-remove {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 0.9rem;
+        color: #0369a1;
+        padding: 0;
+      }
+      .chip-hidden-input {
+        border: none;
+        outline: none;
+        font-size: 0.8rem;
+        min-width: 120px;
+        flex: 1;
+      }
+      .wm-skeleton {
+        background: linear-gradient(
+          90deg,
+          #f3f4f6 25%,
+          #e5e7eb 50%,
+          #f3f4f6 75%
+        );
+        background-size: 200% 100%;
+        animation: shimmer 1.4s infinite;
+        border-radius: 8px;
+      }
+      @keyframes shimmer {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+      }
+      .empty-state {
+        grid-column: 1/-1;
+        text-align: center;
+        padding: 40px;
+        color: #9ca3af;
+      }
+      .services-toolbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .services-toolbar .toolbar-title p {
+        max-width: 560px;
+      }
+      .services-toolbar .toolbar-title p span {
+        display: block;
+      }
+      .services-toolbar .toolbar-actions {
+        margin-left: auto;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+      @media (max-width: 768px) {
+        .services-toolbar .toolbar-actions {
+          width: 100%;
+          margin-left: 0;
+          justify-content: flex-start;
+        }
       }
     </style>
   </head>
   <body>
     <div class="dashboard-container">
       <aside class="sidebar">
-        <div class="sidebar-header"><img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" /><h2>CNSC-FMRC</h2></div>
+        <div class="sidebar-header">
+          <img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" />
+          <h2>CNSC-FMRC</h2>
+        </div>
         <nav class="sidebar-nav">
-          <a href="dashboard.html" class="nav-link"><i class="fa-solid fa-house"></i> Dashboard</a>
-          <a href="inventory.html" class="nav-link"><i class="fa-solid fa-box"></i> Inventory</a>
-          <a href="products.html" class="nav-link"><i class="fa-solid fa-tags"></i> Products</a>
-          <a href="appointments.html" class="nav-link"><i class="fa-regular fa-calendar-check"></i> Appointment</a>
-          <a href="reports.html" class="nav-link"><i class="fa-solid fa-chart-line"></i> Reports</a>
-          <a href="orders.html" class="nav-link"><i class="fa-solid fa-box-open"></i> Orders</a>
+          <a href="dashboard.html" class="nav-link"
+            ><i class="fa-solid fa-house"></i> Dashboard</a
+          >
+          <a href="inventory.html" class="nav-link"
+            ><i class="fa-solid fa-box"></i> Inventory</a
+          >
+          <a href="products.html" class="nav-link"
+            ><i class="fa-solid fa-tags"></i> Products</a
+          >
+          <a href="appointments.html" class="nav-link"
+            ><i class="fa-regular fa-calendar-check"></i> Appointment</a
+          >
+          <a href="reports.html" class="nav-link"
+            ><i class="fa-solid fa-chart-line"></i> Reports</a
+          >
+          <a href="orders.html" class="nav-link"
+            ><i class="fa-solid fa-box-open"></i> Orders</a
+          >
           <div class="nav-item has-dropdown open">
             <a href="#" class="nav-link dropdown-toggle" id="staffControlBtn">
-              <div class="dropdown-title"><i class="fa-solid fa-screwdriver-wrench"></i> Website Management</div>
+              <div class="dropdown-title">
+                <i class="fa-solid fa-screwdriver-wrench"></i> Website
+                Management
+              </div>
               <i class="fa-solid fa-chevron-down arrow"></i>
             </a>
             <div class="dropdown-menu">
               <a href="website-home.html" class="sub-link">Home</a>
-              <a href="website-services.html" class="sub-link active">Services</a>
+              <a href="website-services.html" class="sub-link active"
+                >Services</a
+              >
               <a href="website-contact.html" class="sub-link">Contact</a>
               <a href="website-footer.html" class="sub-link">Footer</a>
             </div>
           </div>
-          <a href="archives.html" class="nav-link"><i class="fa-solid fa-box-archive"></i> Archives</a>
-          <a href="my-account.html" class="nav-link"><i class="fa-regular fa-id-card"></i> My Account</a>
+          <a href="archives.html" class="nav-link"
+            ><i class="fa-solid fa-box-archive"></i> Archives</a
+          >
+          <a href="my-account.html" class="nav-link"
+            ><i class="fa-regular fa-id-card"></i> My Account</a
+          >
         </nav>
-        <div class="sidebar-footer"><button class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div>
+        <div class="sidebar-footer">
+          <button class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
+        </div>
       </aside>
 
       <main class="main-content">
         <header class="top-header">
           <div class="header-left"><h1>Services Management</h1></div>
           <div class="header-right">
-            <div class="notifications" id="notifBell"><i class="fa-regular fa-bell"></i><span class="badge" id="notifBadge" style="display:none;"></span></div>
+            <div class="notifications" id="notifBell">
+              <i class="fa-regular fa-bell"></i
+              ><span class="badge" id="notifBadge" style="display: none"></span>
+            </div>
             <div class="user-profile">
               <div class="user-info"><span class="role">Staff</span></div>
-              <span class="profile-icon profile-initial" data-email="staff@cnsc.edu.ph"></span>
+              <span
+                class="profile-icon profile-initial"
+                data-email="staff@cnsc.edu.ph"
+              ></span>
               <div class="profile-popup" id="profilePopup">
-                <div class="popup-header"><div class="popup-profile-row">
-                  <span class="popup-profile-icon profile-initial" data-email="staff@cnsc.edu.ph"></span>
-                  <div class="popup-profile-meta"><p class="popup-identity">staff@cnsc.edu.ph</p><span class="popup-role">Staff</span></div>
-                </div></div>
-                <a href="my-account.html" class="profile-popup-link"><i class="fa-regular fa-id-card"></i> My Account</a>
-                <hr /><button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+                <div class="popup-header">
+                  <div class="popup-profile-row">
+                    <span
+                      class="popup-profile-icon profile-initial"
+                      data-email="staff@cnsc.edu.ph"
+                    ></span>
+                    <div class="popup-profile-meta">
+                      <p class="popup-identity">staff@cnsc.edu.ph</p>
+                      <span class="popup-role">Staff</span>
+                    </div>
+                  </div>
+                </div>
+                <a href="my-account.html" class="profile-popup-link"
+                  ><i class="fa-regular fa-id-card"></i> My Account</a
+                >
+                <hr />
+                <button class="logout-btn popup-logout">
+                  <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
               </div>
             </div>
           </div>
@@ -111,20 +427,45 @@
           <div class="page-toolbar services-toolbar">
             <div class="toolbar-title">
               <h2>Service Cards</h2>
-              <p><span>Manage services displayed on the Services page and Home "What We Offer" section.</span><span>Changes are reflected on both pages.</span></p>
+              <p>
+                <span
+                  >Manage services displayed on the Services page and Home "What
+                  We Offer" section.</span
+                ><span>Changes are reflected on both pages.</span>
+              </p>
             </div>
             <div class="toolbar-actions">
-              <button class="btn-admin btn-secondary" type="button" onclick="window.location.reload();" title="Refresh Data"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
-              <a href="../services-page/service.html" target="_blank" class="btn-admin btn-secondary"><i class="fa-solid fa-eye"></i> Preview Services Page</a>
-              <button class="btn-admin" id="btnAddService"><i class="fa-solid fa-plus" style="color:#fff;"></i> Add Service</button>
+              <button
+                class="btn-admin btn-secondary"
+                type="button"
+                onclick="window.location.reload()"
+                title="Refresh Data"
+              >
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+              </button>
+              <a
+                href="../services-page/service.html"
+                target="_blank"
+                class="btn-admin btn-secondary"
+                ><i class="fa-solid fa-eye"></i> Preview Services Page</a
+              >
+              <button class="btn-admin" id="btnAddService">
+                <i class="fa-solid fa-plus" style="color: #fff"></i> Add Service
+              </button>
             </div>
           </div>
 
           <div class="panel">
             <div class="wm-cards-grid" id="servicesGrid">
               <div class="empty-state">
-                <div class="wm-skeleton" style="height:14px;width:50%;margin:0 auto 10px;"></div>
-                <div class="wm-skeleton" style="height:10px;width:35%;margin:0 auto;"></div>
+                <div
+                  class="wm-skeleton"
+                  style="height: 14px; width: 50%; margin: 0 auto 10px"
+                ></div>
+                <div
+                  class="wm-skeleton"
+                  style="height: 10px; width: 35%; margin: 0 auto"
+                ></div>
               </div>
             </div>
           </div>
@@ -143,15 +484,35 @@
           <div class="wm-form-grid">
             <div class="field-stack full">
               <label>Service Image</label>
-              <div class="wm-img-placeholder" id="svcImgPlaceholder" onclick="document.getElementById('svcImgInput').click()">
-                <span><i class="fa-regular fa-image" style="margin-right:6px;"></i>Click to upload image</span>
+              <div
+                class="wm-img-placeholder"
+                id="svcImgPlaceholder"
+                onclick="document.getElementById('svcImgInput').click()"
+              >
+                <span
+                  ><i class="fa-regular fa-image" style="margin-right: 6px"></i
+                  >Click to upload image</span
+                >
               </div>
               <img id="svcImgPreview" class="wm-img-preview" alt="Service" />
-              <button type="button" class="btn-del-sm" id="svcImgPreviewRemoveBtn" style="display:none;margin-top:8px;" onclick="clearImage('svc')"><i class="fa-solid fa-xmark"></i> Remove</button>
-              <input type="file" id="svcImgInput" accept="image/*" style="display:none;" />
+              <button
+                type="button"
+                class="btn-del-sm"
+                id="svcImgPreviewRemoveBtn"
+                style="display: none; margin-top: 8px"
+                onclick="clearImage('svc')"
+              >
+                <i class="fa-solid fa-xmark"></i> Remove
+              </button>
+              <input
+                type="file"
+                id="svcImgInput"
+                accept="image/*"
+                style="display: none"
+              />
             </div>
             <div class="field-stack">
-              <label>Category <span style="color:#dc2626">*</span></label>
+              <label>Category <span style="color: #dc2626">*</span></label>
               <select class="wm-select" id="svcCategory">
                 <option>Prototyping</option>
                 <option>Manufacturing</option>
@@ -160,39 +521,99 @@
               </select>
             </div>
             <div class="field-stack">
-              <label>Title <span style="color:#dc2626">*</span></label>
-              <input type="text" class="wm-input" id="svcTitle" maxlength="255" placeholder="e.g. 3D Printing" />
+              <label>Title <span style="color: #dc2626">*</span></label>
+              <input
+                type="text"
+                class="wm-input"
+                id="svcTitle"
+                maxlength="255"
+                placeholder="e.g. 3D Printing"
+              />
             </div>
             <div class="field-stack full">
               <label>Short Description (shown on card)</label>
-              <textarea class="wm-textarea" id="svcDesc" rows="2" placeholder="Brief description visible on the service card..."></textarea>
+              <textarea
+                class="wm-textarea"
+                id="svcDesc"
+                rows="2"
+                placeholder="Brief description visible on the service card..."
+              ></textarea>
             </div>
-            <div class="field-stack full" style="border-top:1px solid #f0f0f0;padding-top:14px;margin-top:4px;">
-              <p style="font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#9ca3af;margin-bottom:10px;">View Details Modal Content</p>
+            <div
+              class="field-stack full"
+              style="
+                border-top: 1px solid #f0f0f0;
+                padding-top: 14px;
+                margin-top: 4px;
+              "
+            >
+              <p
+                style="
+                  font-size: 0.78rem;
+                  font-weight: 700;
+                  text-transform: uppercase;
+                  letter-spacing: 0.05em;
+                  color: #9ca3af;
+                  margin-bottom: 10px;
+                "
+              >
+                View Details Modal Content
+              </p>
             </div>
             <div class="field-stack full">
               <label>Modal Description</label>
-              <textarea class="wm-textarea" id="svcModalDesc" rows="3" placeholder="Detailed description shown in the 'View service details' popup..."></textarea>
+              <textarea
+                class="wm-textarea"
+                id="svcModalDesc"
+                rows="3"
+                placeholder="Detailed description shown in the 'View service details' popup..."
+              ></textarea>
             </div>
             <div class="field-stack full">
-              <label>Key Features <span class="field-hint">(press Enter to add each)</span></label>
+              <label
+                >Key Features
+                <span class="field-hint">(press Enter to add each)</span></label
+              >
               <div class="chip-input-area" id="svcFeaturesArea">
-                <input class="chip-hidden-input" id="svcFeaturesInput" placeholder="Type feature and press Enter…" />
+                <input
+                  class="chip-hidden-input"
+                  id="svcFeaturesInput"
+                  placeholder="Type feature and press Enter…"
+                />
               </div>
             </div>
             <div class="field-stack">
-              <label>Supported Materials <span class="field-hint">(one per line)</span></label>
-              <textarea class="wm-textarea" id="svcMaterials" rows="4" placeholder="Acrylic & Plastics&#10;Wood / MDF&#10;Leather"></textarea>
+              <label
+                >Supported Materials
+                <span class="field-hint">(one per line)</span></label
+              >
+              <textarea
+                class="wm-textarea"
+                id="svcMaterials"
+                rows="4"
+                placeholder="Acrylic & Plastics&#10;Wood / MDF&#10;Leather"
+              ></textarea>
             </div>
             <div class="field-stack">
-              <label>Best For <span class="field-hint">(one per line)</span></label>
-              <textarea class="wm-textarea" id="svcBestFor" rows="4" placeholder="Signage&#10;Keychains&#10;Prototypes"></textarea>
+              <label
+                >Best For <span class="field-hint">(one per line)</span></label
+              >
+              <textarea
+                class="wm-textarea"
+                id="svcBestFor"
+                rows="4"
+                placeholder="Signage&#10;Keychains&#10;Prototypes"
+              ></textarea>
             </div>
           </div>
         </div>
         <div class="wm-modal-footer">
-          <button class="btn-admin btn-secondary" id="btnCancelService">Cancel</button>
-          <button class="btn-admin" id="btnSaveService"><i class="fa-solid fa-floppy-disk"></i> Save Service</button>
+          <button class="btn-admin btn-secondary" id="btnCancelService">
+            Cancel
+          </button>
+          <button class="btn-admin" id="btnSaveService">
+            <i class="fa-solid fa-floppy-disk"></i> Save Service
+          </button>
         </div>
       </div>
     </div>

@@ -17,8 +17,12 @@
     <link rel="stylesheet" href="../home-page/main.css" />
     <style>
       @keyframes shimmer {
-        0%  { background-position: 200% 0; }
-        100%{ background-position: -200% 0; }
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
       }
       /* Empty state */
       .products-empty-state {
@@ -32,9 +36,18 @@
         gap: 16px;
         color: #6b7280;
       }
-      .products-empty-state svg { opacity: 0.35; }
-      .products-empty-state h3 { font-size: 1.1rem; color: #374151; margin: 0; }
-      .products-empty-state p  { font-size: 0.88rem; margin: 0; }
+      .products-empty-state svg {
+        opacity: 0.35;
+      }
+      .products-empty-state h3 {
+        font-size: 1.1rem;
+        color: #374151;
+        margin: 0;
+      }
+      .products-empty-state p {
+        font-size: 0.88rem;
+        margin: 0;
+      }
       /* View Info button on card */
       .product-view-info-btn {
         width: 100%;
@@ -49,7 +62,10 @@
         margin-top: auto;
         text-align: left;
       }
-      .product-view-info-btn:hover { color: #b01c1c; text-decoration: underline; }
+      .product-view-info-btn:hover {
+        color: #b01c1c;
+        text-decoration: underline;
+      }
     </style>
   </head>
   <body class="products-page-body">
@@ -62,7 +78,9 @@
         />
         <h1 class="logo-text">
           <span class="logo-title">CAMARINES NORTE STATE COLLEGE</span>
-          <span class="logo-subtitle">FABRICATION AND MANUFACTURING RESEARCH CENTER</span>
+          <span class="logo-subtitle"
+            >FABRICATION AND MANUFACTURING RESEARCH CENTER</span
+          >
         </h1>
       </a>
       <nav class="main-nav">
@@ -79,7 +97,9 @@
               >Products</a
             >
           </li>
-          <li><a href="/contact-page/contact.html" class="nav-link">Contact</a></li>
+          <li>
+            <a href="/contact-page/contact.html" class="nav-link">Contact</a>
+          </li>
         </ul>
       </nav>
       <div class="header-right-actions">
@@ -176,7 +196,17 @@
       </div>
       <!-- Empty State: shown when no products are available -->
       <div class="products-empty-state" id="productsEmptyState">
-        <svg xmlns="http://www.w3.org/2000/svg" width="90" height="90" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="90"
+          height="90"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="#9ca3af"
+          stroke-width="1.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path>
           <line x1="3" y1="6" x2="21" y2="6"></line>
           <path d="M16 10a4 4 0 0 1-8 0"></path>
@@ -186,13 +216,13 @@
       </div>
     </section>
 
-
-
     <div class="modal-overlay" id="productInfoModal">
       <div class="modal-box">
         <div class="modal-header">
           <h2 class="modal-title" id="productInfoTitle">Product Information</h2>
-          <button class="close-modal-btn" id="closeProductInfoModal">&times;</button>
+          <button class="close-modal-btn" id="closeProductInfoModal">
+            &times;
+          </button>
         </div>
 
         <div class="modal-divider"></div>
@@ -222,8 +252,12 @@
         <div class="modal-divider"></div>
 
         <div class="modal-actions">
-          <button class="modal-btn outline-btn" id="productInfoAddToCart">Add to Cart</button>
-          <button class="modal-btn solid-btn" id="productInfoBuyNow">Buy Now</button>
+          <button class="modal-btn outline-btn" id="productInfoAddToCart">
+            Add to Cart
+          </button>
+          <button class="modal-btn solid-btn" id="productInfoBuyNow">
+            Buy Now
+          </button>
         </div>
       </div>
     </div>
@@ -252,10 +286,7 @@
         </div>
 
         <div class="shop-modal-body">
-          <div
-            class="checkout-client-info"
-            id="openAddressSelectionBtn"
-          >
+          <div class="checkout-client-info" id="openAddressSelectionBtn">
             <div class="client-icon">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -439,23 +470,43 @@
             <span class="cart-checkmark"></span>
             <span
               class="select-all-text"
-              style="font-size: 13px; margin-left: 8px; font-weight: 600; color: #111"
+              style="
+                font-size: 13px;
+                margin-left: 8px;
+                font-weight: 600;
+                color: #111;
+              "
               >All</span
             >
           </label>
 
-          <div class="cart-footer-right address-delete-actions" style="display: flex; align-items: center; gap: 8px">
+          <div
+            class="cart-footer-right address-delete-actions"
+            style="display: flex; align-items: center; gap: 8px"
+          >
             <button
               class="btn-place-order delete-btn"
               id="deleteSelectedAddressBtn"
-              style="padding: 10px 22px; border-radius: 30px; background: transparent; border: 1px solid #b01c1c; color: #b01c1c"
+              style="
+                padding: 10px 22px;
+                border-radius: 30px;
+                background: transparent;
+                border: 1px solid #b01c1c;
+                color: #b01c1c;
+              "
             >
               Delete
             </button>
             <button
               class="btn-place-order delete-btn"
               id="deleteAllAddressBtn"
-              style="padding: 10px 22px; border-radius: 30px; background: transparent; border: 1px solid #b01c1c; color: #b01c1c"
+              style="
+                padding: 10px 22px;
+                border-radius: 30px;
+                background: transparent;
+                border: 1px solid #b01c1c;
+                color: #b01c1c;
+              "
             >
               Delete All
             </button>
@@ -499,24 +550,14 @@
           <div class="checkout-form">
             <div class="form-group">
               <label>Name</label>
-              <input
-                type="text"
-                id="inpFullName"
-                class="c-input"
-                required
-              />
+              <input type="text" id="inpFullName" class="c-input" required />
             </div>
 
             <div class="form-group">
               <label>Phone number</label>
               <div class="phone-input-group">
                 <span class="phone-prefix">PH +63</span>
-                <input
-                  type="tel"
-                  id="inpPhone"
-                  class="c-input"
-                  required
-                />
+                <input type="tel" id="inpPhone" class="c-input" required />
               </div>
             </div>
 
@@ -1131,69 +1172,132 @@
          ORDER SUCCESS MODAL — shown after a customer places an order.
          Only closes when the customer clicks the "Okay" button.
          ═══════════════════════════════════════════════════════════ -->
-    <div id="orderSuccessModal" role="dialog" aria-modal="true" aria-labelledby="orderSuccessTitle"
+    <div
+      id="orderSuccessModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="orderSuccessTitle"
       style="
-        display:none;
-        position:fixed;inset:0;z-index:99999;
-        align-items:center;justify-content:center;
-        background:rgba(0,0,0,0.55);
-        backdrop-filter:blur(4px);
-        animation:orderSuccessFadeIn 0.22s ease;
-      ">
-      <div style="
-        background:#fff;border-radius:20px;
-        padding:40px 32px 32px;
-        max-width:420px;width:90%;
-        box-shadow:0 24px 64px rgba(0,0,0,0.22);
-        text-align:center;
-        animation:orderSuccessSlideUp 0.26s cubic-bezier(0.34,1.56,0.64,1);
-        position:relative;
-      ">
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(4px);
+        animation: orderSuccessFadeIn 0.22s ease;
+      "
+    >
+      <div
+        style="
+          background: #fff;
+          border-radius: 20px;
+          padding: 40px 32px 32px;
+          max-width: 420px;
+          width: 90%;
+          box-shadow: 0 24px 64px rgba(0, 0, 0, 0.22);
+          text-align: center;
+          animation: orderSuccessSlideUp 0.26s cubic-bezier(0.34, 1.56, 0.64, 1);
+          position: relative;
+        "
+      >
         <!-- Checkmark icon -->
-        <div style="
-          width:72px;height:72px;border-radius:50%;
-          background:linear-gradient(135deg,#2ecc71,#27ae60);
-          display:flex;align-items:center;justify-content:center;
-          margin:0 auto 20px;
-          box-shadow:0 8px 24px rgba(46,204,113,0.35);
-        ">
-          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24"
-            fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <div
+          style="
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            box-shadow: 0 8px 24px rgba(46, 204, 113, 0.35);
+          "
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="36"
+            height="36"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="#fff"
+            stroke-width="3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
         </div>
 
-        <h2 id="orderSuccessTitle" style="
-          font-family:'Montserrat',sans-serif;
-          font-size:1.45rem;font-weight:800;
-          color:#1a1a2e;margin:0 0 8px;
-        ">Order Placed!</h2>
+        <h2
+          id="orderSuccessTitle"
+          style="
+            font-family: &quot;Montserrat&quot;, sans-serif;
+            font-size: 1.45rem;
+            font-weight: 800;
+            color: #1a1a2e;
+            margin: 0 0 8px;
+          "
+        >
+          Order Placed!
+        </h2>
 
-        <p style="color:#555;font-size:0.93rem;margin:0 0 20px;line-height:1.5;">
-          Your order has been successfully submitted.<br>
+        <p
+          style="
+            color: #555;
+            font-size: 0.93rem;
+            margin: 0 0 20px;
+            line-height: 1.5;
+          "
+        >
+          Your order has been successfully submitted.<br />
           Please keep your order number for reference.
         </p>
 
         <!-- Order number badge -->
-        <div style="
-          background:linear-gradient(135deg,#8b0000,#b01c1c);
-          border-radius:12px;padding:14px 20px;margin-bottom:22px;
-          box-shadow:0 4px 16px rgba(139,0,0,0.2);
-        ">
-          <div style="color:rgba(255,255,255,0.75);font-size:0.72rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:4px;">Order Number</div>
-          <div id="orderSuccessNumber" style="
-            color:#fff;font-size:1.55rem;font-weight:900;
-            font-family:'Montserrat',sans-serif;letter-spacing:1px;
-          ">—</div>
+        <div
+          style="
+            background: linear-gradient(135deg, #8b0000, #b01c1c);
+            border-radius: 12px;
+            padding: 14px 20px;
+            margin-bottom: 22px;
+            box-shadow: 0 4px 16px rgba(139, 0, 0, 0.2);
+          "
+        >
+          <div
+            style="
+              color: rgba(255, 255, 255, 0.75);
+              font-size: 0.72rem;
+              font-weight: 700;
+              letter-spacing: 1.5px;
+              text-transform: uppercase;
+              margin-bottom: 4px;
+            "
+          >
+            Order Number
+          </div>
+          <div
+            id="orderSuccessNumber"
+            style="
+              color: #fff;
+              font-size: 1.55rem;
+              font-weight: 900;
+              font-family: &quot;Montserrat&quot;, sans-serif;
+              letter-spacing: 1px;
+            "
+          >
+            —
+          </div>
         </div>
 
-        <p style="color:#888;font-size:0.8rem;margin:0 0 24px;">
-          We will process your order shortly. You will receive an email confirmation.
+        <p style="color: #888; font-size: 0.8rem; margin: 0 0 24px">
+          We will process your order shortly. You will receive an email
+          confirmation.
         </p>
 
-        <button id="orderSuccessOkBtn" type="button">
-          Okay
-        </button>
+        <button id="orderSuccessOkBtn" type="button">Okay</button>
       </div>
     </div>
 
@@ -1208,8 +1312,12 @@
         font-size: 1rem;
         font-weight: 800;
         cursor: pointer;
-        font-family: 'Montserrat', sans-serif;
-        transition: background-color 0.24s ease, border-color 0.24s ease, box-shadow 0.24s ease, transform 0.08s ease;
+        font-family: "Montserrat", sans-serif;
+        transition:
+          background-color 0.24s ease,
+          border-color 0.24s ease,
+          box-shadow 0.24s ease,
+          transform 0.08s ease;
         letter-spacing: 0.5px;
       }
       #orderSuccessOkBtn:hover {
@@ -1222,12 +1330,22 @@
       }
 
       @keyframes orderSuccessFadeIn {
-        from { opacity: 0; }
-        to   { opacity: 1; }
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
       }
       @keyframes orderSuccessSlideUp {
-        from { opacity: 0; transform: translateY(32px) scale(0.95); }
-        to   { opacity: 1; transform: translateY(0)    scale(1);    }
+        from {
+          opacity: 0;
+          transform: translateY(32px) scale(0.95);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
       }
     </style>
 

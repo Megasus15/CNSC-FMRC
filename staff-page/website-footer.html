@@ -6,48 +6,177 @@
     <title>Footer Management | CNSC-FMRC Staff</title>
     <link rel="stylesheet" href="../admin-page/dashboard.css" />
     <link rel="stylesheet" href="../admin-page/admin-modules.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
     <style>
-      .wm-section{background:#fff;border:1px solid var(--border-color);border-radius:12px;padding:22px 24px;}
-      .wm-section-header{display:flex;align-items:center;gap:10px;margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid #f0f0f0;}
-      .wm-section-header h3{font-size:1rem;color:var(--primary-color);margin:0;}
-      .wm-section-header i{color:var(--primary-color);}
-      .wm-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-      .wm-form-grid .full{grid-column:1/-1;}
-      .field-stack{display:flex;flex-direction:column;gap:5px;}
-      .field-stack label{font-size:0.82rem;font-weight:700;color:#111827;}
-      .wm-input,.wm-textarea{border:1px solid #d8dde3;border-radius:8px;padding:8px 10px;font-size:0.82rem;color:#333;width:100%;background:#fff;font-family:inherit;}
-      .wm-textarea{min-height:70px;resize:vertical;}
-      .section-stack{display:flex;flex-direction:column;gap:18px;}
-      .wm-save-bar{background:#fff;border:1px solid var(--border-color);border-radius:12px;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;gap:10px;position:sticky;bottom:20px;box-shadow:0 4px 20px rgba(0,0,0,.08);}
-      .wm-save-bar p{font-size:0.82rem;color:#6b7280;margin:0;}
+      .wm-section {
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 22px 24px;
+      }
+      .wm-section-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 18px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #f0f0f0;
+      }
+      .wm-section-header h3 {
+        font-size: 1rem;
+        color: var(--primary-color);
+        margin: 0;
+      }
+      .wm-section-header i {
+        color: var(--primary-color);
+      }
+      .wm-form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .wm-form-grid .full {
+        grid-column: 1/-1;
+      }
+      .field-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .field-stack label {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #111827;
+      }
+      .wm-input,
+      .wm-textarea {
+        border: 1px solid #d8dde3;
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 0.82rem;
+        color: #333;
+        width: 100%;
+        background: #fff;
+        font-family: inherit;
+      }
+      .wm-textarea {
+        min-height: 70px;
+        resize: vertical;
+      }
+      .section-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      .wm-save-bar {
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 16px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        position: sticky;
+        bottom: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      }
+      .wm-save-bar p {
+        font-size: 0.82rem;
+        color: #6b7280;
+        margin: 0;
+      }
       /* Quick links */
-      .ql-row{display:flex;gap:8px;align-items:center;padding:8px 10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:6px;}
-      .ql-row input{border:1px solid #d8dde3;border-radius:6px;padding:6px 8px;font-size:0.8rem;color:#333;background:#fff;}
-      .ql-row .ql-label{flex:1;}
-      .ql-row .ql-url{flex:2;}
-      .ql-del{background:none;border:none;color:#9ca3af;cursor:pointer;font-size:1.1rem;padding:0 4px;}
-      .ql-del:hover{color:#b91c1c;}
-      .btn-add-link{background:#f0fdf4;border:1px dashed #86efac;color:#15803d;border-radius:8px;padding:8px 14px;font-size:0.8rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:all .18s;}
-      .btn-add-link:hover{background:#dcfce7;border-color:#4ade80;}
+      .ql-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 8px 10px;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        margin-bottom: 6px;
+      }
+      .ql-row input {
+        border: 1px solid #d8dde3;
+        border-radius: 6px;
+        padding: 6px 8px;
+        font-size: 0.8rem;
+        color: #333;
+        background: #fff;
+      }
+      .ql-row .ql-label {
+        flex: 1;
+      }
+      .ql-row .ql-url {
+        flex: 2;
+      }
+      .ql-del {
+        background: none;
+        border: none;
+        color: #9ca3af;
+        cursor: pointer;
+        font-size: 1.1rem;
+        padding: 0 4px;
+      }
+      .ql-del:hover {
+        color: #b91c1c;
+      }
+      .btn-add-link {
+        background: #f0fdf4;
+        border: 1px dashed #86efac;
+        color: #15803d;
+        border-radius: 8px;
+        padding: 8px 14px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.18s;
+      }
+      .btn-add-link:hover {
+        background: #dcfce7;
+        border-color: #4ade80;
+      }
     </style>
   </head>
   <body>
     <div class="dashboard-container">
       <aside class="sidebar">
-        <div class="sidebar-header"><img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" /><h2>CNSC-FMRC</h2></div>
+        <div class="sidebar-header">
+          <img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" />
+          <h2>CNSC-FMRC</h2>
+        </div>
         <nav class="sidebar-nav">
-          <a href="dashboard.html" class="nav-link"><i class="fa-solid fa-house"></i> Dashboard</a>
-          <a href="inventory.html" class="nav-link"><i class="fa-solid fa-box"></i> Inventory</a>
-          <a href="products.html" class="nav-link"><i class="fa-solid fa-tags"></i> Products</a>
-          <a href="appointments.html" class="nav-link"><i class="fa-regular fa-calendar-check"></i> Appointment</a>
-          <a href="reports.html" class="nav-link"><i class="fa-solid fa-chart-line"></i> Reports</a>
-          <a href="orders.html" class="nav-link"><i class="fa-solid fa-box-open"></i> Orders</a>
+          <a href="dashboard.html" class="nav-link"
+            ><i class="fa-solid fa-house"></i> Dashboard</a
+          >
+          <a href="inventory.html" class="nav-link"
+            ><i class="fa-solid fa-box"></i> Inventory</a
+          >
+          <a href="products.html" class="nav-link"
+            ><i class="fa-solid fa-tags"></i> Products</a
+          >
+          <a href="appointments.html" class="nav-link"
+            ><i class="fa-regular fa-calendar-check"></i> Appointment</a
+          >
+          <a href="reports.html" class="nav-link"
+            ><i class="fa-solid fa-chart-line"></i> Reports</a
+          >
+          <a href="orders.html" class="nav-link"
+            ><i class="fa-solid fa-box-open"></i> Orders</a
+          >
 
           <div class="nav-item has-dropdown open">
             <a href="#" class="nav-link dropdown-toggle" id="staffControlBtn">
               <div class="dropdown-title">
-                <i class="fa-solid fa-screwdriver-wrench"></i> Website Management
+                <i class="fa-solid fa-screwdriver-wrench"></i> Website
+                Management
               </div>
               <i class="fa-solid fa-chevron-down arrow"></i>
             </a>
@@ -59,27 +188,54 @@
             </div>
           </div>
 
-          <a href="archives.html" class="nav-link"><i class="fa-solid fa-box-archive"></i> Archives</a>
-          <a href="my-account.html" class="nav-link"><i class="fa-regular fa-id-card"></i> My Account</a>
+          <a href="archives.html" class="nav-link"
+            ><i class="fa-solid fa-box-archive"></i> Archives</a
+          >
+          <a href="my-account.html" class="nav-link"
+            ><i class="fa-regular fa-id-card"></i> My Account</a
+          >
         </nav>
-        <div class="sidebar-footer"><button class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div>
+        <div class="sidebar-footer">
+          <button class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
+        </div>
       </aside>
 
       <main class="main-content">
         <header class="top-header">
           <div class="header-left"><h1>Footer Management</h1></div>
           <div class="header-right">
-            <div class="notifications" id="notifBell"><i class="fa-regular fa-bell"></i><span class="badge" id="notifBadge" style="display:none;"></span></div>
+            <div class="notifications" id="notifBell">
+              <i class="fa-regular fa-bell"></i
+              ><span class="badge" id="notifBadge" style="display: none"></span>
+            </div>
             <div class="user-profile">
               <div class="user-info"><span class="role">Staff</span></div>
-              <span class="profile-icon profile-initial" data-email="staff@cnsc.edu.ph"></span>
+              <span
+                class="profile-icon profile-initial"
+                data-email="staff@cnsc.edu.ph"
+              ></span>
               <div class="profile-popup" id="profilePopup">
-                <div class="popup-header"><div class="popup-profile-row">
-                  <span class="popup-profile-icon profile-initial" data-email="staff@cnsc.edu.ph"></span>
-                  <div class="popup-profile-meta"><p class="popup-identity">staff@cnsc.edu.ph</p><span class="popup-role">Staff</span></div>
-                </div></div>
-                <a href="my-account.html" class="profile-popup-link"><i class="fa-regular fa-id-card"></i> My Account</a>
-                <hr /><button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+                <div class="popup-header">
+                  <div class="popup-profile-row">
+                    <span
+                      class="popup-profile-icon profile-initial"
+                      data-email="staff@cnsc.edu.ph"
+                    ></span>
+                    <div class="popup-profile-meta">
+                      <p class="popup-identity">staff@cnsc.edu.ph</p>
+                      <span class="popup-role">Staff</span>
+                    </div>
+                  </div>
+                </div>
+                <a href="my-account.html" class="profile-popup-link"
+                  ><i class="fa-regular fa-id-card"></i> My Account</a
+                >
+                <hr />
+                <button class="logout-btn popup-logout">
+                  <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
               </div>
             </div>
           </div>
@@ -89,96 +245,193 @@
           <div class="page-toolbar">
             <div class="toolbar-title">
               <h2>Footer Section Content</h2>
-              <p>Edit the footer displayed across all customer pages. Click "Save All Changes" to apply.</p>
+              <p>
+                Edit the footer displayed across all customer pages. Click "Save
+                All Changes" to apply.
+              </p>
             </div>
             <div class="toolbar-actions">
-              <button class="btn-admin btn-secondary" onclick="window.location.reload();"><i class="fa-solid fa-rotate-right"></i> Refresh</button>
-              <a href="/home-page/main.html#contact" target="_blank" class="btn-admin btn-secondary"><i class="fa-solid fa-eye"></i> Preview Footer</a>
+              <button
+                class="btn-admin btn-secondary"
+                onclick="window.location.reload()"
+              >
+                <i class="fa-solid fa-rotate-right"></i> Refresh
+              </button>
+              <a
+                href="/home-page/main.html#contact"
+                target="_blank"
+                class="btn-admin btn-secondary"
+                ><i class="fa-solid fa-eye"></i> Preview Footer</a
+              >
             </div>
           </div>
 
           <div class="section-stack">
             <!-- BRAND -->
             <div class="wm-section">
-              <div class="wm-section-header"><i class="fa-solid fa-building"></i><h3>Brand Column</h3></div>
+              <div class="wm-section-header">
+                <i class="fa-solid fa-building"></i>
+                <h3>Brand Column</h3>
+              </div>
               <div class="wm-form-grid">
                 <div class="field-stack">
                   <label>Brand Name</label>
-                  <input type="text" class="wm-input" id="footerBrandName" placeholder="CNSC- FMRC" />
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="footerBrandName"
+                    placeholder="CNSC- FMRC"
+                  />
                 </div>
                 <div class="field-stack full">
                   <label>Brand Description</label>
-                  <textarea class="wm-textarea" id="footerBrandDesc" rows="2" placeholder="Fabrication and Manufacturing Research Center..."></textarea>
+                  <textarea
+                    class="wm-textarea"
+                    id="footerBrandDesc"
+                    rows="2"
+                    placeholder="Fabrication and Manufacturing Research Center..."
+                  ></textarea>
                 </div>
               </div>
             </div>
 
             <!-- QUICK LINKS -->
             <div class="wm-section">
-              <div class="wm-section-header"><i class="fa-solid fa-link"></i><h3>Quick Links</h3></div>
+              <div class="wm-section-header">
+                <i class="fa-solid fa-link"></i>
+                <h3>Quick Links</h3>
+              </div>
               <div id="quickLinksContainer"></div>
-              <button class="btn-add-link" id="btnAddLink" style="margin-top:10px;"><i class="fa-solid fa-plus"></i> Add Link</button>
+              <button
+                class="btn-add-link"
+                id="btnAddLink"
+                style="margin-top: 10px"
+              >
+                <i class="fa-solid fa-plus"></i> Add Link
+              </button>
             </div>
 
             <!-- BUSINESS HOURS -->
             <div class="wm-section">
-              <div class="wm-section-header"><i class="fa-regular fa-clock"></i><h3>Business Hours</h3></div>
+              <div class="wm-section-header">
+                <i class="fa-regular fa-clock"></i>
+                <h3>Business Hours</h3>
+              </div>
               <div class="wm-form-grid">
                 <div class="field-stack">
                   <label>Days</label>
-                  <input type="text" class="wm-input" id="footerHoursDays" placeholder="Monday - Friday" />
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="footerHoursDays"
+                    placeholder="Monday - Friday"
+                  />
                 </div>
                 <div class="field-stack">
                   <label>Hours</label>
-                  <input type="text" class="wm-input" id="footerHoursTime" placeholder="7:00am - 6:00pm" />
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="footerHoursTime"
+                    placeholder="7:00am - 6:00pm"
+                  />
                 </div>
               </div>
             </div>
 
             <!-- CONTACT INFO -->
             <div class="wm-section">
-              <div class="wm-section-header"><i class="fa-solid fa-phone"></i><h3>Contact Information</h3></div>
+              <div class="wm-section-header">
+                <i class="fa-solid fa-phone"></i>
+                <h3>Contact Information</h3>
+              </div>
               <div class="wm-form-grid">
                 <div class="field-stack full">
                   <label>Location / Address</label>
-                  <input type="text" class="wm-input" id="footerContactLocation" placeholder="First Flr., Graduate School Building..." />
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="footerContactLocation"
+                    placeholder="First Flr., Graduate School Building..."
+                  />
                 </div>
                 <div class="field-stack">
                   <label>Location Map URL</label>
-                  <input type="text" class="wm-input" id="footerContactLocationUrl" placeholder="https://maps.google.com/..." />
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="footerContactLocationUrl"
+                    placeholder="https://maps.google.com/..."
+                  />
                 </div>
                 <div class="field-stack">
                   <label>Email Address</label>
-                  <input type="text" class="wm-input" id="footerContactEmail" placeholder="fmrc@cnsc.edu.ph" />
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="footerContactEmail"
+                    placeholder="fmrc@cnsc.edu.ph"
+                  />
                 </div>
                 <div class="field-stack">
                   <label>Phone Number</label>
-                  <input type="text" class="wm-input" id="footerContactPhone" placeholder="0909-099-0000" />
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="footerContactPhone"
+                    placeholder="0909-099-0000"
+                  />
                 </div>
                 <div class="field-stack">
                   <label>Facebook Display Name</label>
-                  <input type="text" class="wm-input" id="footerContactFacebook" placeholder="CNSC FMRC" />
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="footerContactFacebook"
+                    placeholder="CNSC FMRC"
+                  />
                 </div>
                 <div class="field-stack">
                   <label>Facebook Page URL</label>
-                  <input type="text" class="wm-input" id="footerContactFacebookUrl" placeholder="https://www.facebook.com/..." />
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="footerContactFacebookUrl"
+                    placeholder="https://www.facebook.com/..."
+                  />
                 </div>
               </div>
             </div>
 
             <!-- COPYRIGHT -->
             <div class="wm-section">
-              <div class="wm-section-header"><i class="fa-regular fa-copyright"></i><h3>Copyright Text</h3></div>
+              <div class="wm-section-header">
+                <i class="fa-regular fa-copyright"></i>
+                <h3>Copyright Text</h3>
+              </div>
               <div class="field-stack">
                 <label>Copyright Line (bottom of footer)</label>
-                <input type="text" class="wm-input" id="footerCopyright" placeholder="© 2026 CNSC Fabrication and Manufacturing Research Center. All rights reserved." />
+                <input
+                  type="text"
+                  class="wm-input"
+                  id="footerCopyright"
+                  placeholder="© 2026 CNSC Fabrication and Manufacturing Research Center. All rights reserved."
+                />
               </div>
             </div>
 
             <!-- SAVE BAR -->
             <div class="wm-save-bar">
-              <p><i class="fa-solid fa-circle-info" style="margin-right:5px;color:var(--primary-color);"></i>Footer appears on all customer pages. Save to update them all.</p>
-              <button class="btn-admin" id="btnSaveFooter"><i class="fa-solid fa-floppy-disk"></i> Save All Changes</button>
+              <p>
+                <i
+                  class="fa-solid fa-circle-info"
+                  style="margin-right: 5px; color: var(--primary-color)"
+                ></i
+                >Footer appears on all customer pages. Save to update them all.
+              </p>
+              <button class="btn-admin" id="btnSaveFooter">
+                <i class="fa-solid fa-floppy-disk"></i> Save All Changes
+              </button>
             </div>
           </div>
         </section>

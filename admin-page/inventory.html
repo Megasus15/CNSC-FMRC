@@ -6,7 +6,10 @@
     <title>Inventory | CNSC-FMRC Admin</title>
     <link rel="stylesheet" href="dashboard.css" />
     <link rel="stylesheet" href="admin-modules.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
     <style>
       /* ─── Inventory Summary Cards ──────────────────────────────────── */
       .inv-summary-grid {
@@ -15,8 +18,16 @@
         gap: 14px;
         margin-bottom: 4px;
       }
-      @media (max-width: 1100px) { .inv-summary-grid { grid-template-columns: repeat(2, 1fr); } }
-      @media (max-width: 600px)  { .inv-summary-grid { grid-template-columns: 1fr; } }
+      @media (max-width: 1100px) {
+        .inv-summary-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (max-width: 600px) {
+        .inv-summary-grid {
+          grid-template-columns: 1fr;
+        }
+      }
 
       .inv-summary-card {
         background: #fff;
@@ -26,23 +37,46 @@
         display: flex;
         align-items: center;
         gap: 16px;
-        transition: box-shadow 0.25s ease, transform 0.25s ease;
+        transition:
+          box-shadow 0.25s ease,
+          transform 0.25s ease;
       }
       .inv-summary-card:hover {
-        box-shadow: 0 8px 24px rgba(128,0,0,0.07);
+        box-shadow: 0 8px 24px rgba(128, 0, 0, 0.07);
         transform: translateY(-2px);
       }
       .inv-summary-icon {
-        width: 46px; height: 46px;
+        width: 46px;
+        height: 46px;
         border-radius: 12px;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 1.2rem; color: #fff; flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        color: #fff;
+        flex-shrink: 0;
       }
-      .inv-summary-icon.total   { background: linear-gradient(135deg, #800000, #b91c1c); }
-      .inv-summary-icon.good    { background: linear-gradient(135deg, #16a34a, #22c55e); }
-      .inv-summary-icon.low     { background: linear-gradient(135deg, #d97706, #f59e0b); }
-      .inv-summary-value { font-size: 1.5rem; font-weight: 800; color: #1a1a2e; line-height: 1; }
-      .inv-summary-label { font-size: 0.76rem; color: #6b7280; font-weight: 600; margin-top: 2px; }
+      .inv-summary-icon.total {
+        background: linear-gradient(135deg, #800000, #b91c1c);
+      }
+      .inv-summary-icon.good {
+        background: linear-gradient(135deg, #16a34a, #22c55e);
+      }
+      .inv-summary-icon.low {
+        background: linear-gradient(135deg, #d97706, #f59e0b);
+      }
+      .inv-summary-value {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #1a1a2e;
+        line-height: 1;
+      }
+      .inv-summary-label {
+        font-size: 0.76rem;
+        color: #6b7280;
+        font-weight: 600;
+        margin-top: 2px;
+      }
 
       /* ─── Category Table — panel-style (matches User Management) ─── */
       .inv-category-card {
@@ -96,12 +130,20 @@
         font-weight: 700;
         border: 1px solid #f2d0d0;
       }
-      .inv-category-body { padding: 0; }
-      .inv-category-body .table-wrapper { margin: 0; }
+      .inv-category-body {
+        padding: 0;
+      }
+      .inv-category-body .table-wrapper {
+        margin: 0;
+      }
 
       /* ─── Inventory table tweaks ──────────────────────────────────── */
-      .inv-table th { font-size: 0.72rem; }
-      .inv-table td { font-size: 0.8rem; }
+      .inv-table th {
+        font-size: 0.72rem;
+      }
+      .inv-table td {
+        font-size: 0.8rem;
+      }
 
       /* ─── Category Pagination Footer (matches .table-footer) ──────── */
       .inv-cat-footer {
@@ -114,7 +156,11 @@
         font-size: 0.76rem;
         color: #68707a;
       }
-      .inv-cat-footer .table-pagination { display: flex; align-items: center; gap: 6px; }
+      .inv-cat-footer .table-pagination {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
 
       /* ─── View modal grid ─────────────────────────────────────────── */
       .inv-view-grid {
@@ -122,7 +168,9 @@
         grid-template-columns: 1fr 1fr;
         gap: 10px 18px;
       }
-      .inv-view-grid .full { grid-column: 1 / -1; }
+      .inv-view-grid .full {
+        grid-column: 1 / -1;
+      }
       .inv-view-label {
         font-size: 0.73rem;
         color: #9ca3af;
@@ -147,10 +195,22 @@
         font-weight: 700;
         white-space: nowrap;
       }
-      .remarks-acquired    { background: #dbeafe; color: #1d4ed8; }
-      .remarks-included    { background: #dcfce7; color: #15803d; }
-      .remarks-restock     { background: #fef3c7; color: #92400e; }
-      .remarks-default     { background: #f1f5f9; color: #64748b; }
+      .remarks-acquired {
+        background: #dbeafe;
+        color: #1d4ed8;
+      }
+      .remarks-included {
+        background: #dcfce7;
+        color: #15803d;
+      }
+      .remarks-restock {
+        background: #fef3c7;
+        color: #92400e;
+      }
+      .remarks-default {
+        background: #f1f5f9;
+        color: #64748b;
+      }
 
       /* ─── Variants UI ─────────────────────────────────────────────── */
       .inv-variant-section {
@@ -216,7 +276,9 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 10px;
       }
-      .inv-variant-grid .full { grid-column: 1 / -1; }
+      .inv-variant-grid .full {
+        grid-column: 1 / -1;
+      }
 
       .inv-name-cell {
         display: flex;
@@ -233,7 +295,9 @@
         display: grid;
         place-items: center;
         cursor: pointer;
-        transition: background-color 0.2s ease, color 0.2s ease;
+        transition:
+          background-color 0.2s ease,
+          color 0.2s ease;
       }
       .inv-variant-toggle:hover {
         background: #f1f5f9;
@@ -243,7 +307,9 @@
         font-size: 0.7rem;
         transition: transform 0.2s ease;
       }
-      .inv-variant-toggle[aria-expanded="true"] i { transform: rotate(90deg); }
+      .inv-variant-toggle[aria-expanded="true"] i {
+        transform: rotate(90deg);
+      }
       .inv-variant-count {
         font-size: 0.68rem;
         color: #6b7280;
@@ -255,7 +321,9 @@
       .inv-variant-row {
         background: #fcfcfd;
       }
-      .inv-variant-row td { color: #475569; }
+      .inv-variant-row td {
+        color: #475569;
+      }
       .inv-variant-name {
         font-weight: 600;
         color: #111827;
@@ -272,7 +340,9 @@
         background: #e5e7eb;
         display: inline-block;
       }
-      .inv-variant-row .sticky-action { background: #fcfcfd; }
+      .inv-variant-row .sticky-action {
+        background: #fcfcfd;
+      }
 
       .inv-variant-table {
         width: 100%;
@@ -305,7 +375,10 @@
         color: #6b7280;
         cursor: not-allowed;
       }
-      .highlight-field label { font-weight: 600; color: inherit; }
+      .highlight-field label {
+        font-weight: 600;
+        color: inherit;
+      }
 
       /* ─── Variant Mode: Hide Base Item Fields ──────────────────────────────── */
       #modalAddInventoryItem.variant-mode .base-item-fields {
@@ -371,20 +444,38 @@
   <body>
     <div class="dashboard-container">
       <aside class="sidebar">
-        <div class="sidebar-header"><img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" /><h2>CNSC-FMRC</h2></div>
-                <nav class="sidebar-nav">
-          <a href="dashboard.html" class="nav-link"><i class="fa-solid fa-house"></i> Dashboard</a>
-          <a href="inventory.html" class="nav-link active"><i class="fa-solid fa-box"></i> Inventory</a>
-          <a href="products.html" class="nav-link"><i class="fa-solid fa-tags"></i> Products</a>
-          <a href="appointments.html" class="nav-link"><i class="fa-regular fa-calendar-check"></i> Appointment</a>
-          <a href="accounts.html" class="nav-link"><i class="fa-solid fa-users"></i> User Management</a>
-          <a href="reports.html" class="nav-link"><i class="fa-solid fa-chart-line"></i> Reports</a>
-          <a href="orders.html" class="nav-link"><i class="fa-solid fa-box-open"></i> Orders</a>
+        <div class="sidebar-header">
+          <img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" />
+          <h2>CNSC-FMRC</h2>
+        </div>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html" class="nav-link"
+            ><i class="fa-solid fa-house"></i> Dashboard</a
+          >
+          <a href="inventory.html" class="nav-link active"
+            ><i class="fa-solid fa-box"></i> Inventory</a
+          >
+          <a href="products.html" class="nav-link"
+            ><i class="fa-solid fa-tags"></i> Products</a
+          >
+          <a href="appointments.html" class="nav-link"
+            ><i class="fa-regular fa-calendar-check"></i> Appointment</a
+          >
+          <a href="accounts.html" class="nav-link"
+            ><i class="fa-solid fa-users"></i> User Management</a
+          >
+          <a href="reports.html" class="nav-link"
+            ><i class="fa-solid fa-chart-line"></i> Reports</a
+          >
+          <a href="orders.html" class="nav-link"
+            ><i class="fa-solid fa-box-open"></i> Orders</a
+          >
 
           <div class="nav-item has-dropdown">
             <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn">
               <div class="dropdown-title">
-                <i class="fa-solid fa-screwdriver-wrench"></i> Website Management
+                <i class="fa-solid fa-screwdriver-wrench"></i> Website
+                Management
               </div>
               <i class="fa-solid fa-chevron-down arrow"></i>
             </a>
@@ -396,32 +487,56 @@
             </div>
           </div>
 
-          <a href="archives.html" class="nav-link"><i class="fa-solid fa-box-archive"></i> Archives</a>
-          <a href="my-account.html" class="nav-link"><i class="fa-regular fa-id-card"></i> My Account</a>
+          <a href="archives.html" class="nav-link"
+            ><i class="fa-solid fa-box-archive"></i> Archives</a
+          >
+          <a href="my-account.html" class="nav-link"
+            ><i class="fa-regular fa-id-card"></i> My Account</a
+          >
         </nav>
 
-        <div class="sidebar-footer"><button class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div>
+        <div class="sidebar-footer">
+          <button class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
+        </div>
       </aside>
 
       <main class="main-content">
         <header class="top-header">
           <div class="header-left"><h1>Inventory Management</h1></div>
           <div class="header-right">
-            <div class="notifications" id="notifBell"><i class="fa-regular fa-bell"></i><span class="badge" id="notifBadge" style="display:none;"></span></div>
+            <div class="notifications" id="notifBell">
+              <i class="fa-regular fa-bell"></i
+              ><span class="badge" id="notifBadge" style="display: none"></span>
+            </div>
             <div class="user-profile">
               <div class="user-info"><span class="role">Admin</span></div>
-              <span class="profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
-              <div class="profile-popup" id="profilePopup"><div class="popup-header">
+              <span
+                class="profile-icon profile-initial"
+                data-email="admin@cnsc.edu.ph"
+              ></span>
+              <div class="profile-popup" id="profilePopup">
+                <div class="popup-header">
                   <div class="popup-profile-row">
-                    <span class="popup-profile-icon profile-initial" data-email="admin@cnsc.edu.ph"></span>
+                    <span
+                      class="popup-profile-icon profile-initial"
+                      data-email="admin@cnsc.edu.ph"
+                    ></span>
                     <div class="popup-profile-meta">
                       <p class="popup-identity">admin@cnsc.edu.ph</p>
                       <span class="popup-role">Admin</span>
                     </div>
                   </div>
                 </div>
-                <a href="my-account.html" class="profile-popup-link"><i class="fa-regular fa-id-card"></i> My Account</a>
-                <hr /><button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div>
+                <a href="my-account.html" class="profile-popup-link"
+                  ><i class="fa-regular fa-id-card"></i> My Account</a
+                >
+                <hr />
+                <button class="logout-btn popup-logout">
+                  <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+              </div>
             </div>
           </div>
         </header>
@@ -430,13 +545,24 @@
           <div class="page-toolbar">
             <div class="toolbar-title">
               <h2>Inventory Items</h2>
-              <p>View and manage all inventory items. Monitor stock levels and item details.</p>
+              <p>
+                View and manage all inventory items. Monitor stock levels and
+                item details.
+              </p>
             </div>
             <div class="toolbar-actions">
-              <button class="btn-admin btn-secondary" onclick="window.location.reload();" title="Refresh Data">
+              <button
+                class="btn-admin btn-secondary"
+                onclick="window.location.reload()"
+                title="Refresh Data"
+              >
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
-              <button class="btn-admin btn-secondary" id="btnExportExcelAll" title="Export All Inventory (Excel)">
+              <button
+                class="btn-admin btn-secondary"
+                id="btnExportExcelAll"
+                title="Export All Inventory (Excel)"
+              >
                 <i class="fa-solid fa-file-excel"></i> Export Excel
               </button>
               <button class="btn-admin" id="btnOpenAddItem">
@@ -448,66 +574,127 @@
           <!-- Summary Cards -->
           <div class="inv-summary-grid" id="invSummaryGrid">
             <div class="inv-summary-card">
-              <div class="inv-summary-icon total"><i class="fa-solid fa-boxes-stacked"></i></div>
-              <div><div class="inv-summary-value" id="metricTotalItems">0</div><div class="inv-summary-label">Total Items</div></div>
+              <div class="inv-summary-icon total">
+                <i class="fa-solid fa-boxes-stacked"></i>
+              </div>
+              <div>
+                <div class="inv-summary-value" id="metricTotalItems">0</div>
+                <div class="inv-summary-label">Total Items</div>
+              </div>
             </div>
             <div class="inv-summary-card">
-              <div class="inv-summary-icon good"><i class="fa-solid fa-circle-check"></i></div>
-              <div><div class="inv-summary-value" id="metricGood">0</div><div class="inv-summary-label">Good Status</div></div>
+              <div class="inv-summary-icon good">
+                <i class="fa-solid fa-circle-check"></i>
+              </div>
+              <div>
+                <div class="inv-summary-value" id="metricGood">0</div>
+                <div class="inv-summary-label">Good Status</div>
+              </div>
             </div>
             <div class="inv-summary-card">
-              <div class="inv-summary-icon low"><i class="fa-solid fa-arrow-down-short-wide"></i></div>
-              <div><div class="inv-summary-value" id="metricLowStock">0</div><div class="inv-summary-label">Low Stock</div></div>
+              <div class="inv-summary-icon low">
+                <i class="fa-solid fa-arrow-down-short-wide"></i>
+              </div>
+              <div>
+                <div class="inv-summary-value" id="metricLowStock">0</div>
+                <div class="inv-summary-label">Low Stock</div>
+              </div>
             </div>
           </div>
 
           <!-- Filters Row -->
-          <div class="panel" style="margin-bottom: 18px;">
+          <div class="panel" style="margin-bottom: 18px">
             <div class="panel-header">
               <div>
                 <h3>Inventory Filters</h3>
-                <p style="font-size:0.78rem;color:#6b7280;margin-top:2px;">Narrow down inventory items by category or search by name and description.</p>
+                <p style="font-size: 0.78rem; color: #6b7280; margin-top: 2px">
+                  Narrow down inventory items by category or search by name and
+                  description.
+                </p>
               </div>
               <div class="filters-row">
                 <select class="filter-select" id="inventoryCategoryFilter">
                   <option value="all">All Categories</option>
-                  <option value="Consumable Materials">Consumable Materials</option>
+                  <option value="Consumable Materials">
+                    Consumable Materials
+                  </option>
                   <option value="Office Supplies">Office Supplies</option>
                   <option value="Inventory Tools">Inventory Tools</option>
-                  <option value="Electronics and Electrical Equipments">Electronics &amp; Electrical Equipments</option>
+                  <option value="Electronics and Electrical Equipments">
+                    Electronics &amp; Electrical Equipments
+                  </option>
                 </select>
-                <input class="search-input" id="inventorySearchInput" placeholder="Search item name or description..." />
+                <input
+                  class="search-input"
+                  id="inventorySearchInput"
+                  placeholder="Search item name or description..."
+                />
               </div>
             </div>
           </div>
 
           <!-- Category Tables Container -->
-          <div id="inventoryCategoryTables" style="display:flex;flex-direction:column;gap:18px;"></div>
+          <div
+            id="inventoryCategoryTables"
+            style="display: flex; flex-direction: column; gap: 18px"
+          ></div>
         </section>
       </main>
     </div>
 
     <!-- ────────────── ADD / EDIT ITEM MODAL ────────────── -->
-    <div class="modal-overlay" id="modalAddInventoryItem" data-backdrop-close="false">
+    <div
+      class="modal-overlay"
+      id="modalAddInventoryItem"
+      data-backdrop-close="false"
+    >
       <div class="modal-card product-modal">
         <div class="modal-header-fixed">
-          <h3 class="modal-title" id="invModalTitle"><i class="fa-solid fa-plus" style="margin-right:6px;"></i>Add New Item</h3>
+          <h3 class="modal-title" id="invModalTitle">
+            <i class="fa-solid fa-plus" style="margin-right: 6px"></i>Add New
+            Item
+          </h3>
         </div>
         <div class="modal-body-scroll">
           <div class="form-grid">
             <div class="field-stack full">
-              <label>Category <span style="color:#dc2626">*</span></label>
+              <label>Category <span style="color: #dc2626">*</span></label>
               <select class="filter-select" id="invFormCategory">
-                <option value="Consumable Materials">Consumable Materials</option>
+                <option value="Consumable Materials">
+                  Consumable Materials
+                </option>
                 <option value="Office Supplies">Office Supplies</option>
                 <option value="Inventory Tools">Inventory Tools</option>
-                <option value="Electronics and Electrical Equipments">Electronics and Electrical Equipments</option>
+                <option value="Electronics and Electrical Equipments">
+                  Electronics and Electrical Equipments
+                </option>
               </select>
             </div>
-            <div class="field-stack full"><label>Item Name <span style="color:#dc2626">*</span></label><input class="input-field" id="invFormItemName" maxlength="255" placeholder="e.g. 3D Printer Filaments" /></div>
-            <div class="field-stack full base-item-fields"><label>Description</label><input class="input-field" id="invFormDescription" maxlength="500" placeholder="e.g. Black/1.75mm" /></div>
+            <div class="field-stack full">
+              <label>Item Name <span style="color: #dc2626">*</span></label
+              ><input
+                class="input-field"
+                id="invFormItemName"
+                maxlength="255"
+                placeholder="e.g. 3D Printer Filaments"
+              />
+            </div>
+            <div class="field-stack full base-item-fields">
+              <label>Description</label
+              ><input
+                class="input-field"
+                id="invFormDescription"
+                maxlength="500"
+                placeholder="e.g. Black/1.75mm"
+              />
+            </div>
             <div class="field-stack base-item-fields">
-              <label>Unit <span id="unitRequiredTag" style="color:#dc2626">*</span></label>
+              <label
+                >Unit
+                <span id="unitRequiredTag" style="color: #dc2626"
+                  >*</span
+                ></label
+              >
               <select class="filter-select" id="invFormUnit">
                 <option value="pcs">Pcs</option>
                 <option value="set">Set</option>
@@ -520,128 +707,348 @@
                 <option value="pair">Pair</option>
               </select>
             </div>
-            <div class="field-stack base-item-fields"><label>Stocks On Hand <span id="onHandRequiredTag" style="color:#dc2626">*</span></label><input class="input-field" id="invFormOnHand" type="number" min="0" placeholder="0" /></div>
+            <div class="field-stack base-item-fields">
+              <label
+                >Stocks On Hand
+                <span id="onHandRequiredTag" style="color: #dc2626"
+                  >*</span
+                ></label
+              ><input
+                class="input-field"
+                id="invFormOnHand"
+                type="number"
+                min="0"
+                placeholder="0"
+              />
+            </div>
             <div class="field-stack full base-item-fields">
               <label>Remarks</label>
-              <input class="input-field" id="invFormRemarks" maxlength="200" placeholder="Optional remarks" />
+              <input
+                class="input-field"
+                id="invFormRemarks"
+                maxlength="200"
+                placeholder="Optional remarks"
+              />
             </div>
             <div class="field-stack full">
               <div class="inv-variant-section">
                 <div class="inv-variant-header">
                   <div>
                     <div class="inv-variant-title">Variants (Optional)</div>
-                    <div class="field-hint">Add specific variants under this item (e.g., size, color, model).</div>
+                    <div class="field-hint">
+                      Add specific variants under this item (e.g., size, color,
+                      model).
+                    </div>
                   </div>
-                  <button class="btn-admin btn-secondary" id="btnAddVariant" type="button">
+                  <button
+                    class="btn-admin btn-secondary"
+                    id="btnAddVariant"
+                    type="button"
+                  >
                     <i class="fa-solid fa-plus"></i> Add Variant
                   </button>
                 </div>
                 <div class="inv-variant-list" id="invVariantList"></div>
-                <div class="inv-variant-empty" id="invVariantEmpty">No variants added yet.</div>
+                <div class="inv-variant-empty" id="invVariantEmpty">
+                  No variants added yet.
+                </div>
               </div>
             </div>
           </div>
         </div>
         <div class="modal-footer-fixed">
-          <button class="btn-admin btn-secondary" id="btnCancelInvForm">Cancel</button>
-          <button class="btn-admin" id="btnSaveInvForm" type="button"><i class="fa-solid fa-floppy-disk"></i> Add to Inventory</button>
+          <button class="btn-admin btn-secondary" id="btnCancelInvForm">
+            Cancel
+          </button>
+          <button class="btn-admin" id="btnSaveInvForm" type="button">
+            <i class="fa-solid fa-floppy-disk"></i> Add to Inventory
+          </button>
         </div>
       </div>
     </div>
 
     <!-- ────────────── VIEW ITEM MODAL ────────────── -->
-    <div class="modal-overlay" id="modalViewInventoryItem" data-backdrop-close="false">
-      <div class="modal-card" style="min-width:480px;max-width:600px;width:100%;">
-        <h3 class="modal-title" id="invViewTitle" style="margin-bottom:4px;">Item Details</h3>
-        <p class="field-hint" style="margin-bottom:14px;" id="invViewSubtitle"></p>
+    <div
+      class="modal-overlay"
+      id="modalViewInventoryItem"
+      data-backdrop-close="false"
+    >
+      <div
+        class="modal-card"
+        style="min-width: 480px; max-width: 600px; width: 100%"
+      >
+        <h3 class="modal-title" id="invViewTitle" style="margin-bottom: 4px">
+          Item Details
+        </h3>
+        <p
+          class="field-hint"
+          style="margin-bottom: 14px"
+          id="invViewSubtitle"
+        ></p>
         <hr class="confirm-separator" />
-        <div id="invViewContent" style="margin-bottom:16px;"></div>
+        <div id="invViewContent" style="margin-bottom: 16px"></div>
         <hr class="confirm-separator" />
         <div class="modal-actions">
-          <button class="btn-admin btn-secondary" id="btnCloseViewInv">Close</button>
-          <button class="btn-admin" id="btnEditFromViewInv" type="button"><i class="fa-regular fa-pen-to-square"></i> Edit Item</button>
+          <button class="btn-admin btn-secondary" id="btnCloseViewInv">
+            Close
+          </button>
+          <button class="btn-admin" id="btnEditFromViewInv" type="button">
+            <i class="fa-regular fa-pen-to-square"></i> Edit Item
+          </button>
         </div>
       </div>
     </div>
 
-
     <!-- ────────────── ARCHIVE CONFIRMATION MODAL ────────────── -->
-    <div class="modal-overlay" id="modalArchiveInventoryItem" data-backdrop-close="false">
+    <div
+      class="modal-overlay"
+      id="modalArchiveInventoryItem"
+      data-backdrop-close="false"
+    >
       <div class="modal-card modal-confirm">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
-          <div style="width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#78350f,#d97706);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-            <i class="fa-solid fa-box-archive" style="color:#fff;font-size:1.1rem;"></i>
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 4px;
+          "
+        >
+          <div
+            style="
+              width: 42px;
+              height: 42px;
+              border-radius: 10px;
+              background: linear-gradient(135deg, #78350f, #d97706);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+            "
+          >
+            <i
+              class="fa-solid fa-box-archive"
+              style="color: #fff; font-size: 1.1rem"
+            ></i>
           </div>
-          <h3 class="modal-title" style="margin-bottom:0;">Archive Item</h3>
+          <h3 class="modal-title" style="margin-bottom: 0">Archive Item</h3>
         </div>
         <hr class="confirm-separator" />
         <p class="confirm-text">
-          You are about to archive <strong id="invArchiveTargetLabel">this item</strong>.
+          You are about to archive
+          <strong id="invArchiveTargetLabel">this item</strong>.
         </p>
-        <p class="field-hint">The item will be hidden from the inventory list and moved to the Archives page. This action can be reversed from the Archives module.</p>
+        <p class="field-hint">
+          The item will be hidden from the inventory list and moved to the
+          Archives page. This action can be reversed from the Archives module.
+        </p>
         <hr class="confirm-separator" />
         <div class="modal-actions">
-          <button class="btn-admin btn-secondary" id="btnCancelArchiveInv">Cancel</button>
-          <button class="btn-admin" id="btnConfirmArchiveInv" type="button" style="background:linear-gradient(135deg,#78350f,#d97706);border-color:#d97706;">
+          <button class="btn-admin btn-secondary" id="btnCancelArchiveInv">
+            Cancel
+          </button>
+          <button
+            class="btn-admin"
+            id="btnConfirmArchiveInv"
+            type="button"
+            style="
+              background: linear-gradient(135deg, #78350f, #d97706);
+              border-color: #d97706;
+            "
+          >
             <i class="fa-solid fa-box-archive"></i> Archive Item
           </button>
         </div>
       </div>
     </div>
 
-
     <!-- ────────────── ADJUST STOCKS MODAL (Add / Deduct) ────────────── -->
-    <div class="modal-overlay" id="modalDeductInventoryItem" data-backdrop-close="false">
-      <div class="modal-card" style="min-width:420px;max-width:640px;width:100%;display:flex;flex-direction:column;max-height:90vh;">
-        <div class="modal-header-fixed" style="padding:16px 18px;border-bottom:1px solid var(--border-color, #e5e7eb);flex-shrink:0;">
-          <h3 class="modal-title" id="deductModalTitle" style="margin-bottom:0;font-size:1.2rem;font-weight:700;">Adjust Stocks</h3>
-          <p class="field-hint" style="margin-bottom:0;margin-top:4px;">Select whether to add or deduct stock for the selected inventory item or its variant.</p>
+    <div
+      class="modal-overlay"
+      id="modalDeductInventoryItem"
+      data-backdrop-close="false"
+    >
+      <div
+        class="modal-card"
+        style="
+          min-width: 420px;
+          max-width: 640px;
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          max-height: 90vh;
+        "
+      >
+        <div
+          class="modal-header-fixed"
+          style="
+            padding: 16px 18px;
+            border-bottom: 1px solid var(--border-color, #e5e7eb);
+            flex-shrink: 0;
+          "
+        >
+          <h3
+            class="modal-title"
+            id="deductModalTitle"
+            style="margin-bottom: 0; font-size: 1.2rem; font-weight: 700"
+          >
+            Adjust Stocks
+          </h3>
+          <p class="field-hint" style="margin-bottom: 0; margin-top: 4px">
+            Select whether to add or deduct stock for the selected inventory
+            item or its variant.
+          </p>
         </div>
-        <div class="modal-body-scroll" style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0;">
-          <div class="form-grid" style="padding:12px 18px;">
-          <div class="field-stack full"><label>Category</label><input class="input-field" id="deductCategory" readonly disabled /></div>
-          <div class="field-stack full"><label>Item Name</label><input class="input-field" id="deductItemName" readonly disabled /></div>
-          <div class="field-stack full highlight-field" id="deductTargetWrap" style="display:none;">
-            <label>Apply To</label>
-            <select class="filter-select" id="deductTarget"></select>
-            <div class="field-hint" id="deductTargetHint">Choose a variant to update.</div>
-          </div>
-          <div class="field-stack highlight-field"><label>Stocks On Hand</label><input class="input-field" id="deductOnHand" readonly disabled /></div>
-          
-          <!-- ─── ADD/DEDUCT Mode Toggle ───────────────────────────────── -->
-          <div class="field-stack full">
-            <div class="adjust-amount-mode-toggle">
-              <button class="mode-toggle-btn active" id="btnModeAdd" type="button">
-                <i class="fa-solid fa-plus"></i> Add Stock
-              </button>
-              <button class="mode-toggle-btn" id="btnModeDeduct" type="button">
-                <i class="fa-solid fa-minus"></i> Deduct Stock
-              </button>
+        <div
+          class="modal-body-scroll"
+          style="
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 0;
+          "
+        >
+          <div class="form-grid" style="padding: 12px 18px">
+            <div class="field-stack full">
+              <label>Category</label
+              ><input
+                class="input-field"
+                id="deductCategory"
+                readonly
+                disabled
+              />
+            </div>
+            <div class="field-stack full">
+              <label>Item Name</label
+              ><input
+                class="input-field"
+                id="deductItemName"
+                readonly
+                disabled
+              />
+            </div>
+            <div
+              class="field-stack full highlight-field"
+              id="deductTargetWrap"
+              style="display: none"
+            >
+              <label>Apply To</label>
+              <select class="filter-select" id="deductTarget"></select>
+              <div class="field-hint" id="deductTargetHint">
+                Choose a variant to update.
+              </div>
+            </div>
+            <div class="field-stack highlight-field">
+              <label>Stocks On Hand</label
+              ><input class="input-field" id="deductOnHand" readonly disabled />
+            </div>
+
+            <!-- ─── ADD/DEDUCT Mode Toggle ───────────────────────────────── -->
+            <div class="field-stack full">
+              <div class="adjust-amount-mode-toggle">
+                <button
+                  class="mode-toggle-btn active"
+                  id="btnModeAdd"
+                  type="button"
+                >
+                  <i class="fa-solid fa-plus"></i> Add Stock
+                </button>
+                <button
+                  class="mode-toggle-btn"
+                  id="btnModeDeduct"
+                  type="button"
+                >
+                  <i class="fa-solid fa-minus"></i> Deduct Stock
+                </button>
+              </div>
+            </div>
+
+            <!-- ─── ADD Amount Field ───────────────────────────────────── -->
+            <div
+              class="field-stack full adjust-amount-fields active"
+              id="deductAddFields"
+            >
+              <label>Add Amount <span style="color: #dc2626">*</span></label>
+              <input
+                class="input-field"
+                id="deductAmountAdd"
+                type="number"
+                min="1"
+                placeholder="Enter quantity to add"
+              />
+              <div class="field-hint">
+                <i class="fa-solid fa-circle-info" style="margin-right: 4px"></i
+                >Enter a positive number only
+              </div>
+            </div>
+
+            <!-- ─── DEDUCT Amount Field ───────────────────────────────────── -->
+            <div
+              class="field-stack full adjust-amount-fields"
+              id="deductDeductFields"
+            >
+              <label>Deduct Amount <span style="color: #dc2626">*</span></label>
+              <input
+                class="input-field"
+                id="deductAmountDeduct"
+                type="number"
+                min="1"
+                placeholder="Enter quantity to deduct"
+              />
+              <div class="field-hint">
+                <i class="fa-solid fa-circle-info" style="margin-right: 4px"></i
+                >Enter a positive number only
+              </div>
+            </div>
+
+            <div class="field-stack full highlight-field">
+              <label>By (Name)</label
+              ><input
+                class="input-field"
+                id="deductName"
+                placeholder="Authorized person"
+              />
+            </div>
+            <div class="field-stack full highlight-field">
+              <label>Purpose</label
+              ><input
+                class="input-field"
+                id="deductPurpose"
+                placeholder="Reason for stock adjustment"
+              />
+            </div>
+            <div class="field-stack full highlight-field">
+              <label>Remarks</label
+              ><input
+                class="input-field"
+                id="deductRemarks"
+                placeholder="Additional remarks"
+              />
             </div>
           </div>
-          
-          <!-- ─── ADD Amount Field ───────────────────────────────────── -->
-          <div class="field-stack full adjust-amount-fields active" id="deductAddFields">
-            <label>Add Amount <span style="color:#dc2626">*</span></label>
-            <input class="input-field" id="deductAmountAdd" type="number" min="1" placeholder="Enter quantity to add" />
-            <div class="field-hint"><i class="fa-solid fa-circle-info" style="margin-right:4px;"></i>Enter a positive number only</div>
-          </div>
-          
-          <!-- ─── DEDUCT Amount Field ───────────────────────────────────── -->
-          <div class="field-stack full adjust-amount-fields" id="deductDeductFields">
-            <label>Deduct Amount <span style="color:#dc2626">*</span></label>
-            <input class="input-field" id="deductAmountDeduct" type="number" min="1" placeholder="Enter quantity to deduct" />
-            <div class="field-hint"><i class="fa-solid fa-circle-info" style="margin-right:4px;"></i>Enter a positive number only</div>
-          </div>
-          
-          <div class="field-stack full highlight-field"><label>By (Name)</label><input class="input-field" id="deductName" placeholder="Authorized person" /></div>
-          <div class="field-stack full highlight-field"><label>Purpose</label><input class="input-field" id="deductPurpose" placeholder="Reason for stock adjustment" /></div>
-          <div class="field-stack full highlight-field"><label>Remarks</label><input class="input-field" id="deductRemarks" placeholder="Additional remarks" /></div>
-          </div>
         </div>
-        <div class="modal-footer-fixed" style="padding:12px 18px;border-top:1px solid var(--border-color, #e5e7eb);display:flex;gap:10px;justify-content:flex-end;background:#fff;flex-shrink:0;box-shadow:0 -8px 20px rgba(15, 23, 42, 0.06);position:relative;z-index:2;">
-          <button class="btn-admin btn-secondary" id="btnCancelDeduct">Cancel</button>
-          <button class="btn-admin" id="btnSaveDeduct" type="button"><i class="fa-solid fa-floppy-disk"></i> Save</button>
+        <div
+          class="modal-footer-fixed"
+          style="
+            padding: 12px 18px;
+            border-top: 1px solid var(--border-color, #e5e7eb);
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            background: #fff;
+            flex-shrink: 0;
+            box-shadow: 0 -8px 20px rgba(15, 23, 42, 0.06);
+            position: relative;
+            z-index: 2;
+          "
+        >
+          <button class="btn-admin btn-secondary" id="btnCancelDeduct">
+            Cancel
+          </button>
+          <button class="btn-admin" id="btnSaveDeduct" type="button">
+            <i class="fa-solid fa-floppy-disk"></i> Save
+          </button>
         </div>
       </div>
     </div>

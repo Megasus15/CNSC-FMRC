@@ -6,25 +6,31 @@
 document.addEventListener("DOMContentLoaded", () => {
   const API_BASE_URL = `${window.location.protocol}//${window.location.hostname}:8000/api`;
 
-  const productGrid   = document.getElementById("productGrid");
-  const emptyState    = document.getElementById("productsEmptyState");
-  const searchInput   = document.getElementById("productSearchInput");
-  const categorySelect= document.getElementById("productCategorySelect");
-  const filterSelect  = document.getElementById("productFilterSelect");
+  const productGrid = document.getElementById("productGrid");
+  const emptyState = document.getElementById("productsEmptyState");
+  const searchInput = document.getElementById("productSearchInput");
+  const categorySelect = document.getElementById("productCategorySelect");
+  const filterSelect = document.getElementById("productFilterSelect");
 
   // View Info Modal elements
-  const productInfoModal      = document.getElementById("productInfoModal");
-  const productInfoTitle      = document.getElementById("productInfoTitle");
-  const productInfoImage      = document.getElementById("productInfoImage");
-  const productInfoSummary    = document.getElementById("productInfoSummary");
-  const productInfoChips      = document.getElementById("productInfoChips");
-  const productInfoAvailability  = document.getElementById("productInfoAvailability");
-  const productInfoRecommended   = document.getElementById("productInfoRecommended");
-  const closeProductInfoModal    = document.getElementById("closeProductInfoModal");
-  const productInfoAddToCart     = document.getElementById("productInfoAddToCart");
-  const productInfoBuyNow        = document.getElementById("productInfoBuyNow");
+  const productInfoModal = document.getElementById("productInfoModal");
+  const productInfoTitle = document.getElementById("productInfoTitle");
+  const productInfoImage = document.getElementById("productInfoImage");
+  const productInfoSummary = document.getElementById("productInfoSummary");
+  const productInfoChips = document.getElementById("productInfoChips");
+  const productInfoAvailability = document.getElementById(
+    "productInfoAvailability",
+  );
+  const productInfoRecommended = document.getElementById(
+    "productInfoRecommended",
+  );
+  const closeProductInfoModal = document.getElementById(
+    "closeProductInfoModal",
+  );
+  const productInfoAddToCart = document.getElementById("productInfoAddToCart");
+  const productInfoBuyNow = document.getElementById("productInfoBuyNow");
 
-  let allProducts     = [];
+  let allProducts = [];
   let displayedProducts = [];
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -32,18 +38,22 @@ document.addEventListener("DOMContentLoaded", () => {
     `₱${Number(v || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const escHtml = (v) =>
-    String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    String(v ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
 
   const CART_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>`;
-  const BUY_SVG  = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>`;
+  const BUY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>`;
   const INFO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
 
   // ── Build a product card HTML ─────────────────────────────────────────────────
   const buildCard = (p) => {
-    const isOutOfStock = p.stock_status === "out_of_stock" || Number(p.stock) <= 0;
+    const isOutOfStock =
+      p.stock_status === "out_of_stock" || Number(p.stock) <= 0;
     const stockBadgeClass = isOutOfStock ? "out-of-stock" : "in-stock";
-    const stockBadgeText  = isOutOfStock ? "Out of Stock" : "In Stock";
-    const stockText       = isOutOfStock ? "Out of stock" : `${p.stock} in stock`;
+    const stockBadgeText = isOutOfStock ? "Out of Stock" : "In Stock";
+    const stockText = isOutOfStock ? "Out of stock" : `${p.stock} in stock`;
 
     const imgHtml = p.image_data
       ? `<img src="${p.image_data}" alt="${escHtml(p.name)}" />`
@@ -86,31 +96,41 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ── Render the grid ─────────────────────────────────────────────────────────
   const renderGrid = () => {
-    const q      = (searchInput?.value || "").trim().toLowerCase();
-    const cat    = categorySelect?.value || "all";
-    const filter = filterSelect?.value  || "all";
+    const q = (searchInput?.value || "").trim().toLowerCase();
+    const cat = categorySelect?.value || "all";
+    const filter = filterSelect?.value || "all";
 
     let result = allProducts.slice();
 
     // Category filter
     if (cat !== "all") {
-      const catMap = { "3dprint": "3D Print", "laser": "Laser Cut", "cnc": "CNC" };
+      const catMap = { "3dprint": "3D Print", laser: "Laser Cut", cnc: "CNC" };
       const catVal = catMap[cat] || cat;
-      result = result.filter(p => p.category === catVal || p.category.toLowerCase().includes(cat));
+      result = result.filter(
+        (p) => p.category === catVal || p.category.toLowerCase().includes(cat),
+      );
     }
 
     // Search
     if (q) {
-      result = result.filter(p =>
-        `${p.name} ${p.code} ${p.category}`.toLowerCase().includes(q)
+      result = result.filter((p) =>
+        `${p.name} ${p.code} ${p.category}`.toLowerCase().includes(q),
       );
     }
 
     // Filter (stock / price sort)
-    if (filter === "in-stock")      result = result.filter(p => p.stock_status === "in_stock" && Number(p.stock) > 0);
-    if (filter === "out-of-stock")  result = result.filter(p => p.stock_status === "out_of_stock" || Number(p.stock) <= 0);
-    if (filter === "price-low")     result = result.sort((a, b) => Number(a.price) - Number(b.price));
-    if (filter === "price-high")    result = result.sort((a, b) => Number(b.price) - Number(a.price));
+    if (filter === "in-stock")
+      result = result.filter(
+        (p) => p.stock_status === "in_stock" && Number(p.stock) > 0,
+      );
+    if (filter === "out-of-stock")
+      result = result.filter(
+        (p) => p.stock_status === "out_of_stock" || Number(p.stock) <= 0,
+      );
+    if (filter === "price-low")
+      result = result.sort((a, b) => Number(a.price) - Number(b.price));
+    if (filter === "price-high")
+      result = result.sort((a, b) => Number(b.price) - Number(a.price));
 
     displayedProducts = result;
 
@@ -130,18 +150,22 @@ document.addEventListener("DOMContentLoaded", () => {
   const openViewInfo = (product) => {
     if (!productInfoModal) return;
 
-    if (productInfoTitle)   productInfoTitle.textContent = product.name;
-    if (productInfoImage)   {
+    if (productInfoTitle) productInfoTitle.textContent = product.name;
+    if (productInfoImage) {
       productInfoImage.src = product.image_data || "";
       productInfoImage.style.display = product.image_data ? "" : "none";
     }
-    if (productInfoSummary) productInfoSummary.textContent = product.summary || "No description available.";
+    if (productInfoSummary)
+      productInfoSummary.textContent =
+        product.summary || "No description available.";
 
     // Chips
     if (productInfoChips) {
       const chips = product.details_chips || [];
       productInfoChips.innerHTML = chips.length
-        ? chips.map(c => `<span class="feature-chip">${escHtml(c)}</span>`).join("")
+        ? chips
+            .map((c) => `<span class="feature-chip">${escHtml(c)}</span>`)
+            .join("")
         : "<span style='color:#9ca3af;font-size:0.82rem;'>No details specified.</span>";
     }
 
@@ -149,7 +173,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (productInfoAvailability) {
       const avail = product.availability || [];
       productInfoAvailability.innerHTML = avail.length
-        ? avail.map(a => `<li>${escHtml(a)}</li>`).join("")
+        ? avail.map((a) => `<li>${escHtml(a)}</li>`).join("")
         : "<li style='color:#9ca3af;'>Not specified.</li>";
     }
 
@@ -157,31 +181,41 @@ document.addEventListener("DOMContentLoaded", () => {
     if (productInfoRecommended) {
       const rec = product.recommended_for || [];
       productInfoRecommended.innerHTML = rec.length
-        ? rec.map(r => `<li>${escHtml(r)}</li>`).join("")
+        ? rec.map((r) => `<li>${escHtml(r)}</li>`).join("")
         : "<li style='color:#9ca3af;'>Not specified.</li>";
     }
 
     // Wire up the modal action buttons to this product
     if (productInfoAddToCart) {
-      const isOutOfStock = product.stock_status === "out_of_stock" || Number(product.stock) <= 0;
+      const isOutOfStock =
+        product.stock_status === "out_of_stock" || Number(product.stock) <= 0;
       productInfoAddToCart.disabled = isOutOfStock;
       productInfoAddToCart.className = `modal-btn outline-btn${isOutOfStock ? " disabled" : ""}`;
-      productInfoAddToCart.onclick = isOutOfStock ? null : (e) => {
-        if (e) e.preventDefault();
-        productInfoModal.classList.remove("show-modal");
-        // Delegate to existing cart logic via custom event
-        document.dispatchEvent(new CustomEvent("product:add-to-cart", { detail: product }));
-      };
+      productInfoAddToCart.onclick = isOutOfStock
+        ? null
+        : (e) => {
+            if (e) e.preventDefault();
+            productInfoModal.classList.remove("show-modal");
+            // Delegate to existing cart logic via custom event
+            document.dispatchEvent(
+              new CustomEvent("product:add-to-cart", { detail: product }),
+            );
+          };
     }
     if (productInfoBuyNow) {
-      const isOutOfStock = product.stock_status === "out_of_stock" || Number(product.stock) <= 0;
+      const isOutOfStock =
+        product.stock_status === "out_of_stock" || Number(product.stock) <= 0;
       productInfoBuyNow.disabled = isOutOfStock;
       productInfoBuyNow.className = `modal-btn solid-btn${isOutOfStock ? " disabled" : ""}`;
-      productInfoBuyNow.onclick = isOutOfStock ? null : (e) => {
-        if (e) e.preventDefault();
-        productInfoModal.classList.remove("show-modal");
-        document.dispatchEvent(new CustomEvent("product:buy-now", { detail: product }));
-      };
+      productInfoBuyNow.onclick = isOutOfStock
+        ? null
+        : (e) => {
+            if (e) e.preventDefault();
+            productInfoModal.classList.remove("show-modal");
+            document.dispatchEvent(
+              new CustomEvent("product:buy-now", { detail: product }),
+            );
+          };
     }
 
     productInfoModal.classList.add("show-modal");
@@ -192,7 +226,8 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   productInfoModal?.addEventListener("click", (e) => {
-    if (e.target === productInfoModal) productInfoModal.classList.remove("show-modal");
+    if (e.target === productInfoModal)
+      productInfoModal.classList.remove("show-modal");
   });
 
   // ── Grid click delegation ────────────────────────────────────────────────────
@@ -205,17 +240,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
     e.preventDefault(); // Prevent any form submission or page reload
 
-    const id      = Number(btn.getAttribute("data-product-id"));
-    const product = allProducts.find(p => p.id === id);
+    const id = Number(btn.getAttribute("data-product-id"));
+    const product = allProducts.find((p) => p.id === id);
     if (!product) return;
 
     const action = btn.getAttribute("data-action");
     if (action === "view-info") {
       openViewInfo(product);
     } else if (action === "add-cart") {
-      document.dispatchEvent(new CustomEvent("product:add-to-cart", { detail: product }));
+      document.dispatchEvent(
+        new CustomEvent("product:add-to-cart", { detail: product }),
+      );
     } else if (action === "buy-now") {
-      document.dispatchEvent(new CustomEvent("product:buy-now", { detail: product }));
+      document.dispatchEvent(
+        new CustomEvent("product:buy-now", { detail: product }),
+      );
     }
   });
 
@@ -232,7 +271,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // appears AFTER the page has fully refreshed, never during it.
   const checkAndShowPendingOrderSuccess = () => {
     let raw;
-    try { raw = sessionStorage.getItem("fmrc_pending_order_success"); } catch { return; }
+    try {
+      raw = sessionStorage.getItem("fmrc_pending_order_success");
+    } catch {
+      return;
+    }
     if (!raw) return;
 
     let orderNo = "";
@@ -242,21 +285,33 @@ document.addEventListener("DOMContentLoaded", () => {
       const ts = Number(parsed?.ts || 0);
       // Discard stale entries older than 60 seconds (safety guard)
       if (Date.now() - ts > 60_000) {
-        try { sessionStorage.removeItem("fmrc_pending_order_success"); } catch { /* ignore */ }
+        try {
+          sessionStorage.removeItem("fmrc_pending_order_success");
+        } catch {
+          /* ignore */
+        }
         return;
       }
     } catch {
-      try { sessionStorage.removeItem("fmrc_pending_order_success"); } catch { /* ignore */ }
+      try {
+        sessionStorage.removeItem("fmrc_pending_order_success");
+      } catch {
+        /* ignore */
+      }
       return;
     }
 
     // Clear the entry BEFORE showing the modal to prevent duplicate shows
-    try { sessionStorage.removeItem("fmrc_pending_order_success"); } catch { /* ignore */ }
+    try {
+      sessionStorage.removeItem("fmrc_pending_order_success");
+    } catch {
+      /* ignore */
+    }
 
     // Locate the dedicated success modal elements (defined in product.html)
     const modal = document.getElementById("orderSuccessModal");
-    const numEl  = document.getElementById("orderSuccessNumber");
-    const okBtn  = document.getElementById("orderSuccessOkBtn");
+    const numEl = document.getElementById("orderSuccessNumber");
+    const okBtn = document.getElementById("orderSuccessOkBtn");
 
     if (!modal || !okBtn) {
       // Fallback: dedicated modal not found on this page
@@ -282,14 +337,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const loadProducts = async () => {
     // Show loading skeleton
     if (productGrid) {
-      productGrid.innerHTML = Array.from({ length: 4 }).map(() => `
+      productGrid.innerHTML = Array.from({ length: 4 })
+        .map(
+          () => `
         <div class="shop-card" style="pointer-events:none;">
           <div class="product-img-wrapper" style="background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;"></div>
           <div class="product-info">
             <div style="height:14px;border-radius:6px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;margin-bottom:8px;"></div>
             <div style="height:10px;border-radius:6px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:60%;"></div>
           </div>
-        </div>`).join("");
+        </div>`,
+        )
+        .join("");
     }
     if (emptyState) emptyState.style.display = "none";
 
@@ -347,11 +406,17 @@ document.addEventListener("DOMContentLoaded", () => {
   // Listen to product-specific real-time updates broadcast by the Admin portal.
   const PRODUCTS_REALTIME_CHANNEL = "fmrc-products-realtime";
   if (typeof window.BroadcastChannel === "function") {
-    const productsChannel = new window.BroadcastChannel(PRODUCTS_REALTIME_CHANNEL);
+    const productsChannel = new window.BroadcastChannel(
+      PRODUCTS_REALTIME_CHANNEL,
+    );
     productsChannel.addEventListener("message", (event) => {
       if (document.hidden) return;
       const payload = event?.data || {};
-      if (payload.type === "updated" || payload.type === "created" || payload.type === "deleted") {
+      if (
+        payload.type === "updated" ||
+        payload.type === "created" ||
+        payload.type === "deleted"
+      ) {
         debouncedLoadProducts();
 
         // If a product was deleted, remove it from the customer's cart immediately
@@ -359,25 +424,39 @@ document.addEventListener("DOMContentLoaded", () => {
           const deletedId = String(payload.productId);
           const cartContainer = document.getElementById("cartItemsContainer");
           if (cartContainer) {
-            cartContainer.querySelectorAll(`.cart-item-card[data-product-id="${deletedId}"]`)
+            cartContainer
+              .querySelectorAll(
+                `.cart-item-card[data-product-id="${deletedId}"]`,
+              )
               .forEach((card) => card.remove());
           }
           try {
             const customerInfoRaw = localStorage.getItem("customer_info");
-            const customerInfo = customerInfoRaw ? JSON.parse(customerInfoRaw) : null;
-            const cartKey = customerInfo?.id ? `fmrc_cart_items_${customerInfo.id}` : "fmrc_cart_items";
+            const customerInfo = customerInfoRaw
+              ? JSON.parse(customerInfoRaw)
+              : null;
+            const cartKey = customerInfo?.id
+              ? `fmrc_cart_items_${customerInfo.id}`
+              : "fmrc_cart_items";
             const cartRaw = localStorage.getItem(cartKey);
             if (cartRaw) {
               const cartItems = JSON.parse(cartRaw);
               if (Array.isArray(cartItems)) {
-                const filtered = cartItems.filter((item) => String(item.product_id) !== deletedId);
+                const filtered = cartItems.filter(
+                  (item) => String(item.product_id) !== deletedId,
+                );
                 if (filtered.length !== cartItems.length) {
                   localStorage.setItem(cartKey, JSON.stringify(filtered));
-                  localStorage.setItem("fmrc_cart_updated_at", JSON.stringify({ type: "updated", timestamp: Date.now() }));
+                  localStorage.setItem(
+                    "fmrc_cart_updated_at",
+                    JSON.stringify({ type: "updated", timestamp: Date.now() }),
+                  );
                 }
               }
             }
-          } catch { /* ignore */ }
+          } catch {
+            /* ignore */
+          }
         }
       }
     });

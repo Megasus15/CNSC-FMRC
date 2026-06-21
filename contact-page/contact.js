@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!res.ok) return;
       const json = await res.json();
       const settings = json.data || {};
-      
+
       if (consentTextEl && settings.contact_consent_text) {
         consentTextEl.textContent = settings.contact_consent_text;
       }

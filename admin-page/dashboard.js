@@ -16,7 +16,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const resolveApiBaseUrl = () => {
     const configured =
       window.APP_API_BASE_URL ||
-      document.querySelector('meta[name="api-base-url"]')?.getAttribute("content") ||
+      document
+        .querySelector('meta[name="api-base-url"]')
+        ?.getAttribute("content") ||
       "";
 
     if (configured.trim()) {
@@ -54,7 +56,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const sidebarHeader = document.querySelector(".sidebar-header");
   const sidebarNav = document.querySelector(".sidebar-nav");
   const indicatorThumb = document.querySelector(
-    ".sidebar-scroll-indicator .indicator-thumb"
+    ".sidebar-scroll-indicator .indicator-thumb",
   );
 
   let sidebarToggleBtn = null;
@@ -72,7 +74,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const getDashboardOrdersChannel = () => {
     if (typeof window.BroadcastChannel !== "function") return null;
     if (!dashboardOrdersChannel) {
-      dashboardOrdersChannel = new window.BroadcastChannel(DASHBOARD_ORDERS_CHANNEL);
+      dashboardOrdersChannel = new window.BroadcastChannel(
+        DASHBOARD_ORDERS_CHANNEL,
+      );
     }
     return dashboardOrdersChannel;
   };
@@ -97,14 +101,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const closeMobileSidebar = () => {
     body.classList.remove("admin-sidebar-open");
-    if (sidebarToggleBtn) sidebarToggleBtn.setAttribute("aria-expanded", "false");
+    if (sidebarToggleBtn)
+      sidebarToggleBtn.setAttribute("aria-expanded", "false");
     saveSidebarState(false);
   };
 
   const openMobileSidebar = () => {
     if (!isMobileSidebarMode()) return;
     body.classList.add("admin-sidebar-open");
-    if (sidebarToggleBtn) sidebarToggleBtn.setAttribute("aria-expanded", "true");
+    if (sidebarToggleBtn)
+      sidebarToggleBtn.setAttribute("aria-expanded", "true");
     saveSidebarState(true);
   };
 
@@ -153,12 +159,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!container || container.querySelector(".nav-label")) return;
 
     const textNodes = Array.from(container.childNodes).filter(
-      (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim()
+      (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
     );
 
     if (!textNodes.length) return;
 
-    const labelText = textNodes.map((node) => node.textContent.trim()).join(" ");
+    const labelText = textNodes
+      .map((node) => node.textContent.trim())
+      .join(" ");
     textNodes.forEach((node) => node.remove());
 
     const label = document.createElement("span");
@@ -191,14 +199,17 @@ document.addEventListener("DOMContentLoaded", () => {
     if (isMobileSidebarMode()) {
       if (getSavedSidebarState()) {
         body.classList.add("admin-sidebar-open");
-        if (sidebarToggleBtn) sidebarToggleBtn.setAttribute("aria-expanded", "true");
+        if (sidebarToggleBtn)
+          sidebarToggleBtn.setAttribute("aria-expanded", "true");
       } else {
         body.classList.remove("admin-sidebar-open");
-        if (sidebarToggleBtn) sidebarToggleBtn.setAttribute("aria-expanded", "false");
+        if (sidebarToggleBtn)
+          sidebarToggleBtn.setAttribute("aria-expanded", "false");
       }
     } else {
       body.classList.remove("admin-sidebar-open");
-      if (sidebarToggleBtn) sidebarToggleBtn.setAttribute("aria-expanded", "false");
+      if (sidebarToggleBtn)
+        sidebarToggleBtn.setAttribute("aria-expanded", "false");
     }
     updateSidebarScrollIndicator();
   };
@@ -219,7 +230,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const thumbHeight = Math.max(
       (sidebarNav.clientHeight / sidebarNav.scrollHeight) * 100,
-      16
+      16,
     );
     const travel = 100 - thumbHeight;
     const thumbTop = (sidebarNav.scrollTop / maxScroll) * travel;
@@ -243,7 +254,8 @@ document.addEventListener("DOMContentLoaded", () => {
       accountLink = document.createElement("a");
       accountLink.href = "my-account.html";
       accountLink.className = "nav-link";
-      accountLink.innerHTML = '<i class="fa-regular fa-id-card"></i> My Account';
+      accountLink.innerHTML =
+        '<i class="fa-regular fa-id-card"></i> My Account';
       if (archivesLink) {
         archivesLink.insertAdjacentElement("afterend", accountLink);
       } else {
@@ -289,15 +301,16 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // 2. Dashboard quick-link card navigation
-  const normalizeText = (value) => value.replace(/\s+/g, " ").trim().toLowerCase();
+  const normalizeText = (value) =>
+    value.replace(/\s+/g, " ").trim().toLowerCase();
   const sidebarLinks = Array.from(
-    document.querySelectorAll(".sidebar-nav .nav-link, .sidebar-nav .sub-link")
+    document.querySelectorAll(".sidebar-nav .nav-link, .sidebar-nav .sub-link"),
   );
 
   const resolveSidebarRoute = (navLabel) => {
     const normalizedLabel = normalizeText(navLabel);
     return sidebarLinks.find((link) =>
-      normalizeText(link.textContent).includes(normalizedLabel)
+      normalizeText(link.textContent).includes(normalizedLabel),
     );
   };
 
@@ -318,49 +331,49 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-    const ensureLoader = () => {
-      let loader = document.getElementById("global-loader");
-      if (!loader) {
-        loader = document.createElement("div");
-        loader.id = "global-loader";
-        loader.className = "global-loader-overlay";
-        loader.innerHTML = '<div class="laravel-spinner"></div>';
-        document.body.appendChild(loader);
-      }
-      return loader;
-    };
+  const ensureLoader = () => {
+    let loader = document.getElementById("global-loader");
+    if (!loader) {
+      loader = document.createElement("div");
+      loader.id = "global-loader";
+      loader.className = "global-loader-overlay";
+      loader.innerHTML = '<div class="laravel-spinner"></div>';
+      document.body.appendChild(loader);
+    }
+    return loader;
+  };
 
-    const setLoading = (active) => {
-      ensureLoader().classList.toggle("active", active);
-    };
+  const setLoading = (active) => {
+    ensureLoader().classList.toggle("active", active);
+  };
 
-    const ensureStatusModal = () => {
-      let modal = document.getElementById("authStatusModal");
-      if (!modal) {
-        modal = document.createElement("div");
-        modal.id = "authStatusModal";
-        modal.className = "status-modal";
-        modal.innerHTML = '<div class="status-box" id="authStatusText"></div>';
-        document.body.appendChild(modal);
-      }
-      return {
-        modal,
-        text: document.getElementById("authStatusText"),
-      };
+  const ensureStatusModal = () => {
+    let modal = document.getElementById("authStatusModal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "authStatusModal";
+      modal.className = "status-modal";
+      modal.innerHTML = '<div class="status-box" id="authStatusText"></div>';
+      document.body.appendChild(modal);
+    }
+    return {
+      modal,
+      text: document.getElementById("authStatusText"),
     };
+  };
 
-    const showStatus = (message) => {
-      const { modal, text } = ensureStatusModal();
-      if (text) text.textContent = message;
-      modal.classList.add("show");
-    };
+  const showStatus = (message) => {
+    const { modal, text } = ensureStatusModal();
+    if (text) text.textContent = message;
+    modal.classList.add("show");
+  };
 
-    const showLogoutConfirmModal = (onConfirm) => {
-      let modal = document.getElementById("laravelLogoutModal");
-      if (!modal) {
-        modal = document.createElement("div");
-        modal.id = "laravelLogoutModal";
-        modal.innerHTML = `
+  const showLogoutConfirmModal = (onConfirm) => {
+    let modal = document.getElementById("laravelLogoutModal");
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.id = "laravelLogoutModal";
+      modal.innerHTML = `
           <div style="position: fixed; inset: 0; background: rgba(17, 24, 39, 0.6); backdrop-filter: blur(2px); display: flex; justify-content: center; align-items: center; z-index: 100000; opacity: 0; transition: opacity 0.2s ease;">
             <div style="background: #fff; border-radius: 12px; width: 100%; max-width: 420px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); transform: scale(0.95); transition: transform 0.2s ease; font-family: 'Montserrat', sans-serif; overflow: hidden;">
               <div style="padding: 24px;">
@@ -379,214 +392,258 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </div>
         `;
-        document.body.appendChild(modal);
+      document.body.appendChild(modal);
 
-        const cancelBtn = modal.querySelector("#cancelLogoutBtn");
-        const confirmBtn = modal.querySelector("#confirmLogoutBtn");
+      const cancelBtn = modal.querySelector("#cancelLogoutBtn");
+      const confirmBtn = modal.querySelector("#confirmLogoutBtn");
 
-        cancelBtn.onmouseenter = () => {
-          cancelBtn.style.backgroundColor = "#fee2e2";
-          cancelBtn.style.color = "#dc2626";
-          cancelBtn.style.borderColor = "#fca5a5";
-        };
-        cancelBtn.onmouseleave = () => {
-          cancelBtn.style.backgroundColor = "#fff";
-          cancelBtn.style.color = "#374151";
-          cancelBtn.style.borderColor = "#d1d5db";
-          cancelBtn.style.transform = "scale(1)";
-        };
-        cancelBtn.onmousedown = () => (cancelBtn.style.transform = "scale(0.96)");
-        cancelBtn.onmouseup = () => (cancelBtn.style.transform = "scale(1)");
+      cancelBtn.onmouseenter = () => {
+        cancelBtn.style.backgroundColor = "#fee2e2";
+        cancelBtn.style.color = "#dc2626";
+        cancelBtn.style.borderColor = "#fca5a5";
+      };
+      cancelBtn.onmouseleave = () => {
+        cancelBtn.style.backgroundColor = "#fff";
+        cancelBtn.style.color = "#374151";
+        cancelBtn.style.borderColor = "#d1d5db";
+        cancelBtn.style.transform = "scale(1)";
+      };
+      cancelBtn.onmousedown = () => (cancelBtn.style.transform = "scale(0.96)");
+      cancelBtn.onmouseup = () => (cancelBtn.style.transform = "scale(1)");
 
-        confirmBtn.onmouseenter = () => {
-          confirmBtn.style.backgroundColor = "#7f1d1d";
-          confirmBtn.style.boxShadow =
-            "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)";
-        };
-        confirmBtn.onmouseleave = () => {
-          confirmBtn.style.backgroundColor = "var(--primary-color, #a80f0f)";
-          confirmBtn.style.boxShadow = "none";
-          confirmBtn.style.transform = "scale(1)";
-        };
-        confirmBtn.onmousedown = () => (confirmBtn.style.transform = "scale(0.96)");
-        confirmBtn.onmouseup = () => (confirmBtn.style.transform = "scale(1)");
+      confirmBtn.onmouseenter = () => {
+        confirmBtn.style.backgroundColor = "#7f1d1d";
+        confirmBtn.style.boxShadow =
+          "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)";
+      };
+      confirmBtn.onmouseleave = () => {
+        confirmBtn.style.backgroundColor = "var(--primary-color, #a80f0f)";
+        confirmBtn.style.boxShadow = "none";
+        confirmBtn.style.transform = "scale(1)";
+      };
+      confirmBtn.onmousedown = () =>
+        (confirmBtn.style.transform = "scale(0.96)");
+      confirmBtn.onmouseup = () => (confirmBtn.style.transform = "scale(1)");
 
-        cancelBtn.addEventListener("click", () => {
-          modal.children[0].style.opacity = "0";
-          modal.children[0].children[0].style.transform = "scale(0.95)";
-          setTimeout(() => (modal.style.display = "none"), 200);
-        });
-
-        confirmBtn.addEventListener("click", () => {
-          modal.children[0].style.opacity = "0";
-          modal.children[0].children[0].style.transform = "scale(0.95)";
-          setTimeout(() => {
-            modal.style.display = "none";
-            onConfirm();
-          }, 200);
-        });
-      }
-
-      modal.style.display = "block";
-      requestAnimationFrame(() => {
-        modal.children[0].style.opacity = "1";
-        modal.children[0].children[0].style.transform = "scale(1)";
+      cancelBtn.addEventListener("click", () => {
+        modal.children[0].style.opacity = "0";
+        modal.children[0].children[0].style.transform = "scale(0.95)";
+        setTimeout(() => (modal.style.display = "none"), 200);
       });
-    };
 
-    const performLogout = async () => {
-      const token = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token");
-      setLoading(true);
-      try {
-        if (token) {
-          await fetch(`${API_BASE_URL}/logout`, {
-            method: "POST",
-            headers: {
-              Authorization: "Bearer " + token,
-              Accept: "application/json",
-            },
-          });
-        }
-      } catch {
-        // Local session cleanup is still required.
-      } finally {
-        if (window.AdminSession) { window.AdminSession.clearSession(); }
-        localStorage.removeItem("auth_token");
-        localStorage.removeItem("user_info");
-        setLoading(false);
-        showStatus("Logged out successfully.");
-        window.location.href = "../admin-auth/auth.html";
-      }
-    };
+      confirmBtn.addEventListener("click", () => {
+        modal.children[0].style.opacity = "0";
+        modal.children[0].children[0].style.transform = "scale(0.95)";
+        setTimeout(() => {
+          modal.style.display = "none";
+          onConfirm();
+        }, 200);
+      });
+    }
 
-    document.querySelectorAll(".logout-btn").forEach((button) => {
-      if (button.dataset.logoutBound === "1") return;
-      button.dataset.logoutBound = "1";
-      button.addEventListener("click", async (event) => {
-        event.preventDefault();
-        showLogoutConfirmModal(async () => {
-          await performLogout();
+    modal.style.display = "block";
+    requestAnimationFrame(() => {
+      modal.children[0].style.opacity = "1";
+      modal.children[0].children[0].style.transform = "scale(1)";
+    });
+  };
+
+  const performLogout = async () => {
+    const token =
+      (window.AdminSession && window.AdminSession.getToken()) ||
+      localStorage.getItem("auth_token");
+    setLoading(true);
+    try {
+      if (token) {
+        await fetch(`${API_BASE_URL}/logout`, {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer " + token,
+            Accept: "application/json",
+          },
         });
+      }
+    } catch {
+      // Local session cleanup is still required.
+    } finally {
+      if (window.AdminSession) {
+        window.AdminSession.clearSession();
+      }
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("user_info");
+      setLoading(false);
+      showStatus("Logged out successfully.");
+      window.location.href = "../admin-auth/auth.html";
+    }
+  };
+
+  document.querySelectorAll(".logout-btn").forEach((button) => {
+    if (button.dataset.logoutBound === "1") return;
+    button.dataset.logoutBound = "1";
+    button.addEventListener("click", async (event) => {
+      event.preventDefault();
+      showLogoutConfirmModal(async () => {
+        await performLogout();
       });
     });
+  });
 
-    const dashboardAppointmentsCount = document.getElementById("dashboardAppointmentsCount");
-    const dashboardAccountsCount = document.getElementById("dashboardAccountsCount");
-    const dashboardOrdersCount = document.getElementById("dashboardOrdersCount");
-    const dashboardProductsCount = document.getElementById("dashboardProductsCount");
-    const dashboardRevenueAmount = document.getElementById("dashboardRevenueAmount");
-    const dashboardInventoryCount = document.getElementById("dashboardInventoryCount");
-    const dashboardArchivesCount = document.getElementById("dashboardArchivesCount");
-    const dashboardRecentAppointments = document.getElementById("dashboardRecentAppointments");
-    const dashboardRecentOrders = document.getElementById("dashboardRecentOrders");
-    const dashboardRecentInquiries = document.getElementById("dashboardRecentInquiries");
-    const dashboardRefreshBtn = document.getElementById("dashboardRefreshBtn");
+  const dashboardAppointmentsCount = document.getElementById(
+    "dashboardAppointmentsCount",
+  );
+  const dashboardAccountsCount = document.getElementById(
+    "dashboardAccountsCount",
+  );
+  const dashboardOrdersCount = document.getElementById("dashboardOrdersCount");
+  const dashboardProductsCount = document.getElementById(
+    "dashboardProductsCount",
+  );
+  const dashboardRevenueAmount = document.getElementById(
+    "dashboardRevenueAmount",
+  );
+  const dashboardInventoryCount = document.getElementById(
+    "dashboardInventoryCount",
+  );
+  const dashboardArchivesCount = document.getElementById(
+    "dashboardArchivesCount",
+  );
+  const dashboardRecentAppointments = document.getElementById(
+    "dashboardRecentAppointments",
+  );
+  const dashboardRecentOrders = document.getElementById(
+    "dashboardRecentOrders",
+  );
+  const dashboardRecentInquiries = document.getElementById(
+    "dashboardRecentInquiries",
+  );
+  const dashboardRefreshBtn = document.getElementById("dashboardRefreshBtn");
 
-    // Analytics overview elements
-    const aovTopSelling = document.getElementById("aovTopSelling");
-    const aovSalesByCategory = document.getElementById("aovSalesByCategory");
-    const aovProductPerformance = document.getElementById("aovProductPerformance");
-    const aovYearlySalesTrend = document.getElementById("aovYearlySalesTrend");
-    const aovTrendYear = document.getElementById("aovTrendYear");
+  // Analytics overview elements
+  const aovTopSelling = document.getElementById("aovTopSelling");
+  const aovSalesByCategory = document.getElementById("aovSalesByCategory");
+  const aovProductPerformance = document.getElementById(
+    "aovProductPerformance",
+  );
+  const aovYearlySalesTrend = document.getElementById("aovYearlySalesTrend");
+  const aovTrendYear = document.getElementById("aovTrendYear");
 
-    const escapeHtml = (value) =>
-      String(value ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/\"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+  const escapeHtml = (value) =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#039;");
 
-    const toTimestamp = (value) => {
-      const ts = Date.parse(String(value || ""));
-      return Number.isFinite(ts) ? ts : 0;
-    };
+  const toTimestamp = (value) => {
+    const ts = Date.parse(String(value || ""));
+    return Number.isFinite(ts) ? ts : 0;
+  };
 
-    const toNumericId = (value) => {
-      const parsed = Number(String(value ?? "").replace(/[^0-9]/g, ""));
-      return Number.isFinite(parsed) ? parsed : 0;
-    };
+  const toNumericId = (value) => {
+    const parsed = Number(String(value ?? "").replace(/[^0-9]/g, ""));
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
 
-    const sortLatestFirst = (rows) =>
-      [...(Array.isArray(rows) ? rows : [])].sort(
-        (a, b) =>
-          toTimestamp(b?.created_at || b?.created_at_label) -
-            toTimestamp(a?.created_at || a?.created_at_label) ||
-          toNumericId(b?.id || b?.order_id || b?.reference_no) -
-            toNumericId(a?.id || a?.order_id || a?.reference_no)
-      );
+  const sortLatestFirst = (rows) =>
+    [...(Array.isArray(rows) ? rows : [])].sort(
+      (a, b) =>
+        toTimestamp(b?.created_at || b?.created_at_label) -
+          toTimestamp(a?.created_at || a?.created_at_label) ||
+        toNumericId(b?.id || b?.order_id || b?.reference_no) -
+          toNumericId(a?.id || a?.order_id || a?.reference_no),
+    );
 
-    const formatCompactDate = (value) => {
-      const date = new Date(value || Date.now());
-      if (Number.isNaN(date.getTime())) return "N/A";
+  const formatCompactDate = (value) => {
+    const date = new Date(value || Date.now());
+    if (Number.isNaN(date.getTime())) return "N/A";
 
-      return date.toLocaleString("en-PH", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-      });
-    };
+    return date.toLocaleString("en-PH", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
 
-    const formatCount = (value) => {
-      const number = Number(value || 0);
-      return Number.isFinite(number) ? number.toLocaleString("en-PH") : "--";
-    };
+  const formatCount = (value) => {
+    const number = Number(value || 0);
+    return Number.isFinite(number) ? number.toLocaleString("en-PH") : "--";
+  };
 
-    const formatCurrency = (value) => {
-      if (value === null || value === undefined) return "₱ --";
-      const number = Number(value || 0);
-      if (!Number.isFinite(number)) return "₱ --";
-      return `₱ ${number.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    };
+  const formatCurrency = (value) => {
+    if (value === null || value === undefined) return "₱ --";
+    const number = Number(value || 0);
+    if (!Number.isFinite(number)) return "₱ --";
+    return `₱ ${number.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
 
-    const formatCurrencyCompact = (value) => {
-      const number = Number(value || 0);
-      if (!Number.isFinite(number)) return "₱0";
-      if (number >= 1000000) return `₱${(number / 1000000).toFixed(1)}M`;
-      if (number >= 1000) return `₱${(number / 1000).toFixed(1)}k`;
-      return `₱${number.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    };
+  const formatCurrencyCompact = (value) => {
+    const number = Number(value || 0);
+    if (!Number.isFinite(number)) return "₱0";
+    if (number >= 1000000) return `₱${(number / 1000000).toFixed(1)}M`;
+    if (number >= 1000) return `₱${(number / 1000).toFixed(1)}k`;
+    return `₱${number.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
 
-    const appointmentStatusClass = (status) => {
-      const normalized = String(status || "").toLowerCase();
-      if (normalized.includes("completed")) return "priority-low";
-      if (normalized.includes("cancel") || normalized.includes("reject") || normalized.includes("archive")) {
-        return "priority-neutral";
-      }
-      return "priority-high";
-    };
+  const appointmentStatusClass = (status) => {
+    const normalized = String(status || "").toLowerCase();
+    if (normalized.includes("completed")) return "priority-low";
+    if (
+      normalized.includes("cancel") ||
+      normalized.includes("reject") ||
+      normalized.includes("archive")
+    ) {
+      return "priority-neutral";
+    }
+    return "priority-high";
+  };
 
-    const orderStatusClass = (status) => {
-      const normalized = String(status || "").toLowerCase();
-      if (normalized === "completed") return "priority-low";
-      if (normalized === "rejected") return "priority-neutral";
-      return "priority-high";
-    };
+  const orderStatusClass = (status) => {
+    const normalized = String(status || "").toLowerCase();
+    if (normalized === "completed") return "priority-low";
+    if (normalized === "rejected") return "priority-neutral";
+    return "priority-high";
+  };
 
-    const inquiryStatusClass = (status) => {
-      const normalized = String(status || "").toLowerCase();
-      if (normalized === "resolved") return "priority-low";
-      return "priority-high";
-    };
+  const inquiryStatusClass = (status) => {
+    const normalized = String(status || "").toLowerCase();
+    if (normalized === "resolved") return "priority-low";
+    return "priority-high";
+  };
 
-    const setCountCards = ({ appointments, accounts, orders, products, total_archives, total_revenue, total_inventory_items }) => {
-      if (dashboardAppointmentsCount) dashboardAppointmentsCount.textContent = formatCount(appointments);
-      if (dashboardAccountsCount) dashboardAccountsCount.textContent = formatCount(accounts);
-      if (dashboardOrdersCount) dashboardOrdersCount.textContent = formatCount(orders);
-      if (dashboardProductsCount) dashboardProductsCount.textContent = formatCount(products);
-      if (dashboardArchivesCount) dashboardArchivesCount.textContent = formatCount(total_archives);
-      if (dashboardRevenueAmount) dashboardRevenueAmount.textContent = formatCurrency(total_revenue);
-      if (dashboardInventoryCount) dashboardInventoryCount.textContent = formatCount(total_inventory_items);
-    };
+  const setCountCards = ({
+    appointments,
+    accounts,
+    orders,
+    products,
+    total_archives,
+    total_revenue,
+    total_inventory_items,
+  }) => {
+    if (dashboardAppointmentsCount)
+      dashboardAppointmentsCount.textContent = formatCount(appointments);
+    if (dashboardAccountsCount)
+      dashboardAccountsCount.textContent = formatCount(accounts);
+    if (dashboardOrdersCount)
+      dashboardOrdersCount.textContent = formatCount(orders);
+    if (dashboardProductsCount)
+      dashboardProductsCount.textContent = formatCount(products);
+    if (dashboardArchivesCount)
+      dashboardArchivesCount.textContent = formatCount(total_archives);
+    if (dashboardRevenueAmount)
+      dashboardRevenueAmount.textContent = formatCurrency(total_revenue);
+    if (dashboardInventoryCount)
+      dashboardInventoryCount.textContent = formatCount(total_inventory_items);
+  };
 
-    const renderRecentAppointments = (appointments) => {
-      if (!dashboardRecentAppointments) return;
+  const renderRecentAppointments = (appointments) => {
+    if (!dashboardRecentAppointments) return;
 
-      const latest = sortLatestFirst(appointments).slice(0, 3);
-      if (!latest.length) {
-        dashboardRecentAppointments.innerHTML = `
+    const latest = sortLatestFirst(appointments).slice(0, 3);
+    if (!latest.length) {
+      dashboardRecentAppointments.innerHTML = `
           <li class="recent-empty">
             <div class="recent-info">
               <strong>No appointment records yet.</strong>
@@ -594,17 +651,20 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </li>
         `;
-        return;
-      }
+      return;
+    }
 
-      dashboardRecentAppointments.innerHTML = latest
-        .map((appointment, index) => {
-          const schedule = [appointment?.appointment_date, appointment?.appointment_time]
-            .filter(Boolean)
-            .join(" @ ");
-          const status = appointment?.status || "Scheduled";
+    dashboardRecentAppointments.innerHTML = latest
+      .map((appointment, index) => {
+        const schedule = [
+          appointment?.appointment_date,
+          appointment?.appointment_time,
+        ]
+          .filter(Boolean)
+          .join(" @ ");
+        const status = appointment?.status || "Scheduled";
 
-          return `
+        return `
             <li class="${index === 0 ? "latest-entry" : ""}">
               <div class="recent-info">
                 <strong>${escapeHtml(appointment?.client_name || "Unknown Client")}</strong>
@@ -617,20 +677,21 @@ document.addEventListener("DOMContentLoaded", () => {
               </div>
             </li>
           `;
-        })
-        .join("");
-    };
+      })
+      .join("");
+  };
 
-    const renderRecentOrders = (incomingOrders, directoryOrders) => {
-      if (!dashboardRecentOrders) return;
+  const renderRecentOrders = (incomingOrders, directoryOrders) => {
+    if (!dashboardRecentOrders) return;
 
-      const preferredSource = Array.isArray(incomingOrders) && incomingOrders.length
+    const preferredSource =
+      Array.isArray(incomingOrders) && incomingOrders.length
         ? incomingOrders
         : directoryOrders;
 
-      const latest = sortLatestFirst(preferredSource).slice(0, 3);
-      if (!latest.length) {
-        dashboardRecentOrders.innerHTML = `
+    const latest = sortLatestFirst(preferredSource).slice(0, 3);
+    if (!latest.length) {
+      dashboardRecentOrders.innerHTML = `
           <li class="recent-empty">
             <div class="recent-info">
               <strong>No order records yet.</strong>
@@ -638,19 +699,22 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </li>
         `;
-        return;
-      }
+      return;
+    }
 
-      dashboardRecentOrders.innerHTML = latest
-        .map((order, index) => {
-          const quantity = Math.max(1, Number.parseInt(String(order?.quantity || "1"), 10) || 1);
-          const status =
-            order?.status_label ||
-            order?.lifecycle_status_label ||
-            order?.customer_stage_label ||
-            "Pending";
+    dashboardRecentOrders.innerHTML = latest
+      .map((order, index) => {
+        const quantity = Math.max(
+          1,
+          Number.parseInt(String(order?.quantity || "1"), 10) || 1,
+        );
+        const status =
+          order?.status_label ||
+          order?.lifecycle_status_label ||
+          order?.customer_stage_label ||
+          "Pending";
 
-          return `
+        return `
             <li class="${index === 0 ? "latest-entry" : ""}">
               <div class="recent-info">
                 <strong>${escapeHtml(order?.order_no_display || `#${order?.order_no || order?.id || "N/A"}`)}</strong>
@@ -663,16 +727,16 @@ document.addEventListener("DOMContentLoaded", () => {
               </div>
             </li>
           `;
-        })
-        .join("");
-    };
+      })
+      .join("");
+  };
 
-    const renderRecentCustomerInquiries = (inquiries) => {
-      if (!dashboardRecentInquiries) return;
+  const renderRecentCustomerInquiries = (inquiries) => {
+    if (!dashboardRecentInquiries) return;
 
-      const latest = sortLatestFirst(inquiries).slice(0, 3);
-      if (!latest.length) {
-        dashboardRecentInquiries.innerHTML = `
+    const latest = sortLatestFirst(inquiries).slice(0, 3);
+    if (!latest.length) {
+      dashboardRecentInquiries.innerHTML = `
           <li class="recent-empty">
             <div class="recent-info">
               <strong>No customer inquiries yet.</strong>
@@ -680,16 +744,16 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </li>
         `;
-        return;
-      }
+      return;
+    }
 
-      dashboardRecentInquiries.innerHTML = latest
-        .map((inquiry, index) => {
-          const status = inquiry?.status || "New";
-          const senderName = inquiry?.sender_name || "Anonymous";
-          const messagePreview = inquiry?.message_preview || "No message";
+    dashboardRecentInquiries.innerHTML = latest
+      .map((inquiry, index) => {
+        const status = inquiry?.status || "New";
+        const senderName = inquiry?.sender_name || "Anonymous";
+        const messagePreview = inquiry?.message_preview || "No message";
 
-          return `
+        return `
             <li class="${index === 0 ? "latest-entry" : ""}">
               <div class="recent-info">
                 <strong>${escapeHtml(senderName)}</strong>
@@ -702,12 +766,12 @@ document.addEventListener("DOMContentLoaded", () => {
               </div>
             </li>
           `;
-        })
-        .join("");
-    };
+      })
+      .join("");
+  };
 
-    const renderDashboardLoading = () => {
-      const loaderHTML = `
+  const renderDashboardLoading = () => {
+    const loaderHTML = `
         <li class="recent-item" style="pointer-events:none; padding:12px 16px; border-bottom:1px solid #f3f4f6; display:flex; align-items:center;">
           <div class="recent-info" style="flex:1;">
             <div style="height:14px;border-radius:4px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;margin-bottom:8px;width:160px;"></div>
@@ -718,21 +782,21 @@ document.addEventListener("DOMContentLoaded", () => {
             <div style="height:10px;border-radius:4px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:70px;"></div>
           </div>
         </li>`.repeat(4);
-        
-      if (dashboardRecentAppointments) {
-        dashboardRecentAppointments.innerHTML = loaderHTML;
-      }
-      if (dashboardRecentOrders) {
-        dashboardRecentOrders.innerHTML = loaderHTML;
-      }
-      if (dashboardRecentInquiries) {
-        dashboardRecentInquiries.innerHTML = loaderHTML;
-      }
-    };
 
-    const renderDashboardSyncError = (message) => {
-      if (dashboardRecentAppointments) {
-        dashboardRecentAppointments.innerHTML = `
+    if (dashboardRecentAppointments) {
+      dashboardRecentAppointments.innerHTML = loaderHTML;
+    }
+    if (dashboardRecentOrders) {
+      dashboardRecentOrders.innerHTML = loaderHTML;
+    }
+    if (dashboardRecentInquiries) {
+      dashboardRecentInquiries.innerHTML = loaderHTML;
+    }
+  };
+
+  const renderDashboardSyncError = (message) => {
+    if (dashboardRecentAppointments) {
+      dashboardRecentAppointments.innerHTML = `
           <li class="recent-empty">
             <div class="recent-info">
               <strong>Unable to load appointments.</strong>
@@ -740,10 +804,10 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </li>
         `;
-      }
+    }
 
-      if (dashboardRecentOrders) {
-        dashboardRecentOrders.innerHTML = `
+    if (dashboardRecentOrders) {
+      dashboardRecentOrders.innerHTML = `
           <li class="recent-empty">
             <div class="recent-info">
               <strong>Unable to load orders.</strong>
@@ -751,10 +815,10 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </li>
         `;
-      }
+    }
 
-      if (dashboardRecentInquiries) {
-        dashboardRecentInquiries.innerHTML = `
+    if (dashboardRecentInquiries) {
+      dashboardRecentInquiries.innerHTML = `
           <li class="recent-empty">
             <div class="recent-info">
               <strong>Unable to load inquiries.</strong>
@@ -762,123 +826,157 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </li>
         `;
-      }
+    }
+  };
+
+  const requestDashboardJson = async (
+    path,
+    requiresAuth = false,
+    options = {},
+  ) => {
+    const timeoutController = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      timeoutController.abort();
+    }, DASHBOARD_REQUEST_TIMEOUT_MS);
+    const externalSignal = options.signal;
+    let abortFromExternal = null;
+
+    const headers = {
+      Accept: "application/json",
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
     };
 
-    const requestDashboardJson = async (path, requiresAuth = false, options = {}) => {
-      const timeoutController = new AbortController();
-      const timeoutId = window.setTimeout(() => {
-        timeoutController.abort();
-      }, DASHBOARD_REQUEST_TIMEOUT_MS);
-      const externalSignal = options.signal;
-      let abortFromExternal = null;
-
-      const headers = {
-        Accept: "application/json",
-        "Cache-Control": "no-cache",
-        Pragma: "no-cache",
-      };
-
-      const token = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token");
-      if (requiresAuth) {
-        if (!token) {
-          const authError = new Error("Session expired. Please login again.");
-          authError.code = "AUTH";
-          throw authError;
-        }
-        headers.Authorization = `Bearer ${token}`;
-      }
-
-      abortFromExternal = () => {
-        timeoutController.abort();
-      };
-
-      if (externalSignal) {
-        if (externalSignal.aborted) {
-          timeoutController.abort();
-        } else {
-          externalSignal.addEventListener("abort", abortFromExternal, { once: true });
-        }
-      }
-
-      let response;
-
-      try {
-        response = await fetch(`${API_BASE_URL}${path}`, {
-          headers,
-          cache: "no-store",
-          signal: timeoutController.signal,
-        });
-      } catch (error) {
-        if (error?.name === "AbortError") {
-          if (externalSignal?.aborted) {
-            const cancelledError = new Error("Request cancelled.");
-            cancelledError.code = "CANCELLED";
-            throw cancelledError;
-          }
-
-          const timeoutError = new Error("Request timed out. Please check your network and backend server.");
-          timeoutError.code = "TIMEOUT";
-          throw timeoutError;
-        }
-        throw error;
-      } finally {
-        window.clearTimeout(timeoutId);
-        if (externalSignal && abortFromExternal) {
-          externalSignal.removeEventListener("abort", abortFromExternal);
-        }
-      }
-
-      const payload = await response.json().catch(() => ({}));
-      if (response.status === 401 || response.status === 403) {
-        const authError = new Error(payload?.message || "Session expired. Please login again.");
+    const token =
+      (window.AdminSession && window.AdminSession.getToken()) ||
+      localStorage.getItem("auth_token");
+    if (requiresAuth) {
+      if (!token) {
+        const authError = new Error("Session expired. Please login again.");
         authError.code = "AUTH";
-        authError.status = response.status;
         throw authError;
       }
+      headers.Authorization = `Bearer ${token}`;
+    }
 
-      if (!response.ok) {
-        const requestError = new Error(payload?.message || `Unable to load ${path}.`);
-        requestError.status = response.status;
-        throw requestError;
-      }
-
-      return payload;
+    abortFromExternal = () => {
+      timeoutController.abort();
     };
 
-    const ANALYTICS_PALETTE = [
-      "#800000", "#d4a017", "#0284c7", "#16a34a", "#7c3aed",
-      "#db2777", "#ea580c", "#0d9488", "#6366f1", "#94a3b8",
-    ];
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        timeoutController.abort();
+      } else {
+        externalSignal.addEventListener("abort", abortFromExternal, {
+          once: true,
+        });
+      }
+    }
 
-    const renderAnalyticsOverview = (analyticsSummary) => {
-      if (!analyticsSummary) return;
+    let response;
 
-      // ── Top Selling Products ──
-      if (aovTopSelling) {
-        const topSelling = Array.isArray(analyticsSummary?.top_selling) ? analyticsSummary.top_selling : [];
-        if (!topSelling.length) {
-          aovTopSelling.innerHTML = '<div class="aov-empty"><i class="fa-solid fa-chart-bar"></i> No sales data this month</div>';
-        } else {
-          aovTopSelling.innerHTML = topSelling.map((item, idx) => `
+    try {
+      response = await fetch(`${API_BASE_URL}${path}`, {
+        headers,
+        cache: "no-store",
+        signal: timeoutController.signal,
+      });
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        if (externalSignal?.aborted) {
+          const cancelledError = new Error("Request cancelled.");
+          cancelledError.code = "CANCELLED";
+          throw cancelledError;
+        }
+
+        const timeoutError = new Error(
+          "Request timed out. Please check your network and backend server.",
+        );
+        timeoutError.code = "TIMEOUT";
+        throw timeoutError;
+      }
+      throw error;
+    } finally {
+      window.clearTimeout(timeoutId);
+      if (externalSignal && abortFromExternal) {
+        externalSignal.removeEventListener("abort", abortFromExternal);
+      }
+    }
+
+    const payload = await response.json().catch(() => ({}));
+    if (response.status === 401 || response.status === 403) {
+      const authError = new Error(
+        payload?.message || "Session expired. Please login again.",
+      );
+      authError.code = "AUTH";
+      authError.status = response.status;
+      throw authError;
+    }
+
+    if (!response.ok) {
+      const requestError = new Error(
+        payload?.message || `Unable to load ${path}.`,
+      );
+      requestError.status = response.status;
+      throw requestError;
+    }
+
+    return payload;
+  };
+
+  const ANALYTICS_PALETTE = [
+    "#800000",
+    "#d4a017",
+    "#0284c7",
+    "#16a34a",
+    "#7c3aed",
+    "#db2777",
+    "#ea580c",
+    "#0d9488",
+    "#6366f1",
+    "#94a3b8",
+  ];
+
+  const renderAnalyticsOverview = (analyticsSummary) => {
+    if (!analyticsSummary) return;
+
+    // ── Top Selling Products ──
+    if (aovTopSelling) {
+      const topSelling = Array.isArray(analyticsSummary?.top_selling)
+        ? analyticsSummary.top_selling
+        : [];
+      if (!topSelling.length) {
+        aovTopSelling.innerHTML =
+          '<div class="aov-empty"><i class="fa-solid fa-chart-bar"></i> No sales data this month</div>';
+      } else {
+        aovTopSelling.innerHTML = topSelling
+          .map(
+            (item, idx) => `
             <div class="aov-item">
               <div class="aov-item-left">
-                <span class="aov-rank ${idx < 3 ? `rank-${idx + 1}` : ''}">${idx + 1}</span>
+                <span class="aov-rank ${idx < 3 ? `rank-${idx + 1}` : ""}">${idx + 1}</span>
                 <span class="aov-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
               </div>
               <span class="aov-value">${Number(item.total_sold || 0).toLocaleString("en-PH")} sold</span>
             </div>
-          `).join("");
-        }
+          `,
+          )
+          .join("");
       }
+    }
 
-      // ── Sales by Category ──
-      if (aovSalesByCategory) {
-        const categories = Array.isArray(analyticsSummary?.sales_by_category) ? analyticsSummary.sales_by_category : [];
-        if (!categories.length) {
-          aovSalesByCategory.innerHTML = '<div class="aov-empty"><i class="fa-solid fa-chart-pie"></i> No category data yet</div>';
-        } else {
-          aovSalesByCategory.innerHTML = categories.map((item, idx) => `
+    // ── Sales by Category ──
+    if (aovSalesByCategory) {
+      const categories = Array.isArray(analyticsSummary?.sales_by_category)
+        ? analyticsSummary.sales_by_category
+        : [];
+      if (!categories.length) {
+        aovSalesByCategory.innerHTML =
+          '<div class="aov-empty"><i class="fa-solid fa-chart-pie"></i> No category data yet</div>';
+      } else {
+        aovSalesByCategory.innerHTML = categories
+          .map(
+            (item, idx) => `
             <div class="aov-item">
               <div class="aov-item-left">
                 <span class="aov-category-dot" style="background:${ANALYTICS_PALETTE[idx % ANALYTICS_PALETTE.length]}"></span>
@@ -889,306 +987,363 @@ document.addEventListener("DOMContentLoaded", () => {
                 <span class="aov-category-revenue">${Number(item.total_sold || 0)} sold</span>
               </div>
             </div>
-          `).join("");
-        }
+          `,
+          )
+          .join("");
       }
+    }
 
-      // ── Product Performance ──
-      if (aovProductPerformance) {
-        const performance = Array.isArray(analyticsSummary?.top_performance) ? analyticsSummary.top_performance : [];
-        if (!performance.length) {
-          aovProductPerformance.innerHTML = '<div class="aov-empty"><i class="fa-solid fa-ranking-star"></i> No performance data yet</div>';
-        } else {
-          aovProductPerformance.innerHTML = performance.map((item, idx) => `
+    // ── Product Performance ──
+    if (aovProductPerformance) {
+      const performance = Array.isArray(analyticsSummary?.top_performance)
+        ? analyticsSummary.top_performance
+        : [];
+      if (!performance.length) {
+        aovProductPerformance.innerHTML =
+          '<div class="aov-empty"><i class="fa-solid fa-ranking-star"></i> No performance data yet</div>';
+      } else {
+        aovProductPerformance.innerHTML = performance
+          .map(
+            (item, idx) => `
             <div class="aov-item">
               <div class="aov-item-left">
-                <span class="aov-rank ${idx < 3 ? `rank-${idx + 1}` : ''}">${idx + 1}</span>
+                <span class="aov-rank ${idx < 3 ? `rank-${idx + 1}` : ""}">${idx + 1}</span>
                 <span class="aov-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</span>
               </div>
               <span class="aov-value">${formatCurrencyCompact(item.total_revenue)}</span>
             </div>
-          `).join("");
-        }
+          `,
+          )
+          .join("");
       }
+    }
 
-      // ── Yearly Sales Trend (mini bar chart) ──
-      if (aovYearlySalesTrend) {
-        const trend = Array.isArray(analyticsSummary?.yearly_trend) ? analyticsSummary.yearly_trend : [];
-        const year = analyticsSummary?.year || new Date().getFullYear();
-        if (aovTrendYear) aovTrendYear.textContent = `${year} monthly totals`;
+    // ── Yearly Sales Trend (mini bar chart) ──
+    if (aovYearlySalesTrend) {
+      const trend = Array.isArray(analyticsSummary?.yearly_trend)
+        ? analyticsSummary.yearly_trend
+        : [];
+      const year = analyticsSummary?.year || new Date().getFullYear();
+      if (aovTrendYear) aovTrendYear.textContent = `${year} monthly totals`;
 
-        const maxSales = Math.max(...trend.map(m => m.total_sales || 0), 1);
-        const hasTrendData = trend.some(m => (m.total_sales || 0) > 0);
+      const maxSales = Math.max(...trend.map((m) => m.total_sales || 0), 1);
+      const hasTrendData = trend.some((m) => (m.total_sales || 0) > 0);
 
-        if (!hasTrendData) {
-          aovYearlySalesTrend.innerHTML = '<div class="aov-empty"><i class="fa-solid fa-chart-line"></i> No sales data for this year</div>';
-        } else {
-          const monthLabels = ["J","F","M","A","M","J","J","A","S","O","N","D"];
-          const bars = trend.map((m, i) => {
-            const pct = maxSales > 0 ? Math.max(((m.total_sales || 0) / maxSales) * 100, 4) : 4;
+      if (!hasTrendData) {
+        aovYearlySalesTrend.innerHTML =
+          '<div class="aov-empty"><i class="fa-solid fa-chart-line"></i> No sales data for this year</div>';
+      } else {
+        const monthLabels = [
+          "J",
+          "F",
+          "M",
+          "A",
+          "M",
+          "J",
+          "J",
+          "A",
+          "S",
+          "O",
+          "N",
+          "D",
+        ];
+        const bars = trend
+          .map((m, i) => {
+            const pct =
+              maxSales > 0
+                ? Math.max(((m.total_sales || 0) / maxSales) * 100, 4)
+                : 4;
             return `<div class="aov-trend-bar" style="height:${pct}%" title="${monthLabels[i]}: ${formatCurrencyCompact(m.total_sales)}"></div>`;
-          }).join("");
+          })
+          .join("");
 
-          aovYearlySalesTrend.innerHTML = `
+        aovYearlySalesTrend.innerHTML = `
             <div class="aov-trend-bars">${bars}</div>
             <div class="aov-trend-label">
               <span>Jan</span><span>Jun</span><span>Dec</span>
             </div>
           `;
-        }
       }
-    };
+    }
+  };
 
-    const applyDashboardSummaryPayload = (summary) => {
-      const counts = summary?.counts || {};
-      const appointments = Array.isArray(summary?.recent_appointments)
-        ? summary.recent_appointments
-        : [];
-      const orders = Array.isArray(summary?.recent_orders)
-        ? summary.recent_orders
-        : [];
-      const inquiries = Array.isArray(summary?.recent_customer_inquiries)
-        ? summary.recent_customer_inquiries
-        : [];
+  const applyDashboardSummaryPayload = (summary) => {
+    const counts = summary?.counts || {};
+    const appointments = Array.isArray(summary?.recent_appointments)
+      ? summary.recent_appointments
+      : [];
+    const orders = Array.isArray(summary?.recent_orders)
+      ? summary.recent_orders
+      : [];
+    const inquiries = Array.isArray(summary?.recent_customer_inquiries)
+      ? summary.recent_customer_inquiries
+      : [];
 
-      setCountCards({
-        appointments: counts?.appointments,
-        accounts: counts?.accounts,
-        orders: counts?.orders,
-        products: counts?.products,
-        total_archives: counts?.total_archives,
-        total_revenue: counts?.total_revenue,
-        total_inventory_items: counts?.total_inventory_items,
-      });
+    setCountCards({
+      appointments: counts?.appointments,
+      accounts: counts?.accounts,
+      orders: counts?.orders,
+      products: counts?.products,
+      total_archives: counts?.total_archives,
+      total_revenue: counts?.total_revenue,
+      total_inventory_items: counts?.total_inventory_items,
+    });
 
-      renderRecentAppointments(appointments);
-      renderRecentOrders(orders, []);
-      renderRecentCustomerInquiries(inquiries);
+    renderRecentAppointments(appointments);
+    renderRecentOrders(orders, []);
+    renderRecentCustomerInquiries(inquiries);
 
-      // Render analytics overview
-      renderAnalyticsOverview(summary?.analytics_summary || null);
-    };
+    // Render analytics overview
+    renderAnalyticsOverview(summary?.analytics_summary || null);
+  };
 
-    const syncDashboardDataLegacy = async () => {
-      const syncSignal = dashboardSyncController?.signal;
-      const [appointmentsPayload, usersPayload, ordersPayload, productsPayload] = await Promise.all([
+  const syncDashboardDataLegacy = async () => {
+    const syncSignal = dashboardSyncController?.signal;
+    const [appointmentsPayload, usersPayload, ordersPayload, productsPayload] =
+      await Promise.all([
         requestDashboardJson("/appointments", false, { signal: syncSignal }),
         requestDashboardJson("/users", true, { signal: syncSignal }),
         requestDashboardJson("/admin/orders", true, { signal: syncSignal }),
         requestDashboardJson("/admin/products", true, { signal: syncSignal }),
       ]);
 
-      const appointments = Array.isArray(appointmentsPayload?.data) ? appointmentsPayload.data : [];
-      const users = Array.isArray(usersPayload?.data) ? usersPayload.data : [];
-      const incomingOrders = Array.isArray(ordersPayload?.incoming) ? ordersPayload.incoming : [];
-      const directoryOrders = Array.isArray(ordersPayload?.directory) ? ordersPayload.directory : [];
-      const products = Array.isArray(productsPayload?.data) ? productsPayload.data : [];
+    const appointments = Array.isArray(appointmentsPayload?.data)
+      ? appointmentsPayload.data
+      : [];
+    const users = Array.isArray(usersPayload?.data) ? usersPayload.data : [];
+    const incomingOrders = Array.isArray(ordersPayload?.incoming)
+      ? ordersPayload.incoming
+      : [];
+    const directoryOrders = Array.isArray(ordersPayload?.directory)
+      ? ordersPayload.directory
+      : [];
+    const products = Array.isArray(productsPayload?.data)
+      ? productsPayload.data
+      : [];
 
-      setCountCards({
-        appointments: appointments.length,
-        accounts: users.length,
-        orders: incomingOrders.length + directoryOrders.length,
-        products: products.length,
-      });
+    setCountCards({
+      appointments: appointments.length,
+      accounts: users.length,
+      orders: incomingOrders.length + directoryOrders.length,
+      products: products.length,
+    });
 
-      renderRecentAppointments(appointments);
-      renderRecentOrders(incomingOrders, directoryOrders);
-    };
+    renderRecentAppointments(appointments);
+    renderRecentOrders(incomingOrders, directoryOrders);
+  };
 
-    const syncDashboardData = async (options = {}) => {
-      const force = Boolean(options.force);
-      const source = String(options.source || "auto").toLowerCase();
-      const now = Date.now();
+  const syncDashboardData = async (options = {}) => {
+    const force = Boolean(options.force);
+    const source = String(options.source || "auto").toLowerCase();
+    const now = Date.now();
 
-      if (dashboardSyncInProgress) {
-        if (force) {
-          dashboardPendingForceSync = true;
-        }
-        if (force && source !== "realtime" && dashboardSyncController) {
-          dashboardSyncController.abort();
-        }
-        return;
-      }
-
-      if (!force && now - dashboardLastSyncAt < DASHBOARD_MIN_SYNC_GAP_MS) {
-        return;
-      }
-
-      const requestId = dashboardSyncRequestId + 1;
-      dashboardSyncRequestId = requestId;
-      dashboardSyncController = new AbortController();
-      dashboardSyncInProgress = true;
-
-      if (source === "manual") {
-        renderDashboardLoading();
-      }
-
-      try {
-        let usedSummaryEndpoint = false;
-        const syncSignal = dashboardSyncController?.signal;
-
-        try {
-          const summaryPayload = await requestDashboardJson("/admin/dashboard/summary", true, { signal: syncSignal });
-          applyDashboardSummaryPayload(summaryPayload?.data || {});
-          usedSummaryEndpoint = true;
-        } catch (summaryError) {
-          if (summaryError?.code === "AUTH") {
-            throw summaryError;
-          }
-        }
-
-        if (!usedSummaryEndpoint) {
-          await syncDashboardDataLegacy();
-        }
-      } catch (error) {
-        if (error?.code === "CANCELLED") {
-          return;
-        }
-
-        if (error?.code === "AUTH") {
-          if (window.AdminSession) { window.AdminSession.clearSession(); }
-          localStorage.removeItem("auth_token");
-          localStorage.removeItem("user_info");
-          window.location.href = "../admin-auth/auth.html";
-          return;
-        }
-
-        setCountCards({ appointments: "--", accounts: "--", orders: "--", products: "--", total_revenue: null, total_inventory_items: null });
-        renderDashboardSyncError(error?.message || "Please check your network and backend server.");
-      } finally {
-        if (requestId === dashboardSyncRequestId) {
-          dashboardSyncInProgress = false;
-          dashboardSyncController = null;
-          dashboardLastSyncAt = Date.now();
-        }
-
-        if (dashboardPendingForceSync) {
-          dashboardPendingForceSync = false;
-          queueDashboardSync({ force: true, source: "realtime" });
-        }
-      }
-    };
-
-    const shouldProcessRealtimeSignal = (payload = {}) => {
-      const ts = Number(payload?.timestamp || 0);
-      if (!Number.isFinite(ts) || ts <= 0) return true;
-      if (ts <= dashboardLastRealtimeSignalTs) return false;
-      dashboardLastRealtimeSignalTs = ts;
-      return true;
-    };
-
-    const queueDashboardSync = (options = {}) => {
-      const force = Boolean(options.force);
-      const source = String(options.source || "auto").toLowerCase();
+    if (dashboardSyncInProgress) {
       if (force) {
         dashboardPendingForceSync = true;
       }
+      if (force && source !== "realtime" && dashboardSyncController) {
+        dashboardSyncController.abort();
+      }
+      return;
+    }
 
-      if (dashboardSyncInProgress) return;
+    if (!force && now - dashboardLastSyncAt < DASHBOARD_MIN_SYNC_GAP_MS) {
+      return;
+    }
 
-      const elapsed = Date.now() - dashboardLastSyncAt;
-      const shouldForce = dashboardPendingForceSync;
-      const waitMs = shouldForce
-        ? DASHBOARD_EVENT_DEBOUNCE_MS
-        : Math.max(DASHBOARD_EVENT_DEBOUNCE_MS, DASHBOARD_MIN_SYNC_GAP_MS - elapsed);
+    const requestId = dashboardSyncRequestId + 1;
+    dashboardSyncRequestId = requestId;
+    dashboardSyncController = new AbortController();
+    dashboardSyncInProgress = true;
 
-      if (waitMs <= 0) {
-        dashboardPendingForceSync = false;
-        void syncDashboardData({ force: shouldForce, source });
+    if (source === "manual") {
+      renderDashboardLoading();
+    }
+
+    try {
+      let usedSummaryEndpoint = false;
+      const syncSignal = dashboardSyncController?.signal;
+
+      try {
+        const summaryPayload = await requestDashboardJson(
+          "/admin/dashboard/summary",
+          true,
+          { signal: syncSignal },
+        );
+        applyDashboardSummaryPayload(summaryPayload?.data || {});
+        usedSummaryEndpoint = true;
+      } catch (summaryError) {
+        if (summaryError?.code === "AUTH") {
+          throw summaryError;
+        }
+      }
+
+      if (!usedSummaryEndpoint) {
+        await syncDashboardDataLegacy();
+      }
+    } catch (error) {
+      if (error?.code === "CANCELLED") {
         return;
       }
 
-      if (dashboardQueuedSyncTimer) return;
-
-      dashboardQueuedSyncTimer = window.setTimeout(() => {
-        dashboardQueuedSyncTimer = null;
-        const nextForce = dashboardPendingForceSync;
-        dashboardPendingForceSync = false;
-        void syncDashboardData({ force: nextForce, source });
-      }, waitMs);
-    };
-
-    const startDashboardRealtimeSync = () => {
-      if (dashboardSyncTimer) {
-        clearInterval(dashboardSyncTimer);
-      }
-
-      dashboardSyncTimer = window.setInterval(() => {
-        if (document.hidden) return;
-        queueDashboardSync({ source: "auto" });
-      }, DASHBOARD_SYNC_MS);
-    };
-
-    window.addEventListener("storage", (event) => {
-      if (event.key !== DASHBOARD_ORDERS_SIGNAL_KEY) return;
-      if (document.hidden) return;
-
-      let payload = {};
-      try {
-        payload = JSON.parse(event.newValue || "{}");
-      } catch {
-        payload = {};
-      }
-      if (!shouldProcessRealtimeSignal(payload)) return;
-
-      queueDashboardSync({ force: true, source: "realtime" });
-    });
-
-    window.addEventListener("fmrc:orders-updated", (event) => {
-      if (document.hidden) return;
-      const payload = event?.detail || {};
-      if (!shouldProcessRealtimeSignal(payload)) return;
-      queueDashboardSync({ force: true, source: "realtime" });
-    });
-
-    const ordersChannel = getDashboardOrdersChannel();
-    ordersChannel?.addEventListener("message", (event) => {
-      if (document.hidden) return;
-      const payload = event?.data || {};
-      if (!shouldProcessRealtimeSignal(payload)) return;
-      queueDashboardSync({ force: true, source: "realtime" });
-    });
-
-    document.addEventListener("visibilitychange", () => {
-      if (document.hidden) return;
-      queueDashboardSync({ force: true, source: "realtime" });
-    });
-
-    window.addEventListener("focus", () => {
-      if (document.hidden) return;
-      queueDashboardSync({ force: true, source: "realtime" });
-    });
-
-    if (dashboardRefreshBtn) {
-      dashboardRefreshBtn.addEventListener("click", () => {
-        // Make refresh consistent with Inventory page: perform a full reload
-        dashboardRefreshBtn.disabled = true;
-        try {
-          window.location.reload();
-        } finally {
-          // ensure button isn't permanently disabled if reload is blocked
-          window.setTimeout(() => {
-            dashboardRefreshBtn.disabled = false;
-          }, 900);
+      if (error?.code === "AUTH") {
+        if (window.AdminSession) {
+          window.AdminSession.clearSession();
         }
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("user_info");
+        window.location.href = "../admin-auth/auth.html";
+        return;
+      }
+
+      setCountCards({
+        appointments: "--",
+        accounts: "--",
+        orders: "--",
+        products: "--",
+        total_revenue: null,
+        total_inventory_items: null,
       });
+      renderDashboardSyncError(
+        error?.message || "Please check your network and backend server.",
+      );
+    } finally {
+      if (requestId === dashboardSyncRequestId) {
+        dashboardSyncInProgress = false;
+        dashboardSyncController = null;
+        dashboardLastSyncAt = Date.now();
+      }
+
+      if (dashboardPendingForceSync) {
+        dashboardPendingForceSync = false;
+        queueDashboardSync({ force: true, source: "realtime" });
+      }
+    }
+  };
+
+  const shouldProcessRealtimeSignal = (payload = {}) => {
+    const ts = Number(payload?.timestamp || 0);
+    if (!Number.isFinite(ts) || ts <= 0) return true;
+    if (ts <= dashboardLastRealtimeSignalTs) return false;
+    dashboardLastRealtimeSignalTs = ts;
+    return true;
+  };
+
+  const queueDashboardSync = (options = {}) => {
+    const force = Boolean(options.force);
+    const source = String(options.source || "auto").toLowerCase();
+    if (force) {
+      dashboardPendingForceSync = true;
     }
 
-    window.addEventListener("beforeunload", () => {
-      if (dashboardSyncTimer) {
-        clearInterval(dashboardSyncTimer);
-      }
-      if (dashboardQueuedSyncTimer) {
-        clearTimeout(dashboardQueuedSyncTimer);
-      }
-      if (dashboardSyncController) {
-        dashboardSyncController.abort();
-      }
-      dashboardOrdersChannel?.close();
-    });
+    if (dashboardSyncInProgress) return;
 
-    void syncDashboardData({ force: true, source: "manual" });
-    startDashboardRealtimeSync();
+    const elapsed = Date.now() - dashboardLastSyncAt;
+    const shouldForce = dashboardPendingForceSync;
+    const waitMs = shouldForce
+      ? DASHBOARD_EVENT_DEBOUNCE_MS
+      : Math.max(
+          DASHBOARD_EVENT_DEBOUNCE_MS,
+          DASHBOARD_MIN_SYNC_GAP_MS - elapsed,
+        );
+
+    if (waitMs <= 0) {
+      dashboardPendingForceSync = false;
+      void syncDashboardData({ force: shouldForce, source });
+      return;
+    }
+
+    if (dashboardQueuedSyncTimer) return;
+
+    dashboardQueuedSyncTimer = window.setTimeout(() => {
+      dashboardQueuedSyncTimer = null;
+      const nextForce = dashboardPendingForceSync;
+      dashboardPendingForceSync = false;
+      void syncDashboardData({ force: nextForce, source });
+    }, waitMs);
+  };
+
+  const startDashboardRealtimeSync = () => {
+    if (dashboardSyncTimer) {
+      clearInterval(dashboardSyncTimer);
+    }
+
+    dashboardSyncTimer = window.setInterval(() => {
+      if (document.hidden) return;
+      queueDashboardSync({ source: "auto" });
+    }, DASHBOARD_SYNC_MS);
+  };
+
+  window.addEventListener("storage", (event) => {
+    if (event.key !== DASHBOARD_ORDERS_SIGNAL_KEY) return;
+    if (document.hidden) return;
+
+    let payload = {};
+    try {
+      payload = JSON.parse(event.newValue || "{}");
+    } catch {
+      payload = {};
+    }
+    if (!shouldProcessRealtimeSignal(payload)) return;
+
+    queueDashboardSync({ force: true, source: "realtime" });
+  });
+
+  window.addEventListener("fmrc:orders-updated", (event) => {
+    if (document.hidden) return;
+    const payload = event?.detail || {};
+    if (!shouldProcessRealtimeSignal(payload)) return;
+    queueDashboardSync({ force: true, source: "realtime" });
+  });
+
+  const ordersChannel = getDashboardOrdersChannel();
+  ordersChannel?.addEventListener("message", (event) => {
+    if (document.hidden) return;
+    const payload = event?.data || {};
+    if (!shouldProcessRealtimeSignal(payload)) return;
+    queueDashboardSync({ force: true, source: "realtime" });
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) return;
+    queueDashboardSync({ force: true, source: "realtime" });
+  });
+
+  window.addEventListener("focus", () => {
+    if (document.hidden) return;
+    queueDashboardSync({ force: true, source: "realtime" });
+  });
+
+  if (dashboardRefreshBtn) {
+    dashboardRefreshBtn.addEventListener("click", () => {
+      // Make refresh consistent with Inventory page: perform a full reload
+      dashboardRefreshBtn.disabled = true;
+      try {
+        window.location.reload();
+      } finally {
+        // ensure button isn't permanently disabled if reload is blocked
+        window.setTimeout(() => {
+          dashboardRefreshBtn.disabled = false;
+        }, 900);
+      }
+    });
+  }
+
+  window.addEventListener("beforeunload", () => {
+    if (dashboardSyncTimer) {
+      clearInterval(dashboardSyncTimer);
+    }
+    if (dashboardQueuedSyncTimer) {
+      clearTimeout(dashboardQueuedSyncTimer);
+    }
+    if (dashboardSyncController) {
+      dashboardSyncController.abort();
+    }
+    dashboardOrdersChannel?.close();
+  });
+
+  void syncDashboardData({ force: true, source: "manual" });
+  startDashboardRealtimeSync();
 
   syncSidebarMode();
 });

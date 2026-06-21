@@ -2,12 +2,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   const moduleHost = document.getElementById("staffProductsModule");
   if (!moduleHost) return;
 
-  const adminProductsUrl = new URL("../admin-page/products.html", window.location.href).href;
+  const adminProductsUrl = new URL(
+    "../admin-page/products.html",
+    window.location.href,
+  ).href;
 
   try {
     const response = await fetch(adminProductsUrl, { cache: "no-store" });
     if (!response.ok) {
-      throw new Error(`Unable to load admin products page (${response.status}).`);
+      throw new Error(
+        `Unable to load admin products page (${response.status}).`,
+      );
     }
 
     const html = await response.text();
@@ -27,18 +32,25 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     moduleHost.innerHTML = adminSection.innerHTML;
 
-    const existingModals = Array.from(document.querySelectorAll(".modal-overlay"));
+    const existingModals = Array.from(
+      document.querySelectorAll(".modal-overlay"),
+    );
     existingModals.forEach((modal) => modal.remove());
 
     adminDoc.querySelectorAll("div.modal-overlay").forEach((modalNode) => {
       document.body.appendChild(modalNode.cloneNode(true));
     });
 
-    const productsScriptResponse = await fetch(new URL("../admin-page/products.js", window.location.href).href, {
-      cache: "no-store",
-    });
+    const productsScriptResponse = await fetch(
+      new URL("../admin-page/products.js", window.location.href).href,
+      {
+        cache: "no-store",
+      },
+    );
     if (!productsScriptResponse.ok) {
-      throw new Error(`Unable to load products script (${productsScriptResponse.status}).`);
+      throw new Error(
+        `Unable to load products script (${productsScriptResponse.status}).`,
+      );
     }
 
     const scriptText = await productsScriptResponse.text();
@@ -50,12 +62,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       throw new Error("Unable to extract products script body.");
     }
 
-    const strippedScript = scriptText.slice(startIndex + startMarker.length, endIndex);
+    const strippedScript = scriptText.slice(
+      startIndex + startMarker.length,
+      endIndex,
+    );
 
     // Run the admin product logic inside a function scope so its `return` statements remain valid.
-    await new Function(`return (async function () {\n${strippedScript}\n}).call(window);`)();
+    await new Function(
+      `return (async function () {\n${strippedScript}\n}).call(window);`,
+    )();
   } catch (error) {
     console.error("Staff products loader error:", error);
-    moduleHost.innerHTML = '<div class="panel" style="padding:24px;color:#991b1b;">Unable to load product management data. Please try again.</div>';
+    moduleHost.innerHTML =
+      '<div class="panel" style="padding:24px;color:#991b1b;">Unable to load product management data. Please try again.</div>';
   }
 });

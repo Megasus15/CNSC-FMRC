@@ -3665,10 +3665,10 @@ document.addEventListener("DOMContentLoaded", () => {
       return el?.selectedOptions?.[0]?.text?.trim() || el?.value?.trim() || "";
     };
 
-    const region       = getSelectText("aptRegion");
-    const province     = getSelectText("aptProvince");
+    const region = getSelectText("aptRegion");
+    const province = getSelectText("aptProvince");
     const municipality = getSelectText("aptMunicipality");
-    const barangay     = getSelectText("aptAddress");
+    const barangay = getSelectText("aptAddress");
 
     // Filter out any placeholder strings that look like "Select …" or "Loading …"
     const isPlaceholder = (s) => /^(Select|Loading|No )/i.test(s);
@@ -3677,7 +3677,6 @@ document.addEventListener("DOMContentLoaded", () => {
       .filter((s) => Boolean(s) && !isPlaceholder(s))
       .join(", ");
   };
-
 
   const fetchCalendarAvailability = async () => {
     try {
@@ -4040,22 +4039,10 @@ document.addEventListener("DOMContentLoaded", () => {
       return isPlaceholder(name) ? "" : name;
     };
 
-    formData.append(
-      "region",
-      psgcName("aptRegion"),
-    );
-    formData.append(
-      "province",
-      psgcName("aptProvince"),
-    );
-    formData.append(
-      "municipality",
-      psgcName("aptMunicipality"),
-    );
-    formData.append(
-      "barangay",
-      psgcName("aptAddress"),
-    );
+    formData.append("region", psgcName("aptRegion"));
+    formData.append("province", psgcName("aptProvince"));
+    formData.append("municipality", psgcName("aptMunicipality"));
+    formData.append("barangay", psgcName("aptAddress"));
 
     formData.append(
       "intl_address",
@@ -4445,18 +4432,17 @@ document.addEventListener("DOMContentLoaded", () => {
   // Cascading dropdowns: Region → Province → City/Municipality → Barangay
   // Data is fetched from our Laravel backend which proxies the PSGC Cloud API
   // (https://psgc.cloud/api) with 24-hour server-side caching.
-  const aptCountry        = document.getElementById('aptCountry');
-  const aptRegion         = document.getElementById('aptRegion');
-  const aptProvince       = document.getElementById('aptProvince');
-  const aptMunicipality   = document.getElementById('aptMunicipality');
-  const aptBarangay       = document.getElementById('aptAddress');
-  const aptIntlAddress    = document.getElementById('aptIntlAddress');
-  const aptPhAddressFields  = document.getElementById('aptPhAddressFields');
-  const aptIntlAddressField = document.getElementById('aptIntlAddressField');
+  const aptCountry = document.getElementById("aptCountry");
+  const aptRegion = document.getElementById("aptRegion");
+  const aptProvince = document.getElementById("aptProvince");
+  const aptMunicipality = document.getElementById("aptMunicipality");
+  const aptBarangay = document.getElementById("aptAddress");
+  const aptIntlAddress = document.getElementById("aptIntlAddress");
+  const aptPhAddressFields = document.getElementById("aptPhAddressFields");
+  const aptIntlAddressField = document.getElementById("aptIntlAddressField");
 
   /** Base URL for PSGC proxy endpoints — uses the same resolved backend URL as all other API calls */
   const PSGC_BASE = `${API_BASE_URL}/psgc`;
-
 
   /** In-memory cache so repeated visits to the same step skip re-fetching. */
   const _psgcCache = {};
@@ -4475,7 +4461,7 @@ document.addEventListener("DOMContentLoaded", () => {
       _psgcCache[url] = Array.isArray(json) ? json : [];
       return _psgcCache[url];
     } catch (err) {
-      console.error('[PSGC] Fetch error:', url, err);
+      console.error("[PSGC] Fetch error:", url, err);
       return [];
     }
   };
@@ -4502,16 +4488,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!el) return;
     el.innerHTML = `<option value="" selected disabled hidden>${placeholder}</option>`;
     if (items.length === 0) {
-      const opt = document.createElement('option');
-      opt.value = '';
-      opt.textContent = `No ${placeholder.replace('Select ', '')} available`;
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = `No ${placeholder.replace("Select ", "")} available`;
       opt.disabled = true;
       el.appendChild(opt);
       el.disabled = true;
       return;
     }
     items.forEach(({ code, name }) => {
-      const opt = document.createElement('option');
+      const opt = document.createElement("option");
       opt.value = code;
       opt.textContent = name;
       el.appendChild(opt);
@@ -4521,60 +4507,68 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /** Reset all PH-address selects back to their placeholder state. */
   const resetPhSelects = () => {
-    fillSelect(aptRegion,       [], 'Select Region',       true);
-    fillSelect(aptProvince,     [], 'Select Province',     true);
-    fillSelect(aptMunicipality, [], 'Select Municipality', true);
-    fillSelect(aptBarangay,     [], 'Select Barangay',     true);
+    fillSelect(aptRegion, [], "Select Region", true);
+    fillSelect(aptProvince, [], "Select Province", true);
+    fillSelect(aptMunicipality, [], "Select Municipality", true);
+    fillSelect(aptBarangay, [], "Select Barangay", true);
     // Immediately load regions (they're the top of the chain)
     loadRegions();
   };
 
   /** Show/hide PH vs international address fields based on country selection. */
   const updateAddressMode = () => {
-    const isPh = aptCountry?.value === 'Philippines';
-    if (aptPhAddressFields)   aptPhAddressFields.style.display   = isPh ? 'contents' : 'none';
-    if (aptIntlAddressField)  aptIntlAddressField.style.display  = isPh ? 'none' : 'block';
-    if (aptIntlAddress)       aptIntlAddress.required            = !isPh;
+    const isPh = aptCountry?.value === "Philippines";
+    if (aptPhAddressFields)
+      aptPhAddressFields.style.display = isPh ? "contents" : "none";
+    if (aptIntlAddressField)
+      aptIntlAddressField.style.display = isPh ? "none" : "block";
+    if (aptIntlAddress) aptIntlAddress.required = !isPh;
   };
 
   // ── Loader functions (each cascades to the next) ──────────────────────────
 
   /** Load all Philippine regions into aptRegion. */
   const loadRegions = async () => {
-    setLoading(aptRegion, 'Region');
+    setLoading(aptRegion, "Region");
     const regions = await psgcGet(`${PSGC_BASE}/regions`);
-    fillSelect(aptRegion, regions, 'Select Region', false);
+    fillSelect(aptRegion, regions, "Select Region", false);
     // Reset downstream selects
-    fillSelect(aptProvince,     [], 'Select Province',     true);
-    fillSelect(aptMunicipality, [], 'Select Municipality', true);
-    fillSelect(aptBarangay,     [], 'Select Barangay',     true);
+    fillSelect(aptProvince, [], "Select Province", true);
+    fillSelect(aptMunicipality, [], "Select Municipality", true);
+    fillSelect(aptBarangay, [], "Select Barangay", true);
   };
 
   /** Load provinces for the selected region. */
   const loadProvinces = async (regionCode) => {
-    setLoading(aptProvince,     'Province');
-    fillSelect(aptMunicipality, [], 'Select Municipality', true);
-    fillSelect(aptBarangay,     [], 'Select Barangay',     true);
+    setLoading(aptProvince, "Province");
+    fillSelect(aptMunicipality, [], "Select Municipality", true);
+    fillSelect(aptBarangay, [], "Select Barangay", true);
 
-    const provinces = await psgcGet(`${PSGC_BASE}/regions/${regionCode}/provinces`);
-    fillSelect(aptProvince, provinces, 'Select Province', false);
+    const provinces = await psgcGet(
+      `${PSGC_BASE}/regions/${regionCode}/provinces`,
+    );
+    fillSelect(aptProvince, provinces, "Select Province", false);
   };
 
   /** Load cities/municipalities for the selected province. */
   const loadCitiesMunicipalities = async (provinceCode) => {
-    setLoading(aptMunicipality, 'Municipality');
-    fillSelect(aptBarangay, [], 'Select Barangay', true);
+    setLoading(aptMunicipality, "Municipality");
+    fillSelect(aptBarangay, [], "Select Barangay", true);
 
-    const cities = await psgcGet(`${PSGC_BASE}/provinces/${provinceCode}/cities-municipalities`);
-    fillSelect(aptMunicipality, cities, 'Select Municipality', false);
+    const cities = await psgcGet(
+      `${PSGC_BASE}/provinces/${provinceCode}/cities-municipalities`,
+    );
+    fillSelect(aptMunicipality, cities, "Select Municipality", false);
   };
 
   /** Load barangays for the selected city/municipality. */
   const loadBarangays = async (cityMunCode) => {
-    setLoading(aptBarangay, 'Barangay');
+    setLoading(aptBarangay, "Barangay");
 
-    const barangays = await psgcGet(`${PSGC_BASE}/cities-municipalities/${cityMunCode}/barangays`);
-    fillSelect(aptBarangay, barangays, 'Select Barangay', false);
+    const barangays = await psgcGet(
+      `${PSGC_BASE}/cities-municipalities/${cityMunCode}/barangays`,
+    );
+    fillSelect(aptBarangay, barangays, "Select Barangay", false);
   };
 
   // ── Wire up change events ─────────────────────────────────────────────────
@@ -4586,19 +4580,19 @@ document.addEventListener("DOMContentLoaded", () => {
     aptMunicipality &&
     aptBarangay
   ) {
-    aptCountry.addEventListener('change', updateAddressMode);
+    aptCountry.addEventListener("change", updateAddressMode);
 
-    aptRegion.addEventListener('change', () => {
+    aptRegion.addEventListener("change", () => {
       const code = aptRegion.value;
       if (code) loadProvinces(code);
     });
 
-    aptProvince.addEventListener('change', () => {
+    aptProvince.addEventListener("change", () => {
       const code = aptProvince.value;
       if (code) loadCitiesMunicipalities(code);
     });
 
-    aptMunicipality.addEventListener('change', () => {
+    aptMunicipality.addEventListener("change", () => {
       const code = aptMunicipality.value;
       if (code) loadBarangays(code);
     });
@@ -4608,7 +4602,6 @@ document.addEventListener("DOMContentLoaded", () => {
     updateAddressMode();
   }
   // ─────────────────────────────────────────────────────────────────────────────
-
 
   aptFileInput?.addEventListener("change", () => {
     const file = aptFileInput.files?.[0];
@@ -4863,18 +4856,21 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       // Success — restore close button then transition to Step 5
       if (closeBtn) closeBtn.disabled = false;
-      
+
       // Explicitly ensure overlay remains visible using class
-      if (appointmentOverlay && !appointmentOverlay.classList.contains("show-modal")) {
+      if (
+        appointmentOverlay &&
+        !appointmentOverlay.classList.contains("show-modal")
+      ) {
         appointmentOverlay.classList.add("show-modal");
       }
-      
+
       try {
         switchAptStep(5);
       } catch (stepErr) {
         console.error("switchAptStep Error:", stepErr);
       }
-      
+
       return false;
     } catch (err) {
       console.error("[APPT SUBMIT] Unexpected Error:", err);
@@ -4895,7 +4891,6 @@ document.addEventListener("DOMContentLoaded", () => {
     void downloadAppointmentReceipt();
   });
 
-
   // Step 5: "Finish Transaction" — appointment already submitted, just show success
   bindClick("btnFinishStep5", () => {
     successModal?.classList.add("active");
@@ -4904,7 +4899,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindClick("btnSuccessHome", () => {
     successModal?.classList.remove("active");
     appointmentOverlay?.classList.remove("show-modal");
-    
+
     // Safeguard: Strip any inline styles left over from previous bug fixes
     if (appointmentOverlay) {
       appointmentOverlay.style.display = "";
@@ -4913,13 +4908,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     const step5 = document.getElementById("aptStep5");
     if (step5) step5.style.display = "";
-    
+
     document.body.style.overflow = "";
     resetAppointmentFlowState();
     switchAptStep(1);
     stopAptPolling();
   });
-
 
   const contactMessageForm = document.getElementById("contactMessageForm");
   if (contactMessageForm) {
@@ -4942,9 +4936,12 @@ document.addEventListener("DOMContentLoaded", () => {
       };
 
       if (!payload.name || !payload.email || !payload.message) {
-        await showCustomerPopup("Please complete Name, Email, and Message before sending.", {
-          title: "Incomplete Form",
-        });
+        await showCustomerPopup(
+          "Please complete Name, Email, and Message before sending.",
+          {
+            title: "Incomplete Form",
+          },
+        );
         return;
       }
 
@@ -4968,26 +4965,34 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       try {
-        const authToken = customerSession.token || localStorage.getItem("customer_token") || "";
-        const response = await fetchWithTimeout(`${API_BASE_URL}/customer/messages`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${authToken}`,
+        const authToken =
+          customerSession.token || localStorage.getItem("customer_token") || "";
+        const response = await fetchWithTimeout(
+          `${API_BASE_URL}/customer/messages`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Bearer ${authToken}`,
+            },
+            body: JSON.stringify(payload),
           },
-          body: JSON.stringify(payload),
-        }, 15000);
+          15000,
+        );
 
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-          throw new Error(data?.message || "Unable to send your message right now.");
+          throw new Error(
+            data?.message || "Unable to send your message right now.",
+          );
         }
 
         contactMessageForm.reset();
         await showCustomerPopup(
-          data?.message || "Thank you. Your message has been sent successfully.",
+          data?.message ||
+            "Thank you. Your message has been sent successfully.",
           {
             title: "Message Sent",
             allowBackdropClose: false,
@@ -5007,7 +5012,6 @@ document.addEventListener("DOMContentLoaded", () => {
           submitBtn.textContent = previousText;
         }
       }
-
     });
   }
 });

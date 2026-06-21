@@ -2,7 +2,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const resolveApiBaseUrl = () => {
     const configured =
       window.APP_API_BASE_URL ||
-      document.querySelector('meta[name="api-base-url"]')?.getAttribute("content") ||
+      document
+        .querySelector('meta[name="api-base-url"]')
+        ?.getAttribute("content") ||
       "";
 
     if (configured.trim()) {
@@ -34,7 +36,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const API_BASE_URL = resolveApiBaseUrl();
-  const authToken = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token");
+  const authToken =
+    (window.AdminSession && window.AdminSession.getToken()) ||
+    localStorage.getItem("auth_token");
   const PHILIPPINES_TIME_ZONE = "Asia/Manila";
   const REQUEST_TIMEOUT_MS = 25000; // Increased to 25s because local Laravel SMTP blocking causes long load times
   const ORDERS_REALTIME_CHANNEL = "fmrc-orders-realtime";
@@ -46,64 +50,114 @@ document.addEventListener("DOMContentLoaded", () => {
   const getOrdersRealtimeChannel = () => {
     if (typeof window.BroadcastChannel !== "function") return null;
     if (!ordersRealtimeChannel) {
-      ordersRealtimeChannel = new window.BroadcastChannel(ORDERS_REALTIME_CHANNEL);
+      ordersRealtimeChannel = new window.BroadcastChannel(
+        ORDERS_REALTIME_CHANNEL,
+      );
     }
     return ordersRealtimeChannel;
   };
 
   const incomingCardsWrap = document.getElementById("incomingOrdersCards");
-  const incomingCardsPagination = document.getElementById("incomingCardsPagination");
+  const incomingCardsPagination = document.getElementById(
+    "incomingCardsPagination",
+  );
   const incomingPrevBtn = document.getElementById("incomingPrevBtn");
   const incomingNextBtn = document.getElementById("incomingNextBtn");
   const incomingPageNumber = document.getElementById("incomingPageNumber");
 
-  const incomingCompactTbody = document.querySelector("#incomingCompactTable tbody");
-  const incomingCompactFooter = document.getElementById("incomingCompactFooter");
+  const incomingCompactTbody = document.querySelector(
+    "#incomingCompactTable tbody",
+  );
+  const incomingCompactFooter = document.getElementById(
+    "incomingCompactFooter",
+  );
 
-  const ordersDirectoryTbody = document.querySelector("#ordersDirectoryTable tbody");
-  const ordersDirectoryFooter = document.getElementById("ordersDirectoryFooter");
-  const directoryStatusFilter = document.getElementById("ordersDirectoryStatusFilter");
+  const ordersDirectoryTbody = document.querySelector(
+    "#ordersDirectoryTable tbody",
+  );
+  const ordersDirectoryFooter = document.getElementById(
+    "ordersDirectoryFooter",
+  );
+  const directoryStatusFilter = document.getElementById(
+    "ordersDirectoryStatusFilter",
+  );
   const directorySearch = document.getElementById("ordersDirectorySearch");
 
-  const paymentsHistoryTbody = document.querySelector("#paymentsHistoryTable tbody");
-  const paymentsHistoryFooter = document.getElementById("paymentsHistoryFooter");
+  const paymentsHistoryTbody = document.querySelector(
+    "#paymentsHistoryTable tbody",
+  );
+  const paymentsHistoryFooter = document.getElementById(
+    "paymentsHistoryFooter",
+  );
   const paymentsMethodFilter = document.getElementById("paymentsMethodFilter");
 
-  const rejectedOrdersTbody   = document.querySelector("#rejectedOrdersTable tbody");
-  const rejectedOrdersFooter  = document.getElementById("rejectedOrdersFooter");
+  const rejectedOrdersTbody = document.querySelector(
+    "#rejectedOrdersTable tbody",
+  );
+  const rejectedOrdersFooter = document.getElementById("rejectedOrdersFooter");
 
   const walkInOrdersTbody = document.querySelector("#walkInOrdersTable tbody");
   const walkInOrdersFooter = document.getElementById("walkInOrdersFooter");
-  const openWalkInOrderModalBtn = document.getElementById("openWalkInOrderModalBtn");
+  const openWalkInOrderModalBtn = document.getElementById(
+    "openWalkInOrderModalBtn",
+  );
   const modalAddWalkInOrder = document.getElementById("modalAddWalkInOrder");
   const modalWalkInDetails = document.getElementById("modalWalkInDetails");
   const walkInOrderNoInput = document.getElementById("walkInOrderNoInput");
-  const walkInCustomerNameInput = document.getElementById("walkInCustomerNameInput");
+  const walkInCustomerNameInput = document.getElementById(
+    "walkInCustomerNameInput",
+  );
   const walkInAddressInput = document.getElementById("walkInAddressInput");
-  const walkInContactNumberInput = document.getElementById("walkInContactNumberInput");
-  const walkInClientTypeInput = document.getElementById("walkInClientTypeInput");
-  const walkInClientTypeOtherInput = document.getElementById("walkInClientTypeOtherInput");
-  const walkInClientTypeOtherWrap = document.getElementById("walkInClientTypeOtherWrap");
-  const walkInAgencyOrganizationInput = document.getElementById("walkInAgencyOrganizationInput");
-  const walkInProjectDescriptionInput = document.getElementById("walkInProjectDescriptionInput");
-  const walkInProjectDescriptionOtherInput = document.getElementById("walkInProjectDescriptionOtherInput");
-  const walkInProjectDescriptionOtherWrap = document.getElementById("walkInProjectDescriptionOtherWrap");
-  const walkInItemDetailInput = document.getElementById("walkInItemDetailInput");
+  const walkInContactNumberInput = document.getElementById(
+    "walkInContactNumberInput",
+  );
+  const walkInClientTypeInput = document.getElementById(
+    "walkInClientTypeInput",
+  );
+  const walkInClientTypeOtherInput = document.getElementById(
+    "walkInClientTypeOtherInput",
+  );
+  const walkInClientTypeOtherWrap = document.getElementById(
+    "walkInClientTypeOtherWrap",
+  );
+  const walkInAgencyOrganizationInput = document.getElementById(
+    "walkInAgencyOrganizationInput",
+  );
+  const walkInProjectDescriptionInput = document.getElementById(
+    "walkInProjectDescriptionInput",
+  );
+  const walkInProjectDescriptionOtherInput = document.getElementById(
+    "walkInProjectDescriptionOtherInput",
+  );
+  const walkInProjectDescriptionOtherWrap = document.getElementById(
+    "walkInProjectDescriptionOtherWrap",
+  );
+  const walkInItemDetailInput = document.getElementById(
+    "walkInItemDetailInput",
+  );
   const walkInItemDetailWrap = document.getElementById("walkInItemDetailWrap");
   const walkInItemDetailList = document.getElementById("walkInItemDetailList");
   const walkInUnitInput = document.getElementById("walkInUnitInput");
-  const walkInSubtotalCostInput = document.getElementById("walkInSubtotalCostInput");
-  const walkInPaymentMethodInput = document.getElementById("walkInPaymentMethodInput");
+  const walkInSubtotalCostInput = document.getElementById(
+    "walkInSubtotalCostInput",
+  );
+  const walkInPaymentMethodInput = document.getElementById(
+    "walkInPaymentMethodInput",
+  );
   const walkInTotalInput = document.getElementById("walkInTotalInput");
   const cancelWalkInOrderBtn = document.getElementById("cancelWalkInOrderBtn");
   const saveWalkInOrderBtn = document.getElementById("saveWalkInOrderBtn");
-  const btnCloseWalkInDetails = document.getElementById("btnCloseWalkInDetails");
+  const btnCloseWalkInDetails = document.getElementById(
+    "btnCloseWalkInDetails",
+  );
 
   const walkInDetailOrderNo = document.getElementById("walkInDetailOrderNo");
   const walkInDetailName = document.getElementById("walkInDetailName");
   const walkInDetailAddress = document.getElementById("walkInDetailAddress");
   const walkInDetailContact = document.getElementById("walkInDetailContact");
-  const walkInDetailClientType = document.getElementById("walkInDetailClientType");
+  const walkInDetailClientType = document.getElementById(
+    "walkInDetailClientType",
+  );
   const walkInDetailAgency = document.getElementById("walkInDetailAgency");
   const walkInDetailProject = document.getElementById("walkInDetailProject");
   const walkInDetailItem = document.getElementById("walkInDetailItem");
@@ -112,12 +166,22 @@ document.addEventListener("DOMContentLoaded", () => {
   const walkInDetailTotal = document.getElementById("walkInDetailTotal");
   const walkInDetailPayment = document.getElementById("walkInDetailPayment");
   const walkInDetailDate = document.getElementById("walkInDetailDate");
-  const btnEditWalkInFromView = document.getElementById("btnEditWalkInFromView");
+  const btnEditWalkInFromView = document.getElementById(
+    "btnEditWalkInFromView",
+  );
 
-  const modalDeletePaymentHistory = document.getElementById("modalArchivePaymentHistory");
-  const paymentDeleteTargetLabel = document.getElementById("paymentArchiveTargetLabel");
-  const btnCancelDeletePaymentHistory = document.getElementById("btnCancelArchivePaymentHistory");
-  const btnConfirmDeletePaymentHistory = document.getElementById("btnConfirmArchivePaymentHistory");
+  const modalDeletePaymentHistory = document.getElementById(
+    "modalArchivePaymentHistory",
+  );
+  const paymentDeleteTargetLabel = document.getElementById(
+    "paymentArchiveTargetLabel",
+  );
+  const btnCancelDeletePaymentHistory = document.getElementById(
+    "btnCancelArchivePaymentHistory",
+  );
+  const btnConfirmDeletePaymentHistory = document.getElementById(
+    "btnConfirmArchivePaymentHistory",
+  );
 
   const refreshBtn = document.getElementById("ordersRefreshBtn");
 
@@ -128,11 +192,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const trackingOrderNo = document.getElementById("trackingOrderNo");
   const trackingStage = document.getElementById("trackingStage");
   const trackingEventTitle = document.getElementById("trackingEventTitle");
-  const trackingEventDescription = document.getElementById("trackingEventDescription");
+  const trackingEventDescription = document.getElementById(
+    "trackingEventDescription",
+  );
   const trackingCourierName = document.getElementById("trackingCourierName");
   const trackingCourierNo = document.getElementById("trackingCourierNo");
   const trackingLocationName = document.getElementById("trackingLocationName");
-  const btnSaveTrackingUpdate = document.getElementById("btnSaveTrackingUpdate");
+  const btnSaveTrackingUpdate = document.getElementById(
+    "btnSaveTrackingUpdate",
+  );
 
   const state = {
     incoming: [],
@@ -173,7 +241,9 @@ document.addEventListener("DOMContentLoaded", () => {
       ...detail,
     };
 
-    window.dispatchEvent(new CustomEvent("fmrc:orders-updated", { detail: payload }));
+    window.dispatchEvent(
+      new CustomEvent("fmrc:orders-updated", { detail: payload }),
+    );
 
     try {
       localStorage.setItem("fmrc_orders_updated_at", JSON.stringify(payload));
@@ -233,7 +303,7 @@ document.addEventListener("DOMContentLoaded", () => {
     [...(Array.isArray(rows) ? rows : [])].sort(
       (a, b) =>
         toNumericId(a?.order_id || a?.order_no || a?.payment_id) -
-          toNumericId(b?.order_id || b?.order_no || b?.payment_id),
+        toNumericId(b?.order_id || b?.order_no || b?.payment_id),
     );
 
   const sortWalkInByDateDesc = (rows) =>
@@ -241,8 +311,7 @@ document.addEventListener("DOMContentLoaded", () => {
       (a, b) =>
         toTimestamp(b?.order_date || b?.created_at) -
           toTimestamp(a?.order_date || a?.created_at) ||
-        toNumericId(b?.id || b?.order_no) -
-          toNumericId(a?.id || a?.order_no),
+        toNumericId(b?.id || b?.order_no) - toNumericId(a?.id || a?.order_no),
     );
 
   const normalizeStateOrdering = () => {
@@ -252,7 +321,10 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const getCompletedDirectoryRows = () =>
-    state.directory.filter((order) => String(order?.lifecycle_status || "").toLowerCase() === "completed");
+    state.directory.filter(
+      (order) =>
+        String(order?.lifecycle_status || "").toLowerCase() === "completed",
+    );
 
   const refreshPaymentsFromDirectory = () => {
     state.payments = sortPaymentsByOrderAsc(getCompletedDirectoryRows());
@@ -334,7 +406,10 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       sessionStorage.setItem(
         ORDERS_SUCCESS_FLASH_KEY,
-        JSON.stringify({ message: String(message || "Success"), title: String(title || "Success") }),
+        JSON.stringify({
+          message: String(message || "Success"),
+          title: String(title || "Success"),
+        }),
       );
     } catch {
       // Ignore storage failures (private mode/quota).
@@ -344,7 +419,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const showQueuedSuccess = () => {
     let payload = null;
     try {
-      payload = JSON.parse(sessionStorage.getItem(ORDERS_SUCCESS_FLASH_KEY) || "null");
+      payload = JSON.parse(
+        sessionStorage.getItem(ORDERS_SUCCESS_FLASH_KEY) || "null",
+      );
     } catch {
       payload = null;
     }
@@ -404,11 +481,16 @@ document.addEventListener("DOMContentLoaded", () => {
       if (externalSignal.aborted) {
         timeoutController.abort();
       } else {
-        externalSignal.addEventListener("abort", abortFromExternal, { once: true });
+        externalSignal.addEventListener("abort", abortFromExternal, {
+          once: true,
+        });
       }
     }
 
-    const timeoutId = window.setTimeout(() => timeoutController.abort(), REQUEST_TIMEOUT_MS);
+    const timeoutId = window.setTimeout(
+      () => timeoutController.abort(),
+      REQUEST_TIMEOUT_MS,
+    );
 
     let response;
     let data = {};
@@ -431,7 +513,9 @@ document.addEventListener("DOMContentLoaded", () => {
           throw cancelled;
         }
 
-        throw new Error("Request timed out. Please check your connection and try again.");
+        throw new Error(
+          "Request timed out. Please check your connection and try again.",
+        );
       }
 
       throw error;
@@ -443,7 +527,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (!response.ok) {
-      const message = data.message || `Request failed with status ${response.status}.`;
+      const message =
+        data.message || `Request failed with status ${response.status}.`;
       const error = new Error(message);
       error.status = response.status;
       throw error;
@@ -505,8 +590,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (footer) {
       const controls = getFooterControls(footer);
-      if (controls.pageNumber) controls.pageNumber.textContent = String(safePage);
-      if (controls.pageMeta) controls.pageMeta.textContent = `Page ${safePage} of ${totalPages}`;
+      if (controls.pageNumber)
+        controls.pageNumber.textContent = String(safePage);
+      if (controls.pageMeta)
+        controls.pageMeta.textContent = `Page ${safePage} of ${totalPages}`;
       if (controls.prev) controls.prev.disabled = safePage <= 1;
       if (controls.next) controls.next.disabled = safePage >= totalPages;
     }
@@ -528,7 +615,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const rowId = String(incomingRow?.[idField] || "");
     if (!rowId) return next;
 
-    const idx = next.findIndex((entry) => String(entry?.[idField] || "") === rowId);
+    const idx = next.findIndex(
+      (entry) => String(entry?.[idField] || "") === rowId,
+    );
     if (idx >= 0) {
       next[idx] = {
         ...next[idx],
@@ -545,8 +634,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const key = String(orderId || "");
     if (!key) return;
 
-    state.incoming = state.incoming.filter((order) => String(order?.id || "") !== key);
-    state.directory = state.directory.filter((order) => String(order?.id || "") !== key);
+    state.incoming = state.incoming.filter(
+      (order) => String(order?.id || "") !== key,
+    );
+    state.directory = state.directory.filter(
+      (order) => String(order?.id || "") !== key,
+    );
     normalizeStateOrdering();
     refreshPaymentsFromDirectory();
     mapOrderById();
@@ -556,8 +649,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const orderId = String(summary?.id || "");
     if (!orderId) return;
 
-    state.incoming = state.incoming.filter((order) => String(order?.id || "") !== orderId);
-    state.directory = state.directory.filter((order) => String(order?.id || "") !== orderId);
+    state.incoming = state.incoming.filter(
+      (order) => String(order?.id || "") !== orderId,
+    );
+    state.directory = state.directory.filter(
+      (order) => String(order?.id || "") !== orderId,
+    );
 
     const lifecycle = String(summary.lifecycle_status || "").toLowerCase();
     if (lifecycle === "incoming") {
@@ -580,24 +677,40 @@ document.addEventListener("DOMContentLoaded", () => {
       input.value = value || "-";
     };
 
-    setInput("modalOrderNo", order.order_no_display || `#${order.order_no || order.id}`);
-    setInput("modalOrderDate", formatDateLabel(order.created_at || order.created_at_label));
+    setInput(
+      "modalOrderNo",
+      order.order_no_display || `#${order.order_no || order.id}`,
+    );
+    setInput(
+      "modalOrderDate",
+      formatDateLabel(order.created_at || order.created_at_label),
+    );
     setInput("modalOrderItem", order.product_name || "Custom Order");
     setInput("modalOrderCustomer", order.customer_name || "Customer");
     setInput("modalOrderContact", order.customer_contact || "N/A");
     setInput(
       "modalOrderAddress",
       order.customer_address ||
-        [order.location_name, order.customer_address_details].filter(Boolean).join("\n") ||
+        [order.location_name, order.customer_address_details]
+          .filter(Boolean)
+          .join("\n") ||
         "-",
     );
     setInput("modalOrderPayment", order.payment_method || "N/A");
-    setInput("modalOrderReference", order.payment_reference || "Pending reference");
+    setInput(
+      "modalOrderReference",
+      order.payment_reference || "Pending reference",
+    );
     setInput("modalOrderQty", formatQuantity(order.quantity));
-    setInput("modalOrderTotal", order.total_label || formatMoney(order.total_amount));
+    setInput(
+      "modalOrderTotal",
+      order.total_label || formatMoney(order.total_amount),
+    );
 
     const statusLabel = order.lifecycle_status_label || "Pending";
-    const stageLabel = order.customer_stage_label ? ` | ${order.customer_stage_label}` : "";
+    const stageLabel = order.customer_stage_label
+      ? ` | ${order.customer_stage_label}`
+      : "";
     setInput("modalOrderStatus", `${statusLabel}${stageLabel}`);
 
     const notesInput = document.getElementById("modalOrderNotes");
@@ -606,8 +719,12 @@ document.addEventListener("DOMContentLoaded", () => {
         order.courier_name || order.courier_tracking_no
           ? `Courier: ${order.courier_name || "N/A"} ${order.courier_tracking_no ? `(${order.courier_tracking_no})` : ""}`
           : "";
-      const locationLine = order.location_name ? `Location: ${order.location_name}` : "";
-      notesInput.value = [order.notes, courierLine, locationLine].filter(Boolean).join("\n") || "-";
+      const locationLine = order.location_name
+        ? `Location: ${order.location_name}`
+        : "";
+      notesInput.value =
+        [order.notes, courierLine, locationLine].filter(Boolean).join("\n") ||
+        "-";
     }
 
     modalOrderDetails.classList.add("show");
@@ -618,7 +735,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const pageSize = 6;
     const totalPages = Math.max(1, Math.ceil(state.incoming.length / pageSize));
-    state.incomingCardsPage = Math.min(Math.max(state.incomingCardsPage, 1), totalPages);
+    state.incomingCardsPage = Math.min(
+      Math.max(state.incomingCardsPage, 1),
+      totalPages,
+    );
 
     if (!state.incoming.length) {
       incomingCardsWrap.innerHTML = `
@@ -629,7 +749,8 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
         </div>
       `;
-      if (incomingCardsPagination) incomingCardsPagination.style.display = "none";
+      if (incomingCardsPagination)
+        incomingCardsPagination.style.display = "none";
       if (incomingPageNumber) incomingPageNumber.textContent = "1";
       if (incomingPrevBtn) incomingPrevBtn.disabled = true;
       if (incomingNextBtn) incomingNextBtn.disabled = true;
@@ -641,7 +762,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     incomingCardsWrap.innerHTML = scoped
       .map((order) => {
-        const orderNo = escapeHtml(order.order_no_display || `#${order.order_no || order.id}`);
+        const orderNo = escapeHtml(
+          order.order_no_display || `#${order.order_no || order.id}`,
+        );
         return `
           <div class="incoming-order-card">
             <div class="incoming-order-top">
@@ -665,25 +788,34 @@ document.addEventListener("DOMContentLoaded", () => {
       .join("");
 
     if (incomingCardsPagination) {
-      incomingCardsPagination.style.display = state.incoming.length > pageSize ? "flex" : "none";
+      incomingCardsPagination.style.display =
+        state.incoming.length > pageSize ? "flex" : "none";
     }
 
-    if (incomingPageNumber) incomingPageNumber.textContent = String(state.incomingCardsPage);
-    if (incomingPrevBtn) incomingPrevBtn.disabled = state.incomingCardsPage <= 1;
-    if (incomingNextBtn) incomingNextBtn.disabled = state.incomingCardsPage >= totalPages;
+    if (incomingPageNumber)
+      incomingPageNumber.textContent = String(state.incomingCardsPage);
+    if (incomingPrevBtn)
+      incomingPrevBtn.disabled = state.incomingCardsPage <= 1;
+    if (incomingNextBtn)
+      incomingNextBtn.disabled = state.incomingCardsPage >= totalPages;
   };
 
   const getRejectedRows = () =>
-    state.directory.filter((order) => String(order?.lifecycle_status || "").toLowerCase() === "rejected");
+    state.directory.filter(
+      (order) =>
+        String(order?.lifecycle_status || "").toLowerCase() === "rejected",
+    );
 
   const getDirectoryRows = () => {
-    const statusFilter = (directoryStatusFilter?.value || "all").trim().toLowerCase();
+    const statusFilter = (directoryStatusFilter?.value || "all")
+      .trim()
+      .toLowerCase();
     const search = (directorySearch?.value || "").trim().toLowerCase();
 
     return state.directory.filter((order) => {
       const ls = String(order.lifecycle_status || "").toLowerCase();
       if (ls === "completed") return false;
-      if (ls === "rejected") return false;   // shown only in Rejected Orders panel
+      if (ls === "rejected") return false; // shown only in Rejected Orders panel
       const statusOk = statusFilter === "all" || ls === statusFilter;
       if (!statusOk) return false;
 
@@ -702,11 +834,16 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const getPaymentRows = () => {
-    const methodFilter = (paymentsMethodFilter?.value || "all").trim().toLowerCase();
+    const methodFilter = (paymentsMethodFilter?.value || "all")
+      .trim()
+      .toLowerCase();
 
     return state.payments.filter((payment) => {
       if (methodFilter === "all") return true;
-      return String(payment.payment_method || payment.method || "").toLowerCase() === methodFilter;
+      return (
+        String(payment.payment_method || payment.method || "").toLowerCase() ===
+        methodFilter
+      );
     });
   };
 
@@ -752,7 +889,9 @@ document.addEventListener("DOMContentLoaded", () => {
       pageSize: 5,
       emptyMessage: "No orders available.",
       renderRow: (order) => {
-        const lifecycle = String(order.lifecycle_status || "pending").toLowerCase();
+        const lifecycle = String(
+          order.lifecycle_status || "pending",
+        ).toLowerCase();
         const statusClass = lifecycleClass(lifecycle);
         const canTrack = lifecycle === "pending";
 
@@ -771,7 +910,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td>${statusCell}</td>
             <td class="action-icons sticky-action">
               <button data-tooltip="View Order Info" data-order-view="${order.id}"><i class="fa-regular fa-eye"></i></button>
-              <button data-tooltip="Update Tracking" data-order-track="${order.id}" ${canTrack ? "" : "disabled class=\"is-disabled\""}><i class="fa-solid fa-route"></i></button>
+              <button data-tooltip="Update Tracking" data-order-track="${order.id}" ${canTrack ? "" : 'disabled class="is-disabled"'}><i class="fa-solid fa-route"></i></button>
             </td>
           </tr>
         `;
@@ -792,11 +931,20 @@ document.addEventListener("DOMContentLoaded", () => {
       emptyMessage: "No payments available.",
       renderRow: (payment) => {
         const orderId = payment.id || payment.order_id || "";
-        const orderNo = payment.order_no_display || `#${payment.order_no || payment.order_id || payment.id}`;
+        const orderNo =
+          payment.order_no_display ||
+          `#${payment.order_no || payment.order_id || payment.id}`;
         const paymentId = payment.payment_id || payment.payment_no || orderNo;
-        const paidAt = payment.date_paid || payment.completed_at || payment.updated_at || payment.created_at;
+        const paidAt =
+          payment.date_paid ||
+          payment.completed_at ||
+          payment.updated_at ||
+          payment.created_at;
         const paymentMethod = payment.payment_method || payment.method || "N/A";
-        const paymentAmountLabel = payment.total_label || payment.amount_label || formatMoney(payment.total_amount || payment.amount);
+        const paymentAmountLabel =
+          payment.total_label ||
+          payment.amount_label ||
+          formatMoney(payment.total_amount || payment.amount);
         return `
           <tr>
             <td>${escapeHtml(paymentId)}</td>
@@ -859,7 +1007,9 @@ document.addEventListener("DOMContentLoaded", () => {
       pageSize: 5,
       emptyMessage: "No rejected orders found.",
       renderRow: (order) => {
-        const orderNo = escapeHtml(order.order_no_display || `#${order.order_no || order.id}`);
+        const orderNo = escapeHtml(
+          order.order_no_display || `#${order.order_no || order.id}`,
+        );
         return `
           <tr>
             <td>${orderNo}</td>
@@ -889,20 +1039,45 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const renderOrdersLoading = () => {
-    const createSkeletons = (cols) => `<tr>` + `<td><div class="skeleton-text" style="width:100%"></div></td>`.repeat(cols) + `</tr>`.repeat(4);
-    if (incomingCompactTbody && (!incomingCompactTbody.children.length || incomingCompactTbody.querySelector(".table-empty-state"))) {
+    const createSkeletons = (cols) =>
+      `<tr>` +
+      `<td><div class="skeleton-text" style="width:100%"></div></td>`.repeat(
+        cols,
+      ) +
+      `</tr>`.repeat(4);
+    if (
+      incomingCompactTbody &&
+      (!incomingCompactTbody.children.length ||
+        incomingCompactTbody.querySelector(".table-empty-state"))
+    ) {
       incomingCompactTbody.innerHTML = createSkeletons(7);
     }
-    if (ordersDirectoryTbody && (!ordersDirectoryTbody.children.length || ordersDirectoryTbody.querySelector(".table-empty-state"))) {
+    if (
+      ordersDirectoryTbody &&
+      (!ordersDirectoryTbody.children.length ||
+        ordersDirectoryTbody.querySelector(".table-empty-state"))
+    ) {
       ordersDirectoryTbody.innerHTML = createSkeletons(8);
     }
-    if (rejectedOrdersTbody && (!rejectedOrdersTbody.children.length || rejectedOrdersTbody.querySelector(".table-empty-state"))) {
+    if (
+      rejectedOrdersTbody &&
+      (!rejectedOrdersTbody.children.length ||
+        rejectedOrdersTbody.querySelector(".table-empty-state"))
+    ) {
       rejectedOrdersTbody.innerHTML = createSkeletons(8);
     }
-    if (paymentsHistoryTbody && (!paymentsHistoryTbody.children.length || paymentsHistoryTbody.querySelector(".table-empty-state"))) {
+    if (
+      paymentsHistoryTbody &&
+      (!paymentsHistoryTbody.children.length ||
+        paymentsHistoryTbody.querySelector(".table-empty-state"))
+    ) {
       paymentsHistoryTbody.innerHTML = createSkeletons(9);
     }
-    if (walkInOrdersTbody && (!walkInOrdersTbody.children.length || walkInOrdersTbody.querySelector(".table-empty-state"))) {
+    if (
+      walkInOrdersTbody &&
+      (!walkInOrdersTbody.children.length ||
+        walkInOrdersTbody.querySelector(".table-empty-state"))
+    ) {
       walkInOrdersTbody.innerHTML = createSkeletons(13);
     }
   };
@@ -912,7 +1087,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const source = options.source || "auto";
     const now = Date.now();
 
-    if (!force && source === "auto" && now - state.lastSyncAt < MIN_SYNC_GAP_MS) {
+    if (
+      !force &&
+      source === "auto" &&
+      now - state.lastSyncAt < MIN_SYNC_GAP_MS
+    ) {
       return;
     }
 
@@ -945,9 +1124,15 @@ document.addEventListener("DOMContentLoaded", () => {
         }),
       ]);
 
-      state.incoming = Array.isArray(response.incoming) ? response.incoming : [];
-      state.directory = Array.isArray(response.directory) ? response.directory : [];
-      state.walkIn = Array.isArray(walkInResponse?.data) ? walkInResponse.data : [];
+      state.incoming = Array.isArray(response.incoming)
+        ? response.incoming
+        : [];
+      state.directory = Array.isArray(response.directory)
+        ? response.directory
+        : [];
+      state.walkIn = Array.isArray(walkInResponse?.data)
+        ? walkInResponse.data
+        : [];
       normalizeStateOrdering();
       refreshPaymentsFromDirectory();
       mapOrderById();
@@ -974,12 +1159,27 @@ document.addEventListener("DOMContentLoaded", () => {
           title: "Sync Failed",
         });
       } else {
-        console.warn("[Orders] Background sync failed:", error?.message || error);
+        console.warn(
+          "[Orders] Background sync failed:",
+          error?.message || error,
+        );
       }
 
-      renderEmptyTable(incomingCompactTbody, 7, "Unable to load incoming orders.");
-      renderEmptyTable(ordersDirectoryTbody, 8, "Unable to load orders directory.");
-      renderEmptyTable(paymentsHistoryTbody, 9, "Unable to load payments history.");
+      renderEmptyTable(
+        incomingCompactTbody,
+        7,
+        "Unable to load incoming orders.",
+      );
+      renderEmptyTable(
+        ordersDirectoryTbody,
+        8,
+        "Unable to load orders directory.",
+      );
+      renderEmptyTable(
+        paymentsHistoryTbody,
+        9,
+        "Unable to load payments history.",
+      );
       renderEmptyTable(walkInOrdersTbody, 13, "Unable to load walk-in orders.");
 
       if (incomingCardsWrap) {
@@ -1014,13 +1214,18 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!order || !modalTrackingUpdate) return;
 
     if (trackingOrderId) trackingOrderId.value = String(order.id || "");
-    if (trackingOrderNo) trackingOrderNo.value = order.order_no_display || `#${order.order_no || order.id}`;
+    if (trackingOrderNo)
+      trackingOrderNo.value =
+        order.order_no_display || `#${order.order_no || order.id}`;
     if (trackingStage) trackingStage.value = order.customer_stage || "to_pay";
     if (trackingEventTitle) trackingEventTitle.value = "";
     if (trackingEventDescription) trackingEventDescription.value = "";
-    if (trackingCourierName) trackingCourierName.value = order.courier_name || "J&T Express";
-    if (trackingCourierNo) trackingCourierNo.value = order.courier_tracking_no || "";
-    if (trackingLocationName) trackingLocationName.value = order.location_name || "";
+    if (trackingCourierName)
+      trackingCourierName.value = order.courier_name || "J&T Express";
+    if (trackingCourierNo)
+      trackingCourierNo.value = order.courier_tracking_no || "";
+    if (trackingLocationName)
+      trackingLocationName.value = order.location_name || "";
 
     modalTrackingUpdate.classList.add("show");
   };
@@ -1076,13 +1281,18 @@ document.addEventListener("DOMContentLoaded", () => {
           }
 
           renderAll();
-          notifyOrdersRealtimeUpdate({ type: `order-${action}`, orderId: String(orderId) });
+          notifyOrdersRealtimeUpdate({
+            type: `order-${action}`,
+            orderId: String(orderId),
+          });
           window.setTimeout(() => {
             showPopup(config.success, { title: "Success" });
           }, 150);
         },
         onError: (error) => {
-          showPopup(error?.message || "Action failed.", { title: "Action Failed" });
+          showPopup(error?.message || "Action failed.", {
+            title: "Action Failed",
+          });
         },
       });
       return;
@@ -1108,7 +1318,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       renderAll();
-      notifyOrdersRealtimeUpdate({ type: `order-${action}`, orderId: String(orderId) });
+      notifyOrdersRealtimeUpdate({
+        type: `order-${action}`,
+        orderId: String(orderId),
+      });
       queueSuccessFlash(config.success, "Success");
     } catch (error) {
       showPopup(error.message || "Action failed.", { title: "Action Failed" });
@@ -1130,36 +1343,56 @@ document.addEventListener("DOMContentLoaded", () => {
     if (modal) modal._pendingOrderId = null;
   };
 
-  document.getElementById("btnCancelArchiveRejectedOrder")?.addEventListener("click", closeRejectedArchiveModal);
+  document
+    .getElementById("btnCancelArchiveRejectedOrder")
+    ?.addEventListener("click", closeRejectedArchiveModal);
 
-  document.getElementById("btnConfirmArchiveRejectedOrder")?.addEventListener("click", async () => {
-    const modal = document.getElementById("modalArchiveRejectedOrder");
-    const orderId = modal?._pendingOrderId;
-    if (!orderId) return;
+  document
+    .getElementById("btnConfirmArchiveRejectedOrder")
+    ?.addEventListener("click", async () => {
+      const modal = document.getElementById("modalArchiveRejectedOrder");
+      const orderId = modal?._pendingOrderId;
+      if (!orderId) return;
 
-    const btn = document.getElementById("btnConfirmArchiveRejectedOrder");
-    if (btn) { btn.disabled = true; btn.textContent = "Archiving..."; }
+      const btn = document.getElementById("btnConfirmArchiveRejectedOrder");
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Archiving...";
+      }
 
-    try {
-      await request(`/admin/orders/${orderId}/archive`, { method: "PATCH" });
-      removeOrderFromState(orderId);
-      renderAll();
-      notifyOrdersRealtimeUpdate({ type: "rejected-archived", orderId: String(orderId) });
-      closeRejectedArchiveModal();
-      showPopup("Rejected order archived successfully.", { title: "Archived ✓" });
-    } catch (error) {
-      showPopup(error.message || "Unable to archive rejected order.", { title: "Archive Failed" });
-    } finally {
-      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-box-archive"></i> Archive Order'; }
-    }
-  });
+      try {
+        await request(`/admin/orders/${orderId}/archive`, { method: "PATCH" });
+        removeOrderFromState(orderId);
+        renderAll();
+        notifyOrdersRealtimeUpdate({
+          type: "rejected-archived",
+          orderId: String(orderId),
+        });
+        closeRejectedArchiveModal();
+        showPopup("Rejected order archived successfully.", {
+          title: "Archived ✓",
+        });
+      } catch (error) {
+        showPopup(error.message || "Unable to archive rejected order.", {
+          title: "Archive Failed",
+        });
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML =
+            '<i class="fa-solid fa-box-archive"></i> Archive Order';
+        }
+      }
+    });
 
   const openPaymentDeleteModal = (payment) => {
     if (!modalDeletePaymentHistory || !payment) return;
 
     deletingPaymentOrderId = String(payment.id || payment.order_id || "");
     if (paymentDeleteTargetLabel) {
-      paymentDeleteTargetLabel.textContent = payment.order_no_display || `#${payment.order_no || payment.id || payment.order_id}`;
+      paymentDeleteTargetLabel.textContent =
+        payment.order_no_display ||
+        `#${payment.order_no || payment.id || payment.order_id}`;
     }
 
     modalDeletePaymentHistory.classList.add("show");
@@ -1180,7 +1413,9 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       notifyOrdersRealtimeUpdate({ type: "payment-archived", orderId: key });
-      showPopup("Payment record archived successfully and moved to Archives.", { title: "Archived ✓" });
+      showPopup("Payment record archived successfully and moved to Archives.", {
+        title: "Archived ✓",
+      });
       void syncOrders(true, { force: true, source: "manual" });
     } catch (error) {
       showPopup(error.message || "Unable to archive payment record.", {
@@ -1195,7 +1430,10 @@ document.addEventListener("DOMContentLoaded", () => {
     return local.toISOString().slice(0, 16);
   };
 
-  const normalizePhoneDigits = (raw) => String(raw || "").replace(/\D/g, "").slice(0, 12);
+  const normalizePhoneDigits = (raw) =>
+    String(raw || "")
+      .replace(/\D/g, "")
+      .slice(0, 12);
 
   const formatPhoneDisplay = (raw) => {
     const digits = normalizePhoneDigits(raw);
@@ -1227,15 +1465,27 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const findWalkInProductByName = (name) => {
-    const normalizedName = String(name || "").trim().toLowerCase();
+    const normalizedName = String(name || "")
+      .trim()
+      .toLowerCase();
     if (!normalizedName) return null;
-    return _comboboxAllProducts.find((product) => String(product?.name || "").trim().toLowerCase() === normalizedName) || null;
+    return (
+      _comboboxAllProducts.find(
+        (product) =>
+          String(product?.name || "")
+            .trim()
+            .toLowerCase() === normalizedName,
+      ) || null
+    );
   };
 
   const syncWalkInCalculatedFields = () => {
     if (!walkInSubtotalCostInput || !walkInTotalInput) return;
 
-    const quantityValue = Math.max(1, Number.parseInt(String(walkInUnitInput?.value || "1"), 10) || 1);
+    const quantityValue = Math.max(
+      1,
+      Number.parseInt(String(walkInUnitInput?.value || "1"), 10) || 1,
+    );
     const subtotalValue = Number(walkInSubtotalCostInput.value || 0);
 
     if (!Number.isFinite(subtotalValue) || subtotalValue < 0) {
@@ -1252,7 +1502,9 @@ document.addEventListener("DOMContentLoaded", () => {
     walkInSelectedProduct = findWalkInProductByName(itemName);
 
     if (walkInSelectedProduct && walkInSubtotalCostInput) {
-      walkInSubtotalCostInput.value = String(Number(walkInSelectedProduct.price || 0).toFixed(2));
+      walkInSubtotalCostInput.value = String(
+        Number(walkInSelectedProduct.price || 0).toFixed(2),
+      );
     }
 
     syncWalkInCalculatedFields();
@@ -1278,7 +1530,9 @@ document.addEventListener("DOMContentLoaded", () => {
     setDetailInput(walkInDetailContact, row.contact_number);
     setDetailInput(
       walkInDetailClientType,
-      row.client_type_other ? `${row.client_type || ""}: ${row.client_type_other}` : row.client_type,
+      row.client_type_other
+        ? `${row.client_type || ""}: ${row.client_type_other}`
+        : row.client_type,
     );
     setDetailInput(walkInDetailAgency, row.agency_organization);
     setDetailInput(
@@ -1289,10 +1543,22 @@ document.addEventListener("DOMContentLoaded", () => {
     );
     setDetailInput(walkInDetailItem, row.item_detail || row.order_item);
     setDetailInput(walkInDetailUnit, row.unit);
-    setDetailInput(walkInDetailSubtotal, row.subtotal_cost_label || formatMoney(row.subtotal_cost));
-    setDetailInput(walkInDetailTotal, row.total_label || formatMoney(row.total));
-    setDetailInput(walkInDetailPayment, row.payment || row.payment_method || "WALKIN VIA CASHIER");
-    setDetailInput(walkInDetailDate, row.order_date_label || formatDateLabel(row.order_date));
+    setDetailInput(
+      walkInDetailSubtotal,
+      row.subtotal_cost_label || formatMoney(row.subtotal_cost),
+    );
+    setDetailInput(
+      walkInDetailTotal,
+      row.total_label || formatMoney(row.total),
+    );
+    setDetailInput(
+      walkInDetailPayment,
+      row.payment || row.payment_method || "WALKIN VIA CASHIER",
+    );
+    setDetailInput(
+      walkInDetailDate,
+      row.order_date_label || formatDateLabel(row.order_date),
+    );
 
     modalWalkInDetails.classList.add("show");
   };
@@ -1300,14 +1566,22 @@ document.addEventListener("DOMContentLoaded", () => {
   let activeWalkInOrderId = null;
 
   const toggleWalkInOtherFields = () => {
-    const isClientOther = (walkInClientTypeInput?.value || "") === "OTHERS (SPECIFY)";
-    const isProjectOther = (walkInProjectDescriptionInput?.value || "") === "OTHERS (SPECIFY)";
+    const isClientOther =
+      (walkInClientTypeInput?.value || "") === "OTHERS (SPECIFY)";
+    const isProjectOther =
+      (walkInProjectDescriptionInput?.value || "") === "OTHERS (SPECIFY)";
 
-    if (walkInClientTypeOtherWrap) walkInClientTypeOtherWrap.style.display = isClientOther ? "" : "none";
-    if (!isClientOther && walkInClientTypeOtherInput) walkInClientTypeOtherInput.value = "";
+    if (walkInClientTypeOtherWrap)
+      walkInClientTypeOtherWrap.style.display = isClientOther ? "" : "none";
+    if (!isClientOther && walkInClientTypeOtherInput)
+      walkInClientTypeOtherInput.value = "";
 
-    if (walkInProjectDescriptionOtherWrap) walkInProjectDescriptionOtherWrap.style.display = isProjectOther ? "" : "none";
-    if (!isProjectOther && walkInProjectDescriptionOtherInput) walkInProjectDescriptionOtherInput.value = "";
+    if (walkInProjectDescriptionOtherWrap)
+      walkInProjectDescriptionOtherWrap.style.display = isProjectOther
+        ? ""
+        : "none";
+    if (!isProjectOther && walkInProjectDescriptionOtherInput)
+      walkInProjectDescriptionOtherInput.value = "";
   };
 
   // ── Item Detail Combobox ─────────────────────────────────────────────────────
@@ -1327,16 +1601,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const renderComboboxList = (filterText) => {
     if (!walkInItemDetailList) return;
-    const filter = String(filterText || "").toLowerCase().trim();
+    const filter = String(filterText || "")
+      .toLowerCase()
+      .trim();
     const matches = filter
-      ? _comboboxAllProducts.filter((product) => String(product?.name || "").toLowerCase().includes(filter))
+      ? _comboboxAllProducts.filter((product) =>
+          String(product?.name || "")
+            .toLowerCase()
+            .includes(filter),
+        )
       : _comboboxAllProducts;
 
     if (!matches.length) {
       walkInItemDetailList.innerHTML = `<li class="combobox-no-results">No products found. Your typed entry will be used.</li>`;
     } else {
       walkInItemDetailList.innerHTML = matches
-        .map((product) => `<li role="option" data-value="${escapeHtml(product.name)}">${escapeHtml(product.name)}</li>`)
+        .map(
+          (product) =>
+            `<li role="option" data-value="${escapeHtml(product.name)}">${escapeHtml(product.name)}</li>`,
+        )
         .join("");
     }
     _comboboxActiveIdx = -1;
@@ -1344,7 +1627,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const setComboboxActiveItem = (idx) => {
     if (!walkInItemDetailList) return;
-    const items = walkInItemDetailList.querySelectorAll("li:not(.combobox-no-results)");
+    const items = walkInItemDetailList.querySelectorAll(
+      "li:not(.combobox-no-results)",
+    );
     items.forEach((li, i) => li.classList.toggle("combobox-active", i === idx));
     if (idx >= 0 && idx < items.length) {
       items[idx].scrollIntoView({ block: "nearest" });
@@ -1353,7 +1638,12 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const initItemDetailCombobox = () => {
-    if (!walkInItemDetailInput || !walkInItemDetailList || !walkInItemDetailWrap) return;
+    if (
+      !walkInItemDetailInput ||
+      !walkInItemDetailList ||
+      !walkInItemDetailWrap
+    )
+      return;
 
     // Open on focus / click
     walkInItemDetailInput.addEventListener("focus", () => {
@@ -1393,7 +1683,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Keyboard navigation
     walkInItemDetailInput.addEventListener("keydown", (e) => {
-      const items = walkInItemDetailList.querySelectorAll("li:not(.combobox-no-results)");
+      const items = walkInItemDetailList.querySelectorAll(
+        "li:not(.combobox-no-results)",
+      );
       if (!walkInItemDetailWrap.classList.contains("open")) {
         if (e.key === "ArrowDown" || e.key === "Enter") {
           renderComboboxList(walkInItemDetailInput.value);
@@ -1404,14 +1696,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setComboboxActiveItem(Math.min(_comboboxActiveIdx + 1, items.length - 1));
+        setComboboxActiveItem(
+          Math.min(_comboboxActiveIdx + 1, items.length - 1),
+        );
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setComboboxActiveItem(Math.max(_comboboxActiveIdx - 1, 0));
       } else if (e.key === "Enter") {
         e.preventDefault();
         if (_comboboxActiveIdx >= 0 && _comboboxActiveIdx < items.length) {
-          walkInItemDetailInput.value = items[_comboboxActiveIdx].dataset.value || "";
+          walkInItemDetailInput.value =
+            items[_comboboxActiveIdx].dataset.value || "";
           syncWalkInProductSelection(walkInItemDetailInput.value);
           closeItemDetailCombobox();
         } else {
@@ -1433,11 +1728,15 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // Close when clicking outside
-    document.addEventListener("click", (e) => {
-      if (walkInItemDetailWrap && !walkInItemDetailWrap.contains(e.target)) {
-        closeItemDetailCombobox();
-      }
-    }, true);
+    document.addEventListener(
+      "click",
+      (e) => {
+        if (walkInItemDetailWrap && !walkInItemDetailWrap.contains(e.target)) {
+          closeItemDetailCombobox();
+        }
+      },
+      true,
+    );
   };
 
   const fetchProductNamesAndInitCombobox = async () => {
@@ -1446,8 +1745,8 @@ document.addEventListener("DOMContentLoaded", () => {
       _comboboxAllProducts = Array.isArray(data?.data)
         ? data.data
             .map((product) => ({
-              id:    product?.id ?? null,
-              name:  String(product?.name || "").trim(),
+              id: product?.id ?? null,
+              name: String(product?.name || "").trim(),
               price: Number(product?.price || 0),
             }))
             .filter((product) => product.name)
@@ -1467,7 +1766,8 @@ document.addEventListener("DOMContentLoaded", () => {
     activeWalkInOrderId = null;
     const title = document.getElementById("walkInModalTitle");
     if (title) title.textContent = "Add Walk-in Customer";
-    if (saveWalkInOrderBtn) saveWalkInOrderBtn.innerText = "Save Walk-in Customer";
+    if (saveWalkInOrderBtn)
+      saveWalkInOrderBtn.innerText = "Save Walk-in Customer";
 
     if (walkInOrderNoInput) walkInOrderNoInput.value = "";
     if (walkInCustomerNameInput) walkInCustomerNameInput.value = "";
@@ -1476,13 +1776,16 @@ document.addEventListener("DOMContentLoaded", () => {
     if (walkInClientTypeInput) walkInClientTypeInput.value = "MSME/ENTREP";
     if (walkInClientTypeOtherInput) walkInClientTypeOtherInput.value = "";
     if (walkInAgencyOrganizationInput) walkInAgencyOrganizationInput.value = "";
-    if (walkInProjectDescriptionInput) walkInProjectDescriptionInput.value = "PRODUCT LABELING AND DESIGNING";
-    if (walkInProjectDescriptionOtherInput) walkInProjectDescriptionOtherInput.value = "";
+    if (walkInProjectDescriptionInput)
+      walkInProjectDescriptionInput.value = "PRODUCT LABELING AND DESIGNING";
+    if (walkInProjectDescriptionOtherInput)
+      walkInProjectDescriptionOtherInput.value = "";
     if (walkInItemDetailInput) walkInItemDetailInput.value = "";
     if (walkInUnitInput) walkInUnitInput.value = "1";
     if (walkInSubtotalCostInput) walkInSubtotalCostInput.value = "";
     if (walkInTotalInput) walkInTotalInput.value = "";
-    if (walkInPaymentMethodInput) walkInPaymentMethodInput.value = "WALKIN VIA CASHIER";
+    if (walkInPaymentMethodInput)
+      walkInPaymentMethodInput.value = "WALKIN VIA CASHIER";
     walkInSelectedProduct = null;
 
     // Reset combobox
@@ -1497,23 +1800,39 @@ document.addEventListener("DOMContentLoaded", () => {
       activeWalkInOrderId = order.id;
       const title = document.getElementById("walkInModalTitle");
       if (title) title.textContent = "Edit Walk-in Customer";
-      if (saveWalkInOrderBtn) saveWalkInOrderBtn.innerText = "Update Walk-in Customer";
+      if (saveWalkInOrderBtn)
+        saveWalkInOrderBtn.innerText = "Update Walk-in Customer";
 
       if (walkInOrderNoInput) walkInOrderNoInput.value = order.order_no || "";
-      if (walkInCustomerNameInput) walkInCustomerNameInput.value = order.customer_name || order.customer || "";
+      if (walkInCustomerNameInput)
+        walkInCustomerNameInput.value =
+          order.customer_name || order.customer || "";
       if (walkInAddressInput) walkInAddressInput.value = order.address || "";
-      if (walkInContactNumberInput) walkInContactNumberInput.value = order.contact_number || "";
-      if (walkInClientTypeInput) walkInClientTypeInput.value = order.client_type || "MSME/ENTREP";
-      if (walkInClientTypeOtherInput) walkInClientTypeOtherInput.value = order.client_type_other || "";
-      if (walkInAgencyOrganizationInput) walkInAgencyOrganizationInput.value = order.agency_organization || "";
-      if (walkInProjectDescriptionInput) walkInProjectDescriptionInput.value = order.project_description || "PRODUCT LABELING AND DESIGNING";
-      if (walkInProjectDescriptionOtherInput) walkInProjectDescriptionOtherInput.value = order.project_description_other || "";
+      if (walkInContactNumberInput)
+        walkInContactNumberInput.value = order.contact_number || "";
+      if (walkInClientTypeInput)
+        walkInClientTypeInput.value = order.client_type || "MSME/ENTREP";
+      if (walkInClientTypeOtherInput)
+        walkInClientTypeOtherInput.value = order.client_type_other || "";
+      if (walkInAgencyOrganizationInput)
+        walkInAgencyOrganizationInput.value = order.agency_organization || "";
+      if (walkInProjectDescriptionInput)
+        walkInProjectDescriptionInput.value =
+          order.project_description || "PRODUCT LABELING AND DESIGNING";
+      if (walkInProjectDescriptionOtherInput)
+        walkInProjectDescriptionOtherInput.value =
+          order.project_description_other || "";
       // Set combobox value (the input acts as both textbox and display)
-      if (walkInItemDetailInput) walkInItemDetailInput.value = order.item_detail || order.order_item || "";
+      if (walkInItemDetailInput)
+        walkInItemDetailInput.value =
+          order.item_detail || order.order_item || "";
       if (walkInUnitInput) walkInUnitInput.value = order.unit || "1";
-      if (walkInSubtotalCostInput) walkInSubtotalCostInput.value = order.subtotal_cost ?? "";
+      if (walkInSubtotalCostInput)
+        walkInSubtotalCostInput.value = order.subtotal_cost ?? "";
       if (walkInTotalInput) walkInTotalInput.value = order.total || "";
-      if (walkInPaymentMethodInput) walkInPaymentMethodInput.value = order.payment || order.payment_method || "WALKIN VIA CASHIER";
+      if (walkInPaymentMethodInput)
+        walkInPaymentMethodInput.value =
+          order.payment || order.payment_method || "WALKIN VIA CASHIER";
 
       syncWalkInProductSelection(walkInItemDetailInput?.value || "");
       toggleWalkInOtherFields();
@@ -1524,7 +1843,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const openWalkInOrderModalFromView = () => {
-    const order = state.walkIn.find((item) => String(item.id) === String(viewingWalkInOrderId || ""));
+    const order = state.walkIn.find(
+      (item) => String(item.id) === String(viewingWalkInOrderId || ""),
+    );
     if (!order) return;
 
     modalWalkInDetails?.classList.remove("show");
@@ -1542,25 +1863,55 @@ document.addEventListener("DOMContentLoaded", () => {
     const orderNo = String(walkInOrderNoInput?.value || "").trim();
     const customerName = String(walkInCustomerNameInput?.value || "").trim();
     const address = String(walkInAddressInput?.value || "").trim();
-    const contactNumber = normalizePhoneDigits(walkInContactNumberInput?.value || "");
+    const contactNumber = normalizePhoneDigits(
+      walkInContactNumberInput?.value || "",
+    );
     const clientType = String(walkInClientTypeInput?.value || "").trim();
-    const clientTypeOther = String(walkInClientTypeOtherInput?.value || "").trim();
-    const agencyOrganization = String(walkInAgencyOrganizationInput?.value || "").trim();
-    const projectDescription = String(walkInProjectDescriptionInput?.value || "").trim();
-    const projectDescriptionOther = String(walkInProjectDescriptionOtherInput?.value || "").trim();
+    const clientTypeOther = String(
+      walkInClientTypeOtherInput?.value || "",
+    ).trim();
+    const agencyOrganization = String(
+      walkInAgencyOrganizationInput?.value || "",
+    ).trim();
+    const projectDescription = String(
+      walkInProjectDescriptionInput?.value || "",
+    ).trim();
+    const projectDescriptionOther = String(
+      walkInProjectDescriptionOtherInput?.value || "",
+    ).trim();
     const itemDetail = String(walkInItemDetailInput?.value || "").trim();
-    const quantity = Math.max(1, Number.parseInt(String(walkInUnitInput?.value || "1"), 10) || 1);
+    const quantity = Math.max(
+      1,
+      Number.parseInt(String(walkInUnitInput?.value || "1"), 10) || 1,
+    );
     const subtotalRaw = String(walkInSubtotalCostInput?.value || "").trim();
     const totalRaw = String(walkInTotalInput?.value || "").trim();
     const paymentMethod = "WALKIN VIA CASHIER";
 
-    if (!orderNo || !customerName || !address || !contactNumber || !clientType || !agencyOrganization || !projectDescription || !itemDetail || !quantity || !subtotalRaw || !totalRaw) {
-      showPopup("Please complete all walk-in order fields.", { title: "Validation" });
+    if (
+      !orderNo ||
+      !customerName ||
+      !address ||
+      !contactNumber ||
+      !clientType ||
+      !agencyOrganization ||
+      !projectDescription ||
+      !itemDetail ||
+      !quantity ||
+      !subtotalRaw ||
+      !totalRaw
+    ) {
+      showPopup("Please complete all walk-in order fields.", {
+        title: "Validation",
+      });
       return;
     }
 
     if (!walkInSelectedProduct) {
-      showPopup("Please select a product from the list so the quantity and subtotal can be calculated.", { title: "Validation" });
+      showPopup(
+        "Please select a product from the list so the quantity and subtotal can be calculated.",
+        { title: "Validation" },
+      );
       return;
     }
 
@@ -1572,7 +1923,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (!isValidContactNumber(contactNumber)) {
-      showPopup("Contact Number must be a valid PH mobile/phone format.", { title: "Validation" });
+      showPopup("Contact Number must be a valid PH mobile/phone format.", {
+        title: "Validation",
+      });
       walkInContactNumberInput?.focus();
       return;
     }
@@ -1583,31 +1936,42 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (projectDescription === "OTHERS (SPECIFY)" && !projectDescriptionOther) {
-      showPopup("Please specify the project description.", { title: "Validation" });
+      showPopup("Please specify the project description.", {
+        title: "Validation",
+      });
       return;
     }
 
     const subtotalCost = Number(subtotalRaw);
     const total = Number(totalRaw);
     if (!Number.isFinite(subtotalCost) || subtotalCost < 0) {
-      showPopup("Subtotal Cost must be a valid number greater than or equal to 0.", { title: "Validation" });
+      showPopup(
+        "Subtotal Cost must be a valid number greater than or equal to 0.",
+        { title: "Validation" },
+      );
       return;
     }
 
     if (!Number.isFinite(total) || total < 0) {
-      showPopup("Total must be a valid number greater than or equal to 0.", { title: "Validation" });
+      showPopup("Total must be a valid number greater than or equal to 0.", {
+        title: "Validation",
+      });
       return;
     }
 
     if (saveWalkInOrderBtn) {
       saveWalkInOrderBtn.disabled = true;
-      saveWalkInOrderBtn.innerText = activeWalkInOrderId ? "Updating..." : "Saving...";
+      saveWalkInOrderBtn.innerText = activeWalkInOrderId
+        ? "Updating..."
+        : "Saving...";
     }
 
     try {
-      const url = activeWalkInOrderId ? `/admin/walkin-orders/${activeWalkInOrderId}` : "/admin/walkin-orders";
+      const url = activeWalkInOrderId
+        ? `/admin/walkin-orders/${activeWalkInOrderId}`
+        : "/admin/walkin-orders";
       const method = activeWalkInOrderId ? "PUT" : "POST";
-      
+
       const payload = await request(url, {
         method,
         body: {
@@ -1616,10 +1980,14 @@ document.addEventListener("DOMContentLoaded", () => {
           address,
           contact_number: contactNumber,
           client_type: clientType,
-          client_type_other: clientType === "OTHERS (SPECIFY)" ? clientTypeOther : null,
+          client_type_other:
+            clientType === "OTHERS (SPECIFY)" ? clientTypeOther : null,
           agency_organization: agencyOrganization,
           project_description: projectDescription,
-          project_description_other: projectDescription === "OTHERS (SPECIFY)" ? projectDescriptionOther : null,
+          project_description_other:
+            projectDescription === "OTHERS (SPECIFY)"
+              ? projectDescriptionOther
+              : null,
           item_detail: itemDetail,
           // Send product_id so backend can reduce the product stock
           product_id: walkInSelectedProduct?.id ?? null,
@@ -1640,26 +2008,41 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       closeWalkInOrderModal();
-      notifyOrdersRealtimeUpdate({ type: activeWalkInOrderId ? "walkin-updated" : "walkin-created" });
+      notifyOrdersRealtimeUpdate({
+        type: activeWalkInOrderId ? "walkin-updated" : "walkin-created",
+      });
       queueSuccessFlash(
         payload?.message ||
-          (activeWalkInOrderId ? "Walk-in customer record updated successfully." : "Walk-in customer record added successfully."),
+          (activeWalkInOrderId
+            ? "Walk-in customer record updated successfully."
+            : "Walk-in customer record added successfully."),
         "Success",
       );
       window.location.reload();
     } catch (error) {
-      showPopup(error.message || (activeWalkInOrderId ? "Unable to update walk-in customer record." : "Unable to add walk-in customer record."), { title: "Save Failed" });
+      showPopup(
+        error.message ||
+          (activeWalkInOrderId
+            ? "Unable to update walk-in customer record."
+            : "Unable to add walk-in customer record."),
+        { title: "Save Failed" },
+      );
     } finally {
       if (saveWalkInOrderBtn) {
         const isUpdating = !!activeWalkInOrderId;
         saveWalkInOrderBtn.disabled = false;
-        saveWalkInOrderBtn.innerText = isUpdating ? "Update Walk-in Customer" : "Save Walk-in Customer";
+        saveWalkInOrderBtn.innerText = isUpdating
+          ? "Update Walk-in Customer"
+          : "Save Walk-in Customer";
       }
     }
   };
 
   walkInClientTypeInput?.addEventListener("change", toggleWalkInOtherFields);
-  walkInProjectDescriptionInput?.addEventListener("change", toggleWalkInOtherFields);
+  walkInProjectDescriptionInput?.addEventListener(
+    "change",
+    toggleWalkInOtherFields,
+  );
 
   walkInSubtotalCostInput?.addEventListener("input", () => {
     calculateWalkInTotalFromInputs();
@@ -1670,13 +2053,17 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   walkInContactNumberInput?.addEventListener("input", () => {
-    walkInContactNumberInput.value = formatPhoneDisplay(walkInContactNumberInput.value || "");
+    walkInContactNumberInput.value = formatPhoneDisplay(
+      walkInContactNumberInput.value || "",
+    );
   });
 
   walkInContactNumberInput?.addEventListener("blur", () => {
     const value = String(walkInContactNumberInput.value || "").trim();
     if (value && !isValidContactNumber(value)) {
-      showPopup("Contact Number format looks invalid. Use a valid PH number.", { title: "Validation" });
+      showPopup("Contact Number format looks invalid. Use a valid PH number.", {
+        title: "Validation",
+      });
       walkInContactNumberInput.focus();
     }
   });
@@ -1816,18 +2203,19 @@ document.addEventListener("DOMContentLoaded", () => {
     btnConfirmDeletePaymentHistory.disabled = true;
     btnConfirmDeletePaymentHistory.textContent = "Deleting...";
 
-    void deletePayment(deletingPaymentOrderId)
-      .finally(() => {
-        btnConfirmDeletePaymentHistory.disabled = false;
-        btnConfirmDeletePaymentHistory.textContent = "Delete Payment";
-        closePaymentDeleteModal();
-      });
+    void deletePayment(deletingPaymentOrderId).finally(() => {
+      btnConfirmDeletePaymentHistory.disabled = false;
+      btnConfirmDeletePaymentHistory.textContent = "Delete Payment";
+      closePaymentDeleteModal();
+    });
   });
 
   btnSaveTrackingUpdate?.addEventListener("click", async () => {
     const orderId = trackingOrderId?.value || "";
     if (!orderId) {
-      showPopup("No order selected for tracking update.", { title: "Update Failed" });
+      showPopup("No order selected for tracking update.", {
+        title: "Update Failed",
+      });
       return;
     }
 
@@ -1860,7 +2248,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       modalTrackingUpdate?.classList.remove("show");
-      notifyOrdersRealtimeUpdate({ type: "tracking-updated", orderId: String(orderId) });
+      notifyOrdersRealtimeUpdate({
+        type: "tracking-updated",
+        orderId: String(orderId),
+      });
       queueSuccessFlash("Tracking update saved successfully.", "Success");
       window.location.reload();
     } catch (error) {
@@ -1896,7 +2287,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const approveBtn = target.closest("[data-order-approve]");
     if (approveBtn) {
-      const orderId = String(approveBtn.getAttribute("data-order-approve") || "");
+      const orderId = String(
+        approveBtn.getAttribute("data-order-approve") || "",
+      );
       void mutateOrder(orderId, "approve");
       return;
     }
@@ -1911,16 +2304,24 @@ document.addEventListener("DOMContentLoaded", () => {
     // Archive rejected order
     const rejectedArchiveBtn = target.closest("[data-rejected-archive]");
     if (rejectedArchiveBtn) {
-      const orderId = String(rejectedArchiveBtn.getAttribute("data-rejected-archive") || "");
-      const label   = String(rejectedArchiveBtn.getAttribute("data-rejected-label") || orderId);
+      const orderId = String(
+        rejectedArchiveBtn.getAttribute("data-rejected-archive") || "",
+      );
+      const label = String(
+        rejectedArchiveBtn.getAttribute("data-rejected-label") || orderId,
+      );
       openRejectedArchiveModal(orderId, label);
       return;
     }
 
     const deletePaymentBtn = target.closest("[data-payment-archive]");
     if (deletePaymentBtn) {
-      const orderId = String(deletePaymentBtn.getAttribute("data-payment-archive") || "");
-      const payment = state.payments.find((item) => String(item.id || item.order_id || "") === orderId);
+      const orderId = String(
+        deletePaymentBtn.getAttribute("data-payment-archive") || "",
+      );
+      const payment = state.payments.find(
+        (item) => String(item.id || item.order_id || "") === orderId,
+      );
       if (payment) openPaymentDeleteModal(payment);
       return;
     }
@@ -1938,13 +2339,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (editWalkInBtn) {
       const id = editWalkInBtn.getAttribute("data-walkin-edit");
-      const order = state.walkIn.find(o => String(o.id) === String(id));
+      const order = state.walkIn.find((o) => String(o.id) === String(id));
       if (order) {
         openWalkInOrderModal(order);
       }
       return;
     }
-
   });
 
   if (!authToken) {

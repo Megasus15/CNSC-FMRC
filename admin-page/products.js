@@ -2,7 +2,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const resolveApiBaseUrl = () => {
     const configured =
       window.APP_API_BASE_URL ||
-      document.querySelector('meta[name="api-base-url"]')?.getAttribute("content") ||
+      document
+        .querySelector('meta[name="api-base-url"]')
+        ?.getAttribute("content") ||
       "";
 
     if (configured.trim()) {
@@ -35,7 +37,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const API_BASE_URL = resolveApiBaseUrl();
 
-  const token = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token");
+  const token =
+    (window.AdminSession && window.AdminSession.getToken()) ||
+    localStorage.getItem("auth_token");
   if (!token) {
     window.location.href = "../admin-auth/auth.html";
     return;
@@ -75,13 +79,25 @@ document.addEventListener("DOMContentLoaded", () => {
   // Add form fields
   const addCategory = document.getElementById("addProductCategory");
   const addNameSelect = document.getElementById("addProductNameSelect");
-  const addProductNameWrapper = document.getElementById("addProductNameWrapper");
-  const addProductNameTrigger = document.getElementById("addProductNameTrigger");
-  const addProductNameDropdown = document.getElementById("addProductNameDropdown");
+  const addProductNameWrapper = document.getElementById(
+    "addProductNameWrapper",
+  );
+  const addProductNameTrigger = document.getElementById(
+    "addProductNameTrigger",
+  );
+  const addProductNameDropdown = document.getElementById(
+    "addProductNameDropdown",
+  );
   const addProductNameSearch = document.getElementById("addProductNameSearch");
-  const addProductNameOptions = document.getElementById("addProductNameOptions");
-  const addProductNameAddNewBtn = document.getElementById("addProductNameAddNewBtn");
-  const addProductNewNameWrap = document.getElementById("addProductNewNameWrap");
+  const addProductNameOptions = document.getElementById(
+    "addProductNameOptions",
+  );
+  const addProductNameAddNewBtn = document.getElementById(
+    "addProductNameAddNewBtn",
+  );
+  const addProductNewNameWrap = document.getElementById(
+    "addProductNewNameWrap",
+  );
   const addNewName = document.getElementById("addProductNewName");
   const addCode = document.getElementById("addProductCode");
   const addStock = document.getElementById("addProductStock");
@@ -158,7 +174,9 @@ document.addEventListener("DOMContentLoaded", () => {
     `₱${Number(v || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const getProductsForCategory = (category) =>
-    products.filter((product) => product.category === category).sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+    products
+      .filter((product) => product.category === category)
+      .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
 
   const getAddProductSelectedName = () => {
     const selectedOption = addNameSelect?.selectedOptions?.[0];
@@ -170,16 +188,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const selectedName = getAddProductSelectedName();
     const label = selectedName ? selectedName : "Select an existing product";
     addProductNameTrigger.innerHTML = `${escHtml(label)} <span class="custom-select-arrow"><i class="fa-solid fa-chevron-down"></i></span>`;
-    addProductNameTrigger.setAttribute("aria-expanded", addProductNameDropdown?.classList.contains("open") ? "true" : "false");
+    addProductNameTrigger.setAttribute(
+      "aria-expanded",
+      addProductNameDropdown?.classList.contains("open") ? "true" : "false",
+    );
   };
 
   const renderAddProductDropdownItems = (filter = "") => {
     if (!addNameSelect || !addProductNameOptions) return;
-    const query = String(filter || "").trim().toLowerCase();
+    const query = String(filter || "")
+      .trim()
+      .toLowerCase();
     const items = Array.from(addNameSelect.options).slice(1);
     const filtered = items.filter((option) => {
       if (!query) return true;
-      const name = String(option.dataset.name || option.textContent || "").toLowerCase();
+      const name = String(
+        option.dataset.name || option.textContent || "",
+      ).toLowerCase();
       return name.includes(query);
     });
 
@@ -197,7 +222,9 @@ document.addEventListener("DOMContentLoaded", () => {
       .join("");
 
     if (selectedValue) {
-      const activeOption = addProductNameOptions.querySelector(`[data-value="${escHtml(selectedValue)}"]`);
+      const activeOption = addProductNameOptions.querySelector(
+        `[data-value="${escHtml(selectedValue)}"]`,
+      );
       activeOption?.classList.add("active");
     }
   };
@@ -213,20 +240,35 @@ document.addEventListener("DOMContentLoaded", () => {
     addProductNameSearch?.focus();
   };
 
-  const renderAddProductOptions = (category, selectedValue = "", preserveValue = true) => {
+  const renderAddProductOptions = (
+    category,
+    selectedValue = "",
+    preserveValue = true,
+  ) => {
     if (!addNameSelect) return;
 
-    const normalizedCategory = (category || addCategory?.value || "3D Print").trim();
+    const normalizedCategory = (
+      category ||
+      addCategory?.value ||
+      "3D Print"
+    ).trim();
     const sourceOptions = getProductsForCategory(normalizedCategory);
 
     addNameSelect.innerHTML = [
       '<option value="">Select an existing product</option>',
-      ...sourceOptions.map((product) =>
-        `<option value="${product.id}" data-code="${escHtml(product.code || "")}" data-name="${escHtml(product.name || "")}">${escHtml(product.name || "Unnamed")}</option>`,
+      ...sourceOptions.map(
+        (product) =>
+          `<option value="${product.id}" data-code="${escHtml(product.code || "")}" data-name="${escHtml(product.name || "")}">${escHtml(product.name || "Unnamed")}</option>`,
       ),
     ].join("");
 
-    if (preserveValue && selectedValue && sourceOptions.some((product) => String(product.id) === String(selectedValue))) {
+    if (
+      preserveValue &&
+      selectedValue &&
+      sourceOptions.some(
+        (product) => String(product.id) === String(selectedValue),
+      )
+    ) {
       addNameSelect.value = String(selectedValue);
     } else {
       addNameSelect.value = "";
@@ -240,7 +282,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!addNameSelect) return;
 
     const selectedValue = preserveValue ? addNameSelect.value : "";
-    const normalizedCategory = (category || addCategory?.value || "3D Print").trim();
+    const normalizedCategory = (
+      category ||
+      addCategory?.value ||
+      "3D Print"
+    ).trim();
 
     renderAddProductOptions(normalizedCategory, selectedValue, preserveValue);
 
@@ -264,10 +310,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const options = Array.isArray(payload?.data) ? payload.data : [];
       addNameSelect.innerHTML = [
         '<option value="">Select an existing product</option>',
-        ...options.map((product) => `<option value="${product.id}" data-code="${escHtml(product.code || "")}" data-name="${escHtml(product.name || "")}">${escHtml(product.name || "Unnamed")}</option>`),
+        ...options.map(
+          (product) =>
+            `<option value="${product.id}" data-code="${escHtml(product.code || "")}" data-name="${escHtml(product.name || "")}">${escHtml(product.name || "Unnamed")}</option>`,
+        ),
       ].join("");
 
-      if (selectedValue && options.some((product) => String(product.id) === String(selectedValue))) {
+      if (
+        selectedValue &&
+        options.some((product) => String(product.id) === String(selectedValue))
+      ) {
         addNameSelect.value = String(selectedValue);
       } else {
         addNameSelect.value = "";
@@ -304,7 +356,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const arrayToLines = (arr) => (Array.isArray(arr) ? arr.join("\n") : "");
 
   const setUnauthorized = () => {
-    if (window.AdminSession) { window.AdminSession.clearSession(); }
+    if (window.AdminSession) {
+      window.AdminSession.clearSession();
+    }
     localStorage.removeItem("auth_token");
     localStorage.removeItem("user_info");
     window.location.href = "../admin-auth/auth.html";
@@ -367,31 +421,31 @@ document.addEventListener("DOMContentLoaded", () => {
       input.value = "";
       return;
     }
-    
+
     // Validate 1:1 aspect ratio
     const img = new Image();
     const dataUrl = await fileToDataUrl(file);
     img.src = dataUrl;
-    
+
     await new Promise((resolve) => {
       if (img.complete) resolve(null);
       else img.onload = resolve;
     });
-    
+
     const width = img.naturalWidth || img.width;
     const height = img.naturalHeight || img.height;
     const aspectRatio = width / height;
-    
+
     // Check if aspect ratio is 1:1 (allow very small tolerance like 0.99 to 1.01)
     if (Math.abs(aspectRatio - 1) > 0.01) {
       window.showAdminPopup?.(
         `Image must have a 1:1 aspect ratio (square). Current ratio: ${aspectRatio.toFixed(2)}:1\n\nImage dimensions: ${width} × ${height}px`,
-        { title: "Invalid Image Dimensions" }
+        { title: "Invalid Image Dimensions" },
       );
       input.value = "";
       return;
     }
-    
+
     photoEditSource = source;
     photoEditorPreview.src = dataUrl;
     if (photoRotate) {
@@ -583,8 +637,16 @@ document.addEventListener("DOMContentLoaded", () => {
   let chartYearlyTrend = null;
 
   const CHART_PALETTE = [
-    "#800000", "#d4a017", "#0284c7", "#16a34a", "#7c3aed",
-    "#db2777", "#ea580c", "#0d9488", "#6366f1", "#94a3b8",
+    "#800000",
+    "#d4a017",
+    "#0284c7",
+    "#16a34a",
+    "#7c3aed",
+    "#db2777",
+    "#ea580c",
+    "#0d9488",
+    "#6366f1",
+    "#94a3b8",
   ];
 
   // Yearly trend should mirror Orders page totals in real time.
@@ -611,10 +673,19 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!topCtx) return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/product-analytics/top-selling?period=${period}`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-      });
-      if (res.status === 401 || res.status === 403) { setUnauthorized(); return; }
+      const res = await fetch(
+        `${API_BASE_URL}/admin/product-analytics/top-selling?period=${period}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        },
+      );
+      if (res.status === 401 || res.status === 403) {
+        setUnauthorized();
+        return;
+      }
       const payload = await res.json();
       const data = Array.isArray(payload?.data) ? payload.data : [];
 
@@ -632,14 +703,20 @@ document.addEventListener("DOMContentLoaded", () => {
       chartTopSelling = new Chart(topCtx, {
         type: "bar",
         data: {
-          labels: data.map((p) => p.name?.length > 18 ? p.name.slice(0, 18) + "..." : p.name),
-          datasets: [{
-            label: "Qty Sold",
-            data: data.map((p) => p.total_sold),
-            backgroundColor: data.map((_, i) => CHART_PALETTE[i % CHART_PALETTE.length]),
-            borderRadius: 6,
-            barThickness: 22,
-          }],
+          labels: data.map((p) =>
+            p.name?.length > 18 ? p.name.slice(0, 18) + "..." : p.name,
+          ),
+          datasets: [
+            {
+              label: "Qty Sold",
+              data: data.map((p) => p.total_sold),
+              backgroundColor: data.map(
+                (_, i) => CHART_PALETTE[i % CHART_PALETTE.length],
+              ),
+              borderRadius: 6,
+              barThickness: 22,
+            },
+          ],
         },
         options: {
           indexAxis: "x",
@@ -658,11 +735,20 @@ document.addEventListener("DOMContentLoaded", () => {
           scales: {
             x: {
               grid: { display: false },
-              ticks: { font: { family: "Poppins", size: 10 }, color: "#374151", maxRotation: 45, minRotation: 0 },
+              ticks: {
+                font: { family: "Poppins", size: 10 },
+                color: "#374151",
+                maxRotation: 45,
+                minRotation: 0,
+              },
             },
             y: {
               grid: { color: "#f3f4f6" },
-              ticks: { font: { family: "Poppins", size: 11 }, color: "#6b7280", beginAtZero: true },
+              ticks: {
+                font: { family: "Poppins", size: 11 },
+                color: "#6b7280",
+                beginAtZero: true,
+              },
             },
           },
         },
@@ -687,15 +773,26 @@ document.addEventListener("DOMContentLoaded", () => {
     const layoutEl = document.getElementById("salesByCategoryLayout");
     const listEl = document.getElementById("salesByCategoryList");
     const centerMetricEl = document.getElementById("salesCategoryCenterMetric");
-    const centerPercentEl = document.getElementById("salesCategoryCenterPercent");
+    const centerPercentEl = document.getElementById(
+      "salesCategoryCenterPercent",
+    );
     const centerLabelEl = document.getElementById("salesCategoryCenterLabel");
     if (!catCtx) return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/product-analytics/sales-by-category`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-      });
-      if (res.status === 401 || res.status === 403) { setUnauthorized(); return; }
+      const res = await fetch(
+        `${API_BASE_URL}/admin/product-analytics/sales-by-category`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        },
+      );
+      if (res.status === 401 || res.status === 403) {
+        setUnauthorized();
+        return;
+      }
       const payload = await res.json();
       const data = Array.isArray(payload?.data) ? payload.data : [];
 
@@ -715,12 +812,18 @@ document.addEventListener("DOMContentLoaded", () => {
       if (centerMetricEl) centerMetricEl.style.display = "flex";
       if (emptyEl) emptyEl.style.display = "none";
 
-      const sorted = [...data].sort((a, b) => Number(b.total_revenue || 0) - Number(a.total_revenue || 0));
-      const totalRevenue = sorted.reduce((sum, item) => sum + Number(item.total_revenue || 0), 0);
+      const sorted = [...data].sort(
+        (a, b) => Number(b.total_revenue || 0) - Number(a.total_revenue || 0),
+      );
+      const totalRevenue = sorted.reduce(
+        (sum, item) => sum + Number(item.total_revenue || 0),
+        0,
+      );
 
       const mapped = sorted.map((item, index) => {
         const revenue = Number(item.total_revenue || 0);
-        const percentage = totalRevenue > 0 ? (revenue / totalRevenue) * 100 : 0;
+        const percentage =
+          totalRevenue > 0 ? (revenue / totalRevenue) * 100 : 0;
 
         return {
           category: item.category || "Uncategorized",
@@ -742,7 +845,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (listEl) {
-        listEl.innerHTML = mapped.map((item) => `
+        listEl.innerHTML = mapped
+          .map(
+            (item) => `
           <li class="sales-category-item">
             <div class="sales-category-item-left">
               <span class="sales-category-dot" style="background:${item.color}"></span>
@@ -753,20 +858,24 @@ document.addEventListener("DOMContentLoaded", () => {
               <span>${item.percentage.toFixed(1)}% • ${item.total_sold} sold</span>
             </div>
           </li>
-        `).join("");
+        `,
+          )
+          .join("");
       }
 
       chartSalesByCategory = new Chart(catCtx, {
         type: "doughnut",
         data: {
           labels: mapped.map((d) => d.category),
-          datasets: [{
-            data: mapped.map((d) => d.total_revenue),
-            backgroundColor: mapped.map((d) => d.color),
-            borderWidth: 2,
-            borderColor: "#fff",
-            hoverOffset: 8,
-          }],
+          datasets: [
+            {
+              data: mapped.map((d) => d.total_revenue),
+              backgroundColor: mapped.map((d) => d.color),
+              borderWidth: 2,
+              borderColor: "#fff",
+              hoverOffset: 8,
+            },
+          ],
         },
         options: {
           responsive: true,
@@ -783,7 +892,8 @@ document.addEventListener("DOMContentLoaded", () => {
               callbacks: {
                 label: (ctx) => {
                   const val = ctx.parsed || 0;
-                  const share = totalRevenue > 0 ? (val / totalRevenue) * 100 : 0;
+                  const share =
+                    totalRevenue > 0 ? (val / totalRevenue) * 100 : 0;
                   return `${ctx.label}: ₱${val.toLocaleString("en-PH", { minimumFractionDigits: 2 })} (${share.toFixed(1)}%)`;
                 },
               },
@@ -809,10 +919,19 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!perfBody) return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/product-analytics/product-performance`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-      });
-      if (res.status === 401 || res.status === 403) { setUnauthorized(); return; }
+      const res = await fetch(
+        `${API_BASE_URL}/admin/product-analytics/product-performance`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        },
+      );
+      if (res.status === 401 || res.status === 403) {
+        setUnauthorized();
+        return;
+      }
       const payload = await res.json();
       const data = Array.isArray(payload?.data) ? payload.data : [];
 
@@ -826,18 +945,22 @@ document.addEventListener("DOMContentLoaded", () => {
       if (tableEl) tableEl.style.display = "";
       if (emptyEl) emptyEl.style.display = "none";
 
-      perfBody.innerHTML = data.map((p) => {
-        let statusClass = "perf-status--low";
-        let statusLabel = p.status || "Low";
-        if (p.status_class === "top") statusClass = "perf-status--top";
-        else if (p.status_class === "high") statusClass = "perf-status--high";
+      perfBody.innerHTML = data
+        .map((p) => {
+          let statusClass = "perf-status--low";
+          let statusLabel = p.status || "Low";
+          if (p.status_class === "top") statusClass = "perf-status--top";
+          else if (p.status_class === "high") statusClass = "perf-status--high";
 
-        const revenue = parseFloat(p.total_revenue || 0).toLocaleString("en-PH", {
-          style: "currency",
-          currency: "PHP",
-        });
+          const revenue = parseFloat(p.total_revenue || 0).toLocaleString(
+            "en-PH",
+            {
+              style: "currency",
+              currency: "PHP",
+            },
+          );
 
-        return `<tr>
+          return `<tr>
           <td>${p.product_code || "N/A"}</td>
           <td>${p.product_name || "Unnamed"}</td>
           <td>${p.category || "N/A"}</td>
@@ -845,7 +968,8 @@ document.addEventListener("DOMContentLoaded", () => {
           <td>${revenue}</td>
           <td><span class="perf-status ${statusClass}">${statusLabel}</span></td>
         </tr>`;
-      }).join("");
+        })
+        .join("");
     } catch (err) {
       console.error("Product performance load error:", err);
       perfBody.innerHTML = "";
@@ -863,11 +987,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const selectedYear = year || new Date().getFullYear();
 
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/product-analytics/yearly-sales-trend?year=${selectedYear}&date_basis=${YEARLY_TREND_DATE_BASIS}`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-        cache: "no-store",
-      });
-      if (res.status === 401 || res.status === 403) { setUnauthorized(); return; }
+      const res = await fetch(
+        `${API_BASE_URL}/admin/product-analytics/yearly-sales-trend?year=${selectedYear}&date_basis=${YEARLY_TREND_DATE_BASIS}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+          cache: "no-store",
+        },
+      );
+      if (res.status === 401 || res.status === 403) {
+        setUnauthorized();
+        return;
+      }
       const payload = await res.json();
       const monthsData = Array.isArray(payload?.data) ? payload.data : [];
       const hasData = payload?.has_data ?? false;
@@ -883,25 +1016,40 @@ document.addEventListener("DOMContentLoaded", () => {
       trendCtx.style.display = "";
       if (emptyEl) emptyEl.style.display = "none";
 
-      const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
 
       chartYearlyTrend = new Chart(trendCtx, {
         type: "line",
         data: {
           labels: months,
-          datasets: [{
-            label: "Total Sales (PHP)",
-            data: monthsData.map((m) => m.total_sales),
-            borderColor: "#800000",
-            backgroundColor: "rgba(128,0,0,0.08)",
-            fill: true,
-            tension: 0.4,
-            pointBackgroundColor: "#800000",
-            pointBorderColor: "#fff",
-            pointBorderWidth: 2,
-            pointRadius: 4,
-            pointHoverRadius: 6,
-          }],
+          datasets: [
+            {
+              label: "Total Sales (PHP)",
+              data: monthsData.map((m) => m.total_sales),
+              borderColor: "#800000",
+              backgroundColor: "rgba(128,0,0,0.08)",
+              fill: true,
+              tension: 0.4,
+              pointBackgroundColor: "#800000",
+              pointBorderColor: "#fff",
+              pointBorderWidth: 2,
+              pointRadius: 4,
+              pointHoverRadius: 6,
+            },
+          ],
         },
         options: {
           responsive: true,
@@ -917,7 +1065,10 @@ document.addEventListener("DOMContentLoaded", () => {
               callbacks: {
                 label: (ctx) => {
                   const val = ctx.parsed.y || 0;
-                  return "₱" + val.toLocaleString("en-PH", { minimumFractionDigits: 2 });
+                  return (
+                    "₱" +
+                    val.toLocaleString("en-PH", { minimumFractionDigits: 2 })
+                  );
                 },
               },
             },
@@ -925,7 +1076,10 @@ document.addEventListener("DOMContentLoaded", () => {
           scales: {
             x: {
               grid: { display: false },
-              ticks: { font: { family: "Poppins", size: 10 }, color: "#9ca3af" },
+              ticks: {
+                font: { family: "Poppins", size: 10 },
+                color: "#9ca3af",
+              },
             },
             y: {
               grid: { color: "#f3f4f6" },
@@ -1000,7 +1154,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // Product Performance - hide table, show shimmer
     const perfTable = document.getElementById("productPerformanceTable");
     const perfEmpty = document.getElementById("productPerformanceEmpty");
-    const perfWrapper = document.getElementById("productPerformanceTableWrapper");
+    const perfWrapper = document.getElementById(
+      "productPerformanceTableWrapper",
+    );
     if (perfTable) perfTable.style.display = "none";
     if (perfEmpty) perfEmpty.style.display = "none";
     if (perfWrapper) {
@@ -1015,14 +1171,18 @@ document.addEventListener("DOMContentLoaded", () => {
           <div style="display:flex;gap:12px;margin-bottom:12px;">
             <div style="height:28px;border-radius:6px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;flex:1;"></div>
           </div>
-          ${Array.from({length: 4}).map((_, i) => `
+          ${Array.from({ length: 4 })
+            .map(
+              (_, i) => `
             <div style="display:flex;gap:12px;margin-bottom:10px;">
               <div style="height:14px;border-radius:4px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:60px;animation-delay:${i * 0.1}s;"></div>
               <div style="height:14px;border-radius:4px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;flex:1;animation-delay:${i * 0.12}s;"></div>
               <div style="height:14px;border-radius:4px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:70px;animation-delay:${i * 0.15}s;"></div>
               <div style="height:14px;border-radius:4px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:50px;animation-delay:${i * 0.18}s;"></div>
             </div>
-          `).join("")}
+          `,
+            )
+            .join("")}
         </div>
       `;
       shimmerEl.innerHTML = tableShimmer;
@@ -1064,8 +1224,12 @@ document.addEventListener("DOMContentLoaded", () => {
       loadTopSelling(topSellingPeriod?.value || "month"),
       loadSalesByCategory(),
       loadProductPerformance(),
-      loadYearlySalesTrend(yearDropdown ? Number(yearDropdown.value) : new Date().getFullYear()),
-    ]).then(onDone).catch(onDone);
+      loadYearlySalesTrend(
+        yearDropdown ? Number(yearDropdown.value) : new Date().getFullYear(),
+      ),
+    ])
+      .then(onDone)
+      .catch(onDone);
   };
 
   // ─── Load Products from API ───────────────────────────────────────────────────
@@ -1088,7 +1252,11 @@ document.addEventListener("DOMContentLoaded", () => {
       currentPage = 1;
       renderTable();
       if (addNameSelect) {
-        renderAddProductOptions(addCategory?.value || "3D Print", addNameSelect.value, true);
+        renderAddProductOptions(
+          addCategory?.value || "3D Print",
+          addNameSelect.value,
+          true,
+        );
       }
       if (modalAdd?.classList.contains("show")) {
         void loadAddProductOptions(addCategory?.value || "3D Print");
@@ -1191,7 +1359,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (addProductNewNameWrap) addProductNewNameWrap.style.display = "";
     if (addNewName) addNewName.value = "";
     if (addProductNameDropdown) closeAddProductDropdown();
-    if (addProductNameTrigger) addProductNameTrigger.innerHTML = `Add new product<span class="custom-select-arrow"><i class="fa-solid fa-chevron-down"></i></span>`;
+    if (addProductNameTrigger)
+      addProductNameTrigger.innerHTML = `Add new product<span class="custom-select-arrow"><i class="fa-solid fa-chevron-down"></i></span>`;
     if (addNewName) addNewName.focus();
   });
 
@@ -1207,15 +1376,19 @@ document.addEventListener("DOMContentLoaded", () => {
     if ((addNewName?.value || "").trim()) {
       if (addNameSelect) addNameSelect.value = "";
       if (addCode) addCode.value = "";
-      if (addProductNameTrigger) addProductNameTrigger.innerHTML = `Add new product<span class="custom-select-arrow"><i class="fa-solid fa-chevron-down"></i></span>`;
+      if (addProductNameTrigger)
+        addProductNameTrigger.innerHTML = `Add new product<span class="custom-select-arrow"><i class="fa-solid fa-chevron-down"></i></span>`;
     }
   });
 
   btnSaveProduct?.addEventListener("click", async (e) => {
     if (e) e.preventDefault();
     const selectedExisting = addNameSelect?.selectedOptions?.[0];
-    const selectedExistingName = selectedExisting?.dataset?.name || selectedExisting?.textContent || "";
-    const name = (addNewName?.value || "").trim() || String(selectedExistingName || "").trim();
+    const selectedExistingName =
+      selectedExisting?.dataset?.name || selectedExisting?.textContent || "";
+    const name =
+      (addNewName?.value || "").trim() ||
+      String(selectedExistingName || "").trim();
     const code = (addCode?.value || "").trim();
     const stock = addStock?.value;
     const price = addPrice?.value;
@@ -1285,7 +1458,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       const payload = await res.json();
       if (!res.ok) {
-        let msg = payload?.message || Object.values(payload?.errors || {})[0]?.[0] || "Failed to save product.";
+        let msg =
+          payload?.message ||
+          Object.values(payload?.errors || {})[0]?.[0] ||
+          "Failed to save product.";
         const codeErrors = payload?.errors?.code;
         if (Array.isArray(codeErrors) && codeErrors.length) {
           msg = "Save Failed, The code has already been taken.";
@@ -1300,7 +1476,9 @@ document.addEventListener("DOMContentLoaded", () => {
       broadcastProductChange("created");
       await loadProducts();
       setTimeout(() => {
-        window.showAdminPopup?.("Product added successfully.", { title: "Success ✓" });
+        window.showAdminPopup?.("Product added successfully.", {
+          title: "Success ✓",
+        });
       }, 200);
     } catch (err) {
       console.error("Save product error:", err);
@@ -1492,7 +1670,9 @@ document.addEventListener("DOMContentLoaded", () => {
       broadcastProductChange("updated");
       await loadProducts();
       setTimeout(() => {
-        window.showAdminPopup?.("Product updated successfully.", { title: "Success ✓" });
+        window.showAdminPopup?.("Product updated successfully.", {
+          title: "Success ✓",
+        });
       }, 200);
     } catch (err) {
       console.error("Update product error:", err);
@@ -1544,7 +1724,9 @@ document.addEventListener("DOMContentLoaded", () => {
       broadcastProductChange("deleted", deletedId);
       await loadProducts();
       setTimeout(() => {
-        window.showAdminPopup?.("Product deleted successfully.", { title: "Success ✓" });
+        window.showAdminPopup?.("Product deleted successfully.", {
+          title: "Success ✓",
+        });
       }, 200);
     } catch (err) {
       console.error("Delete product error:", err);
@@ -1599,7 +1781,6 @@ document.addEventListener("DOMContentLoaded", () => {
     currentPage = 1;
     renderTable();
   });
-
 
   // ─── Initialize ───────────────────────────────────────────────────────────────
 
@@ -1659,7 +1840,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const payload = event?.data || {};
     // Ignore messages this tab sent
     if (payload.source === "admin-products") return;
-    if (payload.type === "updated" || payload.type === "created" || payload.type === "deleted") {
+    if (
+      payload.type === "updated" ||
+      payload.type === "created" ||
+      payload.type === "deleted"
+    ) {
       debouncedLoadProducts();
     }
   });
@@ -1686,4 +1871,3 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 });
-

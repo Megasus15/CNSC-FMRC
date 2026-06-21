@@ -1,18 +1,28 @@
 document.addEventListener("DOMContentLoaded", () => {
   const API_BASE_URL =
     window.APP_API_BASE_URL ||
-    document.querySelector('meta[name="api-base-url"]')?.getAttribute("content") ||
+    document
+      .querySelector('meta[name="api-base-url"]')
+      ?.getAttribute("content") ||
     `${window.location.protocol}//${window.location.hostname}:8000/api`;
 
-  const token = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token");
+  const token =
+    (window.AdminSession && window.AdminSession.getToken()) ||
+    localStorage.getItem("auth_token");
   if (!token) {
     window.location.href = "../admin-auth/auth.html";
     return;
   }
 
   // ── Staff guard: only admin may access User Management ──
-  const cachedUser = window.AdminSession ? window.AdminSession.getUserInfo() : null;
-  const currentRole = (cachedUser?.role || cachedUser?.data?.role || "").toLowerCase();
+  const cachedUser = window.AdminSession
+    ? window.AdminSession.getUserInfo()
+    : null;
+  const currentRole = (
+    cachedUser?.role ||
+    cachedUser?.data?.role ||
+    ""
+  ).toLowerCase();
   if (currentRole === "staff") {
     // Staff should never see User Management — redirect to their dashboard.
     window.location.href = "../staff-page/dashboard.html";
@@ -27,17 +37,25 @@ document.addEventListener("DOMContentLoaded", () => {
   const roleFilter = document.getElementById("accountsRoleFilter");
   const searchInput = document.getElementById("accountsSearchInput");
   const modalDeleteAccount = document.getElementById("modalDeleteAccount");
-  const deleteAccountTargetLabel = document.getElementById("deleteAccountTargetLabel");
-  const btnConfirmDeleteAccount = document.getElementById("btnConfirmDeleteAccount");
+  const deleteAccountTargetLabel = document.getElementById(
+    "deleteAccountTargetLabel",
+  );
+  const btnConfirmDeleteAccount = document.getElementById(
+    "btnConfirmDeleteAccount",
+  );
 
   const createForm = document.getElementById("adminCreateUserForm");
   const createName = document.getElementById("createUserName");
   const createRole = document.getElementById("createUserRole");
   const createUsername = document.getElementById("createUserUsername");
-  const createUsernameSelect = document.getElementById("createUserUsernameSelect");
+  const createUsernameSelect = document.getElementById(
+    "createUserUsernameSelect",
+  );
   const createEmail = document.getElementById("createUserEmail");
   const createPassword = document.getElementById("createUserPassword");
-  const createPasswordConfirm = document.getElementById("createUserPasswordConfirm");
+  const createPasswordConfirm = document.getElementById(
+    "createUserPasswordConfirm",
+  );
   const formStatus = document.getElementById("accountsFormStatus");
 
   const state = {
@@ -77,13 +95,21 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const clearCreateFormErrors = () => {
-    [createName, createRole, createUsername, createUsernameSelect, createEmail, createPassword, createPasswordConfirm].forEach(
-      (input) => clearFieldError(input)
-    );
+    [
+      createName,
+      createRole,
+      createUsername,
+      createUsernameSelect,
+      createEmail,
+      createPassword,
+      createPasswordConfirm,
+    ].forEach((input) => clearFieldError(input));
   };
 
   const toTitleCase = (value) => {
-    const raw = String(value || "").trim().toLowerCase();
+    const raw = String(value || "")
+      .trim()
+      .toLowerCase();
     if (!raw) return "N/A";
     return raw.charAt(0).toUpperCase() + raw.slice(1);
   };
@@ -118,7 +144,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const getFilteredUsers = () => {
     const role = String(roleFilter?.value || "all").toLowerCase();
-    const query = String(searchInput?.value || "").trim().toLowerCase();
+    const query = String(searchInput?.value || "")
+      .trim()
+      .toLowerCase();
 
     return state.users.filter((user) => {
       const userRole = String(user?.role || "").toLowerCase();
@@ -150,7 +178,9 @@ document.addEventListener("DOMContentLoaded", () => {
       tableBody.innerHTML = paged
         .map((user, idx) => {
           const displayIndex = String(start + idx + 1).padStart(3, "0");
-          const displayUsername = user?.username ? escapeHtml(user.username) : "N/A";
+          const displayUsername = user?.username
+            ? escapeHtml(user.username)
+            : "N/A";
           const displayEmail = user?.email ? escapeHtml(user.email) : "N/A";
           const displayRole = toTitleCase(user?.role);
           const roleClass = `role-tag-${String(user?.role || "customer").toLowerCase()}`;
@@ -195,7 +225,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const loadAccounts = async () => {
     try {
-      if (tableBody && (!tableBody.children.length || tableBody.querySelector(".table-empty-state"))) {
+      if (
+        tableBody &&
+        (!tableBody.children.length ||
+          tableBody.querySelector(".table-empty-state"))
+      ) {
         tableBody.innerHTML = `<tr>
           <td><div class="skeleton-text" style="width:20px;"></div></td>
           <td>
@@ -337,7 +371,10 @@ document.addEventListener("DOMContentLoaded", () => {
         // Populate the username select with available staff usernames
         if (createUsernameSelect) {
           createUsernameSelect.innerHTML = staffMembers
-            .map((s) => `<option value="${escapeHtml(s.username || "")}">${escapeHtml(s.name || s.username || "")} (${escapeHtml(s.username || "")})</option>`)
+            .map(
+              (s) =>
+                `<option value="${escapeHtml(s.username || "")}">${escapeHtml(s.name || s.username || "")} (${escapeHtml(s.username || "")})</option>`,
+            )
             .join("");
           createUsernameSelect.style.display = "block";
           createUsernameSelect.removeAttribute("aria-hidden");
@@ -373,7 +410,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const getUsernameValue = () => {
     const sel = document.getElementById("createUserUsernameSelect");
-    if (sel && sel.style.display !== "none") return String(sel.value || "").trim();
+    if (sel && sel.style.display !== "none")
+      return String(sel.value || "").trim();
     const inp = document.getElementById("createUserUsername");
     return String(inp?.value || "").trim();
   };
@@ -389,7 +427,9 @@ document.addEventListener("DOMContentLoaded", () => {
     clearCreateFormErrors();
 
     const name = String(createName?.value || "").trim();
-    const role = String(createRole?.value || "customer").trim().toLowerCase();
+    const role = String(createRole?.value || "customer")
+      .trim()
+      .toLowerCase();
     const username = getUsernameValue();
     const email = String(createEmail?.value || "").trim();
     const password = String(createPassword?.value || "");
@@ -435,7 +475,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (hasError) {
-      const firstErrorInput = createForm?.querySelector(".field-stack.has-error input, .field-stack.has-error select");
+      const firstErrorInput = createForm?.querySelector(
+        ".field-stack.has-error input, .field-stack.has-error select",
+      );
       if (firstErrorInput instanceof HTMLElement) firstErrorInput.focus();
       return;
     }
@@ -468,26 +510,42 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!response.ok) {
         if (response.status === 422 && payload?.errors) {
           const errors = payload.errors;
-          if (errors.name?.[0]) setFieldError(createName, String(errors.name[0]));
-          if (errors.role?.[0]) setFieldError(createRole, String(errors.role[0]));
-          if (errors.username?.[0]) setFieldError(createUsername, String(errors.username[0]));
-          if (errors.email?.[0]) setFieldError(createEmail, String(errors.email[0]));
-          if (errors.password?.[0]) setFieldError(createPassword, String(errors.password[0]));
+          if (errors.name?.[0])
+            setFieldError(createName, String(errors.name[0]));
+          if (errors.role?.[0])
+            setFieldError(createRole, String(errors.role[0]));
+          if (errors.username?.[0])
+            setFieldError(createUsername, String(errors.username[0]));
+          if (errors.email?.[0])
+            setFieldError(createEmail, String(errors.email[0]));
+          if (errors.password?.[0])
+            setFieldError(createPassword, String(errors.password[0]));
           const firstError = Object.values(errors)[0]?.[0];
-          updateFormStatus(String(firstError || "Please review your input."), true);
+          updateFormStatus(
+            String(firstError || "Please review your input."),
+            true,
+          );
         } else {
-          updateFormStatus(payload?.message || "Unable to create account right now.", true);
+          updateFormStatus(
+            payload?.message || "Unable to create account right now.",
+            true,
+          );
         }
         return;
       }
 
       createForm?.reset();
       clearCreateFormErrors();
-      window.showAdminPopup?.("New user account created successfully.", { title: "Account Created" });
+      window.showAdminPopup?.("New user account created successfully.", {
+        title: "Account Created",
+      });
       await loadAccounts();
     } catch (error) {
       console.error("Failed to create account:", error);
-      updateFormStatus("Unable to connect to server. Ensure Laravel is running.", true);
+      updateFormStatus(
+        "Unable to connect to server. Ensure Laravel is running.",
+        true,
+      );
     }
   };
 
@@ -508,28 +566,35 @@ document.addEventListener("DOMContentLoaded", () => {
       const viewTitle = document.getElementById("viewUserTitle");
       const viewContent = document.getElementById("viewUserContent");
       const modalViewUser = document.getElementById("modalViewUser");
-      if (viewTitle) viewTitle.textContent = escapeHtml(user?.name || "User Details");
+      if (viewTitle)
+        viewTitle.textContent = escapeHtml(user?.name || "User Details");
       if (viewContent) {
         const roleClass = `role-tag-${String(user?.role || "customer").toLowerCase()}`;
         viewContent.innerHTML = `
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;">
             <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Full Name</div><div style="font-size:.88rem;color:#111827;font-weight:500;">${escapeHtml(user?.name || "N/A")}</div></div>
             <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Role</div><div><span class="role-tag ${roleClass}">${toTitleCase(user?.role)}</span></div></div>
-            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Username</div><div style="font-size:.88rem;color:#111827;">${escapeHtml(user?.username || 'N/A')}</div></div>
-            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Email</div><div style="font-size:.88rem;color:#111827;word-break:break-word;">${escapeHtml(user?.email || 'N/A')}</div></div>
+            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Username</div><div style="font-size:.88rem;color:#111827;">${escapeHtml(user?.username || "N/A")}</div></div>
+            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Email</div><div style="font-size:.88rem;color:#111827;word-break:break-word;">${escapeHtml(user?.email || "N/A")}</div></div>
             <div style="grid-column:1/-1;"><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Date Created</div><div style="font-size:.88rem;color:#111827;">${formatDate(user?.created_at)}</div></div>
           </div>`;
       }
       modalViewUser?.classList.add("show");
-      document.getElementById("btnCloseViewUser")?.addEventListener("click", () => {
-        modalViewUser?.classList.remove("show");
-      }, { once: true });
+      document.getElementById("btnCloseViewUser")?.addEventListener(
+        "click",
+        () => {
+          modalViewUser?.classList.remove("show");
+        },
+        { once: true },
+      );
       return;
     }
 
     const editBtn = target.closest("[data-user-edit]");
     if (editBtn) {
-      window.showAdminPopup?.("Edit action will be added soon.", { title: "Coming Soon" });
+      window.showAdminPopup?.("Edit action will be added soon.", {
+        title: "Coming Soon",
+      });
       return;
     }
 
@@ -562,7 +627,9 @@ document.addEventListener("DOMContentLoaded", () => {
     state.activeDeleteId = 0;
     modalDeleteAccount?.classList.remove("show");
     await loadAccounts();
-    window.showAdminPopup?.("Account deleted successfully.", { title: "Deleted" });
+    window.showAdminPopup?.("Account deleted successfully.", {
+      title: "Deleted",
+    });
   });
 
   roleFilter?.addEventListener("change", () => {
@@ -575,16 +642,22 @@ document.addEventListener("DOMContentLoaded", () => {
     renderTable();
   });
 
-    [createName, createRole, createUsername, createUsernameSelect, createEmail, createPassword, createPasswordConfirm].forEach(
-    (input) => {
-      input?.addEventListener("input", () => {
-        clearFieldError(input);
-      });
-      input?.addEventListener("change", () => {
-        clearFieldError(input);
-      });
-    }
-  );
+  [
+    createName,
+    createRole,
+    createUsername,
+    createUsernameSelect,
+    createEmail,
+    createPassword,
+    createPasswordConfirm,
+  ].forEach((input) => {
+    input?.addEventListener("input", () => {
+      clearFieldError(input);
+    });
+    input?.addEventListener("change", () => {
+      clearFieldError(input);
+    });
+  });
 
   // Add event listener for role changes to handle Staff username behavior
   createRole?.addEventListener("change", handleRoleChange);

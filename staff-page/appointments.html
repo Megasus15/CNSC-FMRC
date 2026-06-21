@@ -6,24 +6,43 @@
     <title>Appointments | CNSC-FMRC Staff</title>
     <link rel="stylesheet" href="../admin-page/dashboard.css" />
     <link rel="stylesheet" href="../admin-page/admin-modules.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
   </head>
   <body>
     <div class="dashboard-container">
       <aside class="sidebar">
-        <div class="sidebar-header"><img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" /><h2>CNSC-FMRC</h2></div>
+        <div class="sidebar-header">
+          <img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" />
+          <h2>CNSC-FMRC</h2>
+        </div>
         <nav class="sidebar-nav">
-          <a href="dashboard.html" class="nav-link"><i class="fa-solid fa-house"></i> Dashboard</a>
-          <a href="inventory.html" class="nav-link"><i class="fa-solid fa-box"></i> Inventory</a>
-          <a href="products.html" class="nav-link"><i class="fa-solid fa-tags"></i> Products</a>
-          <a href="appointments.html" class="nav-link active"><i class="fa-regular fa-calendar-check"></i> Appointment</a>
-          <a href="reports.html" class="nav-link"><i class="fa-solid fa-chart-line"></i> Reports</a>
-          <a href="orders.html" class="nav-link"><i class="fa-solid fa-box-open"></i> Orders</a>
+          <a href="dashboard.html" class="nav-link"
+            ><i class="fa-solid fa-house"></i> Dashboard</a
+          >
+          <a href="inventory.html" class="nav-link"
+            ><i class="fa-solid fa-box"></i> Inventory</a
+          >
+          <a href="products.html" class="nav-link"
+            ><i class="fa-solid fa-tags"></i> Products</a
+          >
+          <a href="appointments.html" class="nav-link active"
+            ><i class="fa-regular fa-calendar-check"></i> Appointment</a
+          >
+          <a href="reports.html" class="nav-link"
+            ><i class="fa-solid fa-chart-line"></i> Reports</a
+          >
+          <a href="orders.html" class="nav-link"
+            ><i class="fa-solid fa-box-open"></i> Orders</a
+          >
 
           <div class="nav-item has-dropdown">
             <a href="#" class="nav-link dropdown-toggle" id="staffControlBtn">
               <div class="dropdown-title">
-                <i class="fa-solid fa-screwdriver-wrench"></i> Website Management
+                <i class="fa-solid fa-screwdriver-wrench"></i> Website
+                Management
               </div>
               <i class="fa-solid fa-chevron-down arrow"></i>
             </a>
@@ -35,61 +54,137 @@
             </div>
           </div>
 
-          <a href="archives.html" class="nav-link"><i class="fa-solid fa-box-archive"></i> Archives</a>
-          <a href="my-account.html" class="nav-link"><i class="fa-regular fa-id-card"></i> My Account</a>
+          <a href="archives.html" class="nav-link"
+            ><i class="fa-solid fa-box-archive"></i> Archives</a
+          >
+          <a href="my-account.html" class="nav-link"
+            ><i class="fa-regular fa-id-card"></i> My Account</a
+          >
         </nav>
-        <div class="sidebar-footer"><button class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div>
+        <div class="sidebar-footer">
+          <button class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
+        </div>
       </aside>
 
       <main class="main-content">
         <header class="top-header">
           <div class="header-left"><h1>Appointment Management</h1></div>
           <div class="header-right">
-            <div class="notifications" id="notifBell"><i class="fa-regular fa-bell"></i><span class="badge" id="notifBadge" style="display:none;"></span></div>
+            <div class="notifications" id="notifBell">
+              <i class="fa-regular fa-bell"></i
+              ><span class="badge" id="notifBadge" style="display: none"></span>
+            </div>
             <div class="user-profile">
               <div class="user-info"><span class="role">Staff</span></div>
-              <span class="profile-icon profile-initial" data-email="staff@cnsc.edu.ph"></span>
-              <div class="profile-popup" id="profilePopup"><div class="popup-header">
+              <span
+                class="profile-icon profile-initial"
+                data-email="staff@cnsc.edu.ph"
+              ></span>
+              <div class="profile-popup" id="profilePopup">
+                <div class="popup-header">
                   <div class="popup-profile-row">
-                    <span class="popup-profile-icon profile-initial" data-email="staff@cnsc.edu.ph"></span>
+                    <span
+                      class="popup-profile-icon profile-initial"
+                      data-email="staff@cnsc.edu.ph"
+                    ></span>
                     <div class="popup-profile-meta">
                       <p class="popup-identity">staff@cnsc.edu.ph</p>
                       <span class="popup-role">Staff</span>
                     </div>
                   </div>
                 </div>
-                <a href="my-account.html" class="profile-popup-link"><i class="fa-regular fa-id-card"></i> My Account</a>
-                <hr /><button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div>
+                <a href="my-account.html" class="profile-popup-link"
+                  ><i class="fa-regular fa-id-card"></i> My Account</a
+                >
+                <hr />
+                <button class="logout-btn popup-logout">
+                  <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+              </div>
             </div>
           </div>
         </header>
 
         <section class="module-content">
           <div class="page-toolbar">
-            <div class="toolbar-title"><h2>Appointment List</h2><p>Review requests, assign slots, and control blocked dates.</p></div>
+            <div class="toolbar-title">
+              <h2>Appointment List</h2>
+              <p>Review requests, assign slots, and control blocked dates.</p>
+            </div>
             <div class="toolbar-actions">
-              <button class="btn-admin btn-secondary" onclick="window.location.reload(); return false;" title="Refresh Data">
+              <button
+                class="btn-admin btn-secondary"
+                onclick="
+                  window.location.reload();
+                  return false;
+                "
+                title="Refresh Data"
+              >
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
-              <button class="btn-admin" data-modal-open="#modalCalendar"><i class="fa-regular fa-calendar-check"></i> Manage Calendar</button>
+              <button class="btn-admin" data-modal-open="#modalCalendar">
+                <i class="fa-regular fa-calendar-check"></i> Manage Calendar
+              </button>
             </div>
           </div>
 
           <div class="panel">
-            <div class="panel-header"><h3>Client Appointments</h3><input class="search-input" id="appointmentSearchInput" placeholder="Search client, contact, email, or purpose..." /></div>
-            <div class="table-scroll-hint"><i class="fa-solid fa-left-right"></i> This table is horizontally scrollable. Slide left or right to view all appointment fields.</div>
+            <div class="panel-header">
+              <h3>Client Appointments</h3>
+              <input
+                class="search-input"
+                id="appointmentSearchInput"
+                placeholder="Search client, contact, email, or purpose..."
+              />
+            </div>
+            <div class="table-scroll-hint">
+              <i class="fa-solid fa-left-right"></i> This table is horizontally
+              scrollable. Slide left or right to view all appointment fields.
+            </div>
             <div class="table-wrapper appointments-table-wrapper">
               <table class="admin-table inventory-table" id="appointmentsTable">
-                <thead><tr><th>AP-No</th><th>Client Name</th><th>Contact Number</th><th>Email</th><th>Address</th><th>Type</th><th>Purpose</th><th>File Attach</th><th>Additional Description / Notes</th><th>Date</th><th>Time</th><th>Status</th><th class="sticky-action">Action</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th>AP-No</th>
+                    <th>Client Name</th>
+                    <th>Contact Number</th>
+                    <th>Email</th>
+                    <th>Address</th>
+                    <th>Type</th>
+                    <th>Purpose</th>
+                    <th>File Attach</th>
+                    <th>Additional Description / Notes</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Status</th>
+                    <th class="sticky-action">Action</th>
+                  </tr>
+                </thead>
                 <tbody id="appointmentsTableBody"></tbody>
               </table>
             </div>
             <div class="table-footer" id="appointmentsTableFooter">
-              <div class="table-footer-meta" id="appointmentsTableMeta">Page 1 of 1</div>
+              <div class="table-footer-meta" id="appointmentsTableMeta">
+                Page 1 of 1
+              </div>
               <div class="table-pagination">
-                <button class="page-btn" id="appointmentsPrevPage" aria-label="Previous page"><i class="fa-solid fa-chevron-left"></i></button>
+                <button
+                  class="page-btn"
+                  id="appointmentsPrevPage"
+                  aria-label="Previous page"
+                >
+                  <i class="fa-solid fa-chevron-left"></i>
+                </button>
                 <div class="page-number" id="appointmentsCurrentPage">1</div>
-                <button class="page-btn" id="appointmentsNextPage" aria-label="Next page"><i class="fa-solid fa-chevron-right"></i></button>
+                <button
+                  class="page-btn"
+                  id="appointmentsNextPage"
+                  aria-label="Next page"
+                >
+                  <i class="fa-solid fa-chevron-right"></i>
+                </button>
               </div>
             </div>
           </div>
@@ -101,18 +196,40 @@
       <div class="modal-card modal-calendar-admin">
         <div class="calendar-modal-header">
           <h3 class="modal-title">Manage Calendar</h3>
-          <p class="field-hint">This panel controls website Step 3 availability. You can block whole dates or specific time slots.</p>
+          <p class="field-hint">
+            This panel controls website Step 3 availability. You can block whole
+            dates or specific time slots.
+          </p>
         </div>
         <div class="admin-calendar-grid">
           <div class="admin-calendar-left">
             <div class="cal-navigation">
-              <button id="adminCalPrevBtn" type="button" class="page-btn" aria-label="Previous month"><i class="fa-solid fa-chevron-left"></i></button>
+              <button
+                id="adminCalPrevBtn"
+                type="button"
+                class="page-btn"
+                aria-label="Previous month"
+              >
+                <i class="fa-solid fa-chevron-left"></i>
+              </button>
               <h4 id="adminCalMonthYear">March 2026</h4>
-              <button id="adminCalNextBtn" type="button" class="page-btn" aria-label="Next month"><i class="fa-solid fa-chevron-right"></i></button>
+              <button
+                id="adminCalNextBtn"
+                type="button"
+                class="page-btn"
+                aria-label="Next month"
+              >
+                <i class="fa-solid fa-chevron-right"></i>
+              </button>
             </div>
-            <div class="cal-days-header"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+            <div class="cal-days-header">
+              <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span
+              ><span>Thu</span><span>Fri</span><span>Sat</span>
+            </div>
             <div class="cal-days-grid" id="adminCalDaysGrid"></div>
-            <div class="calendar-note">Weekends and past dates are unavailable on the website form.</div>
+            <div class="calendar-note">
+              Weekends and past dates are unavailable on the website form.
+            </div>
           </div>
           <div class="admin-calendar-right">
             <div class="admin-date-heading">
@@ -120,68 +237,181 @@
             </div>
 
             <div class="admin-calendar-actions admin-calendar-actions-main">
-              <button type="button" class="btn-admin" id="btnToggleBlockDay">Block Whole Day</button>
-              <button type="button" class="btn-admin btn-secondary btn-clear-day-blocks" id="btnClearDayBlocks">Clear Day Blocks</button>
+              <button type="button" class="btn-admin" id="btnToggleBlockDay">
+                Block Whole Day
+              </button>
+              <button
+                type="button"
+                class="btn-admin btn-secondary btn-clear-day-blocks"
+                id="btnClearDayBlocks"
+              >
+                Clear Day Blocks
+              </button>
             </div>
 
             <div class="admin-event-input-group admin-calendar-card">
-              <label for="adminEventInput">Add Note / Reason for this Date:</label>
-              <p class="admin-inline-help">This note will be visible to users. Example: "System Maintenance" or "2:00 PM blocked for staff meeting".</p>
+              <label for="adminEventInput"
+                >Add Note / Reason for this Date:</label
+              >
+              <p class="admin-inline-help">
+                This note will be visible to users. Example: "System
+                Maintenance" or "2:00 PM blocked for staff meeting".
+              </p>
               <div class="admin-event-input-row">
-                <input type="text" id="adminEventInput" placeholder="Enter reason here..." />
-                <button type="button" class="btn-admin btn-note-save" id="btnAddStaticEvent">Save Note</button>
+                <input
+                  type="text"
+                  id="adminEventInput"
+                  placeholder="Enter reason here..."
+                />
+                <button
+                  type="button"
+                  class="btn-admin btn-note-save"
+                  id="btnAddStaticEvent"
+                >
+                  Save Note
+                </button>
               </div>
               <div id="adminEventList" class="admin-event-list-box"></div>
             </div>
 
             <div class="admin-calendar-card admin-day-slot-editor">
-              <label class="admin-slot-manager-label" for="adminDaySlotLabel">Add Specific Time Slot for Selected Date Only</label>
-              <p class="admin-inline-help">This slot is day-only and will not be added to other dates.</p>
+              <label class="admin-slot-manager-label" for="adminDaySlotLabel"
+                >Add Specific Time Slot for Selected Date Only</label
+              >
+              <p class="admin-inline-help">
+                This slot is day-only and will not be added to other dates.
+              </p>
               <div class="admin-slot-manager-row">
-                <button id="btnOpenDayTimePicker" type="button" class="btn-admin btn-secondary btn-open-time-picker">Choose Time Slot</button>
+                <button
+                  id="btnOpenDayTimePicker"
+                  type="button"
+                  class="btn-admin btn-secondary btn-open-time-picker"
+                >
+                  Choose Time Slot
+                </button>
                 <input id="adminDaySlotLabel" type="hidden" value="" />
                 <input id="adminDaySlotType" type="hidden" value="AM" />
-                <button id="btnAddDaySlot" type="button" class="btn-admin">Add Day Slot</button>
+                <button id="btnAddDaySlot" type="button" class="btn-admin">
+                  Add Day Slot
+                </button>
               </div>
               <div id="adminDaySlotList" class="admin-slot-list"></div>
             </div>
 
             <div id="adminDateSummary" class="admin-date-summary-box">
-               <!-- Populated by JS -->
+              <!-- Populated by JS -->
             </div>
 
             <div class="admin-time-slots-wrap">
-              <div class="admin-slot-heading">Available Time Slots for Selected Date</div>
-              <p class="field-hint admin-slot-hint">Click any time slot below to block or unblock for this date only.</p>
-              <div class="time-slots-container" id="adminTimeSlotsContainer"><p class="time-placeholder">Please pick a date first.</p></div>
+              <div class="admin-slot-heading">
+                Available Time Slots for Selected Date
+              </div>
+              <p class="field-hint admin-slot-hint">
+                Click any time slot below to block or unblock for this date
+                only.
+              </p>
+              <div class="time-slots-container" id="adminTimeSlotsContainer">
+                <p class="time-placeholder">Please pick a date first.</p>
+              </div>
             </div>
           </div>
         </div>
         <div class="modal-actions modal-actions-sticky">
-          <button class="btn-admin btn-secondary" data-modal-close="#modalCalendar">Close</button>
-          <button class="btn-admin" id="btnSaveCalendarChanges" type="button">Save Changes</button>
+          <button
+            class="btn-admin btn-secondary"
+            data-modal-close="#modalCalendar"
+          >
+            Close
+          </button>
+          <button class="btn-admin" id="btnSaveCalendarChanges" type="button">
+            Save Changes
+          </button>
         </div>
       </div>
     </div>
 
-
     <!-- ────────────── APPOINTMENT VIEW MODAL ────────────── -->
-    <div class="modal-overlay" id="modalViewAppointment" data-backdrop-close="true">
-      <div class="modal-card" style="max-width:600px;width:100%;max-height:90vh;display:flex;flex-direction:column;">
-        <div class="modal-header-fixed" style="padding:18px 20px 12px;border-bottom:1px solid var(--border-color,#e5e7eb);flex-shrink:0;">
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <h3 class="modal-title" style="margin:0;font-size:1.15rem;">Appointment Details</h3>
-            <button id="btnCloseApptView" type="button" style="background:none;border:none;cursor:pointer;padding:4px 8px;color:#6b7280;font-size:1.2rem;" aria-label="Close">
+    <div
+      class="modal-overlay"
+      id="modalViewAppointment"
+      data-backdrop-close="true"
+    >
+      <div
+        class="modal-card"
+        style="
+          max-width: 600px;
+          width: 100%;
+          max-height: 90vh;
+          display: flex;
+          flex-direction: column;
+        "
+      >
+        <div
+          class="modal-header-fixed"
+          style="
+            padding: 18px 20px 12px;
+            border-bottom: 1px solid var(--border-color, #e5e7eb);
+            flex-shrink: 0;
+          "
+        >
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+            "
+          >
+            <h3 class="modal-title" style="margin: 0; font-size: 1.15rem">
+              Appointment Details
+            </h3>
+            <button
+              id="btnCloseApptView"
+              type="button"
+              style="
+                background: none;
+                border: none;
+                cursor: pointer;
+                padding: 4px 8px;
+                color: #6b7280;
+                font-size: 1.2rem;
+              "
+              aria-label="Close"
+            >
               <i class="fa-solid fa-xmark"></i>
             </button>
           </div>
         </div>
-        <div class="modal-body-scroll" id="apptViewBody" style="flex:1;overflow-y:auto;padding:20px;">
+        <div
+          class="modal-body-scroll"
+          id="apptViewBody"
+          style="flex: 1; overflow-y: auto; padding: 20px"
+        >
           <!-- Populated by JS -->
         </div>
-        <div class="modal-actions modal-actions-sticky" style="border-top:1px solid var(--border-color,#e5e7eb);">
-          <button class="btn-admin btn-secondary" type="button" onclick="document.getElementById('modalViewAppointment').classList.remove('show')">Close</button>
-          <button class="btn-admin" id="btnArchiveFromView" type="button" style="background:linear-gradient(135deg,#78350f,#d97706);border-color:#d97706;">
+        <div
+          class="modal-actions modal-actions-sticky"
+          style="border-top: 1px solid var(--border-color, #e5e7eb)"
+        >
+          <button
+            class="btn-admin btn-secondary"
+            type="button"
+            onclick="
+              document
+                .getElementById('modalViewAppointment')
+                .classList.remove('show')
+            "
+          >
+            Close
+          </button>
+          <button
+            class="btn-admin"
+            id="btnArchiveFromView"
+            type="button"
+            style="
+              background: linear-gradient(135deg, #78350f, #d97706);
+              border-color: #d97706;
+            "
+          >
             <i class="fa-solid fa-box-archive"></i> Archive
           </button>
         </div>
@@ -189,64 +419,136 @@
     </div>
 
     <!-- ────────────── APPOINTMENT ARCHIVE MODAL ────────────── -->
-    <div class="modal-overlay" id="modalArchiveAppointment" data-backdrop-close="false">
+    <div
+      class="modal-overlay"
+      id="modalArchiveAppointment"
+      data-backdrop-close="false"
+    >
       <div class="modal-card modal-confirm">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:4px;">
-          <div style="width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#78350f,#d97706);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-            <i class="fa-solid fa-box-archive" style="color:#fff;font-size:1.1rem;"></i>
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 4px;
+          "
+        >
+          <div
+            style="
+              width: 42px;
+              height: 42px;
+              border-radius: 10px;
+              background: linear-gradient(135deg, #78350f, #d97706);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+            "
+          >
+            <i
+              class="fa-solid fa-box-archive"
+              style="color: #fff; font-size: 1.1rem"
+            ></i>
           </div>
-          <h3 class="modal-title" style="margin-bottom:0;">Archive Appointment</h3>
+          <h3 class="modal-title" style="margin-bottom: 0">
+            Archive Appointment
+          </h3>
         </div>
         <hr class="confirm-separator" />
-        <p class="confirm-text">You are about to archive <strong id="archiveAppointmentTargetLabel">this appointment</strong>.</p>
-        <p class="field-hint">The appointment will be moved to the Archives page and removed from the active list.</p>
+        <p class="confirm-text">
+          You are about to archive
+          <strong id="archiveAppointmentTargetLabel">this appointment</strong>.
+        </p>
+        <p class="field-hint">
+          The appointment will be moved to the Archives page and removed from
+          the active list.
+        </p>
         <hr class="confirm-separator" />
         <div class="modal-actions">
-          <button class="btn-admin btn-secondary" id="btnCancelArchiveAppt">Cancel</button>
-          <button class="btn-admin" id="btnConfirmArchiveAppt" type="button" style="background:linear-gradient(135deg,#78350f,#d97706);border-color:#d97706;">
+          <button class="btn-admin btn-secondary" id="btnCancelArchiveAppt">
+            Cancel
+          </button>
+          <button
+            class="btn-admin"
+            id="btnConfirmArchiveAppt"
+            type="button"
+            style="
+              background: linear-gradient(135deg, #78350f, #d97706);
+              border-color: #d97706;
+            "
+          >
             <i class="fa-solid fa-box-archive"></i> Archive
           </button>
         </div>
       </div>
     </div>
 
-
-
     <div class="modal-overlay" id="modalTimePicker" data-backdrop-close="false">
       <div class="modal-card modal-time-picker">
         <h3 class="modal-title" id="timePickerTitle">Choose Time Slot</h3>
         <hr class="confirm-separator" />
-        <p class="field-hint">Scroll each column and pick a time range for this slot.</p>
+        <p class="field-hint">
+          Scroll each column and pick a time range for this slot.
+        </p>
         <div class="time-picker-grid">
           <div class="time-wheel">
             <label for="pickerStartHour">Start Hour</label>
-            <select id="pickerStartHour" size="5" class="time-wheel-select"></select>
+            <select
+              id="pickerStartHour"
+              size="5"
+              class="time-wheel-select"
+            ></select>
           </div>
           <div class="time-wheel">
             <label for="pickerStartMinute">Start Min</label>
-            <select id="pickerStartMinute" size="5" class="time-wheel-select"></select>
+            <select
+              id="pickerStartMinute"
+              size="5"
+              class="time-wheel-select"
+            ></select>
           </div>
           <div class="time-wheel">
             <label for="pickerEndHour">End Hour</label>
-            <select id="pickerEndHour" size="5" class="time-wheel-select"></select>
+            <select
+              id="pickerEndHour"
+              size="5"
+              class="time-wheel-select"
+            ></select>
           </div>
           <div class="time-wheel">
             <label for="pickerEndMinute">End Min</label>
-            <select id="pickerEndMinute" size="5" class="time-wheel-select"></select>
+            <select
+              id="pickerEndMinute"
+              size="5"
+              class="time-wheel-select"
+            ></select>
           </div>
           <div class="time-wheel">
             <label for="pickerPeriod">Period</label>
-            <select id="pickerPeriod" size="2" class="time-wheel-select time-wheel-select-period">
+            <select
+              id="pickerPeriod"
+              size="2"
+              class="time-wheel-select time-wheel-select-period"
+            >
               <option value="AM">AM</option>
               <option value="PM">PM</option>
             </select>
           </div>
         </div>
-        <p class="time-picker-preview" id="timePickerPreview">Selected: 9:00 - 10:00 AM</p>
+        <p class="time-picker-preview" id="timePickerPreview">
+          Selected: 9:00 - 10:00 AM
+        </p>
         <hr class="confirm-separator" />
         <div class="modal-actions">
-          <button class="btn-admin btn-secondary" data-modal-close="#modalTimePicker">Cancel</button>
-          <button class="btn-admin" id="btnConfirmTimePicker" type="button">Use Time Slot</button>
+          <button
+            class="btn-admin btn-secondary"
+            data-modal-close="#modalTimePicker"
+          >
+            Cancel
+          </button>
+          <button class="btn-admin" id="btnConfirmTimePicker" type="button">
+            Use Time Slot
+          </button>
         </div>
       </div>
     </div>
