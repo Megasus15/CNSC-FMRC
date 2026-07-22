@@ -63,13 +63,13 @@ class AuthController extends Controller
                 $emailHtml = $this->buildWelcomeEmailHtml($user);
                 $userId = (string) $user->id;
                 $fromAddress = config('mail.from.address', 'noreply@cnsc-fmrc.edu.ph');
-                $fromName = config('mail.from.name', 'CNSC-FMRC');
+                $fromName = config('mail.from.name', 'UCN-FMRC');
 
                 $emailDispatch = function () use ($emailAddress, $emailHtml, $userId, $fromAddress, $fromName) {
                     try {
                         Mail::html($emailHtml, function ($message) use ($emailAddress, $fromAddress, $fromName) {
                             $message->to($emailAddress)
-                                ->subject('Welcome to CNSC-FMRC!')
+                                ->subject('Welcome to UCN-FMRC!')
                                 ->from($fromAddress, $fromName);
                         });
                         Log::info("Welcome email sent to {$emailAddress} for user #{$userId}");
@@ -180,13 +180,13 @@ class AuthController extends Controller
                 $emailHtml   = $this->buildAdminCreatedAccountEmailHtml($user, $validated['password']);
                 $userId      = (string) $user->id;
                 $fromAddress = config('mail.from.address', 'noreply@cnsc-fmrc.edu.ph');
-                $fromName    = config('mail.from.name', 'CNSC-FMRC');
+                $fromName    = config('mail.from.name', 'UCN-FMRC');
 
                 $emailDispatch = function () use ($emailAddress, $emailHtml, $userId, $fromAddress, $fromName) {
                     try {
                         Mail::html($emailHtml, function ($message) use ($emailAddress, $fromAddress, $fromName) {
                             $message->to($emailAddress)
-                                ->subject('Your CNSC-FMRC Account Has Been Created')
+                                ->subject('Your UCN-FMRC Account Has Been Created')
                                 ->from($fromAddress, $fromName);
                         });
                         Log::info("Admin-created account email sent to {$emailAddress} for user #{$userId}");
@@ -414,9 +414,9 @@ class AuthController extends Controller
     {
         $name    = e($user->name ?? 'Valued Customer');
         $email   = e($user->email);
-        $appName = config('app.name') ?: 'CNSC-FMRC';
+        $appName = config('app.name') ?: 'UCN-FMRC';
         if (strtolower($appName) === 'laravel') {
-            $appName = 'CNSC-FMRC';
+            $appName = 'UCN-FMRC';
         }
         $year    = now()->year;
         $accent  = '#800000';
@@ -432,15 +432,15 @@ class AuthController extends Controller
 
 <!-- Header -->
 <tr><td style="background:{$accent};padding:28px 32px;text-align:center;">
-    <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.3px;">CNSC-FMRC</h1>
+    <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.3px;">UCN-FMRC</h1>
     <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">Customer Portal &middot; Fabrication &amp; Manufacturing Research Center</p>
 </td></tr>
 
 <!-- Body -->
 <tr><td style="padding:32px;">
-    <h2 style="margin:0 0 12px;color:#1f2937;font-size:20px;font-weight:700;">Welcome to the CNSC-FMRC Customer Portal, {$name}!</h2>
+    <h2 style="margin:0 0 12px;color:#1f2937;font-size:20px;font-weight:700;">Welcome to the UCN-FMRC Customer Portal, {$name}!</h2>
     <p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.7;">
-        We're pleased to have you on the platform. Your account has been created for the <strong>Camarines Norte State College &mdash; Fabrication and Manufacturing Research Center (CNSC-FMRC)</strong>, and you can now access appointments, orders, and updates.
+        We're pleased to have you on the platform. Your account has been created for the <strong>University of Camarines Norte &mdash; Fabrication and Manufacturing Research Center (UCN-FMRC)</strong>, and you can now access appointments, orders, and updates.
     </p>
 
   <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;">
@@ -494,9 +494,9 @@ HTML;
         $username = e($user->username ?? $email);
         $role     = ucfirst(strtolower($user->role ?? 'customer'));
         $password = e($plainPassword);
-        $appName  = config('app.name') ?: 'CNSC-FMRC';
+        $appName  = config('app.name') ?: 'UCN-FMRC';
         if (strtolower($appName) === 'laravel') {
-            $appName = 'CNSC-FMRC';
+            $appName = 'UCN-FMRC';
         }
         $year   = now()->year;
         $accent = '#800000';
@@ -516,7 +516,7 @@ HTML;
 
 <!-- Header -->
 <tr><td style="background:{$accent};padding:28px 32px;text-align:center;">
-    <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.3px;">CNSC-FMRC</h1>
+    <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.3px;">UCN-FMRC</h1>
     <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">Fabrication &amp; Manufacturing Research Center &mdash; Account Notification</p>
 </td></tr>
 
@@ -525,7 +525,7 @@ HTML;
     <h2 style="margin:0 0 8px;color:#1f2937;font-size:20px;font-weight:700;">Your Account Has Been Created, {$name}!</h2>
     <p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.7;">
         An authorized administrator has created a new <strong>{$role}</strong> account for you on the
-        <strong>Camarines Norte State College &mdash; Fabrication and Manufacturing Research Center (CNSC-FMRC)</strong> platform.
+        <strong>University of Camarines Norte &mdash; Fabrication and Manufacturing Research Center (UCN-FMRC)</strong> platform.
         You may use the credentials below to access the system.
     </p>
 
@@ -570,7 +570,7 @@ HTML;
 
   <p style="color:#6b7280;font-size:13px;line-height:1.6;margin:0;">
     If you believe this account was created in error, or if you did not authorize this action,
-    please contact the CNSC-FMRC administration team immediately.
+    please contact the UCN-FMRC administration team immediately.
   </p>
 </td></tr>
 

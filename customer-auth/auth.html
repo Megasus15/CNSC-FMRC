@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CNSC-FMRC Customer Login</title>
+    <title>UCN-FMRC Customer Login</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -20,7 +20,8 @@
           class="auth-back-link"
           aria-label="Back to homepage"
         >
-          <span class="back-chevron" aria-hidden="true">&#8249;</span>
+          <span class="back-arrow" aria-hidden="true">&lt;</span>
+
           <span class="back-text">Back to Homepage</span>
         </a>
 
@@ -43,7 +44,7 @@
               />
             </div>
             <h1 class="auth-title">Welcome</h1>
-            <p class="auth-caption">CNSC-FMRC Customer Portal</p>
+            <p class="auth-caption">UCN-FMRC Customer Portal</p>
           </div>
 
           <form class="auth-form active" id="loginForm" novalidate>
@@ -118,8 +119,11 @@
             </div>
 
             <div class="form-link-wrap form-link-right">
-              <a href="#" class="form-link">Forgot Password?</a>
+              <a href="#" class="form-link" id="forgotPasswordLink"
+                >Forgot Password?</a
+              >
             </div>
+
 
             <button class="auth-btn" type="submit">Log In</button>
 
@@ -404,6 +408,110 @@
     </div>
 
     <div
+      class="forgot-modal"
+      id="forgotPasswordModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="forgotTitle"
+    >
+      <div class="forgot-box">
+        <button
+          type="button"
+          class="forgot-close"
+          id="forgotCloseBtn"
+          aria-label="Close"
+        >
+          &times;
+        </button>
+
+        <!-- Step 1: Request reset -->
+        <div class="forgot-step" id="forgotRequestStep">
+          <div class="forgot-icon">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </div>
+          <h3 id="forgotTitle">Forgot your password?</h3>
+          <p>
+            No worries! Enter the email linked to your account and we'll send you
+            a link to reset your password.
+          </p>
+
+          <form id="forgotForm" novalidate>
+            <div class="input-wrapper">
+              <label for="forgotEmail">Email Address</label>
+              <div class="input-icon-group">
+                <svg
+                  class="input-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path
+                    d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                  ></path>
+                  <polyline points="22,6 12,13 2,6"></polyline>
+                </svg>
+                <input
+                  id="forgotEmail"
+                  type="email"
+                  placeholder="Enter your email address"
+                  required
+                />
+              </div>
+            </div>
+
+            <button class="auth-btn" type="submit">Send Reset Link</button>
+          </form>
+
+          <div class="switch-account-wrap">
+            <a href="#" class="switch-account-link" id="forgotBackToLogin"
+              >Back to Log In</a
+            >
+          </div>
+        </div>
+
+        <!-- Step 2: Confirmation -->
+        <div class="forgot-step" id="forgotSentStep" hidden>
+          <div class="success-icon">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+          <h3>Check your email</h3>
+          <p>
+            If an account matches
+            <strong id="forgotSentEmail">your email</strong>, we've sent a
+            password reset link. Please check your inbox and spam folder.
+          </p>
+          <button
+            class="auth-btn btn-yellow"
+            type="button"
+            id="forgotDoneBtn"
+          >
+            Back to Log In
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
       class="status-modal"
       id="authStatusModal"
       role="status"
@@ -411,6 +519,7 @@
     >
       <div class="status-box" id="authStatusText"></div>
     </div>
+
 
     <script src="auth.js"></script>
   </body>

@@ -67,74 +67,54 @@ body {
 }
 
 .auth-back-link {
-  position: absolute;
-  top: 6px;
-  right: calc(100% + 14px);
+  position: fixed;
+  top: 22px;
+  left: 22px;
   display: inline-flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   text-decoration: none;
-  color: #334155;
+  color: #ffffff;
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.01em;
-  border: 1px solid #d8e1ec;
-  border-radius: 10px;
-  background: #ffffff;
-  min-height: 44px;
-  padding: 8px 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--primary);
+  min-height: 42px;
+  padding: 10px 18px;
   font-family: "Montserrat", sans-serif;
   white-space: nowrap;
   transition:
     background-color 0.2s ease,
-    color 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.08s ease,
-    box-shadow 0.2s ease;
-  z-index: 2;
+    transform 0.1s ease;
+  z-index: 10;
 }
 
-.back-chevron {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  border: 1px solid #d2dce8;
-  background: #f8fafc;
+.back-arrow {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 18px;
   font-weight: 800;
   line-height: 1;
-  color: #1e293b;
-  transition:
-    background-color 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease,
-    transform 0.08s ease;
+  color: #ffffff;
+  transition: transform 0.2s ease;
 }
 
 .auth-back-link:hover {
-  background: #ffffff;
-  border-color: #4b5563;
-  color: #0f172a;
-  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.1);
+  background: var(--primary-hover);
 }
 
-.auth-back-link:hover .back-chevron {
-  background: #f1f5f9;
-  border-color: #64748b;
-  color: #111827;
+.auth-back-link:hover .back-arrow {
+  transform: translateX(-3px);
 }
 
 .auth-back-link:active {
-  transform: scale(0.97);
-  box-shadow: none;
+  transform: scale(0.96);
 }
 
-.auth-back-link:active .back-chevron {
-  transform: scale(0.94);
-}
+
 
 .auth-hero {
   text-align: center;
@@ -614,38 +594,128 @@ body {
   margin-bottom: 24px;
 }
 
+/* Forgot Password Modal */
+.forgot-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(45, 55, 72, 0.8);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: all 0.3s ease;
+  z-index: 9999;
+}
+
+.forgot-modal.show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.forgot-box {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px 24px 28px;
+  text-align: center;
+  transform: scale(0.95);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+}
+
+.forgot-modal.show .forgot-box {
+  transform: scale(1);
+}
+
+.forgot-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.2s ease;
+}
+
+.forgot-close:hover {
+  color: var(--primary);
+}
+
+.forgot-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: rgba(158, 20, 20, 0.1);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.forgot-icon svg {
+  width: 30px;
+  height: 30px;
+}
+
+.forgot-box h3 {
+  font-family: "Montserrat", sans-serif;
+  font-size: 22px;
+  color: var(--text-main);
+  margin-bottom: 8px;
+}
+
+.forgot-box p {
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 22px;
+}
+
+.forgot-box .input-wrapper {
+  text-align: left;
+}
+
+.forgot-box .switch-account-wrap {
+  margin-top: 16px;
+}
+
 @media (max-width: 480px) {
+
   .auth-shell {
     max-width: 440px;
   }
 
   .auth-back-link {
-    top: 8px;
-    left: 8px;
+    top: 14px;
+    left: 14px;
     right: auto;
-    min-height: 36px;
-    min-width: 36px;
-    width: 36px;
-    border-radius: 9px;
-    padding: 0;
-    justify-content: center;
-    gap: 0;
   }
+
+  .auth-back-link .back-arrow {
+    font-size: 18px;
+  }
+
+  .auth-back-link:active {
+    transform: scale(0.94);
+  }
+
 
   .auth-card {
     padding: 54px 20px 32px;
   }
 
-  .auth-back-link .back-text {
-    display: none;
-  }
-
-  .back-chevron {
-    width: 22px;
-    height: 22px;
-    border: none;
-    background: transparent;
-  }
   .auth-title {
     font-size: 24px;
   }

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CNSC - FMRC Landing Page</title>
+    <title>UCN - FMRC Landing Page</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -22,7 +22,7 @@
           alt="CNSC Logo"
           class="header-emblem"
         />
-        <h1 class="logo-text">CNSC-FMRC</h1>
+        <h1 class="logo-text">UCN-FMRC</h1>
       </a>
 
       <nav class="main-nav">
@@ -120,7 +120,7 @@
               FMRC serves as a Shared Service Facility of the
               <strong>Department of Trade and Industry (DTI)</strong> and a
               Common Service Facility of
-              <strong>Camarines Norte State College (CNSC)</strong>. It supports
+              <strong>University of Camarines Norte (UCN)</strong>. It supports
               Micro, Small, and Medium Enterprises (MSMEs) by enhancing
               creativity, design, and business innovation while increasing
               productivity and efficiency.
@@ -170,7 +170,7 @@
           <div class="vision-content-right">
             <h2 class="vm-title">OUR VISION</h2>
             <p class="vm-text">
-              CNSC FMRC as a leading manufacturing and fabrication laboratory in
+              UCN FMRC as a leading manufacturing and fabrication laboratory in
               the Bicol Region.
             </p>
           </div>
@@ -182,7 +182,7 @@
           <div class="mission-content-left">
             <h2 class="vm-title">OUR MISSION</h2>
             <p class="vm-text">
-              CNSC FMRC shall provide an avenue for creative thinking and
+              UCN FMRC shall provide an avenue for creative thinking and
               artistic design/work among its clientele using advanced technology
               means.
             </p>
@@ -589,7 +589,7 @@
                     <div class="apt-reminder-icon">1</div>
                     <div class="apt-reminder-content">
                         <h4>Data Privacy Collection</h4>
-                        <p>At Camarines Norte State College, we value your privacy. In compliance with RA 10173, we collect:</p>
+                        <p>At University of Camarines Norte, we value your privacy. In compliance with RA 10173, we collect:</p>
                         <ol class="apt-reminder-list" style="margin-top:10px;">
                             <li>Email & Contact Details</li>
                             <li>Client Type & Department</li>
@@ -1043,9 +1043,9 @@
         <div class="nested-icon">!</div>
         <h3>DATA PRIVACY NOTICE</h3>
         <p>
-          By entering the CNSC Fabrication and Manufacturing Research Center -
+          By entering the UCN Fabrication and Manufacturing Research Center -
           Online Appointment Form (OAF), you voluntarily agree or allow
-          Camarines Norte State College (CNSC) FMRC to collect and record your
+          University of Camarines Norte (UCN) FMRC to collect and record your
           PERSONAL INFORMATION in our systems to process your appointment. Click
           PROCEED only if you agree with our data collection process, otherwise,
           click CANCEL.
@@ -1093,7 +1093,7 @@
               alt="FMRC Logo"
               class="footer-logo"
             />
-            <h3 class="footer-brand">CNSC- FMRC</h3>
+            <h3 class="footer-brand">UCN- FMRC</h3>
           </div>
           <p class="footer-desc">
             Fabrication and Manufacturing Research Center - Advancing innovation
@@ -1141,8 +1141,7 @@
                 href="https://www.google.com/maps/search/?api=1&query=Camarines+Norte+State+College,+Daet,+Philippines"
                 target="_blank"
                 class="footer-link"
-                >First Flr., Graduate School Building, Camarines Norte State
-                College, Daet, Philippines</a
+                >First Flr., Graduate School Building, University of Camarines Norte, Daet, Philippines</a
               >
             </li>
             <li>
@@ -1207,7 +1206,7 @@
                 href="https://www.facebook.com/share/18MJcUvJeM/"
                 target="_blank"
                 class="footer-link"
-                >CNSC FMRC</a
+                >UCN FMRC</a
               >
             </li>
           </ul>
@@ -1217,7 +1216,7 @@
       <div class="footer-bottom">
         <div class="footer-line"></div>
         <p>
-          &copy; 2026 CNSC Fabrication and Manufacturing Research Center. All
+          &copy; 2026 UCN Fabrication and Manufacturing Research Center. All
           rights reserved.
         </p>
       </div>

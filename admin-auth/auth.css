@@ -505,3 +505,119 @@ body {
 .status-modal.show .status-box {
   transform: translateY(0);
 }
+
+/* ── Forgot Password (switch links + modal) ─────────────────────────────── */
+.switch-account-wrap {
+  text-align: center;
+  margin-top: 14px;
+}
+
+.switch-account-link {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.switch-account-link:hover {
+  color: var(--primary-hover);
+  text-decoration: underline;
+}
+
+.forgot-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(45, 55, 72, 0.8);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: all 0.3s ease;
+  z-index: 9999;
+}
+
+.forgot-modal.show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.forgot-box {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 32px 24px 28px;
+  text-align: center;
+  transform: scale(0.95);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+}
+
+.forgot-modal.show .forgot-box {
+  transform: scale(1);
+}
+
+.forgot-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px;
+  transition: color 0.2s ease;
+}
+
+.forgot-close:hover {
+  color: var(--primary);
+}
+
+.forgot-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  border-radius: 50%;
+  background: rgba(158, 20, 20, 0.1);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.forgot-icon svg {
+  width: 30px;
+  height: 30px;
+}
+
+.forgot-box h3 {
+  font-family: "Montserrat", sans-serif;
+  font-size: 22px;
+  color: var(--text-main);
+  margin-bottom: 8px;
+}
+
+.forgot-box p {
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 22px;
+}
+
+.forgot-box .input-wrapper {
+  text-align: left;
+}
+
+.forgot-box .switch-account-wrap {
+  margin-top: 16px;
+}
+
+

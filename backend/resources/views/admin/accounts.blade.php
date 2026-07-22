@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Accounts Registered | CNSC-FMRC Admin</title>
+    <title>Accounts Registered | UCN-FMRC Admin</title>
     <link rel="stylesheet" href="dashboard.css" />
     <link rel="stylesheet" href="admin-modules.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
@@ -11,7 +11,7 @@
   <body>
     <div class="dashboard-container">
       <aside class="sidebar">
-        <div class="sidebar-header"><img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" /><h2>CNSC-FMRC</h2></div>
+        <div class="sidebar-header"><img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" /><h2>UCN-FMRC</h2></div>
         <div class="sidebar-scroll-indicator" aria-hidden="true"><span class="indicator-thumb"></span></div>
         <nav class="sidebar-nav">
           <a href="dashboard.html" class="nav-link"><i class="fa-solid fa-house"></i> Dashboard</a>

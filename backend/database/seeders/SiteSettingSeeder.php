@@ -20,33 +20,33 @@ class SiteSettingSeeder extends Seeder
         // ── About Us Section ──────────────────────────────────────────────────────
         SiteSetting::set('about_heading', 'ABOUT US');
         SiteSetting::set('about_text_1', 'The Fabrication and Manufacturing Research Center (FMRC) is <strong>a state-of-the-art shared service facility that bridges creativity and technology.</strong> It empowers students, educators, researchers, and businesses to transform innovative ideas into practical and functional outputs.');
-        SiteSetting::set('about_text_2', 'FMRC serves as a Shared Service Facility of the <strong>Department of Trade and Industry (DTI)</strong> and a Common Service Facility of <strong>Camarines Norte State College (CNSC)</strong>. It supports Micro, Small, and Medium Enterprises (MSMEs) by enhancing creativity, design, and business innovation while increasing productivity and efficiency.');
+        SiteSetting::set('about_text_2', 'FMRC serves as a Shared Service Facility of the <strong>Department of Trade and Industry (DTI)</strong> and a Common Service Facility of <strong>University of Camarines Norte (UCN)</strong>. It supports Micro, Small, and Medium Enterprises (MSMEs) by enhancing creativity, design, and business innovation while increasing productivity and efficiency.');
         SiteSetting::set('about_video_url', '/images/Product showcase.mp4');
 
         // ── Vision Section ────────────────────────────────────────────────────────
         SiteSetting::set('vision_heading', 'OUR VISION');
-        SiteSetting::set('vision_text', 'CNSC FMRC as a leading manufacturing and fabrication laboratory in the Bicol Region.');
+        SiteSetting::set('vision_text', 'UCN FMRC as a leading manufacturing and fabrication laboratory in the Bicol Region.');
         SiteSetting::set('vision_image', null);              // base64 or null (falls back to /images/pic1.jpg)
 
         // ── Mission Section ───────────────────────────────────────────────────────
         SiteSetting::set('mission_heading', 'OUR MISSION');
-        SiteSetting::set('mission_text', 'CNSC FMRC shall provide an avenue for creative thinking and artistic design/work among its clientele using advanced technology means.');
+        SiteSetting::set('mission_text', 'UCN FMRC shall provide an avenue for creative thinking and artistic design/work among its clientele using advanced technology means.');
         SiteSetting::set('mission_image', null);             // base64 or null (falls back to /images/pic2.jpg)
 
         // ── Contact Section ───────────────────────────────────────────────────────
         SiteSetting::set('contact_heading', 'Get in Touch');
         SiteSetting::set('contact_lead', 'Our customer service team is ready to help with your inquiries, project requests, and service concerns. Reach out through any of the channels below.');
-        SiteSetting::set('contact_location', 'First Flr., Graduate School Building, Camarines Norte State College, Daet, Philippines');
+        SiteSetting::set('contact_location', 'First Flr., Graduate School Building, University of Camarines Norte, Daet, Philippines');
         SiteSetting::set('contact_location_url', 'https://www.google.com/maps/search/?api=1&query=Camarines+Norte+State+College,+Daet,+Philippines');
         SiteSetting::set('contact_email', 'fmrc@cnsc.edu.ph');
         SiteSetting::set('contact_phone', '0909-099-0000');
-        SiteSetting::set('contact_facebook', 'CNSC FMRC');
+        SiteSetting::set('contact_facebook', 'UCN FMRC');
         SiteSetting::set('contact_facebook_url', 'https://www.facebook.com/share/18MJcUvJeM/');
         SiteSetting::set('contact_form_heading', 'Send Us a Message');
         SiteSetting::set('contact_form_subtitle', '');
 
         // ── Footer Section ────────────────────────────────────────────────────────
-        SiteSetting::set('footer_brand_name', 'CNSC- FMRC');
+        SiteSetting::set('footer_brand_name', 'UCN- FMRC');
         SiteSetting::set('footer_brand_desc', 'Fabrication and Manufacturing Research Center - Advancing innovation through technology and excellence in manufacturing.');
         SiteSetting::set('footer_quick_links', json_encode([
             ['label' => 'Home',     'url' => '/home-page/main.html'],
@@ -57,13 +57,13 @@ class SiteSettingSeeder extends Seeder
         ]));
         SiteSetting::set('footer_hours_days', 'Monday - Friday');
         SiteSetting::set('footer_hours_time', '7:00am - 6:00pm');
-        SiteSetting::set('footer_contact_location', 'First Flr., Graduate School Building, Camarines Norte State College, Daet, Philippines');
+        SiteSetting::set('footer_contact_location', 'First Flr., Graduate School Building, University of Camarines Norte, Daet, Philippines');
         SiteSetting::set('footer_contact_location_url', 'https://www.google.com/maps/search/?api=1&query=Camarines+Norte+State+College,+Daet,+Philippines');
         SiteSetting::set('footer_contact_email', 'fmrc@cnsc.edu.ph');
         SiteSetting::set('footer_contact_phone', '0909-099-0000');
-        SiteSetting::set('footer_contact_facebook', 'CNSC FMRC');
+        SiteSetting::set('footer_contact_facebook', 'UCN FMRC');
         SiteSetting::set('footer_contact_facebook_url', 'https://www.facebook.com/share/18MJcUvJeM/');
-        SiteSetting::set('footer_copyright', '© 2026 CNSC Fabrication and Manufacturing Research Center. All rights reserved.');
+        SiteSetting::set('footer_copyright', '© 2026 UCN Fabrication and Manufacturing Research Center. All rights reserved.');
 
         // ── Seed Default Services ─────────────────────────────────────────────────
         $services = [

@@ -17,7 +17,7 @@ use Illuminate\Database\Migrations\Migration;
  *   MAIL_PASSWORD=your-app-password        # Google App Password (not your real password)
  *   MAIL_ENCRYPTION=tls
  *   MAIL_FROM_ADDRESS=your-gmail@gmail.com
- *   MAIL_FROM_NAME="CNSC-FMRC"
+ *   MAIL_FROM_NAME="UCN-FMRC"
  *
  * Steps to generate a Google App Password:
  *  1. Go to myaccount.google.com → Security → 2-Step Verification (must be enabled)

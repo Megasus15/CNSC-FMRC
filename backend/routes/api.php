@@ -17,6 +17,8 @@ use App\Http\Controllers\Api\InventoryItemController;
 use App\Http\Controllers\Api\ArchiveController;
 use App\Http\Controllers\Api\CustomerMessageController;
 use App\Http\Controllers\Api\PsgcController;
+use App\Http\Controllers\Api\PasswordResetController;
+
 
 // ─── PSGC Address Proxy (public, no auth needed) ──────────────────────────
 Route::get('/psgc/regions', [PsgcController::class, 'regions']);
@@ -27,6 +29,11 @@ Route::get('/psgc/cities-municipalities/{cityMunCode}/barangays', [PsgcControlle
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
+
+// Public: Customer password reset (forgot password flow)
+Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink']);
+Route::post('/reset-password', [PasswordResetController::class, 'resetPassword']);
+
 Route::get('/appointments', [AppointmentController::class, 'index']);
 Route::post('/appointments', [AppointmentController::class, 'store']);
 Route::delete('/appointments/{appointment}', [AppointmentController::class, 'destroy']);

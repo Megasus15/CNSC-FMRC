@@ -37,7 +37,7 @@
         <div class="card-accent"></div>
         <div class="auth-hero" style="text-align: center;">
             <h1 class="auth-title">Welcome</h1>
-            <p class="auth-caption">CNSC-FMRC Customer Portal</p>
+            <p class="auth-caption">UCN-FMRC Customer Portal</p>
         </div>
 
         <!-- Login Form -->

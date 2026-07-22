@@ -206,4 +206,126 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  // ── Forgot Password flow ──────────────────────────────────────────────
+  // Reuses the same Laravel backend endpoint as the customer portal. The
+  // backend looks the account up by email, so admins are covered too.
+  const forgotPasswordLink = document.getElementById("forgotPasswordLink");
+  const forgotPasswordModal = document.getElementById("forgotPasswordModal");
+  const forgotForm = document.getElementById("forgotForm");
+  const forgotEmail = document.getElementById("forgotEmail");
+  const forgotCloseBtn = document.getElementById("forgotCloseBtn");
+  const forgotBackToLogin = document.getElementById("forgotBackToLogin");
+  const forgotDoneBtn = document.getElementById("forgotDoneBtn");
+  const forgotRequestStep = document.getElementById("forgotRequestStep");
+  const forgotSentStep = document.getElementById("forgotSentStep");
+  const forgotSentEmail = document.getElementById("forgotSentEmail");
+
+  const openForgotModal = (event) => {
+    if (event) event.preventDefault();
+    if (!forgotPasswordModal) return;
+    // Always start on the request step
+    forgotRequestStep?.removeAttribute("hidden");
+    forgotSentStep?.setAttribute("hidden", "");
+    clearFieldError("forgotEmail");
+    if (forgotEmail) forgotEmail.value = "";
+    forgotPasswordModal.classList.add("show");
+    document.body.style.overflow = "hidden";
+    setTimeout(() => forgotEmail?.focus(), 120);
+  };
+
+  const closeForgotModal = () => {
+    if (!forgotPasswordModal) return;
+    forgotPasswordModal.classList.remove("show");
+    document.body.style.overflow = "";
+  };
+
+  forgotPasswordLink?.addEventListener("click", openForgotModal);
+  forgotCloseBtn?.addEventListener("click", closeForgotModal);
+  forgotDoneBtn?.addEventListener("click", closeForgotModal);
+
+  forgotBackToLogin?.addEventListener("click", (event) => {
+    event.preventDefault();
+    closeForgotModal();
+  });
+
+  // Close when clicking the dark backdrop (outside the box)
+  forgotPasswordModal?.addEventListener("click", (event) => {
+    if (event.target === forgotPasswordModal) closeForgotModal();
+  });
+
+  // Close on Escape key
+  document.addEventListener("keydown", (event) => {
+    if (
+      event.key === "Escape" &&
+      forgotPasswordModal?.classList.contains("show")
+    ) {
+      closeForgotModal();
+    }
+  });
+
+  // Clear error while typing
+  forgotEmail?.addEventListener("input", () => {
+    if (forgotEmail.value.trim()) clearFieldError("forgotEmail");
+  });
+
+  if (forgotForm) {
+    forgotForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearFieldError("forgotEmail");
+
+      const email = forgotEmail.value.trim();
+
+      if (!email) {
+        setFieldError("forgotEmail", "Email address is required.");
+        return;
+      }
+      if (!/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email)) {
+        setFieldError("forgotEmail", "Please enter a valid email address.");
+        return;
+      }
+
+      toggleLoader(true);
+      try {
+        // Ask the Laravel backend to email a real reset link.
+        const response = await fetch(
+          "http://127.0.0.1:8000/api/forgot-password",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({ email }),
+          },
+        );
+
+        if (response.status === 422) {
+          const data = await response.json().catch(() => ({}));
+          setFieldError(
+            "forgotEmail",
+            data.errors?.email?.[0] ||
+              data.message ||
+              "Please enter a valid email address.",
+          );
+          return;
+        }
+
+        // For security the backend always returns the same generic message,
+        // whether or not the email exists — so we always show confirmation.
+        if (forgotSentEmail) forgotSentEmail.textContent = email;
+        forgotRequestStep?.setAttribute("hidden", "");
+        forgotSentStep?.removeAttribute("hidden");
+      } catch {
+        setFieldError(
+          "forgotEmail",
+          "Cannot connect to server. Ensure Laravel is running.",
+        );
+      } finally {
+        toggleLoader(false);
+      }
+    });
+  }
 });
+
+

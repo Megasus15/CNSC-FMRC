@@ -273,7 +273,7 @@ class OrderController extends Controller
             $emailHtml = $this->buildOrderEmailHtml(
                 $createdOrder,
                 'Your Order Has Been Received',
-                "Hi {$customerName},\n\nThank you for placing your order with CNSC-FMRC. We have received your order and it is currently under review. You will be notified once it has been processed.\n\nPlease keep your order number for your reference.",
+                "Hi {$customerName},\n\nThank you for placing your order with UCN-FMRC. We have received your order and it is currently under review. You will be notified once it has been processed.\n\nPlease keep your order number for your reference.",
                 '#800000'
             );
             $this->sendCustomerOrderEmail($createdOrder, "Order Received – {$orderNoLabel}", $emailHtml);
@@ -577,7 +577,7 @@ class OrderController extends Controller
         $emailHtml = $this->buildOrderEmailHtml(
             $order,
             'Your Order Is Complete!',
-            "Hi {$order->customer_name},\n\nYour order {$orderNoLabel} has been marked as completed. Thank you for choosing CNSC-FMRC!\n\nWe hope to serve you again. If you have any feedback, feel free to reach out to us.",
+            "Hi {$order->customer_name},\n\nYour order {$orderNoLabel} has been marked as completed. Thank you for choosing UCN-FMRC!\n\nWe hope to serve you again. If you have any feedback, feel free to reach out to us.",
             '#800000'
         );
         $this->sendCustomerOrderEmail($order, "Order Completed – {$orderNoLabel}", $emailHtml);
@@ -951,7 +951,7 @@ class OrderController extends Controller
 
         $orderId = (string) $order->id;
         $fromAddress = config('mail.from.address', 'noreply@cnsc-fmrc.edu.ph');
-        $fromName = config('mail.from.name', 'CNSC-FMRC');
+        $fromName = config('mail.from.name', 'UCN-FMRC');
 
         $emailDispatch = function () use ($emailAddress, $subject, $htmlBody, $orderId, $fromAddress, $fromName) {
             try {
@@ -997,7 +997,7 @@ class OrderController extends Controller
         <!-- Header -->
         <tr>
           <td style="background:{$statusColor};padding:28px 36px;text-align:center;">
-            <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;letter-spacing:.3px;">CNSC-FMRC</h1>
+            <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;letter-spacing:.3px;">UCN-FMRC</h1>
             <p style="margin:6px 0 0;color:rgba(255,255,255,.85);font-size:13px;">Fabrication &amp; Manufacturing Research Center</p>
           </td>
         </tr>
@@ -1033,7 +1033,7 @@ class OrderController extends Controller
         <!-- Footer -->
         <tr>
           <td style="background:#f8f9fb;border-top:1px solid #e2e8f0;padding:18px 36px;text-align:center;">
-            <p style="margin:0;color:#a0aec0;font-size:11px;">© 2025 CNSC-FMRC · Camarines Norte State College</p>
+            <p style="margin:0;color:#a0aec0;font-size:11px;">© 2025 UCN-FMRC · University of Camarines Norte</p>
           </td>
         </tr>
       </table>

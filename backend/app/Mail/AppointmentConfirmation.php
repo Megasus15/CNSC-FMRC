@@ -73,9 +73,9 @@ class AppointmentConfirmation extends Mailable
         $notes      = e($appointment->additional_notes ?? '');
         $name       = e($clientName);
 
-        $appName = config('app.name') ?: 'CNSC-FMRC';
+        $appName = config('app.name') ?: 'UCN-FMRC';
         if (strtolower($appName) === 'laravel') {
-            $appName = 'CNSC-FMRC';
+            $appName = 'UCN-FMRC';
         }
         $year   = now()->year;
         $accent = '#800000';
@@ -108,7 +108,7 @@ class AppointmentConfirmation extends Mailable
   <h2 style="margin:0 0 8px;color:#1f2937;font-size:18px;font-weight:700;">Your Appointment Has Been Scheduled</h2>
   <p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.7;">
     Hi {$name},<br><br>
-    Thank you for scheduling an appointment with CNSC-FMRC. Below are the details of your booking. Please keep your reference number for your records.
+    Thank you for scheduling an appointment with UCN-FMRC. Below are the details of your booking. Please keep your reference number for your records.
   </p>
 
   <!-- Appointment Details Card -->
@@ -169,7 +169,7 @@ class AppointmentConfirmation extends Mailable
   </table>
 
   <p style="color:#6b7280;font-size:13px;line-height:1.6;margin:0;">
-    Please arrive at the CNSC-FMRC office at least 10 minutes before your scheduled time. If you need to cancel or reschedule, please contact us directly.
+    Please arrive at the UCN-FMRC office at least 10 minutes before your scheduled time. If you need to cancel or reschedule, please contact us directly.
   </p>
 </td></tr>
 
