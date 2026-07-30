@@ -7,6 +7,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const successContinueBtn = document.getElementById("successContinueBtn");
   const authStatusModal = document.getElementById("authStatusModal");
   const authStatusText = document.getElementById("authStatusText");
+  const authTitle = document.querySelector(".auth-title");
+  const authCaption = document.querySelector(".auth-caption");
+
+  const setHeroText = (title, caption) => {
+    if (authTitle) authTitle.textContent = title;
+    if (authCaption) authCaption.textContent = caption;
+  };
 
   const toggleLoader = (show) => {
     let loader = document.getElementById("global-loader");
@@ -73,6 +80,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const showLogin = (event) => {
     if (event) event.preventDefault();
+    setHeroText("Welcome Back", "UCN-FMRC Customer Portal");
     loginForm.style.display = "";
     loginForm.classList.add("active");
     signupForm.style.display = "none";
@@ -82,6 +90,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const showSignup = (event) => {
     if (event) event.preventDefault();
+    setHeroText("Create Your Pass", "Join the UCN-FMRC customer portal");
     signupForm.style.display = "";
     signupForm.classList.add("active");
     loginForm.style.display = "none";
@@ -464,6 +473,3 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 });
-
-
-

@@ -26,28 +26,46 @@
         </a>
 
         <section class="auth-card" aria-label="Customer authentication panel">
-          <div class="card-accent"></div>
+          <aside class="auth-side-panel" aria-hidden="true">
+            <div class="auth-kicker">Customer Portal</div>
 
-          <div class="auth-hero">
-            <div class="auth-brand">
-              <img
-                src="/images/CNSC logo.png"
-                alt="CNSC Logo"
-                class="brand-logo"
-                onerror="this.style.display = 'none'"
-              />
-              <img
-                src="/images/FMRC Logo.png"
-                alt="FMRC Logo"
-                class="brand-logo"
-                onerror="this.style.display = 'none'"
-              />
+            <div class="side-title">
+              <div class="portal-mark"><span>FMRC</span></div>
+              <h2>Start ideas, track requests, and build with us.</h2>
+              <p>
+                Your personal entry point for fabrication services, product
+                inquiries, orders, and project updates.
+              </p>
             </div>
-            <h1 class="auth-title">Welcome</h1>
-            <p class="auth-caption">UCN-FMRC Customer Portal</p>
-          </div>
 
-          <form class="auth-form active" id="loginForm" novalidate>
+            <div class="side-features">
+              <span class="side-feature"><span class="feature-dot"></span>3D printing requests</span>
+              <span class="side-feature"><span class="feature-dot"></span>Laser & CNC services</span>
+              <span class="side-feature"><span class="feature-dot"></span>Order progress tracking</span>
+            </div>
+          </aside>
+
+          <div class="auth-form-panel">
+            <div class="auth-hero">
+              <div class="auth-brand">
+                <img
+                  src="/images/CNSC logo.png"
+                  alt="CNSC Logo"
+                  class="brand-logo"
+                  onerror="this.style.display = 'none'"
+                />
+                <img
+                  src="/images/FMRC Logo.png"
+                  alt="FMRC Logo"
+                  class="brand-logo"
+                  onerror="this.style.display = 'none'"
+                />
+              </div>
+              <h1 class="auth-title">Welcome Back</h1>
+              <p class="auth-caption">UCN-FMRC Customer Portal</p>
+            </div>
+
+            <form class="auth-form active" id="loginForm" novalidate>
             <div class="input-wrapper">
               <label for="loginUser">Email or Username</label>
               <div class="input-icon-group">
@@ -164,7 +182,7 @@
             </div>
           </form>
 
-          <form class="auth-form" id="signupForm" novalidate>
+            <form class="auth-form" id="signupForm" novalidate>
             <div class="input-wrapper">
               <label for="signupName">Full Name</label>
               <div class="input-icon-group">
@@ -367,7 +385,8 @@
                 >Already have an account? Log In</a
               >
             </div>
-          </form>
+            </form>
+          </div>
         </section>
       </div>
     </main>

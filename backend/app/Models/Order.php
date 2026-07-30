@@ -78,4 +78,9 @@ class Order extends Model
     {
         return $this->hasOne(OrderTrackingEvent::class)->latestOfMany('occurred_at');
     }
+
+    public function rating(): HasOne
+    {
+        return $this->hasOne(ProductRating::class);
+    }
 }

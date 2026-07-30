@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>UCN-FMRC Admin Access</title>
+    <title>UCN-FMRC Admin &amp; Staff Access</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -14,29 +14,47 @@
   </head>
   <body>
     <main class="auth-page">
-      <section class="auth-card" aria-label="Admin authentication panel">
-        <div class="card-accent"></div>
+      <section class="auth-card" aria-label="Admin and staff authentication panel">
+        <aside class="auth-side-panel" aria-hidden="true">
+          <div class="auth-kicker">Admin • Staff Portal</div>
 
-        <div class="auth-hero">
-          <div class="auth-brand">
-            <img
-              src="/images/CNSC logo.png"
-              alt="CNSC Logo"
-              class="brand-logo"
-              onerror="this.style.display = 'none'"
-            />
-            <img
-              src="/images/FMRC Logo.png"
-              alt="FMRC Logo"
-              class="brand-logo"
-              onerror="this.style.display = 'none'"
-            />
+          <div class="side-title">
+            <div class="portal-mark"><span>FMRC</span></div>
+            <h2>Control the shop floor with clarity.</h2>
+            <p>
+              A clean workspace for monitoring requests, inventory, products,
+              and daily fabrication activity.
+            </p>
           </div>
-          <h1 class="auth-title">Welcome</h1>
-          <p class="auth-caption">UCN-FMRC Admin Portal</p>
-        </div>
 
-        <form class="auth-form active" id="loginForm" novalidate>
+          <div class="side-features">
+            <span class="side-feature"><span class="feature-dot"></span>Admin dashboard</span>
+            <span class="side-feature"><span class="feature-dot"></span>Staff coordination</span>
+            <span class="side-feature"><span class="feature-dot"></span>Live operation checks</span>
+          </div>
+        </aside>
+
+        <div class="auth-form-panel">
+          <div class="auth-hero">
+            <div class="auth-brand">
+              <img
+                src="/images/CNSC logo.png"
+                alt="CNSC Logo"
+                class="brand-logo"
+                onerror="this.style.display = 'none'"
+              />
+              <img
+                src="/images/FMRC Logo.png"
+                alt="FMRC Logo"
+                class="brand-logo"
+                onerror="this.style.display = 'none'"
+              />
+            </div>
+            <h1 class="auth-title">Welcome Back</h1>
+            <p class="auth-caption">UCN-FMRC Admin / Staff Portal</p>
+          </div>
+
+          <form class="auth-form active" id="loginForm" novalidate>
           <div class="input-wrapper">
             <label for="loginUser">Email or Username</label>
             <div class="input-icon-group">
@@ -106,9 +124,9 @@
             >
           </div>
 
-
-          <button class="auth-btn" type="submit">Login to Dashboard</button>
-        </form>
+            <button class="auth-btn" type="submit">Enter Workspace</button>
+          </form>
+        </div>
       </section>
     </main>
 
@@ -134,8 +152,8 @@
         </div>
         <h3 id="successTitle">Account Created</h3>
         <p>
-          Your admin account is ready. Please proceed to log in to access the
-          dashboard.
+          Your admin or staff account is ready. Please proceed to log in to
+          access the dashboard.
         </p>
         <button
           id="successContinueBtn"
@@ -181,8 +199,8 @@
           </div>
           <h3 id="forgotTitle">Forgot your password?</h3>
           <p>
-            No worries! Enter the email linked to your admin account and we'll
-            send you a link to reset your password.
+            No worries! Enter the email linked to your admin or staff account
+            and we'll send you a link to reset your password.
           </p>
 
           <form id="forgotForm" novalidate>

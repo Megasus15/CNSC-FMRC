@@ -28,7 +28,9 @@
         />
         <h1 class="logo-text">
           <span class="logo-title">UNIVERSITY OF CAMARINES NORTE</span>
-          <span class="logo-subtitle">FABRICATION AND MANUFACTURING RESEARCH CENTER</span>
+          <span class="logo-subtitle"
+            >FABRICATION AND MANUFACTURING RESEARCH CENTER</span
+          >
         </h1>
       </a>
 
@@ -42,7 +44,9 @@
           <li>
             <a href="/products-page/product.html" class="nav-link">Products</a>
           </li>
-          <li><a href="/contact-page/contact.html" class="nav-link">Contact</a></li>
+          <li>
+            <a href="/contact-page/contact.html" class="nav-link">Contact</a>
+          </li>
         </ul>
       </nav>
 
@@ -136,7 +140,11 @@
           </div>
 
           <div class="about-content-right">
-            <div class="about-video-holder" id="aboutVideoHolder" aria-label="About video holder">
+            <div
+              class="about-video-holder"
+              id="aboutVideoHolder"
+              aria-label="About video holder"
+            >
               <video
                 class="about-preview-video"
                 id="aboutPreviewVideo"
@@ -144,25 +152,40 @@
                 muted
                 playsinline
               >
-                <source src="/images/Product showcase.mp4" type="video/mp4" id="aboutVideoSrc" />
+                <source
+                  src="/images/Product showcase.mp4"
+                  type="video/mp4"
+                  id="aboutVideoSrc"
+                />
               </video>
               <button
-                class="about-video-control"
+                class="about-video-control is-paused"
                 id="aboutVideoToggle"
                 type="button"
-                aria-label="Play or pause preview video"
-              >
-                ▶
-              </button>
+                aria-label="Play preview video"
+              ></button>
             </div>
 
             <div class="about-video-modal" id="aboutVideoModal">
-              <button class="about-video-close" id="aboutVideoClose" aria-label="Close video">
+              <button
+                class="about-video-close"
+                id="aboutVideoClose"
+                aria-label="Close video"
+              >
                 &times;
               </button>
               <div class="about-video-modal-box">
-                <video class="about-full-video" id="aboutFullVideo" controls playsinline>
-                  <source src="/images/Product showcase.mp4" type="video/mp4" id="aboutFullVideoSrc" />
+                <video
+                  class="about-full-video"
+                  id="aboutFullVideo"
+                  controls
+                  playsinline
+                >
+                  <source
+                    src="/images/Product showcase.mp4"
+                    type="video/mp4"
+                    id="aboutFullVideoSrc"
+                  />
                 </video>
               </div>
             </div>
@@ -173,7 +196,12 @@
       <div class="vision-section">
         <div class="vision-container">
           <div class="vision-content-left">
-            <img src="/images/pic1.jpg" alt="FMRC Vision" class="vision-img" id="visionImgEl" />
+            <img
+              src="/images/pic1.jpg"
+              alt="FMRC Vision"
+              class="vision-img"
+              id="visionImgEl"
+            />
           </div>
           <div class="vision-content-right">
             <h2 class="vm-title" id="visionHeadingEl">OUR VISION</h2>
@@ -220,7 +248,17 @@
 
         <div class="carousel-wrapper landscape-carousel">
           <button class="carousel-btn prev-btn" aria-label="Previous Service">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <polyline points="15 18 9 12 15 6"></polyline>
             </svg>
           </button>
@@ -229,24 +267,51 @@
             <!-- Dynamically rendered from API -->
             <div class="carousel-item">
               <div class="service-card landscape-card">
-                <div class="card-img-holder" style="background:#f3f4f6;"></div>
+                <div class="card-img-holder" style="background: #f3f4f6"></div>
                 <div class="card-content">
-                  <h3 class="card-title" style="background:#e5e7eb;height:14px;border-radius:4px;"></h3>
-                  <p class="card-desc" style="background:#f3f4f6;height:10px;border-radius:4px;margin-top:8px;"></p>
+                  <h3
+                    class="card-title"
+                    style="
+                      background: #e5e7eb;
+                      height: 14px;
+                      border-radius: 4px;
+                    "
+                  ></h3>
+                  <p
+                    class="card-desc"
+                    style="
+                      background: #f3f4f6;
+                      height: 10px;
+                      border-radius: 4px;
+                      margin-top: 8px;
+                    "
+                  ></p>
                 </div>
               </div>
             </div>
           </div>
 
           <button class="carousel-btn next-btn" aria-label="Next Service">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <polyline points="9 18 15 12 9 6"></polyline>
             </svg>
           </button>
         </div>
 
         <div class="view-all-container">
-          <a href="/services-page/service.html" class="view-all-btn">View All Services</a>
+          <a href="/services-page/service.html" class="view-all-btn"
+            >View All Services</a
+          >
         </div>
       </div>
     </section>
@@ -379,45 +444,66 @@
 
         <div class="apt-content-section active" id="aptStep1">
           <div class="apt-card">
-              <div class="apt-card-header">
-                  <h3>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                          <circle cx="12" cy="12" r="10"></circle>
-                          <line x1="12" y1="8" x2="12" y2="12"></line>
-                          <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                      </svg>
-                      Important Reminders
-                  </h3>
-              </div>
-              <div class="apt-reminders-grid">
-                <div class="apt-reminder-item">
-                    <div class="apt-reminder-icon">1</div>
-                    <div class="apt-reminder-content">
-                        <h4>Data Privacy Collection</h4>
-                        <p>At University of Camarines Norte, we value your privacy. In compliance with RA 10173, we collect:</p>
-                        <ol class="apt-reminder-list" style="margin-top:10px;">
-                            <li>Email & Contact Details</li>
-                            <li>Client Type & Department</li>
-                            <li>Service Request & Schedule</li>
-                        </ol>
-                    </div>
-                </div>
-                <div class="apt-reminder-item">
-                    <div class="apt-reminder-icon">2</div>
-                    <div class="apt-reminder-content">
-                        <h4>Appointment Policy</h4>
-                        <p>To ensure organized service:</p>
-                        <ul class="apt-reminder-list" style="margin-top:10px; list-style: disc; margin-left: 15px;">
-                            <li>All clients are required to book online.</li>
-                            <li>Walk-ins may not be accommodated immediately.</li>
-                            <li>Please arrive on time for your scheduled slot.</li>
-                        </ul>
-                    </div>
+            <div class="apt-card-header">
+              <h3>
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                Important Reminders
+              </h3>
+            </div>
+            <div class="apt-reminders-grid">
+              <div class="apt-reminder-item">
+                <div class="apt-reminder-icon">1</div>
+                <div class="apt-reminder-content">
+                  <h4>Data Privacy Collection</h4>
+                  <p>
+                    At University of Camarines Norte, we value your privacy. In
+                    compliance with RA 10173, we collect:
+                  </p>
+                  <ol class="apt-reminder-list" style="margin-top: 10px">
+                    <li>Email & Contact Details</li>
+                    <li>Client Type & Department</li>
+                    <li>Service Request & Schedule</li>
+                  </ol>
                 </div>
               </div>
+              <div class="apt-reminder-item">
+                <div class="apt-reminder-icon">2</div>
+                <div class="apt-reminder-content">
+                  <h4>Appointment Policy</h4>
+                  <p>To ensure organized service:</p>
+                  <ul
+                    class="apt-reminder-list"
+                    style="
+                      margin-top: 10px;
+                      list-style: disc;
+                      margin-left: 15px;
+                    "
+                  >
+                    <li>All clients are required to book online.</li>
+                    <li>Walk-ins may not be accommodated immediately.</li>
+                    <li>Please arrive on time for your scheduled slot.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="apt-footer-actions">
-            <button type="button" class="apt-btn apt-btn-blue" id="btnGoToPrivacy">
+            <button
+              type="button"
+              class="apt-btn apt-btn-blue"
+              id="btnGoToPrivacy"
+            >
               I Understand, Proceed
             </button>
           </div>
@@ -426,37 +512,66 @@
         <div class="apt-content-section" id="aptStep2">
           <div class="apt-card apt-form-card">
             <div class="apt-form-grid">
-              
               <!-- Section 1: Personal Info -->
               <div class="apt-form-header">
-                  <h4>Personal Information</h4>
+                <h4>Personal Information</h4>
               </div>
 
               <div class="apt-input-group">
                 <label>Last Name</label>
-                <input type="text" id="aptLName" class="c-input" placeholder="e.g. Dela Cruz" maxlength="20"/>
+                <input
+                  type="text"
+                  id="aptLName"
+                  class="c-input"
+                  placeholder="e.g. Dela Cruz"
+                  maxlength="20"
+                />
               </div>
               <div class="apt-input-group">
                 <label>First Name</label>
-                <input type="text" id="aptFName" class="c-input" placeholder="e.g. Juan" maxlength="25"/>
+                <input
+                  type="text"
+                  id="aptFName"
+                  class="c-input"
+                  placeholder="e.g. Juan"
+                  maxlength="25"
+                />
               </div>
               <div class="apt-input-group">
                 <label>M.I. (Optional)</label>
-                <input type="text" id="aptMI" class="c-input" placeholder="M" maxlength="1"/>
+                <input
+                  type="text"
+                  id="aptMI"
+                  class="c-input"
+                  placeholder="M"
+                  maxlength="1"
+                />
               </div>
 
               <div class="apt-input-group">
                 <label>Mobile Number</label>
-                <input type="tel" id="aptPhone" class="c-input" placeholder="09xxxxxxxxx" maxlength="11" inputmode="numeric"/>
+                <input
+                  type="tel"
+                  id="aptPhone"
+                  class="c-input"
+                  placeholder="09xxxxxxxxx"
+                  maxlength="11"
+                  inputmode="numeric"
+                />
               </div>
               <div class="apt-input-group" style="grid-column: span 2">
                 <label>Email Address</label>
-                <input type="email" id="aptEmail" class="c-input" placeholder="example@gmail.com"/>
+                <input
+                  type="email"
+                  id="aptEmail"
+                  class="c-input"
+                  placeholder="example@gmail.com"
+                />
               </div>
 
               <!-- Section 2: Address -->
               <div class="apt-form-header">
-                  <h4>Residential Address</h4>
+                <h4>Residential Address</h4>
               </div>
 
               <div class="apt-input-group">
@@ -467,64 +582,111 @@
                 </select>
               </div>
 
-              <div id="aptPhAddressFields" style="display: contents;">
+              <div id="aptPhAddressFields" style="display: contents">
                 <div class="apt-input-group">
                   <label>Region</label>
                   <select id="aptRegion" class="c-input">
-                    <option value="" selected disabled hidden>Select Region</option>
+                    <option value="" selected disabled hidden>
+                      Select Region
+                    </option>
                   </select>
                 </div>
 
                 <div class="apt-input-group">
                   <label>Province</label>
                   <select id="aptProvince" class="c-input" disabled>
-                    <option value="" selected disabled hidden>Select Province</option>
+                    <option value="" selected disabled hidden>
+                      Select Province
+                    </option>
                   </select>
                 </div>
 
                 <div class="apt-input-group">
                   <label>Municipality</label>
                   <select id="aptMunicipality" class="c-input" disabled>
-                    <option value="" selected disabled hidden>Select Municipality</option>
+                    <option value="" selected disabled hidden>
+                      Select Municipality
+                    </option>
                   </select>
                 </div>
 
                 <div class="apt-input-group">
                   <label>Barangay</label>
                   <select id="aptAddress" class="c-input" disabled>
-                    <option value="" selected disabled hidden>Select Barangay</option>
+                    <option value="" selected disabled hidden>
+                      Select Barangay
+                    </option>
                   </select>
                 </div>
               </div>
 
-              <div class="apt-input-group" id="aptIntlAddressField" style="display: none; grid-column: span 3;">
+              <div
+                class="apt-input-group"
+                id="aptIntlAddressField"
+                style="display: none; grid-column: span 3"
+              >
                 <label>Complete Residential Address</label>
-                <textarea id="aptIntlAddress" class="c-input" rows="3" placeholder="Enter your full address (street, city/state, postal code, country)"></textarea>
+                <textarea
+                  id="aptIntlAddress"
+                  class="c-input"
+                  rows="3"
+                  placeholder="Enter your full address (street, city/state, postal code, country)"
+                ></textarea>
               </div>
 
               <!-- Section 3: Appointment Details -->
               <div class="apt-form-header">
-                  <h4>Appointment Details</h4>
+                <h4>Appointment Details</h4>
               </div>
 
               <div class="apt-input-group" style="grid-column: span 2">
                 <label>Purpose of Visit</label>
                 <select id="aptPurpose" class="c-input">
-                  <option value="" disabled selected hidden>Select Service Request</option>
-                  <option value="Product labelling and designing">Product Labelling And Designing</option>
+                  <option value="" disabled selected hidden>
+                    Select Service Request
+                  </option>
+                  <option value="Product labelling and designing">
+                    Product Labelling And Designing
+                  </option>
                   <option value="3D Printing">3D Printing</option>
                   <option value="3D Scanning">3D Scanning</option>
-                  <option value="Laser-cutting/engraving">Laser-Cutting/Engraving</option>
-                  <option value="Large Format printing & cutting">Large Format Printing & Cutting</option>
+                  <option value="Laser-cutting/engraving">
+                    Laser-Cutting/Engraving
+                  </option>
+                  <option value="Large Format printing & cutting">
+                    Large Format Printing & Cutting
+                  </option>
                   <option value="CNC Milling">CNC Milling</option>
                   <option value="Inquiries">Inquiries</option>
                 </select>
-                
-                <div class="file-upload-wrapper" style="margin-top: 10px;">
-                    <div class="file-upload-icon">+</div>
-                  <span class="file-upload-text" id="aptFileLabel">Click to Attach Design File (Optional)</span>
-                  <small id="aptFileName" style="font-size: 11px; color: #7a7a7a; margin-top: 4px; text-align: center;">No file selected</small>
-                  <input type="file" id="aptFile" accept="image/*,.pdf,.doc,.docx" style="position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer;">
+
+                <div class="file-upload-wrapper" style="margin-top: 10px">
+                  <div class="file-upload-icon">+</div>
+                  <span class="file-upload-text" id="aptFileLabel"
+                    >Click to Attach Design File (Optional)</span
+                  >
+                  <small
+                    id="aptFileName"
+                    style="
+                      font-size: 11px;
+                      color: #7a7a7a;
+                      margin-top: 4px;
+                      text-align: center;
+                    "
+                    >No file selected</small
+                  >
+                  <input
+                    type="file"
+                    id="aptFile"
+                    accept="image/*,.pdf,.doc,.docx"
+                    style="
+                      position: absolute;
+                      width: 100%;
+                      height: 100%;
+                      opacity: 0;
+                      cursor: pointer;
+                    "
+                  />
                 </div>
               </div>
 
@@ -542,13 +704,28 @@
 
               <div class="apt-input-group" style="grid-column: span 3">
                 <label>Additional Description / Notes</label>
-                <textarea id="aptDesc" class="c-input apt-fixed-scroll-textarea" rows="3" placeholder="Please describe your request in detail..."></textarea>
+                <textarea
+                  id="aptDesc"
+                  class="c-input apt-fixed-scroll-textarea"
+                  rows="3"
+                  placeholder="Please describe your request in detail..."
+                ></textarea>
               </div>
             </div>
           </div>
           <div class="apt-footer-actions">
-            <button type="button" class="apt-btn apt-btn-back" id="btnCancelTo1">Back</button>
-            <button type="button" class="apt-btn apt-btn-blue" id="btnGoToStep3">
+            <button
+              type="button"
+              class="apt-btn apt-btn-back"
+              id="btnCancelTo1"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              class="apt-btn apt-btn-blue"
+              id="btnGoToStep3"
+            >
               Proceed to Schedule
             </button>
           </div>
@@ -559,9 +736,12 @@
             <div class="calendar-header-text">
               <h3>Select Date & Time</h3>
               <p>
-                Please select a date from the calendar below. Then, choose your preferred time slot on the right. 
-                <br>
-                <strong>Note:</strong> Weekends (Saturday & Sunday) are unavailable. Past dates are disabled. You can select only 1 time slot for this whole appointment.
+                Please select a date from the calendar below. Then, choose your
+                preferred time slot on the right.
+                <br />
+                <strong>Note:</strong> Weekends (Saturday & Sunday) are
+                unavailable. Past dates are disabled. You can select only 1 time
+                slot for this whole appointment.
               </p>
             </div>
 
@@ -573,56 +753,98 @@
                   <h4 id="calMonthYear">September 2023</h4>
                   <button id="calNextBtn" type="button">&gt;</button>
                 </div>
-                
+
                 <div class="cal-days-header">
-                  <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                  <span>Sun</span><span>Mon</span><span>Tue</span
+                  ><span>Wed</span><span>Thu</span><span>Fri</span
+                  ><span>Sat</span>
                 </div>
-                
+
                 <div class="cal-days-grid" id="calDaysGrid">
                   <!-- JS generated days -->
                 </div>
 
                 <div class="cal-legend">
-                   <div class="leg-item">
-                     <div class="leg-circle leg-am"></div>
-                     <span>AM Selected</span>
-                   </div>
-                   <div class="leg-item">
-                     <div class="leg-circle leg-pm"></div>
-                     <span>PM Selected</span>
-                   </div>
-                   <div class="leg-item">
-                     <div class="leg-circle leg-full"></div>
-                     <span>AM & PM Selected</span>
-                   </div>
-                   <div class="leg-item">
-                     <div class="leg-box leg-unavailable"></div>
-                     <span>Unavailable</span>
-                   </div>
+                  <div class="leg-item">
+                    <div class="leg-circle leg-am"></div>
+                    <span>AM Selected</span>
+                  </div>
+                  <div class="leg-item">
+                    <div class="leg-circle leg-pm"></div>
+                    <span>PM Selected</span>
+                  </div>
+                  <div class="leg-item">
+                    <div class="leg-circle leg-full"></div>
+                    <span>AM & PM Selected</span>
+                  </div>
+                  <div class="leg-item">
+                    <div class="leg-box leg-unavailable"></div>
+                    <span>Unavailable</span>
+                  </div>
                 </div>
               </div>
 
               <!-- Right Side: Time Slots -->
               <div class="apt-time-right">
                 <h4 id="selectedDateDisplay">Select a Date</h4>
-                <div id="userDateEventsDisplay" class="date-note-card" aria-live="polite"></div>
-                <div class="slot-counter-wrapper" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                  <span id="slotCounter" style="font-size: 13px; font-weight: 600; color: #555; display: none;">Allowed: 1 time slot for this appointment</span>
+                <div
+                  id="userDateEventsDisplay"
+                  class="date-note-card"
+                  aria-live="polite"
+                ></div>
+                <div
+                  class="slot-counter-wrapper"
+                  style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 10px;
+                  "
+                >
+                  <span
+                    id="slotCounter"
+                    style="
+                      font-size: 13px;
+                      font-weight: 600;
+                      color: #555;
+                      display: none;
+                    "
+                    >Allowed: 1 time slot for this appointment</span
+                  >
                 </div>
                 <div class="time-slots-container" id="timeSlotsContainer">
                   <p class="time-placeholder">Please pick a date first.</p>
                   <!-- JS generated slots -->
                 </div>
-                <p id="maxLimitMsg" style="color: #b01c1c; font-size: 12px; margin-top: 10px; display: none; font-weight: bold;">
-                   This time is disabled because another user already booked this date and time.
+                <p
+                  id="maxLimitMsg"
+                  style="
+                    color: #b01c1c;
+                    font-size: 12px;
+                    margin-top: 10px;
+                    display: none;
+                    font-weight: bold;
+                  "
+                >
+                  This time is disabled because another user already booked this
+                  date and time.
                 </p>
               </div>
             </div>
-
           </div>
           <div class="apt-footer-actions">
-            <button type="button" class="apt-btn apt-btn-back" id="btnCancelTo2">Back</button>
-            <button type="button" class="apt-btn apt-btn-blue" id="btnGoToConfirm">
+            <button
+              type="button"
+              class="apt-btn apt-btn-back"
+              id="btnCancelTo2"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              class="apt-btn apt-btn-blue"
+              id="btnGoToConfirm"
+            >
               Proceed
             </button>
           </div>
@@ -631,84 +853,126 @@
         <div class="apt-content-section" id="aptStep4">
           <div class="ticket-container">
             <div class="ticket-header">
-                <div>
-                    <span style="display:block; font-size: 11px; opacity: 0.8; letter-spacing: 1px;">PREVIEW APPOINTMENT</span>
-                <h3 id="revTicketNo" style="margin: 5px 0 0; font-size: 24px; font-weight: 800;">Ticket #PENDING</h3>
-                </div>
-                <div style="text-align: right;">
-                    <span style="font-size: 12px; font-weight: 600; background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 4px;">DRAFT</span>
-                </div>
+              <div>
+                <span
+                  style="
+                    display: block;
+                    font-size: 11px;
+                    opacity: 0.8;
+                    letter-spacing: 1px;
+                  "
+                  >PREVIEW APPOINTMENT</span
+                >
+                <h3
+                  id="revTicketNo"
+                  style="margin: 5px 0 0; font-size: 24px; font-weight: 800"
+                >
+                  Ticket #PENDING
+                </h3>
+              </div>
+              <div style="text-align: right">
+                <span
+                  style="
+                    font-size: 12px;
+                    font-weight: 600;
+                    background: rgba(255, 255, 255, 0.2);
+                    padding: 4px 10px;
+                    border-radius: 4px;
+                  "
+                  >DRAFT</span
+                >
+              </div>
             </div>
-            
+
             <div class="ticket-body">
-                <div class="ticket-row">
-                    <div class="ticket-column">
-                        <div class="t-label">FULL NAME</div>
-                        <div class="t-value" id="revName">Kevin Arevalo</div>
-                    </div>
-                    <div class="ticket-column">
-                        <div class="t-label">CONTACT</div>
-                        <div class="t-value" id="revPhone">09911341158</div>
-                    </div>
+              <div class="ticket-row">
+                <div class="ticket-column">
+                  <div class="t-label">FULL NAME</div>
+                  <div class="t-value" id="revName">Kevin Arevalo</div>
                 </div>
-                
-                <div class="ticket-row">
-                    <div class="ticket-column">
-                        <div class="t-label">EMAIL ADDRESS</div>
-                        <div class="t-value" id="revEmail">kevin@gmail.com</div>
-                    </div>
-                    <div class="ticket-column">
-                        <div class="t-label">HOME ADDRESS</div>
-                        <div class="t-value" id="revAddress">Masalong, Labo</div>
-                    </div>
+                <div class="ticket-column">
+                  <div class="t-label">CONTACT</div>
+                  <div class="t-value" id="revPhone">09911341158</div>
                 </div>
+              </div>
 
-                <div class="ticket-row">
-                    <div class="ticket-column">
-                         <div class="t-label">PURPOSE</div>
-                        <div class="t-value" id="revPurpose">Inquiries</div>
-                    </div>
-                  <div class="ticket-column">
-                    <div class="t-label">TYPE OF CLIENT</div>
-                    <div class="t-value" id="revClientType">Student</div>
+              <div class="ticket-row">
+                <div class="ticket-column">
+                  <div class="t-label">EMAIL ADDRESS</div>
+                  <div class="t-value" id="revEmail">kevin@gmail.com</div>
+                </div>
+                <div class="ticket-column">
+                  <div class="t-label">HOME ADDRESS</div>
+                  <div class="t-value" id="revAddress">Masalong, Labo</div>
+                </div>
+              </div>
+
+              <div class="ticket-row">
+                <div class="ticket-column">
+                  <div class="t-label">PURPOSE</div>
+                  <div class="t-value" id="revPurpose">Inquiries</div>
+                </div>
+                <div class="ticket-column">
+                  <div class="t-label">TYPE OF CLIENT</div>
+                  <div class="t-value" id="revClientType">Student</div>
+                </div>
+              </div>
+
+              <div class="ticket-row">
+                <div class="ticket-column">
+                  <div class="t-label">SCHEDULED DATE & TIME</div>
+                  <div
+                    class="t-value highlight"
+                    id="revSched"
+                    style="font-size: 18px"
+                  >
+                    March 13, 2026 @ 9:00 AM
                   </div>
                 </div>
+              </div>
 
-                <div class="ticket-row">
-                    <div class="ticket-column">
-                        <div class="t-label">SCHEDULED DATE & TIME</div>
-                        <div class="t-value highlight" id="revSched" style="font-size: 18px;">
-                            March 13, 2026 @ 9:00 AM
-                        </div>
-                    </div>
-                </div>
-
-                <div class="ticket-row">
-                    <div class="ticket-column">
-                        <div class="t-label">ADDITIONAL NOTES</div>
-                        <div class="t-value" id="revDesc" style="font-style: italic; color: #666;">Meeting with head...</div>
-                    </div>
-                </div>
-
-                <div class="ticket-row">
-                  <div class="ticket-column">
-                    <div class="t-label">ATTACHED FILE</div>
-                    <div class="t-value" id="revFileAttach">N/A</div>
-                  </div>
-                  <div class="ticket-column">
-                    <div class="t-label">COUNTRY</div>
-                    <div class="t-value" id="revCountry">Philippines</div>
+              <div class="ticket-row">
+                <div class="ticket-column">
+                  <div class="t-label">ADDITIONAL NOTES</div>
+                  <div
+                    class="t-value"
+                    id="revDesc"
+                    style="font-style: italic; color: #666"
+                  >
+                    Meeting with head...
                   </div>
                 </div>
+              </div>
+
+              <div class="ticket-row">
+                <div class="ticket-column">
+                  <div class="t-label">ATTACHED FILE</div>
+                  <div class="t-value" id="revFileAttach">N/A</div>
+                </div>
+                <div class="ticket-column">
+                  <div class="t-label">COUNTRY</div>
+                  <div class="t-value" id="revCountry">Philippines</div>
+                </div>
+              </div>
             </div>
-            
+
             <!-- Bottom perforated edge visual could be added via CSS if needed -->
           </div>
-          <div class="apt-footer-actions" style="margin-top: 20px;">
-            <button type="button" class="apt-btn apt-btn-back" id="btnCancelTo3" onclick="event.preventDefault();">
+          <div class="apt-footer-actions" style="margin-top: 20px">
+            <button
+              type="button"
+              class="apt-btn apt-btn-back"
+              id="btnCancelTo3"
+              onclick="event.preventDefault()"
+            >
               Back to Calendar
             </button>
-            <button type="button" class="apt-btn apt-btn-blue" id="btnGoToStep5" onclick="event.preventDefault();">
+            <button
+              type="button"
+              class="apt-btn apt-btn-blue"
+              id="btnGoToStep5"
+              onclick="event.preventDefault()"
+            >
               Confirm &amp; Submit
             </button>
           </div>
@@ -717,105 +981,200 @@
         <div class="apt-content-section" id="aptStep5">
           <div class="ticket-container" id="officialReceiptCard">
             <div class="ticket-header">
-                <div>
-                    <span style="display:block; font-size: 11px; opacity: 0.8; letter-spacing: 1px;">OFFICIAL RECEIPT</span>
-              <h3 id="comTicketNo" style="margin: 5px 0 0; font-size: 24px; font-weight: 800;">Ticket #PENDING</h3>
-                </div>
-                <div style="text-align: right;">
-                    <span style="font-size: 12px; font-weight: 600; background: #4caf50; color: #fff; padding: 4px 10px; border-radius: 4px;">CONFIRMED</span>
-                </div>
+              <div>
+                <span
+                  style="
+                    display: block;
+                    font-size: 11px;
+                    opacity: 0.8;
+                    letter-spacing: 1px;
+                  "
+                  >OFFICIAL RECEIPT</span
+                >
+                <h3
+                  id="comTicketNo"
+                  style="margin: 5px 0 0; font-size: 24px; font-weight: 800"
+                >
+                  Ticket #PENDING
+                </h3>
+              </div>
+              <div style="text-align: right">
+                <span
+                  style="
+                    font-size: 12px;
+                    font-weight: 600;
+                    background: #4caf50;
+                    color: #fff;
+                    padding: 4px 10px;
+                    border-radius: 4px;
+                  "
+                  >CONFIRMED</span
+                >
+              </div>
             </div>
-            
-          <div class="ticket-body" style="display: flex; gap: 20px; align-items: stretch;">
-                <!-- Left Side Details -->
-            <div style="flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
-                    <div class="ticket-row">
-                        <div class="ticket-column">
-                            <div class="t-label">FULL NAME</div>
-                            <div class="t-value" id="comName">Kevin Arevalo</div>
-                        </div>
-                    </div>
-                    
-                    <div class="ticket-row">
-                        <div class="ticket-column">
-                             <div class="t-label">PURPOSE</div>
-                            <div class="t-value" id="comPurpose">Inquiries</div>
-                        </div>
-                    </div>
 
-                        <div class="ticket-row">
-                          <div class="ticket-column">
-                            <div class="t-label">TYPE OF CLIENT</div>
-                            <div class="t-value" id="comClientType">Student</div>
-                          </div>
-                        </div>
-    
-                    <div class="ticket-row">
-                        <div class="ticket-column">
-                            <div class="t-label">SCHEDULE</div>
-                            <div class="t-value highlight" id="comSched" style="font-size: 16px; color: #333;">
-                                March 13, 2026 @ 9:00 AM
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="ticket-row">
-                        <div class="ticket-column">
-                            <div class="t-label">CONTACT</div>
-                            <div class="t-value" id="comPhone">09911341158</div>
-                        </div>
-                    </div>
-
-                        <div class="ticket-row">
-                          <div class="ticket-column">
-                            <div class="t-label">EMAIL</div>
-                            <div class="t-value" id="comEmail">kevin@gmail.com</div>
-                          </div>
-                        </div>
-
-                        <div class="ticket-row">
-                          <div class="ticket-column">
-                            <div class="t-label">ADDRESS</div>
-                            <div class="t-value" id="comAddress">Masalong, Labo</div>
-                          </div>
-                        </div>
-
-                        <div class="ticket-row">
-                          <div class="ticket-column">
-                            <div class="t-label">NOTES</div>
-                            <div class="t-value" id="comDesc">N/A</div>
-                          </div>
-                        </div>
-
-                        <div class="ticket-row">
-                          <div class="ticket-column">
-                            <div class="t-label">ATTACHED FILE</div>
-                            <div class="t-value" id="comFileAttach">N/A</div>
-                          </div>
-                        </div>
+            <div
+              class="ticket-body"
+              style="display: flex; gap: 20px; align-items: stretch"
+            >
+              <!-- Left Side Details -->
+              <div
+                style="
+                  flex: 1;
+                  display: grid;
+                  grid-template-columns: 1fr 1fr;
+                  gap: 14px;
+                "
+              >
+                <div class="ticket-row">
+                  <div class="ticket-column">
+                    <div class="t-label">FULL NAME</div>
+                    <div class="t-value" id="comName">Kevin Arevalo</div>
+                  </div>
                 </div>
 
-                <!-- Right Side QR -->
-                <div style="width: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-left: 1px dashed #ccc; padding-left: 20px;">
-                        <img id="receiptQrImage" src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=FMRC-Appointment" alt="QR Code" style="width: 100%; height: auto; display: block; mix-blend-mode: multiply;">
-                        <span style="font-size: 10px; color: #666; margin-top: 5px; text-align: center;">Scan to verify appointment</span>
-                        <a id="receiptQrLink" href="#" target="_blank" rel="noopener" style="font-size: 10px; margin-top: 8px; color: #8b0000; text-align: center;">Open verification page</a>
+                <div class="ticket-row">
+                  <div class="ticket-column">
+                    <div class="t-label">PURPOSE</div>
+                    <div class="t-value" id="comPurpose">Inquiries</div>
+                  </div>
                 </div>
+
+                <div class="ticket-row">
+                  <div class="ticket-column">
+                    <div class="t-label">TYPE OF CLIENT</div>
+                    <div class="t-value" id="comClientType">Student</div>
+                  </div>
+                </div>
+
+                <div class="ticket-row">
+                  <div class="ticket-column">
+                    <div class="t-label">SCHEDULE</div>
+                    <div
+                      class="t-value highlight"
+                      id="comSched"
+                      style="font-size: 16px; color: #333"
+                    >
+                      March 13, 2026 @ 9:00 AM
+                    </div>
+                  </div>
+                </div>
+
+                <div class="ticket-row">
+                  <div class="ticket-column">
+                    <div class="t-label">CONTACT</div>
+                    <div class="t-value" id="comPhone">09911341158</div>
+                  </div>
+                </div>
+
+                <div class="ticket-row">
+                  <div class="ticket-column">
+                    <div class="t-label">EMAIL</div>
+                    <div class="t-value" id="comEmail">kevin@gmail.com</div>
+                  </div>
+                </div>
+
+                <div class="ticket-row">
+                  <div class="ticket-column">
+                    <div class="t-label">ADDRESS</div>
+                    <div class="t-value" id="comAddress">Masalong, Labo</div>
+                  </div>
+                </div>
+
+                <div class="ticket-row">
+                  <div class="ticket-column">
+                    <div class="t-label">NOTES</div>
+                    <div class="t-value" id="comDesc">N/A</div>
+                  </div>
+                </div>
+
+                <div class="ticket-row">
+                  <div class="ticket-column">
+                    <div class="t-label">ATTACHED FILE</div>
+                    <div class="t-value" id="comFileAttach">N/A</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right Side QR -->
+              <div
+                style="
+                  width: 150px;
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  justify-content: center;
+                  border-left: 1px dashed #ccc;
+                  padding-left: 20px;
+                "
+              >
+                <img
+                  id="receiptQrImage"
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=FMRC-Appointment"
+                  alt="QR Code"
+                  style="
+                    width: 100%;
+                    height: auto;
+                    display: block;
+                    mix-blend-mode: multiply;
+                  "
+                />
+                <span
+                  style="
+                    font-size: 10px;
+                    color: #666;
+                    margin-top: 5px;
+                    text-align: center;
+                  "
+                  >Scan to verify appointment</span
+                >
+                <a
+                  id="receiptQrLink"
+                  href="#"
+                  target="_blank"
+                  rel="noopener"
+                  style="
+                    font-size: 10px;
+                    margin-top: 8px;
+                    color: #8b0000;
+                    text-align: center;
+                  "
+                  >Open verification page</a
+                >
+              </div>
             </div>
-            
-             <!-- Footer Reminder -->
-             <div style="background: #f9f9f9; padding: 15px 25px; border-top: 1px dashed #ddd; font-size: 12px; color: #444; line-height: 1.6;">
-               <strong>Important:</strong> Please screenshot or note your Reference Number before closing this window.
-               Present it at the FMRC office for fast verification of your online appointment.
-             </div>
+
+            <!-- Footer Reminder -->
+            <div
+              style="
+                background: #f9f9f9;
+                padding: 15px 25px;
+                border-top: 1px dashed #ddd;
+                font-size: 12px;
+                color: #444;
+                line-height: 1.6;
+              "
+            >
+              <strong>Important:</strong> Please screenshot or note your
+              Reference Number before closing this window. Present it at the
+              FMRC office for fast verification of your online appointment.
+            </div>
           </div>
 
-          <div class="apt-footer-actions" style="margin-top: 20px;">
-            <button type="button" class="apt-btn apt-btn-outline" id="btnGenerateReport">
-              <span style="margin-right: 5px;">&#128196;</span> Download Receipt
+          <div class="apt-footer-actions" style="margin-top: 20px">
+            <button
+              type="button"
+              class="apt-btn apt-btn-outline"
+              id="btnGenerateReport"
+            >
+              <span style="margin-right: 5px">&#128196;</span> Download Receipt
             </button>
-             <!-- Final Finish triggers Success Modal/Home -->
-            <button type="button" class="apt-btn apt-btn-blue" id="btnFinishStep5">
+            <!-- Final Finish triggers Success Modal/Home -->
+            <button
+              type="button"
+              class="apt-btn apt-btn-blue"
+              id="btnFinishStep5"
+            >
               Finish Transaction
             </button>
           </div>
@@ -825,21 +1184,26 @@
 
     <!-- SUCCESS MODAL OVERLAY -->
     <div class="success-modal-overlay" id="successAppointmentModal">
-        <div class="success-card">
-            <div class="success-icon">✓</div>
-            <h3 class="success-title">Success!</h3>
-            <p class="success-desc">
-                Your appointment has been successfully booked. <br>
-              Reference Number: <strong id="successReferenceNo">PENDING</strong>
-            </p>
-            <p class="success-desc" style="margin-top: -4px; margin-bottom: 14px;">
-              Please save your reference number on your device.
-              This is your required proof of online appointment.
-            </p>
-            <button type="button" class="apt-btn apt-btn-blue" id="btnSuccessHome" style="width: 100%;">
-                Return to Homepage
-            </button>
-        </div>
+      <div class="success-card">
+        <div class="success-icon">✓</div>
+        <h3 class="success-title">Success!</h3>
+        <p class="success-desc">
+          Your appointment has been successfully booked. <br />
+          Reference Number: <strong id="successReferenceNo">PENDING</strong>
+        </p>
+        <p class="success-desc" style="margin-top: -4px; margin-bottom: 14px">
+          Please save your reference number on your device. This is your
+          required proof of online appointment.
+        </p>
+        <button
+          type="button"
+          class="apt-btn apt-btn-blue"
+          id="btnSuccessHome"
+          style="width: 100%"
+        >
+          Return to Homepage
+        </button>
+      </div>
     </div>
 
     <div class="apt-nested-modal" id="aptPrivacyModal">
@@ -855,10 +1219,18 @@
           click CANCEL.
         </p>
         <div class="nested-actions">
-          <button type="button" class="apt-btn apt-btn-cancel" id="cancelPrivacyBtn">
+          <button
+            type="button"
+            class="apt-btn apt-btn-cancel"
+            id="cancelPrivacyBtn"
+          >
             Cancel
           </button>
-          <button type="button" class="apt-btn apt-btn-blue" id="acceptPrivacyBtn">
+          <button
+            type="button"
+            class="apt-btn apt-btn-blue"
+            id="acceptPrivacyBtn"
+          >
             Proceed
           </button>
         </div>
@@ -873,10 +1245,18 @@
           Are you sure you want to proceed?
         </p>
         <div class="nested-actions" style="justify-content: center">
-          <button type="button" class="apt-btn apt-btn-cancel" id="cancelConfirmBtn">
+          <button
+            type="button"
+            class="apt-btn apt-btn-cancel"
+            id="cancelConfirmBtn"
+          >
             Cancel
           </button>
-          <button type="button" class="apt-btn apt-btn-blue" id="acceptConfirmBtn">
+          <button
+            type="button"
+            class="apt-btn apt-btn-blue"
+            id="acceptConfirmBtn"
+          >
             Proceed
           </button>
         </div>
@@ -967,7 +1347,10 @@
                 ></path>
                 <polyline points="22,6 12,13 2,6"></polyline>
               </svg>
-              <a href="mailto:fmrc@cnsc.edu.ph" class="footer-link" id="footerEmailLink"
+              <a
+                href="mailto:fmrc@cnsc.edu.ph"
+                class="footer-link"
+                id="footerEmailLink"
                 >fmrc@cnsc.edu.ph</a
               >
             </li>
@@ -988,7 +1371,12 @@
                   d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"
                 ></path>
               </svg>
-              <a href="tel:+639090990000" class="footer-link" id="footerPhoneLink">0909-099-0000</a>
+              <a
+                href="tel:+639090990000"
+                class="footer-link"
+                id="footerPhoneLink"
+                >0909-099-0000</a
+              >
             </li>
             <li>
               <svg
@@ -1028,7 +1416,11 @@
       </div>
     </footer>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
     <script src="main.js"></script>
   </body>
 </html>

@@ -1,4 +1,4 @@
-const getCustomerSession = () => {
+﻿const getCustomerSession = () => {
   const token = localStorage.getItem("customer_token");
   const userInfoRaw = localStorage.getItem("customer_info");
 
@@ -101,6 +101,100 @@ const emitCustomerOrdersUpdated = (detail = {}) => {
   const realtimeChannel = getOrdersRealtimeChannel();
   realtimeChannel?.postMessage(payload);
 };
+
+// â”€â”€ Customer System Popup (global â€” accessible from all page IIFEs) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const ensureCustomerSystemPopup = () => {
+  let popup = document.getElementById("customerSystemPopup");
+  if (popup) return popup;
+
+  popup = document.createElement("div");
+  popup.id = "customerSystemPopup";
+  popup.className = "admin-system-popup";
+  popup.innerHTML = `
+    <div class="admin-system-popup__backdrop"></div>
+    <div class="admin-system-popup__card" role="dialog" aria-modal="true" aria-labelledby="customerSystemPopupTitle">
+      <h3 id="customerSystemPopupTitle" class="admin-system-popup__title">System Message</h3>
+      <hr class="admin-system-popup__separator" />
+      <p id="customerSystemPopupMessage" class="admin-system-popup__message"></p>
+      <hr class="admin-system-popup__separator" />
+      <div class="admin-system-popup__actions">
+        <button id="customerSystemPopupCancel" type="button" class="btn-admin btn-secondary">Cancel</button>
+        <button id="customerSystemPopupOk" type="button" class="btn-admin">Okay</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(popup);
+  return popup;
+};
+
+const showCustomerPopup = (message, options = {}) =>
+  new Promise((resolve) => {
+    const popup = ensureCustomerSystemPopup();
+    const titleEl = popup.querySelector("#customerSystemPopupTitle");
+    const msgEl = popup.querySelector("#customerSystemPopupMessage");
+    const okBtn = popup.querySelector("#customerSystemPopupOk");
+    const cancelBtn = popup.querySelector("#customerSystemPopupCancel");
+    const actions = popup.querySelector(".admin-system-popup__actions");
+    const backdrop = popup.querySelector(".admin-system-popup__backdrop");
+
+    if (titleEl) titleEl.textContent = options.title || "System Message";
+    if (msgEl) msgEl.textContent = String(message || "Done.");
+
+    const isConfirm = Boolean(options.isConfirm);
+    const allowBackdropClose = Boolean(
+      options.allowBackdropClose ?? isConfirm,
+    );
+    if (actions) {
+      actions.classList.toggle("is-confirm", isConfirm);
+    }
+
+    const closePopup = (accepted) => {
+      popup.classList.remove("show");
+      resolve(Boolean(accepted));
+    };
+
+    if (okBtn) {
+      okBtn.textContent = options.okText || (isConfirm ? "Confirm" : "Okay");
+      okBtn.onclick = (ev) => {
+        ev?.stopPropagation();
+        closePopup(true);
+      };
+    }
+
+    if (cancelBtn) {
+      cancelBtn.textContent = options.cancelText || "Cancel";
+      cancelBtn.style.display = isConfirm ? "inline-flex" : "none";
+      cancelBtn.onclick = (ev) => {
+        ev?.stopPropagation();
+        closePopup(false);
+      };
+    }
+
+    // Prevent the popup from being closed immediately by any residual click
+    // event that bubbled from the original button press. Attach the
+    // backdrop click handler after a short delay so the originating click
+    // cannot close it instantly.
+    popup.classList.add("show");
+
+    if (backdrop) {
+      backdrop.onclick = null;
+      if (allowBackdropClose) {
+        setTimeout(() => {
+          backdrop.onclick = (ev) => {
+            ev?.stopPropagation();
+            closePopup(false);
+          };
+        }, 60);
+      }
+    }
+
+    if (isConfirm && cancelBtn) {
+      cancelBtn.focus();
+    } else if (okBtn) {
+      okBtn.focus();
+    }
+  });
 
 document.addEventListener("DOMContentLoaded", () => {
   let navLinks = document.querySelectorAll(".nav-link");
@@ -307,100 +401,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  const ensureCustomerSystemPopup = () => {
-    let popup = document.getElementById("customerSystemPopup");
-    if (popup) return popup;
-
-    popup = document.createElement("div");
-    popup.id = "customerSystemPopup";
-    popup.className = "admin-system-popup";
-    popup.innerHTML = `
-      <div class="admin-system-popup__backdrop"></div>
-      <div class="admin-system-popup__card" role="dialog" aria-modal="true" aria-labelledby="customerSystemPopupTitle">
-        <h3 id="customerSystemPopupTitle" class="admin-system-popup__title">System Message</h3>
-        <hr class="admin-system-popup__separator" />
-        <p id="customerSystemPopupMessage" class="admin-system-popup__message"></p>
-        <hr class="admin-system-popup__separator" />
-        <div class="admin-system-popup__actions">
-          <button id="customerSystemPopupCancel" type="button" class="btn-admin btn-secondary">Cancel</button>
-          <button id="customerSystemPopupOk" type="button" class="btn-admin">Okay</button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(popup);
-    return popup;
-  };
-
-  const showCustomerPopup = (message, options = {}) =>
-    new Promise((resolve) => {
-      const popup = ensureCustomerSystemPopup();
-      const titleEl = popup.querySelector("#customerSystemPopupTitle");
-      const msgEl = popup.querySelector("#customerSystemPopupMessage");
-      const okBtn = popup.querySelector("#customerSystemPopupOk");
-      const cancelBtn = popup.querySelector("#customerSystemPopupCancel");
-      const actions = popup.querySelector(".admin-system-popup__actions");
-      const backdrop = popup.querySelector(".admin-system-popup__backdrop");
-
-      if (titleEl) titleEl.textContent = options.title || "System Message";
-      if (msgEl) msgEl.textContent = String(message || "Done.");
-
-      const isConfirm = Boolean(options.isConfirm);
-      const allowBackdropClose = Boolean(
-        options.allowBackdropClose ?? isConfirm,
-      );
-      if (actions) {
-        actions.classList.toggle("is-confirm", isConfirm);
-      }
-
-      const closePopup = (accepted) => {
-        popup.classList.remove("show");
-        resolve(Boolean(accepted));
-      };
-
-      if (okBtn) {
-        okBtn.textContent = options.okText || (isConfirm ? "Confirm" : "Okay");
-        okBtn.onclick = (ev) => {
-          ev?.stopPropagation();
-          closePopup(true);
-        };
-      }
-
-      if (cancelBtn) {
-        cancelBtn.textContent = options.cancelText || "Cancel";
-        cancelBtn.style.display = isConfirm ? "inline-flex" : "none";
-        cancelBtn.onclick = (ev) => {
-          ev?.stopPropagation();
-          closePopup(false);
-        };
-      }
-
-      // Prevent the popup from being closed immediately by any residual click
-      // event that bubbled from the original button press. Attach the
-      // backdrop click handler after a short delay so the originating click
-      // cannot close it instantly.
-      popup.classList.add("show");
-
-      if (backdrop) {
-        backdrop.onclick = null;
-        if (allowBackdropClose) {
-          setTimeout(() => {
-            backdrop.onclick = (ev) => {
-              ev?.stopPropagation();
-              closePopup(false);
-            };
-          }, 60);
-        }
-      }
-
-      if (isConfirm && cancelBtn) {
-        cancelBtn.focus();
-      } else if (okBtn) {
-        okBtn.focus();
-      }
-    });
-
-  // ── Dedicated Order Success Modal ────────────────────────────────────────────
+  // â”€â”€ Dedicated Order Success Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Opens the #orderSuccessModal (in product.html) with the given order number.
   // Returns a Promise that resolves ONLY when the customer clicks the OK button.
   // Falls back to showCustomerPopup on pages that don't have the element.
@@ -421,14 +422,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Populate the order number
       if (numEl) {
-        numEl.textContent = orderNoDisplay || "—";
+        numEl.textContent = orderNoDisplay || "â€”";
       }
 
       // Show the modal (flex so it centres correctly)
       modal.style.display = "flex";
       document.body.style.overflow = "hidden";
 
-      // Single-fire OK handler — cleans itself up
+      // Single-fire OK handler â€” cleans itself up
       const handleOk = () => {
         okBtn.removeEventListener("click", handleOk);
         modal.style.display = "none";
@@ -549,7 +550,13 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.appendChild(aboutVideoModal);
 
     const syncPreviewIcon = () => {
-      aboutVideoToggle.textContent = aboutPreviewVideo.paused ? "▶" : "❚❚";
+      const isPaused = aboutPreviewVideo.paused;
+      aboutVideoToggle.classList.toggle("is-paused", isPaused);
+      aboutVideoToggle.classList.toggle("is-playing", !isPaused);
+      aboutVideoToggle.setAttribute(
+        "aria-label",
+        isPaused ? "Play preview video" : "Pause preview video",
+      );
     };
 
     aboutVideoToggle.addEventListener("click", (event) => {
@@ -983,11 +990,11 @@ document.addEventListener("DOMContentLoaded", () => {
         ratingRow.innerHTML = `
           <span class="rating-score"><span class="rating-score-value">4.0</span>/5</span>
           <div class="rating-stars" aria-label="Product rating">
-            <button type="button" class="rating-star-btn filled" data-star="1">★</button>
-            <button type="button" class="rating-star-btn filled" data-star="2">★</button>
-            <button type="button" class="rating-star-btn filled" data-star="3">★</button>
-            <button type="button" class="rating-star-btn filled" data-star="4">★</button>
-            <button type="button" class="rating-star-btn" data-star="5">★</button>
+            <button type="button" class="rating-star-btn filled" data-star="1">&#9733;</button>
+            <button type="button" class="rating-star-btn filled" data-star="2">&#9733;</button>
+            <button type="button" class="rating-star-btn filled" data-star="3">&#9733;</button>
+            <button type="button" class="rating-star-btn filled" data-star="4">&#9733;</button>
+            <button type="button" class="rating-star-btn" data-star="5">&#9733;</button>
             <span class="rating-count">(${12 + index * 3})</span>
           </div>
         `;
@@ -1216,6 +1223,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const checkoutGrandTotal = document.getElementById("checkoutGrandTotal");
   const footerTotalDisplay = document.getElementById("footerTotalDisplay");
   const checkoutMaxStock = document.getElementById("checkoutMaxStock");
+  // Order summary â€” single vs. multiple (cart) product views
+  const checkoutSingleProductCard = document.getElementById(
+    "checkoutSingleProductCard",
+  );
+  const checkoutCartItemsList = document.getElementById(
+    "checkoutCartItemsList",
+  );
+  const checkoutStockNotice = document.getElementById("checkoutStockNotice");
+
 
   // Quantity DOM elements
   const inputQty = document.getElementById("inputQty");
@@ -1253,21 +1269,162 @@ document.addEventListener("DOMContentLoaded", () => {
     return "₱" + num.toFixed(2);
   }
 
+  // Renders the Order summary product area based on the current checkout mode.
+  // - "single": shows one product card (Buy Now / single item)
+  // - "cart":   shows each selected cart product individually, editable via +/-
+  function renderCheckoutOrderSummary() {
+    const isCartMode =
+      currentCheckoutMode === "cart" &&
+      Array.isArray(currentCheckoutItems) &&
+      currentCheckoutItems.length > 0;
+
+    if (checkoutSingleProductCard) {
+      checkoutSingleProductCard.style.display = isCartMode ? "none" : "flex";
+    }
+
+    if (!checkoutCartItemsList) return;
+
+    if (!isCartMode) {
+      checkoutCartItemsList.style.display = "none";
+      checkoutCartItemsList.innerHTML = "";
+      if (checkoutStockNotice) checkoutStockNotice.style.display = "";
+      return;
+    }
+
+    // Cart mode â€” render each product on its own editable row.
+    if (checkoutStockNotice) checkoutStockNotice.style.display = "none";
+    checkoutCartItemsList.style.display = "flex";
+    checkoutCartItemsList.innerHTML = currentCheckoutItems
+      .map((item, index) => {
+        const name = escapeCustomerHtml(item.product_name || "Custom Order");
+        const image = escapeCustomerHtml(
+          item.product_image || "/images/FMRC Logo.png",
+        );
+        const qty = Math.max(
+          1,
+          Number.parseInt(item.quantity || "1", 10) || 1,
+        );
+        const unitPrice = Number.isFinite(Number(item.unit_price))
+          ? Number(item.unit_price)
+          : 0;
+        const hasStockCap = Number.isFinite(Number(item.max_stock));
+        const stockLabel = hasStockCap
+          ? `Stock left: ${Math.max(0, Number(item.max_stock))}`
+          : "Made to order";
+
+        return `
+          <div class="checkout-cart-item" data-checkout-index="${index}">
+            <img src="${image}" alt="Product" />
+            <div class="checkout-cart-item-details">
+              <h4>${name}</h4>
+              <div class="checkout-cart-item-meta">${stockLabel}</div>
+              <div class="product-price-row">
+                <span class="c-price">${formatPrice(unitPrice)}</span>
+                <div class="qty-selector">
+                  <button type="button" class="qty-btn checkout-item-minus" data-index="${index}">-</button>
+                  <input type="number" class="checkout-item-qty" value="${qty}" min="1" readonly />
+                  <button type="button" class="qty-btn checkout-item-plus" data-index="${index}">+</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      })
+      .join("");
+  }
+
   function updateCheckoutMath() {
-    let qty = parseInt(inputQty.value);
-    let total = currentItemPrice * qty;
+    const isCartMode =
+      currentCheckoutMode === "cart" &&
+      Array.isArray(currentCheckoutItems) &&
+      currentCheckoutItems.length > 0;
+
+    let subtotal = 0;
+    let totalQty = 0;
+
+    if (isCartMode) {
+      currentCheckoutItems.forEach((item) => {
+        const qty = Math.max(
+          1,
+          Number.parseInt(item.quantity || "1", 10) || 1,
+        );
+        const unitPrice = Number.isFinite(Number(item.unit_price))
+          ? Number(item.unit_price)
+          : 0;
+        item.line_total = unitPrice * qty;
+        subtotal += item.line_total;
+        totalQty += qty;
+      });
+    } else {
+      const qty = Math.max(1, parseInt(inputQty?.value || "1", 10) || 1);
+      subtotal = currentItemPrice * qty;
+      totalQty = qty;
+    }
+
+    let total = subtotal;
 
     // Add protection fee if checked
-    const protectionCheck = document.getElementById("protectionCheck");
-    if (protectionCheck && protectionCheck.checked) {
+    const protectionCheckEl = document.getElementById("protectionCheck");
+    if (protectionCheckEl && protectionCheckEl.checked) {
       total += protectionFee;
     }
 
-    checkoutSubtotal.innerText = formatPrice(currentItemPrice * qty);
-    checkoutGrandTotal.innerText = formatPrice(total);
-    footerTotalDisplay.innerText = formatPrice(total);
-    footerItemCount.innerText = qty;
+    if (checkoutSubtotal) checkoutSubtotal.innerText = formatPrice(subtotal);
+    if (checkoutGrandTotal) checkoutGrandTotal.innerText = formatPrice(total);
+    if (footerTotalDisplay) footerTotalDisplay.innerText = formatPrice(total);
+    if (footerItemCount) footerItemCount.innerText = String(totalQty);
   }
+
+  // Delegated +/- handlers for individual cart items inside the Order summary.
+  if (checkoutCartItemsList) {
+    checkoutCartItemsList.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      const minusBtn = target.closest(".checkout-item-minus");
+      const plusBtn = target.closest(".checkout-item-plus");
+      if (!minusBtn && !plusBtn) return;
+
+      const index = Number(
+        (minusBtn || plusBtn).getAttribute("data-index") || "-1",
+      );
+      const item = currentCheckoutItems[index];
+      if (!item) return;
+
+      let qty = Math.max(1, Number.parseInt(item.quantity || "1", 10) || 1);
+      const hasStockCap = Number.isFinite(Number(item.max_stock));
+      const maxStock = hasStockCap ? Math.max(0, Number(item.max_stock)) : null;
+
+      if (minusBtn) {
+        if (qty > 1) qty -= 1;
+      } else if (plusBtn) {
+        if (maxStock != null && qty >= maxStock) {
+          void showCustomerPopup(
+            `Only ${maxStock} stock(s) available for "${item.product_name}".`,
+            { title: "Stock Limit" },
+          );
+          return;
+        }
+        qty += 1;
+      }
+
+      item.quantity = qty;
+      item.line_total =
+        (Number.isFinite(Number(item.unit_price)) ? Number(item.unit_price) : 0) *
+        qty;
+
+      // Reflect the change directly in the row's quantity input.
+      const row = checkoutCartItemsList.querySelector(
+        `.checkout-cart-item[data-checkout-index="${index}"] .checkout-item-qty`,
+      );
+      if (row instanceof HTMLInputElement) {
+        row.value = String(qty);
+      }
+
+      updateCheckoutMath();
+    });
+  }
+
 
   // Update math when Protection checkbox is clicked
   const protectionCheck = document.getElementById("protectionCheck");
@@ -1361,6 +1518,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (checkoutTitle) checkoutTitle.innerText = title;
         if (checkoutPrice) checkoutPrice.innerText = priceStr;
 
+        renderCheckoutOrderSummary();
         updateCheckoutMath();
 
         if (guideImg) guideImg.src = imgScr;
@@ -1371,6 +1529,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   });
+
 
   // Dynamically rendered products buy-now listener
   document.addEventListener("product:buy-now", (e) => {
@@ -1417,10 +1576,15 @@ document.addEventListener("DOMContentLoaded", () => {
     if (guideImg) guideImg.src = imgScr;
     if (guideTitle) guideTitle.innerText = title;
 
+    // Reset the Order summary to the single-product view. Without this, a
+    // previous cart checkout could leave the multi-item list visible and make
+    // Buy Now appear to include every cart product.
+    renderCheckoutOrderSummary();
     updateCheckoutMath();
     checkoutModal.classList.add("show-modal");
     document.body.style.overflow = "hidden";
   });
+
 
   const closeCheckoutBtn = document.getElementById("closeCheckoutBtn");
   if (closeCheckoutBtn) {
@@ -2704,7 +2868,7 @@ document.addEventListener("DOMContentLoaded", () => {
             (orderNoRaw ? `#${orderNoRaw}` : ""),
         ).trim();
 
-        // ── Step 1: Persist order-success info so products.js can show the
+        // â”€â”€ Step 1: Persist order-success info so products.js can show the
         //   success modal AFTER the product grid finishes reloading.
         //   This prevents the refresh cycle from dismissing the modal.
         try {
@@ -2719,7 +2883,7 @@ document.addEventListener("DOMContentLoaded", () => {
           /* ignore storage errors (e.g. private browsing) */
         }
 
-        // ── Step 2: Clear cart items & close the checkout modal ─────────────────
+        // â”€â”€ Step 2: Clear cart items & close the checkout modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (useCartCheckout && cartItemsContainer) {
           const checkedCartInputs = cartItemsContainer.querySelectorAll(
             ".cart-item-check:checked",
@@ -2742,7 +2906,7 @@ document.addEventListener("DOMContentLoaded", () => {
         this.disabled = false;
         this.innerText = originalText;
 
-        // ── Step 3: Emit the real-time update immediately ────────────────────────
+        // â”€â”€ Step 3: Emit the real-time update immediately â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         //   products.js will catch this, reload the product grid, and THEN show
         //   the success modal (after the grid has fully refreshed).
         emitCustomerOrdersUpdated({
@@ -2871,15 +3035,30 @@ document.addEventListener("DOMContentLoaded", () => {
   // Debounce timer for server sync (prevents rapid-fire API calls)
   let _cartSyncTimer = null;
 
+  // Product images are stored as base64 data URIs and can be several hundred KB
+  // each. Persisting them verbatim overflows the ~5 MB localStorage quota so the
+  // whole cart fails to save and "disappears" on refresh. Strip heavy base64 data
+  // URIs before storing â€” restoreCartItems() re-enriches images from the products
+  // API (by product_id) on every page load.
+  const stripHeavyImage = (image) => {
+    const src = String(image || "");
+    return src.startsWith("data:") ? null : src || null;
+  };
+
+  const buildStorableCartItems = (items) =>
+    items.map((item) => ({ ...item, image: stripHeavyImage(item.image) }));
+
   const persistCartItems = async () => {
     const items = collectCartItemsFromDom();
     const storageKey = customerSession.isAuthenticated
       ? `${CART_STORAGE_KEY}_${customerSession.userInfo.id}`
       : CART_STORAGE_KEY;
 
-    // Always save full data (including images) to localStorage immediately
+    // Save lightweight items (base64 images stripped) so the cart reliably
+    // survives a refresh without overflowing the localStorage quota.
+    const storableItems = buildStorableCartItems(items);
     try {
-      localStorage.setItem(storageKey, JSON.stringify(items));
+      localStorage.setItem(storageKey, JSON.stringify(storableItems));
     } catch {
       // Ignore storage write issues.
     }
@@ -2890,15 +3069,17 @@ document.addEventListener("DOMContentLoaded", () => {
       _cartSyncTimer = setTimeout(async () => {
         _cartSyncTimer = null;
         try {
-          // Strip base64 data from images before sending to server.
-          // Keep only URL references (non-base64) to avoid payload size issues.
+          // Persist the FULL image (including base64) to the server so the
+          // correct product image survives a refresh even when localStorage
+          // is unavailable. The cart_items.image column is a longText, so it
+          // can safely store base64 data URIs.
           const serverItems = items.map((item) => ({
             ...item,
-            image:
-              item.image && !item.image.startsWith("data:") ? item.image : null,
+            image: item.image || null,
           }));
 
           await fetchWithTimeout(`${API_BASE_URL}/customer/cart/sync`, {
+
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -2908,7 +3089,7 @@ document.addEventListener("DOMContentLoaded", () => {
             body: JSON.stringify({ items: serverItems }),
           });
         } catch (err) {
-          // Silently fail — items are safely stored in localStorage
+          // Silently fail â€” items are safely stored in localStorage
           console.error("Failed to sync cart to server", err);
         }
       }, 800);
@@ -2950,15 +3131,54 @@ document.addEventListener("DOMContentLoaded", () => {
           const payload = await res.json();
           const apiItems = Array.isArray(payload?.data) ? payload.data : [];
 
-          // If API returns items, use them and sync localStorage
+          // If API returns items, use them as the source of truth for
+          // quantity/checked state, but restore product images (and titles)
+          // from localStorage. The server intentionally strips base64 images
+          // during sync, so without this merge the correct product image and
+          // name would be lost on refresh (showing the fallback logo instead).
           if (apiItems.length > 0) {
-            savedItems = apiItems;
+            const findLocalMatch = (apiItem) =>
+              localItems.find((local) => {
+                if (
+                  apiItem.product_id != null &&
+                  local.product_id != null &&
+                  String(apiItem.product_id) === String(local.product_id)
+                ) {
+                  return true;
+                }
+                // Fall back to matching by title + unit price when there is
+                // no product id (e.g. custom items).
+                return (
+                  String(local.title || "") === String(apiItem.title || "") &&
+                  Number(local.unitPrice || 0) === Number(apiItem.unitPrice || 0)
+                );
+              });
+
+            savedItems = apiItems.map((apiItem) => {
+              const localMatch = findLocalMatch(apiItem);
+              const hasValidApiImage =
+                apiItem.image &&
+                apiItem.image !== "null" &&
+                apiItem.image !== "/images/FMRC Logo.png";
+
+              return {
+                ...apiItem,
+                // Prefer the server image only when it's a real image;
+                // otherwise restore the full image kept in localStorage.
+                image: hasValidApiImage
+                  ? apiItem.image
+                  : localMatch?.image || apiItem.image || null,
+                title: apiItem.title || localMatch?.title || "Product",
+              };
+            });
+
             const newCartString = JSON.stringify(savedItems);
             if (localStorage.getItem(storageKey) !== newCartString) {
               localStorage.setItem(storageKey, newCartString);
             }
           } else if (localItems.length > 0) {
-            // API is empty but localStorage has items — keep localStorage
+
+            // API is empty but localStorage has items â€” keep localStorage
             // (this happens when server sync previously failed)
             savedItems = localItems;
           } else {
@@ -2976,9 +3196,64 @@ document.addEventListener("DOMContentLoaded", () => {
       savedItems = readLocalStorage();
     }
 
+    // Re-enrich each cart item from the live products API using product_id.
+    // This is the single source of truth for the product's real name and
+    // image, so a refresh always shows the correct product (not the fallback
+    // "Product" title or the default FMRC logo) even if the stored copy was
+    // incomplete. Items without a product_id (custom items) keep their data.
+    try {
+      const enrichableIds = savedItems
+        .map((entry) => Number(entry.product_id || 0))
+        .filter((id) => Number.isFinite(id) && id > 0);
+
+      if (enrichableIds.length > 0) {
+        const productsRes = await fetchWithTimeout(`${API_BASE_URL}/products`, {
+          headers: { Accept: "application/json" },
+        });
+
+        if (productsRes.ok) {
+          const productsPayload = await productsRes.json().catch(() => ({}));
+          const productList = Array.isArray(productsPayload?.data)
+            ? productsPayload.data
+            : [];
+
+          const productsById = new Map();
+          productList.forEach((product) => {
+            const pid = Number(product?.id || 0);
+            if (pid > 0) productsById.set(pid, product);
+          });
+
+          savedItems = savedItems.map((entry) => {
+            const pid = Number(entry.product_id || 0);
+            const liveProduct = pid > 0 ? productsById.get(pid) : null;
+            if (!liveProduct) return entry;
+
+            return {
+              ...entry,
+              title: liveProduct.name || entry.title || "Product",
+              image:
+                liveProduct.image_data ||
+                entry.image ||
+                "/images/FMRC Logo.png",
+            };
+          });
+
+          // Persist the corrected data back so subsequent reads are accurate.
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(savedItems));
+          } catch {
+            // Ignore storage write issues.
+          }
+        }
+      }
+    } catch {
+      // If the products API is unavailable, keep the stored/merged data.
+    }
+
     cartItemsContainer
       .querySelectorAll(".cart-item-card")
       .forEach((item) => item.remove());
+
 
     savedItems.forEach((entry) => {
       cartItemsContainer.appendChild(createCartItemCard(entry));
@@ -3079,9 +3354,13 @@ document.addEventListener("DOMContentLoaded", () => {
       selectAll.checked = allChecked;
     }
 
-    if (items.length === 0 && emptyCartMessage)
-      emptyCartMessage.style.display = "block";
+    // Toggle the "Your cart is empty." message strictly based on item count.
+    // It must be hidden the moment there is at least one product in the cart.
+    if (emptyCartMessage) {
+      emptyCartMessage.style.display = items.length === 0 ? "block" : "none";
+    }
   }
+
 
   // Add To Cart Button Listener
   const addToCartBtns = document.querySelectorAll(
@@ -3485,12 +3764,16 @@ document.addEventListener("DOMContentLoaded", () => {
         inputQty.max = String(totalQty);
       }
 
+      // Cart checkout locks the single-card qty selector because each product
+      // is edited individually in its own row inside the Order summary.
       setCheckoutQtyLock(true);
       if (protectionCheck) protectionCheck.checked = false;
+      renderCheckoutOrderSummary();
       updateCheckoutMath();
 
       cartModal.classList.remove("show-modal");
       checkoutModal.classList.add("show-modal");
+
     });
   }
 
@@ -3670,7 +3953,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const municipality = getSelectText("aptMunicipality");
     const barangay = getSelectText("aptAddress");
 
-    // Filter out any placeholder strings that look like "Select …" or "Loading …"
+    // Filter out any placeholder strings that look like "Select â€¦" or "Loading â€¦"
     const isPlaceholder = (s) => /^(Select|Loading|No )/i.test(s);
 
     return [barangay, municipality, province, region, country]
@@ -4082,7 +4365,7 @@ document.addEventListener("DOMContentLoaded", () => {
           body: formData,
         },
         60000,
-      ); // 60s timeout — email is sent synchronously, so backend may take extra time for SMTP
+      ); // 60s timeout â€” email is sent synchronously, so backend may take extra time for SMTP
 
       const payload = await response.json().catch(() => ({}));
 
@@ -4428,8 +4711,8 @@ document.addEventListener("DOMContentLoaded", () => {
     updateQrDetails("PENDING", "");
   };
 
-  // ─── PSGC Live Address Dropdowns ────────────────────────────────────────────
-  // Cascading dropdowns: Region → Province → City/Municipality → Barangay
+  // â”€â”€â”€ PSGC Live Address Dropdowns â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Cascading dropdowns: Region â†’ Province â†’ City/Municipality â†’ Barangay
   // Data is fetched from our Laravel backend which proxies the PSGC Cloud API
   // (https://psgc.cloud/api) with 24-hour server-side caching.
   const aptCountry = document.getElementById("aptCountry");
@@ -4441,7 +4724,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const aptPhAddressFields = document.getElementById("aptPhAddressFields");
   const aptIntlAddressField = document.getElementById("aptIntlAddressField");
 
-  /** Base URL for PSGC proxy endpoints — uses the same resolved backend URL as all other API calls */
+  /** Base URL for PSGC proxy endpoints â€” uses the same resolved backend URL as all other API calls */
   const PSGC_BASE = `${API_BASE_URL}/psgc`;
 
   /** In-memory cache so repeated visits to the same step skip re-fetching. */
@@ -4473,7 +4756,7 @@ document.addEventListener("DOMContentLoaded", () => {
    */
   const setLoading = (el, label) => {
     if (!el) return;
-    el.innerHTML = `<option value="" disabled selected>Loading ${label}s…</option>`;
+    el.innerHTML = `<option value="" disabled selected>Loading ${label}sâ€¦</option>`;
     el.disabled = true;
   };
 
@@ -4525,7 +4808,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (aptIntlAddress) aptIntlAddress.required = !isPh;
   };
 
-  // ── Loader functions (each cascades to the next) ──────────────────────────
+  // â”€â”€ Loader functions (each cascades to the next) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   /** Load all Philippine regions into aptRegion. */
   const loadRegions = async () => {
@@ -4571,7 +4854,7 @@ document.addEventListener("DOMContentLoaded", () => {
     fillSelect(aptBarangay, barangays, "Select Barangay", false);
   };
 
-  // ── Wire up change events ─────────────────────────────────────────────────
+  // â”€â”€ Wire up change events â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   if (
     aptCountry &&
@@ -4601,7 +4884,7 @@ document.addEventListener("DOMContentLoaded", () => {
     resetPhSelects();
     updateAddressMode();
   }
-  // ─────────────────────────────────────────────────────────────────────────────
+  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   aptFileInput?.addEventListener("change", () => {
     const file = aptFileInput.files?.[0];
@@ -4720,10 +5003,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Guard: stop clicks that land on the overlay BACKDROP from bubbling to any
     // outer handler. The appointment flow should ONLY be dismissed via the
-    // dedicated close/back button — never by clicking outside the card.
+    // dedicated close/back button â€” never by clicking outside the card.
     appointmentOverlay.addEventListener("click", (event) => {
       // Only act when the backdrop itself (not any child) is the target.
-      // We intentionally do NOT close the overlay here — dismissal is
+      // We intentionally do NOT close the overlay here â€” dismissal is
       // exclusively via closeAppointmentBtn to prevent accidental closure
       // during the async Step 4 submission.
       event.stopPropagation();
@@ -4804,7 +5087,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   bindClick("btnCancelTo3", () => switchAptStep(3));
 
-  // Step 4: "Confirm & Submit" — actually submits the appointment to backend
+  // Step 4: "Confirm & Submit" â€” actually submits the appointment to backend
   bindClick("btnGoToStep5", async (event) => {
     // Prevent any click from bubbling to the overlay or triggering form submission
     if (event) {
@@ -4854,7 +5137,7 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
       }
-      // Success — restore close button then transition to Step 5
+      // Success â€” restore close button then transition to Step 5
       if (closeBtn) closeBtn.disabled = false;
 
       // Explicitly ensure overlay remains visible using class
@@ -4891,7 +5174,7 @@ document.addEventListener("DOMContentLoaded", () => {
     void downloadAppointmentReceipt();
   });
 
-  // Step 5: "Finish Transaction" — appointment already submitted, just show success
+  // Step 5: "Finish Transaction" â€” appointment already submitted, just show success
   bindClick("btnFinishStep5", () => {
     successModal?.classList.add("active");
   });
@@ -5429,6 +5712,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <button type="button" class="customer-orders-tab" data-tab="to_ship">To Ship <span class="customer-orders-tab-count">0</span></button>
             <button type="button" class="customer-orders-tab" data-tab="to_receive">To Receive <span class="customer-orders-tab-count">0</span></button>
             <button type="button" class="customer-orders-tab" data-tab="completed">Completed <span class="customer-orders-tab-count">0</span></button>
+            <button type="button" class="customer-orders-tab" data-tab="to_rate">To Rate <span class="customer-orders-tab-count">0</span></button>
           </div>
 
           <div class="customer-orders-viewport" id="customerOrdersViewport">
@@ -5438,6 +5722,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <section class="customer-orders-panel" data-panel="to_ship"></section>
               <section class="customer-orders-panel" data-panel="to_receive"></section>
               <section class="customer-orders-panel" data-panel="completed"></section>
+              <section class="customer-orders-panel" data-panel="to_rate"></section>
             </div>
           </div>
 
@@ -5471,6 +5756,7 @@ document.addEventListener("DOMContentLoaded", () => {
         "to_ship",
         "to_receive",
         "completed",
+        "to_rate",
       ];
 
       const state = {
@@ -5568,6 +5854,7 @@ document.addEventListener("DOMContentLoaded", () => {
           to_ship: "No orders are waiting for shipping.",
           to_receive: "No orders are waiting for delivery/pickup.",
           completed: "No completed orders yet.",
+          to_rate: "No products to rate yet.",
         };
 
         return `
@@ -5587,6 +5874,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const getVisibleOrdersByPanel = (stageKey) => {
         if (stageKey === "all") return state.orders;
+        if (stageKey === "to_rate") {
+          // Returns completed orders â€” split into rated/unrated is done in renderToRatePanel
+          return state.orders.filter(
+            (order) =>
+              String(order.lifecycle_status || "").toLowerCase() !== "rejected" &&
+              String(order.customer_stage || "") === "completed",
+          );
+        }
         if (stageKey === "completed") {
           return state.orders.filter(
             (order) =>
@@ -5647,6 +5942,298 @@ document.addEventListener("DOMContentLoaded", () => {
         };
       };
 
+      const renderStarsRow = (count) => {
+        const n = Math.max(0, Math.min(5, Number(count) || 0));
+        let out = "";
+        for (let i = 1; i <= 5; i += 1) {
+          out += `<span class="customer-rating-star-display${i <= n ? " filled" : ""}">&#9733;</span>`;
+        }
+        return out;
+      };
+
+      const renderToRatePanel = (completedOrders) => {
+        const toRate = completedOrders.filter((order) => !order.has_rating);
+        const rated = completedOrders.filter((order) => order.has_rating);
+
+        const cardThumb = (order) =>
+          escapeHtml(order.product_image || "/images/FMRC Logo.png");
+
+        const toRateCards = toRate.length
+          ? toRate
+              .map((order) => {
+                const productName = escapeHtml(
+                  order.product_name || "Custom Order",
+                );
+                const orderNo = escapeHtml(
+                  order.order_no_display ||
+                    `#${order.order_no || order.id || "-"}`,
+                );
+                const totalLabel = formatOrderCurrency(
+                  Number(order.total_amount || 0) || 0,
+                );
+                return `
+                  <article class="customer-torate-card">
+                    <div class="customer-order-thumb">
+                      <img src="${cardThumb(order)}" alt="Order item" loading="lazy" onerror="this.src='/images/FMRC Logo.png'" />
+                    </div>
+                    <div class="customer-torate-main">
+                      <h4>${productName}</h4>
+                      <p class="customer-order-meta">Order ${orderNo}</p>
+                      <p class="customer-order-meta">Delivered &bull; ${formatOrderDate(order.created_at)}</p>
+                    </div>
+                    <div class="customer-torate-side">
+                      <strong class="customer-order-price">${totalLabel}</strong>
+                      <button type="button" class="customer-order-rate-btn" data-order-rate="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || "Order")}">Rate Now</button>
+                    </div>
+                  </article>
+                `;
+              })
+              .join("")
+          : `
+              <div class="customer-orders-empty compact">
+                <i class="fa-regular fa-star"></i>
+                <p>No products waiting to be rated.</p>
+              </div>
+            `;
+
+        const ratedCards = rated.length
+          ? rated
+              .map((order) => {
+                const productName = escapeHtml(
+                  order.product_name || "Custom Order",
+                );
+                const orderNo = escapeHtml(
+                  order.order_no_display ||
+                    `#${order.order_no || order.id || "-"}`,
+                );
+                const feedback = escapeHtml(order.rating_feedback || "");
+                const stars = Number(order.rating_stars || 0);
+                const adminReply = escapeHtml(order.rating_admin_reply || "");
+                return `
+                  <article class="customer-rated-card">
+                    <div class="customer-order-thumb">
+                      <img src="${cardThumb(order)}" alt="Order item" loading="lazy" onerror="this.src='/images/FMRC Logo.png'" />
+                    </div>
+                    <div class="customer-rated-main">
+                      <h4>${productName}</h4>
+                      <p class="customer-order-meta">Order ${orderNo}</p>
+                      <div class="customer-rated-stars">${renderStarsRow(stars)}<span class="customer-rated-score">${stars}.0</span></div>
+                      ${
+                        feedback
+                          ? `<p class="customer-rated-feedback">"${feedback}"</p>`
+                          : `<p class="customer-rated-feedback muted">No written feedback.</p>`
+                      }
+                      ${
+                        adminReply
+                          ? `<div class="customer-rated-admin-reply"><i class="fa-solid fa-reply"></i> <strong>Store Reply:</strong> ${adminReply}</div>`
+                          : ''
+                      }
+                    </div>
+                    <div class="customer-rated-side">
+                      <button type="button" class="customer-order-rate-btn ghost" data-order-rate="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || "Order")}">Edit Rating</button>
+                    </div>
+                  </article>
+                `;
+              })
+              .join("")
+          : `
+              <div class="customer-orders-empty compact">
+                <i class="fa-regular fa-comment-dots"></i>
+                <p>You haven't rated any products yet.</p>
+              </div>
+            `;
+
+        return `
+          <div class="customer-torate-wrap">
+            <section class="customer-torate-section">
+              <div class="customer-torate-section-head">
+                <h3><i class="fa-regular fa-star"></i> To Rate</h3>
+                <span class="customer-torate-badge">${toRate.length}</span>
+              </div>
+              <div class="customer-torate-list">${toRateCards}</div>
+            </section>
+            <section class="customer-torate-section">
+              <div class="customer-torate-section-head">
+                <h3><i class="fa-solid fa-star"></i> My Ratings</h3>
+                <span class="customer-torate-badge alt">${rated.length}</span>
+              </div>
+              <div class="customer-torate-list">${ratedCards}</div>
+            </section>
+          </div>
+        `;
+      };
+
+      const handleOrderReceived = async (orderId, orderName, triggerBtn) => {
+        if (!orderId) return;
+
+        const token =
+          state.token || localStorage.getItem("customer_token") || "";
+        if (!token) {
+          await showCustomerPopup("Your session has expired. Please login again.", {
+            title: "Login required",
+          });
+          return;
+        }
+
+        const confirmed = await showCustomerPopup(
+          "Confirm that you have received this order? This action cannot be undone.",
+          {
+            title: "Order Received",
+            isConfirm: true,
+            okText: "Yes, Received",
+            cancelText: "Cancel",
+            allowBackdropClose: false,
+          },
+        );
+
+        if (!confirmed) return;
+
+        if (triggerBtn) {
+          triggerBtn.disabled = true;
+          triggerBtn.textContent = "Processing...";
+        }
+
+        try {
+          const { response: res, data } = await fetchJsonWithTimeout(
+            `${API_BASE_URL}/customer/orders/${orderId}/received`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          );
+
+          if (!res.ok) {
+            throw new Error(data.message || "Unable to update order.");
+          }
+
+          state.lastDetailRefreshAt = 0;
+
+          // Apply the persisted response immediately. This keeps the card out
+          // of To Receive even when the follow-up order-list request is slow.
+          const completedOrder = data?.data;
+          if (completedOrder?.id !== undefined && completedOrder?.id !== null) {
+            const completedId = String(completedOrder.id);
+            const existingIndex = state.orders.findIndex(
+              (order) => String(order.id) === completedId,
+            );
+            if (existingIndex >= 0) {
+              state.orders[existingIndex] = {
+                ...state.orders[existingIndex],
+                ...completedOrder,
+                customer_stage: "completed",
+                lifecycle_status: "completed",
+                has_rating: false,
+              };
+            } else {
+              state.orders.unshift({
+                ...completedOrder,
+                customer_stage: "completed",
+                lifecycle_status: "completed",
+                has_rating: false,
+              });
+            }
+            state.detailsById.set(completedId, completedOrder);
+            if (state.cacheKey) customerOrdersCache.set(state.cacheKey, state.orders);
+            renderOrders();
+          }
+
+          // Refresh in the background for server-calculated fields, rather
+          // than blocking the completion feedback on a second API request.
+          void refreshOrders(false, true);
+
+          setActivePanel(4);
+
+          const ratePromptPopup = document.createElement("div");
+          ratePromptPopup.className = "customer-rate-prompt-popup";
+          ratePromptPopup.setAttribute("data-order-id", orderId);
+          ratePromptPopup.innerHTML = `
+            <div class="customer-rate-prompt-inner">
+              <span class="customer-rate-prompt-icon">&#127881;</span>
+              <div class="customer-rate-prompt-text">
+                <strong>Order received!</strong>
+                <p>How was your experience? <button type="button" class="customer-rate-prompt-link">Rate it now &rarr;</button></p>
+              </div>
+              <button type="button" class="customer-rate-prompt-close" aria-label="Close">&times;</button>
+            </div>
+          `;
+          document.body.appendChild(ratePromptPopup);
+          requestAnimationFrame(() => ratePromptPopup.classList.add("show"));
+
+          const closePrompt = () => {
+            ratePromptPopup.classList.remove("show");
+            setTimeout(() => ratePromptPopup.remove(), 300);
+          };
+
+          ratePromptPopup
+            .querySelector(".customer-rate-prompt-close")
+            ?.addEventListener("click", closePrompt);
+          ratePromptPopup
+            .querySelector(".customer-rate-prompt-link")
+            ?.addEventListener("click", () => {
+              closePrompt();
+              setActivePanel(5);
+              void openRatingModal(orderId, orderName);
+            });
+
+          setTimeout(closePrompt, 8000);
+
+          emitCustomerOrdersUpdated({
+            type: "order-received",
+            orderId: String(orderId),
+            status: "completed",
+          });
+        } catch (err) {
+          await showCustomerPopup(
+            err?.message || "Unable to update order. Please try again.",
+            { title: "Error" },
+          );
+
+          if (triggerBtn) {
+            triggerBtn.disabled = false;
+            triggerBtn.textContent = "Order Received";
+          }
+        }
+      };
+
+      // Fallback click bridge: keeps actions working even if other page
+      // listeners interfere with the modal's delegated handlers.
+      window.__fmrcOrderReceived = (buttonEl) => {
+        const orderId = buttonEl?.getAttribute?.("data-order-received") || "";
+        const orderName = buttonEl?.getAttribute?.("data-order-name") || "Order";
+        if (!orderId) return;
+        void handleOrderReceived(orderId, orderName, buttonEl);
+      };
+
+      // Order cards are re-rendered whenever the customer order list refreshes.
+      // Capture the click at document level so the receive action remains reliable
+      // even if another card/modal listener stops event bubbling.
+      document.addEventListener("click", (event) => {
+        const receivedBtn = event.target?.closest?.("[data-order-received]");
+        if (!receivedBtn || receivedBtn.dataset.receiveClickHandled === "true") return;
+
+        receivedBtn.dataset.receiveClickHandled = "true";
+        event.preventDefault();
+        event.stopPropagation();
+        window.__fmrcOrderReceived(receivedBtn);
+
+        // A newly rendered card is a new element, so this only prevents duplicate
+        // invocation from the same physical click.
+        queueMicrotask(() => {
+          delete receivedBtn.dataset.receiveClickHandled;
+        });
+      }, true);
+
+      window.__fmrcOrderRate = (buttonEl) => {
+        const orderId = buttonEl?.getAttribute?.("data-order-rate") || "";
+        const orderName = buttonEl?.getAttribute?.("data-order-name") || "Order";
+        if (!orderId) return;
+        void openRatingModal(orderId, orderName);
+      };
+
       const renderOrders = () => {
         if (state.loading) {
           panels.forEach((panel) => {
@@ -5664,6 +6251,13 @@ document.addEventListener("DOMContentLoaded", () => {
           if (!panel) return;
 
           const scopedOrders = getVisibleOrdersByPanel(stageKey);
+
+          // The "To Rate" panel uses a dedicated two-section layout
+          // (To Rate / My Ratings) instead of the standard order cards.
+          if (stageKey === "to_rate") {
+            panel.innerHTML = renderToRatePanel(scopedOrders);
+            return;
+          }
 
           if (!scopedOrders.length) {
             panel.innerHTML = renderEmptyState(stageKey);
@@ -5698,18 +6292,24 @@ document.addEventListener("DOMContentLoaded", () => {
               return `
                 <article class="customer-order-card">
                   <div class="customer-order-thumb">
-                    <img src="${productImage}" alt="Order item" loading="lazy" />
+                    <img src="${productImage}" alt="Order item" loading="lazy" onerror="this.src='/images/FMRC Logo.png'" />
                   </div>
                   <div class="customer-order-main">
                     <h4>${productName}</h4>
-                    <p class="customer-order-meta">Order ${orderNo} • ${quantityLabel}</p>
-                    <p class="customer-order-meta">${paymentMethod} • ${formatOrderDate(order.created_at)}</p>
+                    <p class="customer-order-meta">Order ${orderNo} &bull; ${quantityLabel}</p>
+                    <p class="customer-order-meta">${paymentMethod} &bull; ${formatOrderDate(order.created_at)}</p>
                   </div>
                   <div class="customer-order-side">
                     <span class="customer-order-status ${statusMeta.className}">${statusMeta.label}</span>
                     <strong class="customer-order-price">${totalLabel}</strong>
                     <div class="customer-order-actions">
                       <button type="button" class="customer-order-detail-btn" data-order-detail="${escapeHtml(order.id)}">Order Details</button>
+                      ${String(order.customer_stage) === 'to_receive' && String(order.lifecycle_status || '') !== 'rejected'
+                        ? `<button type="button" class="customer-order-received-btn" data-order-received="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || 'Order')}">Order Received</button>`
+                        : ''}
+                      ${String(order.customer_stage) === 'completed' && String(order.lifecycle_status || '') !== 'rejected' && !order.has_rating
+                        ? `<button type="button" class="customer-order-rate-btn" data-order-rate="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || 'Order')}">Rate Product</button>`
+                        : ''}
                     </div>
                   </div>
                 </article>
@@ -5720,11 +6320,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
         tabs.forEach((tab, tabIndex) => {
           const stageKey = stageByPanel[tabIndex];
-          const count = getVisibleOrdersByPanel(stageKey).length;
+          const scoped = getVisibleOrdersByPanel(stageKey);
+          // The "To Rate" tab badge should reflect only products still
+          // awaiting a rating (unrated completed orders), not every
+          // completed order.
+          const count =
+            stageKey === "to_rate"
+              ? scoped.filter((order) => !order.has_rating).length
+              : scoped.length;
           const countEl = tab.querySelector(".customer-orders-tab-count");
           if (countEl) countEl.textContent = String(count);
         });
+
       };
+
 
       const renderDetailModal = (detail) => {
         if (!detailModal || !detailContent || !detailTitle) return;
@@ -5733,6 +6342,45 @@ document.addEventListener("DOMContentLoaded", () => {
           detail.order_no_display || `#${detail.order_no || detail.id || "-"}`,
         );
         const safeTitle = escapeHtml(detail.product_name || "Order Details");
+
+        // Build the full list of ordered products so the Order Details modal
+        // shows every item individually (with its quantity and line total)
+        // instead of the collapsed "First Item (+N more)" label.
+        const detailItems = Array.isArray(detail.items) ? detail.items : [];
+        const itemsListHtml = detailItems.length
+          ? detailItems
+              .map((item) => {
+                const itemName = escapeHtml(item.product_name || "Custom Order");
+                const itemQty = Math.max(
+                  1,
+                  Number.parseInt(item.quantity || "1", 10) || 1,
+                );
+                const itemImage = escapeHtml(
+                  item.product_image || "/images/FMRC Logo.png",
+                );
+                const itemLineTotal = escapeHtml(
+                  formatOrderCurrency(
+                    Number(item.line_total || 0) ||
+                      Number(item.unit_price || 0) * itemQty,
+                  ),
+                );
+                return `
+                  <div class="customer-order-detail-item">
+                    <img src="${itemImage}" alt="${itemName}" onerror="this.src='/images/FMRC Logo.png'" />
+                    <div class="customer-order-detail-item-info">
+                      <strong>${itemName}</strong>
+                      <span>Qty: ${itemQty} &nbsp;&bull;&nbsp; ${itemLineTotal}</span>
+                    </div>
+                  </div>
+                `;
+              })
+              .join("")
+          : `<div class="customer-order-detail-item">
+                <div class="customer-order-detail-item-info">
+                  <strong>${safeTitle}</strong>
+                </div>
+              </div>`;
+
         const safeStatus = escapeHtml(
           ORDER_LIFECYCLE_LABELS[
             String(detail.lifecycle_status || "").toLowerCase()
@@ -5768,15 +6416,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
         detailContent.innerHTML = `
           <div class="customer-order-detail-summary">
-            <div class="customer-order-detail-chip"><span>Item</span><strong>${safeTitle}</strong></div>
             <div class="customer-order-detail-chip"><span>Status</span><strong>${safeStatus}</strong></div>
             <div class="customer-order-detail-chip"><span>Payment</span><strong>${escapeHtml(detail.payment_method || "N/A")}</strong></div>
             <div class="customer-order-detail-chip"><span>Total</span><strong>${escapeHtml(detail.total_label || formatOrderCurrency(detail.total_amount))}</strong></div>
           </div>
 
+          <div class="customer-order-detail-items">
+            <h4>Items (${detailItems.length || 1})</h4>
+            <div class="customer-order-detail-items-list">
+              ${itemsListHtml}
+            </div>
+          </div>
+
+
           <div class="customer-order-detail-logistics">
             <h4>Courier Tracking</h4>
-            <p><strong>${courierName}</strong>${courierTrackingNo ? ` • ${escapeHtml(courierTrackingNo)}` : ""}</p>
+            <p><strong>${courierName}</strong>${courierTrackingNo ? ` &bull; ${escapeHtml(courierTrackingNo)}` : ""}</p>
             ${
               jntUrl
                 ? `<a class="customer-order-logistics-link" href="${escapeHtml(jntUrl)}" target="_blank" rel="noopener noreferrer">Track on J&T Express</a>`
@@ -6000,6 +6655,28 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
+        const receivedBtn = event.target.closest("[data-order-received]");
+        if (receivedBtn) {
+          event.preventDefault();
+          event.stopPropagation();
+          const orderId = receivedBtn.getAttribute("data-order-received") || "";
+          const orderName = receivedBtn.getAttribute("data-order-name") || "Order";
+          if (!orderId) return;
+          void handleOrderReceived(orderId, orderName, receivedBtn);
+          return;
+        }
+
+        const rateBtn = event.target.closest("[data-order-rate]");
+        if (rateBtn) {
+          event.preventDefault();
+          event.stopPropagation();
+          const orderId = rateBtn.getAttribute("data-order-rate") || "";
+          const orderName = rateBtn.getAttribute("data-order-name") || "Order";
+          if (!orderId) return;
+          void openRatingModal(orderId, orderName);
+          return;
+        }
+
         if (event.target === overlay) {
           close();
         }
@@ -6132,8 +6809,160 @@ document.addEventListener("DOMContentLoaded", () => {
       };
     }
 
-    void customerOrdersController.open(activeUserInfo);
+  void customerOrdersController.open(activeUserInfo);
+};
+
+// â”€â”€ Rating Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const openRatingModal = (() => {
+  let ratingOverlay = null;
+
+  const ensureModal = () => {
+    if (ratingOverlay) return ratingOverlay;
+
+    ratingOverlay = document.createElement('div');
+    ratingOverlay.id = 'customerRatingModal';
+    ratingOverlay.className = 'customer-rating-overlay';
+    ratingOverlay.innerHTML = `
+      <div class="customer-rating-card" role="dialog" aria-modal="true" aria-labelledby="ratingModalTitle">
+        <div class="customer-rating-head">
+          <h3 id="ratingModalTitle">Rate Product</h3>
+          <button type="button" class="customer-orders-close" id="closeRatingModal" aria-label="Close">&times;</button>
+        </div>
+        <p class="customer-rating-product-name" id="ratingProductName"></p>
+        <div class="customer-rating-stars" id="ratingStars" role="group" aria-label="Star rating">
+          ${[1,2,3,4,5].map(n => `<button type="button" class="rating-star-large" data-star="${n}" aria-label="${n} star">&#9733;</button>`).join('')}
+        </div>
+        <p class="customer-rating-score-label"><span id="ratingScoreDisplay">0</span> / 5</p>
+        <textarea id="ratingFeedback" class="customer-rating-feedback" maxlength="75" placeholder="Leave your feedback (max 75 characters)..." rows="3"></textarea>
+        <div class="customer-rating-char-count"><span id="ratingCharCount">0</span>/75</div>
+        <div class="customer-rating-actions">
+          <button type="button" class="customer-rating-cancel-btn" id="cancelRatingBtn">Cancel</button>
+          <button type="button" class="customer-rating-submit-btn" id="submitRatingBtn">Submit Rating</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(ratingOverlay);
+
+    const starsContainer = ratingOverlay.querySelector('#ratingStars');
+    const scoreDisplay = ratingOverlay.querySelector('#ratingScoreDisplay');
+    const feedbackInput = ratingOverlay.querySelector('#ratingFeedback');
+    const charCount = ratingOverlay.querySelector('#ratingCharCount');
+    let selectedStars = 0;
+
+    const paintStars = (hovered) => {
+      const fill = hovered || selectedStars;
+      starsContainer.querySelectorAll('.rating-star-large').forEach(btn => {
+        btn.classList.toggle('filled', Number(btn.dataset.star) <= fill);
+      });
+    };
+
+    starsContainer.addEventListener('mouseover', e => {
+      const btn = e.target.closest('.rating-star-large');
+      if (btn) paintStars(Number(btn.dataset.star));
+    });
+    starsContainer.addEventListener('mouseleave', () => paintStars(0));
+    starsContainer.addEventListener('click', e => {
+      const btn = e.target.closest('.rating-star-large');
+      if (!btn) return;
+      selectedStars = Number(btn.dataset.star);
+      ratingOverlay._hasRatingDraft = true;
+      if (scoreDisplay) scoreDisplay.textContent = String(selectedStars);
+      paintStars(0);
+    });
+
+    feedbackInput?.addEventListener('input', () => {
+      ratingOverlay._hasRatingDraft = true;
+      const len = feedbackInput.value.length;
+      if (charCount) charCount.textContent = String(len);
+    });
+
+    ratingOverlay.querySelector('#closeRatingModal')?.addEventListener('click', () => {
+      ratingOverlay.classList.remove('show');
+    });
+    ratingOverlay.querySelector('#cancelRatingBtn')?.addEventListener('click', () => {
+      ratingOverlay.classList.remove('show');
+    });
+    ratingOverlay.addEventListener('click', e => {
+      if (e.target === ratingOverlay) ratingOverlay.classList.remove('show');
+    });
+
+    // Expose state for submit handler
+    ratingOverlay._getState = () => ({ selectedStars, feedback: feedbackInput?.value || '' });
+    ratingOverlay._reset = (prefill) => {
+      selectedStars = prefill?.stars || 0;
+      if (scoreDisplay) scoreDisplay.textContent = String(selectedStars);
+      if (feedbackInput) feedbackInput.value = prefill?.feedback || '';
+      if (charCount) charCount.textContent = String((prefill?.feedback || '').length);
+      ratingOverlay._hasRatingDraft = false;
+      paintStars(0);
+    };
+
+    return ratingOverlay;
   };
+
+  return (orderId, orderName) => {
+    const token = localStorage.getItem('customer_token') || '';
+    if (!token) return;
+
+    const modal = ensureModal();
+    modal._activeOrderId = String(orderId);
+    const nameEl = modal.querySelector('#ratingProductName');
+    if (nameEl) nameEl.textContent = orderName || 'Order';
+    modal._reset({});
+    modal.classList.add('show');
+    // Load an existing rating without delaying the modal. A response is only
+    // applied while this order is still active and the customer has not begun
+    // entering a new rating.
+    void (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/customer/orders/${orderId}/rating`, {
+          headers: { Accept: 'application/json', Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok || modal._activeOrderId !== String(orderId) || modal._hasRatingDraft) return;
+        const payload = await res.json().catch(() => ({}));
+        if (modal._activeOrderId === String(orderId) && !modal._hasRatingDraft) {
+          modal._reset(payload?.data || {});
+        }
+      } catch {
+        // The empty form is already visible, so a prefill failure needs no UI change.
+      }
+    })();
+
+    const submitBtn = modal.querySelector('#submitRatingBtn');
+    if (submitBtn) {
+      submitBtn.onclick = async () => {
+        const { selectedStars, feedback } = modal._getState();
+        if (!selectedStars) {
+          await showCustomerPopup('Please select a star rating first.', { title: 'Rating Required' });
+          return;
+        }
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+        try {
+          const res = await fetch(`${API_BASE_URL}/customer/orders/${orderId}/rating`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({ stars: selectedStars, feedback: feedback.trim() || null })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.message || 'Unable to submit rating.');
+          modal.classList.remove('show');
+          emitCustomerOrdersUpdated({ type: 'rating-submitted', orderId });
+          await showCustomerPopup('Thank you for your rating!', { title: 'Rating Submitted' });
+        } catch (err) {
+          await showCustomerPopup(err?.message || 'Unable to submit rating.', { title: 'Error' });
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Submit Rating';
+        }
+      };
+    }
+  };
+})();
 
   const { token, userInfo, isAuthenticated } = getCustomerSession();
 

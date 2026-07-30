@@ -302,6 +302,7 @@ class OrderController extends Controller
                 'items:id,order_id,product_name,product_image,unit_price,quantity,line_total',
                 'payment:id,order_id,payment_no,method,reference,amount,status,paid_at',
                 'latestTrackingEvent',
+                'rating',
             ])
             ->where('customer_id', $request->user()->id)
             ->orderBy('created_at', 'asc')
@@ -310,11 +311,12 @@ class OrderController extends Controller
         $data = $orders->map(fn (Order $order) => $this->transformOrderSummary($order))->values();
 
         $counts = [
-            'all' => $data->count(),
-            'to_pay' => $data->where('customer_stage', 'to_pay')->where('lifecycle_status', '!=', 'rejected')->count(),
-            'to_ship' => $data->where('customer_stage', 'to_ship')->where('lifecycle_status', '!=', 'rejected')->count(),
-            'to_receive' => $data->where('customer_stage', 'to_receive')->where('lifecycle_status', '!=', 'rejected')->count(),
-            'completed' => $data->where('customer_stage', 'completed')->where('lifecycle_status', '!=', 'rejected')->count(),
+            'all'         => $data->count(),
+            'to_pay'      => $data->where('customer_stage', 'to_pay')->where('lifecycle_status', '!=', 'rejected')->count(),
+            'to_ship'     => $data->where('customer_stage', 'to_ship')->where('lifecycle_status', '!=', 'rejected')->count(),
+            'to_receive'  => $data->where('customer_stage', 'to_receive')->where('lifecycle_status', '!=', 'rejected')->count(),
+            'completed'   => $data->where('customer_stage', 'completed')->where('lifecycle_status', '!=', 'rejected')->count(),
+            'to_rate'     => $data->where('customer_stage', 'completed')->where('lifecycle_status', '!=', 'rejected')->where('has_rating', false)->count(),
         ];
 
         return response()->json([
@@ -344,6 +346,49 @@ class OrderController extends Controller
 
         return response()->json([
             'data' => $this->transformOrderDetail($order),
+        ]);
+    }
+
+    /** Customer marks an order as received — moves it from to_receive → completed */
+    public function customerMarkReceived(Request $request, Order $order): JsonResponse
+    {
+        $denied = $this->ensureCustomer($request);
+        if ($denied) {
+            return $denied;
+        }
+
+        if ((int) $order->customer_id !== (int) $request->user()->id) {
+            return response()->json(['message' => 'You are not allowed to update this order.'], 403);
+        }
+
+        if ($order->customer_stage !== 'to_receive') {
+            return response()->json(['message' => 'Only orders in "To Receive" status can be marked as received.'], 422);
+        }
+
+        if ($order->lifecycle_status === 'rejected') {
+            return response()->json(['message' => 'Rejected orders cannot be updated.'], 422);
+        }
+
+        $order->customer_stage = 'completed';
+        $order->lifecycle_status = 'completed';
+        $order->completed_at = Carbon::now();
+        $order->save();
+
+        $this->createTrackingEvent($order, [
+            'created_by_user_id' => $request->user()->id,
+            'stage'              => 'completed',
+            'event_type'         => 'system',
+            'title'              => 'Order Received',
+            'description'        => 'Customer confirmed receipt of the order.',
+            'occurred_at'        => now(),
+            'metadata'           => ['source' => 'customer_received'],
+        ]);
+
+        $order->load(['items', 'payment', 'latestTrackingEvent']);
+
+        return response()->json([
+            'message' => 'Order marked as received.',
+            'data'    => $this->transformOrderDetail($order),
         ]);
     }
 
@@ -428,7 +473,7 @@ class OrderController extends Controller
 
         $order->lifecycle_status = 'pending';
         $order->customer_stage = $nextCustomerStage;
-        $order->approved_at = now();
+        $order->approved_at = Carbon::now();
         $order->save();
 
         $this->createTrackingEvent($order, [
@@ -487,7 +532,7 @@ class OrderController extends Controller
         }
 
         $order->lifecycle_status = 'rejected';
-        $order->rejected_at = now();
+        $order->rejected_at = Carbon::now();
         if (!empty($validated['reason'])) {
             $order->notes = trim(($order->notes ? $order->notes . "\n\n" : '') . 'Rejection reason: ' . $validated['reason']);
         }
@@ -547,7 +592,7 @@ class OrderController extends Controller
 
         $order->lifecycle_status = 'completed';
         $order->customer_stage = 'completed';
-        $order->completed_at = now();
+        $order->completed_at = Carbon::now();
         $order->save();
 
         $this->createTrackingEvent($order, [
@@ -596,7 +641,7 @@ class OrderController extends Controller
         }
 
         $order->is_archived = true;
-        $order->archived_at = now();
+        $order->archived_at = Carbon::now();
         $order->save();
 
         return response()->json([
@@ -615,7 +660,7 @@ class OrderController extends Controller
 
         // Archive the order (moves it out of payment history)
         $order->is_archived = true;
-        $order->archived_at = now();
+        $order->archived_at = Carbon::now();
         $order->save();
 
         return response()->json([
@@ -744,7 +789,7 @@ class OrderController extends Controller
 
         if ($nextStage === 'completed') {
             $order->lifecycle_status = 'completed';
-            $order->completed_at = now();
+            $order->completed_at = Carbon::now();
         } elseif ($order->lifecycle_status === 'incoming') {
             $order->lifecycle_status = 'pending';
             $order->approved_at = $order->approved_at ?? now();
@@ -1107,6 +1152,26 @@ HTML;
         $item = $order->items->first();
         $productNameLabel = $this->buildOrderItemLabelFromOrder($order);
         $payment = $order->payment;
+        // Defensive: only read the rating relation if it was eager-loaded to
+        // avoid triggering lazy-loading (which may be disabled in strict mode).
+        $rating = $order->relationLoaded('rating') ? $order->rating : null;
+
+        // Provide each product line individually so admin/staff list cards and
+        // the payment history can display every ordered item (instead of only
+        // the collapsed "First Item (+N more)" label).
+        $summaryItems = $order->items
+            ->map(fn (OrderItem $lineItem) => [
+                'id' => $lineItem->id,
+                'product_id' => $lineItem->product_id,
+                'product_name' => $lineItem->product_name,
+                'product_image' => $lineItem->product_image,
+                'unit_price' => (float) $lineItem->unit_price,
+                'quantity' => (int) $lineItem->quantity,
+                'line_total' => (float) $lineItem->line_total,
+            ])
+            ->values()
+            ->all();
+
         $customerAddressDetails = $this->extractAddressDetailsFromNotes($order->notes);
         $customerAddressLine = trim((string) ($order->location_name ?? ''));
         $customerAddress = $this->buildCustomerAddress($customerAddressLine, $customerAddressDetails);
@@ -1127,13 +1192,22 @@ HTML;
             'customer_address_details' => $customerAddressDetails !== '' ? $customerAddressDetails : null,
             'product_name' => $productNameLabel,
             'product_image' => $item?->product_image,
+            'items' => $summaryItems,
+            'items_count' => count($summaryItems),
             'quantity' => (int) ($order->quantity ?: ($item?->quantity ?? 1)),
+
             'unit_price' => (float) ($item?->unit_price ?? 0),
             'total_amount' => (float) $order->total,
             'total_label' => $this->formatMoney((float) $order->total),
             'payment_method' => $payment?->method ?? $order->payment_method,
             'payment_reference' => $payment?->reference ?? $order->payment_reference,
             'payment_status' => $payment?->status ?? 'pending',
+            'has_rating'          => $rating !== null,
+            'rating_stars'        => $rating?->stars,
+            'rating_feedback'     => $rating?->feedback,
+            'rating_admin_reply'  => $rating?->admin_reply,
+            'rating_replied_at'   => $rating?->replied_at?->toIso8601String(),
+            'rating_submitted_at' => $rating?->created_at?->toIso8601String(),
             'lifecycle_status' => $order->lifecycle_status,
             'lifecycle_status_label' => self::LIFECYCLE_LABELS[$order->lifecycle_status] ?? 'Pending',
             'customer_stage' => $order->customer_stage,

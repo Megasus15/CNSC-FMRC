@@ -263,6 +263,37 @@ document.addEventListener("DOMContentLoaded", () => {
       .replace(/\"/g, "&quot;")
       .replace(/'/g, "&#39;");
 
+  // Returns the list of individual order items for an order/payment row.
+  // Falls back to a single synthetic item from the collapsed product_name
+  // label when the backend did not provide an items array (older records).
+  const getOrderItemsList = (order) => {
+    const items = Array.isArray(order?.items) ? order.items : [];
+    if (items.length > 0) return items;
+
+    const fallbackName = order?.product_name || "Custom Order";
+    return [
+      {
+        product_name: fallbackName,
+        quantity: order?.quantity || 1,
+      },
+    ];
+  };
+
+  // Renders each product item individually as an inline, comma-free stacked
+  // label (e.g. "CSS Box ×2", "Acrylic Sheet ×1") for use inside table cells
+  // and cards, instead of the collapsed "First Item (+N more)" text.
+  const renderOrderItemsInline = (order) => {
+    const items = getOrderItemsList(order);
+    return items
+      .map((item) => {
+        const name = escapeHtml(item.product_name || "Custom Order");
+        const qty = Math.max(1, Number.parseInt(item.quantity || "1", 10) || 1);
+        return `<div class="order-item-line">${name} <span class="order-item-qty">×${qty}</span></div>`;
+      })
+      .join("");
+  };
+
+
   const getFooterControls = (footer) => {
     const buttons = footer?.querySelectorAll(".page-btn") || [];
     return {
@@ -685,7 +716,17 @@ document.addEventListener("DOMContentLoaded", () => {
       "modalOrderDate",
       formatDateLabel(order.created_at || order.created_at_label),
     );
-    setInput("modalOrderItem", order.product_name || "Custom Order");
+    const itemsSummary = getOrderItemsList(order)
+      .map((item) => {
+        const qty = Math.max(
+          1,
+          Number.parseInt(item.quantity || "1", 10) || 1,
+        );
+        return `${item.product_name || "Custom Order"} (x${qty})`;
+      })
+      .join(", ");
+    setInput("modalOrderItem", itemsSummary || order.product_name || "Custom Order");
+
     setInput("modalOrderCustomer", order.customer_name || "Customer");
     setInput("modalOrderContact", order.customer_contact || "N/A");
     setInput(

@@ -5,5 +5,5 @@
     "**/*.log",
     "**/*.sqlite"
   ],
-  "liveServer.settings.port": 5508
+  "liveServer.settings.port": 5509
 }

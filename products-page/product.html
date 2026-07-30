@@ -338,7 +338,8 @@
 
           <div class="checkout-section">
             <h3 class="checkout-section-title">Your Orders</h3>
-            <div class="checkout-product-card">
+            <!-- Single product card (Buy Now / single-item checkout) -->
+            <div class="checkout-product-card" id="checkoutSingleProductCard">
               <img src="" alt="Product" id="checkoutProductImg" />
               <div class="checkout-product-details">
                 <h4 id="checkoutProductTitle">Product Title</h4>
@@ -361,10 +362,17 @@
                 </div>
               </div>
             </div>
-            <p class="checkout-stock-notice">
+            <!-- Multiple cart items list (Cart checkout) — each product editable individually -->
+            <div
+              id="checkoutCartItemsList"
+              class="checkout-cart-items-list"
+              style="display: none"
+            ></div>
+            <p class="checkout-stock-notice" id="checkoutStockNotice">
               Available stock: <strong id="checkoutMaxStock">0</strong>
             </p>
           </div>
+
 
           <div class="checkout-section">
             <h3 class="checkout-section-title">Payment Details</h3>

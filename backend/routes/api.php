@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\ArchiveController;
 use App\Http\Controllers\Api\CustomerMessageController;
 use App\Http\Controllers\Api\PsgcController;
 use App\Http\Controllers\Api\PasswordResetController;
+use App\Http\Controllers\Api\ProductRatingController;
 
 
 // ─── PSGC Address Proxy (public, no auth needed) ──────────────────────────
@@ -63,6 +64,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/orders', [OrderController::class, 'customerStore']);
     Route::get('/customer/orders', [OrderController::class, 'customerIndex']);
     Route::get('/customer/orders/{order}', [OrderController::class, 'customerShow']);
+    Route::post('/customer/orders/{order}/received', [OrderController::class, 'customerMarkReceived']);
+
+    // Customer: Product ratings (rate a completed order)
+    Route::get('/customer/ratings', [ProductRatingController::class, 'customerRatings']);
+    Route::get('/customer/orders/{order}/rating', [ProductRatingController::class, 'show']);
+    Route::post('/customer/orders/{order}/rating', [ProductRatingController::class, 'store']);
+
+    // Admin/Staff: Ratings & Feedback
+    Route::get('/admin/ratings', [ProductRatingController::class, 'adminIndex']);
+    Route::post('/admin/ratings/{rating}/reply', [ProductRatingController::class, 'reply']);
 
     Route::get('/customer/cart', [\App\Http\Controllers\CartItemController::class, 'index']);
     Route::post('/customer/cart/sync', [\App\Http\Controllers\CartItemController::class, 'sync']);
