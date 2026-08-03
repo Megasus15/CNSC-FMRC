@@ -19,6 +19,8 @@ use App\Http\Controllers\Api\CustomerMessageController;
 use App\Http\Controllers\Api\PsgcController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\ProductRatingController;
+use App\Http\Controllers\Api\PromotionController;
+use App\Http\Controllers\Api\AnnouncementController;
 
 
 // ─── PSGC Address Proxy (public, no auth needed) ──────────────────────────
@@ -46,6 +48,8 @@ Route::get('/appointments/{reference}/verify', [AppointmentController::class, 'v
 
 // Public: Customer-facing products (non-blocked only)
 Route::get('/products', [ProductController::class, 'index']);
+Route::get('/announcements', [AnnouncementController::class, 'publicIndex']);
+Route::get('/promotions/active', [PromotionController::class, 'active']);
 
 // Public: Site settings (read-only for customer pages)
 Route::get('/site-settings', [SiteSettingController::class, 'index']);
@@ -105,6 +109,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/admin/products', [ProductController::class, 'store']);
     Route::put('/admin/products/{product}', [ProductController::class, 'update']);
     Route::delete('/admin/products/{product}', [ProductController::class, 'destroy']);
+
+    // Admin/Staff: time-bound sale campaigns and customer announcements
+    Route::get('/admin/promotions', [PromotionController::class, 'index']);
+    Route::post('/admin/promotions', [PromotionController::class, 'store']);
+    Route::put('/admin/promotions/{promotion}', [PromotionController::class, 'update']);
+    Route::delete('/admin/promotions/{promotion}', [PromotionController::class, 'destroy']);
+    Route::get('/admin/announcements', [AnnouncementController::class, 'index']);
+    Route::post('/admin/announcements', [AnnouncementController::class, 'store']);
+    Route::put('/admin/announcements/{announcement}', [AnnouncementController::class, 'update']);
+    Route::delete('/admin/announcements/{announcement}', [AnnouncementController::class, 'destroy']);
 
     // Admin: Site Settings
     Route::put('/admin/site-settings', [SiteSettingController::class, 'bulkUpdate']);

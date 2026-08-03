@@ -1387,3 +1387,65 @@ body::after {
     transition: none !important;
   }
 }
+
+/* =========================================================
+   Final login/signup button styling (CSS-only)
+   Gradient dark maroon, darker on hover, scale click.
+   ========================================================= */
+#loginForm .auth-btn:not(.google-auth-btn),
+#signupForm .auth-btn:not(.google-auth-btn) {
+  background: linear-gradient(135deg, #5f0d0d 0%, #8b0000 50%, #9e1414 100%);
+  background-image: linear-gradient(135deg, #5f0d0d 0%, #8b0000 50%, #9e1414 100%);
+  color: #ffffff;
+  box-shadow: 0 14px 28px rgba(128, 24, 18, 0.2);
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
+}
+
+#loginForm .auth-btn:not(.google-auth-btn)::after,
+#signupForm .auth-btn:not(.google-auth-btn)::after {
+  display: none;
+}
+
+#loginForm .auth-btn:not(.google-auth-btn):hover,
+#signupForm .auth-btn:not(.google-auth-btn):hover {
+  background: linear-gradient(135deg, #3d0808 0%, #5f0d0d 50%, #7a0f0f 100%);
+  color: #ffffff;
+  transform: none;
+  box-shadow: 0 14px 28px rgba(128, 24, 18, 0.25);
+}
+
+#loginForm .auth-btn:not(.google-auth-btn):active,
+#signupForm .auth-btn:not(.google-auth-btn):active {
+  background: linear-gradient(135deg, #2c0505 0%, #4a0a0a 50%, #5f0d0d 100%);
+  color: #ffffff;
+  transform: scale(0.97);
+  box-shadow: 0 6px 14px rgba(128, 24, 18, 0.2);
+}
+
+#signupForm .auth-btn.btn-yellow:not(.google-auth-btn),
+#successContinueBtn {
+  background: linear-gradient(135deg, #f1ed12 0%, #e6e20e 50%, #d8d20d 100%);
+  background-image: linear-gradient(135deg, #f1ed12 0%, #e6e20e 50%, #d8d20d 100%);
+  color: #2d2a12;
+  box-shadow: 0 14px 28px rgba(196, 177, 20, 0.18);
+}
+
+#signupForm .auth-btn.btn-yellow:not(.google-auth-btn):hover,
+#successContinueBtn:hover {
+  background: linear-gradient(135deg, #d8d20d 0%, #c4be09 50%, #b0ab07 100%);
+  color: #2d2a12;
+  transform: none;
+  box-shadow: 0 14px 28px rgba(196, 177, 20, 0.22);
+}
+
+#signupForm .auth-btn.btn-yellow:not(.google-auth-btn):active,
+#successContinueBtn:active {
+  background: linear-gradient(135deg, #bfb80a 0%, #a8a207 50%, #928d05 100%);
+  color: #2d2a12;
+  transform: scale(0.97);
+  box-shadow: 0 6px 14px rgba(196, 177, 20, 0.18);
+}

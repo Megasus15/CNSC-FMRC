@@ -748,6 +748,31 @@
       tr.row-blocked td.action-icons.sticky-action {
         background: #fff !important;
       }
+
+      /* Manage Discounts Button without red outline, with dark hover & click animation */
+      .btn-manage-discounts {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: none !important;
+        background-color: #4b5563 !important;
+        color: #ffffff !important;
+        border-radius: 8px;
+        padding: 8px 14px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: none !important;
+        transition: background-color 0.2s ease, transform 0.08s ease, box-shadow 0.2s ease;
+        margin-right: 8px;
+      }
+      .btn-manage-discounts:hover {
+        background-color: #374151 !important;
+        box-shadow: 0 4px 12px rgba(55, 65, 81, 0.25);
+      }
+      .btn-manage-discounts:active {
+        transform: scale(0.97);
+      }
     </style>
   </head>
   <body>
@@ -766,6 +791,9 @@
           >
           <a href="products.html" class="nav-link active"
             ><i class="fa-solid fa-tags"></i> Products</a
+          >
+          <a href="promotions.html" class="nav-link" title="Promotions &amp; Announcements"
+            ><i class="fa-solid fa-bullhorn"></i> Promotions</a
           >
           <a href="appointments.html" class="nav-link"
             ><i class="fa-regular fa-calendar-check"></i> Appointment</a
@@ -867,6 +895,9 @@
               >
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
+              <a href="promotions.html" class="btn-manage-discounts">
+                <i class="fa-solid fa-bullhorn"></i> Manage Discounts
+              </a>
               <button class="btn-admin" id="btnOpenAddProduct">
                 <i class="fa-solid fa-plus"></i> Add Product
               </button>

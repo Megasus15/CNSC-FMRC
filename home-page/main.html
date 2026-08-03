@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -51,6 +51,10 @@
       </nav>
 
       <div class="header-right-actions">
+        <button class="announcement-bell" id="announcementBell" type="button" aria-label="Open announcements" title="Announcements">
+          <i class="fa-solid fa-bell" aria-hidden="true"></i>
+          <span class="announcement-bell__badge" id="announcementBellBadge" hidden>0</span>
+        </button>
         <div class="user-profile">
           <svg
             width="40"
@@ -68,6 +72,25 @@
         </div>
       </div>
     </header>
+
+    <div class="announcement-modal" id="announcementModal" role="dialog" aria-modal="true" aria-labelledby="announcementModalTitle" aria-hidden="true" hidden>
+      <div class="announcement-modal__card">
+        <button type="button" class="announcement-modal__close-x" id="announcementModalCloseX" aria-label="Close announcement">&times;</button>
+        <div class="announcement-modal__hero">
+          <p class="announcement-modal__label">FMRC ANNOUNCEMENT</p>
+          <h2 class="announcement-modal__title" id="announcementModalTitle">Announcements</h2>
+        </div>
+        <div class="announcement-modal__body">
+          <p class="announcement-modal__message" id="announcementModalMessage">Loading announcements...</p>
+          <div class="announcement-modal__actions">
+            <span class="announcement-modal__counter" id="announcementModalCounter"></span>
+            <button type="button" class="announcement-modal__button announcement-modal__button--secondary" id="announcementModalNext" hidden>Next</button>
+            <a class="announcement-modal__button announcement-modal__button--primary" id="announcementModalCta" hidden>View Details</a>
+            <button type="button" class="announcement-modal__button announcement-modal__button--secondary" id="announcementModalClose">Got it</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <main class="hero-section" id="home">
       <div class="hero-container">
@@ -1184,25 +1207,44 @@
 
     <!-- SUCCESS MODAL OVERLAY -->
     <div class="success-modal-overlay" id="successAppointmentModal">
-      <div class="success-card">
-        <div class="success-icon">✓</div>
-        <h3 class="success-title">Success!</h3>
-        <p class="success-desc">
-          Your appointment has been successfully booked. <br />
-          Reference Number: <strong id="successReferenceNo">PENDING</strong>
-        </p>
-        <p class="success-desc" style="margin-top: -4px; margin-bottom: 14px">
-          Please save your reference number on your device. This is your
-          required proof of online appointment.
-        </p>
-        <button
-          type="button"
-          class="apt-btn apt-btn-blue"
-          id="btnSuccessHome"
-          style="width: 100%"
-        >
-          Return to Homepage
-        </button>
+      <div
+        class="success-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="successAppointmentTitle"
+      >
+        <div class="success-card__header">
+          <div class="success-icon" aria-hidden="true">✓</div>
+          <p class="success-eyebrow">Appointment Confirmed</p>
+          <h3 class="success-title" id="successAppointmentTitle">
+            Your booking is complete
+          </h3>
+        </div>
+        <div class="success-card__body">
+          <p class="success-desc">
+            Your appointment has been successfully booked. Keep the reference
+            number below for verification at the FMRC office.
+          </p>
+          <div class="success-reference" aria-label="Appointment reference number">
+            <span>Reference Number</span>
+            <strong id="successReferenceNo">PENDING</strong>
+          </div>
+          <p class="success-note">
+            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+            Please save a screenshot or note this number. It is your required
+            proof of online appointment.
+          </p>
+        </div>
+        <div class="success-card__footer">
+          <button
+            type="button"
+            class="apt-btn apt-btn-blue"
+            id="btnSuccessHome"
+          >
+            <i class="fa-solid fa-house" aria-hidden="true"></i>
+            Return to Homepage
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1422,5 +1464,6 @@
       referrerpolicy="no-referrer"
     ></script>
     <script src="main.js"></script>
+    <script src="customer-announcements.js"></script>
   </body>
 </html>

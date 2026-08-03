@@ -47,6 +47,23 @@ document.addEventListener("DOMContentLoaded", () => {
   const BUY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>`;
   const INFO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
 
+  const getDiscountPercent = (product) =>
+    Math.max(0, Math.min(100, Number(product?.discount_percent || 0)) || 0);
+
+  const getSalePrice = (product) => {
+    const rawApiPrice = product?.sale_price;
+    const apiPrice = Number(rawApiPrice);
+    if (rawApiPrice !== null && rawApiPrice !== undefined && rawApiPrice !== "" && Number.isFinite(apiPrice)) return apiPrice;
+    const basePrice = Number(product?.price || 0);
+    return Math.max(0, basePrice * (1 - getDiscountPercent(product) / 100));
+  };
+
+  const getCustomerPrice = (product) => ({
+    ...product,
+    original_price: Number(product?.original_price ?? product?.price ?? 0),
+    price: getSalePrice(product),
+  });
+
   // ── Build a product card HTML ─────────────────────────────────────────────────
   const buildCard = (p) => {
     const isOutOfStock =
@@ -64,17 +81,22 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const disabledAttr = isOutOfStock ? "disabled" : "";
     const disabledClass = isOutOfStock ? "disabled" : "";
+    const discountPercent = getDiscountPercent(p);
+    const salePrice = getSalePrice(p);
+    const priceHtml = discountPercent > 0
+      ? `<div class="product-price product-price-sale"><span class="sale-price">${formatPrice(salePrice)}</span><span class="original-price">${formatPrice(p.price)}</span></div>`
+      : `<div class="product-price">${formatPrice(p.price)}</div>`;
 
     return `
       <div class="shop-card" data-product-id="${p.id}">
-        <div class="product-img-wrapper">${imgHtml}</div>
+        <div class="product-img-wrapper">${discountPercent > 0 ? `<span class="product-discount-badge">${discountPercent}% OFF</span>` : ""}${imgHtml}</div>
         <div class="product-info">
           <h3 class="product-name">${escHtml(p.name)}</h3>
           <div class="product-code-row">
             <span class="code-label">PRODUCT CODE:</span>
             <span class="code-value">${escHtml(p.code || "—")}</span>
           </div>
-          <div class="product-price">${formatPrice(p.price)}</div>
+          ${priceHtml}
           <div class="product-stock-row">
             <span class="stock-text">${stockText}</span>
             <span class="stock-badge ${stockBadgeClass}">${stockBadgeText}</span>
@@ -198,7 +220,7 @@ document.addEventListener("DOMContentLoaded", () => {
             productInfoModal.classList.remove("show-modal");
             // Delegate to existing cart logic via custom event
             document.dispatchEvent(
-              new CustomEvent("product:add-to-cart", { detail: product }),
+              new CustomEvent("product:add-to-cart", { detail: getCustomerPrice(product) }),
             );
           };
     }
@@ -213,7 +235,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (e) e.preventDefault();
             productInfoModal.classList.remove("show-modal");
             document.dispatchEvent(
-              new CustomEvent("product:buy-now", { detail: product }),
+              new CustomEvent("product:buy-now", { detail: getCustomerPrice(product) }),
             );
           };
     }
@@ -230,10 +252,42 @@ document.addEventListener("DOMContentLoaded", () => {
       productInfoModal.classList.remove("show-modal");
   });
 
+  // Lightbox Modal elements
+  const imageLightboxModal = document.getElementById("imageLightboxModal");
+  const lightboxImage = document.getElementById("lightboxImage");
+  const lightboxCaption = document.getElementById("lightboxCaption");
+  const closeLightboxBtn = document.getElementById("closeLightboxBtn");
+
+  const openLightbox = (src, title) => {
+    if (!imageLightboxModal || !lightboxImage) return;
+    lightboxImage.src = src;
+    if (lightboxCaption) lightboxCaption.textContent = title || "";
+    imageLightboxModal.classList.add("show-modal");
+  };
+
+  closeLightboxBtn?.addEventListener("click", () => {
+    imageLightboxModal?.classList.remove("show-modal");
+  });
+
+  imageLightboxModal?.addEventListener("click", (e) => {
+    if (e.target === imageLightboxModal) {
+      imageLightboxModal.classList.remove("show-modal");
+    }
+  });
+
   // ── Grid click delegation ────────────────────────────────────────────────────
   productGrid?.addEventListener("click", (e) => {
     const target = e.target;
     if (!(target instanceof HTMLElement)) return;
+
+    // Check if clicked an image inside wrapper
+    const imgEl = target.closest(".product-img-wrapper img");
+    if (imgEl && imgEl instanceof HTMLImageElement && imgEl.src) {
+      const card = target.closest(".shop-card");
+      const nameEl = card?.querySelector(".product-name");
+      openLightbox(imgEl.src, nameEl?.textContent?.trim() || "Product Image");
+      return;
+    }
 
     const btn = target.closest("[data-action]");
     if (!btn) return;
@@ -249,11 +303,11 @@ document.addEventListener("DOMContentLoaded", () => {
       openViewInfo(product);
     } else if (action === "add-cart") {
       document.dispatchEvent(
-        new CustomEvent("product:add-to-cart", { detail: product }),
+        new CustomEvent("product:add-to-cart", { detail: getCustomerPrice(product) }),
       );
     } else if (action === "buy-now") {
       document.dispatchEvent(
-        new CustomEvent("product:buy-now", { detail: product }),
+        new CustomEvent("product:buy-now", { detail: getCustomerPrice(product) }),
       );
     }
   });

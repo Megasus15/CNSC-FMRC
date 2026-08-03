@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Product;
+use App\Models\Promotion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -134,13 +135,24 @@ class ProductController extends Controller
 
     private function formatProduct(Product $product): array
     {
+        $promotion = Promotion::query()->where('is_enabled', true)->get()
+            ->filter(fn (Promotion $candidate) => $candidate->appliesTo($product))
+            ->sortByDesc('discount_percent')
+            ->first();
+        $price = (float) $product->price;
+        $discountPercent = $promotion ? (int) $promotion->discount_percent : 0;
+        $salePrice = round($price * (1 - ($discountPercent / 100)), 2);
+
         return [
             'id'             => $product->id,
             'name'           => $product->name,
             'category'       => $product->category,
             'code'           => $product->code,
             'stock'          => $product->stock,
-            'price'          => (float) $product->price,
+            'price'          => $price,
+            'sale_price'     => $salePrice,
+            'discount_percent' => $discountPercent,
+            'promotion' => $promotion ? ['id' => $promotion->id, 'title' => $promotion->title, 'ends_at' => optional($promotion->ends_at)->toIso8601String()] : null,
             'stock_status'   => $product->stock_status,
             'is_blocked'     => (bool) $product->is_blocked,
             'image_data'     => $product->image_data,

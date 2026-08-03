@@ -1,4 +1,4 @@
-﻿const getCustomerSession = () => {
+const getCustomerSession = () => {
   const token = localStorage.getItem("customer_token");
   const userInfoRaw = localStorage.getItem("customer_info");
 
@@ -1535,8 +1535,10 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("product:buy-now", (e) => {
     const product = e.detail;
     if (!product) return;
-    if (!requireCustomerAuth("buy products")) return;
-    if (!isGuestUser) {
+    if (typeof requireCustomerAuth === "function") {
+      if (!requireCustomerAuth("buy products")) return;
+    }
+    if (typeof fetchCustomerCheckoutProfile === "function") {
       void fetchCustomerCheckoutProfile();
     }
 
@@ -2959,6 +2961,8 @@ document.addEventListener("DOMContentLoaded", () => {
     title,
     image,
     unitPrice,
+    originalPrice = null,
+    discountPercent = 0,
     quantity = 1,
     checked = true,
   }) => {
@@ -2975,6 +2979,12 @@ document.addEventListener("DOMContentLoaded", () => {
     cartItem.className = "cart-item-card";
     cartItem.dataset.productName = rawTitle;
     cartItem.dataset.unitPrice = String(numericPrice);
+    cartItem.dataset.originalPrice = String(
+      Number.isFinite(Number(originalPrice)) ? Number(originalPrice) : numericPrice,
+    );
+    cartItem.dataset.discountPercent = String(
+      Math.max(0, Math.min(100, Number(discountPercent) || 0)),
+    );
     if (pid) cartItem.dataset.productId = pid;
     cartItem.innerHTML = `
       <label class="cart-checkbox-container">
@@ -2985,7 +2995,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="cart-item-details">
         <h4>${safeTitle}</h4>
         <div class="cart-item-bottom">
-          <span class="c-price" data-price="${numericPrice}">${formatPrice(numericPrice)}</span>
+          <span class="c-price" data-price="${numericPrice}">${formatPrice(numericPrice)}${Number(discountPercent) > 0 ? ` <small style="display:block;color:#a51d1d;font-weight:700;">${Math.round(Number(discountPercent))}% off</small>` : ""}</span>
           <div class="qty-selector">
             <button class="qty-btn c-minus-btn">-</button>
             <input type="number" class="c-qty-input" value="${qty}" min="1" max="99" readonly>
@@ -3020,12 +3030,16 @@ document.addEventListener("DOMContentLoaded", () => {
       const product_id = item.dataset.productId
         ? Number(item.dataset.productId)
         : null;
+      const originalPrice = Number(item.dataset.originalPrice || unitPrice);
+      const discountPercent = Number(item.dataset.discountPercent || 0);
 
       return {
         product_id,
         title,
         image,
         unitPrice,
+        originalPrice,
+        discountPercent,
         quantity,
         checked,
       };
@@ -3425,6 +3439,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const unitPrice = Number.isFinite(Number(product.price))
       ? Number(product.price)
       : 0;
+    const originalPrice = Number.isFinite(Number(product.original_price))
+      ? Number(product.original_price)
+      : unitPrice;
+    const discountPercent = Math.max(
+      0,
+      Math.min(100, Number(product.discount_percent || 0) || 0),
+    );
     const imageSrc = product.image_data || "/images/FMRC Logo.png";
 
     // Trigger animation if card exists
@@ -3462,6 +3483,8 @@ document.addEventListener("DOMContentLoaded", () => {
         title,
         image: imageSrc,
         unitPrice,
+        originalPrice,
+        discountPercent,
         quantity: 1,
         checked: true,
       });
@@ -5367,8 +5390,93 @@ document.addEventListener("DOMContentLoaded", () => {
             <button class="customer-modal-close" id="closeProfileModal" type="button" aria-label="Close">&times;</button>
           </div>
           <div class="customer-card" id="customerInfoBox"></div>
-          <h3 class="customer-form-title">Change Password</h3>
-          <form id="changePasswordForm" novalidate>
+          <button type="button" class="change-password-trigger-btn" id="openChangePasswordBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 6px;"><path d="M21 2l-2 2m-1.5 1.5L4 19l-2 2 2-2 13.5-13.5z"/><path d="M15 5l4 4"/></svg>
+            Change Password
+          </button>
+        </section>
+      `;
+      document.body.appendChild(overlay);
+    }
+
+    const infoBox = overlay.querySelector("#customerInfoBox");
+    if (infoBox) {
+      const initial = (userInfo.name || userInfo.username || userInfo.email || "A").trim().charAt(0).toUpperCase();
+      infoBox.innerHTML = `
+        <div class="profile-header-avatar">
+          <div class="user-avatar-initial">${initial}</div>
+          <div class="user-avatar-meta">
+            <h3 class="user-meta-name">${userInfo.name || userInfo.username || "Customer Profile"}</h3>
+            <span class="user-meta-email">${userInfo.email || "customer@fmrc.edu.ph"}</span>
+          </div>
+        </div>
+        <div class="profile-details-grid">
+          <div class="profile-detail-item">
+            <span class="detail-label">FULL NAME</span>
+            <span class="detail-val">${userInfo.name || "N/A"}</span>
+          </div>
+          <div class="profile-detail-item">
+            <span class="detail-label">USERNAME</span>
+            <span class="detail-val">${userInfo.username || "N/A"}</span>
+          </div>
+          <div class="profile-detail-item">
+            <span class="detail-label">EMAIL ADDRESS</span>
+            <span class="detail-val">${userInfo.email || "N/A"}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    const closeModal = () => {
+      overlay.classList.add("closing");
+      overlay.classList.remove("show");
+      setTimeout(() => {
+        overlay.classList.remove("closing");
+        document.body.style.overflow = "";
+      }, 180);
+    };
+
+    overlay.classList.add("show");
+    document.body.style.overflow = "hidden";
+
+    overlay
+      .querySelector("#closeProfileModal")
+      ?.addEventListener("click", closeModal, {
+        once: true,
+      });
+
+    overlay.querySelector("#openChangePasswordBtn")?.addEventListener("click", () => {
+      closeModal();
+      openChangePasswordModal(userInfo, token);
+    });
+
+    overlay.addEventListener(
+      "click",
+      (event) => {
+        if (event.target === overlay) {
+          closeModal();
+        }
+      },
+      { once: true },
+    );
+  };
+
+  const openChangePasswordModal = (userInfo, token) => {
+    let overlay = document.getElementById("customerPasswordModal");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.id = "customerPasswordModal";
+      overlay.className = "customer-modal-overlay";
+      overlay.innerHTML = `
+        <section class="customer-modal" role="dialog" aria-modal="true" aria-labelledby="cpModalTitle">
+          <div class="customer-modal-head" style="display: flex; align-items: center; justify-content: space-between;">
+            <h2 class="customer-modal-title" id="cpModalTitle" style="font-size: 22px; margin: 0;">Change Password</h2>
+            <button class="customer-modal-back-pill" id="backToProfileBtn" type="button" aria-label="Back to My Account">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+              <span>Back</span>
+            </button>
+          </div>
+          <form id="changePasswordForm" novalidate style="margin-top: 16px;">
             <div class="customer-field">
               <label for="cp_current">Current Password</label>
               <div class="password-wrapper">
@@ -5406,7 +5514,7 @@ document.addEventListener("DOMContentLoaded", () => {
               </div>
             </div>
             <div class="customer-msg" id="cp_msg"></div>
-            <button type="submit" class="customer-btn">Update Password</button>
+            <button type="submit" class="change-password-submit-btn">Update Password</button>
           </form>
         </section>
       `;
@@ -5437,16 +5545,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    const infoBox = overlay.querySelector("#customerInfoBox");
-    if (infoBox) {
-      infoBox.innerHTML = `
-        <p><strong>Name:</strong> ${userInfo.name || "N/A"}</p>
-        <p><strong>Username:</strong> ${userInfo.username || "N/A"}</p>
-        <p><strong>Email:</strong> ${userInfo.email || "N/A"}</p>
-      `;
-    }
-
-    const closeModal = () => {
+    const closePwdModal = () => {
       overlay.classList.add("closing");
       overlay.classList.remove("show");
       setTimeout(() => {
@@ -5458,21 +5557,16 @@ document.addEventListener("DOMContentLoaded", () => {
     overlay.classList.add("show");
     document.body.style.overflow = "hidden";
 
-    overlay
-      .querySelector("#closeProfileModal")
-      ?.addEventListener("click", closeModal, {
-        once: true,
-      });
+    overlay.querySelector("#backToProfileBtn")?.addEventListener("click", () => {
+      closePwdModal();
+      openProfileModal(userInfo, token);
+    });
 
-    overlay.addEventListener(
-      "click",
-      (event) => {
-        if (event.target === overlay) {
-          closeModal();
-        }
-      },
-      { once: true },
-    );
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) {
+        closePwdModal();
+      }
+    });
 
     const form = overlay.querySelector("#changePasswordForm");
     const msgBox = overlay.querySelector("#cp_msg");
@@ -5481,11 +5575,9 @@ document.addEventListener("DOMContentLoaded", () => {
       form.onsubmit = async (event) => {
         event.preventDefault();
 
-        const currentPassword =
-          overlay.querySelector("#cp_current")?.value || "";
+        const currentPassword = overlay.querySelector("#cp_current")?.value || "";
         const newPassword = overlay.querySelector("#cp_new")?.value || "";
-        const confirmPassword =
-          overlay.querySelector("#cp_confirm")?.value || "";
+        const confirmPassword = overlay.querySelector("#cp_confirm")?.value || "";
 
         if (!currentPassword) {
           msgBox.style.display = "block";
@@ -5508,11 +5600,16 @@ document.addEventListener("DOMContentLoaded", () => {
         if (newPassword !== confirmPassword) {
           msgBox.style.display = "block";
           msgBox.style.color = "#b91c1c";
-          msgBox.textContent = "Confirm password does not match.";
+          msgBox.textContent = "New password and confirmation do not match.";
           return;
         }
 
-        setLoader(true);
+        const submitBtn = form.querySelector("button[type='submit']");
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = "Updating...";
+        }
+
         try {
           const response = await fetch(`${API_BASE_URL}/change-password`, {
             method: "POST",

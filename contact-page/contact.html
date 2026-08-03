@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -55,6 +55,10 @@
       </nav>
 
       <div class="header-right-actions">
+        <button class="announcement-bell" id="announcementBell" type="button" aria-label="Open announcements" title="Announcements">
+          <i class="fa-solid fa-bell" aria-hidden="true"></i>
+          <span class="announcement-bell__badge" id="announcementBellBadge" hidden>0</span>
+        </button>
         <div class="user-profile">
           <svg
             width="40"
@@ -448,5 +452,6 @@
 
     <script src="../home-page/main.js"></script>
     <script src="contact.js"></script>
+    <script src="../home-page/customer-announcements.js"></script>
   </body>
 </html>

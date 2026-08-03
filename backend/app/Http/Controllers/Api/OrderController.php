@@ -9,6 +9,7 @@ use App\Models\OrderItem;
 use App\Models\OrderTrackingEvent;
 use App\Models\Payment;
 use App\Models\Product;
+use App\Models\Promotion;
 use DateTimeInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -96,14 +97,7 @@ class OrderController extends Controller
             0,
         );
 
-        $totalAmount = round(
-            array_reduce(
-                $orderItems,
-                fn (float $carry, array $item): float => $carry + max(0, (float) ($item['line_total'] ?? 0)),
-                0.0,
-            ),
-            2,
-        );
+        $totalAmount = 0.0;
 
         if ($quantity < 1) {
             return response()->json([
@@ -115,7 +109,7 @@ class OrderController extends Controller
         $customerStage = $paymentStatus === 'paid' ? 'to_ship' : 'to_pay';
 
         try {
-            $createdOrder = DB::transaction(function () use ($validated, $customer, $orderItems, $quantity, $totalAmount, $paymentMethod, $paymentStatus, $customerStage): Order {
+            $createdOrder = DB::transaction(function () use ($validated, $customer, $orderItems, $quantity, $paymentMethod, $paymentStatus, $customerStage): Order {
                 $productIds = collect($orderItems)
                     ->pluck('product_id')
                     ->filter(fn ($id) => !is_null($id))
@@ -128,6 +122,20 @@ class OrderController extends Controller
                     ->lockForUpdate()
                     ->get()
                     ->keyBy('id');
+
+                $activePromotions = Promotion::query()->where('is_enabled', true)->get();
+                $serverPricedItems = [];
+                foreach ($orderItems as $lineItem) {
+                    $product = !is_null($lineItem['product_id']) ? $productsById->get((int) $lineItem['product_id']) : null;
+                    $basePrice = $product ? (float) $product->price : max(0, (float) ($lineItem['unit_price'] ?? 0));
+                    $promotion = $product ? $activePromotions->filter(fn (Promotion $candidate) => $candidate->appliesTo($product))->sortByDesc('discount_percent')->first() : null;
+                    $unitPrice = round($basePrice * (1 - (($promotion ? (int) $promotion->discount_percent : 0) / 100)), 2);
+                    $lineItem['unit_price'] = $unitPrice;
+                    $lineItem['line_total'] = round($unitPrice * max(1, (int) $lineItem['quantity']), 2);
+                    $serverPricedItems[] = $lineItem;
+                }
+                $orderItems = $serverPricedItems;
+                $totalAmount = round(array_reduce($orderItems, fn (float $carry, array $item): float => $carry + (float) $item['line_total'], 0.0), 2);
 
                 foreach ($orderItems as $lineItem) {
                     $lineProductId = $lineItem['product_id'];

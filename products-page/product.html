@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -66,6 +66,92 @@
         color: #b01c1c;
         text-decoration: underline;
       }
+      .announcement-bell {
+        position: relative;
+        display: grid;
+        width: 42px;
+        height: 42px;
+        place-items: center;
+        margin-right: 4px;
+        border: 0;
+        border-radius: 50%;
+        background: #fff4f2;
+        color: #a51d1d;
+        cursor: pointer;
+        transition: transform .2s ease, background .2s ease;
+      }
+      .announcement-bell:hover { background: #fee2df; }
+      .announcement-bell__badge {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        min-width: 17px;
+        height: 17px;
+        padding: 0 4px;
+        border: 2px solid #fff;
+        border-radius: 999px;
+        background: #c0392b;
+        color: #fff;
+        font-size: 10px;
+        font-weight: 800;
+        line-height: 13px;
+      }
+      .announcement-bell__badge[hidden] { display: none; }
+      .promotion-spotlight {
+        display: none;
+        max-width: 1240px;
+        margin: 28px auto 0;
+        padding: 0 24px;
+      }
+      .promotion-spotlight.is-visible { display: block; }
+      .promotion-spotlight__inner {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 17px 20px;
+        border-radius: 16px;
+        color: #fff;
+        background: linear-gradient(118deg, #7f1010, #c0392b 55%, #e36a35);
+        box-shadow: 0 12px 28px rgba(148, 27, 27, .18);
+      }
+      .promotion-spotlight__icon {
+        display: grid;
+        flex: 0 0 44px;
+        width: 44px;
+        height: 44px;
+        place-items: center;
+        border-radius: 13px;
+        background: rgba(255,255,255,.16);
+        font-size: 22px;
+      }
+      .promotion-spotlight__copy { min-width: 0; }
+      .promotion-spotlight__eyebrow { margin: 0 0 3px; font-size: .72rem; font-weight: 800; letter-spacing: .12em; opacity: .84; }
+      .promotion-spotlight__title { margin: 0; font-size: 1rem; font-weight: 800; }
+      .promotion-spotlight__message { margin: 4px 0 0; font-size: .84rem; line-height: 1.45; opacity: .92; }
+      .announcement-modal { position: fixed; inset: 0; z-index: 3000; display: none; align-items: center; justify-content: center; padding: 22px; background: rgba(25, 12, 12, .58); backdrop-filter: blur(5px); }
+      .announcement-modal.is-open { display: flex; }
+      .announcement-modal__card { position: relative; width: min(100%, 520px); overflow: hidden; border-radius: 22px; background: #fff; box-shadow: 0 28px 70px rgba(20, 8, 8, .34); }
+      .announcement-modal__hero { padding: 30px 62px 26px 30px; color: #fff; background: linear-gradient(135deg, #831515, #c0392b 62%, #e56c37); }
+      .announcement-modal__label { margin: 0 0 9px; font-size: .74rem; font-weight: 800; letter-spacing: .12em; opacity: .86; }
+      .announcement-modal__title { margin: 0; font-size: clamp(1.35rem, 3vw, 1.85rem); line-height: 1.2; }
+      .announcement-modal__body { padding: 25px 30px 30px; }
+      .announcement-modal__message { margin: 0; color: #4b5563; font-size: .95rem; line-height: 1.65; white-space: pre-line; }
+      .announcement-modal__date { display: inline-flex; margin-top: 17px; padding: 7px 10px; border-radius: 8px; background: #fff3ed; color: #9d2d16; font-size: .77rem; font-weight: 700; }
+      .announcement-modal__actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
+      .announcement-modal__button, .announcement-modal__close { border: 0; cursor: pointer; font: inherit; }
+      .announcement-modal__button { padding: 11px 17px; border-radius: 9px; background: #a51d1d; color: #fff; font-weight: 800; }
+      .announcement-modal__close { position: absolute; top: 15px; right: 15px; display: grid; width: 34px; height: 34px; place-items: center; border-radius: 50%; background: rgba(255,255,255,.18); color: #fff; font-size: 21px; }
+      .product-discount-badge { position: absolute; top: 10px; left: 10px; z-index: 2; padding: 6px 9px; border-radius: 8px; color: #fff; background: #c0392b; box-shadow: 0 4px 10px rgba(105, 16, 16, .23); font-size: .72rem; font-weight: 800; }
+      .product-price-sale { display: flex; align-items: baseline; flex-wrap: wrap; gap: 7px; }
+      .product-price-sale .sale-price { color: #ad201c; font-size: 1.17rem; font-weight: 900; }
+      .product-price-sale .original-price { color: #8b929b; font-size: .8rem; text-decoration: line-through; }
+      @media (max-width: 640px) {
+        .promotion-spotlight { padding: 0 15px; margin-top: 16px; }
+        .promotion-spotlight__inner { align-items: flex-start; padding: 15px; }
+        .announcement-modal { padding: 14px; }
+        .announcement-modal__hero { padding: 28px 56px 23px 23px; }
+        .announcement-modal__body { padding: 22px 23px 25px; }
+      }
     </style>
   </head>
   <body class="products-page-body">
@@ -123,6 +209,11 @@
           </svg>
           <span class="cart-badge">0</span>
         </a>
+
+        <button class="announcement-bell" id="announcementBell" type="button" aria-label="Open announcements" title="Announcements">
+          <i class="fa-solid fa-bell" aria-hidden="true"></i>
+          <span class="announcement-bell__badge" id="announcementBellBadge" hidden>0</span>
+        </button>
 
         <div class="user-profile">
           <svg
@@ -190,6 +281,30 @@
       </div>
     </section>
 
+    <!-- Announcement Limited-Time Offer Banner Header (Positioned below Search/Filters card and above Product Cards) -->
+    <section class="promotion-spotlight-wrap" id="promotionSpotlight" style="display:none; margin: 20px auto 10px; max-width: 1200px; padding: 0 20px;">
+      <div class="promotion-spotlight-card" style="position: relative; overflow: hidden; border-radius: 16px; background: linear-gradient(135deg, var(--announcement-accent-primary, #c0392b), var(--announcement-accent-secondary, #800000)); color: #fff; padding: 18px 26px; display: flex; align-items: center; justify-content: space-between; gap: 16px; box-shadow: 0 10px 30px rgba(128, 0, 0, 0.22); cursor: pointer; transition: filter 0.2s ease;">
+        <div class="spotlight-celebration-icon left" style="font-size: 1.85rem; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.3)); user-select: none; flex-shrink: 0;">
+          🎉
+        </div>
+        <div style="flex: 1; text-align: center;">
+          <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.95; margin-bottom: 4px;">
+            <i class="fa-solid fa-fire" style="color: #fbbf24;"></i>
+            <span>LIMITED-TIME PROMOTION</span>
+          </div>
+          <h3 id="promotionSpotlightTitle" style="margin: 0; font-size: 1.25rem; font-weight: 800; color: #fff; line-height: 1.3;">
+            🎉 Special Product Promotion
+          </h3>
+          <p id="promotionSpotlightMessage" style="margin: 4px 0 0; font-size: 0.88rem; color: rgba(255, 255, 255, 0.92); line-height: 1.45;">
+            Enjoy exclusive discounts on selected campus products.
+          </p>
+        </div>
+        <div class="spotlight-celebration-icon right" style="font-size: 1.85rem; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.3)); user-select: none; flex-shrink: 0;">
+          🎉
+        </div>
+      </div>
+    </section>
+
     <section class="shop-section">
       <div class="shop-grid" id="productGrid">
         <!-- Products rendered dynamically by products.js -->
@@ -215,6 +330,23 @@
         <p>Our product catalog is currently empty. Please check back soon!</p>
       </div>
     </section>
+
+    <div class="announcement-modal" id="announcementModal" role="dialog" aria-modal="true" aria-labelledby="announcementModalTitle" aria-hidden="true">
+      <div class="announcement-modal__card">
+        <button type="button" class="announcement-modal__close" id="announcementModalClose" aria-label="Close announcement">&times;</button>
+        <div class="announcement-modal__hero">
+          <p class="announcement-modal__label">FMRC UPDATE</p>
+          <h2 class="announcement-modal__title" id="announcementModalTitle">Announcements</h2>
+        </div>
+        <div class="announcement-modal__body">
+          <p class="announcement-modal__message" id="announcementModalMessage">There are no active announcements right now.</p>
+          <span class="announcement-modal__date" id="announcementModalDate" hidden></span>
+          <div class="announcement-modal__actions">
+            <button type="button" class="announcement-modal__button" id="announcementModalAcknowledge">Got it</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div class="modal-overlay" id="productInfoModal">
       <div class="modal-box">
@@ -259,6 +391,15 @@
             Buy Now
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- Product Image Fullscreen Lightbox Modal -->
+    <div class="modal-overlay" id="imageLightboxModal" style="z-index: 21000;">
+      <div class="lightbox-box">
+        <button class="lightbox-close-btn" id="closeLightboxBtn" aria-label="Close image preview">&times;</button>
+        <img id="lightboxImage" src="" alt="Product Large Preview" />
+        <p id="lightboxCaption" class="lightbox-caption"></p>
       </div>
     </div>
 
@@ -1356,6 +1497,7 @@
       }
     </style>
 
+    <script src="../home-page/customer-announcements.js"></script>
     <script src="../home-page/main.js"></script>
     <script src="products.js"></script>
   </body>

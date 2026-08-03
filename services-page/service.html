@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -51,6 +51,10 @@
         </ul>
       </nav>
       <div class="header-right-actions">
+        <button class="announcement-bell" id="announcementBell" type="button" aria-label="Open announcements" title="Announcements">
+          <i class="fa-solid fa-bell" aria-hidden="true"></i>
+          <span class="announcement-bell__badge" id="announcementBellBadge" hidden>0</span>
+        </button>
         <div class="user-profile">
           <svg
             width="40"
@@ -118,232 +122,7 @@
         </div>
 
         <div class="services-grid" id="servicesGrid">
-          <article class="service-card" data-category="prototyping">
-            <div class="card-img-holder">
-              <img src="/images/3dprint.jpg" alt="3D Printing" />
-            </div>
-            <div class="card-content">
-              <span class="service-chip">Prototyping</span>
-              <h3 class="card-title">3D Printing</h3>
-              <p class="card-desc">
-                High-quality rapid prototyping using FDM and SLA technology.
-              </p>
-              <button class="details-btn open-modal-btn">
-                View service details
-              </button>
-            </div>
-          </article>
-
-          <article class="service-card" data-category="prototyping">
-            <div class="card-img-holder">
-              <img src="/images/3dscan.jpg" alt="3D Scanning" />
-            </div>
-            <div class="card-content">
-              <span class="service-chip">Prototyping</span>
-              <h3 class="card-title">3D Scanning</h3>
-              <p class="card-desc">
-                Accurate digital recreation of physical objects for reverse
-                engineering.
-              </p>
-              <button class="details-btn open-modal-btn">
-                View service details
-              </button>
-            </div>
-          </article>
-
-          <article class="service-card" data-category="manufacturing">
-            <div class="card-img-holder">
-              <img src="/images/heatpress.jpg" alt="Heatpress" />
-            </div>
-            <div class="card-content">
-              <span class="service-chip">Manufacturing</span>
-              <h3 class="card-title">Heatpress</h3>
-              <p class="card-desc">
-                Professional heat transfer printing for shirts, mugs, and custom
-                materials.
-              </p>
-              <button class="details-btn open-modal-btn">
-                View service details
-              </button>
-            </div>
-          </article>
-
-          <article class="service-card" data-category="manufacturing">
-            <div class="card-img-holder">
-              <img src="/images/cnc.jpg" alt="CNC Milling" />
-            </div>
-            <div class="card-content">
-              <span class="service-chip">Manufacturing</span>
-              <h3 class="card-title">CNC Milling</h3>
-              <p class="card-desc">
-                Computer-controlled shaping for wood, plastics, and soft metals.
-              </p>
-              <button class="details-btn open-modal-btn">
-                View service details
-              </button>
-            </div>
-          </article>
-
-          <article class="service-card" data-category="manufacturing">
-            <div class="card-img-holder">
-              <img src="/images/pic2.jpg" alt="CNC Router" />
-            </div>
-            <div class="card-content">
-              <span class="service-chip">Manufacturing</span>
-              <h3 class="card-title">CNC Router</h3>
-              <p class="card-desc">
-                Precision routing for signages, panels, molds, and larger wood
-                projects.
-              </p>
-              <button class="details-btn open-modal-btn">
-                View service details
-              </button>
-            </div>
-          </article>
-
-          <article class="service-card" data-category="manufacturing">
-            <div class="card-img-holder">
-              <img
-                src="/images/laser-cutting.png"
-                alt="Laser Cutting and Engraving"
-              />
-            </div>
-            <div class="card-content">
-              <span class="service-chip">Manufacturing</span>
-              <h3 class="card-title">Laser Cutting and Engraving</h3>
-              <p class="card-desc">
-                Precision laser services on wood, acrylic, leather, and selected
-                metals.
-              </p>
-              <button class="details-btn open-modal-btn">
-                View service details
-              </button>
-            </div>
-          </article>
-
-          <article class="service-card" data-category="manufacturing">
-            <div class="card-img-holder">
-              <img src="/images/embroidery.jpg" alt="Digital Embroidery" />
-            </div>
-            <div class="card-content">
-              <span class="service-chip">Manufacturing</span>
-              <h3 class="card-title">Digital Embroidery</h3>
-              <p class="card-desc">
-                Automated stitching for uniforms, patches, and textile branding
-                needs.
-              </p>
-              <button class="details-btn open-modal-btn">
-                View service details
-              </button>
-            </div>
-          </article>
-
-          <article class="service-card" data-category="design">
-            <div class="card-img-holder">
-              <img
-                src="/images/largeformat.jpg"
-                alt="Large Format Printing and Cutting"
-              />
-            </div>
-            <div class="card-content">
-              <span class="service-chip">Design and Labelling</span>
-              <h3 class="card-title">Large Format Printing and Cutting</h3>
-              <p class="card-desc">
-                Tarpaulins, vinyl stickers, and large-scale poster printing
-                services.
-              </p>
-              <button class="details-btn open-modal-btn">
-                View service details
-              </button>
-            </div>
-          </article>
-
-          <article class="service-card" data-category="prototyping">
-            <div class="card-img-holder">
-              <img src="/images/pic1.jpg" alt="Prototyping" />
-            </div>
-            <div class="card-content">
-              <span class="service-chip">Prototyping</span>
-              <h3 class="card-title">Prototyping</h3>
-              <p class="card-desc">
-                End-to-end prototype development from concept design to
-                functional model.
-              </p>
-              <button class="details-btn open-modal-btn">
-                View service details
-              </button>
-            </div>
-          </article>
-
-          <article class="service-card" data-category="design">
-            <div class="card-img-holder">
-              <img
-                src="/images/labelling.jpg"
-                alt="Product Labeling and Designing"
-              />
-            </div>
-            <div class="card-content">
-              <span class="service-chip">Design and Labelling</span>
-              <h3 class="card-title">Product Labeling and Designing</h3>
-              <p class="card-desc">
-                Professional branding, logo creation, and label layout for
-                packaging.
-              </p>
-              <button class="details-btn open-modal-btn">
-                View service details
-              </button>
-            </div>
-          </article>
-
-          <article class="service-card" data-category="training">
-            <div class="card-img-holder">
-              <img src="/images/pic2.jpg" alt="Project Consultation" />
-            </div>
-            <div class="card-content">
-              <span class="service-chip">Training and Workshops</span>
-              <h3 class="card-title">Project Consultation</h3>
-              <p class="card-desc">
-                Technical guidance for fabrication workflow, materials, and
-                costing plans.
-              </p>
-              <button class="details-btn open-modal-btn">
-                View service details
-              </button>
-            </div>
-          </article>
-
-          <article class="service-card" data-category="training">
-            <div class="card-img-holder">
-              <img src="/images/pic1.jpg" alt="Partnership" />
-            </div>
-            <div class="card-content">
-              <span class="service-chip">Training and Workshops</span>
-              <h3 class="card-title">Partnership</h3>
-              <p class="card-desc">
-                Collaborative programs with schools, communities, and
-                industries.
-              </p>
-              <button class="details-btn open-modal-btn">
-                View service details
-              </button>
-            </div>
-          </article>
-
-          <article class="service-card" data-category="training">
-            <div class="card-img-holder">
-              <img src="/images/pic2.jpg" alt="Training Workshop Tour" />
-            </div>
-            <div class="card-content">
-              <span class="service-chip">Training and Workshops</span>
-              <h3 class="card-title">Training Workshop Tour</h3>
-              <p class="card-desc">
-                Structured learning sessions, demos, and guided facility tours.
-              </p>
-              <button class="details-btn open-modal-btn">
-                View service details
-              </button>
-            </div>
-          </article>
+          <!-- Dynamic skeleton loading & service cards rendered by services.js -->
         </div>
       </div>
     </section>
@@ -552,5 +331,7 @@
     </footer>
 
     <script src="../home-page/main.js"></script>
+    <script src="services.js"></script>
+    <script src="../home-page/customer-announcements.js"></script>
   </body>
 </html>

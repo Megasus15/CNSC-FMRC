@@ -601,6 +601,10 @@ document.addEventListener("DOMContentLoaded", () => {
           const visibilityHtml = p.is_blocked
             ? `<span class="status-pill status-red">Blocked</span>`
             : `<span class="status-pill status-green">Active</span>`;
+          const discountPercent = Math.max(0, Math.min(100, Number(p.discount_percent || 0)));
+          const priceCell = discountPercent > 0
+            ? `<div><span style="background:#fee2e2;color:#b91c1c;font-size:0.68rem;font-weight:800;padding:2px 6px;border-radius:4px;display:inline-block;margin-bottom:3px;">${discountPercent}% OFF</span><br/><s style="color:#9ca3af;font-size:0.75rem;">${formatPrice(p.price)}</s> <b style="color:#c0392b;">${formatPrice(p.sale_price)}</b></div>`
+            : formatPrice(p.price);
           return `
           <tr class="${p.is_blocked ? "row-blocked" : ""}">
             <td>${rowNum}</td>
@@ -609,7 +613,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td>${escHtml(p.code || "—")}</td>
             <td>${imgCell}</td>
             <td>${p.stock ?? 0}</td>
-            <td>${formatPrice(p.price)}</td>
+            <td>${priceCell}</td>
             <td>${stockStatusHtml}</td>
             <td>${visibilityHtml}</td>
             <td class="action-icons sticky-action">
