@@ -1189,3 +1189,29 @@ body::after {
     transition: none !important;
   }
 }
+
+/* Workspace submit control: dark hover with the shared pressed scale only. */
+#loginForm .auth-btn {
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
+}
+
+#loginForm .auth-btn::after {
+  display: none;
+}
+
+#loginForm .auth-btn:hover {
+  background: linear-gradient(135deg, #3d0808 0%, #5f0d0d 52%, #7f1111 100%);
+  background-position: 0 50%;
+  transform: none;
+  box-shadow: 0 12px 24px rgba(61, 8, 8, 0.28);
+}
+
+#loginForm .auth-btn:active {
+  background: linear-gradient(135deg, #2c0505 0%, #4a0a0a 52%, #5f0d0d 100%);
+  transform: scale(0.97);
+  box-shadow: 0 6px 14px rgba(61, 8, 8, 0.22);
+}

@@ -7,33 +7,47 @@ use App\Models\Promotion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
 {
+    private const SCHEDULE_TIME_ZONE = 'Asia/Manila';
+
     // ─── Public: Customer-facing (non-blocked products only) ───────────────────
 
     public function index(): JsonResponse
     {
+        $promotionCandidates = $this->promotionCandidates();
         $products = Product::where('is_blocked', false)
             ->orderByDesc('created_at')
             ->get()
-            ->map(fn($p) => $this->formatProduct($p));
+            ->map(fn($p) => $this->formatProduct($p, $promotionCandidates));
 
         return response()->json(['data' => $products]);
     }
 
     // ─── Admin: All products including blocked ──────────────────────────────────
 
-    public function adminIndex(): JsonResponse
+    public function adminIndex(Request $request): JsonResponse
     {
+        if ($denied = $this->ensureAdminOrStaff($request)) {
+            return $denied;
+        }
+
+        $promotionCandidates = $this->promotionCandidates();
         $products = Product::orderByDesc('created_at')->get()
-            ->map(fn($p) => $this->formatProduct($p));
+            ->map(fn($p) => $this->formatProduct($p, $promotionCandidates));
 
         return response()->json(['data' => $products]);
     }
 
     public function catalogOptions(Request $request): JsonResponse
     {
+        if ($denied = $this->ensureAdminOrStaff($request)) {
+            return $denied;
+        }
+
         $validated = $request->validate([
             'category' => 'required|string|max:100',
         ]);
@@ -54,10 +68,33 @@ class ProductController extends Controller
         ]);
     }
 
+    public function promotionOptions(Request $request): JsonResponse
+    {
+        if ($denied = $this->ensureAdminOrStaff($request)) {
+            return $denied;
+        }
+
+        return response()->json([
+            'data' => Product::query()
+                ->orderBy('name')
+                ->get(['id', 'name', 'code', 'category'])
+                ->map(fn (Product $product) => [
+                    'id' => (int) $product->id,
+                    'name' => $product->name,
+                    'code' => $product->code,
+                    'category' => $product->category,
+                ]),
+        ]);
+    }
+
     // ─── Admin: Product names for walk-in item detail dropdown ──────────────────
 
-    public function productNames(): JsonResponse
+    public function productNames(Request $request): JsonResponse
     {
+        if ($denied = $this->ensureAdminOrStaff($request)) {
+            return $denied;
+        }
+
         $names = Product::orderBy('name')
             ->pluck('name')
             ->unique()
@@ -70,6 +107,10 @@ class ProductController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        if ($denied = $this->ensureAdminOrStaff($request)) {
+            return $denied;
+        }
+
         $validated = $request->validate([
             'name'           => 'required|string|max:255',
             'category'       => 'required|string|max:100',
@@ -98,6 +139,10 @@ class ProductController extends Controller
 
     public function update(Request $request, Product $product): JsonResponse
     {
+        if ($denied = $this->ensureAdminOrStaff($request)) {
+            return $denied;
+        }
+
         $validated = $request->validate([
             'name'           => 'required|string|max:255',
             'category'       => 'required|string|max:100',
@@ -124,8 +169,53 @@ class ProductController extends Controller
         ]);
     }
 
-    public function destroy(Product $product): JsonResponse
+    public function deleteBulk(Request $request): JsonResponse
     {
+        if ($denied = $this->ensureAdminOrStaff($request)) {
+            return $denied;
+        }
+
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'min:1', 'distinct'],
+        ]);
+
+        $ids = collect($validated['ids'])->map(fn ($id) => (int) $id)->unique()->values()->all();
+        $deletedIds = DB::transaction(function () use ($ids): array {
+            $eligibleIds = Product::query()
+                ->whereIn('id', $ids)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
+
+            if ($eligibleIds) {
+                Product::destroy($eligibleIds);
+            }
+
+            return $eligibleIds;
+        });
+
+        if (!$deletedIds) {
+            return response()->json(['message' => 'No matching products were found to delete.'], 404);
+        }
+
+        return response()->json([
+            'action' => 'delete',
+            'scope' => 'products',
+            'processed_ids' => $deletedIds,
+            'processed_count' => count($deletedIds),
+            'skipped_ids' => array_values(array_diff($ids, $deletedIds)),
+            'message' => count($deletedIds) . ' product(s) deleted successfully.',
+        ]);
+    }
+
+    public function destroy(Request $request, Product $product): JsonResponse
+    {
+        if ($denied = $this->ensureAdminOrStaff($request)) {
+            return $denied;
+        }
+
         $product->delete();
 
         return response()->json(['message' => 'Product deleted successfully.']);
@@ -133,9 +223,9 @@ class ProductController extends Controller
 
     // ─── Helpers ────────────────────────────────────────────────────────────────
 
-    private function formatProduct(Product $product): array
+    private function formatProduct(Product $product, ?Collection $promotionCandidates = null): array
     {
-        $promotion = Promotion::query()->where('is_enabled', true)->get()
+        $promotion = ($promotionCandidates ?? $this->promotionCandidates())
             ->filter(fn (Promotion $candidate) => $candidate->appliesTo($product))
             ->sortByDesc('discount_percent')
             ->first();
@@ -152,7 +242,11 @@ class ProductController extends Controller
             'price'          => $price,
             'sale_price'     => $salePrice,
             'discount_percent' => $discountPercent,
-            'promotion' => $promotion ? ['id' => $promotion->id, 'title' => $promotion->title, 'ends_at' => optional($promotion->ends_at)->toIso8601String()] : null,
+            'promotion' => $promotion ? [
+                'id' => $promotion->id,
+                'title' => $promotion->title,
+                'ends_at' => $promotion->ends_at?->copy()->timezone(self::SCHEDULE_TIME_ZONE)->toIso8601String(),
+            ] : null,
             'stock_status'   => $product->stock_status,
             'is_blocked'     => (bool) $product->is_blocked,
             'image_data'     => $product->image_data,
@@ -163,5 +257,25 @@ class ProductController extends Controller
             'created_at'     => $product->created_at,
             'updated_at'     => $product->updated_at,
         ];
+    }
+
+    private function promotionCandidates(): Collection
+    {
+        return Promotion::query()
+            ->where('is_enabled', true)
+            ->where('is_archived', false)
+            ->get();
+    }
+
+    private function ensureAdminOrStaff(Request $request): ?JsonResponse
+    {
+        $user = $request->user();
+        if (!$user || !in_array($user->role, ['admin', 'staff'], true)) {
+            return response()->json([
+                'message' => 'Forbidden. Admin or staff access is required.',
+            ], 403);
+        }
+
+        return null;
     }
 }

@@ -7,25 +7,48 @@ use Illuminate\Support\Carbon;
 
 class Promotion extends Model
 {
-    protected $fillable = ['title','discount_percent','scope','product_ids','starts_at','ends_at','is_enabled','created_by'];
-    protected $casts = ['product_ids' => 'array', 'starts_at' => 'datetime', 'ends_at' => 'datetime', 'is_enabled' => 'boolean'];
+    private const SCHEDULE_TIME_ZONE = 'Asia/Manila';
+
+    protected $fillable = ['title','discount_percent','scope','product_ids','starts_at','ends_at','is_enabled','is_archived','archived_at','created_by'];
+    protected $casts = ['product_ids' => 'array', 'starts_at' => 'datetime', 'ends_at' => 'datetime', 'is_enabled' => 'boolean', 'is_archived' => 'boolean', 'archived_at' => 'datetime'];
 
     public function appliesTo(Product $product, ?Carbon $now = null): bool
     {
-        $now ??= now();
-        if (!$this->is_enabled || ($this->starts_at && $this->starts_at->gt($now)) || ($this->ends_at && $this->ends_at->lt($now))) return false;
+        $now ??= now(self::SCHEDULE_TIME_ZONE);
+        if (!$this->isLive($now)) return false;
         return $this->scope === 'all_products' || in_array((int) $product->id, array_map('intval', $this->product_ids ?? []), true);
     }
 
-    public function isLive(): bool
+    public function isLive(?Carbon $now = null): bool
     {
-        if (!$this->is_enabled) {
-            return false;
-        }
-        $now = now();
-        $hasStarted = !$this->starts_at || $this->starts_at->lte($now->copy()->addHours(24));
-        $hasNotEnded = !$this->ends_at || $this->ends_at->gte($now->copy()->subHours(24));
+        $now ??= now(self::SCHEDULE_TIME_ZONE);
 
-        return $hasStarted && $hasNotEnded;
+        return !$this->is_archived
+            && (bool) $this->is_enabled
+            && (!$this->starts_at || $this->starts_at->lte($now))
+            && (!$this->ends_at || $this->ends_at->gt($now));
+    }
+
+    public function status(?Carbon $now = null): string
+    {
+        $now ??= now(self::SCHEDULE_TIME_ZONE);
+
+        if ($this->is_archived) {
+            return 'ARCHIVED';
+        }
+
+        if ($this->ends_at && $this->ends_at->lte($now)) {
+            return 'FINISHED';
+        }
+
+        if (!$this->is_enabled) {
+            return 'PAUSED';
+        }
+
+        if ($this->starts_at && $this->starts_at->gt($now)) {
+            return 'SCHEDULED';
+        }
+
+        return 'LIVE';
     }
 }

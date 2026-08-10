@@ -17,6 +17,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\Rule;
 
 class OrderController extends Controller
 {
@@ -459,6 +460,130 @@ class OrderController extends Controller
         ]);
     }
 
+    public function approveBulk(Request $request): JsonResponse
+    {
+        if ($denied = $this->ensureAdmin($request)) {
+            return $denied;
+        }
+
+        $ids = $this->validatedBulkIds($request);
+        $processedIds = DB::transaction(function () use ($request, $ids): array {
+            $orders = Order::query()
+                ->with(['payment', 'items', 'customer'])
+                ->whereIn('id', $ids)
+                ->where('is_archived', false)
+                ->where('lifecycle_status', 'incoming')
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($orders as $order) {
+                $paymentStatus = $order->payment?->status;
+                $nextCustomerStage = $paymentStatus === 'paid' ? 'to_ship' : $order->customer_stage;
+                if (!in_array($nextCustomerStage, self::ALLOWED_CUSTOMER_STAGES, true)) {
+                    $nextCustomerStage = 'to_pay';
+                }
+
+                $order->lifecycle_status = 'pending';
+                $order->customer_stage = $nextCustomerStage;
+                $order->approved_at = Carbon::now();
+                $order->save();
+
+                $this->createTrackingEvent($order, [
+                    'created_by_user_id' => $request->user()?->id,
+                    'stage' => $order->customer_stage,
+                    'event_type' => 'admin_update',
+                    'title' => 'Order approved',
+                    'description' => 'Your order has been confirmed and is now being processed.',
+                    'occurred_at' => now(),
+                    'metadata' => ['lifecycle_status' => 'pending'],
+                ]);
+
+                $orderNoLabel = $order->order_no ?? "ORD-{$order->id}";
+                $this->createAdminNotification(
+                    'success',
+                    "Order Approved: {$orderNoLabel}",
+                    "Order {$orderNoLabel} for {$order->customer_name} has been approved and moved to pending processing.",
+                    ['order_id' => $order->id, 'order_no' => $orderNoLabel]
+                );
+
+                $emailHtml = $this->buildOrderEmailHtml(
+                    $order,
+                    'Your Order Has Been Approved',
+                    "Hi {$order->customer_name},\n\nGreat news! Your order {$orderNoLabel} has been approved and is now being processed. We will update you again once your order is ready for shipping or pickup.",
+                    '#059669'
+                );
+                $this->sendCustomerOrderEmail($order, "Order Approved – {$orderNoLabel}", $emailHtml);
+            }
+
+            return $orders->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+        });
+
+        if (!$processedIds) {
+            return response()->json(['message' => 'No incoming orders were found to approve.'], 404);
+        }
+
+        return $this->bulkActionResponse('approve', 'incoming_orders', $ids, $processedIds);
+    }
+
+    public function rejectBulk(Request $request): JsonResponse
+    {
+        if ($denied = $this->ensureAdmin($request)) {
+            return $denied;
+        }
+
+        $ids = $this->validatedBulkIds($request);
+        $processedIds = DB::transaction(function () use ($request, $ids): array {
+            $orders = Order::query()
+                ->with(['payment', 'items', 'customer'])
+                ->whereIn('id', $ids)
+                ->where('is_archived', false)
+                ->where('lifecycle_status', 'incoming')
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($orders as $order) {
+                $order->lifecycle_status = 'rejected';
+                $order->rejected_at = Carbon::now();
+                $order->save();
+
+                $genericReason = 'Your order could not be processed at this time.';
+                $this->createTrackingEvent($order, [
+                    'created_by_user_id' => $request->user()?->id,
+                    'stage' => $order->customer_stage,
+                    'event_type' => 'admin_update',
+                    'title' => 'Order rejected',
+                    'description' => $genericReason,
+                    'occurred_at' => now(),
+                    'metadata' => ['lifecycle_status' => 'rejected'],
+                ]);
+
+                $orderNoLabel = $order->order_no ?? "ORD-{$order->id}";
+                $this->createAdminNotification(
+                    'warning',
+                    "Order Rejected: {$orderNoLabel}",
+                    "Order {$orderNoLabel} for {$order->customer_name} was rejected. Reason: No reason provided",
+                    ['order_id' => $order->id, 'order_no' => $orderNoLabel]
+                );
+
+                $emailHtml = $this->buildOrderEmailHtml(
+                    $order,
+                    'Your Order Could Not Be Processed',
+                    "Hi {$order->customer_name},\n\nUnfortunately, your order {$orderNoLabel} could not be processed at this time.\n\nReason: No reason provided\n\nIf you have questions, please contact us directly or place a new order. We apologize for any inconvenience.",
+                    '#dc2626'
+                );
+                $this->sendCustomerOrderEmail($order, "Order Update – {$orderNoLabel}", $emailHtml);
+            }
+
+            return $orders->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+        });
+
+        if (!$processedIds) {
+            return response()->json(['message' => 'No incoming orders were found to reject.'], 404);
+        }
+
+        return $this->bulkActionResponse('reject', 'incoming_orders', $ids, $processedIds);
+    }
+
     public function approve(Request $request, Order $order): JsonResponse
     {
         $denied = $this->ensureAdmin($request);
@@ -639,6 +764,67 @@ class OrderController extends Controller
             'message' => 'Order marked as completed.',
             'data' => $this->transformOrderSummary($order),
         ]);
+    }
+
+    public function archiveBulk(Request $request): JsonResponse
+    {
+        if ($denied = $this->ensureAdmin($request)) {
+            return $denied;
+        }
+
+        $validated = $request->validate([
+            'source' => ['required', 'string', Rule::in(['rejected', 'payments'])],
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'min:1', 'distinct'],
+        ]);
+        $source = $validated['source'];
+        $ids = collect($validated['ids'])->map(fn ($id) => (int) $id)->unique()->values()->all();
+        $archivedAt = Carbon::now();
+
+        $processedIds = DB::transaction(function () use ($source, $ids, $archivedAt): array {
+            $query = Order::query()
+                ->whereIn('id', $ids)
+                ->where('is_archived', false);
+
+            if ($source === 'rejected') {
+                $query->where('lifecycle_status', 'rejected');
+            } else {
+                $query
+                    ->where('lifecycle_status', 'completed')
+                    ->whereHas('payment');
+            }
+
+            $eligibleIds = (clone $query)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
+
+            if ($eligibleIds) {
+                Order::query()->whereIn('id', $eligibleIds)->where('is_archived', false)->update([
+                    'is_archived' => true,
+                    'archived_at' => $archivedAt,
+                    'updated_at' => now(),
+                ]);
+            }
+
+            return $eligibleIds;
+        });
+
+        if (!$processedIds) {
+            return response()->json([
+                'message' => $source === 'rejected'
+                    ? 'No rejected orders were found to archive.'
+                    : 'No payment records with active orders were found to archive.',
+            ], 404);
+        }
+
+        return $this->bulkActionResponse(
+            'archive',
+            $source === 'rejected' ? 'rejected_orders' : 'payments',
+            $ids,
+            $processedIds
+        );
     }
 
     public function adminArchive(Request $request, Order $order): JsonResponse
@@ -931,6 +1117,43 @@ class OrderController extends Controller
             'message' => 'Payment status updated.',
             'payment' => $this->transformPaymentRow($order),
             'order' => $this->transformOrderSummary($order),
+        ]);
+    }
+
+    private function validatedBulkIds(Request $request): array
+    {
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'min:1', 'distinct'],
+        ]);
+
+        return collect($validated['ids'])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function bulkActionResponse(
+        string $action,
+        string $scope,
+        array $requestedIds,
+        array $processedIds,
+    ): JsonResponse {
+        $pastTense = match ($action) {
+            'approve' => 'approved',
+            'reject' => 'rejected',
+            'archive' => 'archived',
+            default => $action,
+        };
+
+        return response()->json([
+            'action' => $action,
+            'scope' => $scope,
+            'processed_ids' => array_values($processedIds),
+            'processed_count' => count($processedIds),
+            'skipped_ids' => array_values(array_diff($requestedIds, $processedIds)),
+            'message' => count($processedIds) . " order(s) {$pastTense} successfully.",
         ]);
     }
 

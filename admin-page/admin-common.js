@@ -1449,10 +1449,12 @@ document.addEventListener("DOMContentLoaded", () => {
           setConfirmLoading(true);
           const result =
             typeof options.onOk === "function" ? options.onOk() : undefined;
-          if (result && typeof result.then === "function") {
-            await result;
-          }
+          const resolvedResult =
+            result && typeof result.then === "function" ? await result : result;
           closePopup();
+          if (typeof options.onSuccess === "function") {
+            window.setTimeout(() => options.onSuccess(resolvedResult), 0);
+          }
         } catch (error) {
           setConfirmLoading(false);
           if (typeof options.onError === "function") {
@@ -1470,12 +1472,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (backdrop) {
-      // Only allow backdrop dismiss for confirm dialogs (Cancel action)
-      // Success/info popups require explicit OK click
+      // Only allow backdrop dismiss for confirm dialogs (Cancel action).
+      // Informational and error dialogs retain an explicit Okay action.
       if (isConfirm) {
         backdrop.onclick = () => closePopup(options.onCancel);
       } else {
-        backdrop.onclick = null; // No backdrop dismiss for success/info popups
+        backdrop.onclick = null;
       }
     }
 
@@ -1488,7 +1490,195 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const ADMIN_SUCCESS_NOTIFICATION_DURATION = 3000;
+  const ADMIN_SUCCESS_NOTIFICATION_FADE_OUT = 220;
+  const SUCCESS_TITLE_PATTERN =
+    /\b(success|successful|saved|created|updated|deleted|archived|restored|approved|rejected|resolved|published|applied|sent|added|removed|completed|confirmed)\b/i;
+  const SUCCESS_MESSAGE_PATTERN =
+    /\b(successfully|saved|created|updated|deleted|archived|restored|approved|rejected|resolved|published|applied|sent|added|removed|completed|confirmed)\b/i;
+  const NON_SUCCESS_PATTERN =
+    /\b(error|failed|failure|unable|cannot|invalid|required|warning|notice|session|unauthorized|forbidden|not found|try again|please select|please enter|please choose|please log in|login)\b/i;
+
+  const ensureAdminSuccessNotificationStack = () => {
+    let stack = document.getElementById("adminSuccessNotificationStack");
+    if (stack) return stack;
+
+    stack = document.createElement("div");
+    stack.id = "adminSuccessNotificationStack";
+    stack.className = "admin-success-notification-stack";
+    stack.setAttribute("role", "region");
+    stack.setAttribute("aria-label", "Success notifications");
+    stack.setAttribute("aria-live", "polite");
+    document.body.appendChild(stack);
+    return stack;
+  };
+
+  const showAdminSuccessNotification = (message, options = {}) => {
+    const stack = ensureAdminSuccessNotificationStack();
+    const notification = document.createElement("div");
+    const title = String(options.title || "Success!");
+    const text = String(message || "Your changes were saved successfully.");
+
+    notification.className = "admin-success-notification";
+    notification.setAttribute("role", "status");
+    notification.setAttribute("aria-atomic", "true");
+    notification.innerHTML = `
+      <span class="admin-success-notification__icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m5 12 4 4L19 6"></path>
+        </svg>
+      </span>
+      <span class="admin-success-notification__content">
+        <strong class="admin-success-notification__title"></strong>
+        <span class="admin-success-notification__message"></span>
+      </span>
+      <button class="admin-success-notification__close" type="button" aria-label="Close success notification" title="Close notification">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+          <path d="M6 6 18 18M18 6 6 18"></path>
+        </svg>
+      </button>
+      <svg class="admin-success-notification__progress" aria-hidden="true" focusable="false" preserveAspectRatio="none">
+        <path class="admin-success-notification__progress-path"></path>
+      </svg>
+    `;
+    notification.querySelector(
+      ".admin-success-notification__title",
+    ).textContent = title;
+    notification.querySelector(
+      ".admin-success-notification__message",
+    ).textContent = text;
+    stack.appendChild(notification);
+
+    // Follow the rounded top-right corner, right edge, bottom edge, left edge,
+    // and rounded top-left corner. There is intentionally no top-edge segment.
+    const progress = notification.querySelector(
+      ".admin-success-notification__progress",
+    );
+    const progressPath = notification.querySelector(
+      ".admin-success-notification__progress-path",
+    );
+    const bounds = notification.getBoundingClientRect();
+    const progressWidth = Math.max(bounds.width, 1);
+    const progressHeight = Math.max(bounds.height, 1);
+    const progressInset = 2;
+    const progressRadius = Math.min(
+      13,
+      Math.max(1, progressHeight / 2 - progressInset),
+    );
+    const progressRight = progressWidth - progressInset;
+    const progressBottom = progressHeight - progressInset;
+    const progressTop = progressInset + progressRadius;
+
+    progress?.setAttribute(
+      "viewBox",
+      `0 0 ${progressWidth.toFixed(3)} ${progressHeight.toFixed(3)}`,
+    );
+    progressPath?.setAttribute(
+      "d",
+      [
+        `M ${(progressRight - progressRadius).toFixed(3)} ${progressInset.toFixed(3)}`,
+        `Q ${progressRight.toFixed(3)} ${progressInset.toFixed(3)} ${progressRight.toFixed(3)} ${progressTop.toFixed(3)}`,
+        `V ${(progressBottom - progressRadius).toFixed(3)}`,
+        `Q ${progressRight.toFixed(3)} ${progressBottom.toFixed(3)} ${(progressRight - progressRadius).toFixed(3)} ${progressBottom.toFixed(3)}`,
+        `H ${(progressInset + progressRadius).toFixed(3)}`,
+        `Q ${progressInset.toFixed(3)} ${progressBottom.toFixed(3)} ${progressInset.toFixed(3)} ${(progressBottom - progressRadius).toFixed(3)}`,
+        `V ${progressTop.toFixed(3)}`,
+        `Q ${progressInset.toFixed(3)} ${progressInset.toFixed(3)} ${(progressInset + progressRadius).toFixed(3)} ${progressInset.toFixed(3)}`,
+      ].join(" "),
+    );
+
+    if (progressPath) {
+      const pathTotalLength = Math.max(1, progressPath.getTotalLength());
+      progressPath.style.strokeDasharray = `${pathTotalLength.toFixed(2)} ${(pathTotalLength * 2).toFixed(2)}`;
+      progressPath.style.strokeDashoffset = `${pathTotalLength.toFixed(2)}`;
+      progressPath.style.setProperty(
+        "--path-total-length",
+        `${pathTotalLength.toFixed(2)}px`,
+      );
+    }
+
+    progress?.style.setProperty(
+      "--admin-success-progress-duration",
+      `${ADMIN_SUCCESS_NOTIFICATION_DURATION}ms`,
+    );
+
+    let removalTimer = 0;
+    let isDismissed = false;
+    const dismissNotification = () => {
+      if (isDismissed) return;
+      isDismissed = true;
+      window.clearTimeout(removalTimer);
+      notification.classList.remove("is-visible");
+      notification.classList.add("is-leaving");
+      removalTimer = window.setTimeout(() => {
+        notification.remove();
+        if (!stack.childElementCount) stack.remove();
+      }, ADMIN_SUCCESS_NOTIFICATION_FADE_OUT);
+    };
+
+    notification
+      .querySelector(".admin-success-notification__close")
+      ?.addEventListener("click", dismissNotification);
+    progressPath?.addEventListener(
+      "animationend",
+      (event) => {
+        if (event.animationName === "adminSuccessNotificationPerimeter") {
+          dismissNotification();
+        }
+      },
+      { once: true },
+    );
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        if (isDismissed) return;
+        notification.classList.add("is-visible");
+      });
+    });
+
+    window.dispatchEvent(
+      new CustomEvent("admin:success-notification", {
+        detail: {
+          title,
+          message: text,
+          duration: ADMIN_SUCCESS_NOTIFICATION_DURATION,
+        },
+      }),
+    );
+
+    return notification;
+  };
+
+  const shouldUseAdminSuccessNotification = (message, options = {}) => {
+    if (options.type === "success" || options.variant === "success") return true;
+    if (options.type === "modal" || options.variant === "modal") return false;
+
+    const title = String(options.title || "").trim();
+    const text = String(message || "").trim();
+    if (NON_SUCCESS_PATTERN.test(title) || NON_SUCCESS_PATTERN.test(text)) {
+      return false;
+    }
+    if (title) return SUCCESS_TITLE_PATTERN.test(title);
+    return SUCCESS_MESSAGE_PATTERN.test(text);
+  };
+
+  window.showAdminSuccessNotification = showAdminSuccessNotification;
+
   window.showAdminPopup = (message, options = {}) => {
+    if (shouldUseAdminSuccessNotification(message, options)) {
+      showAdminSuccessNotification(message, { title: "Success!" });
+      if (typeof options.onOk === "function") {
+        window.setTimeout(() => {
+          try {
+            options.onOk();
+          } catch (error) {
+            console.error("Success notification callback failed:", error);
+          }
+        }, 0);
+      }
+      return;
+    }
+
     showAdminSystemPopup(message, {
       title: options.title,
       okText: options.okText,
@@ -1507,6 +1697,7 @@ document.addEventListener("DOMContentLoaded", () => {
       keepOpenWhilePending: Boolean(options.keepOpenWhilePending),
       loadingText: options.loadingText,
       onError: options.onError,
+      onSuccess: options.onSuccess,
       isConfirm: true,
     });
   };
@@ -1515,6 +1706,436 @@ document.addEventListener("DOMContentLoaded", () => {
   window.alert = (message) => {
     window.showAdminPopup(message);
   };
+
+  // Shared bulk-selection controller used by Admin and Staff data tables.
+  // Page scripts own their row rendering and API calls; this controller keeps
+  // selection state, footer controls, and checkbox behavior consistent.
+  const bulkSelectionControllers = new Map();
+  const escapeBulkHtml = (value) =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const resolveBulkElement = (value) => {
+    if (value instanceof Element) return value;
+    if (typeof value === "string") return document.querySelector(value);
+    return null;
+  };
+
+  window.AdminBulkSelection = {
+    create(options = {}) {
+      const key = String(options.key || "").trim();
+      const table = resolveBulkElement(options.table);
+      const footer = resolveBulkElement(options.footer);
+      if (!key || !table || !footer) return null;
+
+      bulkSelectionControllers.get(key)?.destroy?.();
+
+      const selectedIds = new Set();
+      let selectionMode = false;
+      let busy = false;
+      const getId =
+        typeof options.getId === "function"
+          ? options.getId
+          : (row) => row?.id;
+      const getEligibleRows = () => {
+        const rows =
+          typeof options.getEligibleRows === "function"
+            ? options.getEligibleRows()
+            : [];
+        return Array.isArray(rows) ? rows : [];
+      };
+      const getPageRows = () => {
+        const rows =
+          typeof options.getPageRows === "function"
+            ? options.getPageRows()
+            : getEligibleRows();
+        return Array.isArray(rows) ? rows : [];
+      };
+      const normalizeId = (value) => String(value ?? "").trim();
+      const deserializeId = (value) =>
+        typeof options.deserializeId === "function"
+          ? options.deserializeId(value)
+          : /^\d+$/.test(value)
+            ? Number(value)
+            : value;
+      const tableLabel = options.tableLabel || "table records";
+      const idleAction = options.idleAction || {
+        label: `Select ${tableLabel}`,
+        icon: "fa-list-check",
+      };
+      const actions = Array.isArray(options.actions) ? options.actions : [];
+
+      let tools = footer.querySelector(`[data-admin-bulk-tools="${key}"]`);
+      if (!tools) {
+        tools = document.createElement("div");
+        tools.className = "admin-bulk-selection-tools";
+        tools.dataset.adminBulkTools = key;
+        const pagination = footer.querySelector(".table-pagination");
+        footer.insertBefore(tools, pagination || null);
+      }
+
+      table.classList.add("admin-bulk-table");
+
+      const eligibleIdSet = () =>
+        new Set(
+          getEligibleRows()
+            .map((row) => normalizeId(getId(row)))
+            .filter(Boolean),
+        );
+
+      const pageIdSet = (eligible) =>
+        new Set(
+          getPageRows()
+            .map((row) => normalizeId(getId(row)))
+            .filter((id) => id && eligible.has(id)),
+        );
+
+      const prune = () => {
+        const eligible = eligibleIdSet();
+        selectedIds.forEach((id) => {
+          if (!eligible.has(id)) selectedIds.delete(id);
+        });
+        return eligible;
+      };
+
+      const renderTools = (eligible) => {
+        if (!tools) return;
+        const allIds = [...eligible];
+        const allSelected =
+          allIds.length > 0 && allIds.every((id) => selectedIds.has(id));
+
+        if (!selectionMode) {
+          const label = idleAction.label || `Select ${tableLabel}`;
+          tools.innerHTML = `
+            <button type="button" class="btn-admin icon-only-btn admin-bulk-mode-toggle ${escapeBulkHtml(idleAction.className || "")}" data-admin-bulk-enter="${escapeBulkHtml(key)}" data-tooltip="${escapeBulkHtml(label)}" aria-label="${escapeBulkHtml(label)}" title="${escapeBulkHtml(label)}" ${allIds.length && !busy ? "" : "disabled"}>
+              <i class="fa-solid ${escapeBulkHtml(idleAction.icon || "fa-list-check")}" aria-hidden="true"></i>
+            </button>`;
+          return;
+        }
+
+        const actionButtons = actions
+          .map((action) => {
+            const label = action.label || "Apply to selected records";
+            return `
+              <button type="button" class="btn-admin icon-only-btn admin-bulk-action ${escapeBulkHtml(action.className || "")}" data-admin-bulk-action="${escapeBulkHtml(action.key || "default")}" data-tooltip="${escapeBulkHtml(label)}" aria-label="${escapeBulkHtml(label)}" title="${escapeBulkHtml(label)}" ${selectedIds.size && !busy ? "" : "disabled"}>
+                <i class="fa-solid ${escapeBulkHtml(action.icon || "fa-check")}" aria-hidden="true"></i>
+              </button>`;
+          })
+          .join("");
+
+        const selectAllLabel = allSelected
+          ? `Clear all ${allIds.length} selected ${tableLabel}`
+          : `Select all ${allIds.length} matching ${tableLabel} across every page`;
+
+        tools.innerHTML = `
+          <span class="admin-bulk-selection-count">${selectedIds.size} selected</span>
+          <button type="button" class="btn-admin btn-secondary icon-only-btn admin-bulk-select-all-pages${allSelected ? " is-active" : ""}" data-admin-bulk-all="${escapeBulkHtml(key)}" data-tooltip="${escapeBulkHtml(selectAllLabel)}" aria-pressed="${String(allSelected)}" aria-label="${escapeBulkHtml(selectAllLabel)}" title="${escapeBulkHtml(selectAllLabel)}" ${allIds.length && !busy ? "" : "disabled"}>
+            <i class="fa-solid fa-check-double" aria-hidden="true"></i>
+          </button>
+          <button type="button" class="btn-admin btn-secondary icon-only-btn admin-bulk-cancel" data-admin-bulk-cancel="${escapeBulkHtml(key)}" data-tooltip="Cancel selection" aria-label="Cancel selection for ${escapeBulkHtml(tableLabel)}" title="Cancel selection" ${busy ? "disabled" : ""}>
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+          </button>
+          ${actionButtons}`;
+      };
+
+      const sync = () => {
+        const eligible = prune();
+        const visible = pageIdSet(eligible);
+        const selectedVisibleCount = [...visible].filter((id) =>
+          selectedIds.has(id),
+        ).length;
+
+        table.classList.toggle("is-bulk-selecting", selectionMode);
+        table
+          .closest(".panel, .inv-category-card")
+          ?.classList.toggle("is-bulk-selection-mode", selectionMode);
+
+        table
+          .querySelectorAll(`input[data-admin-bulk-row="${key}"]`)
+          .forEach((input) => {
+            const id = normalizeId(input.value || input.dataset.id);
+            input.checked = selectedIds.has(id);
+            input.disabled = busy || !selectionMode || !eligible.has(id);
+          });
+
+        table
+          .querySelectorAll(`input[data-admin-bulk-page="${key}"]`)
+          .forEach((input) => {
+            input.checked =
+              visible.size > 0 && selectedVisibleCount === visible.size;
+            input.indeterminate =
+              selectedVisibleCount > 0 && selectedVisibleCount < visible.size;
+            input.disabled = busy || !selectionMode || visible.size === 0;
+          });
+
+        renderTools(eligible);
+        if (typeof options.onSelectionChange === "function") {
+          options.onSelectionChange({
+            active: selectionMode,
+            selectedIds: [...selectedIds].map(deserializeId),
+          });
+        }
+      };
+
+      const onTableChange = (event) => {
+        const input = event.target;
+        if (!(input instanceof HTMLInputElement)) return;
+
+        if (input.dataset.adminBulkRow === key) {
+          if (!selectionMode) return;
+          const id = normalizeId(input.value || input.dataset.id);
+          if (!id) return;
+          if (input.checked) selectedIds.add(id);
+          else selectedIds.delete(id);
+          sync();
+          return;
+        }
+
+        if (input.dataset.adminBulkPage === key) {
+          if (!selectionMode) return;
+          const eligible = eligibleIdSet();
+          const visible = pageIdSet(eligible);
+          visible.forEach((id) => {
+            if (input.checked) selectedIds.add(id);
+            else selectedIds.delete(id);
+          });
+          sync();
+        }
+      };
+
+      const onToolsClick = (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+
+        if (target.closest(`[data-admin-bulk-enter="${key}"]`)) {
+          selectedIds.clear();
+          selectionMode = true;
+          sync();
+          return;
+        }
+
+        if (target.closest(`[data-admin-bulk-cancel="${key}"]`)) {
+          selectedIds.clear();
+          selectionMode = false;
+          sync();
+          return;
+        }
+
+        if (target.closest(`[data-admin-bulk-all="${key}"]`)) {
+          const eligible = eligibleIdSet();
+          const ids = [...eligible];
+          const allSelected =
+            ids.length > 0 && ids.every((id) => selectedIds.has(id));
+          ids.forEach((id) => {
+            if (allSelected) selectedIds.delete(id);
+            else selectedIds.add(id);
+          });
+          sync();
+          return;
+        }
+
+        const actionButton = target.closest("[data-admin-bulk-action]");
+        if (!actionButton || busy || !selectedIds.size) return;
+        const action = actions.find(
+          (candidate) =>
+            String(candidate.key || "default") ===
+            actionButton.getAttribute("data-admin-bulk-action"),
+        );
+        if (!action || typeof action.onClick !== "function") return;
+        action.onClick(
+          [...selectedIds].map(deserializeId),
+          controller,
+        );
+      };
+
+      const controller = {
+        key,
+        table,
+        footer,
+        sync,
+        isActive: () => selectionMode,
+        getSelectedIds: () => [...selectedIds].map(deserializeId),
+        clear(options = {}) {
+          selectedIds.clear();
+          if (options.exit !== false) selectionMode = false;
+          sync();
+        },
+        setBusy(value) {
+          busy = Boolean(value);
+          sync();
+        },
+        destroy() {
+          table.removeEventListener("change", onTableChange);
+          tools?.removeEventListener("click", onToolsClick);
+          tools?.remove();
+          table.classList.remove("admin-bulk-table", "is-bulk-selecting");
+          bulkSelectionControllers.delete(key);
+        },
+      };
+
+      table.addEventListener("change", onTableChange);
+      tools.addEventListener("click", onToolsClick);
+      bulkSelectionControllers.set(key, controller);
+      sync();
+      return controller;
+    },
+    get(key) {
+      return bulkSelectionControllers.get(String(key || "")) || null;
+    },
+  };
+
+  window.runAdminBulkAction = (options = {}) => {
+    const controller = options.controller;
+    const ids = [
+      ...new Set(
+        (Array.isArray(options.ids) ? options.ids : []).filter(
+          (id) => Number.isInteger(Number(id)) && Number(id) > 0,
+        ),
+      ),
+    ].map(Number);
+    if (!controller || !ids.length || typeof options.execute !== "function") {
+      return;
+    }
+
+    const action = String(options.action || "process").toLowerCase();
+    const tableLabel = String(options.tableLabel || "selected records");
+    const actionLabels = {
+      approve: "approve",
+      archive: "archive",
+      delete: "permanently delete",
+      reject: "reject",
+      restore: "restore",
+    };
+    const pastLabels = {
+      approve: "approved",
+      archive: "archived",
+      delete: "deleted",
+      reject: "rejected",
+      restore: "restored",
+    };
+    const actionLabel = actionLabels[action] || action;
+    const pastLabel = pastLabels[action] || "processed";
+    const irreversibleNote = options.irreversible
+      ? " This permanent deletion cannot be undone."
+      : "";
+    const confirmationMessage =
+      options.confirmMessage ||
+      `Are you sure you want to ${actionLabel} ${ids.length} selected ${tableLabel}?${irreversibleNote}`;
+
+    window.showAdminConfirmPopup?.(confirmationMessage, {
+      title:
+        options.confirmTitle ||
+        `${actionLabel.charAt(0).toUpperCase()}${actionLabel.slice(1)} Selected`,
+      confirmText:
+        options.confirmText ||
+        `${actionLabel.charAt(0).toUpperCase()}${actionLabel.slice(1)}`,
+      cancelText: "Cancel",
+      keepOpenWhilePending: true,
+      loadingText: options.loadingText || "Processing...",
+      onConfirm: async () => {
+        controller.setBusy(true);
+        try {
+          const payload = await options.execute(ids);
+          controller.clear();
+          if (typeof options.afterSuccess === "function") {
+            await options.afterSuccess(payload);
+          }
+          return payload;
+        } finally {
+          controller.setBusy(false);
+        }
+      },
+      onSuccess: (payload = {}) => {
+        const processed = Number(
+          payload.processed_count ?? payload.processed_ids?.length ?? 0,
+        );
+        const skipped = Number(
+          payload.skipped_count ?? payload.skipped_ids?.length ?? 0,
+        );
+        window.showAdminPopup?.(
+          `${tableLabel}: ${processed} ${pastLabel}; ${skipped} skipped.`,
+          {
+            title:
+              options.successTitle ||
+              `${pastLabel.charAt(0).toUpperCase()}${pastLabel.slice(1)} Successfully`,
+          },
+        );
+      },
+      onError: (error) => {
+        window.showAdminPopup?.(
+          error?.message || `Unable to ${actionLabel} the selected records.`,
+          { title: options.errorTitle || "Action Failed" },
+        );
+      },
+    });
+  };
+
+  // Dock Save All Changes bars at the viewport bottom until their natural
+  // page-end position becomes visible. Moving the docked bar to <body> avoids
+  // transformed content containers changing fixed-position behavior.
+  const dockedSaveBars = new Set();
+  let saveBarFrame = 0;
+  const saveBarResizeObserver =
+    typeof window.ResizeObserver === "function"
+      ? new window.ResizeObserver(() => scheduleSaveBarSync())
+      : null;
+
+  const syncDockedSaveBars = () => {
+    saveBarFrame = 0;
+    dockedSaveBars.forEach(({ bar, slot }) => {
+      if (!bar.isConnected || !slot.isConnected) return;
+
+      const slotRect = slot.getBoundingClientRect();
+      const shouldDock = slotRect.top > window.innerHeight - 20;
+
+      if (shouldDock) {
+        if (bar.parentElement !== document.body) document.body.appendChild(bar);
+        bar.classList.add("is-docked");
+        bar.style.left = `${Math.max(12, slotRect.left)}px`;
+        bar.style.width = `${Math.max(0, slotRect.width)}px`;
+        bar.style.bottom = "20px";
+      } else {
+        if (bar.parentElement !== slot) slot.appendChild(bar);
+        bar.classList.remove("is-docked");
+        bar.style.removeProperty("left");
+        bar.style.removeProperty("width");
+        bar.style.removeProperty("bottom");
+      }
+
+      slot.style.minHeight = `${Math.ceil(bar.getBoundingClientRect().height)}px`;
+    });
+  };
+
+  const scheduleSaveBarSync = () => {
+    if (saveBarFrame) return;
+    saveBarFrame = window.requestAnimationFrame(syncDockedSaveBars);
+  };
+
+  const setupDockedSaveBars = (root = document) => {
+    root.querySelectorAll?.(".wm-save-bar[data-dock-save-bar]").forEach((bar) => {
+      if (bar.dataset.dockReady === "1") return;
+      const slot = document.createElement("div");
+      slot.className = "wm-save-bar-slot";
+      bar.parentNode?.insertBefore(slot, bar);
+      slot.appendChild(bar);
+      bar.dataset.dockReady = "1";
+      dockedSaveBars.add({ bar, slot });
+      saveBarResizeObserver?.observe(slot);
+      saveBarResizeObserver?.observe(bar);
+      const content = slot.closest(".module-content, .main-content");
+      if (content) saveBarResizeObserver?.observe(content);
+    });
+    scheduleSaveBarSync();
+  };
+
+  window.refreshAdminDockedSaveBars = setupDockedSaveBars;
+  window.addEventListener("scroll", scheduleSaveBarSync, { passive: true });
+  window.addEventListener("resize", scheduleSaveBarSync);
+  setupDockedSaveBars();
 
   syncSidebarMode();
 

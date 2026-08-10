@@ -79,6 +79,14 @@
         background: #f3e8ff;
         color: #7e22ce;
       }
+      .badge-promotion {
+        background: #ffedd5;
+        color: #c2410c;
+      }
+      .badge-announcement {
+        background: #fce7f3;
+        color: #be185d;
+      }
       .inv-name-cell {
         display: flex;
         align-items: center;
@@ -283,7 +291,8 @@
             <div class="toolbar-title">
               <h2>Archives</h2>
               <p>
-                All archived records from Inventory, Appointments, and Orders.
+                All archived records from Inventory, Appointments, Orders,
+                Promotions, and Announcements.
                 Archived items are removed from their source pages.
               </p>
             </div>
@@ -307,6 +316,14 @@
             <button class="archive-tab-btn" data-tab="order">
               <i class="fa-solid fa-box-open"></i> Orders
               <span class="tab-count" id="tabCountOrder">0</span>
+            </button>
+            <button class="archive-tab-btn" data-tab="promotion">
+              <i class="fa-solid fa-tags"></i> Promotions
+              <span class="tab-count" id="tabCountPromotion">0</span>
+            </button>
+            <button class="archive-tab-btn" data-tab="announcement">
+              <i class="fa-solid fa-bell"></i> Announcements
+              <span class="tab-count" id="tabCountAnnouncement">0</span>
             </button>
           </div>
 
@@ -336,9 +353,12 @@
                 see all columns.
               </div>
               <div class="table-wrapper">
-                <table class="admin-table inventory-table">
+                <table class="admin-table inventory-table" id="inventoryArchiveTable">
                   <thead>
                     <tr>
+                      <th class="admin-bulk-select-cell">
+                        <input type="checkbox" data-admin-bulk-page="archive-inventory" aria-label="Select all archived inventory items on this page" />
+                      </th>
                       <th>No.</th>
                       <th>Item Name</th>
                       <th>Description</th>
@@ -353,7 +373,7 @@
                   </thead>
                   <tbody id="invArchiveTbody">
                     <tr>
-                      <td colspan="9">
+                      <td colspan="11">
                         <div style="display: grid; gap: 8px">
                           <div
                             class="skeleton-text"
@@ -405,9 +425,12 @@
                 see all columns.
               </div>
               <div class="table-wrapper">
-                <table class="admin-table inventory-table">
+                <table class="admin-table inventory-table" id="appointmentArchiveTable">
                   <thead>
                     <tr>
+                      <th class="admin-bulk-select-cell">
+                        <input type="checkbox" data-admin-bulk-page="archive-appointment" aria-label="Select all archived appointments on this page" />
+                      </th>
                       <th>AP-No</th>
                       <th>Client Name</th>
                       <th>Contact Number</th>
@@ -424,7 +447,7 @@
                   </thead>
                   <tbody id="apptArchiveTbody">
                     <tr>
-                      <td colspan="11">
+                      <td colspan="13">
                         <div style="display: grid; gap: 8px">
                           <div
                             class="skeleton-text"
@@ -475,9 +498,12 @@
                 see all columns.
               </div>
               <div class="table-wrapper">
-                <table class="admin-table inventory-table">
+                <table class="admin-table inventory-table" id="orderArchiveTable">
                   <thead>
                     <tr>
+                      <th class="admin-bulk-select-cell">
+                        <input type="checkbox" data-admin-bulk-page="archive-order" aria-label="Select all archived orders on this page" />
+                      </th>
                       <th>Order No.</th>
                       <th>Order Item</th>
                       <th>Date</th>
@@ -491,7 +517,7 @@
                   </thead>
                   <tbody id="orderArchiveTbody">
                     <tr>
-                      <td colspan="8">
+                      <td colspan="10">
                         <div style="display: grid; gap: 8px">
                           <div
                             class="skeleton-text"
@@ -525,41 +551,89 @@
               </div>
             </div>
           </div>
+
+
+          <div class="archive-section" id="sectionPromotion">
+            <div class="panel">
+              <div class="panel-header">
+                <h3>
+                  <span class="archive-badge badge-promotion"><i class="fa-solid fa-tags"></i> Promotions</span>
+                  &nbsp;Archived Product Promotions
+                </h3>
+              </div>
+              <div class="table-wrapper">
+                <table class="admin-table inventory-table" id="promotionArchiveTable">
+                  <thead>
+                    <tr>
+                      <th class="admin-bulk-select-cell">
+                        <input type="checkbox" data-admin-bulk-page="archive-promotion" aria-label="Select all archived promotions on this page" />
+                      </th>
+                      <th>Campaign Name</th>
+                      <th>Discount</th>
+                      <th>Applies To</th>
+                      <th>Schedule</th>
+                      <th>Enabled State</th>
+                      <th>Date Archived</th>
+                      <th class="sticky-action">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="promotionArchiveTbody"></tbody>
+                </table>
+              </div>
+              <div class="table-footer" id="promotionArchiveFooter">
+                <div class="table-footer-meta" id="promotionArchiveMeta">—</div>
+                <div class="table-pagination">
+                  <button class="page-btn" id="promotionArchivePrevBtn" aria-label="Previous promotion archives page"><i class="fa-solid fa-chevron-left"></i></button>
+                  <div class="page-number" id="promotionArchiveCurrentPage">1</div>
+                  <button class="page-btn" id="promotionArchiveNextBtn" aria-label="Next promotion archives page"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="archive-section" id="sectionAnnouncement">
+            <div class="panel">
+              <div class="panel-header">
+                <h3>
+                  <span class="archive-badge badge-announcement"><i class="fa-solid fa-bell"></i> Announcements</span>
+                  &nbsp;Archived Visitor Announcements
+                </h3>
+              </div>
+              <div class="table-wrapper">
+                <table class="admin-table inventory-table" id="announcementArchiveTable">
+                  <thead>
+                    <tr>
+                      <th class="admin-bulk-select-cell">
+                        <input type="checkbox" data-admin-bulk-page="archive-announcement" aria-label="Select all archived announcements on this page" />
+                      </th>
+                      <th>Headline</th>
+                      <th>Placement</th>
+                      <th>Message</th>
+                      <th>Schedule</th>
+                      <th>Enabled State</th>
+                      <th>Date Archived</th>
+                      <th class="sticky-action">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="announcementArchiveTbody"></tbody>
+                </table>
+              </div>
+              <div class="table-footer" id="announcementArchiveFooter">
+                <div class="table-footer-meta" id="announcementArchiveMeta">—</div>
+                <div class="table-pagination">
+                  <button class="page-btn" id="announcementArchivePrevBtn" aria-label="Previous announcement archives page"><i class="fa-solid fa-chevron-left"></i></button>
+                  <div class="page-number" id="announcementArchiveCurrentPage">1</div>
+                  <button class="page-btn" id="announcementArchiveNextBtn" aria-label="Next announcement archives page"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
       </main>
     </div>
 
     <script src="session-helper.js"></script>
     <script src="admin-common.js"></script>
-    <div
-      class="modal-overlay"
-      id="modalRestoreRecord"
-      data-backdrop-close="false"
-    >
-      <div class="modal-card modal-confirm">
-        <h3 class="modal-title">Restore Confirmation</h3>
-        <hr class="confirm-separator" />
-        <p class="confirm-text">
-          You are about to restore <strong id="restoreTargetLabel"></strong>.
-        </p>
-        <p class="field-hint">
-          This record will be moved back to its original table.
-        </p>
-        <hr class="confirm-separator" />
-        <div class="modal-actions">
-          <button
-            class="btn-admin btn-secondary"
-            data-modal-close="#modalRestoreRecord"
-            type="button"
-          >
-            Cancel
-          </button>
-          <button class="btn-admin" id="btnConfirmRestore" type="button">
-            Restore Record
-          </button>
-        </div>
-      </div>
-    </div>
 
     <script src="archives.js"></script>
   </body>

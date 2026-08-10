@@ -44,6 +44,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const prevBtn = document.getElementById("appointmentsPrevPage");
   const nextBtn = document.getElementById("appointmentsNextPage");
   const searchInput = document.getElementById("appointmentSearchInput");
+  const appointmentsTable = document.getElementById("appointmentsTable");
+  const appointmentsTableFooter = document.getElementById(
+    "appointmentsTableFooter",
+  );
 
   const tableWrapper = document.querySelector(".table-wrapper");
 
@@ -113,6 +117,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let activeTimePickerContext = null;
   let viewingAppointment = null;
   let archivingAppointmentId = null;
+  let appointmentBulkController = null;
 
   const state = {
     appointments: [],
@@ -593,6 +598,7 @@ document.addEventListener("DOMContentLoaded", () => {
               : `<span class="photo-link">${fileName}</span>`;
 
         return `<tr>
+          <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="appointments" value="${item.id}" aria-label="Select ${formatApNo(item.reference_no)}" /></td>
           <td>${formatApNo(item.reference_no)}</td>
           <td title="${safe(item.client_name)}">${safe(item.client_name)}</td>
           <td>${safe(item.contact_number)}</td>
@@ -614,7 +620,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .join("");
 
     if (!pagedItems.length) {
-      tableBody.innerHTML = `<tr class="table-empty-row"><td colspan="13"><div class="table-empty-state"><i class="fa-regular fa-folder-open"></i><span>No appointment records found.</span></div></td></tr>`;
+      tableBody.innerHTML = `<tr class="table-empty-row"><td colspan="14"><div class="table-empty-state"><i class="fa-regular fa-folder-open"></i><span>No appointment records found.</span></div></td></tr>`;
     }
 
     if (tableMeta) {
@@ -628,6 +634,84 @@ document.addEventListener("DOMContentLoaded", () => {
     if (currentPageEl) currentPageEl.textContent = String(currentPage);
     if (prevBtn) prevBtn.disabled = currentPage <= 1;
     if (nextBtn) nextBtn.disabled = currentPage >= pageCount;
+    appointmentBulkController?.sync();
+  };
+
+  const appointmentIsArchiveEligible = (item) =>
+    !["cancelled", "archived"].includes(
+      String(item?.status || "").toLowerCase(),
+    );
+
+  const setupAppointmentBulkSelection = () => {
+    appointmentBulkController = window.AdminBulkSelection?.create({
+      key: "appointments",
+      table: appointmentsTable,
+      footer: appointmentsTableFooter,
+      tableLabel: "Client Appointments",
+      getEligibleRows: () =>
+        filteredAppointments().filter(appointmentIsArchiveEligible),
+      getPageRows: () => {
+        const rowsPerPage = calculateRowsPerPage();
+        const start = (currentPage - 1) * rowsPerPage;
+        return filteredAppointments().slice(start, start + rowsPerPage);
+      },
+      idleAction: {
+        label: "Select appointments to archive",
+        icon: "fa-box-archive",
+      },
+      actions: [
+        {
+          key: "archive",
+          label: "Archive selected appointments",
+          icon: "fa-box-archive",
+          onClick: (ids, controller) => {
+            window.runAdminBulkAction?.({
+              controller,
+              ids,
+              action: "archive",
+              tableLabel: "Client Appointments records",
+              loadingText: "Archiving...",
+              execute: async (selectedIds) => {
+                const authToken =
+                  window.AdminSession?.getToken?.() ||
+                  localStorage.getItem("auth_token") ||
+                  localStorage.getItem("admin_auth_token") ||
+                  localStorage.getItem("staff_auth_token") ||
+                  "";
+                const response = await fetch(
+                  `${API_BASE_URL}/appointments/archive-bulk`,
+                  {
+                    method: "PATCH",
+                    headers: {
+                      Authorization: `Bearer ${authToken}`,
+                      Accept: "application/json",
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ ids: selectedIds }),
+                  },
+                );
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                  throw new Error(
+                    payload?.message ||
+                      "Failed to archive selected appointments.",
+                  );
+                }
+                return payload;
+              },
+              afterSuccess: async () => {
+                window.dispatchEvent(
+                  new CustomEvent("fmrc:appointments-updated", {
+                    detail: { type: "archived-bulk" },
+                  }),
+                );
+                await refreshAll();
+              },
+            });
+          },
+        },
+      ],
+    });
   };
 
   const updateDayButtonState = () => {
@@ -1480,6 +1564,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   ensureSlotManagerUi();
+  setupAppointmentBulkSelection();
   const btnSaveSlot = document.getElementById("btnSaveSlot");
   const btnOpenGlobalTimePicker = document.getElementById(
     "btnOpenGlobalTimePicker",

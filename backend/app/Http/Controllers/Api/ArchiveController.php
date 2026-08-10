@@ -4,11 +4,15 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
+use App\Models\Announcement;
 use App\Models\InventoryItem;
 use App\Models\Order;
+use App\Models\Promotion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 
 class ArchiveController extends Controller
 {
@@ -26,6 +30,8 @@ class ArchiveController extends Controller
         $inventory   = collect();
         $appointments = collect();
         $orders      = collect();
+        $promotions  = collect();
+        $announcements = collect();
 
         try {
             // ── Inventory Items ────────────────────────────────────────────────
@@ -136,10 +142,127 @@ class ArchiveController extends Controller
             Log::error('ArchiveController: orders fetch failed', ['error' => $e->getMessage()]);
         }
 
+        try {
+            if ($module === 'all' || $module === 'promotion') {
+                $promotions = Promotion::query()
+                    ->where('is_archived', true)
+                    ->orderByDesc('archived_at')
+                    ->get()
+                    ->map(fn (Promotion $promotion) => [
+                        'id' => 'promo-' . $promotion->id,
+                        'source_id' => $promotion->id,
+                        'module' => 'promotion',
+                        'title' => $promotion->title,
+                        'discount_percent' => (int) $promotion->discount_percent,
+                        'scope' => $promotion->scope,
+                        'product_ids' => $promotion->product_ids ?? [],
+                        'starts_at' => $promotion->starts_at?->toIso8601String(),
+                        'ends_at' => $promotion->ends_at?->toIso8601String(),
+                        'is_enabled' => (bool) $promotion->is_enabled,
+                        'status' => $promotion->status(),
+                        'archived_at' => $promotion->archived_at?->toIso8601String(),
+                    ]);
+            }
+        } catch (\Throwable $e) {
+            Log::error('ArchiveController: promotions fetch failed', ['error' => $e->getMessage()]);
+        }
+
+        try {
+            if ($module === 'all' || $module === 'announcement') {
+                $announcements = Announcement::query()
+                    ->where('is_archived', true)
+                    ->orderByDesc('archived_at')
+                    ->get()
+                    ->map(fn (Announcement $announcement) => [
+                        'id' => 'announcement-' . $announcement->id,
+                        'source_id' => $announcement->id,
+                        'module' => 'announcement',
+                        'title' => $announcement->title,
+                        'message' => $announcement->message,
+                        'placement' => $announcement->placement,
+                        'starts_at' => $announcement->starts_at?->toIso8601String(),
+                        'ends_at' => $announcement->ends_at?->toIso8601String(),
+                        'is_enabled' => (bool) $announcement->is_enabled,
+                        'status' => $announcement->status(),
+                        'archived_at' => $announcement->archived_at?->toIso8601String(),
+                    ]);
+            }
+        } catch (\Throwable $e) {
+            Log::error('ArchiveController: announcements fetch failed', ['error' => $e->getMessage()]);
+        }
+
         return response()->json([
             'inventory'    => $inventory->values(),
             'appointments' => $appointments->values(),
             'orders'       => $orders->values(),
+            'promotions'   => $promotions->values(),
+            'announcements'=> $announcements->values(),
+        ]);
+    }
+
+    public function restoreBulk(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user || !in_array($user->role, self::ALLOWED_ADMIN_ROLES, true)) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $validated = $request->validate([
+            'module' => ['required', 'string', Rule::in(['inventory', 'appointment', 'order', 'promotion', 'announcement'])],
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'min:1', 'distinct'],
+        ]);
+
+        $module = $validated['module'];
+        $ids = collect($validated['ids'])->map(fn ($id) => (int) $id)->unique()->values()->all();
+
+        $restoredIds = DB::transaction(function () use ($module, $ids): array {
+            $now = now();
+            $query = match ($module) {
+                'inventory' => InventoryItem::query()->whereIn('id', $ids)->where('is_archived', true),
+                'appointment' => Appointment::query()->whereIn('id', $ids)->where('status', 'Archived'),
+                'order' => Order::query()->whereIn('id', $ids)->where('is_archived', true),
+                'promotion' => Promotion::query()->whereIn('id', $ids)->where('is_archived', true),
+                'announcement' => Announcement::query()->whereIn('id', $ids)->where('is_archived', true),
+            };
+
+            $eligibleIds = (clone $query)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
+
+            if (!$eligibleIds) {
+                return [];
+            }
+
+            $updates = match ($module) {
+                'inventory', 'order', 'promotion', 'announcement' => [
+                    'is_archived' => false,
+                    'archived_at' => null,
+                    'updated_at' => $now,
+                ],
+                'appointment' => [
+                    'status' => 'Pending',
+                    'updated_at' => $now,
+                ],
+            };
+
+            $query->whereIn('id', $eligibleIds)->update($updates);
+            return $eligibleIds;
+        });
+
+        if (!$restoredIds) {
+            return response()->json(['message' => 'No archived records were found to restore in this section.'], 404);
+        }
+
+        return response()->json([
+            'action' => 'restore',
+            'scope' => $module,
+            'processed_ids' => $restoredIds,
+            'processed_count' => count($restoredIds),
+            'skipped_ids' => array_values(array_diff($ids, $restoredIds)),
+            'message' => count($restoredIds) . ' archived record(s) restored successfully.',
         ]);
     }
 }

@@ -93,12 +93,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnCloseView = document.getElementById("btnCloseViewInv");
   const btnEditFromView = document.getElementById("btnEditFromViewInv");
 
-  // Archive modal
-  const modalDelete = document.getElementById("modalArchiveInventoryItem");
-  const invDeleteLabel = document.getElementById("invArchiveTargetLabel");
-  const btnCancelDelete = document.getElementById("btnCancelArchiveInv");
-  const btnConfirmDelete = document.getElementById("btnConfirmArchiveInv");
-
   // Deduct modal refs
   const modalDeduct = document.getElementById("modalDeductInventoryItem");
   const deductCategory = document.getElementById("deductCategory");
@@ -122,9 +116,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // ─── State ────────────────────────────────────────────────────────────────────
   let allItems = [];
   let editingItemId = null;
-  let archivingItemId = null;
-  let deletingItemId = null;
   let viewingItemId = null;
+  const selectedInventoryIdsByCategory = new Map(
+    CATEGORIES.map((category) => [category, new Set()]),
+  );
+  const categoriesInSelectionMode = new Set();
   const deductMetaByItemId = new Map();
   const deductMetaByVariantId = new Map();
   let activeDeductItem = null;
@@ -364,12 +360,153 @@ document.addEventListener("DOMContentLoaded", () => {
     if (metricLow) metricLow.textContent = String(summary?.low_stock ?? 0);
   };
 
+  const getCategoryPageState = (category) => {
+    const items = getFilteredItemsByCategory(category);
+    const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+    const requestedPage = Number(categoryPages[category] || 1);
+    const page = Number.isFinite(requestedPage)
+      ? Math.min(Math.max(requestedPage, 1), totalPages)
+      : 1;
+    const start = (page - 1) * PAGE_SIZE;
+
+    categoryPages[category] = page;
+
+    return {
+      items,
+      totalPages,
+      page,
+      start,
+      paged: items.slice(start, start + PAGE_SIZE),
+    };
+  };
+
+  const getCategoryCardId = (category) =>
+    `inv-cat-${category.replace(/\s+/g, "-").toLowerCase()}`;
+
+  const getCategorySelection = (category) => {
+    if (!selectedInventoryIdsByCategory.has(category)) {
+      selectedInventoryIdsByCategory.set(category, new Set());
+    }
+    return selectedInventoryIdsByCategory.get(category);
+  };
+
+  const syncSelectedInventoryIds = () => {
+    CATEGORIES.forEach((category) => {
+      const availableIds = new Set(
+        allItems
+          .filter((item) => item.category === category)
+          .map((item) => Number(item.id)),
+      );
+      const selectedIds = getCategorySelection(category);
+      selectedIds.forEach((id) => {
+        if (!availableIds.has(Number(id))) selectedIds.delete(id);
+      });
+    });
+  };
+
+  const updateSelectionUi = (onlyCategory = "") => {
+    const categories = onlyCategory ? [onlyCategory] : CATEGORIES;
+
+    categories.forEach((category) => {
+      const card = document.getElementById(getCategoryCardId(category));
+      if (!card) return;
+
+      const isSelectionMode = categoriesInSelectionMode.has(category);
+      const selectedIds = getCategorySelection(category);
+      const selectedCount = selectedIds.size;
+      const allTableIds = allItems
+        .filter((item) => item.category === category)
+        .map((item) => Number(item.id));
+      const allTableItemsSelected =
+        allTableIds.length > 0 &&
+        allTableIds.every((id) => selectedIds.has(id));
+
+      card.classList.toggle("is-selection-mode", isSelectionMode);
+      card
+        .querySelector(".inventory-table")
+        ?.classList.toggle("is-selecting", isSelectionMode);
+
+      card.querySelectorAll("[data-inv-select]").forEach((input) => {
+        const id = Number(input.getAttribute("data-inv-select"));
+        input.checked = selectedIds.has(id);
+        input.disabled = !isSelectionMode;
+      });
+
+      const selectAllInput = card.querySelector("[data-inv-select-all]");
+      const visibleIds = getCategoryPageState(category).paged.map((item) =>
+        Number(item.id),
+      );
+      const selectedVisibleCount = visibleIds.filter((id) =>
+        selectedIds.has(id),
+      ).length;
+
+      if (selectAllInput) {
+        selectAllInput.checked =
+          visibleIds.length > 0 && selectedVisibleCount === visibleIds.length;
+        selectAllInput.indeterminate =
+          selectedVisibleCount > 0 && selectedVisibleCount < visibleIds.length;
+        selectAllInput.disabled = !isSelectionMode || visibleIds.length === 0;
+      }
+
+      const countLabel = card.querySelector("[data-inv-selection-count]");
+      if (countLabel) {
+        countLabel.textContent = `${selectedCount} selected`;
+      }
+
+      const selectAllPagesButton = card.querySelector(
+        "[data-inv-select-all-pages]",
+      );
+      if (selectAllPagesButton) {
+        const totalPages = Math.max(
+          1,
+          Math.ceil(allTableIds.length / PAGE_SIZE),
+        );
+        const label = allTableItemsSelected
+          ? `Clear all ${category} selections`
+          : `Select all ${allTableIds.length} ${category} item${allTableIds.length === 1 ? "" : "s"} across ${totalPages} page${totalPages === 1 ? "" : "s"}`;
+        selectAllPagesButton.disabled = allTableIds.length === 0;
+        selectAllPagesButton.classList.toggle(
+          "is-active",
+          allTableItemsSelected,
+        );
+        selectAllPagesButton.setAttribute(
+          "aria-pressed",
+          String(allTableItemsSelected),
+        );
+        selectAllPagesButton.setAttribute("aria-label", label);
+        selectAllPagesButton.setAttribute("title", label);
+      }
+
+      const archiveButton = card.querySelector(
+        "[data-inv-archive-selected]",
+      );
+      if (archiveButton) {
+        archiveButton.disabled = selectedCount === 0;
+        const label = selectedCount
+          ? `Archive ${selectedCount} selected ${category} item${selectedCount === 1 ? "" : "s"}`
+          : `Select ${category} items to archive`;
+        archiveButton.setAttribute("aria-label", label);
+        archiveButton.setAttribute("title", label);
+      }
+    });
+  };
+
+  const goToCategoryPage = (category, rawPage) => {
+    const { totalPages } = getCategoryPageState(category);
+    const raw = String(rawPage ?? "").trim();
+    const parsed = /^\d+$/.test(raw) ? Number(raw) : categoryPages[category] || 1;
+    categoryPages[category] = Math.min(Math.max(parsed, 1), totalPages);
+    renderCategoryTable(category);
+  };
+
   // ─── Render one category table ────────────────────────────────────────────────
   const renderCategoryTable = (category) => {
-    const containerId = `inv-cat-${category.replace(/\s+/g, "-").toLowerCase()}`;
+    const containerId = getCategoryCardId(category);
     let card = document.getElementById(containerId);
     const items = getFilteredItemsByCategory(category);
     const filterCat = categoryFilter?.value || "all";
+    const isSelectionMode = categoriesInSelectionMode.has(category);
+    const selectedIds = getCategorySelection(category);
 
     // Hide entire card if a specific category is selected and doesn't match
     if (filterCat !== "all" && filterCat !== category) {
@@ -384,18 +521,16 @@ document.addEventListener("DOMContentLoaded", () => {
       categoryTablesWrap?.appendChild(card);
     }
     card.style.display = "";
+    card.dataset.inventoryCategory = category;
+    card.classList.toggle("is-selection-mode", isSelectionMode);
 
     const icon = CATEGORY_ICONS[category] || "fa-box";
-    const page = categoryPages[category] || 1;
-    const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
-    const validPage = Math.min(page, totalPages);
-    categoryPages[category] = validPage;
-    const start = (validPage - 1) * PAGE_SIZE;
-    const paged = items.slice(start, start + PAGE_SIZE);
+    const { totalPages, page: validPage, start, paged } =
+      getCategoryPageState(category);
 
     let tableRows = "";
     if (!paged.length) {
-      tableRows = `<tr class="table-empty-row"><td colspan="8"><div class="table-empty-state"><i class="fa-regular fa-folder-open"></i><span>No items found in this category.</span></div></td></tr>`;
+      tableRows = `<tr class="table-empty-row"><td colspan="${isSelectionMode ? 9 : 8}"><div class="table-empty-state"><i class="fa-regular fa-folder-open"></i><span>No items found in this category.</span></div></td></tr>`;
     } else {
       const rows = [];
       paged.forEach((item, idx) => {
@@ -425,6 +560,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         rows.push(`
           <tr${hasVariants ? ' class="inv-has-variants"' : ""}>
+            <td class="inv-select-cell"><input type="checkbox" data-inv-select="${item.id}" data-inv-category="${escHtml(category)}" aria-label="Select ${escHtml(item.item_name)}" ${selectedIds.has(Number(item.id)) ? "checked" : ""}></td>
             <td>${rowNum}</td>
             <td title="${escHtml(item.item_name)}">${itemNameHtml}</td>
             <td title="${hasVariants ? "" : escHtml(item.description || "")}">${baseDescriptionHtml}</td>
@@ -450,6 +586,7 @@ document.addEventListener("DOMContentLoaded", () => {
               : `<span style="color:#9ca3af;font-size:0.75rem;">—</span>`;
             rows.push(`
               <tr class="inv-variant-row" data-variant-parent="${item.id}" style="display:none;">
+                <td aria-hidden="true"></td>
                 <td>&nbsp;</td>
                 <td title="${escHtml(variant.name || "")}">
                   <span class="inv-variant-name">
@@ -473,6 +610,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const from = items.length ? start + 1 : 0;
     const to = items.length ? Math.min(items.length, start + PAGE_SIZE) : 0;
+    const selectedCount = selectedIds.size;
+    const selectionControls = isSelectionMode
+      ? `
+          <span class="inv-selection-count" data-inv-selection-count>${selectedCount} selected</span>
+          <button type="button" class="btn-admin btn-secondary icon-only-btn inv-select-all-pages" data-inv-select-all-pages="${escHtml(category)}" aria-label="Select every ${escHtml(category)} item across all pages" aria-pressed="false" title="Select all items across every page">
+            <i class="fa-solid fa-check-double" aria-hidden="true"></i>
+          </button>
+          <button type="button" class="btn-admin btn-secondary icon-only-btn inv-selection-cancel" data-inv-selection-cancel="${escHtml(category)}" aria-label="Cancel archive selection for ${escHtml(category)}" title="Cancel selection">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+          </button>
+          <button type="button" class="btn-admin icon-only-btn inv-archive-selected" data-inv-archive-selected="${escHtml(category)}" aria-label="Archive selected ${escHtml(category)} items" title="Archive selected items" ${selectedCount ? "" : "disabled"}>
+            <i class="fa-solid fa-box-archive" aria-hidden="true"></i>
+          </button>`
+      : `
+          <button type="button" class="btn-admin icon-only-btn inv-selection-toggle" data-inv-selection-toggle="${escHtml(category)}" aria-label="Select ${escHtml(category)} items to archive" title="Archive selected items">
+            <i class="fa-solid fa-box-archive" aria-hidden="true"></i>
+          </button>`;
 
     card.innerHTML = `
       <div class="inv-category-header">
@@ -489,9 +643,10 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
       <div class="inv-category-body">
         <div class="table-wrapper">
-          <table class="admin-table inventory-table inv-table">
+            <table class="admin-table inventory-table inv-table${isSelectionMode ? " is-selecting" : ""}">
             <thead>
               <tr>
+                <th class="inv-select-cell"><input type="checkbox" data-inv-select-all="${escHtml(category)}" aria-label="Select visible ${escHtml(category)} items"></th>
                 <th>No.</th>
                 <th>Item Name</th>
                 <th>Description</th>
@@ -506,15 +661,22 @@ document.addEventListener("DOMContentLoaded", () => {
           </table>
         </div>
         <div class="inv-cat-footer">
-          <span>Page ${validPage} of ${totalPages} &bull; Showing ${from}&ndash;${to} of ${items.length}</span>
-          <div class="table-pagination">
+          <div class="inv-cat-footer-meta">Page ${validPage} of ${totalPages} &bull; Showing ${from}&ndash;${to} of ${items.length}</div>
+          <div class="inv-cat-footer-actions">
+            <div class="inv-selection-tools">
+              ${selectionControls}
+            </div>
+            <div class="table-pagination">
             <button class="page-btn" data-cat-prev="${category}" ${validPage <= 1 ? "disabled" : ""}><i class="fa-solid fa-chevron-left"></i></button>
-            <div class="page-number">${validPage}</div>
+            <input class="page-number inv-page-number" data-cat-page="${escHtml(category)}" type="number" min="1" max="${totalPages}" value="${validPage}" inputmode="numeric" aria-label="Go to page for ${escHtml(category)}">
             <button class="page-btn" data-cat-next="${category}" ${validPage >= totalPages ? "disabled" : ""}><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
           </div>
         </div>
       </div>
     `;
+
+    updateSelectionUi(category);
   };
 
   // ─── Render all category tables ───────────────────────────────────────────────
@@ -528,7 +690,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const renderSkeletonTables = () => {
     if (!categoryTablesWrap) return;
     categoryTablesWrap.innerHTML = CATEGORIES.map((category) => {
-      const containerId = `inv-cat-${category.replace(/\s+/g, "-").toLowerCase()}`;
+      const containerId = getCategoryCardId(category);
       const icon = CATEGORY_ICONS[category] || "fa-box";
       const skeletonRows = Array.from({ length: SKELETON_ROWS_PER_TABLE })
         .map(
@@ -570,11 +732,18 @@ document.addEventListener("DOMContentLoaded", () => {
               </table>
             </div>
             <div class="inv-cat-footer">
-              <span><div class="inv-skeleton-cell" style="width:130px;height:10px;display:inline-block;"></div></span>
-              <div class="table-pagination">
+              <div class="inv-cat-footer-meta"><div class="inv-skeleton-cell" style="width:130px;height:10px;display:inline-block;"></div></div>
+              <div class="inv-cat-footer-actions">
+                <div class="inv-selection-tools">
+                  <button class="btn-admin icon-only-btn inv-selection-toggle" type="button" disabled aria-label="Loading archive selection">
+                    <i class="fa-solid fa-box-archive" aria-hidden="true"></i>
+                  </button>
+                </div>
+                <div class="table-pagination">
                 <button class="page-btn" disabled><i class="fa-solid fa-chevron-left"></i></button>
-                <div class="page-number">1</div>
+                <input class="page-number inv-page-number" type="number" value="1" disabled aria-label="Current page">
                 <button class="page-btn" disabled><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
               </div>
             </div>
           </div>
@@ -618,6 +787,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!res.ok) throw new Error("Failed to load inventory");
       const payload = await res.json();
       allItems = Array.isArray(payload?.data) ? payload.data : [];
+      syncSelectedInventoryIds();
       if (payload?.summary) updateMetrics(payload.summary);
       renderAllTables();
     } catch (err) {
@@ -1295,6 +1465,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       closeModal(modalForm);
       resetForm();
+      if (!isEditing) {
+        CATEGORIES.forEach((categoryName) => {
+          categoryPages[categoryName] = 1;
+        });
+      }
       await loadInventory();
       setTimeout(() => {
         showPopup(
@@ -1413,66 +1588,121 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ─── Archive ──────────────────────────────────────────────────────────────────
-  const openArchiveModal = (item) => {
-    archivingItemId = item.id;
-    if (invDeleteLabel)
-      invDeleteLabel.textContent = item.item_name || "this item";
-    openModal(modalDelete);
+  const requestBulkArchive = async (category, ids) => {
+    const res = await fetch(`${API_BASE_URL}/admin/inventory/archive-bulk`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ category, ids }),
+    });
+
+    const payload = await res.json().catch(() => ({}));
+    if (res.status === 401 || res.status === 403) {
+      const authError = new Error(
+        "Session expired or unauthorized. Please login again.",
+      );
+      authError.isAuthError = true;
+      setUnauthorized();
+      throw authError;
+    }
+    if (!res.ok) {
+      throw new Error(payload?.message || "Failed to archive inventory items.");
+    }
+
+    const archivedIds = Array.isArray(payload?.archived_ids)
+      ? payload.archived_ids.map((id) => Number(id))
+      : ids;
+
+    return {
+      count: Number(payload?.archived_count) || archivedIds.length,
+      archivedIds,
+      skipped: Array.isArray(payload?.skipped_ids) ? payload.skipped_ids : [],
+    };
   };
 
-  btnCancelDelete?.addEventListener("click", () => {
-    closeModal(modalDelete);
-    archivingItemId = null;
-  });
+  const openArchiveConfirmation = (category, ids, options = {}) => {
+    if (!CATEGORIES.includes(category)) return;
 
-  btnConfirmDelete?.addEventListener("click", async () => {
-    if (!archivingItemId) return;
-    btnConfirmDelete.disabled = true;
-    btnConfirmDelete.innerHTML =
-      '<i class="fa-solid fa-spinner fa-spin"></i> Archiving…';
+    const uniqueIds = [
+      ...new Set(
+        ids
+          .map((id) => Number(id))
+          .filter((id) => {
+            const item = allItems.find(
+              (candidate) => Number(candidate.id) === id,
+            );
+            return Boolean(item && item.category === category);
+          }),
+      ),
+    ];
+    if (!uniqueIds.length) return;
 
-    try {
-      const res = await fetch(
-        `${API_BASE_URL}/admin/inventory/${archivingItemId}/archive`,
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
-          },
-        },
+    const targetItems = uniqueIds
+      .map((id) => allItems.find((item) => Number(item.id) === id))
+      .filter(Boolean);
+    const count = targetItems.length;
+    const targetLabel =
+      count === 1
+        ? `“${targetItems[0]?.item_name || "this item"}”`
+        : `${count} selected items`;
+    const message = `Are you sure you want to archive ${targetLabel} from Inventory of ${category}? Only the selected item${count === 1 ? "" : "s"} in this table will be moved to Archives.`;
+
+    const showArchiveSuccess = (result) => {
+      const skippedCount = result.skipped.length;
+      const skippedText = skippedCount
+        ? ` ${skippedCount} item${skippedCount === 1 ? " was" : "s were"} skipped because ${skippedCount === 1 ? "it was" : "they were"} no longer active in this table.`
+        : "";
+      showPopup(
+        `${result.count} ${category} item${result.count === 1 ? " has" : "s have"} been archived successfully.${skippedText}`,
+        { title: "Inventory Archived" },
       );
-      if (res.status === 401 || res.status === 403) {
-        setUnauthorized();
-        return;
+    };
+
+    const executeArchive = async () => {
+      const result = await requestBulkArchive(category, uniqueIds);
+      const selectedIds = getCategorySelection(category);
+      result.archivedIds.forEach((id) => selectedIds.delete(id));
+      if (options.exitSelectionMode) {
+        selectedIds.clear();
+        categoriesInSelectionMode.delete(category);
       }
-      if (!res.ok) {
-        const payload = await res.json().catch(() => ({}));
-        showPopup(payload?.message || "Failed to archive item.", {
-          title: "Archive Failed",
-        });
-        return;
-      }
-      closeModal(modalDelete);
-      archivingItemId = null;
       await loadInventory();
-      setTimeout(
-        () =>
-          showPopup(
-            "Item has been archived successfully and removed from the inventory list.",
-            { title: "Archived ✓" },
-          ),
-        200,
-      );
-    } catch (err) {
-      console.error("Archive inventory error:", err);
-      showPopup("Cannot connect to server.", { title: "Error" });
-    } finally {
-      btnConfirmDelete.disabled = false;
-      btnConfirmDelete.innerHTML =
-        '<i class="fa-solid fa-box-archive"></i> Archive Item';
+      return result;
+    };
+
+    if (typeof window.showAdminConfirmPopup === "function") {
+      window.showAdminConfirmPopup(message, {
+        title: count === 1 ? "Archive Item" : "Archive Selected Items",
+        confirmText: "Archive",
+        cancelText: "Cancel",
+        keepOpenWhilePending: true,
+        loadingText: "Archiving...",
+        onConfirm: executeArchive,
+        onSuccess: showArchiveSuccess,
+        onError: (error) => {
+          if (!error?.isAuthError) {
+            showPopup(error?.message || "Failed to archive inventory items.", {
+              title: "Archive Failed",
+            });
+          }
+        },
+      });
+      return;
     }
-  });
+
+    if (window.confirm(message)) {
+      void executeArchive()
+        .then(showArchiveSuccess)
+        .catch((error) => {
+          showPopup(error?.message || "Failed to archive inventory items.", {
+            title: "Archive Failed",
+          });
+        });
+    }
+  };
 
   // Deduct modal actions
   btnCancelDeduct?.addEventListener("click", () => {
@@ -1631,6 +1861,90 @@ document.addEventListener("DOMContentLoaded", () => {
     const target = e.target;
     if (!(target instanceof HTMLElement)) return;
 
+    const selectInput = target.closest("[data-inv-select]");
+    if (selectInput) {
+      const id = Number(selectInput.getAttribute("data-inv-select"));
+      const category = selectInput.getAttribute("data-inv-category") || "";
+      if (id && categoriesInSelectionMode.has(category)) {
+        const selectedIds = getCategorySelection(category);
+        if (selectInput.checked) selectedIds.add(id);
+        else selectedIds.delete(id);
+        updateSelectionUi(category);
+      }
+      return;
+    }
+
+    const selectAllInput = target.closest("[data-inv-select-all]");
+    if (selectAllInput) {
+      const category = selectAllInput.getAttribute("data-inv-select-all") || "";
+      if (!categoriesInSelectionMode.has(category)) return;
+      const selectedIds = getCategorySelection(category);
+      const visibleIds = getCategoryPageState(category).paged.map((item) =>
+        Number(item.id),
+      );
+      visibleIds.forEach((id) => {
+        if (selectAllInput.checked) selectedIds.add(id);
+        else selectedIds.delete(id);
+      });
+      updateSelectionUi(category);
+      return;
+    }
+
+    const selectionToggle = target.closest("[data-inv-selection-toggle]");
+    if (selectionToggle) {
+      const category =
+        selectionToggle.getAttribute("data-inv-selection-toggle") || "";
+      if (!CATEGORIES.includes(category)) return;
+      getCategorySelection(category).clear();
+      categoriesInSelectionMode.add(category);
+      renderCategoryTable(category);
+      return;
+    }
+
+    const selectionCancel = target.closest("[data-inv-selection-cancel]");
+    if (selectionCancel) {
+      const category =
+        selectionCancel.getAttribute("data-inv-selection-cancel") || "";
+      getCategorySelection(category).clear();
+      categoriesInSelectionMode.delete(category);
+      renderCategoryTable(category);
+      return;
+    }
+
+    const selectAllPagesButton = target.closest(
+      "[data-inv-select-all-pages]",
+    );
+    if (selectAllPagesButton) {
+      const category =
+        selectAllPagesButton.getAttribute("data-inv-select-all-pages") || "";
+      if (!categoriesInSelectionMode.has(category)) return;
+
+      const selectedIds = getCategorySelection(category);
+      const allTableIds = allItems
+        .filter((item) => item.category === category)
+        .map((item) => Number(item.id));
+      const allTableItemsSelected =
+        allTableIds.length > 0 &&
+        allTableIds.every((id) => selectedIds.has(id));
+
+      allTableIds.forEach((id) => {
+        if (allTableItemsSelected) selectedIds.delete(id);
+        else selectedIds.add(id);
+      });
+      updateSelectionUi(category);
+      return;
+    }
+
+    const archiveSelectedBtn = target.closest("[data-inv-archive-selected]");
+    if (archiveSelectedBtn) {
+      const category =
+        archiveSelectedBtn.getAttribute("data-inv-archive-selected") || "";
+      openArchiveConfirmation(category, [...getCategorySelection(category)], {
+        exitSelectionMode: true,
+      });
+      return;
+    }
+
     // Variant toggle button
     const toggleBtn = target.closest("[data-inv-toggle]");
     if (toggleBtn) {
@@ -1661,7 +1975,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (archiveBtn) {
       const id = Number(archiveBtn.getAttribute("data-inv-archive"));
       const item = allItems.find((x) => x.id === id);
-      if (item) openArchiveModal(item);
+      if (item) openArchiveConfirmation(item.category, [item.id]);
       return;
     }
 
@@ -1770,6 +2084,23 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       return;
     }
+  });
+
+  document.addEventListener("change", (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    const category = target.getAttribute("data-cat-page");
+    if (!category) return;
+    goToCategoryPage(category, target.value);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLInputElement)) return;
+    const category = target.getAttribute("data-cat-page");
+    if (!category || e.key !== "Enter") return;
+    e.preventDefault();
+    goToCategoryPage(category, target.value);
   });
 
   // ─── Filters ──────────────────────────────────────────────────────────────────

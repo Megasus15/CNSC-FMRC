@@ -47,6 +47,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const PAGE_SIZE = 8;
 
   const tableBody = document.getElementById("inquiriesTableBody");
+  const inquiriesTable = document.getElementById("inquiriesTable");
+  const inquiriesFooter = document.getElementById("inquiriesFooter");
   const statusFilter = document.getElementById("inquiryStatusFilter");
   const searchInput = document.getElementById("inquirySearchInput");
   const refreshBtn = document.getElementById("inquiriesRefreshBtn");
@@ -79,6 +81,7 @@ document.addEventListener("DOMContentLoaded", () => {
     lastSignalTs: 0,
     realtimeChannel: null,
   };
+  let inquiryBulkController = null;
 
   if (!tableBody) return;
 
@@ -212,7 +215,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (active) {
-      tableBody.innerHTML = renderSkeletonRows(6);
+      tableBody.innerHTML = renderSkeletonRows(7);
       pageMeta.textContent = "Loading…";
       pageNumber.textContent = "1";
       prevBtn.disabled = true;
@@ -230,7 +233,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const renderEmpty = (message) => {
     tableBody.innerHTML = `
       <tr class="table-empty-row">
-        <td colspan="6">
+        <td colspan="7">
           <div class="table-empty-state">
             <i class="fa-regular fa-folder-open"></i>
             <span>${escapeHtml(message)}</span>
@@ -242,6 +245,7 @@ document.addEventListener("DOMContentLoaded", () => {
     pageNumber.textContent = "1";
     prevBtn.disabled = true;
     nextBtn.disabled = true;
+    inquiryBulkController?.sync();
   };
 
   const renderRows = () => {
@@ -268,6 +272,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         return `
           <tr data-row-id="${row.id}">
+            <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="inquiries" value="${row.id}" aria-label="Select inquiry from ${escapeHtml(row.sender_name)}" /></td>
             <td class="inq-name-cell">
               <div><strong>${escapeHtml(row.sender_name)}</strong></div>
               <div class="inq-text-muted">${escapeHtml(row.sender_email)}</div>
@@ -293,6 +298,56 @@ document.addEventListener("DOMContentLoaded", () => {
     pageNumber.textContent = String(state.currentPage);
     prevBtn.disabled = state.currentPage <= 1;
     nextBtn.disabled = state.currentPage >= totalPages;
+    inquiryBulkController?.sync();
+  };
+
+  const setupInquiryBulkSelection = () => {
+    inquiryBulkController = window.AdminBulkSelection?.create({
+      key: "inquiries",
+      table: inquiriesTable,
+      footer: inquiriesFooter,
+      tableLabel: "Inbox Directory",
+      getEligibleRows: () => state.rows,
+      getPageRows: () => {
+        const start = (state.currentPage - 1) * PAGE_SIZE;
+        return state.rows.slice(start, start + PAGE_SIZE);
+      },
+      idleAction: {
+        label: "Select inquiries to delete",
+        icon: "fa-trash-can",
+        className: "admin-bulk-delete",
+      },
+      actions: [
+        {
+          key: "delete",
+          label: "Permanently delete selected inquiries",
+          icon: "fa-trash-can",
+          className: "admin-bulk-delete",
+          onClick: (ids, controller) => {
+            window.runAdminBulkAction?.({
+              controller,
+              ids,
+              action: "delete",
+              tableLabel: "Inbox Directory records",
+              irreversible: true,
+              loadingText: "Deleting...",
+              execute: (selectedIds) =>
+                request("/admin/customer-messages/delete-bulk", {
+                  method: "DELETE",
+                  body: { ids: selectedIds },
+                }),
+              afterSuccess: async (payload) => {
+                emitRealtimeUpdate({
+                  action: "delete-bulk",
+                  ids: payload?.processed_ids || [],
+                });
+                await syncData(true);
+              },
+            });
+          },
+        },
+      ],
+    });
   };
 
   const openDetail = (id) => {
@@ -542,7 +597,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  tableBody.innerHTML = renderSkeletonRows(6);
+  setupInquiryBulkSelection();
+  tableBody.innerHTML = renderSkeletonRows(7);
 
   void syncData();
   scheduleSilentSync();

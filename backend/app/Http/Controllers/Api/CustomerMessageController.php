@@ -7,6 +7,7 @@ use App\Models\AdminNotification;
 use App\Models\CustomerMessage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class CustomerMessageController extends Controller
@@ -134,6 +135,47 @@ class CustomerMessageController extends Controller
 
         return response()->json([
             'message' => 'Message deleted successfully.',
+        ]);
+    }
+
+    public function deleteBulk(Request $request): JsonResponse
+    {
+        if ($denied = $this->ensureAdminOrStaff($request)) {
+            return $denied;
+        }
+
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'min:1', 'distinct'],
+        ]);
+        $ids = collect($validated['ids'])->map(fn ($id) => (int) $id)->unique()->values()->all();
+
+        $deletedIds = DB::transaction(function () use ($ids): array {
+            $eligibleIds = CustomerMessage::query()
+                ->whereIn('id', $ids)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
+
+            if ($eligibleIds) {
+                CustomerMessage::destroy($eligibleIds);
+            }
+
+            return $eligibleIds;
+        });
+
+        if (!$deletedIds) {
+            return response()->json(['message' => 'No matching customer inquiries were found to delete.'], 404);
+        }
+
+        return response()->json([
+            'action' => 'delete',
+            'scope' => 'customer_messages',
+            'processed_ids' => $deletedIds,
+            'processed_count' => count($deletedIds),
+            'skipped_ids' => array_values(array_diff($ids, $deletedIds)),
+            'message' => count($deletedIds) . ' customer inquiry(s) deleted successfully.',
         ]);
     }
 

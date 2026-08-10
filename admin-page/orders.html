@@ -157,60 +157,42 @@
                 <span class="status-pill status-yellow">Urgent Review</span>
               </div>
 
-              <div class="incoming-orders-grid-wrapper">
-                <div class="incoming-orders-scroll">
-                  <div
-                    class="incoming-orders-grid"
-                    id="incomingOrdersCards"
-                  ></div>
-                </div>
-                <div
-                  class="incoming-cards-pagination"
-                  id="incomingCardsPagination"
+              <div class="table-wrapper incoming-orders-table-wrapper">
+                <table
+                  class="admin-table"
+                  id="incomingOrdersTable"
+                  data-page-size="5"
+                  data-empty-message="No incoming orders found."
                 >
-                  <button type="button" class="page-btn" id="incomingPrevBtn">
+                  <thead>
+                    <tr>
+                      <th class="admin-bulk-select-cell">
+                        <input type="checkbox" data-admin-bulk-page="incoming-orders" aria-label="Select all incoming orders on this page" />
+                      </th>
+                      <th>Order No.</th>
+                      <th>Customer</th>
+                      <th>Order Items</th>
+                      <th>Quantity</th>
+                      <th>Payment Method</th>
+                      <th>Total</th>
+                      <th>Submitted Date</th>
+                      <th>Status</th>
+                      <th class="sticky-action">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <div class="table-footer" id="incomingOrdersFooter">
+                <div class="table-footer-meta">Page 1 of 1</div>
+                <div class="table-pagination">
+                  <button class="page-btn" type="button" disabled aria-label="Previous incoming orders page">
                     <i class="fa-solid fa-chevron-left"></i>
                   </button>
-                  <div class="page-number" id="incomingPageNumber">1</div>
-                  <button type="button" class="page-btn" id="incomingNextBtn">
+                  <div class="page-number">1</div>
+                  <button class="page-btn" type="button" disabled aria-label="Next incoming orders page">
                     <i class="fa-solid fa-chevron-right"></i>
                   </button>
-                </div>
-              </div>
-
-              <div class="incoming-orders-compact">
-                <div class="table-wrapper">
-                  <table
-                    class="admin-table"
-                    id="incomingCompactTable"
-                    data-page-size="5"
-                    data-empty-message="No incoming orders found."
-                  >
-                    <thead>
-                      <tr>
-                        <th>Order No.</th>
-                        <th>Customer</th>
-                        <th>Item</th>
-                        <th>Payment</th>
-                        <th>Date</th>
-                        <th>Status</th>
-                        <th class="sticky-action">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody></tbody>
-                  </table>
-                </div>
-                <div class="table-footer" id="incomingCompactFooter">
-                  <div class="table-footer-meta">Page 1 of 1</div>
-                  <div class="table-pagination">
-                    <button class="page-btn" type="button" disabled>
-                      <i class="fa-solid fa-chevron-left"></i>
-                    </button>
-                    <div class="page-number">1</div>
-                    <button class="page-btn" type="button" disabled>
-                      <i class="fa-solid fa-chevron-right"></i>
-                    </button>
-                  </div>
                 </div>
               </div>
             </article>
@@ -348,6 +330,9 @@
                 >
                   <thead>
                     <tr>
+                      <th class="admin-bulk-select-cell">
+                        <input type="checkbox" data-admin-bulk-page="rejected-orders" aria-label="Select all rejected orders on this page" />
+                      </th>
                       <th>Order No.</th>
                       <th>Order Item</th>
                       <th>Date</th>
@@ -396,6 +381,9 @@
                 >
                   <thead>
                     <tr>
+                      <th class="admin-bulk-select-cell">
+                        <input type="checkbox" data-admin-bulk-page="payment-orders" aria-label="Select all payment records on this page" />
+                      </th>
                       <th>Payment ID</th>
                       <th>Order No.</th>
                       <th>Customer</th>

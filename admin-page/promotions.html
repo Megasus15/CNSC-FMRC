@@ -202,6 +202,10 @@
         background: #eff1f4;
         color: #697386;
       }
+      .campaign-status.finished {
+        background: #fef2f2;
+        color: #b42318;
+      }
       .campaign-item-actions {
         display: flex;
         gap: 7px;
@@ -440,9 +444,12 @@
               <h3><i class="fa-solid fa-tags" style="color:#800000; margin-right:8px;"></i>Saved Product Promotions</h3>
             </div>
             <div class="table-wrapper" style="overflow-x: auto">
-              <table class="admin-table enhanced-table">
+              <table class="admin-table enhanced-table" id="promotionTable">
                 <thead>
                   <tr>
+                    <th class="admin-bulk-select-cell">
+                      <input type="checkbox" data-admin-bulk-page="promotions" aria-label="Select all promotions on this page" />
+                    </th>
                     <th style="width: 50px">No.</th>
                     <th>Campaign Name</th>
                     <th>Discount</th>
@@ -461,6 +468,7 @@
             </div>
             <div
               class="table-footer"
+              id="promotionTableFooter"
               style="
                 display: flex;
                 justify-content: space-between;
@@ -500,9 +508,12 @@
               <h3><i class="fa-solid fa-bell" style="color:#800000; margin-right:8px;"></i>Saved Visitor Announcements</h3>
             </div>
             <div class="table-wrapper" style="overflow-x: auto">
-              <table class="admin-table enhanced-table">
+              <table class="admin-table enhanced-table" id="announcementTable">
                 <thead>
                   <tr>
+                    <th class="admin-bulk-select-cell">
+                      <input type="checkbox" data-admin-bulk-page="announcements" aria-label="Select all announcements on this page" />
+                    </th>
                     <th style="width: 50px">No.</th>
                     <th>Headline</th>
                     <th>Placement</th>
@@ -520,6 +531,7 @@
             </div>
             <div
               class="table-footer"
+              id="announcementTableFooter"
               style="
                 display: flex;
                 justify-content: space-between;

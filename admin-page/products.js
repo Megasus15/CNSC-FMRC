@@ -53,6 +53,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const nextBtn = document.getElementById("productNextPage");
   const searchInput = document.getElementById("productSearchInput");
   const categoryFilter = document.getElementById("productCategoryFilter");
+  const productTable = document.getElementById("productTable");
+  const productTableFooter = document.getElementById("productTableFooter");
 
   // Buttons
   const btnOpenAddProduct = document.getElementById("btnOpenAddProduct");
@@ -155,6 +157,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let products = [];
   let currentPage = 1;
   const PAGE_SIZE = 5;
+  let productBulkController = null;
   let activeProductId = null;
   let activePhotoData = ""; // final edited image data URL
   let photoEditSource = "add"; // "add" or "edit"
@@ -545,7 +548,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .map(
         () => `
       <tr class="skeleton-row">
-        ${Array(10).fill('<td><div class="skeleton-cell"></div></td>').join("")}
+        ${Array(11).fill('<td><div class="skeleton-cell"></div></td>').join("")}
       </tr>
     `,
       )
@@ -580,7 +583,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!paged.length) {
       tableBody.innerHTML = `
         <tr class="table-empty-row">
-          <td colspan="10">
+          <td colspan="11">
             <div class="table-empty-state">
               <i class="fa-regular fa-folder-open"></i>
               <span>No products found. Click "Add Product" to get started.</span>
@@ -607,6 +610,7 @@ document.addEventListener("DOMContentLoaded", () => {
             : formatPrice(p.price);
           return `
           <tr class="${p.is_blocked ? "row-blocked" : ""}">
+            <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="products" value="${p.id}" aria-label="Select ${escHtml(p.name)}" /></td>
             <td>${rowNum}</td>
             <td title="${escHtml(p.name)}">${escHtml(p.name)}</td>
             <td>${escHtml(p.category)}</td>
@@ -633,9 +637,97 @@ document.addEventListener("DOMContentLoaded", () => {
     if (currentPageEl) currentPageEl.textContent = String(currentPage);
     if (prevBtn) prevBtn.disabled = currentPage <= 1;
     if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
+    productBulkController?.sync();
+  };
+
+  const setupProductBulkSelection = () => {
+    productBulkController = window.AdminBulkSelection?.create({
+      key: "products",
+      table: productTable,
+      footer: productTableFooter,
+      tableLabel: "Product List records",
+      getEligibleRows: getFilteredProducts,
+      getPageRows: () => {
+        const source = getFilteredProducts();
+        const start = (currentPage - 1) * PAGE_SIZE;
+        return source.slice(start, start + PAGE_SIZE);
+      },
+      idleAction: {
+        label: "Select products to delete",
+        icon: "fa-trash-can",
+        className: "admin-bulk-delete",
+      },
+      actions: [
+        {
+          key: "delete",
+          label: "Permanently delete selected products",
+          icon: "fa-trash-can",
+          className: "admin-bulk-delete",
+          onClick: (ids, controller) => {
+            window.runAdminBulkAction?.({
+              controller,
+              ids,
+              action: "delete",
+              tableLabel: "Product List records",
+              irreversible: true,
+              loadingText: "Deleting...",
+              execute: async (selectedIds) => {
+                const response = await fetch(
+                  `${API_BASE_URL}/admin/products/delete-bulk`,
+                  {
+                    method: "DELETE",
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                      Accept: "application/json",
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ ids: selectedIds }),
+                  },
+                );
+                const payload = await response.json().catch(() => ({}));
+                if (response.status === 401 || response.status === 403) {
+                  setUnauthorized();
+                }
+                if (!response.ok) {
+                  throw new Error(
+                    payload?.message || "Failed to delete selected products.",
+                  );
+                }
+                return payload;
+              },
+              afterSuccess: async (payload) => {
+                broadcastProductChange("deleted-bulk", payload?.processed_ids);
+                await loadProducts();
+              },
+            });
+          },
+        },
+      ],
+    });
   };
 
   // ─── Chart instances (reusable so we can destroy before re-render) ───────────
+  let promotionRefreshTimer = null;
+  const schedulePromotionRefresh = () => {
+    if (promotionRefreshTimer) {
+      window.clearTimeout(promotionRefreshTimer);
+      promotionRefreshTimer = null;
+    }
+
+    const now = Date.now();
+    const endTimes = products
+      .map((product) => Date.parse(product?.promotion?.ends_at || ""))
+      .filter((timestamp) => Number.isFinite(timestamp) && timestamp > now);
+
+    if (!endTimes.length) return;
+
+    const nextEnd = Math.min(...endTimes);
+    promotionRefreshTimer = window.setTimeout(() => {
+      promotionRefreshTimer = null;
+      void loadProducts();
+    }, Math.max(50, nextEnd - now + 25));
+  };
+
   let chartTopSelling = null;
   let chartSalesByCategory = null;
   let chartYearlyTrend = null;
@@ -1255,6 +1347,7 @@ document.addEventListener("DOMContentLoaded", () => {
       products = Array.isArray(payload?.data) ? payload.data : [];
       currentPage = 1;
       renderTable();
+      schedulePromotionRefresh();
       if (addNameSelect) {
         renderAddProductOptions(
           addCategory?.value || "3D Print",
@@ -1788,6 +1881,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ─── Initialize ───────────────────────────────────────────────────────────────
 
+  setupProductBulkSelection();
   void loadProducts();
 
   // ── Realtime updates ─────────────────────────────────────────────────────────
@@ -1800,6 +1894,26 @@ document.addEventListener("DOMContentLoaded", () => {
       void loadProducts();
     }, 600);
   };
+
+  const PROMOTIONS_REALTIME_CHANNEL = "fmrc-promotions-realtime";
+  if (typeof window.BroadcastChannel === "function") {
+    const promotionsChannel = new window.BroadcastChannel(
+      PROMOTIONS_REALTIME_CHANNEL,
+    );
+    promotionsChannel.addEventListener("message", (event) => {
+      if (document.hidden) return;
+      if (event?.data?.source === "campaign-workspace") {
+        debouncedLoadProducts();
+      }
+    });
+  }
+
+  window.addEventListener("fmrc:promotions-updated", () => {
+    if (!document.hidden) debouncedLoadProducts();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) void loadProducts();
+  });
 
   // Reusable BroadcastChannel instances (created once, never duplicated)
   const PRODUCTS_REALTIME_CHANNEL = "fmrc-products-realtime";

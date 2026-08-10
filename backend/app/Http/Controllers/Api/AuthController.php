@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
@@ -227,6 +228,50 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'User account deleted successfully.',
+        ]);
+    }
+
+    public function adminDeleteUsersBulk(Request $request): JsonResponse
+    {
+        if ($denied = $this->ensureAdmin($request)) {
+            return $denied;
+        }
+
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'min:1', 'distinct'],
+        ]);
+        $ids = collect($validated['ids'])->map(fn ($id) => (int) $id)->unique()->values()->all();
+        $actorId = (int) $request->user()->id;
+
+        $deletedIds = DB::transaction(function () use ($ids, $actorId): array {
+            $users = User::query()
+                ->whereIn('id', $ids)
+                ->where('id', '!=', $actorId)
+                ->get();
+
+            $eligibleIds = $users->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
+            foreach ($users as $user) {
+                $user->tokens()->delete();
+                $user->delete();
+            }
+
+            return $eligibleIds;
+        });
+
+        if (!$deletedIds) {
+            return response()->json([
+                'message' => 'No eligible user accounts were found to delete. Your own account is protected.',
+            ], 404);
+        }
+
+        return response()->json([
+            'action' => 'delete',
+            'scope' => 'users',
+            'processed_ids' => $deletedIds,
+            'processed_count' => count($deletedIds),
+            'skipped_ids' => array_values(array_diff($ids, $deletedIds)),
+            'message' => count($deletedIds) . ' user account(s) deleted successfully.',
         ]);
     }
 

@@ -6,9 +6,6 @@
     const confirmPasswordInput = document.getElementById("confirmPassword");
     const saveBtn = document.getElementById("saveCredentialsBtn");
     const cancelBtn = document.getElementById("cancelCredentialsBtn");
-    let successModal = document.getElementById("credSuccessModal");
-    let successMessageEl = document.getElementById("credSuccessMessage");
-    let successOk = document.getElementById("credSuccessOk");
     const currentGmailEl = document.getElementById("currentGmailValue");
     const popupIdentity = document.querySelector(".popup-identity");
     const usernameInput = document.getElementById("usernameInput");
@@ -57,9 +54,7 @@
       }
     };
 
-    const showSuccessModal = (message, newEmail) => {
-      if (successMessageEl)
-        successMessageEl.textContent = message || "Updated successfully.";
+    const showSuccessNotification = (message, newEmail) => {
       if (typeof newEmail === "string" && newEmail) {
         // update small card and header popup immediately
         if (currentGmailEl) currentGmailEl.textContent = newEmail;
@@ -86,49 +81,13 @@
           /* ignore */
         }
       }
-      if (successModal) {
-        successModal.classList.add("show");
+      const successMessage = message || "Updated successfully.";
+      if (typeof window.showAdminSuccessNotification === "function") {
+        window.showAdminSuccessNotification(successMessage);
+      } else if (typeof window.showAdminPopup === "function") {
+        window.showAdminPopup(successMessage, { type: "success" });
       } else {
-        alert(message || "Updated successfully.");
-      }
-    };
-
-    const createOrEnsureSuccessModal = () => {
-      // If markup not present on page, create a minimal success modal
-      if (!document.getElementById("credSuccessModal")) {
-        const modal = document.createElement("div");
-        modal.id = "credSuccessModal";
-        modal.className = "success-modal";
-        modal.setAttribute("role", "dialog");
-        modal.setAttribute("aria-modal", "true");
-        modal.setAttribute("aria-labelledby", "credSuccessTitle");
-        modal.innerHTML = `
-          <div class="success-box">
-            <div class="success-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            </div>
-            <h3 id="credSuccessTitle">Success</h3>
-            <p id="credSuccessMessage">Credentials updated successfully.</p>
-            <button id="credSuccessOk" class="btn-admin" type="button">Okay</button>
-          </div>
-        `;
-        document.body.appendChild(modal);
-      }
-
-      successModal = document.getElementById("credSuccessModal");
-      successMessageEl = document.getElementById("credSuccessMessage");
-      successOk = document.getElementById("credSuccessOk");
-
-      if (successOk && !successOk.dataset.bound) {
-        successOk.addEventListener("click", async () => {
-          if (successModal) successModal.classList.remove("show");
-          try {
-            await fetchAndPopulateUser();
-          } catch (e) {
-            /* ignore */
-          }
-        });
-        successOk.dataset.bound = "1";
+        alert(successMessage);
       }
     };
 
@@ -156,22 +115,16 @@
       document.getElementById("toggleConfirmPassword"),
     );
 
-    // Ensure a success modal exists and is bound (creates one if missing).
-    // Also, if we reloaded after a save, show the success modal now.
+    // Show the saved success flash after the authoritative account reload.
     try {
-      createOrEnsureSuccessModal();
-      try {
-        const pending = sessionStorage.getItem("account_update_success");
-        if (pending) {
-          const parsed = JSON.parse(pending || "{}");
-          sessionStorage.removeItem("account_update_success");
-          showSuccessModal(
-            parsed.message || "Credentials updated successfully.",
-            parsed.email || "",
-          );
-        }
-      } catch (e) {
-        /* ignore */
+      const pending = sessionStorage.getItem("account_update_success");
+      if (pending) {
+        const parsed = JSON.parse(pending || "{}");
+        sessionStorage.removeItem("account_update_success");
+        showSuccessNotification(
+          parsed.message || "Credentials updated successfully.",
+          parsed.email || "",
+        );
       }
     } catch (e) {
       /* ignore */

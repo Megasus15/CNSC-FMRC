@@ -36,6 +36,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const nextBtn = document.getElementById("accountsNextPage");
   const roleFilter = document.getElementById("accountsRoleFilter");
   const searchInput = document.getElementById("accountsSearchInput");
+  const accountsTable = document.getElementById("accountsTable");
+  const accountsTableFooter = document.getElementById("accountsTableFooter");
   const modalDeleteAccount = document.getElementById("modalDeleteAccount");
   const deleteAccountTargetLabel = document.getElementById(
     "deleteAccountTargetLabel",
@@ -63,6 +65,27 @@ document.addEventListener("DOMContentLoaded", () => {
     currentPage: 1,
     pageSize: 5,
     activeDeleteId: 0,
+  };
+  let userBulkController = null;
+
+  const getCurrentAdminId = () => {
+    const directId = Number(cachedUser?.id || cachedUser?.data?.id || 0);
+    if (directId) return directId;
+    const email = String(cachedUser?.email || cachedUser?.data?.email || "")
+      .trim()
+      .toLowerCase();
+    const username = String(
+      cachedUser?.username || cachedUser?.data?.username || "",
+    )
+      .trim()
+      .toLowerCase();
+    const match = state.users.find(
+      (user) =>
+        (email && String(user?.email || "").toLowerCase() === email) ||
+        (username &&
+          String(user?.username || "").toLowerCase() === username),
+    );
+    return Number(match?.id || 0);
   };
 
   const setFieldError = (input, message) => {
@@ -173,7 +196,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!paged.length) {
       tableBody.innerHTML =
-        "<tr><td colspan='7' style='text-align:center;'>No user accounts found for this filter.</td></tr>";
+        "<tr><td colspan='8' style='text-align:center;'>No user accounts found for this filter.</td></tr>";
     } else {
       tableBody.innerHTML = paged
         .map((user, idx) => {
@@ -184,9 +207,11 @@ document.addEventListener("DOMContentLoaded", () => {
           const displayEmail = user?.email ? escapeHtml(user.email) : "N/A";
           const displayRole = toTitleCase(user?.role);
           const roleClass = `role-tag-${String(user?.role || "customer").toLowerCase()}`;
+          const isCurrentAdmin = Number(user?.id) === getCurrentAdminId();
 
           return `
             <tr>
+              <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="users" value="${user.id}" aria-label="Select ${escapeHtml(user?.name || "user")}" ${isCurrentAdmin ? 'title="Your signed-in account cannot be deleted"' : ""} /></td>
               <td>${displayIndex}</td>
               <td>${escapeHtml(user?.name || "N/A")}</td>
               <td>${displayUsername}</td>
@@ -195,7 +220,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <td>${formatDate(user?.created_at)}</td>
               <td class="action-icons sticky-action">
                 <button type="button" data-tooltip="View User" data-user-view="${user.id}"><i class="fa-regular fa-eye"></i></button>
-                <button type="button" data-tooltip="Delete User" data-user-delete="${user.id}"><i class="fa-regular fa-trash-can"></i></button>
+                <button type="button" data-tooltip="${isCurrentAdmin ? "Signed-in Admin cannot be deleted" : "Delete User"}" data-user-delete="${user.id}" ${isCurrentAdmin ? "disabled" : ""}><i class="fa-regular fa-trash-can"></i></button>
               </td>
             </tr>
           `;
@@ -212,6 +237,73 @@ document.addEventListener("DOMContentLoaded", () => {
     if (currentPageEl) currentPageEl.textContent = String(state.currentPage);
     if (prevBtn) prevBtn.disabled = state.currentPage <= 1;
     if (nextBtn) nextBtn.disabled = state.currentPage >= totalPages;
+    userBulkController?.sync();
+  };
+
+  const setupUserBulkSelection = () => {
+    userBulkController = window.AdminBulkSelection?.create({
+      key: "users",
+      table: accountsTable,
+      footer: accountsTableFooter,
+      tableLabel: "User Directory",
+      getEligibleRows: () =>
+        getFilteredUsers().filter(
+          (user) => Number(user?.id) !== getCurrentAdminId(),
+        ),
+      getPageRows: () => {
+        const users = getFilteredUsers();
+        const start = (state.currentPage - 1) * state.pageSize;
+        return users.slice(start, start + state.pageSize);
+      },
+      idleAction: {
+        label: "Select users to delete",
+        icon: "fa-trash-can",
+        className: "admin-bulk-delete",
+      },
+      actions: [
+        {
+          key: "delete",
+          label: "Permanently delete selected users",
+          icon: "fa-trash-can",
+          className: "admin-bulk-delete",
+          onClick: (ids, controller) => {
+            window.runAdminBulkAction?.({
+              controller,
+              ids,
+              action: "delete",
+              tableLabel: "User Directory records",
+              irreversible: true,
+              loadingText: "Deleting...",
+              execute: async (selectedIds) => {
+                const response = await fetch(
+                  `${API_BASE_URL}/users/delete-bulk`,
+                  {
+                    method: "DELETE",
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                      Accept: "application/json",
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ ids: selectedIds }),
+                  },
+                );
+                if (response.status === 401 || response.status === 403) {
+                  setUnauthorizedState();
+                }
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                  throw new Error(
+                    payload?.message || "Unable to delete selected users.",
+                  );
+                }
+                return payload;
+              },
+              afterSuccess: loadAccounts,
+            });
+          },
+        },
+      ],
+    });
   };
 
   const setUnauthorizedState = () => {
@@ -278,7 +370,7 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Failed to load accounts:", error);
       if (tableBody) {
         tableBody.innerHTML =
-          "<tr><td colspan='7' style='text-align:center;color:#991b1b;'>Could not load accounts. Ensure Laravel server is running.</td></tr>";
+          "<tr><td colspan='8' style='text-align:center;color:#991b1b;'>Could not load accounts. Ensure Laravel server is running.</td></tr>";
       }
       if (tableMeta) tableMeta.textContent = "Unable to fetch account data.";
     }
@@ -666,6 +758,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Initialize password toggles on page load
   setupPasswordToggles();
+  setupUserBulkSelection();
 
   void loadAccounts();
 });

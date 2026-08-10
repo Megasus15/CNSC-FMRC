@@ -29,19 +29,45 @@ document.addEventListener("DOMContentLoaded", () => {
     "Content-Type": "application/json",
   };
   const $ = (id) => document.getElementById(id);
+  const SCHEDULE_TIME_ZONE = "Asia/Manila";
   const esc = (value) =>
     String(value ?? "").replace(
       /[&<>\"]/g,
       (char) =>
         ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[char],
     );
-  const localDate = (value) =>
-    value ? new Date(value).toISOString().slice(0, 16) : "";
+  const localDate = (value) => {
+    if (!value) return "";
+
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: SCHEDULE_TIME_ZONE,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(new Date(value));
+    const values = Object.fromEntries(
+      parts
+        .filter((part) => part.type !== "literal")
+        .map((part) => [part.type, part.value]),
+    );
+    return `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}`;
+  };
+
+  const toScheduleApiValue = (value) => {
+    const normalized = String(value || "").trim();
+    if (!normalized) return null;
+    return `${normalized.length === 16 ? `${normalized}:00` : normalized}+08:00`;
+  };
+
   const prettyDate = (value) =>
     value
       ? new Date(value).toLocaleString("en-PH", {
           dateStyle: "medium",
           timeStyle: "short",
+          timeZone: SCHEDULE_TIME_ZONE,
         })
       : "No limit";
 
@@ -55,6 +81,22 @@ document.addEventListener("DOMContentLoaded", () => {
   const PROMOTIONS_PER_PAGE = 5;
   let announcementPage = 1;
   const ANNOUNCEMENTS_PER_PAGE = 5;
+  let promotionBulkController = null;
+  let announcementBulkController = null;
+  let campaignRefreshTimer = null;
+  const PROMOTIONS_REALTIME_CHANNEL = "fmrc-promotions-realtime";
+  const promotionsChannel =
+    typeof window.BroadcastChannel === "function"
+      ? new window.BroadcastChannel(PROMOTIONS_REALTIME_CHANNEL)
+      : null;
+
+  function broadcastCampaignChange(type, id = null) {
+    const detail = { type, id };
+    window.dispatchEvent(
+      new CustomEvent("fmrc:promotions-updated", { detail }),
+    );
+    promotionsChannel?.postMessage({ ...detail, source: "campaign-workspace" });
+  }
 
   // ── Modal Helpers ────────────────────────────────────────────────────────
   function openModal(modalId) {
@@ -77,7 +119,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function renderSkeletons() {
     const skeletonRow = `
       <tr>
-        <td colspan="7" style="padding:14px;">
+        <td colspan="8" style="padding:14px;">
           <div style="height:14px;width:75%;background:#e2e8f0;border-radius:4px;animation:campaignPulse 1.2s infinite ease-in-out;"></div>
         </td>
       </tr>
@@ -142,12 +184,22 @@ document.addEventListener("DOMContentLoaded", () => {
       : '<span class="field-hint">No products are available yet.</span>';
   }
 
+  function statusName(item) {
+    const now = Date.now();
+    const endsAt = item?.ends_at ? Date.parse(item.ends_at) : NaN;
+    const startsAt = item?.starts_at ? Date.parse(item.starts_at) : NaN;
+
+    if (Number.isFinite(endsAt) && endsAt <= now) return "FINISHED";
+    if (item?.is_enabled === false) return "PAUSED";
+    if (Number.isFinite(startsAt) && startsAt > now) return "SCHEDULED";
+    return "LIVE";
+  }
+
   function status(item) {
-    return item.is_live
-      ? '<span class="campaign-status live">LIVE</span>'
-      : item.is_enabled
-        ? '<span class="campaign-status">SCHEDULED</span>'
-        : '<span class="campaign-status off">PAUSED</span>';
+    const name = statusName(item);
+    const className =
+      name === "LIVE" ? "live" : name === "PAUSED" ? "off" : name.toLowerCase();
+    return `<span class="campaign-status ${className}">${name}</span>`;
   }
 
   function renderPromotions() {
@@ -166,7 +218,7 @@ document.addEventListener("DOMContentLoaded", () => {
     );
 
     if (!total) {
-      tbody.innerHTML = `<tr><td colspan="7" class="campaign-empty" style="text-align:center;padding:24px;color:#798395;">No promotions yet. Click "+ Add Promotion" to create one.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" class="campaign-empty" style="text-align:center;padding:24px;color:#798395;">No promotions yet. Click "+ Add Promotion" to create one.</td></tr>`;
     } else {
       tbody.innerHTML = pageItems
         .map((promotion, index) => {
@@ -178,6 +230,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const scheduleText = `From ${prettyDate(promotion.starts_at)}<br>to ${prettyDate(promotion.ends_at)}`;
           return `
           <tr>
+            <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="promotions" value="${promotion.id}" aria-label="Select ${esc(promotion.title)}" /></td>
             <td style="font-weight:600;color:#6b7280;">${rowNum}</td>
             <td style="font-weight:600;color:#1e293b;">${esc(promotion.title)}</td>
             <td><span style="font-weight:700;color:#800000;">${promotion.discount_percent}% OFF</span></td>
@@ -186,7 +239,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td>${status(promotion)}</td>
             <td class="action-icons sticky-action">
               <button type="button" data-tooltip="Edit Promotion" data-edit-promotion="${promotion.id}"><i class="fa-solid fa-pen-to-square"></i></button>
-              <button type="button" data-tooltip="Delete Promotion" data-delete-promotion="${promotion.id}"><i class="fa-regular fa-trash-can"></i></button>
+              <button type="button" data-tooltip="Archive Promotion" data-archive-promotion="${promotion.id}"><i class="fa-solid fa-box-archive"></i></button>
             </td>
           </tr>
         `;
@@ -205,6 +258,7 @@ document.addEventListener("DOMContentLoaded", () => {
       $("promotionPrevPage").disabled = promotionPage <= 1;
     if ($("promotionNextPage"))
       $("promotionNextPage").disabled = promotionPage >= maxPages;
+    promotionBulkController?.sync();
   }
 
   function renderAnnouncements() {
@@ -229,7 +283,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     if (!total) {
-      tbody.innerHTML = `<tr><td colspan="6" class="campaign-empty" style="text-align:center;padding:24px;color:#798395;">No announcements yet. Click "+ Add Announcement" to publish one.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="campaign-empty" style="text-align:center;padding:24px;color:#798395;">No announcements yet. Click "+ Add Announcement" to publish one.</td></tr>`;
     } else {
       tbody.innerHTML = pageItems
         .map((announcement, index) => {
@@ -240,6 +294,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           return `
           <tr>
+            <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="announcements" value="${announcement.id}" aria-label="Select ${esc(announcement.title)}" /></td>
             <td style="font-weight:600;color:#6b7280;">${rowNum}</td>
             <td style="font-weight:600;color:#1e293b;">${esc(announcement.title)}</td>
             <td style="font-size:0.82rem;color:#475569;">${esc(placementText)}</td>
@@ -247,7 +302,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td>${status(announcement)}</td>
             <td class="action-icons sticky-action">
               <button type="button" data-tooltip="Edit Announcement" data-edit-announcement="${announcement.id}"><i class="fa-solid fa-pen-to-square"></i></button>
-              <button type="button" data-tooltip="Delete Announcement" data-delete-announcement="${announcement.id}"><i class="fa-regular fa-trash-can"></i></button>
+              <button type="button" data-tooltip="Archive Announcement" data-archive-announcement="${announcement.id}"><i class="fa-solid fa-box-archive"></i></button>
             </td>
           </tr>
         `;
@@ -267,6 +322,95 @@ document.addEventListener("DOMContentLoaded", () => {
       $("announcementPrevPage").disabled = announcementPage <= 1;
     if ($("announcementNextPage"))
       $("announcementNextPage").disabled = announcementPage >= maxPages;
+    announcementBulkController?.sync();
+  }
+
+  function archiveCampaigns(kind, ids, controller) {
+    const isPromotion = kind === "promotions";
+    const tableLabel = isPromotion
+      ? "Saved Product Promotions records"
+      : "Saved Visitor Announcements records";
+    window.runAdminBulkAction?.({
+      controller,
+      ids,
+      action: "archive",
+      tableLabel,
+      loadingText: "Archiving...",
+      execute: (selectedIds) =>
+        request(`/admin/${kind}/archive-bulk`, {
+          method: "PATCH",
+          body: JSON.stringify({ ids: selectedIds }),
+        }),
+      afterSuccess: async (payload) => {
+        broadcastCampaignChange("archived-bulk", payload?.processed_ids);
+        await load();
+      },
+    });
+  }
+
+  function setupCampaignBulkSelections() {
+    promotionBulkController = window.AdminBulkSelection?.create({
+      key: "promotions",
+      table: $("promotionTable"),
+      footer: $("promotionTableFooter"),
+      tableLabel: "Saved Product Promotions",
+      getEligibleRows: () => promotions,
+      getPageRows: () => {
+        const start = (promotionPage - 1) * PROMOTIONS_PER_PAGE;
+        return promotions.slice(start, start + PROMOTIONS_PER_PAGE);
+      },
+      idleAction: { label: "Select promotions to archive", icon: "fa-box-archive" },
+      actions: [
+        {
+          key: "archive",
+          label: "Archive selected promotions",
+          icon: "fa-box-archive",
+          onClick: (ids, controller) => archiveCampaigns("promotions", ids, controller),
+        },
+      ],
+    });
+
+    announcementBulkController = window.AdminBulkSelection?.create({
+      key: "announcements",
+      table: $("announcementTable"),
+      footer: $("announcementTableFooter"),
+      tableLabel: "Saved Visitor Announcements",
+      getEligibleRows: () => announcements,
+      getPageRows: () => {
+        const start = (announcementPage - 1) * ANNOUNCEMENTS_PER_PAGE;
+        return announcements.slice(start, start + ANNOUNCEMENTS_PER_PAGE);
+      },
+      idleAction: { label: "Select announcements to archive", icon: "fa-box-archive" },
+      actions: [
+        {
+          key: "archive",
+          label: "Archive selected announcements",
+          icon: "fa-box-archive",
+          onClick: (ids, controller) => archiveCampaigns("announcements", ids, controller),
+        },
+      ],
+    });
+  }
+
+  function scheduleNextCampaignBoundary() {
+    if (campaignRefreshTimer) {
+      window.clearTimeout(campaignRefreshTimer);
+      campaignRefreshTimer = null;
+    }
+
+    const now = Date.now();
+    const boundaries = [...promotions, ...announcements]
+      .flatMap((item) => [item?.starts_at, item?.ends_at])
+      .map((value) => Date.parse(value))
+      .filter((timestamp) => Number.isFinite(timestamp) && timestamp > now);
+
+    if (!boundaries.length) return;
+
+    const nextBoundary = Math.min(...boundaries);
+    campaignRefreshTimer = window.setTimeout(() => {
+      campaignRefreshTimer = null;
+      void load();
+    }, Math.max(50, nextBoundary - now + 25));
   }
 
   function getAdminProductNamesText(productIds) {
@@ -431,7 +575,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderSkeletons();
     try {
       const [productData, promotionData, announcementData] = await Promise.all([
-        request("/admin/products"),
+        request("/admin/products/promotion-options"),
         request("/admin/promotions"),
         request("/admin/announcements"),
       ]);
@@ -444,6 +588,7 @@ document.addEventListener("DOMContentLoaded", () => {
       renderAnnouncements();
       updatePreviewItems();
       renderLivePreview();
+      scheduleNextCampaignBoundary();
     } catch (error) {
       showError(error);
     }
@@ -610,8 +755,8 @@ document.addEventListener("DOMContentLoaded", () => {
       discount_percent: Number($("promotionDiscount").value),
       scope,
       product_ids: scope === "specific_products" ? selectedProductIds() : [],
-      starts_at: $("promotionStart").value || null,
-      ends_at: $("promotionEnd").value || null,
+      starts_at: toScheduleApiValue($("promotionStart").value),
+      ends_at: toScheduleApiValue($("promotionEnd").value),
       is_enabled: $("promotionEnabled").checked,
     };
 
@@ -626,6 +771,7 @@ document.addEventListener("DOMContentLoaded", () => {
         method: id ? "PUT" : "POST",
         body: JSON.stringify(payload),
       });
+      broadcastCampaignChange(id ? "updated" : "created", id ? Number(id) : null);
       closeModal("modalAddPromotion");
       clearPromotion();
       promotionPage = 1;
@@ -665,8 +811,8 @@ document.addEventListener("DOMContentLoaded", () => {
       secondary_color: theme.secondary,
       cta_label: $("announcementCtaLabel").value.trim() || null,
       cta_url: $("announcementCtaUrl").value.trim() || null,
-      starts_at: $("announcementStart").value || null,
-      ends_at: $("announcementEnd").value || null,
+      starts_at: toScheduleApiValue($("announcementStart").value),
+      ends_at: toScheduleApiValue($("announcementEnd").value),
       is_enabled: $("announcementEnabled").checked,
     };
 
@@ -684,6 +830,7 @@ document.addEventListener("DOMContentLoaded", () => {
           body: JSON.stringify(payload),
         },
       );
+      broadcastCampaignChange(id ? "updated" : "created", id ? Number(id) : null);
       closeModal("modalAddAnnouncement");
       clearAnnouncement();
       announcementPage = 1;
@@ -717,72 +864,29 @@ document.addEventListener("DOMContentLoaded", () => {
     if (button.dataset.editAnnouncement)
       editAnnouncement(button.dataset.editAnnouncement);
 
-    if (button.dataset.deletePromotion) {
-      const pId = Number(button.dataset.deletePromotion);
-      const pItem = promotions.find((p) => p.id === pId);
-      const titleStr = pItem ? `"${pItem.title}"` : "this promotion campaign";
-
-      const executeDelete = async () => {
-        await request(`/admin/promotions/${pId}`, { method: "DELETE" });
-        if (typeof window.showAdminPopup === "function") {
-          window.showAdminPopup("Promotion campaign deleted.", {
-            title: "Deleted",
-          });
-        }
-        await load();
-      };
-
-      if (typeof window.showAdminConfirmPopup === "function") {
-        window.showAdminConfirmPopup(
-          `Are you sure you want to delete ${titleStr}?`,
-          {
-            title: "Delete Promotion",
-            confirmText: "Delete",
-            cancelText: "Cancel",
-            keepOpenWhilePending: true,
-            loadingText: "Deleting...",
-            onConfirm: executeDelete,
-            onError: showError,
-          },
-        );
-      } else if (confirm(`Delete ${titleStr}?`)) {
-        executeDelete().catch(showError);
-      }
+    if (button.dataset.archivePromotion) {
+      archiveCampaigns(
+        "promotions",
+        [Number(button.dataset.archivePromotion)],
+        promotionBulkController,
+      );
     }
 
-    if (button.dataset.deleteAnnouncement) {
-      const aId = Number(button.dataset.deleteAnnouncement);
-      const aItem = announcements.find((a) => a.id === aId);
-      const titleStr = aItem ? `"${aItem.title}"` : "this announcement";
-
-      const executeDelete = async () => {
-        await request(`/admin/announcements/${aId}`, { method: "DELETE" });
-        if (typeof window.showAdminPopup === "function") {
-          window.showAdminPopup("Announcement deleted.", { title: "Deleted" });
-        }
-        await load();
-      };
-
-      if (typeof window.showAdminConfirmPopup === "function") {
-        window.showAdminConfirmPopup(
-          `Are you sure you want to delete ${titleStr}?`,
-          {
-            title: "Delete Announcement",
-            confirmText: "Delete",
-            cancelText: "Cancel",
-            keepOpenWhilePending: true,
-            loadingText: "Deleting...",
-            onConfirm: executeDelete,
-            onError: showError,
-          },
-        );
-      } else if (confirm(`Delete ${titleStr}?`)) {
-        executeDelete().catch(showError);
-      }
+    if (button.dataset.archiveAnnouncement) {
+      archiveCampaigns(
+        "announcements",
+        [Number(button.dataset.archiveAnnouncement)],
+        announcementBulkController,
+      );
     }
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) void load();
   });
 
   clearPromotion();
   clearAnnouncement();
+  setupCampaignBulkSelections();
   load();
 });

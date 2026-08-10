@@ -1449,3 +1449,37 @@ body::after {
   transform: scale(0.97);
   box-shadow: 0 6px 14px rgba(196, 177, 20, 0.18);
 }
+
+/* Google controls stay level and use a darker neutral hover state. */
+#loginForm .google-auth-btn,
+#signupForm .google-auth-btn {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.15s ease,
+    transform 0.1s ease;
+}
+
+#loginForm .google-auth-btn::after,
+#signupForm .google-auth-btn::after {
+  display: none;
+}
+
+#loginForm .google-auth-btn:hover,
+#signupForm .google-auth-btn:hover {
+  background: #e9edf3;
+  border-color: #b6c1d0;
+  color: #1f2937;
+  transform: none;
+  box-shadow: 0 10px 20px rgba(45, 55, 72, 0.12);
+}
+
+#loginForm .google-auth-btn:active,
+#signupForm .google-auth-btn:active {
+  background: #dbe1e8;
+  border-color: #aab5c4;
+  color: #1f2937;
+  transform: scale(0.97);
+  box-shadow: 0 5px 12px rgba(45, 55, 72, 0.1);
+}

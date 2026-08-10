@@ -440,6 +440,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 600);
   };
 
+  window.addEventListener("fmrc:promotions-updated", () => {
+    if (document.hidden) return;
+    debouncedLoadProducts();
+  });
+
   // Helper: only refresh for genuine order-related types
   const isOrderRelevantType = (type) =>
     type === "created" || type === "updated";

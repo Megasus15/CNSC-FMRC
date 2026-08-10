@@ -60,7 +60,10 @@ Route::get('/services', [ServiceController::class, 'index']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/users', [AuthController::class, 'getUsers']);
     Route::post('/users', [AuthController::class, 'adminCreateUser']);
+    Route::delete('/users/delete-bulk', [AuthController::class, 'adminDeleteUsersBulk']);
     Route::delete('/users/{user}', [AuthController::class, 'adminDeleteUser']);
+
+    Route::patch('/appointments/archive-bulk', [AppointmentController::class, 'archiveBulk']);
 
     Route::get('/customer/profile', [AuthController::class, 'customerProfile']);
     Route::put('/customer/profile', [AuthController::class, 'updateCustomerProfile']);
@@ -85,6 +88,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/admin/orders', [OrderController::class, 'adminIndex']);
     Route::get('/admin/dashboard/summary', [AdminDashboardController::class, 'summary']);
+    Route::post('/admin/orders/approve-bulk', [OrderController::class, 'approveBulk']);
+    Route::post('/admin/orders/reject-bulk', [OrderController::class, 'rejectBulk']);
+    Route::patch('/admin/orders/archive-bulk', [OrderController::class, 'archiveBulk']);
     Route::get('/admin/orders/{order}', [OrderController::class, 'adminShow']);
     Route::post('/admin/orders/{order}/approve', [OrderController::class, 'approve']);
     Route::post('/admin/orders/{order}/reject', [OrderController::class, 'reject']);
@@ -104,19 +110,23 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Admin: Products CRUD
     Route::get('/admin/products', [ProductController::class, 'adminIndex']);
+    Route::get('/admin/products/promotion-options', [ProductController::class, 'promotionOptions']);
     Route::get('/admin/products/catalog-options', [ProductController::class, 'catalogOptions']);
     Route::get('/admin/products/names', [ProductController::class, 'productNames']);
     Route::post('/admin/products', [ProductController::class, 'store']);
+    Route::delete('/admin/products/delete-bulk', [ProductController::class, 'deleteBulk']);
     Route::put('/admin/products/{product}', [ProductController::class, 'update']);
     Route::delete('/admin/products/{product}', [ProductController::class, 'destroy']);
 
     // Admin/Staff: time-bound sale campaigns and customer announcements
     Route::get('/admin/promotions', [PromotionController::class, 'index']);
     Route::post('/admin/promotions', [PromotionController::class, 'store']);
+    Route::patch('/admin/promotions/archive-bulk', [PromotionController::class, 'archiveBulk']);
     Route::put('/admin/promotions/{promotion}', [PromotionController::class, 'update']);
     Route::delete('/admin/promotions/{promotion}', [PromotionController::class, 'destroy']);
     Route::get('/admin/announcements', [AnnouncementController::class, 'index']);
     Route::post('/admin/announcements', [AnnouncementController::class, 'store']);
+    Route::patch('/admin/announcements/archive-bulk', [AnnouncementController::class, 'archiveBulk']);
     Route::put('/admin/announcements/{announcement}', [AnnouncementController::class, 'update']);
     Route::delete('/admin/announcements/{announcement}', [AnnouncementController::class, 'destroy']);
 
@@ -150,6 +160,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/customer-messages/summary', [CustomerMessageController::class, 'summary']);
     Route::patch('/admin/customer-messages/{customerMessage}/read', [CustomerMessageController::class, 'markRead']);
     Route::patch('/admin/customer-messages/{customerMessage}/resolve', [CustomerMessageController::class, 'resolve']);
+    Route::delete('/admin/customer-messages/delete-bulk', [CustomerMessageController::class, 'deleteBulk']);
     Route::delete('/admin/customer-messages/{customerMessage}', [CustomerMessageController::class, 'destroy']);
 
     // Admin: Product Analytics (real-time order-based)
@@ -162,6 +173,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/inventory', [InventoryItemController::class, 'index']);
     Route::get('/admin/inventory/archived', [InventoryItemController::class, 'archived']);
     Route::post('/admin/inventory', [InventoryItemController::class, 'store']);
+    Route::patch('/admin/inventory/archive-bulk', [InventoryItemController::class, 'archiveBulk']);
     Route::put('/admin/inventory/{id}', [InventoryItemController::class, 'update']);
     Route::post('/admin/inventory/{id}/deduct', [InventoryItemController::class, 'deduct']);
     Route::post('/admin/inventory/{id}/adjust', [InventoryItemController::class, 'adjust']);
@@ -172,5 +184,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/admin/inventory/{id}', [InventoryItemController::class, 'destroy']);
 
     // Admin: Unified Archives page
+    Route::patch('/admin/archives/restore-bulk', [ArchiveController::class, 'restoreBulk']);
     Route::get('/admin/archives', [ArchiveController::class, 'index']);
 });

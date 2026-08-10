@@ -18,6 +18,8 @@ use Illuminate\Support\Facades\Storage;
 
 class AppointmentController extends Controller
 {
+    private const ALLOWED_ADMIN_ROLES = ['admin', 'staff'];
+
     private array $defaultTimeSlots = [
         ['label' => '9:00 - 10:00 AM', 'type' => 'AM', 'sort_order' => 1],
         ['label' => '10:00 - 11:00 AM', 'type' => 'AM', 'sort_order' => 2],
@@ -229,6 +231,51 @@ class AppointmentController extends Controller
         $appointment->delete();
 
         return response()->json(['message' => 'Appointment deleted successfully.']);
+    }
+
+    public function archiveBulk(Request $request): JsonResponse
+    {
+        if ($denied = $this->ensureAdminOrStaff($request)) {
+            return $denied;
+        }
+
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'min:1', 'distinct'],
+        ]);
+        $ids = collect($validated['ids'])->map(fn ($id) => (int) $id)->unique()->values()->all();
+
+        $archivedIds = DB::transaction(function () use ($ids): array {
+            $eligibleIds = Appointment::query()
+                ->whereIn('id', $ids)
+                ->whereNotIn('status', ['Cancelled', 'Archived'])
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
+
+            if ($eligibleIds) {
+                Appointment::query()->whereIn('id', $eligibleIds)->update([
+                    'status' => 'Archived',
+                    'updated_at' => now(),
+                ]);
+            }
+
+            return $eligibleIds;
+        });
+
+        if (!$archivedIds) {
+            return response()->json(['message' => 'No active appointments were found to archive.'], 404);
+        }
+
+        return response()->json([
+            'action' => 'archive',
+            'scope' => 'appointments',
+            'processed_ids' => $archivedIds,
+            'processed_count' => count($archivedIds),
+            'skipped_ids' => array_values(array_diff($ids, $archivedIds)),
+            'message' => count($archivedIds) . ' appointment(s) archived successfully.',
+        ]);
     }
 
     public function archive(Appointment $appointment): JsonResponse
@@ -482,6 +529,18 @@ class AppointmentController extends Controller
             'qr_payload' => $appointment->qr_payload,
             'created_at' => optional($appointment->created_at)->toIso8601String(),
         ];
+    }
+
+    private function ensureAdminOrStaff(Request $request): ?JsonResponse
+    {
+        $user = $request->user();
+        if (!$user || !in_array($user->role, self::ALLOWED_ADMIN_ROLES, true)) {
+            return response()->json([
+                'message' => 'Forbidden. Admin or staff access is required.',
+            ], 403);
+        }
+
+        return null;
     }
 
 }

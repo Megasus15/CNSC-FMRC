@@ -4779,7 +4779,14 @@ document.addEventListener("DOMContentLoaded", () => {
    */
   const setLoading = (el, label) => {
     if (!el) return;
-    el.innerHTML = `<option value="" disabled selected>Loading ${label}sâ€¦</option>`;
+    const loadingLabels = {
+      Region: "Regions",
+      Province: "Provinces",
+      Municipality: "Municipalities",
+      Barangay: "Barangays",
+    };
+    const loadingLabel = loadingLabels[label] || `${label}s`;
+    el.innerHTML = `<option value="" disabled selected>Loading ${loadingLabel}...</option>`;
     el.disabled = true;
   };
 
@@ -7108,6 +7115,17 @@ const openRatingModal = (() => {
     .trim()
     .charAt(0)
     .toUpperCase();
+  const profileIdentity =
+    String(
+      userInfo.email || userInfo.username || userInfo.name || "User",
+    ).trim() || "User";
+  const profileIdentityLength = Array.from(profileIdentity).length;
+  const profileIdentitySizeClass =
+    profileIdentityLength > 38
+      ? " is-very-long"
+      : profileIdentityLength > 24
+        ? " is-long"
+        : "";
 
   userProfileBtn.innerHTML = `<span class="user-initial-badge">${initial}</span>`;
   userProfileBtn.classList.add("nav-profile-btn");
@@ -7119,7 +7137,7 @@ const openRatingModal = (() => {
       <div class="popup-profile-row">
         <span class="popup-profile-icon profile-initial">${initial}</span>
         <div class="popup-profile-meta">
-          <p class="popup-identity">${userInfo.email || userInfo.username || userInfo.name || "User"}</p>
+          <p class="popup-identity${profileIdentitySizeClass}"></p>
         </div>
       </div>
     </div>
@@ -7134,6 +7152,11 @@ const openRatingModal = (() => {
       <i class="fa-solid fa-right-from-bracket"></i> Logout
     </button>
   `;
+
+  const profileIdentityElement = dropdown.querySelector(".popup-identity");
+  if (profileIdentityElement) {
+    profileIdentityElement.textContent = profileIdentity;
+  }
 
   userProfileBtn.appendChild(dropdown);
 

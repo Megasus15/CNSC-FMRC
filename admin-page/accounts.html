@@ -154,9 +154,12 @@
                 </div>
               </div>
               <div class="table-wrapper">
-                <table class="admin-table enhanced-table accounts-table">
+                <table class="admin-table enhanced-table accounts-table" id="accountsTable">
                   <thead>
                     <tr>
+                      <th class="admin-bulk-select-cell">
+                        <input type="checkbox" data-admin-bulk-page="users" aria-label="Select all eligible users on this page" />
+                      </th>
                       <th>No.</th>
                       <th>Name</th>
                       <th>Username</th>
@@ -171,7 +174,7 @@
                   </tbody>
                 </table>
               </div>
-              <div class="table-footer">
+              <div class="table-footer" id="accountsTableFooter">
                 <div class="table-footer-meta" id="accountsTableMeta">
                   Showing 0 of 0 users
                 </div>

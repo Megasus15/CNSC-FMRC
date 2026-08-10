@@ -9,7 +9,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('products', function (Blueprint $table) {
-            $table->string('name')->after('id');
+            if (!Schema::hasColumn('products', 'name')) {
+                $table->string('name')->after('id');
+            }
             $table->string('category')->default('3D Print')->after('name');
             $table->string('code')->unique()->nullable()->after('category');
             $table->unsignedInteger('stock')->default(0)->after('code');

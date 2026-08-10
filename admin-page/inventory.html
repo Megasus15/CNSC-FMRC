@@ -804,69 +804,6 @@
       </div>
     </div>
 
-    <!-- ────────────── ARCHIVE CONFIRMATION MODAL ────────────── -->
-    <div
-      class="modal-overlay"
-      id="modalArchiveInventoryItem"
-      data-backdrop-close="false"
-    >
-      <div class="modal-card modal-confirm">
-        <div
-          style="
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 4px;
-          "
-        >
-          <div
-            style="
-              width: 42px;
-              height: 42px;
-              border-radius: 10px;
-              background: linear-gradient(135deg, #78350f, #d97706);
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              flex-shrink: 0;
-            "
-          >
-            <i
-              class="fa-solid fa-box-archive"
-              style="color: #fff; font-size: 1.1rem"
-            ></i>
-          </div>
-          <h3 class="modal-title" style="margin-bottom: 0">Archive Item</h3>
-        </div>
-        <hr class="confirm-separator" />
-        <p class="confirm-text">
-          You are about to archive
-          <strong id="invArchiveTargetLabel">this item</strong>.
-        </p>
-        <p class="field-hint">
-          The item will be hidden from the inventory list and moved to the
-          Archives page. This action can be reversed from the Archives module.
-        </p>
-        <hr class="confirm-separator" />
-        <div class="modal-actions">
-          <button class="btn-admin btn-secondary" id="btnCancelArchiveInv">
-            Cancel
-          </button>
-          <button
-            class="btn-admin"
-            id="btnConfirmArchiveInv"
-            type="button"
-            style="
-              background: linear-gradient(135deg, #78350f, #d97706);
-              border-color: #d97706;
-            "
-          >
-            <i class="fa-solid fa-box-archive"></i> Archive Item
-          </button>
-        </div>
-      </div>
-    </div>
-
     <!-- ────────────── ADJUST STOCKS MODAL (Add / Deduct) ────────────── -->
     <div
       class="modal-overlay"

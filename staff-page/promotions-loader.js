@@ -23,7 +23,22 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const script = await fetch("../admin-page/promotions.js", { cache: "no-store" });
     if (!script.ok) throw new Error("Campaign functionality was not found.");
-    new Function(await script.text())();
+
+    const scriptText = await script.text();
+    const startMarker = 'document.addEventListener("DOMContentLoaded", () => {';
+    const startIndex = scriptText.indexOf(startMarker);
+    const endIndex = scriptText.lastIndexOf("\n});");
+    if (startIndex === -1 || endIndex <= startIndex) {
+      throw new Error("Campaign functionality could not be initialized.");
+    }
+
+    const scriptBody = scriptText.slice(
+      startIndex + startMarker.length,
+      endIndex,
+    );
+    await new Function(
+      `return (async function () {\n${scriptBody}\n}).call(window);`,
+    )();
   } catch (error) {
     console.error(error);
     host.innerHTML = '<div class="panel" style="padding:24px;color:#991b1b">Unable to load Promotions & Announcements. Please try again.</div>';

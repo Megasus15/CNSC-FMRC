@@ -24,7 +24,9 @@
     pathname.endsWith("/main.html") ||
     /(?:^|\/)home-page\/?$/.test(pathname);
   const isProductsPage = /products-page/i.test(pathname);
-  const isAdminOrStaff = /admin-page|staff-page|cashier-page|admin-auth/i.test(pathname);
+  const isAdminOrStaff = /admin-page|staff-page|cashier-page|admin-auth/i.test(
+    pathname,
+  );
 
   const esc = (value) =>
     String(value ?? "").replace(
@@ -41,6 +43,27 @@
 
   const safeColor = (value, fallback = "#c0392b") =>
     /^#[0-9a-f]{3,8}$/i.test(String(value || "")) ? value : fallback;
+
+  const toTimestamp = (value) => {
+    if (!value) return null;
+    const timestamp = Date.parse(value);
+    return Number.isFinite(timestamp) ? timestamp : null;
+  };
+
+  const isWithinCampaignWindow = (item, now = Date.now()) => {
+    if (!item || item.is_enabled === false) return false;
+
+    const startsAt = toTimestamp(item.starts_at);
+    const endsAt = toTimestamp(item.ends_at);
+
+    return (startsAt === null || startsAt <= now) &&
+      (endsAt === null || endsAt > now);
+  };
+
+  const filterActiveCampaigns = (items) =>
+    (Array.isArray(items) ? items : []).filter((item) =>
+      isWithinCampaignWindow(item),
+    );
 
   window.getGlobalFMRCTheme = () => {
     try {
@@ -61,11 +84,16 @@
       secondary: safeColor(secondary, "#800000"),
     };
     try {
-      localStorage.setItem("fmrc_global_announcement_theme", JSON.stringify(theme));
+      localStorage.setItem(
+        "fmrc_global_announcement_theme",
+        JSON.stringify(theme),
+      );
     } catch {
       /* ignore */
     }
-    window.dispatchEvent(new CustomEvent("fmrc_theme_changed", { detail: theme }));
+    window.dispatchEvent(
+      new CustomEvent("fmrc_theme_changed", { detail: theme }),
+    );
     return theme;
   };
 
@@ -86,7 +114,9 @@
 
   const isTooltipDismissed = () => {
     try {
-      return localStorage.getItem("fmrc_announcement_tooltip_dismissed") === "1";
+      return (
+        localStorage.getItem("fmrc_announcement_tooltip_dismissed") === "1"
+      );
     } catch {
       return false;
     }
@@ -116,12 +146,18 @@
   let counterEl;
   let nextBtn;
   let isLoading = true;
+  let campaignExpiryTimer = null;
+  let campaignPollTimer = null;
+  let lastPromotionSignature = "";
 
   const getProductNamesString = (productIds) => {
-    if (!Array.isArray(productIds) || !productIds.length) return "selected products";
+    if (!Array.isArray(productIds) || !productIds.length)
+      return "selected products";
     const names = productIds
       .map((id) => {
-        const p = productsCatalog.find((prod) => String(prod.id) === String(id));
+        const p = productsCatalog.find(
+          (prod) => String(prod.id) === String(id),
+        );
         return p ? p.name : null;
       })
       .filter(Boolean);
@@ -133,6 +169,13 @@
   const showModal = (index = 0) => {
     if (!modal) return;
     markTooltipDismissed();
+
+    const activeCampaigns = filterActiveCampaigns(announcements);
+    if (activeCampaigns.length !== announcements.length) {
+      announcements = activeCampaigns;
+      activeIndex = Math.min(activeIndex, Math.max(0, announcements.length - 1));
+      updateBadges(announcements.length);
+    }
 
     const hasAnnouncements = announcements.length > 0;
     const item = hasAnnouncements
@@ -147,7 +190,10 @@
 
     if (modal.style) {
       modal.style.setProperty("--announcement-accent-primary", primaryAccent);
-      modal.style.setProperty("--announcement-accent-secondary", secondaryAccent);
+      modal.style.setProperty(
+        "--announcement-accent-secondary",
+        secondaryAccent,
+      );
     }
     if (titleEl) titleEl.textContent = item?.title || "Announcements";
     if (messageEl) {
@@ -230,6 +276,7 @@
         .announcement-bell:hover {
           background: #fff4f4;
           border-color: #c0392b;
+          transform: none;
         }
         .announcement-bell:active {
           transform: scale(0.96);
@@ -486,13 +533,18 @@
     }
 
     // Export preview card renderer for Admin/Staff dashboard live preview (EXACT 1:1 MATCH WITH CUSTOMER MODAL)
-    window.renderFMRCAnnouncementPreviewCard = (container, item, counterText = "") => {
+    window.renderFMRCAnnouncementPreviewCard = (
+      container,
+      item,
+      counterText = "",
+    ) => {
       if (!container) return;
       const theme = window.getGlobalFMRCTheme();
       const primary = safeColor(theme.primary, "#c0392b");
       const secondary = safeColor(theme.secondary, "#800000");
       const title = item?.title || "Announcements";
-      const message = item?.message || "There are no active announcements right now.";
+      const message =
+        item?.message || "There are no active announcements right now.";
       const ctaLabel = item?.cta_label || "";
       const ctaUrl = item?.cta_url || "#";
       const badgeText = item?.badge_text || "FMRC ANNOUNCEMENT";
@@ -551,7 +603,9 @@
             `;
             bellWrapper.appendChild(bellBtn);
 
-            const userProfile = headerRight.querySelector(".user-profile, .profile-container");
+            const userProfile = headerRight.querySelector(
+              ".user-profile, .profile-container",
+            );
             if (userProfile) {
               headerRight.insertBefore(bellWrapper, userProfile);
             } else {
@@ -614,7 +668,9 @@
         "#announcementModalCta",
       ];
       if (
-        !requiredModalControls.every((selector) => modal.querySelector(selector))
+        !requiredModalControls.every((selector) =>
+          modal.querySelector(selector),
+        )
       ) {
         modal.innerHTML = createModalInnerHtml();
       }
@@ -714,16 +770,20 @@
       spotlight.classList.add("is-visible");
       const headline = document.getElementById("promotionSpotlightTitle");
       const copy = document.getElementById("promotionSpotlightMessage");
-      
-      const appliesToDetail = activePromo.scope === "all_products"
-        ? "all products in our store"
-        : getProductNamesString(activePromo.product_ids);
+
+      const appliesToDetail =
+        activePromo.scope === "all_products"
+          ? "all products in our store"
+          : getProductNamesString(activePromo.product_ids);
 
       if (headline) headline.innerHTML = `🎉 ${esc(activePromo.title)}`;
-      if (copy) copy.textContent = `Special Product Promotion: Enjoy ${activePromo.discount_percent}% OFF on ${appliesToDetail}! Limited-time offer.`;
+      if (copy)
+        copy.textContent = `Special Product Promotion: Enjoy ${activePromo.discount_percent}% OFF on ${appliesToDetail}! Limited-time offer.`;
 
       spotlight.onclick = () => {
-        const promoItemInAnnouncements = announcements.find((a) => a.id === `promo_${activePromo.id}`);
+        const promoItemInAnnouncements = announcements.find(
+          (a) => a.id === `promo_${activePromo.id}`,
+        );
         if (promoItemInAnnouncements) {
           showModal(announcements.indexOf(promoItemInAnnouncements));
         } else {
@@ -740,7 +800,7 @@
       .querySelectorAll("#announcementBellBadge, .announcement-bell__badge")
       .forEach((badge) => {
         if (count > 0) {
-          badge.textContent = String(count);
+          badge.textContent = count > 99 ? "99+" : String(count);
           badge.hidden = false;
           badge.style.display = "inline-block";
         } else {
@@ -748,6 +808,35 @@
           badge.style.display = "none";
         }
       });
+  };
+
+  const scheduleKnownCampaignBoundary = () => {
+    if (campaignExpiryTimer) {
+      window.clearTimeout(campaignExpiryTimer);
+      campaignExpiryTimer = null;
+    }
+
+    const now = Date.now();
+    const boundaries = [...announcements, ...rawPromotions]
+      .flatMap((item) => [item?.starts_at, item?.ends_at])
+      .map(toTimestamp)
+      .filter((timestamp) => timestamp !== null && timestamp > now);
+
+    if (!boundaries.length) return;
+
+    const nextBoundary = Math.min(...boundaries);
+    campaignExpiryTimer = window.setTimeout(() => {
+      campaignExpiryTimer = null;
+      void load();
+    }, Math.max(50, nextBoundary - now + 25));
+  };
+
+  const ensureCampaignPolling = () => {
+    if (campaignPollTimer) return;
+
+    campaignPollTimer = window.setInterval(() => {
+      if (!document.hidden) void load();
+    }, 30_000);
   };
 
   const load = async () => {
@@ -770,17 +859,25 @@
       const promPayload = promRes && promRes.ok ? await promRes.json() : null;
       const prodPayload = prodRes && prodRes.ok ? await prodRes.json() : null;
 
-      productsCatalog = Array.isArray(prodPayload?.data) ? prodPayload.data : [];
+      if (Array.isArray(prodPayload?.data)) {
+        productsCatalog = prodPayload.data;
+      }
 
       // Task 1 requirement: Show ALL Saved Visitor Announcements across ALL customer website pages (Home, Services, Contact, Products)
-      const visitorAnnouncements = Array.isArray(annPayload?.data) ? annPayload.data : [];
+      const visitorAnnouncements = Array.isArray(annPayload?.data)
+        ? annPayload.data
+        : announcements.filter((item) => !item.is_promotion);
 
-      rawPromotions = Array.isArray(promPayload?.data) ? promPayload.data : [];
+      const nextRawPromotions = Array.isArray(promPayload?.data)
+        ? promPayload.data
+        : rawPromotions;
+      rawPromotions = filterActiveCampaigns(nextRawPromotions);
 
       const activePromotions = rawPromotions.map((p) => {
-        const appliesToDetail = p.scope === "all_products"
-          ? "all products in our store"
-          : getProductNamesString(p.product_ids);
+        const appliesToDetail =
+          p.scope === "all_products"
+            ? "all products in our store"
+            : getProductNamesString(p.product_ids);
         return {
           id: `promo_${p.id}`,
           title: `🎉 ${p.title} (${p.discount_percent}% OFF)`,
@@ -795,12 +892,51 @@
           is_enabled: true,
           is_live: true,
           is_promotion: true,
+          starts_at: p.starts_at || null,
+          ends_at: p.ends_at || null,
         };
       });
 
-      announcements = [...visitorAnnouncements, ...activePromotions];
+      const previousAnnouncements = announcements;
+      const previousOpenItemId =
+        modal && !modal.hidden
+          ? previousAnnouncements[activeIndex]?.id
+          : null;
+      announcements = filterActiveCampaigns([
+        ...visitorAnnouncements,
+        ...activePromotions,
+      ]);
+
+      const promotionSignature = rawPromotions
+        .map((promotion) =>
+          [promotion.id, promotion.ends_at, promotion.discount_percent].join(":"),
+        )
+        .join("|");
+      if (promotionSignature !== lastPromotionSignature) {
+        lastPromotionSignature = promotionSignature;
+        window.dispatchEvent(
+          new CustomEvent("fmrc:promotions-updated", {
+            detail: { promotions: rawPromotions },
+          }),
+        );
+      }
 
       updateBadges(announcements.length);
+
+      if (modal && !modal.hidden) {
+        if (!announcements.length) {
+          closeModal();
+        } else {
+          const nextIndex = previousOpenItemId
+            ? announcements.findIndex((item) => item.id === previousOpenItemId)
+            : -1;
+          activeIndex =
+            nextIndex >= 0
+              ? nextIndex
+              : Math.min(activeIndex, announcements.length - 1);
+          showModal(activeIndex);
+        }
+      }
 
       if (announcements.length > 0 && !isTooltipDismissed()) {
         mountGlassTooltip();
@@ -809,6 +945,9 @@
       if (isProductsPage) {
         applyProductSpotlight();
       }
+
+      scheduleKnownCampaignBoundary();
+      ensureCampaignPolling();
 
       // Auto pop surprise announcement modal ONLY on Homepage if not seen this session
       if (isHomePage && !isAdminOrStaff && announcements.length > 0) {
@@ -831,5 +970,9 @@
   document.addEventListener("DOMContentLoaded", () => {
     mountModalAndButtons();
     void load();
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) void load();
   });
 })();

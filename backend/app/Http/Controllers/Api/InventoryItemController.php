@@ -8,6 +8,7 @@ use App\Models\InventoryTransaction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class InventoryItemController extends Controller
 {
@@ -69,6 +70,70 @@ class InventoryItemController extends Controller
 
         return response()->json([
             'data' => $items->map(fn (InventoryItem $item) => $this->transformRow($item))->values(),
+        ]);
+    }
+
+    /**
+     * Archive multiple active inventory items in one request.
+     */
+    public function archiveBulk(Request $request): JsonResponse
+    {
+        $denied = $this->ensureAdmin($request);
+        if ($denied) {
+            return $denied;
+        }
+
+        $validated = $request->validate([
+            'category' => ['required', 'string', Rule::in(self::CATEGORIES)],
+            'ids'      => ['required', 'array', 'min:1'],
+            'ids.*'    => ['integer', 'min:1', 'distinct'],
+        ]);
+
+        $category = $validated['category'];
+        $ids = collect($validated['ids'])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
+
+        $archivedAt = now();
+        $archivedIds = DB::transaction(function () use ($category, $ids, $archivedAt): array {
+            $activeIds = InventoryItem::query()
+                ->whereIn('id', $ids)
+                ->where('category', $category)
+                ->where('is_archived', false)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
+
+            if ($activeIds) {
+                InventoryItem::query()
+                    ->whereIn('id', $activeIds)
+                    ->where('category', $category)
+                    ->where('is_archived', false)
+                    ->update([
+                        'is_archived' => true,
+                        'archived_at' => $archivedAt,
+                        'updated_at'  => now(),
+                    ]);
+            }
+
+            return $activeIds;
+        });
+
+        if (!$archivedIds) {
+            return response()->json([
+                'message' => 'No active inventory items were found to archive.',
+            ], 404);
+        }
+
+        return response()->json([
+            'message'       => count($archivedIds) . ' inventory item(s) archived successfully.',
+            'category'      => $category,
+            'archived_ids'  => $archivedIds,
+            'archived_count'=> count($archivedIds),
+            'skipped_ids'   => array_values(array_diff($ids, $archivedIds)),
         ]);
     }
 

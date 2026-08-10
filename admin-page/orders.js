@@ -57,20 +57,9 @@ document.addEventListener("DOMContentLoaded", () => {
     return ordersRealtimeChannel;
   };
 
-  const incomingCardsWrap = document.getElementById("incomingOrdersCards");
-  const incomingCardsPagination = document.getElementById(
-    "incomingCardsPagination",
-  );
-  const incomingPrevBtn = document.getElementById("incomingPrevBtn");
-  const incomingNextBtn = document.getElementById("incomingNextBtn");
-  const incomingPageNumber = document.getElementById("incomingPageNumber");
-
-  const incomingCompactTbody = document.querySelector(
-    "#incomingCompactTable tbody",
-  );
-  const incomingCompactFooter = document.getElementById(
-    "incomingCompactFooter",
-  );
+  const incomingOrdersTable = document.getElementById("incomingOrdersTable");
+  const incomingOrdersTbody = incomingOrdersTable?.querySelector("tbody");
+  const incomingOrdersFooter = document.getElementById("incomingOrdersFooter");
 
   const ordersDirectoryTbody = document.querySelector(
     "#ordersDirectoryTable tbody",
@@ -86,6 +75,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const paymentsHistoryTbody = document.querySelector(
     "#paymentsHistoryTable tbody",
   );
+  const paymentsHistoryTable = document.getElementById("paymentsHistoryTable");
   const paymentsHistoryFooter = document.getElementById(
     "paymentsHistoryFooter",
   );
@@ -94,6 +84,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const rejectedOrdersTbody = document.querySelector(
     "#rejectedOrdersTable tbody",
   );
+  const rejectedOrdersTable = document.getElementById("rejectedOrdersTable");
   const rejectedOrdersFooter = document.getElementById("rejectedOrdersFooter");
 
   const walkInOrdersTbody = document.querySelector("#walkInOrdersTable tbody");
@@ -208,8 +199,7 @@ document.addEventListener("DOMContentLoaded", () => {
     payments: [],
     walkIn: [],
     ordersById: new Map(),
-    incomingCardsPage: 1,
-    incomingCompactPage: 1,
+    incomingPage: 1,
     directoryPage: 1,
     paymentsPage: 1,
     walkInPage: 1,
@@ -225,6 +215,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let viewingWalkInOrderId = null;
   let deletingPaymentOrderId = null;
+  let incomingBulkController = null;
+  let rejectedBulkController = null;
+  let paymentBulkController = null;
 
   const shouldProcessRealtimeSignal = (payload = {}) => {
     const ts = Number(payload?.timestamp || 0);
@@ -304,7 +297,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   };
 
-  const incomingCompactPager = getFooterControls(incomingCompactFooter);
+  const incomingPager = getFooterControls(incomingOrdersFooter);
   const directoryPager = getFooterControls(ordersDirectoryFooter);
   const paymentsPager = getFooterControls(paymentsHistoryFooter);
   const walkInPager = getFooterControls(walkInOrdersFooter);
@@ -771,76 +764,6 @@ document.addEventListener("DOMContentLoaded", () => {
     modalOrderDetails.classList.add("show");
   };
 
-  const renderIncomingCards = () => {
-    if (!incomingCardsWrap) return;
-
-    const pageSize = 6;
-    const totalPages = Math.max(1, Math.ceil(state.incoming.length / pageSize));
-    state.incomingCardsPage = Math.min(
-      Math.max(state.incomingCardsPage, 1),
-      totalPages,
-    );
-
-    if (!state.incoming.length) {
-      incomingCardsWrap.innerHTML = `
-        <div class="incoming-order-card incoming-empty-card">
-          <div class="table-empty-state">
-            <i class="fa-regular fa-folder-open"></i>
-            <span>No incoming orders found.</span>
-          </div>
-        </div>
-      `;
-      if (incomingCardsPagination)
-        incomingCardsPagination.style.display = "none";
-      if (incomingPageNumber) incomingPageNumber.textContent = "1";
-      if (incomingPrevBtn) incomingPrevBtn.disabled = true;
-      if (incomingNextBtn) incomingNextBtn.disabled = true;
-      return;
-    }
-
-    const start = (state.incomingCardsPage - 1) * pageSize;
-    const scoped = state.incoming.slice(start, start + pageSize);
-
-    incomingCardsWrap.innerHTML = scoped
-      .map((order) => {
-        const orderNo = escapeHtml(
-          order.order_no_display || `#${order.order_no || order.id}`,
-        );
-        return `
-          <div class="incoming-order-card">
-            <div class="incoming-order-top">
-              <strong>${orderNo}</strong>
-            </div>
-            <h4>${escapeHtml(order.product_name || "Custom Order")}</h4>
-            <div class="incoming-meta-grid">
-              <span><i class="fa-regular fa-user"></i> ${escapeHtml(order.customer_name || "Customer")}</span>
-              <span><i class="fa-regular fa-calendar"></i> ${escapeHtml(formatDateShort(order.created_at))}</span>
-              <span><i class="fa-solid fa-wallet"></i> ${escapeHtml(order.payment_method || "N/A")}</span>
-              <span><i class="fa-solid fa-cubes"></i> ${escapeHtml(formatQuantity(order.quantity))}</span>
-            </div>
-            <div class="incoming-order-actions">
-              <button type="button" data-order-view="${order.id}"><i class="fa-regular fa-eye"></i> View</button>
-              <button type="button" class="btn-approve" data-order-approve="${order.id}"><i class="fa-solid fa-check"></i> Approve</button>
-              <button type="button" class="btn-reject" data-order-reject="${order.id}"><i class="fa-solid fa-xmark"></i> Reject</button>
-            </div>
-          </div>
-        `;
-      })
-      .join("");
-
-    if (incomingCardsPagination) {
-      incomingCardsPagination.style.display =
-        state.incoming.length > pageSize ? "flex" : "none";
-    }
-
-    if (incomingPageNumber)
-      incomingPageNumber.textContent = String(state.incomingCardsPage);
-    if (incomingPrevBtn)
-      incomingPrevBtn.disabled = state.incomingCardsPage <= 1;
-    if (incomingNextBtn)
-      incomingNextBtn.disabled = state.incomingCardsPage >= totalPages;
-  };
-
   const getRejectedRows = () =>
     state.directory.filter(
       (order) =>
@@ -888,24 +811,27 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  const renderIncomingCompactTable = () => {
-    state.incomingCompactPage = renderPagedRows({
+  const renderIncomingTable = () => {
+    state.incomingPage = renderPagedRows({
       rows: state.incoming,
-      tbody: incomingCompactTbody,
-      colCount: 7,
-      footer: incomingCompactFooter,
-      currentPage: state.incomingCompactPage,
+      tbody: incomingOrdersTbody,
+      colCount: 10,
+      footer: incomingOrdersFooter,
+      currentPage: state.incomingPage,
       pageSize: 5,
       emptyMessage: "No incoming orders found.",
       renderRow: (order) => {
         const statusClass = lifecycleClass("incoming");
         return `
           <tr>
+            <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="incoming-orders" value="${order.id}" aria-label="Select ${escapeHtml(order.order_no_display || `order ${order.order_no || order.id}`)}" /></td>
             <td>${escapeHtml(order.order_no_display || `#${order.order_no || order.id}`)}</td>
             <td>${escapeHtml(order.customer_name || "Customer")}</td>
-            <td>${escapeHtml(order.product_name || "Custom Order")}</td>
+            <td class="order-items-cell">${renderOrderItemsInline(order)}</td>
+            <td>${escapeHtml(formatQuantity(order.quantity))}</td>
             <td>${escapeHtml(order.payment_method || "N/A")}</td>
-            <td>${escapeHtml(formatDateShort(order.created_at))}</td>
+            <td>${escapeHtml(order.total_label || formatMoney(order.total_amount))}</td>
+            <td>${escapeHtml(formatDateLabel(order.created_at))}</td>
             <td><span class="status-pill ${statusClass}">Incoming</span></td>
             <td class="action-icons sticky-action">
               <button data-tooltip="View Order Info" data-order-view="${order.id}"><i class="fa-regular fa-eye"></i></button>
@@ -916,6 +842,7 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
       },
     });
+    incomingBulkController?.sync();
   };
 
   const renderDirectoryTable = () => {
@@ -965,7 +892,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state.paymentsPage = renderPagedRows({
       rows,
       tbody: paymentsHistoryTbody,
-      colCount: 8,
+      colCount: 9,
       footer: paymentsHistoryFooter,
       currentPage: state.paymentsPage,
       pageSize: 5,
@@ -988,6 +915,7 @@ document.addEventListener("DOMContentLoaded", () => {
           formatMoney(payment.total_amount || payment.amount);
         return `
           <tr>
+            <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="payment-orders" value="${orderId}" aria-label="Select payment for ${escapeHtml(orderNo)}" /></td>
             <td>${escapeHtml(paymentId)}</td>
             <td>${escapeHtml(orderNo)}</td>
             <td>${escapeHtml(payment.customer_name || "Customer")}</td>
@@ -1003,6 +931,7 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
       },
     });
+    paymentBulkController?.sync();
   };
 
   const renderWalkInTable = () => {
@@ -1042,7 +971,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state.rejectedPage = renderPagedRows({
       rows,
       tbody: rejectedOrdersTbody,
-      colCount: 8,
+      colCount: 9,
       footer: rejectedOrdersFooter,
       currentPage: state.rejectedPage,
       pageSize: 5,
@@ -1053,6 +982,7 @@ document.addEventListener("DOMContentLoaded", () => {
         );
         return `
           <tr>
+            <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="rejected-orders" value="${order.id}" aria-label="Select ${orderNo}" /></td>
             <td>${orderNo}</td>
             <td>${escapeHtml(order.product_name || "Custom Order")}</td>
             <td>${escapeHtml(formatDateShort(order.created_at))}</td>
@@ -1068,11 +998,170 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
       },
     });
+    rejectedBulkController?.sync();
+  };
+
+  const runOrdersBulkAction = ({
+    ids,
+    controller,
+    action,
+    endpoint,
+    method = "POST",
+    tableLabel,
+    body = {},
+    confirmMessage,
+  }) => {
+    window.runAdminBulkAction?.({
+      controller,
+      ids,
+      action,
+      tableLabel,
+      confirmMessage,
+      loadingText:
+        {
+          approve: "Approving...",
+          archive: "Archiving...",
+          reject: "Rejecting...",
+        }[action] || "Processing...",
+      execute: (selectedIds) =>
+        request(endpoint, {
+          method,
+          body: { ids: selectedIds, ...body },
+        }),
+      afterSuccess: async (payload) => {
+        notifyOrdersRealtimeUpdate({
+          type: `orders-${action}-bulk`,
+          processedIds: payload?.processed_ids || [],
+        });
+        await syncOrders(true, { force: true, source: "action" });
+      },
+    });
+  };
+
+  const setupOrderBulkSelections = () => {
+    incomingBulkController = window.AdminBulkSelection?.create({
+      key: "incoming-orders",
+      table: incomingOrdersTable,
+      footer: incomingOrdersFooter,
+      tableLabel: "Incoming Orders",
+      getEligibleRows: () =>
+        state.incoming.filter(
+          (order) =>
+            String(order?.lifecycle_status || "incoming").toLowerCase() ===
+            "incoming",
+        ),
+      getPageRows: () => {
+        const start = (state.incomingPage - 1) * 5;
+        return state.incoming.slice(start, start + 5);
+      },
+      idleAction: {
+        label: "Select incoming orders for a mass action",
+        icon: "fa-list-check",
+        className: "admin-bulk-neutral",
+      },
+      actions: [
+        {
+          key: "approve",
+          label: "Approve selected incoming orders",
+          icon: "fa-check",
+          className: "admin-bulk-approve",
+          onClick: (ids, controller) =>
+            runOrdersBulkAction({
+              ids,
+              controller,
+              action: "approve",
+              endpoint: "/admin/orders/approve-bulk",
+              tableLabel: "Incoming Orders records",
+            }),
+        },
+        {
+          key: "reject",
+          label: "Reject selected incoming orders",
+          icon: "fa-xmark",
+          className: "admin-bulk-reject",
+          onClick: (ids, controller) =>
+            runOrdersBulkAction({
+              ids,
+              controller,
+              action: "reject",
+              endpoint: "/admin/orders/reject-bulk",
+              tableLabel: "Incoming Orders records",
+            }),
+        },
+      ],
+    });
+
+    rejectedBulkController = window.AdminBulkSelection?.create({
+      key: "rejected-orders",
+      table: rejectedOrdersTable,
+      footer: rejectedOrdersFooter,
+      tableLabel: "Rejected Orders",
+      getEligibleRows: getRejectedRows,
+      getPageRows: () => {
+        const start = (state.rejectedPage - 1) * 5;
+        return getRejectedRows().slice(start, start + 5);
+      },
+      idleAction: {
+        label: "Select rejected orders to archive",
+        icon: "fa-box-archive",
+      },
+      actions: [
+        {
+          key: "archive",
+          label: "Archive selected rejected orders",
+          icon: "fa-box-archive",
+          onClick: (ids, controller) =>
+            runOrdersBulkAction({
+              ids,
+              controller,
+              action: "archive",
+              endpoint: "/admin/orders/archive-bulk",
+              method: "PATCH",
+              body: { source: "rejected" },
+              tableLabel: "Rejected Orders records",
+            }),
+        },
+      ],
+    });
+
+    paymentBulkController = window.AdminBulkSelection?.create({
+      key: "payment-orders",
+      table: paymentsHistoryTable,
+      footer: paymentsHistoryFooter,
+      tableLabel: "Payments History",
+      getId: (payment) => payment?.id || payment?.order_id,
+      getEligibleRows: getPaymentRows,
+      getPageRows: () => {
+        const start = (state.paymentsPage - 1) * 5;
+        return getPaymentRows().slice(start, start + 5);
+      },
+      idleAction: {
+        label: "Select payments to archive their associated orders",
+        icon: "fa-box-archive",
+      },
+      actions: [
+        {
+          key: "archive",
+          label: "Archive selected associated orders",
+          icon: "fa-box-archive",
+          onClick: (ids, controller) =>
+            runOrdersBulkAction({
+              ids,
+              controller,
+              action: "archive",
+              endpoint: "/admin/orders/archive-bulk",
+              method: "PATCH",
+              body: { source: "payments" },
+              tableLabel: "Payments History records",
+              confirmMessage: `Archive ${ids.length} selected Payments History record(s)? Each associated whole order will move to Orders Archived Items.`,
+            }),
+        },
+      ],
+    });
   };
 
   const renderAll = () => {
-    renderIncomingCards();
-    renderIncomingCompactTable();
+    renderIncomingTable();
     renderDirectoryTable();
     renderRejectedTable();
     renderPaymentsTable();
@@ -1087,11 +1176,11 @@ document.addEventListener("DOMContentLoaded", () => {
       ) +
       `</tr>`.repeat(4);
     if (
-      incomingCompactTbody &&
-      (!incomingCompactTbody.children.length ||
-        incomingCompactTbody.querySelector(".table-empty-state"))
+      incomingOrdersTbody &&
+      (!incomingOrdersTbody.children.length ||
+        incomingOrdersTbody.querySelector(".table-empty-state"))
     ) {
-      incomingCompactTbody.innerHTML = createSkeletons(7);
+      incomingOrdersTbody.innerHTML = createSkeletons(10);
     }
     if (
       ordersDirectoryTbody &&
@@ -1105,7 +1194,7 @@ document.addEventListener("DOMContentLoaded", () => {
       (!rejectedOrdersTbody.children.length ||
         rejectedOrdersTbody.querySelector(".table-empty-state"))
     ) {
-      rejectedOrdersTbody.innerHTML = createSkeletons(8);
+      rejectedOrdersTbody.innerHTML = createSkeletons(9);
     }
     if (
       paymentsHistoryTbody &&
@@ -1207,8 +1296,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       renderEmptyTable(
-        incomingCompactTbody,
-        7,
+        incomingOrdersTbody,
+        10,
         "Unable to load incoming orders.",
       );
       renderEmptyTable(
@@ -1221,18 +1310,12 @@ document.addEventListener("DOMContentLoaded", () => {
         9,
         "Unable to load payments history.",
       );
+      renderEmptyTable(
+        rejectedOrdersTbody,
+        9,
+        "Unable to load rejected orders.",
+      );
       renderEmptyTable(walkInOrdersTbody, 13, "Unable to load walk-in orders.");
-
-      if (incomingCardsWrap) {
-        incomingCardsWrap.innerHTML = `
-          <div class="incoming-order-card incoming-empty-card">
-            <div class="table-empty-state">
-              <i class="fa-regular fa-folder-open"></i>
-              <span>Unable to load incoming orders.</span>
-            </div>
-          </div>
-        `;
-      }
     } finally {
       if (state.syncController === syncController) {
         state.syncController = null;
@@ -2137,30 +2220,17 @@ document.addEventListener("DOMContentLoaded", () => {
     void saveWalkInOrder();
   });
 
-  incomingPrevBtn?.addEventListener("click", () => {
-    if (state.incomingCardsPage <= 1) return;
-    state.incomingCardsPage -= 1;
-    renderIncomingCards();
+  incomingPager.prev?.addEventListener("click", () => {
+    if (state.incomingPage <= 1) return;
+    state.incomingPage -= 1;
+    renderIncomingTable();
   });
 
-  incomingNextBtn?.addEventListener("click", () => {
-    const totalPages = Math.max(1, Math.ceil(state.incoming.length / 6));
-    if (state.incomingCardsPage >= totalPages) return;
-    state.incomingCardsPage += 1;
-    renderIncomingCards();
-  });
-
-  incomingCompactPager.prev?.addEventListener("click", () => {
-    if (state.incomingCompactPage <= 1) return;
-    state.incomingCompactPage -= 1;
-    renderIncomingCompactTable();
-  });
-
-  incomingCompactPager.next?.addEventListener("click", () => {
+  incomingPager.next?.addEventListener("click", () => {
     const totalPages = Math.max(1, Math.ceil(state.incoming.length / 5));
-    if (state.incomingCompactPage >= totalPages) return;
-    state.incomingCompactPage += 1;
-    renderIncomingCompactTable();
+    if (state.incomingPage >= totalPages) return;
+    state.incomingPage += 1;
+    renderIncomingTable();
   });
 
   directoryPager.prev?.addEventListener("click", () => {
@@ -2398,6 +2468,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
+  setupOrderBulkSelections();
   showQueuedSuccess();
 
   const isPopupVisible = () => {
