@@ -31,6 +31,236 @@ body {
   overflow-x: hidden;
 }
 
+/* Shared one-shot page and Inventory-style table skeletons. */
+@keyframes adminGlobalSkeletonShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.admin-global-skeleton-host {
+  position: relative;
+  z-index: 81;
+  isolation: isolate;
+}
+
+.admin-global-page-skeleton {
+  position: absolute;
+  inset: 70px 0 0;
+  z-index: 9999;
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  min-height: calc(100% - 70px);
+  padding: 24px 30px 30px;
+  background: var(--bg-light);
+  opacity: 1;
+  pointer-events: auto;
+  transition: opacity 180ms ease;
+}
+
+.admin-global-page-skeleton.is-leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.admin-loading-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.admin-global-skeleton-toolbar,
+.admin-global-skeleton-card,
+.admin-global-skeleton-panel {
+  border: 1px solid #dfe7e3;
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.admin-global-skeleton-toolbar {
+  display: flex;
+  min-height: 92px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 20px;
+}
+
+.admin-global-skeleton-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-global-skeleton-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-global-skeleton-card {
+  display: grid;
+  min-height: 128px;
+  align-content: center;
+  gap: 12px;
+  padding: 20px;
+}
+
+.admin-global-skeleton-panel {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.admin-global-skeleton-table-row {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border-top: 1px solid #edf1ef;
+}
+
+.admin-global-skeleton-bar,
+.admin-table-skeleton-bar,
+.inv-skeleton-cell {
+  display: block;
+  height: 14px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    #f3f4f6 25%,
+    #e5e7eb 50%,
+    #f3f4f6 75%
+  );
+  background-size: 200% 100%;
+  animation: adminGlobalSkeletonShimmer 1.4s linear infinite;
+}
+
+table tbody > .admin-table-skeleton-row > td,
+.admin-table tbody .inv-skeleton-row > td {
+  padding: 10px 14px;
+}
+
+.admin-table-skeleton-active .table-footer-meta,
+.admin-table-skeleton-active .page-number {
+  position: relative;
+  color: transparent !important;
+}
+
+.admin-table-skeleton-active .table-footer-meta::after,
+.admin-table-skeleton-active .page-number::after {
+  content: "";
+  display: block;
+  width: 130px;
+  max-width: 100%;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    #f3f4f6 25%,
+    #e5e7eb 50%,
+    #f3f4f6 75%
+  );
+  background-size: 200% 100%;
+  animation: adminGlobalSkeletonShimmer 1.4s linear infinite;
+}
+
+.admin-table-skeleton-active .page-number::after {
+  width: 28px;
+  margin-inline: auto;
+}
+
+.admin-products-bootstrap-skeleton {
+  display: grid;
+  gap: 18px;
+}
+
+/* Reports keeps its real rows untouched beneath a three-row skeleton clone. */
+.has-admin-static-table-skeleton {
+  position: relative;
+}
+
+.has-admin-static-table-skeleton > .admin-static-table-source {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+}
+
+.admin-static-table-skeleton-overlay {
+  position: relative;
+  z-index: 2;
+  min-width: max-content;
+  background: #ffffff;
+  pointer-events: none;
+}
+
+.admin-static-table-skeleton-overlay > table {
+  width: 100%;
+  margin: 0;
+}
+
+.admin-global-skeleton-bar.is-title {
+  width: 220px;
+  height: 20px;
+}
+.admin-global-skeleton-bar.is-subtitle {
+  width: min(360px, 46vw);
+  height: 12px;
+}
+.admin-global-skeleton-bar.is-button {
+  width: 104px;
+  height: 38px;
+  border-radius: 10px;
+}
+.admin-global-skeleton-bar.is-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+}
+.admin-global-skeleton-bar.is-card-title {
+  width: 62%;
+}
+.admin-global-skeleton-bar.is-card-value {
+  width: 38%;
+  height: 22px;
+}
+.admin-global-skeleton-bar.is-panel-title {
+  width: 170px;
+  height: 18px;
+}
+
+@media (max-width: 780px) {
+  .admin-global-page-skeleton {
+    padding: 18px 16px 20px;
+  }
+  .admin-global-skeleton-cards {
+    grid-template-columns: 1fr;
+  }
+  .admin-global-skeleton-card:nth-child(n + 3) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-global-page-skeleton {
+    transition-duration: 1ms;
+  }
+  .admin-global-skeleton-bar,
+  .admin-table-skeleton-bar,
+  .inv-skeleton-cell,
+  .admin-table-skeleton-active .table-footer-meta::after,
+  .admin-table-skeleton-active .page-number::after {
+    animation: none;
+  }
+}
+
 .dashboard-container {
   display: flex;
   min-height: 100vh;
@@ -2257,11 +2487,20 @@ body {
 
 .aov-trend-label {
   display: flex;
-  justify-content: space-between;
-  font-size: 0.62rem;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.56rem;
   color: #9ca3af;
   margin-top: 4px;
   padding: 0 2px;
+}
+
+.aov-trend-label span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  white-space: nowrap;
 }
 
 /* Empty state for analytics overview */

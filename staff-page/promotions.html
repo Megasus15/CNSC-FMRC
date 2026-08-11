@@ -1,1 +1,762 @@
-<!doctype html><html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width,initial-scale=1.0" /><title>Promotions | UCN-FMRC Staff</title><link rel="stylesheet" href="../admin-page/dashboard.css" /><link rel="stylesheet" href="../admin-page/admin-modules.css" /><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" /></head><body><div class="dashboard-container"><aside class="sidebar"><div class="sidebar-header"><img src="../images/FMRC Logo.png" class="logo" alt="FMRC Logo" /><h2>UCN-FMRC</h2></div><nav class="sidebar-nav"><a href="dashboard.html" class="nav-link"><i class="fa-solid fa-house"></i> Dashboard</a><a href="inventory.html" class="nav-link"><i class="fa-solid fa-box"></i> Inventory</a><a href="products.html" class="nav-link"><i class="fa-solid fa-tags"></i> Products</a><a href="promotions.html" class="nav-link active"><i class="fa-solid fa-bullhorn"></i> Promotions</a><a href="appointments.html" class="nav-link"><i class="fa-regular fa-calendar-check"></i> Appointment</a><a href="orders.html" class="nav-link"><i class="fa-solid fa-box-open"></i> Orders</a><div class="nav-item has-dropdown"><a href="#" class="nav-link dropdown-toggle" id="staffControlBtn"><div class="dropdown-title"><i class="fa-solid fa-screwdriver-wrench"></i> Website Management</div><i class="fa-solid fa-chevron-down arrow"></i></a><div class="dropdown-menu"><a href="website-home.html" class="sub-link">Home</a><a href="website-services.html" class="sub-link">Services</a><a href="website-contact.html" class="sub-link">Contact</a><a href="website-footer.html" class="sub-link">Footer</a></div></div><a href="my-account.html" class="nav-link"><i class="fa-regular fa-id-card"></i> My Account</a></nav><div class="sidebar-footer"><button class="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button></div></aside><main class="main-content"><header class="top-header"><div class="header-left"><h1>Promotions &amp; Announcements</h1></div></header><section class="module-content" id="staffPromotionsModule">Loading campaign workspace…</section></main></div><script src="../admin-page/admin-common.js"></script><script src="promotions-loader.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Promotions &amp; Announcements | UCN-FMRC Staff</title>
+    <link rel="stylesheet" href="../admin-page/dashboard.css" />
+    <link rel="stylesheet" href="../admin-page/admin-modules.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
+    <style>
+      .campaign-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.06fr) minmax(330px, 0.94fr);
+        gap: 24px;
+      }
+      .campaign-panel {
+        background: #fff;
+        border: 1px solid #e6e8ee;
+        border-radius: 18px;
+        padding: 25px;
+        box-shadow: 0 5px 18px rgba(17, 24, 39, 0.045);
+      }
+      .campaign-panel h2 {
+        font-size: 1.12rem;
+        color: #202938;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .campaign-panel h2 i {
+        color: #800000;
+      }
+      .campaign-panel p {
+        color: #687385;
+        font-size: 0.86rem;
+        margin: 6px 0 20px;
+      }
+      .campaign-form {
+        display: grid;
+        gap: 16px;
+      }
+      .campaign-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .campaign-field {
+        display: grid;
+        gap: 7px;
+      }
+      .campaign-field label {
+        font-size: 0.8rem;
+        color: #495567;
+        font-weight: 600;
+      }
+      .campaign-field input,
+      .campaign-field select,
+      .campaign-field textarea {
+        font: inherit;
+        border: 1px solid #d9dee7;
+        border-radius: 10px;
+        padding: 11px 12px;
+        background: #fff;
+        color: #273142;
+      }
+      .campaign-field textarea {
+        min-height: 96px;
+        resize: vertical;
+      }
+      .campaign-field input:focus,
+      .campaign-field select:focus,
+      .campaign-field textarea:focus {
+        outline: 2px solid rgba(192, 57, 43, 0.17);
+        border-color: #c0392b;
+      }
+      .campaign-check {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        color: #465164;
+        font-size: 0.84rem;
+      }
+      .campaign-check input {
+        accent-color: #c0392b;
+        width: 16px;
+        height: 16px;
+      }
+      .product-picker {
+        max-height: 145px;
+        overflow: auto;
+        border: 1px solid #d9dee7;
+        border-radius: 10px;
+        padding: 8px 10px;
+        background: #fff;
+      }
+      .campaign-item {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-bottom: 12px;
+        background: #fff;
+      }
+      .campaign-item-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .campaign-item-title {
+        font-weight: 700;
+        color: #1e293b;
+        font-size: 0.93rem;
+      }
+      .campaign-status {
+        display: inline-flex;
+        align-items: center;
+        padding: 3px 9px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 700;
+      }
+      .campaign-status.live {
+        background: #ecfdf5;
+        color: #047857;
+      }
+      .campaign-status.scheduled {
+        background: #eff6ff;
+        color: #1d4ed8;
+      }
+      .campaign-status.off {
+        background: #eff1f4;
+        color: #697386;
+      }
+      .campaign-status.finished {
+        background: #fef2f2;
+        color: #b42318;
+      }
+      .campaign-item-actions {
+        display: flex;
+        gap: 7px;
+        margin-top: 12px;
+      }
+      .campaign-item-actions button {
+        padding: 7px 10px;
+        background: #f1f3f6;
+        color: #4a5567;
+      }
+      .campaign-empty {
+        font-size: 0.85rem;
+        color: #798395;
+        padding: 20px 5px;
+        text-align: center;
+      }
+      .announcement-preview {
+        border-radius: 12px;
+        padding: 17px;
+        color: #fff;
+        background: linear-gradient(125deg, #c0392b, #f59e0b);
+        margin-bottom: 16px;
+      }
+      .announcement-preview h3 {
+        margin: 0 0 5px;
+        font-size: 1rem;
+      }
+      .announcement-preview p {
+        margin: 0;
+        color: rgba(255, 255, 255, 0.92);
+        font-size: 0.82rem;
+      }
+      .form-hint {
+        font-size: 0.73rem;
+        color: #7a8493;
+      }
+      .scope-specific {
+        display: none;
+      }
+      .scope-specific.show {
+        display: grid;
+      }
+      .top-header .header-left p {
+        margin: 4px 0 0;
+        color: #758092;
+        font-size: 0.8rem;
+      }
+      @media (max-width: 1180px) {
+        .campaign-layout {
+          grid-template-columns: 1fr;
+        }
+      }
+      @media (max-width: 620px) {
+        .campaign-row {
+          grid-template-columns: 1fr;
+        }
+        .campaign-panel {
+          padding: 18px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="dashboard-container">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" />
+          <h2>UCN-FMRC</h2>
+        </div>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html" class="nav-link"
+            ><i class="fa-solid fa-house"></i> Dashboard</a
+          >
+          <a href="inventory.html" class="nav-link"
+            ><i class="fa-solid fa-box"></i> Inventory</a
+          >
+          <a href="products.html" class="nav-link"
+            ><i class="fa-solid fa-tags"></i> Products</a
+          >
+          <a href="promotions.html" class="nav-link active" title="Promotions &amp; Announcements"
+            ><i class="fa-solid fa-bullhorn"></i> Promotions</a
+          >
+          <a href="appointments.html" class="nav-link"
+            ><i class="fa-regular fa-calendar-check"></i> Appointment</a
+          >
+          <a href="reports.html" class="nav-link"
+            ><i class="fa-solid fa-chart-line"></i> Reports</a
+          >
+          <a href="orders.html" class="nav-link"
+            ><i class="fa-solid fa-box-open"></i> Orders</a
+          >
+          <a href="customer-inquiries.html" class="nav-link"
+            ><i class="fa-regular fa-envelope-open"></i> Customer Inquiries</a
+          >
+          <a href="ratings.html" class="nav-link"
+            ><i class="fa-solid fa-star"></i> Ratings &amp; Feedback</a
+          >
+
+          <div class="nav-item has-dropdown">
+            <a href="#" class="nav-link dropdown-toggle" id="staffControlBtn">
+              <div class="dropdown-title">
+                <i class="fa-solid fa-screwdriver-wrench"></i> Website
+                Management
+              </div>
+              <i class="fa-solid fa-chevron-down arrow"></i>
+            </a>
+            <div class="dropdown-menu">
+              <a href="website-home.html" class="sub-link">Home</a>
+              <a href="website-services.html" class="sub-link">Services</a>
+              <a href="website-contact.html" class="sub-link">Contact</a>
+              <a href="website-footer.html" class="sub-link">Footer</a>
+            </div>
+          </div>
+
+          <a href="archives.html" class="nav-link"
+            ><i class="fa-solid fa-box-archive"></i> Archives</a
+          >
+          <a href="my-account.html" class="nav-link"
+            ><i class="fa-regular fa-id-card"></i> My Account</a
+          >
+        </nav>
+        <div class="sidebar-footer">
+          <button class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
+        </div>
+      </aside>
+      <main class="main-content">
+        <header class="top-header">
+          <div class="header-left"><h1>Promotions &amp; Announcements</h1></div>
+          <div class="header-right">
+            <div class="notifications" id="notifBell">
+              <i class="fa-regular fa-bell"></i>
+              <span class="badge" id="notifBadge" style="display: none"></span>
+            </div>
+            <div class="user-profile">
+              <div class="user-info"><span class="role">Staff</span></div>
+              <span
+                class="profile-icon profile-initial"
+                data-email="staff@cnsc.edu.ph"
+              ></span>
+              <div class="profile-popup" id="profilePopup">
+                <div class="popup-header">
+                  <div class="popup-profile-row">
+                    <span
+                      class="popup-profile-icon profile-initial"
+                      data-email="staff@cnsc.edu.ph"
+                    ></span>
+                    <div class="popup-profile-meta">
+                      <p class="popup-identity">staff@cnsc.edu.ph</p>
+                      <span class="popup-role">Staff</span>
+                    </div>
+                  </div>
+                </div>
+                <a href="my-account.html" class="profile-popup-link"
+                  ><i class="fa-regular fa-id-card"></i> My Account</a
+                >
+                <hr />
+                <button class="logout-btn popup-logout">
+                  <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+        <section class="module-content">
+          <!-- Page Title Toolbar Header Card -->
+          <div class="page-toolbar">
+            <div class="toolbar-title">
+              <h2>Promotions &amp; Announcements</h2>
+              <p>
+                Manage product discount campaigns and publish live announcements for website visitors.
+              </p>
+            </div>
+            <div class="toolbar-actions">
+              <button
+                class="btn-admin btn-secondary"
+                onclick="window.location.reload()"
+                title="Refresh Data"
+              >
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+              </button>
+              <button class="btn-admin" id="btnOpenAddPromotion">
+                <i class="fa-solid fa-plus"></i> Add Promotion
+              </button>
+              <button class="btn-admin" id="btnOpenAddAnnouncement">
+                <i class="fa-solid fa-plus"></i> Add Announcement
+              </button>
+            </div>
+          </div>
+
+          <!-- Live Customer Website Announcement Modal Preview Section -->
+          <section class="panel" style="margin-top: 4px; padding: 20px;">
+            <div class="panel-header" style="margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <h3 style="margin:0;">
+                  <i class="fa-solid fa-eye" style="margin-right:6px;"></i>Live Customer Website Announcement Preview
+                </h3>
+                <p style="margin: 4px 0 0; font-size: 0.8rem; color: #64748b;">
+                  Real-time preview of how announcements and promotions appear in the modal pop-up on the customer website.
+                </p>
+              </div>
+              <div style="display:flex; align-items:center; gap:10px; margin-left:auto;">
+                <span id="livePreviewBadgeTag" style="font-size:0.72rem; font-weight:700; padding:4px 10px; border-radius:20px; background:#fef2f2; color:#991b1b; border:1px solid #fecaca;">
+                  <i class="fa-solid fa-circle-dot fa-beat" style="color:#ef4444; margin-right:4px;"></i> LIVE PREVIEW
+                </span>
+                <button class="btn-admin" id="btnOpenCustomizeModal">
+                  <i class="fa-solid fa-palette"></i> Customize Modal Theme
+                </button>
+              </div>
+            </div>
+
+            <!-- Live Card Container -->
+            <div style="background: linear-gradient(135deg, #1e1b1e 0%, #2d1a24 100%); border-radius: 16px; padding: 34px 20px; display: flex; justify-content: center; align-items: center; min-height: 340px; box-shadow: inset 0 2px 12px rgba(0,0,0,0.5); position: relative; overflow: hidden;">
+              <div id="liveCustomerModalCard" class="announcement-modal__card" style="margin: 0; max-width: 480px; width: 100%; box-shadow: 0 25px 65px rgba(0,0,0,0.45);">
+                <!-- Injected dynamically by JS -->
+              </div>
+            </div>
+
+            <!-- Arrow Controls Placed Inside Right Below Preview Card -->
+            <div style="display:flex; justify-content:flex-end; align-items:center; gap:12px; margin-top: 16px;">
+              <button class="btn-admin btn-secondary" id="btnPrevPreview" style="padding:6px 14px; font-size:0.82rem;" title="Previous Announcement">
+                <i class="fa-solid fa-chevron-left"></i>
+              </button>
+              <span id="previewCounterText" style="font-size:0.85rem; font-weight:600; color:#374151;">1 of 1</span>
+              <button class="btn-admin btn-secondary" id="btnNextPreview" style="padding:6px 14px; font-size:0.82rem;" title="Next Announcement">
+                <i class="fa-solid fa-chevron-right"></i>
+              </button>
+            </div>
+          </section>
+
+          <!-- Saved Product Promotions Card -->
+          <section class="panel" style="margin-top: 4px">
+            <div class="panel-header">
+              <h3><i class="fa-solid fa-tags" style="color:#800000; margin-right:8px;"></i>Saved Product Promotions</h3>
+            </div>
+            <div class="table-wrapper" style="overflow-x: auto">
+              <table class="admin-table enhanced-table" id="promotionTable">
+                <thead>
+                  <tr>
+                    <th class="admin-bulk-select-cell">
+                      <input type="checkbox" data-admin-bulk-page="promotions" aria-label="Select all promotions on this page" />
+                    </th>
+                    <th style="width: 50px">No.</th>
+                    <th>Campaign Name</th>
+                    <th>Discount</th>
+                    <th>Applies To</th>
+                    <th>Schedule</th>
+                    <th>Status</th>
+                    <th class="sticky-action" style="text-align: right">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+                <tbody id="promotionTableBody">
+                  <!-- Data rows injected by JS -->
+                </tbody>
+              </table>
+            </div>
+            <div
+              class="table-footer"
+              id="promotionTableFooter"
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 14px;
+                padding-top: 12px;
+                border-top: 1px solid #e5e7eb;
+              "
+            >
+              <div class="table-footer-meta" id="promotionTableMeta">
+                Showing 0 of 0 promotions
+              </div>
+              <div
+                class="table-pagination"
+                style="display: flex; align-items: center; gap: 8px"
+              >
+                <button id="promotionPrevPage" class="page-btn" disabled>
+                  <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <input
+                  class="page-number"
+                  id="promotionCurrentPage"
+                  type="number"
+                  min="1"
+                  value="1"
+                  inputmode="numeric"
+                  aria-label="Go to promotions page"
+                  style="font-weight: 600; font-size: 0.85rem; color: #374151"
+                />
+                <button id="promotionNextPage" class="page-btn" disabled>
+                  <i class="fa-solid fa-chevron-right"></i>
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Saved Visitor Announcements Card -->
+          <section class="panel" style="margin-top: 4px">
+            <div class="panel-header">
+              <h3><i class="fa-solid fa-bell" style="color:#800000; margin-right:8px;"></i>Saved Visitor Announcements</h3>
+            </div>
+            <div class="table-wrapper" style="overflow-x: auto">
+              <table class="admin-table enhanced-table" id="announcementTable">
+                <thead>
+                  <tr>
+                    <th class="admin-bulk-select-cell">
+                      <input type="checkbox" data-admin-bulk-page="announcements" aria-label="Select all announcements on this page" />
+                    </th>
+                    <th style="width: 50px">No.</th>
+                    <th>Headline</th>
+                    <th>Placement</th>
+                    <th>Schedule</th>
+                    <th>Status</th>
+                    <th class="sticky-action" style="text-align: right">
+                      Action
+                    </th>
+                  </tr>
+                </thead>
+                <tbody id="announcementTableBody">
+                  <!-- Data rows injected by JS -->
+                </tbody>
+              </table>
+            </div>
+            <div
+              class="table-footer"
+              id="announcementTableFooter"
+              style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 14px;
+                padding-top: 12px;
+                border-top: 1px solid #e5e7eb;
+              "
+            >
+              <div class="table-footer-meta" id="announcementTableMeta">
+                Showing 0 of 0 announcements
+              </div>
+              <div
+                class="table-pagination"
+                style="display: flex; align-items: center; gap: 8px"
+              >
+                <button id="announcementPrevPage" class="page-btn" disabled>
+                  <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <input
+                  class="page-number"
+                  id="announcementCurrentPage"
+                  type="number"
+                  min="1"
+                  value="1"
+                  inputmode="numeric"
+                  aria-label="Go to announcements page"
+                  style="font-weight: 600; font-size: 0.85rem; color: #374151"
+                />
+                <button id="announcementNextPage" class="page-btn" disabled>
+                  <i class="fa-solid fa-chevron-right"></i>
+                </button>
+              </div>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <!-- ────────────── ADD / EDIT PROMOTION MODAL ────────────── -->
+    <div
+      class="modal-overlay"
+      id="modalAddPromotion"
+      data-backdrop-close="false"
+    >
+      <div class="modal-card product-modal" style="max-width: 620px;">
+        <div class="modal-header-fixed">
+          <h3 class="modal-title" id="promotionModalTitle" style="margin:0;">
+            <i class="fa-solid fa-tags" style="margin-right: 8px; color:#800000;"></i>Add New Promotion
+          </h3>
+        </div>
+        <div class="modal-body-scroll">
+          <form id="promotionForm" class="form-grid">
+            <input type="hidden" id="promotionId" />
+            <div class="field-stack full">
+              <label for="promotionTitle">Campaign Name <span style="color: #dc2626">*</span></label>
+              <input
+                class="input-field"
+                id="promotionTitle"
+                maxlength="120"
+                required
+                placeholder="e.g. National Tech Week Sale"
+              />
+            </div>
+            <div class="field-stack">
+              <label for="promotionDiscount">Discount Percentage (%) <span style="color: #dc2626">*</span></label>
+              <input
+                class="input-field"
+                id="promotionDiscount"
+                type="number"
+                min="0"
+                max="100"
+                required
+                value="10"
+              />
+              <span class="field-hint">Up to 100% off.</span>
+            </div>
+            <div class="field-stack">
+              <label for="promotionScope">Applies To <span style="color: #dc2626">*</span></label>
+              <select class="filter-select" id="promotionScope">
+                <option value="all_products">All products</option>
+                <option value="specific_products">Specific products</option>
+              </select>
+            </div>
+            <div
+              id="specificProductsField"
+              class="field-stack full scope-specific"
+            >
+              <label>Choose Products</label>
+              <div id="promotionProductPicker" class="product-picker">
+                <span class="field-hint">Loading products…</span>
+              </div>
+            </div>
+            <div class="field-stack">
+              <label for="promotionStart">Starts At (optional)</label>
+              <input class="input-field" id="promotionStart" type="datetime-local" />
+            </div>
+            <div class="field-stack">
+              <label for="promotionEnd">Ends At (optional)</label>
+              <input class="input-field" id="promotionEnd" type="datetime-local" />
+            </div>
+            <div class="field-stack full">
+              <label class="campaign-check">
+                <input id="promotionEnabled" type="checkbox" checked />
+                Enable this promotion campaign
+              </label>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer-fixed">
+          <button class="btn-admin btn-secondary" type="button" id="promotionReset">
+            Cancel
+          </button>
+          <button class="btn-admin" type="submit" form="promotionForm" id="btnSavePromotion">
+            <i class="fa-solid fa-floppy-disk"></i> Save Promotion
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ────────────── ADD / EDIT ANNOUNCEMENT MODAL ────────────── -->
+    <div
+      class="modal-overlay"
+      id="modalAddAnnouncement"
+      data-backdrop-close="false"
+    >
+      <div class="modal-card product-modal" style="max-width: 650px;">
+        <div class="modal-header-fixed">
+          <h3 class="modal-title" id="announcementModalTitle" style="margin:0;">
+            <i class="fa-solid fa-bullhorn" style="margin-right: 8px; color:#800000;"></i>Add New Announcement
+          </h3>
+        </div>
+        <div class="modal-body-scroll">
+          <form id="announcementForm" class="form-grid">
+            <input type="hidden" id="announcementId" />
+            <div class="field-stack full">
+              <label for="announcementTitle">Headline <span style="color: #dc2626">*</span></label>
+              <input
+                class="input-field"
+                id="announcementTitle"
+                maxlength="140"
+                required
+                placeholder="e.g. Today only: 50% off select products"
+              />
+            </div>
+            <div class="field-stack full">
+              <label for="announcementMessage">Message <span style="color: #dc2626">*</span></label>
+              <textarea
+                class="textarea-field"
+                id="announcementMessage"
+                maxlength="2000"
+                required
+                rows="4"
+                placeholder="Tell visitors what is happening and why they should take action."
+              ></textarea>
+            </div>
+            <div class="field-stack full">
+              <label for="announcementPlacement">Show On <span style="color: #dc2626">*</span></label>
+              <select class="filter-select" id="announcementPlacement">
+                <option value="site">Main website</option>
+                <option value="products">Products page</option>
+                <option value="both">Everywhere</option>
+              </select>
+            </div>
+            <div class="field-stack">
+              <label for="announcementCtaLabel">Button Label (optional)</label>
+              <input
+                class="input-field"
+                id="announcementCtaLabel"
+                maxlength="60"
+                placeholder="e.g. Shop the sale"
+              />
+            </div>
+            <div class="field-stack">
+              <label for="announcementCtaUrl">Button Link (optional)</label>
+              <input
+                class="input-field"
+                id="announcementCtaUrl"
+                maxlength="500"
+                placeholder="e.g. /products-page/product.html"
+              />
+            </div>
+            <div class="field-stack">
+              <label for="announcementStart">Starts At (optional)</label>
+              <input class="input-field" id="announcementStart" type="datetime-local" />
+            </div>
+            <div class="field-stack">
+              <label for="announcementEnd">Ends At (optional)</label>
+              <input class="input-field" id="announcementEnd" type="datetime-local" />
+            </div>
+            <div class="field-stack full">
+              <label class="campaign-check">
+                <input id="announcementEnabled" type="checkbox" checked />
+                Enable this visitor announcement
+              </label>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer-fixed">
+          <button class="btn-admin btn-secondary" type="button" id="announcementReset">
+            Cancel
+          </button>
+          <button class="btn-admin" type="submit" form="announcementForm" id="btnSaveAnnouncement">
+            <i class="fa-solid fa-paper-plane"></i> Save Announcement
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ────────────── CUSTOMIZE MODAL THEME MODAL ────────────── -->
+    <div
+      class="modal-overlay"
+      id="modalCustomizeTheme"
+      data-backdrop-close="false"
+    >
+      <div class="modal-card product-modal" style="max-width: 600px;">
+        <div class="modal-header-fixed">
+          <h3 class="modal-title" style="margin:0;">
+            <i class="fa-solid fa-palette" style="margin-right: 8px; color:#800000;"></i>Customize Announcement Modal Theme
+          </h3>
+        </div>
+        <div class="modal-body-scroll">
+          <p style="font-size:0.84rem; color:#64748b; margin-top:0; margin-bottom:16px;">
+            Select a ready-made color gradient design or create a custom combination. This theme will apply to all FMRC announcement pop-ups across the entire customer website.
+          </p>
+
+          <label style="font-size:0.76rem; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.04em; display:block; margin-bottom:8px;">Ready-Made Gradient Presets</label>
+          <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap:10px; margin-bottom:20px;" id="themePresetsGrid">
+            <div class="preset-theme-card active" data-primary="#c0392b" data-secondary="#800000" style="padding:10px; border:2px solid #800000; border-radius:10px; cursor:pointer; text-align:center; background:#fff;">
+              <div style="height:28px; border-radius:6px; background:linear-gradient(135deg, #c0392b, #800000); margin-bottom:6px;"></div>
+              <span style="font-size:0.75rem; font-weight:700; color:#1e293b;">Classic Maroon</span>
+            </div>
+            <div class="preset-theme-card" data-primary="#dc2626" data-secondary="#450a0a" style="padding:10px; border:1px solid #e2e8f0; border-radius:10px; cursor:pointer; text-align:center; background:#fff;">
+              <div style="height:28px; border-radius:6px; background:linear-gradient(135deg, #dc2626, #450a0a); margin-bottom:6px;"></div>
+              <span style="font-size:0.75rem; font-weight:700; color:#1e293b;">Deep Crimson</span>
+            </div>
+            <div class="preset-theme-card" data-primary="#f59e0b" data-secondary="#78350f" style="padding:10px; border:1px solid #e2e8f0; border-radius:10px; cursor:pointer; text-align:center; background:#fff;">
+              <div style="height:28px; border-radius:6px; background:linear-gradient(135deg, #f59e0b, #78350f); margin-bottom:6px;"></div>
+              <span style="font-size:0.75rem; font-weight:700; color:#1e293b;">Sunset Amber</span>
+            </div>
+            <div class="preset-theme-card" data-primary="#10b981" data-secondary="#064e3b" style="padding:10px; border:1px solid #e2e8f0; border-radius:10px; cursor:pointer; text-align:center; background:#fff;">
+              <div style="height:28px; border-radius:6px; background:linear-gradient(135deg, #10b981, #064e3b); margin-bottom:6px;"></div>
+              <span style="font-size:0.75rem; font-weight:700; color:#1e293b;">Emerald Forest</span>
+            </div>
+            <div class="preset-theme-card" data-primary="#3b82f6" data-secondary="#1e3a8a" style="padding:10px; border:1px solid #e2e8f0; border-radius:10px; cursor:pointer; text-align:center; background:#fff;">
+              <div style="height:28px; border-radius:6px; background:linear-gradient(135deg, #3b82f6, #1e3a8a); margin-bottom:6px;"></div>
+              <span style="font-size:0.75rem; font-weight:700; color:#1e293b;">Royal Sapphire</span>
+            </div>
+            <div class="preset-theme-card" data-primary="#8b5cf6" data-secondary="#4c1d95" style="padding:10px; border:1px solid #e2e8f0; border-radius:10px; cursor:pointer; text-align:center; background:#fff;">
+              <div style="height:28px; border-radius:6px; background:linear-gradient(135deg, #8b5cf6, #4c1d95); margin-bottom:6px;"></div>
+              <span style="font-size:0.75rem; font-weight:700; color:#1e293b;">Midnight Purple</span>
+            </div>
+            <div class="preset-theme-card" data-primary="#4b5563" data-secondary="#111827" style="padding:10px; border:1px solid #e2e8f0; border-radius:10px; cursor:pointer; text-align:center; background:#fff;">
+              <div style="height:28px; border-radius:6px; background:linear-gradient(135deg, #4b5563, #111827); margin-bottom:6px;"></div>
+              <span style="font-size:0.75rem; font-weight:700; color:#1e293b;">Dark Onyx</span>
+            </div>
+          </div>
+
+          <label style="font-size:0.76rem; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.04em; display:block; margin-bottom:8px;">Custom Gradient Selection</label>
+          <div class="form-grid">
+            <div class="field-stack">
+              <label for="themePrimaryColor">Upper-Right Accent Color</label>
+              <input class="input-field" id="themePrimaryColor" type="color" value="#c0392b" style="height:42px; padding:3px; cursor:pointer;" />
+            </div>
+            <div class="field-stack">
+              <label for="themeSecondaryColor">Bottom-Left Accent Color</label>
+              <input class="input-field" id="themeSecondaryColor" type="color" value="#800000" style="height:42px; padding:3px; cursor:pointer;" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer-fixed">
+          <button class="btn-admin btn-secondary" type="button" id="btnCancelThemeModal">
+            Cancel
+          </button>
+          <button class="btn-admin" type="button" id="btnSaveThemeModal">
+            <i class="fa-solid fa-floppy-disk"></i> Apply &amp; Save Theme
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="../home-page/customer-announcements.js"></script>
+    <script src="../admin-page/session-helper.js"></script>
+    <script src="../admin-page/admin-common.js"></script>
+    <script src="../admin-page/promotions.js"></script>
+  </body>
+</html>

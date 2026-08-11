@@ -7,7 +7,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const MOBILE_BREAKPOINT = 1024;
   const SIDEBAR_PREF_KEY = "adminSidebarMobileState";
   const DASHBOARD_REQUEST_TIMEOUT_MS = 15000;
-  const DASHBOARD_SYNC_MS = 6000;
   const DASHBOARD_MIN_SYNC_GAP_MS = 2500;
   const DASHBOARD_EVENT_DEBOUNCE_MS = 300;
   const DASHBOARD_ORDERS_SIGNAL_KEY = "fmrc_orders_updated_at";
@@ -61,7 +60,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let sidebarToggleBtn = null;
   let sidebarBackdrop = null;
-  let dashboardSyncTimer = null;
   let dashboardOrdersChannel = null;
   let dashboardSyncInProgress = false;
   let dashboardSyncController = null;
@@ -1026,42 +1024,49 @@ document.addEventListener("DOMContentLoaded", () => {
       const year = analyticsSummary?.year || new Date().getFullYear();
       if (aovTrendYear) aovTrendYear.textContent = `${year} monthly totals`;
 
-      const maxSales = Math.max(...trend.map((m) => m.total_sales || 0), 1);
-      const hasTrendData = trend.some((m) => (m.total_sales || 0) > 0);
+      const monthLabels = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
+      const maxSales = Math.max(
+        ...monthLabels.map((_, i) => trend[i]?.total_sales || 0),
+        1,
+      );
+      const hasTrendData = monthLabels.some(
+        (_, i) => (trend[i]?.total_sales || 0) > 0,
+      );
 
       if (!hasTrendData) {
         aovYearlySalesTrend.innerHTML =
           '<div class="aov-empty"><i class="fa-solid fa-chart-line"></i> No sales data for this year</div>';
       } else {
-        const monthLabels = [
-          "J",
-          "F",
-          "M",
-          "A",
-          "M",
-          "J",
-          "J",
-          "A",
-          "S",
-          "O",
-          "N",
-          "D",
-        ];
-        const bars = trend
-          .map((m, i) => {
+        const bars = monthLabels
+          .map((label, i) => {
+            const totalSales = trend[i]?.total_sales || 0;
             const pct =
               maxSales > 0
-                ? Math.max(((m.total_sales || 0) / maxSales) * 100, 4)
+                ? Math.max((totalSales / maxSales) * 100, 4)
                 : 4;
-            return `<div class="aov-trend-bar" style="height:${pct}%" title="${monthLabels[i]}: ${formatCurrencyCompact(m.total_sales)}"></div>`;
+            return `<div class="aov-trend-bar" style="height:${pct}%" title="${label}: ${formatCurrencyCompact(totalSales)}"></div>`;
           })
+          .join("");
+        const labels = monthLabels
+          .map((label) => `<span>${label}</span>`)
           .join("");
 
         aovYearlySalesTrend.innerHTML = `
             <div class="aov-trend-bars">${bars}</div>
-            <div class="aov-trend-label">
-              <span>Jan</span><span>Jun</span><span>Dec</span>
-            </div>
+            <div class="aov-trend-label">${labels}</div>
           `;
       }
     }
@@ -1263,17 +1268,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }, waitMs);
   };
 
-  const startDashboardRealtimeSync = () => {
-    if (dashboardSyncTimer) {
-      clearInterval(dashboardSyncTimer);
-    }
-
-    dashboardSyncTimer = window.setInterval(() => {
-      if (document.hidden) return;
-      queueDashboardSync({ source: "auto" });
-    }, DASHBOARD_SYNC_MS);
-  };
-
   window.addEventListener("storage", (event) => {
     if (event.key !== DASHBOARD_ORDERS_SIGNAL_KEY) return;
     if (document.hidden) return;
@@ -1304,16 +1298,6 @@ document.addEventListener("DOMContentLoaded", () => {
     queueDashboardSync({ force: true, source: "realtime" });
   });
 
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) return;
-    queueDashboardSync({ force: true, source: "realtime" });
-  });
-
-  window.addEventListener("focus", () => {
-    if (document.hidden) return;
-    queueDashboardSync({ force: true, source: "realtime" });
-  });
-
   if (dashboardRefreshBtn) {
     dashboardRefreshBtn.addEventListener("click", () => {
       // Make refresh consistent with Inventory page: perform a full reload
@@ -1330,9 +1314,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   window.addEventListener("beforeunload", () => {
-    if (dashboardSyncTimer) {
-      clearInterval(dashboardSyncTimer);
-    }
     if (dashboardQueuedSyncTimer) {
       clearTimeout(dashboardQueuedSyncTimer);
     }
@@ -1343,7 +1324,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   void syncDashboardData({ force: true, source: "manual" });
-  startDashboardRealtimeSync();
 
   syncSidebarMode();
 });

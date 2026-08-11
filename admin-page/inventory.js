@@ -117,6 +117,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let allItems = [];
   let editingItemId = null;
   let viewingItemId = null;
+  let inventoryFormBaseline = null;
   const selectedInventoryIdsByCategory = new Map(
     CATEGORIES.map((category) => [category, new Set()]),
   );
@@ -130,6 +131,82 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const openModal = (m) => m?.classList.add("show");
   const closeModal = (m) => m?.classList.remove("show");
+
+  const getFormValue = (element) => String(element?.value ?? "");
+
+  const getInventoryFormSnapshot = () => ({
+    category: getFormValue(formCategory),
+    itemName: getFormValue(formItemName).trim(),
+    description: getFormValue(formDescription).trim(),
+    unit: getFormValue(formUnit),
+    onHand: getFormValue(formOnHand).trim(),
+    remarks: getFormValue(formRemarks).trim(),
+    variants: Array.from(
+      variantList?.querySelectorAll(".inv-variant-card") || [],
+    ).map((row) => ({
+      name: getFormValue(row.querySelector("[data-variant-name]")).trim(),
+      description: getFormValue(
+        row.querySelector("[data-variant-description]"),
+      ).trim(),
+      unit: getFormValue(row.querySelector("[data-variant-unit]")),
+      onHand: getFormValue(row.querySelector("[data-variant-on-hand]")).trim(),
+      remarks: getFormValue(row.querySelector("[data-variant-remarks]")).trim(),
+    })).filter(
+      (variant) =>
+        Boolean(
+          variant.name ||
+            variant.description ||
+            variant.onHand ||
+            variant.remarks ||
+            variant.unit !== "pcs",
+        ),
+    ),
+  });
+
+  const captureInventoryFormBaseline = () => {
+    inventoryFormBaseline = getInventoryFormSnapshot();
+  };
+
+  const isInventoryFormDirty = () => {
+    if (!inventoryFormBaseline) return false;
+    return (
+      JSON.stringify(getInventoryFormSnapshot()) !==
+      JSON.stringify(inventoryFormBaseline)
+    );
+  };
+
+  const capitalizeFirstLetter = (value) =>
+    String(value ?? "").replace(
+      /^(\s*)(\p{L})/u,
+      (_, leadingWhitespace, firstLetter) =>
+        `${leadingWhitespace}${firstLetter.toLocaleUpperCase()}`,
+    );
+
+  modalForm?.addEventListener("input", (event) => {
+    const target = event.target;
+    if (
+      !(target instanceof HTMLInputElement) &&
+      !(target instanceof HTMLTextAreaElement)
+    ) {
+      return;
+    }
+    if (target instanceof HTMLInputElement && target.type !== "text") return;
+
+    const currentValue = target.value;
+    const nextValue = capitalizeFirstLetter(currentValue);
+    if (nextValue === currentValue) return;
+
+    const selectionStart = target.selectionStart;
+    const selectionEnd = target.selectionEnd;
+    const lengthDelta = nextValue.length - currentValue.length;
+    target.value = nextValue;
+    if (selectionStart !== null && selectionEnd !== null) {
+      target.setSelectionRange(
+        selectionStart + lengthDelta,
+        selectionEnd + lengthDelta,
+      );
+    }
+  });
 
   // ─── Status helpers ───────────────────────────────────────────────────────────
   const statusClass = (status) => {
@@ -752,24 +829,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }).join("");
   };
 
-  // Inject skeleton loading styles
-  const skeletonStyle = document.createElement("style");
-  skeletonStyle.textContent = `
-    .inv-skeleton-cell {
-      height: 14px;
-      border-radius: 6px;
-      background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
-      background-size: 200% 100%;
-      animation: invShimmer 1.4s infinite;
-    }
-    @keyframes invShimmer {
-      0% { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
-    }
-    .inv-skeleton-row td { padding: 10px 14px; }
-  `;
-  document.head.appendChild(skeletonStyle);
-
   // ─── Load inventory from API ──────────────────────────────────────────────────
   const loadInventory = async () => {
     renderSkeletonTables();
@@ -1243,6 +1302,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ─── Form helpers ─────────────────────────────────────────────────────────────
   const resetForm = () => {
+    inventoryFormBaseline = null;
     editingItemId = null;
     if (invModalTitle)
       invModalTitle.innerHTML =
@@ -1272,6 +1332,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const onHandTag = document.getElementById("onHandRequiredTag");
     if (unitTag) unitTag.style.display = "inline";
     if (onHandTag) onHandTag.style.display = "inline";
+  };
+
+  const closeInventoryForm = ({ discardChanges = false } = {}) => {
+    const baseline = inventoryFormBaseline;
+    if (editingItemId === null && formCategory) {
+      const categoryToPersist =
+        discardChanges && baseline ? baseline.category : formCategory.value;
+      localStorage.setItem("fmrc_inv_last_category", categoryToPersist);
+    }
+    closeModal(modalForm);
+    resetForm();
   };
 
   const populateFormForEdit = (item) => {
@@ -1310,6 +1381,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // ─── Open Add Modal ───────────────────────────────────────────────────────────
   btnOpenAdd?.addEventListener("click", () => {
     resetForm();
+    captureInventoryFormBaseline();
     openModal(modalForm);
   });
 
@@ -1322,11 +1394,29 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   btnCancelForm?.addEventListener("click", () => {
-    // Persist current category before closing (only for Add mode)
-    if (editingItemId === null && formCategory) {
-      localStorage.setItem("fmrc_inv_last_category", formCategory.value);
+    if (!isInventoryFormDirty()) {
+      closeInventoryForm();
+      return;
     }
-    closeModal(modalForm);
+
+    const discardChanges = () => closeInventoryForm({ discardChanges: true });
+
+    if (typeof window.showAdminConfirmPopup === "function") {
+      window.showAdminConfirmPopup(
+        "Any information entered in this item will be lost.",
+        {
+          title: "Discard changes?",
+          confirmText: "Discard",
+          cancelText: "Keep Editing",
+          onConfirm: discardChanges,
+        },
+      );
+      return;
+    }
+
+    if (window.confirm("Discard changes?")) {
+      discardChanges();
+    }
   });
 
   btnAddVariant?.addEventListener("click", () => {
@@ -1584,6 +1674,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!item) return;
     closeModal(modalView);
     populateFormForEdit(item);
+    captureInventoryFormBaseline();
     openModal(modalForm);
   });
 

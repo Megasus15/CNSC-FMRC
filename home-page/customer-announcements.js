@@ -969,10 +969,13 @@
 
   document.addEventListener("DOMContentLoaded", () => {
     mountModalAndButtons();
-    void load();
+    // Admin and Staff Promotions reuse the preview renderer from this file,
+    // but their page module already owns the data request. Avoid a second
+    // polling/foreground-refresh system on those management pages.
+    if (!isAdminOrStaff) void load();
   });
 
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) void load();
+    if (!isAdminOrStaff && !document.hidden) void load();
   });
 })();

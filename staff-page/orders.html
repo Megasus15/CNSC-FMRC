@@ -177,7 +177,7 @@
                   <button class="page-btn" type="button" disabled aria-label="Previous incoming orders page">
                     <i class="fa-solid fa-chevron-left"></i>
                   </button>
-                  <div class="page-number">1</div>
+                  <input class="page-number" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to incoming orders page" />
                   <button class="page-btn" type="button" disabled aria-label="Next incoming orders page">
                     <i class="fa-solid fa-chevron-right"></i>
                   </button>
@@ -231,7 +231,7 @@
                   <button class="page-btn" type="button" disabled>
                     <i class="fa-solid fa-chevron-left"></i>
                   </button>
-                  <div class="page-number">1</div>
+                  <input class="page-number" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to orders directory page" />
                   <button class="page-btn" type="button" disabled>
                     <i class="fa-solid fa-chevron-right"></i>
                   </button>
@@ -285,7 +285,7 @@
                   <button class="page-btn" type="button" disabled>
                     <i class="fa-solid fa-chevron-left"></i>
                   </button>
-                  <div class="page-number">1</div>
+                  <input class="page-number" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to walk-in orders page" />
                   <button class="page-btn" type="button" disabled>
                     <i class="fa-solid fa-chevron-right"></i>
                   </button>
@@ -340,7 +340,7 @@
                   <button class="page-btn" type="button" disabled>
                     <i class="fa-solid fa-chevron-left"></i>
                   </button>
-                  <div class="page-number">1</div>
+                  <input class="page-number" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to rejected orders page" />
                   <button class="page-btn" type="button" disabled>
                     <i class="fa-solid fa-chevron-right"></i>
                   </button>
@@ -391,7 +391,7 @@
                   <button class="page-btn" type="button" disabled>
                     <i class="fa-solid fa-chevron-left"></i>
                   </button>
-                  <div class="page-number">1</div>
+                  <input class="page-number" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to payments history page" />
                   <button class="page-btn" type="button" disabled>
                     <i class="fa-solid fa-chevron-right"></i>
                   </button>
@@ -553,7 +553,8 @@
         <div class="modal-footer-fixed">
           <button
             class="btn-admin btn-secondary"
-            data-modal-close="#modalTrackingUpdate"
+            id="btnCancelTrackingUpdate"
+            type="button"
           >
             Cancel
           </button>
@@ -873,7 +874,7 @@
               width: 42px;
               height: 42px;
               border-radius: 10px;
-              background: linear-gradient(135deg, #78350f, #d97706);
+              background: linear-gradient(135deg, #7f1d1d, #dc2626);
               display: flex;
               align-items: center;
               justify-content: center;
@@ -912,8 +913,8 @@
             id="btnConfirmArchivePaymentHistory"
             type="button"
             style="
-              background: linear-gradient(135deg, #78350f, #d97706);
-              border-color: #d97706;
+              background: linear-gradient(135deg, #7f1d1d, #dc2626);
+              border-color: #dc2626;
             "
           >
             <i class="fa-solid fa-box-archive"></i> Archive Payment
@@ -991,8 +992,8 @@
       </div>
     </div>
 
-    <script src="../admin-page/orders.js"></script>
     <script src="../admin-page/session-helper.js"></script>
     <script src="../admin-page/admin-common.js"></script>
+    <script src="../admin-page/orders.js"></script>
   </body>
 </html>

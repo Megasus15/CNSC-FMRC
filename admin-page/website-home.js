@@ -258,6 +258,14 @@ function toggleBgType(type) {
 }
 
 async function doSaveAll() {
+  const saveButton = document.getElementById("btnSaveAllHome");
+  const originalSaveButtonHtml = saveButton?.innerHTML || "";
+  if (saveButton) {
+    saveButton.disabled = true;
+    saveButton.innerHTML =
+      '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+  }
+
   const payload = {
     hero_title: document.getElementById("heroTitle").value,
     hero_bg_type: document.getElementById("heroBgType").value,
@@ -296,6 +304,13 @@ async function doSaveAll() {
       "Failed to save. Check your connection and try again.",
       { title: "Error" },
     );
+  } finally {
+    if (saveButton) {
+      saveButton.disabled = false;
+      saveButton.innerHTML =
+        originalSaveButtonHtml ||
+        '<i class="fa-solid fa-floppy-disk"></i> Save All Changes';
+    }
   }
 }
 

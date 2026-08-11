@@ -42,7 +42,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const PHILIPPINES_TIME_ZONE = "Asia/Manila";
   const REQUEST_TIMEOUT_MS = 25000; // Increased to 25s because local Laravel SMTP blocking causes long load times
   const ORDERS_REALTIME_CHANNEL = "fmrc-orders-realtime";
-  const ORDERS_BACKGROUND_SYNC_MS = 6000;
   const MIN_SYNC_GAP_MS = 2500;
 
   let ordersRealtimeChannel = null;
@@ -189,6 +188,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const trackingCourierName = document.getElementById("trackingCourierName");
   const trackingCourierNo = document.getElementById("trackingCourierNo");
   const trackingLocationName = document.getElementById("trackingLocationName");
+  const btnCancelTrackingUpdate = document.getElementById(
+    "btnCancelTrackingUpdate",
+  );
   const btnSaveTrackingUpdate = document.getElementById(
     "btnSaveTrackingUpdate",
   );
@@ -206,7 +208,6 @@ document.addEventListener("DOMContentLoaded", () => {
     rejectedPage: 1,
     isSyncing: false,
     syncController: null,
-    pollTimer: null,
     syncRequestId: 0,
     lastSyncAt: 0,
     pendingForceSync: false,
@@ -218,6 +219,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let incomingBulkController = null;
   let rejectedBulkController = null;
   let paymentBulkController = null;
+  let trackingDiscardGuard = null;
+  let walkInDiscardGuard = null;
+  let walkInFormInteracted = false;
 
   const shouldProcessRealtimeSignal = (payload = {}) => {
     const ts = Number(payload?.timestamp || 0);
@@ -614,8 +618,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (footer) {
       const controls = getFooterControls(footer);
-      if (controls.pageNumber)
-        controls.pageNumber.textContent = String(safePage);
+      if (controls.pageNumber) {
+        controls.pageNumber.value = String(safePage);
+        controls.pageNumber.max = String(totalPages);
+      }
       if (controls.pageMeta)
         controls.pageMeta.textContent = `Page ${safePage} of ${totalPages}`;
       if (controls.prev) controls.prev.disabled = safePage <= 1;
@@ -1169,46 +1175,56 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const renderOrdersLoading = () => {
-    const createSkeletons = (cols) =>
-      `<tr>` +
-      `<td><div class="skeleton-text" style="width:100%"></div></td>`.repeat(
-        cols,
-      ) +
-      `</tr>`.repeat(4);
+    const showSkeletons = (target, columns) => {
+      if (!target) return;
+      const usedSharedSkeleton = window.AdminTableSkeleton?.show(target, {
+        rows: 3,
+        columns,
+      });
+      if (usedSharedSkeleton) return;
+
+      const cells = Array.from(
+        { length: columns },
+        () => '<td><span class="admin-table-skeleton-bar"></span></td>',
+      ).join("");
+      target.innerHTML = `<tr class="admin-table-skeleton-row" aria-hidden="true">${cells}</tr>`.repeat(
+        3,
+      );
+    };
     if (
       incomingOrdersTbody &&
       (!incomingOrdersTbody.children.length ||
         incomingOrdersTbody.querySelector(".table-empty-state"))
     ) {
-      incomingOrdersTbody.innerHTML = createSkeletons(10);
+      showSkeletons(incomingOrdersTbody, 10);
     }
     if (
       ordersDirectoryTbody &&
       (!ordersDirectoryTbody.children.length ||
         ordersDirectoryTbody.querySelector(".table-empty-state"))
     ) {
-      ordersDirectoryTbody.innerHTML = createSkeletons(8);
+      showSkeletons(ordersDirectoryTbody, 8);
     }
     if (
       rejectedOrdersTbody &&
       (!rejectedOrdersTbody.children.length ||
         rejectedOrdersTbody.querySelector(".table-empty-state"))
     ) {
-      rejectedOrdersTbody.innerHTML = createSkeletons(9);
+      showSkeletons(rejectedOrdersTbody, 9);
     }
     if (
       paymentsHistoryTbody &&
       (!paymentsHistoryTbody.children.length ||
         paymentsHistoryTbody.querySelector(".table-empty-state"))
     ) {
-      paymentsHistoryTbody.innerHTML = createSkeletons(9);
+      showSkeletons(paymentsHistoryTbody, 9);
     }
     if (
       walkInOrdersTbody &&
       (!walkInOrdersTbody.children.length ||
         walkInOrdersTbody.querySelector(".table-empty-state"))
     ) {
-      walkInOrdersTbody.innerHTML = createSkeletons(13);
+      showSkeletons(walkInOrdersTbody, 13);
     }
   };
 
@@ -1351,8 +1367,28 @@ document.addEventListener("DOMContentLoaded", () => {
     if (trackingLocationName)
       trackingLocationName.value = order.location_name || "";
 
+    trackingDiscardGuard?.capture();
     modalTrackingUpdate.classList.add("show");
   };
+
+  const closeTrackingModal = () => {
+    modalTrackingUpdate?.classList.remove("show");
+  };
+
+  const getTrackingFormSnapshot = () => ({
+    orderId: String(trackingOrderId?.value || "").trim(),
+    stage: String(trackingStage?.value || "").trim(),
+    title: String(trackingEventTitle?.value || "").trim(),
+    description: String(trackingEventDescription?.value || "").trim(),
+    courierName: String(trackingCourierName?.value || "").trim(),
+    courierNo: String(trackingCourierNo?.value || "").trim(),
+    locationName: String(trackingLocationName?.value || "").trim(),
+  });
+
+  trackingDiscardGuard = window.createAdminFormDiscardGuard?.({
+    getSnapshot: getTrackingFormSnapshot,
+    close: closeTrackingModal,
+  });
 
   const mutateOrder = async (orderId, action) => {
     const actionMap = {
@@ -1829,6 +1865,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } else if (e.key === "Enter") {
         e.preventDefault();
         if (_comboboxActiveIdx >= 0 && _comboboxActiveIdx < items.length) {
+          walkInFormInteracted = true;
           walkInItemDetailInput.value =
             items[_comboboxActiveIdx].dataset.value || "";
           syncWalkInProductSelection(walkInItemDetailInput.value);
@@ -1846,6 +1883,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const li = e.target.closest("li:not(.combobox-no-results)");
       if (!li) return;
       e.preventDefault();
+      walkInFormInteracted = true;
       walkInItemDetailInput.value = li.dataset.value || "";
       syncWalkInProductSelection(walkInItemDetailInput.value);
       closeItemDetailCombobox();
@@ -1881,6 +1919,9 @@ document.addEventListener("DOMContentLoaded", () => {
     // Render the list now with current input value
     renderComboboxList(walkInItemDetailInput?.value || "");
     syncWalkInProductSelection(walkInItemDetailInput?.value || "");
+    if (!walkInFormInteracted) {
+      walkInDiscardGuard?.capture();
+    }
   };
 
   // Initialise combobox event listeners once on page load
@@ -1919,6 +1960,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const openWalkInOrderModal = (order = null) => {
+    walkInFormInteracted = false;
     resetWalkInOrderForm();
     if (order) {
       activeWalkInOrderId = order.id;
@@ -1961,6 +2003,7 @@ document.addEventListener("DOMContentLoaded", () => {
       syncWalkInProductSelection(walkInItemDetailInput?.value || "");
       toggleWalkInOtherFields();
     }
+    walkInDiscardGuard?.capture();
     // Fetch products every time the modal opens to ensure fresh data
     void fetchProductNamesAndInitCombobox();
     modalAddWalkInOrder?.classList.add("show");
@@ -1982,6 +2025,44 @@ document.addEventListener("DOMContentLoaded", () => {
     modalAddWalkInOrder?.classList.remove("show");
     activeWalkInOrderId = null;
   };
+
+  const getWalkInFormSnapshot = () => ({
+    orderNo: String(walkInOrderNoInput?.value || "").trim(),
+    customerName: String(walkInCustomerNameInput?.value || "").trim(),
+    address: String(walkInAddressInput?.value || "").trim(),
+    contactNumber: String(walkInContactNumberInput?.value || "").trim(),
+    clientType: String(walkInClientTypeInput?.value || "").trim(),
+    clientTypeOther: String(
+      walkInClientTypeOtherInput?.value || "",
+    ).trim(),
+    agencyOrganization: String(
+      walkInAgencyOrganizationInput?.value || "",
+    ).trim(),
+    projectDescription: String(
+      walkInProjectDescriptionInput?.value || "",
+    ).trim(),
+    projectDescriptionOther: String(
+      walkInProjectDescriptionOtherInput?.value || "",
+    ).trim(),
+    itemDetail: String(walkInItemDetailInput?.value || "").trim(),
+    quantity: String(walkInUnitInput?.value || "").trim(),
+    subtotalCost: String(walkInSubtotalCostInput?.value || "").trim(),
+    total: String(walkInTotalInput?.value || "").trim(),
+    paymentMethod: String(walkInPaymentMethodInput?.value || "").trim(),
+    selectedProductId: String(walkInSelectedProduct?.id || ""),
+  });
+
+  walkInDiscardGuard = window.createAdminFormDiscardGuard?.({
+    getSnapshot: getWalkInFormSnapshot,
+    close: closeWalkInOrderModal,
+  });
+
+  modalAddWalkInOrder?.addEventListener("input", () => {
+    walkInFormInteracted = true;
+  });
+  modalAddWalkInOrder?.addEventListener("change", () => {
+    walkInFormInteracted = true;
+  });
 
   const saveWalkInOrder = async () => {
     const orderNo = String(walkInOrderNoInput?.value || "").trim();
@@ -2132,6 +2213,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       closeWalkInOrderModal();
+      walkInDiscardGuard?.clear();
       notifyOrdersRealtimeUpdate({
         type: activeWalkInOrderId ? "walkin-updated" : "walkin-created",
       });
@@ -2197,6 +2279,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   cancelWalkInOrderBtn?.addEventListener("click", () => {
+    if (walkInDiscardGuard) {
+      walkInDiscardGuard.cancel();
+      return;
+    }
     closeWalkInOrderModal();
   });
 
@@ -2285,6 +2371,51 @@ document.addEventListener("DOMContentLoaded", () => {
     renderRejectedTable();
   });
 
+  window.AdminPageNumberInput?.bind(incomingPager.pageNumber, {
+    getPage: () => state.incomingPage,
+    getTotalPages: () => Math.max(1, Math.ceil(state.incoming.length / 5)),
+    onChange: (page) => {
+      state.incomingPage = page;
+      renderIncomingTable();
+    },
+  });
+
+  window.AdminPageNumberInput?.bind(directoryPager.pageNumber, {
+    getPage: () => state.directoryPage,
+    getTotalPages: () => Math.max(1, Math.ceil(getDirectoryRows().length / 5)),
+    onChange: (page) => {
+      state.directoryPage = page;
+      renderDirectoryTable();
+    },
+  });
+
+  window.AdminPageNumberInput?.bind(paymentsPager.pageNumber, {
+    getPage: () => state.paymentsPage,
+    getTotalPages: () => Math.max(1, Math.ceil(getPaymentRows().length / 5)),
+    onChange: (page) => {
+      state.paymentsPage = page;
+      renderPaymentsTable();
+    },
+  });
+
+  window.AdminPageNumberInput?.bind(walkInPager.pageNumber, {
+    getPage: () => state.walkInPage,
+    getTotalPages: () => Math.max(1, Math.ceil(state.walkIn.length / 5)),
+    onChange: (page) => {
+      state.walkInPage = page;
+      renderWalkInTable();
+    },
+  });
+
+  window.AdminPageNumberInput?.bind(rejectedPager.pageNumber, {
+    getPage: () => state.rejectedPage,
+    getTotalPages: () => Math.max(1, Math.ceil(getRejectedRows().length / 5)),
+    onChange: (page) => {
+      state.rejectedPage = page;
+      renderRejectedTable();
+    },
+  });
+
   directoryStatusFilter?.addEventListener("change", () => {
     state.directoryPage = 1;
     renderDirectoryTable();
@@ -2319,6 +2450,14 @@ document.addEventListener("DOMContentLoaded", () => {
       btnConfirmDeletePaymentHistory.textContent = "Delete Payment";
       closePaymentDeleteModal();
     });
+  });
+
+  btnCancelTrackingUpdate?.addEventListener("click", () => {
+    if (trackingDiscardGuard) {
+      trackingDiscardGuard.cancel();
+      return;
+    }
+    closeTrackingModal();
   });
 
   btnSaveTrackingUpdate?.addEventListener("click", async () => {
@@ -2358,7 +2497,8 @@ document.addEventListener("DOMContentLoaded", () => {
         renderAll();
       }
 
-      modalTrackingUpdate?.classList.remove("show");
+      closeTrackingModal();
+      trackingDiscardGuard?.clear();
       notifyOrdersRealtimeUpdate({
         type: "tracking-updated",
         orderId: String(orderId),
@@ -2476,12 +2616,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return popup && popup.classList.contains("show");
   };
 
-  state.pollTimer = window.setInterval(() => {
-    if (document.hidden) return;
-    if (isPopupVisible()) return; // Pause auto-sync if a popup is visible
-    void syncOrders(false, { source: "auto" });
-  }, ORDERS_BACKGROUND_SYNC_MS);
-
   window.addEventListener("storage", (event) => {
     if (event.key !== "fmrc_orders_updated_at") return;
     if (document.hidden) return;
@@ -2515,24 +2649,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!shouldProcessRealtimeSignal(payload)) return;
     if (isPopupVisible()) return;
     void syncOrders(false, { force: true, source: "realtime" });
-  });
-
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) return;
-    if (isPopupVisible()) return;
-    void syncOrders(false, { force: true, source: "realtime" });
-  });
-
-  window.addEventListener("focus", () => {
-    if (document.hidden) return;
-    if (isPopupVisible()) return;
-    void syncOrders(false, { force: true, source: "realtime" });
-  });
-
-  window.addEventListener("beforeunload", () => {
-    if (state.pollTimer) {
-      window.clearInterval(state.pollTimer);
-    }
   });
 
   void syncOrders(true, { force: true, source: "manual" });

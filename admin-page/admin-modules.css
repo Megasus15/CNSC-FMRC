@@ -605,6 +605,8 @@
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
 }
 
+input.page-number,
+.page-number.admin-page-number-input,
 .inv-page-number {
   width: 48px;
   min-width: 48px;
@@ -612,14 +614,21 @@
   text-align: center;
   cursor: text;
   appearance: textfield;
+  box-sizing: border-box;
 }
 
+input.page-number::-webkit-outer-spin-button,
+input.page-number::-webkit-inner-spin-button,
+.page-number.admin-page-number-input::-webkit-outer-spin-button,
+.page-number.admin-page-number-input::-webkit-inner-spin-button,
 .inv-page-number::-webkit-outer-spin-button,
 .inv-page-number::-webkit-inner-spin-button {
   margin: 0;
   appearance: none;
 }
 
+input.page-number:focus,
+.page-number.admin-page-number-input:focus,
 .inv-page-number:focus {
   border-color: var(--primary-color);
   outline: 2px solid rgba(128, 0, 0, 0.14);
@@ -2062,15 +2071,23 @@ body.reports-page .table-wrapper {
 }
 .skeleton-text {
   height: 14px;
-  border-radius: 4px;
+  border-radius: 6px;
   background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: shimmer 1.4s linear infinite;
 }
 .skeleton-avatar {
   background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: shimmer 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-text,
+  .skeleton-avatar,
+  .skeleton-cell {
+    animation: none !important;
+  }
 }
 
 /* --- Fixed Modals Layout --- */

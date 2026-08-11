@@ -161,6 +161,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let activeProductId = null;
   let activePhotoData = ""; // final edited image data URL
   let photoEditSource = "add"; // "add" or "edit"
+  let addProductDiscardGuard = null;
+  let editProductDiscardGuard = null;
+  let photoDiscardGuard = null;
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
   const openModal = (m) => m?.classList.add("show");
@@ -413,6 +416,24 @@ document.addEventListener("DOMContentLoaded", () => {
   addUploadArea?.addEventListener("click", () => addPhoto?.click());
   editUploadArea?.addEventListener("click", () => editPhoto?.click());
 
+  const closePhotoEditor = () => {
+    closeModal(modalPhotoEditor);
+    if (photoEditSource === "add" && addPhoto) addPhoto.value = "";
+    if (photoEditSource === "edit" && editPhoto) editPhoto.value = "";
+  };
+
+  const getPhotoEditorSnapshot = () => ({
+    source: photoEditSource,
+    preview: String(photoEditorPreview?.src || ""),
+    rotate: String(photoRotate?.value || ""),
+    scale: String(photoScale?.value || ""),
+  });
+
+  photoDiscardGuard = window.createAdminFormDiscardGuard?.({
+    getSnapshot: getPhotoEditorSnapshot,
+    close: closePhotoEditor,
+  });
+
   // ─── Photo Selection → validate aspect ratio and open editor ─────────────────
   const handlePhotoSelect = async (input, source) => {
     const file = input.files?.[0];
@@ -460,6 +481,7 @@ document.addEventListener("DOMContentLoaded", () => {
       scaleVal.textContent = "100%";
     }
     applyEditorTransform();
+    photoDiscardGuard?.capture();
     openModal(modalPhotoEditor);
   };
 
@@ -523,7 +545,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const dataUrl = await renderToCanvas();
     if (!dataUrl) return;
     activePhotoData = dataUrl;
-    closeModal(modalPhotoEditor);
+    closePhotoEditor();
+    photoDiscardGuard?.clear();
     // Update upload area UI
     const area = photoEditSource === "add" ? addUploadArea : editUploadArea;
     const label = photoEditSource === "add" ? addUploadLabel : editUploadLabel;
@@ -535,26 +558,34 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   btnCancelPhotoEdit?.addEventListener("click", () => {
-    closeModal(modalPhotoEditor);
-    // Reset file inputs so they don't retain unsaved selection
-    if (photoEditSource === "add" && addPhoto) addPhoto.value = "";
-    if (photoEditSource === "edit" && editPhoto) editPhoto.value = "";
+    if (photoDiscardGuard) {
+      photoDiscardGuard.cancel();
+      return;
+    }
+    closePhotoEditor();
   });
 
   // ─── Skeleton rows ───────────────────────────────────────────────────────────
   const renderSkeletonRows = () => {
     if (!tableBody) return;
-    tableBody.innerHTML = Array.from({ length: PAGE_SIZE })
-      .map(
-        () => `
-      <tr class="skeleton-row">
-        ${Array(11).fill('<td><div class="skeleton-cell"></div></td>').join("")}
-      </tr>
-    `,
-      )
-      .join("");
+    const usedSharedSkeleton = window.AdminTableSkeleton?.show(tableBody, {
+      rows: 3,
+      columns: 11,
+    });
+    if (!usedSharedSkeleton) {
+      const cells = Array.from(
+        { length: 11 },
+        () => '<td><span class="admin-table-skeleton-bar"></span></td>',
+      ).join("");
+      tableBody.innerHTML = `<tr class="admin-table-skeleton-row" aria-hidden="true">${cells}</tr>`.repeat(
+        3,
+      );
+    }
     if (tableMeta) tableMeta.textContent = "Loading products...";
-    if (currentPageEl) currentPageEl.textContent = "1";
+    if (currentPageEl) {
+      currentPageEl.value = "1";
+      currentPageEl.max = "1";
+    }
     if (prevBtn) prevBtn.disabled = true;
     if (nextBtn) nextBtn.disabled = true;
   };
@@ -634,7 +665,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const to = source.length ? Math.min(source.length, start + PAGE_SIZE) : 0;
       tableMeta.textContent = `Page ${currentPage} of ${totalPages} • Showing ${from}–${to} of ${source.length} products`;
     }
-    if (currentPageEl) currentPageEl.textContent = String(currentPage);
+    if (currentPageEl) {
+      currentPageEl.value = String(currentPage);
+      currentPageEl.max = String(totalPages);
+    }
     if (prevBtn) prevBtn.disabled = currentPage <= 1;
     if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
     productBulkController?.sync();
@@ -724,7 +758,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const nextEnd = Math.min(...endTimes);
     promotionRefreshTimer = window.setTimeout(() => {
       promotionRefreshTimer = null;
-      void loadProducts();
+      void loadProducts({ showLoading: false, resetPage: false });
     }, Math.max(50, nextEnd - now + 25));
   };
 
@@ -1247,42 +1281,32 @@ document.addEventListener("DOMContentLoaded", () => {
       shimmerEl.style.display = "";
     }
 
-    // Product Performance - hide table, show shimmer
+    // Product Performance - keep the real header and use Inventory-style rows.
     const perfTable = document.getElementById("productPerformanceTable");
+    const perfBody = document.getElementById("productPerformanceBody");
     const perfEmpty = document.getElementById("productPerformanceEmpty");
     const perfWrapper = document.getElementById(
       "productPerformanceTableWrapper",
     );
-    if (perfTable) perfTable.style.display = "none";
+    if (perfTable) perfTable.style.display = "";
     if (perfEmpty) perfEmpty.style.display = "none";
-    if (perfWrapper) {
-      let shimmerEl = perfWrapper.querySelector(".analytics-shimmer-loader");
-      if (!shimmerEl) {
-        shimmerEl = document.createElement("div");
-        shimmerEl.className = "analytics-shimmer-loader";
-        perfWrapper.appendChild(shimmerEl);
+    perfWrapper
+      ?.querySelectorAll(".analytics-shimmer-loader")
+      .forEach((loader) => loader.remove());
+    if (perfBody) {
+      const usedSharedSkeleton = window.AdminTableSkeleton?.show(perfBody, {
+        rows: 3,
+        columns: 6,
+      });
+      if (!usedSharedSkeleton) {
+        const cells = Array.from(
+          { length: 6 },
+          () => '<td><span class="admin-table-skeleton-bar"></span></td>',
+        ).join("");
+        perfBody.innerHTML = `<tr class="admin-table-skeleton-row" aria-hidden="true">${cells}</tr>`.repeat(
+          3,
+        );
       }
-      const tableShimmer = `
-        <div style="padding:12px 14px;">
-          <div style="display:flex;gap:12px;margin-bottom:12px;">
-            <div style="height:28px;border-radius:6px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;flex:1;"></div>
-          </div>
-          ${Array.from({ length: 4 })
-            .map(
-              (_, i) => `
-            <div style="display:flex;gap:12px;margin-bottom:10px;">
-              <div style="height:14px;border-radius:4px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:60px;animation-delay:${i * 0.1}s;"></div>
-              <div style="height:14px;border-radius:4px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;flex:1;animation-delay:${i * 0.12}s;"></div>
-              <div style="height:14px;border-radius:4px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:70px;animation-delay:${i * 0.15}s;"></div>
-              <div style="height:14px;border-radius:4px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:50px;animation-delay:${i * 0.18}s;"></div>
-            </div>
-          `,
-            )
-            .join("")}
-        </div>
-      `;
-      shimmerEl.innerHTML = tableShimmer;
-      shimmerEl.style.display = "";
     }
 
     // Yearly Sales Trend - hide chart, show shimmer
@@ -1311,8 +1335,8 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ── Combined function to load all analytics cards ──
-  const updateSummaryCards = () => {
-    renderAnalyticsSkeletons();
+  const updateSummaryCards = ({ showLoading = true } = {}) => {
+    if (showLoading) renderAnalyticsSkeletons();
 
     const onDone = () => clearAnalyticsShimmers();
 
@@ -1329,8 +1353,8 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ─── Load Products from API ───────────────────────────────────────────────────
-  const loadProducts = async () => {
-    renderSkeletonRows();
+  const loadProducts = async ({ showLoading = true, resetPage = true } = {}) => {
+    if (showLoading) renderSkeletonRows();
     try {
       const res = await fetch(`${API_BASE_URL}/admin/products`, {
         headers: {
@@ -1345,7 +1369,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!res.ok) throw new Error("Failed to fetch products");
       const payload = await res.json();
       products = Array.isArray(payload?.data) ? payload.data : [];
-      currentPage = 1;
+      if (resetPage) currentPage = 1;
       renderTable();
       schedulePromotionRefresh();
       if (addNameSelect) {
@@ -1358,13 +1382,13 @@ document.addEventListener("DOMContentLoaded", () => {
       if (modalAdd?.classList.contains("show")) {
         void loadAddProductOptions(addCategory?.value || "3D Print");
       }
-      updateSummaryCards();
+      updateSummaryCards({ showLoading });
     } catch (err) {
       console.error("Load products error:", err);
-      if (tableBody) {
-        tableBody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:#991b1b;">Could not load products. Ensure Laravel server is running.</td></tr>`;
+      if (showLoading && tableBody) {
+        tableBody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:#991b1b;">Could not load products. Ensure Laravel server is running.</td></tr>`;
       }
-      if (tableMeta) tableMeta.textContent = "Failed to load.";
+      if (showLoading && tableMeta) tableMeta.textContent = "Failed to load.";
     }
   };
 
@@ -1393,6 +1417,43 @@ document.addEventListener("DOMContentLoaded", () => {
     if (addPhoto) addPhoto.value = "";
   };
 
+  const getProductValue = (element) => String(element?.value ?? "").trim();
+
+  const getProductFormSnapshot = (mode) => {
+    const isAdd = mode === "add";
+    return {
+      category: getProductValue(isAdd ? addCategory : editCategory),
+      name: getProductValue(isAdd ? addNewName : editName),
+      selectedName: isAdd ? getProductValue(addNameSelect) : "",
+      code: getProductValue(isAdd ? addCode : editCode),
+      stock: getProductValue(isAdd ? addStock : editStock),
+      price: getProductValue(isAdd ? addPrice : editPrice),
+      stockStatus: getProductValue(
+        isAdd ? addStockStatus : editStockStatus,
+      ),
+      blocked: Boolean((isAdd ? addBlocked : editBlocked)?.checked),
+      imageData: String(activePhotoData || ""),
+      summary: getProductValue(isAdd ? addSummary : editSummary),
+      chips: getProductValue(isAdd ? addChips : editChips),
+      availability: getProductValue(
+        isAdd ? addAvailability : editAvailability,
+      ),
+      recommended: getProductValue(
+        isAdd ? addRecommended : editRecommended,
+      ),
+    };
+  };
+
+  const closeAddProductModal = () => {
+    closeModal(modalAdd);
+    resetAddForm();
+  };
+
+  addProductDiscardGuard = window.createAdminFormDiscardGuard?.({
+    getSnapshot: () => getProductFormSnapshot("add"),
+    close: closeAddProductModal,
+  });
+
   const syncBlockToggle_manual = (checkbox, row, label) => {
     const blocked = checkbox.checked;
     row?.classList.toggle("is-blocked", blocked);
@@ -1406,10 +1467,17 @@ document.addEventListener("DOMContentLoaded", () => {
     resetAddForm();
     if (addProductNameDropdown) closeAddProductDropdown();
     void loadAddProductOptions(addCategory?.value || "3D Print", false);
+    addProductDiscardGuard?.capture();
     openModal(modalAdd);
   });
 
-  btnCancelAddProduct?.addEventListener("click", () => closeModal(modalAdd));
+  btnCancelAddProduct?.addEventListener("click", () => {
+    if (addProductDiscardGuard) {
+      addProductDiscardGuard.cancel();
+      return;
+    }
+    closeAddProductModal();
+  });
 
   addCategory?.addEventListener("change", () => {
     if (addNewName) addNewName.value = "";
@@ -1568,8 +1636,8 @@ document.addEventListener("DOMContentLoaded", () => {
         window.showAdminPopup?.(msg, { title: "Save Failed" });
         return;
       }
-      closeModal(modalAdd);
-      resetAddForm();
+      closeAddProductModal();
+      addProductDiscardGuard?.clear();
       broadcastProductChange("created");
       await loadProducts();
       setTimeout(() => {
@@ -1675,10 +1743,24 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (editPhoto) editPhoto.value = "";
 
+    editProductDiscardGuard?.capture();
     openModal(modalEdit);
   };
 
-  btnCancelEditProduct?.addEventListener("click", () => closeModal(modalEdit));
+  const closeEditProductModal = () => closeModal(modalEdit);
+
+  editProductDiscardGuard = window.createAdminFormDiscardGuard?.({
+    getSnapshot: () => getProductFormSnapshot("edit"),
+    close: closeEditProductModal,
+  });
+
+  btnCancelEditProduct?.addEventListener("click", () => {
+    if (editProductDiscardGuard) {
+      editProductDiscardGuard.cancel();
+      return;
+    }
+    closeEditProductModal();
+  });
 
   btnUpdateProduct?.addEventListener("click", async (e) => {
     if (e) e.preventDefault();
@@ -1763,7 +1845,8 @@ document.addEventListener("DOMContentLoaded", () => {
         window.showAdminPopup?.(msg, { title: "Update Failed" });
         return;
       }
-      closeModal(modalEdit);
+      closeEditProductModal();
+      editProductDiscardGuard?.clear();
       broadcastProductChange("updated");
       await loadProducts();
       setTimeout(() => {
@@ -1870,6 +1953,17 @@ document.addEventListener("DOMContentLoaded", () => {
     currentPage += 1;
     renderTable();
   });
+
+  window.AdminPageNumberInput?.bind(currentPageEl, {
+    getPage: () => currentPage,
+    getTotalPages: () =>
+      Math.max(1, Math.ceil(getFilteredProducts().length / PAGE_SIZE)),
+    onChange: (page) => {
+      currentPage = page;
+      renderTable();
+    },
+  });
+
   searchInput?.addEventListener("input", () => {
     currentPage = 1;
     renderTable();
@@ -1891,7 +1985,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (_adminReloadDebounceTimer) clearTimeout(_adminReloadDebounceTimer);
     _adminReloadDebounceTimer = setTimeout(() => {
       _adminReloadDebounceTimer = null;
-      void loadProducts();
+      void loadProducts({ showLoading: false, resetPage: false });
     }, 600);
   };
 
@@ -1911,9 +2005,9 @@ document.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("fmrc:promotions-updated", () => {
     if (!document.hidden) debouncedLoadProducts();
   });
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) void loadProducts();
-  });
+
+  // Window focus/visibility changes are intentionally not refresh triggers.
+  // Reload only for a real data-change signal or an explicit user action.
 
   // Reusable BroadcastChannel instances (created once, never duplicated)
   const PRODUCTS_REALTIME_CHANNEL = "fmrc-products-realtime";

@@ -47,6 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
   );
 
   const createForm = document.getElementById("adminCreateUserForm");
+  const btnCreateUser = document.getElementById("btnCreateUser");
   const createName = document.getElementById("createUserName");
   const createRole = document.getElementById("createUserRole");
   const createUsername = document.getElementById("createUserUsername");
@@ -234,7 +235,10 @@ document.addEventListener("DOMContentLoaded", () => {
       tableMeta.textContent = `Showing ${startIndex}-${endIndex} of ${totalRows} users`;
     }
 
-    if (currentPageEl) currentPageEl.textContent = String(state.currentPage);
+    if (currentPageEl) {
+      currentPageEl.value = String(state.currentPage);
+      currentPageEl.max = String(totalPages);
+    }
     if (prevBtn) prevBtn.disabled = state.currentPage <= 1;
     if (nextBtn) nextBtn.disabled = state.currentPage >= totalPages;
     userBulkController?.sync();
@@ -322,23 +326,19 @@ document.addEventListener("DOMContentLoaded", () => {
         (!tableBody.children.length ||
           tableBody.querySelector(".table-empty-state"))
       ) {
-        tableBody.innerHTML = `<tr>
-          <td><div class="skeleton-text" style="width:20px;"></div></td>
-          <td>
-            <div style="display:flex;align-items:center;gap:12px;">
-              <div class="skeleton-avatar" style="width:36px;height:36px;border-radius:50%;"></div>
-              <div style="flex:1;">
-                <div class="skeleton-text" style="width:120px;margin-bottom:6px;"></div>
-                <div class="skeleton-text" style="width:100px;"></div>
-              </div>
-            </div>
-          </td>
-          <td><div class="skeleton-text" style="width:90px;"></div></td>
-          <td><div class="skeleton-text" style="width:70px;"></div></td>
-          <td><div class="skeleton-text" style="width:140px;"></div></td>
-          <td><div class="skeleton-text" style="width:120px;"></div></td>
-          <td><div class="skeleton-avatar" style="width:24px;height:24px;"></div></td>
-        </tr>`.repeat(4);
+        const usedSharedSkeleton = window.AdminTableSkeleton?.show(tableBody, {
+          rows: 3,
+          columns: 8,
+        });
+        if (!usedSharedSkeleton) {
+          const cells = Array.from(
+            { length: 8 },
+            () => '<td><span class="admin-table-skeleton-bar"></span></td>',
+          ).join("");
+          tableBody.innerHTML = `<tr class="admin-table-skeleton-row" aria-hidden="true">${cells}</tr>`.repeat(
+            3,
+          );
+        }
       }
 
       const response = await fetch(`${API_BASE_URL}/users`, {
@@ -574,6 +574,13 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    const originalCreateButtonHtml = btnCreateUser?.innerHTML || "";
+    if (btnCreateUser) {
+      btnCreateUser.disabled = true;
+      btnCreateUser.innerHTML =
+        '<i class="fa-solid fa-spinner fa-spin"></i> Creating Account...';
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/users`, {
         method: "POST",
@@ -638,12 +645,28 @@ document.addEventListener("DOMContentLoaded", () => {
         "Unable to connect to server. Ensure Laravel is running.",
         true,
       );
+    } finally {
+      if (btnCreateUser) {
+        btnCreateUser.disabled = false;
+        btnCreateUser.innerHTML = originalCreateButtonHtml ||
+          '<i class="fa-solid fa-user-plus"></i> Create Account';
+      }
     }
   };
 
   prevBtn?.addEventListener("click", () => {
     state.currentPage -= 1;
     renderTable();
+  });
+
+  window.AdminPageNumberInput?.bind(currentPageEl, {
+    getPage: () => state.currentPage,
+    getTotalPages: () =>
+      Math.max(1, Math.ceil(getFilteredUsers().length / state.pageSize)),
+    onChange: (page) => {
+      state.currentPage = page;
+      renderTable();
+    },
   });
 
   tableBody?.addEventListener("click", (event) => {
@@ -713,15 +736,25 @@ document.addEventListener("DOMContentLoaded", () => {
   btnConfirmDeleteAccount?.addEventListener("click", async () => {
     if (!state.activeDeleteId) return;
 
-    const deleted = await removeAccount(state.activeDeleteId);
-    if (!deleted) return;
+    const originalDeleteButtonHtml = btnConfirmDeleteAccount.innerHTML;
+    btnConfirmDeleteAccount.disabled = true;
+    btnConfirmDeleteAccount.innerHTML =
+      '<i class="fa-solid fa-spinner fa-spin"></i> Deleting...';
 
-    state.activeDeleteId = 0;
-    modalDeleteAccount?.classList.remove("show");
-    await loadAccounts();
-    window.showAdminPopup?.("Account deleted successfully.", {
-      title: "Deleted",
-    });
+    try {
+      const deleted = await removeAccount(state.activeDeleteId);
+      if (!deleted) return;
+
+      state.activeDeleteId = 0;
+      modalDeleteAccount?.classList.remove("show");
+      await loadAccounts();
+      window.showAdminPopup?.("Account deleted successfully.", {
+        title: "Deleted",
+      });
+    } finally {
+      btnConfirmDeleteAccount.disabled = false;
+      btnConfirmDeleteAccount.innerHTML = originalDeleteButtonHtml;
+    }
   });
 
   roleFilter?.addEventListener("change", () => {

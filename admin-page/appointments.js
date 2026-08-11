@@ -36,7 +36,6 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const API_BASE_URL = resolveApiBaseUrl();
-  const POLL_MS = 12000;
 
   const tableBody = document.getElementById("appointmentsTableBody");
   const tableMeta = document.getElementById("appointmentsTableMeta");
@@ -112,7 +111,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let selectedDateKey = null;
   let currentPage = 1;
 
-  let pollTimer = null;
   let editingSlotId = null;
   let activeTimePickerContext = null;
   let viewingAppointment = null;
@@ -631,7 +629,10 @@ document.addEventListener("DOMContentLoaded", () => {
       tableMeta.textContent = `Page ${currentPage} of ${pageCount} • Showing ${from}-${to} of ${source.length}`;
     }
 
-    if (currentPageEl) currentPageEl.textContent = String(currentPage);
+    if (currentPageEl) {
+      currentPageEl.value = String(currentPage);
+      currentPageEl.max = String(pageCount);
+    }
     if (prevBtn) prevBtn.disabled = currentPage <= 1;
     if (nextBtn) nextBtn.disabled = currentPage >= pageCount;
     appointmentBulkController?.sync();
@@ -1179,17 +1180,19 @@ document.addEventListener("DOMContentLoaded", () => {
         (!tableBody.children.length ||
           tableBody.querySelector(".table-empty-state"))
       ) {
-        tableBody.innerHTML = `<tr>
-          <td><div class="skeleton-text" style="width:20px;"></div></td>
-          <td><div class="skeleton-text" style="width:120px;"></div></td>
-          <td><div class="skeleton-text" style="width:120px;"></div></td>
-          <td><div class="skeleton-text" style="width:80px;"></div></td>
-          <td><div class="skeleton-text" style="width:90px;"></div></td>
-          <td><div class="skeleton-text" style="width:70px;"></div></td>
-          <td><div class="skeleton-text" style="width:140px;"></div></td>
-          <td><div class="skeleton-text" style="width:60px;"></div></td>
-          <td><div class="skeleton-avatar" style="width:24px;height:24px;"></div></td>
-        </tr>`.repeat(4);
+        const usedSharedSkeleton = window.AdminTableSkeleton?.show(tableBody, {
+          rows: 3,
+          columns: 14,
+        });
+        if (!usedSharedSkeleton) {
+          const cells = Array.from(
+            { length: 14 },
+            () => '<td><span class="admin-table-skeleton-bar"></span></td>',
+          ).join("");
+          tableBody.innerHTML = `<tr class="admin-table-skeleton-row" aria-hidden="true">${cells}</tr>`.repeat(
+            3,
+          );
+        }
       }
 
       const tasks = [fetchAppointments()];
@@ -1206,8 +1209,24 @@ document.addEventListener("DOMContentLoaded", () => {
         renderEvents();
         renderSlotManager();
       }
-    } catch {
-      // Avoid noisy alerts during polling.
+    } catch (error) {
+      if (tableBody?.querySelector(".admin-table-skeleton-row")) {
+        tableBody.innerHTML = `
+          <tr class="table-empty-row">
+            <td colspan="14">
+              <div class="table-empty-state">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>Unable to load appointments. Please try again.</span>
+              </div>
+            </td>
+          </tr>`;
+      }
+      window.AdminTableSkeleton?.finish(tableBody);
+      if (tableMeta) tableMeta.textContent = "Unable to load appointments.";
+      window.showAdminPopup?.(
+        error?.message || "Unable to load appointments from the server.",
+        { title: "Load Failed" },
+      );
     }
   };
 
@@ -1404,6 +1423,16 @@ document.addEventListener("DOMContentLoaded", () => {
     renderTable();
   });
 
+  window.AdminPageNumberInput?.bind(currentPageEl, {
+    getPage: () => currentPage,
+    getTotalPages: () =>
+      Math.max(1, Math.ceil(filteredAppointments().length / calculateRowsPerPage())),
+    onChange: (page) => {
+      currentPage = page;
+      renderTable();
+    },
+  });
+
   searchInput?.addEventListener("input", () => {
     currentPage = 1;
     renderTable();
@@ -1554,15 +1583,6 @@ document.addEventListener("DOMContentLoaded", () => {
     renderSlotManager();
   });
 
-  window.addEventListener("resize", renderTable);
-
-  const startPolling = () => {
-    if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(() => {
-      void refreshAll();
-    }, POLL_MS);
-  };
-
   ensureSlotManagerUi();
   setupAppointmentBulkSelection();
   const btnSaveSlot = document.getElementById("btnSaveSlot");
@@ -1593,5 +1613,4 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   void refreshAll();
-  startPolling();
 });

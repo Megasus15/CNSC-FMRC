@@ -298,6 +298,14 @@
         return;
       }
 
+      const originalSaveButtonHtml = saveBtn?.innerHTML || "";
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML =
+          '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+      }
+
+      let reloadRequested = false;
       setLoadingLocal(true);
       try {
         const token = getToken();
@@ -374,20 +382,24 @@
         }
 
         setLoadingLocal(false);
-        try {
-          if (saveBtn) saveBtn.disabled = true;
-          window.location.reload();
-        } finally {
-          if (saveBtn)
-            window.setTimeout(() => {
-              try {
-                saveBtn.disabled = false;
-              } catch (e) {}
-            }, 900);
-        }
+        window.location.reload();
+        reloadRequested = true;
       } catch (err) {
-        setLoadingLocal(false);
         showStatusLocal("Network error. Please try again.");
+      } finally {
+        setLoadingLocal(false);
+        const restoreSaveButton = () => {
+          if (!saveBtn) return;
+          saveBtn.disabled = false;
+          saveBtn.innerHTML =
+            originalSaveButtonHtml ||
+            '<i class="fa-solid fa-floppy-disk"></i> Save Changes';
+        };
+        if (reloadRequested) {
+          window.setTimeout(restoreSaveButton, 900);
+        } else {
+          restoreSaveButton();
+        }
       }
     });
 

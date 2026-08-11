@@ -185,7 +185,15 @@
                 >
                   <i class="fa-solid fa-chevron-left"></i>
                 </button>
-                <div class="page-number" id="appointmentsCurrentPage">1</div>
+                <input
+                  class="page-number"
+                  id="appointmentsCurrentPage"
+                  type="number"
+                  min="1"
+                  value="1"
+                  inputmode="numeric"
+                  aria-label="Go to appointments page"
+                />
                 <button
                   class="page-btn"
                   id="appointmentsNextPage"
@@ -418,8 +426,8 @@
             id="btnArchiveFromView"
             type="button"
             style="
-              background: linear-gradient(135deg, #78350f, #d97706);
-              border-color: #d97706;
+              background: linear-gradient(135deg, #7f1d1d, #dc2626);
+              border-color: #dc2626;
             "
           >
             <i class="fa-solid fa-box-archive"></i> Archive
@@ -448,7 +456,7 @@
               width: 42px;
               height: 42px;
               border-radius: 10px;
-              background: linear-gradient(135deg, #78350f, #d97706);
+              background: linear-gradient(135deg, #7f1d1d, #dc2626);
               display: flex;
               align-items: center;
               justify-content: center;
@@ -483,8 +491,8 @@
             id="btnConfirmArchiveAppt"
             type="button"
             style="
-              background: linear-gradient(135deg, #78350f, #d97706);
-              border-color: #d97706;
+              background: linear-gradient(135deg, #7f1d1d, #dc2626);
+              border-color: #dc2626;
             "
           >
             <i class="fa-solid fa-box-archive"></i> Archive

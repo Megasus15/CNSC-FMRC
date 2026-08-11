@@ -84,6 +84,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let promotionBulkController = null;
   let announcementBulkController = null;
   let campaignRefreshTimer = null;
+  let promotionDiscardGuard = null;
+  let announcementDiscardGuard = null;
+  let themeDiscardGuard = null;
   const PROMOTIONS_REALTIME_CHANNEL = "fmrc-promotions-realtime";
   const promotionsChannel =
     typeof window.BroadcastChannel === "function"
@@ -117,27 +120,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ── Skeleton Loader ───────────────────────────────────────────────────────
   function renderSkeletons() {
-    const skeletonRow = `
-      <tr>
-        <td colspan="8" style="padding:14px;">
-          <div style="height:14px;width:75%;background:#e2e8f0;border-radius:4px;animation:campaignPulse 1.2s infinite ease-in-out;"></div>
-        </td>
-      </tr>
-    `;
-    if ($("promotionTableBody"))
-      $("promotionTableBody").innerHTML = skeletonRow + skeletonRow;
-    if ($("announcementTableBody"))
-      $("announcementTableBody").innerHTML = skeletonRow + skeletonRow;
+    const showTableSkeleton = (target, columns) => {
+      if (!target) return;
+      const usedSharedSkeleton = window.AdminTableSkeleton?.show(target, {
+        rows: 3,
+        columns,
+      });
+      if (usedSharedSkeleton) return;
+
+      const cells = Array.from(
+        { length: columns },
+        () => '<td><span class="admin-table-skeleton-bar"></span></td>',
+      ).join("");
+      target.innerHTML = `<tr class="admin-table-skeleton-row" aria-hidden="true">${cells}</tr>`.repeat(
+        3,
+      );
+    };
+
+    showTableSkeleton($("promotionTableBody"), 8);
+    showTableSkeleton($("announcementTableBody"), 7);
     if ($("promotionProductPicker"))
       $("promotionProductPicker").innerHTML =
         '<span class="field-hint">Loading products picker...</span>';
-
-    if (!document.getElementById("campaignSkeletonStyle")) {
-      const style = document.createElement("style");
-      style.id = "campaignSkeletonStyle";
-      style.textContent = `@keyframes campaignPulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }`;
-      document.head.appendChild(style);
-    }
   }
 
   async function request(url, options = {}) {
@@ -252,8 +256,10 @@ document.addEventListener("DOMContentLoaded", () => {
       ? `Showing ${startIdx + 1}-${endCount} of ${total} promotions`
       : "Showing 0 of 0 promotions";
     if ($("promotionTableMeta")) $("promotionTableMeta").textContent = metaText;
-    if ($("promotionCurrentPage"))
-      $("promotionCurrentPage").textContent = promotionPage;
+    if ($("promotionCurrentPage")) {
+      $("promotionCurrentPage").value = String(promotionPage);
+      $("promotionCurrentPage").max = String(maxPages);
+    }
     if ($("promotionPrevPage"))
       $("promotionPrevPage").disabled = promotionPage <= 1;
     if ($("promotionNextPage"))
@@ -316,8 +322,10 @@ document.addEventListener("DOMContentLoaded", () => {
       : "Showing 0 of 0 announcements";
     if ($("announcementTableMeta"))
       $("announcementTableMeta").textContent = metaText;
-    if ($("announcementCurrentPage"))
-      $("announcementCurrentPage").textContent = announcementPage;
+    if ($("announcementCurrentPage")) {
+      $("announcementCurrentPage").value = String(announcementPage);
+      $("announcementCurrentPage").max = String(maxPages);
+    }
     if ($("announcementPrevPage"))
       $("announcementPrevPage").disabled = announcementPage <= 1;
     if ($("announcementNextPage"))
@@ -409,7 +417,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const nextBoundary = Math.min(...boundaries);
     campaignRefreshTimer = window.setTimeout(() => {
       campaignRefreshTimer = null;
-      void load();
+      void load({ showLoading: false });
     }, Math.max(50, nextBoundary - now + 25));
   }
 
@@ -530,6 +538,71 @@ document.addEventListener("DOMContentLoaded", () => {
     renderLivePreview();
   }
 
+  const getPromotionValue = (id) => String($(id)?.value ?? "").trim();
+
+  const getPromotionFormSnapshot = () => ({
+    id: getPromotionValue("promotionId"),
+    title: getPromotionValue("promotionTitle"),
+    discount: getPromotionValue("promotionDiscount"),
+    scope: getPromotionValue("promotionScope"),
+    productIds: selectedProductIds().sort((a, b) => a - b),
+    startsAt: getPromotionValue("promotionStart"),
+    endsAt: getPromotionValue("promotionEnd"),
+    enabled: Boolean($("promotionEnabled")?.checked),
+  });
+
+  const getAnnouncementFormSnapshot = () => ({
+    id: getPromotionValue("announcementId"),
+    title: getPromotionValue("announcementTitle"),
+    message: getPromotionValue("announcementMessage"),
+    placement: getPromotionValue("announcementPlacement"),
+    ctaLabel: getPromotionValue("announcementCtaLabel"),
+    ctaUrl: getPromotionValue("announcementCtaUrl"),
+    startsAt: getPromotionValue("announcementStart"),
+    endsAt: getPromotionValue("announcementEnd"),
+    enabled: Boolean($("announcementEnabled")?.checked),
+  });
+
+  const getThemeFormSnapshot = () => ({
+    primary: getPromotionValue("themePrimaryColor"),
+    secondary: getPromotionValue("themeSecondaryColor"),
+  });
+
+  const closePromotionForm = () => {
+    closeModal("modalAddPromotion");
+    clearPromotion();
+  };
+
+  const closeAnnouncementForm = () => {
+    closeModal("modalAddAnnouncement");
+    clearAnnouncement();
+  };
+
+  const closeThemeForm = (baseline) => {
+    if (
+      baseline?.primary &&
+      baseline?.secondary &&
+      typeof window.setGlobalFMRCTheme === "function"
+    ) {
+      window.setGlobalFMRCTheme(baseline.primary, baseline.secondary);
+    }
+    closeModal("modalCustomizeTheme");
+    renderLivePreview();
+  };
+
+  promotionDiscardGuard = window.createAdminFormDiscardGuard?.({
+    getSnapshot: getPromotionFormSnapshot,
+    close: closePromotionForm,
+  });
+  announcementDiscardGuard = window.createAdminFormDiscardGuard?.({
+    getSnapshot: getAnnouncementFormSnapshot,
+    close: closeAnnouncementForm,
+  });
+  themeDiscardGuard = window.createAdminFormDiscardGuard?.({
+    getSnapshot: getThemeFormSnapshot,
+    close: closeThemeForm,
+  });
+
   function editPromotion(id) {
     const item = promotions.find((entry) => entry.id === Number(id));
     if (!item) return;
@@ -549,6 +622,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if ($("promotionModalTitle")) {
       $("promotionModalTitle").innerHTML = `<i class="fa-solid fa-pen-to-square" style="margin-right: 8px; color:#800000;"></i>Edit Promotion`;
     }
+    promotionDiscardGuard?.capture();
     openModal("modalAddPromotion");
   }
 
@@ -568,11 +642,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if ($("announcementModalTitle")) {
       $("announcementModalTitle").innerHTML = `<i class="fa-solid fa-pen-to-square" style="margin-right: 8px; color:#800000;"></i>Edit Announcement`;
     }
+    announcementDiscardGuard?.capture();
     openModal("modalAddAnnouncement");
   }
 
-  async function load() {
-    renderSkeletons();
+  async function load({ showLoading = true } = {}) {
+    if (showLoading) renderSkeletons();
     try {
       const [productData, promotionData, announcementData] = await Promise.all([
         request("/admin/products/promotion-options"),
@@ -590,6 +665,35 @@ document.addEventListener("DOMContentLoaded", () => {
       renderLivePreview();
       scheduleNextCampaignBoundary();
     } catch (error) {
+      if (showLoading) {
+        const renderTableError = (target, columns, message) => {
+          if (!target) return;
+          target.innerHTML = `
+            <tr class="table-empty-row">
+              <td colspan="${columns}">
+                <div class="table-empty-state">
+                  <i class="fa-solid fa-triangle-exclamation"></i>
+                  <span>${message}</span>
+                </div>
+              </td>
+            </tr>`;
+          window.AdminTableSkeleton?.finish(target);
+        };
+        renderTableError(
+          $("promotionTableBody"),
+          8,
+          "Unable to load promotions. Please try again.",
+        );
+        renderTableError(
+          $("announcementTableBody"),
+          7,
+          "Unable to load announcements. Please try again.",
+        );
+        if ($("promotionProductPicker")) {
+          $("promotionProductPicker").innerHTML =
+            '<span class="field-hint">Unable to load products.</span>';
+        }
+      }
       showError(error);
     }
   }
@@ -600,6 +704,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if ($("promotionModalTitle")) {
       $("promotionModalTitle").innerHTML = `<i class="fa-solid fa-tags" style="margin-right: 8px; color:#800000;"></i>Add New Promotion`;
     }
+    promotionDiscardGuard?.capture();
     openModal("modalAddPromotion");
   });
 
@@ -608,6 +713,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if ($("announcementModalTitle")) {
       $("announcementModalTitle").innerHTML = `<i class="fa-solid fa-bullhorn" style="margin-right: 8px; color:#800000;"></i>Add New Announcement`;
     }
+    announcementDiscardGuard?.capture();
     openModal("modalAddAnnouncement");
   });
 
@@ -615,10 +721,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const theme = typeof window.getGlobalFMRCTheme === "function" ? window.getGlobalFMRCTheme() : { primary: "#c0392b", secondary: "#800000" };
     if ($("themePrimaryColor")) $("themePrimaryColor").value = theme.primary;
     if ($("themeSecondaryColor")) $("themeSecondaryColor").value = theme.secondary;
+    themeDiscardGuard?.capture();
     openModal("modalCustomizeTheme");
   });
 
-  $("btnCancelThemeModal")?.addEventListener("click", () => closeModal("modalCustomizeTheme"));
+  $("btnCancelThemeModal")?.addEventListener("click", () => {
+    if (themeDiscardGuard) {
+      themeDiscardGuard.cancel();
+      return;
+    }
+    closeThemeForm();
+  });
 
   // Preset Theme Cards selection
   document.querySelectorAll("#themePresetsGrid .preset-theme-card").forEach((card) => {
@@ -660,6 +773,7 @@ document.addEventListener("DOMContentLoaded", () => {
       window.setGlobalFMRCTheme(p, s);
     }
     closeModal("modalCustomizeTheme");
+    themeDiscardGuard?.clear();
     if (typeof window.showAdminPopup === "function") {
       window.showAdminPopup("Announcement modal theme saved and applied globally across customer website!", {
         title: "Theme Applied ✓",
@@ -669,13 +783,19 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   $("promotionReset")?.addEventListener("click", () => {
-    clearPromotion();
-    closeModal("modalAddPromotion");
+    if (promotionDiscardGuard) {
+      promotionDiscardGuard.cancel();
+      return;
+    }
+    closePromotionForm();
   });
 
   $("announcementReset")?.addEventListener("click", () => {
-    clearAnnouncement();
-    closeModal("modalAddAnnouncement");
+    if (announcementDiscardGuard) {
+      announcementDiscardGuard.cancel();
+      return;
+    }
+    closeAnnouncementForm();
   });
 
   // Live preview navigation arrow buttons (placed inside preview panel right below card)
@@ -720,6 +840,26 @@ document.addEventListener("DOMContentLoaded", () => {
       announcementPage++;
       renderAnnouncements();
     }
+  });
+
+  window.AdminPageNumberInput?.bind($("promotionCurrentPage"), {
+    getPage: () => promotionPage,
+    getTotalPages: () =>
+      Math.max(1, Math.ceil(promotions.length / PROMOTIONS_PER_PAGE)),
+    onChange: (page) => {
+      promotionPage = page;
+      renderPromotions();
+    },
+  });
+
+  window.AdminPageNumberInput?.bind($("announcementCurrentPage"), {
+    getPage: () => announcementPage,
+    getTotalPages: () =>
+      Math.max(1, Math.ceil(announcements.length / ANNOUNCEMENTS_PER_PAGE)),
+    onChange: (page) => {
+      announcementPage = page;
+      renderAnnouncements();
+    },
   });
 
   $("promotionScope")?.addEventListener("change", () => {
@@ -772,8 +912,8 @@ document.addEventListener("DOMContentLoaded", () => {
         body: JSON.stringify(payload),
       });
       broadcastCampaignChange(id ? "updated" : "created", id ? Number(id) : null);
-      closeModal("modalAddPromotion");
-      clearPromotion();
+      closePromotionForm();
+      promotionDiscardGuard?.clear();
       promotionPage = 1;
       if (typeof window.showAdminPopup === "function") {
         window.showAdminPopup(
@@ -831,8 +971,8 @@ document.addEventListener("DOMContentLoaded", () => {
         },
       );
       broadcastCampaignChange(id ? "updated" : "created", id ? Number(id) : null);
-      closeModal("modalAddAnnouncement");
-      clearAnnouncement();
+      closeAnnouncementForm();
+      announcementDiscardGuard?.clear();
       announcementPage = 1;
       if (typeof window.showAdminPopup === "function") {
         window.showAdminPopup(
@@ -879,10 +1019,6 @@ document.addEventListener("DOMContentLoaded", () => {
         announcementBulkController,
       );
     }
-  });
-
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) void load();
   });
 
   clearPromotion();

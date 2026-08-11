@@ -43,6 +43,7 @@ const token = () =>
 
 let servicesData = [];
 let svcImageData = null;
+let serviceDiscardGuard = null;
 
 document.addEventListener("DOMContentLoaded", () => {
   loadServices();
@@ -102,10 +103,21 @@ function escHtml(str) {
 }
 
 function bindEvents() {
+  serviceDiscardGuard = window.createAdminFormDiscardGuard?.({
+    getSnapshot: getServiceFormSnapshot,
+    close: closeModal,
+  });
+
   document.getElementById("btnAddService").addEventListener("click", openAdd);
   document
     .getElementById("btnCancelService")
-    .addEventListener("click", closeModal);
+    .addEventListener("click", () => {
+      if (serviceDiscardGuard) {
+        serviceDiscardGuard.cancel();
+        return;
+      }
+      closeModal();
+    });
   document
     .getElementById("btnCloseServiceModal")
     .addEventListener("click", closeModal);
@@ -172,6 +184,7 @@ function openAdd() {
   document.getElementById("serviceEditId").value = "";
   document.getElementById("serviceModalTitle").textContent = "Add Service";
   clearForm();
+  serviceDiscardGuard?.capture();
   document.getElementById("serviceModal").classList.add("show");
 }
 
@@ -191,6 +204,7 @@ function openEdit(id) {
   document.getElementById("svcBestFor").value = (s.modal_best_for || []).join(
     "\n",
   );
+  document.getElementById("svcFeaturesInput").value = "";
   renderChips("svcFeaturesArea", "svcFeaturesInput", s.modal_features || []);
   if (s.image_data) {
     document.getElementById("svcImgPreview").src = s.image_data;
@@ -204,6 +218,7 @@ function openEdit(id) {
     const btn = document.getElementById("svcImgPreviewRemoveBtn");
     if (btn) btn.style.display = "none";
   }
+  serviceDiscardGuard?.capture();
   document.getElementById("serviceModal").classList.add("show");
 }
 
@@ -218,11 +233,31 @@ function clearForm() {
   document.getElementById("svcModalDesc").value = "";
   document.getElementById("svcMaterials").value = "";
   document.getElementById("svcBestFor").value = "";
+  document.getElementById("svcFeaturesInput").value = "";
   renderChips("svcFeaturesArea", "svcFeaturesInput", []);
   document.getElementById("svcImgPreview").classList.remove("visible");
   document.getElementById("svcImgPlaceholder").classList.remove("hidden");
   const btn = document.getElementById("svcImgPreviewRemoveBtn");
   if (btn) btn.style.display = "none";
+  const input = document.getElementById("svcImgInput");
+  if (input) input.value = "";
+}
+
+function getServiceFormSnapshot() {
+  return {
+    id: String(document.getElementById("serviceEditId")?.value || ""),
+    title: String(document.getElementById("svcTitle")?.value || ""),
+    category: String(document.getElementById("svcCategory")?.value || ""),
+    description: String(document.getElementById("svcDesc")?.value || ""),
+    modalDescription: String(
+      document.getElementById("svcModalDesc")?.value || "",
+    ),
+    features: getChips("svcFeaturesArea"),
+    featureDraft: String(document.getElementById("svcFeaturesInput")?.value || ""),
+    materials: String(document.getElementById("svcMaterials")?.value || ""),
+    bestFor: String(document.getElementById("svcBestFor")?.value || ""),
+    image: String(svcImageData || ""),
+  };
 }
 
 function onSave() {
@@ -232,15 +267,27 @@ function onSave() {
     window.showAdminPopup("Please enter a service title.");
     return;
   }
-  const actionLabel = id ? "Save changes" : "Add";
-  window.showAdminConfirmPopup(`${actionLabel} service "${title}"?`, {
-    title: id ? "Confirm Edit" : "Confirm Add",
-    confirmText: id ? "Save" : "Add",
+  if (!id) {
+    void doSave(id);
+    return;
+  }
+
+  window.showAdminConfirmPopup(`Save changes to service "${title}"?`, {
+    title: "Confirm Edit",
+    confirmText: "Save",
     onConfirm: () => doSave(id),
   });
 }
 
 async function doSave(id) {
+  const submitButton = document.getElementById("btnSaveService");
+  const originalSubmitButtonHtml = submitButton?.innerHTML || "";
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.innerHTML =
+      '<i class="fa-solid fa-spinner fa-spin"></i> Saving Service...';
+  }
+
   const payload = {
     title: document.getElementById("svcTitle").value.trim(),
     category: document.getElementById("svcCategory").value,
@@ -276,11 +323,19 @@ async function doSave(id) {
       body: JSON.stringify(payload),
     });
     if (!res.ok) throw new Error();
+    serviceDiscardGuard?.clear();
     closeModal();
     window.showAdminPopup("Service saved successfully!", { title: "Saved!" });
     await loadServices();
   } catch {
     window.showAdminPopup("Failed to save. Try again.", { title: "Error" });
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+      submitButton.innerHTML =
+        originalSubmitButtonHtml ||
+        '<i class="fa-solid fa-floppy-disk"></i> Save Service';
+    }
   }
 }
 

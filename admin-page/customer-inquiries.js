@@ -42,7 +42,6 @@ document.addEventListener("DOMContentLoaded", () => {
     "";
   const REALTIME_SIGNAL_KEY = "fmrc_customer_msgs_updated_at";
   const REALTIME_CHANNEL_KEY = "fmrc-customer-messages-realtime";
-  const POLL_INTERVAL_MS = 8000;
   const MANILA_TZ = "Asia/Manila";
   const PAGE_SIZE = 8;
 
@@ -76,7 +75,6 @@ document.addEventListener("DOMContentLoaded", () => {
     summary: { total: 0, new: 0, unread: 0, resolved: 0 },
     currentPage: 1,
     isLoading: false,
-    pollTimer: null,
     selectedId: null,
     lastSignalTs: 0,
     realtimeChannel: null,
@@ -106,11 +104,17 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  const renderSkeletonRows = (columns, rows = PAGE_SIZE) => {
-    const widths = [90, 75, 65, 80, 55, 70, 60, 85, 50, 40];
-    return Array.from({ length: rows }, () => {
-      return `<tr>${Array.from({ length: columns }, (_, index) => `<td><div class="skeleton-text" style="width:${widths[index % widths.length]}%;min-height:14px;"></div></td>`).join("")}</tr>`;
-    }).join("");
+  const renderSkeletonRows = (columns, rows = 3) => {
+    if (window.AdminTableSkeleton) {
+      return window.AdminTableSkeleton.build(tableBody, { rows, columns });
+    }
+    const cells = Array.from(
+      { length: columns },
+      () => '<td><span class="admin-table-skeleton-bar"></span></td>',
+    ).join("");
+    return `<tr class="admin-table-skeleton-row" aria-hidden="true">${cells}</tr>`.repeat(
+      rows,
+    );
   };
 
   const getRealtimeChannel = () => {
@@ -215,11 +219,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (active) {
-      tableBody.innerHTML = renderSkeletonRows(7);
+      const usedSharedSkeleton = window.AdminTableSkeleton?.show(tableBody, {
+        rows: 3,
+        columns: 7,
+      });
+      if (!usedSharedSkeleton) tableBody.innerHTML = renderSkeletonRows(7);
       pageMeta.textContent = "Loading…";
-      pageNumber.textContent = "1";
+      pageNumber.value = "1";
+      pageNumber.max = "1";
       prevBtn.disabled = true;
       nextBtn.disabled = true;
+    } else {
+      window.AdminTableSkeleton?.finish(tableBody);
     }
   };
 
@@ -242,7 +253,8 @@ document.addEventListener("DOMContentLoaded", () => {
       </tr>
     `;
     pageMeta.textContent = "Page 1 of 1";
-    pageNumber.textContent = "1";
+    pageNumber.value = "1";
+    pageNumber.max = "1";
     prevBtn.disabled = true;
     nextBtn.disabled = true;
     inquiryBulkController?.sync();
@@ -295,7 +307,8 @@ document.addEventListener("DOMContentLoaded", () => {
       .join("");
 
     pageMeta.textContent = `Page ${state.currentPage} of ${totalPages}`;
-    pageNumber.textContent = String(state.currentPage);
+    pageNumber.value = String(state.currentPage);
+    pageNumber.max = String(totalPages);
     prevBtn.disabled = state.currentPage <= 1;
     nextBtn.disabled = state.currentPage >= totalPages;
     inquiryBulkController?.sync();
@@ -398,6 +411,7 @@ document.addEventListener("DOMContentLoaded", () => {
       renderRows();
     } catch (error) {
       if (!isSilent) {
+        renderEmpty("Unable to load customer inquiries. Please try again.");
         showPopup(error.message || "Failed to load customer inquiries.", {
           title: "Load Failed",
         });
@@ -454,17 +468,6 @@ document.addEventListener("DOMContentLoaded", () => {
         title: "Delete Failed",
       });
     }
-  };
-
-  const scheduleSilentSync = () => {
-    if (state.pollTimer) {
-      window.clearTimeout(state.pollTimer);
-    }
-
-    state.pollTimer = window.setTimeout(async () => {
-      await syncData(true);
-      scheduleSilentSync();
-    }, POLL_INTERVAL_MS);
   };
 
   const onTableAction = async (event) => {
@@ -536,6 +539,15 @@ document.addEventListener("DOMContentLoaded", () => {
     renderRows();
   });
 
+  window.AdminPageNumberInput?.bind(pageNumber, {
+    getPage: () => state.currentPage,
+    getTotalPages: () => Math.max(1, Math.ceil(state.rows.length / PAGE_SIZE)),
+    onChange: (page) => {
+      state.currentPage = page;
+      renderRows();
+    },
+  });
+
   tableBody.addEventListener("click", (event) => {
     void onTableAction(event);
   });
@@ -591,15 +603,6 @@ document.addEventListener("DOMContentLoaded", () => {
     void syncData(true);
   });
 
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) {
-      void syncData(true);
-    }
-  });
-
   setupInquiryBulkSelection();
-  tableBody.innerHTML = renderSkeletonRows(7);
-
   void syncData();
-  scheduleSilentSync();
 });

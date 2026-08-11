@@ -410,7 +410,7 @@ class OrderController extends Controller
 
         $orders = Order::query()
             ->with([
-                'items:id,order_id,product_name,product_image,unit_price,quantity,line_total',
+                'items:id,order_id,product_id,product_name,unit_price,quantity,line_total',
                 'payment:id,order_id,payment_no,method,reference,amount,status,paid_at',
                 'latestTrackingEvent',
             ])
@@ -418,7 +418,9 @@ class OrderController extends Controller
             ->orderBy('created_at', 'asc')
             ->get();
 
-        $mapped = $orders->map(fn (Order $order) => $this->transformOrderSummary($order));
+        $mapped = $orders->map(
+            fn (Order $order) => $this->transformOrderSummary($order, false)
+        );
 
         $incoming = $mapped->where('lifecycle_status', 'incoming')->values();
         $directory = $mapped->where('lifecycle_status', '!=', 'incoming')->values();
@@ -1378,7 +1380,7 @@ HTML;
         ]);
     }
 
-    private function transformOrderSummary(Order $order): array
+    private function transformOrderSummary(Order $order, bool $includeProductImages = true): array
     {
         $item = $order->items->first();
         $productNameLabel = $this->buildOrderItemLabelFromOrder($order);
@@ -1391,15 +1393,22 @@ HTML;
         // the payment history can display every ordered item (instead of only
         // the collapsed "First Item (+N more)" label).
         $summaryItems = $order->items
-            ->map(fn (OrderItem $lineItem) => [
-                'id' => $lineItem->id,
-                'product_id' => $lineItem->product_id,
-                'product_name' => $lineItem->product_name,
-                'product_image' => $lineItem->product_image,
-                'unit_price' => (float) $lineItem->unit_price,
-                'quantity' => (int) $lineItem->quantity,
-                'line_total' => (float) $lineItem->line_total,
-            ])
+            ->map(function (OrderItem $lineItem) use ($includeProductImages) {
+                $summaryItem = [
+                    'id' => $lineItem->id,
+                    'product_id' => $lineItem->product_id,
+                    'product_name' => $lineItem->product_name,
+                    'unit_price' => (float) $lineItem->unit_price,
+                    'quantity' => (int) $lineItem->quantity,
+                    'line_total' => (float) $lineItem->line_total,
+                ];
+
+                if ($includeProductImages) {
+                    $summaryItem['product_image'] = $lineItem->product_image;
+                }
+
+                return $summaryItem;
+            })
             ->values()
             ->all();
 
@@ -1410,7 +1419,7 @@ HTML;
         $createdAt = $order->created_at;
         $latestEvent = $order->latestTrackingEvent;
 
-        return [
+        $summary = [
             'id' => $order->id,
             'order_no' => $order->order_no,
             'order_no_display' => '#' . ($order->order_no ?: ('ORD-' . $order->id)),
@@ -1422,7 +1431,6 @@ HTML;
             'customer_address_line' => $customerAddressLine !== '' ? $customerAddressLine : null,
             'customer_address_details' => $customerAddressDetails !== '' ? $customerAddressDetails : null,
             'product_name' => $productNameLabel,
-            'product_image' => $item?->product_image,
             'items' => $summaryItems,
             'items_count' => count($summaryItems),
             'quantity' => (int) ($order->quantity ?: ($item?->quantity ?? 1)),
@@ -1453,6 +1461,12 @@ HTML;
             'created_at_label' => $this->formatPhilippineLabel($createdAt),
             'latest_event' => $latestEvent ? $this->transformTimelineEvent($latestEvent) : null,
         ];
+
+        if ($includeProductImages) {
+            $summary['product_image'] = $item?->product_image;
+        }
+
+        return $summary;
     }
 
     private function transformOrderDetail(Order $order): array

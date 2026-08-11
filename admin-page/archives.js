@@ -367,7 +367,8 @@ document.addEventListener("DOMContentLoaded", () => {
       config.meta.textContent = `Page ${state[module].page} of ${pages} • Showing ${from}–${to} of ${rows.length}`;
     }
     if (config.pageNumber) {
-      config.pageNumber.textContent = String(state[module].page);
+      config.pageNumber.value = String(state[module].page);
+      config.pageNumber.max = String(pages);
     }
     if (config.prev) config.prev.disabled = state[module].page <= 1;
     if (config.next) config.next.disabled = state[module].page >= pages;
@@ -449,21 +450,32 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  const buildSkeletonRows = (cols) =>
-    Array.from(
-      { length: 4 },
-      () =>
-        `<tr>${Array.from(
-          { length: cols },
-          (_, index) =>
-            `<td><div class="skeleton-text" style="width:${55 + ((index * 13) % 38)}%;min-height:14px;"></div></td>`,
-        ).join("")}</tr>`,
+  const buildSkeletonRows = (target, columns) => {
+    if (window.AdminTableSkeleton) {
+      return window.AdminTableSkeleton.build(target, { rows: 3, columns });
+    }
+    const cells = Array.from(
+      { length: columns },
+      () => '<td><span class="admin-table-skeleton-bar"></span></td>',
     ).join("");
+    return `<tr class="admin-table-skeleton-row" aria-hidden="true">${cells}</tr>`.repeat(
+      3,
+    );
+  };
 
   const setLoading = () => {
     Object.values(moduleConfig).forEach((config) => {
       if (config.tbody) {
-        config.tbody.innerHTML = buildSkeletonRows(config.colCount);
+        const usedSharedSkeleton = window.AdminTableSkeleton?.show(
+          config.tbody,
+          { rows: 3, columns: config.colCount },
+        );
+        if (!usedSharedSkeleton) {
+          config.tbody.innerHTML = buildSkeletonRows(
+            config.tbody,
+            config.colCount,
+          );
+        }
       }
       if (config.meta) config.meta.textContent = "Loading…";
       if (config.prev) config.prev.disabled = true;
@@ -550,6 +562,16 @@ document.addEventListener("DOMContentLoaded", () => {
       if (state[module].page >= pages) return;
       state[module].page += 1;
       renderModule(module);
+    });
+
+    window.AdminPageNumberInput?.bind(config.pageNumber, {
+      getPage: () => state[module].page,
+      getTotalPages: () =>
+        Math.max(1, Math.ceil(filteredRows(module).length / PAGE_SIZE)),
+      onChange: (page) => {
+        state[module].page = page;
+        renderModule(module);
+      },
     });
   });
 

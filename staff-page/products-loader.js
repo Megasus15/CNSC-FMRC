@@ -2,6 +2,31 @@ document.addEventListener("DOMContentLoaded", async () => {
   const moduleHost = document.getElementById("staffProductsModule");
   if (!moduleHost) return;
 
+  moduleHost.innerHTML = `
+    <div class="admin-products-bootstrap-skeleton" role="status">
+      <span class="admin-loading-sr-only">Loading product management</span>
+      <div class="admin-global-skeleton-toolbar">
+        <div class="admin-global-skeleton-copy">
+          <span class="admin-global-skeleton-bar is-title"></span>
+          <span class="admin-global-skeleton-bar is-subtitle"></span>
+        </div>
+        <span class="admin-global-skeleton-bar is-button"></span>
+      </div>
+      <div class="admin-global-skeleton-cards">
+        ${Array.from(
+          { length: 3 },
+          () => '<div class="admin-global-skeleton-card"><span class="admin-global-skeleton-bar is-icon"></span><span class="admin-global-skeleton-bar is-card-title"></span><span class="admin-global-skeleton-bar is-card-value"></span></div>',
+        ).join("")}
+      </div>
+      <div class="admin-global-skeleton-panel">
+        <span class="admin-global-skeleton-bar is-panel-title"></span>
+        ${Array.from(
+          { length: 3 },
+          () => '<div class="admin-global-skeleton-table-row"><span class="admin-global-skeleton-bar" style="width:28px"></span><span class="admin-global-skeleton-bar" style="width:120px"></span><span class="admin-global-skeleton-bar" style="width:100px"></span><span class="admin-global-skeleton-bar" style="width:70px"></span><span class="admin-global-skeleton-bar" style="width:60px"></span></div>',
+        ).join("")}
+      </div>
+    </div>`;
+
   const adminProductsUrl = new URL(
     "../admin-page/products.html",
     window.location.href,
@@ -31,6 +56,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     moduleHost.innerHTML = adminSection.innerHTML;
+    window.AdminPageNumberInput?.upgrade(moduleHost);
+
+    window.AdminTableSkeleton?.show(
+      document.getElementById("productTableBody"),
+      { rows: 3, columns: 11 },
+    );
+    window.AdminTableSkeleton?.show(
+      document.getElementById("productPerformanceBody"),
+      { rows: 3, columns: 6 },
+    );
 
     const existingModals = Array.from(
       document.querySelectorAll(".modal-overlay"),

@@ -7071,40 +7071,107 @@ const openRatingModal = (() => {
   const { token, userInfo, isAuthenticated } = getCustomerSession();
 
   if (!isAuthenticated) {
+    userProfileBtn.innerHTML = `
+      <button
+        class="guest-sign-in-trigger"
+        type="button"
+        aria-expanded="false"
+        aria-haspopup="true"
+        aria-label="Sign in or create an account"
+      >
+        <span class="guest-sign-in-mark" aria-hidden="true">
+          <i class="fa-solid fa-user"></i>
+          <span class="guest-sign-in-status"></span>
+        </span>
+        <span class="guest-sign-in-copy">
+          <span class="guest-sign-in-kicker">Guest access</span>
+          <span class="guest-sign-in-label">Sign In</span>
+        </span>
+        <i class="fa-solid fa-chevron-down guest-sign-in-chevron" aria-hidden="true"></i>
+      </button>
+    `;
+    userProfileBtn.classList.add("guest-profile-host");
+
+    const guestTrigger = userProfileBtn.querySelector(
+      ".guest-sign-in-trigger",
+    );
+
     const guestDropdown = document.createElement("div");
     guestDropdown.className = "profile-popup guest-profile-popup";
+    guestDropdown.id = "guestProfilePopup";
+    guestDropdown.setAttribute("aria-hidden", "true");
     guestDropdown.innerHTML = `
-      <div class="popup-header">
+      <div class="popup-header guest-popup-header">
         <div class="popup-profile-row">
-          <span class="popup-profile-icon">?</span>
-          <div class="popup-profile-meta">
-            <p class="popup-identity">Welcome, Guest</p>
+          <span class="popup-profile-icon guest-popup-icon" aria-hidden="true">
+            <i class="fa-solid fa-user-shield"></i>
+          </span>
+          <div class="popup-profile-meta guest-popup-meta">
+            <span class="guest-popup-eyebrow">Customer portal</span>
+            <p class="popup-identity">Welcome to UCN-FMRC</p>
           </div>
         </div>
       </div>
-      <p class="guest-popup-copy">Sign in to access your account, orders, and appointments.</p>
+      <p class="guest-popup-copy">Sign in for a smoother visit and keep your FMRC activity in one secure place.</p>
+      <div class="guest-popup-benefits" aria-label="Customer account benefits">
+        <span><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Track orders</span>
+        <span><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Manage appointments</span>
+      </div>
       <div class="guest-auth-stack">
-        <a href="../customer-auth/auth.html#login" class="guest-auth-btn guest-auth-login">Login</a>
-        <div class="guest-auth-or">OR</div>
-        <a href="../customer-auth/auth.html#signup" class="guest-auth-btn guest-auth-signup">Sign Up</a>
+        <a href="../customer-auth/auth.html#login" class="guest-auth-btn guest-auth-login">
+          <span>Sign In</span>
+          <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+        </a>
+        <div class="guest-auth-separator"><span>New to FMRC?</span></div>
+        <a href="../customer-auth/auth.html#signup" class="guest-auth-btn guest-auth-signup">
+          <span>Create Account</span>
+          <i class="fa-solid fa-user-plus" aria-hidden="true"></i>
+        </a>
       </div>
     `;
 
+    guestTrigger?.setAttribute("aria-controls", guestDropdown.id);
     userProfileBtn.appendChild(guestDropdown);
 
-    userProfileBtn.addEventListener("click", (event) => {
-      if (event.target.closest(".profile-popup")) return;
+    const closeGuestDropdown = ({ restoreFocus = false } = {}) => {
+      hideDropdown(guestDropdown);
+      guestTrigger?.classList.remove("is-open");
+      guestTrigger?.setAttribute("aria-expanded", "false");
+      guestDropdown.setAttribute("aria-hidden", "true");
+      if (restoreFocus) guestTrigger?.focus();
+    };
 
+    const openGuestDropdown = () => {
+      guestDropdown.classList.remove("is-closing");
+      guestDropdown.classList.add("show");
+      guestTrigger?.classList.add("is-open");
+      guestTrigger?.setAttribute("aria-expanded", "true");
+      guestDropdown.setAttribute("aria-hidden", "false");
+    };
+
+    guestTrigger?.addEventListener("click", () => {
       if (guestDropdown.classList.contains("show")) {
-        hideDropdown(guestDropdown);
+        closeGuestDropdown();
       } else {
-        guestDropdown.classList.add("show");
+        openGuestDropdown();
       }
+    });
+
+    guestTrigger?.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      closeGuestDropdown();
+    });
+
+    guestDropdown.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      closeGuestDropdown({ restoreFocus: true });
     });
 
     document.addEventListener("click", (event) => {
       if (!userProfileBtn.contains(event.target)) {
-        hideDropdown(guestDropdown);
+        closeGuestDropdown();
       }
     });
 

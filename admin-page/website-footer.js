@@ -140,6 +140,14 @@ function collectQuickLinks() {
 }
 
 async function doSave() {
+  const saveButton = document.getElementById("btnSaveFooter");
+  const originalSaveButtonHtml = saveButton?.innerHTML || "";
+  if (saveButton) {
+    saveButton.disabled = true;
+    saveButton.innerHTML =
+      '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+  }
+
   const links = collectQuickLinks();
   const payload = {
     footer_brand_name: document.getElementById("footerBrandName").value,
@@ -176,5 +184,12 @@ async function doSave() {
     await loadSettings();
   } catch {
     window.showAdminPopup("Failed to save. Try again.", { title: "Error" });
+  } finally {
+    if (saveButton) {
+      saveButton.disabled = false;
+      saveButton.innerHTML =
+        originalSaveButtonHtml ||
+        '<i class="fa-solid fa-floppy-disk"></i> Save All Changes';
+    }
   }
 }

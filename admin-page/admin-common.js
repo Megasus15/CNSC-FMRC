@@ -3,6 +3,553 @@ if (document.body) {
   document.body.classList.add("no-transitions");
 }
 
+// Inventory is the reference implementation for table pagination: the
+// current page is an editable numeric input that accepts both a changed value
+// and Enter, then clamps it to the available page range.  Keep that control
+// consistent on every Admin/Staff table without making each page duplicate
+// the DOM conversion and keyboard handling.
+(() => {
+  const bindings = new WeakMap();
+
+  const normalizeInput = (input) => {
+    if (!(input instanceof HTMLInputElement)) return null;
+    input.type = "number";
+    input.min = input.min || "1";
+    input.inputMode = "numeric";
+    input.classList.add("admin-page-number-input");
+    input.dataset.adminPageNumber = "true";
+    if (!input.getAttribute("aria-label")) {
+      input.setAttribute("aria-label", "Go to page");
+    }
+    if (!String(input.value || "").trim()) input.value = "1";
+    return input;
+  };
+
+  const upgradePageNumberInputs = (root = document) => {
+    if (!root) return;
+    const candidates = [];
+    if (root instanceof Element && root.matches(".page-number")) {
+      candidates.push(root);
+    }
+    if (typeof root.querySelectorAll === "function") {
+      candidates.push(...root.querySelectorAll(".page-number"));
+    }
+
+    candidates.forEach((element) => {
+      if (element instanceof HTMLInputElement) {
+        normalizeInput(element);
+        return;
+      }
+
+      const input = document.createElement("input");
+      Array.from(element.attributes).forEach((attribute) => {
+        input.setAttribute(attribute.name, attribute.value);
+      });
+      input.value = String(element.textContent || "").trim() || "1";
+      normalizeInput(input);
+      element.replaceWith(input);
+    });
+  };
+
+  const setBounds = (input, totalPages) => {
+    if (!(input instanceof HTMLInputElement)) return;
+    const total = Math.max(1, Number.parseInt(totalPages, 10) || 1);
+    input.min = "1";
+    input.max = String(total);
+    input.inputMode = "numeric";
+  };
+
+  const bind = (input, options = {}) => {
+    if (!(input instanceof HTMLInputElement)) return null;
+    normalizeInput(input);
+    if (bindings.has(input)) return bindings.get(input);
+
+    const initialTotal = Number(options.getTotalPages?.());
+    if (Number.isFinite(initialTotal)) setBounds(input, initialTotal);
+
+    const submit = () => {
+      const current = Math.max(1, Number(options.getPage?.()) || 1);
+      const total = Math.max(1, Number(options.getTotalPages?.()) || 1);
+      setBounds(input, total);
+      const raw = String(input.value || "").trim();
+      const parsed = /^\d+$/.test(raw) ? Number(raw) : current;
+      const page = Math.min(total, Math.max(1, parsed));
+      input.value = String(page);
+      options.onChange?.(page);
+    };
+
+    const onChange = () => submit();
+    const onKeyDown = (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      submit();
+    };
+
+    input.addEventListener("change", onChange);
+    input.addEventListener("keydown", onKeyDown);
+    const binding = {
+      submit,
+      destroy: () => {
+        input.removeEventListener("change", onChange);
+        input.removeEventListener("keydown", onKeyDown);
+        bindings.delete(input);
+      },
+    };
+    bindings.set(input, binding);
+    return binding;
+  };
+
+  window.AdminPageNumberInput = {
+    upgrade: upgradePageNumberInputs,
+    normalize: normalizeInput,
+    setBounds,
+    bind,
+  };
+
+  // All page scripts are loaded at the end of their HTML documents, so this
+  // synchronous pass runs before their DOMContentLoaded handlers capture refs.
+  // Staff Products calls the exposed upgrade hook after injecting its module.
+  upgradePageNumberInputs(document);
+  if (document.readyState === "loading") {
+    document.addEventListener(
+      "DOMContentLoaded",
+      () => upgradePageNumberInputs(document),
+      { once: true },
+    );
+  }
+})();
+
+// Shared, presentation-only loading helpers for every Admin and Staff page.
+// They are defined synchronously because a few pages register their own
+// DOMContentLoaded handlers before admin-common.js is loaded.
+(() => {
+  if (window.AdminTableSkeleton && window.AdminLoading) return;
+
+  const DEFAULT_ROWS = 3;
+  const DEFAULT_WIDTHS = [28, 120, 100, 40, 50, 70, 80, 60];
+  const tableObservers = new WeakMap();
+  const surfaceLoadingCounts = new WeakMap();
+  const surfacePreviousBusy = new WeakMap();
+
+  const resolveTbody = (target) => {
+    if (target instanceof HTMLTableSectionElement) return target;
+    if (target instanceof HTMLTableElement) return target.tBodies[0] || null;
+    if (target instanceof Element) return target.querySelector("tbody");
+    return null;
+  };
+
+  const normalizeCount = (value, fallback) => {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed > 0
+      ? Math.min(parsed, 30)
+      : fallback;
+  };
+
+  const getColumnBlueprint = (target, fallbackColumns) => {
+    const tbody = resolveTbody(target);
+    const table = tbody?.closest("table");
+    const headerRow = table?.tHead?.rows?.[table.tHead.rows.length - 1];
+    const headers = headerRow ? Array.from(headerRow.cells) : [];
+
+    if (headers.length) {
+      let visibleIndex = 0;
+      return headers.map((header) => {
+        const isBulkSelectionCell = header.classList.contains(
+          "admin-bulk-select-cell",
+        );
+        const width = isBulkSelectionCell
+          ? DEFAULT_WIDTHS[0]
+          : DEFAULT_WIDTHS[visibleIndex++ % DEFAULT_WIDTHS.length];
+
+        return {
+          className: ["admin-bulk-select-cell", "sticky-action"]
+            .filter((name) => header.classList.contains(name))
+            .join(" "),
+          colSpan: Math.max(1, header.colSpan || 1),
+          width,
+        };
+      });
+    }
+
+    return Array.from(
+      { length: normalizeCount(fallbackColumns, 1) },
+      (_, index) => ({
+        className: "",
+        colSpan: 1,
+        width: DEFAULT_WIDTHS[index % DEFAULT_WIDTHS.length],
+      }),
+    );
+  };
+
+  const buildTableRows = (target, options = {}) => {
+    const rows = normalizeCount(options.rows, DEFAULT_ROWS);
+    const columns = getColumnBlueprint(target, options.columns);
+
+    return Array.from({ length: rows }, () => {
+      const cells = columns
+        .map(
+          ({ className, colSpan, width }) => `
+            <td${className ? ` class="${className}"` : ""}${colSpan > 1 ? ` colspan="${colSpan}"` : ""}>
+              <span class="admin-table-skeleton-bar" style="width:${width}px;max-width:100%;"></span>
+            </td>`,
+        )
+        .join("");
+      return `<tr class="admin-table-skeleton-row" aria-hidden="true">${cells}</tr>`;
+    }).join("");
+  };
+
+  const finishTable = (target) => {
+    const tbody = resolveTbody(target);
+    if (!tbody) return;
+    const entry = tableObservers.get(tbody);
+    entry?.observer?.disconnect();
+    tableObservers.delete(tbody);
+    tbody.removeAttribute("aria-busy");
+
+    if (entry?.surface) {
+      const remaining = Math.max(
+        0,
+        (surfaceLoadingCounts.get(entry.surface) || 1) - 1,
+      );
+      if (remaining) {
+        surfaceLoadingCounts.set(entry.surface, remaining);
+      } else {
+        surfaceLoadingCounts.delete(entry.surface);
+        entry.surface.classList.remove("admin-table-skeleton-active");
+        const previousBusy = surfacePreviousBusy.get(entry.surface);
+        surfacePreviousBusy.delete(entry.surface);
+        if (previousBusy === null || previousBusy === undefined) {
+          entry.surface.removeAttribute("aria-busy");
+        } else {
+          entry.surface.setAttribute("aria-busy", previousBusy);
+        }
+      }
+    }
+  };
+
+  const showTable = (target, options = {}) => {
+    const tbody = resolveTbody(target);
+    if (!tbody) return false;
+
+    finishTable(tbody);
+    tbody.setAttribute("aria-busy", "true");
+    tbody.innerHTML = buildTableRows(tbody, options);
+
+    const surface =
+      tbody.closest(".panel, .analytics-card, .inv-category-card") || null;
+    if (surface) {
+      if (!surfaceLoadingCounts.has(surface)) {
+        surfacePreviousBusy.set(surface, surface.getAttribute("aria-busy"));
+      }
+      surfaceLoadingCounts.set(
+        surface,
+        (surfaceLoadingCounts.get(surface) || 0) + 1,
+      );
+      surface.classList.add("admin-table-skeleton-active");
+      surface.setAttribute("aria-busy", "true");
+      surface
+        .querySelectorAll(".page-btn, .inv-selection-toggle")
+        .forEach((control) => {
+          control.disabled = true;
+        });
+    }
+
+    const observer = new MutationObserver(() => {
+      if (!tbody.querySelector(".admin-table-skeleton-row")) {
+        finishTable(tbody);
+      }
+    });
+    observer.observe(tbody, { childList: true });
+    tableObservers.set(tbody, { observer, surface });
+    return true;
+  };
+
+  window.AdminTableSkeleton = {
+    build: buildTableRows,
+    show: showTable,
+    finish: finishTable,
+  };
+
+  const INITIAL_MIN_VISIBLE_MS = 360;
+  const INITIAL_QUIET_MS = 400;
+  const INITIAL_FAILSAFE_MS = 6000;
+  const originalFetch = window.fetch;
+  let initialSkeletonDismissed = false;
+  let initialSkeletonStartedAt = 0;
+  let initialDomReady = document.readyState !== "loading";
+  let initialPendingRequests = 0;
+  let initialTrackingOpen = typeof originalFetch === "function";
+  let hardStopTimer = 0;
+  let quietTimer = 0;
+  let hideTimer = 0;
+  let obscuredRegions = [];
+  let staticReportTables = [];
+
+  const restoreObscuredRegions = () => {
+    obscuredRegions.forEach(
+      ({ region, wasInert, hadInertAttribute, ariaHidden }) => {
+        region.inert = wasInert;
+        if (hadInertAttribute) region.setAttribute("inert", "");
+        else region.removeAttribute("inert");
+        if (ariaHidden === null) region.removeAttribute("aria-hidden");
+        else region.setAttribute("aria-hidden", ariaHidden);
+      },
+    );
+    obscuredRegions = [];
+  };
+
+  const prepareStaticReportTables = () => {
+    if (!/(?:admin-page|staff-page)\/reports\.html$/i.test(location.pathname)) {
+      return;
+    }
+
+    staticReportTables = Array.from(
+      document.querySelectorAll("table.admin-table"),
+    ).map((table) => {
+      const wrapper = table.closest(".table-wrapper");
+      const surface = table.closest(".panel");
+      const overlay = document.createElement("div");
+      const clone = table.cloneNode(true);
+      const cloneBody = clone.tBodies[0];
+      const ariaBusy = table.getAttribute("aria-busy");
+
+      clone.removeAttribute("id");
+      clone.setAttribute("aria-hidden", "true");
+      clone.querySelectorAll("[id]").forEach((element) => {
+        element.removeAttribute("id");
+      });
+      if (cloneBody) {
+        cloneBody.innerHTML = buildTableRows(table.tBodies[0], {
+          rows: 3,
+          columns: table.tHead?.rows?.[0]?.cells?.length || 1,
+        });
+      }
+
+      overlay.className = "admin-static-table-skeleton-overlay";
+      overlay.setAttribute("aria-hidden", "true");
+      overlay.appendChild(clone);
+      wrapper?.classList.add("has-admin-static-table-skeleton");
+      wrapper?.appendChild(overlay);
+      surface?.classList.add("admin-table-skeleton-active");
+      table.classList.add("admin-static-table-source");
+      table.setAttribute("aria-busy", "true");
+
+      return {
+        table,
+        wrapper,
+        surface,
+        overlay,
+        ariaBusy,
+      };
+    });
+  };
+
+  const finishStaticReportTables = () => {
+    staticReportTables.forEach(
+      ({ table, wrapper, surface, overlay, ariaBusy }) => {
+        overlay.remove();
+        table.classList.remove("admin-static-table-source");
+        wrapper?.classList.remove("has-admin-static-table-skeleton");
+        surface?.classList.remove("admin-table-skeleton-active");
+        if (ariaBusy === null) table.removeAttribute("aria-busy");
+        else table.setAttribute("aria-busy", ariaBusy);
+      },
+    );
+    staticReportTables = [];
+  };
+
+  const showInitial = () => {
+    if (initialSkeletonDismissed) return;
+    const main = document.querySelector(".main-content");
+    if (!main || main.querySelector(".admin-global-page-skeleton")) return;
+
+    initialSkeletonStartedAt = performance.now();
+    main.classList.add("admin-global-skeleton-host");
+
+    obscuredRegions = Array.from(
+      main.querySelectorAll(".module-content, .dashboard-content"),
+    ).map((region) => ({
+      region,
+      wasInert: Boolean(region.inert),
+      hadInertAttribute: region.hasAttribute("inert"),
+      ariaHidden: region.getAttribute("aria-hidden"),
+    }));
+    obscuredRegions.forEach(({ region }) => {
+      region.inert = true;
+      region.setAttribute("inert", "");
+      region.setAttribute("aria-hidden", "true");
+    });
+
+    const skeleton = document.createElement("div");
+    skeleton.className = "admin-global-page-skeleton";
+    skeleton.setAttribute("role", "status");
+    skeleton.innerHTML = `
+      <span class="admin-loading-sr-only">Loading page content</span>
+      <div class="admin-global-skeleton-toolbar">
+        <div class="admin-global-skeleton-copy">
+          <span class="admin-global-skeleton-bar is-title"></span>
+          <span class="admin-global-skeleton-bar is-subtitle"></span>
+        </div>
+        <span class="admin-global-skeleton-bar is-button"></span>
+      </div>
+      <div class="admin-global-skeleton-cards">
+        ${Array.from(
+          { length: 3 },
+          () => `<div class="admin-global-skeleton-card"><span class="admin-global-skeleton-bar is-icon"></span><span class="admin-global-skeleton-bar is-card-title"></span><span class="admin-global-skeleton-bar is-card-value"></span></div>`,
+        ).join("")}
+      </div>
+      <div class="admin-global-skeleton-panel">
+        <span class="admin-global-skeleton-bar is-panel-title"></span>
+        ${Array.from(
+          { length: DEFAULT_ROWS },
+          () => `<div class="admin-global-skeleton-table-row">${DEFAULT_WIDTHS.slice(0, 6).map((width) => `<span class="admin-global-skeleton-bar" style="width:${width}px;max-width:15%;"></span>`).join("")}</div>`,
+        ).join("")}
+      </div>`;
+    main.appendChild(skeleton);
+
+    hardStopTimer = window.setTimeout(
+      () => hideInitial({ force: true }),
+      INITIAL_FAILSAFE_MS,
+    );
+  };
+
+  const finalizeInitialSkeleton = () => {
+    if (initialSkeletonDismissed) return;
+    initialSkeletonDismissed = true;
+    initialTrackingOpen = false;
+    window.clearTimeout(hardStopTimer);
+    window.clearTimeout(quietTimer);
+    window.clearTimeout(hideTimer);
+    if (window.fetch === trackedFetch) window.fetch = originalFetch;
+
+    const main = document.querySelector(".main-content");
+    const skeleton = main?.querySelector(".admin-global-page-skeleton");
+    skeleton?.classList.add("is-leaving");
+    window.setTimeout(() => {
+      skeleton?.remove();
+      main?.classList.remove("admin-global-skeleton-host");
+      restoreObscuredRegions();
+      finishStaticReportTables();
+    }, 180);
+  };
+
+  const hideInitial = ({ force = false } = {}) => {
+    if (initialSkeletonDismissed) return;
+    if (!force && (!initialDomReady || initialPendingRequests > 0)) return;
+
+    const elapsed = performance.now() - initialSkeletonStartedAt;
+    const remaining = Math.max(0, INITIAL_MIN_VISIBLE_MS - elapsed);
+    window.clearTimeout(hideTimer);
+    hideTimer = window.setTimeout(finalizeInitialSkeleton, remaining);
+  };
+
+  const scheduleInitialHide = () => {
+    if (
+      initialSkeletonDismissed ||
+      !initialDomReady ||
+      initialPendingRequests > 0
+    ) {
+      return;
+    }
+
+    window.clearTimeout(quietTimer);
+    quietTimer = window.setTimeout(() => hideInitial(), INITIAL_QUIET_MS);
+  };
+
+  const beginInitialRequestWork = () => {
+    if (!initialTrackingOpen || initialSkeletonDismissed) return false;
+    initialPendingRequests += 1;
+    window.clearTimeout(quietTimer);
+    window.clearTimeout(hideTimer);
+    return true;
+  };
+
+  const finishInitialRequestWork = () => {
+    initialPendingRequests = Math.max(0, initialPendingRequests - 1);
+    scheduleInitialHide();
+  };
+
+  const trackResponseBody = (response) => {
+    if (!response || initialSkeletonDismissed) return response;
+
+    ["json", "text", "blob", "arrayBuffer", "formData", "bytes"].forEach(
+      (methodName) => {
+        const bodyMethod = response[methodName];
+        if (typeof bodyMethod !== "function") return;
+
+        try {
+          Object.defineProperty(response, methodName, {
+            configurable: true,
+            value: (...methodArgs) => {
+              const isTracked = beginInitialRequestWork();
+              let bodyResult;
+              try {
+                bodyResult = bodyMethod.apply(response, methodArgs);
+              } catch (error) {
+                if (isTracked) finishInitialRequestWork();
+                throw error;
+              }
+
+              if (!isTracked) return bodyResult;
+              return Promise.resolve(bodyResult).finally(
+                finishInitialRequestWork,
+              );
+            },
+          });
+        } catch {
+          // Some Response implementations may not allow instance overrides.
+        }
+      },
+    );
+
+    return response;
+  };
+
+  const trackedFetch = function (...args) {
+    const isTracked = beginInitialRequestWork();
+    if (!isTracked) {
+      return originalFetch.apply(window, args);
+    }
+
+    let request;
+    try {
+      request = originalFetch.apply(window, args);
+    } catch (error) {
+      finishInitialRequestWork();
+      throw error;
+    }
+
+    return Promise.resolve(request)
+      .then(trackResponseBody)
+      .finally(finishInitialRequestWork);
+  };
+
+  if (initialTrackingOpen) window.fetch = trackedFetch;
+
+  const init = () => {
+    showInitial();
+    prepareStaticReportTables();
+    initialDomReady = true;
+    scheduleInitialHide();
+  };
+
+  window.AdminLoading = {
+    init,
+    showInitial,
+    hideInitial: () => hideInitial({ force: true }),
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    if (typeof window.queueMicrotask === "function") {
+      window.queueMicrotask(init);
+    } else {
+      Promise.resolve().then(init);
+    }
+  }
+})();
+
 document.addEventListener("DOMContentLoaded", () => {
   const MOBILE_BREAKPOINT = 1024;
   const SIDEBAR_PREF_KEY = "adminSidebarMobileState";
@@ -1702,6 +2249,62 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
+  window.createAdminFormDiscardGuard = (options = {}) => {
+    const getSnapshot =
+      typeof options.getSnapshot === "function" ? options.getSnapshot : () => ({});
+    const close = typeof options.close === "function" ? options.close : () => {};
+    let baseline = null;
+    let hasBaseline = false;
+
+    const capture = () => {
+      baseline = getSnapshot();
+      hasBaseline = true;
+    };
+
+    const clear = () => {
+      baseline = null;
+      hasBaseline = false;
+    };
+
+    const isDirty = () => {
+      if (!hasBaseline) return false;
+      return JSON.stringify(getSnapshot()) !== JSON.stringify(baseline);
+    };
+
+    const finishClose = () => {
+      const closedBaseline = baseline;
+      clear();
+      close(closedBaseline);
+    };
+
+    const cancel = () => {
+      if (!isDirty()) {
+        finishClose();
+        return;
+      }
+
+      const discard = () => finishClose();
+      if (typeof window.showAdminConfirmPopup === "function") {
+        window.showAdminConfirmPopup(
+          options.message || "Any information entered in this form will be lost.",
+          {
+            title: options.title || "Discard changes?",
+            confirmText: options.confirmText || "Discard",
+            cancelText: options.cancelText || "Keep Editing",
+            onConfirm: discard,
+          },
+        );
+        return;
+      }
+
+      if (window.confirm(options.title || "Discard changes?")) {
+        discard();
+      }
+    };
+
+    return { capture, clear, isDirty, cancel };
+  };
+
   // Replace native browser alert on admin pages with system popup.
   window.alert = (message) => {
     window.showAdminPopup(message);
@@ -2175,11 +2778,27 @@ document.addEventListener("DOMContentLoaded", () => {
     const tbody = table.querySelector("tbody");
     if (!tbody) return;
 
+    // Tables with stable IDs are populated and paginated by their page module.
+    // The generic enhancer is reserved for static markup such as Reports.
+    if (table.id || tbody.id) return;
+
+    const skeletonSelector =
+      ".admin-table-skeleton-row, .inv-skeleton-row, .skeleton-row";
+    const hasSkeletonRows = Boolean(tbody.querySelector(skeletonSelector));
     const allRows = Array.from(tbody.querySelectorAll("tr")).filter(
-      (row) => !row.classList.contains("table-empty-row"),
+      (row) =>
+        !row.classList.contains("table-empty-row") &&
+        !row.matches(skeletonSelector),
     );
 
     const emptyStateRow = ensureEmptyStateRow(table, tbody);
+    if (hasSkeletonRows) {
+      // Data-backed modules own filtering and pagination after their initial
+      // loader. Capturing transient skeleton rows here would make them behave
+      // like permanent table data.
+      emptyStateRow.style.display = "none";
+      return;
+    }
 
     const footer = panel.querySelector(".table-footer");
     if (!footer) {
@@ -2251,7 +2870,10 @@ document.addEventListener("DOMContentLoaded", () => {
         row.style.display = "";
       });
 
-      if (pageNumber) pageNumber.textContent = String(currentPage);
+      if (pageNumber) {
+        pageNumber.value = String(currentPage);
+        pageNumber.max = String(totalPages);
+      }
       if (pageMeta)
         pageMeta.textContent = `Page ${currentPage} of ${totalPages}`;
       if (prevButton) prevButton.disabled = currentPage <= 1;
@@ -2275,6 +2897,16 @@ document.addEventListener("DOMContentLoaded", () => {
       if (currentPage >= totalPages) return;
       currentPage += 1;
       renderPage();
+    });
+
+    window.AdminPageNumberInput?.bind(pageNumber, {
+      getPage: () => currentPage,
+      getTotalPages: () =>
+        Math.max(1, Math.ceil(filteredRows.length / pageSize)),
+      onChange: (page) => {
+        currentPage = page;
+        renderPage();
+      },
     });
 
     searchInputs.forEach((input) => {

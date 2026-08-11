@@ -17,7 +17,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const API_BASE_URL = resolveApiBaseUrl();
   const token = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token") || "";
-  const POLL_INTERVAL_MS = 12000;
   const MANILA_TZ = "Asia/Manila";
   const PAGE_SIZE = 10;
 
@@ -50,7 +49,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const detailReplyCount = document.getElementById("detailReplyCount");
   const detailReplyBtn = document.getElementById("detailReplyBtn");
 
-  const state = { rows: [], currentPage: 1, isLoading: false, pollTimer: null, lastPage: 1, totalRows: 0, activeRatingId: null };
+  const state = { rows: [], currentPage: 1, isLoading: false, lastPage: 1, totalRows: 0, activeRatingId: null };
 
   if (!tableBody) return;
 
@@ -69,11 +68,17 @@ document.addEventListener("DOMContentLoaded", () => {
     ).join("");
   };
 
-  const renderSkeletonRows = (cols, rows = PAGE_SIZE) => {
-    const widths = [90, 75, 55, 80, 65, 50, 40];
-    return Array.from({ length: rows }, () =>
-      `<tr>${Array.from({ length: cols }, (_, i) => `<td><div class="skeleton-text" style="width:${widths[i % widths.length]}%;min-height:14px;"></div></td>`).join("")}</tr>`
+  const renderSkeletonRows = (columns, rows = 3) => {
+    if (window.AdminTableSkeleton) {
+      return window.AdminTableSkeleton.build(tableBody, { rows, columns });
+    }
+    const cells = Array.from(
+      { length: columns },
+      () => '<td><span class="admin-table-skeleton-bar"></span></td>',
     ).join("");
+    return `<tr class="admin-table-skeleton-row" aria-hidden="true">${cells}</tr>`.repeat(
+      rows,
+    );
   };
 
   const showPopup = (message, options = {}) => {
@@ -106,7 +111,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const renderEmpty = (message) => {
     tableBody.innerHTML = `<tr class="table-empty-row"><td colspan="7"><div class="table-empty-state"><i class="fa-regular fa-folder-open"></i><span>${escapeHtml(message)}</span></div></td></tr>`;
     if (pageMeta) pageMeta.textContent = "Page 1 of 1";
-    if (pageNumber) pageNumber.textContent = "1";
+    if (pageNumber) {
+      pageNumber.value = "1";
+      pageNumber.max = "1";
+    }
     if (prevBtn) prevBtn.disabled = true;
     if (nextBtn) nextBtn.disabled = true;
   };
@@ -150,7 +158,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const totalPages = Math.max(1, state.lastPage);
     if (pageMeta) pageMeta.textContent = `Page ${state.currentPage} of ${totalPages} (${state.totalRows} total)`;
-    if (pageNumber) pageNumber.textContent = String(state.currentPage);
+    if (pageNumber) {
+      pageNumber.value = String(state.currentPage);
+      pageNumber.max = String(totalPages);
+    }
     if (prevBtn) prevBtn.disabled = state.currentPage <= 1;
     if (nextBtn) nextBtn.disabled = state.currentPage >= totalPages;
   };
@@ -230,7 +241,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!isSilent) {
       state.isLoading = true;
       if (refreshBtn) { refreshBtn.disabled = true; refreshBtn.classList.add("is-disabled"); }
-      tableBody.innerHTML = renderSkeletonRows(7);
+      const usedSharedSkeleton = window.AdminTableSkeleton?.show(tableBody, {
+        rows: 3,
+        columns: 7,
+      });
+      if (!usedSharedSkeleton) tableBody.innerHTML = renderSkeletonRows(7);
       if (pageMeta) pageMeta.textContent = "Loading…";
       if (prevBtn) prevBtn.disabled = true;
       if (nextBtn) nextBtn.disabled = true;
@@ -252,13 +267,9 @@ document.addEventListener("DOMContentLoaded", () => {
       renderEmpty("Unable to load ratings. Please try again.");
     } finally {
       state.isLoading = false;
+      if (!isSilent) window.AdminTableSkeleton?.finish(tableBody);
       if (refreshBtn) { refreshBtn.disabled = false; refreshBtn.classList.remove("is-disabled"); }
     }
-  };
-
-  const scheduleSilentSync = () => {
-    if (state.pollTimer) window.clearTimeout(state.pollTimer);
-    state.pollTimer = window.setTimeout(async () => { await syncData(true); scheduleSilentSync(); }, POLL_INTERVAL_MS);
   };
 
   starFilter?.addEventListener("change", () => { state.currentPage = 1; void syncData(); });
@@ -275,6 +286,15 @@ document.addEventListener("DOMContentLoaded", () => {
   prevBtn?.addEventListener("click", () => { if (state.currentPage > 1) { state.currentPage--; void syncData(); } });
   nextBtn?.addEventListener("click", () => { if (state.currentPage < state.lastPage) { state.currentPage++; void syncData(); } });
 
+  window.AdminPageNumberInput?.bind(pageNumber, {
+    getPage: () => state.currentPage,
+    getTotalPages: () => Math.max(1, state.lastPage),
+    onChange: (page) => {
+      state.currentPage = page;
+      void syncData();
+    },
+  });
+
   tableBody.addEventListener("click", (event) => {
     const btn = event.target.closest("button[data-action]");
     if (!btn) return;
@@ -287,9 +307,5 @@ document.addEventListener("DOMContentLoaded", () => {
   detailReplyBtn?.addEventListener("click", () => void submitReply());
 
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && detailModal?.classList.contains("show")) closeDetail(); });
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) void syncData(true); });
-
-  tableBody.innerHTML = renderSkeletonRows(7);
   void syncData();
-  scheduleSilentSync();
 });
