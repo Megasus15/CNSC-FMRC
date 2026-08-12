@@ -64,6 +64,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/users/{user}', [AuthController::class, 'adminDeleteUser']);
 
     Route::patch('/appointments/archive-bulk', [AppointmentController::class, 'archiveBulk']);
+    Route::patch('/appointments/{appointment}/complete', [AppointmentController::class, 'markCompleted']);
 
     Route::get('/customer/profile', [AuthController::class, 'customerProfile']);
     Route::put('/customer/profile', [AuthController::class, 'updateCustomerProfile']);
@@ -185,5 +186,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Admin: Unified Archives page
     Route::patch('/admin/archives/restore-bulk', [ArchiveController::class, 'restoreBulk']);
+    Route::delete('/admin/archives/delete-bulk', [ArchiveController::class, 'deleteBulk']);
+    Route::post('/admin/archives/auto-delete', [ArchiveController::class, 'autoDelete']);
     Route::get('/admin/archives', [ArchiveController::class, 'index']);
 });

@@ -491,10 +491,16 @@ document.addEventListener("DOMContentLoaded", () => {
         const id = entry.target.getAttribute("id");
         if (id) {
           const navSectionId = id === "services-preview" ? "about" : id;
-          navLinks.forEach((link) => link.classList.remove("active"));
           const activeLinks = document.querySelectorAll(
             `.nav-link[href*="#${navSectionId}"]`,
           );
+
+          // Some dynamically revealed sections (for example the Products
+          // promotion spotlight) are not navigation destinations. Do not let
+          // those sections clear the page's existing active nav indicator.
+          if (!activeLinks.length) return;
+
+          navLinks.forEach((link) => link.classList.remove("active"));
           activeLinks.forEach((link) => link.classList.add("active"));
         }
       }
@@ -602,6 +608,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const modal = document.getElementById("serviceModal");
   const modalTitle = document.getElementById("modalTitle");
   const modalImage = document.getElementById("modalImage");
+  const modalImageHolder = document.querySelector(
+    "#serviceModal .service-modal-image-trigger",
+  );
   const modalDesc = document.querySelector("#serviceModal .modal-desc");
   const featureChips = document.querySelector("#serviceModal .feature-chips");
   const modalList1 = document.querySelector(
@@ -623,7 +632,57 @@ document.addEventListener("DOMContentLoaded", () => {
     return d.innerHTML;
   }
 
+  // Service image lightbox: mirrors the product-image preview interaction.
+  const serviceImageLightboxModal = document.getElementById(
+    "serviceImageLightboxModal",
+  );
+  const serviceLightboxImage = document.getElementById("serviceLightboxImage");
+  const serviceLightboxCaption = document.getElementById(
+    "serviceLightboxCaption",
+  );
+  const closeServiceLightboxBtn = document.getElementById(
+    "closeServiceLightboxBtn",
+  );
+
+  const openServiceImageLightbox = (src, title) => {
+    if (!src || !serviceImageLightboxModal || !serviceLightboxImage) return;
+    serviceLightboxImage.src = src;
+    serviceLightboxImage.alt = title
+      ? `${title} large preview`
+      : "Service large preview";
+    if (serviceLightboxCaption) serviceLightboxCaption.textContent = title || "";
+    serviceImageLightboxModal.classList.add("show-modal");
+    closeServiceLightboxBtn?.focus();
+  };
+
+  const closeServiceImageLightbox = () => {
+    serviceImageLightboxModal?.classList.remove("show-modal");
+  };
+
+  closeServiceLightboxBtn?.addEventListener("click", closeServiceImageLightbox);
+  serviceImageLightboxModal?.addEventListener("click", (event) => {
+    if (event.target === serviceImageLightboxModal) closeServiceImageLightbox();
+  });
+
   document.body.addEventListener("click", function (e) {
+    const imageTrigger = e.target.closest(
+      ".service-image-trigger, .service-modal-image-trigger",
+    );
+    if (imageTrigger) {
+      const image = imageTrigger.querySelector("img");
+      const src =
+        imageTrigger.dataset.imageSrc || image?.currentSrc || image?.src || "";
+      const title =
+        imageTrigger.dataset.imageTitle ||
+        image?.alt ||
+        imageTrigger.closest(".service-card")?.querySelector(".card-title")
+          ?.textContent ||
+        modalTitle?.textContent ||
+        "Service Image";
+      openServiceImageLightbox(src, title.replace(/\s+(preview|banner)$/i, ""));
+      return;
+    }
+
     // Open Modal logic
     const openBtn = e.target.closest(".open-modal-btn");
     if (openBtn) {
@@ -642,9 +701,16 @@ document.addEventListener("DOMContentLoaded", () => {
             const img =
               openBtn.dataset.img ||
               card.querySelector(".card-img-holder img")?.src ||
+              card.querySelector(".service-image-trigger img")?.src ||
               "";
             modalImage.src = img;
+            modalImage.alt = title ? `${title} preview` : "Service preview";
             modalImage.style.display = img ? "block" : "none";
+            if (modalImageHolder) {
+              modalImageHolder.style.display = img ? "flex" : "none";
+              modalImageHolder.dataset.imageSrc = img;
+              modalImageHolder.dataset.imageTitle = title;
+            }
           }
 
           // Description
@@ -731,6 +797,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Close Modal by clicking the dark overlay background
     if (e.target === modal) {
+      modal.classList.remove("show-modal");
+      document.body.style.overflow = "";
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+
+    if (serviceImageLightboxModal?.classList.contains("show-modal")) {
+      closeServiceImageLightbox();
+      return;
+    }
+
+    if (modal?.classList.contains("show-modal")) {
       modal.classList.remove("show-modal");
       document.body.style.overflow = "";
     }
@@ -1025,7 +1105,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const infoBtn = document.createElement("button");
         infoBtn.type = "button";
         infoBtn.className = "action-btn btn-view-info";
-        infoBtn.innerText = "VIEW INFO";
+        infoBtn.innerHTML = '<span class="action-btn-label">VIEW INFO</span>';
 
         const divider = document.createElement("span");
         divider.className = "action-divider";
@@ -2939,7 +3019,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeCartBtn = document.getElementById("closeCartBtn");
   const cartItemsContainer = document.getElementById("cartItemsContainer");
   const emptyCartMessage = document.getElementById("emptyCartMessage");
-  const headerCartBadge = document.querySelector(".cart-badge");
+  const headerCartBadges = document.querySelectorAll(".cart-badge");
   const cartHeaderCount = document.getElementById("cartHeaderCount");
 
   const emitCartRealtimeUpdate = (detail = {}) => {
@@ -3264,14 +3344,15 @@ document.addEventListener("DOMContentLoaded", () => {
       // If the products API is unavailable, keep the stored/merged data.
     }
 
-    cartItemsContainer
-      .querySelectorAll(".cart-item-card")
-      .forEach((item) => item.remove());
+    if (cartItemsContainer) {
+      cartItemsContainer
+        .querySelectorAll(".cart-item-card")
+        .forEach((item) => item.remove());
 
-
-    savedItems.forEach((entry) => {
-      cartItemsContainer.appendChild(createCartItemCard(entry));
-    });
+      savedItems.forEach((entry) => {
+        cartItemsContainer.appendChild(createCartItemCard(entry));
+      });
+    }
 
     if (typeof updateCartTotals === "function") {
       updateCartTotals();
@@ -3326,35 +3407,73 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Update Cart Totals and Counters
+  const formatNavbarCount = (value) => {
+    const numericValue = Number.parseInt(String(value ?? "0"), 10);
+    const count = Number.isFinite(numericValue)
+      ? Math.max(0, numericValue)
+      : 0;
+    return count > 99 ? "99+" : String(count);
+  };
+
   function updateCartTotals() {
     const items = cartItemsContainer?.querySelectorAll(".cart-item-card") || [];
     let total = 0;
     let count = 0;
 
-    items.forEach((item) => {
-      const checkbox = item.querySelector(".cart-item-check");
-      const qtyInput = item.querySelector(".c-qty-input");
-      const priceElem = item.querySelector(".c-price");
+    if (items.length > 0) {
+      items.forEach((item) => {
+        const checkbox = item.querySelector(".cart-item-check");
+        const qtyInput = item.querySelector(".c-qty-input");
+        const priceElem = item.querySelector(".c-price");
 
-      const qty = parseInt(qtyInput.value);
-      const price = parseFloat(priceElem.dataset.price);
+        const qty = parseInt(qtyInput?.value || "1", 10) || 1;
+        const price = parseFloat(priceElem?.dataset?.price || "0") || 0;
 
-      if (checkbox.checked) total += price * qty;
-      count += qty; // Total items in cart regardless of checked state
-    });
+        if (checkbox && checkbox.checked) total += price * qty;
+        count += qty; // Total items in cart regardless of checked state
+      });
+    } else {
+      // Fallback to savedItems / localStorage if cart items container is not rendered on this page
+      try {
+        const storageKey = typeof getCustomerCartStorageKey === "function" ? getCustomerCartStorageKey() : "customer_cart";
+        const raw = localStorage.getItem(storageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            count = parsed.reduce((sum, item) => {
+              const q = Math.max(1, parseInt(item?.quantity || "1", 10) || 1);
+              return sum + q;
+            }, 0);
+          }
+        }
+      } catch {
+        // Ignore fallback errors
+      }
+    }
 
     const cartTotalPriceEl = document.getElementById("cartTotalPrice");
     if (cartTotalPriceEl) {
       cartTotalPriceEl.innerText = formatPrice(total);
     }
     if (cartHeaderCount) cartHeaderCount.innerText = String(count);
-    if (headerCartBadge) {
+    
+    const activeHeaderCartBadges = document.querySelectorAll(".cart-badge");
+    if (activeHeaderCartBadges.length) {
       if (count > 0) {
-        headerCartBadge.innerText = String(count);
-        headerCartBadge.style.display = "flex";
+        const displayStr = formatNavbarCount(count);
+        activeHeaderCartBadges.forEach((badge) => {
+          badge.textContent = displayStr;
+          badge.dataset.length = String(displayStr.length);
+          badge.hidden = false;
+          badge.style.setProperty("display", "flex", "important");
+        });
       } else {
-        headerCartBadge.innerText = "";
-        headerCartBadge.style.display = "none";
+        activeHeaderCartBadges.forEach((badge) => {
+          badge.textContent = "";
+          badge.dataset.length = "0";
+          badge.hidden = true;
+          badge.style.setProperty("display", "none", "important");
+        });
       }
     }
 
@@ -7393,21 +7512,26 @@ const openRatingModal = (() => {
   }
   function _attr(str) {
     return String(str || "")
+      .replace(/&/g, "&amp;")
       .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
+      .replace(/'/g, "&#39;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
   }
 
   async function loadSiteContent() {
     try {
       const [sRes, svRes] = await Promise.all([
         fetch(_API + "/site-settings"),
-        fetch(_API + "/services"),
+        document.body.classList.contains("services-page-body")
+          ? Promise.resolve(null)
+          : fetch(_API + "/services"),
       ]);
       if (sRes.ok) {
         const { data } = await sRes.json();
         applySettings(data || {});
       }
-      if (svRes.ok) {
+      if (svRes?.ok) {
         const { data } = await svRes.json();
         applyServices(data || []);
       }
@@ -7577,31 +7701,51 @@ const openRatingModal = (() => {
     }
     // Services page grid
     var grid = document.getElementById("servicesGrid");
-    if (grid && services.length) {
+    // services-page/services.js owns this grid so it can show its skeleton
+    // until the realtime API response arrives. Keep the shared loader focused
+    // on the homepage carousel here.
+    if (
+      grid &&
+      services.length &&
+      !document.body.classList.contains("services-page-body")
+    ) {
       grid.innerHTML = services
-        .map(function (s) {
+        .map(function (s, index) {
+          var title = s.title || "FMRC Service";
+          var category = s.category || "FMRC Service";
+          var image = s.image_data || "";
+          var serviceNumber = String(index + 1).padStart(2, "0");
+          var imageMarkup = image
+            ? '<button class="service-image-trigger" type="button" aria-label="Open full-size preview of ' +
+              _attr(title) +
+              '" title="Open image preview" data-image-src="' +
+              _attr(image) +
+              '" data-image-title="' +
+              _attr(title) +
+              '"><img src="' +
+              _attr(image) +
+              '" alt="' +
+              _attr(title) +
+              ' preview" loading="lazy" /><span class="service-image-preview-label"><i class="fa-solid fa-expand" aria-hidden="true"></i> Preview</span></button>'
+            : '<div class="service-image-placeholder"><span class="service-image-placeholder__content"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Image coming soon</span></span></div>';
           return (
             '<article class="service-card" data-category="' +
-            _attr((s.category || "").toLowerCase().replace(/\s+/g, "-")) +
+            _attr(category.toLowerCase().replace(/\s+/g, "-")) +
             '">' +
-            '<div class="card-img-holder">' +
-            (s.image_data
-              ? '<img src="' +
-                _attr(s.image_data) +
-                '" alt="' +
-                _attr(s.title) +
-                '" />'
-              : '<div style="width:100%;height:100%;background:#f3f4f6;display:flex;align-items:center;justify-content:center;"><span style="color:#9ca3af;">No image</span></div>') +
-            "</div>" +
-            '<div class="card-content"><span class="service-chip">' +
-            _esc(s.category) +
-            '</span><h3 class="card-title">' +
-            _esc(s.title) +
+            imageMarkup +
+            '<div class="card-content"><div class="service-card-heading"><span class="service-chip">' +
+            _esc(category) +
+            '</span><span class="service-index" aria-label="Service ' +
+            serviceNumber +
+            '">' +
+            serviceNumber +
+            '</span></div><h3 class="card-title">' +
+            _esc(title) +
             '</h3><p class="card-desc">' +
             _esc(s.description || "") +
-            "</p>" +
-            '<button class="details-btn open-modal-btn" style="background:none;border:none;cursor:pointer;padding:0;text-align:left;display:inline-flex;align-items:center;gap:4px;" data-title="' +
-            _attr(s.title) +
+            '</p><div class="service-card-footer">' +
+            '<button class="details-btn open-modal-btn" type="button" data-title="' +
+            _attr(title) +
             '" data-desc="' +
             _attr(s.modal_description || s.description || "") +
             '" data-features="' +
@@ -7611,8 +7755,8 @@ const openRatingModal = (() => {
             '" data-best-for="' +
             _attr(JSON.stringify(s.modal_best_for || [])) +
             '" data-img="' +
-            _attr(s.image_data || "") +
-            '">View service details</button>' +
+            _attr(image) +
+            '"><span>View service details</span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button></div>' +
             "</div></article>"
           );
         })

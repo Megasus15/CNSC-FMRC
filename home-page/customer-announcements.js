@@ -150,6 +150,76 @@
   let campaignPollTimer = null;
   let lastPromotionSignature = "";
 
+  // ── Read tracking ───────────────────────────────────────────────────────────
+  // The bell badge counts UNREAD announcements only. Read state is stored per
+  // customer (falling back to a shared guest bucket) so the count stays in sync
+  // across Home, Services, Products and Contact.
+  const READ_STATE_PREFIX = "fmrc_announcements_read_";
+
+  const getReadStateKey = () => {
+    let scope = "guest";
+    try {
+      const raw = localStorage.getItem("customer_info");
+      if (raw) {
+        const info = JSON.parse(raw);
+        if (info?.id) scope = String(info.id);
+        else if (info?.email) scope = String(info.email);
+      }
+    } catch {
+      scope = "guest";
+    }
+    return `${READ_STATE_PREFIX}${scope}`;
+  };
+
+  const loadReadIds = () => {
+    try {
+      const raw = localStorage.getItem(getReadStateKey());
+      const parsed = raw ? JSON.parse(raw) : [];
+      return new Set(Array.isArray(parsed) ? parsed.map(String) : []);
+    } catch {
+      return new Set();
+    }
+  };
+
+  const saveReadIds = (readIds) => {
+    try {
+      localStorage.setItem(getReadStateKey(), JSON.stringify([...readIds]));
+    } catch {
+      /* storage optional */
+    }
+  };
+
+  const markAnnouncementRead = (id) => {
+    if (id === undefined || id === null || id === "") return false;
+    const readIds = loadReadIds();
+    if (readIds.has(String(id))) return false;
+    readIds.add(String(id));
+    saveReadIds(readIds);
+    return true;
+  };
+
+  const getUnreadCount = () => {
+    const readIds = loadReadIds();
+    return announcements.filter((item) => !readIds.has(String(item?.id)))
+      .length;
+  };
+
+  // Drop read IDs for campaigns that no longer exist so the store cannot grow
+  // without bound as announcements and promotions expire.
+  const pruneReadIds = () => {
+    const readIds = loadReadIds();
+    if (!readIds.size) return;
+    const liveIds = new Set(announcements.map((item) => String(item?.id)));
+    let changed = false;
+    readIds.forEach((id) => {
+      if (!liveIds.has(id)) {
+        readIds.delete(id);
+        changed = true;
+      }
+    });
+    if (changed) saveReadIds(readIds);
+  };
+
   const getProductNamesString = (productIds) => {
     if (!Array.isArray(productIds) || !productIds.length)
       return "selected products";
@@ -174,7 +244,7 @@
     if (activeCampaigns.length !== announcements.length) {
       announcements = activeCampaigns;
       activeIndex = Math.min(activeIndex, Math.max(0, announcements.length - 1));
-      updateBadges(announcements.length);
+      updateBadges(getUnreadCount());
     }
 
     const hasAnnouncements = announcements.length > 0;
@@ -234,7 +304,11 @@
     modal.setAttribute("aria-hidden", "false");
     modal.classList.add("is-visible");
     document.body.classList.add("fmrc-announcement-open");
-    if (item) markSeen(item.id);
+    if (item) {
+      markSeen(item.id);
+      // Viewing an announcement marks it read, which decrements the bell badge.
+      if (markAnnouncementRead(item.id)) updateBadges(getUnreadCount());
+    }
   };
 
   const closeModal = () => {
@@ -283,21 +357,38 @@
         }
         .announcement-bell__badge {
           position: absolute;
-          top: -3px;
-          right: -3px;
-          min-width: 19px;
-          height: 19px;
-          padding: 0 5px;
-          border: 2px solid #ffffff;
-          border-radius: 999px;
-          background: linear-gradient(135deg, #ef4444, #800000);
-          color: #ffffff;
-          font-size: 10px;
-          font-weight: 800;
-          line-height: 15px;
-          text-align: center;
+          top: -2px !important;
+          right: -2px !important;
+          box-sizing: border-box;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 22px !important;
+          min-width: 22px !important;
+          max-width: 22px !important;
+          height: 22px !important;
+          min-height: 22px !important;
+          max-height: 22px !important;
+          padding: 0 !important;
+          border: 2px solid #ffffff !important;
+          border-radius: 50% !important;
+          background: linear-gradient(135deg, #ef4444, #991b1b) !important;
+          color: #ffffff !important;
+          font-family: "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+          font-weight: 800 !important;
+          line-height: 1 !important;
+          text-align: center !important;
+          white-space: nowrap !important;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
+          pointer-events: none;
+          user-select: none;
+          font-size: 8px;
+          letter-spacing: -0.04em;
         }
-        .announcement-bell__badge[hidden] { display: none !important; }
+        .announcement-bell__badge[data-length="1"] { font-size: 10.5px !important; letter-spacing: 0 !important; }
+        .announcement-bell__badge[data-length="2"] { font-size: 8.5px !important; letter-spacing: -0.04em !important; }
+        .announcement-bell__badge[data-length="3"] { font-size: 7.5px !important; letter-spacing: -0.06em !important; }
+        .announcement-bell__badge[hidden], .announcement-bell__badge:empty { display: none !important; }
         .fmrc-announcement-open { overflow: hidden !important; }
         
         /* Glassmorphism Navbar Tooltip Pointer Pointing directly to Bell Icon */
@@ -599,7 +690,7 @@
             bellBtn.setAttribute("title", "Announcements");
             bellBtn.innerHTML = `
               <i class="fa-solid fa-bell" aria-hidden="true"></i>
-              <span class="announcement-bell__badge" id="announcementBellBadge" hidden>0</span>
+              <span class="announcement-bell__badge" id="announcementBellBadge" hidden></span>
             `;
             bellWrapper.appendChild(bellBtn);
 
@@ -621,7 +712,13 @@
           bell.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopImmediatePropagation();
-            showModal(activeIndex);
+            // Open on the first unread item so repeated bell clicks work
+            // through the queue and the badge counts down to zero.
+            const readIds = loadReadIds();
+            const firstUnread = announcements.findIndex(
+              (item) => !readIds.has(String(item?.id)),
+            );
+            showModal(firstUnread >= 0 ? firstUnread : activeIndex);
           });
         });
     }
@@ -796,14 +893,21 @@
   };
 
   const updateBadges = (count) => {
+    const total = Number.isFinite(count) ? Math.max(0, Math.trunc(count)) : 0;
+    const displayCount = total > 99 ? "99+" : String(total);
     document
       .querySelectorAll("#announcementBellBadge, .announcement-bell__badge")
       .forEach((badge) => {
-        if (count > 0) {
-          badge.textContent = count > 99 ? "99+" : String(count);
+        if (total > 0) {
+          // Keep the navbar badge compact: 99 is the largest numeric value;
+          // larger counts use 99+ so a third digit never overflows the circle.
+          badge.textContent = displayCount;
+          badge.dataset.length = String(displayCount.length);
           badge.hidden = false;
-          badge.style.display = "inline-block";
+          badge.style.display = "flex";
         } else {
+          badge.textContent = "";
+          badge.dataset.length = "0";
           badge.hidden = true;
           badge.style.display = "none";
         }
@@ -921,7 +1025,8 @@
         );
       }
 
-      updateBadges(announcements.length);
+      pruneReadIds();
+      updateBadges(getUnreadCount());
 
       if (modal && !modal.hidden) {
         if (!announcements.length) {
@@ -977,5 +1082,15 @@
 
   document.addEventListener("visibilitychange", () => {
     if (!isAdminOrStaff && !document.hidden) void load();
+  });
+
+  // Keep the bell badge in sync when the customer reads an announcement in
+  // another open tab (Home, Services, Products or Contact).
+  window.addEventListener("storage", (event) => {
+    if (isAdminOrStaff) return;
+    const key = String(event?.key || "");
+    if (key === "customer_info" || key.startsWith(READ_STATE_PREFIX)) {
+      updateBadges(getUnreadCount());
+    }
   });
 })();

@@ -2370,7 +2370,11 @@ document.addEventListener("DOMContentLoaded", () => {
         label: `Select ${tableLabel}`,
         icon: "fa-list-check",
       };
+      const selectionModes = Array.isArray(options.selectionModes)
+        ? options.selectionModes.filter((mode) => mode && mode.key)
+        : [];
       const actions = Array.isArray(options.actions) ? options.actions : [];
+      let activeActionKey = null;
 
       let tools = footer.querySelector(`[data-admin-bulk-tools="${key}"]`);
       if (!tools) {
@@ -2412,6 +2416,19 @@ document.addEventListener("DOMContentLoaded", () => {
           allIds.length > 0 && allIds.every((id) => selectedIds.has(id));
 
         if (!selectionMode) {
+          if (selectionModes.length) {
+            tools.innerHTML = selectionModes
+              .map((mode) => {
+                const label = mode.label || `Select ${tableLabel}`;
+                return `
+                  <button type="button" class="btn-admin icon-only-btn admin-bulk-mode-toggle ${escapeBulkHtml(mode.className || "")}" data-admin-bulk-enter="${escapeBulkHtml(key)}" data-admin-bulk-mode="${escapeBulkHtml(mode.key)}" data-tooltip="${escapeBulkHtml(label)}" aria-label="${escapeBulkHtml(label)}" title="${escapeBulkHtml(label)}" ${allIds.length && !busy ? "" : "disabled"}>
+                    <i class="fa-solid ${escapeBulkHtml(mode.icon || "fa-list-check")}" aria-hidden="true"></i>
+                  </button>`;
+              })
+              .join("");
+            return;
+          }
+
           const label = idleAction.label || `Select ${tableLabel}`;
           tools.innerHTML = `
             <button type="button" class="btn-admin icon-only-btn admin-bulk-mode-toggle ${escapeBulkHtml(idleAction.className || "")}" data-admin-bulk-enter="${escapeBulkHtml(key)}" data-tooltip="${escapeBulkHtml(label)}" aria-label="${escapeBulkHtml(label)}" title="${escapeBulkHtml(label)}" ${allIds.length && !busy ? "" : "disabled"}>
@@ -2420,7 +2437,13 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
-        const actionButtons = actions
+        const visibleActions = selectionModes.length && activeActionKey
+          ? actions.filter(
+              (action) =>
+                String(action.key || "default") === String(activeActionKey),
+            )
+          : actions;
+        const actionButtons = visibleActions
           .map((action) => {
             const label = action.label || "Apply to selected records";
             return `
@@ -2514,8 +2537,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const target = event.target;
         if (!(target instanceof Element)) return;
 
-        if (target.closest(`[data-admin-bulk-enter="${key}"]`)) {
+        const enterButton = target.closest(
+          `[data-admin-bulk-enter="${key}"]`,
+        );
+        if (enterButton) {
           selectedIds.clear();
+          activeActionKey = enterButton.getAttribute("data-admin-bulk-mode");
           selectionMode = true;
           sync();
           return;
@@ -2523,6 +2550,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (target.closest(`[data-admin-bulk-cancel="${key}"]`)) {
           selectedIds.clear();
+          activeActionKey = null;
           selectionMode = false;
           sync();
           return;
@@ -2564,7 +2592,10 @@ document.addEventListener("DOMContentLoaded", () => {
         getSelectedIds: () => [...selectedIds].map(deserializeId),
         clear(options = {}) {
           selectedIds.clear();
-          if (options.exit !== false) selectionMode = false;
+          if (options.exit !== false) {
+            activeActionKey = null;
+            selectionMode = false;
+          }
           sync();
         },
         setBusy(value) {

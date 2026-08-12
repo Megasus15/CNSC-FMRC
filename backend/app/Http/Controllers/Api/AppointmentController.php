@@ -248,7 +248,7 @@ class AppointmentController extends Controller
         $archivedIds = DB::transaction(function () use ($ids): array {
             $eligibleIds = Appointment::query()
                 ->whereIn('id', $ids)
-                ->whereNotIn('status', ['Cancelled', 'Archived'])
+                ->where('status', 'Completed')
                 ->pluck('id')
                 ->map(fn ($id) => (int) $id)
                 ->values()
@@ -265,7 +265,7 @@ class AppointmentController extends Controller
         });
 
         if (!$archivedIds) {
-            return response()->json(['message' => 'No active appointments were found to archive.'], 404);
+            return response()->json(['message' => 'No completed appointments were found to archive.'], 404);
         }
 
         return response()->json([
@@ -280,6 +280,12 @@ class AppointmentController extends Controller
 
     public function archive(Appointment $appointment): JsonResponse
     {
+        if (strtolower((string) $appointment->status) !== 'completed') {
+            return response()->json([
+                'message' => 'Only appointments marked as completed can be archived.',
+            ], 422);
+        }
+
         $appointment->status = 'Archived';
         $appointment->save();
 
@@ -296,6 +302,28 @@ class AppointmentController extends Controller
 
         return response()->json([
             'message' => 'Appointment restored successfully.',
+            'data' => $this->transformAppointment($appointment),
+        ]);
+    }
+
+    public function markCompleted(Request $request, Appointment $appointment): JsonResponse
+    {
+        if ($denied = $this->ensureAdminOrStaff($request)) {
+            return $denied;
+        }
+
+        $currentStatus = strtolower($appointment->status ?? '');
+        if (in_array($currentStatus, ['completed', 'cancelled', 'archived'], true)) {
+            return response()->json([
+                'message' => 'This appointment cannot be marked as completed (current status: ' . $appointment->status . ').',
+            ], 422);
+        }
+
+        $appointment->status = 'Completed';
+        $appointment->save();
+
+        return response()->json([
+            'message' => 'Appointment marked as completed.',
             'data' => $this->transformAppointment($appointment),
         ]);
     }

@@ -1151,6 +1151,28 @@ input.page-number:focus,
   border-color: var(--primary-color);
 }
 
+/* Appointment actions and archive controls use the shared maroon treatment. */
+.action-icons button.appointment-complete-action {
+  color: #800000;
+}
+
+.action-icons button.appointment-complete-action:hover,
+.action-icons button.appointment-complete-action:focus-visible {
+  background-color: #800000;
+  color: #fff;
+  border-color: #800000;
+}
+
+.archive-delete-action {
+  color: #dc2626 !important;
+}
+
+.archive-delete-action:hover {
+  background-color: #800000 !important;
+  color: #fff !important;
+  border-color: #800000 !important;
+}
+
 .action-icons button:active {
   transform: scale(0.96);
 }
@@ -1169,6 +1191,51 @@ input.page-number:focus,
   background: #eef1f5;
   color: #a2aab5;
   border-color: #d5dde8;
+}
+
+/* Archives toolbar and auto-delete controls. */
+.archives-page-toolbar {
+  align-items: center;
+}
+
+.archives-page-toolbar .toolbar-title {
+  flex: 1 1 520px;
+  min-width: 280px;
+}
+
+.archives-page-toolbar .toolbar-title p {
+  max-width: 680px;
+  line-height: 1.45;
+}
+
+.archives-page-toolbar .toolbar-actions {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.btn-admin.archives-auto-delete-btn,
+.btn-admin.archives-save-auto-delete {
+  border-color: #b91c1c;
+  background: linear-gradient(135deg, #7f1d1d, #b91c1c);
+  color: #fff;
+}
+
+.btn-admin.archives-auto-delete-btn:hover,
+.btn-admin.archives-save-auto-delete:hover {
+  border-color: #5f0d0d;
+  background: linear-gradient(135deg, #5f0d0d, #7f1d1d);
+  color: #fff;
+}
+
+.archives-auto-delete-icon {
+  background: linear-gradient(135deg, #7f1d1d, #b91c1c) !important;
+}
+
+@media (max-width: 720px) {
+  .archives-page-toolbar .toolbar-actions {
+    width: 100%;
+    margin-left: 0;
+  }
 }
 
 .table-empty-row td {

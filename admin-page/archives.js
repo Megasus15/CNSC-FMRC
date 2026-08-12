@@ -230,6 +230,11 @@ document.addEventListener("DOMContentLoaded", () => {
       <i class="fa-solid fa-rotate-left"></i>
     </button>`;
 
+  const deleteButton = (module, row, name) => `
+    <button type="button" class="archive-delete-action" data-tooltip="Delete Permanently" data-archive-delete="${module}" data-id="${row.source_id}" aria-label="Delete ${esc(name)}">
+      <i class="fa-solid fa-trash"></i>
+    </button>`;
+
   const rowCheckbox = (module, row, label) => `
     <td class="admin-bulk-select-cell">
       <input type="checkbox" data-admin-bulk-row="archive-${module}" value="${row.source_id}" aria-label="Select ${esc(label)}" />
@@ -237,7 +242,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const renderInventoryRow = (item, index) => {
     const onHand = Number(item.on_hand || 0);
-    const status = item.status || (onHand <= 0 ? "Critical" : onHand <= 5 ? "Low" : "Good");
+    const status =
+      item.status || (onHand <= 0 ? "Critical" : onHand <= 5 ? "Low" : "Good");
     const variants = Array.isArray(item.variants) ? item.variants : [];
     const hasVariants = Boolean(item.has_variants || variants.length);
     const rowNumber = (state.inventory.page - 1) * PAGE_SIZE + index + 1;
@@ -260,7 +266,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <td>${blankWhenVariants(esc(item.remarks || "—"))}</td>
       <td><span style="font-size:0.75rem;background:#f0f2f5;padding:2px 8px;border-radius:99px;font-weight:600;">${esc(item.category)}</span></td>
       <td style="color:#64748b;font-size:0.82rem;">${fmtDate(item.archived_at)}</td>
-      <td class="action-icons sticky-action">${restoreButton("inventory", item, item.item_name)}</td>
+      <td class="action-icons sticky-action">${restoreButton("inventory", item, item.item_name)}${deleteButton("inventory", item, item.item_name)}</td>
     </tr>`;
 
     variants.forEach((variant) => {
@@ -302,7 +308,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <td>${esc(row.appointment_time)}</td>
         <td>${statusPill(row.status)}</td>
         <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
-        <td class="action-icons sticky-action">${restoreButton(module, row, row.reference_no)}</td>
+        <td class="action-icons sticky-action">${restoreButton(module, row, row.reference_no)}${deleteButton(module, row, row.reference_no)}</td>
       </tr>`;
     }
     if (module === "order") {
@@ -316,7 +322,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <td style="font-weight:700;">${esc(row.total_label)}</td>
         <td>${statusPill(row.lifecycle_status)}</td>
         <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
-        <td class="action-icons sticky-action">${restoreButton(module, row, row.order_no)}</td>
+        <td class="action-icons sticky-action">${restoreButton(module, row, row.order_no)}${deleteButton(module, row, row.order_no)}</td>
       </tr>`;
     }
     if (module === "promotion") {
@@ -332,7 +338,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <td style="font-size:0.78rem;color:#64748b;">${scheduleLabel(row)}</td>
         <td>${statusPill(row.is_enabled ? "Enabled" : "Paused")}</td>
         <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
-        <td class="action-icons sticky-action">${restoreButton(module, row, row.title)}</td>
+        <td class="action-icons sticky-action">${restoreButton(module, row, row.title)}${deleteButton(module, row, row.title)}</td>
       </tr>`;
     }
 
@@ -344,7 +350,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <td style="font-size:0.78rem;color:#64748b;">${scheduleLabel(row)}</td>
       <td>${statusPill(row.is_enabled ? "Enabled" : "Paused")}</td>
       <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
-      <td class="action-icons sticky-action">${restoreButton(module, row, row.title)}</td>
+      <td class="action-icons sticky-action">${restoreButton(module, row, row.title)}${deleteButton(module, row, row.title)}</td>
     </tr>`;
   };
 
@@ -372,7 +378,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (config.prev) config.prev.disabled = state[module].page <= 1;
     if (config.next) config.next.disabled = state[module].page >= pages;
-    if (config.count) config.count.textContent = String(state[module].all.length);
+    if (config.count)
+      config.count.textContent = String(state[module].all.length);
     state[module].controller?.sync();
   };
 
@@ -381,18 +388,45 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const requestRestore = async (module, ids) => {
-    const response = await fetch(`${API_BASE_URL}/admin/archives/restore-bulk`, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${getToken()}`,
-        Accept: "application/json",
-        "Content-Type": "application/json",
+    const response = await fetch(
+      `${API_BASE_URL}/admin/archives/restore-bulk`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ module, ids }),
       },
-      body: JSON.stringify({ module, ids }),
-    });
+    );
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(payload?.message || "Failed to restore selected records.");
+      throw new Error(
+        payload?.message || "Failed to restore selected records.",
+      );
+    }
+    return payload;
+  };
+
+  const requestDelete = async (module, ids) => {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/archives/delete-bulk`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ module, ids }),
+      },
+    );
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(
+        payload?.message || "Failed to permanently delete selected records.",
+      );
     }
     return payload;
   };
@@ -421,6 +455,34 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
+  const deleteSelected = (module, ids, controller) => {
+    const config = moduleConfig[module];
+    window.runAdminBulkAction?.({
+      controller,
+      ids,
+      action: "delete",
+      tableLabel: config.tableLabel,
+      irreversible: true,
+      confirmTitle: "Delete Selected Permanently",
+      confirmText: "Delete Permanently",
+      loadingText: "Deleting...",
+      successTitle: "Deleted Successfully",
+      execute: (selectedIds) => requestDelete(module, selectedIds),
+      afterSuccess: async (payload) => {
+        window.dispatchEvent(
+          new CustomEvent("fmrc:archives-updated", {
+            detail: {
+              module,
+              action: "delete-bulk",
+              ids: payload?.processed_ids || [],
+            },
+          }),
+        );
+        await loadArchives();
+      },
+    });
+  };
+
   const setupBulkSelections = () => {
     Object.entries(moduleConfig).forEach(([module, config]) => {
       state[module].controller = window.AdminBulkSelection?.create({
@@ -431,11 +493,20 @@ document.addEventListener("DOMContentLoaded", () => {
         getId: (row) => row?.source_id,
         getEligibleRows: () => filteredRows(module),
         getPageRows: () => pageRows(module),
-        idleAction: {
-          label: `Select ${config.tableLabel} to restore`,
-          icon: "fa-rotate-left",
-          className: "admin-bulk-restore",
-        },
+        selectionModes: [
+          {
+            key: "restore",
+            label: `Bulk restore ${config.tableLabel}`,
+            icon: "fa-rotate-left",
+            className: "admin-bulk-restore",
+          },
+          {
+            key: "delete",
+            label: `Bulk delete ${config.tableLabel} permanently`,
+            icon: "fa-trash",
+            className: "admin-bulk-delete",
+          },
+        ],
         actions: [
           {
             key: "restore",
@@ -444,6 +515,14 @@ document.addEventListener("DOMContentLoaded", () => {
             className: "admin-bulk-restore",
             onClick: (ids, controller) =>
               restoreSelected(module, ids, controller),
+          },
+          {
+            key: "delete",
+            label: `Permanently delete selected ${config.tableLabel}`,
+            icon: "fa-trash",
+            className: "admin-bulk-delete",
+            onClick: (ids, controller) =>
+              deleteSelected(module, ids, controller),
           },
         ],
       });
@@ -575,19 +654,23 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  document.getElementById("archiveSearchInput")?.addEventListener("input", (event) => {
-    searchQuery = String(event.target?.value || "")
-      .trim()
-      .toLowerCase();
-    Object.values(state).forEach((moduleState) => {
-      moduleState.page = 1;
+  document
+    .getElementById("archiveSearchInput")
+    ?.addEventListener("input", (event) => {
+      searchQuery = String(event.target?.value || "")
+        .trim()
+        .toLowerCase();
+      Object.values(state).forEach((moduleState) => {
+        moduleState.page = 1;
+      });
+      renderAll();
     });
-    renderAll();
-  });
 
-  document.getElementById("archivesRefreshBtn")?.addEventListener("click", () => {
-    void loadArchives();
-  });
+  document
+    .getElementById("archivesRefreshBtn")
+    ?.addEventListener("click", () => {
+      void loadArchives();
+    });
 
   document.body.addEventListener("click", (event) => {
     const target = event.target;
@@ -607,13 +690,224 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const restore = target.closest("[data-archive-restore]");
-    if (!restore) return;
-    const module = restore.getAttribute("data-archive-restore");
-    const id = Number(restore.getAttribute("data-id") || 0);
-    if (!moduleConfig[module] || !id) return;
-    restoreSelected(module, [id], state[module].controller);
+    if (restore) {
+      const module = restore.getAttribute("data-archive-restore");
+      const id = Number(restore.getAttribute("data-id") || 0);
+      if (!moduleConfig[module] || !id) return;
+      restoreSelected(module, [id], state[module].controller);
+      return;
+    }
+
+    // ─── Delete single archive ──────────────────────────────────────────────
+    const deleteBtn = target.closest("[data-archive-delete]");
+    if (deleteBtn) {
+      const module = deleteBtn.getAttribute("data-archive-delete");
+      const id = Number(deleteBtn.getAttribute("data-id") || 0);
+      if (!moduleConfig[module] || !id) return;
+      openDeleteConfirmModal(module, id);
+      return;
+    }
   });
 
+  // ─── Delete Confirmation Modal ──────────────────────────────────────────────
+  let pendingDeleteModule = null;
+  let pendingDeleteId = null;
+
+  const openDeleteConfirmModal = (module, id) => {
+    pendingDeleteModule = module;
+    pendingDeleteId = id;
+    const rows = state[module]?.all || [];
+    const row = rows.find((r) => r.source_id === id);
+    const label =
+      row?.item_name ||
+      row?.reference_no ||
+      row?.order_no ||
+      row?.title ||
+      `ID ${id}`;
+    const labelEl = document.getElementById("deleteArchiveTargetLabel");
+    if (labelEl) labelEl.textContent = label;
+    document.getElementById("modalDeleteArchive")?.classList.add("show");
+  };
+
+  document
+    .getElementById("btnCancelDeleteArchive")
+    ?.addEventListener("click", () => {
+      document.getElementById("modalDeleteArchive")?.classList.remove("show");
+      pendingDeleteModule = null;
+      pendingDeleteId = null;
+    });
+
+  document
+    .getElementById("btnConfirmDeleteArchive")
+    ?.addEventListener("click", async () => {
+      if (!pendingDeleteModule || !pendingDeleteId) return;
+
+      const confirmBtn = document.getElementById("btnConfirmDeleteArchive");
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML =
+          '<i class="fa-solid fa-spinner fa-spin"></i> Deleting\u2026';
+      }
+
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/admin/archives/delete-bulk`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${getToken()}`,
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              module: pendingDeleteModule,
+              ids: [pendingDeleteId],
+            }),
+          },
+        );
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.message || "Failed to delete record.");
+        }
+
+        document.getElementById("modalDeleteArchive")?.classList.remove("show");
+        pendingDeleteModule = null;
+        pendingDeleteId = null;
+        await loadArchives();
+        window.showAdminPopup?.("Archived record permanently deleted.", {
+          title: "Deleted \u2713",
+        });
+      } catch (error) {
+        window.showAdminPopup?.(error?.message || "Unable to delete record.", {
+          title: "Delete Failed",
+        });
+      } finally {
+        if (confirmBtn) {
+          confirmBtn.disabled = false;
+          confirmBtn.innerHTML =
+            '<i class="fa-solid fa-trash"></i> Delete Permanently';
+        }
+      }
+    });
+
+  // ─── Auto-Delete Settings Modal ─────────────────────────────────────────────
+  const AUTO_DELETE_KEY = "fmrc_archive_retention_days";
+
+  const getRetentionDays = () => {
+    const stored = localStorage.getItem(AUTO_DELETE_KEY);
+    const parsed = Number(stored);
+    if ([30, 60, 90].includes(parsed)) return parsed;
+    return 60; // default
+  };
+
+  const saveRetentionDays = (days) => {
+    localStorage.setItem(AUTO_DELETE_KEY, String(days));
+  };
+
+  const openAutoDeleteModal = () => {
+    const modal = document.getElementById("modalAutoDeleteSettings");
+    if (!modal) return;
+    const current = getRetentionDays();
+    modal.querySelectorAll("input[name=retentionDays]").forEach((radio) => {
+      radio.checked = Number(radio.value) === current;
+    });
+    modal.classList.add("show");
+  };
+
+  document
+    .getElementById("btnOpenAutoDeleteSettings")
+    ?.addEventListener("click", openAutoDeleteModal);
+
+  document
+    .getElementById("btnCancelAutoDelete")
+    ?.addEventListener("click", () => {
+      document
+        .getElementById("modalAutoDeleteSettings")
+        ?.classList.remove("show");
+    });
+
+  document
+    .getElementById("btnSaveAutoDelete")
+    ?.addEventListener("click", async () => {
+      const modal = document.getElementById("modalAutoDeleteSettings");
+      const selected = modal?.querySelector(
+        "input[name=retentionDays]:checked",
+      );
+      if (!selected) return;
+
+      const days = Number(selected.value);
+      saveRetentionDays(days);
+
+      const saveBtn = document.getElementById("btnSaveAutoDelete");
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML =
+          '<i class="fa-solid fa-spinner fa-spin"></i> Saving\u2026';
+      }
+
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/admin/archives/auto-delete`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${getToken()}`,
+              Accept: "application/json",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ retention_days: days }),
+          },
+        );
+        const payload = await response.json().catch(() => ({}));
+
+        modal?.classList.remove("show");
+
+        if (payload?.deleted_count > 0) {
+          await loadArchives();
+          window.showAdminPopup?.(
+            `Auto-delete setting saved (${days} days). ${payload.deleted_count} expired record(s) were removed.`,
+            { title: "Settings Saved \u2713" },
+          );
+        } else {
+          window.showAdminPopup?.(
+            `Auto-delete setting saved to ${days} days. No expired records found.`,
+            { title: "Settings Saved \u2713" },
+          );
+        }
+      } catch (error) {
+        window.showAdminPopup?.(
+          error?.message || "Unable to save auto-delete settings.",
+          { title: "Save Failed" },
+        );
+      } finally {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = '<i class="fa-solid fa-check"></i> Save';
+        }
+      }
+    });
+
+  // Run auto-delete silently on page load
+  const runAutoDeleteOnLoad = async () => {
+    const token = getToken();
+    if (!token) return;
+    const days = getRetentionDays();
+    try {
+      await fetch(`${API_BASE_URL}/admin/archives/auto-delete`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ retention_days: days }),
+      });
+    } catch {
+      // silent fail — auto-delete is best-effort
+    }
+  };
+
   setupBulkSelections();
-  void loadArchives();
+  // Fire auto-delete first, then load archives
+  runAutoDeleteOnLoad().then(() => void loadArchives());
 });

@@ -131,6 +131,10 @@ class BulkAdminTableActionsTest extends TestCase
             'module' => 'inventory',
             'ids' => [1],
         ])->assertForbidden();
+        $this->deleteJson('/api/admin/archives/delete-bulk', [
+            'module' => 'inventory',
+            'ids' => [1],
+        ])->assertForbidden();
 
         $this->assertDatabaseHas('users', ['id' => $admin->id]);
     }
@@ -303,30 +307,43 @@ class BulkAdminTableActionsTest extends TestCase
     public function test_appointment_archive_and_restore_skip_ineligible_records(): void
     {
         $this->actingAdmin();
-        $active = Appointment::create([
+        $completed = Appointment::create([
             'reference_no' => 'AP-BULK-001',
-            'first_name' => 'Active',
+            'first_name' => 'Completed',
+            'last_name' => 'Client',
+            'status' => 'Completed',
+        ]);
+        $scheduled = Appointment::create([
+            'reference_no' => 'AP-BULK-002',
+            'first_name' => 'Scheduled',
             'last_name' => 'Client',
             'status' => 'Scheduled',
         ]);
         $cancelled = Appointment::create([
-            'reference_no' => 'AP-BULK-002',
+            'reference_no' => 'AP-BULK-003',
             'first_name' => 'Cancelled',
             'last_name' => 'Client',
             'status' => 'Cancelled',
         ]);
 
+        $this->patchJson('/api/appointments/' . $scheduled->id . '/archive')
+            ->assertUnprocessable();
+
         $this->patchJson('/api/appointments/archive-bulk', [
-            'ids' => [$active->id, $cancelled->id, 999999],
+            'ids' => [$completed->id, $scheduled->id, $cancelled->id, 999999],
         ])
             ->assertOk()
             ->assertJsonPath('processed_count', 1)
-            ->assertJsonFragment(['processed_ids' => [$active->id]])
-            ->assertJsonFragment(['skipped_ids' => [$cancelled->id, 999999]]);
+            ->assertJsonFragment(['processed_ids' => [$completed->id]])
+            ->assertJsonFragment(['skipped_ids' => [$scheduled->id, $cancelled->id, 999999]]);
 
         $this->assertDatabaseHas('appointments', [
-            'id' => $active->id,
+            'id' => $completed->id,
             'status' => 'Archived',
+        ]);
+        $this->assertDatabaseHas('appointments', [
+            'id' => $scheduled->id,
+            'status' => 'Scheduled',
         ]);
         $this->assertDatabaseHas('appointments', [
             'id' => $cancelled->id,
@@ -335,14 +352,14 @@ class BulkAdminTableActionsTest extends TestCase
 
         $this->patchJson('/api/admin/archives/restore-bulk', [
             'module' => 'appointment',
-            'ids' => [$active->id, 999999],
+            'ids' => [$completed->id, 999999],
         ])
             ->assertOk()
             ->assertJsonPath('processed_count', 1)
             ->assertJsonFragment(['skipped_ids' => [999999]]);
 
         $this->assertDatabaseHas('appointments', [
-            'id' => $active->id,
+            'id' => $completed->id,
             'status' => 'Pending',
         ]);
     }
@@ -380,6 +397,96 @@ class BulkAdminTableActionsTest extends TestCase
             'id' => $order->id,
             'is_archived' => true,
         ]);
+    }
+
+    public function test_archive_bulk_delete_permanently_removes_archived_records_for_each_module(): void
+    {
+        $admin = $this->actingAdmin();
+        $archivedInventory = InventoryItem::create([
+            'category' => 'Office Supplies',
+            'item_name' => 'Delete Archived Inventory',
+            'unit' => 'pcs',
+            'last_invent' => 2,
+            'on_hand' => 2,
+            'status' => 'Good',
+            'variants' => [],
+            'is_archived' => true,
+            'archived_at' => now(),
+        ]);
+        $activeInventory = InventoryItem::create([
+            'category' => 'Office Supplies',
+            'item_name' => 'Keep Active Inventory',
+            'unit' => 'pcs',
+            'last_invent' => 2,
+            'on_hand' => 2,
+            'status' => 'Good',
+            'variants' => [],
+            'is_archived' => false,
+        ]);
+        $archivedAppointment = Appointment::create([
+            'reference_no' => 'AP-DELETE-001',
+            'first_name' => 'Archived',
+            'last_name' => 'Appointment',
+            'status' => 'Archived',
+        ]);
+        $archivedOrder = $this->makeOrder('completed', null, null, true);
+        $archivedPromotion = Promotion::create([
+            'title' => 'Delete Archived Promotion',
+            'discount_percent' => 15,
+            'scope' => 'all_products',
+            'starts_at' => now()->subHour(),
+            'ends_at' => now()->addHour(),
+            'is_enabled' => true,
+            'is_archived' => true,
+            'archived_at' => now(),
+            'created_by' => $admin->id,
+        ]);
+        $archivedAnnouncement = Announcement::create([
+            'title' => 'Delete Archived Announcement',
+            'message' => 'This archived announcement is for bulk deletion coverage.',
+            'placement' => 'both',
+            'starts_at' => now()->subHour(),
+            'ends_at' => now()->addHour(),
+            'is_enabled' => true,
+            'is_archived' => true,
+            'archived_at' => now(),
+            'created_by' => $admin->id,
+        ]);
+
+        $this->deleteJson('/api/admin/archives/delete-bulk', [
+            'module' => 'inventory',
+            'ids' => [$archivedInventory->id, $activeInventory->id, 999999],
+        ])
+            ->assertOk()
+            ->assertJsonPath('action', 'delete')
+            ->assertJsonPath('scope', 'inventory')
+            ->assertJsonPath('processed_count', 1)
+            ->assertJsonFragment(['processed_ids' => [$archivedInventory->id]])
+            ->assertJsonFragment(['skipped_ids' => [$activeInventory->id, 999999]]);
+
+        $this->deleteJson('/api/admin/archives/delete-bulk', [
+            'module' => 'appointment',
+            'ids' => [$archivedAppointment->id],
+        ])->assertOk()->assertJsonPath('processed_count', 1);
+        $this->deleteJson('/api/admin/archives/delete-bulk', [
+            'module' => 'order',
+            'ids' => [$archivedOrder->id],
+        ])->assertOk()->assertJsonPath('processed_count', 1);
+        $this->deleteJson('/api/admin/archives/delete-bulk', [
+            'module' => 'promotion',
+            'ids' => [$archivedPromotion->id],
+        ])->assertOk()->assertJsonPath('processed_count', 1);
+        $this->deleteJson('/api/admin/archives/delete-bulk', [
+            'module' => 'announcement',
+            'ids' => [$archivedAnnouncement->id],
+        ])->assertOk()->assertJsonPath('processed_count', 1);
+
+        $this->assertDatabaseMissing('inventory_items', ['id' => $archivedInventory->id]);
+        $this->assertDatabaseHas('inventory_items', ['id' => $activeInventory->id]);
+        $this->assertDatabaseMissing('appointments', ['id' => $archivedAppointment->id]);
+        $this->assertDatabaseMissing('orders', ['id' => $archivedOrder->id]);
+        $this->assertDatabaseMissing('promotions', ['id' => $archivedPromotion->id]);
+        $this->assertDatabaseMissing('announcements', ['id' => $archivedAnnouncement->id]);
     }
 
     public function test_rejected_and_payment_archives_enforce_their_own_table_eligibility_and_keep_whole_order_data(): void

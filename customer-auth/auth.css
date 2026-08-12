@@ -1483,3 +1483,413 @@ body::after {
   transform: scale(0.97);
   box-shadow: 0 5px 12px rgba(45, 55, 72, 0.1);
 }
+
+/* =================================================================
+   UNIVERSAL RESPONSIVE + COMFORT LAYER — CUSTOMER LOGIN / SIGN UP
+   Works from 126px up to 7680px wide. Mobile-first spacing, safe
+   areas, comfortable tap targets, no horizontal overflow.
+   Placed last so it resolves earlier conflicting rules.
+   ================================================================= */
+
+:root {
+  --ux-tap: 46px;
+  --ux-safe-t: env(safe-area-inset-top, 0px);
+  --ux-safe-b: env(safe-area-inset-bottom, 0px);
+  --ux-safe-l: env(safe-area-inset-left, 0px);
+  --ux-safe-r: env(safe-area-inset-right, 0px);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+.auth-page {
+  /* Top padding clears the fixed "Back to Homepage" pill (44px tall
+     at 14–24px from the top) on every screen size. */
+  padding-top: max(74px, calc(58px + var(--ux-safe-t)));
+  padding-bottom: calc(clamp(18px, 4vw, 50px) + var(--ux-safe-b));
+  padding-left: max(clamp(12px, 4vw, 22px), var(--ux-safe-l));
+  padding-right: max(clamp(12px, 4vw, 22px), var(--ux-safe-r));
+}
+
+.auth-shell {
+  width: 100%;
+  max-width: min(1120px, 100%);
+}
+
+/* Back link: always reachable, never overlapping the card content. */
+.auth-back-link {
+  top: max(14px, var(--ux-safe-t));
+  left: max(14px, var(--ux-safe-l));
+  min-height: var(--ux-tap);
+  max-width: calc(100vw - 28px);
+  padding: 10px clamp(12px, 3vw, 18px);
+  font-size: clamp(12px, 1.4vw, 14px);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: min(1060px, 100%);
+  min-height: 0;
+  padding: clamp(8px, 1.4vw, 12px);
+  border-radius: clamp(18px, 3.4vw, 38px);
+}
+
+.auth-card::before {
+  inset: clamp(8px, 1.4vw, 12px);
+  border-radius: clamp(12px, 2.6vw, 29px);
+}
+
+.auth-side-panel {
+  min-height: 0;
+  gap: clamp(18px, 3vw, 28px);
+  padding: clamp(20px, 3.4vw, 36px) clamp(18px, 3vw, 32px);
+}
+
+.portal-mark {
+  width: clamp(62px, 14vw, 96px);
+  height: clamp(62px, 14vw, 96px);
+  margin-bottom: clamp(14px, 2.6vw, 28px);
+  border-radius: clamp(18px, 3.2vw, 30px);
+}
+
+.side-title h2 {
+  max-width: 100%;
+  font-size: clamp(22px, 3.4vw, 40px);
+}
+
+.side-title p {
+  max-width: 100%;
+  font-size: clamp(12px, 1.4vw, 13px);
+}
+
+.auth-form-panel {
+  min-width: 0;
+  padding: clamp(24px, 4.4vw, 54px) clamp(16px, 3.4vw, 48px)
+    clamp(22px, 3.6vw, 48px);
+  border-radius: clamp(16px, 2.8vw, 30px);
+}
+
+/* ux-auth-A-end */
+
+.auth-hero {
+  margin-bottom: clamp(18px, 3vw, 28px);
+}
+
+.auth-brand {
+  gap: clamp(8px, 1.6vw, 12px);
+  margin-bottom: clamp(12px, 2.2vw, 20px);
+  flex-wrap: wrap;
+}
+
+.brand-logo {
+  width: clamp(40px, 10vw, 54px);
+  height: clamp(40px, 10vw, 54px);
+  border-radius: clamp(12px, 2.4vw, 18px);
+}
+
+.auth-title {
+  font-size: clamp(21px, 4.2vw, 38px);
+}
+
+.auth-caption {
+  font-size: clamp(11.5px, 1.4vw, 13px);
+}
+
+.input-wrapper {
+  margin-bottom: clamp(12px, 1.8vw, 16px);
+}
+
+.input-wrapper label {
+  font-size: clamp(11.5px, 1.3vw, 12px);
+}
+
+/* 16px minimum keeps iOS Safari from zooming when a field is focused. */
+.input-icon-group input {
+  min-height: var(--ux-tap);
+  padding: 13px 16px 13px 46px;
+  border-radius: clamp(12px, 2vw, 18px);
+  font-size: max(16px, 0.9rem);
+}
+
+.password-field input {
+  padding-right: 48px;
+}
+
+.input-icon {
+  left: clamp(14px, 3.4vw, 18px);
+}
+
+.toggle-pass {
+  right: 8px;
+  min-width: 38px;
+  min-height: 38px;
+}
+
+.auth-btn {
+  min-height: var(--ux-tap);
+  padding: clamp(12px, 1.7vw, 15px);
+  border-radius: clamp(10px, 1.8vw, 14px);
+  font-size: clamp(13.5px, 1.5vw, 15px);
+}
+
+.auth-divider {
+  margin: clamp(10px, 1.6vw, 14px) 0;
+}
+
+.form-link,
+.switch-account-link,
+.inline-link {
+  display: inline-block;
+  min-height: 28px;
+  padding-block: 4px;
+  font-size: clamp(12.5px, 1.4vw, 13px);
+}
+
+/* Modals never exceed the viewport and respect the notch. */
+.success-modal,
+.forgot-modal,
+.status-modal,
+.global-loader-overlay {
+  padding: clamp(12px, 3vw, 18px);
+  padding-top: max(clamp(12px, 3vw, 18px), var(--ux-safe-t));
+  padding-bottom: max(clamp(12px, 3vw, 18px), var(--ux-safe-b));
+  overscroll-behavior: contain;
+}
+
+.success-box,
+.forgot-box {
+  width: min(100%, 420px);
+  max-height: min(92vh, calc(100dvh - 24px));
+  overflow-y: auto;
+  padding: clamp(22px, 4.4vw, 32px) clamp(16px, 3.4vw, 24px);
+  border-radius: clamp(14px, 2.6vw, 26px);
+}
+
+.forgot-close {
+  min-width: 40px;
+  min-height: 40px;
+}
+
+.success-icon,
+.forgot-icon {
+  width: clamp(52px, 13vw, 64px);
+  height: clamp(52px, 13vw, 64px);
+}
+
+.success-box h3,
+.forgot-box h3 {
+  font-size: clamp(17px, 3.2vw, 22px);
+}
+
+.success-box p,
+.forgot-box p {
+  font-size: clamp(12.5px, 1.5vw, 14px);
+}
+
+/* ux-auth-B-end */
+
+/* --- Stack the promo panel above the form on tablets and phones -- */
+@media (max-width: 920px) {
+  .auth-page {
+    align-items: flex-start;
+    padding-top: max(84px, calc(72px + var(--ux-safe-t)));
+  }
+
+  .auth-shell {
+    max-width: 640px;
+  }
+
+  .auth-card {
+    max-width: 640px;
+    grid-template-columns: 1fr;
+  }
+
+  .auth-side-panel {
+    min-height: clamp(200px, 42vw, 330px);
+    border-radius: clamp(16px, 3vw, 24px) clamp(34px, 8vw, 62px)
+      clamp(16px, 3vw, 24px) clamp(16px, 3vw, 24px);
+  }
+
+  .side-features {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .auth-form-panel::before {
+    display: none;
+  }
+}
+
+/* --- Phones ----------------------------------------------------- */
+@media (max-width: 560px) {
+  .auth-brand {
+    justify-content: center;
+  }
+
+  .auth-hero,
+  .auth-caption {
+    text-align: center;
+  }
+
+  .auth-caption {
+    justify-content: center;
+  }
+
+  .side-features {
+    display: none;
+  }
+
+  /* Error bubbles sit under the field so they never cover the label. */
+  .field-error-bubble {
+    position: static;
+    display: block;
+    max-width: 100%;
+    margin-top: 6px;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .field-error-bubble::after {
+    display: none;
+  }
+}
+
+/* --- Ultra-narrow (smartwatch / 240–320px) ---------------------- */
+@media (max-width: 340px) {
+  :root {
+    --ux-tap: 40px;
+  }
+
+  .auth-page {
+    padding-top: 66px;
+  }
+
+  .auth-back-link {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .auth-back-link .back-text {
+    display: none;
+  }
+
+  .auth-side-panel {
+    display: none;
+  }
+
+  .auth-card {
+    grid-template-columns: 1fr;
+    padding: 6px;
+  }
+
+  .auth-form-panel {
+    padding: 20px 12px 18px;
+  }
+
+  .auth-title {
+    font-size: 19px;
+  }
+
+  .input-icon-group input {
+    padding-left: 40px;
+  }
+
+  .input-icon {
+    left: 12px;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* ux-auth-C-end */
+
+/* --- Landscape phones: reclaim vertical space ------------------- */
+@media (max-height: 460px) and (orientation: landscape) {
+  .auth-page {
+    align-items: flex-start;
+    padding-top: max(58px, calc(50px + var(--ux-safe-t)));
+    padding-bottom: 18px;
+  }
+
+  .auth-side-panel {
+    min-height: 0;
+  }
+
+  .auth-form-panel {
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+
+  .auth-hero {
+    margin-bottom: 14px;
+  }
+}
+
+/* --- Large desktops -------------------------------------------- */
+@media (min-width: 1600px) {
+  .auth-shell,
+  .auth-card {
+    max-width: 1240px;
+  }
+}
+
+@media (min-width: 2400px) {
+  .auth-shell,
+  .auth-card {
+    max-width: 1420px;
+  }
+
+  .auth-title {
+    font-size: clamp(38px, 1.8vw, 48px);
+  }
+
+  .input-icon-group input,
+  .auth-btn {
+    min-height: 58px;
+    font-size: 17px;
+  }
+}
+
+/* --- Touch: drop hover lifts ----------------------------------- */
+@media (hover: none) {
+  .auth-back-link:hover,
+  .auth-btn:hover {
+    transform: none;
+  }
+}
+
+/* --- Reduced motion -------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* --- Visible keyboard focus ------------------------------------ */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(241, 189, 18, 0.85);
+  outline-offset: 2px;
+}
+

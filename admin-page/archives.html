@@ -201,7 +201,10 @@
           <a href="products.html" class="nav-link"
             ><i class="fa-solid fa-tags"></i> Products</a
           >
-          <a href="promotions.html" class="nav-link" title="Promotions &amp; Announcements"
+          <a
+            href="promotions.html"
+            class="nav-link"
+            title="Promotions &amp; Announcements"
             ><i class="fa-solid fa-bullhorn"></i> Promotions</a
           >
           <a href="appointments.html" class="nav-link"
@@ -216,8 +219,12 @@
           <a href="orders.html" class="nav-link"
             ><i class="fa-solid fa-box-open"></i> Orders</a
           >
-          <a href="customer-inquiries.html" class="nav-link"><i class="fa-regular fa-envelope-open"></i> Customer Inquiries</a>
-          <a href="ratings.html" class="nav-link"><i class="fa-solid fa-star"></i> Ratings &amp; Feedback</a>
+          <a href="customer-inquiries.html" class="nav-link"
+            ><i class="fa-regular fa-envelope-open"></i> Customer Inquiries</a
+          >
+          <a href="ratings.html" class="nav-link"
+            ><i class="fa-solid fa-star"></i> Ratings &amp; Feedback</a
+          >
           <div class="nav-item has-dropdown">
             <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn">
               <div class="dropdown-title">
@@ -287,16 +294,19 @@
         </header>
 
         <section class="module-content">
-          <div class="page-toolbar">
+          <div class="page-toolbar archives-page-toolbar">
             <div class="toolbar-title">
               <h2>Archives</h2>
               <p>
                 All archived records from Inventory, Appointments, Orders,
-                Promotions, and Announcements.
-                Archived items are removed from their source pages.
+                Promotions, and Announcements.<br />Archived items are removed
+                from their source pages.
               </p>
             </div>
             <div class="toolbar-actions">
+              <button class="btn-admin archives-auto-delete-btn" id="btnOpenAutoDeleteSettings" title="Auto-Delete Settings">
+                <i class="fa-solid fa-gear"></i> Auto-Delete
+              </button>
               <button class="btn-admin btn-secondary" id="archivesRefreshBtn">
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
@@ -353,11 +363,18 @@
                 see all columns.
               </div>
               <div class="table-wrapper">
-                <table class="admin-table inventory-table" id="inventoryArchiveTable">
+                <table
+                  class="admin-table inventory-table"
+                  id="inventoryArchiveTable"
+                >
                   <thead>
                     <tr>
                       <th class="admin-bulk-select-cell">
-                        <input type="checkbox" data-admin-bulk-page="archive-inventory" aria-label="Select all archived inventory items on this page" />
+                        <input
+                          type="checkbox"
+                          data-admin-bulk-page="archive-inventory"
+                          aria-label="Select all archived inventory items on this page"
+                        />
                       </th>
                       <th>No.</th>
                       <th>Item Name</th>
@@ -399,7 +416,15 @@
                   <button class="page-btn" id="invPrevBtn">
                     <i class="fa-solid fa-chevron-left"></i>
                   </button>
-                  <input class="page-number" id="invCurrentPage" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to inventory archives page" />
+                  <input
+                    class="page-number"
+                    id="invCurrentPage"
+                    type="number"
+                    min="1"
+                    value="1"
+                    inputmode="numeric"
+                    aria-label="Go to inventory archives page"
+                  />
                   <button class="page-btn" id="invNextBtn">
                     <i class="fa-solid fa-chevron-right"></i>
                   </button>
@@ -425,11 +450,18 @@
                 see all columns.
               </div>
               <div class="table-wrapper">
-                <table class="admin-table inventory-table" id="appointmentArchiveTable">
+                <table
+                  class="admin-table inventory-table"
+                  id="appointmentArchiveTable"
+                >
                   <thead>
                     <tr>
                       <th class="admin-bulk-select-cell">
-                        <input type="checkbox" data-admin-bulk-page="archive-appointment" aria-label="Select all archived appointments on this page" />
+                        <input
+                          type="checkbox"
+                          data-admin-bulk-page="archive-appointment"
+                          aria-label="Select all archived appointments on this page"
+                        />
                       </th>
                       <th>AP-No</th>
                       <th>Client Name</th>
@@ -473,7 +505,15 @@
                   <button class="page-btn" id="apptPrevBtn">
                     <i class="fa-solid fa-chevron-left"></i>
                   </button>
-                  <input class="page-number" id="apptCurrentPage" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to appointment archives page" />
+                  <input
+                    class="page-number"
+                    id="apptCurrentPage"
+                    type="number"
+                    min="1"
+                    value="1"
+                    inputmode="numeric"
+                    aria-label="Go to appointment archives page"
+                  />
                   <button class="page-btn" id="apptNextBtn">
                     <i class="fa-solid fa-chevron-right"></i>
                   </button>
@@ -498,11 +538,18 @@
                 see all columns.
               </div>
               <div class="table-wrapper">
-                <table class="admin-table inventory-table" id="orderArchiveTable">
+                <table
+                  class="admin-table inventory-table"
+                  id="orderArchiveTable"
+                >
                   <thead>
                     <tr>
                       <th class="admin-bulk-select-cell">
-                        <input type="checkbox" data-admin-bulk-page="archive-order" aria-label="Select all archived orders on this page" />
+                        <input
+                          type="checkbox"
+                          data-admin-bulk-page="archive-order"
+                          aria-label="Select all archived orders on this page"
+                        />
                       </th>
                       <th>Order No.</th>
                       <th>Order Item</th>
@@ -543,7 +590,15 @@
                   <button class="page-btn" id="orderPrevBtn">
                     <i class="fa-solid fa-chevron-left"></i>
                   </button>
-                  <input class="page-number" id="orderCurrentPage" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to order archives page" />
+                  <input
+                    class="page-number"
+                    id="orderCurrentPage"
+                    type="number"
+                    min="1"
+                    value="1"
+                    inputmode="numeric"
+                    aria-label="Go to order archives page"
+                  />
                   <button class="page-btn" id="orderNextBtn">
                     <i class="fa-solid fa-chevron-right"></i>
                   </button>
@@ -552,21 +607,29 @@
             </div>
           </div>
 
-
           <div class="archive-section" id="sectionPromotion">
             <div class="panel">
               <div class="panel-header">
                 <h3>
-                  <span class="archive-badge badge-promotion"><i class="fa-solid fa-tags"></i> Promotions</span>
+                  <span class="archive-badge badge-promotion"
+                    ><i class="fa-solid fa-tags"></i> Promotions</span
+                  >
                   &nbsp;Archived Product Promotions
                 </h3>
               </div>
               <div class="table-wrapper">
-                <table class="admin-table inventory-table" id="promotionArchiveTable">
+                <table
+                  class="admin-table inventory-table"
+                  id="promotionArchiveTable"
+                >
                   <thead>
                     <tr>
                       <th class="admin-bulk-select-cell">
-                        <input type="checkbox" data-admin-bulk-page="archive-promotion" aria-label="Select all archived promotions on this page" />
+                        <input
+                          type="checkbox"
+                          data-admin-bulk-page="archive-promotion"
+                          aria-label="Select all archived promotions on this page"
+                        />
                       </th>
                       <th>Campaign Name</th>
                       <th>Discount</th>
@@ -583,9 +646,29 @@
               <div class="table-footer" id="promotionArchiveFooter">
                 <div class="table-footer-meta" id="promotionArchiveMeta">—</div>
                 <div class="table-pagination">
-                  <button class="page-btn" id="promotionArchivePrevBtn" aria-label="Previous promotion archives page"><i class="fa-solid fa-chevron-left"></i></button>
-                  <input class="page-number" id="promotionArchiveCurrentPage" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to promotion archives page" />
-                  <button class="page-btn" id="promotionArchiveNextBtn" aria-label="Next promotion archives page"><i class="fa-solid fa-chevron-right"></i></button>
+                  <button
+                    class="page-btn"
+                    id="promotionArchivePrevBtn"
+                    aria-label="Previous promotion archives page"
+                  >
+                    <i class="fa-solid fa-chevron-left"></i>
+                  </button>
+                  <input
+                    class="page-number"
+                    id="promotionArchiveCurrentPage"
+                    type="number"
+                    min="1"
+                    value="1"
+                    inputmode="numeric"
+                    aria-label="Go to promotion archives page"
+                  />
+                  <button
+                    class="page-btn"
+                    id="promotionArchiveNextBtn"
+                    aria-label="Next promotion archives page"
+                  >
+                    <i class="fa-solid fa-chevron-right"></i>
+                  </button>
                 </div>
               </div>
             </div>
@@ -595,16 +678,25 @@
             <div class="panel">
               <div class="panel-header">
                 <h3>
-                  <span class="archive-badge badge-announcement"><i class="fa-solid fa-bell"></i> Announcements</span>
+                  <span class="archive-badge badge-announcement"
+                    ><i class="fa-solid fa-bell"></i> Announcements</span
+                  >
                   &nbsp;Archived Visitor Announcements
                 </h3>
               </div>
               <div class="table-wrapper">
-                <table class="admin-table inventory-table" id="announcementArchiveTable">
+                <table
+                  class="admin-table inventory-table"
+                  id="announcementArchiveTable"
+                >
                   <thead>
                     <tr>
                       <th class="admin-bulk-select-cell">
-                        <input type="checkbox" data-admin-bulk-page="archive-announcement" aria-label="Select all archived announcements on this page" />
+                        <input
+                          type="checkbox"
+                          data-admin-bulk-page="archive-announcement"
+                          aria-label="Select all archived announcements on this page"
+                        />
                       </th>
                       <th>Headline</th>
                       <th>Placement</th>
@@ -619,17 +711,257 @@
                 </table>
               </div>
               <div class="table-footer" id="announcementArchiveFooter">
-                <div class="table-footer-meta" id="announcementArchiveMeta">—</div>
+                <div class="table-footer-meta" id="announcementArchiveMeta">
+                  —
+                </div>
                 <div class="table-pagination">
-                  <button class="page-btn" id="announcementArchivePrevBtn" aria-label="Previous announcement archives page"><i class="fa-solid fa-chevron-left"></i></button>
-                  <input class="page-number" id="announcementArchiveCurrentPage" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to announcement archives page" />
-                  <button class="page-btn" id="announcementArchiveNextBtn" aria-label="Next announcement archives page"><i class="fa-solid fa-chevron-right"></i></button>
+                  <button
+                    class="page-btn"
+                    id="announcementArchivePrevBtn"
+                    aria-label="Previous announcement archives page"
+                  >
+                    <i class="fa-solid fa-chevron-left"></i>
+                  </button>
+                  <input
+                    class="page-number"
+                    id="announcementArchiveCurrentPage"
+                    type="number"
+                    min="1"
+                    value="1"
+                    inputmode="numeric"
+                    aria-label="Go to announcement archives page"
+                  />
+                  <button
+                    class="page-btn"
+                    id="announcementArchiveNextBtn"
+                    aria-label="Next announcement archives page"
+                  >
+                    <i class="fa-solid fa-chevron-right"></i>
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </section>
       </main>
+    </div>
+
+    <!-- ────────────── AUTO-DELETE SETTINGS MODAL ────────────── -->
+    <div
+      class="modal-overlay"
+      id="modalAutoDeleteSettings"
+      data-backdrop-close="false"
+    >
+      <div class="modal-card modal-confirm">
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 4px;
+          "
+        >
+          <div
+            class="archives-auto-delete-icon"
+            style="
+              width: 42px;
+              height: 42px;
+              border-radius: 10px;
+              background: linear-gradient(135deg, #7f1d1d, #b91c1c);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+            "
+          >
+            <i
+              class="fa-solid fa-gear"
+              style="color: #fff; font-size: 1.1rem"
+            ></i>
+          </div>
+          <h3 class="modal-title" style="margin-bottom: 0">
+            Auto-Delete Settings
+          </h3>
+        </div>
+        <hr class="confirm-separator" />
+        <p class="confirm-text">
+          Archived records older than the selected period will be
+          <strong>automatically and permanently deleted</strong>.
+        </p>
+        <div
+          style="
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 16px 0;
+          "
+        >
+          <label
+            style="
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              padding: 10px 14px;
+              border: 2px solid #e5e7eb;
+              border-radius: 10px;
+              cursor: pointer;
+              font-weight: 600;
+              font-size: 0.9rem;
+              transition: all 0.15s ease;
+            "
+          >
+            <input
+              type="radio"
+              name="retentionDays"
+              value="30"
+              style="accent-color: #800000; width: 18px; height: 18px"
+            />
+            30 Days
+          </label>
+          <label
+            style="
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              padding: 10px 14px;
+              border: 2px solid #e5e7eb;
+              border-radius: 10px;
+              cursor: pointer;
+              font-weight: 600;
+              font-size: 0.9rem;
+              transition: all 0.15s ease;
+            "
+          >
+            <input
+              type="radio"
+              name="retentionDays"
+              value="60"
+              checked
+              style="accent-color: #800000; width: 18px; height: 18px"
+            />
+            60 Days
+            <span
+              style="
+                font-size: 0.7rem;
+                background: #800000;
+                color: #fff;
+                padding: 2px 8px;
+                border-radius: 99px;
+                font-weight: 700;
+              "
+              >Default</span
+            >
+          </label>
+          <label
+            style="
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              padding: 10px 14px;
+              border: 2px solid #e5e7eb;
+              border-radius: 10px;
+              cursor: pointer;
+              font-weight: 600;
+              font-size: 0.9rem;
+              transition: all 0.15s ease;
+            "
+          >
+            <input
+              type="radio"
+              name="retentionDays"
+              value="90"
+              style="accent-color: #800000; width: 18px; height: 18px"
+            />
+            90 Days
+          </label>
+        </div>
+        <p class="field-hint">
+          This setting takes effect immediately. Expired records will be removed
+          when you save.
+        </p>
+        <hr class="confirm-separator" />
+        <div class="modal-actions">
+          <button class="btn-admin btn-secondary" id="btnCancelAutoDelete">
+            Cancel
+          </button>
+          <button
+            class="btn-admin archives-save-auto-delete"
+            id="btnSaveAutoDelete"
+            type="button"
+            style="
+              background: linear-gradient(135deg, #7f1d1d, #b91c1c);
+              border-color: #b91c1c;
+            "
+          >
+            <i class="fa-solid fa-check"></i> Save
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ────────────── DELETE ARCHIVE CONFIRMATION MODAL ────────────── -->
+    <div
+      class="modal-overlay"
+      id="modalDeleteArchive"
+      data-backdrop-close="false"
+    >
+      <div class="modal-card modal-confirm">
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 4px;
+          "
+        >
+          <div
+            style="
+              width: 42px;
+              height: 42px;
+              border-radius: 10px;
+              background: linear-gradient(135deg, #7f1d1d, #dc2626);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+            "
+          >
+            <i
+              class="fa-solid fa-trash"
+              style="color: #fff; font-size: 1.1rem"
+            ></i>
+          </div>
+          <h3 class="modal-title" style="margin-bottom: 0">
+            Delete Archived Record
+          </h3>
+        </div>
+        <hr class="confirm-separator" />
+        <p class="confirm-text">
+          You are about to permanently delete
+          <strong id="deleteArchiveTargetLabel">this record</strong>.
+        </p>
+        <p class="field-hint">
+          This action <strong>cannot be undone</strong>. The record will be
+          permanently removed from the system.
+        </p>
+        <hr class="confirm-separator" />
+        <div class="modal-actions">
+          <button class="btn-admin btn-secondary" id="btnCancelDeleteArchive">
+            Cancel
+          </button>
+          <button
+            class="btn-admin"
+            id="btnConfirmDeleteArchive"
+            type="button"
+            style="
+              background: linear-gradient(135deg, #7f1d1d, #dc2626);
+              border-color: #dc2626;
+            "
+          >
+            <i class="fa-solid fa-trash"></i> Delete Permanently
+          </button>
+        </div>
+      </div>
     </div>
 
     <script src="session-helper.js"></script>

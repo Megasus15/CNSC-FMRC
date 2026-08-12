@@ -104,13 +104,13 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
         <div class="product-actions">
           <button class="action-btn btn-view-info" data-action="view-info" data-product-id="${p.id}" title="View product details">
-            ${INFO_SVG} View Info
+            ${INFO_SVG}<span class="action-btn-label">View Info</span>
           </button>
           <button class="action-btn btn-add-cart ${disabledClass}" ${disabledAttr} data-action="add-cart" data-product-id="${p.id}">
-            ${CART_SVG} Add to Cart
+            ${CART_SVG}<span class="action-btn-label">Add to Cart</span>
           </button>
           <button class="action-btn btn-buy-now ${disabledClass}" ${disabledAttr} data-action="buy-now" data-product-id="${p.id}">
-            ${BUY_SVG} Buy Now
+            ${BUY_SVG}<span class="action-btn-label">Buy Now</span>
           </button>
         </div>
       </div>`;
@@ -261,18 +261,63 @@ document.addEventListener("DOMContentLoaded", () => {
   const openLightbox = (src, title) => {
     if (!imageLightboxModal || !lightboxImage) return;
     lightboxImage.src = src;
+    lightboxImage.alt = title ? `${title} large preview` : "Product large preview";
     if (lightboxCaption) lightboxCaption.textContent = title || "";
     imageLightboxModal.classList.add("show-modal");
   };
 
-  closeLightboxBtn?.addEventListener("click", () => {
+  const closeLightbox = () => {
     imageLightboxModal?.classList.remove("show-modal");
-  });
+  };
+
+  closeLightboxBtn?.addEventListener("click", closeLightbox);
 
   imageLightboxModal?.addEventListener("click", (e) => {
     if (e.target === imageLightboxModal) {
-      imageLightboxModal.classList.remove("show-modal");
+      closeLightbox();
     }
+  });
+
+  // Close only the preview on Escape while it is open.
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (!imageLightboxModal?.classList.contains("show-modal")) return;
+    closeLightbox();
+  });
+
+  // ── Clickable image previews inside the modals ───────────────────────────────
+  // View Info modal, Order summary modal (single + cart rows) and Shopping cart
+  // modal thumbnails all open the same fullscreen preview as the product cards.
+  const MODAL_PREVIEW_IMAGE_SELECTOR = [
+    "#productInfoModal .modal-img-holder img",
+    "#checkoutSingleProductCard img",
+    "#checkoutCartItemsList .checkout-cart-item img",
+    "#cartItemsContainer .cart-item-card .cart-item-img img",
+  ].join(", ");
+
+  const resolveModalPreviewTitle = (img) => {
+    if (img.closest("#productInfoModal")) {
+      return productInfoTitle?.textContent?.trim() || "Product Image";
+    }
+    if (img.closest("#checkoutSingleProductCard")) {
+      return (
+        document.getElementById("checkoutProductTitle")?.textContent?.trim() ||
+        "Product Image"
+      );
+    }
+    const row = img.closest(".checkout-cart-item, .cart-item-card");
+    return row?.querySelector("h4")?.textContent?.trim() || "Product Image";
+  };
+
+  document.addEventListener("click", (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    const img = target.closest(MODAL_PREVIEW_IMAGE_SELECTOR);
+    if (!(img instanceof HTMLImageElement) || !img.src) return;
+
+    e.preventDefault();
+    openLightbox(img.currentSrc || img.src, resolveModalPreviewTitle(img));
   });
 
   // ── Grid click delegation ────────────────────────────────────────────────────

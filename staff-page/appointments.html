@@ -28,7 +28,10 @@
           <a href="products.html" class="nav-link"
             ><i class="fa-solid fa-tags"></i> Products</a
           >
-          <a href="promotions.html" class="nav-link" title="Promotions &amp; Announcements"
+          <a
+            href="promotions.html"
+            class="nav-link"
+            title="Promotions &amp; Announcements"
             ><i class="fa-solid fa-bullhorn"></i> Promotions</a
           >
           <a href="appointments.html" class="nav-link active"
@@ -40,8 +43,12 @@
           <a href="orders.html" class="nav-link"
             ><i class="fa-solid fa-box-open"></i> Orders</a
           >
-          <a href="customer-inquiries.html" class="nav-link"><i class="fa-regular fa-envelope-open"></i> Customer Inquiries</a>
-          <a href="ratings.html" class="nav-link"><i class="fa-solid fa-star"></i> Ratings &amp; Feedback</a>
+          <a href="customer-inquiries.html" class="nav-link"
+            ><i class="fa-regular fa-envelope-open"></i> Customer Inquiries</a
+          >
+          <a href="ratings.html" class="nav-link"
+            ><i class="fa-solid fa-star"></i> Ratings &amp; Feedback</a
+          >
 
           <div class="nav-item has-dropdown">
             <a href="#" class="nav-link dropdown-toggle" id="staffControlBtn">
@@ -153,7 +160,11 @@
                 <thead>
                   <tr>
                     <th class="admin-bulk-select-cell">
-                      <input type="checkbox" data-admin-bulk-page="appointments" aria-label="Select all eligible appointments on this page" />
+                      <input
+                        type="checkbox"
+                        data-admin-bulk-page="appointments"
+                        aria-label="Select all eligible appointments on this page"
+                      />
                     </th>
                     <th>AP-No</th>
                     <th>Client Name</th>
@@ -564,6 +575,73 @@
           </button>
           <button class="btn-admin" id="btnConfirmTimePicker" type="button">
             Use Time Slot
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ────────────── MARK AS DONE MODAL ────────────── -->
+    <div
+      class="modal-overlay"
+      id="modalCompleteAppointment"
+      data-backdrop-close="false"
+    >
+      <div class="modal-card modal-confirm">
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 4px;
+          "
+        >
+          <div
+            style="
+              width: 42px;
+              height: 42px;
+              border-radius: 10px;
+              background: linear-gradient(135deg, #7f1d1d, #dc2626);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+            "
+          >
+            <i
+              class="fa-solid fa-circle-check"
+              style="color: #fff; font-size: 1.1rem"
+            ></i>
+          </div>
+          <h3 class="modal-title" style="margin-bottom: 0">
+            Mark Appointment as Done
+          </h3>
+        </div>
+        <hr class="confirm-separator" />
+        <p class="confirm-text">
+          You are about to mark
+          <strong id="completeAppointmentTargetLabel">this appointment</strong>
+          as completed.
+        </p>
+        <p class="field-hint">
+          The appointment status will be updated to
+          <strong>Completed</strong> and it will be moved to the bottom of the
+          list.
+        </p>
+        <hr class="confirm-separator" />
+        <div class="modal-actions">
+          <button class="btn-admin btn-secondary" id="btnCancelCompleteAppt">
+            Cancel
+          </button>
+          <button
+            class="btn-admin"
+            id="btnConfirmCompleteAppt"
+            type="button"
+            style="
+              background: linear-gradient(135deg, #7f1d1d, #dc2626);
+              border-color: #dc2626;
+            "
+          >
+            <i class="fa-solid fa-circle-check"></i> Mark as Done
           </button>
         </div>
       </div>

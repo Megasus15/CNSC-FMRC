@@ -409,6 +409,9 @@ document.addEventListener("DOMContentLoaded", () => {
     return "status-yellow";
   };
 
+  const isAppointmentCompleted = (appointment) =>
+    String(appointment?.status || "").trim().toLowerCase() === "completed";
+
   const getDateKey = (year, month, day) =>
     `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
@@ -494,13 +497,17 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!response.ok) throw new Error("Failed to fetch appointments");
     const payload = await response.json();
     const appointments = Array.isArray(payload?.data) ? payload.data : [];
-    state.appointments = [...appointments].sort(
-      (a, b) =>
-        toTimestamp(a?.created_at || a?.created_at_label) -
-          toTimestamp(b?.created_at || b?.created_at_label) ||
-        toNumericId(a?.id || a?.reference_no) -
-          toNumericId(b?.id || b?.reference_no),
-    );
+    // Sort: Completed appointments always at bottom, everything else newest-first
+    state.appointments = [...appointments].sort((a, b) => {
+      const aCompleted = String(a?.status || "").toLowerCase() === "completed" ? 1 : 0;
+      const bCompleted = String(b?.status || "").toLowerCase() === "completed" ? 1 : 0;
+      if (aCompleted !== bCompleted) return aCompleted - bCompleted;
+      // Within same group: newest first (DESC by created_at)
+      const tsA = toTimestamp(a?.created_at || a?.created_at_label);
+      const tsB = toTimestamp(b?.created_at || b?.created_at_label);
+      if (tsA !== tsB) return tsB - tsA;
+      return toNumericId(b?.id || b?.reference_no) - toNumericId(a?.id || a?.reference_no);
+    });
   };
 
   const fetchCalendar = async () => {
@@ -595,6 +602,18 @@ document.addEventListener("DOMContentLoaded", () => {
               ? `<a href="${fileUrl}" download="${fileName}" target="_blank" rel="noopener" class="photo-link">${fileName}</a>`
               : `<span class="photo-link">${fileName}</span>`;
 
+        const canArchive = isAppointmentCompleted(item);
+        const archiveTitle = canArchive
+          ? "Archive Appointment"
+          : "Mark appointment as Done before archiving";
+        const archiveButton = `<button
+              type="button"
+              class="${canArchive ? "" : "is-disabled"}"
+              data-tooltip="${archiveTitle}"
+              data-archive-id="${item.id}"
+              ${canArchive ? "" : 'disabled aria-disabled="true"'}
+            ><i class="fa-solid fa-box-archive"></i></button>`;
+
         return `<tr>
           <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="appointments" value="${item.id}" aria-label="Select ${formatApNo(item.reference_no)}" /></td>
           <td>${formatApNo(item.reference_no)}</td>
@@ -611,7 +630,8 @@ document.addEventListener("DOMContentLoaded", () => {
           <td><span class="status-pill ${statusClass(item.status)}">${safe(item.status)}</span></td>
           <td class="action-icons sticky-action">
             <button type="button" data-tooltip="View Appointment" data-view-id="${item.id}"><i class="fa-regular fa-eye"></i></button>
-            <button type="button" data-tooltip="Archive Appointment" data-archive-id="${item.id}"><i class="fa-solid fa-box-archive"></i></button>
+            ${["completed", "cancelled", "archived"].includes(String(item.status || "").toLowerCase()) ? "" : `<button type="button" class="appointment-complete-action" data-tooltip="Mark as Done" data-complete-id="${item.id}"><i class="fa-solid fa-circle-check"></i></button>`}
+            ${archiveButton}
           </td>
         </tr>`;
       })
@@ -638,10 +658,7 @@ document.addEventListener("DOMContentLoaded", () => {
     appointmentBulkController?.sync();
   };
 
-  const appointmentIsArchiveEligible = (item) =>
-    !["cancelled", "archived"].includes(
-      String(item?.status || "").toLowerCase(),
-    );
+  const appointmentIsArchiveEligible = (item) => isAppointmentCompleted(item);
 
   const setupAppointmentBulkSelection = () => {
     appointmentBulkController = window.AdminBulkSelection?.create({
@@ -1009,6 +1026,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const modal = document.getElementById("modalViewAppointment");
     if (!modal) return;
 
+    const archiveFromViewButton = document.getElementById("btnArchiveFromView");
+    const canArchive = isAppointmentCompleted(appt);
+    if (archiveFromViewButton) {
+      archiveFromViewButton.disabled = !canArchive;
+      archiveFromViewButton.setAttribute("aria-disabled", String(!canArchive));
+      archiveFromViewButton.title = canArchive
+        ? "Archive completed appointment"
+        : "Mark appointment as Done before archiving";
+    }
+
     const fullName = safe(appt.client_name);
     const apNo = formatApNo(appt.reference_no);
     const status = safe(appt.status);
@@ -1086,11 +1113,20 @@ document.addEventListener("DOMContentLoaded", () => {
     .getElementById("btnArchiveFromView")
     ?.addEventListener("click", () => {
       document.getElementById("modalViewAppointment")?.classList.remove("show");
-      if (viewingAppointment) openAppointmentArchiveModal(viewingAppointment);
+      if (viewingAppointment && isAppointmentCompleted(viewingAppointment)) {
+        openAppointmentArchiveModal(viewingAppointment);
+      }
     });
 
   // ─── Appointment Archive Modal ──────────────────────────────────────────────
   const openAppointmentArchiveModal = (appt) => {
+    if (!isAppointmentCompleted(appt)) {
+      window.showAdminPopup?.(
+        "Only appointments marked as Done can be archived.",
+        { title: "Archive Unavailable" },
+      );
+      return;
+    }
     archivingAppointmentId = appt.id;
     const labelEl = document.getElementById("archiveAppointmentTargetLabel");
     if (labelEl)
@@ -1189,9 +1225,10 @@ document.addEventListener("DOMContentLoaded", () => {
             { length: 14 },
             () => '<td><span class="admin-table-skeleton-bar"></span></td>',
           ).join("");
-          tableBody.innerHTML = `<tr class="admin-table-skeleton-row" aria-hidden="true">${cells}</tr>`.repeat(
-            3,
-          );
+          tableBody.innerHTML =
+            `<tr class="admin-table-skeleton-row" aria-hidden="true">${cells}</tr>`.repeat(
+              3,
+            );
         }
       }
 
@@ -1402,6 +1439,15 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    // ─── Mark as Done ─────────────────────────────────────────────────────────
+    const completeBtn = target.closest("[data-complete-id]");
+    if (completeBtn) {
+      const id = completeBtn.getAttribute("data-complete-id");
+      const appt = state.appointments.find((a) => String(a.id) === String(id));
+      if (appt) openMarkAsDoneModal(appt);
+      return;
+    }
+
     // ─── Archive Appointment ─────────────────────────────────────────────────
     const archiveBtn = target.closest("[data-archive-id]");
     if (archiveBtn) {
@@ -1426,7 +1472,10 @@ document.addEventListener("DOMContentLoaded", () => {
   window.AdminPageNumberInput?.bind(currentPageEl, {
     getPage: () => currentPage,
     getTotalPages: () =>
-      Math.max(1, Math.ceil(filteredAppointments().length / calculateRowsPerPage())),
+      Math.max(
+        1,
+        Math.ceil(filteredAppointments().length / calculateRowsPerPage()),
+      ),
     onChange: (page) => {
       currentPage = page;
       renderTable();
@@ -1611,6 +1660,91 @@ document.addEventListener("DOMContentLoaded", () => {
       activeTimePickerContext = null;
     }
   });
+
+  // ─── Mark as Done Modal ──────────────────────────────────────────────────
+  let completingAppointmentId = null;
+
+  const openMarkAsDoneModal = (appt) => {
+    completingAppointmentId = appt.id;
+    const labelEl = document.getElementById("completeAppointmentTargetLabel");
+    if (labelEl)
+      labelEl.textContent = `${formatApNo(appt.reference_no)} – ${safe(appt.client_name)}`;
+    document.getElementById("modalCompleteAppointment")?.classList.add("show");
+  };
+
+  document
+    .getElementById("btnCancelCompleteAppt")
+    ?.addEventListener("click", () => {
+      document
+        .getElementById("modalCompleteAppointment")
+        ?.classList.remove("show");
+      completingAppointmentId = null;
+    });
+
+  document
+    .getElementById("btnConfirmCompleteAppt")
+    ?.addEventListener("click", async () => {
+      if (!completingAppointmentId) return;
+
+      const confirmBtn = document.getElementById("btnConfirmCompleteAppt");
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML =
+          '<i class="fa-solid fa-spinner fa-spin"></i> Completing…';
+      }
+
+      const token =
+        (window.AdminSession && window.AdminSession.getToken()) ||
+        localStorage.getItem("auth_token") ||
+        localStorage.getItem("admin_auth_token") ||
+        localStorage.getItem("staff_auth_token") ||
+        "";
+
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/appointments/${completingAppointmentId}/complete`,
+          {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+          },
+        );
+
+        if (!res.ok) {
+          const payload = await res.json().catch(() => ({}));
+          window.showAdminPopup?.(
+            payload?.message || "Failed to mark appointment as completed.",
+            { title: "Action Failed" },
+          );
+          return;
+        }
+
+        document
+          .getElementById("modalCompleteAppointment")
+          ?.classList.remove("show");
+        completingAppointmentId = null;
+        await refreshAll();
+        setTimeout(() => {
+          window.showAdminPopup?.(
+            "Appointment has been marked as completed.",
+            { title: "Completed ✓" },
+          );
+        }, 200);
+      } catch (err) {
+        console.error("Mark complete error:", err);
+        window.showAdminPopup?.("Cannot connect to server.", {
+          title: "Error",
+        });
+      } finally {
+        if (confirmBtn) {
+          confirmBtn.disabled = false;
+          confirmBtn.innerHTML =
+            '<i class="fa-solid fa-circle-check"></i> Mark as Done';
+        }
+      }
+    });
 
   void refreshAll();
 });

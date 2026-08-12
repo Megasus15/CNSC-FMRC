@@ -2,7 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#8b0000" />
     <title>Products - UCN FMRC</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -48,24 +52,6 @@
         font-size: 0.88rem;
         margin: 0;
       }
-      /* View Info button on card */
-      .product-view-info-btn {
-        width: 100%;
-        padding: 8px 0;
-        background: transparent;
-        border: none;
-        font-size: 0.85rem;
-        font-weight: 800;
-        color: #8b0000;
-        cursor: pointer;
-        transition: color 0.2s ease;
-        margin-top: auto;
-        text-align: left;
-      }
-      .product-view-info-btn:hover {
-        color: #b01c1c;
-        text-decoration: underline;
-      }
       .announcement-bell {
         position: relative;
         display: grid;
@@ -81,22 +67,41 @@
         transition: transform .2s ease, background .2s ease;
       }
       .announcement-bell:hover { background: #fee2df; }
-      .announcement-bell__badge {
+      .announcement-bell__badge,
+      .cart-badge {
         position: absolute;
-        top: 2px;
-        right: 2px;
-        min-width: 17px;
-        height: 17px;
-        padding: 0 4px;
-        border: 2px solid #fff;
-        border-radius: 999px;
-        background: #c0392b;
-        color: #fff;
-        font-size: 10px;
-        font-weight: 800;
-        line-height: 13px;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px !important;
+        min-width: 22px !important;
+        max-width: 22px !important;
+        height: 22px !important;
+        min-height: 22px !important;
+        max-height: 22px !important;
+        padding: 0 !important;
+        border: 2px solid #ffffff !important;
+        border-radius: 50% !important;
+        background: linear-gradient(135deg, #ef4444, #991b1b) !important;
+        color: #ffffff !important;
+        font-family: "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+        font-weight: 800 !important;
+        line-height: 1 !important;
+        text-align: center !important;
+        white-space: nowrap !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
+        pointer-events: none;
+        user-select: none;
+        font-size: 8px;
+        letter-spacing: -0.04em;
       }
-      .announcement-bell__badge[hidden] { display: none; }
+      .announcement-bell .announcement-bell__badge { top: -2px !important; right: -2px !important; }
+      .cart-icon-container .cart-badge { top: -6px !important; right: -10px !important; }
+      .announcement-bell__badge[data-length="1"], .cart-badge[data-length="1"] { font-size: 10.5px !important; letter-spacing: 0 !important; }
+      .announcement-bell__badge[data-length="2"], .cart-badge[data-length="2"] { font-size: 8.5px !important; letter-spacing: -0.04em !important; }
+      .announcement-bell__badge[data-length="3"], .cart-badge[data-length="3"] { font-size: 7.5px !important; letter-spacing: -0.06em !important; }
+      .announcement-bell__badge[hidden], .cart-badge[hidden], .cart-badge:empty, .announcement-bell__badge:empty { display: none !important; }
       .promotion-spotlight {
         display: none;
         max-width: 1240px;
@@ -207,12 +212,12 @@
               d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"
             ></path>
           </svg>
-          <span class="cart-badge">0</span>
+          <span class="cart-badge" hidden style="display: none !important;"></span>
         </a>
 
         <button class="announcement-bell" id="announcementBell" type="button" aria-label="Open announcements" title="Announcements">
           <i class="fa-solid fa-bell" aria-hidden="true"></i>
-          <span class="announcement-bell__badge" id="announcementBellBadge" hidden>0</span>
+          <span class="announcement-bell__badge" id="announcementBellBadge" hidden></span>
         </button>
 
         <div class="user-profile">
@@ -484,7 +489,6 @@
               <img src="" alt="Product" id="checkoutProductImg" />
               <div class="checkout-product-details">
                 <h4 id="checkoutProductTitle">Product Title</h4>
-                <p class="product-variant">Standard Service</p>
                 <div class="product-price-row">
                   <span class="c-price" id="checkoutProductPrice">₱0.00</span>
 

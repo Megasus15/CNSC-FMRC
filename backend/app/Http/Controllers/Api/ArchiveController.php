@@ -265,4 +265,134 @@ class ArchiveController extends Controller
             'message' => count($restoredIds) . ' archived record(s) restored successfully.',
         ]);
     }
+
+    public function deleteBulk(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user || !in_array($user->role, self::ALLOWED_ADMIN_ROLES, true)) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $validated = $request->validate([
+            'module' => ['required', 'string', Rule::in(['inventory', 'appointment', 'order', 'promotion', 'announcement'])],
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'min:1', 'distinct'],
+        ]);
+
+        $module = $validated['module'];
+        $ids = collect($validated['ids'])->map(fn ($id) => (int) $id)->unique()->values()->all();
+
+        $deletedIds = DB::transaction(function () use ($module, $ids): array {
+            $query = match ($module) {
+                'inventory' => InventoryItem::query()->whereIn('id', $ids)->where('is_archived', true),
+                'appointment' => Appointment::query()->whereIn('id', $ids)->where('status', 'Archived'),
+                'order' => Order::query()->whereIn('id', $ids)->where('is_archived', true),
+                'promotion' => Promotion::query()->whereIn('id', $ids)->where('is_archived', true),
+                'announcement' => Announcement::query()->whereIn('id', $ids)->where('is_archived', true),
+            };
+
+            $eligibleIds = (clone $query)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->values()
+                ->all();
+
+            if (!$eligibleIds) {
+                return [];
+            }
+
+            $query->whereIn('id', $eligibleIds)->delete();
+            return $eligibleIds;
+        });
+
+        if (!$deletedIds) {
+            return response()->json(['message' => 'No archived records were found to delete.'], 404);
+        }
+
+        return response()->json([
+            'action' => 'delete',
+            'scope' => $module,
+            'processed_ids' => $deletedIds,
+            'processed_count' => count($deletedIds),
+            'skipped_ids' => array_values(array_diff($ids, $deletedIds)),
+            'deleted_count' => count($deletedIds),
+            'message' => count($deletedIds) . ' archived record(s) permanently deleted.',
+        ]);
+    }
+
+    public function autoDelete(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user || !in_array($user->role, self::ALLOWED_ADMIN_ROLES, true)) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
+        $validated = $request->validate([
+            'retention_days' => ['required', 'integer', 'in:30,60,90'],
+        ]);
+
+        $retentionDays = (int) $validated['retention_days'];
+        $cutoffDate = now()->subDays($retentionDays);
+
+        $totalDeleted = 0;
+
+        try {
+            // Inventory
+            $totalDeleted += InventoryItem::query()
+                ->where('is_archived', true)
+                ->where('archived_at', '<=', $cutoffDate)
+                ->delete();
+        } catch (\Throwable $e) {
+            Log::warning('Auto-delete inventory failed: ' . $e->getMessage());
+        }
+
+        try {
+            // Appointments
+            $totalDeleted += Appointment::query()
+                ->where('status', 'Archived')
+                ->where('updated_at', '<=', $cutoffDate)
+                ->delete();
+        } catch (\Throwable $e) {
+            Log::warning('Auto-delete appointments failed: ' . $e->getMessage());
+        }
+
+        try {
+            // Orders
+            $totalDeleted += Order::query()
+                ->where('is_archived', true)
+                ->where('archived_at', '<=', $cutoffDate)
+                ->delete();
+        } catch (\Throwable $e) {
+            Log::warning('Auto-delete orders failed: ' . $e->getMessage());
+        }
+
+        try {
+            // Promotions
+            $totalDeleted += Promotion::query()
+                ->where('is_archived', true)
+                ->where('archived_at', '<=', $cutoffDate)
+                ->delete();
+        } catch (\Throwable $e) {
+            Log::warning('Auto-delete promotions failed: ' . $e->getMessage());
+        }
+
+        try {
+            // Announcements
+            $totalDeleted += Announcement::query()
+                ->where('is_archived', true)
+                ->where('archived_at', '<=', $cutoffDate)
+                ->delete();
+        } catch (\Throwable $e) {
+            Log::warning('Auto-delete announcements failed: ' . $e->getMessage());
+        }
+
+        return response()->json([
+            'action' => 'auto-delete',
+            'retention_days' => $retentionDays,
+            'deleted_count' => $totalDeleted,
+            'message' => $totalDeleted > 0
+                ? $totalDeleted . ' expired archived record(s) permanently deleted.'
+                : 'No expired archived records found.',
+        ]);
+    }
 }
