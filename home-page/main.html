@@ -21,6 +21,7 @@
     />
 
     <link rel="stylesheet" href="main.css" />
+    <link rel="stylesheet" href="responsive.css" />
   </head>
   <body>
     <header class="site-header">
@@ -31,10 +32,16 @@
           class="header-emblem"
         />
         <h1 class="logo-text">
-          <span class="logo-title">UNIVERSITY OF CAMARINES NORTE</span>
-          <span class="logo-subtitle"
-            >FABRICATION AND MANUFACTURING RESEARCH CENTER</span
-          >
+          <span class="logo-title">
+            <span class="brand-name-full">UNIVERSITY OF CAMARINES NORTE</span>
+            <span class="brand-name-short">UCN</span>
+          </span>
+          <span class="logo-subtitle">
+            <span class="brand-name-full"
+              >FABRICATION AND MANUFACTURING RESEARCH CENTER</span
+            >
+            <span class="brand-name-short">FMRC</span>
+          </span>
         </h1>
       </a>
 
@@ -55,27 +62,6 @@
       </nav>
 
       <div class="header-right-actions">
-        <a href="/products-page/product.html" class="cart-icon-container" title="View Cart">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="28"
-            height="28"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <circle cx="9" cy="21" r="1"></circle>
-            <circle cx="20" cy="21" r="1"></circle>
-            <path
-              d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"
-            ></path>
-          </svg>
-          <span class="cart-badge" hidden style="display: none !important;"></span>
-        </a>
-
         <button class="announcement-bell" id="announcementBell" type="button" aria-label="Open announcements" title="Announcements">
           <i class="fa-solid fa-bell" aria-hidden="true"></i>
           <span class="announcement-bell__badge" id="announcementBellBadge" hidden></span>
@@ -363,7 +349,13 @@
         </div>
       </div>
     </section>
-    <div class="apt-overlay" id="appointmentFlow">
+    <div
+      class="apt-overlay"
+      id="appointmentFlow"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="appointmentFlowTitle"
+    >
       <div class="apt-container">
         <div class="apt-header-top">
           <button
@@ -371,6 +363,7 @@
             class="apt-back-btn"
             id="closeAppointmentBtn"
             title="Back to Homepage"
+            aria-label="Close appointment form and return to homepage"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -387,8 +380,10 @@
               <polyline points="12 19 5 12 12 5"></polyline>
             </svg>
           </button>
-          <h2 class="apt-main-title">Set an Appointment</h2>
-          <div style="width: 32px"></div>
+          <h2 class="apt-main-title" id="appointmentFlowTitle">
+            Set an Appointment
+          </h2>
+          <div class="apt-header-spacer" aria-hidden="true"></div>
         </div>
 
         <div class="apt-progress-wrapper">
@@ -808,7 +803,12 @@
                   ><span>Sat</span>
                 </div>
 
-                <div class="cal-days-grid" id="calDaysGrid">
+                <div
+                  class="cal-days-grid"
+                  id="calDaysGrid"
+                  role="group"
+                  aria-label="Available appointment dates"
+                >
                   <!-- JS generated days -->
                 </div>
 
@@ -1273,10 +1273,16 @@
       </div>
     </div>
 
-    <div class="apt-nested-modal" id="aptPrivacyModal">
+    <div
+      class="apt-nested-modal"
+      id="aptPrivacyModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="aptPrivacyTitle"
+    >
       <div class="apt-nested-box">
         <div class="nested-icon">!</div>
-        <h3>DATA PRIVACY NOTICE</h3>
+        <h3 id="aptPrivacyTitle">DATA PRIVACY NOTICE</h3>
         <p>
           By entering the UCN Fabrication and Manufacturing Research Center -
           Online Appointment Form (OAF), you voluntarily agree or allow
@@ -1304,14 +1310,20 @@
       </div>
     </div>
 
-    <div class="apt-nested-modal" id="aptConfirmModal">
-      <div class="apt-nested-box" style="text-align: center">
+    <div
+      class="apt-nested-modal"
+      id="aptConfirmModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="aptConfirmTitle"
+    >
+      <div class="apt-nested-box apt-confirm-box">
         <div class="nested-icon brown-icon">!</div>
-        <h3 style="font-size: 24px; margin-bottom: 10px">Confirmation</h3>
-        <p style="text-align: center; margin-bottom: 25px">
+        <h3 id="aptConfirmTitle">Confirmation</h3>
+        <p>
           Are you sure you want to proceed?
         </p>
-        <div class="nested-actions" style="justify-content: center">
+        <div class="nested-actions">
           <button
             type="button"
             class="apt-btn apt-btn-cancel"

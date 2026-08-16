@@ -65,6 +65,27 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnOpenAdd = document.getElementById("btnOpenAddItem");
   const btnExportExcelAll = document.getElementById("btnExportExcelAll");
 
+  // Stock level rules modal
+  const btnOpenStockRules = document.getElementById("btnOpenStockRules");
+  const modalStockRules = document.getElementById("modalStockRules");
+  const stockRuleGlobalMode = document.getElementById("stockRuleGlobalMode");
+  const stockRuleGlobalThreshold = document.getElementById(
+    "stockRuleGlobalThreshold",
+  );
+  const stockRuleGlobalFormula = document.getElementById(
+    "stockRuleGlobalFormula",
+  );
+  const stockRuleCategoryList = document.getElementById(
+    "stockRuleCategoryList",
+  );
+  const stockRuleItemList = document.getElementById("stockRuleItemList");
+  const stockRuleCategoryFilter = document.getElementById(
+    "stockRuleCategoryFilter",
+  );
+  const stockRuleSearch = document.getElementById("stockRuleSearch");
+  const btnCancelStockRules = document.getElementById("btnCancelStockRules");
+  const btnSaveStockRules = document.getElementById("btnSaveStockRules");
+
   // Summary metrics
   const metricTotal = document.getElementById("metricTotalItems");
   const metricGood = document.getElementById("metricGood");
@@ -218,6 +239,91 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const displayStatus = (status) => status;
 
+  // ─── Stock level rules (admin-configurable Low / Good thresholds) ─────────────
+  const STOCK_RULE_MODES = ["fixed", "percent"];
+  const DEFAULT_STOCK_RULE = { mode: "fixed", threshold: 5 };
+
+  // Working copy while the modal is open, plus the copy applied to the tables.
+  let stockRules = {
+    global: { ...DEFAULT_STOCK_RULE },
+    categories: {},
+    items: {},
+    variants: {},
+  };
+  let stockRuleDraft = null;
+  let stockRuleItemsIndex = [];
+
+  const normalizeRule = (rule) => {
+    if (!rule || typeof rule !== "object") return null;
+    const mode = STOCK_RULE_MODES.includes(String(rule.mode))
+      ? String(rule.mode)
+      : "fixed";
+    if (
+      rule.threshold === null ||
+      rule.threshold === undefined ||
+      rule.threshold === ""
+    ) {
+      return null;
+    }
+    let threshold = Number.parseInt(String(rule.threshold), 10);
+    if (!Number.isFinite(threshold) || threshold < 0) threshold = 0;
+    if (mode === "percent" && threshold > 100) threshold = 100;
+    return { mode, threshold };
+  };
+
+  const normalizeRuleMap = (map) => {
+    const clean = {};
+    Object.entries(map || {}).forEach(([key, value]) => {
+      const rule = normalizeRule(value);
+      if (rule) clean[String(key)] = rule;
+    });
+    return clean;
+  };
+
+  const cloneStockRules = (source) => ({
+    global: normalizeRule(source?.global) || { ...DEFAULT_STOCK_RULE },
+    categories: normalizeRuleMap(source?.categories),
+    items: normalizeRuleMap(source?.items),
+    variants: normalizeRuleMap(source?.variants),
+  });
+
+  // variant → item → category → global
+  const resolveStockRule = ({ category, itemId, variantId } = {}, source) => {
+    const rules = source || stockRules;
+    const variantKey = itemId && variantId ? `${itemId}:${variantId}` : "";
+    if (variantKey && rules.variants[variantKey]) {
+      return { ...rules.variants[variantKey], scope: "variant" };
+    }
+    if (itemId && rules.items[String(itemId)]) {
+      return { ...rules.items[String(itemId)], scope: "item" };
+    }
+    if (category && rules.categories[category]) {
+      return { ...rules.categories[category], scope: "category" };
+    }
+    return { ...rules.global, scope: "global" };
+  };
+
+  const resolveLowThreshold = (rule, baseline) => {
+    const threshold = Number(rule?.threshold ?? 0) || 0;
+    if (rule?.mode === "percent") {
+      const base = Math.max(0, Number(baseline) || 0);
+      return Math.floor((base * threshold) / 100);
+    }
+    return Math.max(0, threshold);
+  };
+
+  const describeRule = (rule, baseline) => {
+    if (rule?.mode === "percent") {
+      const base = Number(baseline) || 0;
+      // Category rows have no single baseline, so only show the resolved
+      // quantity when an actual starting stock is known.
+      return base > 0
+        ? `Low Stock when on hand ≤ ${rule.threshold}% of starting stock (≤ ${resolveLowThreshold(rule, base)})`
+        : `Low Stock when on hand ≤ ${rule.threshold}% of each item's starting stock`;
+    }
+    return `Low Stock when stocks on hand ≤ ${resolveLowThreshold(rule, baseline)}`;
+  };
+
   const remarksClass = (r) => {
     if (!r) return "remarks-default";
     if (r.includes("Acquired")) return "remarks-acquired";
@@ -226,12 +332,15 @@ document.addEventListener("DOMContentLoaded", () => {
     return "remarks-default";
   };
 
-  const computeStatus = (onHand) => {
+  // Status resolver honouring the admin-managed rules. `context` carries the
+  // category/item/variant so the correct override is applied.
+  const computeStatus = (onHand, context = {}) => {
     const n = Number(onHand || 0);
-    if (n === 0) return "Out of Stock";
-    if (n < 0) return "Out of Stock";
-    if (n <= 5) return "Low Stock";
-    return "Good";
+    if (n <= 0) return "Out of Stock";
+
+    const rule = resolveStockRule(context);
+    const baseline = Number(context.baseline ?? n) || n;
+    return n <= resolveLowThreshold(rule, baseline) ? "Low Stock" : "Good";
   };
 
   // ─── Variant form helpers ───────────────────────────────────────────────────
@@ -656,7 +765,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (hasVariants) {
           variants.forEach((variant) => {
-            const variantStatus = displayStatus(computeStatus(variant.on_hand));
+            const variantStatus = displayStatus(
+              computeStatus(variant.on_hand, {
+                category: item.category,
+                itemId: item.id,
+                variantId: variant.id,
+                baseline: variant.initial_on_hand ?? variant.on_hand,
+              }),
+            );
             const variantStatusHtml = `<span class="status-pill ${statusClass(variantStatus)}">${escHtml(variantStatus)}</span>`;
             const variantRemarksHtml = variant.remarks
               ? `<span class="remarks-pill ${remarksClass(variant.remarks)}">${escHtml(variant.remarks)}</span>`
@@ -830,6 +946,38 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ─── Load inventory from API ──────────────────────────────────────────────────
+  const loadStockRules = async ({ silent = true } = {}) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/inventory/stock-rules`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      });
+      if (res.status === 401 || res.status === 403) {
+        setUnauthorized();
+        return false;
+      }
+      if (!res.ok) throw new Error("Failed to load stock level rules.");
+      const payload = await res.json();
+      const data = payload?.data || {};
+      stockRules = cloneStockRules(data);
+      stockRuleItemsIndex = Array.isArray(data.items_index)
+        ? data.items_index
+        : [];
+      return true;
+    } catch (err) {
+      console.error("Load stock rules error:", err);
+      if (!silent) {
+        showPopup(
+          "Could not load the stock level rules. Please try again once the server is reachable.",
+          { title: "Stock Rules" },
+        );
+      }
+      return false;
+    }
+  };
+
   const loadInventory = async () => {
     renderSkeletonTables();
     try {
@@ -847,6 +995,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const payload = await res.json();
       allItems = Array.isArray(payload?.data) ? payload.data : [];
       syncSelectedInventoryIds();
+      // Keep the rules in sync so table pills match the backend statuses.
+      await loadStockRules({ silent: true });
       if (payload?.summary) updateMetrics(payload.summary);
       renderAllTables();
     } catch (err) {
@@ -1596,7 +1746,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const variants = Array.isArray(item.variants) ? item.variants : [];
     const variantRows = variants
       .map((variant) => {
-        const variantStatus = displayStatus(computeStatus(variant.on_hand));
+        const variantStatus = displayStatus(
+          computeStatus(variant.on_hand, {
+            category: item.category,
+            itemId: item.id,
+            variantId: variant.id,
+            baseline: variant.initial_on_hand ?? variant.on_hand,
+          }),
+        );
         const variantStatusHtml = `<span class="status-pill ${statusClass(variantStatus)}">${escHtml(variantStatus)}</span>`;
         const variantRemarksHtml = variant.remarks
           ? `<span class="remarks-pill ${remarksClass(variant.remarks)}">${escHtml(variant.remarks)}</span>`
@@ -2207,6 +2364,527 @@ document.addEventListener("DOMContentLoaded", () => {
       categoryPages[cat] = 1;
     });
     renderAllTables();
+  });
+
+  // ─── Stock Level Rules modal ──────────────────────────────────────────────────
+  const ruleModeOptions = (selected) =>
+    [
+      { value: "fixed", label: "Fixed qty" },
+      { value: "percent", label: "% of start" },
+    ]
+      .map(
+        (opt) =>
+          `<option value="${opt.value}"${opt.value === selected ? " selected" : ""}>${opt.label}</option>`,
+      )
+      .join("");
+
+  // Placeholder text for a threshold field that is currently inheriting.
+  // Percent rules resolve to 0 when the row has no single baseline (category
+  // rows), so show the percentage itself instead of a misleading "0".
+  const inheritPlaceholder = (rule, baseline) => {
+    const base = Number(baseline) || 0;
+    if (rule?.mode === "percent" && base <= 0) {
+      return `Inherit (${rule.threshold}%)`;
+    }
+    return `Inherit (${resolveLowThreshold(rule, base)})`;
+  };
+
+  const renderStockRuleRow = ({
+    scopeType,
+    scopeKey,
+    name,
+    metaHtml,
+    override,
+    inheritedRule,
+    baseline,
+    isVariant = false,
+  }) => {
+    const effective = override || inheritedRule;
+    const rowClasses = [
+      "stock-rule-row",
+      isVariant ? "is-variant" : "",
+      override ? "is-overridden" : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    return `
+      <div class="${rowClasses}" data-rule-scope="${scopeType}" data-rule-key="${escHtml(scopeKey)}" data-rule-baseline="${Number(baseline) || 0}">
+        <div class="stock-rule-row-label">
+          <div class="stock-rule-row-name">${escHtml(name)}</div>
+          <div class="stock-rule-row-meta">
+            ${metaHtml}
+            <span class="stock-rule-chip ${override ? "stock-rule-chip--custom" : "stock-rule-chip--inherited"}">
+              ${override ? "Custom rule" : `Inherits ${escHtml(inheritedRule.scope)}`}
+            </span>
+            <span data-rule-formula>${escHtml(describeRule(effective, baseline))}</span>
+          </div>
+        </div>
+        <select class="filter-select" data-rule-mode>${ruleModeOptions(effective.mode)}</select>
+        <div
+          class="stock-rule-threshold${override ? " has-value" : ""}"
+          data-rule-threshold-wrap
+        >
+          <input
+            class="input-field"
+            type="number"
+            min="0"
+            data-rule-threshold
+            placeholder="${escHtml(inheritPlaceholder(inheritedRule, baseline))}"
+            value="${override ? override.threshold : ""}"
+          />
+          <button
+            type="button"
+            class="stock-rule-clear"
+            data-rule-clear
+            title="Reset to inherited rule"
+            aria-label="Reset ${escHtml(name)} to inherited rule"
+            ${override ? "" : "disabled"}
+          >
+            <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  };
+
+  const renderStockRuleGlobalFormula = () => {
+    if (!stockRuleGlobalFormula || !stockRuleDraft) return;
+    const label =
+      stockRuleDraft.global.mode === "percent"
+        ? `Low Stock when stocks on hand ≤ ${stockRuleDraft.global.threshold}% of the item's starting stock`
+        : `Low Stock when stocks on hand ≤ ${stockRuleDraft.global.threshold}`;
+    stockRuleGlobalFormula.innerHTML = `<i class="fa-solid fa-function"></i><span>${escHtml(label)}</span>`;
+  };
+
+  const renderStockRuleGlobal = () => {
+    if (!stockRuleDraft) return;
+    if (stockRuleGlobalMode)
+      stockRuleGlobalMode.value = stockRuleDraft.global.mode;
+    if (stockRuleGlobalThreshold)
+      stockRuleGlobalThreshold.value = String(stockRuleDraft.global.threshold);
+    renderStockRuleGlobalFormula();
+  };
+
+  const renderStockRuleCategories = () => {
+    if (!stockRuleCategoryList || !stockRuleDraft) return;
+    stockRuleCategoryList.innerHTML = CATEGORIES.map((category) => {
+      const override = stockRuleDraft.categories[category] || null;
+      const inherited = { ...stockRuleDraft.global, scope: "default" };
+      const categoryItems = stockRuleItemsIndex.filter(
+        (entry) => entry.category === category,
+      );
+      const icon = CATEGORY_ICONS[category] || "fa-box";
+
+      return renderStockRuleRow({
+        scopeType: "category",
+        scopeKey: category,
+        name: category,
+        metaHtml: `<span class="stock-rule-chip"><i class="fa-solid ${icon}"></i> ${categoryItems.length} item${categoryItems.length === 1 ? "" : "s"}</span>`,
+        override,
+        inheritedRule: inherited,
+        baseline: 0,
+      });
+    }).join("");
+  };
+
+  const renderStockRuleItems = () => {
+    if (!stockRuleItemList || !stockRuleDraft) return;
+
+    const query = (stockRuleSearch?.value || "").trim().toLowerCase();
+    const filterCat = stockRuleCategoryFilter?.value || "all";
+    const rows = [];
+
+    stockRuleItemsIndex.forEach((entry) => {
+      if (filterCat !== "all" && entry.category !== filterCat) return;
+
+      const variants = Array.isArray(entry.variants) ? entry.variants : [];
+      const itemMatches = query
+        ? String(entry.item_name || "").toLowerCase().includes(query)
+        : true;
+      const matchingVariants = query
+        ? variants.filter((variant) =>
+            String(variant.name || "").toLowerCase().includes(query),
+          )
+        : variants;
+
+      if (!itemMatches && !matchingVariants.length) return;
+
+      const itemOverride = stockRuleDraft.items[String(entry.id)] || null;
+      const categoryRule = stockRuleDraft.categories[entry.category]
+        ? { ...stockRuleDraft.categories[entry.category], scope: "category" }
+        : { ...stockRuleDraft.global, scope: "default" };
+
+      rows.push(
+        renderStockRuleRow({
+          scopeType: "item",
+          scopeKey: String(entry.id),
+          name: entry.item_name || "Untitled item",
+          metaHtml: `<span class="stock-rule-chip">${escHtml(entry.category)}</span><span>On hand: ${Number(entry.on_hand) || 0} ${escHtml(entry.unit || "")}</span>`,
+          override: itemOverride,
+          inheritedRule: categoryRule,
+          baseline: entry.baseline ?? entry.on_hand ?? 0,
+        }),
+      );
+
+      const variantsToRender = itemMatches ? variants : matchingVariants;
+      variantsToRender.forEach((variant) => {
+        const variantKey = `${entry.id}:${variant.id}`;
+        const variantOverride = stockRuleDraft.variants[variantKey] || null;
+        const inherited = itemOverride
+          ? { ...itemOverride, scope: "item" }
+          : categoryRule;
+
+        rows.push(
+          renderStockRuleRow({
+            scopeType: "variant",
+            scopeKey: variantKey,
+            name: variant.name || "Variant",
+            metaHtml: `<span class="stock-rule-chip">Variant</span><span>On hand: ${Number(variant.on_hand) || 0} ${escHtml(variant.unit || "")}</span>`,
+            override: variantOverride,
+            inheritedRule: inherited,
+            baseline: variant.baseline ?? variant.on_hand ?? 0,
+            isVariant: true,
+          }),
+        );
+      });
+    });
+
+    stockRuleItemList.innerHTML = rows.length
+      ? rows.join("")
+      : `<div class="stock-rule-empty">No inventory items match this filter.</div>`;
+  };
+
+  const renderStockRuleModal = () => {
+    renderStockRuleGlobal();
+    renderStockRuleCategories();
+    renderStockRuleItems();
+  };
+
+  const setStockRuleDraftValue = (scopeType, scopeKey, rule) => {
+    if (!stockRuleDraft) return;
+    const bucket =
+      scopeType === "category"
+        ? stockRuleDraft.categories
+        : scopeType === "item"
+          ? stockRuleDraft.items
+          : scopeType === "variant"
+            ? stockRuleDraft.variants
+            : null;
+    if (!bucket) return;
+
+    if (rule === null) {
+      delete bucket[scopeKey];
+      return;
+    }
+    bucket[scopeKey] = rule;
+  };
+
+  const readStockRuleRow = (row) => {
+    const scopeType = row.getAttribute("data-rule-scope") || "";
+    const scopeKey = row.getAttribute("data-rule-key") || "";
+    const modeSelect = row.querySelector("[data-rule-mode]");
+    const thresholdInput = row.querySelector("[data-rule-threshold]");
+    const raw = String(thresholdInput?.value ?? "").trim();
+
+    if (raw === "") {
+      return { scopeType, scopeKey, rule: null };
+    }
+
+    return {
+      scopeType,
+      scopeKey,
+      rule: normalizeRule({
+        mode: modeSelect?.value || "fixed",
+        threshold: raw,
+      }),
+    };
+  };
+
+  // Snapshot of the draft right after the modal opens. Used to decide whether a
+  // background refresh may safely re-render (it must never overwrite edits).
+  let stockRuleOpenSnapshot = "";
+
+  const isStockRuleModalOpen = () =>
+    Boolean(modalStockRules?.classList.contains("show"));
+
+  // Refresh the rules from the server after the modal is already visible. The
+  // modal is only re-rendered when the admin/staff has not started editing.
+  const refreshStockRulesInBackground = async () => {
+    // Only surface an error popup when there was nothing cached to show.
+    const hasCachedData = stockRuleItemsIndex.length > 0;
+    const ok = await loadStockRules({ silent: hasCachedData });
+    if (!ok || !isStockRuleModalOpen() || !stockRuleDraft) return;
+
+    const draftUntouched =
+      JSON.stringify(stockRuleDraft) === stockRuleOpenSnapshot;
+    // Never re-render while a field inside the modal has focus — that would
+    // wipe out whatever the admin/staff is currently typing.
+    const isEditing = Boolean(
+      document.activeElement &&
+        document.activeElement !== document.body &&
+        modalStockRules.contains(document.activeElement),
+    );
+    if (!draftUntouched || isEditing) return;
+
+    stockRuleDraft = cloneStockRules(stockRules);
+    stockRuleOpenSnapshot = JSON.stringify(stockRuleDraft);
+    renderStockRuleModal();
+  };
+
+  // Opens instantly (same feel as "Add New Item") by rendering the rules that
+  // were already cached on page load, then syncing with the server in the
+  // background instead of blocking the modal behind a fetch.
+  const openStockRulesModal = () => {
+    if (!modalStockRules) return;
+
+    stockRuleDraft = cloneStockRules(stockRules);
+    stockRuleOpenSnapshot = JSON.stringify(stockRuleDraft);
+    if (stockRuleSearch) stockRuleSearch.value = "";
+    if (stockRuleCategoryFilter) stockRuleCategoryFilter.value = "all";
+    renderStockRuleModal();
+    openModal(modalStockRules);
+
+    void refreshStockRulesInBackground();
+  };
+
+  btnOpenStockRules?.addEventListener("click", () => {
+    openStockRulesModal();
+  });
+
+  btnCancelStockRules?.addEventListener("click", () => {
+    stockRuleDraft = null;
+    closeModal(modalStockRules);
+  });
+
+  stockRuleGlobalMode?.addEventListener("change", () => {
+    if (!stockRuleDraft) return;
+    const mode = STOCK_RULE_MODES.includes(stockRuleGlobalMode.value)
+      ? stockRuleGlobalMode.value
+      : "fixed";
+    stockRuleDraft.global = normalizeRule({
+      mode,
+      threshold: stockRuleGlobalThreshold?.value || 0,
+    }) || { ...DEFAULT_STOCK_RULE };
+    renderStockRuleModal();
+  });
+
+  stockRuleGlobalThreshold?.addEventListener("input", () => {
+    if (!stockRuleDraft) return;
+    stockRuleDraft.global = normalizeRule({
+      mode: stockRuleGlobalMode?.value || "fixed",
+      threshold: stockRuleGlobalThreshold.value,
+    }) || { ...DEFAULT_STOCK_RULE };
+    // Don't re-write the input's value while typing — only refresh derived UI.
+    renderStockRuleGlobalFormula();
+    renderStockRuleCategories();
+    renderStockRuleItems();
+  });
+
+  stockRuleCategoryFilter?.addEventListener("change", renderStockRuleItems);
+  stockRuleSearch?.addEventListener("input", renderStockRuleItems);
+
+  // Live-update a single row in place so typing never loses focus.
+  const refreshStockRuleRowChrome = (row) => {
+    if (!stockRuleDraft) return;
+
+    const scopeType = row.getAttribute("data-rule-scope") || "";
+    const scopeKey = row.getAttribute("data-rule-key") || "";
+    const baseline = Number(row.getAttribute("data-rule-baseline")) || 0;
+    const bucket =
+      scopeType === "category"
+        ? stockRuleDraft.categories
+        : scopeType === "item"
+          ? stockRuleDraft.items
+          : stockRuleDraft.variants;
+    const override = bucket?.[scopeKey] || null;
+
+    let inherited = { ...stockRuleDraft.global, scope: "default" };
+    if (scopeType === "item" || scopeType === "variant") {
+      const itemId = scopeKey.split(":")[0];
+      const entry = stockRuleItemsIndex.find(
+        (candidate) => String(candidate.id) === itemId,
+      );
+      if (entry && stockRuleDraft.categories[entry.category]) {
+        inherited = {
+          ...stockRuleDraft.categories[entry.category],
+          scope: "category",
+        };
+      }
+      if (scopeType === "variant" && stockRuleDraft.items[itemId]) {
+        inherited = { ...stockRuleDraft.items[itemId], scope: "item" };
+      }
+    }
+
+    const effective = override || inherited;
+    row.classList.toggle("is-overridden", Boolean(override));
+
+    const chip = row.querySelector(".stock-rule-chip--custom, .stock-rule-chip--inherited");
+    if (chip) {
+      chip.classList.toggle("stock-rule-chip--custom", Boolean(override));
+      chip.classList.toggle("stock-rule-chip--inherited", !override);
+      chip.textContent = override
+        ? "Custom rule"
+        : `Inherits ${inherited.scope}`;
+    }
+
+    const formula = row.querySelector("[data-rule-formula]");
+    if (formula) formula.textContent = describeRule(effective, baseline);
+
+    const clearBtn = row.querySelector("[data-rule-clear]");
+    const thresholdWrap = row.querySelector("[data-rule-threshold-wrap]");
+    const thresholdInput = row.querySelector("[data-rule-threshold]");
+
+    // The reset icon only exists while the admin/staff has actually typed a
+    // number in the field. An empty field means "inherit", so nothing to reset.
+    const hasTypedValue = String(thresholdInput?.value ?? "").trim() !== "";
+    thresholdWrap?.classList.toggle("has-value", hasTypedValue);
+    if (clearBtn) clearBtn.disabled = !hasTypedValue;
+
+    if (thresholdInput) {
+      thresholdInput.placeholder = inheritPlaceholder(inherited, baseline);
+    }
+  };
+
+  modalStockRules?.addEventListener("input", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const row = target.closest("[data-rule-scope]");
+    if (!row || !target.matches("[data-rule-threshold]")) return;
+
+    const { scopeType, scopeKey, rule } = readStockRuleRow(row);
+    setStockRuleDraftValue(scopeType, scopeKey, rule);
+    refreshStockRuleRowChrome(row);
+  });
+
+  modalStockRules?.addEventListener("change", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const row = target.closest("[data-rule-scope]");
+    if (!row || !row.isConnected) return;
+    if (
+      !target.matches("[data-rule-mode]") &&
+      !target.matches("[data-rule-threshold]")
+    ) {
+      return;
+    }
+
+    const { scopeType, scopeKey, rule } = readStockRuleRow(row);
+    setStockRuleDraftValue(scopeType, scopeKey, rule);
+    // A committed change can cascade to children, so re-render the lists.
+    renderStockRuleCategories();
+    renderStockRuleItems();
+  });
+
+  // Keep focus on the field while the reset icon is pressed. Without this the
+  // input blurs first, fires `change`, re-renders the row, and the click on the
+  // freshly-destroyed button is lost.
+  modalStockRules?.addEventListener("mousedown", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.closest("[data-rule-clear]")) event.preventDefault();
+  });
+
+  modalStockRules?.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    const clearBtn = target.closest("[data-rule-clear]");
+    if (!clearBtn) return;
+
+    const row = clearBtn.closest("[data-rule-scope]");
+    if (!row) return;
+
+    setStockRuleDraftValue(
+      row.getAttribute("data-rule-scope") || "",
+      row.getAttribute("data-rule-key") || "",
+      null,
+    );
+    renderStockRuleCategories();
+    renderStockRuleItems();
+  });
+
+  btnSaveStockRules?.addEventListener("click", async () => {
+    if (!stockRuleDraft) return;
+
+    const globalRule = normalizeRule({
+      mode: stockRuleGlobalMode?.value || "fixed",
+      threshold: stockRuleGlobalThreshold?.value,
+    });
+
+    if (!globalRule) {
+      showPopup("The default threshold is required.", {
+        title: "Validation Error",
+      });
+      stockRuleGlobalThreshold?.focus();
+      return;
+    }
+
+    if (globalRule.mode === "percent" && globalRule.threshold > 100) {
+      showPopup("Percentage thresholds cannot exceed 100%.", {
+        title: "Validation Error",
+      });
+      stockRuleGlobalThreshold?.focus();
+      return;
+    }
+
+    const body = {
+      global: globalRule,
+      categories: stockRuleDraft.categories,
+      items: stockRuleDraft.items,
+      variants: stockRuleDraft.variants,
+    };
+
+    const originalHtml = btnSaveStockRules.innerHTML;
+    btnSaveStockRules.disabled = true;
+    btnSaveStockRules.innerHTML =
+      '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/inventory/stock-rules`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (res.status === 401 || res.status === 403) {
+        setUnauthorized();
+        return;
+      }
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showPopup(
+          payload?.message ||
+            Object.values(payload?.errors || {})[0]?.[0] ||
+            "Failed to save the stock level rules.",
+          { title: "Save Failed" },
+        );
+        return;
+      }
+
+      stockRules = cloneStockRules(payload?.data || body);
+      stockRuleDraft = null;
+      closeModal(modalStockRules);
+      await loadInventory();
+      setTimeout(
+        () =>
+          showPopup(
+            payload?.message || "Stock level rules saved successfully.",
+            { title: "Success ✓" },
+          ),
+        200,
+      );
+    } catch (err) {
+      console.error("Save stock rules error:", err);
+      showPopup("Cannot connect to server.", { title: "Error" });
+    } finally {
+      btnSaveStockRules.disabled = false;
+      btnSaveStockRules.innerHTML = originalHtml;
+    }
   });
 
   // ─── Auth check + initial load ────────────────────────────────────────────────

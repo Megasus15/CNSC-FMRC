@@ -9,14 +9,18 @@ use App\Models\OrderItem;
 use App\Models\OrderTrackingEvent;
 use App\Models\Payment;
 use App\Models\Product;
+use App\Models\ProductRating;
 use App\Models\Promotion;
 use DateTimeInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class OrderController extends Controller
@@ -42,6 +46,12 @@ class OrderController extends Controller
         'rejected' => 'Rejected',
         'completed' => 'Completed',
     ];
+
+    /**
+     * Cached result of the optional `order_items.product_image_reference`
+     * column check. Null means "not inspected yet".
+     */
+    private static ?bool $orderItemsHaveImageReference = null;
 
     public function customerStore(Request $request): JsonResponse
     {
@@ -189,7 +199,16 @@ class OrderController extends Controller
                 $order->save();
 
                 foreach ($orderItems as $lineItem) {
-                    OrderItem::query()->create([
+                    // Extract a lightweight image reference (URL) for fast
+                    // customer-facing thumbnails without needing a separate
+                    // image endpoint request.
+                    $imageRef = $this->extractLightweightImageReference(
+                        $lineItem['product_image'] ?? null,
+                        $lineItem['product_id'] ?? null,
+                        $productsById,
+                    );
+
+                    $itemAttributes = [
                         'order_id' => $order->id,
                         'product_id' => $lineItem['product_id'],
                         'product_name' => $lineItem['product_name'],
@@ -197,7 +216,15 @@ class OrderController extends Controller
                         'unit_price' => $lineItem['unit_price'],
                         'quantity' => $lineItem['quantity'],
                         'line_total' => $lineItem['line_total'],
-                    ]);
+                    ];
+
+                    // Only write the optimisation column when the database
+                    // actually has it, so older schemas keep accepting orders.
+                    if ($this->orderItemsHaveImageReference()) {
+                        $itemAttributes['product_image_reference'] = $imageRef;
+                    }
+
+                    OrderItem::query()->create($itemAttributes);
                 }
 
                 foreach ($orderItems as $lineItem) {
@@ -289,7 +316,7 @@ class OrderController extends Controller
 
             return response()->json([
                 'message' => 'Order placed successfully.',
-                'data' => $this->transformOrderDetail($createdOrder),
+                'data' => $this->transformOrderDetail($createdOrder, false, true),
             ], 201);
 
         } catch (\Exception $e) {
@@ -299,7 +326,7 @@ class OrderController extends Controller
         }
     }
 
-    public function customerIndex(Request $request): JsonResponse
+    public function customerIndex(Request $request): Response|JsonResponse
     {
         $denied = $this->ensureCustomer($request);
         if ($denied) {
@@ -307,17 +334,41 @@ class OrderController extends Controller
         }
 
         $orders = Order::query()
+            ->select([
+                'id',
+                'order_no',
+                'customer_id',
+                'customer_name',
+                'customer_contact',
+                'quantity',
+                'total',
+                'payment_method',
+                'payment_reference',
+                'lifecycle_status',
+                'customer_stage',
+                'notes',
+                'courier_name',
+                'courier_tracking_no',
+                'location_name',
+                'last_known_lat',
+                'last_known_lng',
+                'created_at',
+                'updated_at',
+            ])
             ->with([
-                'items:id,order_id,product_name,product_image,unit_price,quantity,line_total',
+                'items' => fn ($query) => $query
+                    ->select($this->customerOrderItemColumns()),
                 'payment:id,order_id,payment_no,method,reference,amount,status,paid_at',
                 'latestTrackingEvent',
-                'rating',
+                'ratings:id,order_id,order_item_id,product_id,stars,feedback,media,is_anonymous,admin_reply,replied_at,created_at,updated_at',
             ])
             ->where('customer_id', $request->user()->id)
             ->orderBy('created_at', 'asc')
             ->get();
 
-        $data = $orders->map(fn (Order $order) => $this->transformOrderSummary($order))->values();
+        $data = $orders
+            ->map(fn (Order $order) => $this->transformOrderSummary($order, false, true))
+            ->values();
 
         $counts = [
             'all'         => $data->count(),
@@ -328,13 +379,25 @@ class OrderController extends Controller
             'to_rate'     => $data->where('customer_stage', 'completed')->where('lifecycle_status', '!=', 'rejected')->where('has_rating', false)->count(),
         ];
 
-        return response()->json([
+        $payload = [
             'data' => $data,
             'counts' => $counts,
-        ]);
+        ];
+        $etag = '"' . hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) . '"';
+        $responseHeaders = [
+            'Cache-Control' => 'private, no-cache, must-revalidate',
+            'ETag' => $etag,
+            'Vary' => 'Authorization',
+        ];
+
+        if (trim((string) $request->header('If-None-Match')) === $etag) {
+            return response('', 304, $responseHeaders);
+        }
+
+        return response()->json($payload)->withHeaders($responseHeaders);
     }
 
-    public function customerShow(Request $request, Order $order): JsonResponse
+    public function customerShow(Request $request, Order $order): Response|JsonResponse
     {
         $denied = $this->ensureCustomer($request);
         if ($denied) {
@@ -348,14 +411,107 @@ class OrderController extends Controller
         }
 
         $order->load([
-            'items',
+            'items' => fn ($query) => $query
+                ->select($this->customerOrderItemColumns()),
             'payment',
+            'latestTrackingEvent',
+            'ratings',
             'trackingEvents' => fn ($query) => $query->orderByDesc('occurred_at')->orderByDesc('id'),
         ]);
 
-        return response()->json([
-            'data' => $this->transformOrderDetail($order),
-        ]);
+        $payload = [
+            'data' => $this->transformOrderDetail($order, false, true),
+        ];
+        $etag = '"' . hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) . '"';
+        $responseHeaders = [
+            'Cache-Control' => 'private, no-cache, must-revalidate',
+            'ETag' => $etag,
+            'Vary' => 'Authorization',
+        ];
+
+        if (trim((string) $request->header('If-None-Match')) === $etag) {
+            return response('', 304, $responseHeaders);
+        }
+
+        return response()->json($payload)->withHeaders($responseHeaders);
+    }
+
+    public function customerItemImage(Request $request, Order $order, int|string $orderItem): Response|JsonResponse
+    {
+        $denied = $this->ensureCustomer($request);
+        if ($denied) {
+            return $denied;
+        }
+
+        // Do not use implicit OrderItem model binding here. It selects the
+        // multi-megabyte product_image snapshot before we know whether a small
+        // cached thumbnail can satisfy the request.
+        $item = OrderItem::query()
+            ->select(['id', 'order_id', 'updated_at'])
+            ->find($orderItem);
+
+        if (!$item) {
+            return response()->json([
+                'message' => 'Order image is unavailable.',
+            ], 404);
+        }
+
+        if (
+            (int) $order->customer_id !== (int) $request->user()->id ||
+            (int) $item->order_id !== (int) $order->id
+        ) {
+            return response()->json([
+                'message' => 'You are not allowed to access this order image.',
+            ], 403);
+        }
+
+        if ($request->boolean('thumbnail')) {
+            $cachedThumbnail = $this->readCachedOrderItemThumbnail($item);
+            if ($cachedThumbnail !== null) {
+                return $this->orderImageResponse($request, ...$cachedThumbnail);
+            }
+        }
+
+        // Fetch the large snapshot only for a full-image request or the first
+        // thumbnail request that still needs to build its persistent cache.
+        $storedImage = OrderItem::query()
+            ->whereKey($item->id)
+            ->value('product_image');
+        $decoded = $this->decodeStoredProductImage($storedImage);
+        if ($decoded === null) {
+            return response()->json([
+                'message' => 'Order image is unavailable.',
+            ], 404);
+        }
+
+        [$imageBytes, $mimeType] = $decoded;
+
+        if ($request->boolean('thumbnail')) {
+            $thumbnail = $this->buildOrderItemThumbnail($imageBytes, $item);
+            if ($thumbnail !== null) {
+                [$imageBytes, $mimeType] = $thumbnail;
+            }
+        }
+
+        return $this->orderImageResponse($request, $imageBytes, $mimeType);
+    }
+
+    private function orderImageResponse(Request $request, string $imageBytes, string $mimeType): Response
+    {
+        $etag = '"' . hash('sha256', $imageBytes) . '"';
+        $headers = [
+            'Cache-Control' => 'private, max-age=86400, immutable',
+            'Content-Length' => (string) strlen($imageBytes),
+            'Content-Type' => $mimeType,
+            'ETag' => $etag,
+            'Vary' => 'Authorization',
+        ];
+
+        if (trim((string) $request->header('If-None-Match')) === $etag) {
+            return response('', 304, $headers);
+        }
+
+        return response($imageBytes, 200, $headers);
     }
 
     /** Customer marks an order as received — moves it from to_receive → completed */
@@ -393,11 +549,18 @@ class OrderController extends Controller
             'metadata'           => ['source' => 'customer_received'],
         ]);
 
-        $order->load(['items', 'payment', 'latestTrackingEvent']);
+        $order->load([
+            'items' => fn ($query) => $query
+                ->select($this->customerOrderItemColumns()),
+            'payment',
+            'latestTrackingEvent',
+            'ratings',
+            'trackingEvents' => fn ($query) => $query->orderByDesc('occurred_at')->orderByDesc('id'),
+        ]);
 
         return response()->json([
             'message' => 'Order marked as received.',
-            'data'    => $this->transformOrderDetail($order),
+            'data'    => $this->transformOrderDetail($order, false, true),
         ]);
     }
 
@@ -1380,35 +1543,126 @@ HTML;
         ]);
     }
 
-    private function transformOrderSummary(Order $order, bool $includeProductImages = true): array
+    /**
+     * Columns loaded for customer-facing order items.
+     *
+     * `product_image_reference` is an optional optimisation column. When a
+     * database has not been migrated with it yet, selecting it aborts the whole
+     * orders query with an SQL error — which made every My Orders tab fall back
+     * to the cached list and left each thumbnail spinning forever. Detecting it
+     * once per request keeps the endpoint working on both schema versions.
+     *
+     * The heavy `product_image` snapshot is intentionally excluded: thumbnails
+     * are streamed through the dedicated image endpoint instead.
+     *
+     * @return array<int, string>
+     */
+    private function customerOrderItemColumns(): array
+    {
+        $columns = [
+            'id',
+            'order_id',
+            'product_id',
+            'product_name',
+            'unit_price',
+            'quantity',
+            'line_total',
+        ];
+
+        if ($this->orderItemsHaveImageReference()) {
+            array_splice($columns, 4, 0, ['product_image_reference']);
+        }
+
+        return $columns;
+    }
+
+    private function orderItemsHaveImageReference(): bool
+    {
+        if (self::$orderItemsHaveImageReference === null) {
+            try {
+                self::$orderItemsHaveImageReference = Schema::hasColumn(
+                    'order_items',
+                    'product_image_reference',
+                );
+            } catch (\Throwable $error) {
+                Log::warning('[ORDER ITEMS] Unable to inspect product_image_reference column', [
+                    'message' => $error->getMessage(),
+                ]);
+
+                self::$orderItemsHaveImageReference = false;
+            }
+        }
+
+        return self::$orderItemsHaveImageReference;
+    }
+
+    private function transformOrderItem(
+        OrderItem $lineItem,
+        bool $includeProductImages,
+        bool $includeCustomerImageEndpoints,
+    ): array {
+        $summaryItem = [
+            'id' => $lineItem->id,
+            'product_id' => $lineItem->product_id,
+            'product_name' => $lineItem->product_name,
+            'unit_price' => (float) $lineItem->unit_price,
+            'quantity' => (int) $lineItem->quantity,
+            'line_total' => (float) $lineItem->line_total,
+        ];
+
+        $storedImage = $lineItem->getAttribute('product_image');
+        $imageReference = $this->lightweightProductImageReference(
+            $lineItem->getAttribute('product_image_reference') ?? $storedImage
+        );
+
+        if ($includeProductImages) {
+            $summaryItem['product_image'] = $storedImage;
+        } elseif ($includeCustomerImageEndpoints) {
+            if ($imageReference !== null) {
+                $summaryItem['product_image'] = $imageReference;
+            } else {
+                $imageEndpoint = sprintf(
+                    '/customer/orders/%d/items/%d/image',
+                    (int) $lineItem->order_id,
+                    (int) $lineItem->id,
+                );
+                $summaryItem['product_image_endpoint'] = $imageEndpoint . '?thumbnail=1';
+                $summaryItem['product_image_full_endpoint'] = $imageEndpoint;
+            }
+        }
+
+        return $summaryItem;
+    }
+
+    private function transformOrderSummary(
+        Order $order,
+        bool $includeProductImages = true,
+        bool $includeCustomerImageEndpoints = false,
+    ): array
     {
         $item = $order->items->first();
         $productNameLabel = $this->buildOrderItemLabelFromOrder($order);
         $payment = $order->payment;
-        // Defensive: only read the rating relation if it was eager-loaded to
+        // Defensive: only read the ratings relation if it was eager-loaded to
         // avoid triggering lazy-loading (which may be disabled in strict mode).
-        $rating = $order->relationLoaded('rating') ? $order->rating : null;
+        $ratings = $order->relationLoaded('ratings') ? $order->ratings : collect();
+        $ratingsByItem = $ratings
+            ->filter(fn (ProductRating $rating) => $rating->order_item_id !== null)
+            ->keyBy(fn (ProductRating $rating) => (string) $rating->order_item_id);
+        $ratableItems = $order->items;
+        $firstRating = $ratings->first();
+        $hasRating = $ratableItems->isNotEmpty()
+            && $ratableItems->every(fn (OrderItem $lineItem) => $ratingsByItem->has((string) $lineItem->id));
 
         // Provide each product line individually so admin/staff list cards and
         // the payment history can display every ordered item (instead of only
         // the collapsed "First Item (+N more)" label).
         $summaryItems = $order->items
-            ->map(function (OrderItem $lineItem) use ($includeProductImages) {
-                $summaryItem = [
-                    'id' => $lineItem->id,
-                    'product_id' => $lineItem->product_id,
-                    'product_name' => $lineItem->product_name,
-                    'unit_price' => (float) $lineItem->unit_price,
-                    'quantity' => (int) $lineItem->quantity,
-                    'line_total' => (float) $lineItem->line_total,
-                ];
-
-                if ($includeProductImages) {
-                    $summaryItem['product_image'] = $lineItem->product_image;
-                }
-
-                return $summaryItem;
-            })
+            ->map(fn (OrderItem $lineItem) => $this->transformOrderItem(
+                $lineItem,
+                $includeProductImages,
+                $includeCustomerImageEndpoints,
+            ))
             ->values()
             ->all();
 
@@ -1441,12 +1695,14 @@ HTML;
             'payment_method' => $payment?->method ?? $order->payment_method,
             'payment_reference' => $payment?->reference ?? $order->payment_reference,
             'payment_status' => $payment?->status ?? 'pending',
-            'has_rating'          => $rating !== null,
-            'rating_stars'        => $rating?->stars,
-            'rating_feedback'     => $rating?->feedback,
-            'rating_admin_reply'  => $rating?->admin_reply,
-            'rating_replied_at'   => $rating?->replied_at?->toIso8601String(),
-            'rating_submitted_at' => $rating?->created_at?->toIso8601String(),
+            'has_rating'          => $hasRating,
+            'rating_count'        => $ratings->count(),
+            'rating_total_items'  => $ratableItems->count(),
+            'rating_stars'        => $firstRating?->stars,
+            'rating_feedback'     => $firstRating?->feedback,
+            'rating_admin_reply'  => $firstRating?->admin_reply,
+            'rating_replied_at'   => $firstRating?->replied_at?->toIso8601String(),
+            'rating_submitted_at' => $firstRating?->created_at?->toIso8601String(),
             'lifecycle_status' => $order->lifecycle_status,
             'lifecycle_status_label' => self::LIFECYCLE_LABELS[$order->lifecycle_status] ?? 'Pending',
             'customer_stage' => $order->customer_stage,
@@ -1464,25 +1720,39 @@ HTML;
 
         if ($includeProductImages) {
             $summary['product_image'] = $item?->product_image;
+        } elseif ($includeCustomerImageEndpoints && isset($summaryItems[0])) {
+            if (array_key_exists('product_image', $summaryItems[0])) {
+                $summary['product_image'] = $summaryItems[0]['product_image'];
+            }
+            if (array_key_exists('product_image_endpoint', $summaryItems[0])) {
+                $summary['product_image_endpoint'] = $summaryItems[0]['product_image_endpoint'];
+            }
+            if (array_key_exists('product_image_full_endpoint', $summaryItems[0])) {
+                $summary['product_image_full_endpoint'] = $summaryItems[0]['product_image_full_endpoint'];
+            }
         }
 
         return $summary;
     }
 
-    private function transformOrderDetail(Order $order): array
+    private function transformOrderDetail(
+        Order $order,
+        bool $includeProductImages = true,
+        bool $includeCustomerImageEndpoints = false,
+    ): array
     {
-        $summary = $this->transformOrderSummary($order);
+        $summary = $this->transformOrderSummary(
+            $order,
+            $includeProductImages,
+            $includeCustomerImageEndpoints,
+        );
 
         $items = $order->items
-            ->map(fn (OrderItem $item) => [
-                'id' => $item->id,
-                'product_id' => $item->product_id,
-                'product_name' => $item->product_name,
-                'product_image' => $item->product_image,
-                'unit_price' => (float) $item->unit_price,
-                'quantity' => (int) $item->quantity,
-                'line_total' => (float) $item->line_total,
-            ])
+            ->map(fn (OrderItem $item) => $this->transformOrderItem(
+                $item,
+                $includeProductImages,
+                $includeCustomerImageEndpoints,
+            ))
             ->values()
             ->all();
 
@@ -1492,10 +1762,234 @@ HTML;
             ->map(fn (OrderTrackingEvent $event) => $this->transformTimelineEvent($event))
             ->all();
 
-        return $summary + [
+        return array_merge($summary, [
             'items' => $items,
             'timeline' => $timeline,
-        ];
+        ]);
+    }
+
+    private function lightweightProductImageReference(mixed $value): ?string
+    {
+        if (!is_string($value) || $value === '' || strlen($value) > 2048) {
+            return null;
+        }
+
+        $reference = trim($value);
+        if ($reference === '' || str_starts_with(strtolower($reference), 'data:')) {
+            return null;
+        }
+
+        return $reference;
+    }
+
+    /**
+     * Extract a lightweight image URL reference for an order item.
+     *
+     * Prefers the submitted product_image if it's a short URL. Falls back to
+     * the Product's current image_data (if it's a URL, not a data-URI).
+     * Returns null when only base64 data is available (the endpoint-based
+     * thumbnail loading will handle those).
+     */
+    private function extractLightweightImageReference(
+        ?string $submittedImage,
+        int|string|null $productId,
+        ?\Illuminate\Support\Collection $productsById = null,
+    ): ?string {
+        // 1. Try the submitted image first
+        $ref = $this->lightweightProductImageReference($submittedImage);
+        if ($ref !== null) {
+            return $ref;
+        }
+
+        // 2. Fall back to the product's current image_data
+        if ($productId !== null && $productsById !== null) {
+            $product = $productsById->get((int) $productId);
+            if ($product) {
+                $ref = $this->lightweightProductImageReference($product->image_data ?? null);
+                if ($ref !== null) {
+                    return $ref;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Decode a stored data-URI image without exposing it in an orders JSON payload.
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    private function decodeStoredProductImage(?string $storedImage): ?array
+    {
+        if (!is_string($storedImage) || $storedImage === '') {
+            return null;
+        }
+
+        $commaPosition = strpos($storedImage, ',');
+        if ($commaPosition === false) {
+            return null;
+        }
+
+        $header = substr($storedImage, 0, $commaPosition);
+        if (!preg_match('/^data:(image\/(?:png|jpe?g|gif|webp));base64$/i', $header, $matches)) {
+            return null;
+        }
+
+        $imageBytes = base64_decode(substr($storedImage, $commaPosition + 1), true);
+        if (!is_string($imageBytes) || $imageBytes === '') {
+            return null;
+        }
+
+        $mimeType = strtolower($matches[1]);
+        if ($mimeType === 'image/jpg') {
+            $mimeType = 'image/jpeg';
+        }
+
+        return [$imageBytes, $mimeType];
+    }
+
+    /**
+     * Build and cache a compact square thumbnail for order-history cards.
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    private function buildOrderItemThumbnail(string $sourceBytes, ?OrderItem $item = null): ?array
+    {
+        if (!function_exists('imagecreatefromstring')) {
+            return null;
+        }
+
+        $useWebp = function_exists('imagewebp');
+        $extension = $useWebp ? 'webp' : 'jpg';
+        $mimeType = $useWebp ? 'image/webp' : 'image/jpeg';
+        $cachePath = 'order-thumbnails/' . hash('sha256', $sourceBytes) . '.' . $extension;
+        $itemCachePath = $item
+            ? $this->orderItemThumbnailCachePath($item, $extension)
+            : null;
+
+        try {
+            if (Storage::disk('local')->exists($cachePath)) {
+                $cached = Storage::disk('local')->get($cachePath);
+                if (is_string($cached) && $cached !== '') {
+                    if ($itemCachePath !== null) {
+                        Storage::disk('local')->put($itemCachePath, $cached);
+                    }
+                    return [$cached, $mimeType];
+                }
+            }
+
+            $imageInfo = @getimagesizefromstring($sourceBytes);
+            $sourceWidth = (int) ($imageInfo[0] ?? 0);
+            $sourceHeight = (int) ($imageInfo[1] ?? 0);
+            if (
+                $sourceWidth < 1 ||
+                $sourceHeight < 1 ||
+                ($sourceWidth * $sourceHeight) > 40_000_000
+            ) {
+                return null;
+            }
+
+            $source = @imagecreatefromstring($sourceBytes);
+            if ($source === false) {
+                return null;
+            }
+
+            $targetSize = 240;
+            $thumbnail = imagecreatetruecolor($targetSize, $targetSize);
+            if ($thumbnail === false) {
+                imagedestroy($source);
+                return null;
+            }
+
+            $white = imagecolorallocate($thumbnail, 255, 255, 255);
+            imagefill($thumbnail, 0, 0, $white);
+
+            $cropSize = min($sourceWidth, $sourceHeight);
+            $sourceX = (int) floor(($sourceWidth - $cropSize) / 2);
+            $sourceY = (int) floor(($sourceHeight - $cropSize) / 2);
+            imagecopyresampled(
+                $thumbnail,
+                $source,
+                0,
+                0,
+                $sourceX,
+                $sourceY,
+                $targetSize,
+                $targetSize,
+                $cropSize,
+                $cropSize,
+            );
+
+            ob_start();
+            $encoded = $useWebp
+                ? imagewebp($thumbnail, null, 80)
+                : imagejpeg($thumbnail, null, 84);
+            $thumbnailBytes = ob_get_clean();
+
+            imagedestroy($thumbnail);
+            imagedestroy($source);
+
+            if (!$encoded || !is_string($thumbnailBytes) || $thumbnailBytes === '') {
+                return null;
+            }
+
+            Storage::disk('local')->put($cachePath, $thumbnailBytes);
+            if ($itemCachePath !== null) {
+                Storage::disk('local')->put($itemCachePath, $thumbnailBytes);
+            }
+
+            return [$thumbnailBytes, $mimeType];
+        } catch (\Throwable $error) {
+            Log::warning('[ORDER THUMBNAIL] Unable to generate thumbnail', [
+                'message' => $error->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Read an item-addressable thumbnail without selecting product_image.
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    private function readCachedOrderItemThumbnail(OrderItem $item): ?array
+    {
+        $useWebp = function_exists('imagewebp');
+        $extension = $useWebp ? 'webp' : 'jpg';
+        $mimeType = $useWebp ? 'image/webp' : 'image/jpeg';
+        $cachePath = $this->orderItemThumbnailCachePath($item, $extension);
+
+        try {
+            if (!Storage::disk('local')->exists($cachePath)) {
+                return null;
+            }
+
+            $cached = Storage::disk('local')->get($cachePath);
+            return is_string($cached) && $cached !== ''
+                ? [$cached, $mimeType]
+                : null;
+        } catch (\Throwable $error) {
+            Log::warning('[ORDER THUMBNAIL] Unable to read cached thumbnail', [
+                'order_item_id' => $item->id,
+                'message' => $error->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    private function orderItemThumbnailCachePath(OrderItem $item, string $extension): string
+    {
+        $version = $item->updated_at?->format('YmdHis') ?? 'unversioned';
+
+        return sprintf(
+            'order-thumbnails/items/%d-%s.%s',
+            (int) $item->id,
+            $version,
+            $extension,
+        );
     }
 
     private function normalizeRequestedOrderItems(array $validated): array

@@ -2343,8 +2343,11 @@ body {
 }
 
 .cart-icon-container .cart-badge {
-  top: -6px !important;
-  right: -10px !important;
+  /* Matches the announcement bell badge exactly. Both controls resolve to the
+     same 38-46px box in the responsive layer, so identical offsets keep the
+     two navbar counters visually aligned on every page. */
+  top: -2px !important;
+  right: -2px !important;
 }
 
 /* Character length dynamic scaling for perfect circle fitting */
@@ -6974,7 +6977,446 @@ body.sidebar-open {
 .popup-profile-row {
   display: flex;
   align-items: center;
+  gap: 14px;
+}
+
+/* =====================================================================
+   Customer product reviews
+   ===================================================================== */
+.modal-actions {
+  align-items: center;
+}
+
+.reviews-btn {
+  margin-right: auto;
+  background: rgba(139, 0, 0, 0.06);
+  border-color: rgba(139, 0, 0, 0.2);
+  color: var(--customer-primary, #8b0000);
+  gap: 8px;
+}
+
+.reviews-btn:hover:not(:disabled),
+.reviews-btn:focus-visible:not(:disabled) {
+  background: var(--customer-primary, #8b0000);
+  border-color: var(--customer-primary, #8b0000);
+  color: #fff;
+  transform: none;
+}
+
+.reviews-btn-count {
+  min-width: 22px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(139, 0, 0, 0.12);
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.reviews-btn:hover .reviews-btn-count,
+.reviews-btn:focus-visible .reviews-btn-count {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.customer-reviews-overlay {
+  z-index: 21010;
+  padding: 16px;
+}
+
+.customer-reviews-box {
+  width: min(820px, 100%);
+  max-height: min(92vh, calc(100dvh - 24px));
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.99), rgba(255, 248, 238, 0.98));
+  border: 1px solid rgba(105, 52, 42, 0.16);
+  border-radius: 28px;
+  box-shadow: 0 35px 90px rgba(45, 12, 12, 0.28);
+  transform: translateY(20px);
+  transition: transform 0.25s ease;
+}
+
+.modal-overlay.show-modal .customer-reviews-box {
+  transform: translateY(0);
+}
+
+.customer-reviews-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 24px 28px 16px;
+  border-bottom: 1px solid rgba(105, 52, 42, 0.1);
+}
+
+.customer-reviews-eyebrow {
+  margin: 0 0 4px;
+  color: #a11a1a;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.customer-reviews-title {
+  margin: 0;
+  color: #5f0d0d;
+  font-family: "Montserrat", sans-serif;
+  font-size: clamp(1.35rem, 3vw, 2rem);
+  font-weight: 900;
+}
+
+.customer-reviews-product {
+  margin: 5px 0 0;
+  color: #6b7280;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.customer-reviews-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px 28px 4px;
+  color: #6b7280;
+  font-size: 0.82rem;
+}
+
+.customer-reviews-summary strong {
+  color: #5f0d0d;
+  font-size: 1.55rem;
+  line-height: 1;
+}
+
+.customer-reviews-summary-stars,
+.customer-review-star.filled {
+  color: #f1b400;
+  letter-spacing: 0.04em;
+}
+
+.customer-reviews-filters {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 12px 28px 14px;
+  scrollbar-width: thin;
+}
+/* ── Product card rating row (real review averages) ─────────────────────────── */
+.shop-card .product-rating-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 6px 8px;
+  border: 1px solid rgba(105, 52, 42, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.6);
+  font-family: "Montserrat", sans-serif;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.shop-card .product-rating-row:hover,
+.shop-card .product-rating-row:focus-visible {
+  border-color: rgba(133, 19, 19, 0.4);
+  background: rgba(255, 248, 238, 0.95);
+}
+
+.shop-card .product-rating-row .rating-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.product-star {
+  position: relative;
+  display: inline-block;
+  color: #d7d2cc;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.product-star.filled {
+  color: #f1b400;
+}
+
+/* Half star: paint the left half gold with a clipped overlay. */
+.product-star.half::before {
+  content: "★";
+  position: absolute;
+  inset: 0;
+  width: 50%;
+  overflow: hidden;
+  color: #f1b400;
+}
+
+
+
+.customer-review-filter {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid rgba(105, 52, 42, 0.16);
+  border-radius: 999px;
+  background: #fff;
+  color: #5f636d;
+  cursor: pointer;
+  font: 700 0.75rem/1 "Montserrat", sans-serif;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.customer-review-filter:hover,
+.customer-review-filter.active {
+  border-color: #851313;
+  background: #851313;
+  color: #fff;
+}
+
+.customer-review-filter span {
+  color: #f1b400;
+}
+
+.customer-review-filter.active span {
+  color: #ffe27a;
+}
+
+.customer-reviews-status {
+  min-height: 20px;
+  padding: 0 28px;
+  color: #8b0000;
+  font-size: 0.76rem;
+}
+
+.customer-reviews-list {
+  min-height: 120px;
+  padding: 0 28px 20px;
+  overflow-y: auto;
+}
+
+.customer-review-card {
+  padding: 18px 0;
+  border-bottom: 1px solid rgba(105, 52, 42, 0.12);
+}
+
+.customer-review-card-head,
+.customer-review-meta,
+.customer-review-card-footer {
+  display: flex;
+  align-items: center;
+}
+
+.customer-review-card-head {
+  gap: 10px;
+}
+
+.customer-review-avatar {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  border-radius: 50%;
+  background: #ffe2e2;
+  color: #851313;
+  font: 800 0.9rem/1 "Montserrat", sans-serif;
+}
+
+.customer-review-author strong {
+  color: #242a34;
+  font-size: 0.85rem;
+}
+
+.customer-review-meta {
+  gap: 8px;
+  margin-top: 4px;
+  color: #8a8f99;
+  font-size: 0.72rem;
+}
+
+.customer-review-stars {
+  display: inline-flex;
+  gap: 1px;
+  font-size: 0.9rem;
+}
+
+.customer-review-star {
+  color: #d4d6da;
+}
+
+.customer-review-feedback {
+  margin: 14px 0 12px;
+  color: #353b46;
+  font-size: 0.86rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.customer-review-feedback.muted {
+  color: #969ba5;
+  font-style: italic;
+}
+
+.customer-review-media {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0 14px;
+}
+
+.customer-review-media-item {
+  width: 100%;
+  aspect-ratio: 1 / 0.86;
+  object-fit: cover;
+  overflow: hidden;
+  border: 1px solid rgba(105, 52, 42, 0.12);
+  border-radius: 14px;
+  background: #f4eeee;
+}
+
+.customer-review-reply {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 12px 0;
+  padding: 9px 12px;
+  border-left: 3px solid #851313;
+  border-radius: 0 8px 8px 0;
+  background: #fff2f2;
+  color: #6b3030;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.customer-review-reply strong {
+  color: #851313;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.customer-review-card-footer {
+  justify-content: space-between;
+  gap: 12px;
+  color: #9398a2;
+  font-size: 0.72rem;
+}
+
+.customer-review-like {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: #7e858f;
+  cursor: pointer;
+  font: 700 0.78rem/1 "Montserrat", sans-serif;
+  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+
+.customer-review-like:hover:not(:disabled) {
+  border-color: rgba(139, 0, 0, 0.18);
+  background: #fff0f0;
+  color: #9e1414;
+}
+
+.customer-review-like.is-liked {
+  border-color: rgba(139, 0, 0, 0.18);
+  background: #ffe5e5;
+  color: #851313;
+  animation: customer-review-like-pop 0.24s ease;
+}
+
+.customer-review-like:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+@keyframes customer-review-like-pop {
+  50% { transform: scale(1.12); }
+}
+
+.customer-reviews-load-more {
+  align-self: center;
+  margin: 0 28px 20px;
+  padding: 10px 16px;
+  border: 1px solid rgba(139, 0, 0, 0.24);
+  border-radius: 999px;
+  background: #fff;
+  color: #851313;
+  cursor: pointer;
+  font: 800 0.78rem/1 "Montserrat", sans-serif;
+}
+
+.customer-reviews-load-more:hover:not(:disabled) {
+  background: #851313;
+  color: #fff;
+}
+
+.customer-reviews-load-more:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.customer-reviews-empty,
+.customer-reviews-loading {
+  display: flex;
+  min-height: 160px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: #7d838d;
+  text-align: center;
+}
+
+.customer-reviews-empty i {
+  color: #a11a1a;
+  font-size: 1.6rem;
+}
+
+.customer-reviews-empty strong {
+  color: #5f0d0d;
+  font-size: 0.9rem;
+}
+
+.customer-reviews-spinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid rgba(139, 0, 0, 0.18);
+  border-top-color: #851313;
+  border-radius: 50%;
+  animation: spinner 0.8s linear infinite;
+}
+
+@media (max-width: 680px) {
+  .reviews-btn {
+    flex: 1 1 100%;
+    margin-right: 0;
+  }
+
+  .customer-reviews-header,
+  .customer-reviews-summary,
+  .customer-reviews-filters,
+  .customer-reviews-list {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .customer-reviews-box {
+    border-radius: 20px;
+  }
+
+  .customer-reviews-load-more {
+    margin-left: 18px;
+    margin-right: 18px;
+  }
 }
 .popup-profile-icon {
   width: 42px;
@@ -8497,6 +8939,15 @@ body.sidebar-open {
   font-size: 0.88rem; font-weight: 600; color: #1a202c;
   margin: 0 0 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.customer-order-item-names {
+  margin: 0 0 3px;
+  overflow: hidden;
+  color: #8a909a;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .customer-torate-side {
   display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0;
 }
@@ -8512,6 +8963,9 @@ body.sidebar-open {
 .customer-rated-main h4 {
   font-size: 0.88rem; font-weight: 600; color: #1a202c;
   margin: 0 0 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.customer-rated-main .customer-order-item-names {
+  margin-bottom: 4px;
 }
 .customer-rated-stars {
   display: flex; align-items: center; gap: 3px; margin: 4px 0;
@@ -8713,11 +9167,14 @@ body.sidebar-open {
   font-weight: 600;
 }
 .customer-rating-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  justify-content: flex-end;
 }
 .customer-rating-cancel-btn {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
   padding: 10px 20px;
   border: 1px solid rgba(105, 52, 42, 0.16);
   border-radius: 14px;
@@ -8737,30 +9194,565 @@ body.sidebar-open {
 .customer-rating-cancel-btn:active {
   transform: scale(0.97);
 }
-.customer-rating-submit-btn {
-  padding: 10px 24px;
-  border: none;
+
+/* Submit Rating must match its Cancel sibling exactly. `.btn-place-order`
+   supplies the red fill but also a 999px pill, a 2px border and 14px type, so
+   the box metrics are pinned here with a two-class selector that outranks it. */
+.customer-rating-actions .customer-rating-submit-btn {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  box-sizing: border-box;
+  padding: 10px 20px;
+  border: 1px solid var(--customer-red, #b01c1c);
   border-radius: 14px;
-  background: linear-gradient(135deg, #5f0d0d 0%, #9e1414 52%, #c68317 100%);
-  color: #fff;
+  gap: 9px;
   font-family: "Montserrat", sans-serif;
   font-size: 0.82rem;
-  font-weight: 800;
-  cursor: pointer;
-  box-shadow: 0 10px 24px rgba(128, 24, 18, 0.22);
-  transition: all 0.2s ease;
+  font-weight: 700;
+  line-height: 1;
 }
-.customer-rating-submit-btn:hover {
-  background: linear-gradient(135deg, #3d0808 0%, #7f1111 52%, #ab7011 100%);
-  box-shadow: 0 14px 30px rgba(128, 24, 18, 0.3);
+
+.customer-rating-submit-btn:hover:not(:disabled),
+.customer-rating-submit-btn:focus-visible:not(:disabled) {
+  background: var(--customer-primary, #8b0000);
+  border-color: var(--customer-primary, #8b0000);
+  box-shadow: 0 8px 20px rgba(128, 24, 18, 0.28);
   transform: none;
 }
-.customer-rating-submit-btn:active {
+
+.customer-rating-submit-btn:active:not(:disabled) {
   transform: scale(0.97);
+  box-shadow: 0 2px 5px rgba(176, 28, 28, 0.2);
 }
+
 .customer-rating-submit-btn:disabled {
-  opacity: 0.55;
+  opacity: 0.72;
   pointer-events: none;
+}
+
+.customer-rating-submit-btn.is-loading:disabled {
+  background: var(--customer-red, #b01c1c);
+  border-color: var(--customer-red, #b01c1c);
+  color: #ffffff;
+  cursor: wait;
+  opacity: 0.9;
+}
+
+.customer-rating-submit-spinner {
+  display: none;
+  width: 15px;
+  height: 15px;
+  flex: 0 0 15px;
+  border: 2px solid rgba(255, 255, 255, 0.42);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spinner 0.8s linear infinite;
+}
+
+.customer-rating-submit-btn.is-loading .customer-rating-submit-spinner {
+  display: inline-block;
+}
+
+/* ===== Product-by-product review form ===== */
+.customer-rating-overlay {
+  align-items: center;
+  padding: 12px;
+}
+
+.customer-rating-card {
+  width: min(700px, 100%);
+  max-height: min(94vh, calc(100dvh - 20px));
+  overflow: hidden;
+  padding: 0;
+  gap: 0;
+  border-radius: 24px;
+  background: linear-gradient(145deg, #fff, #fff8f4);
+}
+
+.customer-rating-head {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid rgba(105, 52, 42, 0.1);
+  background: rgba(255, 253, 251, 0.98);
+}
+
+.customer-rating-eyebrow {
+  margin: 0 0 3px;
+  color: #a11a1a;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.customer-rating-head h3 {
+  margin: 0;
+  color: #5f0d0d;
+  font-size: 1.18rem;
+}
+
+.customer-rating-product-name {
+  margin: 0;
+  padding: 12px 24px 4px;
+  color: #737984;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.customer-rating-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-right: 6px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(133, 19, 19, 0.48) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+.customer-rating-body::-webkit-scrollbar {
+  width: 7px;
+}
+
+.customer-rating-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.customer-rating-body::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(133, 19, 19, 0.52);
+  background-clip: padding-box;
+}
+
+.customer-rating-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(95, 13, 13, 0.72);
+  background-clip: padding-box;
+}
+
+.customer-rating-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 10px 24px 18px;
+}
+
+.customer-rating-loading,
+.customer-rating-empty {
+  min-height: 230px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  border: 1px solid rgba(133, 19, 19, 0.1);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 90% 10%, rgba(241, 237, 18, 0.13), transparent 92px),
+    rgba(255, 255, 255, 0.76);
+  color: #737984;
+}
+
+.customer-rating-loading-mark {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 48px;
+}
+
+.customer-rating-loading-mark::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 3px solid rgba(133, 19, 19, 0.13);
+  border-top-color: #851313;
+  border-radius: 50%;
+  animation: spinner 0.72s linear infinite;
+}
+
+.customer-rating-loading-mark::after {
+  content: "\2605";
+  color: #e5a411;
+  font-size: 1rem;
+  line-height: 1;
+  text-shadow: 0 2px 8px rgba(229, 164, 17, 0.28);
+}
+
+.customer-rating-loading-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.customer-rating-loading-copy strong,
+.customer-rating-empty strong {
+  color: #5f0d0d;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.customer-rating-loading-copy > span,
+.customer-rating-empty > span {
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.customer-rating-empty {
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+}
+
+.customer-rating-empty i {
+  margin-bottom: 4px;
+  color: #a11a1a;
+  font-size: 1.45rem;
+}
+
+.customer-rating-item {
+  padding: 14px;
+  border: 1px solid rgba(133, 19, 19, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.customer-rating-item-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.customer-rating-item-image,
+.customer-rating-item-placeholder {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 48px;
+  overflow: hidden;
+  border: 1px solid rgba(133, 19, 19, 0.14);
+  border-radius: 12px;
+  background: #fff4f0;
+  color: #a11a1a;
+}
+
+.customer-rating-item-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.customer-rating-item-copy {
+  min-width: 0;
+}
+
+.customer-rating-item-copy h4 {
+  margin: 0;
+  overflow: hidden;
+  color: #262c36;
+  font-size: 0.88rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-rating-item-copy p {
+  margin: 3px 0 0;
+  color: #9297a0;
+  font-size: 0.7rem;
+}
+
+.customer-rating-item .customer-rating-stars {
+  justify-content: flex-start;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.customer-rating-item .rating-star-large {
+  padding: 0 1px;
+  font-size: 2rem;
+}
+
+.customer-rating-item .customer-rating-score-label {
+  min-height: 18px;
+  margin: 5px 0 12px;
+  text-align: left;
+  color: #851313;
+  font-size: 0.82rem;
+}
+
+.customer-rating-field-label {
+  display: block;
+  margin-bottom: 6px;
+  color: #363c47;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.customer-rating-field-label span {
+  color: #959aa3;
+  font-weight: 600;
+}
+
+.customer-rating-item .customer-rating-feedback {
+  min-height: 96px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f6f4f4;
+  font-size: 0.8rem;
+}
+
+.customer-rating-item .customer-rating-char-count {
+  margin: 4px 2px 12px 0;
+  font-size: 0.68rem;
+}
+
+.customer-rating-media-field {
+  margin-top: 4px;
+}
+
+.customer-rating-upload {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px dashed rgba(133, 19, 19, 0.34);
+  border-radius: 10px;
+  background: #fffafa;
+  color: #851313;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 800;
+  transition: background-color 0.18s ease, border-color 0.18s ease;
+}
+
+.customer-rating-upload:hover {
+  border-color: #851313;
+  background: #fff0f0;
+}
+
+.customer-rating-media-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.customer-rating-media-thumb {
+  position: relative;
+  width: 70px;
+  height: 70px;
+  overflow: hidden;
+  border: 1px solid rgba(133, 19, 19, 0.12);
+  border-radius: 9px;
+  background: #f2eeee;
+}
+
+.customer-rating-media-thumb img,
+.customer-rating-media-thumb video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.customer-rating-media-thumb small {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  left: 2px;
+  overflow: hidden;
+  padding: 2px 3px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.58);
+  color: #fff;
+  font-size: 0.48rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-rating-media-thumb button {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 19px;
+  height: 19px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(95, 13, 13, 0.88);
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.customer-rating-media-thumb:not(.is-new) button {
+  display: none;
+}
+
+.customer-rating-anonymous {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: #515762;
+  cursor: pointer;
+  font-size: 0.76rem;
+}
+
+.customer-rating-anonymous input {
+  width: 16px;
+  height: 16px;
+  accent-color: #851313;
+}
+
+.customer-rating-actions {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 10px;
+  padding: 14px 24px max(14px, env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(105, 52, 42, 0.1);
+  background: rgba(255, 250, 247, 0.96);
+  backdrop-filter: blur(12px);
+}
+
+.customer-rating-actions .customer-rating-cancel-btn,
+.customer-rating-actions .customer-rating-submit-btn {
+  min-height: 42px;
+  border-radius: 11px;
+}
+
+.customer-rating-submit-btn {
+  border: 1px solid #851313;
+  background: #851313;
+  color: #fff;
+  cursor: pointer;
+  font-family: "Montserrat", sans-serif;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.customer-rating-submit-btn:hover:not(:disabled) {
+  background: #5f0d0d;
+  border-color: #5f0d0d;
+  transform: none;
+}
+
+.customer-rating-submit-btn:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.customer-rating-discard-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(20, 8, 8, 0.46);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.customer-rating-discard-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.customer-rating-discard-card {
+  width: min(390px, 100%);
+  padding: 22px;
+  border: 1px solid rgba(133, 19, 19, 0.14);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 60px rgba(45, 12, 12, 0.25);
+  text-align: center;
+}
+
+.customer-rating-discard-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 10px;
+  border-radius: 50%;
+  background: #fff3dd;
+  color: #b45309;
+}
+
+.customer-rating-discard-card h3 {
+  margin: 0;
+  color: #5f0d0d;
+  font-size: 1.05rem;
+}
+
+.customer-rating-discard-card p {
+  margin: 8px 0 18px;
+  color: #737984;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.customer-rating-discard-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
+  gap: 9px;
+}
+
+.customer-rating-discard-actions .customer-rating-cancel-btn,
+.customer-rating-discard-actions .customer-rating-submit-btn {
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+}
+
+@media (max-width: 560px) {
+  .customer-rating-card {
+    max-height: calc(100dvh - 10px);
+    border-radius: 18px;
+  }
+
+  .customer-rating-head,
+  .customer-rating-product-name,
+  .customer-rating-items,
+  .customer-rating-actions {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .customer-rating-actions,
+  .customer-rating-discard-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-rating-body {
+    margin-right: 4px;
+  }
+
+  .customer-rating-loading,
+  .customer-rating-empty {
+    min-height: 190px;
+    padding: 18px 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customer-rating-loading-mark::before {
+    animation-duration: 1.4s;
+  }
 }
 
 /* ===== Order Received — Rate Prompt Toast ===== */
@@ -8773,7 +9765,6 @@ body.sidebar-open {
   width: calc(100vw - 48px);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 248, 238, 0.95));
   border: 1px solid rgba(105, 52, 42, 0.16);
-  border-left: 5px solid #851313;
   border-radius: 20px;
   box-shadow: 0 20px 50px rgba(45, 12, 12, 0.22);
   backdrop-filter: blur(16px);
@@ -9284,10 +10275,10 @@ body {
 
 /* Profile dropdown */
 .profile-popup {
-  width: min(340px, calc(100vw - 24px));
-  padding: 20px;
+  width: min(390px, calc(100vw - 32px));
+  padding: 22px;
   border: 1px solid rgba(105, 52, 42, 0.16);
-  border-radius: 26px;
+  border-radius: 28px;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 248, 238, 0.95));
   box-shadow: 0 30px 70px rgba(45, 12, 12, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
@@ -9348,17 +10339,18 @@ body {
 .profile-popup-link {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 13px 18px;
+  gap: 14px;
+  min-height: 56px;
+  padding: 14px 20px;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(105, 52, 42, 0.12) !important;
   color: #222833;
   font-family: "Montserrat", sans-serif;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   text-decoration: none;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   box-shadow: 0 4px 14px rgba(61, 35, 28, 0.04);
   transition: all 0.2s ease;
 }
@@ -9385,7 +10377,8 @@ body {
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 14px 20px;
+  min-height: 56px;
+  padding: 15px 20px;
   border-radius: 16px;
   background: #851313;
   background-image: none;
@@ -9399,7 +10392,7 @@ body {
   transition:
     background-color 0.16s ease,
     transform 0.1s ease;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
 .popup-logout:hover {
@@ -9851,6 +10844,7 @@ body {
 #appointmentFlow button:not(:disabled),
 #aptPrivacyModal button:not(:disabled),
 #aptConfirmModal button:not(:disabled),
+#orderSuccessModal button:not(:disabled),
 #successAppointmentModal button:not(:disabled) {
   -webkit-tap-highlight-color: transparent;
   transition:
@@ -9863,14 +10857,17 @@ body {
 #appointmentFlow .apt-btn,
 #aptPrivacyModal .apt-btn,
 #aptConfirmModal .apt-btn,
+#orderSuccessModal .apt-btn,
 #successAppointmentModal .apt-btn,
 #appointmentFlow button:not(:disabled):hover,
 #aptPrivacyModal button:not(:disabled):hover,
 #aptConfirmModal button:not(:disabled):hover,
+#orderSuccessModal button:not(:disabled):hover,
 #successAppointmentModal button:not(:disabled):hover,
 #appointmentFlow button:not(:disabled):active,
 #aptPrivacyModal button:not(:disabled):active,
 #aptConfirmModal button:not(:disabled):active,
+#orderSuccessModal button:not(:disabled):active,
 #successAppointmentModal button:not(:disabled):active {
   box-shadow: none;
 }
@@ -9878,6 +10875,7 @@ body {
 #appointmentFlow button:not(:disabled):hover,
 #aptPrivacyModal button:not(:disabled):hover,
 #aptConfirmModal button:not(:disabled):hover,
+#orderSuccessModal button:not(:disabled):hover,
 #successAppointmentModal button:not(:disabled):hover {
   transform: none;
 }
@@ -9885,6 +10883,7 @@ body {
 #appointmentFlow button:not(:disabled):active,
 #aptPrivacyModal button:not(:disabled):active,
 #aptConfirmModal button:not(:disabled):active,
+#orderSuccessModal button:not(:disabled):active,
 #successAppointmentModal button:not(:disabled):active {
   transform: scale(0.97);
 }
@@ -9892,6 +10891,7 @@ body {
 #appointmentFlow .apt-btn-blue,
 #aptPrivacyModal .apt-btn-blue,
 #aptConfirmModal .apt-btn-blue,
+#orderSuccessModal .apt-btn-blue,
 #successAppointmentModal .apt-btn-blue {
   background: #f1ed12;
   background-image: none;
@@ -9902,6 +10902,7 @@ body {
 #appointmentFlow .apt-btn-blue:hover,
 #aptPrivacyModal .apt-btn-blue:hover,
 #aptConfirmModal .apt-btn-blue:hover,
+#orderSuccessModal .apt-btn-blue:hover,
 #successAppointmentModal .apt-btn-blue:hover {
   background: #d4cf0e;
   background-image: none;
@@ -9912,6 +10913,7 @@ body {
 #appointmentFlow .apt-btn-blue:active,
 #aptPrivacyModal .apt-btn-blue:active,
 #aptConfirmModal .apt-btn-blue:active,
+#orderSuccessModal .apt-btn-blue:active,
 #successAppointmentModal .apt-btn-blue:active {
   background: #b8b308;
   background-image: none;
@@ -10565,8 +11567,8 @@ video {
 
 .profile-popup,
 .guest-profile-popup {
-  width: min(300px, calc(100vw - 22px));
-  max-width: calc(100vw - 22px);
+  width: min(390px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
 }
 
 /* The homepage "What we offer" carousel and the services carousel
@@ -10685,6 +11687,11 @@ video {
   display: inline-grid;
   place-items: center;
   color: var(--customer-primary);
+  /* Same box as the announcement bell below. Both badges are pinned to
+     top/right -2px, so matching box sizes is what keeps the cart counter and
+     the announcement counter at exactly the same height. */
+  width: clamp(38px, 8.6vw, 42px);
+  height: clamp(38px, 8.6vw, 42px);
 }
 
 .header-right-actions .cart-icon-container svg {
@@ -12131,5 +13138,583 @@ textarea:focus-visible,
 [tabindex]:focus-visible {
   outline: 3px solid rgba(241, 189, 18, 0.85);
   outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------
+   CUSTOMER PORTAL MODAL FINISH
+   Shared by Home, Services, Products, and Contact customer pages.
+   ------------------------------------------------------------------ */
+
+/* The orders surface is a true edge-to-edge drawer. The shared UX layer
+   above adds breathing room to ordinary dialogs, but that inset creates a
+   visible strip beside this full-height panel. */
+.customer-orders-overlay {
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  min-height: 100vh;
+  padding: 0 !important;
+  overflow: hidden;
+  align-items: stretch;
+  background: rgba(18, 20, 28, 0.64);
+}
+
+.customer-orders-modal {
+  width: min(820px, 100%);
+  max-width: 100%;
+  height: 100dvh;
+  min-height: 100vh;
+  max-height: none;
+  padding: max(20px, env(safe-area-inset-top))
+    max(20px, env(safe-area-inset-right))
+    max(20px, env(safe-area-inset-bottom))
+    max(20px, env(safe-area-inset-left));
+  border: 0;
+  border-left: 1px solid rgba(176, 28, 28, 0.16);
+  border-radius: 0;
+  background:
+    radial-gradient(circle at 100% 0, rgba(241, 237, 18, 0.16), transparent 18rem),
+    linear-gradient(180deg, #ffffff 0%, #fffafa 100%);
+  box-shadow: -30px 0 78px rgba(15, 23, 42, 0.3);
+  gap: 18px;
+  overflow: hidden;
+}
+
+.customer-orders-head {
+  flex: 0 0 auto;
+  align-items: center;
+  padding: 4px 0 18px;
+  border-bottom: 1px solid rgba(176, 28, 28, 0.12);
+}
+
+.customer-orders-title-wrap {
+  min-width: 0;
+}
+
+.customer-orders-title {
+  font-size: clamp(1.2rem, 2.3vw, 1.65rem);
+  letter-spacing: -0.02em;
+}
+
+.customer-orders-subtitle {
+  max-width: 46ch;
+  margin-top: 6px;
+  font-size: 0.8rem;
+}
+
+.customer-orders-sync-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 9px 0 0;
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.customer-orders-sync-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+
+.customer-orders-sync-status.is-syncing .customer-orders-sync-dot {
+  background: #d4cf0e;
+  animation: customer-orders-sync-pulse 1.15s ease-in-out infinite;
+}
+
+.customer-orders-sync-status.is-live {
+  color: #18723a;
+}
+
+.customer-orders-sync-status.is-live .customer-orders-sync-dot {
+  background: #22a447;
+  box-shadow: 0 0 0 3px rgba(34, 164, 71, 0.12);
+}
+
+.customer-orders-sync-status.is-offline {
+  color: #9a5a09;
+}
+
+.customer-orders-sync-status.is-offline .customer-orders-sync-dot {
+  background: #d97706;
+}
+
+@keyframes customer-orders-sync-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.customer-orders-close {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  border-color: rgba(176, 28, 28, 0.18);
+  border-radius: 12px;
+  background: #fff8f8;
+  color: #7f1d1d;
+}
+
+.customer-orders-close:hover {
+  border-color: #7f1d1d;
+  background: #7f1d1d;
+  color: #ffffff;
+}
+
+.customer-orders-tabs {
+  flex: 0 0 auto;
+  gap: 6px;
+  padding: 5px;
+  border: 1px solid rgba(176, 28, 28, 0.12);
+  border-radius: 15px;
+  background: rgba(255, 246, 246, 0.9);
+  scrollbar-width: none;
+}
+
+.customer-orders-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.customer-orders-tab {
+  min-height: 40px;
+  padding: 8px 12px;
+  border-color: transparent;
+  border-radius: 10px;
+  background: transparent;
+}
+
+.customer-orders-tab:hover {
+  border-color: #5f0d0d;
+  background: #5f0d0d;
+  color: #ffffff;
+}
+
+.customer-orders-tab.active {
+  background: linear-gradient(135deg, #8f1111, #b01c1c);
+  border-color: transparent;
+  box-shadow: 0 8px 18px rgba(128, 0, 0, 0.2);
+}
+
+.customer-orders-viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  border-radius: 18px;
+  background: rgba(255, 248, 248, 0.92);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.customer-orders-panel {
+  padding: 16px;
+}
+
+.customer-order-card {
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 10px 24px rgba(65, 16, 16, 0.06);
+}
+
+.customer-order-card:hover {
+  transform: none;
+  border-color: rgba(143, 17, 17, 0.28);
+  background: #fffdfd;
+  box-shadow: 0 14px 28px rgba(65, 16, 16, 0.1);
+}
+
+.customer-order-thumb img,
+.customer-order-detail-item img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition:
+    opacity 0.18s ease,
+    transform 0.2s ease;
+}
+
+.customer-order-thumb img.is-loading,
+.customer-order-detail-item img.is-loading {
+  opacity: 0.2;
+}
+
+.customer-order-image-trigger {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: inherit;
+  background: linear-gradient(145deg, #fffafa, #f8eaea);
+  color: #8b0000;
+  cursor: zoom-in;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.customer-order-detail-image-trigger {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.customer-order-image-trigger:hover img,
+.customer-order-image-trigger:focus-visible img {
+  transform: scale(1.04);
+}
+
+.customer-order-image-trigger:active img {
+  transform: scale(0.98);
+}
+
+.customer-order-image-trigger:focus-visible {
+  outline: 3px solid rgba(176, 28, 28, 0.42);
+  outline-offset: 2px;
+}
+
+.customer-order-image-trigger[aria-disabled="true"] {
+  cursor: default;
+}
+
+.customer-order-image-loading,
+.customer-order-image-expand,
+.customer-order-image-unavailable {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.customer-order-image-loading {
+  inset: 0;
+  color: #8b0000;
+  font-size: 1rem;
+  opacity: 0;
+}
+
+.customer-order-image-trigger.is-loading .customer-order-image-loading {
+  opacity: 1;
+}
+
+.customer-order-image-expand {
+  right: 5px;
+  bottom: 5px;
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.86);
+  border-radius: 50%;
+  background: rgba(95, 13, 13, 0.9);
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(45, 12, 12, 0.26);
+  font-size: 0.67rem;
+  opacity: 0;
+}
+
+.customer-order-image-trigger.is-ready .customer-order-image-expand {
+  opacity: 1;
+}
+
+.customer-order-image-trigger.is-unavailable .customer-order-image-expand,
+.customer-order-image-trigger.is-unavailable .customer-order-image-loading {
+  opacity: 0;
+}
+
+.customer-order-image-unavailable {
+  inset: 0;
+  color: rgba(139, 0, 0, 0.58);
+  font-size: 1.1rem;
+  opacity: 0;
+}
+
+.customer-order-image-trigger.is-unavailable .customer-order-image-unavailable {
+  opacity: 1;
+}
+
+.customer-order-image-lightbox {
+  z-index: 30040;
+}
+
+.customer-order-lightbox-box {
+  width: min(760px, 92vw);
+}
+
+.customer-order-lightbox-media {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-height: min(58vh, 520px);
+  place-items: center;
+  overflow: hidden;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #ffffff, #fff7f4);
+}
+
+.customer-order-lightbox-image {
+  grid-area: 1 / 1;
+  opacity: 0;
+}
+
+.customer-order-image-lightbox.is-loading .customer-order-lightbox-image[src] {
+  opacity: 0.32;
+}
+
+.customer-order-image-lightbox.is-ready .customer-order-lightbox-image {
+  opacity: 1;
+}
+
+.customer-order-lightbox-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #6b1111;
+  font-family: "Montserrat", sans-serif;
+  font-size: 0.88rem;
+  font-weight: 800;
+  transition: opacity 0.18s ease;
+}
+
+.customer-order-image-lightbox.is-ready .customer-order-lightbox-loading {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.customer-order-image-lightbox.has-error .customer-order-lightbox-loading i {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customer-rating-submit-spinner {
+    animation-duration: 1.5s;
+  }
+
+  .customer-order-image-trigger img {
+    transition: opacity 0.18s ease;
+  }
+}
+
+.customer-order-detail-modal {
+  inset: 0;
+  border: 0;
+  border-radius: 0;
+  background: #fffafa;
+  box-shadow: 0 0 42px rgba(15, 23, 42, 0.2);
+}
+
+.customer-order-detail-head {
+  padding: 18px 20px;
+  border-bottom-color: rgba(176, 28, 28, 0.12);
+  background: #ffffff;
+}
+
+.customer-order-detail-content {
+  padding: 18px;
+}
+
+/* A confirmation popup should feel deliberate and centered, with clear
+   hierarchy and controls that remain comfortable on small screens. */
+#aptConfirmModal {
+  padding: max(16px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+  background: rgba(42, 7, 7, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+#aptConfirmModal .apt-nested-box {
+  width: min(100%, 440px);
+  max-width: 440px;
+  padding: 32px clamp(22px, 5vw, 36px) 30px;
+  border: 1px solid rgba(176, 28, 28, 0.14);
+  border-top: 1px solid rgba(176, 28, 28, 0.14);
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 28px 70px rgba(27, 4, 4, 0.38);
+  text-align: center;
+}
+
+#aptConfirmModal .nested-icon {
+  position: static;
+  width: 62px;
+  height: 62px;
+  margin: 0 auto 18px;
+  transform: none;
+  border: 6px solid #fff8d2;
+  background: #f1ed12;
+  color: #5f0d0d;
+  font-size: 28px;
+  box-shadow: 0 10px 22px rgba(139, 131, 5, 0.2);
+}
+
+#aptConfirmModal .apt-nested-box h3 {
+  margin: 0 0 10px;
+  color: #5f0d0d;
+  font-size: clamp(20px, 4vw, 24px);
+  line-height: 1.2;
+}
+
+#aptConfirmModal .apt-nested-box p {
+  max-width: 30ch;
+  margin: 0 auto;
+  color: #5c6470;
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+#aptConfirmModal .nested-actions {
+  justify-content: center;
+  gap: 12px;
+  margin-top: 25px;
+}
+
+#aptConfirmModal .nested-actions .apt-btn {
+  min-width: 132px;
+}
+
+/* The success dialog is a compact, scroll-safe confirmation card rather than
+   a loose block with competing padding rules from the legacy layers. */
+.success-modal-overlay {
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  min-height: 100vh;
+  padding: max(16px, env(safe-area-inset-top))
+    max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-left));
+  overflow-y: auto;
+  background: rgba(42, 7, 7, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.success-card {
+  width: min(100%, 520px);
+  max-width: 520px;
+  max-height: min(720px, calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid rgba(241, 237, 18, 0.6);
+  border-radius: 26px;
+  background: #ffffff;
+  box-shadow: 0 30px 78px rgba(27, 4, 4, 0.5);
+}
+
+.success-card__header {
+  padding: clamp(26px, 5vw, 36px) clamp(24px, 6vw, 38px) 30px;
+}
+
+.success-icon {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  margin-bottom: 17px;
+  font-size: 30px;
+}
+
+.success-card__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 28px clamp(24px, 6vw, 38px) 24px;
+}
+
+.success-desc {
+  max-width: 50ch;
+}
+
+.success-reference {
+  border: 1px solid #eadc9a;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.success-card__footer {
+  flex: 0 0 auto;
+  padding: 18px clamp(24px, 6vw, 38px) max(26px, env(safe-area-inset-bottom));
+  border-top: 1px solid #f0e8c8;
+  background: #fffdf4;
+}
+
+@media (max-width: 560px) {
+  .customer-orders-modal {
+    padding: max(16px, env(safe-area-inset-top))
+      max(14px, env(safe-area-inset-right))
+      max(16px, env(safe-area-inset-bottom))
+      max(14px, env(safe-area-inset-left));
+    gap: 13px;
+  }
+
+  .customer-orders-head {
+    padding-bottom: 14px;
+  }
+
+  .customer-orders-subtitle {
+    font-size: 0.74rem;
+  }
+
+  .customer-orders-viewport {
+    border-radius: 14px;
+  }
+
+  .customer-orders-panel {
+    padding: 10px;
+  }
+
+  .customer-order-detail-head,
+  .customer-order-detail-content {
+    padding: 14px;
+  }
+
+  #aptConfirmModal .nested-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #aptConfirmModal .nested-actions .apt-btn {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .success-card {
+    width: 100%;
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    border-radius: 22px;
+  }
+
+  .success-card__header {
+    padding: 26px 24px 28px;
+  }
+
+  .success-card__body {
+    padding: 24px 24px 20px;
+  }
+
+  .success-card__footer {
+    padding: 16px 24px max(22px, env(safe-area-inset-bottom));
+  }
 }
 

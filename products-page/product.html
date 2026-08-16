@@ -97,7 +97,7 @@
         letter-spacing: -0.04em;
       }
       .announcement-bell .announcement-bell__badge { top: -2px !important; right: -2px !important; }
-      .cart-icon-container .cart-badge { top: -6px !important; right: -10px !important; }
+      .cart-icon-container .cart-badge { top: -2px !important; right: -2px !important; }
       .announcement-bell__badge[data-length="1"], .cart-badge[data-length="1"] { font-size: 10.5px !important; letter-spacing: 0 !important; }
       .announcement-bell__badge[data-length="2"], .cart-badge[data-length="2"] { font-size: 8.5px !important; letter-spacing: -0.04em !important; }
       .announcement-bell__badge[data-length="3"], .cart-badge[data-length="3"] { font-size: 7.5px !important; letter-spacing: -0.06em !important; }
@@ -158,6 +158,7 @@
         .announcement-modal__body { padding: 22px 23px 25px; }
       }
     </style>
+    <link rel="stylesheet" href="../home-page/responsive.css" />
   </head>
   <body class="products-page-body">
     <header class="site-header">
@@ -168,10 +169,16 @@
           class="header-emblem"
         />
         <h1 class="logo-text">
-          <span class="logo-title">UNIVERSITY OF CAMARINES NORTE</span>
-          <span class="logo-subtitle"
-            >FABRICATION AND MANUFACTURING RESEARCH CENTER</span
-          >
+          <span class="logo-title">
+            <span class="brand-name-full">UNIVERSITY OF CAMARINES NORTE</span>
+            <span class="brand-name-short">UCN</span>
+          </span>
+          <span class="logo-subtitle">
+            <span class="brand-name-full"
+              >FABRICATION AND MANUFACTURING RESEARCH CENTER</span
+            >
+            <span class="brand-name-short">FMRC</span>
+          </span>
         </h1>
       </a>
       <nav class="main-nav">
@@ -389,6 +396,11 @@
         <div class="modal-divider"></div>
 
         <div class="modal-actions">
+          <button class="modal-btn reviews-btn" id="productInfoReviews" type="button">
+            <i class="fa-regular fa-comment-dots" aria-hidden="true"></i>
+            Customer Reviews
+            <span class="reviews-btn-count" id="productInfoReviewsCount">0</span>
+          </button>
           <button class="modal-btn outline-btn" id="productInfoAddToCart">
             Add to Cart
           </button>
@@ -396,6 +408,40 @@
             Buy Now
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- Product reviews modal -->
+    <div class="customer-reviews-overlay modal-overlay" id="customerReviewsModal" aria-hidden="true">
+      <div class="customer-reviews-box" role="dialog" aria-modal="true" aria-labelledby="customerReviewsTitle">
+        <div class="customer-reviews-header">
+          <div>
+            <p class="customer-reviews-eyebrow">Customer feedback</p>
+            <h2 class="customer-reviews-title" id="customerReviewsTitle">Customer Reviews</h2>
+            <p class="customer-reviews-product" id="customerReviewsProductName"></p>
+          </div>
+          <button type="button" class="close-modal-btn" id="closeCustomerReviewsModal" aria-label="Close customer reviews">&times;</button>
+        </div>
+
+        <div class="customer-reviews-summary" id="customerReviewsSummary">
+          <strong id="customerReviewsAverage">0.0</strong>
+          <span class="customer-reviews-summary-stars" aria-hidden="true">★★★★★</span>
+          <span id="customerReviewsTotal">0 reviews</span>
+        </div>
+
+        <div class="customer-reviews-filters" id="customerReviewsFilters" role="group" aria-label="Filter customer reviews">
+          <button type="button" class="customer-review-filter active" data-review-filter="all">All</button>
+          <button type="button" class="customer-review-filter" data-review-filter="visuals"><i class="fa-regular fa-image" aria-hidden="true"></i> Includes visuals</button>
+          <button type="button" class="customer-review-filter" data-review-filter="5"><span aria-hidden="true">★</span> 5 Star</button>
+          <button type="button" class="customer-review-filter" data-review-filter="4"><span aria-hidden="true">★</span> 4 Star</button>
+          <button type="button" class="customer-review-filter" data-review-filter="3"><span aria-hidden="true">★</span> 3 Star</button>
+          <button type="button" class="customer-review-filter" data-review-filter="2"><span aria-hidden="true">★</span> 2 Star</button>
+          <button type="button" class="customer-review-filter" data-review-filter="1"><span aria-hidden="true">★</span> 1 Star</button>
+        </div>
+
+        <div class="customer-reviews-status" id="customerReviewsStatus" aria-live="polite"></div>
+        <div class="customer-reviews-list" id="customerReviewsList"></div>
+        <button type="button" class="customer-reviews-load-more" id="customerReviewsLoadMore" hidden>Load more reviews</button>
       </div>
     </div>
 
@@ -1322,184 +1368,58 @@
 
     <!-- ═══════════════════════════════════════════════════════════
          ORDER SUCCESS MODAL — shown after a customer places an order.
-         Only closes when the customer clicks the "Okay" button.
+         Shares the exact card anatomy as the "Appointment Confirmed"
+         dialog (.success-modal-overlay / .success-card in main.css) so
+         both customer confirmations look and behave identically.
+         Only closes when the customer clicks the footer button.
          ═══════════════════════════════════════════════════════════ -->
     <div
+      class="success-modal-overlay"
       id="orderSuccessModal"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="orderSuccessTitle"
-      style="
-        display: none;
-        position: fixed;
-        inset: 0;
-        z-index: 99999;
-        align-items: center;
-        justify-content: center;
-        background: rgba(0, 0, 0, 0.55);
-        backdrop-filter: blur(4px);
-        animation: orderSuccessFadeIn 0.22s ease;
-      "
+      aria-hidden="true"
     >
       <div
-        style="
-          background: #fff;
-          border-radius: 20px;
-          padding: 40px 32px 32px;
-          max-width: 420px;
-          width: 90%;
-          box-shadow: 0 24px 64px rgba(0, 0, 0, 0.22);
-          text-align: center;
-          animation: orderSuccessSlideUp 0.26s cubic-bezier(0.34, 1.56, 0.64, 1);
-          position: relative;
-        "
+        class="success-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="orderSuccessTitle"
       >
-        <!-- Checkmark icon -->
-        <div
-          style="
-            width: 72px;
-            height: 72px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #2ecc71, #27ae60);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 20px;
-            box-shadow: 0 8px 24px rgba(46, 204, 113, 0.35);
-          "
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="36"
-            height="36"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#fff"
-            stroke-width="3"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <polyline points="20 6 9 17 4 12"></polyline>
-          </svg>
+        <div class="success-card__header">
+          <div class="success-icon" aria-hidden="true">✓</div>
+          <p class="success-eyebrow">Order Placed</p>
+          <h3 class="success-title" id="orderSuccessTitle">
+            Your order is confirmed
+          </h3>
         </div>
-
-        <h2
-          id="orderSuccessTitle"
-          style="
-            font-family: &quot;Montserrat&quot;, sans-serif;
-            font-size: 1.45rem;
-            font-weight: 800;
-            color: #1a1a2e;
-            margin: 0 0 8px;
-          "
-        >
-          Order Placed!
-        </h2>
-
-        <p
-          style="
-            color: #555;
-            font-size: 0.93rem;
-            margin: 0 0 20px;
-            line-height: 1.5;
-          "
-        >
-          Your order has been successfully submitted.<br />
-          Please keep your order number for reference.
-        </p>
-
-        <!-- Order number badge -->
-        <div
-          style="
-            background: linear-gradient(135deg, #8b0000, #b01c1c);
-            border-radius: 12px;
-            padding: 14px 20px;
-            margin-bottom: 22px;
-            box-shadow: 0 4px 16px rgba(139, 0, 0, 0.2);
-          "
-        >
-          <div
-            style="
-              color: rgba(255, 255, 255, 0.75);
-              font-size: 0.72rem;
-              font-weight: 700;
-              letter-spacing: 1.5px;
-              text-transform: uppercase;
-              margin-bottom: 4px;
-            "
-          >
-            Order Number
+        <div class="success-card__body">
+          <p class="success-desc">
+            Your order has been successfully submitted to the FMRC team. Keep
+            the order number below so you can track its status anytime.
+          </p>
+          <div class="success-reference" aria-label="Order number">
+            <span>Order Number</span>
+            <strong id="orderSuccessNumber">—</strong>
           </div>
-          <div
-            id="orderSuccessNumber"
-            style="
-              color: #fff;
-              font-size: 1.55rem;
-              font-weight: 900;
-              font-family: &quot;Montserrat&quot;, sans-serif;
-              letter-spacing: 1px;
-            "
-          >
-            —
-          </div>
+          <p class="success-note">
+            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+            We will process your order shortly. An email confirmation will be
+            sent to your registered address.
+          </p>
         </div>
-
-        <p style="color: #888; font-size: 0.8rem; margin: 0 0 24px">
-          We will process your order shortly. You will receive an email
-          confirmation.
-        </p>
-
-        <button id="orderSuccessOkBtn" type="button">Okay</button>
+        <div class="success-card__footer">
+          <button
+            type="button"
+            class="apt-btn apt-btn-blue"
+            id="orderSuccessOkBtn"
+          >
+            <i class="fa-solid fa-bag-shopping" aria-hidden="true"></i>
+            Continue Shopping
+          </button>
+        </div>
       </div>
     </div>
 
-    <style>
-      #orderSuccessOkBtn {
-        width: 100%;
-        padding: 14px 0;
-        background: #b01c1c;
-        color: #fff;
-        border: 2px solid #b01c1c;
-        border-radius: 30px;
-        font-size: 1rem;
-        font-weight: 800;
-        cursor: pointer;
-        font-family: "Montserrat", sans-serif;
-        transition:
-          background-color 0.24s ease,
-          border-color 0.24s ease,
-          box-shadow 0.24s ease,
-          transform 0.08s ease;
-        letter-spacing: 0.5px;
-      }
-      #orderSuccessOkBtn:hover {
-        background: #8b0000;
-        border-color: #8b0000;
-        box-shadow: 0 8px 18px rgba(139, 0, 0, 0.2);
-      }
-      #orderSuccessOkBtn:active {
-        transform: scale(0.97);
-      }
-
-      @keyframes orderSuccessFadeIn {
-        from {
-          opacity: 0;
-        }
-        to {
-          opacity: 1;
-        }
-      }
-      @keyframes orderSuccessSlideUp {
-        from {
-          opacity: 0;
-          transform: translateY(32px) scale(0.95);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0) scale(1);
-        }
-      }
-    </style>
+    <!-- Order success modal above replaces the previous inline card. -->
 
     <script src="../home-page/customer-announcements.js"></script>
     <script src="../home-page/main.js"></script>

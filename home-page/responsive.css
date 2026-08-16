@@ -1,0 +1,1484 @@
+/*
+ * Customer website responsive completion layer.
+ *
+ * This file is loaded after the established page styles (and after the
+ * Products page's inline styles) so the normal desktop layout remains intact.
+ * Rules are limited to compact/tablet viewports, short screens, and very wide
+ * displays that need a capped reading measure.
+ */
+
+.brand-name-short {
+  display: none;
+}
+
+.apt-header-spacer {
+  width: 32px;
+  flex: 0 0 32px;
+}
+
+/* Calendar dates are native buttons; neutralize browser button chrome so
+   their established visual treatment remains unchanged. */
+.cal-day-cell {
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  font-family: inherit;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cal-day-cell[title] {
+    overflow: visible;
+  }
+}
+
+/* Mobile/tablet navigation uses the requested compact UCN / FMRC lockup. */
+@media (max-width: 900px) {
+  .brand-name-full {
+    display: none;
+  }
+
+  .brand-name-short {
+    display: inline;
+  }
+
+  .site-header .logo-text,
+  .sidebar-logo-container .logo-text {
+    width: auto;
+    max-width: none;
+    gap: 1px;
+  }
+
+  .site-header .logo-title,
+  .sidebar-logo-container .logo-title {
+    font-size: clamp(14px, 2.6vw, 17px);
+    line-height: 1;
+    letter-spacing: 0.08em;
+  }
+
+  .site-header .logo-subtitle,
+  .sidebar-logo-container .logo-subtitle {
+    display: block;
+    font-size: clamp(9px, 1.8vw, 11px);
+    line-height: 1.05;
+    letter-spacing: 0.16em;
+  }
+
+  .site-header .logo-container {
+    flex: 1 1 auto;
+    width: auto;
+  }
+
+  .toolbar-container,
+  .toolbar-actions,
+  .contact-grid,
+  .contact-info-card,
+  .contact-form-card,
+  .modal-box,
+  .shop-modal-box,
+  .customer-modal,
+  .guest-access-card,
+  .apt-card,
+  .ticket-container {
+    min-width: 0;
+  }
+
+  .customer-order-main,
+  .customer-order-side,
+  .checkout-product-details,
+  .checkout-cart-item-details,
+  .cart-item-details,
+  .client-details,
+  .switch-text,
+  .upsell-left,
+  .upsell-right {
+    min-width: 0;
+  }
+
+  .apt-header-top {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    margin-top: 0;
+    padding-block: 6px;
+    background: linear-gradient(
+      180deg,
+      rgba(61, 8, 8, 0.98) 0%,
+      rgba(61, 8, 8, 0.9) 78%,
+      rgba(61, 8, 8, 0) 100%
+    );
+  }
+}
+
+/* Small phones: let two-filter toolbars and modal controls use full rows. */
+@media (max-width: 420px) {
+  .toolbar-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .category-dropdown-box {
+    width: 100%;
+  }
+
+  .announcement-modal__actions,
+  .modal-actions,
+  .guest-access-actions,
+  .customer-rating-actions {
+    flex-wrap: wrap;
+  }
+
+  .announcement-modal__button,
+  .modal-actions .modal-btn,
+  .guest-access-btn {
+    min-width: 0;
+  }
+
+  .profile-popup,
+  .guest-profile-popup {
+    left: auto;
+    right: max(6px, env(safe-area-inset-right, 0px));
+    width: min(390px, calc(100vw - 12px));
+    max-width: calc(100vw - 12px);
+  }
+
+  .service-card-heading,
+  .service-card-heading span,
+  .hero-research-line {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .customer-orders-tabs {
+    scroll-snap-type: x proximity;
+  }
+
+  .customer-orders-tab {
+    scroll-snap-align: start;
+  }
+
+  .client-name-phone,
+  .client-dept-role,
+  .product-price-row,
+  .checkout-cart-item .product-price-row,
+  .checkout-protection-upsell,
+  .c-total-row,
+  .cart-item-bottom,
+  .customer-order-side,
+  .customer-order-actions,
+  .customer-order-timeline-top {
+    flex-wrap: wrap;
+  }
+
+  .radio-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  /* Validation belongs below its field on a one-column form; floating error
+     bubbles otherwise cover the label/input above on short phone screens. */
+  .apt-field-error-bubble {
+    position: static;
+    display: none;
+    width: 100%;
+    max-width: 100%;
+    margin-top: 6px;
+    transform: none;
+    opacity: 1;
+    box-shadow: none;
+  }
+
+  .apt-input-group.has-error .apt-field-error-bubble {
+    display: block;
+  }
+
+  .apt-field-error-bubble::after {
+    display: none;
+  }
+}
+
+@media (max-width: 430px) {
+  .apt-calendar-left {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+  }
+
+  .cal-navigation,
+  .cal-days-header,
+  .cal-days-grid {
+    min-width: 332px;
+  }
+
+  .cal-days-grid {
+    gap: 4px;
+  }
+
+  .cal-day-cell {
+    min-height: 44px;
+  }
+
+  /* Native title text is unreliable on touch and the pseudo-tooltip would be
+     clipped by the calendar scroller; screen readers use the ARIA label. */
+  .cal-day-cell[title]::before {
+    display: none;
+  }
+}
+
+/* Ultra-narrow layouts include 126px watch-style and 240px phone widths. */
+@media (max-width: 280px) {
+  :root {
+    --ux-gutter: 7px;
+    --ux-gap: 8px;
+    --ux-card-radius: 12px;
+    --ux-tap: 38px;
+  }
+
+  .site-header {
+    flex-wrap: wrap !important;
+    gap: 5px !important;
+    min-height: 0;
+    padding: max(6px, env(safe-area-inset-top, 0px))
+      max(7px, env(safe-area-inset-right, 0px)) 6px
+      max(7px, env(safe-area-inset-left, 0px)) !important;
+  }
+
+  .site-header .mobile-menu-toggle {
+    order: 1;
+  }
+
+  .site-header .logo-container {
+    order: 2;
+    flex: 1 1 calc(100% - 38px);
+    width: calc(100% - 38px);
+    margin: 0;
+  }
+
+  .site-header .header-right-actions {
+    order: 3;
+    width: 100%;
+    justify-content: space-evenly;
+    gap: 3px;
+  }
+
+  .site-header .header-emblem {
+    height: 26px;
+    margin-right: 6px;
+  }
+
+  .site-header .logo-title {
+    font-size: 12px;
+  }
+
+  .site-header .logo-subtitle {
+    font-size: 8px;
+  }
+
+  .site-header .mobile-menu-toggle,
+  .header-right-actions .cart-icon-container,
+  .header-right-actions .announcement-bell,
+  .header-right-actions .user-profile,
+  .header-right-actions .guest-sign-in-trigger {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    min-height: 34px;
+  }
+
+  .header-right-actions .guest-sign-in-trigger {
+    display: grid;
+    grid-template-columns: 1fr;
+    padding: 3px;
+    border-radius: 11px;
+  }
+
+  .header-right-actions .guest-sign-in-mark {
+    display: grid;
+    width: 26px;
+    height: 26px;
+    margin: auto;
+  }
+
+  .header-right-actions .guest-sign-in-copy,
+  .header-right-actions .guest-sign-in-chevron {
+    display: none;
+  }
+
+  .mobile-sidebar {
+    width: min(96vw, 270px);
+  }
+
+  .sidebar-header {
+    gap: 5px;
+    padding-inline: 7px;
+  }
+
+  .sidebar-header .sidebar-close-btn {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    min-height: 34px;
+  }
+
+  .sidebar-logo-container .header-emblem {
+    height: 25px;
+    margin-right: 5px;
+  }
+
+  .sidebar-logo-container .logo-title {
+    font-size: 11px;
+  }
+
+  .sidebar-logo-container .logo-subtitle {
+    font-size: 7.5px;
+  }
+
+  .hero-section,
+  .about-section,
+  .vision-section,
+  .mission-section,
+  .services-preview-section,
+  .services-list-section,
+  .services-top-bar,
+  .products-toolbar,
+  .shop-section,
+  .contact-main-section,
+  .site-footer {
+    padding-left: max(7px, env(safe-area-inset-left, 0px));
+    padding-right: max(7px, env(safe-area-inset-right, 0px));
+  }
+
+  .hero-section {
+    min-height: auto;
+    padding-top: 20px;
+    padding-bottom: 28px;
+  }
+
+  .hero-title {
+    font-size: clamp(15px, 8vw, 21px) !important;
+    line-height: 1.22;
+    overflow-wrap: anywhere;
+  }
+
+  .hero-graphic {
+    width: min(54vw, 116px);
+  }
+
+  .hero-buttons,
+  .apt-footer-actions,
+  .nested-actions,
+  .modal-actions,
+  .announcement-modal__actions,
+  .guest-access-actions,
+  .customer-rating-actions {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    width: 100%;
+  }
+
+  .btn-browse,
+  .btn-appointment,
+  .apt-btn,
+  .nested-actions .apt-btn,
+  .modal-btn,
+  .announcement-modal__button,
+  .guest-access-btn,
+  .customer-rating-actions button {
+    width: 100%;
+    min-width: 0 !important;
+    padding-inline: 8px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .section-title,
+  .vm-title,
+  .services-list-header h2,
+  .contact-title,
+  .contact-subtitle {
+    font-size: clamp(14px, 11vw, 21px) !important;
+    overflow-wrap: anywhere;
+  }
+
+  .section-text,
+  .vm-text,
+  .services-list-header p,
+  .contact-lead,
+  .contact-link-text,
+  .card-desc,
+  .footer-desc,
+  .footer-text,
+  .footer-link,
+  .contact-list li {
+    font-size: clamp(10px, 7.8vw, 13px);
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+
+  .about-container,
+  .vision-container,
+  .mission-container {
+    padding-inline: 0;
+  }
+
+  .about-video-holder {
+    height: auto;
+    min-height: 82px;
+    aspect-ratio: 4 / 3;
+    border-radius: 12px;
+  }
+
+  .carousel-btn {
+    display: none;
+  }
+
+  .carousel-wrapper,
+  .landscape-carousel.carousel-wrapper {
+    width: 100%;
+    height: clamp(250px, 210vw, 330px);
+  }
+
+  .carousel-item,
+  .landscape-carousel .carousel-item {
+    width: calc(100vw - 20px);
+    height: clamp(225px, 190vw, 300px);
+  }
+
+  .carousel-item.prev,
+  .carousel-item.next {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .landscape-card .card-img-holder {
+    height: clamp(72px, 68vw, 115px);
+  }
+
+  .services-grid .card-content,
+  .product-info,
+  .contact-info-card,
+  .contact-form-card {
+    padding: 10px !important;
+  }
+
+  .services-grid .card-title,
+  .product-name {
+    font-size: clamp(11px, 8vw, 14px);
+  }
+
+  .service-card-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .service-chip {
+    max-width: 100%;
+    padding: 5px 7px;
+    font-size: 9px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .service-image-preview-label {
+    right: 6px;
+    bottom: 6px;
+    width: 30px;
+    height: 30px;
+    justify-content: center;
+    padding: 0;
+    font-size: 0;
+  }
+
+  .service-image-preview-label i {
+    font-size: 11px;
+  }
+
+  .product-price {
+    font-size: clamp(13px, 10vw, 17px);
+  }
+
+  .toolbar-container,
+  .toolbar-actions {
+    width: 100%;
+  }
+
+  .toolbar-search,
+  .category-dropdown-box {
+    padding-inline: 8px;
+  }
+
+  .toolbar-search > svg {
+    width: 16px;
+    flex: 0 0 16px;
+  }
+
+  .toolbar-search .search-input,
+  .category-select,
+  .contact-input,
+  .c-input {
+    min-width: 0;
+  }
+
+  .promotion-spotlight-wrap,
+  .promotion-spotlight {
+    padding-inline: 7px !important;
+  }
+
+  .promotion-spotlight-card,
+  .promotion-spotlight__inner {
+    gap: 6px !important;
+    padding: 10px 8px !important;
+    border-radius: 10px !important;
+  }
+
+  .promotion-spotlight__icon,
+  .spotlight-celebration-icon {
+    display: none !important;
+  }
+
+  .contact-links-list li {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 7px;
+  }
+
+  .contact-link-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .footer-logo-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .footer-logo {
+    height: 30px;
+  }
+
+  .footer-brand,
+  .footer-heading {
+    font-size: clamp(13px, 10vw, 17px);
+    overflow-wrap: anywhere;
+  }
+
+  /* All customer overlays remain scrollable on very small canvases. */
+  .modal-overlay,
+  .customer-modal-overlay,
+  .guest-access-modal,
+  .success-modal-overlay,
+  .apt-nested-modal,
+  .announcement-modal,
+  .about-video-modal,
+  .image-lightbox-overlay {
+    padding: max(5px, env(safe-area-inset-top, 0px))
+      max(5px, env(safe-area-inset-right, 0px))
+      max(5px, env(safe-area-inset-bottom, 0px))
+      max(5px, env(safe-area-inset-left, 0px));
+    overflow-y: auto;
+  }
+
+  .modal-box,
+  .guest-access-card,
+  .customer-modal,
+  .customer-modal-overlay.show .customer-modal,
+  .apt-nested-box,
+  #aptConfirmModal .apt-nested-box,
+  .success-card,
+  .announcement-modal__card {
+    width: 100%;
+    max-width: 100%;
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .modal-header,
+  .modal-scroll-area,
+  .modal-actions,
+  .announcement-modal__hero,
+  .announcement-modal__body {
+    padding: 10px;
+  }
+
+  .modal-title,
+  .announcement-modal__title,
+  .guest-access-title,
+  .customer-modal-title,
+  .apt-nested-box h3,
+  #aptConfirmModal .apt-nested-box h3,
+  .success-title {
+    font-size: clamp(13px, 10vw, 18px);
+    overflow-wrap: anywhere;
+  }
+
+  .modal-header {
+    gap: 5px;
+  }
+
+  .modal-title {
+    min-width: 0;
+  }
+
+  .close-modal-btn,
+  .lightbox-close-btn,
+  .guest-access-close,
+  .customer-modal-close,
+  .about-video-close,
+  .customer-orders-close {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    min-height: 34px;
+  }
+
+  .profile-popup,
+  .guest-profile-popup {
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  .profile-popup-link,
+  .popup-logout,
+  .guest-auth-btn {
+    min-height: 38px;
+    padding: 9px 7px;
+    font-size: 11px;
+    overflow-wrap: anywhere;
+  }
+
+  .customer-orders-modal {
+    padding: max(7px, env(safe-area-inset-top, 0px))
+      max(5px, env(safe-area-inset-right, 0px))
+      max(7px, env(safe-area-inset-bottom, 0px))
+      max(5px, env(safe-area-inset-left, 0px));
+    gap: 8px;
+  }
+
+  .customer-orders-head {
+    gap: 5px;
+    padding-bottom: 8px;
+  }
+
+  .customer-orders-title {
+    font-size: 13px;
+  }
+
+  .customer-orders-subtitle,
+  .customer-orders-sync-status {
+    font-size: 9px;
+    overflow-wrap: anywhere;
+  }
+
+  .customer-orders-panel {
+    padding: 5px;
+  }
+
+  .customer-order-card {
+    grid-template-columns: 1fr;
+    padding: 7px;
+  }
+
+  .customer-order-thumb {
+    width: min(58px, 100%);
+    height: 58px;
+  }
+
+  .customer-order-side {
+    grid-column: auto;
+    align-items: flex-start;
+  }
+
+  .customer-order-detail-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-order-detail-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  /* Product checkout/cart sheets: avoid fixed image/control rows. */
+  .shop-modal-header,
+  .shop-modal-body,
+  .shop-modal-footer,
+  .checkout-section,
+  .checkout-client-info,
+  .cart-item-card,
+  .add-address-row,
+  .address-card {
+    padding: 8px !important;
+  }
+
+  .shop-modal-header {
+    gap: 5px;
+  }
+
+  .shop-modal-title {
+    min-width: 0;
+    font-size: clamp(12px, 9vw, 16px) !important;
+    overflow-wrap: anywhere;
+  }
+
+  .back-shop-modal,
+  .trash-btn {
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+  }
+
+  .qty-btn {
+    width: 28px;
+  }
+
+  .qty-selector input {
+    width: 32px;
+  }
+
+  .checkout-client-info,
+  .checkout-product-card,
+  .checkout-cart-item,
+  .cart-item-card,
+  .checkout-protection-upsell,
+  .c-switch-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .checkout-product-card img,
+  .checkout-cart-item img,
+  .cart-item-img {
+    width: min(62px, 100%);
+    height: 62px;
+    margin: 0;
+  }
+
+  .cart-item-details {
+    width: 100%;
+    height: auto;
+    gap: 8px;
+  }
+
+  .shop-modal-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .footer-total-display,
+  .btn-place-order {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .phone-input-group {
+    grid-template-columns: 1fr;
+  }
+
+  .phone-prefix {
+    min-width: 0;
+    padding: 9px;
+    border-right: 0;
+    border-bottom: 1px solid #d9d9d9;
+  }
+
+  /* Appointment flow keeps controls reachable and scrolls dense calendars. */
+  .apt-container {
+    padding: max(7px, env(safe-area-inset-top, 0px))
+      max(7px, env(safe-area-inset-right, 0px))
+      max(14px, env(safe-area-inset-bottom, 0px))
+      max(7px, env(safe-area-inset-left, 0px));
+  }
+
+  .apt-header-top {
+    justify-content: flex-start;
+  }
+
+  .apt-header-spacer {
+    display: none;
+  }
+
+  .apt-main-title {
+    min-width: 0;
+    font-size: clamp(13px, 10vw, 18px);
+    overflow-wrap: anywhere;
+    text-align: left;
+  }
+
+  .apt-back-btn {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+  }
+
+  .apt-progress-wrapper {
+    padding: 7px 5px;
+    scroll-snap-type: x proximity;
+  }
+
+  .apt-step {
+    width: 46px;
+    scroll-snap-align: start;
+  }
+
+  .apt-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .apt-card {
+    padding: 9px !important;
+  }
+
+  .apt-reminder-item {
+    flex-direction: column;
+    padding: 9px;
+  }
+
+  .apt-card-header h3,
+  .apt-reminder-content h4 {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .apt-form-grid {
+    gap: 10px;
+  }
+
+  .apt-calendar-left,
+  .apt-time-right {
+    padding: 8px;
+  }
+
+  .apt-calendar-left {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+
+  .cal-navigation,
+  .cal-days-header,
+  .cal-days-grid {
+    min-width: 332px;
+  }
+
+  .cal-day-cell {
+    min-height: 44px;
+  }
+
+  .calendar-header-text h3,
+  #calMonthYear {
+    font-size: clamp(12px, 9vw, 17px);
+    overflow-wrap: anywhere;
+  }
+
+  .calendar-header-text p,
+  .time-placeholder,
+  .leg-item,
+  .time-slot-btn {
+    font-size: clamp(9px, 7vw, 12px);
+  }
+
+  .file-upload-wrapper {
+    height: auto;
+    min-height: 82px;
+    padding: 8px;
+  }
+
+  .file-upload-text,
+  #aptFileName {
+    max-width: 100%;
+    font-size: 10px !important;
+    overflow-wrap: anywhere;
+  }
+
+  .ticket-header,
+  .ticket-body {
+    padding: 9px !important;
+  }
+
+  .ticket-header h3,
+  #revTicketNo,
+  #comTicketNo {
+    font-size: clamp(11px, 9vw, 16px) !important;
+    overflow-wrap: anywhere;
+  }
+
+  .ticket-row,
+  .ticket-column {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .t-value,
+  #revSched,
+  #comSched,
+  .success-reference strong {
+    font-size: clamp(10px, 7.5vw, 14px) !important;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  #officialReceiptCard .ticket-body > div:last-child {
+    max-width: 100%;
+  }
+
+  #officialReceiptCard > div:last-child {
+    padding: 9px !important;
+    font-size: 10px !important;
+    overflow-wrap: anywhere;
+  }
+
+  .nested-icon,
+  #aptConfirmModal .nested-icon,
+  .success-icon {
+    width: 44px;
+    height: 44px;
+    margin-bottom: 10px;
+    border-width: 4px;
+    font-size: 21px;
+  }
+
+  #aptPrivacyModal .nested-icon {
+    position: static;
+    margin: 0 auto 10px;
+    transform: none;
+  }
+
+  .apt-nested-box p,
+  #aptConfirmModal .apt-nested-box p,
+  .success-desc,
+  .success-note,
+  .guest-access-copy {
+    font-size: 10px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  .success-card__header,
+  .success-card__body,
+  .success-card__footer {
+    padding: 10px;
+  }
+}
+
+/* Very short screens use top-aligned, scroll-safe dialogs. */
+@media (max-width: 900px) and (max-height: 520px) {
+  .modal-overlay,
+  .customer-modal-overlay,
+  .guest-access-modal,
+  .success-modal-overlay,
+  .apt-nested-modal,
+  .announcement-modal,
+  .about-video-modal,
+  .image-lightbox-overlay {
+    align-items: flex-start;
+    overflow-y: auto;
+  }
+
+  .modal-box,
+  .customer-modal,
+  .guest-access-card,
+  .success-card,
+  .apt-nested-box,
+  .announcement-modal__card {
+    margin-block: auto;
+    max-height: calc(100dvh - 12px);
+    overflow-y: auto;
+  }
+
+  .success-card {
+    display: block;
+    overflow-y: auto;
+  }
+
+  .success-card__body {
+    overflow: visible;
+  }
+
+  #aptPrivacyModal .nested-icon {
+    position: static;
+    margin: 0 auto 10px;
+    transform: none;
+  }
+
+  .shop-modal-box,
+  .customer-orders-modal {
+    height: 100dvh;
+    min-height: 0;
+  }
+
+  .apt-overlay {
+    overflow-y: auto;
+  }
+}
+
+/* Keep header controls and content comfortably grouped on 4K/8K canvases. */
+@media (min-width: 2200px) {
+  .site-header {
+    padding-left: max(72px, calc((100vw - 1760px) / 2));
+    padding-right: max(72px, calc((100vw - 1760px) / 2));
+  }
+}
+
+/* -----------------------------------------------------------------
+   Mobile density refinement
+
+   Keep the requested UCN / FMRC lockup readable, prevent the hero CTAs
+   from inheriting a 150px flex-basis after they stack, and give the
+   Services and Products pages a genuinely compact two-card mobile grid.
+   ----------------------------------------------------------------- */
+@media (max-width: 900px) {
+  .site-header .logo-title,
+  .sidebar-logo-container .logo-title {
+    font-size: clamp(15px, 2.8vw, 18px);
+    line-height: 1;
+    letter-spacing: 0.075em;
+  }
+
+  .site-header .logo-subtitle,
+  .sidebar-logo-container .logo-subtitle {
+    font-size: clamp(10px, 1.9vw, 12px);
+    line-height: 1;
+    letter-spacing: 0.14em;
+  }
+}
+
+@media (max-width: 720px) {
+  /* The inherited `flex-basis: 150px` was being interpreted vertically
+     once the CTA group stacked, which produced the oversized pills. */
+  .hero-buttons {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+    width: min(100%, 360px);
+    max-width: 360px;
+  }
+
+  .btn-browse,
+  .btn-appointment {
+    width: auto;
+    min-width: 0;
+    min-height: 42px;
+    flex: 0 0 auto;
+    padding: 10px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    line-height: 1.15;
+    white-space: normal;
+  }
+
+  .hero-section {
+    padding: clamp(24px, 6vw, 38px) max(12px, env(safe-area-inset-right, 0px))
+      clamp(34px, 8vw, 54px) max(12px, env(safe-area-inset-left, 0px));
+  }
+
+  .hero-container {
+    gap: 12px;
+  }
+
+  .hero-graphic {
+    width: min(46vw, 190px);
+  }
+
+  .hero-title {
+    margin-bottom: 18px;
+    font-size: clamp(22px, 7.2vw, 34px) !important;
+  }
+
+  /* Compact signed-out navigation to the same icon-sized control language
+     as cart, notifications, and profile. */
+  .header-right-actions .guest-sign-in-trigger {
+    display: inline-grid;
+    place-items: center;
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0;
+    border-radius: 12px;
+  }
+
+  .header-right-actions .guest-sign-in-mark {
+    display: grid;
+    width: 30px;
+    height: 30px;
+  }
+
+  .header-right-actions .guest-sign-in-copy,
+  .header-right-actions .guest-sign-in-chevron {
+    display: none;
+  }
+
+  /* Two cards per row on normal mobile widths. `minmax(0, 1fr)` lets the
+     card internals shrink instead of forcing the grid back to one column. */
+  .services-grid,
+  .shop-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: clamp(8px, 2.4vw, 14px) !important;
+  }
+
+  .services-grid .service-card,
+  .shop-card {
+    width: 100%;
+    min-width: 0;
+    border-radius: 15px;
+  }
+
+  .products-page-body #productGrid .product-img-wrapper {
+    position: relative;
+    height: auto !important;
+    aspect-ratio: 4 / 3;
+  }
+
+  .service-image-trigger,
+  .services-grid .service-image-placeholder,
+  .services-grid .card-img-holder {
+    aspect-ratio: 4 / 3;
+  }
+
+  .service-image-preview-label {
+    right: 7px;
+    bottom: 7px;
+    width: 30px;
+    height: 30px;
+    justify-content: center;
+    padding: 0;
+    font-size: 0;
+  }
+
+  .service-image-preview-label i {
+    font-size: 12px;
+  }
+
+  .services-grid .card-content,
+  .product-info {
+    padding: clamp(9px, 2.8vw, 13px) !important;
+  }
+
+  .services-grid .card-content {
+    gap: 7px;
+  }
+
+  .service-card-heading {
+    align-items: flex-start;
+    gap: 5px;
+  }
+
+  .service-chip {
+    max-width: 100%;
+    padding: 4px 6px;
+    font-size: clamp(7.5px, 2.1vw, 9px);
+    line-height: 1.15;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .service-index {
+    flex: 0 0 auto;
+    font-size: 8px;
+  }
+
+  .services-grid .card-title,
+  .product-name {
+    font-size: clamp(11px, 3.1vw, 13px);
+    line-height: 1.28;
+  }
+
+  .services-grid .card-desc {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    font-size: clamp(9px, 2.45vw, 11px);
+    line-height: 1.4;
+  }
+
+  .service-card-footer {
+    margin-top: 2px;
+    padding-top: 7px;
+  }
+
+  .services-grid .details-btn {
+    display: inline-grid;
+    place-items: center;
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0;
+    border: 1px solid rgba(133, 19, 19, 0.16);
+    border-radius: 10px;
+    background: rgba(133, 19, 19, 0.07);
+  }
+
+  .services-grid .details-btn::after {
+    display: none;
+  }
+
+  .services-grid .details-btn span,
+  .products-page-body .action-btn-label {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    clip-path: inset(50%) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+
+  .services-grid .details-btn i {
+    font-size: 13px;
+  }
+
+  .product-info {
+    gap: 2px;
+  }
+
+  .product-name {
+    min-height: 2.56em;
+    margin-bottom: 5px;
+  }
+
+  .product-code-row {
+    min-width: 0;
+    margin-bottom: 6px;
+    font-size: 9px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .product-code-row .code-label {
+    display: none;
+  }
+
+  .product-price {
+    margin-bottom: 7px;
+    font-size: clamp(14px, 4vw, 17px);
+    line-height: 1.15;
+  }
+
+  .product-price-sale {
+    flex-wrap: wrap;
+    gap: 3px 6px;
+  }
+
+  .product-price-sale .sale-price {
+    font-size: clamp(14px, 4vw, 17px);
+  }
+
+  .product-price-sale .original-price {
+    font-size: clamp(9px, 2.5vw, 11px);
+  }
+
+  .product-stock-row {
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .stock-text {
+    display: none;
+  }
+
+  .stock-badge,
+  .product-discount-badge {
+    padding: 3px 6px;
+    font-size: clamp(7px, 2vw, 9px);
+    letter-spacing: 0;
+  }
+
+  .product-discount-badge {
+    top: 6px;
+    left: 6px;
+  }
+
+  .products-page-body .product-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 4px;
+    padding: 6px;
+    border-radius: 0 0 15px 15px;
+  }
+
+  .products-page-body .product-actions .action-btn {
+    position: relative;
+    min-width: 0;
+    min-height: 36px;
+    height: 36px;
+    padding: 0;
+    border-width: 1px;
+    border-radius: 10px;
+  }
+
+  .products-page-body .product-actions .action-btn > svg {
+    width: 15px;
+    height: 15px;
+  }
+}
+
+@media (min-width: 721px) and (max-width: 900px) {
+  .hero-graphic {
+    width: clamp(200px, 28vw, 252px);
+  }
+
+  .hero-title {
+    font-size: clamp(34px, 4.8vw, 44px) !important;
+  }
+}
+
+@media (max-width: 300px) {
+  .site-header .logo-title,
+  .sidebar-logo-container .logo-title {
+    font-size: 14px;
+  }
+
+  .site-header .logo-subtitle,
+  .sidebar-logo-container .logo-subtitle {
+    font-size: 9px;
+  }
+
+  .hero-buttons {
+    grid-template-columns: 1fr;
+    width: min(100%, 190px);
+  }
+
+  .btn-browse,
+  .btn-appointment {
+    min-height: 38px;
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .hero-graphic {
+    width: min(48vw, 110px);
+  }
+
+  .hero-title {
+    font-size: clamp(15px, 8vw, 21px) !important;
+  }
+
+  .services-grid,
+  .shop-grid {
+    gap: 6px !important;
+  }
+
+  .services-grid .card-content,
+  .product-info {
+    padding: 7px !important;
+  }
+
+  .service-chip {
+    font-size: 7px;
+  }
+
+  .service-index {
+    display: none;
+  }
+
+  .services-grid .details-btn,
+  .products-page-body .product-actions .action-btn {
+    min-height: 32px;
+    height: 32px;
+  }
+
+  .services-grid .details-btn {
+    width: 32px;
+    min-width: 32px;
+  }
+
+  .products-page-body .product-actions {
+    gap: 2px;
+    padding: 4px;
+  }
+
+  .products-page-body .product-actions .action-btn > svg {
+    width: 13px;
+    height: 13px;
+  }
+}
+
+/* At watch-sized widths, two cards would be narrower than a single icon.
+   Keep the page usable while normal phone widths retain two cards per row. */
+@media (max-width: 190px) {
+  .site-header .logo-container,
+  .sidebar-logo-container {
+    gap: 4px;
+  }
+
+  .site-header .header-emblem,
+  .sidebar-logo-container .header-emblem {
+    height: 24px;
+    margin-right: 0;
+  }
+
+  .site-header .logo-title,
+  .sidebar-logo-container .logo-title {
+    font-size: 12px;
+  }
+
+  .site-header .logo-subtitle,
+  .sidebar-logo-container .logo-subtitle {
+    font-size: 8px;
+  }
+
+  .services-grid,
+  .shop-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+/* Short and square phones get a compact side-by-side hero so the primary
+   actions remain visible without making any control smaller than 38px. */
+@media (min-width: 320px) and (max-width: 720px) and (max-height: 520px) {
+  .hero-section {
+    min-height: calc(100dvh - var(--ux-header-h));
+    padding-top: 16px;
+    padding-bottom: 22px;
+  }
+
+  .hero-container {
+    flex-direction: row;
+    gap: 14px;
+    text-align: left;
+  }
+
+  .hero-content-left {
+    order: 1;
+    flex: 1 1 auto;
+    align-items: flex-start;
+  }
+
+  .hero-content-right {
+    order: 2;
+    flex: 0 0 auto;
+    width: auto;
+    margin: 0;
+  }
+
+  .hero-graphic {
+    width: min(28vw, 128px);
+  }
+
+  .hero-title {
+    margin-bottom: 12px;
+    font-size: clamp(17px, 4.8vw, 23px) !important;
+    text-align: left;
+  }
+
+  .hero-buttons {
+    width: min(100%, 320px);
+  }
+
+  .btn-browse,
+  .btn-appointment {
+    min-height: 38px;
+    padding: 8px;
+    font-size: 10.5px;
+  }
+
+  .scroll-indicator {
+    display: none;
+  }
+}

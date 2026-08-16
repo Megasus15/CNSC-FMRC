@@ -20,6 +20,8 @@ class ProductController extends Controller
     {
         $promotionCandidates = $this->promotionCandidates();
         $products = Product::where('is_blocked', false)
+            ->withCount('activeRatings as ratings_count')
+            ->withAvg('activeRatings as ratings_avg_stars', 'stars')
             ->orderByDesc('created_at')
             ->get()
             ->map(fn($p) => $this->formatProduct($p, $promotionCandidates));
@@ -36,7 +38,9 @@ class ProductController extends Controller
         }
 
         $promotionCandidates = $this->promotionCandidates();
-        $products = Product::orderByDesc('created_at')->get()
+        $products = Product::withCount('activeRatings as ratings_count')
+            ->withAvg('activeRatings as ratings_avg_stars', 'stars')
+            ->orderByDesc('created_at')->get()
             ->map(fn($p) => $this->formatProduct($p, $promotionCandidates));
 
         return response()->json(['data' => $products]);
@@ -254,6 +258,8 @@ class ProductController extends Controller
             'details_chips'  => $product->details_chips ?? [],
             'availability'   => $product->availability ?? [],
             'recommended_for'=> $product->recommended_for ?? [],
+            'review_count'   => (int) ($product->ratings_count ?? 0),
+            'rating_average' => round((float) ($product->ratings_avg_stars ?? 0), 1),
             'created_at'     => $product->created_at,
             'updated_at'     => $product->updated_at,
         ];

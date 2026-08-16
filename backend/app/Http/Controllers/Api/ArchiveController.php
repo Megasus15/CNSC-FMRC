@@ -8,10 +8,13 @@ use App\Models\Announcement;
 use App\Models\InventoryItem;
 use App\Models\Order;
 use App\Models\Promotion;
+use App\Models\ProductRating;
+use App\Models\ProductRatingLike;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class ArchiveController extends Controller
@@ -32,6 +35,7 @@ class ArchiveController extends Controller
         $orders      = collect();
         $promotions  = collect();
         $announcements = collect();
+        $ratings     = collect();
 
         try {
             // ── Inventory Items ────────────────────────────────────────────────
@@ -191,12 +195,47 @@ class ArchiveController extends Controller
             Log::error('ArchiveController: announcements fetch failed', ['error' => $e->getMessage()]);
         }
 
+        try {
+            // â”€â”€ Product Reviews â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            if ($module === 'all' || $module === 'rating') {
+                $ratings = ProductRating::query()
+                    ->with([
+                        'user:id,name,email',
+                        'order:id,order_no',
+                    ])
+                    ->withCount('likes')
+                    ->where('is_archived', true)
+                    ->orderByDesc('archived_at')
+                    ->get()
+                    ->map(fn (ProductRating $rating) => [
+                        'id' => 'rating-' . $rating->id,
+                        'source_id' => $rating->id,
+                        'module' => 'rating',
+                        'customer_name' => $rating->user?->name ?: ($rating->user?->email ?: 'Unknown'),
+                        'customer_email' => $rating->user?->email ?: '',
+                        'product_name' => $rating->product_name ?: 'Custom Order',
+                        'order_no' => $rating->order?->order_no ?: "ORD-{$rating->order_id}",
+                        'stars' => (int) $rating->stars,
+                        'feedback' => $rating->feedback,
+                        'admin_reply' => $rating->admin_reply,
+                        'is_anonymous' => (bool) $rating->is_anonymous,
+                        'likes_count' => (int) ($rating->likes_count ?? 0),
+                        'media_count' => count($rating->media ?? []),
+                        'created_at' => $rating->created_at?->toIso8601String(),
+                        'archived_at' => $rating->archived_at?->toIso8601String(),
+                    ]);
+            }
+        } catch (\Throwable $e) {
+            Log::error('ArchiveController: product ratings fetch failed', ['error' => $e->getMessage()]);
+        }
+
         return response()->json([
             'inventory'    => $inventory->values(),
             'appointments' => $appointments->values(),
             'orders'       => $orders->values(),
             'promotions'   => $promotions->values(),
             'announcements'=> $announcements->values(),
+            'ratings'      => $ratings->values(),
         ]);
     }
 
@@ -208,7 +247,7 @@ class ArchiveController extends Controller
         }
 
         $validated = $request->validate([
-            'module' => ['required', 'string', Rule::in(['inventory', 'appointment', 'order', 'promotion', 'announcement'])],
+            'module' => ['required', 'string', Rule::in(['inventory', 'appointment', 'order', 'promotion', 'announcement', 'rating'])],
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer', 'min:1', 'distinct'],
         ]);
@@ -224,6 +263,7 @@ class ArchiveController extends Controller
                 'order' => Order::query()->whereIn('id', $ids)->where('is_archived', true),
                 'promotion' => Promotion::query()->whereIn('id', $ids)->where('is_archived', true),
                 'announcement' => Announcement::query()->whereIn('id', $ids)->where('is_archived', true),
+                'rating' => ProductRating::query()->whereIn('id', $ids)->where('is_archived', true),
             };
 
             $eligibleIds = (clone $query)
@@ -237,7 +277,7 @@ class ArchiveController extends Controller
             }
 
             $updates = match ($module) {
-                'inventory', 'order', 'promotion', 'announcement' => [
+                'inventory', 'order', 'promotion', 'announcement', 'rating' => [
                     'is_archived' => false,
                     'archived_at' => null,
                     'updated_at' => $now,
@@ -274,7 +314,7 @@ class ArchiveController extends Controller
         }
 
         $validated = $request->validate([
-            'module' => ['required', 'string', Rule::in(['inventory', 'appointment', 'order', 'promotion', 'announcement'])],
+            'module' => ['required', 'string', Rule::in(['inventory', 'appointment', 'order', 'promotion', 'announcement', 'rating'])],
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer', 'min:1', 'distinct'],
         ]);
@@ -289,6 +329,7 @@ class ArchiveController extends Controller
                 'order' => Order::query()->whereIn('id', $ids)->where('is_archived', true),
                 'promotion' => Promotion::query()->whereIn('id', $ids)->where('is_archived', true),
                 'announcement' => Announcement::query()->whereIn('id', $ids)->where('is_archived', true),
+                'rating' => ProductRating::query()->whereIn('id', $ids)->where('is_archived', true),
             };
 
             $eligibleIds = (clone $query)
@@ -299,6 +340,14 @@ class ArchiveController extends Controller
 
             if (!$eligibleIds) {
                 return [];
+            }
+
+            if ($module === 'rating') {
+                $ratings = ProductRating::query()->whereIn('id', $eligibleIds)->get();
+                foreach ($ratings as $rating) {
+                    $this->deleteRatingMedia($rating->media);
+                }
+                ProductRatingLike::query()->whereIn('product_rating_id', $eligibleIds)->delete();
             }
 
             $query->whereIn('id', $eligibleIds)->delete();
@@ -386,6 +435,24 @@ class ArchiveController extends Controller
             Log::warning('Auto-delete announcements failed: ' . $e->getMessage());
         }
 
+        try {
+            // Product reviews (including attachment cleanup)
+            $ratings = ProductRating::query()
+                ->where('is_archived', true)
+                ->where('archived_at', '<=', $cutoffDate)
+                ->get();
+            $ratingIds = $ratings->pluck('id')->map(fn ($id) => (int) $id)->values();
+            foreach ($ratings as $rating) {
+                $this->deleteRatingMedia($rating->media);
+            }
+            if ($ratingIds->isNotEmpty()) {
+                ProductRatingLike::query()->whereIn('product_rating_id', $ratingIds->all())->delete();
+                $totalDeleted += ProductRating::query()->whereIn('id', $ratingIds->all())->delete();
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Auto-delete product ratings failed: ' . $e->getMessage());
+        }
+
         return response()->json([
             'action' => 'auto-delete',
             'retention_days' => $retentionDays,
@@ -394,5 +461,14 @@ class ArchiveController extends Controller
                 ? $totalDeleted . ' expired archived record(s) permanently deleted.'
                 : 'No expired archived records found.',
         ]);
+    }
+
+    private function deleteRatingMedia(?array $media): void
+    {
+        foreach ($media ?? [] as $item) {
+            if (!empty($item['path'])) {
+                Storage::disk('public')->delete($item['path']);
+            }
+        }
     }
 }

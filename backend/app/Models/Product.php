@@ -46,4 +46,14 @@ class Product extends Model
     {
         return $this->hasMany(OrderItem::class);
     }
+
+    public function ratings(): HasMany
+    {
+        return $this->hasMany(ProductRating::class);
+    }
+
+    public function activeRatings(): HasMany
+    {
+        return $this->ratings()->where('is_archived', false);
+    }
 }

@@ -91,6 +91,7 @@ document.addEventListener("DOMContentLoaded", () => {
     inventory: { all: [], page: 1, controller: null },
     appointment: { all: [], page: 1, controller: null },
     order: { all: [], page: 1, controller: null },
+    rating: { all: [], page: 1, controller: null },
     promotion: { all: [], page: 1, controller: null },
     announcement: { all: [], page: 1, controller: null },
   };
@@ -161,6 +162,29 @@ document.addEventListener("DOMContentLoaded", () => {
         "customer_name",
         "payment_method",
         "lifecycle_status",
+      ],
+    },
+    rating: {
+      payloadKey: "ratings",
+      tableId: "ratingArchiveTable",
+      tbodyId: "ratingArchiveTbody",
+      footerId: "ratingArchiveFooter",
+      metaId: "ratingArchiveMeta",
+      pageId: "ratingArchiveCurrentPage",
+      prevId: "ratingArchivePrevBtn",
+      nextId: "ratingArchiveNextBtn",
+      countId: "tabCountRating",
+      colCount: 10,
+      tableLabel: "Product Review Archived Items",
+      emptyMessage: "No archived product reviews found.",
+      searchFields: [
+        "customer_name",
+        "customer_email",
+        "product_name",
+        "order_no",
+        "feedback",
+        "admin_reply",
+        "stars",
       ],
     },
     promotion: {
@@ -339,6 +363,32 @@ document.addEventListener("DOMContentLoaded", () => {
         <td>${statusPill(row.is_enabled ? "Enabled" : "Paused")}</td>
         <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
         <td class="action-icons sticky-action">${restoreButton(module, row, row.title)}${deleteButton(module, row, row.title)}</td>
+        </tr>`;
+    }
+
+    if (module === "rating") {
+      const customer = row.customer_name || row.customer_email || "Unknown";
+      const orderLabel = row.order_no ? `Order ${row.order_no}` : "Order";
+      const stars = Math.min(5, Math.max(0, Number(row.stars) || 0));
+      const starMarkup = `${"★".repeat(stars)}${"☆".repeat(5 - stars)}`;
+      const replyLabel = row.admin_reply ? "Replied" : "No reply";
+      const replyClass = row.admin_reply ? "status-green" : "status-yellow";
+      const feedback = row.feedback || "No feedback";
+      return `<tr>
+        ${rowCheckbox(module, row, customer)}
+        <td>
+          <strong>${esc(customer)}</strong>
+          ${row.customer_email ? `<div style="font-size:0.74rem;color:#64748b;">${esc(row.customer_email)}</div>` : ""}
+          ${row.is_anonymous ? `<div style="font-size:0.7rem;color:#92400e;margin-top:3px;"><i class="fa-solid fa-user-secret"></i> Anonymous on product page</div>` : ""}
+        </td>
+        <td><strong>${esc(row.product_name || "Custom Order")}</strong><div style="font-size:0.74rem;color:#64748b;">${esc(orderLabel)}</div></td>
+        <td><span style="color:#f59e0b;letter-spacing:1px;white-space:nowrap;">${starMarkup}</span><div style="font-size:0.74rem;color:#64748b;">${stars}/5</div></td>
+        <td style="min-width:220px;max-width:300px;white-space:normal;">${esc(feedback)}</td>
+        <td>${statusPill(replyLabel).replace("status-gray", replyClass)}</td>
+        <td>${esc(row.media_count || 0)} media<div style="font-size:0.74rem;color:#64748b;"><i class="fa-regular fa-thumbs-up"></i> ${esc(row.likes_count || 0)} likes</div></td>
+        <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.created_at)}</td>
+        <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
+        <td class="action-icons sticky-action">${restoreButton(module, row, customer)}${deleteButton(module, row, customer)}</td>
       </tr>`;
     }
 
@@ -722,6 +772,8 @@ document.addEventListener("DOMContentLoaded", () => {
       row?.item_name ||
       row?.reference_no ||
       row?.order_no ||
+      row?.product_name ||
+      row?.customer_name ||
       row?.title ||
       `ID ${id}`;
     const labelEl = document.getElementById("deleteArchiveTargetLabel");
@@ -908,6 +960,6 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   setupBulkSelections();
-  // Fire auto-delete first, then load archives
-  runAutoDeleteOnLoad().then(() => void loadArchives());
+  // Load archives first so users can see and restore data, then run auto-delete silently
+  loadArchives().then(() => void runAutoDeleteOnLoad());
 });

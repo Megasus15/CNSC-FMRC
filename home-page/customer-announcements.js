@@ -614,6 +614,130 @@
         .announcement-modal__button--secondary:active {
           transform: scale(0.96);
         }
+
+        /* Runtime styles are appended after the shared stylesheets, so the
+           responsive safeguards live here as well. This keeps announcement
+           content and every action reachable on narrow and short screens. */
+        @media (max-width: 420px) {
+          .announcement-modal {
+            padding: max(8px, env(safe-area-inset-top, 0px))
+              max(8px, env(safe-area-inset-right, 0px))
+              max(8px, env(safe-area-inset-bottom, 0px))
+              max(8px, env(safe-area-inset-left, 0px));
+            overflow-y: auto;
+          }
+
+          .announcement-modal__card {
+            width: 100%;
+            max-width: 100%;
+            max-height: calc(100dvh - 16px);
+            overflow-y: auto;
+            border-radius: 16px;
+          }
+
+          .announcement-modal__hero {
+            padding: 22px 50px 18px 20px;
+          }
+
+          .announcement-modal__body {
+            padding: 20px;
+          }
+
+          .announcement-modal__message {
+            overflow-wrap: anywhere;
+          }
+
+          .announcement-modal__actions,
+          .announcement-modal__actions > div {
+            display: grid !important;
+            grid-template-columns: 1fr;
+            width: 100%;
+            gap: 8px !important;
+          }
+
+          .announcement-modal__actions > div {
+            margin-left: 0 !important;
+          }
+
+          .announcement-modal__button {
+            width: 100%;
+            min-width: 0;
+            white-space: normal;
+            overflow-wrap: anywhere;
+          }
+        }
+
+        @media (max-width: 280px) {
+          .announcement-glass-tooltip {
+            position: fixed;
+            top: max(78px, calc(env(safe-area-inset-top, 0px) + 78px));
+            right: max(5px, env(safe-area-inset-right, 0px));
+            left: max(5px, env(safe-area-inset-left, 0px));
+            width: auto;
+            max-width: none;
+            padding: 8px;
+            border-radius: 12px;
+          }
+
+          .announcement-glass-tooltip__arrow {
+            display: none;
+          }
+
+          .announcement-glass-tooltip__content {
+            align-items: flex-start;
+            gap: 6px;
+          }
+
+          .announcement-modal {
+            padding: max(5px, env(safe-area-inset-top, 0px))
+              max(5px, env(safe-area-inset-right, 0px))
+              max(5px, env(safe-area-inset-bottom, 0px))
+              max(5px, env(safe-area-inset-left, 0px));
+          }
+
+          .announcement-modal__card {
+            max-height: calc(100dvh - 10px);
+            border-radius: 12px;
+          }
+
+          .announcement-modal__hero,
+          .announcement-modal__body {
+            padding: 10px;
+          }
+
+          .announcement-modal__hero {
+            padding-right: 42px;
+          }
+
+          .announcement-modal__title {
+            font-size: clamp(0.82rem, 10vw, 1.1rem);
+            overflow-wrap: anywhere;
+          }
+
+          .announcement-modal__label,
+          .announcement-modal__counter {
+            font-size: 0.6rem;
+            overflow-wrap: anywhere;
+          }
+
+          .announcement-modal__message,
+          .announcement-modal__button {
+            font-size: clamp(0.62rem, 7.5vw, 0.78rem);
+          }
+
+          .announcement-modal__close-x {
+            top: 6px;
+            right: 6px;
+            width: 32px;
+            height: 32px;
+          }
+        }
+
+        @media (max-height: 430px) {
+          .announcement-modal {
+            place-items: start center;
+          }
+        }
         
         @keyframes fmrcAnnouncementIn {
           from { opacity: 0; transform: translateY(18px) scale(0.96); }

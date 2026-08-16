@@ -81,6 +81,11 @@ class Order extends Model
 
     public function rating(): HasOne
     {
-        return $this->hasOne(ProductRating::class);
+        return $this->hasOne(ProductRating::class)->where('is_archived', false);
+    }
+
+    public function ratings(): HasMany
+    {
+        return $this->hasMany(ProductRating::class)->where('is_archived', false);
     }
 }

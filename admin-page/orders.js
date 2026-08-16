@@ -2486,6 +2486,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!shouldSave) return;
 
+    const originalSaveHtml = btnSaveTrackingUpdate.innerHTML;
+    btnSaveTrackingUpdate.disabled = true;
+    btnSaveTrackingUpdate.innerHTML =
+      '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+    if (btnCancelTrackingUpdate) btnCancelTrackingUpdate.disabled = true;
+
     try {
       const response = await request(`/admin/orders/${orderId}/tracking`, {
         method: "PATCH",
@@ -2509,6 +2515,10 @@ document.addEventListener("DOMContentLoaded", () => {
       showPopup(error.message || "Unable to save tracking update.", {
         title: "Update Failed",
       });
+    } finally {
+      btnSaveTrackingUpdate.disabled = false;
+      btnSaveTrackingUpdate.innerHTML = originalSaveHtml;
+      if (btnCancelTrackingUpdate) btnCancelTrackingUpdate.disabled = false;
     }
   });
 

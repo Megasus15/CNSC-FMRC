@@ -120,7 +120,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <h3 class="card-title">${escHtml(title)}</h3>
             <p class="card-desc">${escHtml(description)}</p>
             <div class="service-card-footer">
-              <button class="details-btn open-modal-btn" type="button" data-title="${titleAttr}" data-desc="${modalDescription}" data-features="${featuresAttr}" data-materials="${materialsAttr}" data-best-for="${bestForAttr}" data-img="${imageAttr}">
+              <button class="details-btn open-modal-btn" type="button" aria-label="View details for ${titleAttr}" title="View details for ${titleAttr}" data-title="${titleAttr}" data-desc="${modalDescription}" data-features="${featuresAttr}" data-materials="${materialsAttr}" data-best-for="${bestForAttr}" data-img="${imageAttr}">
                 <span>View service details</span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
               </button>
             </div>

@@ -48,6 +48,7 @@ Route::get('/appointments/{reference}/verify', [AppointmentController::class, 'v
 
 // Public: Customer-facing products (non-blocked only)
 Route::get('/products', [ProductController::class, 'index']);
+Route::get('/products/{product}/reviews', [ProductRatingController::class, 'publicIndex']);
 Route::get('/announcements', [AnnouncementController::class, 'publicIndex']);
 Route::get('/promotions/active', [PromotionController::class, 'active']);
 
@@ -72,15 +73,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/orders', [OrderController::class, 'customerStore']);
     Route::get('/customer/orders', [OrderController::class, 'customerIndex']);
     Route::get('/customer/orders/{order}', [OrderController::class, 'customerShow']);
+    Route::get('/customer/orders/{order}/items/{orderItem}/image', [OrderController::class, 'customerItemImage']);
     Route::post('/customer/orders/{order}/received', [OrderController::class, 'customerMarkReceived']);
 
     // Customer: Product ratings (rate a completed order)
     Route::get('/customer/ratings', [ProductRatingController::class, 'customerRatings']);
     Route::get('/customer/orders/{order}/rating', [ProductRatingController::class, 'show']);
     Route::post('/customer/orders/{order}/rating', [ProductRatingController::class, 'store']);
+    Route::post('/products/{product}/reviews/{rating}/like', [ProductRatingController::class, 'toggleLike']);
 
     // Admin/Staff: Ratings & Feedback
     Route::get('/admin/ratings', [ProductRatingController::class, 'adminIndex']);
+    Route::get('/admin/ratings/all-ids', [ProductRatingController::class, 'adminAllIds']);
+    Route::patch('/admin/ratings/archive-bulk', [ProductRatingController::class, 'archiveBulk']);
     Route::post('/admin/ratings/{rating}/reply', [ProductRatingController::class, 'reply']);
 
     Route::get('/customer/cart', [\App\Http\Controllers\CartItemController::class, 'index']);
@@ -173,6 +178,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // Admin: Inventory CRUD + Archive
     Route::get('/admin/inventory', [InventoryItemController::class, 'index']);
     Route::get('/admin/inventory/archived', [InventoryItemController::class, 'archived']);
+    Route::get('/admin/inventory/stock-rules', [InventoryItemController::class, 'stockRuleSettings']);
+    Route::put('/admin/inventory/stock-rules', [InventoryItemController::class, 'updateStockRuleSettings']);
     Route::post('/admin/inventory', [InventoryItemController::class, 'store']);
     Route::patch('/admin/inventory/archive-bulk', [InventoryItemController::class, 'archiveBulk']);
     Route::put('/admin/inventory/{id}', [InventoryItemController::class, 'update']);

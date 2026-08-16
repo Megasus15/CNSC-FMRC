@@ -24,10 +24,15 @@ const getCustomerToken = () => {
 const ORDER_STAGE_FLOW = ["to_pay", "to_ship", "to_receive", "completed"];
 const PHILIPPINES_TIME_ZONE = "Asia/Manila";
 const API_REQUEST_TIMEOUT_MS = 8000;
+const CUSTOMER_ORDERS_REQUEST_TIMEOUT_MS = 7000;
 const ORDERS_REALTIME_SIGNAL_KEY = "fmrc_orders_updated_at";
 const ORDERS_REALTIME_CHANNEL = "fmrc-orders-realtime";
-const CUSTOMER_ORDERS_FALLBACK_SYNC_MS = 6000;
-const CUSTOMER_ORDERS_MIN_REFRESH_GAP_MS = 2500;
+const CUSTOMER_ORDERS_FALLBACK_SYNC_MS = 3000;
+const CUSTOMER_ORDERS_MIN_REFRESH_GAP_MS = 1200;
+const CUSTOMER_ORDER_IMAGE_MAX_CONCURRENT = 2;
+const CUSTOMER_ORDERS_CACHE_PREFIX = "fmrc_customer_orders_v2:";
+const CUSTOMER_ORDER_IMAGE_PLACEHOLDER =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 240'%3E%3Crect width='240' height='240' fill='%23fff7f7'/%3E%3C/svg%3E";
 const CART_STORAGE_KEY = "fmrc_cart_items";
 const CART_STORAGE_SIGNAL_KEY = "fmrc_cart_updated_at";
 
@@ -422,17 +427,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Populate the order number
       if (numEl) {
-        numEl.textContent = orderNoDisplay || "â€”";
+        numEl.textContent = orderNoDisplay || "—";
       }
 
-      // Show the modal (flex so it centres correctly)
-      modal.style.display = "flex";
+      // Show the modal using the shared appointment-success overlay states
+      modal.classList.add("active");
+      modal.setAttribute("aria-hidden", "false");
       document.body.style.overflow = "hidden";
 
       // Single-fire OK handler â€” cleans itself up
       const handleOk = () => {
         okBtn.removeEventListener("click", handleOk);
-        modal.style.display = "none";
+        modal.classList.remove("active");
+        modal.setAttribute("aria-hidden", "true");
         document.body.style.overflow = "";
         resolve();
       };
@@ -3377,6 +3384,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Animation: Fly product image to top-right cart icon
   function flyToCart(imgElement, cartIconElement) {
+    // The cart icon only exists in the Products page navbar, so bail out
+    // gracefully on pages that don't render it.
+    if (!imgElement || !cartIconElement) return;
+
     const imgRect = imgElement.getBoundingClientRect();
     const cartRect = cartIconElement.getBoundingClientRect();
 
@@ -4042,6 +4053,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (el) el.addEventListener("click", callback);
   };
 
+  const focusAppointmentControl = (control) => {
+    if (!control || typeof control.focus !== "function") return;
+    window.requestAnimationFrame(() => control.focus());
+  };
+
   const setText = (id, text) => {
     const el = document.getElementById(id);
     if (el) el.innerText = text;
@@ -4405,6 +4421,31 @@ document.addEventListener("DOMContentLoaded", () => {
     const targetSection = document.getElementById(`aptStep${stepNumber}`);
     if (targetSection) targetSection.classList.add("active");
 
+    // Each step can be much taller than a phone viewport. Start the new step
+    // at its heading and keep the active progress item visible inside the
+    // swipeable strip instead of leaving users halfway down the previous step.
+    if (appointmentOverlay) {
+      appointmentOverlay.scrollTop = 0;
+    }
+
+    const activeIndicator = document.getElementById(
+      `stepIndicator${stepNumber}`,
+    );
+    const progressWrapper = activeIndicator?.closest(
+      ".apt-progress-wrapper",
+    );
+    if (activeIndicator && progressWrapper) {
+      const targetLeft =
+        activeIndicator.offsetLeft -
+        (progressWrapper.clientWidth - activeIndicator.offsetWidth) / 2;
+      progressWrapper.scrollTo({
+        left: Math.max(0, targetLeft),
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth",
+      });
+    }
+
     if (stepNumber === 3) {
       clearSlotMessage();
       renderCalendar(currentMonth, currentYear);
@@ -4692,12 +4733,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     for (let day = 1; day <= daysInMonth; day += 1) {
-      const cell = document.createElement("div");
+      const cell = document.createElement("button");
+      cell.type = "button";
       cell.classList.add("cal-day-cell");
       cell.innerText = String(day);
 
       const dateObj = new Date(year, month, day);
       const dateKey = toDateKey(year, month, day);
+      const spokenDate = `${months[month]} ${day}, ${year}`;
       const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
       const isPast = dateObj < todayOnly;
       const daySettings = calendarState.daySettings[dateKey] || {
@@ -4708,15 +4751,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (isWeekend) {
         cell.classList.add("disabled", "unavailable");
+        cell.disabled = true;
         cell.setAttribute("title", "Unavailable: Weekend");
+        cell.setAttribute("aria-label", `${spokenDate}, unavailable: weekend`);
       } else if (isPast) {
         cell.classList.add("disabled");
+        cell.disabled = true;
         cell.style.opacity = "0.55";
         cell.setAttribute("title", "Unavailable: Past Date");
+        cell.setAttribute("aria-label", `${spokenDate}, unavailable: past date`);
       } else if (daySettings.is_blocked) {
         cell.classList.add("disabled", "unavailable");
+        cell.disabled = true;
         cell.setAttribute("title", "Unavailable: Blocked by admin");
+        cell.setAttribute(
+          "aria-label",
+          `${spokenDate}, unavailable: blocked by administrator`,
+        );
       } else {
+        cell.setAttribute("aria-label", `${spokenDate}, available`);
         cell.addEventListener("click", () =>
           handleDateClick(dateKey, day, month, year),
         );
@@ -4725,10 +4778,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (Array.isArray(daySettings.events) && daySettings.events.length) {
         cell.setAttribute("title", `Event: ${daySettings.events.join(", ")}`);
+        cell.setAttribute(
+          "aria-label",
+          `${cell.getAttribute("aria-label")}. Schedule notice: ${daySettings.events.join(", ")}`,
+        );
       }
 
       if (dateKey === selectedDateKey) {
         cell.classList.add("selected");
+      }
+      if (!cell.disabled) {
+        cell.setAttribute(
+          "aria-pressed",
+          dateKey === selectedDateKey ? "true" : "false",
+        );
       }
 
       calGrid.appendChild(cell);
@@ -4785,12 +4848,24 @@ document.addEventListener("DOMContentLoaded", () => {
         daySettings.is_blocked;
       const isSelected = selectedSlot === slot.label;
 
+      button.setAttribute("aria-pressed", isSelected ? "true" : "false");
       if (isSelected) button.classList.add("selected");
       if (isBooked || isBlocked) {
         button.classList.add("disabled");
         button.title = isBlocked
           ? "Unavailable: blocked by admin"
           : "Unavailable: already booked";
+        button.setAttribute("aria-disabled", "true");
+        button.setAttribute(
+          "aria-label",
+          `${slot.label} ${slot.type}, ${button.title.toLowerCase()}`,
+        );
+      } else {
+        button.setAttribute("aria-disabled", "false");
+        button.setAttribute(
+          "aria-label",
+          `${slot.label} ${slot.type}${isSelected ? ", selected" : ""}`,
+        );
       }
 
       button.addEventListener("click", () => {
@@ -5127,6 +5202,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       appointmentOverlay.classList.add("show-modal");
       document.body.style.overflow = "hidden";
+      focusAppointmentControl(closeAppointmentBtn);
 
       try {
         resetAppointmentFlowState();
@@ -5178,6 +5254,7 @@ document.addEventListener("DOMContentLoaded", () => {
       resetAppointmentFlowState();
       switchAptStep(1);
       stopAptPolling();
+      focusAppointmentControl(appointmentBtn);
     });
   }
 
@@ -5199,13 +5276,18 @@ document.addEventListener("DOMContentLoaded", () => {
     renderCalendar(currentMonth, currentYear);
   });
 
-  bindClick("btnGoToPrivacy", () => privacyModal?.classList.add("show-modal"));
-  bindClick("cancelPrivacyBtn", () =>
-    privacyModal?.classList.remove("show-modal"),
-  );
+  bindClick("btnGoToPrivacy", () => {
+    privacyModal?.classList.add("show-modal");
+    focusAppointmentControl(document.getElementById("cancelPrivacyBtn"));
+  });
+  bindClick("cancelPrivacyBtn", () => {
+    privacyModal?.classList.remove("show-modal");
+    focusAppointmentControl(document.getElementById("btnGoToPrivacy"));
+  });
   bindClick("acceptPrivacyBtn", () => {
     privacyModal?.classList.remove("show-modal");
     switchAptStep(2);
+    focusAppointmentControl(document.getElementById("aptLName"));
   });
 
   bindClick("btnCancelTo1", () => switchAptStep(1));
@@ -5224,11 +5306,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     clearSlotMessage();
     confirmModal?.classList.add("show-modal");
+    focusAppointmentControl(document.getElementById("cancelConfirmBtn"));
   });
 
-  bindClick("cancelConfirmBtn", () =>
-    confirmModal?.classList.remove("show-modal"),
-  );
+  bindClick("cancelConfirmBtn", () => {
+    confirmModal?.classList.remove("show-modal");
+    focusAppointmentControl(document.getElementById("btnGoToConfirm"));
+  });
   bindClick("acceptConfirmBtn", () => {
     confirmModal?.classList.remove("show-modal");
     switchAptStep(4);
@@ -5326,6 +5410,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Step 5: "Finish Transaction" â€” appointment already submitted, just show success
   bindClick("btnFinishStep5", () => {
     successModal?.classList.add("active");
+    focusAppointmentControl(document.getElementById("btnSuccessHome"));
   });
 
   bindClick("btnSuccessHome", () => {
@@ -5345,6 +5430,7 @@ document.addEventListener("DOMContentLoaded", () => {
     resetAppointmentFlowState();
     switchAptStep(1);
     stopAptPolling();
+    focusAppointmentControl(appointmentBtn);
   });
 
   const contactMessageForm = document.getElementById("contactMessageForm");
@@ -5836,6 +5922,50 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let customerOrdersController = null;
   const customerOrdersCache = new Map();
+  const customerOrderImageCache = new Map();
+  const customerOrderImageQueue = [];
+  let activeCustomerOrderImageRequests = 0;
+
+  const readCustomerOrdersCache = (cacheKey) => {
+    if (!cacheKey) return null;
+
+    const memoryEntry = customerOrdersCache.get(cacheKey);
+    if (memoryEntry && Array.isArray(memoryEntry.orders)) return memoryEntry;
+
+    try {
+      const raw = sessionStorage.getItem(
+        `${CUSTOMER_ORDERS_CACHE_PREFIX}${cacheKey}`,
+      );
+      if (!raw) return null;
+
+      const parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.orders)) return null;
+      customerOrdersCache.set(cacheKey, parsed);
+      return parsed;
+    } catch {
+      return null;
+    }
+  };
+
+  const writeCustomerOrdersCache = (cacheKey, orders, etag = "") => {
+    if (!cacheKey || !Array.isArray(orders)) return;
+
+    const entry = {
+      orders,
+      etag: String(etag || ""),
+      savedAt: Date.now(),
+    };
+    customerOrdersCache.set(cacheKey, entry);
+
+    try {
+      sessionStorage.setItem(
+        `${CUSTOMER_ORDERS_CACHE_PREFIX}${cacheKey}`,
+        JSON.stringify(entry),
+      );
+    } catch {
+      // The lightweight cache is optional; live data still works without it.
+    }
+  };
 
   const fetchJsonWithTimeout = async (
     url,
@@ -5878,40 +6008,98 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  const fetchCustomerOrders = async (customerToken) => {
+  // Order thumbnails are binary responses, so they cannot reuse the JSON helper
+  // above. This local helper keeps the abort/timeout behaviour inside the
+  // customer-orders scope: the page-level `fetchWithTimeout` lives in the
+  // DOMContentLoaded closure and is NOT reachable from here.
+  const fetchBinaryWithTimeout = async (
+    url,
+    options = {},
+    timeoutMs = API_REQUEST_TIMEOUT_MS,
+  ) => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+    const { signal: _ignoredSignal, ...restOptions } = options;
+
+    try {
+      return await fetch(url, {
+        ...restOptions,
+        signal: controller.signal,
+      });
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  };
+
+  const fetchCustomerOrders = async (customerToken, etag = "") => {
+    const requestHeaders = {
+      Accept: "application/json",
+      Authorization: `Bearer ${customerToken}`,
+    };
+    if (etag) requestHeaders["If-None-Match"] = etag;
+
     const { response, data } = await fetchJsonWithTimeout(
       `${API_BASE_URL}/customer/orders`,
       {
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${customerToken}`,
-        },
+        headers: requestHeaders,
       },
+      CUSTOMER_ORDERS_REQUEST_TIMEOUT_MS,
     );
+
+    if (response.status === 304) {
+      return {
+        notModified: true,
+        orders: null,
+        etag: response.headers.get("ETag") || etag,
+      };
+    }
 
     if (!response.ok) {
       throw new Error(data.message || "Unable to load your orders.");
     }
 
-    return Array.isArray(data.data) ? data.data : [];
+    return {
+      notModified: false,
+      orders: Array.isArray(data.data) ? data.data : [],
+      etag: response.headers.get("ETag") || "",
+    };
   };
 
-  const fetchCustomerOrderDetail = async (customerToken, orderId) => {
+  const fetchCustomerOrderDetail = async (
+    customerToken,
+    orderId,
+    etag = "",
+  ) => {
+    const requestHeaders = {
+      Accept: "application/json",
+      Authorization: `Bearer ${customerToken}`,
+    };
+    if (etag) requestHeaders["If-None-Match"] = etag;
+
     const { response, data } = await fetchJsonWithTimeout(
       `${API_BASE_URL}/customer/orders/${orderId}`,
       {
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${customerToken}`,
-        },
+        headers: requestHeaders,
       },
     );
+
+    if (response.status === 304) {
+      return {
+        notModified: true,
+        detail: null,
+        etag: response.headers.get("ETag") || etag,
+      };
+    }
 
     if (!response.ok) {
       throw new Error(data.message || "Unable to load order details.");
     }
 
-    return data.data || null;
+    return {
+      notModified: false,
+      detail: data.data || null,
+      etag: response.headers.get("ETag") || "",
+    };
   };
 
   const openOrdersModal = (activeUserInfo) => {
@@ -5925,6 +6113,10 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="customer-orders-title-wrap">
               <h2 class="customer-orders-title" id="customerOrdersTitle">My Orders</h2>
               <p class="customer-orders-subtitle">Track every order from payment to completion.</p>
+              <p class="customer-orders-sync-status is-syncing" id="customerOrdersSyncStatus" aria-live="polite">
+                <span class="customer-orders-sync-dot" aria-hidden="true"></span>
+                <span>Loading current orders...</span>
+              </p>
             </div>
             <button type="button" class="customer-orders-close" id="closeCustomerOrdersModal" aria-label="Close">&times;</button>
           </div>
@@ -5973,6 +6165,7 @@ document.addEventListener("DOMContentLoaded", () => {
       );
       const detailTitle = overlay.querySelector("#customerOrderDetailTitle");
       const closeDetailBtn = overlay.querySelector("#closeCustomerOrderDetail");
+      const syncStatus = overlay.querySelector("#customerOrdersSyncStatus");
       const stageByPanel = [
         "all",
         "to_pay",
@@ -5989,6 +6182,8 @@ document.addEventListener("DOMContentLoaded", () => {
         token: "",
         orders: [],
         detailsById: new Map(),
+        detailEtagsById: new Map(),
+        etag: "",
         loading: false,
         refreshInProgress: false,
         refreshQueued: false,
@@ -6000,6 +6195,192 @@ document.addEventListener("DOMContentLoaded", () => {
         refreshTimer: null,
         touchStartX: 0,
         touchStartY: 0,
+      };
+
+      let orderImageObserver = null;
+
+      const setSyncStatus = (mode, message) => {
+        if (!syncStatus) return;
+        syncStatus.classList.toggle("is-syncing", mode === "syncing");
+        syncStatus.classList.toggle("is-live", mode === "live");
+        syncStatus.classList.toggle("is-offline", mode === "offline");
+        const label = syncStatus.querySelector("span:last-child");
+        if (label) label.textContent = message;
+      };
+
+      const resolveCustomerOrderImageUrl = (endpoint) => {
+        const value = String(endpoint || "").trim();
+        if (!value) return "";
+        if (/^https?:\/\//i.test(value)) return value;
+        return `${API_BASE_URL}/${value.replace(/^\/+/, "")}`;
+      };
+
+      const resolveCustomerOrderFullImageEndpoint = (
+        fullEndpoint,
+        thumbnailEndpoint,
+      ) => {
+        const explicit = String(fullEndpoint || "").trim();
+        if (explicit) return explicit;
+
+        const thumbnail = String(thumbnailEndpoint || "").trim();
+        if (!thumbnail) return "";
+        const [path, query = ""] = thumbnail.split("?", 2);
+        const params = new URLSearchParams(query);
+        params.delete("thumbnail");
+        const remainingQuery = params.toString();
+        return remainingQuery ? `${path}?${remainingQuery}` : path;
+      };
+
+      const runCustomerOrderImageTask = async (task) => {
+        // Always resolves. A rejected promise here used to leave the thumbnail
+        // stuck on its loading spinner forever.
+        try {
+          const response = await fetchBinaryWithTimeout(
+            resolveCustomerOrderImageUrl(task.endpoint),
+            {
+              headers: {
+                Accept:
+                  "application/json,image/avif,image/webp,image/png,image/jpeg,*/*",
+                Authorization: `Bearer ${state.token}`,
+              },
+              cache: "force-cache",
+            },
+            task.timeoutMs || 15000,
+          );
+
+          if (!response.ok) return "";
+
+          const blob = await response.blob();
+          if (!blob || !blob.size) return "";
+
+          return URL.createObjectURL(blob);
+        } catch {
+          return "";
+        }
+      };
+
+      const pumpCustomerOrderImageQueue = () => {
+        while (
+          activeCustomerOrderImageRequests < CUSTOMER_ORDER_IMAGE_MAX_CONCURRENT &&
+          customerOrderImageQueue.length
+        ) {
+          const task = customerOrderImageQueue.shift();
+          if (!task) continue;
+
+          activeCustomerOrderImageRequests += 1;
+
+          // `runCustomerOrderImageTask` is async, so the settle callback always
+          // runs on a later tick. The in-flight counter can never leak, which
+          // keeps the queue draining even when a request fails.
+          void runCustomerOrderImageTask(task).then((objectUrl) => {
+            if (!objectUrl) {
+              customerOrderImageCache.delete(task.endpoint);
+            }
+            activeCustomerOrderImageRequests -= 1;
+            task.resolve(objectUrl);
+            pumpCustomerOrderImageQueue();
+          });
+        }
+      };
+
+      const loadCustomerOrderImage = (
+        endpoint,
+        { priority = false, timeoutMs = 15000 } = {},
+      ) => {
+        const key = String(endpoint || "").trim();
+        if (!key) return Promise.resolve("");
+        if (customerOrderImageCache.has(key)) {
+          return customerOrderImageCache.get(key);
+        }
+
+        const imagePromise = new Promise((resolve) => {
+          const task = { endpoint: key, resolve, timeoutMs };
+          if (priority) {
+            customerOrderImageQueue.unshift(task);
+          } else {
+            customerOrderImageQueue.push(task);
+          }
+          pumpCustomerOrderImageQueue();
+        });
+        customerOrderImageCache.set(key, imagePromise);
+        return imagePromise;
+      };
+
+      const settleCustomerOrderImageDecode = async (image, timeoutMs = 2000) => {
+        if (!image || typeof image.decode !== "function") return;
+
+        await Promise.race([
+          image.decode().catch(() => {}),
+          new Promise((resolve) => window.setTimeout(resolve, timeoutMs)),
+        ]);
+      };
+
+      const hydrateCustomerOrderImages = (root = overlay) => {
+        const images = Array.from(
+          root.querySelectorAll("img[data-order-image-endpoint]"),
+        ).filter((image) => image.dataset.orderImageObserved !== "true");
+        if (!images.length) return;
+
+        const hydrateImage = async (image) => {
+          if (!image?.isConnected) return;
+          image.dataset.orderImageObserved = "true";
+          image.classList.add("is-loading");
+          const trigger = image.closest(".customer-order-image-trigger");
+          trigger?.classList.add("is-loading");
+          trigger?.setAttribute("aria-busy", "true");
+
+          let objectUrl = "";
+          try {
+            const endpoint = image.dataset.orderImageEndpoint || "";
+            objectUrl = await loadCustomerOrderImage(endpoint);
+            if (objectUrl && image.isConnected) {
+              image.src = objectUrl;
+              await settleCustomerOrderImageDecode(image);
+            }
+          } catch {
+            // A failed thumbnail must still settle its placeholder below,
+            // otherwise the spinner would spin forever.
+            objectUrl = "";
+          }
+
+          const imageReady = Boolean(
+            objectUrl && image.isConnected && image.naturalWidth > 0,
+          );
+          if (trigger) {
+            trigger.classList.toggle("is-ready", imageReady);
+            trigger.classList.toggle("is-unavailable", !imageReady);
+            trigger.setAttribute("aria-busy", "false");
+            if (!imageReady) trigger.setAttribute("aria-disabled", "true");
+          }
+          image.classList.remove("is-loading");
+          trigger?.classList.remove("is-loading");
+        };
+
+        if (typeof IntersectionObserver !== "function") {
+          images.forEach((image) => void hydrateImage(image));
+          return;
+        }
+
+        if (!orderImageObserver) {
+          orderImageObserver = new IntersectionObserver(
+            (entries) => {
+              entries.forEach((entry) => {
+                if (!entry.isIntersecting) return;
+                orderImageObserver?.unobserve(entry.target);
+                void hydrateImage(entry.target);
+              });
+            },
+            {
+              root: null,
+              rootMargin: "220px 0px",
+              threshold: 0.01,
+            },
+          );
+        }
+
+        // Only visible cards (and a small scroll-ahead margin) request images.
+        // Hidden tabs no longer compete with the realtime metadata request.
+        images.forEach((image) => orderImageObserver.observe(image));
       };
 
       const shouldProcessRealtimeSignal = (payload = {}) => {
@@ -6034,6 +6415,7 @@ document.addEventListener("DOMContentLoaded", () => {
       };
 
       const close = () => {
+        closeCustomerOrderImagePreview();
         overlay.classList.add("closing");
         overlay.classList.remove("show");
         stopRealtimeRefresh();
@@ -6055,6 +6437,163 @@ document.addEventListener("DOMContentLoaded", () => {
           .replace(/>/g, "&gt;")
           .replace(/\"/g, "&quot;")
           .replace(/'/g, "&#39;");
+
+      let customerOrderImageLightbox = null;
+      let customerOrderImagePreviewRequestId = 0;
+      let customerOrderImagePreviewTrigger = null;
+
+      // Single source of truth for every order thumbnail in the drawer
+      // (All / To Pay / To Ship / To Receive / Completed / To Rate and the
+      // Order Details list). Cards that only have an image endpoint start in
+      // the loading state and are hydrated lazily by
+      // `hydrateCustomerOrderImages`, so no tab renders a permanent spinner.
+      const renderOrderThumbTrigger = (source, className = "") => {
+        const name = escapeHtml(source?.product_name || "Custom Order");
+        const imageSrc = escapeHtml(
+          source?.product_image || CUSTOMER_ORDER_IMAGE_PLACEHOLDER,
+        );
+        const endpoint = escapeHtml(source?.product_image_endpoint || "");
+        const fullEndpoint = escapeHtml(
+          resolveCustomerOrderFullImageEndpoint(
+            source?.product_image_full_endpoint,
+            source?.product_image_endpoint,
+          ),
+        );
+        const hasImage = Boolean(
+          source?.product_image || source?.product_image_endpoint,
+        );
+        const imageState = source?.product_image_endpoint
+          ? "is-loading"
+          : source?.product_image
+            ? "is-ready"
+            : "is-unavailable";
+
+        return `
+          <button type="button" class="customer-order-image-trigger${className ? ` ${className}` : ""} ${imageState}" data-order-image-full-endpoint="${fullEndpoint}" data-order-image-title="${name}" aria-label="Expand image for ${name}" ${hasImage ? "" : 'aria-disabled="true" tabindex="-1"'}>
+            <img src="${imageSrc}" ${endpoint ? `data-order-image-endpoint="${endpoint}"` : ""} alt="${name}" loading="lazy" />
+            <span class="customer-order-image-loading" aria-hidden="true"><i class="fa-solid fa-spinner fa-spin"></i></span>
+            <span class="customer-order-image-expand" aria-hidden="true"><i class="fa-solid fa-expand"></i></span>
+            <span class="customer-order-image-unavailable" aria-hidden="true"><i class="fa-regular fa-image"></i></span>
+          </button>
+        `;
+      };
+
+      const ensureCustomerOrderImageLightbox = () => {
+        if (customerOrderImageLightbox) return customerOrderImageLightbox;
+
+        customerOrderImageLightbox = document.createElement("div");
+        customerOrderImageLightbox.id = "customerOrderImageLightbox";
+        customerOrderImageLightbox.className =
+          "modal-overlay customer-order-image-lightbox";
+        customerOrderImageLightbox.setAttribute("aria-hidden", "true");
+        customerOrderImageLightbox.innerHTML = `
+          <div class="lightbox-box customer-order-lightbox-box" role="dialog" aria-modal="true" aria-labelledby="customerOrderLightboxCaption">
+            <button type="button" class="lightbox-close-btn" data-close-order-image aria-label="Close image preview">&times;</button>
+            <div class="customer-order-lightbox-media">
+              <div class="customer-order-lightbox-loading" role="status" aria-live="polite">
+                <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
+                <span>Loading full image...</span>
+              </div>
+              <img class="customer-order-lightbox-image" alt="" />
+            </div>
+            <p id="customerOrderLightboxCaption" class="lightbox-caption"></p>
+          </div>
+        `;
+        document.body.appendChild(customerOrderImageLightbox);
+
+        customerOrderImageLightbox
+          .querySelector("[data-close-order-image]")
+          ?.addEventListener("click", () => closeCustomerOrderImagePreview());
+        customerOrderImageLightbox.addEventListener("click", (event) => {
+          if (event.target === customerOrderImageLightbox) {
+            closeCustomerOrderImagePreview();
+          }
+        });
+
+        return customerOrderImageLightbox;
+      };
+
+      const closeCustomerOrderImagePreview = () => {
+        customerOrderImagePreviewRequestId += 1;
+        customerOrderImageLightbox?.classList.remove("show-modal");
+        customerOrderImageLightbox?.classList.remove(
+          "is-loading",
+          "is-ready",
+          "has-error",
+        );
+        customerOrderImageLightbox?.setAttribute("aria-hidden", "true");
+        if (customerOrderImagePreviewTrigger?.isConnected) {
+          customerOrderImagePreviewTrigger.focus({ preventScroll: true });
+        }
+        customerOrderImagePreviewTrigger = null;
+      };
+
+      const openCustomerOrderImagePreview = async (trigger) => {
+        if (!trigger || trigger.getAttribute("aria-disabled") === "true") return;
+
+        const sourceImage = trigger.querySelector("img");
+        const fullEndpoint =
+          trigger.getAttribute("data-order-image-full-endpoint") || "";
+        const title =
+          trigger.getAttribute("data-order-image-title") ||
+          sourceImage?.alt ||
+          "Product Image";
+        const lightbox = ensureCustomerOrderImageLightbox();
+        const previewImage = lightbox.querySelector(
+          ".customer-order-lightbox-image",
+        );
+        const caption = lightbox.querySelector(".lightbox-caption");
+        const loadingLabel = lightbox.querySelector(
+          ".customer-order-lightbox-loading span",
+        );
+        const closeButton = lightbox.querySelector("[data-close-order-image]");
+        const requestId = ++customerOrderImagePreviewRequestId;
+
+        customerOrderImagePreviewTrigger = trigger;
+        if (caption) caption.textContent = title;
+        if (loadingLabel) loadingLabel.textContent = "Loading full image...";
+        if (previewImage) {
+          previewImage.alt = `${title} large preview`;
+          if (trigger.classList.contains("is-ready") && sourceImage?.src) {
+            previewImage.src = sourceImage.currentSrc || sourceImage.src;
+          } else {
+            previewImage.removeAttribute("src");
+          }
+        }
+
+        lightbox.classList.remove("is-ready", "has-error");
+        lightbox.classList.add("show-modal", "is-loading");
+        lightbox.setAttribute("aria-hidden", "false");
+        closeButton?.focus();
+
+        const expandedSource = fullEndpoint
+          ? await loadCustomerOrderImage(fullEndpoint, {
+              priority: true,
+              timeoutMs: 30000,
+            })
+          : sourceImage?.currentSrc || sourceImage?.src || "";
+
+        if (
+          requestId !== customerOrderImagePreviewRequestId ||
+          !lightbox.classList.contains("show-modal")
+        ) {
+          return;
+        }
+
+        if (!expandedSource || !previewImage) {
+          lightbox.classList.remove("is-loading");
+          lightbox.classList.add("has-error");
+          if (loadingLabel) loadingLabel.textContent = "Image unavailable.";
+          return;
+        }
+
+        previewImage.src = expandedSource;
+        await settleCustomerOrderImageDecode(previewImage, 4000);
+        if (requestId !== customerOrderImagePreviewRequestId) return;
+
+        lightbox.classList.remove("is-loading", "has-error");
+        lightbox.classList.add("is-ready");
+      };
 
       const formatOrderDate = (isoDate) => {
         if (!isoDate) return "-";
@@ -6178,15 +6717,26 @@ document.addEventListener("DOMContentLoaded", () => {
         const toRate = completedOrders.filter((order) => !order.has_rating);
         const rated = completedOrders.filter((order) => order.has_rating);
 
-        const cardThumb = (order) =>
-          escapeHtml(order.product_image || "/images/FMRC Logo.png");
+        const reviewItemSummary = (order) => {
+          const names = (Array.isArray(order.items) ? order.items : [])
+            .map((item) => item?.product_name || "Product")
+            .filter(Boolean);
+          const title = names.length > 1
+            ? `${names.length} products to review`
+            : (names[0] || "Custom Order");
+          return {
+            title,
+            names: names.length ? names.join(" • ") : "Product details unavailable",
+            count: names.length || 1,
+          };
+        };
 
         const toRateCards = toRate.length
           ? toRate
               .map((order) => {
-                const productName = escapeHtml(
-                  order.product_name || "Custom Order",
-                );
+                const reviewSummary = reviewItemSummary(order);
+                const productName = escapeHtml(reviewSummary.title);
+                const itemNames = escapeHtml(reviewSummary.names);
                 const orderNo = escapeHtml(
                   order.order_no_display ||
                     `#${order.order_no || order.id || "-"}`,
@@ -6197,16 +6747,17 @@ document.addEventListener("DOMContentLoaded", () => {
                 return `
                   <article class="customer-torate-card">
                     <div class="customer-order-thumb">
-                      <img src="${cardThumb(order)}" alt="Order item" loading="lazy" onerror="this.src='/images/FMRC Logo.png'" />
+                      ${renderOrderThumbTrigger(order)}
                     </div>
                     <div class="customer-torate-main">
                       <h4>${productName}</h4>
+                      <p class="customer-order-item-names">${itemNames}</p>
                       <p class="customer-order-meta">Order ${orderNo}</p>
                       <p class="customer-order-meta">Delivered &bull; ${formatOrderDate(order.created_at)}</p>
                     </div>
                     <div class="customer-torate-side">
                       <strong class="customer-order-price">${totalLabel}</strong>
-                      <button type="button" class="customer-order-rate-btn" data-order-rate="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || "Order")}">Rate Now</button>
+                      <button type="button" class="customer-order-rate-btn" data-order-rate="${escapeHtml(order.id)}" data-order-name="${productName}">Rate ${reviewSummary.count > 1 ? "products" : "now"}</button>
                     </div>
                   </article>
                 `;
@@ -6222,9 +6773,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const ratedCards = rated.length
           ? rated
               .map((order) => {
-                const productName = escapeHtml(
-                  order.product_name || "Custom Order",
-                );
+                const reviewSummary = reviewItemSummary(order);
+                const productName = escapeHtml(reviewSummary.title);
+                const itemNames = escapeHtml(reviewSummary.names);
                 const orderNo = escapeHtml(
                   order.order_no_display ||
                     `#${order.order_no || order.id || "-"}`,
@@ -6235,10 +6786,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 return `
                   <article class="customer-rated-card">
                     <div class="customer-order-thumb">
-                      <img src="${cardThumb(order)}" alt="Order item" loading="lazy" onerror="this.src='/images/FMRC Logo.png'" />
+                      ${renderOrderThumbTrigger(order)}
                     </div>
                     <div class="customer-rated-main">
                       <h4>${productName}</h4>
+                      <p class="customer-order-item-names">${itemNames}</p>
                       <p class="customer-order-meta">Order ${orderNo}</p>
                       <div class="customer-rated-stars">${renderStarsRow(stars)}<span class="customer-rated-score">${stars}.0</span></div>
                       ${
@@ -6253,7 +6805,7 @@ document.addEventListener("DOMContentLoaded", () => {
                       }
                     </div>
                     <div class="customer-rated-side">
-                      <button type="button" class="customer-order-rate-btn ghost" data-order-rate="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || "Order")}">Edit Rating</button>
+                      <button type="button" class="customer-order-rate-btn ghost" data-order-rate="${escapeHtml(order.id)}" data-order-name="${productName}">Edit Reviews</button>
                     </div>
                   </article>
                 `;
@@ -6360,7 +6912,8 @@ document.addEventListener("DOMContentLoaded", () => {
               });
             }
             state.detailsById.set(completedId, completedOrder);
-            if (state.cacheKey) customerOrdersCache.set(state.cacheKey, state.orders);
+            state.etag = "";
+            writeCustomerOrdersCache(state.cacheKey, state.orders, state.etag);
             renderOrders();
           }
 
@@ -6399,7 +6952,8 @@ document.addEventListener("DOMContentLoaded", () => {
             ?.addEventListener("click", () => {
               closePrompt();
               setActivePanel(5);
-              void openRatingModal(orderId, orderName);
+              const selectedOrder = state.orders.find((order) => String(order.id) === String(orderId));
+              void openRatingModal(orderId, orderName, selectedOrder);
             });
 
           setTimeout(closePrompt, 8000);
@@ -6454,7 +7008,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const orderId = buttonEl?.getAttribute?.("data-order-rate") || "";
         const orderName = buttonEl?.getAttribute?.("data-order-name") || "Order";
         if (!orderId) return;
-        void openRatingModal(orderId, orderName);
+        const selectedOrder = state.orders.find((order) => String(order.id) === String(orderId));
+        void openRatingModal(orderId, orderName, selectedOrder);
       };
 
       const renderOrders = () => {
@@ -6495,9 +7050,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 Number.parseInt(order.quantity || "1", 10) || 1,
               );
               const quantityLabel = `${quantity} item${quantity > 1 ? "s" : ""}`;
-              const productImage = escapeHtml(
-                order.product_image || "/images/FMRC Logo.png",
-              );
               const productName = escapeHtml(
                 order.product_name || "Custom Order",
               );
@@ -6515,7 +7067,7 @@ document.addEventListener("DOMContentLoaded", () => {
               return `
                 <article class="customer-order-card">
                   <div class="customer-order-thumb">
-                    <img src="${productImage}" alt="Order item" loading="lazy" onerror="this.src='/images/FMRC Logo.png'" />
+                    ${renderOrderThumbTrigger(order)}
                   </div>
                   <div class="customer-order-main">
                     <h4>${productName}</h4>
@@ -6555,6 +7107,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (countEl) countEl.textContent = String(count);
         });
 
+        hydrateCustomerOrderImages(overlay);
       };
 
 
@@ -6578,9 +7131,6 @@ document.addEventListener("DOMContentLoaded", () => {
                   1,
                   Number.parseInt(item.quantity || "1", 10) || 1,
                 );
-                const itemImage = escapeHtml(
-                  item.product_image || "/images/FMRC Logo.png",
-                );
                 const itemLineTotal = escapeHtml(
                   formatOrderCurrency(
                     Number(item.line_total || 0) ||
@@ -6589,7 +7139,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 );
                 return `
                   <div class="customer-order-detail-item">
-                    <img src="${itemImage}" alt="${itemName}" onerror="this.src='/images/FMRC Logo.png'" />
+                    ${renderOrderThumbTrigger(item, "customer-order-detail-image-trigger")}
                     <div class="customer-order-detail-item-info">
                       <strong>${itemName}</strong>
                       <span>Qty: ${itemQty} &nbsp;&bull;&nbsp; ${itemLineTotal}</span>
@@ -6709,6 +7259,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         detailModal.classList.add("show");
         detailModal.setAttribute("aria-hidden", "false");
+        hydrateCustomerOrderImages(detailContent);
       };
 
       const closeDetailModal = () => {
@@ -6745,10 +7296,11 @@ document.addEventListener("DOMContentLoaded", () => {
         detailModal.setAttribute("aria-hidden", "false");
 
         try {
-          const detail = await fetchCustomerOrderDetail(state.token, key);
-          if (detail) {
-            state.detailsById.set(key, detail);
-            renderDetailModal(detail);
+          const result = await fetchCustomerOrderDetail(state.token, key);
+          if (result.detail) {
+            state.detailsById.set(key, result.detail);
+            state.detailEtagsById.set(key, result.etag || "");
+            renderDetailModal(result.detail);
             state.lastDetailRefreshAt = Date.now();
           }
         } catch (error) {
@@ -6772,15 +7324,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
         state.detailLoading = true;
         try {
-          const detail = await fetchCustomerOrderDetail(
+          const detailKey = String(state.activeDetailId);
+          const result = await fetchCustomerOrderDetail(
             state.token,
-            state.activeDetailId,
+            detailKey,
+            state.detailEtagsById.get(detailKey) || "",
           );
-          if (detail) {
-            state.detailsById.set(String(state.activeDetailId), detail);
-            renderDetailModal(detail);
-            state.lastDetailRefreshAt = Date.now();
+          if (result.etag) {
+            state.detailEtagsById.set(detailKey, result.etag);
           }
+          if (!result.notModified && result.detail) {
+            state.detailsById.set(detailKey, result.detail);
+            renderDetailModal(result.detail);
+          }
+          state.lastDetailRefreshAt = Date.now();
         } catch {
           // Keep current detail view; periodic refresh will retry.
         } finally {
@@ -6825,33 +7382,51 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (showLoading) {
           state.loading = true;
+          setSyncStatus("syncing", "Loading current orders...");
           renderOrders();
         }
 
         try {
-          const orders = await fetchCustomerOrders(state.token);
-          state.orders = orders;
+          const result = await fetchCustomerOrders(state.token, state.etag);
           state.lastRefreshAt = Date.now();
-          if (state.cacheKey) {
-            customerOrdersCache.set(state.cacheKey, orders);
+          state.loading = false;
+
+          if (!result.notModified && Array.isArray(result.orders)) {
+            state.orders = result.orders;
+            state.etag = result.etag || "";
+            writeCustomerOrdersCache(state.cacheKey, state.orders, state.etag);
+            renderOrders();
+          } else if (result.etag) {
+            state.etag = result.etag;
           }
-          renderOrders();
+
+          setSyncStatus("live", "Live updates on");
 
           void refreshActiveDetail(false);
         } catch (error) {
-          tabs.forEach((tab) => {
-            const countEl = tab.querySelector(".customer-orders-tab-count");
-            if (countEl) countEl.textContent = "0";
-          });
+          state.lastRefreshAt = Date.now();
+          if (state.orders.length) {
+            state.loading = false;
+            setSyncStatus(
+              "offline",
+              "Showing saved orders - reconnecting...",
+            );
+          } else {
+            tabs.forEach((tab) => {
+              const countEl = tab.querySelector(".customer-orders-tab-count");
+              if (countEl) countEl.textContent = "0";
+            });
 
-          panels.forEach((panel) => {
-            panel.innerHTML = `
-              <div class="customer-orders-empty">
-                <i class="fa-regular fa-circle-xmark"></i>
-                <p>${escapeHtml(error?.message || "Unable to load orders right now.")}</p>
-              </div>
-            `;
-          });
+            panels.forEach((panel) => {
+              panel.innerHTML = `
+                <div class="customer-orders-empty">
+                  <i class="fa-regular fa-circle-xmark"></i>
+                  <p>${escapeHtml(error?.message || "Unable to load orders right now.")}</p>
+                </div>
+              `;
+            });
+            setSyncStatus("offline", "Unable to sync - retrying...");
+          }
         } finally {
           state.loading = false;
           state.refreshInProgress = false;
@@ -6870,6 +7445,16 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       overlay.addEventListener("click", (event) => {
+        const imageTrigger = event.target.closest(
+          ".customer-order-image-trigger",
+        );
+        if (imageTrigger) {
+          event.preventDefault();
+          event.stopPropagation();
+          void openCustomerOrderImagePreview(imageTrigger);
+          return;
+        }
+
         const detailBtn = event.target.closest("[data-order-detail]");
         if (detailBtn) {
           const orderId = detailBtn.getAttribute("data-order-detail") || "";
@@ -6911,6 +7496,10 @@ document.addEventListener("DOMContentLoaded", () => {
       document.addEventListener("keydown", (event) => {
         if (event.key !== "Escape" || !overlay.classList.contains("show"))
           return;
+        if (customerOrderImageLightbox?.classList.contains("show-modal")) {
+          closeCustomerOrderImagePreview();
+          return;
+        }
         if (detailModal?.classList.contains("show")) {
           closeDetailModal();
           return;
@@ -7009,24 +7598,32 @@ document.addEventListener("DOMContentLoaded", () => {
           state.cacheKey = String(
             nextUserInfo?.id || nextUserInfo?.email || "customer-orders",
           );
-          state.token = localStorage.getItem("customer_token") || "";
+          state.token = getCustomerToken();
           state.detailsById.clear();
+          state.detailEtagsById.clear();
           state.refreshQueued = false;
+          state.etag = "";
           setActivePanel(0);
 
-          const cachedOrders = customerOrdersCache.get(state.cacheKey);
-          if (Array.isArray(cachedOrders) && cachedOrders.length) {
+          const cachedEntry = readCustomerOrdersCache(state.cacheKey);
+          const hasCachedOrders = Boolean(
+            cachedEntry && Array.isArray(cachedEntry.orders),
+          );
+          if (hasCachedOrders) {
             state.loading = false;
-            state.orders = cachedOrders;
+            state.orders = cachedEntry.orders;
+            state.etag = String(cachedEntry.etag || "");
             renderOrders();
+            setSyncStatus("syncing", "Checking for new updates...");
+          } else {
+            state.orders = [];
+            state.loading = true;
+            setSyncStatus("syncing", "Loading current orders...");
           }
 
           overlay.classList.add("show");
           document.body.style.overflow = "hidden";
-          await refreshOrders(
-            !Array.isArray(cachedOrders) || !cachedOrders.length,
-            true,
-          );
+          await refreshOrders(!hasCachedOrders, true);
           startRealtimeRefresh();
         },
       };
@@ -7039,150 +7636,453 @@ document.addEventListener("DOMContentLoaded", () => {
 const openRatingModal = (() => {
   let ratingOverlay = null;
 
+  const RATING_LABELS = {
+    1: "Terrible",
+    2: "Bad",
+    3: "Okay",
+    4: "Good",
+    5: "Excellent",
+  };
+
+  const escapeRatingHtml = (value) =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const resolveRatingMediaUrl = (value) => {
+    if (!value) return "";
+    try {
+      return new URL(value, API_BASE_URL).href;
+    } catch {
+      return String(value);
+    }
+  };
+
+  const normalizeItems = (order) =>
+    Array.isArray(order?.items)
+      ? order.items.filter((item) => item && item.id !== undefined && item.id !== null)
+      : [];
+
   const ensureModal = () => {
     if (ratingOverlay) return ratingOverlay;
 
-    ratingOverlay = document.createElement('div');
-    ratingOverlay.id = 'customerRatingModal';
-    ratingOverlay.className = 'customer-rating-overlay';
+    ratingOverlay = document.createElement("div");
+    ratingOverlay.id = "customerRatingModal";
+    ratingOverlay.className = "customer-rating-overlay";
     ratingOverlay.innerHTML = `
       <div class="customer-rating-card" role="dialog" aria-modal="true" aria-labelledby="ratingModalTitle">
         <div class="customer-rating-head">
-          <h3 id="ratingModalTitle">Rate Product</h3>
-          <button type="button" class="customer-orders-close" id="closeRatingModal" aria-label="Close">&times;</button>
+          <div>
+            <p class="customer-rating-eyebrow">Customer review</p>
+            <h3 id="ratingModalTitle">Rate each product</h3>
+          </div>
+          <button type="button" class="customer-orders-close" id="closeRatingModal" aria-label="Close rating modal">&times;</button>
         </div>
-        <p class="customer-rating-product-name" id="ratingProductName"></p>
-        <div class="customer-rating-stars" id="ratingStars" role="group" aria-label="Star rating">
-          ${[1,2,3,4,5].map(n => `<button type="button" class="rating-star-large" data-star="${n}" aria-label="${n} star">&#9733;</button>`).join('')}
+        <div class="customer-rating-body" id="ratingModalBody">
+          <p class="customer-rating-product-name" id="ratingProductName">Rate each product individually.</p>
+          <div class="customer-rating-items" id="ratingItems"></div>
         </div>
-        <p class="customer-rating-score-label"><span id="ratingScoreDisplay">0</span> / 5</p>
-        <textarea id="ratingFeedback" class="customer-rating-feedback" maxlength="75" placeholder="Leave your feedback (max 75 characters)..." rows="3"></textarea>
-        <div class="customer-rating-char-count"><span id="ratingCharCount">0</span>/75</div>
         <div class="customer-rating-actions">
           <button type="button" class="customer-rating-cancel-btn" id="cancelRatingBtn">Cancel</button>
-          <button type="button" class="customer-rating-submit-btn" id="submitRatingBtn">Submit Rating</button>
+          <button type="button" class="btn-place-order customer-rating-submit-btn" id="submitRatingBtn">
+            <span class="customer-rating-submit-spinner" aria-hidden="true"></span>
+            <span data-rating-submit-label>Submit reviews</span>
+          </button>
+        </div>
+      </div>
+      <div class="customer-rating-discard-overlay" id="ratingDiscardModal" aria-hidden="true">
+        <div class="customer-rating-discard-card" role="dialog" aria-modal="true" aria-labelledby="ratingDiscardTitle">
+          <div class="customer-rating-discard-icon" aria-hidden="true"><i class="fa-solid fa-triangle-exclamation"></i></div>
+          <h3 id="ratingDiscardTitle">Discard changes?</h3>
+          <p>Your product ratings and review changes have not been submitted.</p>
+          <div class="customer-rating-discard-actions">
+            <button type="button" class="customer-rating-cancel-btn" id="continueRatingBtn">Continue to rate or review</button>
+            <button type="button" class="customer-rating-submit-btn" id="discardRatingBtn">Discard</button>
+          </div>
         </div>
       </div>
     `;
     document.body.appendChild(ratingOverlay);
 
-    const starsContainer = ratingOverlay.querySelector('#ratingStars');
-    const scoreDisplay = ratingOverlay.querySelector('#ratingScoreDisplay');
-    const feedbackInput = ratingOverlay.querySelector('#ratingFeedback');
-    const charCount = ratingOverlay.querySelector('#ratingCharCount');
-    let selectedStars = 0;
+    const itemsContainer = ratingOverlay.querySelector("#ratingItems");
+    const submitBtn = ratingOverlay.querySelector("#submitRatingBtn");
+    const submitLabel = submitBtn?.querySelector("[data-rating-submit-label]");
+    const discardOverlay = ratingOverlay.querySelector("#ratingDiscardModal");
+    const discardBtn = ratingOverlay.querySelector("#discardRatingBtn");
+    const continueBtn = ratingOverlay.querySelector("#continueRatingBtn");
+    let itemModels = [];
+    let draftByItem = new Map();
+    let filesByItem = new Map();
+    let itemsLoading = false;
 
-    const paintStars = (hovered) => {
-      const fill = hovered || selectedStars;
-      starsContainer.querySelectorAll('.rating-star-large').forEach(btn => {
-        btn.classList.toggle('filled', Number(btn.dataset.star) <= fill);
+    const getDraft = (itemId) => draftByItem.get(String(itemId));
+    const markDirty = () => { ratingOverlay._hasRatingDraft = true; };
+
+    const renderMediaPreview = (itemId) => {
+      const article = itemsContainer?.querySelector(`[data-rating-item="${String(itemId)}"]`);
+      const preview = article?.querySelector("[data-media-preview]");
+      if (!preview) return;
+      const draft = getDraft(itemId) || {};
+      const selectedFiles = filesByItem.get(String(itemId)) || [];
+      const existingMedia = Array.isArray(draft.existingMedia) ? draft.existingMedia : [];
+      const existingMarkup = existingMedia.map((media) => {
+        const src = escapeRatingHtml(resolveRatingMediaUrl(media?.url));
+        if (!src) return "";
+        return media?.type === "video"
+          ? `<span class="customer-rating-media-thumb"><video src="${src}" muted preload="metadata"></video><small>Existing video</small></span>`
+          : `<span class="customer-rating-media-thumb"><img src="${src}" alt="Existing review media" /><small>Existing photo</small></span>`;
+      }).join("");
+      const selectedMarkup = selectedFiles.map((file, index) => {
+        const src = escapeRatingHtml(URL.createObjectURL(file));
+        const isVideo = String(file.type || "").startsWith("video/");
+        return `<span class="customer-rating-media-thumb is-new"><${isVideo ? "video" : "img"} src="${src}" ${isVideo ? "muted preload=\"metadata\"" : `alt="${escapeRatingHtml(file.name)}"`} ></${isVideo ? "video" : "img"}><button type="button" data-remove-media="${index}" aria-label="Remove ${escapeRatingHtml(file.name)}">&times;</button><small>${escapeRatingHtml(file.name)}</small></span>`;
+      }).join("");
+      preview.innerHTML = existingMarkup + selectedMarkup;
+      preview.hidden = !existingMarkup && !selectedMarkup;
+    };
+
+    const renderItem = (item) => {
+      const id = String(item.id);
+      const draft = getDraft(id) || { stars: 0, feedback: "", anonymous: false, existingMedia: [] };
+      const productName = escapeRatingHtml(item.product_name || "Product");
+      const image = item.product_image || "";
+      const imageMarkup = image
+        ? `<img src="${escapeRatingHtml(resolveRatingMediaUrl(image))}" alt="${productName}" />`
+        : `<span class="customer-rating-item-placeholder"><i class="fa-solid fa-box" aria-hidden="true"></i></span>`;
+      const stars = [1, 2, 3, 4, 5].map((star) => `<button type="button" class="rating-star-large${star <= Number(draft.stars) ? " filled" : ""}" data-star="${star}" aria-label="${RATING_LABELS[star]} (${star} star${star === 1 ? "" : "s"})">&#9733;</button>`).join("");
+      const label = draft.stars ? RATING_LABELS[draft.stars] : "Select a star rating";
+      const feedback = escapeRatingHtml(draft.feedback || "");
+
+      return `
+        <article class="customer-rating-item" data-rating-item="${escapeRatingHtml(id)}">
+          <div class="customer-rating-item-head">
+            <div class="customer-rating-item-image">${imageMarkup}</div>
+            <div class="customer-rating-item-copy">
+              <h4>${productName}</h4>
+              <p>${Number(item.quantity || 1)} item${Number(item.quantity || 1) === 1 ? "" : "s"} &bull; Rate this product separately</p>
+            </div>
+          </div>
+          <div class="customer-rating-stars rating-item-stars" role="group" aria-label="Star rating for ${productName}">${stars}</div>
+          <p class="customer-rating-score-label rating-item-score" data-rating-score>${escapeRatingHtml(label)}</p>
+          <label class="customer-rating-field-label" for="ratingFeedback-${escapeRatingHtml(id)}">Write 30+ characters <span>(optional)</span></label>
+          <textarea id="ratingFeedback-${escapeRatingHtml(id)}" class="customer-rating-feedback" data-rating-feedback maxlength="300" minlength="30" placeholder="Share what you liked or disliked about this product..." rows="4">${feedback}</textarea>
+          <div class="customer-rating-char-count"><span data-rating-char-count>${String((draft.feedback || "").length)}</span>/300</div>
+          <div class="customer-rating-media-field">
+            <span class="customer-rating-field-label">Add a photo or video <span>(optional)</span></span>
+            <label class="customer-rating-upload" for="ratingMedia-${escapeRatingHtml(id)}"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Choose photos or videos</span></label>
+            <input id="ratingMedia-${escapeRatingHtml(id)}" type="file" data-rating-media accept="image/*,video/*" multiple hidden />
+            <div class="customer-rating-media-preview" data-media-preview hidden></div>
+          </div>
+          <label class="customer-rating-anonymous"><input type="checkbox" data-rating-anonymous${draft.anonymous ? " checked" : ""} /><span>Post anonymously</span></label>
+        </article>
+      `;
+    };
+
+    const renderItems = () => {
+      if (!itemsContainer) return;
+      itemsContainer.setAttribute("aria-busy", itemsLoading ? "true" : "false");
+      if (itemModels.length) {
+        itemsContainer.innerHTML = itemModels.map((item) => renderItem(item)).join("");
+      } else if (itemsLoading) {
+        itemsContainer.innerHTML = `
+          <div class="customer-rating-loading" role="status" aria-live="polite">
+            <span class="customer-rating-loading-mark" aria-hidden="true"></span>
+            <span class="customer-rating-loading-copy">
+              <strong>Preparing your review form</strong>
+              <span>Loading products in this order...</span>
+            </span>
+          </div>`;
+      } else {
+        itemsContainer.innerHTML = `
+          <div class="customer-rating-empty" role="status">
+            <i class="fa-solid fa-box-open" aria-hidden="true"></i>
+            <strong>No products available to review</strong>
+            <span>Please refresh your orders and try again.</span>
+          </div>`;
+      }
+
+      itemModels.forEach((item) => renderMediaPreview(item.id));
+      itemsContainer.querySelectorAll(".rating-item-stars").forEach((stars) => {
+        stars.addEventListener("mouseover", (event) => {
+          const star = event.target.closest("[data-star]");
+          if (star) paintStars(stars.closest("[data-rating-item]")?.dataset.ratingItem, Number(star.dataset.star));
+        });
+        stars.addEventListener("mouseleave", () => {
+          const itemId = stars.closest("[data-rating-item]")?.dataset.ratingItem;
+          paintStars(itemId, Number(getDraft(itemId)?.stars || 0));
+        });
       });
     };
 
-    starsContainer.addEventListener('mouseover', e => {
-      const btn = e.target.closest('.rating-star-large');
-      if (btn) paintStars(Number(btn.dataset.star));
-    });
-    starsContainer.addEventListener('mouseleave', () => paintStars(0));
-    starsContainer.addEventListener('click', e => {
-      const btn = e.target.closest('.rating-star-large');
-      if (!btn) return;
-      selectedStars = Number(btn.dataset.star);
-      ratingOverlay._hasRatingDraft = true;
-      if (scoreDisplay) scoreDisplay.textContent = String(selectedStars);
-      paintStars(0);
-    });
-
-    feedbackInput?.addEventListener('input', () => {
-      ratingOverlay._hasRatingDraft = true;
-      const len = feedbackInput.value.length;
-      if (charCount) charCount.textContent = String(len);
-    });
-
-    ratingOverlay.querySelector('#closeRatingModal')?.addEventListener('click', () => {
-      ratingOverlay.classList.remove('show');
-    });
-    ratingOverlay.querySelector('#cancelRatingBtn')?.addEventListener('click', () => {
-      ratingOverlay.classList.remove('show');
-    });
-    ratingOverlay.addEventListener('click', e => {
-      if (e.target === ratingOverlay) ratingOverlay.classList.remove('show');
-    });
-
-    // Expose state for submit handler
-    ratingOverlay._getState = () => ({ selectedStars, feedback: feedbackInput?.value || '' });
-    ratingOverlay._reset = (prefill) => {
-      selectedStars = prefill?.stars || 0;
-      if (scoreDisplay) scoreDisplay.textContent = String(selectedStars);
-      if (feedbackInput) feedbackInput.value = prefill?.feedback || '';
-      if (charCount) charCount.textContent = String((prefill?.feedback || '').length);
-      ratingOverlay._hasRatingDraft = false;
-      paintStars(0);
+    const paintStars = (itemId, fill) => {
+      const article = itemsContainer?.querySelector(`[data-rating-item="${String(itemId)}"]`);
+      if (!article) return;
+      const value = Number(fill) || 0;
+      article.querySelectorAll(".rating-star-large").forEach((button) => {
+        button.classList.toggle("filled", Number(button.dataset.star) <= value);
+      });
+      const score = article.querySelector("[data-rating-score]");
+      if (score) score.textContent = value ? RATING_LABELS[value] : "Select a star rating";
     };
+
+    itemsContainer?.addEventListener("click", (event) => {
+      const star = event.target.closest(".rating-star-large");
+      if (star) {
+        const article = star.closest("[data-rating-item]");
+        const itemId = article?.dataset.ratingItem;
+        const draft = getDraft(itemId);
+        if (!draft) return;
+        draft.stars = Number(star.dataset.star) || 0;
+        markDirty();
+        paintStars(itemId, draft.stars);
+        return;
+      }
+
+      const removeMedia = event.target.closest("[data-remove-media]");
+      if (removeMedia) {
+        const article = removeMedia.closest("[data-rating-item]");
+        const itemId = article?.dataset.ratingItem;
+        const files = filesByItem.get(String(itemId)) || [];
+        files.splice(Number(removeMedia.dataset.removeMedia), 1);
+        filesByItem.set(String(itemId), files);
+        markDirty();
+        renderMediaPreview(itemId);
+      }
+    });
+
+    itemsContainer?.addEventListener("input", (event) => {
+      const input = event.target.closest("[data-rating-feedback]");
+      if (!input) return;
+      const itemId = input.closest("[data-rating-item]")?.dataset.ratingItem;
+      const draft = getDraft(itemId);
+      if (!draft) return;
+      draft.feedback = input.value;
+      markDirty();
+      const count = input.closest("[data-rating-item]")?.querySelector("[data-rating-char-count]");
+      if (count) count.textContent = String(input.value.length);
+    });
+
+    itemsContainer?.addEventListener("change", (event) => {
+      const mediaInput = event.target.closest("[data-rating-media]");
+      if (mediaInput) {
+        const itemId = mediaInput.closest("[data-rating-item]")?.dataset.ratingItem;
+        const selectedFiles = Array.from(mediaInput.files || []);
+        const files = selectedFiles.slice(0, 6);
+        filesByItem.set(String(itemId), files);
+        markDirty();
+        renderMediaPreview(itemId);
+        mediaInput.value = "";
+        if (selectedFiles.length > 6) {
+          void showCustomerPopup("You can add up to 6 photos or videos per product.", { title: "Media limit" });
+        }
+        return;
+      }
+
+      const anonymous = event.target.closest("[data-rating-anonymous]");
+      if (anonymous) {
+        const itemId = anonymous.closest("[data-rating-item]")?.dataset.ratingItem;
+        const draft = getDraft(itemId);
+        if (draft) {
+          draft.anonymous = Boolean(anonymous.checked);
+          markDirty();
+        }
+      }
+    });
+
+    const closeModal = () => {
+      ratingOverlay.classList.remove("show");
+      discardOverlay?.classList.remove("show");
+      discardOverlay?.setAttribute("aria-hidden", "true");
+      ratingOverlay._hasRatingDraft = false;
+      document.body.style.overflow = "";
+    };
+
+    const requestClose = () => {
+      if (!ratingOverlay._hasRatingDraft) {
+        closeModal();
+        return;
+      }
+      discardOverlay?.classList.add("show");
+      discardOverlay?.setAttribute("aria-hidden", "false");
+    };
+
+    ratingOverlay.querySelector("#closeRatingModal")?.addEventListener("click", requestClose);
+    ratingOverlay.querySelector("#cancelRatingBtn")?.addEventListener("click", requestClose);
+    ratingOverlay.addEventListener("click", (event) => {
+      if (event.target === ratingOverlay) requestClose();
+    });
+    continueBtn?.addEventListener("click", () => {
+      discardOverlay?.classList.remove("show");
+      discardOverlay?.setAttribute("aria-hidden", "true");
+    });
+    discardBtn?.addEventListener("click", closeModal);
+
+    ratingOverlay._setItems = (items, ratings = []) => {
+      const ratingsByItem = new Map((Array.isArray(ratings) ? ratings : []).map((rating) => [String(rating.order_item_id), rating]));
+      itemsLoading = false;
+      itemModels = normalizeItems({ items });
+      draftByItem = new Map();
+      filesByItem = new Map();
+      itemModels.forEach((item) => {
+        const existing = ratingsByItem.get(String(item.id));
+        draftByItem.set(String(item.id), {
+          stars: Number(existing?.stars) || 0,
+          feedback: existing?.feedback || "",
+          anonymous: Boolean(existing?.is_anonymous),
+          existingMedia: Array.isArray(existing?.media) ? existing.media : [],
+        });
+      });
+      ratingOverlay._hasRatingDraft = false;
+      if (submitBtn && !submitBtn.classList.contains("is-loading")) {
+        submitBtn.disabled = itemModels.length === 0;
+      }
+      renderItems();
+    };
+
+    ratingOverlay._setLoading = () => {
+      itemsLoading = true;
+      itemModels = [];
+      draftByItem = new Map();
+      filesByItem = new Map();
+      ratingOverlay._hasRatingDraft = false;
+      if (submitBtn) submitBtn.disabled = true;
+      renderItems();
+    };
+
+    ratingOverlay._getState = () => itemModels.map((item) => ({
+      item,
+      ...getDraft(item.id),
+      files: filesByItem.get(String(item.id)) || [],
+    }));
+
+    ratingOverlay._submit = async () => {
+      const activeOrderId = ratingOverlay._activeOrderId;
+      const token = getCustomerToken();
+      const states = ratingOverlay._getState();
+      if (!activeOrderId || !states.length) {
+        await showCustomerPopup("No products were found in this order.", { title: "Review unavailable" });
+        return;
+      }
+
+      const missingStars = states.find((state) => !state.stars);
+      if (missingStars) {
+        paintStars(missingStars.item.id, 0);
+        missingStars.item && itemsContainer?.querySelector(`[data-rating-item="${String(missingStars.item.id)}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        await showCustomerPopup("Please choose a star rating for every product before submitting.", { title: "Rating required" });
+        return;
+      }
+
+      const shortReview = states.find((state) => {
+        const reviewLength = String(state.feedback || "").trim().length;
+        return reviewLength > 0 && reviewLength < 30;
+      });
+      if (shortReview) {
+        await showCustomerPopup("Written reviews need at least 30 characters, or you can leave the field blank.", { title: "Review too short" });
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.classList.add("is-loading");
+      submitBtn.setAttribute("aria-busy", "true");
+      if (submitLabel) submitLabel.textContent = "Saving reviews...";
+
+      try {
+        for (const state of states) {
+          const formData = new FormData();
+          formData.append("order_item_id", String(state.item.id));
+          formData.append("stars", String(state.stars));
+          formData.append("feedback", state.feedback.trim());
+          formData.append("post_anonymously", state.anonymous ? "1" : "0");
+          state.files.forEach((file) => formData.append("media[]", file, file.name));
+
+          const response = await fetch(`${API_BASE_URL}/customer/orders/${activeOrderId}/rating`, {
+            method: "POST",
+            headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+            body: formData,
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            const validationMessage = Object.values(payload.errors || {})[0]?.[0];
+            throw new Error(validationMessage || payload.message || "Unable to save one of the product reviews.");
+          }
+        }
+
+        closeModal();
+        emitCustomerOrdersUpdated({ type: "rating-submitted", orderId: activeOrderId });
+        await showCustomerPopup("Thank you for reviewing every product in your order!", { title: "Reviews submitted" });
+      } catch (error) {
+        await showCustomerPopup(error?.message || "Unable to submit the product reviews.", { title: "Review not saved" });
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove("is-loading");
+        submitBtn.removeAttribute("aria-busy");
+        if (submitLabel) submitLabel.textContent = "Submit reviews";
+      }
+    };
+
+    submitBtn?.addEventListener("click", () => void ratingOverlay._submit());
 
     return ratingOverlay;
   };
 
-  return (orderId, orderName) => {
-    const token = localStorage.getItem('customer_token') || '';
-    if (!token) return;
+  return async (orderId, orderName, order = null) => {
+    const token = getCustomerToken();
+    if (!token) {
+      await showCustomerPopup("Please sign in to rate your products.", { title: "Sign in required" });
+      return;
+    }
 
     const modal = ensureModal();
     modal._activeOrderId = String(orderId);
-    const nameEl = modal.querySelector('#ratingProductName');
-    if (nameEl) nameEl.textContent = orderName || 'Order';
-    modal._reset({});
-    modal.classList.add('show');
-    // Load an existing rating without delaying the modal. A response is only
-    // applied while this order is still active and the customer has not begun
-    // entering a new rating.
-    void (async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/customer/orders/${orderId}/rating`, {
-          headers: { Accept: 'application/json', Authorization: `Bearer ${token}` }
-        });
-        if (!res.ok || modal._activeOrderId !== String(orderId) || modal._hasRatingDraft) return;
-        const payload = await res.json().catch(() => ({}));
-        if (modal._activeOrderId === String(orderId) && !modal._hasRatingDraft) {
-          modal._reset(payload?.data || {});
-        }
-      } catch {
-        // The empty form is already visible, so a prefill failure needs no UI change.
-      }
-    })();
+    const nameEl = modal.querySelector("#ratingProductName");
+    if (nameEl) nameEl.textContent = "Rate each product individually. Your star rating is required.";
+    const initialItems = normalizeItems(order);
+    if (initialItems.length) modal._setItems(initialItems, []);
+    else modal._setLoading();
+    const modalBody = modal.querySelector("#ratingModalBody");
+    if (modalBody) modalBody.scrollTop = 0;
+    modal.classList.add("show");
+    document.body.style.overflow = "hidden";
 
-    const submitBtn = modal.querySelector('#submitRatingBtn');
-    if (submitBtn) {
-      submitBtn.onclick = async () => {
-        const { selectedStars, feedback } = modal._getState();
-        if (!selectedStars) {
-          await showCustomerPopup('Please select a star rating first.', { title: 'Rating Required' });
-          return;
-        }
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Submitting...';
-        try {
-          const res = await fetch(`${API_BASE_URL}/customer/orders/${orderId}/rating`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Accept: 'application/json',
-              Authorization: `Bearer ${token}`
-            },
-            body: JSON.stringify({ stars: selectedStars, feedback: feedback.trim() || null })
+    let resolvedItems = initialItems;
+    try {
+      const detailPromise = initialItems.length
+        ? Promise.resolve({ data: { items: initialItems } })
+        : fetchJsonWithTimeout(`${API_BASE_URL}/customer/orders/${orderId}`, {
+            headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+          }).then(({ response, data }) => {
+            if (!response.ok) throw new Error(data.message || "Unable to load the order products.");
+            return data;
           });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(data.message || 'Unable to submit rating.');
-          modal.classList.remove('show');
-          emitCustomerOrdersUpdated({ type: 'rating-submitted', orderId });
-          await showCustomerPopup('Thank you for your rating!', { title: 'Rating Submitted' });
-        } catch (err) {
-          await showCustomerPopup(err?.message || 'Unable to submit rating.', { title: 'Error' });
-        } finally {
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Submit Rating';
-        }
-      };
+      const ratingsPromise = fetchJsonWithTimeout(
+        `${API_BASE_URL}/customer/orders/${orderId}/rating`,
+        { headers: { Accept: "application/json", Authorization: `Bearer ${token}` } },
+      ).then(({ response, data }) => {
+        if (!response.ok) throw new Error(data.message || "Unable to load existing reviews.");
+        return { ratings: Array.isArray(data.data) ? data.data : (data.data ? [data.data] : []), error: null };
+      }).catch((error) => ({ ratings: [], error }));
+
+      const detailPayload = await detailPromise;
+      const detailItems = normalizeItems(detailPayload?.data || detailPayload);
+      resolvedItems = detailItems.length ? detailItems : initialItems;
+      if (modal._activeOrderId !== String(orderId) || modal._hasRatingDraft) return;
+
+      // Show the product controls as soon as the order detail arrives. Existing
+      // reviews continue loading in parallel and hydrate only while untouched.
+      modal._setItems(resolvedItems, []);
+
+      const { ratings, error: ratingsError } = await ratingsPromise;
+      if (ratingsError) throw ratingsError;
+      if (modal._activeOrderId !== String(orderId) || modal._hasRatingDraft) return;
+      modal._setItems(resolvedItems, ratings);
+    } catch (error) {
+      if (modal._activeOrderId === String(orderId) && !modal._hasRatingDraft) {
+        modal._setItems(resolvedItems, []);
+        await showCustomerPopup(error?.message || "Unable to load the review form.", { title: "Review unavailable" });
+      }
     }
   };
 })();
