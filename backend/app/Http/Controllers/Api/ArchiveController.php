@@ -7,9 +7,11 @@ use App\Models\Appointment;
 use App\Models\Announcement;
 use App\Models\InventoryItem;
 use App\Models\Order;
+use App\Models\OrderReturn;
 use App\Models\Promotion;
 use App\Models\ProductRating;
 use App\Models\ProductRatingLike;
+use App\Support\ReturnPresenter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -33,6 +35,7 @@ class ArchiveController extends Controller
         $inventory   = collect();
         $appointments = collect();
         $orders      = collect();
+        $returns     = collect();
         $promotions  = collect();
         $announcements = collect();
         $ratings     = collect();
@@ -147,6 +150,63 @@ class ArchiveController extends Controller
         }
 
         try {
+            // ── Returns & Refunds ──────────────────────────────────────────────
+            if ($module === 'all' || $module === 'return') {
+                $returns = OrderReturn::query()
+                    ->with([
+                        'order:id,order_no,customer_name',
+                        'customer:id,name,email',
+                        'handler:id,name,role',
+                        'items',
+                    ])
+                    ->where('is_archived', true)
+                    ->orderByDesc('archived_at')
+                    ->get()
+                    ->map(function (OrderReturn $orderReturn) {
+                        $items = $orderReturn->items;
+                        $firstName = $items->first()?->product_name ?: 'Returned item';
+                        $extra = max(0, $items->count() - 1);
+
+                        // Show whatever the return actually settled on: the released
+                        // refund if there is one, else the approved figure, else what
+                        // the customer asked for.
+                        $settled = $orderReturn->refunded_amount
+                            ?? $orderReturn->approved_amount
+                            ?? $orderReturn->requested_amount;
+
+                        return [
+                            'id'                => 'return-' . $orderReturn->id,
+                            'source_id'         => $orderReturn->id,
+                            'module'            => 'return',
+                            // Matches the Returns & Refunds table columns exactly
+                            'return_no'         => $orderReturn->return_no ?: "RTN-{$orderReturn->id}",
+                            'order_no'          => $orderReturn->order?->order_no ?: "ORD-{$orderReturn->order_id}",
+                            'customer_name'     => $orderReturn->customer?->name
+                                ?: ($orderReturn->order?->customer_name ?: 'Guest customer'),
+                            'customer_email'    => $orderReturn->customer?->email ?: '',
+                            'product_name'      => $extra > 0 ? "{$firstName} (+{$extra} more)" : $firstName,
+                            'items_count'       => $items->count(),
+                            'quantity'          => (int) $items->sum('quantity'),
+                            'reason_label'      => $orderReturn->reasonLabel(),
+                            'resolution_label'  => $orderReturn->resolutionLabel(),
+                            'status'            => $orderReturn->status,
+                            'status_label'      => $orderReturn->statusLabel(),
+                            'amount'            => (float) $settled,
+                            'amount_label'      => ReturnPresenter::money((float) $settled),
+                            'refund_method_label' => $orderReturn->refundMethodLabel(),
+                            'refund_reference'  => $orderReturn->refund_reference,
+                            'handled_by'        => $orderReturn->handler?->name,
+                            'media_count'       => count($orderReturn->media ?? []),
+                            'created_at'        => $orderReturn->created_at?->toIso8601String(),
+                            'archived_at'       => $orderReturn->archived_at?->toIso8601String(),
+                        ];
+                    });
+            }
+        } catch (\Throwable $e) {
+            Log::error('ArchiveController: order returns fetch failed', ['error' => $e->getMessage()]);
+        }
+
+        try {
             if ($module === 'all' || $module === 'promotion') {
                 $promotions = Promotion::query()
                     ->where('is_archived', true)
@@ -233,6 +293,7 @@ class ArchiveController extends Controller
             'inventory'    => $inventory->values(),
             'appointments' => $appointments->values(),
             'orders'       => $orders->values(),
+            'returns'      => $returns->values(),
             'promotions'   => $promotions->values(),
             'announcements'=> $announcements->values(),
             'ratings'      => $ratings->values(),
@@ -247,7 +308,7 @@ class ArchiveController extends Controller
         }
 
         $validated = $request->validate([
-            'module' => ['required', 'string', Rule::in(['inventory', 'appointment', 'order', 'promotion', 'announcement', 'rating'])],
+            'module' => ['required', 'string', Rule::in(['inventory', 'appointment', 'order', 'return', 'promotion', 'announcement', 'rating'])],
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer', 'min:1', 'distinct'],
         ]);
@@ -261,6 +322,7 @@ class ArchiveController extends Controller
                 'inventory' => InventoryItem::query()->whereIn('id', $ids)->where('is_archived', true),
                 'appointment' => Appointment::query()->whereIn('id', $ids)->where('status', 'Archived'),
                 'order' => Order::query()->whereIn('id', $ids)->where('is_archived', true),
+                'return' => OrderReturn::query()->whereIn('id', $ids)->where('is_archived', true),
                 'promotion' => Promotion::query()->whereIn('id', $ids)->where('is_archived', true),
                 'announcement' => Announcement::query()->whereIn('id', $ids)->where('is_archived', true),
                 'rating' => ProductRating::query()->whereIn('id', $ids)->where('is_archived', true),
@@ -277,7 +339,7 @@ class ArchiveController extends Controller
             }
 
             $updates = match ($module) {
-                'inventory', 'order', 'promotion', 'announcement', 'rating' => [
+                'inventory', 'order', 'return', 'promotion', 'announcement', 'rating' => [
                     'is_archived' => false,
                     'archived_at' => null,
                     'updated_at' => $now,
@@ -314,7 +376,7 @@ class ArchiveController extends Controller
         }
 
         $validated = $request->validate([
-            'module' => ['required', 'string', Rule::in(['inventory', 'appointment', 'order', 'promotion', 'announcement', 'rating'])],
+            'module' => ['required', 'string', Rule::in(['inventory', 'appointment', 'order', 'return', 'promotion', 'announcement', 'rating'])],
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer', 'min:1', 'distinct'],
         ]);
@@ -327,6 +389,7 @@ class ArchiveController extends Controller
                 'inventory' => InventoryItem::query()->whereIn('id', $ids)->where('is_archived', true),
                 'appointment' => Appointment::query()->whereIn('id', $ids)->where('status', 'Archived'),
                 'order' => Order::query()->whereIn('id', $ids)->where('is_archived', true),
+                'return' => OrderReturn::query()->whereIn('id', $ids)->where('is_archived', true),
                 'promotion' => Promotion::query()->whereIn('id', $ids)->where('is_archived', true),
                 'announcement' => Announcement::query()->whereIn('id', $ids)->where('is_archived', true),
                 'rating' => ProductRating::query()->whereIn('id', $ids)->where('is_archived', true),
@@ -345,9 +408,18 @@ class ArchiveController extends Controller
             if ($module === 'rating') {
                 $ratings = ProductRating::query()->whereIn('id', $eligibleIds)->get();
                 foreach ($ratings as $rating) {
-                    $this->deleteRatingMedia($rating->media);
+                    $this->deleteMediaFiles($rating->media);
                 }
                 ProductRatingLike::query()->whereIn('product_rating_id', $eligibleIds)->delete();
+            }
+
+            if ($module === 'return') {
+                // Items and timeline events cascade with the return row; the
+                // uploaded evidence has to be swept by hand.
+                $returns = OrderReturn::query()->whereIn('id', $eligibleIds)->get();
+                foreach ($returns as $orderReturn) {
+                    $this->deleteMediaFiles($orderReturn->media);
+                }
             }
 
             $query->whereIn('id', $eligibleIds)->delete();
@@ -416,6 +488,23 @@ class ArchiveController extends Controller
         }
 
         try {
+            // Returns & refunds (including evidence cleanup; items/events cascade)
+            $returns = OrderReturn::query()
+                ->where('is_archived', true)
+                ->where('archived_at', '<=', $cutoffDate)
+                ->get();
+            $returnIds = $returns->pluck('id')->map(fn ($id) => (int) $id)->values();
+            foreach ($returns as $orderReturn) {
+                $this->deleteMediaFiles($orderReturn->media);
+            }
+            if ($returnIds->isNotEmpty()) {
+                $totalDeleted += OrderReturn::query()->whereIn('id', $returnIds->all())->delete();
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Auto-delete order returns failed: ' . $e->getMessage());
+        }
+
+        try {
             // Promotions
             $totalDeleted += Promotion::query()
                 ->where('is_archived', true)
@@ -443,7 +532,7 @@ class ArchiveController extends Controller
                 ->get();
             $ratingIds = $ratings->pluck('id')->map(fn ($id) => (int) $id)->values();
             foreach ($ratings as $rating) {
-                $this->deleteRatingMedia($rating->media);
+                $this->deleteMediaFiles($rating->media);
             }
             if ($ratingIds->isNotEmpty()) {
                 ProductRatingLike::query()->whereIn('product_rating_id', $ratingIds->all())->delete();
@@ -463,7 +552,8 @@ class ArchiveController extends Controller
         ]);
     }
 
-    private function deleteRatingMedia(?array $media): void
+    /** Sweeps the uploaded files behind a media JSON column (ratings, return evidence). */
+    private function deleteMediaFiles(?array $media): void
     {
         foreach ($media ?? [] as $item) {
             if (!empty($item['path'])) {

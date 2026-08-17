@@ -348,6 +348,88 @@
               </div>
             </article>
 
+            <!-- ═══════════ RETURNS & REFUNDS PANEL ═══════════ -->
+            <article class="panel" id="returnsRefundsPanel">
+              <div class="panel-header">
+                <div>
+                  <h3>
+                    <i
+                      class="fa-solid fa-rotate-left"
+                      style="color: #8f1111; margin-right: 6px"
+                    ></i
+                    >Returns &amp; Refunds
+                  </h3>
+                  <p class="incoming-subtitle">
+                    Review return requests, confirm returned items, then release
+                    the refund.
+                  </p>
+                </div>
+                <div class="filters-row">
+                  <select class="filter-select" id="returnsStatusFilter">
+                    <option value="all">All Returns</option>
+                    <option value="open">Open Returns</option>
+                    <option value="requested">Return Requested</option>
+                    <option value="approved">Return Approved</option>
+                    <option value="item_in_transit">Item In Transit</option>
+                    <option value="item_received">Item Received</option>
+                    <option value="refund_processing">Refund Processing</option>
+                    <option value="refunded">Refunded</option>
+                    <option value="rejected">Request Rejected</option>
+                    <option value="cancelled">Request Cancelled</option>
+                  </select>
+                  <input
+                    class="search-input"
+                    id="returnsSearch"
+                    placeholder="Search return no., order no., customer, or item..."
+                  />
+                </div>
+              </div>
+              <div class="returns-summary-strip" id="returnsSummaryStrip"></div>
+              <div class="table-scroll-hint">
+                <i class="fa-solid fa-left-right"></i> Scroll horizontally to
+                see all columns.
+              </div>
+              <div class="table-wrapper">
+                <table
+                  class="admin-table"
+                  id="returnsRefundsTable"
+                  data-page-size="5"
+                  data-empty-message="No return requests yet."
+                >
+                  <thead>
+                    <tr>
+                      <th class="admin-bulk-select-cell">
+                        <input type="checkbox" data-admin-bulk-page="order-returns" aria-label="Select all returns on this page" />
+                      </th>
+                      <th>Return No.</th>
+                      <th>Order No.</th>
+                      <th>Date</th>
+                      <th>Customer</th>
+                      <th>Item(s)</th>
+                      <th>Reason</th>
+                      <th>Resolution</th>
+                      <th>Amount</th>
+                      <th>Status</th>
+                      <th class="sticky-action">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <div class="table-footer" id="returnsRefundsFooter">
+                <div class="table-footer-meta">Page 1 of 1</div>
+                <div class="table-pagination">
+                  <button class="page-btn" type="button" disabled aria-label="Previous returns page">
+                    <i class="fa-solid fa-chevron-left"></i>
+                  </button>
+                  <input class="page-number" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to returns page" />
+                  <button class="page-btn" type="button" disabled aria-label="Next returns page">
+                    <i class="fa-solid fa-chevron-right"></i>
+                  </button>
+                </div>
+              </div>
+            </article>
+
             <article class="panel" id="paymentsHistoryPanel">
               <div class="panel-header">
                 <h3>Payments History</h3>
@@ -559,6 +641,159 @@
             Cancel
           </button>
           <button class="btn-admin" id="btnSaveTrackingUpdate" type="button">
+            Save Update
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---- RETURN DETAILS MODAL ---- -->
+    <div
+      class="modal-overlay"
+      id="modalReturnDetails"
+      data-backdrop-close="false"
+    >
+      <div class="modal-card product-modal">
+        <div class="modal-header-fixed">
+          <h3 class="modal-title">Return Details</h3>
+          <p class="field-hint" id="returnDetailsSubtitle">
+            Request summary, evidence and the full return timeline.
+          </p>
+        </div>
+        <div class="modal-body-scroll" id="returnDetailsBody"></div>
+        <div class="modal-footer-fixed">
+          <button
+            class="btn-admin btn-secondary"
+            data-modal-close="#modalReturnDetails"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---- RETURN ACTION MODAL ---- -->
+    <div
+      class="modal-overlay"
+      id="modalReturnAction"
+      data-backdrop-close="false"
+    >
+      <div class="modal-card product-modal">
+        <div class="modal-header-fixed">
+          <h3 class="modal-title" id="returnActionTitle">Review Return</h3>
+          <p class="field-hint" id="returnActionSubtitle">
+            The customer is notified by email for every update you save here.
+          </p>
+        </div>
+        <div class="modal-body-scroll">
+          <div class="form-grid">
+            <input type="hidden" id="returnActionId" />
+            <input type="hidden" id="returnActionKind" />
+            <div class="field-stack">
+              <label>Return No.</label
+              ><input id="returnActionNo" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label>Requested Amount</label
+              ><input id="returnActionRequested" class="input-field" readonly />
+            </div>
+            <!-- Decision: approve or reject a pending request. -->
+            <div class="field-stack" data-return-section="decision">
+              <label>Decision</label>
+              <select id="returnDecisionSelect" class="filter-select">
+                <option value="approve">Approve return request</option>
+                <option value="reject">Reject return request</option>
+              </select>
+            </div>
+            <div class="field-stack" data-return-section="decision">
+              <label>Approved Amount</label
+              ><input
+                id="returnApprovedAmount"
+                class="input-field"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+              />
+              <span class="field-hint"
+                >Leave as-is for a full refund, or lower it for a partial
+                one.</span
+              >
+            </div>
+            <div class="field-stack full" data-return-section="decision">
+              <label>Decision Note</label
+              ><textarea
+                id="returnDecisionNote"
+                class="textarea-field"
+                placeholder="Return instructions for the customer, or the reason for rejecting. Required when rejecting."
+              ></textarea>
+            </div>
+            <!-- Inspection: confirm the item came back. -->
+            <div class="field-stack full" data-return-section="received">
+              <label>Inspection Note</label
+              ><textarea
+                id="returnReceivedNote"
+                class="textarea-field"
+                placeholder="ex. Item received in original packaging, damage confirmed."
+              ></textarea>
+            </div>
+            <!-- Refund: park it as processing, or release the money. -->
+            <div class="field-stack" data-return-section="refund">
+              <label>Refund Stage</label>
+              <select id="returnRefundStage" class="filter-select">
+                <option value="released">Release refund now</option>
+                <option value="processing">
+                  Mark as refund processing only
+                </option>
+              </select>
+            </div>
+            <div class="field-stack" data-return-section="refund">
+              <label>Refund Method</label>
+              <select id="returnRefundMethod" class="filter-select">
+                <option value="gcash">GCash</option>
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="cash">Cash on Pickup</option>
+                <option value="store_credit">Store Credit</option>
+              </select>
+            </div>
+            <div class="field-stack" data-return-section="refund">
+              <label>Refund Amount</label
+              ><input
+                id="returnRefundAmount"
+                class="input-field"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+              />
+            </div>
+            <div class="field-stack" data-return-section="refund">
+              <label>Refund Reference</label
+              ><input
+                id="returnRefundReference"
+                class="input-field"
+                placeholder="ex. GCash ref. 1234567890"
+              />
+            </div>
+            <div class="field-stack full" data-return-section="refund">
+              <label>Refund Note</label
+              ><textarea
+                id="returnRefundNote"
+                class="textarea-field"
+                placeholder="Anything the customer should know about the refund."
+              ></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer-fixed">
+          <button
+            class="btn-admin btn-secondary"
+            id="btnCancelReturnAction"
+            type="button"
+          >
+            Cancel
+          </button>
+          <button class="btn-admin" id="btnSubmitReturnAction" type="button">
             Save Update
           </button>
         </div>

@@ -56,6 +56,11 @@ class AnnouncementController extends Controller
             'title' => 'Visitor Announcement Published',
             'message' => "Announcement '{$a->title}' was published.",
             'is_read' => false,
+            // Lets the header notification link straight to this announcement
+            // instead of relying on its wording to guess the page.
+            'metadata' => [
+                'announcement_id' => $a->id,
+            ],
         ]);
 
         return response()->json(['data' => $this->format($a), 'message' => 'Announcement published.'], 201);
@@ -71,6 +76,9 @@ class AnnouncementController extends Controller
             'title' => 'Visitor Announcement Updated',
             'message' => "Announcement '{$fresh->title}' was updated.",
             'is_read' => false,
+            'metadata' => [
+                'announcement_id' => $fresh->id,
+            ],
         ]);
 
         return response()->json(['data' => $this->format($fresh), 'message' => 'Announcement updated.']);

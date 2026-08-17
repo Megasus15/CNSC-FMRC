@@ -550,6 +550,204 @@ if (document.body) {
   }
 })();
 
+// A header notification is a shortcut to the record it is about, so clicking one
+// has to land on the page that owns that record — Orders for an order or a
+// return, Appointments for a booking, and so on. The bell sits on every Admin
+// and Staff page, so the bridge lives here once: the dropdown builds a
+// `?notif=<kind>&id=<id>` link, and the destination page registers a handler
+// that opens the record. Pages without a handler still land correctly — the
+// fallback scrolls the owning panel into view and flashes it.
+(() => {
+  const PARAM_KIND = "notif";
+  const PARAM_ID = "id";
+  const PARAM_REF = "ref";
+  const FLASH_CLASS = "notif-focus-flash";
+  // Short wait when nothing on the page claims the kind, long wait when a page
+  // said it would handle it (its table still has to finish loading first).
+  const FALLBACK_DELAY_MS = 1200;
+  const EXPECTED_FALLBACK_DELAY_MS = 9000;
+
+  // Where the generic fallback looks when no page handler claims the intent.
+  const FALLBACK_SELECTORS = {
+    order: "#incomingOrdersTable, #ordersDirectoryPanel",
+    return: "#returnsRefundsPanel",
+    appointment: "#appointmentsTable",
+    inquiry: "#inquiriesTable",
+    promotion: "#promotionTable",
+    announcement: "#announcementTable",
+    rating: "#ratingsTable",
+    product: "#productTable, #staffProductsModule",
+    inventory: "#inventoryCategoryTables",
+  };
+
+  const handlers = [];
+  const expected = new Set();
+  let pending = null;
+  let fallbackTimer = null;
+
+  const toKindSet = (kinds) =>
+    new Set(
+      (Array.isArray(kinds) ? kinds : [kinds])
+        .map((kind) => String(kind || "").trim().toLowerCase())
+        .filter(Boolean),
+    );
+
+  const normalizeIntent = (intent, fromUrl = false) => ({
+    kind: String(intent?.kind || "").trim().toLowerCase(),
+    id: String(intent?.id ?? "").trim(),
+    ref: String(intent?.ref ?? "").trim(),
+    fromUrl,
+  });
+
+  const readIntentFromUrl = () => {
+    let params = null;
+    try {
+      params = new URLSearchParams(window.location.search || "");
+    } catch {
+      return null;
+    }
+    const kind = String(params.get(PARAM_KIND) || "").trim();
+    if (!kind) return null;
+    return normalizeIntent(
+      { kind, id: params.get(PARAM_ID), ref: params.get(PARAM_REF) },
+      true,
+    );
+  };
+
+  // Keep the address bar clean once the intent has been handed over, so a
+  // refresh does not re-open the same modal.
+  const stripIntentFromUrl = () => {
+    try {
+      const url = new URL(window.location.href);
+      [PARAM_KIND, PARAM_ID, PARAM_REF].forEach((key) =>
+        url.searchParams.delete(key),
+      );
+      window.history.replaceState(
+        {},
+        "",
+        `${url.pathname}${url.search}${url.hash}`,
+      );
+    } catch {
+      // History API unavailable — harmless, the params simply stay put.
+    }
+  };
+
+  const flash = (element) => {
+    if (!(element instanceof Element)) return;
+    const target = element.closest("tr, .panel, .card") || element;
+    try {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch {
+      target.scrollIntoView();
+    }
+    target.classList.remove(FLASH_CLASS);
+    // Force a reflow so the animation restarts when the same row is opened twice.
+    void target.offsetWidth;
+    target.classList.add(FLASH_CLASS);
+    window.setTimeout(() => target.classList.remove(FLASH_CLASS), 2400);
+  };
+
+  const runFallback = (intent) => {
+    const selector = FALLBACK_SELECTORS[intent?.kind];
+    if (!selector) return;
+    const element = document.querySelector(selector);
+    if (element) flash(element);
+  };
+
+  // A handler claims the intent unless it explicitly returns false (the record
+  // is not on this page after all), which lets the fallback take over.
+  const dispatch = (intent) =>
+    handlers.some((entry) => {
+      if (!entry.kinds.has(intent.kind)) return false;
+      try {
+        return entry.handle(intent) !== false;
+      } catch (error) {
+        console.warn("[Notifications] Focus handler failed:", error);
+        return false;
+      }
+    });
+
+  const clearFallbackTimer = () => {
+    if (!fallbackTimer) return;
+    window.clearTimeout(fallbackTimer);
+    fallbackTimer = null;
+  };
+
+  const settlePending = () => {
+    const intent = pending;
+    pending = null;
+    clearFallbackTimer();
+    if (intent?.fromUrl) stripIntentFromUrl();
+  };
+
+  const consumePending = () => {
+    if (!pending) return;
+    if (!dispatch(pending)) return;
+    settlePending();
+  };
+
+  const armFallback = () => {
+    clearFallbackTimer();
+    if (!pending) return;
+    const delay = expected.has(pending.kind)
+      ? EXPECTED_FALLBACK_DELAY_MS
+      : FALLBACK_DELAY_MS;
+    fallbackTimer = window.setTimeout(() => {
+      if (!pending) return;
+      runFallback(pending);
+      settlePending();
+    }, delay);
+  };
+
+  window.AdminNotifFocus = {
+    /**
+     * Declared synchronously by a page that will register a handler once its
+     * data has loaded, so the fallback waits instead of stealing the intent.
+     */
+    expect(kinds) {
+      toKindSet(kinds).forEach((kind) => expected.add(kind));
+      armFallback();
+    },
+
+    /** Register the handler that actually opens the record. */
+    onFocus(kinds, handle) {
+      if (typeof handle !== "function") return;
+      handlers.push({ kinds: toKindSet(kinds), handle });
+      consumePending();
+    },
+
+    /** Already on the right page: focus the record in place, no reload. */
+    request(intent) {
+      const normalized = normalizeIntent(intent, false);
+      if (!normalized.kind) return false;
+      if (dispatch(normalized)) return true;
+      runFallback(normalized);
+      return false;
+    },
+
+    flash,
+    hasPending: () => Boolean(pending),
+    params: { kind: PARAM_KIND, id: PARAM_ID, ref: PARAM_REF },
+  };
+
+  pending = readIntentFromUrl();
+  if (pending) {
+    // Wait one macrotask past DOMContentLoaded so every page script has had the
+    // chance to call expect() before the fallback timer is armed.
+    const kickoff = () => {
+      window.setTimeout(() => {
+        consumePending();
+        armFallback();
+      }, 0);
+    };
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", kickoff, { once: true });
+    } else {
+      kickoff();
+    }
+  }
+})();
+
 document.addEventListener("DOMContentLoaded", () => {
   const MOBILE_BREAKPOINT = 1024;
   const SIDEBAR_PREF_KEY = "adminSidebarMobileState";
@@ -1091,11 +1289,152 @@ document.addEventListener("DOMContentLoaded", () => {
     // Render notifications (dropdown — 5 most recent)
     const NOTIF_TYPE_ICONS = {
       order: "fa-box-open",
+      order_return: "fa-rotate-left",
       appointment: "fa-calendar-check",
       success: "fa-circle-check",
       warning: "fa-triangle-exclamation",
       error: "fa-circle-xmark",
       info: "fa-circle-info",
+    };
+
+    // Every notification is about a record that lives on one specific Admin or
+    // Staff page, so each row doubles as a link to that record. Metadata decides
+    // first because it is authoritative; the type and then the wording are the
+    // fallbacks for rows written before a metadata key existed.
+    //
+    // Order matters: a return notification also carries `order_id`, so `return`
+    // has to be tested before `order`.
+    const NOTIF_CATEGORIES = [
+      {
+        kind: "return",
+        metaKeys: ["return_id"],
+        types: ["order_return", "return", "refund"],
+        page: "orders.html",
+        label: "Returns & Refunds",
+        // Returns & Refunds is the rotate-left icon everywhere else in the
+        // portal (panel header, Archives tab), so notifications match it.
+        icon: "fa-rotate-left",
+        titlePattern: /\breturn\b|\brefund/i,
+      },
+      {
+        kind: "appointment",
+        metaKeys: ["appointment_id"],
+        types: ["appointment"],
+        page: "appointments.html",
+        label: "Appointments",
+        titlePattern: /appointment|booking/i,
+      },
+      {
+        kind: "inquiry",
+        metaKeys: ["customer_message_id"],
+        types: ["customer_message", "inquiry"],
+        page: "customer-inquiries.html",
+        label: "Customer Inquiries",
+        titlePattern: /inquiry|inquiries|customer message/i,
+      },
+      {
+        kind: "announcement",
+        metaKeys: ["announcement_id"],
+        types: ["announcement"],
+        page: "promotions.html",
+        label: "Announcements",
+        titlePattern: /announcement/i,
+      },
+      {
+        kind: "promotion",
+        metaKeys: ["promotion_id"],
+        types: ["promotion"],
+        page: "promotions.html",
+        label: "Promotions",
+        titlePattern: /promotion|discount campaign/i,
+      },
+      {
+        kind: "rating",
+        metaKeys: ["rating_id", "product_rating_id"],
+        types: ["rating", "review"],
+        page: "ratings.html",
+        label: "Ratings & Reviews",
+        titlePattern: /rating|review/i,
+      },
+      {
+        kind: "order",
+        metaKeys: ["order_id"],
+        types: ["order"],
+        page: "orders.html",
+        label: "Orders",
+        titlePattern: /order|payment|tracking|delivery/i,
+      },
+      {
+        kind: "inventory",
+        metaKeys: ["inventory_item_id"],
+        types: ["inventory", "stock"],
+        page: "inventory.html",
+        label: "Inventory",
+        titlePattern: /inventory|stock/i,
+      },
+      {
+        kind: "product",
+        metaKeys: ["product_id"],
+        types: ["product"],
+        page: "products.html",
+        label: "Products",
+        titlePattern: /product/i,
+      },
+    ];
+
+    const NOTIF_FALLBACK_CATEGORY = {
+      kind: "system",
+      page: "dashboard.html",
+      label: "Dashboard",
+    };
+
+    const getNotifMeta = (n) =>
+      n && typeof n.metadata === "object" && n.metadata ? n.metadata : {};
+
+    const resolveNotifCategory = (n) => {
+      const meta = getNotifMeta(n);
+      const type = String(n?.type || "").toLowerCase();
+      const text = `${n?.title || ""} ${n?.message || ""}`;
+
+      for (const entry of NOTIF_CATEGORIES) {
+        const key = entry.metaKeys.find((metaKey) => {
+          const value = meta[metaKey];
+          return value !== undefined && value !== null && value !== "";
+        });
+        if (key) return { ...entry, id: String(meta[key]) };
+      }
+
+      for (const entry of NOTIF_CATEGORIES) {
+        if (entry.types.some((candidate) => type === candidate)) {
+          return { ...entry, id: "" };
+        }
+      }
+
+      for (const entry of NOTIF_CATEGORIES) {
+        if (entry.titlePattern?.test(text)) return { ...entry, id: "" };
+      }
+
+      return { ...NOTIF_FALLBACK_CATEGORY, id: "" };
+    };
+
+    const resolveNotifTarget = (n) => {
+      const category = resolveNotifCategory(n);
+      const meta = getNotifMeta(n);
+      const ref = String(
+        meta.return_no || meta.order_no || meta.reference_no || "",
+      );
+      const params = new URLSearchParams();
+      if (category.kind !== "system") {
+        params.set("notif", category.kind);
+        if (category.id) params.set("id", category.id);
+        if (ref) params.set("ref", ref);
+      }
+      const query = params.toString();
+      return {
+        ...category,
+        ref,
+        href: query ? `${category.page}?${query}` : category.page,
+      };
     };
 
     const escHtml = (s) =>
@@ -1105,18 +1444,27 @@ document.addEventListener("DOMContentLoaded", () => {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
 
-    const buildNotifItemHTML = (n, compact = true) => {
-      const icon = NOTIF_TYPE_ICONS[n.type] || "fa-circle-info";
-      const typeClass = `notif-type-${n.type || "info"}`;
+    const buildNotifItemHTML = (n) => {
+      const target = resolveNotifTarget(n);
+      // Return/refund rows get the category icon so every one of them reads the
+      // same; the rest keep their type icon, which already carries meaning
+      // (green check for an approval, amber warning for a rejection).
+      const icon =
+        target.icon || NOTIF_TYPE_ICONS[n.type] || "fa-circle-info";
+      const typeClass = target.icon
+        ? `notif-type-${target.kind}`
+        : `notif-type-${n.type || "info"}`;
       const readClass = n.is_read ? "" : " notif-unread";
-      const msgClamp = compact ? "notif-item-msg" : "notif-item-msg";
       return `
-        <div class="notif-item${readClass}" data-notif-id="${n.id}">
+        <div class="notif-item notif-clickable${readClass}" data-notif-id="${n.id}" data-notif-kind="${target.kind}" role="link" tabindex="0" title="Open ${escHtml(target.label)}" aria-label="${escHtml(n.title)}. Open ${escHtml(target.label)}.">
           <div class="notif-type-dot ${typeClass}"><i class="fa-solid ${icon}"></i></div>
           <div class="notif-item-body">
             <div class="notif-item-title">${escHtml(n.title)}</div>
-            <div class="${msgClamp}">${escHtml(n.message)}</div>
-            <div class="notif-item-time">${formatRelTime(n.created_at)}</div>
+            <div class="notif-item-msg">${escHtml(n.message)}</div>
+            <div class="notif-item-meta">
+              <span class="notif-item-time">${formatRelTime(n.created_at)}</span>
+              <span class="notif-item-target"><i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i>${escHtml(target.label)}</span>
+            </div>
           </div>
           <div class="notif-item-actions">
             ${!n.is_read ? `<button class="notif-read-btn" title="Mark as read" data-notif-id="${n.id}"><i class="fa-solid fa-check"></i></button>` : '<div class="notif-unread-dot" style="visibility:hidden"></div>'}
@@ -1153,7 +1501,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const frag = document.createDocumentFragment();
       recent.forEach((n) => {
         const wrapper = document.createElement("div");
-        wrapper.innerHTML = buildNotifItemHTML(n, true);
+        wrapper.innerHTML = buildNotifItemHTML(n);
         frag.appendChild(wrapper.firstElementChild);
       });
       if (notifEmptyState) {
@@ -1363,6 +1711,73 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     };
 
+    const currentPageFile = () => {
+      const path = String(window.location.pathname || "");
+      const file = path.substring(path.lastIndexOf("/") + 1);
+      return (file || "dashboard.html").toLowerCase();
+    };
+
+    // Opening a notification is the whole point of the row: mark it read, close
+    // the surface it was clicked from, then hand the record over to the page
+    // that owns it.
+    const openNotification = async (notifId) => {
+      const id = String(notifId || "");
+      if (!id) return;
+      const notification = _lastNotifData.find((n) => String(n.id) === id);
+      if (!notification) return;
+
+      const target = resolveNotifTarget(notification);
+
+      // The read request has to leave before the page unloads, so wait for it —
+      // but never let a slow network hold the navigation for more than a moment.
+      if (!notification.is_read) {
+        await Promise.race([
+          markAsRead(id),
+          new Promise((resolve) => window.setTimeout(resolve, 600)),
+        ]);
+      }
+
+      notifDropdown.classList.remove("show");
+      if (document.getElementById("allNotifOverlay")) closeAllNotifPanel();
+
+      if (target.page.toLowerCase() === currentPageFile()) {
+        // Already on the right page — focus the record in place, no reload.
+        window.AdminNotifFocus?.request({
+          kind: target.kind,
+          id: target.id,
+          ref: target.ref,
+        });
+        return;
+      }
+
+      window.location.href = target.href;
+    };
+
+    // Shared by the dropdown and the All Notifications panel: a click anywhere on
+    // the row opens it, except on the mark-read / dismiss buttons.
+    const handleNotifRowActivate = (event) => {
+      const element =
+        event.target instanceof Element ? event.target : null;
+      if (!element) return false;
+      if (element.closest(".notif-read-btn, .notif-del-btn")) return false;
+      const row = element.closest(".notif-item");
+      const id = row?.dataset?.notifId;
+      if (!id) return false;
+      void openNotification(id);
+      return true;
+    };
+
+    const handleNotifRowKeydown = (event) => {
+      if (event.key !== "Enter" && event.key !== " " && event.key !== "Spacebar")
+        return;
+      const element =
+        event.target instanceof Element ? event.target : null;
+      if (!element?.closest(".notif-item")) return;
+      if (element.closest(".notif-read-btn, .notif-del-btn")) return;
+      event.preventDefault();
+      handleNotifRowActivate(event);
+    };
+
     // Helper: position the dropdown below the bell button (works even when attached to body)
     const positionDropdown = () => {
       const rect = notifBtn.getBoundingClientRect();
@@ -1420,7 +1835,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (id) void deleteNotification(id);
         return;
       }
+      handleNotifRowActivate(e);
     });
+
+    notifDropdown.addEventListener("keydown", handleNotifRowKeydown);
 
     // Mark all button (dropdown header)
     if (notifMarkAllBtn) {
@@ -1431,7 +1849,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ── All Notifications Panel ───────────────────────────────────
-    let _allNotifFilter = "all"; // 'all' | 'unread' | 'order' | 'appointment'
+    // 'all' | 'unread' | any category kind ('order' | 'return' | 'appointment')
+    let _allNotifFilter = "all";
 
     const formatFullDate = (dateStr) => {
       if (!dateStr) return "";
@@ -1444,17 +1863,17 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     };
 
+    // Filtering runs through the same category resolver the rows are built with,
+    // so "Orders" also catches an approval or a tracking update (types `success`
+    // and `info`) while return requests stay under their own tab.
     const getFilteredNotifs = (notifications) => {
-      switch (_allNotifFilter) {
-        case "unread":
-          return notifications.filter((n) => !n.is_read);
-        case "order":
-          return notifications.filter((n) => n.type === "order");
-        case "appointment":
-          return notifications.filter((n) => n.type === "appointment");
-        default:
-          return notifications;
+      if (_allNotifFilter === "unread") {
+        return notifications.filter((n) => !n.is_read);
       }
+      if (_allNotifFilter === "all") return notifications;
+      return notifications.filter(
+        (n) => resolveNotifCategory(n).kind === _allNotifFilter,
+      );
     };
 
     const renderAllNotifPanel = (notifications) => {
@@ -1490,7 +1909,7 @@ document.addEventListener("DOMContentLoaded", () => {
           list.appendChild(sep);
         }
         const wrapper = document.createElement("div");
-        wrapper.innerHTML = buildNotifItemHTML(n, false);
+        wrapper.innerHTML = buildNotifItemHTML(n);
         list.appendChild(wrapper.firstElementChild);
       });
     };
@@ -1515,6 +1934,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <button type="button" class="all-notif-filter-btn active" data-filter="all">All</button>
               <button type="button" class="all-notif-filter-btn" data-filter="unread">Unread</button>
               <button type="button" class="all-notif-filter-btn" data-filter="order">Orders</button>
+              <button type="button" class="all-notif-filter-btn" data-filter="return">Returns</button>
               <button type="button" class="all-notif-filter-btn" data-filter="appointment">Appointments</button>
             </div>
             <div class="all-notif-actions-bar">
@@ -1583,7 +2003,12 @@ document.addEventListener("DOMContentLoaded", () => {
               void deleteNotification(delBtn.dataset.notifId);
               return;
             }
+            handleNotifRowActivate(e);
           });
+
+        document
+          .getElementById("allNotifList")
+          ?.addEventListener("keydown", handleNotifRowKeydown);
 
         // Keyboard close
         document.addEventListener("keydown", (e) => {

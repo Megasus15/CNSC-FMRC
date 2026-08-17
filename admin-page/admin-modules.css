@@ -1116,6 +1116,413 @@ input.page-number:focus,
   z-index: 61;
 }
 
+/* ═══════════ Returns & Refunds (admin + staff Orders page) ═══════════ */
+#returnsRefundsTable {
+  min-width: 1380px;
+  width: max-content;
+}
+
+/* Same treatment as the Walk-in Orders table: the Action column stays parked on
+   the right edge while the rest of the row scrolls under it. */
+#returnsRefundsTable .sticky-action {
+  position: sticky;
+  right: 0;
+  min-width: 178px;
+  width: 178px;
+  max-width: 178px;
+  background: #fff;
+  box-shadow: -1px 0 0 #dfe6ee;
+  z-index: 40;
+}
+
+#returnsRefundsTable thead .sticky-action {
+  z-index: 60;
+}
+
+#returnsRefundsTable tbody .sticky-action {
+  z-index: 61;
+}
+
+#returnsRefundsTable .action-icons button {
+  margin-right: 6px;
+}
+
+#returnsRefundsTable .action-icons button:last-child {
+  margin-right: 0;
+}
+
+/* Locked icons keep their hover target so the tooltip can say what unlocks
+   them; they carry no data-return-* attribute, so a click does nothing. */
+#returnsRefundsTable .action-icons button.is-disabled {
+  pointer-events: auto;
+  cursor: not-allowed;
+}
+
+#returnsRefundsTable .action-icons button.is-disabled:active {
+  transform: none;
+}
+
+#returnsRefundsTable .order-items-cell {
+  min-width: 190px;
+}
+
+#returnsRefundsPanel .search-input {
+  min-width: 260px;
+}
+
+.returns-summary-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.returns-summary-strip:empty {
+  display: none;
+}
+
+.returns-summary-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.returns-summary-chip strong {
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.returns-summary-total {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: #5f6368;
+  background: #f5f7fa;
+  border: 1px dashed #d9e0e8;
+}
+
+.returns-summary-total strong {
+  color: var(--primary-color);
+  font-size: 0.86rem;
+}
+.return-amount-caption {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #8a919b;
+  margin-top: 2px;
+}
+
+.return-evidence-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #2055c6;
+  background: #e8f1ff;
+}
+
+.return-empty-note {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.78rem;
+  color: #6b7280;
+  background: #f7f9fc;
+  border: 1px dashed #dfe6ee;
+}
+
+.return-evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  gap: 10px;
+}
+
+.return-evidence-grid img,
+.return-evidence-grid video {
+  width: 100%;
+  height: 108px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #f2f4f7;
+  display: block;
+}
+.return-evidence-grid a {
+  display: block;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.return-evidence-grid a:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(143, 17, 17, 0.16);
+}
+
+.return-evidence-grid a:active {
+  transform: scale(0.97);
+}
+
+.return-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 0.78rem;
+}
+
+.return-items-table thead th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #5f6368;
+  background: #f5f7fa;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.return-items-table tbody td {
+  padding: 8px 10px;
+  color: #4a4a4a;
+  border-bottom: 1px solid #eef1f5;
+}
+
+.return-items-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.return-items-table thead th:not(:first-child),
+.return-items-table tbody td:not(:first-child) {
+  white-space: nowrap;
+  width: 1%;
+}
+.return-receipt {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #f7f9fc;
+  border: 1px solid #e2e8f0;
+}
+
+.return-receipt p {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.return-receipt strong {
+  color: #2f3237;
+  font-weight: 700;
+}
+
+.return-receipt p:first-child strong {
+  color: var(--primary-color);
+  font-size: 0.92rem;
+}
+
+.return-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 4px;
+}
+
+.return-timeline-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 10px;
+  padding-bottom: 14px;
+}
+
+.return-timeline-item::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 18px;
+  bottom: 0;
+  width: 2px;
+  background: #e2e8f0;
+}
+.return-timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.return-timeline-item:last-child::before {
+  display: none;
+}
+
+.return-timeline-dot {
+  width: 14px;
+  height: 14px;
+  margin-top: 3px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  box-shadow: 0 0 0 2px #fff;
+  position: relative;
+  z-index: 1;
+}
+
+.return-timeline-item.is-latest .return-timeline-dot {
+  box-shadow: 0 0 0 3px rgba(143, 17, 17, 0.14);
+}
+
+.return-timeline-body {
+  min-width: 0;
+}
+
+.return-timeline-title {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #2f3237;
+}
+
+.return-timeline-desc {
+  margin: 2px 0 0;
+  font-size: 0.76rem;
+  color: #5f6368;
+}
+
+.return-timeline-meta {
+  margin: 3px 0 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #8a919b;
+}
+
+/* Safety valve for an item table that cannot compress any further; paired with
+   the `min-width: 0` below it keeps a long line from widening the whole modal. */
+.return-items-scroll {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+/* `.form-grid` sizes its column to the widest item's min-content unless the
+   items are told they may shrink. */
+#modalReturnDetails .field-stack,
+#modalReturnAction .field-stack {
+  min-width: 0;
+}
+
+.return-items-table tbody td:first-child {
+  overflow-wrap: anywhere;
+}
+
+/* ── Returns & Refunds on tablets and phones ─────────────────────────────── */
+@media (max-width: 900px) {
+  /* `.form-grid` already collapses to a single column at this width, so the two
+     return modals only need their gutters and media tiles tightened. */
+  #modalReturnDetails .modal-header-fixed,
+  #modalReturnDetails .modal-body-scroll,
+  #modalReturnDetails .modal-footer-fixed,
+  #modalReturnAction .modal-header-fixed,
+  #modalReturnAction .modal-body-scroll,
+  #modalReturnAction .modal-footer-fixed {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .return-evidence-grid {
+    grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  }
+
+  .return-evidence-grid img,
+  .return-evidence-grid video {
+    height: 88px;
+  }
+}
+
+@media (max-width: 720px) {
+  /* The filter row takes the full panel width instead of crushing the search
+     box against the status select. */
+  #returnsRefundsPanel .filters-row {
+    width: 100%;
+  }
+
+  #returnsRefundsPanel .filter-select {
+    flex: 1 1 150px;
+  }
+
+  #returnsRefundsPanel .search-input {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* The total chip joins the wrap flow instead of being pushed to a far edge
+     that no longer exists. */
+  .returns-summary-total {
+    margin-left: 0;
+  }
+
+  .return-receipt p {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 600px) {
+  /* A 178px Action column would eat more than half the visible row here, so the
+     icons stack 3 + 2 and the sticky column shrinks with them. Every icon stays
+     rendered — locked ones simply stay inert, same as on desktop. */
+  #returnsRefundsTable .sticky-action {
+    min-width: 110px;
+    width: 110px;
+    max-width: 110px;
+  }
+
+  #returnsRefundsTable tbody .action-icons {
+    white-space: normal;
+  }
+
+  #returnsRefundsTable .action-icons button {
+    margin-right: 4px;
+    margin-bottom: 4px;
+  }
+
+  .return-evidence-grid {
+    grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  }
+
+  .return-evidence-grid img,
+  .return-evidence-grid video {
+    height: 76px;
+  }
+
+  /* Trimming the cell padding is enough for all four columns to fit without an
+     inner scrollbar at 375px. */
+  .return-items-table thead th,
+  .return-items-table tbody td {
+    padding: 7px 7px;
+  }
+
+  .return-items-table {
+    font-size: 0.74rem;
+  }
+}
+
 .action-icons {
   display: table-cell;
   vertical-align: middle;

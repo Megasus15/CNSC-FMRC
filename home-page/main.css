@@ -7914,7 +7914,18 @@ body.sidebar-open {
 
 .customer-order-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+/* The action buttons live on their own row inside the card so a completed order
+   (Order Details + Rate Product + Buy Again + Return / Refund) can wrap freely
+   instead of squeezing the title column and overflowing the modal. */
+.customer-order-card > .customer-order-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  padding-top: 10px;
+  border-top: 1px dashed #e2e8f0;
 }
 
 .customer-order-detail-btn {
@@ -8281,6 +8292,13 @@ body.sidebar-open {
     justify-content: space-between;
     border-top: 1px dashed #e2e8f0;
     padding-top: 8px;
+  }
+
+  /* The side strip above already opens the card footer, so the button row does
+     not need a second dashed rule of its own. */
+  .customer-order-card > .customer-order-actions {
+    border-top: none;
+    padding-top: 0;
   }
 
   .customer-order-detail-modal {
@@ -9025,6 +9043,93 @@ body.sidebar-open {
   border: 1px solid #d1d5db;
 }
 .customer-order-rate-btn.ghost:hover { background: #f3f4f6; color: #374151; }
+
+/* ===== Buy Again ===== */
+/* Same box metrics as `.customer-order-detail-btn` so the actions row stays
+   even; the brand maroon marks it as the primary follow-up action. */
+.customer-order-buy-again-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #e4c5c5;
+  background: #fef2f2;
+  color: #8f1111;
+  border-radius: 8px;
+  padding: 6px 11px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.08s ease;
+}
+
+.customer-order-buy-again-btn:hover {
+  background: #8f1111;
+  border-color: #8f1111;
+  color: #fff;
+}
+
+.customer-order-buy-again-btn:active {
+  transform: scale(0.97);
+}
+
+.customer-order-buy-again-btn i {
+  font-size: 0.68rem;
+}
+
+/* Multi-item orders pick one product first — `#checkoutModal` is single-product. */
+.customer-buy-again-card {
+  max-width: 520px;
+}
+
+.customer-buy-again-list {
+  padding: 8px 24px 18px;
+}
+
+.customer-buy-again-option {
+  gap: 12px;
+}
+
+.customer-buy-again-option .customer-order-detail-item-info {
+  flex: 1 1 auto;
+}
+
+.customer-buy-again-option .customer-buy-again-pick {
+  flex-shrink: 0;
+  background: #8f1111;
+}
+
+.customer-buy-again-option .customer-buy-again-pick:hover {
+  background: #5f0d0d;
+}
+
+.customer-buy-again-card .customer-rating-actions {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 560px) {
+  /* Match the narrow gutter the rating shell switches to at this width. */
+  .customer-buy-again-list {
+    padding: 8px 14px 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .customer-buy-again-option {
+    flex-wrap: wrap;
+  }
+
+  .customer-buy-again-option .customer-buy-again-pick {
+    width: 100%;
+  }
+}
 
 /* Compact empty state inside sections */
 .customer-orders-empty.compact {
@@ -9831,6 +9936,736 @@ body.sidebar-open {
   margin-top: -2px;
 }
 .customer-rate-prompt-close:hover { color: #374151; }
+
+/* =========================================================
+   Returns & Refunds
+   Nothing new is invented here: the pills follow the
+   `.customer-order-status.status-*` palette style, the buttons
+   reuse `.customer-order-detail-btn` metrics, and the request
+   modal borrows the rating modal shell wholesale.
+   ========================================================= */
+
+/* ── Status pills ─────────────────────────────────────────── */
+.customer-return-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.71rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.customer-return-status i {
+  font-size: 0.66rem;
+}
+
+.customer-return-status.status-requested {
+  background: #fff4db;
+  color: #9a6700;
+  border-color: #f0d89c;
+}
+
+.customer-return-status.status-approved {
+  background: #e8f1ff;
+  color: #2055c6;
+  border-color: #c5d8ff;
+}
+
+.customer-return-status.status-in-transit {
+  background: #eef2ff;
+  color: #4338ca;
+  border-color: #c7d2fe;
+}
+
+.customer-return-status.status-received {
+  background: #e9fbf9;
+  color: #0f766e;
+  border-color: #b8eee7;
+}
+
+.customer-return-status.status-processing {
+  background: #f3e8ff;
+  color: #6d28d9;
+  border-color: #ddd0fb;
+}
+
+.customer-return-status.status-refunded {
+  background: #e7f5e9;
+  color: #2e7d32;
+  border-color: #b7e0be;
+}
+
+.customer-return-status.status-rejected {
+  background: #fde8e8;
+  color: #b71c1c;
+  border-color: #f4b6b6;
+}
+
+.customer-return-status.status-cancelled {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #dbe3ec;
+}
+
+/* ── Return rows in the Returns tab ───────────────────────── */
+.customer-return-card .customer-order-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.customer-return-latest {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #8f1111;
+}
+
+.customer-return-latest i {
+  font-size: 0.66rem;
+}
+
+.customer-return-amount-caption {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.customer-return-note {
+  margin: 0 0 10px;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+/* ── Entry-point buttons on completed order rows ───────────── */
+/* Same box metrics as `.customer-order-detail-btn`; the maroon fill marks
+   the return request as the primary action of the two. */
+.customer-order-return-btn,
+.customer-order-return-view-btn,
+.customer-order-return-cancel-btn,
+.customer-order-return-ship-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid #d8e1ec;
+  background: #fff;
+  color: #334155;
+  border-radius: 8px;
+  padding: 6px 11px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.08s ease;
+}
+
+.customer-order-return-btn i,
+.customer-order-return-view-btn i,
+.customer-order-return-ship-btn i {
+  font-size: 0.68rem;
+}
+
+.customer-order-return-btn:hover,
+.customer-order-return-view-btn:hover,
+.customer-order-return-cancel-btn:hover {
+  background: #fef2f2;
+  color: #8f1111;
+  border-color: #e4c5c5;
+}
+
+.customer-order-return-btn:active,
+.customer-order-return-view-btn:active,
+.customer-order-return-cancel-btn:active,
+.customer-order-return-ship-btn:active {
+  transform: scale(0.97);
+}
+
+/* Ineligible orders keep the button visible so it can explain itself. */
+.customer-order-return-btn.is-blocked {
+  background: #f8fafc;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+}
+
+.customer-order-return-btn.is-blocked:hover {
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: #dbe3ec;
+}
+
+/* Sending the item back is the customer's next required step. */
+.customer-order-return-ship-btn {
+  background: #8f1111;
+  border-color: #8f1111;
+  color: #fff;
+}
+
+.customer-order-return-ship-btn:hover {
+  background: #5f0d0d;
+  border-color: #5f0d0d;
+}
+
+.customer-order-return-cancel-btn:disabled,
+.customer-order-return-ship-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.customer-return-detail-actions {
+  margin: 0 0 14px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+/* ── Return detail modal blocks ────────────────────────────── */
+.customer-return-evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+  padding: 4px 0 2px;
+}
+
+.customer-return-evidence-item {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border: 1px solid #e5ebf3;
+  border-radius: 10px;
+  background: #f8fafc;
+  aspect-ratio: 1 / 1;
+  text-decoration: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.08s ease;
+}
+
+.customer-return-evidence-item:hover {
+  border-color: #e4c5c5;
+  box-shadow: 0 8px 18px rgba(143, 17, 17, 0.14);
+}
+
+.customer-return-evidence-item:active {
+  transform: scale(0.97);
+}
+
+.customer-return-evidence-item img,
+.customer-return-evidence-item video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.customer-return-evidence-item span {
+  position: absolute;
+  inset: auto 0 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 3px 0;
+  background: rgba(15, 23, 42, 0.62);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.customer-return-notes .customer-return-note-row {
+  border-left: 3px solid #e5ebf3;
+  padding: 2px 0 2px 10px;
+  margin-bottom: 10px;
+}
+
+.customer-return-note-row:last-child {
+  margin-bottom: 0;
+}
+
+.customer-return-note-row > span {
+  display: block;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.customer-return-note-row p {
+  margin: 3px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #334155;
+  white-space: pre-line;
+}
+
+/* The store's own decision is the one note the customer must not miss. */
+.customer-return-notes .customer-return-note-row.is-store {
+  border-left-color: #8f1111;
+  background: #fef2f2;
+  border-radius: 0 8px 8px 0;
+  padding: 8px 10px;
+}
+
+.customer-return-receipt {
+  border-color: #b7e0be;
+  background: #f2fbf4;
+}
+
+.customer-return-receipt h4 {
+  color: #2e7d32;
+}
+
+/* ── Return request modal ─────────────────────────────────── */
+/* The rating modal pads inside each item card; this form pads the body once
+   so its plain fields line up with that same 24px gutter. */
+.customer-return-request-card {
+  max-width: 560px;
+}
+
+.customer-return-request-card .customer-rating-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 24px 20px;
+}
+
+/* The body is a scrolling flex column, so its children are shrinkable by
+   default. A textarea's automatic minimum size is zero, so the moment the form
+   grows taller than the card the note fields collapse to their padding. Pinning
+   every field to its natural height keeps them intact and lets the body scroll
+   instead. */
+.customer-return-request-card .customer-rating-body > *,
+.customer-return-form-card .customer-rating-body > * {
+  flex: 0 0 auto;
+}
+
+.customer-return-request-card .customer-rating-feedback,
+.customer-return-form-card .customer-rating-feedback {
+  min-height: 72px;
+}
+
+.customer-return-request-card .customer-rating-product-name {
+  padding: 8px 0 2px;
+}
+
+.customer-return-request-card .customer-rating-field-label {
+  margin: 12px 0 6px;
+}
+
+.customer-return-window-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border: 1px solid #f0d89c;
+  border-radius: 10px;
+  background: #fffaeb;
+  padding: 9px 11px;
+  color: #8a6100;
+  font-size: 0.74rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.customer-return-window-note i {
+  margin-top: 2px;
+}
+
+.customer-return-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.customer-return-pick {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #eef2f7;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 9px 11px;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.customer-return-pick.is-selected {
+  background: #fef2f2;
+  border-color: #e4c5c5;
+}
+
+.customer-return-pick.is-disabled {
+  opacity: 0.55;
+}
+
+.customer-return-pick-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  flex: 1 1 auto;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.customer-return-pick.is-disabled .customer-return-pick-check {
+  cursor: not-allowed;
+}
+
+.customer-return-pick-check input[type="checkbox"] {
+  margin-top: 3px;
+  width: 15px;
+  height: 15px;
+  accent-color: #8f1111;
+  cursor: inherit;
+  flex-shrink: 0;
+}
+
+.customer-return-pick-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.customer-return-pick-copy strong {
+  color: #1f2937;
+  font-size: 0.8rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.customer-return-pick-copy span {
+  color: #6b7280;
+  font-size: 0.71rem;
+  font-weight: 600;
+}
+
+.customer-return-qty {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid #d8e1ec;
+  border-radius: 999px;
+  background: #fff;
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.customer-return-qty button {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #8f1111;
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.08s ease;
+}
+
+.customer-return-qty button:hover:not(:disabled) {
+  background: #8f1111;
+  color: #fff;
+}
+
+.customer-return-qty button:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.customer-return-qty button:disabled {
+  color: #cbd5e1;
+  cursor: not-allowed;
+}
+
+.customer-return-qty span {
+  min-width: 20px;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #1f2937;
+}
+
+.customer-return-select {
+  width: 100%;
+  border: 1px solid rgba(105, 52, 42, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 10px 12px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #222833;
+  outline: none;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.customer-return-select:focus {
+  border-color: #851313;
+  box-shadow: 0 0 0 3px rgba(133, 19, 19, 0.12);
+}
+
+.customer-return-resolution {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.customer-return-resolution-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #d8e1ec;
+  border-radius: 999px;
+  background: #fff;
+  padding: 7px 13px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #334155;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.08s ease;
+}
+
+.customer-return-resolution-option:hover {
+  background: #eef2f7;
+}
+
+.customer-return-resolution-option:active {
+  transform: scale(0.97);
+}
+
+.customer-return-resolution-option.is-active {
+  background: #8f1111;
+  border-color: #8f1111;
+  color: #fff;
+}
+
+.customer-return-resolution-option input {
+  accent-color: #fff;
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+.customer-return-estimate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+  border: 1px solid #e4c5c5;
+  border-radius: 12px;
+  background: #fef2f2;
+  padding: 11px 13px;
+}
+
+.customer-return-estimate span {
+  color: #6b7280;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.customer-return-estimate strong {
+  color: #8f1111;
+  font-size: 1.02rem;
+  font-weight: 800;
+}
+
+.customer-return-fineprint {
+  margin: 8px 0 0;
+  color: #94a3b8;
+  font-size: 0.71rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+/* ── "Item shipped back" courier form ─────────────────────── */
+.customer-return-form-card {
+  max-width: 460px;
+}
+
+.customer-return-form-card .customer-rating-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 24px 20px;
+}
+
+.customer-return-form-card .customer-rating-product-name {
+  padding: 8px 0 4px;
+}
+
+.customer-return-form-card .customer-rating-field-label {
+  margin: 10px 0 6px;
+}
+
+.customer-return-input {
+  width: 100%;
+  border: 1px solid rgba(105, 52, 42, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 10px 12px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 0.84rem;
+  color: #222833;
+  outline: none;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.customer-return-input:focus {
+  border-color: #851313;
+  box-shadow: 0 0 0 3px rgba(133, 19, 19, 0.12);
+}
+
+.customer-return-input.has-error {
+  border-color: #b71c1c;
+  box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.12);
+}
+
+/* ── Returns toast ────────────────────────────────────────── */
+/* `.customer-return-toast` deliberately adds no rules: it inherits every
+   metric and animation from `.customer-rate-prompt-popup`. The class exists
+   only so the returns toast can be targeted in future without a refactor. */
+
+@media (max-width: 560px) {
+  .customer-return-pick {
+    flex-wrap: wrap;
+  }
+
+  .customer-return-qty {
+    margin-left: auto;
+  }
+
+  .customer-return-card .customer-order-side {
+    align-items: flex-start;
+  }
+
+  /* The rating shell already drops its own gutters to 14px here; the two return
+     forms override the body padding, so they need the same narrow gutter. */
+  .customer-return-request-card .customer-rating-body,
+  .customer-return-form-card .customer-rating-body {
+    padding: 4px 14px 20px;
+  }
+
+  /* Thumb-sized stepper and remove buttons instead of mouse-sized ones. */
+  .customer-return-qty button {
+    width: 30px;
+    height: 30px;
+    font-size: 0.94rem;
+  }
+
+  .customer-return-qty span {
+    min-width: 24px;
+  }
+
+  .customer-return-request-card .customer-rating-media-thumb button {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Two even columns read better than ragged pills once the row can only hold
+     one and a half of them. */
+  .customer-return-resolution {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .customer-return-resolution-option {
+    justify-content: center;
+    padding: 9px 10px;
+  }
+
+  .customer-return-estimate {
+    flex-wrap: wrap;
+  }
+
+  .customer-return-evidence-grid {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  /* Action rows become an even 2-up grid so every button clears a 34px tap
+     target instead of shrinking to its label; nowrap labels are released so a
+     long one wraps inside its own cell, and a trailing odd button spans the row.
+     Flex wrapping was ragged here because the nowrap labels differ in width. */
+  .customer-order-card > .customer-order-actions,
+  .customer-return-detail-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .customer-order-card > .customer-order-actions > button,
+  .customer-return-detail-actions > button {
+    min-height: 34px;
+    padding: 6px 8px;
+    white-space: normal;
+    line-height: 1.25;
+    text-align: center;
+  }
+
+  .customer-order-card > .customer-order-actions > button:last-child:nth-child(odd),
+  .customer-return-detail-actions > button:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 400px) {
+  .customer-return-resolution {
+    grid-template-columns: 1fr;
+  }
+
+  .customer-return-estimate strong {
+    font-size: 0.96rem;
+  }
+
+  .customer-return-evidence-grid {
+    grid-template-columns: repeat(auto-fill, minmax(68px, 1fr));
+  }
+
+  .customer-return-notes .customer-return-note-row.is-store {
+    padding: 8px;
+  }
+}
+
 
 
 

@@ -91,6 +91,7 @@ document.addEventListener("DOMContentLoaded", () => {
     inventory: { all: [], page: 1, controller: null },
     appointment: { all: [], page: 1, controller: null },
     order: { all: [], page: 1, controller: null },
+    return: { all: [], page: 1, controller: null },
     rating: { all: [], page: 1, controller: null },
     promotion: { all: [], page: 1, controller: null },
     announcement: { all: [], page: 1, controller: null },
@@ -162,6 +163,33 @@ document.addEventListener("DOMContentLoaded", () => {
         "customer_name",
         "payment_method",
         "lifecycle_status",
+      ],
+    },
+    return: {
+      payloadKey: "returns",
+      tableId: "returnArchiveTable",
+      tbodyId: "returnArchiveTbody",
+      footerId: "returnArchiveFooter",
+      metaId: "returnArchiveMeta",
+      pageId: "returnArchiveCurrentPage",
+      prevId: "returnArchivePrevBtn",
+      nextId: "returnArchiveNextBtn",
+      countId: "tabCountReturn",
+      colCount: 11,
+      tableLabel: "Returns & Refunds Archived Items",
+      emptyMessage: "No archived return or refund records found.",
+      searchFields: [
+        "return_no",
+        "order_no",
+        "customer_name",
+        "customer_email",
+        "product_name",
+        "reason_label",
+        "resolution_label",
+        "status_label",
+        "refund_method_label",
+        "refund_reference",
+        "handled_by",
       ],
     },
     rating: {
@@ -364,6 +392,37 @@ document.addEventListener("DOMContentLoaded", () => {
         <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
         <td class="action-icons sticky-action">${restoreButton(module, row, row.title)}${deleteButton(module, row, row.title)}</td>
         </tr>`;
+    }
+
+    if (module === "return") {
+      const customer = row.customer_name || row.customer_email || "Unknown";
+      const status = String(row.status || "");
+      // Same palette the Returns & Refunds panel uses on the Orders page.
+      const statusClass =
+        status === "refunded"
+          ? "status-green"
+          : status === "rejected" || status === "cancelled"
+            ? "status-red"
+            : "status-blue";
+      const quantity = Number(row.quantity || 0);
+      const itemsCount = Number(row.items_count || 0);
+      const itemsLine = `${itemsCount} item${itemsCount === 1 ? "" : "s"} • ${quantity} pc${quantity === 1 ? "" : "s"}`;
+      return `<tr>
+        ${rowCheckbox(module, row, row.return_no)}
+        <td style="font-weight:700;color:#800000;">${esc(row.return_no)}<div style="font-size:0.74rem;color:#64748b;font-weight:600;">${esc(row.order_no)}</div></td>
+        <td>
+          <strong>${esc(customer)}</strong>
+          ${row.customer_email ? `<div style="font-size:0.74rem;color:#64748b;">${esc(row.customer_email)}</div>` : ""}
+        </td>
+        <td><strong>${esc(row.product_name)}</strong><div style="font-size:0.74rem;color:#64748b;">${esc(itemsLine)}</div></td>
+        <td style="min-width:180px;white-space:normal;">${esc(row.reason_label)}<div style="font-size:0.74rem;color:#64748b;">${esc(row.resolution_label)}</div></td>
+        <td style="font-weight:700;">${esc(row.amount_label)}${row.refund_method_label ? `<div style="font-size:0.74rem;color:#64748b;font-weight:600;">${esc(row.refund_method_label)}</div>` : ""}</td>
+        <td><span class="status-pill ${statusClass}">${esc(row.status_label)}</span></td>
+        <td>${esc(row.handled_by || "—")}<div style="font-size:0.74rem;color:#64748b;">${esc(row.media_count || 0)} evidence</div></td>
+        <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.created_at)}</td>
+        <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
+        <td class="action-icons sticky-action">${restoreButton(module, row, row.return_no)}${deleteButton(module, row, row.return_no)}</td>
+      </tr>`;
     }
 
     if (module === "rating") {
@@ -771,6 +830,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const label =
       row?.item_name ||
       row?.reference_no ||
+      row?.return_no ||
       row?.order_no ||
       row?.product_name ||
       row?.customer_name ||

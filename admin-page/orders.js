@@ -1,4 +1,9 @@
 document.addEventListener("DOMContentLoaded", () => {
+  // Header notifications deep-link here for both orders and returns. Claim the
+  // kinds up front so the generic scroll-and-flash fallback waits for the first
+  // sync instead of firing before the tables exist.
+  window.AdminNotifFocus?.expect(["order", "return"]);
+
   const resolveApiBaseUrl = () => {
     const configured =
       window.APP_API_BASE_URL ||
@@ -85,6 +90,49 @@ document.addEventListener("DOMContentLoaded", () => {
   );
   const rejectedOrdersTable = document.getElementById("rejectedOrdersTable");
   const rejectedOrdersFooter = document.getElementById("rejectedOrdersFooter");
+
+  // ── Returns & Refunds ──────────────────────────────────────────────────
+  const returnsRefundsTbody = document.querySelector(
+    "#returnsRefundsTable tbody",
+  );
+  const returnsRefundsTable = document.getElementById("returnsRefundsTable");
+  const returnsRefundsFooter = document.getElementById("returnsRefundsFooter");
+  const returnsStatusFilter = document.getElementById("returnsStatusFilter");
+  const returnsSearch = document.getElementById("returnsSearch");
+  const returnsSummaryStrip = document.getElementById("returnsSummaryStrip");
+
+  const modalReturnDetails = document.getElementById("modalReturnDetails");
+  const returnDetailsBody = document.getElementById("returnDetailsBody");
+  const returnDetailsSubtitle = document.getElementById(
+    "returnDetailsSubtitle",
+  );
+
+  const modalReturnAction = document.getElementById("modalReturnAction");
+  const returnActionTitle = document.getElementById("returnActionTitle");
+  const returnActionSubtitle = document.getElementById("returnActionSubtitle");
+  const returnActionId = document.getElementById("returnActionId");
+  const returnActionKind = document.getElementById("returnActionKind");
+  const returnActionNo = document.getElementById("returnActionNo");
+  const returnActionRequested = document.getElementById(
+    "returnActionRequested",
+  );
+  const returnDecisionSelect = document.getElementById("returnDecisionSelect");
+  const returnApprovedAmount = document.getElementById("returnApprovedAmount");
+  const returnDecisionNote = document.getElementById("returnDecisionNote");
+  const returnReceivedNote = document.getElementById("returnReceivedNote");
+  const returnRefundStage = document.getElementById("returnRefundStage");
+  const returnRefundMethod = document.getElementById("returnRefundMethod");
+  const returnRefundAmount = document.getElementById("returnRefundAmount");
+  const returnRefundReference = document.getElementById(
+    "returnRefundReference",
+  );
+  const returnRefundNote = document.getElementById("returnRefundNote");
+  const btnCancelReturnAction = document.getElementById(
+    "btnCancelReturnAction",
+  );
+  const btnSubmitReturnAction = document.getElementById(
+    "btnSubmitReturnAction",
+  );
 
   const walkInOrdersTbody = document.querySelector("#walkInOrdersTable tbody");
   const walkInOrdersFooter = document.getElementById("walkInOrdersFooter");
@@ -200,12 +248,16 @@ document.addEventListener("DOMContentLoaded", () => {
     directory: [],
     payments: [],
     walkIn: [],
+    returns: [],
+    returnsSummary: {},
+    returnDetailsById: new Map(),
     ordersById: new Map(),
     incomingPage: 1,
     directoryPage: 1,
     paymentsPage: 1,
     walkInPage: 1,
     rejectedPage: 1,
+    returnsPage: 1,
     isSyncing: false,
     syncController: null,
     syncRequestId: 0,
@@ -219,6 +271,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let incomingBulkController = null;
   let rejectedBulkController = null;
   let paymentBulkController = null;
+  let returnsBulkController = null;
+  let activeReturnId = null;
+  let returnActionBusy = false;
   let trackingDiscardGuard = null;
   let walkInDiscardGuard = null;
   let walkInFormInteracted = false;
@@ -307,6 +362,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const walkInPager = getFooterControls(walkInOrdersFooter);
 
   const rejectedPager = getFooterControls(rejectedOrdersFooter);
+  const returnsPager = getFooterControls(returnsRefundsFooter);
 
   const toTimestamp = (value) => {
     const ts = Date.parse(String(value || ""));
@@ -406,6 +462,52 @@ document.addEventListener("DOMContentLoaded", () => {
         return "status-yellow";
       default:
         return "status-blue";
+    }
+  };
+
+  // ── Returns & Refunds helpers ──────────────────────────────────────────
+
+  // Return status → the pill palette already used by every other status
+  // column on this page, so nothing new is invented visually.
+  const RETURN_STATUS_PILL_CLASS = {
+    requested: "status-yellow",
+    approved: "status-blue",
+    item_in_transit: "status-blue",
+    item_received: "status-blue",
+    refund_processing: "status-blue",
+    refunded: "status-green",
+    rejected: "status-red",
+    cancelled: "status-red",
+  };
+
+  const RETURN_STATUS_FALLBACK_LABELS = {
+    requested: "Return Requested",
+    approved: "Return Approved",
+    item_in_transit: "Item In Transit",
+    item_received: "Item Received",
+    refund_processing: "Refund Processing",
+    refunded: "Refunded",
+    rejected: "Request Rejected",
+    cancelled: "Request Cancelled",
+  };
+
+  const returnStatusClass = (status) =>
+    RETURN_STATUS_PILL_CLASS[String(status || "").toLowerCase()] ||
+    "status-blue";
+
+  const returnStatusLabel = (row) =>
+    row?.status_label ||
+    RETURN_STATUS_FALLBACK_LABELS[String(row?.status || "").toLowerCase()] ||
+    "Return Update";
+
+  // Evidence paths come back relative to the API host, exactly like rating
+  // media, so they need the same absolute-URL resolution.
+  const resolveMediaUrl = (value) => {
+    if (!value) return "";
+    try {
+      return new URL(value, API_BASE_URL).href;
+    } catch {
+      return String(value);
     }
   };
 
@@ -915,6 +1017,11 @@ document.addEventListener("DOMContentLoaded", () => {
           payment.updated_at ||
           payment.created_at;
         const paymentMethod = payment.payment_method || payment.method || "N/A";
+        // Completed orders can now be refunded, so this column has to call out a
+        // reversed payment instead of reporting every row as Completed.
+        const isRefunded =
+          String(payment.payment_status || payment.status || "").toLowerCase() ===
+          "refunded";
         const paymentAmountLabel =
           payment.total_label ||
           payment.amount_label ||
@@ -927,7 +1034,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td>${escapeHtml(payment.customer_name || "Customer")}</td>
             <td>${escapeHtml(paymentMethod)}</td>
             <td>${escapeHtml(paymentAmountLabel)}</td>
-            <td><span class="status-pill status-green">Completed</span></td>
+            <td><span class="status-pill ${isRefunded ? "status-red" : "status-green"}">${isRefunded ? "Refunded" : "Completed"}</span></td>
             <td>${escapeHtml(paidAt ? formatDateLabel(paidAt) : "-")}</td>
             <td class="action-icons sticky-action">
               <button data-tooltip="View Order Info" data-order-view="${orderId}"><i class="fa-regular fa-eye"></i></button>
@@ -1005,6 +1112,211 @@ document.addEventListener("DOMContentLoaded", () => {
       },
     });
     rejectedBulkController?.sync();
+  };
+
+  // Returns arrive whole in the /admin/orders payload, so the status filter
+  // and search box run client-side like the Orders Directory ones.
+  const getReturnRows = () => {
+    const statusFilter = (returnsStatusFilter?.value || "all")
+      .trim()
+      .toLowerCase();
+    const search = (returnsSearch?.value || "").trim().toLowerCase();
+
+    return state.returns.filter((row) => {
+      const status = String(row?.status || "").toLowerCase();
+      if (statusFilter === "open") {
+        if (String(row?.status_group || "open") !== "open") return false;
+      } else if (statusFilter !== "all" && status !== statusFilter) {
+        return false;
+      }
+
+      if (!search) return true;
+      const haystack = [
+        row.return_no,
+        row.return_no_display,
+        row.order_no,
+        row.order_no_display,
+        row.customer_name,
+        row.customer_email,
+        row.product_name,
+        row.reason_label,
+        row.resolution_label,
+        row.refund_reference,
+        row.return_tracking_no,
+        ...(Array.isArray(row.items)
+          ? row.items.map((item) => item?.product_name)
+          : []),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(search);
+    });
+  };
+
+  const renderReturnsSummary = () => {
+    if (!returnsSummaryStrip) return;
+
+    const summary = state.returnsSummary || {};
+    const chips = [
+      {
+        label: "Awaiting review",
+        value: Number(summary.requested || 0),
+        cls: "status-yellow",
+      },
+      {
+        label: "In progress",
+        value: Number(summary.in_progress || 0),
+        cls: "status-blue",
+      },
+      {
+        label: "Refunded",
+        value: Number(summary.refunded || 0),
+        cls: "status-green",
+      },
+      {
+        label: "Closed without refund",
+        value: Number(summary.rejected || 0) + Number(summary.cancelled || 0),
+        cls: "status-red",
+      },
+    ];
+
+    returnsSummaryStrip.innerHTML = `
+      ${chips
+        .map(
+          (chip) => `
+            <span class="returns-summary-chip ${chip.cls}">
+              <strong>${chip.value}</strong> ${escapeHtml(chip.label)}
+            </span>`,
+        )
+        .join("")}
+      <span class="returns-summary-total">
+        Total refunded
+        <strong>${escapeHtml(formatMoney(summary.refunded_amount || 0))}</strong>
+      </span>
+    `;
+  };
+
+  // Which amount matters depends on how far the return has travelled:
+  // refunded beats approved beats requested.
+  const resolveReturnAmount = (row) => {
+    if (row?.refunded_amount !== null && row?.refunded_amount !== undefined) {
+      return {
+        label: row.refunded_amount_label || formatMoney(row.refunded_amount),
+        caption: "Refunded",
+      };
+    }
+    if (row?.approved_amount !== null && row?.approved_amount !== undefined) {
+      return {
+        label: row.approved_amount_label || formatMoney(row.approved_amount),
+        caption: "Approved",
+      };
+    }
+    return {
+      label: row?.requested_amount_label || formatMoney(row?.requested_amount),
+      caption: "Requested",
+    };
+  };
+
+  // Every row shows the full action set so the icon column never changes shape
+  // between rows; the stages that are not reachable yet render inert with a
+  // tooltip that says what unlocks them.
+  const returnActionIcon = ({
+    icon,
+    label,
+    enabled,
+    attrs = "",
+    lockedHint = "",
+  }) => {
+    if (enabled) {
+      return `<button type="button" data-tooltip="${escapeHtml(label)}" ${attrs}><i class="${icon}" aria-hidden="true"></i></button>`;
+    }
+    const tooltip = lockedHint ? `${label} — ${lockedHint}` : label;
+    return `<button type="button" class="is-disabled" aria-disabled="true" tabindex="-1" data-tooltip="${escapeHtml(tooltip)}"><i class="${icon}" aria-hidden="true"></i></button>`;
+  };
+
+  const renderReturnActionIcons = (row, returnNo) => {
+    const id = row.id;
+    return [
+      returnActionIcon({
+        icon: "fa-regular fa-eye",
+        label: "View Return Details",
+        enabled: true,
+        attrs: `data-return-view="${id}"`,
+      }),
+      returnActionIcon({
+        icon: "fa-solid fa-gavel",
+        label: "Review Request",
+        enabled: Boolean(row.can_decide),
+        attrs: `data-return-action="${id}" data-return-mode="decision"`,
+        lockedHint: "already decided",
+      }),
+      returnActionIcon({
+        icon: "fa-solid fa-box-open",
+        label: "Confirm Item Received",
+        enabled: Boolean(row.can_receive),
+        attrs: `data-return-action="${id}" data-return-mode="received"`,
+        lockedHint: "available once the request is approved",
+      }),
+      returnActionIcon({
+        icon: "fa-solid fa-peso-sign",
+        label: "Release Refund",
+        enabled: Boolean(row.can_refund),
+        attrs: `data-return-action="${id}" data-return-mode="refund"`,
+        lockedHint: "available once the return is approved",
+      }),
+      returnActionIcon({
+        icon: "fa-solid fa-box-archive",
+        label: "Archive Return",
+        enabled: Boolean(row.can_archive),
+        attrs: `data-return-archive="${id}" data-return-label="${returnNo}"`,
+        lockedHint: "available once the return is closed",
+      }),
+    ].join("");
+  };
+
+  const renderReturnsTable = () => {
+    const rows = getReturnRows();
+
+    state.returnsPage = renderPagedRows({
+      rows,
+      tbody: returnsRefundsTbody,
+      colCount: 11,
+      footer: returnsRefundsFooter,
+      currentPage: state.returnsPage,
+      pageSize: 5,
+      emptyMessage: "No return requests found.",
+      renderRow: (row) => {
+        const returnNo = escapeHtml(
+          row.return_no_display || `#${row.return_no || row.id}`,
+        );
+        const amount = resolveReturnAmount(row);
+        const evidenceBadge = Number(row.media_count || 0)
+          ? `<span class="return-evidence-badge" title="${row.media_count} evidence file(s)"><i class="fa-solid fa-paperclip"></i>${row.media_count}</span>`
+          : "";
+
+        return `
+          <tr>
+            <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="order-returns" value="${row.id}" aria-label="Select return ${returnNo}" ${row.can_archive ? "" : "disabled"} /></td>
+            <td>${returnNo}${evidenceBadge}</td>
+            <td>${escapeHtml(row.order_no_display || `#${row.order_no || row.order_id}`)}</td>
+            <td>${escapeHtml(formatDateShort(row.requested_at || row.created_at))}</td>
+            <td>${escapeHtml(row.customer_name || "Customer")}</td>
+            <td class="order-items-cell">${renderOrderItemsInline(row)}</td>
+            <td>${escapeHtml(row.reason_label || "-")}</td>
+            <td>${escapeHtml(row.resolution_label || "-")}</td>
+            <td>
+              <div>${escapeHtml(amount.label)}</div>
+              <div class="return-amount-caption">${amount.caption}</div>
+            </td>
+            <td><span class="status-pill ${returnStatusClass(row.status)}">${escapeHtml(returnStatusLabel(row))}</span></td>
+            <td class="action-icons sticky-action">${renderReturnActionIcons(row, returnNo)}</td>
+          </tr>
+        `;
+      },
+    });
+
+    returnsBulkController?.sync();
+    renderReturnsSummary();
   };
 
   const runOrdersBulkAction = ({
@@ -1164,12 +1476,50 @@ document.addEventListener("DOMContentLoaded", () => {
         },
       ],
     });
+
+    returnsBulkController = window.AdminBulkSelection?.create({
+      key: "order-returns",
+      table: returnsRefundsTable,
+      footer: returnsRefundsFooter,
+      tableLabel: "Returns & Refunds",
+      // Only closed returns may leave the queue — an open request still needs
+      // someone to act on it, which the backend also enforces.
+      getEligibleRows: () => getReturnRows().filter((row) => row.can_archive),
+      getPageRows: () => {
+        const start = (state.returnsPage - 1) * 5;
+        return getReturnRows()
+          .slice(start, start + 5)
+          .filter((row) => row.can_archive);
+      },
+      idleAction: {
+        label: "Select closed returns to archive",
+        icon: "fa-box-archive",
+      },
+      actions: [
+        {
+          key: "archive",
+          label: "Archive selected returns",
+          icon: "fa-box-archive",
+          onClick: (ids, controller) =>
+            runOrdersBulkAction({
+              ids,
+              controller,
+              action: "archive",
+              endpoint: "/admin/returns/archive-bulk",
+              method: "PATCH",
+              tableLabel: "Returns & Refunds records",
+              confirmMessage: `Archive ${ids.length} selected return(s)? They will move to the Archives page.`,
+            }),
+        },
+      ],
+    });
   };
 
   const renderAll = () => {
     renderIncomingTable();
     renderDirectoryTable();
     renderRejectedTable();
+    renderReturnsTable();
     renderPaymentsTable();
     renderWalkInTable();
   };
@@ -1211,6 +1561,13 @@ document.addEventListener("DOMContentLoaded", () => {
         rejectedOrdersTbody.querySelector(".table-empty-state"))
     ) {
       showSkeletons(rejectedOrdersTbody, 9);
+    }
+    if (
+      returnsRefundsTbody &&
+      (!returnsRefundsTbody.children.length ||
+        returnsRefundsTbody.querySelector(".table-empty-state"))
+    ) {
+      showSkeletons(returnsRefundsTbody, 11);
     }
     if (
       paymentsHistoryTbody &&
@@ -1279,6 +1636,13 @@ document.addEventListener("DOMContentLoaded", () => {
       state.walkIn = Array.isArray(walkInResponse?.data)
         ? walkInResponse.data
         : [];
+      // Returns ride in the same payload, so the Returns & Refunds panel
+      // refreshes on the very same poll as every other table here.
+      state.returns = Array.isArray(response.returns) ? response.returns : [];
+      state.returnsSummary =
+        response.returns_summary && typeof response.returns_summary === "object"
+          ? response.returns_summary
+          : {};
       normalizeStateOrdering();
       refreshPaymentsFromDirectory();
       mapOrderById();
@@ -1330,6 +1694,11 @@ document.addEventListener("DOMContentLoaded", () => {
         rejectedOrdersTbody,
         9,
         "Unable to load rejected orders.",
+      );
+      renderEmptyTable(
+        returnsRefundsTbody,
+        11,
+        "Unable to load return requests.",
       );
       renderEmptyTable(walkInOrdersTbody, 13, "Unable to load walk-in orders.");
     } finally {
@@ -1389,6 +1758,583 @@ document.addEventListener("DOMContentLoaded", () => {
     getSnapshot: getTrackingFormSnapshot,
     close: closeTrackingModal,
   });
+
+  // ── Returns & Refunds modals ───────────────────────────────────────────
+
+  const RETURN_ACTOR_LABELS = {
+    customer: "Customer",
+    admin: "Admin",
+    staff: "Staff",
+    system: "System",
+  };
+
+  // Read-only field rendered with the very same markup #modalOrderDetails
+  // uses, so the two detail modals are indistinguishable in style.
+  const returnField = (label, value, options = {}) => {
+    const raw =
+      value === null || value === undefined || String(value).trim() === ""
+        ? "-"
+        : value;
+    const safe = escapeHtml(raw);
+    return `
+      <div class="field-stack${options.full ? " full" : ""}">
+        <label>${escapeHtml(label)}</label>
+        ${
+          options.textarea
+            ? `<textarea class="textarea-field" readonly>${safe}</textarea>`
+            : `<input class="input-field" value="${safe}" readonly />`
+        }
+      </div>`;
+  };
+
+  const renderReturnEvidence = (media) => {
+    const list = Array.isArray(media) ? media : [];
+    if (!list.length) {
+      return `<span class="return-empty-note">No photos or videos were uploaded.</span>`;
+    }
+
+    return `
+      <div class="return-evidence-grid">
+        ${list
+          .map((item) => {
+            const src = escapeHtml(resolveMediaUrl(item?.url));
+            if (!src) return "";
+            return String(item?.type) === "video"
+              ? `<video src="${src}" controls preload="metadata" aria-label="Return evidence video"></video>`
+              : `<a href="${src}" target="_blank" rel="noopener" title="Open full size"><img src="${src}" alt="Return evidence photo" loading="lazy" /></a>`;
+          })
+          .join("")}
+      </div>`;
+  };
+
+  const renderReturnItemsTable = (items) => {
+    const list = Array.isArray(items) ? items : [];
+    if (!list.length) {
+      return `<span class="return-empty-note">No item lines recorded.</span>`;
+    }
+
+    return `
+      <div class="return-items-scroll">
+        <table class="return-items-table">
+          <thead>
+            <tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Line Total</th></tr>
+          </thead>
+          <tbody>
+            ${list
+              .map(
+                (item) => `
+                  <tr>
+                    <td>${escapeHtml(item?.product_name || "Returned item")}</td>
+                    <td>${escapeHtml(String(item?.quantity ?? 1))}</td>
+                    <td>${escapeHtml(item?.unit_price_label || formatMoney(item?.unit_price))}</td>
+                    <td>${escapeHtml(item?.line_total_label || formatMoney(item?.line_total))}</td>
+                  </tr>`,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>`;
+  };
+
+  const renderReturnTimeline = (timeline) => {
+    const list = Array.isArray(timeline) ? timeline : [];
+    if (!list.length) {
+      return `<span class="return-empty-note">No timeline events yet.</span>`;
+    }
+
+    return `
+      <ol class="return-timeline">
+        ${list
+          .map((event, index) => {
+            const actor =
+              RETURN_ACTOR_LABELS[String(event?.actor_role || "").toLowerCase()] ||
+              "System";
+            return `
+              <li class="return-timeline-item${index === 0 ? " is-latest" : ""}">
+                <span class="return-timeline-dot ${returnStatusClass(event?.status)}"></span>
+                <div class="return-timeline-body">
+                  <p class="return-timeline-title">${escapeHtml(event?.title || event?.status_label || "Return update")}</p>
+                  ${event?.description ? `<p class="return-timeline-desc">${escapeHtml(event.description)}</p>` : ""}
+                  <p class="return-timeline-meta">${escapeHtml(actor)} · ${escapeHtml(event?.occurred_at_label || "-")}</p>
+                </div>
+              </li>`;
+          })
+          .join("")}
+      </ol>`;
+  };
+
+  const renderReturnDetailsBody = (detail) => {
+    const amount = resolveReturnAmount(detail);
+    const shipped = detail?.return_courier_name || detail?.return_tracking_no;
+    const refunded =
+      detail?.refunded_amount !== null && detail?.refunded_amount !== undefined;
+
+    return `
+      <div class="form-grid">
+        ${returnField("Return No.", detail?.return_no_display)}
+        ${returnField("Status", returnStatusLabel(detail))}
+        ${returnField("Order No.", detail?.order_no_display)}
+        ${returnField("Date Requested", detail?.requested_at_label)}
+        ${returnField("Customer", detail?.customer_name)}
+        ${returnField("Contact", detail?.customer_contact || detail?.customer_email)}
+        ${returnField("Reason", detail?.reason_label)}
+        ${returnField("Preferred Resolution", detail?.resolution_label)}
+        ${returnField(`${amount.caption} Amount`, amount.label)}
+        ${returnField("Order Total", detail?.order?.total_label || formatMoney(detail?.order_total))}
+        ${detail?.reason_detail ? returnField("Reason Detail", detail.reason_detail, { full: true, textarea: true }) : ""}
+        ${detail?.customer_note ? returnField("Customer Note", detail.customer_note, { full: true, textarea: true }) : ""}
+        ${detail?.decision_note ? returnField("Decision Note", detail.decision_note, { full: true, textarea: true }) : ""}
+        ${detail?.handled_by ? returnField("Handled By", `${detail.handled_by}${detail.handled_by_role ? ` (${detail.handled_by_role})` : ""}`) : ""}
+        ${detail?.decided_at_label ? returnField("Decision Date", detail.decided_at_label) : ""}
+        ${shipped ? returnField("Return Courier", detail?.return_courier_name) : ""}
+        ${shipped ? returnField("Return Tracking No.", detail?.return_tracking_no) : ""}
+        ${detail?.item_received_at_label ? returnField("Item Received", detail.item_received_at_label) : ""}
+
+        <div class="field-stack full">
+          <label>Returned Item(s)</label>
+          ${renderReturnItemsTable(detail?.items)}
+        </div>
+
+        ${
+          refunded
+            ? `<div class="field-stack full">
+                 <label>Refund Receipt</label>
+                 <div class="return-receipt">
+                   <p><span>Amount refunded</span><strong>${escapeHtml(detail.refunded_amount_label || formatMoney(detail.refunded_amount))}</strong></p>
+                   <p><span>Method</span><strong>${escapeHtml(detail.refund_method_label || "-")}</strong></p>
+                   <p><span>Reference</span><strong>${escapeHtml(detail.refund_reference || "-")}</strong></p>
+                   <p><span>Released on</span><strong>${escapeHtml(detail.refunded_at_label || "-")}</strong></p>
+                 </div>
+               </div>`
+            : ""
+        }
+
+        <div class="field-stack full">
+          <label>Customer Evidence${detail?.media_count ? ` (${detail.media_count})` : ""}</label>
+          ${renderReturnEvidence(detail?.media)}
+        </div>
+
+        <div class="field-stack full">
+          <label>Return Timeline</label>
+          ${renderReturnTimeline(detail?.timeline)}
+        </div>
+      </div>`;
+  };
+
+  const upsertReturnInState = (record) => {
+    if (!record || record.id === undefined || record.id === null) return;
+    const key = String(record.id);
+    state.returnDetailsById.set(key, record);
+
+    const index = state.returns.findIndex((row) => String(row?.id) === key);
+    if (index >= 0) {
+      state.returns[index] = { ...state.returns[index], ...record };
+    } else {
+      state.returns.unshift(record);
+    }
+  };
+
+  const openReturnDetailsModal = async (returnId) => {
+    if (!modalReturnDetails || !returnDetailsBody) return;
+
+    const key = String(returnId || "");
+    if (!key) return;
+    activeReturnId = key;
+
+    const cached =
+      state.returnDetailsById.get(key) ||
+      state.returns.find((row) => String(row?.id) === key) ||
+      null;
+
+    if (returnDetailsSubtitle) {
+      returnDetailsSubtitle.textContent = cached
+        ? `${cached.return_no_display || `#${cached.return_no || key}`} · ${returnStatusLabel(cached)}`
+        : "Loading return request...";
+    }
+
+    // Paint what is already known, then let the detail request fill in the
+    // timeline and the order snapshot the summary row does not carry.
+    returnDetailsBody.innerHTML = cached
+      ? renderReturnDetailsBody(cached)
+      : `<div class="return-empty-note">Loading return details...</div>`;
+    modalReturnDetails.classList.add("show");
+
+    try {
+      const response = await request(`/admin/returns/${key}`);
+      if (!response?.data) return;
+      upsertReturnInState(response.data);
+      // A second return may have been opened while this was in flight.
+      if (activeReturnId !== key) return;
+      returnDetailsBody.innerHTML = renderReturnDetailsBody(response.data);
+      if (returnDetailsSubtitle) {
+        returnDetailsSubtitle.textContent = `${response.data.return_no_display || `#${key}`} · ${returnStatusLabel(response.data)}`;
+      }
+      renderReturnsTable();
+    } catch (error) {
+      if (error?.isCancelled) return;
+      if (activeReturnId !== key) return;
+      if (!cached) {
+        returnDetailsBody.innerHTML = `<div class="return-empty-note">${escapeHtml(error.message || "Unable to load this return request.")}</div>`;
+      }
+    }
+  };
+
+  const resolveReturnActionKind = (row) => {
+    if (row?.can_decide) return "decision";
+    if (row?.can_receive) return "received";
+    if (row?.can_refund) return "refund";
+    return "";
+  };
+
+  // `approved` unlocks both "Confirm Item Received" and "Release Refund", so the
+  // clicked icon decides which form opens instead of the stage order.
+  const isReturnActionKindAllowed = (row, kind) =>
+    (kind === "decision" && Boolean(row?.can_decide)) ||
+    (kind === "received" && Boolean(row?.can_receive)) ||
+    (kind === "refund" && Boolean(row?.can_refund));
+
+  const setReturnActionSections = (kind) => {
+    modalReturnAction
+      ?.querySelectorAll("[data-return-section]")
+      .forEach((node) => {
+        node.style.display =
+          node.getAttribute("data-return-section") === kind ? "" : "none";
+      });
+  };
+
+  const closeReturnActionModal = () => {
+    modalReturnAction?.classList.remove("show");
+  };
+
+  const getReturnActionSnapshot = () => ({
+    id: String(returnActionId?.value || ""),
+    kind: String(returnActionKind?.value || ""),
+    decision: String(returnDecisionSelect?.value || ""),
+    approvedAmount: String(returnApprovedAmount?.value || ""),
+    decisionNote: String(returnDecisionNote?.value || "").trim(),
+    receivedNote: String(returnReceivedNote?.value || "").trim(),
+    refundStage: String(returnRefundStage?.value || ""),
+    refundMethod: String(returnRefundMethod?.value || ""),
+    refundAmount: String(returnRefundAmount?.value || ""),
+    refundReference: String(returnRefundReference?.value || "").trim(),
+    refundNote: String(returnRefundNote?.value || "").trim(),
+  });
+
+  const returnActionDiscardGuard = window.createAdminFormDiscardGuard?.({
+    getSnapshot: getReturnActionSnapshot,
+    close: closeReturnActionModal,
+  });
+
+  const RETURN_ACTION_COPY = {
+    decision: {
+      title: "Review Return Request",
+      subtitle:
+        "Approve to issue return instructions, or reject with a reason. The customer is emailed either way.",
+      submit: "Save Decision",
+    },
+    received: {
+      title: "Confirm Item Received",
+      subtitle:
+        "Mark the returned item as arrived and inspected. The refund can be released next.",
+      submit: "Confirm Received",
+    },
+    refund: {
+      title: "Release Refund",
+      subtitle:
+        "Releasing the refund also marks the order payment as refunded in Payments History.",
+      submit: "Save Refund",
+    },
+  };
+
+  // A return filed against a zero-priced order has nothing to pay back, so the
+  // amount guards below have to know whether money is actually at stake before
+  // they refuse a 0.00 figure.
+  let returnActionRequestedAmount = 0;
+  let returnActionCeilingAmount = 0;
+
+  const openReturnActionModal = (row, requestedKind = "") => {
+    if (!modalReturnAction || !row) return;
+
+    const kind = isReturnActionKindAllowed(row, requestedKind)
+      ? requestedKind
+      : resolveReturnActionKind(row);
+    if (!kind) {
+      showPopup("This return has no pending action left.", {
+        title: "Nothing To Do",
+      });
+      return;
+    }
+
+    const copy = RETURN_ACTION_COPY[kind];
+    const returnNo = row.return_no_display || `#${row.return_no || row.id}`;
+    const requested = Number(row.requested_amount || 0);
+    const ceiling = Number(
+      row.approved_amount !== null && row.approved_amount !== undefined
+        ? row.approved_amount
+        : requested,
+    );
+    returnActionRequestedAmount = Number.isFinite(requested) ? requested : 0;
+    returnActionCeilingAmount = Number.isFinite(ceiling) ? ceiling : 0;
+
+    if (returnActionId) returnActionId.value = String(row.id || "");
+    if (returnActionKind) returnActionKind.value = kind;
+    if (returnActionNo) returnActionNo.value = returnNo;
+    if (returnActionRequested) {
+      returnActionRequested.value =
+        row.requested_amount_label || formatMoney(requested);
+    }
+    if (returnActionTitle) returnActionTitle.textContent = copy.title;
+    if (returnActionSubtitle) {
+      returnActionSubtitle.textContent = `${returnNo} · ${copy.subtitle}`;
+    }
+    if (btnSubmitReturnAction) btnSubmitReturnAction.textContent = copy.submit;
+
+    if (returnDecisionSelect) returnDecisionSelect.value = "approve";
+    if (returnApprovedAmount) returnApprovedAmount.value = requested.toFixed(2);
+    if (returnDecisionNote) returnDecisionNote.value = "";
+    if (returnReceivedNote) returnReceivedNote.value = "";
+    if (returnRefundStage) returnRefundStage.value = "released";
+    if (returnRefundMethod) {
+      returnRefundMethod.value = row.refund_method || "gcash";
+    }
+    if (returnRefundAmount) returnRefundAmount.value = ceiling.toFixed(2);
+    if (returnRefundReference) {
+      returnRefundReference.value = row.refund_reference || "";
+    }
+    if (returnRefundNote) returnRefundNote.value = "";
+
+    setReturnActionSections(kind);
+    returnActionDiscardGuard?.capture();
+    modalReturnAction.classList.add("show");
+  };
+
+  // Turns the visible section of the action form into one API call. Amounts
+  // are still re-clamped server-side, so this only has to be reasonable.
+  const buildReturnActionRequest = (kind) => {
+    if (kind === "decision") {
+      const decision = String(returnDecisionSelect?.value || "approve");
+      const note = String(returnDecisionNote?.value || "").trim();
+      if (decision === "reject" && !note) {
+        return {
+          error: "Tell the customer why the request was rejected.",
+          focus: returnDecisionNote,
+        };
+      }
+
+      const body = { decision, decision_note: note || null };
+      const rawApproved = String(returnApprovedAmount?.value || "").trim();
+      const amount = Number(rawApproved);
+      if (decision === "approve" && rawApproved) {
+        // Blank means "approve the full requested amount" — the server fills it
+        // in. A typed value still has to be a real peso figure, and it may only
+        // be 0.00 when the request itself is worth nothing.
+        if (!Number.isFinite(amount) || amount < 0) {
+          return {
+            error: "Enter a valid approved amount.",
+            focus: returnApprovedAmount,
+          };
+        }
+        if (amount <= 0 && returnActionRequestedAmount > 0) {
+          return {
+            error: "Approved amount must be greater than zero.",
+            focus: returnApprovedAmount,
+          };
+        }
+        body.approved_amount = amount;
+      }
+
+      return {
+        path: `/admin/returns/{id}/decision`,
+        body,
+        confirmTitle: decision === "approve" ? "Approve Return" : "Reject Return",
+        confirmText: decision === "approve" ? "Approve" : "Reject",
+        confirmMessage:
+          decision === "approve"
+            ? "Approve this return request? The customer will be asked to send the item back."
+            : "Reject this return request? The customer will see your reason and may file again while the window is open.",
+        success: "Return decision saved.",
+      };
+    }
+
+    if (kind === "received") {
+      return {
+        path: `/admin/returns/{id}/received`,
+        body: { note: String(returnReceivedNote?.value || "").trim() || null },
+        confirmTitle: "Confirm Item Received",
+        confirmText: "Confirm",
+        confirmMessage:
+          "Mark the returned item as received and inspected? The customer will be notified.",
+        success: "Returned item marked as received.",
+      };
+    }
+
+    const method = String(returnRefundMethod?.value || "gcash");
+    const stage = String(returnRefundStage?.value || "released");
+    const rawAmount = String(returnRefundAmount?.value || "").trim();
+    const amount = Number(rawAmount);
+    // A blank field must not read as zero here: Number("") is 0, which would
+    // otherwise happily release a ₱ 0.00 refund and close the return. A real
+    // 0.00 is only legitimate when the return itself is worth nothing.
+    if (!rawAmount || !Number.isFinite(amount) || amount < 0) {
+      return {
+        error: rawAmount
+          ? "Enter a valid refund amount."
+          : "Enter the refund amount before saving.",
+        focus: returnRefundAmount,
+      };
+    }
+    if (amount <= 0 && returnActionCeilingAmount > 0) {
+      return {
+        error: "Refund amount must be greater than zero.",
+        focus: returnRefundAmount,
+      };
+    }
+
+    return {
+      path: `/admin/returns/{id}/refund`,
+      body: {
+        stage,
+        refund_method: method,
+        amount,
+        refund_reference:
+          String(returnRefundReference?.value || "").trim() || null,
+        note: String(returnRefundNote?.value || "").trim() || null,
+      },
+      confirmTitle: stage === "released" ? "Release Refund" : "Mark Refund Processing",
+      confirmText: stage === "released" ? "Release" : "Save",
+      confirmMessage:
+        stage === "released"
+          ? `Release ${formatMoney(amount)} to this customer? The order payment will be marked as refunded.`
+          : `Mark this return as refund processing for ${formatMoney(amount)}?`,
+      success:
+        stage === "released"
+          ? "Refund released successfully."
+          : "Return marked as refund processing.",
+    };
+  };
+
+  // Repaints an open Return Details modal after a mutation so the admin never
+  // has to close and reopen it to see the status they just saved.
+  const refreshOpenReturnDetails = (id, record) => {
+    if (!record || !returnDetailsBody) return;
+    if (activeReturnId !== String(id)) return;
+    if (!modalReturnDetails?.classList.contains("show")) return;
+
+    returnDetailsBody.innerHTML = renderReturnDetailsBody(record);
+    if (returnDetailsSubtitle) {
+      returnDetailsSubtitle.textContent = `${
+        record.return_no_display || `#${record.return_no || id}`
+      } · ${returnStatusLabel(record)}`;
+    }
+  };
+
+  const submitReturnAction = async () => {
+    if (returnActionBusy) return;
+
+    const id = String(returnActionId?.value || "");
+    const kind = String(returnActionKind?.value || "");
+    if (!id || !RETURN_ACTION_COPY[kind]) {
+      showPopup("No return request selected.", { title: "Action Failed" });
+      return;
+    }
+
+    const plan = buildReturnActionRequest(kind);
+    if (plan.error) {
+      showPopup(plan.error, { title: "Missing Details" });
+      plan.focus?.focus();
+      return;
+    }
+
+    const shouldContinue = await askConfirm(plan.confirmMessage, {
+      title: plan.confirmTitle,
+      confirmText: plan.confirmText,
+    });
+
+    if (!shouldContinue) return;
+
+    returnActionBusy = true;
+    const originalSubmitHtml = btnSubmitReturnAction?.innerHTML || "";
+    if (btnSubmitReturnAction) {
+      btnSubmitReturnAction.disabled = true;
+      btnSubmitReturnAction.innerHTML =
+        '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+    }
+    if (btnCancelReturnAction) btnCancelReturnAction.disabled = true;
+
+    try {
+      const response = await request(plan.path.replace("{id}", id), {
+        method: "POST",
+        body: plan.body,
+      });
+
+      if (response?.data) {
+        upsertReturnInState(response.data);
+      }
+
+      closeReturnActionModal();
+      returnActionDiscardGuard?.clear();
+      renderReturnsTable();
+      refreshOpenReturnDetails(id, response?.data);
+
+      notifyOrdersRealtimeUpdate({
+        type: "return-updated",
+        returnId: id,
+        orderId: String(response?.data?.order_id || ""),
+      });
+      showPopup(plan.success, { title: "Success" });
+      void syncOrders(false, { force: true, source: "action" });
+    } catch (error) {
+      showPopup(error.message || "Unable to save this return update.", {
+        title: "Action Failed",
+      });
+    } finally {
+      returnActionBusy = false;
+      if (btnSubmitReturnAction) {
+        btnSubmitReturnAction.disabled = false;
+        btnSubmitReturnAction.innerHTML = originalSubmitHtml;
+      }
+      if (btnCancelReturnAction) btnCancelReturnAction.disabled = false;
+    }
+  };
+
+  // Single-row archive. It rides the same bulk endpoint the header checkbox
+  // uses, so eligibility stays decided in exactly one place server-side.
+  const archiveReturn = async (returnId, label) => {
+    const id = String(returnId || "");
+    if (!id) return;
+
+    const shouldArchive = await askConfirm(
+      `Archive ${label || `return #${id}`}? It moves to Archives and leaves this panel.`,
+      { title: "Archive Return", confirmText: "Archive" },
+    );
+
+    if (!shouldArchive) return;
+
+    try {
+      const response = await request("/admin/returns/archive-bulk", {
+        method: "PATCH",
+        body: { ids: [id] },
+      });
+
+      state.returns = state.returns.filter((row) => String(row?.id) !== id);
+      state.returnDetailsById.delete(id);
+      if (activeReturnId === id) {
+        modalReturnDetails?.classList.remove("show");
+        activeReturnId = null;
+      }
+      renderReturnsTable();
+
+      notifyOrdersRealtimeUpdate({ type: "return-archived", returnId: id });
+      showPopup(response?.message || "Return record archived successfully.", {
+        title: "Archived ✓",
+      });
+      void syncOrders(false, { force: true, source: "action" });
+    } catch (error) {
+      showPopup(error.message || "Unable to archive this return record.", {
+        title: "Archive Failed",
+      });
+    }
+  };
 
   const mutateOrder = async (orderId, action) => {
     const actionMap = {
@@ -2371,6 +3317,19 @@ document.addEventListener("DOMContentLoaded", () => {
     renderRejectedTable();
   });
 
+  returnsPager.prev?.addEventListener("click", () => {
+    if (state.returnsPage <= 1) return;
+    state.returnsPage -= 1;
+    renderReturnsTable();
+  });
+
+  returnsPager.next?.addEventListener("click", () => {
+    const totalPages = Math.max(1, Math.ceil(getReturnRows().length / 5));
+    if (state.returnsPage >= totalPages) return;
+    state.returnsPage += 1;
+    renderReturnsTable();
+  });
+
   window.AdminPageNumberInput?.bind(incomingPager.pageNumber, {
     getPage: () => state.incomingPage,
     getTotalPages: () => Math.max(1, Math.ceil(state.incoming.length / 5)),
@@ -2416,6 +3375,15 @@ document.addEventListener("DOMContentLoaded", () => {
     },
   });
 
+  window.AdminPageNumberInput?.bind(returnsPager.pageNumber, {
+    getPage: () => state.returnsPage,
+    getTotalPages: () => Math.max(1, Math.ceil(getReturnRows().length / 5)),
+    onChange: (page) => {
+      state.returnsPage = page;
+      renderReturnsTable();
+    },
+  });
+
   directoryStatusFilter?.addEventListener("change", () => {
     state.directoryPage = 1;
     renderDirectoryTable();
@@ -2429,6 +3397,28 @@ document.addEventListener("DOMContentLoaded", () => {
   paymentsMethodFilter?.addEventListener("change", () => {
     state.paymentsPage = 1;
     renderPaymentsTable();
+  });
+
+  returnsStatusFilter?.addEventListener("change", () => {
+    state.returnsPage = 1;
+    renderReturnsTable();
+  });
+
+  returnsSearch?.addEventListener("input", () => {
+    state.returnsPage = 1;
+    renderReturnsTable();
+  });
+
+  btnCancelReturnAction?.addEventListener("click", () => {
+    if (returnActionDiscardGuard) {
+      returnActionDiscardGuard.cancel();
+      return;
+    }
+    closeReturnActionModal();
+  });
+
+  btnSubmitReturnAction?.addEventListener("click", () => {
+    void submitReturnAction();
   });
 
   refreshBtn?.addEventListener("click", () => {
@@ -2587,6 +3577,44 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
+    const returnViewBtn = target.closest("[data-return-view]");
+    if (returnViewBtn) {
+      const returnId = String(
+        returnViewBtn.getAttribute("data-return-view") || "",
+      );
+      void openReturnDetailsModal(returnId);
+      return;
+    }
+
+    const returnActionBtn = target.closest("[data-return-action]");
+    if (returnActionBtn) {
+      const returnId = String(
+        returnActionBtn.getAttribute("data-return-action") || "",
+      );
+      const row =
+        state.returnDetailsById.get(returnId) ||
+        state.returns.find((item) => String(item?.id) === returnId);
+      if (row) {
+        openReturnActionModal(
+          row,
+          String(returnActionBtn.getAttribute("data-return-mode") || ""),
+        );
+      }
+      return;
+    }
+
+    const returnArchiveBtn = target.closest("[data-return-archive]");
+    if (returnArchiveBtn) {
+      const returnId = String(
+        returnArchiveBtn.getAttribute("data-return-archive") || "",
+      );
+      const label = String(
+        returnArchiveBtn.getAttribute("data-return-label") || "",
+      );
+      void archiveReturn(returnId, label);
+      return;
+    }
+
     const editWalkInBtn = target.closest("[data-walkin-edit]");
     const viewWalkInBtn = target.closest("[data-walkin-view]");
     if (viewWalkInBtn) {
@@ -2661,5 +3689,44 @@ document.addEventListener("DOMContentLoaded", () => {
     void syncOrders(false, { force: true, source: "realtime" });
   });
 
-  void syncOrders(true, { force: true, source: "manual" });
+  // Open the record a header notification points at. Registered only after the
+  // first sync resolves, because the order branch reads `state.ordersById`;
+  // returns are fetched by id, so that branch works from any table page.
+  const focusOrderFromNotification = (intent) => {
+    const orderId = String(intent?.id || "");
+    if (!orderId) return false;
+
+    const order = state.ordersById.get(orderId);
+    if (!order) {
+      const label = intent?.ref ? `Order ${intent.ref}` : "That order";
+      showPopup(
+        `${label} is no longer in the active order list. It may have been archived or deleted.`,
+        { title: "Order Not Found" },
+      );
+      return true;
+    }
+
+    populateOrderDetailsModal(order);
+    const row = document.querySelector(`[data-order-view="${orderId}"]`);
+    if (row) window.AdminNotifFocus?.flash(row);
+    return true;
+  };
+
+  const focusReturnFromNotification = (intent) => {
+    const returnId = String(intent?.id || "");
+    if (!returnId) return false;
+
+    void openReturnDetailsModal(returnId);
+    const row = document.querySelector(`[data-return-view="${returnId}"]`);
+    if (row) window.AdminNotifFocus?.flash(row);
+    return true;
+  };
+
+  void syncOrders(true, { force: true, source: "manual" }).finally(() => {
+    window.AdminNotifFocus?.onFocus(["order", "return"], (intent) =>
+      intent?.kind === "return"
+        ? focusReturnFromNotification(intent)
+        : focusOrderFromNotification(intent),
+    );
+  });
 });

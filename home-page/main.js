@@ -22,6 +22,18 @@ const getCustomerToken = () => {
 };
 
 const ORDER_STAGE_FLOW = ["to_pay", "to_ship", "to_receive", "completed"];
+// "All" tab urgency ranking: what is arriving now, then what is being shipped,
+// then what still needs paying, and finally everything already finished.
+const ALL_TAB_STAGE_PRIORITY = {
+  to_receive: 0,
+  to_ship: 1,
+  to_pay: 2,
+  completed: 3,
+};
+const ALL_TAB_UNKNOWN_STAGE_RANK = 4;
+const ALL_TAB_REJECTED_RANK = 5;
+const BUY_AGAIN_INTENT_KEY = "fmrc_buy_again_intent";
+const BUY_AGAIN_INTENT_MAX_AGE_MS = 60000;
 const PHILIPPINES_TIME_ZONE = "Asia/Manila";
 const API_REQUEST_TIMEOUT_MS = 8000;
 const CUSTOMER_ORDERS_REQUEST_TIMEOUT_MS = 7000;
@@ -5947,11 +5959,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  const writeCustomerOrdersCache = (cacheKey, orders, etag = "") => {
+  const writeCustomerOrdersCache = (cacheKey, orders, etag = "", returns = null) => {
     if (!cacheKey || !Array.isArray(orders)) return;
 
     const entry = {
       orders,
+      // Returns arrive in the same response as the orders, so they are cached
+      // together. Older entries simply have no `returns` key.
+      returns: Array.isArray(returns) ? returns : [],
       etag: String(etag || ""),
       savedAt: Date.now(),
     };
@@ -6050,6 +6065,9 @@ document.addEventListener("DOMContentLoaded", () => {
       return {
         notModified: true,
         orders: null,
+        returns: null,
+        counts: null,
+        returnWindowDays: null,
         etag: response.headers.get("ETag") || etag,
       };
     }
@@ -6061,6 +6079,11 @@ document.addEventListener("DOMContentLoaded", () => {
     return {
       notModified: false,
       orders: Array.isArray(data.data) ? data.data : [],
+      // Returns/refunds ship with the order list so the Returns tab, the
+      // per-order badges and the ETag all come from this one request.
+      returns: Array.isArray(data.returns) ? data.returns : [],
+      counts: data.counts && typeof data.counts === "object" ? data.counts : null,
+      returnWindowDays: Number(data.return_window_days) || null,
       etag: response.headers.get("ETag") || "",
     };
   };
@@ -6102,6 +6125,26 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   };
 
+  // Return detail carries the audit timeline, which the order-list payload
+  // deliberately leaves out, so the detail modal fetches it on demand.
+  const fetchCustomerReturnDetail = async (customerToken, returnId) => {
+    const { response, data } = await fetchJsonWithTimeout(
+      `${API_BASE_URL}/customer/returns/${returnId}`,
+      {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${customerToken}`,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error(data.message || "Unable to load return details.");
+    }
+
+    return data.data || null;
+  };
+
   const openOrdersModal = (activeUserInfo) => {
     if (!customerOrdersController) {
       const overlay = document.createElement("div");
@@ -6128,6 +6171,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <button type="button" class="customer-orders-tab" data-tab="to_receive">To Receive <span class="customer-orders-tab-count">0</span></button>
             <button type="button" class="customer-orders-tab" data-tab="completed">Completed <span class="customer-orders-tab-count">0</span></button>
             <button type="button" class="customer-orders-tab" data-tab="to_rate">To Rate <span class="customer-orders-tab-count">0</span></button>
+            <button type="button" class="customer-orders-tab" data-tab="returns">Returns <span class="customer-orders-tab-count">0</span></button>
           </div>
 
           <div class="customer-orders-viewport" id="customerOrdersViewport">
@@ -6138,6 +6182,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <section class="customer-orders-panel" data-panel="to_receive"></section>
               <section class="customer-orders-panel" data-panel="completed"></section>
               <section class="customer-orders-panel" data-panel="to_rate"></section>
+              <section class="customer-orders-panel" data-panel="returns"></section>
             </div>
           </div>
 
@@ -6173,7 +6218,10 @@ document.addEventListener("DOMContentLoaded", () => {
         "to_receive",
         "completed",
         "to_rate",
+        "returns",
       ];
+      // Panel indexes used by handlers that jump the drawer to a tab.
+      const RETURNS_PANEL_INDEX = stageByPanel.indexOf("returns");
 
       const state = {
         activeIndex: 0,
@@ -6181,6 +6229,13 @@ document.addEventListener("DOMContentLoaded", () => {
         cacheKey: "",
         token: "",
         orders: [],
+        // Returns are their own records, not order rows. They ride along with
+        // the order list response so the tab needs no extra request.
+        returns: [],
+        returnWindowDays: 7,
+        returnDetailsById: new Map(),
+        activeReturnDetailId: null,
+        returnDetailLoading: false,
         detailsById: new Map(),
         detailEtagsById: new Map(),
         etag: "",
@@ -6617,6 +6672,7 @@ document.addEventListener("DOMContentLoaded", () => {
           to_receive: "No orders are waiting for delivery/pickup.",
           completed: "No completed orders yet.",
           to_rate: "No products to rate yet.",
+          returns: "No return or refund requests yet.",
         };
 
         return `
@@ -6634,8 +6690,49 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       `;
 
+      // Rank used by the "All" tab. Rejected orders stay visible but are
+      // terminal, so they must never outrank a live order.
+      const resolveAllTabRank = (order) => {
+        if (String(order?.lifecycle_status || "").toLowerCase() === "rejected") {
+          return ALL_TAB_REJECTED_RANK;
+        }
+
+        const stage = String(order?.customer_stage || "");
+        return Object.prototype.hasOwnProperty.call(
+          ALL_TAB_STAGE_PRIORITY,
+          stage,
+        )
+          ? ALL_TAB_STAGE_PRIORITY[stage]
+          : ALL_TAB_UNKNOWN_STAGE_RANK;
+      };
+
+      const resolveOrderRecencyKey = (order) => {
+        const parsed = Date.parse(order?.created_at || "");
+        return Number.isFinite(parsed) ? parsed : null;
+      };
+
       const getVisibleOrdersByPanel = (stageKey) => {
-        if (stageKey === "all") return state.orders;
+        if (stageKey === "returns") {
+          // Returns are their own records. The server already sorts them
+          // open-first/newest-first; the copy keeps state.returns untouched.
+          return state.returns.slice();
+        }
+        if (stageKey === "all") {
+          // A sorted copy: renderOrders(), the tab counters and the
+          // sessionStorage cache all read state.orders in server order.
+          return state.orders.slice().sort((left, right) => {
+            const rankDiff = resolveAllTabRank(left) - resolveAllTabRank(right);
+            if (rankDiff !== 0) return rankDiff;
+
+            const leftTime = resolveOrderRecencyKey(left);
+            const rightTime = resolveOrderRecencyKey(right);
+            if (leftTime !== null && rightTime !== null && leftTime !== rightTime) {
+              return rightTime - leftTime;
+            }
+
+            return (Number(right?.id) || 0) - (Number(left?.id) || 0);
+          });
+        }
         if (stageKey === "to_rate") {
           // Returns completed orders â€” split into rated/unrated is done in renderToRatePanel
           return state.orders.filter(
@@ -6838,6 +6935,186 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
       };
 
+      // ── Returns & Refunds ──────────────────────────────────────────────────
+      // Return records live beside the orders in the same payload. They render
+      // in their own tab with the order-card shell, so nothing new is invented
+      // visually — only the status palette is extended.
+
+      const RETURN_STATUS_PILL_CLASS = {
+        requested: "status-requested",
+        approved: "status-approved",
+        item_in_transit: "status-in-transit",
+        item_received: "status-received",
+        refund_processing: "status-processing",
+        refunded: "status-refunded",
+        rejected: "status-rejected",
+        cancelled: "status-cancelled",
+      };
+
+      const RETURN_STATUS_ICON = {
+        requested: "fa-regular fa-clock",
+        approved: "fa-solid fa-circle-check",
+        item_in_transit: "fa-solid fa-truck-fast",
+        item_received: "fa-solid fa-box-open",
+        refund_processing: "fa-solid fa-rotate",
+        refunded: "fa-solid fa-peso-sign",
+        rejected: "fa-regular fa-circle-xmark",
+        cancelled: "fa-solid fa-ban",
+      };
+
+      const RETURN_ACTOR_LABELS = {
+        customer: "You",
+        admin: "Store admin",
+        staff: "Store staff",
+        system: "System",
+      };
+
+      const resolveReturnPillClass = (status) =>
+        RETURN_STATUS_PILL_CLASS[String(status || "")] || "status-requested";
+
+      /**
+       * Return items only carry names and prices. Borrow the thumbnail from the
+       * matching order line already in memory so the card looks like every
+       * other row instead of falling back to the placeholder.
+       */
+      const resolveReturnThumbSource = (returnRow) => {
+        const firstLine = (Array.isArray(returnRow?.items) ? returnRow.items : [])[0];
+        const order = state.orders.find(
+          (row) => String(row.id) === String(returnRow?.order_id),
+        );
+        const orderItems = Array.isArray(order?.items) ? order.items : [];
+        const matched =
+          orderItems.find(
+            (item) => String(item?.id) === String(firstLine?.order_item_id),
+          ) ||
+          orderItems.find(
+            (item) => String(item?.product_id) === String(firstLine?.product_id),
+          ) ||
+          order ||
+          null;
+
+        return {
+          ...(matched || {}),
+          product_name:
+            returnRow?.product_name || firstLine?.product_name || "Returned item",
+        };
+      };
+
+      /** The money figure that matters most at this point of the lifecycle. */
+      const resolveReturnAmount = (returnRow) => {
+        if (returnRow?.refunded_amount_label) {
+          return { label: returnRow.refunded_amount_label, caption: "Refunded" };
+        }
+        if (returnRow?.approved_amount_label) {
+          return { label: returnRow.approved_amount_label, caption: "Approved" };
+        }
+        return {
+          label:
+            returnRow?.requested_amount_label ||
+            formatOrderCurrency(Number(returnRow?.requested_amount || 0) || 0),
+          caption: "Requested",
+        };
+      };
+
+      const renderReturnCard = (returnRow) => {
+        const status = String(returnRow?.status || "requested");
+        const pillClass = resolveReturnPillClass(status);
+        const statusIcon = RETURN_STATUS_ICON[status] || "fa-regular fa-clock";
+        const returnNo = escapeHtml(
+          returnRow?.return_no_display || `#${returnRow?.return_no || returnRow?.id || "-"}`,
+        );
+        const orderNo = escapeHtml(
+          returnRow?.order_no_display || `#${returnRow?.order_no || returnRow?.order_id || "-"}`,
+        );
+        const quantity = Math.max(1, Number(returnRow?.quantity) || 1);
+        const amount = resolveReturnAmount(returnRow);
+        const latestEvent = returnRow?.latest_event || null;
+
+        return `
+          <article class="customer-order-card customer-return-card" data-return-row="${escapeHtml(returnRow?.id)}">
+            <div class="customer-order-thumb">
+              ${renderOrderThumbTrigger(resolveReturnThumbSource(returnRow))}
+            </div>
+            <div class="customer-order-main">
+              <h4>${escapeHtml(returnRow?.product_name || "Returned item")}</h4>
+              <p class="customer-order-meta">Return ${returnNo} &bull; Order ${orderNo}</p>
+              <p class="customer-order-meta">${escapeHtml(returnRow?.reason_label || "Return request")} &bull; ${escapeHtml(returnRow?.resolution_label || "Refund")} &bull; ${quantity} item${quantity > 1 ? "s" : ""}</p>
+              <p class="customer-order-meta">Filed ${escapeHtml(returnRow?.requested_at_label || formatOrderDate(returnRow?.requested_at || returnRow?.created_at))}</p>
+              ${
+                latestEvent
+                  ? `<p class="customer-return-latest"><i class="${escapeHtml(statusIcon)}" aria-hidden="true"></i> ${escapeHtml(latestEvent.title || latestEvent.status_label || "Return update")}</p>`
+                  : ""
+              }
+            </div>
+            <div class="customer-order-side">
+              <span class="customer-return-status ${pillClass}"><i class="${escapeHtml(statusIcon)}" aria-hidden="true"></i> ${escapeHtml(returnRow?.status_label || "Requested")}</span>
+              <strong class="customer-order-price">${escapeHtml(amount.label)}</strong>
+              <span class="customer-return-amount-caption">${escapeHtml(amount.caption)}</span>
+            </div>
+            <div class="customer-order-actions">
+              <button type="button" class="customer-order-detail-btn" data-return-detail="${escapeHtml(returnRow?.id)}">Return Details</button>
+              ${
+                returnRow?.can_cancel
+                  ? `<button type="button" class="customer-order-return-cancel-btn" data-return-cancel="${escapeHtml(returnRow?.id)}" data-return-no="${returnNo}">Cancel Request</button>`
+                  : ""
+              }
+              ${
+                returnRow?.can_ship_back
+                  ? `<button type="button" class="customer-order-return-ship-btn" data-return-ship="${escapeHtml(returnRow?.id)}" data-return-no="${returnNo}"><i class="fa-solid fa-truck-fast" aria-hidden="true"></i> Item Shipped Back</button>`
+                  : ""
+              }
+            </div>
+          </article>
+        `;
+      };
+
+      const renderReturnsPanel = (returnRows) => {
+        const openRows = returnRows.filter(
+          (row) => String(row?.status_group || "open") === "open",
+        );
+        const closedRows = returnRows.filter(
+          (row) => String(row?.status_group || "open") !== "open",
+        );
+
+        const openMarkup = openRows.length
+          ? openRows.map((row) => renderReturnCard(row)).join("")
+          : `
+              <div class="customer-orders-empty compact">
+                <i class="fa-solid fa-rotate-left"></i>
+                <p>No return or refund request is being processed.</p>
+              </div>
+            `;
+
+        const closedMarkup = closedRows.length
+          ? closedRows.map((row) => renderReturnCard(row)).join("")
+          : `
+              <div class="customer-orders-empty compact">
+                <i class="fa-regular fa-folder-open"></i>
+                <p>Completed and cancelled requests will appear here.</p>
+              </div>
+            `;
+
+        return `
+          <div class="customer-torate-wrap">
+            <section class="customer-torate-section">
+              <div class="customer-torate-section-head">
+                <h3><i class="fa-solid fa-rotate-left"></i> In Progress</h3>
+                <span class="customer-torate-badge">${openRows.length}</span>
+              </div>
+              <p class="customer-return-note">Returns can be filed within ${Number(state.returnWindowDays) || 7} days of completing an order. Keep the item and its packaging until the request is closed.</p>
+              <div class="customer-torate-list">${openMarkup}</div>
+            </section>
+            <section class="customer-torate-section">
+              <div class="customer-torate-section-head">
+                <h3><i class="fa-solid fa-clipboard-check"></i> History</h3>
+                <span class="customer-torate-badge alt">${closedRows.length}</span>
+              </div>
+              <div class="customer-torate-list">${closedMarkup}</div>
+            </section>
+          </div>
+        `;
+      };
+
       const handleOrderReceived = async (orderId, orderName, triggerBtn) => {
         if (!orderId) return;
 
@@ -6976,6 +7253,179 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       };
 
+      // ── Buy Again ──────────────────────────────────────────────────────────
+      // Completed orders can be reordered straight into the single-product
+      // "Order summary" checkout on the products page. The handoff mirrors
+      // `fmrc_pending_order_success`: a short-lived sessionStorage intent that
+      // products.js consumes once the grid has finished loading.
+
+      /** Order items that can still be reordered (they need a product_id). */
+      const getBuyAgainItems = (order) =>
+        (Array.isArray(order?.items) ? order.items : []).filter(
+          (item) =>
+            item &&
+            item.product_id !== undefined &&
+            item.product_id !== null &&
+            String(item.product_id) !== "",
+        );
+
+      // Every customer page links to the products page, so resolve the URL from
+      // the page's own link instead of guessing a relative depth.
+      const resolveProductsPageUrl = () => {
+        const link = document.querySelector(
+          'a[href*="products-page/product.html"]',
+        );
+        return link?.href || "/products-page/product.html";
+      };
+
+      const isOnProductsPage = () =>
+        typeof window.__fmrcConsumeBuyAgainIntent === "function";
+
+      const startBuyAgain = (productId, productName) => {
+        const id = Number(productId);
+        if (!Number.isFinite(id) || id <= 0) {
+          void showCustomerPopup(
+            "This product can no longer be reordered because it is no longer listed.",
+            { title: "Buy Again unavailable" },
+          );
+          return;
+        }
+
+        try {
+          sessionStorage.setItem(
+            BUY_AGAIN_INTENT_KEY,
+            JSON.stringify({ productId: id, name: productName || "", ts: Date.now() }),
+          );
+        } catch {
+          // Private-mode storage failure must not break the flow: the products
+          // page simply won't auto-open the checkout.
+        }
+
+        close();
+
+        // Already browsing the products page — no navigation, just replay the
+        // intent through the same consumer the page uses on load. It waits for
+        // the drawer's close animation because `close()` clears the body scroll
+        // lock on a timer, which would otherwise undo the checkout modal's own.
+        if (isOnProductsPage()) {
+          window.setTimeout(() => window.__fmrcConsumeBuyAgainIntent(), 220);
+          return;
+        }
+
+        window.location.href = resolveProductsPageUrl();
+      };
+
+      const openBuyAgainPicker = (order, items) => {
+        const overlayEl = document.createElement("div");
+        overlayEl.className = "customer-rating-overlay customer-buy-again-overlay";
+        overlayEl.innerHTML = `
+          <div class="customer-rating-card customer-buy-again-card" role="dialog" aria-modal="true" aria-labelledby="buyAgainTitle">
+            <div class="customer-rating-head">
+              <div>
+                <p class="customer-rating-eyebrow">Buy again</p>
+                <h3 id="buyAgainTitle">Choose a product to reorder</h3>
+              </div>
+              <button type="button" class="customer-orders-close" data-buy-again-close aria-label="Close buy again picker">&times;</button>
+            </div>
+            <div class="customer-rating-body">
+              <p class="customer-rating-product-name">Order ${escapeHtml(order.order_no_display || `#${order.order_no || order.id || "-"}`)} &bull; one product per checkout.</p>
+              <div class="customer-order-detail-items-list customer-buy-again-list">
+                ${items
+                  .map((item) => {
+                    const itemQty = Math.max(
+                      1,
+                      Number.parseInt(item.quantity || "1", 10) || 1,
+                    );
+                    const unitLabel = formatOrderCurrency(
+                      Number(item.unit_price || 0),
+                    );
+                    return `
+                      <div class="customer-order-detail-item customer-buy-again-option">
+                        ${renderOrderThumbTrigger(item, "customer-order-detail-image-trigger")}
+                        <div class="customer-order-detail-item-info">
+                          <strong>${escapeHtml(item.product_name || "Custom Order")}</strong>
+                          <span>Bought ${itemQty}&times; &nbsp;&bull;&nbsp; ${escapeHtml(unitLabel)} each</span>
+                        </div>
+                        <button type="button" class="customer-order-rate-btn customer-buy-again-pick" data-buy-again-pick="${escapeHtml(item.product_id)}" data-buy-again-name="${escapeHtml(item.product_name || "Custom Order")}">Buy Again</button>
+                      </div>
+                    `;
+                  })
+                  .join("")}
+              </div>
+            </div>
+            <div class="customer-rating-actions">
+              <button type="button" class="customer-rating-cancel-btn" data-buy-again-close>Cancel</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(overlayEl);
+        hydrateCustomerOrderImages(overlayEl);
+        requestAnimationFrame(() => overlayEl.classList.add("show"));
+        document.body.style.overflow = "hidden";
+
+        const dismiss = () => {
+          overlayEl.classList.remove("show");
+          document.removeEventListener("keydown", onKeydown, true);
+          closeCustomerOrderImagePreview();
+          setTimeout(() => overlayEl.remove(), 180);
+        };
+
+        const onKeydown = (event) => {
+          if (event.key !== "Escape") return;
+          event.stopPropagation();
+          // The image preview stacks above the picker, so it unwinds first.
+          if (customerOrderImageLightbox?.classList.contains("show-modal")) {
+            closeCustomerOrderImagePreview();
+            return;
+          }
+          dismiss();
+        };
+        document.addEventListener("keydown", onKeydown, true);
+
+        overlayEl.addEventListener("click", (event) => {
+          if (event.target === overlayEl || event.target?.closest?.("[data-buy-again-close]")) {
+            event.preventDefault();
+            dismiss();
+            return;
+          }
+
+          const imageTrigger = event.target?.closest?.(".customer-order-image-trigger");
+          if (imageTrigger) {
+            event.preventDefault();
+            event.stopPropagation();
+            void openCustomerOrderImagePreview(imageTrigger);
+            return;
+          }
+
+          const pickBtn = event.target?.closest?.("[data-buy-again-pick]");
+          if (!pickBtn) return;
+          event.preventDefault();
+          event.stopPropagation();
+          const productId = pickBtn.getAttribute("data-buy-again-pick") || "";
+          const productName = pickBtn.getAttribute("data-buy-again-name") || "";
+          dismiss();
+          startBuyAgain(productId, productName);
+        });
+      };
+
+      const handleBuyAgain = (orderId, fallbackProductId, fallbackName) => {
+        const order = state.orders.find(
+          (row) => String(row.id) === String(orderId),
+        );
+        const items = getBuyAgainItems(order);
+
+        if (items.length > 1) {
+          openBuyAgainPicker(order, items);
+          return;
+        }
+
+        const picked = items[0];
+        startBuyAgain(
+          picked?.product_id ?? fallbackProductId,
+          picked?.product_name ?? fallbackName,
+        );
+      };
+
       // Fallback click bridge: keeps actions working even if other page
       // listeners interfere with the modal's delegated handlers.
       window.__fmrcOrderReceived = (buttonEl) => {
@@ -7012,6 +7462,440 @@ document.addEventListener("DOMContentLoaded", () => {
         void openRatingModal(orderId, orderName, selectedOrder);
       };
 
+      window.__fmrcOrderBuyAgain = (buttonEl) => {
+        const orderId = buttonEl?.getAttribute?.("data-order-buy-again") || "";
+        if (!orderId) return;
+        handleBuyAgain(
+          orderId,
+          buttonEl?.getAttribute?.("data-buy-again-product") || "",
+          buttonEl?.getAttribute?.("data-buy-again-name") || "",
+        );
+      };
+
+      document.addEventListener("click", (event) => {
+        const buyAgainBtn = event.target?.closest?.("[data-order-buy-again]");
+        if (!buyAgainBtn || buyAgainBtn.dataset.buyAgainClickHandled === "true") return;
+
+        buyAgainBtn.dataset.buyAgainClickHandled = "true";
+        event.preventDefault();
+        event.stopPropagation();
+        window.__fmrcOrderBuyAgain(buyAgainBtn);
+
+        queueMicrotask(() => {
+          delete buyAgainBtn.dataset.buyAgainClickHandled;
+        });
+      }, true);
+
+      // ── Return actions ─────────────────────────────────────────────────────
+      // Each handler follows handleOrderReceived step for step: token guard →
+      // confirm → disable trigger → request → optimistic patch → cache write →
+      // re-render → background refresh → jump to the Returns tab → toast →
+      // realtime fan-out.
+
+      /** Upsert a return record and keep the owning order's badge in step. */
+      const applyReturnRecord = (record) => {
+        if (!record || record.id === undefined || record.id === null) return;
+
+        const key = String(record.id);
+        const index = state.returns.findIndex((row) => String(row?.id) === key);
+        if (index >= 0) {
+          state.returns[index] = { ...state.returns[index], ...record };
+        } else {
+          state.returns.unshift(record);
+        }
+        state.returnDetailsById.set(key, record);
+
+        const orderIndex = state.orders.findIndex(
+          (row) => String(row?.id) === String(record.order_id),
+        );
+        if (orderIndex >= 0) {
+          const isOpen = String(record.status_group || "open") === "open";
+          state.orders[orderIndex] = {
+            ...state.orders[orderIndex],
+            has_return: true,
+            return_open: isOpen,
+            return_id: record.id,
+            return_no: record.return_no,
+            return_no_display: record.return_no_display,
+            return_status: record.status,
+            return_status_label: record.status_label,
+            return_status_group: record.status_group,
+            return_resolution: record.resolution,
+            return_resolution_label: record.resolution_label,
+            // A live request blocks a second one. Anything else is left for the
+            // background refresh to recompute against the server's own rule.
+            ...(isOpen
+              ? {
+                  return_eligible: false,
+                  return_blocked_reason:
+                    "A return request for this order is already being processed.",
+                }
+              : {}),
+          };
+        }
+
+        state.etag = "";
+        writeCustomerOrdersCache(
+          state.cacheKey,
+          state.orders,
+          state.etag,
+          state.returns,
+        );
+        renderOrders();
+
+        // Keep an open return detail modal in step with the action just taken.
+        if (state.activeReturnDetailId === key) {
+          renderReturnDetailModal(state.returnDetailsById.get(key) || record);
+        }
+      };
+
+      const showReturnToast = (title, message, returnId) => {
+        const toast = document.createElement("div");
+        toast.className = "customer-rate-prompt-popup customer-return-toast";
+        toast.innerHTML = `
+          <div class="customer-rate-prompt-inner">
+            <span class="customer-rate-prompt-icon">&#128230;</span>
+            <div class="customer-rate-prompt-text">
+              <strong>${escapeHtml(title)}</strong>
+              <p>${escapeHtml(message)} ${returnId ? '<button type="button" class="customer-rate-prompt-link">View return &rarr;</button>' : ""}</p>
+            </div>
+            <button type="button" class="customer-rate-prompt-close" aria-label="Close">&times;</button>
+          </div>
+        `;
+        document.body.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.add("show"));
+
+        const closeToast = () => {
+          toast.classList.remove("show");
+          setTimeout(() => toast.remove(), 300);
+        };
+
+        toast
+          .querySelector(".customer-rate-prompt-close")
+          ?.addEventListener("click", closeToast);
+        toast
+          .querySelector(".customer-rate-prompt-link")
+          ?.addEventListener("click", () => {
+            closeToast();
+            void openReturnDetail(returnId);
+          });
+
+        setTimeout(closeToast, 8000);
+      };
+
+      const requireCustomerTokenForReturn = async () => {
+        const token = state.token || localStorage.getItem("customer_token") || "";
+        if (!token) {
+          await showCustomerPopup(
+            "Your session has expired. Please login again.",
+            { title: "Login required" },
+          );
+          return "";
+        }
+        return token;
+      };
+
+      const handleReturnRequest = async (orderId, orderName) => {
+        if (!orderId) return;
+        const token = await requireCustomerTokenForReturn();
+        if (!token) return;
+
+        await openReturnRequestModal(orderId, orderName, {
+          onSubmitted: (record) => {
+            applyReturnRecord(record);
+            void refreshOrders(false, true);
+            setActivePanel(RETURNS_PANEL_INDEX);
+            showReturnToast(
+              "Return request sent",
+              "We will review your request and update you here.",
+              record?.id,
+            );
+            emitCustomerOrdersUpdated({
+              type: "return-requested",
+              orderId: String(orderId),
+              returnId: record?.id ? String(record.id) : "",
+            });
+          },
+        });
+      };
+
+      const handleReturnCancel = async (returnId, returnNo, triggerBtn) => {
+        if (!returnId) return;
+        const token = await requireCustomerTokenForReturn();
+        if (!token) return;
+
+        const confirmed = await showCustomerPopup(
+          `Withdraw return ${returnNo || ""}? This cannot be undone, but you may file a new request while the return window is open.`,
+          {
+            title: "Cancel Return Request",
+            isConfirm: true,
+            okText: "Yes, Cancel It",
+            cancelText: "Keep Request",
+            allowBackdropClose: false,
+          },
+        );
+        if (!confirmed) return;
+
+        const originalLabel = triggerBtn?.textContent || "Cancel Request";
+        if (triggerBtn) {
+          triggerBtn.disabled = true;
+          triggerBtn.textContent = "Cancelling...";
+        }
+
+        try {
+          const { response: res, data } = await fetchJsonWithTimeout(
+            `${API_BASE_URL}/customer/returns/${returnId}/cancel`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({}),
+            },
+          );
+
+          if (!res.ok) {
+            throw new Error(data.message || "Unable to cancel this request.");
+          }
+
+          state.lastDetailRefreshAt = 0;
+          applyReturnRecord(data?.data);
+          void refreshOrders(false, true);
+          setActivePanel(RETURNS_PANEL_INDEX);
+          showReturnToast(
+            "Return request cancelled",
+            data?.message || "Your request has been withdrawn.",
+            data?.data?.id,
+          );
+          emitCustomerOrdersUpdated({
+            type: "return-cancelled",
+            orderId: String(data?.data?.order_id || ""),
+            returnId: String(returnId),
+          });
+        } catch (error) {
+          await showCustomerPopup(
+            error?.message || "Unable to cancel this request. Please try again.",
+            { title: "Error" },
+          );
+          if (triggerBtn) {
+            triggerBtn.disabled = false;
+            triggerBtn.textContent = originalLabel;
+          }
+        }
+      };
+
+      const handleReturnShipped = async (returnId, returnNo, triggerBtn) => {
+        if (!returnId) return;
+        const token = await requireCustomerTokenForReturn();
+        if (!token) return;
+
+        const shipment = await openReturnShipBackForm(returnNo);
+        if (!shipment) return;
+
+        const originalHtml = triggerBtn?.innerHTML || "Item Shipped Back";
+        if (triggerBtn) {
+          triggerBtn.disabled = true;
+          triggerBtn.textContent = "Saving...";
+        }
+
+        try {
+          const { response: res, data } = await fetchJsonWithTimeout(
+            `${API_BASE_URL}/customer/returns/${returnId}/shipped`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(shipment),
+            },
+          );
+
+          if (!res.ok) {
+            const validationMessage = Object.values(data?.errors || {})[0]?.[0];
+            throw new Error(
+              validationMessage || data.message || "Unable to save the return shipment.",
+            );
+          }
+
+          state.lastDetailRefreshAt = 0;
+          applyReturnRecord(data?.data);
+          void refreshOrders(false, true);
+          setActivePanel(RETURNS_PANEL_INDEX);
+          showReturnToast(
+            "Item marked as sent back",
+            data?.message || "We will let you know once the item arrives.",
+            data?.data?.id,
+          );
+          emitCustomerOrdersUpdated({
+            type: "return-shipped",
+            orderId: String(data?.data?.order_id || ""),
+            returnId: String(returnId),
+          });
+        } catch (error) {
+          await showCustomerPopup(
+            error?.message || "Unable to save the return shipment. Please try again.",
+            { title: "Error" },
+          );
+          if (triggerBtn) {
+            triggerBtn.disabled = false;
+            triggerBtn.innerHTML = originalHtml;
+          }
+        }
+      };
+
+      /**
+       * Courier + tracking prompt for "Item Shipped Back". Built on the same
+       * overlay shell as the rating modal so it inherits every animation.
+       * Resolves with the payload, or null when dismissed.
+       */
+      const openReturnShipBackForm = (returnNo) =>
+        new Promise((resolve) => {
+          const overlayEl = document.createElement("div");
+          overlayEl.className =
+            "customer-rating-overlay customer-return-form-overlay";
+          overlayEl.innerHTML = `
+            <div class="customer-rating-card customer-return-form-card" role="dialog" aria-modal="true" aria-labelledby="returnShipTitle">
+              <div class="customer-rating-head">
+                <div>
+                  <p class="customer-rating-eyebrow">Return shipment</p>
+                  <h3 id="returnShipTitle">Send the item back</h3>
+                </div>
+                <button type="button" class="customer-orders-close" data-return-form-close aria-label="Close">&times;</button>
+              </div>
+              <div class="customer-rating-body">
+                <p class="customer-rating-product-name">Return ${escapeHtml(returnNo || "")} &bull; Enter the courier you used so we can watch for the parcel.</p>
+                <label class="customer-rating-field-label" for="returnCourierName">Courier / delivery service</label>
+                <input id="returnCourierName" class="customer-return-input" type="text" maxlength="120" placeholder="e.g. J&T Express, LBC, hand delivered" autocomplete="off" />
+                <label class="customer-rating-field-label" for="returnTrackingNo">Tracking number <span>(optional)</span></label>
+                <input id="returnTrackingNo" class="customer-return-input" type="text" maxlength="140" placeholder="e.g. 830012345678" autocomplete="off" />
+                <label class="customer-rating-field-label" for="returnShipNote">Note for the store <span>(optional)</span></label>
+                <textarea id="returnShipNote" class="customer-rating-feedback" maxlength="400" rows="3" placeholder="Anything we should know about the parcel..."></textarea>
+              </div>
+              <div class="customer-rating-actions">
+                <button type="button" class="customer-rating-cancel-btn" data-return-form-close>Cancel</button>
+                <button type="button" class="btn-place-order customer-rating-submit-btn" data-return-form-submit>
+                  <span class="customer-rating-submit-spinner" aria-hidden="true"></span>
+                  <span>Mark as sent back</span>
+                </button>
+              </div>
+            </div>
+          `;
+          document.body.appendChild(overlayEl);
+          requestAnimationFrame(() => overlayEl.classList.add("show"));
+          document.body.style.overflow = "hidden";
+
+          const courierInput = overlayEl.querySelector("#returnCourierName");
+          const trackingInput = overlayEl.querySelector("#returnTrackingNo");
+          const noteInput = overlayEl.querySelector("#returnShipNote");
+          let settled = false;
+
+          const finish = (value) => {
+            if (settled) return;
+            settled = true;
+            overlayEl.classList.remove("show");
+            document.removeEventListener("keydown", onKeydown, true);
+            setTimeout(() => overlayEl.remove(), 180);
+            resolve(value);
+          };
+
+          const onKeydown = (event) => {
+            if (event.key !== "Escape") return;
+            event.stopPropagation();
+            finish(null);
+          };
+          document.addEventListener("keydown", onKeydown, true);
+
+          overlayEl.addEventListener("click", (event) => {
+            if (
+              event.target === overlayEl ||
+              event.target?.closest?.("[data-return-form-close]")
+            ) {
+              finish(null);
+              return;
+            }
+
+            if (!event.target?.closest?.("[data-return-form-submit]")) return;
+
+            const courier = String(courierInput?.value || "").trim();
+            if (!courier) {
+              courierInput?.classList.add("has-error");
+              courierInput?.focus();
+              return;
+            }
+            finish({
+              return_courier_name: courier,
+              return_tracking_no: String(trackingInput?.value || "").trim(),
+              note: String(noteInput?.value || "").trim(),
+            });
+          });
+
+          courierInput?.addEventListener("input", () => {
+            courierInput.classList.remove("has-error");
+          });
+
+          setTimeout(() => courierInput?.focus(), 200);
+        });
+
+      // Single capture-phase bridge for every return control, so the buttons
+      // survive the drawer's innerHTML re-renders exactly like Buy Again.
+      window.__fmrcReturnAction = (buttonEl) => {
+        if (!buttonEl) return;
+
+        const blocked = buttonEl.getAttribute("data-return-blocked");
+        if (blocked) {
+          void showCustomerPopup(blocked, { title: "Return unavailable" });
+          return;
+        }
+
+        const detailId = buttonEl.getAttribute("data-return-detail");
+        if (detailId) {
+          void openReturnDetail(detailId);
+          return;
+        }
+
+        const requestOrderId = buttonEl.getAttribute("data-order-return");
+        if (requestOrderId) {
+          void handleReturnRequest(
+            requestOrderId,
+            buttonEl.getAttribute("data-order-name") || "Order",
+          );
+          return;
+        }
+
+        const returnNo = buttonEl.getAttribute("data-return-no") || "";
+
+        const cancelId = buttonEl.getAttribute("data-return-cancel");
+        if (cancelId) {
+          void handleReturnCancel(cancelId, returnNo, buttonEl);
+          return;
+        }
+
+        const shipId = buttonEl.getAttribute("data-return-ship");
+        if (shipId) {
+          void handleReturnShipped(shipId, returnNo, buttonEl);
+        }
+      };
+
+      document.addEventListener("click", (event) => {
+        const returnBtn = event.target?.closest?.(
+          "[data-order-return],[data-return-detail],[data-return-cancel],[data-return-ship],[data-return-blocked]",
+        );
+        if (!returnBtn || returnBtn.dataset.returnClickHandled === "true") return;
+
+        returnBtn.dataset.returnClickHandled = "true";
+        event.preventDefault();
+        event.stopPropagation();
+        window.__fmrcReturnAction(returnBtn);
+
+        queueMicrotask(() => {
+          delete returnBtn.dataset.returnClickHandled;
+        });
+      }, true);
+
       const renderOrders = () => {
         if (state.loading) {
           panels.forEach((panel) => {
@@ -7034,6 +7918,12 @@ document.addEventListener("DOMContentLoaded", () => {
           // (To Rate / My Ratings) instead of the standard order cards.
           if (stageKey === "to_rate") {
             panel.innerHTML = renderToRatePanel(scopedOrders);
+            return;
+          }
+
+          // Returns render their own record cards, split In Progress / History.
+          if (stageKey === "returns") {
+            panel.innerHTML = renderReturnsPanel(scopedOrders);
             return;
           }
 
@@ -7064,6 +7954,30 @@ document.addEventListener("DOMContentLoaded", () => {
                 Number.isFinite(numericTotal) ? numericTotal : 0,
               );
 
+              // Single-item orders reorder straight away; the picker only opens
+              // when there is more than one reorderable product.
+              const buyAgainSeed = getBuyAgainItems(order)[0] || null;
+              const isCompleted =
+                String(order.customer_stage) === "completed" &&
+                String(order.lifecycle_status || "") !== "rejected";
+
+              // Return entry point. `return_eligible` and `return_blocked_reason`
+              // come straight from the same rule the API enforces, so the button
+              // can explain itself instead of failing on submit.
+              const returnActionsHtml = !isCompleted
+                ? ""
+                : `${
+                    order.has_return && order.return_id
+                      ? `<button type="button" class="customer-order-return-view-btn" data-return-detail="${escapeHtml(order.return_id)}"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> ${escapeHtml(order.return_status_label || "View Return")}</button>`
+                      : ""
+                  }${
+                    order.return_eligible
+                      ? `<button type="button" class="customer-order-return-btn" data-order-return="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || "Order")}">Return / Refund</button>`
+                      : !order.has_return && order.return_blocked_reason
+                        ? `<button type="button" class="customer-order-return-btn is-blocked" data-return-blocked="${escapeHtml(order.return_blocked_reason)}">Return / Refund</button>`
+                        : ""
+                  }`;
+
               return `
                 <article class="customer-order-card">
                   <div class="customer-order-thumb">
@@ -7077,15 +7991,19 @@ document.addEventListener("DOMContentLoaded", () => {
                   <div class="customer-order-side">
                     <span class="customer-order-status ${statusMeta.className}">${statusMeta.label}</span>
                     <strong class="customer-order-price">${totalLabel}</strong>
-                    <div class="customer-order-actions">
-                      <button type="button" class="customer-order-detail-btn" data-order-detail="${escapeHtml(order.id)}">Order Details</button>
-                      ${String(order.customer_stage) === 'to_receive' && String(order.lifecycle_status || '') !== 'rejected'
-                        ? `<button type="button" class="customer-order-received-btn" data-order-received="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || 'Order')}">Order Received</button>`
-                        : ''}
-                      ${String(order.customer_stage) === 'completed' && String(order.lifecycle_status || '') !== 'rejected' && !order.has_rating
-                        ? `<button type="button" class="customer-order-rate-btn" data-order-rate="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || 'Order')}">Rate Product</button>`
-                        : ''}
-                    </div>
+                  </div>
+                  <div class="customer-order-actions">
+                    <button type="button" class="customer-order-detail-btn" data-order-detail="${escapeHtml(order.id)}">Order Details</button>
+                    ${String(order.customer_stage) === 'to_receive' && String(order.lifecycle_status || '') !== 'rejected'
+                      ? `<button type="button" class="customer-order-received-btn" data-order-received="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || 'Order')}">Order Received</button>`
+                      : ''}
+                    ${String(order.customer_stage) === 'completed' && String(order.lifecycle_status || '') !== 'rejected' && !order.has_rating
+                      ? `<button type="button" class="customer-order-rate-btn" data-order-rate="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || 'Order')}">Rate Product</button>`
+                      : ''}
+                    ${isCompleted
+                      ? `<button type="button" class="customer-order-buy-again-btn" data-order-buy-again="${escapeHtml(order.id)}" data-buy-again-product="${escapeHtml(buyAgainSeed?.product_id ?? '')}" data-buy-again-name="${escapeHtml(buyAgainSeed?.product_name || order.product_name || 'Order')}"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Buy Again</button>`
+                      : ''}
+                    ${returnActionsHtml}
                   </div>
                 </article>
               `;
@@ -7098,11 +8016,16 @@ document.addEventListener("DOMContentLoaded", () => {
           const scoped = getVisibleOrdersByPanel(stageKey);
           // The "To Rate" tab badge should reflect only products still
           // awaiting a rating (unrated completed orders), not every
-          // completed order.
-          const count =
-            stageKey === "to_rate"
-              ? scoped.filter((order) => !order.has_rating).length
-              : scoped.length;
+          // completed order. "Returns" follows the same needs-attention
+          // rule: only requests that are still open are counted.
+          let count = scoped.length;
+          if (stageKey === "to_rate") {
+            count = scoped.filter((order) => !order.has_rating).length;
+          } else if (stageKey === "returns") {
+            count = scoped.filter(
+              (row) => String(row?.status_group || "open") === "open",
+            ).length;
+          }
           const countEl = tab.querySelector(".customer-orders-tab-count");
           if (countEl) countEl.textContent = String(count);
         });
@@ -7267,12 +8190,283 @@ document.addEventListener("DOMContentLoaded", () => {
         detailModal.classList.remove("show");
         detailModal.setAttribute("aria-hidden", "true");
         state.activeDetailId = null;
+        state.activeReturnDetailId = null;
+      };
+
+      // ── Return detail ──────────────────────────────────────────────────────
+      // Rendered into the same sub-modal the order detail uses, so the open,
+      // close, Escape and image-preview wiring is shared verbatim.
+
+      const renderReturnEvidence = (media) => {
+        const files = Array.isArray(media) ? media : [];
+        if (!files.length) return "";
+
+        const thumbs = files
+          .map((file) => {
+            const url = resolveCustomerOrderImageUrl(file?.url);
+            if (!url) return "";
+            const safeUrl = escapeHtml(url);
+            const name = escapeHtml(file?.name || "Return evidence");
+            return String(file?.type) === "video"
+              ? `<a class="customer-return-evidence-item" href="${safeUrl}" target="_blank" rel="noopener noreferrer"><video src="${safeUrl}" muted preload="metadata"></video><span><i class="fa-solid fa-play" aria-hidden="true"></i> Video</span></a>`
+              : `<a class="customer-return-evidence-item" href="${safeUrl}" target="_blank" rel="noopener noreferrer"><img src="${safeUrl}" alt="${name}" loading="lazy" /><span><i class="fa-solid fa-expand" aria-hidden="true"></i> Photo</span></a>`;
+          })
+          .join("");
+
+        if (!thumbs) return "";
+
+        return `
+          <div class="customer-order-detail-items customer-return-evidence-block">
+            <h4>Evidence (${files.length})</h4>
+            <div class="customer-return-evidence-grid">${thumbs}</div>
+          </div>
+        `;
+      };
+
+      const renderReturnDetailModal = (detail) => {
+        if (!detailModal || !detailContent || !detailTitle) return;
+
+        const returnNo = escapeHtml(
+          detail?.return_no_display || `#${detail?.return_no || detail?.id || "-"}`,
+        );
+        const status = String(detail?.status || "requested");
+        const lines = Array.isArray(detail?.items) ? detail.items : [];
+        const timeline = Array.isArray(detail?.timeline) ? detail.timeline : [];
+
+        const itemsListHtml = lines.length
+          ? lines
+              .map((item) => {
+                const qty = Math.max(1, Number(item?.quantity) || 1);
+                return `
+                  <div class="customer-order-detail-item">
+                    ${renderOrderThumbTrigger(
+                      resolveReturnThumbSource({
+                        order_id: detail?.order_id,
+                        items: [item],
+                        product_name: item?.product_name,
+                      }),
+                      "customer-order-detail-image-trigger",
+                    )}
+                    <div class="customer-order-detail-item-info">
+                      <strong>${escapeHtml(item?.product_name || "Returned item")}</strong>
+                      <span>Qty: ${qty} &nbsp;&bull;&nbsp; ${escapeHtml(item?.line_total_label || formatOrderCurrency(Number(item?.line_total || 0) || 0))}</span>
+                    </div>
+                  </div>
+                `;
+              })
+              .join("")
+          : `<div class="customer-order-detail-item">
+                <div class="customer-order-detail-item-info">
+                  <strong>${escapeHtml(detail?.product_name || "Returned item")}</strong>
+                </div>
+              </div>`;
+
+        const refundReceiptHtml =
+          status === "refunded" || detail?.refunded_amount_label
+            ? `
+              <div class="customer-order-detail-logistics customer-return-receipt">
+                <h4>Refund Receipt</h4>
+                <p><strong>${escapeHtml(detail?.refunded_amount_label || "-")}</strong> via ${escapeHtml(detail?.refund_method_label || "-")}</p>
+                ${detail?.refund_reference ? `<p class="customer-order-logistics-note">Reference: ${escapeHtml(detail.refund_reference)}</p>` : ""}
+                ${detail?.refunded_at_label ? `<p class="customer-order-logistics-note">Released ${escapeHtml(detail.refunded_at_label)}</p>` : ""}
+              </div>
+            `
+            : "";
+
+        const shipBackHtml = detail?.return_courier_name
+          ? `
+            <div class="customer-order-detail-logistics">
+              <h4>Return Shipment</h4>
+              <p><strong>${escapeHtml(detail.return_courier_name)}</strong>${detail?.return_tracking_no ? ` &bull; ${escapeHtml(detail.return_tracking_no)}` : ""}</p>
+              ${
+                buildJntTrackingUrl(detail?.return_tracking_no)
+                  ? `<a class="customer-order-logistics-link" href="${escapeHtml(buildJntTrackingUrl(detail.return_tracking_no))}" target="_blank" rel="noopener noreferrer">Track on J&T Express</a>`
+                  : '<p class="customer-order-logistics-note">Keep your shipping receipt until the refund is released.</p>'
+              }
+            </div>
+          `
+          : "";
+
+        const notesHtml = [
+          detail?.reason_detail
+            ? `<div class="customer-return-note-row"><span>Your description</span><p>${escapeHtml(detail.reason_detail)}</p></div>`
+            : "",
+          detail?.customer_note
+            ? `<div class="customer-return-note-row"><span>Your note</span><p>${escapeHtml(detail.customer_note)}</p></div>`
+            : "",
+          detail?.decision_note
+            ? `<div class="customer-return-note-row is-store"><span>Store decision</span><p>${escapeHtml(detail.decision_note)}</p></div>`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("");
+
+        detailTitle.textContent = `Return ${returnNo}`;
+
+        // The same two customer actions the list row offers, so a customer who
+        // opened the detail first does not have to back out to act.
+        const actionsHtml =
+          detail?.can_cancel || detail?.can_ship_back
+            ? `
+              <div class="customer-order-actions customer-return-detail-actions">
+                ${
+                  detail?.can_ship_back
+                    ? `<button type="button" class="customer-order-return-ship-btn" data-return-ship="${escapeHtml(detail?.id)}" data-return-no="${returnNo}"><i class="fa-solid fa-truck-fast" aria-hidden="true"></i> Item Shipped Back</button>`
+                    : ""
+                }
+                ${
+                  detail?.can_cancel
+                    ? `<button type="button" class="customer-order-return-cancel-btn" data-return-cancel="${escapeHtml(detail?.id)}" data-return-no="${returnNo}">Cancel Request</button>`
+                    : ""
+                }
+              </div>
+            `
+            : "";
+
+        detailContent.innerHTML = `
+          <div class="customer-order-detail-summary">
+            <div class="customer-order-detail-chip"><span>Status</span><strong>${escapeHtml(detail?.status_label || "Requested")}</strong></div>
+            <div class="customer-order-detail-chip"><span>Reason</span><strong>${escapeHtml(detail?.reason_label || "-")}</strong></div>
+            <div class="customer-order-detail-chip"><span>Resolution</span><strong>${escapeHtml(detail?.resolution_label || "-")}</strong></div>
+            <div class="customer-order-detail-chip"><span>Requested</span><strong>${escapeHtml(detail?.requested_amount_label || "-")}</strong></div>
+            ${detail?.approved_amount_label ? `<div class="customer-order-detail-chip"><span>Approved</span><strong>${escapeHtml(detail.approved_amount_label)}</strong></div>` : ""}
+            <div class="customer-order-detail-chip"><span>Order</span><strong>${escapeHtml(detail?.order_no_display || `#${detail?.order_no || detail?.order_id || "-"}`)}</strong></div>
+          </div>
+
+          ${actionsHtml}
+
+          <div class="customer-order-detail-items">
+            <h4>Items returned (${lines.length || 1})</h4>
+            <div class="customer-order-detail-items-list">
+              ${itemsListHtml}
+            </div>
+          </div>
+
+          ${notesHtml ? `<div class="customer-order-detail-items customer-return-notes"><h4>Notes</h4>${notesHtml}</div>` : ""}
+
+          ${renderReturnEvidence(detail?.media)}
+
+          ${shipBackHtml}
+
+          ${refundReceiptHtml}
+
+          <div class="customer-order-detail-timeline">
+            <h4>Return Timeline</h4>
+            <div class="customer-order-timeline-list">
+              ${
+                timeline.length
+                  ? timeline
+                      .map(
+                        (entry) => `
+                          <article class="customer-order-timeline-item">
+                            <div class="customer-order-timeline-dot"></div>
+                            <div class="customer-order-timeline-body">
+                              <div class="customer-order-timeline-top">
+                                <strong>${escapeHtml(entry?.title || "Return update")}</strong>
+                                <span>${escapeHtml(entry?.occurred_at_label || formatOrderDate(entry?.occurred_at))}</span>
+                              </div>
+                              ${entry?.description ? `<p>${escapeHtml(entry.description)}</p>` : ""}
+                              <div class="customer-order-timeline-meta">
+                                <span>${escapeHtml(entry?.status_label || "Return update")}</span>
+                                ${entry?.actor_role ? `<span>${escapeHtml(RETURN_ACTOR_LABELS[String(entry.actor_role)] || entry.actor_role)}</span>` : ""}
+                              </div>
+                            </div>
+                          </article>
+                        `,
+                      )
+                      .join("")
+                  : '<p class="customer-order-timeline-empty">Timeline updates will appear as your request moves forward.</p>'
+              }
+            </div>
+          </div>
+        `;
+
+        detailModal.classList.add("show");
+        detailModal.setAttribute("aria-hidden", "false");
+        hydrateCustomerOrderImages(detailContent);
+      };
+
+      const openReturnDetail = async (returnId) => {
+        if (!returnId || !state.token) return;
+        if (!detailModal || !detailContent || !detailTitle) return;
+
+        const key = String(returnId);
+        state.activeDetailId = null;
+        state.activeReturnDetailId = key;
+
+        const cached = state.returnDetailsById.get(key);
+        if (cached) {
+          renderReturnDetailModal(cached);
+          void refreshActiveReturnDetail();
+          return;
+        }
+
+        // Render what the list already knows so the modal never opens blank,
+        // then swap in the full record (with its timeline) when it lands.
+        const listRow = state.returns.find((row) => String(row?.id) === key);
+        if (listRow) {
+          renderReturnDetailModal(listRow);
+        } else {
+          detailTitle.textContent = "Return Details";
+          detailContent.innerHTML = `
+            <div class="customer-orders-empty">
+              <i class="fa-solid fa-spinner fa-spin"></i>
+              <p>Preparing return details...</p>
+            </div>
+          `;
+          detailModal.classList.add("show");
+          detailModal.setAttribute("aria-hidden", "false");
+        }
+
+        state.returnDetailLoading = true;
+        try {
+          const detail = await fetchCustomerReturnDetail(state.token, key);
+          if (detail && state.activeReturnDetailId === key) {
+            state.returnDetailsById.set(key, detail);
+            renderReturnDetailModal(detail);
+          }
+        } catch (error) {
+          if (state.activeReturnDetailId === key && !listRow) {
+            detailTitle.textContent = "Return Details";
+            detailContent.innerHTML = `
+              <div class="customer-orders-empty">
+                <i class="fa-regular fa-circle-xmark"></i>
+                <p>${escapeHtml(error?.message || "Unable to load return details.")}</p>
+              </div>
+            `;
+          }
+        } finally {
+          state.returnDetailLoading = false;
+        }
+      };
+
+      const refreshActiveReturnDetail = async () => {
+        if (!state.activeReturnDetailId || !state.token) return;
+        if (!detailModal?.classList.contains("show")) return;
+        if (state.returnDetailLoading) return;
+
+        const key = String(state.activeReturnDetailId);
+        state.returnDetailLoading = true;
+        try {
+          const detail = await fetchCustomerReturnDetail(state.token, key);
+          if (detail && state.activeReturnDetailId === key) {
+            state.returnDetailsById.set(key, detail);
+            renderReturnDetailModal(detail);
+          }
+        } catch {
+          // Keep the current view; the poller will retry.
+        } finally {
+          state.returnDetailLoading = false;
+        }
       };
 
       const openOrderDetail = async (orderId) => {
         if (!orderId || !state.token) return;
 
         const key = String(orderId);
+        // The order and return details share one sub-modal, so opening one
+        // must release the other's refresh claim.
+        state.activeReturnDetailId = null;
         const cached = state.detailsById.get(key);
         if (cached) {
           state.activeDetailId = key;
@@ -7393,8 +8587,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
           if (!result.notModified && Array.isArray(result.orders)) {
             state.orders = result.orders;
+            // Returns ride in the same response, so they refresh in lockstep
+            // with the order rows and stay covered by the same ETag.
+            if (Array.isArray(result.returns)) state.returns = result.returns;
+            if (result.returnWindowDays) {
+              state.returnWindowDays = result.returnWindowDays;
+            }
             state.etag = result.etag || "";
-            writeCustomerOrdersCache(state.cacheKey, state.orders, state.etag);
+            writeCustomerOrdersCache(
+              state.cacheKey,
+              state.orders,
+              state.etag,
+              state.returns,
+            );
             renderOrders();
           } else if (result.etag) {
             state.etag = result.etag;
@@ -7403,6 +8608,7 @@ document.addEventListener("DOMContentLoaded", () => {
           setSyncStatus("live", "Live updates on");
 
           void refreshActiveDetail(false);
+          void refreshActiveReturnDetail();
         } catch (error) {
           state.lastRefreshAt = Date.now();
           if (state.orders.length) {
@@ -7496,6 +8702,8 @@ document.addEventListener("DOMContentLoaded", () => {
       document.addEventListener("keydown", (event) => {
         if (event.key !== "Escape" || !overlay.classList.contains("show"))
           return;
+        // The Buy Again picker sits on top of the drawer and closes itself.
+        if (document.querySelector(".customer-buy-again-overlay.show")) return;
         if (customerOrderImageLightbox?.classList.contains("show-modal")) {
           closeCustomerOrderImagePreview();
           return;
@@ -7601,6 +8809,8 @@ document.addEventListener("DOMContentLoaded", () => {
           state.token = getCustomerToken();
           state.detailsById.clear();
           state.detailEtagsById.clear();
+          state.returnDetailsById.clear();
+          state.activeReturnDetailId = null;
           state.refreshQueued = false;
           state.etag = "";
           setActivePanel(0);
@@ -7612,11 +8822,16 @@ document.addEventListener("DOMContentLoaded", () => {
           if (hasCachedOrders) {
             state.loading = false;
             state.orders = cachedEntry.orders;
+            // Cache entries written before returns existed simply have none.
+            state.returns = Array.isArray(cachedEntry.returns)
+              ? cachedEntry.returns
+              : [];
             state.etag = String(cachedEntry.etag || "");
             renderOrders();
             setSyncStatus("syncing", "Checking for new updates...");
           } else {
             state.orders = [];
+            state.returns = [];
             state.loading = true;
             setSyncStatus("syncing", "Loading current orders...");
           }
@@ -8083,6 +9298,624 @@ const openRatingModal = (() => {
         modal._setItems(resolvedItems, []);
         await showCustomerPopup(error?.message || "Unable to load the review form.", { title: "Review unavailable" });
       }
+    }
+  };
+})();
+
+// ── Return Request Modal ──────────────────────────────────────────────────────
+// Structurally a clone of the rating modal (same overlay shell, same discard
+// guard, same media uploader) so the returns flow inherits every existing
+// animation and never invents a new surface.
+const openReturnRequestModal = (() => {
+  let returnOverlay = null;
+
+  const escapeReturnHtml = (value) =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+
+  const pesoLabel = (amount) =>
+    `₱ ${Number(amount || 0).toLocaleString("en-PH", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+
+  const RETURN_REASON_HINTS = {
+    damaged: "Tell us which part is damaged and how you found it.",
+    wrong_item: "Describe what you received instead.",
+    incomplete: "List the parts or pieces that are missing.",
+    not_as_described: "Tell us how it differs from the listing.",
+    quality_issue: "Describe the defect or finish problem.",
+    other: "Please describe the problem in your own words.",
+  };
+
+  let returnItems = [];
+  let returnDraft = null;
+  let returnFiles = [];
+  let returnLoading = false;
+  let returnMeta = null;
+
+  const buildReturnModalShell = () => {
+    const overlay = document.createElement("div");
+    overlay.id = "customerReturnRequestModal";
+    overlay.className = "customer-rating-overlay customer-return-request-overlay";
+    overlay.innerHTML = `
+      <div class="customer-rating-card customer-return-request-card" role="dialog" aria-modal="true" aria-labelledby="returnRequestTitle">
+        <div class="customer-rating-head">
+          <div>
+            <p class="customer-rating-eyebrow">Return &amp; refund</p>
+            <h3 id="returnRequestTitle">Request a return</h3>
+          </div>
+          <button type="button" class="customer-orders-close" data-return-request-close aria-label="Close return request form">&times;</button>
+        </div>
+        <div class="customer-rating-body" id="returnRequestBody"></div>
+        <div class="customer-rating-actions">
+          <button type="button" class="customer-rating-cancel-btn" data-return-request-close>Cancel</button>
+          <button type="button" class="btn-place-order customer-rating-submit-btn" data-return-request-submit>
+            <span class="customer-rating-submit-spinner" aria-hidden="true"></span>
+            <span data-return-submit-label>Submit request</span>
+          </button>
+        </div>
+      </div>
+      <div class="customer-rating-discard-overlay" data-return-discard aria-hidden="true">
+        <div class="customer-rating-discard-card" role="dialog" aria-modal="true" aria-labelledby="returnDiscardTitle">
+          <div class="customer-rating-discard-icon" aria-hidden="true"><i class="fa-solid fa-triangle-exclamation"></i></div>
+          <h3 id="returnDiscardTitle">Discard this request?</h3>
+          <p>Your return details have not been submitted yet.</p>
+          <div class="customer-rating-discard-actions">
+            <button type="button" class="customer-rating-cancel-btn" data-return-discard-continue>Continue the request</button>
+            <button type="button" class="customer-rating-submit-btn" data-return-discard-confirm>Discard</button>
+          </div>
+        </div>
+      </div>
+    `;
+    return overlay;
+  };
+
+  const returnableQty = (item) =>
+    Math.max(
+      0,
+      Number(item?.quantity || 0) - Number(item?.returned_quantity || 0),
+    );
+
+  const estimatedRefund = () =>
+    returnItems.reduce((total, item) => {
+      const picked = returnDraft?.selected.get(String(item.order_item_id)) || 0;
+      return total + picked * Number(item.unit_price || 0);
+    }, 0);
+
+  const renderReturnPickRow = (item) => {
+    const id = String(item.order_item_id);
+    const available = returnableQty(item);
+    const picked = returnDraft?.selected.get(id) || 0;
+    const checked = picked > 0;
+
+    return `
+      <div class="customer-return-pick${checked ? " is-selected" : ""}${available < 1 ? " is-disabled" : ""}" data-return-pick="${escapeReturnHtml(id)}">
+        <label class="customer-return-pick-check">
+          <input type="checkbox" data-return-pick-toggle${checked ? " checked" : ""}${available < 1 ? " disabled" : ""} />
+          <span class="customer-return-pick-copy">
+            <strong>${escapeReturnHtml(item.product_name || "Product")}</strong>
+            <span>${escapeReturnHtml(pesoLabel(item.unit_price))} each &bull; ${available < 1 ? "Already returned" : `${available} of ${Number(item.quantity || 0)} returnable`}</span>
+          </span>
+        </label>
+        <div class="customer-return-qty" role="group" aria-label="Quantity to return">
+          <button type="button" data-return-qty="-1" aria-label="Reduce quantity"${!checked || picked <= 1 ? " disabled" : ""}>&minus;</button>
+          <span data-return-qty-value>${picked || 0}</span>
+          <button type="button" data-return-qty="1" aria-label="Increase quantity"${!checked || picked >= available ? " disabled" : ""}>+</button>
+        </div>
+      </div>
+    `;
+  };
+
+  const renderReturnEvidenceThumbs = () =>
+    returnFiles
+      .map((file, index) => {
+        const src = escapeReturnHtml(URL.createObjectURL(file));
+        const isVideo = String(file.type || "").startsWith("video/");
+        const media = isVideo
+          ? `<video src="${src}" muted preload="metadata"></video>`
+          : `<img src="${src}" alt="${escapeReturnHtml(file.name)}" />`;
+        return `<span class="customer-rating-media-thumb is-new">${media}<button type="button" data-remove-media="${index}" aria-label="Remove ${escapeReturnHtml(file.name)}">&times;</button><small>${escapeReturnHtml(file.name)}</small></span>`;
+      })
+      .join("");
+
+  const renderReturnFormBody = () => {
+    if (returnLoading || !returnDraft) {
+      return `
+        <div class="customer-rating-loading" role="status" aria-live="polite">
+          <span class="customer-rating-loading-mark" aria-hidden="true"></span>
+          <span class="customer-rating-loading-copy">
+            <strong>Preparing your return form</strong>
+            <span>Checking the return window for this order...</span>
+          </span>
+        </div>`;
+    }
+
+    if (!returnItems.length) {
+      return `
+        <div class="customer-rating-empty" role="status">
+          <i class="fa-solid fa-box-open" aria-hidden="true"></i>
+          <strong>No products available to return</strong>
+          <span>Every item in this order has already been returned.</span>
+        </div>`;
+    }
+
+    const hint = RETURN_REASON_HINTS[returnDraft.reason] || "";
+    const detailRequired = returnDraft.reason === "other";
+
+    return `
+      <p class="customer-rating-product-name">${escapeReturnHtml(returnMeta?.orderName || "Order")}${returnMeta?.deadlineLabel ? ` &bull; you can file until ${escapeReturnHtml(returnMeta.deadlineLabel)}` : ""}</p>
+      <div class="customer-return-window-note">
+        <i class="fa-regular fa-clock" aria-hidden="true"></i>
+        <span>Returns are accepted within ${Number(returnMeta?.windowDays || 7)} days of completion.${Number(returnMeta?.daysRemaining || 0) > 0 ? ` You have ${Number(returnMeta.daysRemaining)} day${Number(returnMeta.daysRemaining) === 1 ? "" : "s"} left.` : ""}</span>
+      </div>
+
+      <span class="customer-rating-field-label">1. Which products are you returning?</span>
+      <div class="customer-return-pick-list" data-return-pick-list>
+        ${returnItems.map((item) => renderReturnPickRow(item)).join("")}
+      </div>
+
+      <label class="customer-rating-field-label" for="returnReasonSelect">2. Why are you returning it?</label>
+      <select id="returnReasonSelect" class="customer-return-select" data-return-reason>
+        <option value="">Select a reason</option>
+        ${(returnMeta?.reasons || [])
+          .map(
+            (reason) =>
+              `<option value="${escapeReturnHtml(reason.value)}"${returnDraft.reason === reason.value ? " selected" : ""}>${escapeReturnHtml(reason.label)}</option>`,
+          )
+          .join("")}
+      </select>
+      ${
+        returnDraft.reason
+          ? `<label class="customer-rating-field-label" for="returnReasonDetail">Reason details ${detailRequired ? "<span>(required)</span>" : "<span>(optional)</span>"}</label>
+      <textarea id="returnReasonDetail" class="customer-rating-feedback" data-return-reason-detail maxlength="600" rows="3" placeholder="${escapeReturnHtml(hint)}">${escapeReturnHtml(returnDraft.reasonDetail || "")}</textarea>`
+          : ""
+      }
+
+      <span class="customer-rating-field-label">3. What would you like us to do?</span>
+      <div class="customer-return-resolution" role="radiogroup" aria-label="Preferred resolution">
+        ${(returnMeta?.resolutions || [])
+          .map(
+            (resolution) => `
+          <label class="customer-return-resolution-option${returnDraft.resolution === resolution.value ? " is-active" : ""}">
+            <input type="radio" name="returnResolution" value="${escapeReturnHtml(resolution.value)}" data-return-resolution${returnDraft.resolution === resolution.value ? " checked" : ""} />
+            <span>${escapeReturnHtml(resolution.label)}</span>
+          </label>`,
+          )
+          .join("")}
+      </div>
+
+      <label class="customer-rating-field-label" for="returnNote">4. Note for the store <span>(optional)</span></label>
+      <textarea id="returnNote" class="customer-rating-feedback" data-return-note maxlength="1000" rows="3" placeholder="Anything else we should know...">${escapeReturnHtml(returnDraft.note || "")}</textarea>
+
+      <div class="customer-rating-media-field">
+        <span class="customer-rating-field-label">5. Photo or video evidence <span>(up to 6)</span></span>
+        <label class="customer-rating-upload" for="returnEvidenceInput"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Choose photos or videos</span></label>
+        <input id="returnEvidenceInput" type="file" data-return-media accept="image/*,video/*" multiple hidden />
+        <div class="customer-rating-media-preview" data-return-media-preview ${returnFiles.length ? "" : "hidden"}>${renderReturnEvidenceThumbs()}</div>
+      </div>
+
+      <div class="customer-return-estimate">
+        <span>Estimated refund</span>
+        <strong data-return-estimate>${escapeReturnHtml(pesoLabel(estimatedRefund()))}</strong>
+      </div>
+      <p class="customer-return-fineprint">The final amount is confirmed by the store after review. Keep the item and its packaging until then.</p>
+    `;
+  };
+
+  const ensureReturnModal = () => {
+    if (returnOverlay) return returnOverlay;
+
+    returnOverlay = buildReturnModalShell();
+    document.body.appendChild(returnOverlay);
+
+    const body = returnOverlay.querySelector("#returnRequestBody");
+    const submitBtn = returnOverlay.querySelector("[data-return-request-submit]");
+    const submitLabel = returnOverlay.querySelector("[data-return-submit-label]");
+    const discardOverlay = returnOverlay.querySelector("[data-return-discard]");
+
+    const markReturnDirty = () => {
+      returnOverlay._hasReturnDraft = true;
+    };
+
+    const renderBody = () => {
+      if (!body) return;
+      body.innerHTML = renderReturnFormBody();
+      if (submitBtn && !submitBtn.classList.contains("is-loading")) {
+        submitBtn.disabled = returnLoading || !returnItems.length;
+      }
+    };
+
+    const syncEstimate = () => {
+      const estimate = body?.querySelector("[data-return-estimate]");
+      if (estimate) estimate.textContent = pesoLabel(estimatedRefund());
+    };
+
+    // Toggling a line only touches its own row, so the reason and note fields
+    // keep their focus and caret position.
+    const refreshPickRow = (id) => {
+      const row = body?.querySelector(`[data-return-pick="${id}"]`);
+      const item = returnItems.find(
+        (entry) => String(entry.order_item_id) === id,
+      );
+      if (!row || !item) return;
+
+      const picked = returnDraft?.selected.get(id) || 0;
+      const available = returnableQty(item);
+      row.classList.toggle("is-selected", picked > 0);
+
+      const checkbox = row.querySelector("[data-return-pick-toggle]");
+      if (checkbox) checkbox.checked = picked > 0;
+      const value = row.querySelector("[data-return-qty-value]");
+      if (value) value.textContent = String(picked || 0);
+      const minus = row.querySelector('[data-return-qty="-1"]');
+      const plus = row.querySelector('[data-return-qty="1"]');
+      if (minus) minus.disabled = picked <= 1;
+      if (plus) plus.disabled = picked < 1 || picked >= available;
+
+      syncEstimate();
+    };
+
+    const syncMediaPreview = () => {
+      const preview = body?.querySelector("[data-return-media-preview]");
+      if (!preview) return;
+      preview.innerHTML = renderReturnEvidenceThumbs();
+      preview.hidden = returnFiles.length === 0;
+    };
+
+    body?.addEventListener("click", (event) => {
+      const qtyBtn = event.target.closest("[data-return-qty]");
+      if (qtyBtn) {
+        const row = qtyBtn.closest("[data-return-pick]");
+        const id = row?.getAttribute("data-return-pick") || "";
+        const item = returnItems.find(
+          (entry) => String(entry.order_item_id) === id,
+        );
+        if (!item || !returnDraft) return;
+        const available = returnableQty(item);
+        const next = Math.min(
+          available,
+          Math.max(
+            1,
+            (returnDraft.selected.get(id) || 0) + Number(qtyBtn.dataset.returnQty),
+          ),
+        );
+        returnDraft.selected.set(id, next);
+        markReturnDirty();
+        refreshPickRow(id);
+        return;
+      }
+
+      const removeMedia = event.target.closest("[data-remove-media]");
+      if (removeMedia) {
+        returnFiles.splice(Number(removeMedia.dataset.removeMedia), 1);
+        markReturnDirty();
+        syncMediaPreview();
+      }
+    });
+
+    body?.addEventListener("change", (event) => {
+      const toggle = event.target.closest("[data-return-pick-toggle]");
+      if (toggle) {
+        const row = toggle.closest("[data-return-pick]");
+        const id = row?.getAttribute("data-return-pick") || "";
+        const item = returnItems.find(
+          (entry) => String(entry.order_item_id) === id,
+        );
+        if (!item || !returnDraft) return;
+        if (toggle.checked) returnDraft.selected.set(id, Math.min(1, returnableQty(item)) || 1);
+        else returnDraft.selected.delete(id);
+        markReturnDirty();
+        refreshPickRow(id);
+        return;
+      }
+
+      const reasonSelect = event.target.closest("[data-return-reason]");
+      if (reasonSelect) {
+        if (!returnDraft) return;
+        returnDraft.reason = reasonSelect.value;
+        markReturnDirty();
+        // The detail field appears/disappears with the reason, so this one
+        // control does re-render the body.
+        renderBody();
+        return;
+      }
+
+      const resolutionInput = event.target.closest("[data-return-resolution]");
+      if (resolutionInput) {
+        if (!returnDraft) return;
+        returnDraft.resolution = resolutionInput.value;
+        markReturnDirty();
+        body
+          ?.querySelectorAll(".customer-return-resolution-option")
+          .forEach((option) => {
+            option.classList.toggle(
+              "is-active",
+              option.querySelector("input")?.value === returnDraft.resolution,
+            );
+          });
+        return;
+      }
+
+      const mediaInput = event.target.closest("[data-return-media]");
+      if (mediaInput) {
+        const picked = Array.from(mediaInput.files || []);
+        returnFiles = returnFiles.concat(picked).slice(0, 6);
+        mediaInput.value = "";
+        markReturnDirty();
+        syncMediaPreview();
+        if (returnFiles.length >= 6 && picked.length) {
+          void showCustomerPopup(
+            "You can attach up to 6 photos or videos per request.",
+            { title: "Evidence limit" },
+          );
+        }
+      }
+    });
+
+    body?.addEventListener("input", (event) => {
+      if (!returnDraft) return;
+      const detail = event.target.closest("[data-return-reason-detail]");
+      if (detail) {
+        returnDraft.reasonDetail = detail.value;
+        markReturnDirty();
+        return;
+      }
+      const note = event.target.closest("[data-return-note]");
+      if (note) {
+        returnDraft.note = note.value;
+        markReturnDirty();
+      }
+    });
+
+    const closeReturnModal = () => {
+      returnOverlay.classList.remove("show");
+      discardOverlay?.classList.remove("show");
+      discardOverlay?.setAttribute("aria-hidden", "true");
+      returnOverlay._hasReturnDraft = false;
+      returnOverlay._activeOrderId = "";
+      document.body.style.overflow = "";
+    };
+
+    const requestReturnClose = () => {
+      if (!returnOverlay._hasReturnDraft) {
+        closeReturnModal();
+        return;
+      }
+      discardOverlay?.classList.add("show");
+      discardOverlay?.setAttribute("aria-hidden", "false");
+    };
+
+    returnOverlay.addEventListener("click", (event) => {
+      if (
+        event.target === returnOverlay ||
+        event.target?.closest?.("[data-return-request-close]")
+      ) {
+        requestReturnClose();
+        return;
+      }
+      if (event.target?.closest?.("[data-return-discard-continue]")) {
+        discardOverlay?.classList.remove("show");
+        discardOverlay?.setAttribute("aria-hidden", "true");
+        return;
+      }
+      if (event.target?.closest?.("[data-return-discard-confirm]")) {
+        closeReturnModal();
+        return;
+      }
+      if (event.target?.closest?.("[data-return-request-submit]")) {
+        void returnOverlay._submit();
+      }
+    });
+
+    document.addEventListener(
+      "keydown",
+      (event) => {
+        if (event.key !== "Escape") return;
+        if (!returnOverlay.classList.contains("show")) return;
+        event.stopPropagation();
+        requestReturnClose();
+      },
+      true,
+    );
+
+    returnOverlay._setLoading = (orderName) => {
+      returnLoading = true;
+      returnItems = [];
+      returnFiles = [];
+      returnDraft = null;
+      returnMeta = { orderName: orderName || "Order" };
+      returnOverlay._hasReturnDraft = false;
+      renderBody();
+    };
+
+    returnOverlay._setData = (payload, orderName) => {
+      returnLoading = false;
+      returnItems = (Array.isArray(payload?.items) ? payload.items : []).filter(
+        (item) => returnableQty(item) > 0,
+      );
+      returnFiles = [];
+      returnMeta = {
+        orderName: orderName || "Order",
+        windowDays: Number(payload?.window_days) || 7,
+        deadlineLabel: payload?.deadline_label || "",
+        daysRemaining: Number(payload?.days_remaining) || 0,
+        reasons: Array.isArray(payload?.reasons) ? payload.reasons : [],
+        resolutions: Array.isArray(payload?.resolutions)
+          ? payload.resolutions
+          : [],
+      };
+      returnDraft = {
+        selected: new Map(),
+        reason: "",
+        reasonDetail: "",
+        resolution: returnMeta.resolutions[0]?.value || "refund",
+        note: "",
+      };
+      // Single-item orders are the common case, so pre-select that line.
+      if (returnItems.length === 1) {
+        returnDraft.selected.set(String(returnItems[0].order_item_id), 1);
+      }
+      returnOverlay._hasReturnDraft = false;
+      renderBody();
+    };
+
+    returnOverlay._close = closeReturnModal;
+
+    returnOverlay._submit = async () => {
+      const orderId = returnOverlay._activeOrderId;
+      const token = getCustomerToken();
+      if (!orderId || !returnDraft) return;
+
+      const lines = returnItems
+        .map((item) => ({
+          order_item_id: item.order_item_id,
+          quantity: returnDraft.selected.get(String(item.order_item_id)) || 0,
+        }))
+        .filter((line) => line.quantity > 0);
+
+      if (!lines.length) {
+        await showCustomerPopup(
+          "Select at least one product you want to return.",
+          { title: "Product required" },
+        );
+        return;
+      }
+      if (!returnDraft.reason) {
+        await showCustomerPopup("Please choose why you are returning it.", {
+          title: "Reason required",
+        });
+        return;
+      }
+      if (
+        returnDraft.reason === "other" &&
+        !String(returnDraft.reasonDetail || "").trim()
+      ) {
+        await showCustomerPopup(
+          "Please describe the reason for your return.",
+          { title: "Details required" },
+        );
+        body?.querySelector("[data-return-reason-detail]")?.focus();
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.classList.add("is-loading");
+      submitBtn.setAttribute("aria-busy", "true");
+      if (submitLabel) submitLabel.textContent = "Submitting...";
+
+      try {
+        const formData = new FormData();
+        formData.append("reason", returnDraft.reason);
+        formData.append(
+          "reason_detail",
+          String(returnDraft.reasonDetail || "").trim(),
+        );
+        formData.append("resolution", returnDraft.resolution);
+        formData.append("customer_note", String(returnDraft.note || "").trim());
+        lines.forEach((line, index) => {
+          formData.append(`items[${index}][order_item_id]`, String(line.order_item_id));
+          formData.append(`items[${index}][quantity]`, String(line.quantity));
+        });
+        returnFiles.forEach((file) =>
+          formData.append("media[]", file, file.name),
+        );
+
+        const response = await fetch(
+          `${API_BASE_URL}/customer/orders/${orderId}/return`,
+          {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: formData,
+          },
+        );
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          const validationMessage = Object.values(payload.errors || {})[0]?.[0];
+          throw new Error(
+            validationMessage ||
+              payload.message ||
+              "Unable to submit your return request.",
+          );
+        }
+
+        returnOverlay._hasReturnDraft = false;
+        const callback = returnOverlay._onSubmitted;
+        closeReturnModal();
+        if (callback) callback(payload?.data || null);
+      } catch (error) {
+        await showCustomerPopup(
+          error?.message || "Unable to submit your return request.",
+          { title: "Request not sent" },
+        );
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove("is-loading");
+        submitBtn.removeAttribute("aria-busy");
+        if (submitLabel) submitLabel.textContent = "Submit request";
+      }
+    };
+
+
+    return returnOverlay;
+  };
+
+  return async (orderId, orderName, options = {}) => {
+    const token = getCustomerToken();
+    if (!token) {
+      await showCustomerPopup("Please sign in to request a return.", {
+        title: "Sign in required",
+      });
+      return;
+    }
+
+    const modal = ensureReturnModal();
+    modal._activeOrderId = String(orderId);
+    modal._onSubmitted =
+      typeof options.onSubmitted === "function" ? options.onSubmitted : null;
+    modal._setLoading(orderName);
+    modal.classList.add("show");
+    document.body.style.overflow = "hidden";
+
+    try {
+      const { response, data } = await fetchJsonWithTimeout(
+        `${API_BASE_URL}/customer/orders/${orderId}/return/eligibility`,
+        {
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      if (!response.ok) {
+        throw new Error(data.message || "Unable to open the return form.");
+      }
+      if (modal._activeOrderId !== String(orderId)) return;
+
+      if (!data.eligible) {
+        modal._close();
+        await showCustomerPopup(
+          data.reason || "This order can no longer be returned.",
+          { title: "Return unavailable" },
+        );
+        return;
+      }
+
+      modal._setData(data, orderName);
+    } catch (error) {
+      if (modal._activeOrderId !== String(orderId)) return;
+      modal._close();
+      await showCustomerPopup(
+        error?.message || "Unable to open the return form. Please try again.",
+        { title: "Return unavailable" },
+      );
     }
   };
 })();

@@ -6,11 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\AdminNotification;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrderReturn;
 use App\Models\OrderTrackingEvent;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\ProductRating;
 use App\Models\Promotion;
+use App\Support\OrderNotifier;
+use App\Support\ReturnPresenter;
 use DateTimeInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -352,6 +355,7 @@ class OrderController extends Controller
                 'location_name',
                 'last_known_lat',
                 'last_known_lng',
+                'completed_at',
                 'created_at',
                 'updated_at',
             ])
@@ -361,6 +365,12 @@ class OrderController extends Controller
                 'payment:id,order_id,payment_no,method,reference,amount,status,paid_at',
                 'latestTrackingEvent',
                 'ratings:id,order_id,order_item_id,product_id,stars,feedback,media,is_anonymous,admin_reply,replied_at,created_at,updated_at',
+                // Returns ride along with the orders so the Returns tab, the
+                // per-order badges and the ETag all come from this one request.
+                'returns' => fn ($query) => $query
+                    ->where('is_archived', false)
+                    ->with(['items', 'latestEvent'])
+                    ->orderByDesc('id'),
             ])
             ->where('customer_id', $request->user()->id)
             ->orderBy('created_at', 'asc')
@@ -370,6 +380,25 @@ class OrderController extends Controller
             ->map(fn (Order $order) => $this->transformOrderSummary($order, false, true))
             ->values();
 
+        $returnRows = $orders
+            ->flatMap(fn (Order $order) => $order->returns->map(function (OrderReturn $orderReturn) use ($order) {
+                // The order is already in memory — hand it to the presenter so it
+                // can print the order number without another query.
+                $orderReturn->setRelation('order', $order);
+
+                return ReturnPresenter::summary($orderReturn, false);
+            }))
+            ->values()
+            ->all();
+
+        // Open requests first (they need the customer's attention), newest first.
+        usort($returnRows, function (array $left, array $right): int {
+            $leftOpen = $left['status_group'] === 'open' ? 0 : 1;
+            $rightOpen = $right['status_group'] === 'open' ? 0 : 1;
+
+            return $leftOpen <=> $rightOpen ?: (int) $right['id'] <=> (int) $left['id'];
+        });
+
         $counts = [
             'all'         => $data->count(),
             'to_pay'      => $data->where('customer_stage', 'to_pay')->where('lifecycle_status', '!=', 'rejected')->count(),
@@ -377,11 +406,15 @@ class OrderController extends Controller
             'to_receive'  => $data->where('customer_stage', 'to_receive')->where('lifecycle_status', '!=', 'rejected')->count(),
             'completed'   => $data->where('customer_stage', 'completed')->where('lifecycle_status', '!=', 'rejected')->count(),
             'to_rate'     => $data->where('customer_stage', 'completed')->where('lifecycle_status', '!=', 'rejected')->where('has_rating', false)->count(),
+            'returns'     => count($returnRows),
+            'returns_open' => count(array_filter($returnRows, fn (array $row) => $row['status_group'] === 'open')),
         ];
 
         $payload = [
             'data' => $data,
             'counts' => $counts,
+            'returns' => $returnRows,
+            'return_window_days' => OrderReturn::WINDOW_DAYS,
         ];
         $etag = '"' . hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) . '"';
         $responseHeaders = [
@@ -416,6 +449,10 @@ class OrderController extends Controller
             'payment',
             'latestTrackingEvent',
             'ratings',
+            'returns' => fn ($query) => $query
+                ->where('is_archived', false)
+                ->with(['items', 'latestEvent'])
+                ->orderByDesc('id'),
             'trackingEvents' => fn ($query) => $query->orderByDesc('occurred_at')->orderByDesc('id'),
         ]);
 
@@ -555,6 +592,10 @@ class OrderController extends Controller
             'payment',
             'latestTrackingEvent',
             'ratings',
+            'returns' => fn ($query) => $query
+                ->where('is_archived', false)
+                ->with(['items', 'latestEvent'])
+                ->orderByDesc('id'),
             'trackingEvents' => fn ($query) => $query->orderByDesc('occurred_at')->orderByDesc('id'),
         ]);
 
@@ -599,10 +640,45 @@ class OrderController extends Controller
             ->filter()
             ->values();
 
+        // Returns ride along with the orders payload so the Returns & Refunds
+        // panel renders inside the same syncOrders() pass (and the same poll).
+        $returns = OrderReturn::query()
+            ->with([
+                'order:id,order_no,customer_name,customer_contact,total,payment_method,customer_stage,lifecycle_status,completed_at',
+                'items',
+                'customer:id,name,email',
+                'handler:id,name,role',
+                'latestEvent',
+            ])
+            ->where('is_archived', false)
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (OrderReturn $orderReturn) => ReturnPresenter::summary($orderReturn, true))
+            ->values();
+
+        $returnsSummary = [
+            'total'       => $returns->count(),
+            'requested'   => $returns->where('status', 'requested')->count(),
+            'in_progress' => $returns
+                ->whereIn('status', ['approved', 'item_in_transit', 'item_received', 'refund_processing'])
+                ->count(),
+            'refunded'    => $returns->where('status', 'refunded')->count(),
+            'rejected'    => $returns->where('status', 'rejected')->count(),
+            'cancelled'   => $returns->where('status', 'cancelled')->count(),
+            'open'        => $returns->where('status_group', 'open')->count(),
+            'refunded_amount' => round(
+                (float) $returns->sum(fn (array $row) => (float) ($row['refunded_amount'] ?? 0)),
+                2,
+            ),
+        ];
+
         return response()->json([
             'incoming' => $incoming,
             'directory' => $directory,
             'payments' => $payments,
+            'returns' => $returns,
+            'returns_summary' => $returnsSummary,
+            'return_window_days' => OrderReturn::WINDOW_DAYS,
             'generated_at' => $this->formatPhilippineIso(now()),
         ]);
     }
@@ -1348,20 +1424,14 @@ class OrderController extends Controller
 
     /**
      * Create an in-app notification for admin & staff.
+     *
+     * The bodies of these four helpers now live in App\Support\OrderNotifier so the
+     * return/refund flow reuses the exact same notification + email template.
+     * They stay here as thin wrappers so no existing call site had to change.
      */
     private function createAdminNotification(string $type, string $title, string $message, array $metadata = []): void
     {
-        try {
-            AdminNotification::create([
-                'type'     => $type,
-                'title'    => $title,
-                'message'  => $message,
-                'is_read'  => false,
-                'metadata' => $metadata ?: null,
-            ]);
-        } catch (\Throwable $e) {
-            Log::warning('Could not create admin notification: ' . $e->getMessage());
-        }
+        OrderNotifier::notifyAdmins($type, $title, $message, $metadata);
     }
 
     /**
@@ -1370,45 +1440,7 @@ class OrderController extends Controller
      */
     private function sendCustomerOrderEmail(Order $order, string $subject, string $htmlBody): void
     {
-        // Ensure customer relation is loaded so we can grab their email
-        if (!$order->relationLoaded('customer') && $order->customer_id) {
-            $order->load('customer');
-        }
-
-        // Priority: User.email → customer_contact (only if it looks like email)
-        $emailAddress = $order->customer?->email ?? null;
-
-        if (!$emailAddress && $order->customer_contact) {
-            $contact = trim($order->customer_contact);
-            if (filter_var($contact, FILTER_VALIDATE_EMAIL)) {
-                $emailAddress = $contact;
-            }
-        }
-
-        if (!$emailAddress) {
-            Log::info("Skipping order email — no valid customer email for Order #{$order->id}");
-            return;
-        }
-
-        $orderId = (string) $order->id;
-        $fromAddress = config('mail.from.address', 'noreply@cnsc-fmrc.edu.ph');
-        $fromName = config('mail.from.name', 'UCN-FMRC');
-
-        $emailDispatch = function () use ($emailAddress, $subject, $htmlBody, $orderId, $fromAddress, $fromName) {
-            try {
-                Mail::html($htmlBody, function ($message) use ($emailAddress, $subject, $fromAddress, $fromName) {
-                    $message->to($emailAddress)
-                        ->subject($subject)
-                        ->from($fromAddress, $fromName);
-                });
-
-                Log::info("Customer order email sent to {$emailAddress} | Subject: {$subject} | Order #{$orderId}");
-            } catch (\Throwable $e) {
-                Log::error("Customer order email FAILED for Order #{$orderId} to {$emailAddress}: " . $e->getMessage());
-            }
-        };
-
-        $this->dispatchAfterResponse($emailDispatch);
+        OrderNotifier::emailCustomer($order, $subject, $htmlBody);
     }
 
     /**
@@ -1416,82 +1448,12 @@ class OrderController extends Controller
      */
     private function buildOrderEmailHtml(Order $order, string $headline, string $bodyText, string $statusColor = '#800000'): string
     {
-        $orderNo   = htmlspecialchars($order->order_no ?? "ORD-{$order->id}", ENT_QUOTES);
-        $headline  = htmlspecialchars($headline, ENT_QUOTES);
-        $bodyText  = nl2br(htmlspecialchars($bodyText, ENT_QUOTES));
-        $total     = '₱ ' . number_format((float) $order->total, 2, '.', ',');
-        $stage     = self::STAGE_LABELS[$order->customer_stage] ?? 'Processing';
-        $stageHtml = htmlspecialchars($stage, ENT_QUOTES);
-
-        return <<<HTML
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>{$headline}</title>
-</head>
-<body style="margin:0;padding:0;background:#f4f4f6;font-family:'Segoe UI',Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f6;padding:30px 0;">
-    <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.09);max-width:600px;">
-        <!-- Header -->
-        <tr>
-          <td style="background:{$statusColor};padding:28px 36px;text-align:center;">
-            <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;letter-spacing:.3px;">UCN-FMRC</h1>
-            <p style="margin:6px 0 0;color:rgba(255,255,255,.85);font-size:13px;">Fabrication &amp; Manufacturing Research Center</p>
-          </td>
-        </tr>
-        <!-- Body -->
-        <tr>
-          <td style="padding:32px 36px;">
-            <h2 style="margin:0 0 12px;color:#1a202c;font-size:18px;">{$headline}</h2>
-            <p style="margin:0 0 20px;color:#4a5568;font-size:14px;line-height:1.7;">{$bodyText}</p>
-            <!-- Order summary chip -->
-            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fb;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:24px;">
-              <tr>
-                <td style="padding:18px 22px;">
-                  <table width="100%" cellpadding="0" cellspacing="0">
-                    <tr>
-                      <td style="font-size:13px;color:#718096;padding-bottom:8px;">Order Number</td>
-                      <td align="right" style="font-size:13px;font-weight:700;color:#1a202c;padding-bottom:8px;">{$orderNo}</td>
-                    </tr>
-                    <tr>
-                      <td style="font-size:13px;color:#718096;padding-bottom:8px;">Status</td>
-                      <td align="right" style="font-size:13px;font-weight:700;color:{$statusColor};padding-bottom:8px;">{$stageHtml}</td>
-                    </tr>
-                    <tr>
-                      <td style="font-size:13px;color:#718096;">Total Amount</td>
-                      <td align="right" style="font-size:14px;font-weight:700;color:#1a202c;">{$total}</td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
-            <p style="margin:0;color:#718096;font-size:12px;">You can track your order status by logging into your account at any time.</p>
-          </td>
-        </tr>
-        <!-- Footer -->
-        <tr>
-          <td style="background:#f8f9fb;border-top:1px solid #e2e8f0;padding:18px 36px;text-align:center;">
-            <p style="margin:0;color:#a0aec0;font-size:11px;">© 2025 UCN-FMRC · University of Camarines Norte</p>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>
-HTML;
+        return OrderNotifier::buildEmailHtml($order, $headline, $bodyText, $statusColor);
     }
 
     private function dispatchAfterResponse(callable $callback): void
     {
-        try {
-            app()->terminating($callback);
-        } catch (\Throwable $e) {
-            $callback();
-        }
+        OrderNotifier::afterResponse($callback);
     }
 
     private function normalizePaymentMethod(string $raw): ?string
@@ -1634,6 +1596,112 @@ HTML;
         return $summaryItem;
     }
 
+    /**
+     * Return/refund state for one order row.
+     *
+     * Deliberately mirrors OrderReturnController::evaluateEligibility() so the
+     * button the customer sees and the rule the API enforces cannot disagree.
+     * Everything is read from already eager-loaded relations — an order list
+     * must never fan out into per-row queries.
+     */
+    private function buildReturnState(Order $order): array
+    {
+        $returnsLoaded = $order->relationLoaded('returns');
+        $returns = $returnsLoaded ? $order->returns : collect();
+
+        $latest = $returnsLoaded
+            ? $returns->sortByDesc('id')->first()
+            : ($order->relationLoaded('latestReturn') ? $order->latestReturn : null);
+
+        $active = $returnsLoaded
+            ? $returns->first(fn (OrderReturn $row) => in_array($row->status, OrderReturn::OPEN_STATUSES, true))
+            : ($order->relationLoaded('activeReturn') ? $order->activeReturn : null);
+
+        $anchor = $order->completed_at ?? $order->updated_at ?? $order->created_at;
+        $deadline = $anchor
+            ? Carbon::instance($anchor)->timezone(self::PH_TIME_ZONE)->addDays(OrderReturn::WINDOW_DAYS)
+            : null;
+        $daysRemaining = $deadline ? max(0, (int) ceil(now()->diffInDays($deadline, false))) : null;
+
+        $blockedReason = null;
+
+        if ($order->lifecycle_status === 'rejected') {
+            $blockedReason = 'This order was rejected, so there is nothing to return.';
+        } elseif ($order->customer_stage !== 'completed') {
+            $blockedReason = 'Only completed orders can be returned. Confirm you received the order first.';
+        } elseif ($active) {
+            $blockedReason = 'A return request for this order is already being processed.';
+        } elseif ($returnsLoaded && !$this->hasReturnableItem($order, $returns)) {
+            $blockedReason = 'Every item in this order has already been returned.';
+        } elseif ($deadline && now()->greaterThan($deadline)) {
+            $blockedReason = 'The ' . OrderReturn::WINDOW_DAYS . '-day return window for this order closed on '
+                . $this->formatPhilippineLabel($deadline) . '.';
+        }
+
+        $refundedAmount = $latest?->refunded_amount;
+
+        return [
+            'return_window_days'      => OrderReturn::WINDOW_DAYS,
+            'return_deadline'         => $this->formatPhilippineIso($deadline),
+            'return_deadline_label'   => $this->formatPhilippineLabel($deadline),
+            'return_days_remaining'   => $daysRemaining,
+            'return_eligible'         => $blockedReason === null,
+            'return_blocked_reason'   => $blockedReason,
+            'has_return'              => (bool) $latest,
+            'return_open'             => (bool) $active,
+            'returns_count'           => $returnsLoaded ? $returns->count() : 0,
+            'return_id'               => $latest?->id,
+            'return_no'               => $latest?->return_no,
+            'return_no_display'       => $latest?->return_no ? '#' . $latest->return_no : null,
+            'return_status'           => $latest?->status,
+            'return_status_label'     => $latest?->statusLabel(),
+            'return_status_group'     => $latest
+                ? (in_array($latest->status, OrderReturn::TERMINAL_STATUSES, true) ? 'closed' : 'open')
+                : null,
+            'return_resolution'       => $latest?->resolution,
+            'return_resolution_label' => $latest?->resolutionLabel(),
+            'return_requested_at'     => $this->formatPhilippineIso($latest?->requested_at ?? $latest?->created_at),
+            'return_requested_at_label' => $this->formatPhilippineLabel($latest?->requested_at ?? $latest?->created_at),
+            'return_refunded_amount'  => $refundedAmount !== null ? (float) $refundedAmount : null,
+            'return_refunded_amount_label' => $refundedAmount !== null
+                ? $this->formatMoney((float) $refundedAmount)
+                : null,
+        ];
+    }
+
+    /**
+     * Does any line still have quantity left to return?
+     *
+     * @param  \Illuminate\Support\Collection<int, OrderReturn>  $returns
+     */
+    private function hasReturnableItem(Order $order, $returns): bool
+    {
+        $items = $order->relationLoaded('items') ? $order->items : collect();
+
+        if ($items->isEmpty()) {
+            // Unknown without the lines — let the dedicated endpoint decide.
+            return true;
+        }
+
+        $returnedByItem = [];
+
+        foreach ($returns as $orderReturn) {
+            if (in_array($orderReturn->status, ['cancelled', 'rejected'], true)
+                || !$orderReturn->relationLoaded('items')) {
+                continue;
+            }
+
+            foreach ($orderReturn->items as $line) {
+                $key = (int) $line->order_item_id;
+                $returnedByItem[$key] = ($returnedByItem[$key] ?? 0) + (int) $line->quantity;
+            }
+        }
+
+        return $items->contains(
+            fn (OrderItem $lineItem) => ((int) $lineItem->quantity - ($returnedByItem[(int) $lineItem->id] ?? 0)) > 0
+        );
+    }
+
     private function transformOrderSummary(
         Order $order,
         bool $includeProductImages = true,
@@ -1717,6 +1785,9 @@ HTML;
             'created_at_label' => $this->formatPhilippineLabel($createdAt),
             'latest_event' => $latestEvent ? $this->transformTimelineEvent($latestEvent) : null,
         ];
+
+        // Return/refund badges + the "Return / Refund" button's own gate.
+        $summary = array_merge($summary, $this->buildReturnState($order));
 
         if ($includeProductImages) {
             $summary['product_image'] = $item?->product_image;

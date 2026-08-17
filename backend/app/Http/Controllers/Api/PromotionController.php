@@ -43,6 +43,11 @@ class PromotionController extends Controller
             'title' => 'Product Promotion Saved',
             'message' => "Promotion '{$p->title}' ({$p->discount_percent}% off) was saved.",
             'is_read' => false,
+            // Lets the header notification link straight to this promotion
+            // instead of relying on its wording to guess the page.
+            'metadata' => [
+                'promotion_id' => $p->id,
+            ],
         ]);
 
         return response()->json(['data' => $this->format($p), 'message' => 'Promotion saved.'], 201);
@@ -62,6 +67,9 @@ class PromotionController extends Controller
             'title' => 'Product Promotion Updated',
             'message' => "Promotion '{$fresh->title}' ({$fresh->discount_percent}% off) was updated.",
             'is_read' => false,
+            'metadata' => [
+                'promotion_id' => $fresh->id,
+            ],
         ]);
 
         return response()->json(['data' => $this->format($fresh), 'message' => 'Promotion updated.']);

@@ -711,6 +711,27 @@ table tbody > .admin-table-skeleton-row > td,
   background: #fafbfc;
 }
 
+/* Every notification opens the record it is about, so the row behaves like the
+   rest of the portal's clickable surfaces: lift on hover, settle on press. */
+.notif-item.notif-clickable {
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.08s ease;
+}
+.notif-item.notif-clickable:hover {
+  box-shadow: inset 3px 0 0 var(--primary-color);
+}
+.notif-item.notif-clickable:active {
+  transform: scale(0.985);
+  background: #f3f4f6;
+}
+.notif-item.notif-clickable:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -3px;
+}
+
 .notif-item.notif-unread {
   background: #fef6f6;
 }
@@ -751,6 +772,13 @@ table tbody > .admin-table-skeleton-row > td,
   background: #edf4ff;
   color: #2563eb;
 }
+/* Returns & Refunds keeps the violet it already uses on the customer return
+   status pills, so the notification icon matches the feature it points at. */
+.notif-type-return,
+.notif-type-order_return {
+  background: #f3e8ff;
+  color: #6d28d9;
+}
 
 .notif-item-body {
   flex: 1;
@@ -783,6 +811,78 @@ table tbody > .admin-table-skeleton-row > td,
   font-size: 0.68rem;
   color: #9ca3af;
   margin-top: 4px;
+}
+
+/* Time + destination sit on one line so the row says where it will take you. */
+.notif-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 5px;
+}
+.notif-item-meta .notif-item-time {
+  margin-top: 0;
+}
+
+.notif-item-target {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  background: #fdf3f3;
+  border: 1px solid #f6dcdc;
+  border-radius: 999px;
+  padding: 2px 9px;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+.notif-item-target i {
+  font-size: 0.58rem;
+  transition: transform 0.15s ease;
+}
+.notif-item.notif-clickable:hover .notif-item-target {
+  background: #fbe6e6;
+  border-color: #f0c0c0;
+}
+.notif-item.notif-clickable:hover .notif-item-target i {
+  transform: translateX(2px);
+}
+
+/* Landing from a notification highlights the row or panel that owns the record,
+   so the eye finds it without a scroll hunt. Used by AdminNotifFocus.flash(). */
+.notif-focus-flash {
+  animation: notifFocusFlash 2.4s ease-out 1;
+}
+@keyframes notifFocusFlash {
+  0% {
+    background-color: #fdeaea;
+    box-shadow:
+      inset 4px 0 0 var(--primary-color),
+      0 0 0 3px rgba(143, 17, 17, 0.16);
+  }
+  70% {
+    background-color: #fdf3f3;
+    box-shadow:
+      inset 4px 0 0 var(--primary-color),
+      0 0 0 3px rgba(143, 17, 17, 0.08);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow:
+      inset 0 0 0 0 var(--primary-color),
+      0 0 0 0 rgba(143, 17, 17, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .notif-focus-flash {
+    animation: none;
+    box-shadow: inset 4px 0 0 var(--primary-color);
+  }
 }
 
 .notif-item-actions {

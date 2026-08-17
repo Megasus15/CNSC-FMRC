@@ -1,4 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
+  // Header notifications about customer messages deep-link here.
+  window.AdminNotifFocus?.expect(["inquiry"]);
+
   const resolveApiBaseUrl = () => {
     const configured =
       window.APP_API_BASE_URL ||
@@ -604,5 +607,20 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   setupInquiryBulkSelection();
-  void syncData();
+  void syncData().finally(() => {
+    // A customer-inquiry notification in the header opens the message itself.
+    // Returning false when the row is gone lets the shared fallback flash the
+    // table instead of leaving the click with nothing to show.
+    window.AdminNotifFocus?.onFocus(["inquiry"], (intent) => {
+      const id = String(intent?.id || "");
+      if (!id) return false;
+      const exists = state.rows.some((item) => String(item?.id) === id);
+      if (!exists) return false;
+
+      openDetail(id);
+      const row = document.querySelector(`tr[data-row-id="${id}"]`);
+      if (row) window.AdminNotifFocus?.flash(row);
+      return true;
+    });
+  });
 });

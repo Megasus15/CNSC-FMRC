@@ -815,6 +815,78 @@ document.addEventListener("DOMContentLoaded", () => {
     okBtn.addEventListener("click", handleOk);
   };
 
+  // ── "Buy Again" handoff from My Orders ───────────────────────────────────────
+  // main.js stores { productId, ts } under "fmrc_buy_again_intent" when a
+  // customer taps Buy Again on a completed order, then either navigates here or
+  // — when this page is already open — calls the consumer directly. Same three
+  // guards as the order-success handoff above: a 60-second staleness window,
+  // remove-before-act so a reload can never re-fire it, and a full try/catch
+  // around every sessionStorage touch.
+  const BUY_AGAIN_INTENT_KEY = "fmrc_buy_again_intent";
+
+  const consumeBuyAgainIntent = () => {
+    let raw;
+    try {
+      raw = sessionStorage.getItem(BUY_AGAIN_INTENT_KEY);
+    } catch {
+      return;
+    }
+    if (!raw) return;
+
+    const discard = () => {
+      try {
+        sessionStorage.removeItem(BUY_AGAIN_INTENT_KEY);
+      } catch {
+        /* ignore */
+      }
+    };
+
+    let productId = 0;
+    try {
+      const parsed = JSON.parse(raw);
+      productId = Number(parsed?.productId || 0);
+      const ts = Number(parsed?.ts || 0);
+      // Discard stale entries older than 60 seconds (safety guard)
+      if (Date.now() - ts > 60_000) {
+        discard();
+        return;
+      }
+    } catch {
+      discard();
+      return;
+    }
+
+    // Clear the entry BEFORE acting to prevent duplicate checkouts
+    discard();
+
+    if (!Number.isFinite(productId) || productId <= 0) return;
+
+    const product = allProducts.find((p) => p.id === productId);
+    if (!product) {
+      void notifyCustomer("This product is no longer available.", {
+        title: "Buy Again unavailable",
+      });
+      return;
+    }
+
+    // Same availability test the grid cards use, so a card that reads
+    // "Out of Stock" can never open a checkout.
+    if (product.stock_status === "out_of_stock" || Number(product.stock) <= 0) {
+      void notifyCustomer("This product is currently out of stock.", {
+        title: "Out of stock",
+      });
+      return;
+    }
+
+    document.dispatchEvent(
+      new CustomEvent("product:buy-now", { detail: getCustomerPrice(product) }),
+    );
+  };
+
+  // Lets My Orders reorder without a page reload when the customer is already
+  // browsing this page.
+  window.__fmrcConsumeBuyAgainIntent = consumeBuyAgainIntent;
+
   // ── Fetch products from API ──────────────────────────────────────────────────
   const loadProducts = async () => {
     // Show loading skeleton
@@ -844,6 +916,7 @@ document.addEventListener("DOMContentLoaded", () => {
       renderGrid();
       // ── Grid has fully loaded — show the success modal if one is pending ──
       checkAndShowPendingOrderSuccess();
+      consumeBuyAgainIntent();
     } catch (err) {
       console.error("Failed to load products:", err);
       allProducts = [];
@@ -851,6 +924,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (emptyState) emptyState.style.display = "flex";
       // Show the success modal even if the product fetch failed
       checkAndShowPendingOrderSuccess();
+      consumeBuyAgainIntent();
     }
   };
 
@@ -874,8 +948,19 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Helper: only refresh for genuine order-related types
-  const isOrderRelevantType = (type) =>
-    type === "created" || type === "updated" || type === "rating-submitted";
+  // A refunded return puts stock back, so return events belong here too.
+  const ORDER_RELEVANT_TYPES = new Set([
+    "created",
+    "updated",
+    "rating-submitted",
+    "return-requested",
+    "return-cancelled",
+    "return-shipped",
+    "return-updated",
+    "return-refunded",
+  ]);
+
+  const isOrderRelevantType = (type) => ORDER_RELEVANT_TYPES.has(String(type));
 
   // Listen for order events from OTHER tabs (BroadcastChannel only).
   const ORDERS_REALTIME_CHANNEL = "fmrc-orders-realtime";

@@ -88,4 +88,22 @@ class Order extends Model
     {
         return $this->hasMany(ProductRating::class)->where('is_archived', false);
     }
+
+    public function returns(): HasMany
+    {
+        return $this->hasMany(OrderReturn::class);
+    }
+
+    /** The single return still awaiting action, if any. */
+    public function activeReturn(): HasOne
+    {
+        return $this->hasOne(OrderReturn::class)
+            ->whereIn('status', OrderReturn::OPEN_STATUSES)
+            ->latestOfMany();
+    }
+
+    public function latestReturn(): HasOne
+    {
+        return $this->hasOne(OrderReturn::class)->latestOfMany();
+    }
 }

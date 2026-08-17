@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\OrderReturnController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\SiteSettingController;
 use App\Http\Controllers\Api\ServiceController;
@@ -81,6 +82,23 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/customer/orders/{order}/rating', [ProductRatingController::class, 'show']);
     Route::post('/customer/orders/{order}/rating', [ProductRatingController::class, 'store']);
     Route::post('/products/{product}/reviews/{rating}/like', [ProductRatingController::class, 'toggleLike']);
+
+    // Customer: Returns & Refunds (completed orders only, 7-day window)
+    Route::get('/customer/returns', [OrderReturnController::class, 'customerIndex']);
+    Route::get('/customer/orders/{order}/return/eligibility', [OrderReturnController::class, 'eligibility']);
+    Route::post('/customer/orders/{order}/return', [OrderReturnController::class, 'store']);
+    Route::get('/customer/returns/{orderReturn}', [OrderReturnController::class, 'customerShow']);
+    Route::post('/customer/returns/{orderReturn}/cancel', [OrderReturnController::class, 'cancel']);
+    Route::post('/customer/returns/{orderReturn}/shipped', [OrderReturnController::class, 'shipped']);
+
+    // Admin/Staff: Returns & Refunds queue
+    Route::get('/admin/returns', [OrderReturnController::class, 'adminIndex']);
+    Route::get('/admin/returns/all-ids', [OrderReturnController::class, 'adminAllIds']);
+    Route::patch('/admin/returns/archive-bulk', [OrderReturnController::class, 'archiveBulk']);
+    Route::get('/admin/returns/{orderReturn}', [OrderReturnController::class, 'adminShow']);
+    Route::post('/admin/returns/{orderReturn}/decision', [OrderReturnController::class, 'decision']);
+    Route::post('/admin/returns/{orderReturn}/received', [OrderReturnController::class, 'received']);
+    Route::post('/admin/returns/{orderReturn}/refund', [OrderReturnController::class, 'refund']);
 
     // Admin/Staff: Ratings & Feedback
     Route::get('/admin/ratings', [ProductRatingController::class, 'adminIndex']);

@@ -1,4 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
+  // Appointment notifications in the header deep-link here, so claim the kind
+  // before the fallback timer is armed and register the opener after the load.
+  window.AdminNotifFocus?.expect(["appointment"]);
+
   const resolveApiBaseUrl = () => {
     const configured =
       window.APP_API_BASE_URL ||
@@ -1746,5 +1750,24 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-  void refreshAll();
+  void refreshAll().finally(() => {
+    // Open the booking a header notification points at; matching on the
+    // reference number too keeps older notifications working. Returning false
+    // hands the intent back so the shared fallback flashes the table instead.
+    window.AdminNotifFocus?.onFocus(["appointment"], (intent) => {
+      const id = String(intent?.id || "");
+      const ref = String(intent?.ref || "");
+      const appt = state.appointments.find(
+        (item) =>
+          (id && String(item?.id) === id) ||
+          (ref && String(item?.reference_no || "") === ref),
+      );
+      if (!appt) return false;
+
+      openAppointmentViewModal(appt);
+      const row = document.querySelector(`[data-view-id="${appt.id}"]`);
+      if (row) window.AdminNotifFocus?.flash(row);
+      return true;
+    });
+  });
 });

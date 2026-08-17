@@ -91,6 +91,10 @@
         background: #fef3c7;
         color: #b45309;
       }
+      .badge-return {
+        background: #ccfbf1;
+        color: #0f766e;
+      }
       .inv-name-cell {
         display: flex;
         align-items: center;
@@ -303,7 +307,8 @@
               <h2>Archives</h2>
               <p>
                 All archived records from Inventory, Appointments, Orders,
-                Ratings &amp; Feedback, Promotions, and Announcements.<br />Archived items are removed
+                Returns &amp; Refunds, Ratings &amp; Feedback, Promotions, and
+                Announcements.<br />Archived items are removed
                 from their source pages.
               </p>
             </div>
@@ -330,6 +335,10 @@
             <button class="archive-tab-btn" data-tab="order">
               <i class="fa-solid fa-box-open"></i> Orders
               <span class="tab-count" id="tabCountOrder">0</span>
+            </button>
+            <button class="archive-tab-btn" data-tab="return">
+              <i class="fa-solid fa-rotate-left"></i> Returns &amp; Refunds
+              <span class="tab-count" id="tabCountReturn">0</span>
             </button>
             <button class="archive-tab-btn" data-tab="rating">
               <i class="fa-solid fa-star"></i> Ratings &amp; Feedback
@@ -608,6 +617,71 @@
                     aria-label="Go to order archives page"
                   />
                   <button class="page-btn" id="orderNextBtn">
+                    <i class="fa-solid fa-chevron-right"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══════════════ RETURNS & REFUNDS TABLE ═══════════════ -->
+          <div class="archive-section" id="sectionReturn">
+            <div class="panel">
+              <div class="panel-header">
+                <h3>
+                  <span class="archive-badge badge-return"
+                    ><i class="fa-solid fa-rotate-left"></i> Returns &amp;
+                    Refunds</span
+                  >
+                  &nbsp;Archived Return Requests
+                </h3>
+              </div>
+              <div class="table-scroll-hint">
+                <i class="fa-solid fa-left-right"></i> Scroll horizontally to
+                see all columns.
+              </div>
+              <div class="table-wrapper">
+                <table class="admin-table inventory-table" id="returnArchiveTable">
+                  <thead>
+                    <tr>
+                      <th class="admin-bulk-select-cell">
+                        <input
+                          type="checkbox"
+                          data-admin-bulk-page="archive-return"
+                          aria-label="Select all archived return requests on this page"
+                        />
+                      </th>
+                      <th>Return No.</th>
+                      <th>Customer</th>
+                      <th>Item(s)</th>
+                      <th>Reason / Resolution</th>
+                      <th>Amount</th>
+                      <th>Status</th>
+                      <th>Handled By</th>
+                      <th>Filed</th>
+                      <th>Date Archived</th>
+                      <th class="sticky-action">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="returnArchiveTbody"></tbody>
+                </table>
+              </div>
+              <div class="table-footer" id="returnArchiveFooter">
+                <div class="table-footer-meta" id="returnArchiveMeta">&mdash;</div>
+                <div class="table-pagination">
+                  <button class="page-btn" id="returnArchivePrevBtn" aria-label="Previous return archives page">
+                    <i class="fa-solid fa-chevron-left"></i>
+                  </button>
+                  <input
+                    class="page-number"
+                    id="returnArchiveCurrentPage"
+                    type="number"
+                    min="1"
+                    value="1"
+                    inputmode="numeric"
+                    aria-label="Go to return archives page"
+                  />
+                  <button class="page-btn" id="returnArchiveNextBtn" aria-label="Next return archives page">
                     <i class="fa-solid fa-chevron-right"></i>
                   </button>
                 </div>
