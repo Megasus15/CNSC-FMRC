@@ -49,7 +49,7 @@ class PasswordResetController extends Controller
             // Point the reset link at the Laravel backend itself (always running,
             // since it just sent this email) instead of the Live Server frontend
             // which may be offline. This avoids "127.0.0.1 refused to connect".
-            $backendUrl = rtrim((string) config('app.url', 'http://127.0.0.1:8000'), '/');
+            $backendUrl = rtrim((string) (request()->root() ?: config('app.url', 'https://ucn-fabmanlab.com')), '/');
             $resetLink = $backendUrl
                 . '/reset-password?token=' . $plainToken
                 . '&email=' . urlencode($user->email);

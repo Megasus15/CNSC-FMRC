@@ -19,10 +19,12 @@
     RewriteRule ^\.git - [F,L]
 
     # --------------------------------------------------------------------------
-    # 3. Route All /api Requests to Laravel's Backend
+    # 3. Route Backend Requests to Laravel
     # --------------------------------------------------------------------------
     RewriteRule ^api/(.*)$ backend/public/index.php [QSA,L]
     RewriteRule ^api$ backend/public/index.php [QSA,L]
+    RewriteRule ^reset-password(.*)$ backend/public/index.php [QSA,L]
+    RewriteRule ^appointments/verify/(.*)$ backend/public/index.php [QSA,L]
     RewriteRule ^storage/(.*)$ backend/storage/app/public/$1 [L]
 
     # --------------------------------------------------------------------------

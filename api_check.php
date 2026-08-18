@@ -52,6 +52,31 @@ if (file_exists($envPath)) {
     } catch (Exception $e) {
         echo "Database Connection FAILED ❌: " . $e->getMessage() . "\n";
     }
+
+    echo "\n--- Mail Configuration in .env ---\n";
+    preg_match('/MAIL_MAILER=(.*)/', $envContent, $mailerMatch);
+    preg_match('/MAIL_HOST=(.*)/', $envContent, $mailHostMatch);
+    preg_match('/MAIL_PORT=(.*)/', $envContent, $mailPortMatch);
+    preg_match('/MAIL_USERNAME=(.*)/', $envContent, $mailUserMatch);
+    preg_match('/MAIL_PASSWORD=(.*)/', $envContent, $mailPassMatch);
+    preg_match('/MAIL_ENCRYPTION=(.*)/', $envContent, $mailEncMatch);
+    preg_match('/MAIL_FROM_ADDRESS=(.*)/', $envContent, $mailFromMatch);
+
+    $mailer = trim($mailerMatch[1] ?? 'NOT SET (defaults to log)');
+    $mHost = trim($mailHostMatch[1] ?? 'NOT SET');
+    $mPort = trim($mailPortMatch[1] ?? 'NOT SET');
+    $mUser = trim($mailUserMatch[1] ?? 'NOT SET');
+    $mPass = trim($mailPassMatch[1] ?? '');
+    $mEnc = trim($mailEncMatch[1] ?? 'NOT SET');
+    $mFrom = trim($mailFromMatch[1] ?? 'NOT SET');
+
+    echo "MAIL_MAILER: $mailer\n";
+    echo "MAIL_HOST: $mHost\n";
+    echo "MAIL_PORT: $mPort\n";
+    echo "MAIL_ENCRYPTION: $mEnc\n";
+    echo "MAIL_USERNAME: $mUser\n";
+    echo "MAIL_PASSWORD: " . (empty($mPass) ? "NOT SET ❌" : "SET (" . strlen($mPass) . " chars) ✅") . "\n";
+    echo "MAIL_FROM_ADDRESS: $mFrom\n";
 }
 
 echo "\n--- Bootstrapping Laravel Test ---\n";
@@ -60,6 +85,36 @@ try {
         require $vendorPath;
         $app = require_once $bootstrapPath;
         echo "Laravel Application Boot: SUCCESSFUL ✅\n";
+
+        // Test sending email if requested
+        $testTarget = trim($_GET['test_mail'] ?? '');
+        if ($testTarget && filter_var($testTarget, FILTER_VALIDATE_EMAIL)) {
+            echo "\n--- Sending Test Email to $testTarget ---\n";
+            try {
+                $kernel = $app->make(\Illuminate\Contracts\Http\Kernel::class);
+                $response = $kernel->handle(
+                    \Illuminate\Http\Request::capture()
+                );
+
+                \Illuminate\Support\Facades\Mail::raw(
+                    "This is a test notification from UCN-FMRC on Hostinger at " . date('Y-m-d H:i:s'),
+                    function ($message) use ($testTarget) {
+                        $from = config('mail.from.address') ?: 'cnscfmrc@gmail.com';
+                        $fromName = config('mail.from.name') ?: 'UCN-FMRC';
+                        $message->to($testTarget)
+                            ->subject('UCN-FMRC Live Mail Test')
+                            ->from($from, $fromName);
+                    }
+                );
+                echo "Test Email Result: SUCCESS ✅ Email was accepted by SMTP server for delivery to $testTarget\n";
+            } catch (Throwable $mailEx) {
+                echo "Test Email Result: FAILED ❌\n";
+                echo "Error: " . $mailEx->getMessage() . "\n";
+                echo "File: " . $mailEx->getFile() . " on line " . $mailEx->getLine() . "\n";
+            }
+        } else {
+            echo "\n(Tip: Visit api_check.php?test_mail=YOUR_EMAIL@gmail.com to test live email delivery)\n";
+        }
     }
 } catch (Throwable $e) {
     echo "Laravel Boot Error ❌: " . $e->getMessage() . "\n";
