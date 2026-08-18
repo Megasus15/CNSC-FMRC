@@ -1,10 +1,41 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const API_BASE_URL =
-    window.APP_API_BASE_URL ||
-    document
-      .querySelector('meta[name="api-base-url"]')
-      ?.getAttribute("content") ||
-    `${window.location.protocol}//${window.location.hostname}:8000/api`;
+  const resolveApiBaseUrl = () => {
+    const configured =
+      window.APP_API_BASE_URL ||
+      document
+        .querySelector('meta[name="api-base-url"]')
+        ?.getAttribute("content") ||
+      "";
+
+    if (configured.trim()) {
+      return configured.replace(/\/+$/, "");
+    }
+
+    const protocol = String(window.location.protocol || "").toLowerCase();
+    const hostname = String(window.location.hostname || "").toLowerCase();
+    const origin = String(window.location.origin || "");
+    const port = String(window.location.port || "");
+
+    if (!/^https?:$/.test(protocol) || !hostname) {
+      return "http://127.0.0.1:8000/api";
+    }
+
+    const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1";
+    const isPort8000 = port === "8000";
+    const isStandardWebPort = port === "" || port === "80" || port === "443";
+
+    if (isPort8000 || (!isLocalHost && isStandardWebPort)) {
+      return `${origin.replace(/\/+$/, "")}/api`;
+    }
+
+    if (isLocalHost) {
+      return `${protocol}//${hostname}:8000/api`;
+    }
+
+    return `${origin.replace(/\/+$/, "")}/api`;
+  };
+
+  const API_BASE_URL = resolveApiBaseUrl();
 
   const token =
     (window.AdminSession && window.AdminSession.getToken()) ||
