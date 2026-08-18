@@ -374,6 +374,301 @@
         transform-origin: center;
         user-select: none;
       }
+      /* SDG crop uses a light checkerboard so transparent PNG corners read
+         correctly, unlike the dark plate used for photo backgrounds. */
+      .crop-circle-wrapper.is-transparent {
+        background: repeating-conic-gradient(#e5e7eb 0% 25%, #f9fafb 0% 50%)
+          50% / 16px 16px;
+      }
+      /* SDG slots */
+      .wm-sdg-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+      }
+      .wm-sdg-slot {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 12px 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        text-align: center;
+      }
+      .wm-sdg-slot.is-empty {
+        background: #fff;
+        border-style: dashed;
+        border-color: #d1d5db;
+      }
+      .wm-sdg-slot-index {
+        font-size: 0.64rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #9ca3af;
+      }
+      .wm-sdg-thumb {
+        width: 84px;
+        height: 84px;
+        border-radius: 50%;
+        overflow: hidden;
+        border: 2px solid #e5e7eb;
+        background: repeating-conic-gradient(#eef0f3 0% 25%, #fbfbfc 0% 50%)
+          50% / 12px 12px;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+      }
+      .wm-sdg-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .wm-sdg-add {
+        width: 84px;
+        height: 84px;
+        border-radius: 50%;
+        border: 1.5px dashed #d1d5db;
+        background: #f9fafb;
+        color: #9ca3af;
+        font-size: 1.4rem;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        transition:
+          border-color 0.18s,
+          background 0.18s,
+          color 0.18s,
+          transform 0.12s ease;
+      }
+      .wm-sdg-add:hover {
+        border-color: #a80f0f;
+        background: #fff5f5;
+        color: #a80f0f;
+      }
+      .wm-sdg-add:active {
+        transform: scale(0.97);
+      }
+      .wm-sdg-title {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #111827;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+      }
+      .wm-sdg-hidden-tag {
+        display: inline-block;
+        font-size: 0.62rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #92400e;
+        background: #fef3c7;
+        border: 1px solid #fde68a;
+        border-radius: 999px;
+        padding: 2px 8px;
+      }
+      .wm-sdg-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+        margin-top: auto;
+      }
+      .wm-sdg-actions .btn-edit-sm,
+      .wm-sdg-actions .btn-del-sm {
+        padding: 4px 8px;
+        font-size: 0.68rem;
+      }
+      .wm-sdg-actions .wm-sdg-move {
+        padding: 4px 7px;
+      }
+      .wm-sdg-actions button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .wm-sdg-actions button:active:not(:disabled) {
+        transform: scale(0.97);
+      }
+      /* The navbar emblem sits in a square holder on the live site, so its
+         editor frame is squared off too — same 220px box, rounded corners only. */
+      .crop-circle-wrapper.is-square {
+        border-radius: 18px;
+      }
+      /* Brand logo slots — same card language as the SDG slots above. */
+      .wm-logo-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+      }
+      .wm-logo-slot {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 14px 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        text-align: center;
+      }
+      .wm-logo-name {
+        font-size: 0.64rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #9ca3af;
+      }
+      .wm-logo-thumb {
+        width: 92px;
+        height: 92px;
+        overflow: hidden;
+        border: 2px solid #e5e7eb;
+        background: repeating-conic-gradient(#eef0f3 0% 25%, #fbfbfc 0% 50%) 50% /
+          12px 12px;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+      }
+      .wm-logo-thumb.is-circle {
+        border-radius: 50%;
+      }
+      .wm-logo-thumb.is-square {
+        border-radius: 20%;
+      }
+      .wm-logo-thumb img {
+        width: 100%;
+        height: 100%;
+        /* `contain`, matching the live holders: the thumbnail has to show the
+           same fit the visitor gets, not a tighter crop. */
+        object-fit: contain;
+        display: block;
+      }
+      .wm-logo-tag {
+        font-size: 0.62rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #4b5563;
+        background: #f3f4f6;
+        border: 1px solid #e5e7eb;
+        border-radius: 999px;
+        padding: 2px 9px;
+      }
+      .wm-logo-tag.is-custom {
+        color: #7a0b0b;
+        background: #fff1f1;
+        border-color: #f6d0d0;
+      }
+      .wm-logo-hint {
+        font-size: 0.7rem;
+        color: #6b7280;
+        line-height: 1.4;
+        margin: 0;
+      }
+      .wm-logo-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+        margin-top: auto;
+      }
+      .wm-logo-actions .btn-edit-sm,
+      .wm-logo-actions .btn-del-sm {
+        padding: 4px 8px;
+        font-size: 0.68rem;
+      }
+      .wm-logo-actions button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .wm-logo-actions button:active:not(:disabled) {
+        transform: scale(0.97);
+      }
+      /* Gradient presets */
+      .wm-grad-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .wm-grad-swatch {
+        position: relative;
+        border: 2px solid #e5e7eb;
+        background: #fff;
+        border-radius: 12px;
+        padding: 6px 6px 7px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        text-align: center;
+        transition:
+          border-color 0.18s,
+          box-shadow 0.18s,
+          transform 0.12s ease;
+      }
+      .wm-grad-swatch:hover {
+        border-color: #a80f0f;
+        box-shadow: 0 6px 16px rgba(122, 11, 11, 0.14);
+      }
+      .wm-grad-swatch:active {
+        transform: scale(0.98);
+      }
+      .wm-grad-swatch.is-selected {
+        border-color: #a80f0f;
+        box-shadow: 0 0 0 3px rgba(168, 15, 15, 0.16);
+      }
+      .wm-grad-chip {
+        display: block;
+        height: 46px;
+        border-radius: 8px;
+        border: 1px solid rgba(17, 24, 39, 0.08);
+      }
+      .wm-grad-label {
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: #374151;
+        letter-spacing: 0.02em;
+      }
+      .wm-grad-check {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #a80f0f;
+        color: #fff;
+        font-size: 0.6rem;
+        display: grid;
+        place-items: center;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+      }
+      @media (max-width: 1180px) {
+        .wm-sdg-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .wm-logo-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .wm-grad-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 520px) {
+        .wm-sdg-grid {
+          grid-template-columns: 1fr;
+        }
+        .wm-logo-grid {
+          grid-template-columns: 1fr;
+        }
+        .wm-grad-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
     </style>
   </head>
   <body>
@@ -393,7 +688,10 @@
           <a href="products.html" class="nav-link"
             ><i class="fa-solid fa-tags"></i> Products</a
           >
-          <a href="promotions.html" class="nav-link" title="Promotions &amp; Announcements"
+          <a
+            href="promotions.html"
+            class="nav-link"
+            title="Promotions &amp; Announcements"
             ><i class="fa-solid fa-bullhorn"></i> Promotions</a
           >
           <a href="appointments.html" class="nav-link"
@@ -408,8 +706,12 @@
           <a href="orders.html" class="nav-link"
             ><i class="fa-solid fa-box-open"></i> Orders</a
           >
-          <a href="customer-inquiries.html" class="nav-link"><i class="fa-regular fa-envelope-open"></i> Customer Inquiries</a>
-          <a href="ratings.html" class="nav-link"><i class="fa-solid fa-star"></i> Ratings &amp; Feedback</a>
+          <a href="customer-inquiries.html" class="nav-link"
+            ><i class="fa-regular fa-envelope-open"></i> Customer Inquiries</a
+          >
+          <a href="ratings.html" class="nav-link"
+            ><i class="fa-solid fa-star"></i> Ratings &amp; Feedback</a
+          >
           <div class="nav-item has-dropdown open">
             <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn">
               <div class="dropdown-title">
@@ -530,6 +832,7 @@
                   <label>Background</label>
                   <select class="wm-select" id="heroBgType">
                     <option value="color">Solid Color</option>
+                    <option value="gradient">Gradient Preset</option>
                     <option value="image">Image</option>
                   </select>
                   <div
@@ -589,49 +892,99 @@
                     </button>
                   </div>
                 </div>
-                <div class="field-stack">
-                  <label>Logo / Hero Graphic</label>
+                <!-- Gradient presets: full width so the swatches stay legible.
+                     Rendered by website-home.js from ../home-page/hero-gradients.js,
+                     the same module the customer hero reads. -->
+                <div
+                  class="field-stack full"
+                  id="heroBgGradientRow"
+                  style="display: none"
+                >
+                  <label>Ready-Made Gradient Presets</label>
+                  <div class="wm-grad-grid" id="heroGradientGrid"></div>
+                  <span class="field-hint"
+                    >Red and maroon shades only, so the banner always matches the
+                    brand. The selected preset applies with
+                    <strong>Save All Changes</strong>.</span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <!-- BRAND LOGOS -->
+            <div class="wm-section">
+              <div class="wm-section-header">
+                <i class="fa-regular fa-images"></i>
+                <h3>Brand Logos</h3>
+              </div>
+              <p class="field-hint" style="margin-bottom: 14px">
+                Every logo on the customer website. Each one sits in a holder with
+                a locked shape — a square for the navbar emblem, circles for the
+                hero and footer marks — so any upload keeps the layout intact. Use
+                <strong>Adjust</strong> to pan, zoom and rotate the artwork inside
+                its holder. Logos save immediately, like SDG badges and service
+                cards.
+              </p>
+              <div class="wm-logo-grid" id="brandLogoGrid"></div>
+              <input
+                type="file"
+                id="brandLogoInput"
+                accept="image/*"
+                style="display: none"
+              />
+            </div>
+
+            <!-- SUSTAINABLE DEVELOPMENT GOALS -->
+            <div class="wm-section">
+              <div class="wm-section-header">
+                <i class="fa-solid fa-earth-asia"></i>
+                <h3>Sustainable Development Goals</h3>
+              </div>
+              <p class="field-hint" style="margin-bottom: 14px">
+                Up to 8 badges show under the hero buttons on the customer home
+                page — 4 on top, 4 below, filling from the left. Any shape is
+                accepted; use <strong>Adjust</strong> to fit it inside the
+                circle. SDG images and details save immediately, like Service
+                Cards. The caption below saves with Save All Changes.
+              </p>
+              <div class="wm-sdg-grid" id="homeSdgGrid">
+                <div
+                  style="
+                    grid-column: 1/-1;
+                    padding: 30px;
+                    text-align: center;
+                    color: #9ca3af;
+                  "
+                >
                   <div
-                    class="wm-img-placeholder"
-                    id="heroLogoPlaceholder"
-                    onclick="document.getElementById('heroLogoInput').click()"
-                  >
-                    <span
-                      ><i
-                        class="fa-regular fa-image"
-                        style="margin-right: 6px"
-                      ></i
-                      >Click to upload logo image</span
-                    >
-                  </div>
-                  <img
-                    id="heroLogoPreview"
-                    class="wm-img-preview"
-                    alt="Hero Logo Preview"
-                  />
-                  <button
-                    type="button"
-                    class="btn-del-sm"
-                    id="heroLogoPreviewRemoveBtn"
-                    style="display: none; margin-top: 8px"
-                    onclick="clearImage('heroLogo')"
-                  >
-                    <i class="fa-solid fa-xmark"></i> Remove
-                  </button>
+                    class="wm-skeleton"
+                    style="height: 16px; width: 60%; margin: 0 auto 10px"
+                  ></div>
+                  <div
+                    class="wm-skeleton"
+                    style="height: 12px; width: 40%; margin: 0 auto"
+                  ></div>
+                </div>
+              </div>
+              <input
+                type="file"
+                id="homeSdgInput"
+                accept="image/*"
+                style="display: none"
+              />
+              <div class="wm-form-grid" style="margin-top: 16px">
+                <div class="field-stack full">
+                  <label>Caption below the badges (optional)</label>
                   <input
-                    type="file"
-                    id="heroLogoInput"
-                    accept="image/*"
-                    style="display: none"
+                    type="text"
+                    class="wm-input"
+                    id="homeSdgHeading"
+                    maxlength="120"
+                    placeholder="Supporting the UN Sustainable Development Goals"
                   />
-                  <button
-                    class="btn-edit-sm"
-                    style="margin-top: 6px"
-                    id="heroLogoCropBtn"
-                    onclick="openCropModal('heroLogo')"
+                  <span class="field-hint"
+                    >Leave blank to hide the caption line entirely.</span
                   >
-                    <i class="fa-solid fa-crop-simple"></i> Adjust in Circle
-                  </button>
                 </div>
               </div>
             </div>
@@ -919,7 +1272,7 @@
           </button>
         </div>
         <div class="wm-modal-body" style="text-align: center">
-          <p class="field-hint" style="margin-bottom: 12px">
+          <p class="field-hint" style="margin-bottom: 12px" id="cropModalHint">
             Drag the image to position it within the circle. Use the slider to
             resize.
           </p>
@@ -978,11 +1331,106 @@
           </div>
         </div>
         <div class="wm-modal-footer">
+          <button
+            class="btn-edit-sm"
+            id="btnFitCrop"
+            style="margin-right: auto; display: none"
+          >
+            <i class="fa-solid fa-compress"></i> Fit to circle
+          </button>
           <button class="btn-admin btn-secondary" onclick="closeCropModal()">
             Cancel
           </button>
           <button class="btn-admin" id="btnApplyCrop">
             <i class="fa-solid fa-check"></i> Apply
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- -- SDG ADD/EDIT MODAL -- -->
+    <div class="wm-modal-overlay" id="sdgModal">
+      <div class="wm-modal-card" style="max-width: 560px">
+        <div class="wm-modal-header">
+          <h3 id="sdgModalTitle">Add SDG</h3>
+          <button class="btn-close-x" onclick="closeSdgModal()">&times;</button>
+        </div>
+        <div class="wm-modal-body">
+          <input type="hidden" id="sdgEditId" />
+          <div class="wm-form-grid">
+            <div class="field-stack full">
+              <label>Badge Image</label>
+              <div
+                class="wm-img-placeholder"
+                id="sdgImgPlaceholder"
+                onclick="document.getElementById('sdgModalImgInput').click()"
+              >
+                <span
+                  ><i class="fa-regular fa-image" style="margin-right: 6px"></i
+                  >Click to upload an SDG image</span
+                >
+              </div>
+              <img id="sdgImgPreview" class="wm-img-preview" alt="SDG image" />
+              <input
+                type="file"
+                id="sdgModalImgInput"
+                accept="image/*"
+                style="display: none"
+              />
+              <button
+                class="btn-edit-sm"
+                style="margin-top: 6px"
+                id="btnSdgModalCrop"
+                type="button"
+              >
+                <i class="fa-solid fa-crop-simple"></i> Fit in Circle
+              </button>
+              <span class="field-hint"
+                >Any shape works — Fit in Circle trims it to the round badge
+                used on the home page.</span
+              >
+            </div>
+            <div class="field-stack full">
+              <label>Title <span style="color: #dc2626">*</span></label>
+              <input
+                type="text"
+                class="wm-input"
+                id="sdgTitle"
+                maxlength="160"
+                placeholder="Goal 9: Industry, Innovation and Infrastructure"
+              />
+            </div>
+            <div class="field-stack full">
+              <label>Description</label>
+              <textarea
+                class="wm-textarea"
+                id="sdgDescription"
+                rows="4"
+                maxlength="2000"
+                placeholder="How FMRC supports this goal. Shown when a customer clicks the badge."
+              ></textarea>
+            </div>
+            <div class="field-stack full">
+              <label
+                style="
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 8px;
+                  cursor: pointer;
+                "
+              >
+                <input type="checkbox" id="sdgIsVisible" checked />
+                Show this badge on the customer home page
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="wm-modal-footer">
+          <button class="btn-admin btn-secondary" onclick="closeSdgModal()">
+            Cancel
+          </button>
+          <button class="btn-admin" id="btnSaveSdg">
+            <i class="fa-solid fa-floppy-disk"></i> Save SDG
           </button>
         </div>
       </div>
@@ -1070,6 +1518,9 @@
 
     <script src="session-helper.js"></script>
     <script src="admin-common.js"></script>
+    <!-- Shared with the customer hero, so a swatch here and the live banner can
+         never render a preset differently. Must load before website-home.js. -->
+    <script src="../home-page/hero-gradients.js"></script>
     <script src="website-home.js"></script>
   </body>
 </html>

@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -22,6 +22,14 @@
 
     <link rel="stylesheet" href="main.css" />
     <link rel="stylesheet" href="responsive.css" />
+
+    <!-- Renders the hero headline from site settings. Loaded here, ahead of the
+         hero markup, so the inline call below it can paint before first paint. -->
+    <script src="hero-title.js"></script>
+    <!-- Hero background gradient presets. main.js needs this to turn a saved
+         hero_bg_gradient id into the same declaration the admin swatch shows;
+         without it a gradient choice silently falls back to the stylesheet. -->
+    <script src="hero-gradients.js"></script>
   </head>
   <body>
     <header class="site-header">
@@ -30,6 +38,7 @@
           src="/images/CNSC logo.png"
           alt="CNSC Logo"
           class="header-emblem"
+          id="navLogoEl"
         />
         <h1 class="logo-text">
           <span class="logo-title">
@@ -106,17 +115,35 @@
     <main class="hero-section" id="home">
       <div class="hero-container">
         <div class="hero-content-left">
-          <h2 class="hero-title" id="heroTitleEl">
-            FABRICATION &<br />
-            MANUFACTURING<br />
-            <span class="hero-research-line">RESEARCH CENTER</span>
-          </h2>
+          <!-- Wording comes from site_settings.hero_title (Website Management →
+               Home). Deliberately empty: any copy left here would flash before
+               the settings response lands. -->
+          <h2 class="hero-title" id="heroTitleEl" aria-busy="true"></h2>
+          <script>
+            // Paint the last title this browser saw before the first frame, so
+            // the live headline is on screen instantly instead of after fetch.
+            window.FMRC_HERO_TITLE &&
+              window.FMRC_HERO_TITLE.paintCached(
+                document.getElementById("heroTitleEl"),
+              );
+          </script>
 
           <div class="hero-buttons">
             <a href="/products-page/product.html" class="btn-browse"
               >Browse Products</a
             >
             <button class="btn-appointment">Appoint Now!</button>
+          </div>
+
+          <!-- Sustainable Development Goals — filled from /api/site-sdgs -->
+          <div class="hero-sdg-strip" id="heroSdgStrip" hidden>
+            <div
+              class="hero-sdg-rows"
+              id="heroSdgRows"
+              role="group"
+              aria-label="Sustainable Development Goals we support"
+            ></div>
+            <p class="hero-sdg-caption" id="heroSdgCaptionEl" hidden></p>
           </div>
         </div>
 
@@ -1350,11 +1377,13 @@
               src="/images/CNSC logo.png"
               alt="CNSC Logo"
               class="footer-logo"
+              id="footerLogoPrimaryEl"
             />
             <img
               src="/images/FMRC Logo.png"
               alt="FMRC Logo"
               class="footer-logo"
+              id="footerLogoSecondaryEl"
             />
             <h3 class="footer-brand" id="footerBrandNameEl">UCN- FMRC</h3>
           </div>

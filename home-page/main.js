@@ -10236,7 +10236,20 @@ const openReturnRequestModal = (() => {
   }
   function _src(id, val) {
     const el = document.getElementById(id);
-    if (el && val) el.src = val;
+    // Skip identical writes so a realtime re-apply never re-decodes the image.
+    if (el && val && el.getAttribute("src") !== val) el.src = val;
+  }
+  /**
+   * Uploadable brand logo. Unlike _src this handles the cleared case: when the
+   * setting is blank the element goes back to the artwork the page ships with,
+   * so an admin pressing "Default" reverts every customer page in realtime
+   * instead of leaving the last upload frozen on screen.
+   */
+  function _logo(id, val, fallback) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const next = val && String(val).trim() ? val : fallback;
+    if (next && el.getAttribute("src") !== next) el.src = next;
   }
   function _esc(str) {
     const d = document.createElement("div");
@@ -10252,18 +10265,17 @@ const openReturnRequestModal = (() => {
       .replace(/>/g, "&gt;");
   }
 
+  let _settingsSnapshot = "";
+
   async function loadSiteContent() {
     try {
-      const [sRes, svRes] = await Promise.all([
-        fetch(_API + "/site-settings"),
+      const [, svRes] = await Promise.all([
+        reloadSettings(),
         document.body.classList.contains("services-page-body")
           ? Promise.resolve(null)
           : fetch(_API + "/services"),
+        loadSdgs(),
       ]);
-      if (sRes.ok) {
-        const { data } = await sRes.json();
-        applySettings(data || {});
-      }
       if (svRes?.ok) {
         const { data } = await svRes.json();
         applyServices(data || []);
@@ -10273,31 +10285,57 @@ const openReturnRequestModal = (() => {
     }
   }
 
+  /**
+   * Realtime re-read of /site-settings. The endpoint answers with an ETag and
+   * `no-cache, must-revalidate`, so the browser revalidates on its own and an
+   * unchanged snapshot costs a zero-byte 304 on the wire. Comparing the raw
+   * body then skips the DOM work when nothing actually changed.
+   */
+  async function reloadSettings() {
+    try {
+      const res = await fetch(_API + "/site-settings");
+      if (!res.ok) return;
+      const text = await res.text();
+      if (text === _settingsSnapshot) return;
+      _settingsSnapshot = text;
+      applySettings(JSON.parse(text).data || {});
+    } catch {
+      /* offline — keep what is already on screen */
+    }
+  }
+
   function applySettings(s) {
-    // Hero title
-    if (s.hero_title) {
-      const el = document.getElementById("heroTitleEl");
-      if (el) {
-        const lines = s.hero_title.split("\n");
-        el.innerHTML = lines
-          .map((l, i) =>
-            i === lines.length - 1
-              ? `<span class="hero-research-line">${_esc(l)}</span>`
-              : _esc(l) + "<br />",
-          )
-          .join("");
-      }
+    // Hero title. The markup ships empty, so this is the only place the wording
+    // comes from; hero-title.js also keeps the snapshot the next load paints
+    // from before its first frame. A blank setting clears both, so removing the
+    // headline in the admin removes it here too instead of freezing stale text.
+    const heroTitleEl = document.getElementById("heroTitleEl");
+    if (window.FMRC_HERO_TITLE) {
+      window.FMRC_HERO_TITLE.paint(heroTitleEl, s.hero_title);
+      window.FMRC_HERO_TITLE.write(s.hero_title);
     }
-    if (s.hero_logo_image) _src("heroLogoEl", s.hero_logo_image);
-    // Hero bg
-    const heroSec = document.querySelector(".hero-section");
-    if (heroSec && s.hero_bg_type === "color" && s.hero_bg_color)
-      heroSec.style.background = s.hero_bg_color;
-    if (heroSec && s.hero_bg_type === "image" && s.hero_bg_image) {
-      heroSec.style.backgroundImage = "url('" + s.hero_bg_image + "')";
-      heroSec.style.backgroundSize = "cover";
-      heroSec.style.backgroundPosition = "center";
-    }
+    // Brand logos — the navbar emblem and the two footer marks live on every
+    // customer page, the hero graphic only on the home page. Each falls back to
+    // the bundled artwork when its setting is blank.
+    _logo("navLogoEl", s.nav_logo_image, "/images/CNSC logo.png");
+    _logo("heroLogoEl", s.hero_logo_image, "/images/FMRC Logo.png");
+    _logo(
+      "footerLogoPrimaryEl",
+      s.footer_logo_primary_image,
+      "/images/CNSC logo.png",
+    );
+    _logo(
+      "footerLogoSecondaryEl",
+      s.footer_logo_secondary_image,
+      "/images/FMRC Logo.png",
+    );
+    // Hero background. One shorthand write per apply: the shorthand resets the
+    // size/position/repeat longhands too, so switching type never leaves the
+    // previous type's remnants behind. An unknown type clears the inline style
+    // and hands the hero back to the stylesheet's own gradient.
+    applyHeroBackground(s);
+    // Hero SDG caption (blank hides the line entirely)
+    applySdgCaption(s);
     // About
     _txt("aboutHeadingEl", s.about_heading);
     _html("aboutText1El", s.about_text_1);
@@ -10305,7 +10343,9 @@ const openReturnRequestModal = (() => {
     if (s.about_video_url) {
       ["aboutVideoSrc", "aboutFullVideoSrc"].forEach(function (id) {
         const src = document.getElementById(id);
-        if (src) {
+        // Only reload when the URL actually changed, so a realtime re-apply
+        // cannot restart a video the visitor is already watching.
+        if (src && src.getAttribute("src") !== s.about_video_url) {
           src.src = s.about_video_url;
           src.parentElement &&
             src.parentElement.load &&
@@ -10398,6 +10438,36 @@ const openReturnRequestModal = (() => {
       s.contact_consent_text ||
         "I hereby consent to the collection, processing, and storage of my personal information in accordance with the Data Privacy Act of 2012 (R.A. 10173).",
     );
+  }
+
+  /**
+   * Hero background for the three modes the admin picker offers. Always one
+   * `background` shorthand write, so switching mode drops the longhands the
+   * previous mode set instead of layering a colour under an old image.
+   */
+  function applyHeroBackground(s) {
+    const heroSec = document.querySelector(".hero-section");
+    if (!heroSec) return;
+    const type = s.hero_bg_type || "";
+    if (type === "gradient") {
+      // hero-gradients.js is the one source both this page and the admin
+      // swatches read, so a preset cannot render differently in the two.
+      const G = window.FMRC_HERO_GRADIENTS;
+      heroSec.style.background = G ? G.css(s.hero_bg_gradient) : "";
+      return;
+    }
+    if (type === "color" && s.hero_bg_color) {
+      heroSec.style.background = s.hero_bg_color;
+      return;
+    }
+    if (type === "image" && s.hero_bg_image) {
+      heroSec.style.background =
+        "url('" + s.hero_bg_image + "') center center / cover no-repeat";
+      return;
+    }
+    // Nothing chosen (or the chosen mode has no value yet) — hand the hero back
+    // to the gradient in the stylesheet.
+    heroSec.style.background = "";
   }
 
   function applyServices(services) {
@@ -10497,6 +10567,225 @@ const openReturnRequestModal = (() => {
     }
   }
 
+  // ── Hero SDG badge strip ──────────────────────────────────────────────────
+  // Source of truth: GET /site-sdgs, managed from Website Management → Home in
+  // both the admin and staff portals. main.js also loads on the products,
+  // services and contact pages, so every branch is null-guarded on the strip.
+  const SDG_MAX = 8;
+  const SDG_CHANNEL = "fmrc-site-settings-realtime";
+  const SDG_STAMP_KEY = "fmrc_site_content_updated_at";
+  let _sdgSnapshot = "";
+  let _sdgs = [];
+
+  function applySdgCaption(s) {
+    const cap = document.getElementById("heroSdgCaptionEl");
+    if (!cap) return;
+    const text = String(s.home_sdg_heading || "").trim();
+    cap.textContent = text;
+    cap.hidden = !text; // blank caption leaves no gap above the circles
+  }
+
+  async function loadSdgs() {
+    if (!document.getElementById("heroSdgRows")) return;
+    try {
+      // Server sends ETag + no-cache, so the browser revalidates and an
+      // unchanged snapshot is a zero-byte 304 on the wire. The body compare
+      // below keeps the badges from re-animating when nothing changed.
+      const res = await fetch(_API + "/site-sdgs");
+      if (!res.ok) return;
+      const text = await res.text();
+      if (text === _sdgSnapshot) return;
+      _sdgSnapshot = text;
+      const { data } = JSON.parse(text);
+      renderSdgs(Array.isArray(data) ? data : []);
+    } catch {
+      /* offline — keep whatever is already on screen */
+    }
+  }
+
+  function renderSdgs(list) {
+    const strip = document.getElementById("heroSdgStrip");
+    const rows = document.getElementById("heroSdgRows");
+    if (!strip || !rows) return;
+
+    _sdgs = list
+      .filter(function (s) {
+        return s && s.image_data;
+      })
+      .slice(0, SDG_MAX);
+
+    if (!_sdgs.length) {
+      rows.innerHTML = "";
+      strip.hidden = true; // nothing uploaded → hero keeps its original layout
+      return;
+    }
+
+    // Two centered flex rows (1-4, 5-8) so a partial second row self-centers.
+    const groups = [_sdgs.slice(0, 4), _sdgs.slice(4)].filter(function (g) {
+      return g.length;
+    });
+
+    rows.innerHTML = groups
+      .map(function (group, gi) {
+        return (
+          '<ul class="hero-sdg-row">' +
+          group
+            .map(function (s, ii) {
+              const i = gi * 4 + ii;
+              const label =
+                String(s.title || "").trim() ||
+                "Sustainable Development Goal " + (i + 1);
+              return (
+                '<li class="hero-sdg-item">' +
+                '<button type="button" class="hero-sdg-btn" style="--sdg-i: ' +
+                i +
+                '" data-sdg-id="' +
+                _attr(s.id) +
+                '" aria-label="' +
+                _attr(label) +
+                '" title="' +
+                _attr(label) +
+                '"><img class="hero-sdg-img" src="' +
+                _attr(s.image_data) +
+                '" alt="' +
+                _attr(label) +
+                '" loading="lazy" decoding="async" /></button>' +
+                "</li>"
+              );
+            })
+            .join("") +
+          "</ul>"
+        );
+      })
+      .join("");
+    strip.hidden = false;
+  }
+  /**
+   * Detail modal, built on the same .admin-system-popup shell every other
+   * customer dialog uses, so the chrome/typography match exactly.
+   */
+  function ensureSdgDetailModal() {
+    let popup = document.getElementById("heroSdgDetailPopup");
+    if (popup) return popup;
+
+    popup = document.createElement("div");
+    popup.id = "heroSdgDetailPopup";
+    popup.className = "admin-system-popup";
+    popup.innerHTML = `
+      <div class="admin-system-popup__backdrop"></div>
+      <div class="admin-system-popup__card" role="dialog" aria-modal="true" aria-labelledby="heroSdgDetailTitle">
+        <img id="heroSdgDetailImg" class="sdg-detail-modal__img" alt="" />
+        <h3 id="heroSdgDetailTitle" class="admin-system-popup__title" style="text-align: center"></h3>
+        <hr class="admin-system-popup__separator" />
+        <p id="heroSdgDetailMessage" class="admin-system-popup__message"></p>
+        <hr class="admin-system-popup__separator" />
+        <div class="admin-system-popup__actions">
+          <button id="heroSdgDetailClose" type="button" class="btn-admin">Close</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(popup);
+
+    const close = function () {
+      popup.classList.remove("show");
+    };
+    popup.querySelector("#heroSdgDetailClose")?.addEventListener("click", close);
+    popup
+      .querySelector(".admin-system-popup__backdrop")
+      ?.addEventListener("click", close);
+    document.addEventListener("keydown", function (ev) {
+      if (ev.key === "Escape" && popup.classList.contains("show")) close();
+    });
+    return popup;
+  }
+  function openSdgDetail(id) {
+    const sdg = _sdgs.find(function (x) {
+      return String(x.id) === String(id);
+    });
+    if (!sdg) return;
+
+    const popup = ensureSdgDetailModal();
+    const img = popup.querySelector("#heroSdgDetailImg");
+    const title = popup.querySelector("#heroSdgDetailTitle");
+    const msg = popup.querySelector("#heroSdgDetailMessage");
+    const seps = popup.querySelectorAll(".admin-system-popup__separator");
+    const label = String(sdg.title || "").trim() || "Sustainable Development Goal";
+    const desc = String(sdg.description || "").trim();
+
+    if (img) {
+      img.src = sdg.image_data || "";
+      img.alt = label;
+    }
+    if (title) title.textContent = label;
+    if (msg) {
+      msg.textContent = desc;
+      msg.style.display = desc ? "" : "none";
+    }
+    // Collapse the second rule too when there is no description to frame.
+    if (seps[1]) seps[1].style.display = desc ? "" : "none";
+
+    popup.classList.add("show");
+    popup.querySelector("#heroSdgDetailClose")?.focus();
+  }
+  let _sdgRefreshAt = 0;
+
+  /** Re-read badges + settings, collapsing duplicate triggers. */
+  function refreshSiteContentRealtime() {
+    const now = Date.now();
+    if (now - _sdgRefreshAt < 400) return;
+    _sdgRefreshAt = now;
+    void loadSdgs();
+    void reloadSettings();
+  }
+
+  function initSdgRealtime() {
+    // Badge clicks are home-page only — the rows exist nowhere else.
+    const rows = document.getElementById("heroSdgRows");
+    if (rows) {
+      rows.addEventListener("click", function (ev) {
+        const btn = ev.target?.closest?.("[data-sdg-id]");
+        if (btn) openSdgDetail(btn.getAttribute("data-sdg-id"));
+      });
+    }
+
+    // The listeners below are not: the navbar emblem, the footer marks and the
+    // footer/contact copy are on every customer page, so each one has to hear a
+    // settings change. Gating them on #heroSdgRows would leave Products,
+    // Services and Contact showing the previous logo until a manual reload.
+
+    // Same browser: admin/staff Website Management → Home broadcasts on save.
+    try {
+      if ("BroadcastChannel" in window) {
+        new BroadcastChannel(SDG_CHANNEL).addEventListener(
+          "message",
+          function (ev) {
+            const type = ev?.data?.type;
+            if (type === "updated" || type === "sdgs-updated")
+              refreshSiteContentRealtime();
+          },
+        );
+      }
+    } catch {
+      /* BroadcastChannel unavailable — the storage + poll paths still work */
+    }
+    window.addEventListener("storage", function (ev) {
+      if (ev.key === SDG_STAMP_KEY) refreshSiteContentRealtime();
+    });
+
+    // Across devices: ETag poll, so unchanged snapshots answer 304 (~0 bytes).
+    setInterval(function () {
+      if (!document.hidden) {
+        void loadSdgs();
+        void reloadSettings();
+      }
+    }, 20000);
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) refreshSiteContentRealtime();
+    });
+    window.addEventListener("focus", refreshSiteContentRealtime);
+  }
+
+
   function initCarousel(track) {
     var items = Array.from(track.querySelectorAll(".carousel-item"));
     var prevEl = document.querySelector(".prev-btn");
@@ -10556,9 +10845,112 @@ const openReturnRequestModal = (() => {
     timer = setInterval(nxt, 5000);
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", loadSiteContent);
-  } else {
+  function bootSiteContent() {
     loadSiteContent();
+    initSdgRealtime();
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootSiteContent);
+  } else {
+    bootSiteContent();
+  }
+})();
+
+/* ===========================================================================
+   HERO TITLE <-> LOGO OPTICAL ANCHOR
+   The SDG band lives under the CTA pills inside .hero-content-left, so every
+   badge added used to drag the flex-centred copy column upward and lift the
+   title off the logo's mid-line.
+   In a centre-aligned row the column's mid-line sits on the logo's, so the
+   title's mid-line rides (below - above)/2 above it -- "below" being the height
+   of everything under the title inside the column, "above" anything over it.
+   Nudging the column down by exactly that half closes the gap, at any badge
+   count and any width. Both terms are gaps between edges that the nudge shifts
+   together, so the measurement never feeds back on itself.
+   Stacked heroes (logo above the copy) get no offset: there is no side-by-side
+   mid-line to match.
+   =========================================================================== */
+(function () {
+  var hero = document.querySelector(".hero-section");
+  var container = hero && hero.querySelector(".hero-container");
+  var column = hero && hero.querySelector(".hero-content-left");
+  var title = column && column.querySelector(".hero-title");
+  var logo = hero && hero.querySelector(".hero-graphic");
+  // main.js is shared with the products, services and contact pages.
+  if (!hero || !container || !column || !title || !logo) return;
+
+  var scheduled = false;
+  var muted = false;
+  var applied = null;
+
+  function setAnchor(px) {
+    if (applied === px) return;
+    applied = px;
+    if (px === null) column.style.removeProperty("--hero-title-anchor");
+    else column.style.setProperty("--hero-title-anchor", px + "px");
+  }
+
+  /* The floor the copy column may not cross: the section's own content edge,
+     and — where the scroll cue is pinned to the bottom of the section — a band
+     wide enough for the cue plus a little air. The cue's band is derived from
+     its computed `bottom` and layout height, never from its rect, which the
+     bounce animation keeps moving; the copy's translate does not move the band,
+     so trimming the lift cannot feed back into this measurement. */
+  function copyFloor() {
+    var heroRect = hero.getBoundingClientRect();
+    var padBottom = parseFloat(getComputedStyle(hero).paddingBottom) || 0;
+    var floor = heroRect.bottom - padBottom;
+    var cue = hero.querySelector(".scroll-indicator");
+    if (cue) {
+      var cs = getComputedStyle(cue);
+      if (cs.display !== "none" && cs.position === "absolute") {
+        var offset = parseFloat(cs.bottom) || 0;
+        floor = Math.min(floor, heroRect.bottom - offset - cue.offsetHeight - 12);
+      }
+    }
+    return floor;
+  }
+
+  function align() {
+    scheduled = false;
+    muted = true;
+    if (getComputedStyle(container).flexDirection !== "row") {
+      setAnchor(null);
+      muted = false;
+      return;
+    }
+    var col = column.getBoundingClientRect();
+    var ttl = title.getBoundingClientRect();
+    var above = ttl.top - col.top;
+    var below = col.bottom - ttl.bottom;
+    var lift = Math.max(0, Math.round((below - above) / 2));
+    setAnchor(lift);
+    /* Height-starved landscape: never let the copy slide out of its section or
+       under the cue. The rest of the empty tail band is fair game. */
+    var spill = column.getBoundingClientRect().bottom - copyFloor();
+    if (spill > 1) setAnchor(Math.max(0, Math.round(lift - spill)));
+    muted = false;
+  }
+
+  function schedule() {
+    if (scheduled || muted) return;
+    scheduled = true;
+    requestAnimationFrame(align);
+  }
+
+  schedule();
+  window.addEventListener("resize", schedule);
+  window.addEventListener("orientationchange", schedule);
+  window.addEventListener("load", schedule);
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(schedule).catch(function () {});
+  }
+  /* The hero title text and the badge strip both arrive from the API, and the
+     badge images settle later still -- watch the boxes instead of the calls. */
+  if (window.ResizeObserver) {
+    var ro = new ResizeObserver(schedule);
+    ro.observe(column);
+    ro.observe(title);
   }
 })();

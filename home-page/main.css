@@ -167,6 +167,14 @@ body {
     0px 0px 2px rgba(255, 255, 255, 0.2);
 }
 
+/* The wording arrives from /api/site-settings (see hero-title.js), so on a
+   first visit the heading is briefly empty. Hold three lines of space for it
+   so the buttons and SDG strip below don't jump when the title lands. */
+.hero-title:empty {
+  min-height: 3.75em; /* 3 lines at the 1.25 line-height above */
+  min-height: 3lh; /* exact, where the unit is supported */
+}
+
 .btn-browse {
   font-family: "Montserrat", sans-serif;
   background-color: #eef224; /* Solid yellow base */
@@ -14553,3 +14561,296 @@ textarea:focus-visible,
   }
 }
 
+
+/* ==========================================================================
+   Hero SDG strip — up to 8 round badges under the hero CTAs (4 + 4).
+   Plate, ring, glow, hover easing and click shrink are all borrowed from
+   .hero-graphic / .btn-browse so the band reads as part of the same hero.
+   ========================================================================== */
+.hero-sdg-strip {
+  --sdg-gap: clamp(6px, 1.1vw, 14px);
+  /* Deliberately generous: the badges read as their own band rather than a
+     third row of controls hanging off the CTA pills. */
+  margin-top: clamp(28px, 4.6vw, 58px);
+  width: min(100%, 430px);
+}
+
+.hero-sdg-strip[hidden] {
+  display: none;
+}
+
+/* Caption sits *under* the circles, so its margin is on top, and it starts on
+   the same left edge as the badges above it. */
+.hero-sdg-caption {
+  margin: clamp(10px, 1.5vw, 16px) 0 0;
+  font-family: "Montserrat", "Poppins", sans-serif;
+  font-size: clamp(9px, 1vw, 11.5px);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.82);
+  text-align: left;
+  line-height: 1.45;
+}
+
+.hero-sdg-caption[hidden] {
+  display: none;
+}
+
+.hero-sdg-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sdg-gap);
+}
+
+/* Two rows rather than one 4-column grid: a partial second row (e.g. 5 badges
+   = 4 + 1) then keeps the same left edge instead of leaving a hole. The band
+   fills from the left so its first badge lines up with the hero title and the
+   Browse Products pill, the way the copy column reads everywhere else. */
+.hero-sdg-row {
+  display: flex;
+  justify-content: flex-start;
+  gap: var(--sdg-gap);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.hero-sdg-item {
+  flex: 0 0 calc((100% - 3 * var(--sdg-gap)) / 4);
+  max-width: 78px;
+  min-width: 0;
+}
+
+.hero-sdg-btn {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  padding: 3px;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  font-family: "Montserrat", sans-serif;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 238, 0.92));
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  box-shadow:
+    0 12px 26px rgba(35, 8, 8, 0.32),
+    0 0 14px rgba(241, 237, 18, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition:
+    transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1),
+    box-shadow 0.4s ease,
+    border-color 0.4s ease;
+  animation: sdgPopIn 0.5s cubic-bezier(0.25, 0.8, 0.25, 1) both;
+  animation-delay: calc(var(--sdg-i, 0) * 60ms);
+}
+
+.hero-sdg-btn:hover {
+  transform: translateY(-4px) scale(1.08);
+  border-color: rgba(241, 237, 18, 0.8);
+  box-shadow:
+    0 20px 40px rgba(22, 6, 6, 0.44),
+    0 0 26px rgba(241, 237, 18, 0.45),
+    inset 0 0 18px rgba(255, 255, 255, 0.98);
+}
+
+.hero-sdg-btn:active {
+  transform: scale(0.97);
+}
+
+.hero-sdg-btn:focus-visible {
+  outline: 3px solid rgba(238, 242, 36, 0.9);
+  outline-offset: 3px;
+}
+
+.hero-sdg-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+@keyframes sdgPopIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.86);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-sdg-btn {
+    animation: none;
+    transition: none;
+  }
+
+  .hero-sdg-btn:hover {
+    transform: none;
+  }
+}
+
+/* Which edge the band aligns to — it follows the copy column rather than
+   picking its own: flush left wherever the title and CTA pills are (the default
+   row hero, and the height-starved landscape heroes that rebuild that row), and
+   centred only where the column itself is centred (the stacked hero at 900px
+   and below). The landscape exceptions come last so they win inside the stacked
+   rule's range. */
+@media (max-width: 900px) {
+  .hero-sdg-row {
+    justify-content: center;
+  }
+
+  .hero-sdg-caption {
+    text-align: center;
+  }
+}
+
+@media (max-height: 460px) and (orientation: landscape) {
+  .hero-sdg-row {
+    justify-content: flex-start;
+  }
+
+  .hero-sdg-caption {
+    text-align: left;
+  }
+}
+
+@media (min-width: 320px) and (max-width: 720px) and (max-height: 520px) {
+  .hero-sdg-row {
+    justify-content: flex-start;
+  }
+
+  .hero-sdg-caption {
+    text-align: left;
+  }
+}
+
+/* SDG detail modal (built by main.js on the shared .admin-system-popup shell) */
+.sdg-detail-modal__img {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  padding: 4px;
+  object-fit: cover;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 238, 0.92));
+  border: 2px solid rgba(168, 15, 15, 0.18);
+  box-shadow: 0 10px 24px rgba(35, 8, 8, 0.18);
+  display: block;
+}
+
+/* ==========================================================================
+   Hero rhythm — the hero runs past the fold so the SDG band is the first
+   thing a scroll reveals, not the About section.
+   ========================================================================== */
+.hero-section {
+  /* The slice of hero below the fold: it carries the SDG badges plus the
+     empty space under them, taking the section to roughly 125% of a screen.
+     The floor is what a short desktop needs for the badge band and the cue at
+     the foot of the section to clear each other. */
+  --hero-tail: clamp(190px, 25dvh, 300px);
+  min-height: calc(100dvh - var(--ux-header-h) + var(--hero-tail));
+}
+
+/* Growing the section on its own would re-centre its contents and drag the
+   title down with them. Mirroring that growth as a bottom margin on the
+   centred container keeps the title/logo pair exactly where it sat in a 100vh
+   hero and puts every new pixel underneath the badges instead. */
+.hero-container {
+  margin-bottom: var(--hero-tail);
+}
+
+/* The cue belongs at the foot of the section — under the badge band and the
+   empty space below it — rather than on the fold line, where it read as a
+   marker sitting beside the badges. `bottom` is measured from
+   .hero-section's own edge, which is now a tail below the fold, so no tail
+   term is needed; left: 50% + translateX(-50%) from the base rule keeps it
+   horizontally centred. */
+.hero-section .scroll-indicator {
+  bottom: clamp(22px, 3vh, 34px);
+}
+
+@media (max-width: 900px) {
+  .hero-section {
+    /* The stacked hero already runs well past the fold on its own, so it needs
+       far less of a tail to keep the badges clear of the About section. */
+    --hero-tail: clamp(90px, 15dvh, 170px);
+  }
+
+  /* The cue leaves absolute positioning at this width and rejoins the flow, so
+     the container's tail margin lands between the copy and the cue — which puts
+     the cue at the foot of the section exactly as it is above. Its own margins
+     stay at the base `18px auto 0`, so the group's total height is unchanged and
+     the title/logo pair keeps its position. */
+}
+
+/* Written by main.js (alignHeroTitleWithLogo): half the height of everything
+   below the title inside the copy column — CTA pills plus the SDG band — which
+   is exactly the distance the title had been riding above the logo's mid-line.
+   Applied through the standalone `translate` property, not `transform`: it
+   composes with the reveal-on-scroll transform this column already uses, and
+   being layout-neutral it lets the badges grow without inflating the section or
+   re-centring the pair. Default 0px, so the layout is unchanged if the script
+   never runs. */
+.hero-content-left {
+  translate: 0 var(--hero-title-anchor, 0px);
+}
+
+/* ==========================================================================
+   Brand logo holders — the navbar emblem, the hero graphic and the two footer
+   marks are all admin-uploadable, so each one gets a holder with a locked
+   shape. Only `aspect-ratio` and `object-fit` do the shaping here: every
+   responsive override sets a single axis (height for the emblem and the footer
+   marks, width for the hero graphic), so the ratio derives the other axis and
+   all existing sizes carry over untouched. `contain` keeps a portrait or
+   landscape upload whole inside the holder instead of letting it stretch the
+   header or turn a circle into an ellipse.
+   ========================================================================== */
+
+/* Square plate, sized exactly as the emblem is today — height still comes from
+   the rules above and from responsive.css, the ratio just squares it off. The
+   warm plate and hairline are the same treatment the SDG badge thumbs and the
+   hero graphic use, so an uploaded mark reads as framed rather than pasted on
+   the translucent header. */
+.header-emblem {
+  aspect-ratio: 1;
+  width: auto;
+  object-fit: contain;
+  border-radius: 22%;
+  padding: 2px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 238, 0.92));
+  border: 1px solid rgba(168, 15, 15, 0.16);
+}
+
+@media (max-width: 900px) {
+  /* The plate shrinks to ~24-30px here, so the inset has to come down with it
+     or the mark inside loses most of its room. */
+  .header-emblem {
+    padding: 1px;
+    border-radius: 20%;
+  }
+}
+
+/* Fixed circle. `width: auto` plus the ratio turns the existing height into a
+   diameter, so a wide upload no longer flattens the circle into an ellipse. */
+.footer-logo {
+  aspect-ratio: 1;
+  width: auto;
+  object-fit: contain;
+}
+
+/* Fixed circle. Width is the axis every breakpoint sets for the hero graphic,
+   so the ratio derives the height and the ring stays perfectly round whatever
+   the uploaded artwork's proportions are. */
+.hero-graphic {
+  aspect-ratio: 1;
+  height: auto;
+  object-fit: contain;
+}

@@ -4,7 +4,15 @@
  * Replaces all hardcoded product cards.
  */
 document.addEventListener("DOMContentLoaded", () => {
-  const API_BASE_URL = `${window.location.protocol}//${window.location.hostname}:8000/api`;
+  const API_BASE_URL = (() => {
+    const proto = window.location.protocol;
+    const host = window.location.hostname;
+    const port = window.location.port;
+    if (port === "8000") return `${proto}//${host}:${port}/api`;
+    if (host === "localhost" || host === "127.0.0.1")
+      return `${proto}//${host}:8000/api`;
+    return `${proto}//${host}/api`;
+  })();
 
   const productGrid = document.getElementById("productGrid");
   const emptyState = document.getElementById("productsEmptyState");

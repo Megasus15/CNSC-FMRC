@@ -1,4 +1,15 @@
 document.addEventListener("DOMContentLoaded", () => {
+  // ── API Base URL (works on localhost AND production) ──────────────────────
+  const API_BASE_URL = (() => {
+    const proto = window.location.protocol;
+    const host = window.location.hostname;
+    const port = window.location.port;
+    if (port === "8000") return `${proto}//${host}:${port}/api`;
+    if (host === "localhost" || host === "127.0.0.1")
+      return `${proto}//${host}:8000/api`;
+    return `${proto}//${host}/api`;
+  })();
+
   const loginForm = document.getElementById("loginForm");
   const signupForm = document.getElementById("signupForm");
   const openSignupFromLogin = document.getElementById("openSignupFromLogin");
@@ -228,7 +239,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       toggleLoader(true);
       try {
-        const response = await fetch("http://127.0.0.1:8000/api/register", {
+        const response = await fetch(`${API_BASE_URL}/register`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -301,7 +312,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       toggleLoader(true);
       try {
-        const response = await fetch("http://127.0.0.1:8000/api/login", {
+        const response = await fetch(`${API_BASE_URL}/login`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -435,7 +446,7 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         // Ask the Laravel backend to email a real reset link.
         const response = await fetch(
-          "http://127.0.0.1:8000/api/forgot-password",
+          `${API_BASE_URL}/forgot-password`,
           {
             method: "POST",
             headers: {

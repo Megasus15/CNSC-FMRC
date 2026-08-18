@@ -1041,6 +1041,17 @@
     line-height: 1;
     letter-spacing: 0.14em;
   }
+
+  /* Hero SDG badges: still 4 + 4, just a tighter pitch. */
+  .hero-sdg-strip {
+    --sdg-gap: clamp(5px, 1vw, 10px);
+    margin-top: clamp(22px, 3.6vw, 40px);
+    width: min(100%, 380px);
+  }
+
+  .hero-sdg-item {
+    max-width: 64px;
+  }
 }
 
 @media (max-width: 720px) {
@@ -1083,6 +1094,29 @@
   .hero-title {
     margin-bottom: 18px;
     font-size: clamp(22px, 7.2vw, 34px) !important;
+  }
+
+  /* Match the CTA grid width so the badges read as one block with the pills. */
+  .hero-sdg-strip {
+    --sdg-gap: 6px;
+    margin-top: 26px;
+    width: min(100%, 360px);
+    max-width: 360px;
+  }
+
+  .hero-sdg-item {
+    max-width: 52px;
+  }
+
+  .hero-sdg-caption {
+    margin: 8px 0 0;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+  }
+
+  .hero-sdg-btn {
+    padding: 2px;
+    border-width: 1.5px;
   }
 
   /* Compact signed-out navigation to the same icon-sized control language
@@ -1359,6 +1393,26 @@
     font-size: clamp(15px, 8vw, 21px) !important;
   }
 
+  /* Watch-narrow: drop the caption, keep 4 + 4 circles legible. */
+  .hero-sdg-strip {
+    --sdg-gap: 4px;
+    margin-top: 18px;
+    width: min(100%, 190px);
+  }
+
+  .hero-sdg-caption {
+    display: none;
+  }
+
+  .hero-sdg-item {
+    max-width: 34px;
+  }
+
+  .hero-sdg-btn {
+    padding: 1.5px;
+    border-width: 1px;
+  }
+
   .services-grid,
   .shop-grid {
     gap: 6px !important;
@@ -1427,13 +1481,22 @@
   .shop-grid {
     grid-template-columns: minmax(0, 1fr) !important;
   }
+
+  .hero-sdg-strip {
+    --sdg-gap: 3px;
+    margin-top: 12px;
+  }
+
+  .hero-sdg-item {
+    max-width: 26px;
+  }
 }
 
 /* Short and square phones get a compact side-by-side hero so the primary
    actions remain visible without making any control smaller than 38px. */
 @media (min-width: 320px) and (max-width: 720px) and (max-height: 520px) {
   .hero-section {
-    min-height: calc(100dvh - var(--ux-header-h));
+    min-height: calc(100dvh - var(--ux-header-h) + var(--hero-tail));
     padding-top: 16px;
     padding-bottom: 22px;
   }
@@ -1480,5 +1543,26 @@
 
   .scroll-indicator {
     display: none;
+  }
+}
+
+/* Landscape phones and small tablets are height-starved (844x390, 900x520):
+   keep all 8 badges, lose the caption, and tighten the band so the hero copy
+   and CTAs stay as close to the fold as they were before the strip existed.
+   Placed after the width-only blocks so it wins where both apply, and gated
+   at 320px so ≤300px handsets keep their own smaller circles. */
+@media (min-width: 320px) and (max-width: 900px) and (max-height: 520px) {
+  .hero-sdg-strip {
+    --sdg-gap: 5px;
+    margin-top: 16px;
+    width: min(100%, 320px);
+  }
+
+  .hero-sdg-caption {
+    display: none;
+  }
+
+  .hero-sdg-item {
+    max-width: 40px;
   }
 }

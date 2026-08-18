@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\OrderReturnController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\SiteSettingController;
 use App\Http\Controllers\Api\ServiceController;
+use App\Http\Controllers\Api\HomeSdgController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ProductAnalyticsController;
 use App\Http\Controllers\Api\WalkInOrderController;
@@ -58,6 +59,9 @@ Route::get('/site-settings', [SiteSettingController::class, 'index']);
 
 // Public: Services (shared between home "What We Offer" and Services page)
 Route::get('/services', [ServiceController::class, 'index']);
+
+// Public: Home hero SDG badges (ETag-revalidated for cheap polling)
+Route::get('/site-sdgs', [HomeSdgController::class, 'index']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/users', [AuthController::class, 'getUsers']);
@@ -162,6 +166,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/admin/services', [ServiceController::class, 'store']);
     Route::put('/admin/services/{service}', [ServiceController::class, 'update']);
     Route::delete('/admin/services/{service}', [ServiceController::class, 'destroy']);
+
+    // Admin: Home hero SDG badges CRUD
+    Route::get('/admin/site-sdgs', [HomeSdgController::class, 'adminIndex']);
+    Route::post('/admin/site-sdgs', [HomeSdgController::class, 'store']);
+    Route::patch('/admin/site-sdgs/reorder', [HomeSdgController::class, 'reorder']);
+    Route::put('/admin/site-sdgs/{homeSdg}', [HomeSdgController::class, 'update']);
+    Route::delete('/admin/site-sdgs/{homeSdg}', [HomeSdgController::class, 'destroy']);
 
     Route::get('/user', function (Request $request) {
         return $request->user();

@@ -391,7 +391,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setLoading(true);
     try {
       if (token) {
-        await fetch("http://127.0.0.1:8000/api/logout", {
+        await fetch((() => { const p = window.location.protocol, h = window.location.hostname, pt = window.location.port; if (pt === "8000") return `${p}//${h}:${pt}/api`; if (h === "localhost" || h === "127.0.0.1") return `${p}//${h}:8000/api`; return `${p}//${h}/api`; })() + "/logout", {
           method: "POST",
           headers: {
             Authorization: "Bearer " + token,

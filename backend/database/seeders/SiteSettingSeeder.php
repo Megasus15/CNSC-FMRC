@@ -11,11 +11,22 @@ class SiteSettingSeeder extends Seeder
     public function run(): void
     {
         // ── Hero Section ──────────────────────────────────────────────────────────
-        SiteSetting::set('hero_title', "FABRICATION &\nMANUFACTURING\nRESEARCH CENTER");
-        SiteSetting::set('hero_bg_type', 'color');           // 'color' or 'image'
+        SiteSetting::set('hero_title', "ONLINE MARKET\nPLACE AND\nSERVICE SOLUTION");
+        SiteSetting::set('hero_bg_type', 'color');           // 'color', 'gradient' or 'image'
         SiteSetting::set('hero_bg_color', '#8b1a1a');
+        SiteSetting::set('hero_bg_gradient', 'maroon-ember'); // preset id from home-page/hero-gradients.js
         SiteSetting::set('hero_bg_image', null);
         SiteSetting::set('hero_logo_image', null);           // base64 or null (falls back to /images/FMRC Logo.png)
+
+        // ── Brand Logos ───────────────────────────────────────────────────────────
+        // Uploaded from Website Management → Home. Each is base64 or null, and a
+        // null falls back to the bundled artwork the customer pages ship with.
+        SiteSetting::set('nav_logo_image', null);             // navbar emblem, every customer page (/images/CNSC logo.png)
+        SiteSetting::set('footer_logo_primary_image', null);  // footer left logo (/images/CNSC logo.png)
+        SiteSetting::set('footer_logo_secondary_image', null); // footer right logo (/images/FMRC Logo.png)
+
+        // Optional caption above the hero SDG badge strip. Blank hides the line.
+        SiteSetting::set('home_sdg_heading', 'Supporting the UN Sustainable Development Goals');
 
         // ── About Us Section ──────────────────────────────────────────────────────
         SiteSetting::set('about_heading', 'ABOUT US');
