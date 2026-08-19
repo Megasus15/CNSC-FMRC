@@ -272,9 +272,8 @@ HTML;
 
   *{box-sizing:border-box;margin:0;padding:0}
   body{min-height:100vh;font-family:'Montserrat','Segoe UI',Tahoma,Arial,sans-serif;color:#2d3748;background:#f4f7f6;background-image:radial-gradient(#e2e8f0 1px,transparent 1px);background-size:30px 30px;display:flex;justify-content:center;align-items:center;padding:30px 16px}
-  .card{width:100%;max-width:440px;background:#fff;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.08);padding:0 32px 40px;position:relative;overflow:hidden}
-  .accent{position:absolute;top:0;left:0;width:100%;height:6px;background:#9e1414}
-  .hero{text-align:center;margin:48px 0 24px}
+  .card{width:100%;max-width:440px;background:#fff;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.08);padding:40px 32px;position:relative;overflow:hidden}
+  .hero{text-align:center;margin:12px 0 24px}
   .title{font-size:26px;color:#9e1414;font-weight:800;letter-spacing:-.5px}
   .caption{font-size:13px;color:#718096;margin-top:4px;font-weight:500}
   .desc{font-size:14px;color:#718096;line-height:1.5;text-align:center;margin-bottom:20px}
@@ -286,9 +285,9 @@ HTML;
   input:focus{outline:none;border-color:#9e1414;background:#fff;box-shadow:0 0 0 3px rgba(158,20,20,.1)}
   .toggle{position:absolute;right:12px;border:none;background:transparent;color:#a0aec0;cursor:pointer;font-size:12px;font-weight:700;padding:6px 8px}
   .toggle:hover{color:#9e1414}
-  .btn{width:100%;background:#9e1414;color:#fff;border:none;border-radius:8px;padding:14px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:background-color .2s ease,transform .1s ease;box-shadow:0 6px 15px rgba(0,0,0,.16)}
-  .btn:hover{background:#7a0f0f}
-  .btn:active{transform:scale(.97)}
+  .btn{width:100%;background:linear-gradient(135deg, #5f0d0d 0%, #8b0000 50%, #9e1414 100%);color:#fff;border:none;border-radius:8px;padding:14px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none;display:inline-block;box-sizing:border-box;transition:background-color .2s ease,transform .1s ease,box-shadow .15s ease;box-shadow:0 14px 28px rgba(128,24,18,.2)}
+  .btn:hover{background:linear-gradient(135deg, #3d0808 0%, #5f0d0d 50%, #7a0f0f 100%);color:#fff;text-decoration:none;transform:none;box-shadow:0 14px 28px rgba(128,24,18,.25)}
+  .btn:active{background:linear-gradient(135deg, #2c0505 0%, #4a0a0a 50%, #5f0d0d 100%);color:#fff;transform:scale(.97);box-shadow:0 6px 14px rgba(128,24,18,.2)}
   .btn:disabled{opacity:.7;cursor:not-allowed}
   .err{color:#d32f2f;font-size:12px;font-weight:600;margin-top:6px;display:none}
   .field.has-error input{border-color:#d32f2f;box-shadow:0 0 0 3px rgba(211,47,47,.14);background:#fffafa}
@@ -307,8 +306,6 @@ HTML;
 </head>
 <body>
   <div class="card">
-    <div class="accent"></div>
-
     <!-- Reset form -->
     <div id="formView">
       <div class="hero">
@@ -342,6 +339,7 @@ HTML;
       <div class="hero"><div class="ok-icon">&#10003;</div></div>
       <h2 class="state">Password Reset</h2>
       <p class="state">Your password has been reset successfully. You can now log in with your new password.</p>
+      <a href="https://ucn-fabmanlab.com/customer-auth/auth" class="btn" style="text-decoration:none;display:block;margin-top:8px;">Go to Customer Login</a>
     </div>
 
     <!-- Invalid link view -->
@@ -349,6 +347,7 @@ HTML;
       <div class="hero"><div class="warn-icon">!</div></div>
       <h2 class="state">Invalid or Expired Link</h2>
       <p class="state" id="invalidMsg">This password reset link is invalid or has expired. Please request a new one from the login page.</p>
+      <a href="https://ucn-fabmanlab.com/customer-auth/auth" class="btn" style="text-decoration:none;display:block;margin-top:8px;">Back to Customer Login</a>
     </div>
 
     <div class="foot">&copy; {$year} UCN-FMRC. All rights reserved.</div>
