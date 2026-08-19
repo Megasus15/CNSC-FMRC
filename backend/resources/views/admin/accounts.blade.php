@@ -67,7 +67,7 @@
             </div>
           </div>
           <div class="panel">
-            <div class="panel-header"><h3>User Directory</h3><div class="filters-row"><select class="filter-select"><option>All Roles</option><option>Admin</option><option>Cashier</option></select></div></div>
+            <div class="panel-header"><h3>User Directory</h3><div class="filters-row"><select class="filter-select"><option>All Roles</option><option>Admin</option><option>Staff</option><option>Customer</option></select></div></div>
             <div class="table-wrapper">
               <table class="admin-table enhanced-table">
                 <thead><tr><th>No.</th><th>Name</th><th>Username/Gmail</th><th>Password</th><th>Role</th><th>Joined</th><th class="sticky-action">Action</th></tr></thead>

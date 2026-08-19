@@ -327,7 +327,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (data.user.role !== "customer") {
             setFieldError(
               "loginUser",
-              "Admins and cashiers must use the admin login page.",
+              "Admins and Staff must use the Admin/Staff login portal.",
             );
             return;
           }

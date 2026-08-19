@@ -93,7 +93,7 @@ Inside `backend`, run:
 php artisan migrate --seed
 ```
 
-This creates all tables and inserts default admin/cashier accounts.
+This creates all tables and inserts default admin/staff accounts.
 
 ---
 
@@ -129,10 +129,10 @@ Keep this terminal open while testing the system.
 - Username: `admin` (or `admin@cnsc.edu.ph`)
 - Password: `#admin_2026!`
 
-**Cashier:**
+**Staff:**
 - Page: `admin-auth/auth.html`
-- Username: `cashier` (or `cashier@cnsc.edu.ph`)
-- Password: `cashier123`
+- Username: `staff` (or `staff@cnsc.edu.ph`)
+- Password: `staff123!`
 
 **Customer:**
 - Page: `home-page/main.html`

@@ -24,7 +24,7 @@
     pathname.endsWith("/main.html") ||
     /(?:^|\/)home-page\/?$/.test(pathname);
   const isProductsPage = /products-page/i.test(pathname);
-  const isAdminOrStaff = /admin-page|staff-page|cashier-page|admin-auth/i.test(
+  const isAdminOrStaff = /admin-page|staff-page|admin-auth/i.test(
     pathname,
   );
 

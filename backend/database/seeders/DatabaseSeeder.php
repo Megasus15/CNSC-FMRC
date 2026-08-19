@@ -24,13 +24,13 @@ class DatabaseSeeder extends Seeder
             'role' => 'admin',
         ]);
 
-        // Cashier Account
+        // Staff Account
         User::factory()->create([
-            'name' => 'Cashier User',
-            'username' => 'cashier',
-            'email' => 'cashier@cnsc.edu.ph',
-            'password' => bcrypt('cashier123'),
-            'role' => 'cashier',
+            'name' => 'Staff User',
+            'username' => 'staff',
+            'email' => 'staff@cnsc.edu.ph',
+            'password' => bcrypt('staff123!'),
+            'role' => 'staff',
         ]);
 
         // Test Customer Account (for order testing)

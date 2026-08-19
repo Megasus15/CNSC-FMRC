@@ -37,11 +37,7 @@ $files = @(
   "staff-page\website-contact.html",
   "staff-page\website-footer.html",
   "staff-page\website-home.html",
-  "staff-page\website-services.html",
-  "cashier-page\archives.html",
-  "cashier-page\dashboard.html",
-  "cashier-page\my-account.html",
-  "cashier-page\payment-monitoring.html"
+  "staff-page\website-services.html"
 )
 
 $totalUpdated = 0

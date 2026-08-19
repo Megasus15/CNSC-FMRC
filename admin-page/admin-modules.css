@@ -884,11 +884,7 @@ input.page-number:focus,
   border-color: #fecaca;
 }
 
-.role-tag-cashier {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border-color: #bfdbfe;
-}
+
 
 .role-tag-staff {
   background: #f5f3ff;

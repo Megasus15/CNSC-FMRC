@@ -181,12 +181,10 @@ document.addEventListener("DOMContentLoaded", () => {
             window.location.href = "../admin-page/dashboard.html";
           } else if (data.user.role === "staff") {
             window.location.href = "../staff-page/dashboard.html";
-          } else if (data.user.role === "cashier") {
-            window.location.href = "../cashier-page/dashboard.html";
           } else {
             setFieldError(
               "loginUser",
-              "Unauthorized access. This area is for Admin/Cashier/Staff only.",
+              "Unauthorized access. This portal is for Admin and Staff only.",
             );
           }
         } else if (response.status === 422 && data.errors) {
