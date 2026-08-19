@@ -626,7 +626,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .map((p, idx) => {
           const rowNum = String(start + idx + 1).padStart(3, "0");
           const imgCell = p.image_data
-            ? `<img src="${p.image_data}" alt="${escHtml(p.name)}" style="height:36px;width:48px;object-fit:cover;border-radius:6px;" />`
+            ? `<img src="${p.image_data}" alt="${escHtml(p.name)}" style="height:36px;width:48px;object-fit:cover;border-radius:6px;" loading="lazy" decoding="async" />`
             : `<span style="color:#9ca3af;font-size:0.75rem;">No image</span>`;
           const stockStatusHtml =
             p.stock_status === "in_stock"
@@ -800,6 +800,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const loadTopSelling = async (period = "month") => {
     const topCtx = document.getElementById("topSellingChart");
     const emptyEl = document.getElementById("topSellingEmpty");
+    const topBody = document.getElementById("topSellingBody");
     if (!topCtx) return;
 
     try {
@@ -812,6 +813,7 @@ document.addEventListener("DOMContentLoaded", () => {
           },
         },
       );
+      topBody?.querySelectorAll(".analytics-shimmer-loader").forEach((el) => el.remove());
       if (res.status === 401 || res.status === 403) {
         setUnauthorized();
         return;
@@ -885,6 +887,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     } catch (err) {
       console.error("Top selling load error:", err);
+      topBody?.querySelectorAll(".analytics-shimmer-loader").forEach((el) => el.remove());
       topCtx.style.display = "none";
       if (emptyEl) emptyEl.style.display = "flex";
     }
@@ -907,6 +910,7 @@ document.addEventListener("DOMContentLoaded", () => {
       "salesCategoryCenterPercent",
     );
     const centerLabelEl = document.getElementById("salesCategoryCenterLabel");
+    const catBody = document.getElementById("salesByCategoryBody");
     if (!catCtx) return;
 
     try {
@@ -919,6 +923,7 @@ document.addEventListener("DOMContentLoaded", () => {
           },
         },
       );
+      catBody?.querySelectorAll(".analytics-shimmer-loader").forEach((el) => el.remove());
       if (res.status === 401 || res.status === 403) {
         setUnauthorized();
         return;
@@ -1033,6 +1038,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     } catch (err) {
       console.error("Sales by category load error:", err);
+      catBody?.querySelectorAll(".analytics-shimmer-loader").forEach((el) => el.remove());
       catCtx.style.display = "none";
       if (layoutEl) layoutEl.style.display = "none";
       if (listEl) listEl.innerHTML = "";
@@ -1046,6 +1052,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const perfBody = document.getElementById("productPerformanceBody");
     const emptyEl = document.getElementById("productPerformanceEmpty");
     const tableEl = document.getElementById("productPerformanceTable");
+    const perfWrapper = document.getElementById("productPerformanceTableWrapper");
     if (!perfBody) return;
 
     try {
@@ -1058,6 +1065,7 @@ document.addEventListener("DOMContentLoaded", () => {
           },
         },
       );
+      perfWrapper?.querySelectorAll(".analytics-shimmer-loader").forEach((el) => el.remove());
       if (res.status === 401 || res.status === 403) {
         setUnauthorized();
         return;
@@ -1102,6 +1110,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .join("");
     } catch (err) {
       console.error("Product performance load error:", err);
+      perfWrapper?.querySelectorAll(".analytics-shimmer-loader").forEach((el) => el.remove());
       perfBody.innerHTML = "";
       if (tableEl) tableEl.style.display = "none";
       if (emptyEl) emptyEl.style.display = "flex";
@@ -1112,6 +1121,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const loadYearlySalesTrend = async (year) => {
     const trendCtx = document.getElementById("yearlySalesTrendChart");
     const emptyEl = document.getElementById("yearlySalesTrendEmpty");
+    const trendBody = document.getElementById("yearlySalesTrendBody");
     if (!trendCtx) return;
 
     const selectedYear = year || new Date().getFullYear();
@@ -1127,6 +1137,7 @@ document.addEventListener("DOMContentLoaded", () => {
           cache: "no-store",
         },
       );
+      trendBody?.querySelectorAll(".analytics-shimmer-loader").forEach((el) => el.remove());
       if (res.status === 401 || res.status === 403) {
         setUnauthorized();
         return;
@@ -1224,6 +1235,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     } catch (err) {
       console.error("Yearly sales trend load error:", err);
+      trendBody?.querySelectorAll(".analytics-shimmer-loader").forEach((el) => el.remove());
       trendCtx.style.display = "none";
       if (emptyEl) emptyEl.style.display = "flex";
     }
@@ -1281,6 +1293,23 @@ document.addEventListener("DOMContentLoaded", () => {
       shimmerEl.style.display = "";
     }
 
+    // Yearly Sales Trend - hide chart, show shimmer
+    const trendCtx = document.getElementById("yearlySalesTrendChart");
+    const trendEmpty = document.getElementById("yearlySalesTrendEmpty");
+    const trendBody = document.getElementById("yearlySalesTrendBody");
+    if (trendCtx) trendCtx.style.display = "none";
+    if (trendEmpty) trendEmpty.style.display = "none";
+    if (trendBody) {
+      let shimmerEl = trendBody.querySelector(".analytics-shimmer-loader");
+      if (!shimmerEl) {
+        shimmerEl = document.createElement("div");
+        shimmerEl.className = "analytics-shimmer-loader";
+        trendBody.appendChild(shimmerEl);
+      }
+      shimmerEl.innerHTML = shimmerHTML;
+      shimmerEl.style.display = "";
+    }
+
     // Product Performance - keep the real header and use Inventory-style rows.
     const perfTable = document.getElementById("productPerformanceTable");
     const perfBody = document.getElementById("productPerformanceBody");
@@ -1308,48 +1337,26 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       }
     }
-
-    // Yearly Sales Trend - hide chart, show shimmer
-    const trendCtx = document.getElementById("yearlySalesTrendChart");
-    const trendEmpty = document.getElementById("yearlySalesTrendEmpty");
-    const trendBody = document.getElementById("yearlySalesTrendBody");
-    if (trendCtx) trendCtx.style.display = "none";
-    if (trendEmpty) trendEmpty.style.display = "none";
-    if (trendBody) {
-      let shimmerEl = trendBody.querySelector(".analytics-shimmer-loader");
-      if (!shimmerEl) {
-        shimmerEl = document.createElement("div");
-        shimmerEl.className = "analytics-shimmer-loader";
-        trendBody.appendChild(shimmerEl);
-      }
-      shimmerEl.innerHTML = shimmerHTML;
-      shimmerEl.style.display = "";
-    }
   };
 
   // ── Remove shimmer loaders after data loads ──
   const clearAnalyticsShimmers = () => {
     document.querySelectorAll(".analytics-shimmer-loader").forEach((el) => {
-      el.style.display = "none";
+      el.remove();
     });
   };
 
-  // ── Combined function to load all analytics cards ──
+  // ── Combined function to load all analytics cards progressively 1-by-1 ──
   const updateSummaryCards = ({ showLoading = true } = {}) => {
     if (showLoading) renderAnalyticsSkeletons();
 
-    const onDone = () => clearAnalyticsShimmers();
-
-    Promise.all([
-      loadTopSelling(topSellingPeriod?.value || "month"),
-      loadSalesByCategory(),
-      loadProductPerformance(),
-      loadYearlySalesTrend(
-        yearDropdown ? Number(yearDropdown.value) : new Date().getFullYear(),
-      ),
-    ])
-      .then(onDone)
-      .catch(onDone);
+    // Trigger each widget independently so fast ones appear 1-by-1 immediately
+    void loadTopSelling(topSellingPeriod?.value || "month");
+    void loadSalesByCategory();
+    void loadProductPerformance();
+    void loadYearlySalesTrend(
+      yearDropdown ? Number(yearDropdown.value) : new Date().getFullYear(),
+    );
   };
 
   // ─── Load Products from API ───────────────────────────────────────────────────

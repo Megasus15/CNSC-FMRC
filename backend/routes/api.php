@@ -50,6 +50,7 @@ Route::get('/appointments/{reference}/verify', [AppointmentController::class, 'v
 
 // Public: Customer-facing products (non-blocked only)
 Route::get('/products', [ProductController::class, 'index']);
+Route::get('/products/{product}/image', [ProductController::class, 'image']);
 Route::get('/products/{product}/reviews', [ProductRatingController::class, 'publicIndex']);
 Route::get('/announcements', [AnnouncementController::class, 'publicIndex']);
 Route::get('/promotions/active', [PromotionController::class, 'active']);
@@ -59,6 +60,7 @@ Route::get('/site-settings', [SiteSettingController::class, 'index']);
 
 // Public: Services (shared between home "What We Offer" and Services page)
 Route::get('/services', [ServiceController::class, 'index']);
+Route::get('/services/{service}/image', [ServiceController::class, 'image']);
 
 // Public: Home hero SDG badges (ETag-revalidated for cheap polling)
 Route::get('/site-sdgs', [HomeSdgController::class, 'index']);

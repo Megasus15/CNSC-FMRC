@@ -4,11 +4,15 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\Product;
 use App\Models\Promotion;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
@@ -165,12 +169,57 @@ class ProductController extends Controller
             'recommended_for.*' => 'string|max:200',
         ]);
 
+        if (isset($validated['image_data'])) {
+            $val = trim((string) $validated['image_data']);
+            if (
+                $val === '' ||
+                str_starts_with($val, 'http://') ||
+                str_starts_with($val, 'https://') ||
+                str_starts_with($val, '/api/') ||
+                str_contains($val, '/api/products/')
+            ) {
+                unset($validated['image_data']);
+            }
+        }
+
         $product->update($validated);
 
         return response()->json([
             'message' => 'Product updated successfully.',
             'data'    => $this->formatProduct($product->fresh()),
         ]);
+    }
+
+    public function image(Request $request, Product $product): Response|JsonResponse
+    {
+        $storedImage = $product->image_data;
+        if (!$storedImage) {
+            return response()->json(['message' => 'No image available for this product.'], 404);
+        }
+
+        // If it's already an external HTTP(S) URL, redirect with caching
+        if (str_starts_with($storedImage, 'http://') || str_starts_with($storedImage, 'https://')) {
+            return redirect()->away($storedImage, 302, [
+                'Cache-Control' => 'public, max-age=604800',
+            ]);
+        }
+
+        $decoded = $this->decodeStoredImage($storedImage);
+        if (!$decoded) {
+            return response()->json(['message' => 'Invalid image format.'], 404);
+        }
+
+        [$imageBytes, $mimeType] = $decoded;
+
+        $isFull = $request->boolean('full');
+        if (!$isFull) {
+            $thumbnail = $this->buildProductThumbnail($imageBytes, $product);
+            if ($thumbnail) {
+                [$imageBytes, $mimeType] = $thumbnail;
+            }
+        }
+
+        return $this->imageResponse($request, $imageBytes, $mimeType, $product->updated_at);
     }
 
     public function deleteBulk(Request $request): JsonResponse
@@ -227,6 +276,157 @@ class ProductController extends Controller
 
     // ─── Helpers ────────────────────────────────────────────────────────────────
 
+    private function imageResponse(Request $request, string $imageBytes, string $mimeType, ?\DateTimeInterface $updatedAt): Response
+    {
+        $etag = '"' . hash('sha256', $imageBytes) . '"';
+        if ($request->header('If-None-Match') === $etag) {
+            return response('', 304, [
+                'ETag'          => $etag,
+                'Cache-Control' => 'public, max-age=604800, max-stale=86400, stale-while-revalidate=86400',
+            ]);
+        }
+
+        $headers = [
+            'Content-Type'   => $mimeType,
+            'Content-Length' => (string) strlen($imageBytes),
+            'ETag'           => $etag,
+            'Cache-Control'  => 'public, max-age=604800, max-stale=86400, stale-while-revalidate=86400',
+        ];
+
+        if ($updatedAt) {
+            $headers['Last-Modified'] = Carbon::instance($updatedAt)->toRfc7231String();
+        }
+
+        return response($imageBytes, 200, $headers);
+    }
+
+    private function decodeStoredImage(?string $storedImage): ?array
+    {
+        if (!is_string($storedImage) || $storedImage === '') {
+            return null;
+        }
+
+        $commaPosition = strpos($storedImage, ',');
+        if ($commaPosition === false) {
+            return null;
+        }
+
+        $header = substr($storedImage, 0, $commaPosition);
+        if (!preg_match('/^data:(image\/(?:png|jpe?g|gif|webp));base64$/i', $header, $matches)) {
+            return null;
+        }
+
+        $imageBytes = base64_decode(substr($storedImage, $commaPosition + 1), true);
+        if (!is_string($imageBytes) || $imageBytes === '') {
+            return null;
+        }
+
+        $mimeType = strtolower($matches[1]);
+        if ($mimeType === 'image/jpg') {
+            $mimeType = 'image/jpeg';
+        }
+
+        return [$imageBytes, $mimeType];
+    }
+
+    private function buildProductThumbnail(string $sourceBytes, Product $product): ?array
+    {
+        if (!function_exists('imagecreatefromstring')) {
+            return null;
+        }
+
+        $useWebp = function_exists('imagewebp');
+        $extension = $useWebp ? 'webp' : 'jpg';
+        $mimeType = $useWebp ? 'image/webp' : 'image/jpeg';
+        $version = $product->updated_at?->format('YmdHis') ?? 'unversioned';
+        $cachePath = 'product-thumbnails/' . $product->id . '-' . $version . '.' . $extension;
+
+        try {
+            if (Storage::disk('local')->exists($cachePath)) {
+                $cached = Storage::disk('local')->get($cachePath);
+                if (is_string($cached) && $cached !== '') {
+                    return [$cached, $mimeType];
+                }
+            }
+
+            $imageInfo = @getimagesizefromstring($sourceBytes);
+            $sourceWidth = (int) ($imageInfo[0] ?? 0);
+            $sourceHeight = (int) ($imageInfo[1] ?? 0);
+            if ($sourceWidth < 1 || $sourceHeight < 1 || ($sourceWidth * $sourceHeight) > 40_000_000) {
+                return null;
+            }
+
+            $source = @imagecreatefromstring($sourceBytes);
+            if ($source === false) {
+                return null;
+            }
+
+            $targetWidth = 400;
+            $targetHeight = 400;
+            $thumbnail = imagecreatetruecolor($targetWidth, $targetHeight);
+            if ($thumbnail === false) {
+                imagedestroy($source);
+                return null;
+            }
+
+            $white = imagecolorallocate($thumbnail, 255, 255, 255);
+            imagefill($thumbnail, 0, 0, $white);
+
+            $cropSize = min($sourceWidth, $sourceHeight);
+            $sourceX = (int) floor(($sourceWidth - $cropSize) / 2);
+            $sourceY = (int) floor(($sourceHeight - $cropSize) / 2);
+
+            imagecopyresampled(
+                $thumbnail,
+                $source,
+                0,
+                0,
+                $sourceX,
+                $sourceY,
+                $targetWidth,
+                $targetHeight,
+                $cropSize,
+                $cropSize
+            );
+
+            ob_start();
+            $encoded = $useWebp
+                ? imagewebp($thumbnail, null, 82)
+                : imagejpeg($thumbnail, null, 85);
+            $thumbnailBytes = ob_get_clean();
+
+            imagedestroy($thumbnail);
+            imagedestroy($source);
+
+            if (!$encoded || !is_string($thumbnailBytes) || $thumbnailBytes === '') {
+                return null;
+            }
+
+            Storage::disk('local')->put($cachePath, $thumbnailBytes);
+            return [$thumbnailBytes, $mimeType];
+        } catch (\Throwable $error) {
+            Log::warning('[PRODUCT THUMBNAIL] Unable to build thumbnail', [
+                'product_id' => $product->id,
+                'message' => $error->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    private function resolveProductImageUrl(Product $product): ?string
+    {
+        if (empty($product->image_data)) {
+            return null;
+        }
+
+        if (str_starts_with($product->image_data, 'http://') || str_starts_with($product->image_data, 'https://')) {
+            return $product->image_data;
+        }
+
+        $version = $product->updated_at?->getTimestamp() ?? time();
+        return url("/api/products/{$product->id}/image?v={$version}");
+    }
+
     private function formatProduct(Product $product, ?Collection $promotionCandidates = null): array
     {
         $promotion = ($promotionCandidates ?? $this->promotionCandidates())
@@ -253,7 +453,7 @@ class ProductController extends Controller
             ] : null,
             'stock_status'   => $product->stock_status,
             'is_blocked'     => (bool) $product->is_blocked,
-            'image_data'     => $product->image_data,
+            'image_data'     => $this->resolveProductImageUrl($product),
             'summary'        => $product->summary,
             'details_chips'  => $product->details_chips ?? [],
             'availability'   => $product->availability ?? [],

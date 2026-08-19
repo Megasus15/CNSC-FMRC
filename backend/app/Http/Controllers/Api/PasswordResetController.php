@@ -161,8 +161,16 @@ class PasswordResetController extends Controller
         };
 
         try {
-            app()->terminating($callback);
+            app()->terminating(function () use ($callback) {
+                if (function_exists('fastcgi_finish_request')) {
+                    @fastcgi_finish_request();
+                }
+                $callback();
+            });
         } catch (\Throwable $e) {
+            if (function_exists('fastcgi_finish_request')) {
+                @fastcgi_finish_request();
+            }
             $callback();
         }
     }

@@ -104,7 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const bestForAttr = escAttr(JSON.stringify(item.modal_best_for || []));
       const imageMarkup = image
         ? `<button class="service-image-trigger" type="button" aria-label="Open full-size preview of ${titleAttr}" title="Open image preview" data-image-src="${imageAttr}" data-image-title="${titleAttr}">
-             <img src="${imageAttr}" alt="${titleAttr} preview" loading="lazy" />
+             <img src="${imageAttr}" alt="${titleAttr} preview" loading="lazy" decoding="async" />
              <span class="service-image-preview-label"><i class="fa-solid fa-expand" aria-hidden="true"></i> Preview</span>
            </button>`
         : `<div class="service-image-placeholder"><span class="service-image-placeholder__content"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Image coming soon</span></span></div>`;

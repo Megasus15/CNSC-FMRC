@@ -8,6 +8,7 @@ use App\Models\AdminNotification;
 use App\Models\Appointment;
 use App\Models\AppointmentCalendarDay;
 use App\Models\AppointmentTimeSlot;
+use App\Support\OrderNotifier;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -191,31 +192,31 @@ class AppointmentController extends Controller
         }
 
         // --- Customer Email: Appointment Confirmation ---
-        // Sent synchronously via SMTP so no queue worker is required.
-        // The try/catch ensures any SMTP failure is only logged and NEVER
-        // prevents the HTTP 201 response from being returned to the browser.
-        try {
-            $emailAddress = $validated['email'];
-            if ($emailAddress && filter_var($emailAddress, FILTER_VALIDATE_EMAIL)) {
-                Mail::to($emailAddress)
-                    ->send(new AppointmentConfirmation($appointment));
+        // Dispatched asynchronously after HTTP response so SMTP latency does not
+        // block the HTTP 201 response from returning to the customer immediately.
+        $emailAddress = $validated['email'] ?? null;
+        if ($emailAddress && filter_var($emailAddress, FILTER_VALIDATE_EMAIL)) {
+            $appointmentForMail = $appointment;
+            OrderNotifier::afterResponse(function () use ($emailAddress, $appointmentForMail) {
+                try {
+                    Mail::to($emailAddress)
+                        ->send(new AppointmentConfirmation($appointmentForMail));
 
-                Log::info(
-                    '[APPT EMAIL] Sent AppointmentConfirmation to '
-                    . $emailAddress
-                    . ' | Ref: ' . $appointment->reference_no
-                );
-            }
-        } catch (\Throwable $e) {
-            // Email send failure must NEVER prevent the appointment from being
-            // confirmed. Log and continue so the 201 response is always returned.
-            Log::error(
-                '[APPT EMAIL] SMTP send FAILED for '
-                . $appointment->reference_no . ': ' . $e->getMessage()
-            );
+                    Log::info(
+                        '[APPT EMAIL] Sent AppointmentConfirmation to '
+                        . $emailAddress
+                        . ' | Ref: ' . $appointmentForMail->reference_no
+                    );
+                } catch (\Throwable $e) {
+                    Log::error(
+                        '[APPT EMAIL] SMTP send FAILED for '
+                        . $appointmentForMail->reference_no . ': ' . $e->getMessage()
+                    );
+                }
+            });
         }
 
-        // Return 201 — email was sent (or logged as failed) before this point.
+        // Return 201 immediately — email is processed in background.
         return response()->json([
             'message' => 'Appointment created successfully.',
             'data'    => $this->transformAppointment($appointment),

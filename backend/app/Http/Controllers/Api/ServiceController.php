@@ -3,9 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Service;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class ServiceController extends Controller
 {
@@ -24,6 +28,38 @@ class ServiceController extends Controller
     public function adminIndex(): JsonResponse
     {
         return $this->index();
+    }
+
+    public function image(Request $request, Service $service): Response|JsonResponse
+    {
+        $storedImage = $service->image_data;
+        if (!$storedImage) {
+            return response()->json(['message' => 'No image available for this service.'], 404);
+        }
+
+        // If it's already an external HTTP(S) URL, redirect with caching
+        if (str_starts_with($storedImage, 'http://') || str_starts_with($storedImage, 'https://')) {
+            return redirect()->away($storedImage, 302, [
+                'Cache-Control' => 'public, max-age=604800',
+            ]);
+        }
+
+        $decoded = $this->decodeStoredImage($storedImage);
+        if (!$decoded) {
+            return response()->json(['message' => 'Invalid image format.'], 404);
+        }
+
+        [$imageBytes, $mimeType] = $decoded;
+
+        $isFull = $request->boolean('full');
+        if (!$isFull) {
+            $thumbnail = $this->buildServiceThumbnail($imageBytes, $service);
+            if ($thumbnail) {
+                [$imageBytes, $mimeType] = $thumbnail;
+            }
+        }
+
+        return $this->imageResponse($request, $imageBytes, $mimeType, $service->updated_at);
     }
 
     public function store(Request $request): JsonResponse
@@ -68,6 +104,19 @@ class ServiceController extends Controller
             'sort_order'        => 'integer|min:0',
         ]);
 
+        if (isset($validated['image_data'])) {
+            $val = trim((string) $validated['image_data']);
+            if (
+                $val === '' ||
+                str_starts_with($val, 'http://') ||
+                str_starts_with($val, 'https://') ||
+                str_starts_with($val, '/api/') ||
+                str_contains($val, '/api/services/')
+            ) {
+                unset($validated['image_data']);
+            }
+        }
+
         $service->update($validated);
 
         return response()->json([
@@ -83,7 +132,170 @@ class ServiceController extends Controller
         return response()->json(['message' => 'Service deleted successfully.']);
     }
 
-    // ─── Helper ──────────────────────────────────────────────────────────────────
+    // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+    private function imageResponse(Request $request, string $imageBytes, string $mimeType, ?\DateTimeInterface $updatedAt): Response
+    {
+        $etag = '"' . hash('sha256', $imageBytes) . '"';
+        if ($request->header('If-None-Match') === $etag) {
+            return response('', 304, [
+                'ETag'          => $etag,
+                'Cache-Control' => 'public, max-age=604800, max-stale=86400, stale-while-revalidate=86400',
+            ]);
+        }
+
+        $headers = [
+            'Content-Type'   => $mimeType,
+            'Content-Length' => (string) strlen($imageBytes),
+            'ETag'           => $etag,
+            'Cache-Control'  => 'public, max-age=604800, max-stale=86400, stale-while-revalidate=86400',
+        ];
+
+        if ($updatedAt) {
+            $headers['Last-Modified'] = Carbon::instance($updatedAt)->toRfc7231String();
+        }
+
+        return response($imageBytes, 200, $headers);
+    }
+
+    private function decodeStoredImage(?string $storedImage): ?array
+    {
+        if (!is_string($storedImage) || $storedImage === '') {
+            return null;
+        }
+
+        $commaPosition = strpos($storedImage, ',');
+        if ($commaPosition === false) {
+            return null;
+        }
+
+        $header = substr($storedImage, 0, $commaPosition);
+        if (!preg_match('/^data:(image\/(?:png|jpe?g|gif|webp));base64$/i', $header, $matches)) {
+            return null;
+        }
+
+        $imageBytes = base64_decode(substr($storedImage, $commaPosition + 1), true);
+        if (!is_string($imageBytes) || $imageBytes === '') {
+            return null;
+        }
+
+        $mimeType = strtolower($matches[1]);
+        if ($mimeType === 'image/jpg') {
+            $mimeType = 'image/jpeg';
+        }
+
+        return [$imageBytes, $mimeType];
+    }
+
+    private function buildServiceThumbnail(string $sourceBytes, Service $service): ?array
+    {
+        if (!function_exists('imagecreatefromstring')) {
+            return null;
+        }
+
+        $useWebp = function_exists('imagewebp');
+        $extension = $useWebp ? 'webp' : 'jpg';
+        $mimeType = $useWebp ? 'image/webp' : 'image/jpeg';
+        $version = $service->updated_at?->format('YmdHis') ?? 'unversioned';
+        $cachePath = 'service-thumbnails/' . $service->id . '-' . $version . '.' . $extension;
+
+        try {
+            if (Storage::disk('local')->exists($cachePath)) {
+                $cached = Storage::disk('local')->get($cachePath);
+                if (is_string($cached) && $cached !== '') {
+                    return [$cached, $mimeType];
+                }
+            }
+
+            $imageInfo = @getimagesizefromstring($sourceBytes);
+            $sourceWidth = (int) ($imageInfo[0] ?? 0);
+            $sourceHeight = (int) ($imageInfo[1] ?? 0);
+            if ($sourceWidth < 1 || $sourceHeight < 1 || ($sourceWidth * $sourceHeight) > 40_000_000) {
+                return null;
+            }
+
+            $source = @imagecreatefromstring($sourceBytes);
+            if ($source === false) {
+                return null;
+            }
+
+            $targetWidth = 600;
+            $targetHeight = 400;
+            $thumbnail = imagecreatetruecolor($targetWidth, $targetHeight);
+            if ($thumbnail === false) {
+                imagedestroy($source);
+                return null;
+            }
+
+            $white = imagecolorallocate($thumbnail, 255, 255, 255);
+            imagefill($thumbnail, 0, 0, $white);
+
+            // Cover resize
+            $sourceRatio = $sourceWidth / $sourceHeight;
+            $targetRatio = $targetWidth / $targetHeight;
+
+            if ($sourceRatio > $targetRatio) {
+                $cropWidth = (int) floor($sourceHeight * $targetRatio);
+                $cropHeight = $sourceHeight;
+                $sourceX = (int) floor(($sourceWidth - $cropWidth) / 2);
+                $sourceY = 0;
+            } else {
+                $cropWidth = $sourceWidth;
+                $cropHeight = (int) floor($sourceWidth / $targetRatio);
+                $sourceX = 0;
+                $sourceY = (int) floor(($sourceHeight - $cropHeight) / 2);
+            }
+
+            imagecopyresampled(
+                $thumbnail,
+                $source,
+                0,
+                0,
+                $sourceX,
+                $sourceY,
+                $targetWidth,
+                $targetHeight,
+                $cropWidth,
+                $cropHeight
+            );
+
+            ob_start();
+            $encoded = $useWebp
+                ? imagewebp($thumbnail, null, 82)
+                : imagejpeg($thumbnail, null, 85);
+            $thumbnailBytes = ob_get_clean();
+
+            imagedestroy($thumbnail);
+            imagedestroy($source);
+
+            if (!$encoded || !is_string($thumbnailBytes) || $thumbnailBytes === '') {
+                return null;
+            }
+
+            Storage::disk('local')->put($cachePath, $thumbnailBytes);
+            return [$thumbnailBytes, $mimeType];
+        } catch (\Throwable $error) {
+            Log::warning('[SERVICE THUMBNAIL] Unable to build thumbnail', [
+                'service_id' => $service->id,
+                'message' => $error->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    private function resolveServiceImageUrl(Service $service): ?string
+    {
+        if (empty($service->image_data)) {
+            return null;
+        }
+
+        if (str_starts_with($service->image_data, 'http://') || str_starts_with($service->image_data, 'https://')) {
+            return $service->image_data;
+        }
+
+        $version = $service->updated_at?->getTimestamp() ?? time();
+        return url("/api/services/{$service->id}/image?v={$version}");
+    }
 
     private function format(Service $s): array
     {
@@ -92,7 +304,7 @@ class ServiceController extends Controller
             'title'             => $s->title,
             'category'          => $s->category,
             'description'       => $s->description,
-            'image_data'        => $s->image_data,
+            'image_data'        => $this->resolveServiceImageUrl($s),
             'modal_description' => $s->modal_description,
             'modal_features'    => $s->modal_features ?? [],
             'modal_materials'   => $s->modal_materials ?? [],
