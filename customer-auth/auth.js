@@ -484,15 +484,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ── Google Sign-In Integration (Google Identity Services) ──
+  // ── Google Sign-In Integration (Google Identity Services OAuth 2.0) ──
   const GOOGLE_CLIENT_ID = "55704463190-43888rtrprqlb7drpkmq52h5bhpr5p9u.apps.googleusercontent.com";
+  let googleTokenClient = null;
 
-  const handleGoogleCredentialResponse = async (response) => {
-    if (!response || !response.credential) {
-      showStatus("Google authentication did not return a credential.");
-      return;
-    }
-
+  const processGoogleAuthPayload = async (payload) => {
     toggleLoader(true);
     hideStatus();
     try {
@@ -502,7 +498,7 @@ document.addEventListener("DOMContentLoaded", () => {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({ id_token: response.credential }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -522,7 +518,7 @@ document.addEventListener("DOMContentLoaded", () => {
         showStatus("Signed in with Google! Redirecting to your account...");
         setTimeout(() => {
           window.location.href = "../home-page/main.html";
-        }, 300);
+        }, 400);
         return;
       }
 
@@ -544,46 +540,63 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const handleGoogleCredentialResponse = async (response) => {
+    if (!response || !response.credential) return;
+    await processGoogleAuthPayload({ id_token: response.credential });
+  };
+
+  const handleGoogleTokenResponse = async (tokenResponse) => {
+    if (tokenResponse.error) {
+      console.warn("Google OAuth Error:", tokenResponse.error);
+      return;
+    }
+    if (!tokenResponse.access_token) return;
+    await processGoogleAuthPayload({ access_token: tokenResponse.access_token });
+  };
+
   const initGoogleAuth = () => {
-    if (typeof window.google === "undefined" || !window.google.accounts || !window.google.accounts.id) {
-      setTimeout(initGoogleAuth, 300);
+    if (typeof window.google === "undefined" || !window.google.accounts) {
+      setTimeout(initGoogleAuth, 200);
       return;
     }
 
     try {
-      window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: handleGoogleCredentialResponse,
-        auto_select: false,
-        cancel_on_tap_outside: true,
-      });
-
-      const hiddenContainer = document.getElementById("googleHiddenBtnContainer");
-      if (hiddenContainer) {
-        window.google.accounts.id.renderButton(hiddenContainer, {
-          theme: "outline",
-          size: "large",
-          type: "standard",
+      // 1. Initialize Token Client for instant browser popup on click
+      if (window.google.accounts.oauth2) {
+        googleTokenClient = window.google.accounts.oauth2.initTokenClient({
+          client_id: GOOGLE_CLIENT_ID,
+          scope: "openid email profile",
+          callback: handleGoogleTokenResponse,
         });
       }
 
+      // 2. Initialize ID token provider
+      if (window.google.accounts.id) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: handleGoogleCredentialResponse,
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        });
+      }
+
+      // Attach click listeners to both Login & Signup Google buttons
       document.querySelectorAll(".google-auth-btn").forEach((btn) => {
-        btn.addEventListener("click", (e) => {
+        btn.onclick = (e) => {
           e.preventDefault();
           hideStatus();
           if (loginForm) clearFormErrors(loginForm);
           if (signupForm) clearFormErrors(signupForm);
 
-          const hiddenBtn = hiddenContainer?.querySelector('div[role="button"]');
-          if (hiddenBtn) {
-            hiddenBtn.click();
-          } else {
+          if (googleTokenClient) {
+            googleTokenClient.requestAccessToken({ prompt: "" });
+          } else if (window.google?.accounts?.id) {
             window.google.accounts.id.prompt();
           }
-        });
+        };
       });
     } catch (e) {
-      console.warn("Google Auth Init Warning:", e);
+      console.warn("Google Auth Init Error:", e);
     }
   };
 

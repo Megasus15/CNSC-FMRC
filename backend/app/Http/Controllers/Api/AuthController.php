@@ -127,27 +127,44 @@ class AuthController extends Controller
     public function googleLogin(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'id_token' => 'required|string',
+            'id_token' => 'nullable|string',
+            'access_token' => 'nullable|string',
         ]);
 
-        try {
-            $response = Http::timeout(10)->get('https://oauth2.googleapis.com/tokeninfo', [
-                'id_token' => $validated['id_token'],
-            ]);
+        if (empty($validated['id_token']) && empty($validated['access_token'])) {
+            return response()->json([
+                'message' => 'A valid Google token is required.',
+            ], 422);
+        }
 
-            if (!$response->successful()) {
-                return response()->json([
-                    'message' => 'Invalid or expired Google authentication token.',
-                ], 401);
+        try {
+            $payload = null;
+
+            // 1. Try resolving profile via OAuth2 access_token
+            if (!empty($validated['access_token'])) {
+                $userInfoRes = Http::timeout(10)
+                    ->withHeaders(['Authorization' => 'Bearer ' . $validated['access_token']])
+                    ->get('https://www.googleapis.com/oauth2/v3/userinfo');
+
+                if ($userInfoRes->successful()) {
+                    $payload = $userInfoRes->json();
+                }
             }
 
-            $payload = $response->json();
-            $configuredClientId = config('services.google.client_id', env('GOOGLE_CLIENT_ID'));
+            // 2. Try resolving profile via Google ID token (JWT)
+            if (!$payload && !empty($validated['id_token'])) {
+                $response = Http::timeout(10)->get('https://oauth2.googleapis.com/tokeninfo', [
+                    'id_token' => $validated['id_token'],
+                ]);
 
-            // If configured, ensure token audience matches our client ID
-            if (!empty($configuredClientId) && ($payload['aud'] ?? '') !== $configuredClientId) {
+                if ($response->successful()) {
+                    $payload = $response->json();
+                }
+            }
+
+            if (!$payload) {
                 return response()->json([
-                    'message' => 'Google authentication token audience mismatch.',
+                    'message' => 'Invalid or expired Google authentication token.',
                 ], 401);
             }
 
