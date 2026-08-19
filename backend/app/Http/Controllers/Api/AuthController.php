@@ -596,24 +596,35 @@ class AuthController extends Controller
         ]);
     }
     
-    // Change password function
+    // Change / Set Password function (supports both standard users and Google-authenticated users)
     public function changePassword(Request $request)
     {
         $request->validate([
-            'current_password' => 'required',
+            'current_password' => 'nullable|string',
             'new_password' => 'required|string|min:8|confirmed',
+        ], [
+            'new_password.min' => 'New password must be at least 8 characters.',
+            'new_password.confirmed' => 'New password confirmation does not match.',
         ]);
 
         $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized.'], 401);
+        }
 
-        if (!Hash::check($request->current_password, $user->password)) {
-            return response()->json(['message' => 'Current password does not match'], 400);
+        // If current password was provided, verify it
+        if (!empty($request->current_password)) {
+            if (!Hash::check($request->current_password, $user->password)) {
+                return response()->json(['message' => 'Current password does not match.'], 422);
+            }
         }
 
         $user->password = Hash::make($request->new_password);
         $user->save();
 
-        return response()->json(['message' => 'Password changed successfully']);
+        return response()->json([
+            'message' => 'Password updated successfully. You can now use your username and password to log in.',
+        ]);
     }
 
     private function buildWelcomeEmailHtml(User $user): string

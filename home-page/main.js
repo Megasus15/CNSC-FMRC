@@ -5702,9 +5702,9 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
           <form id="changePasswordForm" novalidate style="margin-top: 16px;">
             <div class="customer-field">
-              <label for="cp_current">Current Password</label>
+              <label for="cp_current">Current Password <span style="font-size: 11px; font-weight: normal; color: #64748b;">(Leave blank if signed in with Google)</span></label>
               <div class="password-wrapper">
-                <input type="password" id="cp_current" required />
+                <input type="password" id="cp_current" placeholder="Enter current password (if any)" />
                 <button class="toggle-pass" type="button" data-target="cp_current" aria-label="Show password">
                   <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
@@ -5803,12 +5803,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const newPassword = overlay.querySelector("#cp_new")?.value || "";
         const confirmPassword = overlay.querySelector("#cp_confirm")?.value || "";
 
-        if (!currentPassword) {
-          msgBox.style.display = "block";
-          msgBox.style.color = "#b91c1c";
-          msgBox.textContent = "Current password is required.";
-          return;
-        }
         if (!newPassword) {
           msgBox.style.display = "block";
           msgBox.style.color = "#b91c1c";
@@ -5855,7 +5849,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (response.ok) {
             msgBox.style.color = "#0f7b35";
             msgBox.innerHTML =
-              '<i class="fa-solid fa-circle-check"></i> you have changed your password successfully.';
+              '<i class="fa-solid fa-circle-check"></i> ' + (data.message || "Password updated successfully. You can now use your username and password to log in.");
             form.reset();
 
             setTimeout(() => {
