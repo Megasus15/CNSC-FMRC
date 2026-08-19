@@ -5775,7 +5775,6 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         });
       });
-    }
 
     const closePwdModal = () => {
       overlay.classList.add("closing");
