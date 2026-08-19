@@ -5601,27 +5601,50 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => dropdown.classList.remove("is-closing"), 180);
   };
 
+  const hasCustomerSetPassword = (user) => {
+    if (!user) return false;
+    if (user.has_custom_password === true) return true;
+    if (user.id && localStorage.getItem("google_pwd_set_" + user.id) === "true") return true;
+    const authMethod = localStorage.getItem("customer_auth_method");
+    if (authMethod === "password") return true;
+    const isGoogle =
+      Boolean(user.signed_with_google || user.is_google_account) ||
+      authMethod === "google" ||
+      (Boolean(user.email) && /@gmail\.com$/i.test(user.email) && !user.has_custom_password);
+    if (!isGoogle) {
+      return true;
+    }
+    return false;
+  };
+
   const openProfileModal = (userInfo, token) => {
     let overlay = document.getElementById("customerProfileModal");
     if (!overlay) {
       overlay = document.createElement("div");
       overlay.id = "customerProfileModal";
       overlay.className = "customer-modal-overlay";
-      overlay.innerHTML = `
-        <section class="customer-modal" role="dialog" aria-modal="true" aria-labelledby="customerModalTitle">
-          <div class="customer-modal-head">
-            <h2 class="customer-modal-title" id="customerModalTitle">My Account</h2>
-            <button class="customer-modal-close" id="closeProfileModal" type="button" aria-label="Close">&times;</button>
-          </div>
-          <div class="customer-card" id="customerInfoBox"></div>
-          <button type="button" class="change-password-trigger-btn" id="openChangePasswordBtn">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 6px;"><path d="M21 2l-2 2m-1.5 1.5L4 19l-2 2 2-2 13.5-13.5z"/><path d="M15 5l4 4"/></svg>
-            Change Password
-          </button>
-        </section>
-      `;
       document.body.appendChild(overlay);
     }
+
+    const isPasswordSet = hasCustomerSetPassword(userInfo);
+    const pwdBtnLabel = isPasswordSet ? "Change Password" : "Set Password";
+    const pwdBtnIcon = isPasswordSet
+      ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 6px;"><path d="M21 2l-2 2m-1.5 1.5L4 19l-2 2 2-2 13.5-13.5z"/><path d="M15 5l4 4"/></svg>'
+      : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 6px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
+
+    overlay.innerHTML = `
+      <section class="customer-modal" role="dialog" aria-modal="true" aria-labelledby="customerModalTitle">
+        <div class="customer-modal-head">
+          <h2 class="customer-modal-title" id="customerModalTitle">My Account</h2>
+          <button class="customer-modal-close" id="closeProfileModal" type="button" aria-label="Close">&times;</button>
+        </div>
+        <div class="customer-card" id="customerInfoBox"></div>
+        <button type="button" class="change-password-trigger-btn" id="openChangePasswordBtn">
+          ${pwdBtnIcon}
+          ${pwdBtnLabel}
+        </button>
+      </section>
+    `;
 
     const infoBox = overlay.querySelector("#customerInfoBox");
     if (infoBox) {
@@ -5693,88 +5716,122 @@ document.addEventListener("DOMContentLoaded", () => {
     overlay = document.createElement("div");
     overlay.id = "customerPasswordModal";
     overlay.className = "customer-modal-overlay";
-    overlay.innerHTML = `
-      <section class="customer-modal" role="dialog" aria-modal="true" aria-labelledby="cpModalTitle">
-        <div class="customer-modal-head" style="display: flex; align-items: center; justify-content: space-between;">
-          <h2 class="customer-modal-title" id="cpModalTitle" style="font-size: 22px; margin: 0;">Change Password</h2>
-          <button class="customer-modal-back-pill" id="backToProfileBtn" type="button" aria-label="Back to My Account">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-            <span>Back</span>
-          </button>
-        </div>
-        <div style="background: #fefce8; border: 1px solid #fef08a; border-radius: 8px; padding: 10px 14px; margin-top: 14px; margin-bottom: 6px; display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; color: #854d0e; line-height: 1.45;">
-          <i class="fa-solid fa-lightbulb" style="font-size: 15px; margin-top: 2px; color: #ca8a04; flex-shrink: 0;"></i>
-          <div>
-            <strong style="color: #713f12;">Google Account Note:</strong> If you signed in with Google, you don't have an existing password. Leave <strong>Current Password</strong> blank, type your new password below, and click <strong>Update Password</strong>.
+
+    const isPasswordSet = hasCustomerSetPassword(userInfo);
+    const eyeClosedSvg =
+      '<svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
+    const eyeOpenSvg =
+      '<svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
+
+    if (!isPasswordSet) {
+      // MODE 1: Google Account creating password for the first time (2 fields only: Create Password & Confirm Password)
+      overlay.innerHTML = `
+        <section class="customer-modal" role="dialog" aria-modal="true" aria-labelledby="cpModalTitle">
+          <div class="customer-modal-head" style="display: flex; align-items: center; justify-content: space-between;">
+            <h2 class="customer-modal-title" id="cpModalTitle" style="font-size: 22px; margin: 0;">Create Password</h2>
+            <button class="customer-modal-back-pill" id="backToProfileBtn" type="button" aria-label="Back to My Account">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+              <span>Back</span>
+            </button>
           </div>
-        </div>
-        <form id="changePasswordForm" novalidate style="margin-top: 14px;">
-          <div class="customer-field">
-            <label for="cp_current">Current Password <span style="font-size: 11px; font-weight: normal; color: #64748b;">(Optional if signed in with Google)</span></label>
-            <div class="password-wrapper">
-              <input type="password" id="cp_current" placeholder="Leave blank if registered via Google" />
-              <button class="toggle-pass" type="button" data-target="cp_current" aria-label="Show password">
-                <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                  <circle cx="12" cy="12" r="3"></circle>
-                </svg>
-              </button>
+          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 14px; margin-top: 14px; margin-bottom: 6px; display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; color: #1e40af; line-height: 1.45;">
+            <i class="fa-solid fa-circle-info" style="font-size: 15px; margin-top: 2px; color: #3b82f6; flex-shrink: 0;"></i>
+            <div>
+              <strong style="color: #1e3a8a;">Google Sign-In:</strong> Create a password for your account so you can also log in directly anytime using your email/username and password.
             </div>
           </div>
-          <div class="customer-field">
-            <label for="cp_new">New Password</label>
-            <div class="password-wrapper">
-              <input type="password" id="cp_new" placeholder="Enter new password (min. 8 characters)" required />
-              <button class="toggle-pass" type="button" data-target="cp_new" aria-label="Show password">
-                <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                  <circle cx="12" cy="12" r="3"></circle>
-                </svg>
-              </button>
+          <form id="changePasswordForm" novalidate style="margin-top: 14px;">
+            <div class="customer-field">
+              <label for="cp_new">Create Password</label>
+              <div class="password-wrapper">
+                <input type="password" id="cp_new" placeholder="Enter new password (min. 8 characters)" required />
+                <button class="toggle-pass" type="button" data-target="cp_new" aria-label="Show password">
+                  ${eyeClosedSvg}
+                </button>
+              </div>
             </div>
-          </div>
-          <div class="customer-field">
-            <label for="cp_confirm">Confirm New Password</label>
-            <div class="password-wrapper">
-              <input type="password" id="cp_confirm" placeholder="Confirm your new password" required />
-              <button class="toggle-pass" type="button" data-target="cp_confirm" aria-label="Show password">
-                <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                  <circle cx="12" cy="12" r="3"></circle>
-                </svg>
-              </button>
+            <div class="customer-field">
+              <label for="cp_confirm">Confirm Password</label>
+              <div class="password-wrapper">
+                <input type="password" id="cp_confirm" placeholder="Confirm your new password" required />
+                <button class="toggle-pass" type="button" data-target="cp_confirm" aria-label="Show password">
+                  ${eyeClosedSvg}
+                </button>
+              </div>
             </div>
+            <div class="customer-msg" id="cp_msg"></div>
+            <button type="submit" class="change-password-submit-btn">Create Password</button>
+          </form>
+        </section>
+      `;
+    } else {
+      // MODE 2: Standard Account or Google Account that already has a password (Requires All 3 fields)
+      overlay.innerHTML = `
+        <section class="customer-modal" role="dialog" aria-modal="true" aria-labelledby="cpModalTitle">
+          <div class="customer-modal-head" style="display: flex; align-items: center; justify-content: space-between;">
+            <h2 class="customer-modal-title" id="cpModalTitle" style="font-size: 22px; margin: 0;">Change Password</h2>
+            <button class="customer-modal-back-pill" id="backToProfileBtn" type="button" aria-label="Back to My Account">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+              <span>Back</span>
+            </button>
           </div>
-          <div class="customer-msg" id="cp_msg"></div>
-          <button type="submit" class="change-password-submit-btn">Update Password</button>
-        </form>
-      </section>
-    `;
+          <form id="changePasswordForm" novalidate style="margin-top: 14px;">
+            <div class="customer-field">
+              <label for="cp_current">Current Password</label>
+              <div class="password-wrapper">
+                <input type="password" id="cp_current" placeholder="Enter your current password" required />
+                <button class="toggle-pass" type="button" data-target="cp_current" aria-label="Show password">
+                  ${eyeClosedSvg}
+                </button>
+              </div>
+            </div>
+            <div class="customer-field">
+              <label for="cp_new">New Password</label>
+              <div class="password-wrapper">
+                <input type="password" id="cp_new" placeholder="Enter new password (min. 8 characters)" required />
+                <button class="toggle-pass" type="button" data-target="cp_new" aria-label="Show password">
+                  ${eyeClosedSvg}
+                </button>
+              </div>
+            </div>
+            <div class="customer-field">
+              <label for="cp_confirm">Confirm New Password</label>
+              <div class="password-wrapper">
+                <input type="password" id="cp_confirm" placeholder="Confirm your new password" required />
+                <button class="toggle-pass" type="button" data-target="cp_confirm" aria-label="Show password">
+                  ${eyeClosedSvg}
+                </button>
+              </div>
+            </div>
+            <div class="customer-msg" id="cp_msg"></div>
+            <button type="submit" class="change-password-submit-btn">Update Password</button>
+          </form>
+        </section>
+      `;
+    }
+
     document.body.appendChild(overlay);
 
-      // Password Toggle Logic
-      const eyeClosedSvg =
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>';
-      const eyeOpenSvg =
-        '<svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>';
-
-      overlay.querySelectorAll(".toggle-pass").forEach((toggleBtn) => {
-        toggleBtn.addEventListener("click", () => {
-          const targetId = toggleBtn.getAttribute("data-target");
-          const input = overlay.querySelector("#" + targetId);
-          if (input) {
-            if (input.type === "password") {
-              input.type = "text";
-              toggleBtn.innerHTML = eyeClosedSvg;
-              toggleBtn.classList.add("active");
-            } else {
-              input.type = "password";
-              toggleBtn.innerHTML = eyeOpenSvg;
-              toggleBtn.classList.remove("active");
-            }
+    // Password Toggle Logic (Masked -> Closed Eye; Revealed -> Open Eye)
+    overlay.querySelectorAll(".toggle-pass").forEach((toggleBtn) => {
+      toggleBtn.addEventListener("click", () => {
+        const targetId = toggleBtn.getAttribute("data-target");
+        const input = overlay.querySelector("#" + targetId);
+        if (input) {
+          if (input.type === "password") {
+            input.type = "text";
+            toggleBtn.innerHTML = eyeOpenSvg;
+            toggleBtn.classList.add("active");
+            toggleBtn.setAttribute("aria-label", "Hide password");
+          } else {
+            input.type = "password";
+            toggleBtn.innerHTML = eyeClosedSvg;
+            toggleBtn.classList.remove("active");
+            toggleBtn.setAttribute("aria-label", "Show password");
           }
-        });
+        }
       });
+    });
 
     const closePwdModal = () => {
       overlay.classList.add("closing");
@@ -5810,29 +5867,42 @@ document.addEventListener("DOMContentLoaded", () => {
         const newPassword = overlay.querySelector("#cp_new")?.value || "";
         const confirmPassword = overlay.querySelector("#cp_confirm")?.value || "";
 
+        // If existing password is required (Mode 2)
+        if (isPasswordSet) {
+          if (!currentPassword) {
+            msgBox.style.display = "block";
+            msgBox.style.color = "#b91c1c";
+            msgBox.textContent = "Current password is required.";
+            return;
+          }
+        }
+
         if (!newPassword) {
           msgBox.style.display = "block";
           msgBox.style.color = "#b91c1c";
-          msgBox.textContent = "New password is required.";
+          msgBox.textContent = isPasswordSet ? "New password is required." : "Password is required.";
           return;
         }
         if (newPassword.length < 8) {
           msgBox.style.display = "block";
           msgBox.style.color = "#b91c1c";
-          msgBox.textContent = "New password must be at least 8 characters.";
+          msgBox.textContent = "Password must be at least 8 characters.";
           return;
         }
         if (newPassword !== confirmPassword) {
           msgBox.style.display = "block";
           msgBox.style.color = "#b91c1c";
-          msgBox.textContent = "New password and confirmation do not match.";
+          msgBox.textContent = isPasswordSet
+            ? "New password and confirmation do not match."
+            : "Password confirmation does not match.";
           return;
         }
 
         const submitBtn = form.querySelector("button[type='submit']");
+        const originalBtnText = submitBtn ? submitBtn.textContent : (isPasswordSet ? "Update Password" : "Create Password");
         if (submitBtn) {
           submitBtn.disabled = true;
-          submitBtn.textContent = "Updating...";
+          submitBtn.textContent = isPasswordSet ? "Updating..." : "Creating...";
         }
 
         try {
@@ -5855,13 +5925,18 @@ document.addEventListener("DOMContentLoaded", () => {
           msgBox.style.display = "block";
           if (response.ok) {
             msgBox.style.color = "#0f7b35";
+            const successText = !isPasswordSet
+              ? "Password created successfully! You can now use your username/email and password to log in."
+              : (data.message || "Password updated successfully.");
             msgBox.innerHTML =
-              '<i class="fa-solid fa-circle-check"></i> ' + (data.message || "Password updated successfully. You can now use your username and password to log in.");
+              '<i class="fa-solid fa-circle-check"></i> ' + successText;
             form.reset();
 
+            userInfo.has_custom_password = true;
             if (userInfo?.id) {
               localStorage.setItem("google_pwd_set_" + userInfo.id, "true");
             }
+            localStorage.setItem("customer_auth_method", "password");
             try {
               const currentInfo = JSON.parse(localStorage.getItem("customer_info") || "{}");
               currentInfo.has_custom_password = true;
@@ -5888,20 +5963,20 @@ document.addEventListener("DOMContentLoaded", () => {
               newErr ||
               confirmErr ||
               data.message ||
-              "Unable to update password.";
+              "Unable to process password request.";
           } else {
             msgBox.style.color = "#b91c1c";
-            msgBox.textContent = data.message || "Unable to update password.";
+            msgBox.textContent = data.message || "Unable to process password request.";
           }
         } catch {
           msgBox.style.display = "block";
           msgBox.style.color = "#b91c1c";
           msgBox.textContent =
-            "Cannot connect to server. Ensure Laravel is running.";
+            "Cannot connect to server. Ensure backend is running.";
         } finally {
           if (submitBtn) {
             submitBtn.disabled = false;
-            submitBtn.textContent = "Update Password";
+            submitBtn.textContent = originalBtnText;
           }
           setLoader(false);
         }
@@ -10132,11 +10207,10 @@ const openReturnRequestModal = (() => {
   // Floating Animated Notice for Google-Authenticated Accounts without Custom Password
   const isGoogleUser =
     Boolean(userInfo.signed_with_google || userInfo.is_google_account) ||
+    localStorage.getItem("customer_auth_method") === "google" ||
     (Boolean(userInfo.email) && /@gmail\.com$/i.test(userInfo.email) && !userInfo.has_custom_password);
 
-  const isPasswordSet =
-    localStorage.getItem("google_pwd_set_" + userInfo.id) === "true" ||
-    Boolean(userInfo.has_custom_password);
+  const isPasswordSet = hasCustomerSetPassword(userInfo);
 
   const isPromptDismissed = sessionStorage.getItem("google_pwd_prompt_dismissed") === "true";
 

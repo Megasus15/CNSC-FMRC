@@ -2301,16 +2301,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const target =
       e.target instanceof Element ? e.target.closest("[data-tooltip]") : null;
     if (!target) return;
+    if (activeTooltipTarget === target) return;
     activeTooltipTarget = target;
     placeTooltip(target);
-  });
-
-  document.addEventListener("mousemove", (e) => {
-    if (!activeTooltipTarget) return;
-    const current =
-      e.target instanceof Element ? e.target.closest("[data-tooltip]") : null;
-    if (current !== activeTooltipTarget) return;
-    placeTooltip(activeTooltipTarget);
   });
 
   document.addEventListener("mouseout", (e) => {
@@ -2330,6 +2323,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const target =
       e.target instanceof Element ? e.target.closest("[data-tooltip]") : null;
     if (!target) return;
+    if (activeTooltipTarget === target) return;
     activeTooltipTarget = target;
     placeTooltip(target);
   });

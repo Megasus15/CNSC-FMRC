@@ -49,16 +49,16 @@
   font-weight: 600;
   cursor: pointer;
   transition:
-    background-color 0.25s ease,
-    color 0.25s ease,
-    border-color 0.25s ease,
-    transform 0.08s ease,
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
     box-shadow 0.2s ease;
 }
 
 .btn-admin:hover {
   background-color: #5f0000;
   border-color: #5f0000;
+  color: #fff;
   box-shadow: 0 6px 14px rgba(128, 0, 0, 0.18);
 }
 
@@ -69,10 +69,26 @@
 .btn-secondary {
   background-color: #fff;
   color: var(--primary-color);
+  border-color: var(--primary-color);
 }
 
 .btn-secondary:hover {
+  background-color: #5f0000;
+  border-color: #5f0000;
   color: #fff;
+}
+
+.btn-admin.btn-secondary {
+  background-color: #fff;
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
+}
+
+.btn-admin.btn-secondary:hover {
+  background-color: #5f0000;
+  border-color: #5f0000;
+  color: #fff;
+  box-shadow: 0 6px 14px rgba(128, 0, 0, 0.18);
 }
 
 .page-metrics {

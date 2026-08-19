@@ -333,7 +333,11 @@ document.addEventListener("DOMContentLoaded", () => {
           }
 
           localStorage.setItem("customer_token", data.access_token);
+          if (data.user) {
+            data.user.has_custom_password = true;
+          }
           localStorage.setItem("customer_info", JSON.stringify(data.user));
+          localStorage.setItem("customer_auth_method", "password");
           showStatus("Login successful. Redirecting to your account...");
           window.location.href = "../home-page/main.html";
           return;
@@ -781,7 +785,13 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         localStorage.setItem("customer_token", data.access_token);
+        if (data.user) {
+          data.user.is_google_account = true;
+          const isStoredPwdSet = data.user.id ? localStorage.getItem("google_pwd_set_" + data.user.id) === "true" : false;
+          data.user.has_custom_password = Boolean(data.user.has_custom_password || isStoredPwdSet);
+        }
         localStorage.setItem("customer_info", JSON.stringify(data.user));
+        localStorage.setItem("customer_auth_method", "google");
         showStatus("Signed in with Google! Redirecting to your account...");
         setTimeout(() => {
           window.location.href = "../home-page/main.html";
