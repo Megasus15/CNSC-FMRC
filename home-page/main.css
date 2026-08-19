@@ -8841,8 +8841,18 @@ body.sidebar-open {
 }
 .password-wrapper input {
   width: 100%;
-  padding-right: 44px;
+  padding: 10px 44px 10px 14px;
   box-sizing: border-box;
+  font-size: 13.5px;
+  font-family: inherit;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+}
+.password-wrapper input::placeholder {
+  font-size: 12px;
+  font-weight: 400;
+  color: #94a3b8;
+  letter-spacing: 0.01em;
 }
 .toggle-pass {
   position: absolute;

@@ -5702,10 +5702,10 @@ document.addEventListener("DOMContentLoaded", () => {
             <span>Back</span>
           </button>
         </div>
-        <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 14px; margin-top: 14px; margin-bottom: 6px; display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; color: #1e40af; line-height: 1.45;">
-          <i class="fa-solid fa-circle-info" style="font-size: 15px; margin-top: 2px; color: #3b82f6; flex-shrink: 0;"></i>
+        <div style="background: #fefce8; border: 1px solid #fef08a; border-radius: 8px; padding: 10px 14px; margin-top: 14px; margin-bottom: 6px; display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; color: #854d0e; line-height: 1.45;">
+          <i class="fa-solid fa-lightbulb" style="font-size: 15px; margin-top: 2px; color: #ca8a04; flex-shrink: 0;"></i>
           <div>
-            <strong>Google Account Note:</strong> If you signed in with Google, you don't have an existing password. Leave <strong>Current Password</strong> blank, type your new password below, and click <strong>Update Password</strong>.
+            <strong style="color: #713f12;">Google Account Note:</strong> If you signed in with Google, you don't have an existing password. Leave <strong>Current Password</strong> blank, type your new password below, and click <strong>Update Password</strong>.
           </div>
         </div>
         <form id="changePasswordForm" novalidate style="margin-top: 14px;">
