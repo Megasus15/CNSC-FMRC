@@ -10036,7 +10036,7 @@ const openReturnRequestModal = (() => {
     .toUpperCase();
   const profileIdentity =
     String(
-      userInfo.email || userInfo.username || userInfo.name || "User",
+      userInfo.username || userInfo.name || userInfo.email || "User",
     ).trim() || "User";
   const profileIdentityLength = Array.from(profileIdentity).length;
   const profileIdentitySizeClass =

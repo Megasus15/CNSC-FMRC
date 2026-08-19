@@ -43,15 +43,27 @@ class AuthController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
-            'username' => 'required_without:email|string|max:255|unique:users',
-            'email' => 'required_without:username|string|email|max:255|unique:users',
+            'username' => 'required|string|min:3|max:50|unique:users,username',
+            'email' => [
+                'required',
+                'string',
+                'email:rfc,dns',
+                'max:255',
+                'regex:/^[a-zA-Z0-9._%+-]+@gmail\.com$/i',
+                'unique:users,email',
+            ],
             'password' => 'required|string|min:8|confirmed',
+        ], [
+            'email.unique' => 'This Gmail address is already registered. Please log in or use another account.',
+            'email.regex' => 'Please provide a valid @gmail.com address.',
+            'email.email' => 'The provided email address is invalid or unreachable.',
+            'username.unique' => 'This username is already taken. Please choose another one.',
         ]);
 
         $user = User::create([
             'name' => $request->name,
             'username' => $request->username,
-            'email' => $request->email,
+            'email' => strtolower(trim($request->email)),
             'password' => Hash::make($request->password),
             'role' => 'customer',
         ]);
@@ -183,25 +195,27 @@ class AuthController extends Controller
             }
 
             $name = trim((string) ($payload['name'] ?? ''));
+            $givenName = trim((string) ($payload['given_name'] ?? ''));
+            $familyName = trim((string) ($payload['family_name'] ?? ''));
             if ($name === '') {
-                $givenName = trim((string) ($payload['given_name'] ?? ''));
-                $familyName = trim((string) ($payload['family_name'] ?? ''));
                 $name = trim($givenName . ' ' . $familyName);
             }
             if ($name === '') {
                 $name = ucfirst(explode('@', $email)[0]);
             }
 
+            // The username for Google sign-in must be the First Name of the account
+            $firstNameRaw = !empty($givenName) ? $givenName : (explode(' ', $name)[0] ?? '');
+            $baseUsername = strtolower(preg_replace('/[^a-zA-Z0-9_]/', '', $firstNameRaw));
+            if (strlen($baseUsername) < 3) {
+                $fallback = strtolower(preg_replace('/[^a-zA-Z0-9_]/', '', explode('@', $email)[0]));
+                $baseUsername = strlen($fallback) >= 3 ? $fallback : 'user_' . $baseUsername;
+            }
+            $baseUsername = substr($baseUsername, 0, 15);
+
             $user = User::where('email', $email)->first();
 
             if (!$user) {
-                // Generate a unique username based on the email prefix
-                $baseUsername = strtolower(preg_replace('/[^a-zA-Z0-9_]/', '', explode('@', $email)[0]));
-                if (strlen($baseUsername) < 3) {
-                    $baseUsername = 'user_' . $baseUsername;
-                }
-                $baseUsername = substr($baseUsername, 0, 15);
-
                 $username = $baseUsername;
                 $counter = 1;
                 while (User::where('username', $username)->exists()) {
@@ -236,6 +250,21 @@ class AuthController extends Controller
                         Log::error("Google auth welcome email FAILED for user #{$userId}: " . $e->getMessage());
                     }
                 });
+            } else {
+                // If existing customer account has an email-like username or default name, align it to First Name
+                if ($user->role === 'customer' && (empty($user->username) || str_contains($user->username, '@') || $user->username === explode('@', $email)[0])) {
+                    $username = $baseUsername;
+                    $counter = 1;
+                    while (User::where('username', $username)->where('id', '!=', $user->id)->exists()) {
+                        $username = $baseUsername . $counter;
+                        $counter++;
+                    }
+                    $user->username = $username;
+                    if (empty($user->name) || $user->name === 'User') {
+                        $user->name = $name;
+                    }
+                    $user->save();
+                }
             }
 
             $token = $user->createToken('auth_token')->plainTextToken;
