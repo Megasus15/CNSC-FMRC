@@ -1,0 +1,58 @@
+# ---------------------------------------------------------------------------
+# Repo-root .gitignore for CNSC-FMRC
+#
+# The Laravel app inside backend/ has its own .gitignore that already excludes
+# /vendor, /node_modules, .env, etc. This file catches artifacts that end up
+# at the repository root (build zips, editor files, OS junk, local logs).
+# ---------------------------------------------------------------------------
+
+# --- Build / dependency archives (never commit these) ---
+vendor.zip
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# --- Dependency folders if they ever leak to the root ---
+node_modules/
+vendor/
+
+# --- Environment files (never commit secrets) ---
+.env
+.env.local
+.env.*.local
+.env.backup
+.env.production
+
+# --- Editor / IDE (keep .vscode/ shared config out of ignore if you want it tracked;
+#     currently the project already commits .vscode/, so we don't ignore it here) ---
+.idea/
+.fleet/
+.nova/
+.zed/
+*.swp
+*.swo
+*~
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Logs / caches ---
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --- PHP tooling caches ---
+.phpunit.result.cache
+.phpactor.json
+_ide_helper.php
+
+# --- Local scratch / temp files ---
+*.tmp
+*.bak
+*.orig

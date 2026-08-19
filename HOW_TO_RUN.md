@@ -127,7 +127,7 @@ Keep this terminal open while testing the system.
 **Admin:**
 - Page: `admin-auth/auth.html`
 - Username: `admin` (or `admin@cnsc.edu.ph`)
-- Password: `admin123`
+- Password: `#admin_2026!`
 
 **Cashier:**
 - Page: `admin-auth/auth.html`

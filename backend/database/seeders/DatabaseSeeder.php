@@ -20,7 +20,7 @@ class DatabaseSeeder extends Seeder
             'name' => 'Admin User',
             'username' => 'admin',
             'email' => 'admin@cnsc.edu.ph',
-            'password' => bcrypt('admin123'),
+            'password' => bcrypt('#admin_2026!'),
             'role' => 'admin',
         ]);
 
