@@ -314,9 +314,15 @@ body {
 
 /* Match requested behavior for specific buttons only */
 #loginForm .auth-btn,
+#signupForm .auth-btn,
 #forgotForm .auth-btn,
+#otpVerifyForm .auth-btn,
+#btnSendOtp,
+#btnVerifyOtp,
 #forgotDoneBtn,
 #successContinueBtn {
+  background: var(--primary);
+  color: #fff;
   box-shadow: 0 6px 15px rgba(0, 0, 0, 0.16);
   transition:
     background-color 0.2s ease,
@@ -326,7 +332,11 @@ body {
 }
 
 #loginForm .auth-btn:not(.google-auth-btn):hover,
+#signupForm .auth-btn:not(.google-auth-btn):hover,
 #forgotForm .auth-btn:hover,
+#otpVerifyForm .auth-btn:hover,
+#btnSendOtp:hover,
+#btnVerifyOtp:hover,
 #forgotDoneBtn:hover {
   background: var(--primary-hover);
   transform: none;
@@ -337,8 +347,12 @@ body {
   transform: none;
 }
 
-#loginForm .auth-btn:active,
+#loginForm .auth-btn:not(.google-auth-btn):active,
+#signupForm .auth-btn:not(.google-auth-btn):active,
 #forgotForm .auth-btn:active,
+#otpVerifyForm .auth-btn:active,
+#btnSendOtp:active,
+#btnVerifyOtp:active,
 #forgotDoneBtn:active,
 #successContinueBtn:active {
   transform: scale(0.97);

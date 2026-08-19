@@ -525,10 +525,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => forgotEmail?.focus(), 100);
   });
 
-  // Close when clicking backdrop
-  forgotPasswordModal?.addEventListener("click", (event) => {
-    if (event.target === forgotPasswordModal) closeForgotModal();
-  });
+
 
   // Close on Escape key
   document.addEventListener("keydown", (event) => {
