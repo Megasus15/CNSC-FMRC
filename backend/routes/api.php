@@ -36,9 +36,13 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/auth/google', [AuthController::class, 'googleLogin']);
 
-// Public: Customer password reset (forgot password flow)
-Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink']);
-Route::post('/reset-password', [PasswordResetController::class, 'resetPassword']);
+// Public: Customer OTP-based password reset (forgot password flow)
+Route::post('/forgot-password', [PasswordResetController::class, 'sendOtp']);
+Route::post('/forgot-password/send-otp', [PasswordResetController::class, 'sendOtp']);
+Route::post('/forgot-password/resend-otp', [PasswordResetController::class, 'resendOtp']);
+Route::post('/forgot-password/check-lockout', [PasswordResetController::class, 'checkLockout']);
+Route::post('/forgot-password/verify-otp', [PasswordResetController::class, 'verifyOtpAndReset']);
+Route::post('/reset-password', [PasswordResetController::class, 'verifyOtpAndReset']);
 
 Route::get('/appointments', [AppointmentController::class, 'index']);
 Route::post('/appointments', [AppointmentController::class, 'store']);

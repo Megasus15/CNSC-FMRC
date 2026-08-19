@@ -4,159 +4,408 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Schema;
 
 class PasswordResetController extends Controller
 {
     /**
-     * How long (in minutes) a reset link stays valid.
+     * How long (in minutes) a 6-digit OTP stays valid.
      */
-    private const TOKEN_EXPIRY_MINUTES = 60;
+    private const OTP_EXPIRY_MINUTES = 15;
 
     /**
-     * Step 1 — Customer requests a password reset link.
-     * Always returns the same generic message so we never reveal
-     * which emails are (or aren't) registered.
+     * Maximum OTP sends allowed before lockout.
      */
-    public function sendResetLink(Request $request)
+    private const MAX_SEND_LIMIT = 5;
+
+    /**
+     * Maximum invalid OTP entry attempts before invalidating the code.
+     */
+    private const MAX_VERIFY_ATTEMPTS = 5;
+
+    public function __construct()
+    {
+        $this->ensureTable();
+    }
+
+    /**
+     * Auto-ensure the password_reset_otps table exists across all environments.
+     */
+    private function ensureTable(): void
+    {
+        try {
+            if (!Schema::hasTable('password_reset_otps')) {
+                Schema::create('password_reset_otps', function (Blueprint $table) {
+                    $table->id();
+                    $table->string('email')->unique();
+                    $table->string('otp')->nullable();
+                    $table->integer('attempts')->default(0);
+                    $table->integer('send_count')->default(0);
+                    $table->integer('tier')->default(1);
+                    $table->timestamp('locked_until')->nullable();
+                    $table->timestamp('expires_at')->nullable();
+                    $table->timestamps();
+                });
+            }
+        } catch (\Throwable $e) {
+            Log::warning('ensureTable exception: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Progressive lockout durations in minutes.
+     * Tier 1: 10 mins
+     * Tier 2: 20 mins
+     * Tier 3: 30 mins
+     * Tier 4: 6 hours (360 mins)
+     * Tier 5: 12 hours (720 mins)
+     * Tier 6: 24 hours / 1 day (1440 mins)
+     */
+    private function getTierLockoutMinutes(int $tier): int
+    {
+        return match ($tier) {
+            1 => 10,
+            2 => 20,
+            3 => 30,
+            4 => 360,
+            5 => 720,
+            default => 1440,
+        };
+    }
+
+    private function formatSecondsReadable(int $totalSeconds): string
+    {
+        if ($totalSeconds < 60) {
+            return "{$totalSeconds} second" . ($totalSeconds === 1 ? '' : 's');
+        }
+
+        $hours = floor($totalSeconds / 3600);
+        $minutes = floor(($totalSeconds % 3600) / 60);
+        $seconds = $totalSeconds % 60;
+
+        $parts = [];
+        if ($hours > 0) {
+            $parts[] = "{$hours} hr" . ($hours == 1 ? '' : 's');
+        }
+        if ($minutes > 0) {
+            $parts[] = "{$minutes} min" . ($minutes == 1 ? '' : 's');
+        }
+        if ($seconds > 0 && $hours == 0) {
+            $parts[] = "{$seconds} sec" . ($seconds == 1 ? '' : 's');
+        }
+
+        return implode(' ', $parts) ?: 'a few seconds';
+    }
+
+    private function formatDurationReadable(int $minutes): string
+    {
+        if ($minutes < 60) {
+            return "{$minutes} minutes";
+        }
+        $hours = floor($minutes / 60);
+        if ($hours >= 24) {
+            return "1 day (24 hours)";
+        }
+        return "{$hours} hours";
+    }
+
+    /**
+     * Step 1 / Resend — Send 6-digit OTP to Customer's Gmail with progressive rate-limiting.
+     */
+    public function sendOtp(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|string|email|max:255',
+        ], [
+            'email.required' => 'Please enter your Gmail address.',
+            'email.email' => 'Please enter a valid Gmail address.',
+        ]);
+
+        $email = strtolower(trim($request->email));
+        $user = User::where('email', $email)->first();
+
+        // If the email is not found in the users table
+        if (!$user) {
+            return response()->json([
+                'message' => 'We could not find an account registered with that email address.',
+            ], 404);
+        }
+
+        $this->ensureTable();
+        $record = DB::table('password_reset_otps')->where('email', $email)->first();
+
+        $now = Carbon::now();
+
+        // 1. Check if currently locked out
+        if ($record && !empty($record->locked_until)) {
+            $lockedUntil = Carbon::parse($record->locked_until);
+            if ($lockedUntil->isFuture()) {
+                $remainingSeconds = $now->diffInSeconds($lockedUntil);
+                $readable = $this->formatSecondsReadable($remainingSeconds);
+
+                return response()->json([
+                    'message' => "You have exhausted the 5 OTP limit for this Gmail. Please wait {$readable} before requesting another OTP.",
+                    'locked' => true,
+                    'remaining_seconds' => $remainingSeconds,
+                    'tier' => (int) $record->tier,
+                ], 429);
+            }
+        }
+
+        // 2. Determine current tier and cycle status
+        $tier = $record ? (int) $record->tier : 1;
+        $sendCount = $record ? (int) $record->send_count : 0;
+
+        // If previous lockout expired, start a new 5-attempt cycle and advance tier for next exhaustion
+        if ($record && !empty($record->locked_until) && Carbon::parse($record->locked_until)->isPast()) {
+            $tier = min($tier + 1, 6);
+            $sendCount = 0;
+        }
+
+        // Check if user already hit 5 sends in this active batch
+        if ($sendCount >= self::MAX_SEND_LIMIT) {
+            $lockoutMinutes = $this->getTierLockoutMinutes($tier);
+            $lockedUntil = $now->copy()->addMinutes($lockoutMinutes);
+
+            DB::table('password_reset_otps')->updateOrInsert(
+                ['email' => $email],
+                [
+                    'send_count' => self::MAX_SEND_LIMIT,
+                    'tier' => $tier,
+                    'locked_until' => $lockedUntil,
+                    'updated_at' => $now,
+                ]
+            );
+
+            $remainingSeconds = $now->diffInSeconds($lockedUntil);
+            $readable = $this->formatSecondsReadable($remainingSeconds);
+
+            return response()->json([
+                'message' => "You have reached the limit of 5 OTP requests. Please wait {$readable} before requesting another OTP.",
+                'locked' => true,
+                'remaining_seconds' => $remainingSeconds,
+                'tier' => $tier,
+            ], 429);
+        }
+
+        // 3. Increment send count
+        $newSendCount = $sendCount + 1;
+        $lockedUntil = null;
+
+        // If this is the 5th send, apply lockout
+        if ($newSendCount >= self::MAX_SEND_LIMIT) {
+            $lockoutMinutes = $this->getTierLockoutMinutes($tier);
+            $lockedUntil = $now->copy()->addMinutes($lockoutMinutes);
+        }
+
+        // 4. Generate 6-digit numeric OTP
+        $otpCode = sprintf('%06d', random_int(100000, 999999));
+        $expiresAt = $now->copy()->addMinutes(self::OTP_EXPIRY_MINUTES);
+
+        DB::table('password_reset_otps')->updateOrInsert(
+            ['email' => $email],
+            [
+                'otp' => Hash::make($otpCode),
+                'attempts' => 0,
+                'send_count' => $newSendCount,
+                'tier' => $tier,
+                'locked_until' => $lockedUntil,
+                'expires_at' => $expiresAt,
+                'updated_at' => $now,
+            ]
+        );
+
+        // 5. Send OTP email in background
+        $this->dispatchResetOtpEmail($user, $otpCode, $newSendCount, $tier, $lockedUntil);
+
+        $remainingSends = max(0, self::MAX_SEND_LIMIT - $newSendCount);
+        $lockoutReadable = $this->formatDurationReadable($this->getTierLockoutMinutes($tier));
+
+        $notice = $remainingSends > 0
+            ? "You have {$remainingSends} OTP request" . ($remainingSends === 1 ? '' : 's') . " remaining in this cycle."
+            : "You have reached the 5/5 limit. Next request will require a {$lockoutReadable} cooldown.";
+
+        return response()->json([
+            'message' => 'A 6-digit OTP code has been sent to your Gmail address.',
+            'email' => $email,
+            'send_count' => $newSendCount,
+            'remaining_sends' => $remainingSends,
+            'is_last_attempt' => ($newSendCount >= self::MAX_SEND_LIMIT),
+            'tier' => $tier,
+            'notice' => $notice,
+            'expires_in_minutes' => self::OTP_EXPIRY_MINUTES,
+        ]);
+    }
+
+    /**
+     * Resend OTP wrapper.
+     */
+    public function resendOtp(Request $request)
+    {
+        return $this->sendOtp($request);
+    }
+
+    /**
+     * Check if a specific email is currently in lockout cooldown.
+     */
+    public function checkLockout(Request $request)
     {
         $request->validate([
             'email' => 'required|string|email|max:255',
         ]);
 
         $email = strtolower(trim($request->email));
-        $user = User::where('email', $email)->first();
+        $record = DB::table('password_reset_otps')->where('email', $email)->first();
 
-        // Only generate a token + send an email if the account actually exists.
-        if ($user) {
-            $plainToken = Str::random(64);
-
-            DB::table('password_reset_tokens')->updateOrInsert(
-                ['email' => $user->email],
-                [
-                    'email'      => $user->email,
-                    'token'      => Hash::make($plainToken),
-                    'created_at' => now(),
-                ]
-            );
-
-            // Point the reset link at the Laravel backend itself (always running,
-            // since it just sent this email) instead of the Live Server frontend
-            // which may be offline. This avoids "127.0.0.1 refused to connect".
-            $backendUrl = rtrim((string) (request()->root() ?: config('app.url', 'https://ucn-fabmanlab.com')), '/');
-            $resetLink = $backendUrl
-                . '/reset-password?token=' . $plainToken
-                . '&email=' . urlencode($user->email);
-
-
-            $this->dispatchResetEmail($user, $resetLink);
+        if ($record && !empty($record->locked_until)) {
+            $lockedUntil = Carbon::parse($record->locked_until);
+            if ($lockedUntil->isFuture()) {
+                $remainingSeconds = Carbon::now()->diffInSeconds($lockedUntil);
+                return response()->json([
+                    'locked' => true,
+                    'remaining_seconds' => $remainingSeconds,
+                    'tier' => (int) $record->tier,
+                    'message' => "This Gmail is in cooldown. Please wait " . $this->formatSecondsReadable($remainingSeconds) . ".",
+                ]);
+            }
         }
 
         return response()->json([
-            'message' => 'If an account matches that email, a password reset link has been sent.',
+            'locked' => false,
+            'send_count' => $record ? (int) $record->send_count : 0,
+            'remaining_sends' => $record ? max(0, self::MAX_SEND_LIMIT - (int) $record->send_count) : self::MAX_SEND_LIMIT,
+            'tier' => $record ? (int) $record->tier : 1,
         ]);
     }
 
     /**
-     * Step 2 — Customer submits a new password using the token from the email.
+     * Step 2 — Verify 6-digit OTP and reset password.
      */
-    public function resetPassword(Request $request)
+    public function verifyOtpAndReset(Request $request)
     {
         $request->validate([
-            'email'    => 'required|string|email|max:255',
-            'token'    => 'required|string',
+            'email' => 'required|string|email|max:255',
+            'otp' => 'required|string|size:6',
             'password' => 'required|string|min:8|confirmed',
+        ], [
+            'otp.required' => 'Please enter the 6-digit OTP code.',
+            'otp.size' => 'The OTP code must be exactly 6 digits.',
+            'password.min' => 'Your new password must be at least 8 characters.',
+            'password.confirmed' => 'Password confirmation does not match.',
         ]);
 
         $email = strtolower(trim($request->email));
+        $record = DB::table('password_reset_otps')->where('email', $email)->first();
 
-        $record = DB::table('password_reset_tokens')->where('email', $email)->first();
-
-        if (!$record || !Hash::check($request->token, $record->token)) {
+        if (!$record || empty($record->otp)) {
             return response()->json([
-                'message' => 'This password reset link is invalid. Please request a new one.',
+                'message' => 'No active OTP request found for this email. Please request a new code.',
             ], 422);
         }
 
-        // Reject expired tokens.
-        if (Carbon::parse($record->created_at)->addMinutes(self::TOKEN_EXPIRY_MINUTES)->isPast()) {
-            DB::table('password_reset_tokens')->where('email', $email)->delete();
+        // Check if expired
+        if (Carbon::parse($record->expires_at)->isPast()) {
+            return response()->json([
+                'message' => 'This 6-digit OTP code has expired. Please request a new code.',
+            ], 422);
+        }
+
+        // Check brute-force attempts
+        if ((int) $record->attempts >= self::MAX_VERIFY_ATTEMPTS) {
+            DB::table('password_reset_otps')->where('email', $email)->update([
+                'otp' => null,
+                'updated_at' => now(),
+            ]);
 
             return response()->json([
-                'message' => 'This password reset link has expired. Please request a new one.',
+                'message' => 'Too many failed verification attempts. Please request a new OTP code.',
+            ], 422);
+        }
+
+        // Verify OTP hash
+        if (!Hash::check($request->otp, $record->otp)) {
+            $newAttempts = (int) $record->attempts + 1;
+            DB::table('password_reset_otps')->where('email', $email)->update([
+                'attempts' => $newAttempts,
+                'updated_at' => now(),
+            ]);
+
+            $attemptsLeft = max(0, self::MAX_VERIFY_ATTEMPTS - $newAttempts);
+            return response()->json([
+                'message' => $attemptsLeft > 0
+                    ? "Invalid 6-digit OTP code. You have {$attemptsLeft} attempt" . ($attemptsLeft === 1 ? '' : 's') . " remaining."
+                    : "Too many failed attempts. Please request a new OTP code.",
             ], 422);
         }
 
         $user = User::where('email', $email)->first();
-
         if (!$user) {
             return response()->json([
                 'message' => 'We could not find an account for this email address.',
-            ], 422);
+            ], 404);
         }
 
+        // Update password & invalidate old session tokens
         $user->password = Hash::make($request->password);
         $user->save();
-
-        // Invalidate any existing login tokens for safety.
         $user->tokens()->delete();
 
-        // The token can only be used once.
-        DB::table('password_reset_tokens')->where('email', $email)->delete();
+        // Clear OTP record and reset lockout on successful completion
+        DB::table('password_reset_otps')->where('email', $email)->delete();
 
         return response()->json([
-            'message' => 'Your password has been reset successfully. You can now log in with your new password.',
+            'message' => 'Your password has been reset successfully! You can now log in with your new password.',
         ]);
     }
 
     /**
-     * Serve the self-contained "Reset Password" web page directly from Laravel
-     * (port 8000, always running) so the email link never hits a dead
-     * Live Server address. Mirrors the AppointmentController::verifyPage pattern.
+     * Backward-compatible methods.
      */
-    public function showResetForm(Request $request)
+    public function sendResetLink(Request $request)
     {
-        $token = (string) $request->query('token', '');
-        $email = (string) $request->query('email', '');
+        return $this->sendOtp($request);
+    }
 
-        $html = $this->buildResetPageHtml($token, $email);
-
-        return response($html)->header('Content-Type', 'text/html');
+    public function resetPassword(Request $request)
+    {
+        if ($request->has('otp')) {
+            return $this->verifyOtpAndReset($request);
+        }
+        return response()->json(['message' => 'Please provide the 6-digit OTP code.'], 422);
     }
 
     /**
-     * Send the reset email after the response is returned so the
-     * user is not kept waiting on the SMTP round-trip.
+     * Dispatch OTP Email in the background.
      */
-
-    private function dispatchResetEmail(User $user, string $resetLink): void
+    private function dispatchResetOtpEmail(User $user, string $otpCode, int $sendCount, int $tier, ?Carbon $lockedUntil): void
     {
         $emailAddress = $user->email;
         if (!$emailAddress || !filter_var($emailAddress, FILTER_VALIDATE_EMAIL)) {
             return;
         }
 
-        $emailHtml   = $this->buildResetEmailHtml($user, $resetLink);
-        $userId      = (string) $user->id;
+        $emailHtml = $this->buildOtpEmailHtml($user, $otpCode, $sendCount, $tier, $lockedUntil);
+        $userId = (string) $user->id;
         $fromAddress = config('mail.from.address', 'noreply@cnsc-fmrc.edu.ph');
-        $fromName    = config('mail.from.name', 'UCN-FMRC');
+        $fromName = config('mail.from.name', 'UCN-FMRC');
 
         $callback = function () use ($emailAddress, $emailHtml, $userId, $fromAddress, $fromName) {
             try {
                 Mail::html($emailHtml, function ($message) use ($emailAddress, $fromAddress, $fromName) {
                     $message->to($emailAddress)
-                        ->subject('Reset Your UCN-FMRC Password')
+                        ->subject('Your 6-Digit Password Reset OTP Code')
                         ->from($fromAddress, $fromName);
                 });
-                Log::info("Password reset email sent to {$emailAddress} for user #{$userId}");
+                Log::info("Password reset OTP email sent to {$emailAddress} for user #{$userId}");
             } catch (\Throwable $e) {
-                Log::error("Password reset email FAILED for user #{$userId}: " . $e->getMessage());
+                Log::error("Password reset OTP email FAILED for user #{$userId}: " . $e->getMessage());
             }
         };
 
@@ -175,17 +424,31 @@ class PasswordResetController extends Controller
         }
     }
 
-    private function buildResetEmailHtml(User $user, string $resetLink): string
+    /**
+     * Professional, beautiful HTML email template with large 6-digit OTP code.
+     */
+    private function buildOtpEmailHtml(User $user, string $otpCode, int $sendCount, int $tier, ?Carbon $lockedUntil): string
     {
-        $name    = e($user->name ?? 'Valued Customer');
-        $link    = e($resetLink);
-        $minutes = self::TOKEN_EXPIRY_MINUTES;
+        $name = e($user->name ?? 'Valued Customer');
         $appName = config('app.name') ?: 'UCN-FMRC';
         if (strtolower($appName) === 'laravel') {
             $appName = 'UCN-FMRC';
         }
-        $year   = now()->year;
+        $year = now()->year;
         $accent = '#800000';
+        $formattedOtp = implode(' ', str_split($otpCode));
+
+        $lockoutWarningHtml = '';
+        if ($sendCount >= self::MAX_SEND_LIMIT && $lockedUntil) {
+            $durationReadable = $this->formatDurationReadable($this->getTierLockoutMinutes($tier));
+            $lockoutWarningHtml = <<<HTML
+            <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;margin:20px 0 10px;text-align:left;">
+                <p style="margin:0;font-size:13px;color:#92400e;line-height:1.5;">
+                    ⚠️ <strong>Notice:</strong> You have reached your 5/5 OTP request limit for this cycle. If you require another code later, a <strong>{$durationReadable}</strong> security cooldown will apply.
+                </p>
+            </div>
+HTML;
+        }
 
         return <<<HTML
 <!DOCTYPE html>
@@ -194,279 +457,54 @@ class PasswordResetController extends Controller
 <body style="margin:0;padding:0;background:#f4f6f9;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:32px 16px;">
 <tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:600px;width:100%;">
 
 <!-- Header -->
-<tr><td style="background:{$accent};padding:28px 32px;text-align:center;">
-    <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.3px;">UCN-FMRC</h1>
-    <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">Customer Portal &middot; Password Reset Request</p>
+<tr><td style="background:{$accent};padding:30px 32px;text-align:center;">
+    <h1 style="color:#ffffff;font-size:22px;margin:0;letter-spacing:0.04em;font-weight:800;text-transform:uppercase;">{$appName}</h1>
+    <p style="color:#fecaca;font-size:13px;margin:6px 0 0;font-weight:500;">Fabrication and Manufacturing Research Center</p>
 </td></tr>
 
 <!-- Body -->
-<tr><td style="padding:32px;">
-    <h2 style="margin:0 0 12px;color:#1f2937;font-size:20px;font-weight:700;">Reset your password, {$name}</h2>
-    <p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.7;">
-        We received a request to reset the password for your UCN-FMRC Customer Portal account.
-        Click the button below to choose a new password.
+<tr><td style="padding:36px 36px 28px;">
+    <h2 style="color:#111827;font-size:20px;font-weight:700;margin:0 0 12px;">Password Reset Verification Code</h2>
+    <p style="color:#4b5563;font-size:15px;line-height:1.6;margin:0 0 20px;">
+        Hello <strong>{$name}</strong>,<br>
+        We received a request to reset the password for your customer account. Use the 6-digit OTP code below to verify your request:
     </p>
 
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
-      <tr><td align="center">
-        <a href="{$link}" style="display:inline-block;background:{$accent};color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 32px;border-radius:8px;">
-          Reset My Password
-        </a>
-      </td></tr>
-    </table>
+    <!-- OTP Code Box -->
+    <div style="background:#fdf2f2;border:2px dashed #dc2626;border-radius:12px;padding:24px 16px;text-align:center;margin:24px 0;">
+        <span style="display:block;font-size:12px;font-weight:700;color:#991b1b;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px;">YOUR 6-DIGIT OTP CODE</span>
+        <span style="font-family:'Courier New',Courier,monospace;font-size:36px;font-weight:800;color:#800000;letter-spacing:8px;display:inline-block;padding:4px 12px;background:#ffffff;border-radius:8px;border:1px solid #fecaca;">{$formattedOtp}</span>
+        <span style="display:block;font-size:13px;color:#6b7280;margin-top:12px;">Valid for <strong>15 minutes</strong></span>
+    </div>
 
-    <p style="margin:0 0 8px;color:#6b7280;font-size:13px;line-height:1.6;">
-        Or copy and paste this link into your browser:
-    </p>
-    <p style="margin:0 0 20px;word-break:break-all;">
-        <a href="{$link}" style="color:#800000;font-size:13px;">{$link}</a>
+    {$lockoutWarningHtml}
+
+    <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:16px 0 0;">
+        Enter this code in the password reset form along with your new password to complete the update.
     </p>
 
-    <p style="margin:0 0 20px;padding:12px 16px;background:#fef3c7;border-left:4px solid #d97706;border-radius:6px;color:#92400e;font-size:13px;line-height:1.6;">
-        <strong>Note:</strong> This link will expire in {$minutes} minutes and can only be used once.
-    </p>
+    <hr style="border:none;border-top:1px solid #f3f4f6;margin:28px 0 20px;">
 
-    <p style="color:#6b7280;font-size:13px;line-height:1.6;margin:0;">
-        If you did not request a password reset, you can safely ignore this email &mdash; your password will remain unchanged.
+    <p style="color:#9ca3af;font-size:12px;line-height:1.5;margin:0;">
+        🔒 If you did not request a password reset, please ignore this email. Your password will remain unchanged. Never share your OTP with anyone.
     </p>
 </td></tr>
 
 <!-- Footer -->
-<tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 32px;text-align:center;">
-  <p style="margin:0;color:#9ca3af;font-size:12px;">
-    &copy; {$year} {$appName}. All rights reserved.<br>
-    This is an automated notification &mdash; please do not reply to this email.
-  </p>
+<tr><td style="background:#f9fafb;padding:20px 32px;text-align:center;border-top:1px solid #f3f4f6;">
+    <p style="color:#9ca3af;font-size:12px;margin:0;">
+        &copy; {$year} {$appName} • Camarines Norte State College. All rights reserved.
+    </p>
 </td></tr>
 
 </table>
 </td></tr>
 </table>
-</body>
-</html>
-HTML;
-    }
-
-    /**
-     * Build the self-contained reset-password web page (inline CSS + JS,
-     * no external files) served from Laravel. Styled to match the customer
-     * auth page. The embedded JS posts to /api/reset-password on the same
-     * origin, so there are no CORS or "connection refused" problems.
-     */
-    private function buildResetPageHtml(string $token, string $email): string
-    {
-        // JSON-encode for safe embedding inside the inline <script>.
-        $tokenJs = json_encode($token, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
-        $emailJs = json_encode($email, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
-        $emailDisplay = e($email !== '' ? $email : 'your account');
-        $apiBase = rtrim((string) config('app.url', 'http://127.0.0.1:8000'), '/');
-        $apiBaseJs = json_encode($apiBase . '/api/reset-password', JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
-        $year = now()->year;
-
-        return <<<HTML
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>UCN-FMRC Reset Password</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
-<style>
-
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{min-height:100vh;font-family:'Montserrat','Segoe UI',Tahoma,Arial,sans-serif;color:#2d3748;background:#f4f7f6;background-image:radial-gradient(#e2e8f0 1px,transparent 1px);background-size:30px 30px;display:flex;justify-content:center;align-items:center;padding:30px 16px}
-  .card{width:100%;max-width:440px;background:#fff;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.08);padding:40px 32px;position:relative;overflow:hidden}
-  .hero{text-align:center;margin:12px 0 24px}
-  .title{font-size:26px;color:#9e1414;font-weight:800;letter-spacing:-.5px}
-  .caption{font-size:13px;color:#718096;margin-top:4px;font-weight:500}
-  .desc{font-size:14px;color:#718096;line-height:1.5;text-align:center;margin-bottom:20px}
-  .desc strong{color:#2d3748}
-  label{display:block;font-size:13px;color:#2d3748;font-weight:600;margin-bottom:8px}
-  .field{margin-bottom:18px}
-  .input-row{position:relative;display:flex;align-items:center}
-  input{width:100%;border:1px solid #e2e8f0;background:#fafbfc;border-radius:8px;padding:12px 44px 12px 14px;font-size:14px;color:#2d3748;font-family:inherit;transition:all .2s}
-  input:focus{outline:none;border-color:#9e1414;background:#fff;box-shadow:0 0 0 3px rgba(158,20,20,.1)}
-  .toggle{position:absolute;right:12px;border:none;background:transparent;color:#a0aec0;cursor:pointer;font-size:12px;font-weight:700;padding:6px 8px}
-  .toggle:hover{color:#9e1414}
-  .btn{width:100%;background:linear-gradient(135deg, #5f0d0d 0%, #8b0000 50%, #9e1414 100%);color:#fff;border:none;border-radius:8px;padding:14px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;text-align:center;text-decoration:none;display:inline-block;box-sizing:border-box;transition:background-color .2s ease,transform .1s ease,box-shadow .15s ease;box-shadow:0 14px 28px rgba(128,24,18,.2)}
-  .btn:hover{background:linear-gradient(135deg, #3d0808 0%, #5f0d0d 50%, #7a0f0f 100%);color:#fff;text-decoration:none;transform:none;box-shadow:0 14px 28px rgba(128,24,18,.25)}
-  .btn:active{background:linear-gradient(135deg, #2c0505 0%, #4a0a0a 50%, #5f0d0d 100%);color:#fff;transform:scale(.97);box-shadow:0 6px 14px rgba(128,24,18,.2)}
-  .btn:disabled{opacity:.7;cursor:not-allowed}
-  .err{color:#d32f2f;font-size:12px;font-weight:600;margin-top:6px;display:none}
-  .field.has-error input{border-color:#d32f2f;box-shadow:0 0 0 3px rgba(211,47,47,.14);background:#fffafa}
-  .field.has-error .err{display:block}
-  .link-wrap{text-align:center;margin-top:20px}
-  .link{color:#9e1414;text-decoration:none;font-weight:700;font-size:13px}
-  .link:hover{text-decoration:underline}
-  .foot{margin-top:24px;text-align:center;font-size:11px;color:#a0aec0}
-  .ok-icon{width:64px;height:64px;margin:0 auto 16px;border-radius:50%;background:#e6f4ea;color:#34a853;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800}
-  .warn-icon{width:64px;height:64px;margin:0 auto 16px;border-radius:50%;background:rgba(158,20,20,.1);color:#9e1414;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800}
-  .center{text-align:center}
-  h2.state{font-size:22px;color:#2d3748;margin-bottom:8px}
-  p.state{color:#718096;font-size:14px;line-height:1.5;margin-bottom:24px}
-  .hidden{display:none}
-</style>
-</head>
-<body>
-  <div class="card">
-    <!-- Reset form -->
-    <div id="formView">
-      <div class="hero">
-        <div class="title">Reset Password</div>
-        <div class="caption">UCN-FMRC Customer Portal</div>
-      </div>
-      <p class="desc">Enter a new password for <strong>{$emailDisplay}</strong>.</p>
-      <form id="resetForm" novalidate>
-        <div class="field" id="passField">
-          <label for="pass">New Password</label>
-          <div class="input-row">
-            <input id="pass" type="password" placeholder="Create a new password" autocomplete="new-password">
-            <button class="toggle" type="button" data-target="pass">Show</button>
-          </div>
-          <div class="err" id="passErr"></div>
-        </div>
-        <div class="field" id="confirmField">
-          <label for="confirm">Confirm New Password</label>
-          <div class="input-row">
-            <input id="confirm" type="password" placeholder="Confirm your new password" autocomplete="new-password">
-            <button class="toggle" type="button" data-target="confirm">Show</button>
-          </div>
-          <div class="err" id="confirmErr"></div>
-        </div>
-        <button class="btn" type="submit" id="submitBtn">Reset Password</button>
-      </form>
-    </div>
-
-    <!-- Success view -->
-    <div id="successView" class="hidden center">
-      <div class="hero"><div class="ok-icon">&#10003;</div></div>
-      <h2 class="state">Password Reset</h2>
-      <p class="state">Your password has been reset successfully. You can now log in with your new password.</p>
-      <a href="https://ucn-fabmanlab.com/customer-auth/auth" class="btn" style="text-decoration:none;display:block;margin-top:8px;">Go to Customer Login</a>
-    </div>
-
-    <!-- Invalid link view -->
-    <div id="invalidView" class="hidden center">
-      <div class="hero"><div class="warn-icon">!</div></div>
-      <h2 class="state">Invalid or Expired Link</h2>
-      <p class="state" id="invalidMsg">This password reset link is invalid or has expired. Please request a new one from the login page.</p>
-      <a href="https://ucn-fabmanlab.com/customer-auth/auth" class="btn" style="text-decoration:none;display:block;margin-top:8px;">Back to Customer Login</a>
-    </div>
-
-    <div class="foot">&copy; {$year} UCN-FMRC. All rights reserved.</div>
-  </div>
-
-<script>
-  (function () {
-    var TOKEN = {$tokenJs};
-    var EMAIL = {$emailJs};
-    var API_URL = {$apiBaseJs};
-
-    var formView = document.getElementById('formView');
-    var successView = document.getElementById('successView');
-    var invalidView = document.getElementById('invalidView');
-
-    // No token/email in the URL -> invalid link view.
-    if (!TOKEN || !EMAIL) {
-      formView.classList.add('hidden');
-      invalidView.classList.remove('hidden');
-      return;
-    }
-
-    var form = document.getElementById('resetForm');
-    var pass = document.getElementById('pass');
-    var confirm = document.getElementById('confirm');
-    var submitBtn = document.getElementById('submitBtn');
-
-    function setErr(fieldId, errId, msg) {
-      document.getElementById(fieldId).classList.add('has-error');
-      var el = document.getElementById(errId);
-      el.textContent = msg;
-    }
-    function clearErr(fieldId) {
-      document.getElementById(fieldId).classList.remove('has-error');
-    }
-
-    document.querySelectorAll('.toggle').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var input = document.getElementById(btn.getAttribute('data-target'));
-        if (!input) return;
-        var isPw = input.type === 'password';
-        input.type = isPw ? 'text' : 'password';
-        btn.textContent = isPw ? 'Hide' : 'Show';
-      });
-    });
-
-    pass.addEventListener('input', function () { if (pass.value.trim()) clearErr('passField'); });
-    confirm.addEventListener('input', function () { if (confirm.value.trim()) clearErr('confirmField'); });
-
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      clearErr('passField');
-      clearErr('confirmField');
-
-      var p = pass.value;
-      var c = confirm.value;
-      var hasError = false;
-
-      if (!p) { setErr('passField', 'passErr', 'Password is required.'); hasError = true; }
-      else if (p.length < 8) { setErr('passField', 'passErr', 'Password must be at least 8 characters.'); hasError = true; }
-      else if (!/[A-Za-z]/.test(p) || !/[0-9]/.test(p)) { setErr('passField', 'passErr', 'Password must include at least one letter and one number.'); hasError = true; }
-
-      if (!c) { setErr('confirmField', 'confirmErr', 'Please confirm your password.'); hasError = true; }
-      else if (p !== c) { setErr('confirmField', 'confirmErr', 'Confirm password does not match.'); hasError = true; }
-
-      if (hasError) return;
-
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Resetting...';
-
-      fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify({ email: EMAIL, token: TOKEN, password: p, password_confirmation: c })
-      })
-        .then(function (res) {
-          return res.json().then(function (data) { return { ok: res.ok, status: res.status, data: data }; });
-        })
-        .then(function (r) {
-          if (r.ok) {
-            formView.classList.add('hidden');
-            successView.classList.remove('hidden');
-            return;
-          }
-          if (r.status === 422) {
-            if (r.data.errors && r.data.errors.password && r.data.errors.password[0]) {
-              setErr('passField', 'passErr', r.data.errors.password[0]);
-            } else {
-              // Invalid / expired token -> show invalid view.
-              formView.classList.add('hidden');
-              document.getElementById('invalidMsg').textContent = r.data.message || 'This reset link is invalid or has expired. Please request a new one from the login page.';
-              invalidView.classList.remove('hidden');
-            }
-          } else {
-            setErr('passField', 'passErr', (r.data && r.data.message) || 'Unable to reset password. Please try again.');
-          }
-        })
-        .catch(function () {
-          setErr('passField', 'passErr', 'Something went wrong. Please try again.');
-        })
-        .finally(function () {
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Reset Password';
-        });
-    });
-  })();
-</script>
 </body>
 </html>
 HTML;
     }
 }
-
-

@@ -14,7 +14,7 @@
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="auth.css?v=3.0" />
+    <link rel="stylesheet" href="auth.css?v=4.0" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
@@ -469,7 +469,7 @@
           &times;
         </button>
 
-        <!-- Step 1: Request reset -->
+        <!-- Step 1: Request 6-digit OTP -->
         <div class="forgot-step" id="forgotRequestStep">
           <div class="forgot-icon">
             <svg
@@ -484,11 +484,15 @@
               <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
             </svg>
           </div>
-          <h3 id="forgotTitle">Forgot your password?</h3>
+          <h3 id="forgotTitle">Forgot Password?</h3>
           <p>
-            No worries! Enter the email linked to your account and we'll send you
-            a link to reset your password.
+            Enter your registered Gmail address to receive a 6-digit OTP code to reset your password.
           </p>
+
+          <div id="otpLockoutBanner" class="otp-lockout-banner" style="display: none;">
+            <i class="fa-solid fa-clock" style="font-size: 16px; margin-top: 2px; color: #ca8a04; flex-shrink: 0;"></i>
+            <div id="otpLockoutMessage"></div>
+          </div>
 
           <form id="forgotForm" novalidate>
             <div class="input-wrapper">
@@ -509,7 +513,7 @@
                 <input
                   id="forgotEmail"
                   type="email"
-                  placeholder="Enter your email address"
+                  placeholder="Enter your Gmail address"
                   autocomplete="email"
                   inputmode="email"
                   autocapitalize="none"
@@ -520,7 +524,7 @@
               </div>
             </div>
 
-            <button class="auth-btn" type="submit">Send Reset Link</button>
+            <button class="auth-btn" id="btnSendOtp" type="submit">Send 6-Digit OTP</button>
           </form>
 
           <div class="switch-account-wrap">
@@ -530,8 +534,119 @@
           </div>
         </div>
 
-        <!-- Step 2: Confirmation -->
-        <div class="forgot-step" id="forgotSentStep" hidden>
+        <!-- Step 2: Verify OTP & New Password -->
+        <div class="forgot-step" id="forgotVerifyStep" hidden>
+          <div class="forgot-icon">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+          </div>
+          <h3>Verify &amp; Reset Password</h3>
+          <p>
+            Enter the 6-digit code sent to <strong id="otpTargetEmail">your email</strong> and your new password.
+          </p>
+
+          <div id="otpInfoPill" class="otp-info-pill" style="display: none;"></div>
+
+          <form id="otpVerifyForm" novalidate>
+            <div class="input-wrapper">
+              <label for="otpCodeInput">6-Digit OTP Code</label>
+              <input
+                id="otpCodeInput"
+                class="otp-code-input"
+                type="text"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                maxlength="6"
+                placeholder="• • • • • •"
+                autocomplete="one-time-code"
+                required
+              />
+            </div>
+
+            <div class="input-wrapper">
+              <label for="otpNewPassword">New Password</label>
+              <div class="input-icon-group">
+                <svg
+                  class="input-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                <input
+                  id="otpNewPassword"
+                  type="password"
+                  placeholder="Min. 8 characters"
+                  autocomplete="new-password"
+                  required
+                />
+                <button
+                  class="toggle-pass"
+                  type="button"
+                  data-target="otpNewPassword"
+                  aria-label="Show password"
+                >
+                  <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="input-wrapper">
+              <label for="otpConfirmPassword">Confirm New Password</label>
+              <div class="input-icon-group">
+                <svg
+                  class="input-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                <input
+                  id="otpConfirmPassword"
+                  type="password"
+                  placeholder="Confirm new password"
+                  autocomplete="new-password"
+                  required
+                />
+                <button
+                  class="toggle-pass"
+                  type="button"
+                  data-target="otpConfirmPassword"
+                  aria-label="Show password"
+                >
+                  <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+              </div>
+            </div>
+
+            <button class="auth-btn" id="btnVerifyOtp" type="submit">Reset Password</button>
+
+            <div class="otp-resend-row">
+              <a href="#" id="btnChangeOtpEmail" class="inline-link" style="font-size: 12px; margin-left: 0;">Change Email</a>
+              <div>
+                <span id="resendCountdownText" style="display: none;">Resend in <strong id="resendSeconds">60</strong>s</span>
+                <button type="button" id="btnResendOtp" class="otp-resend-btn">Resend OTP</button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <!-- Step 3: Success Confirmation -->
+        <div class="forgot-step" id="forgotSuccessStep" hidden>
           <div class="success-icon">
             <svg
               viewBox="0 0 24 24"
@@ -544,18 +659,16 @@
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
           </div>
-          <h3>Check your email</h3>
+          <h3>Password Reset Successful!</h3>
           <p>
-            If an account matches
-            <strong id="forgotSentEmail">your email</strong>, we've sent a
-            password reset link. Please check your inbox and spam folder.
+            Your password has been updated successfully. You can now log in using your new credentials.
           </p>
           <button
             class="auth-btn"
             type="button"
             id="forgotDoneBtn"
           >
-            Back to Log In
+            Proceed to Log In
           </button>
         </div>
       </div>
@@ -570,6 +683,6 @@
       <div class="status-box" id="authStatusText"></div>
     </div>
 
-    <script src="auth.js?v=3.0"></script>
+    <script src="auth.js?v=4.0"></script>
   </body>
 </html>
