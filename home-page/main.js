@@ -5859,6 +5859,21 @@ document.addEventListener("DOMContentLoaded", () => {
               '<i class="fa-solid fa-circle-check"></i> ' + (data.message || "Password updated successfully. You can now use your username and password to log in.");
             form.reset();
 
+            if (userInfo?.id) {
+              localStorage.setItem("google_pwd_set_" + userInfo.id, "true");
+            }
+            try {
+              const currentInfo = JSON.parse(localStorage.getItem("customer_info") || "{}");
+              currentInfo.has_custom_password = true;
+              localStorage.setItem("customer_info", JSON.stringify(currentInfo));
+            } catch {}
+
+            const floatingCard = document.getElementById("googlePwdFloatingCard");
+            if (floatingCard) {
+              floatingCard.classList.add("fade-out");
+              setTimeout(() => floatingCard.remove(), 300);
+            }
+
             setTimeout(() => {
               msgBox.style.display = "none";
               msgBox.textContent = "";
@@ -5884,6 +5899,10 @@ document.addEventListener("DOMContentLoaded", () => {
           msgBox.textContent =
             "Cannot connect to server. Ensure Laravel is running.";
         } finally {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Update Password";
+          }
           setLoader(false);
         }
       };
@@ -10109,6 +10128,59 @@ const openReturnRequestModal = (() => {
       hideDropdown(dropdown);
       openOrdersModal(userInfo);
     });
+
+  // Floating Animated Notice for Google-Authenticated Accounts without Custom Password
+  const isGoogleUser =
+    Boolean(userInfo.signed_with_google || userInfo.is_google_account) ||
+    (Boolean(userInfo.email) && /@gmail\.com$/i.test(userInfo.email) && !userInfo.has_custom_password);
+
+  const isPasswordSet =
+    localStorage.getItem("google_pwd_set_" + userInfo.id) === "true" ||
+    Boolean(userInfo.has_custom_password);
+
+  const isPromptDismissed = sessionStorage.getItem("google_pwd_prompt_dismissed") === "true";
+
+  if (isGoogleUser && !isPasswordSet && !isPromptDismissed) {
+    setTimeout(() => {
+      const existingPrompt = document.getElementById("googlePwdFloatingCard");
+      if (existingPrompt) return;
+
+      const floatingCard = document.createElement("div");
+      floatingCard.className = "google-pwd-floating-card";
+      floatingCard.id = "googlePwdFloatingCard";
+      floatingCard.innerHTML = `
+        <div class="google-pwd-card-header">
+          <span class="google-pwd-badge"><i class="fa-solid fa-key"></i> Account Tip</span>
+          <button type="button" class="google-pwd-close-btn" id="closeGooglePwdCard" aria-label="Dismiss">&times;</button>
+        </div>
+        <div class="google-pwd-text">
+          <strong>Create a password first!</strong>
+          You signed in with Google. Set a password in My Account so you can also log in anytime using your username or Gmail.
+        </div>
+        <button type="button" class="google-pwd-action-btn" id="openPwdFromFloatingCard">
+          <span>Set Password Now</span> <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      `;
+
+      userProfileBtn.style.position = "relative";
+      userProfileBtn.appendChild(floatingCard);
+
+      floatingCard.querySelector("#closeGooglePwdCard")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        sessionStorage.setItem("google_pwd_prompt_dismissed", "true");
+        floatingCard.classList.add("fade-out");
+        setTimeout(() => floatingCard.remove(), 300);
+      });
+
+      floatingCard.querySelector("#openPwdFromFloatingCard")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        floatingCard.classList.add("fade-out");
+        setTimeout(() => floatingCard.remove(), 300);
+        hideDropdown(dropdown);
+        openChangePasswordModal(userInfo, token);
+      });
+    }, 1200);
+  }
 
   const showLogoutConfirmModal = (onConfirm) => {
     let modal = document.getElementById("laravelLogoutModal");

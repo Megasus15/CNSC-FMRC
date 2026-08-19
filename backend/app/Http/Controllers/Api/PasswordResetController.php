@@ -131,11 +131,36 @@ class PasswordResetController extends Controller
         $email = strtolower(trim($request->email));
         $user = User::where('email', $email)->first();
 
-        // If the email is not found in the users table
-        if (!$user) {
-            return response()->json([
-                'message' => 'We could not find an account registered with that email address.',
-            ], 404);
+        $portal = strtolower(trim((string) $request->input('portal', '')));
+
+        if ($portal === 'admin_staff' || $portal === 'admin' || $portal === 'staff') {
+            if (!$user) {
+                return response()->json([
+                    'message' => 'We could not find an Admin or Staff account registered with that email address.',
+                ], 404);
+            }
+            if ($user->role === 'customer') {
+                return response()->json([
+                    'message' => 'This email belongs to a customer account. Please use the Customer portal to reset your password.',
+                ], 403);
+            }
+            if (!in_array($user->role, ['admin', 'staff'])) {
+                return response()->json([
+                    'message' => 'Unauthorized account type.',
+                ], 403);
+            }
+        } else {
+            // Customer portal flow (default)
+            if (!$user) {
+                return response()->json([
+                    'message' => 'We could not find a customer account registered with that email address.',
+                ], 404);
+            }
+            if ($user->role !== 'customer') {
+                return response()->json([
+                    'message' => 'This email belongs to an Admin or Staff account. Please use the Admin/Staff portal to reset your password.',
+                ], 403);
+            }
         }
 
         $this->ensureTable();
@@ -346,10 +371,22 @@ class PasswordResetController extends Controller
         }
 
         $user = User::where('email', $email)->first();
-        if (!$user) {
-            return response()->json([
-                'message' => 'We could not find an account for this email address.',
-            ], 404);
+        $portal = strtolower(trim((string) $request->input('portal', '')));
+
+        if ($portal === 'admin_staff' || $portal === 'admin' || $portal === 'staff') {
+            if (!$user) {
+                return response()->json(['message' => 'We could not find an Admin or Staff account registered with that email address.'], 404);
+            }
+            if ($user->role === 'customer') {
+                return response()->json(['message' => 'This email belongs to a customer account. Please use the Customer portal to reset your password.'], 403);
+            }
+        } else {
+            if (!$user) {
+                return response()->json(['message' => 'We could not find a customer account registered with that email address.'], 404);
+            }
+            if ($user->role !== 'customer') {
+                return response()->json(['message' => 'This email belongs to an Admin or Staff account. Please use the Admin/Staff portal to reset your password.'], 403);
+            }
         }
 
         // Update password & invalidate old session tokens

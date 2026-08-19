@@ -222,8 +222,8 @@ body {
 /* Buttons */
 .auth-btn {
   width: 100%;
-  background: var(--primary);
-  color: #fff;
+  background: var(--primary, #9e1414);
+  color: #ffffff;
   border: none;
   border-radius: 8px;
   padding: 14px;
@@ -231,56 +231,27 @@ body {
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(158, 20, 20, 0.2);
+  transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+  outline: none;
+  user-select: none;
 }
 
-.auth-btn:hover {
-  background: var(--primary-hover);
-  transform: none;
-}
-
-.auth-btn.btn-yellow {
-  background: var(--accent);
-  color: var(--text-main);
-}
-
-.auth-btn.btn-yellow:hover {
-  background: var(--accent-hover);
-}
-
-/* Match requested behavior for specific buttons only */
-#loginForm .auth-btn,
-#forgotForm .auth-btn,
-#otpVerifyForm .auth-btn,
-#btnSendOtp,
-#btnVerifyOtp,
-#forgotDoneBtn,
-#successContinueBtn {
-  background: var(--primary);
-  color: #fff;
-  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.16);
-  transition:
-    background-color 0.2s ease,
-    color 0.2s ease,
-    box-shadow 0.1s ease,
-    transform 0.1s ease;
-}
-
+.auth-btn:hover,
 #loginForm .auth-btn:hover,
 #forgotForm .auth-btn:hover,
 #otpVerifyForm .auth-btn:hover,
 #btnSendOtp:hover,
 #btnVerifyOtp:hover,
-#forgotDoneBtn:hover {
-  background: var(--primary-hover);
-  transform: none;
-}
-
+#forgotDoneBtn:hover,
 #successContinueBtn:hover {
-  background: var(--accent-hover);
-  transform: none;
+  background: var(--primary-hover, #7a0f0f) !important;
+  color: #ffffff !important;
+  transform: none !important;
+  box-shadow: 0 4px 14px rgba(122, 15, 15, 0.28);
 }
 
+.auth-btn:active,
 #loginForm .auth-btn:active,
 #forgotForm .auth-btn:active,
 #otpVerifyForm .auth-btn:active,
@@ -288,8 +259,8 @@ body {
 #btnVerifyOtp:active,
 #forgotDoneBtn:active,
 #successContinueBtn:active {
-  transform: scale(0.97);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  transform: scale(0.97) !important;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) !important;
 }
 
 /* Floating field error bubble */

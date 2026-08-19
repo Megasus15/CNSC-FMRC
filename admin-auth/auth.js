@@ -416,7 +416,7 @@ document.addEventListener("DOMContentLoaded", () => {
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ email, portal: "admin_staff" }),
         });
 
         const data = await response.json().catch(() => ({}));
@@ -426,10 +426,10 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
-        if (response.status === 404) {
+        if (response.status === 403 || response.status === 404) {
           setFieldError(
             "forgotEmail",
-            data.message || "We could not find an account registered with that email.",
+            data.message || "We could not find an Admin or Staff account registered with that email.",
           );
           return;
         }
@@ -479,7 +479,7 @@ document.addEventListener("DOMContentLoaded", () => {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({ email: currentOtpEmail }),
+        body: JSON.stringify({ email: currentOtpEmail, portal: "admin_staff" }),
       });
 
       const data = await response.json().catch(() => ({}));
@@ -558,6 +558,7 @@ document.addEventListener("DOMContentLoaded", () => {
             otp,
             password,
             password_confirmation: passwordConfirmation,
+            portal: "admin_staff",
           }),
         });
 
@@ -566,6 +567,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (response.ok) {
           forgotVerifyStep?.setAttribute("hidden", "");
           forgotSuccessStep?.removeAttribute("hidden");
+          return;
+        }
+
+        if (response.status === 403) {
+          setFieldError("otpCodeInput", data.message || "Unauthorized portal request.");
           return;
         }
 

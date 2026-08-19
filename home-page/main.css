@@ -14864,3 +14864,138 @@ textarea:focus-visible,
   height: auto;
   object-fit: contain;
 }
+
+/* Google Account Password Creation Floating Card */
+.google-pwd-floating-card {
+  position: absolute;
+  top: calc(100% + 14px);
+  right: 0;
+  width: 290px;
+  background: #ffffff;
+  border: 1.5px solid #fecaca;
+  border-radius: 16px;
+  box-shadow: 0 14px 38px rgba(158, 20, 20, 0.16), 0 4px 12px rgba(0, 0, 0, 0.06);
+  padding: 16px 18px;
+  z-index: 2100;
+  color: #1f2937;
+  text-align: left;
+  animation: googleCardFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  pointer-events: auto;
+}
+
+.google-pwd-floating-card::before {
+  content: "";
+  position: absolute;
+  top: -8px;
+  right: 18px;
+  width: 14px;
+  height: 14px;
+  background: #ffffff;
+  border-top: 1.5px solid #fecaca;
+  border-left: 1.5px solid #fecaca;
+  transform: rotate(45deg);
+}
+
+.google-pwd-floating-card.fade-out {
+  animation: googleCardFadeOut 0.3s ease forwards;
+  pointer-events: none;
+}
+
+@keyframes googleCardFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes googleCardFadeOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+  }
+}
+
+.google-pwd-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.google-pwd-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fff1f2;
+  color: #9e1414;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid #fecdd3;
+}
+
+.google-pwd-close-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  line-height: 1;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  transition: color 0.15s ease;
+}
+
+.google-pwd-close-btn:hover {
+  color: #111827;
+}
+
+.google-pwd-text {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #4b5563;
+  margin-bottom: 12px;
+}
+
+.google-pwd-text strong {
+  color: #9e1414;
+  display: block;
+  font-size: 13px;
+  margin-bottom: 2px;
+}
+
+.google-pwd-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  background: #9e1414;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.google-pwd-action-btn:hover {
+  background: #7a0f0f;
+}
+
+.google-pwd-action-btn:active {
+  transform: scale(0.97);
+}
