@@ -10,7 +10,14 @@
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="auth.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+      integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <link rel="stylesheet" href="auth.css?v=4.0" />
   </head>
   <body>
     <main class="auth-page">
@@ -54,74 +61,74 @@
           </div>
 
           <form class="auth-form active" id="loginForm" novalidate>
-          <div class="input-wrapper">
-            <label for="loginUser">Email or Username</label>
-            <div class="input-icon-group">
-              <svg
-                class="input-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-              <input
-                id="loginUser"
-                type="text"
-                placeholder="Enter your email or username"
-                required
-              />
-            </div>
-          </div>
-
-          <div class="input-wrapper">
-            <label for="loginPass">Password</label>
-            <div class="password-field input-icon-group">
-              <svg
-                class="input-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-              </svg>
-              <input
-                id="loginPass"
-                type="password"
-                placeholder="Enter your password"
-                required
-              />
-              <button
-                class="toggle-pass"
-                type="button"
-                data-target="loginPass"
-                aria-label="Show password"
-              >
+            <div class="input-wrapper">
+              <label for="loginUser">Email or Username</label>
+              <div class="input-icon-group">
                 <svg
-                  class="eye-closed"
+                  class="input-icon"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
                   stroke-width="2"
                 >
-                  <path
-                    d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
-                  ></path>
-                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
                 </svg>
-              </button>
+                <input
+                  id="loginUser"
+                  type="text"
+                  placeholder="Enter your email or username"
+                  required
+                />
+              </div>
             </div>
-          </div>
 
-          <div class="form-link-wrap">
-            <a href="#" class="form-link" id="forgotPasswordLink"
-              >Forgot Password?</a
-            >
-          </div>
+            <div class="input-wrapper">
+              <label for="loginPass">Password</label>
+              <div class="password-field input-icon-group">
+                <svg
+                  class="input-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                <input
+                  id="loginPass"
+                  type="password"
+                  placeholder="Enter your password"
+                  required
+                />
+                <button
+                  class="toggle-pass"
+                  type="button"
+                  data-target="loginPass"
+                  aria-label="Show password"
+                >
+                  <svg
+                    class="eye-closed"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
+                    ></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-link-wrap">
+              <a href="#" class="form-link" id="forgotPasswordLink"
+                >Forgot Password?</a
+              >
+            </div>
 
             <button class="auth-btn" type="submit">Enter Workspace</button>
           </form>
@@ -164,6 +171,7 @@
       </div>
     </div>
 
+    <!-- 3-Step OTP-based Forgot Password Modal -->
     <div
       class="forgot-modal"
       id="forgotPasswordModal"
@@ -181,7 +189,7 @@
           &times;
         </button>
 
-        <!-- Step 1: Request reset -->
+        <!-- Step 1: Request 6-digit OTP -->
         <div class="forgot-step" id="forgotRequestStep">
           <div class="forgot-icon">
             <svg
@@ -196,11 +204,24 @@
               <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
             </svg>
           </div>
-          <h3 id="forgotTitle">Forgot your password?</h3>
+          <h3 id="forgotTitle">Forgot Password?</h3>
           <p>
-            No worries! Enter the email linked to your admin or staff account
-            and we'll send you a link to reset your password.
+            Enter the email linked to your Admin or Staff account to receive a 6-digit OTP code.
           </p>
+
+          <!-- Staff Yellow Note -->
+          <div class="staff-notice-banner" style="background: #fefce8; border: 1px solid #fef08a; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; color: #854d0e; line-height: 1.45; text-align: left;">
+            <i class="fa-solid fa-circle-info" style="font-size: 15px; margin-top: 2px; color: #ca8a04; flex-shrink: 0;"></i>
+            <div>
+              <strong style="color: #713f12;">Staff Notice:</strong> If you are a staff member having trouble accessing your account or resetting your password, please <strong>contact the System Administrator</strong> for direct assistance.
+            </div>
+          </div>
+
+          <!-- Lockout alert banner -->
+          <div id="otpLockoutBanner" class="otp-lockout-banner" style="display: none;">
+            <i class="fa-solid fa-clock" style="font-size: 16px; margin-top: 2px; color: #ca8a04; flex-shrink: 0;"></i>
+            <div id="otpLockoutMessage"></div>
+          </div>
 
           <form id="forgotForm" novalidate>
             <div class="input-wrapper">
@@ -221,13 +242,18 @@
                 <input
                   id="forgotEmail"
                   type="email"
-                  placeholder="Enter your email address"
+                  placeholder="Enter your registered email address"
+                  autocomplete="email"
+                  inputmode="email"
+                  autocapitalize="none"
+                  spellcheck="false"
+                  enterkeyhint="send"
                   required
                 />
               </div>
             </div>
 
-            <button class="auth-btn" type="submit">Send Reset Link</button>
+            <button class="auth-btn" id="btnSendOtp" type="submit">Send 6-Digit OTP</button>
           </form>
 
           <div class="switch-account-wrap">
@@ -237,8 +263,119 @@
           </div>
         </div>
 
-        <!-- Step 2: Confirmation -->
-        <div class="forgot-step" id="forgotSentStep" hidden>
+        <!-- Step 2: Verify OTP & New Password -->
+        <div class="forgot-step" id="forgotVerifyStep" hidden>
+          <div class="forgot-icon">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+          </div>
+          <h3>Verify &amp; Reset Password</h3>
+          <p>
+            Enter the 6-digit code sent to <strong id="otpTargetEmail">your email</strong> and your new password.
+          </p>
+
+          <div id="otpInfoPill" class="otp-info-pill" style="display: none;"></div>
+
+          <form id="otpVerifyForm" novalidate>
+            <div class="input-wrapper">
+              <label for="otpCodeInput">6-Digit OTP Code</label>
+              <input
+                id="otpCodeInput"
+                class="otp-code-input"
+                type="text"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                maxlength="6"
+                placeholder="• • • • • •"
+                autocomplete="one-time-code"
+                required
+              />
+            </div>
+
+            <div class="input-wrapper">
+              <label for="otpNewPassword">New Password</label>
+              <div class="input-icon-group">
+                <svg
+                  class="input-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                <input
+                  id="otpNewPassword"
+                  type="password"
+                  placeholder="Min. 8 characters"
+                  autocomplete="new-password"
+                  required
+                />
+                <button
+                  class="toggle-pass"
+                  type="button"
+                  data-target="otpNewPassword"
+                  aria-label="Show password"
+                >
+                  <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="input-wrapper">
+              <label for="otpConfirmPassword">Confirm New Password</label>
+              <div class="input-icon-group">
+                <svg
+                  class="input-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                <input
+                  id="otpConfirmPassword"
+                  type="password"
+                  placeholder="Confirm new password"
+                  autocomplete="new-password"
+                  required
+                />
+                <button
+                  class="toggle-pass"
+                  type="button"
+                  data-target="otpConfirmPassword"
+                  aria-label="Show password"
+                >
+                  <svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                </button>
+              </div>
+            </div>
+
+            <button class="auth-btn" id="btnVerifyOtp" type="submit">Reset Password</button>
+
+            <div class="otp-resend-row">
+              <a href="#" id="btnChangeOtpEmail" class="inline-link" style="font-size: 12px; margin-left: 0;">Change Email</a>
+              <div>
+                <span id="resendCountdownText" style="display: none;">Resend in <strong id="resendSeconds">60</strong>s</span>
+                <button type="button" id="btnResendOtp" class="otp-resend-btn">Resend OTP</button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <!-- Step 3: Success Confirmation -->
+        <div class="forgot-step" id="forgotSuccessStep" hidden>
           <div class="success-icon">
             <svg
               viewBox="0 0 24 24"
@@ -251,14 +388,16 @@
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
           </div>
-          <h3>Check your email</h3>
+          <h3>Password Reset Successful!</h3>
           <p>
-            If an account matches
-            <strong id="forgotSentEmail">your email</strong>, we've sent a
-            password reset link. Please check your inbox and spam folder.
+            Your admin/staff password has been updated successfully. You can now log in using your new credentials.
           </p>
-          <button class="auth-btn btn-yellow" type="button" id="forgotDoneBtn">
-            Back to Log In
+          <button
+            class="auth-btn"
+            type="button"
+            id="forgotDoneBtn"
+          >
+            Proceed to Login
           </button>
         </div>
       </div>
@@ -273,7 +412,6 @@
       <div class="status-box" id="authStatusText"></div>
     </div>
 
-    <script src="auth.js"></script>
-
+    <script src="auth.js?v=4.0"></script>
   </body>
 </html>

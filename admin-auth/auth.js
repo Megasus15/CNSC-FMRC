@@ -218,28 +218,123 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // ── Forgot Password flow ──────────────────────────────────────────────
-  // Reuses the same Laravel backend endpoint as the customer portal. The
-  // backend looks the account up by email, so admins are covered too.
-  const forgotPasswordLink = document.getElementById("forgotPasswordLink");
+  // ── OTP-based Forgot Password Flow (Admin & Staff) ──
   const forgotPasswordModal = document.getElementById("forgotPasswordModal");
+  const forgotPasswordLink = document.getElementById("forgotPasswordLink");
+  const forgotCloseBtn = document.getElementById("forgotCloseBtn");
+  const forgotDoneBtn = document.getElementById("forgotDoneBtn");
+  const forgotBackToLogin = document.getElementById("forgotBackToLogin");
+  const forgotRequestStep = document.getElementById("forgotRequestStep");
+  const forgotVerifyStep = document.getElementById("forgotVerifyStep");
+  const forgotSuccessStep = document.getElementById("forgotSuccessStep");
   const forgotForm = document.getElementById("forgotForm");
   const forgotEmail = document.getElementById("forgotEmail");
-  const forgotCloseBtn = document.getElementById("forgotCloseBtn");
-  const forgotBackToLogin = document.getElementById("forgotBackToLogin");
-  const forgotDoneBtn = document.getElementById("forgotDoneBtn");
-  const forgotRequestStep = document.getElementById("forgotRequestStep");
-  const forgotSentStep = document.getElementById("forgotSentStep");
-  const forgotSentEmail = document.getElementById("forgotSentEmail");
+  const btnSendOtp = document.getElementById("btnSendOtp");
+  const otpLockoutBanner = document.getElementById("otpLockoutBanner");
+  const otpLockoutMessage = document.getElementById("otpLockoutMessage");
+  const otpTargetEmail = document.getElementById("otpTargetEmail");
+  const otpInfoPill = document.getElementById("otpInfoPill");
+  const otpVerifyForm = document.getElementById("otpVerifyForm");
+  const otpCodeInput = document.getElementById("otpCodeInput");
+  const otpNewPassword = document.getElementById("otpNewPassword");
+  const otpConfirmPassword = document.getElementById("otpConfirmPassword");
+  const btnVerifyOtp = document.getElementById("btnVerifyOtp");
+  const btnResendOtp = document.getElementById("btnResendOtp");
+  const resendCountdownText = document.getElementById("resendCountdownText");
+  const resendSeconds = document.getElementById("resendSeconds");
+  const btnChangeOtpEmail = document.getElementById("btnChangeOtpEmail");
+
+  let currentOtpEmail = "";
+  let resendTimerInterval = null;
+  let lockoutTimerInterval = null;
+
+  const formatSecondsReadable = (totalSeconds) => {
+    if (totalSeconds < 60) {
+      return `${totalSeconds}s`;
+    }
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const parts = [];
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    if (seconds > 0 && hours === 0) parts.push(`${seconds}s`);
+    return parts.join(" ") || "0s";
+  };
+
+  const startResendCooldown = (duration = 60) => {
+    if (resendTimerInterval) clearInterval(resendTimerInterval);
+    if (!btnResendOtp || !resendCountdownText || !resendSeconds) return;
+
+    let remaining = duration;
+    btnResendOtp.style.display = "none";
+    resendCountdownText.style.display = "inline";
+    resendSeconds.textContent = remaining;
+
+    resendTimerInterval = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearInterval(resendTimerInterval);
+        resendCountdownText.style.display = "none";
+        btnResendOtp.style.display = "inline";
+        btnResendOtp.disabled = false;
+      } else {
+        resendSeconds.textContent = remaining;
+      }
+    }, 1000);
+  };
+
+  const showLockoutAlert = (remainingSecs, customMessage = "") => {
+    if (lockoutTimerInterval) clearInterval(lockoutTimerInterval);
+    if (!otpLockoutBanner || !otpLockoutMessage) return;
+
+    let remaining = remainingSecs;
+    otpLockoutBanner.style.display = "flex";
+    if (btnSendOtp) btnSendOtp.disabled = true;
+
+    const updateMsg = () => {
+      const timeStr = formatSecondsReadable(remaining);
+      otpLockoutMessage.innerHTML = customMessage
+        ? `<strong>Rate Limit:</strong> ${customMessage} (Cooldown: <strong>${timeStr}</strong>)`
+        : `<strong>5-Attempt Limit Reached:</strong> Please wait <strong>${timeStr}</strong> before requesting another OTP for this email.`;
+    };
+
+    updateMsg();
+
+    lockoutTimerInterval = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearInterval(lockoutTimerInterval);
+        otpLockoutBanner.style.display = "none";
+        if (btnSendOtp) btnSendOtp.disabled = false;
+      } else {
+        updateMsg();
+      }
+    }, 1000);
+  };
 
   const openForgotModal = (event) => {
     if (event) event.preventDefault();
     if (!forgotPasswordModal) return;
-    // Always start on the request step
+
     forgotRequestStep?.removeAttribute("hidden");
-    forgotSentStep?.setAttribute("hidden", "");
+    forgotVerifyStep?.setAttribute("hidden", "");
+    forgotSuccessStep?.setAttribute("hidden", "");
+
+    if (otpLockoutBanner) otpLockoutBanner.style.display = "none";
+    if (lockoutTimerInterval) clearInterval(lockoutTimerInterval);
+    if (resendTimerInterval) clearInterval(resendTimerInterval);
+
     clearFieldError("forgotEmail");
+    clearFieldError("otpCodeInput");
+    clearFieldError("otpNewPassword");
+    clearFieldError("otpConfirmPassword");
+
     if (forgotEmail) forgotEmail.value = "";
+    if (otpCodeInput) otpCodeInput.value = "";
+    if (otpNewPassword) otpNewPassword.value = "";
+    if (otpConfirmPassword) otpConfirmPassword.value = "";
+
     forgotPasswordModal.classList.add("show");
     document.body.style.overflow = "hidden";
     setTimeout(() => forgotEmail?.focus(), 120);
@@ -249,20 +344,34 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!forgotPasswordModal) return;
     forgotPasswordModal.classList.remove("show");
     document.body.style.overflow = "";
+    if (lockoutTimerInterval) clearInterval(lockoutTimerInterval);
+    if (resendTimerInterval) clearInterval(resendTimerInterval);
   };
 
   forgotPasswordLink?.addEventListener("click", openForgotModal);
   forgotCloseBtn?.addEventListener("click", closeForgotModal);
-  forgotDoneBtn?.addEventListener("click", closeForgotModal);
+
+  forgotDoneBtn?.addEventListener("click", () => {
+    closeForgotModal();
+    const loginUser = document.getElementById("loginUser");
+    if (loginUser && currentOtpEmail) {
+      loginUser.value = currentOtpEmail;
+      const loginPass = document.getElementById("loginPass");
+      loginPass?.focus();
+    }
+  });
 
   forgotBackToLogin?.addEventListener("click", (event) => {
     event.preventDefault();
     closeForgotModal();
   });
 
-  // Close when clicking the dark backdrop (outside the box)
-  forgotPasswordModal?.addEventListener("click", (event) => {
-    if (event.target === forgotPasswordModal) closeForgotModal();
+  btnChangeOtpEmail?.addEventListener("click", (event) => {
+    event.preventDefault();
+    forgotVerifyStep?.setAttribute("hidden", "");
+    forgotRequestStep?.removeAttribute("hidden");
+    clearFieldError("forgotEmail");
+    setTimeout(() => forgotEmail?.focus(), 100);
   });
 
   // Close on Escape key
@@ -275,15 +384,20 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Clear error while typing
-  forgotEmail?.addEventListener("input", () => {
-    if (forgotEmail.value.trim()) clearFieldError("forgotEmail");
+  // Format OTP code input (digits only)
+  otpCodeInput?.addEventListener("input", () => {
+    otpCodeInput.value = otpCodeInput.value.replace(/\D/g, "").slice(0, 6);
+    if (otpCodeInput.value.length === 6) {
+      clearFieldError("otpCodeInput");
+    }
   });
 
+  // Step 1: Send OTP
   if (forgotForm) {
     forgotForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       clearFieldError("forgotEmail");
+      if (otpLockoutBanner) otpLockoutBanner.style.display = "none";
 
       const email = forgotEmail.value.trim();
 
@@ -298,40 +412,179 @@ document.addEventListener("DOMContentLoaded", () => {
 
       toggleLoader(true);
       try {
-        // Ask the Laravel backend to email a real reset link.
-        const response = await fetch(
-          `${API_BASE_URL}/forgot-password`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-            },
-            body: JSON.stringify({ email }),
+        const response = await fetch(`${API_BASE_URL}/forgot-password/send-otp`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
           },
-        );
+          body: JSON.stringify({ email }),
+        });
 
-        if (response.status === 422) {
-          const data = await response.json().catch(() => ({}));
+        const data = await response.json().catch(() => ({}));
+
+        if (response.status === 429) {
+          showLockoutAlert(data.remaining_seconds || 600, data.message);
+          return;
+        }
+
+        if (response.status === 404) {
           setFieldError(
             "forgotEmail",
-            data.errors?.email?.[0] ||
-              data.message ||
-              "Please enter a valid email address.",
+            data.message || "We could not find an account registered with that email.",
           );
           return;
         }
 
-        // For security the backend always returns the same generic message,
-        // whether or not the email exists — so we always show confirmation.
-        if (forgotSentEmail) forgotSentEmail.textContent = email;
+        if (!response.ok) {
+          setFieldError(
+            "forgotEmail",
+            data.errors?.email?.[0] || data.message || "Unable to send OTP. Please try again.",
+          );
+          return;
+        }
+
+        // Successfully sent OTP
+        currentOtpEmail = email;
+        if (otpTargetEmail) otpTargetEmail.textContent = email;
+
+        if (otpInfoPill) {
+          otpInfoPill.style.display = "inline-flex";
+          otpInfoPill.innerHTML = `<i class="fa-solid fa-shield-halved"></i> Request ${data.send_count} of 5 &bull; Valid for 15 mins`;
+        }
+
         forgotRequestStep?.setAttribute("hidden", "");
-        forgotSentStep?.removeAttribute("hidden");
+        forgotVerifyStep?.removeAttribute("hidden");
+        clearFieldError("otpCodeInput");
+        if (otpCodeInput) otpCodeInput.value = "";
+        setTimeout(() => otpCodeInput?.focus(), 120);
+
+        startResendCooldown(60);
       } catch {
-        setFieldError(
-          "forgotEmail",
-          "Cannot connect to server. Ensure Laravel is running.",
-        );
+        setFieldError("forgotEmail", "Cannot connect to server. Please try again.");
+      } finally {
+        toggleLoader(false);
+      }
+    });
+  }
+
+  // Resend OTP
+  btnResendOtp?.addEventListener("click", async () => {
+    if (!currentOtpEmail) return;
+    btnResendOtp.disabled = true;
+    toggleLoader(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/forgot-password/resend-otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ email: currentOtpEmail }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.status === 429) {
+        forgotVerifyStep?.setAttribute("hidden", "");
+        forgotRequestStep?.removeAttribute("hidden");
+        showLockoutAlert(data.remaining_seconds || 600, data.message);
+        return;
+      }
+
+      if (response.ok) {
+        if (otpInfoPill) {
+          otpInfoPill.style.display = "inline-flex";
+          otpInfoPill.innerHTML = `<i class="fa-solid fa-shield-halved"></i> Request ${data.send_count} of 5 &bull; Valid for 15 mins`;
+        }
+        showStatus("A new 6-digit OTP has been sent to your email!");
+        startResendCooldown(60);
+      } else {
+        setFieldError("otpCodeInput", data.message || "Could not resend OTP. Please try again.");
+      }
+    } catch {
+      setFieldError("otpCodeInput", "Cannot connect to server for OTP resend.");
+    } finally {
+      toggleLoader(false);
+    }
+  });
+
+  // Step 2: Verify OTP & Reset Password
+  if (otpVerifyForm) {
+    otpVerifyForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearFieldError("otpCodeInput");
+      clearFieldError("otpNewPassword");
+      clearFieldError("otpConfirmPassword");
+
+      const otp = otpCodeInput?.value.trim() || "";
+      const password = otpNewPassword?.value || "";
+      const passwordConfirmation = otpConfirmPassword?.value || "";
+
+      let hasError = false;
+
+      if (!otp || otp.length !== 6) {
+        setFieldError("otpCodeInput", "Please enter the complete 6-digit OTP code.");
+        hasError = true;
+      }
+
+      if (!password) {
+        setFieldError("otpNewPassword", "New password is required.");
+        hasError = true;
+      } else if (password.length < 8) {
+        setFieldError("otpNewPassword", "Password must be at least 8 characters.");
+        hasError = true;
+      }
+
+      if (!passwordConfirmation) {
+        setFieldError("otpConfirmPassword", "Please confirm your new password.");
+        hasError = true;
+      } else if (password !== passwordConfirmation) {
+        setFieldError("otpConfirmPassword", "Password confirmation does not match.");
+        hasError = true;
+      }
+
+      if (hasError) return;
+
+      toggleLoader(true);
+      try {
+        const response = await fetch(`${API_BASE_URL}/forgot-password/verify-otp`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            email: currentOtpEmail,
+            otp,
+            password,
+            password_confirmation: passwordConfirmation,
+          }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (response.ok) {
+          forgotVerifyStep?.setAttribute("hidden", "");
+          forgotSuccessStep?.removeAttribute("hidden");
+          return;
+        }
+
+        if (response.status === 422) {
+          if (data.errors?.otp?.[0]) {
+            setFieldError("otpCodeInput", data.errors.otp[0]);
+          } else if (data.errors?.password?.[0]) {
+            setFieldError("otpNewPassword", data.errors.password[0]);
+          } else {
+            setFieldError("otpCodeInput", data.message || "Invalid OTP code or password.");
+          }
+          return;
+        }
+
+        setFieldError("otpCodeInput", data.message || "Password reset failed. Please try again.");
+      } catch {
+        setFieldError("otpCodeInput", "Cannot connect to server. Please try again.");
       } finally {
         toggleLoader(false);
       }
