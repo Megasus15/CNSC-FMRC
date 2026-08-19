@@ -8,9 +8,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
@@ -120,6 +122,119 @@ class AuthController extends Controller
             'access_token' => $token,
             'token_type' => 'Bearer',
         ]);
+    }
+
+    public function googleLogin(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'id_token' => 'required|string',
+        ]);
+
+        try {
+            $response = Http::timeout(10)->get('https://oauth2.googleapis.com/tokeninfo', [
+                'id_token' => $validated['id_token'],
+            ]);
+
+            if (!$response->successful()) {
+                return response()->json([
+                    'message' => 'Invalid or expired Google authentication token.',
+                ], 401);
+            }
+
+            $payload = $response->json();
+            $configuredClientId = config('services.google.client_id', env('GOOGLE_CLIENT_ID'));
+
+            // If configured, ensure token audience matches our client ID
+            if (!empty($configuredClientId) && ($payload['aud'] ?? '') !== $configuredClientId) {
+                return response()->json([
+                    'message' => 'Google authentication token audience mismatch.',
+                ], 401);
+            }
+
+            $email = strtolower(trim((string) ($payload['email'] ?? '')));
+            if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                return response()->json([
+                    'message' => 'Could not retrieve a valid email address from Google.',
+                ], 422);
+            }
+
+            $emailVerified = filter_var($payload['email_verified'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            if (!$emailVerified) {
+                return response()->json([
+                    'message' => 'Your Google email address is not verified.',
+                ], 422);
+            }
+
+            $name = trim((string) ($payload['name'] ?? ''));
+            if ($name === '') {
+                $givenName = trim((string) ($payload['given_name'] ?? ''));
+                $familyName = trim((string) ($payload['family_name'] ?? ''));
+                $name = trim($givenName . ' ' . $familyName);
+            }
+            if ($name === '') {
+                $name = ucfirst(explode('@', $email)[0]);
+            }
+
+            $user = User::where('email', $email)->first();
+
+            if (!$user) {
+                // Generate a unique username based on the email prefix
+                $baseUsername = strtolower(preg_replace('/[^a-zA-Z0-9_]/', '', explode('@', $email)[0]));
+                if (strlen($baseUsername) < 3) {
+                    $baseUsername = 'user_' . $baseUsername;
+                }
+                $baseUsername = substr($baseUsername, 0, 15);
+
+                $username = $baseUsername;
+                $counter = 1;
+                while (User::where('username', $username)->exists()) {
+                    $username = $baseUsername . $counter;
+                    $counter++;
+                }
+
+                $user = User::create([
+                    'name' => $name,
+                    'username' => $username,
+                    'email' => $email,
+                    'password' => Hash::make(Str::random(32)),
+                    'role' => 'customer',
+                    'email_verified_at' => now(),
+                ]);
+
+                // Send welcome email in background
+                $emailHtml = $this->buildWelcomeEmailHtml($user);
+                $userId = (string) $user->id;
+                $fromAddress = config('mail.from.address', 'noreply@cnsc-fmrc.edu.ph');
+                $fromName = config('mail.from.name', 'UCN-FMRC');
+
+                $this->dispatchAfterResponse(function () use ($email, $emailHtml, $userId, $fromAddress, $fromName) {
+                    try {
+                        Mail::html($emailHtml, function ($message) use ($email, $fromAddress, $fromName) {
+                            $message->to($email)
+                                ->subject('Welcome to UCN-FMRC!')
+                                ->from($fromAddress, $fromName);
+                        });
+                        Log::info("Google auth welcome email sent to {$email} for user #{$userId}");
+                    } catch (\Throwable $e) {
+                        Log::error("Google auth welcome email FAILED for user #{$userId}: " . $e->getMessage());
+                    }
+                });
+            }
+
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return response()->json([
+                'message' => 'Google sign-in successful',
+                'user' => $user,
+                'access_token' => $token,
+                'token_type' => 'Bearer',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Google sign-in exception: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Google sign-in failed. Please try again or use your password.',
+            ], 500);
+        }
     }
 
     public function logout(Request $request)

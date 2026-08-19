@@ -483,4 +483,109 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  // ── Google Sign-In Integration (Google Identity Services) ──
+  const GOOGLE_CLIENT_ID = "55704463190-43888rtrprqlb7drpkmq52h5bhpr5p9u.apps.googleusercontent.com";
+
+  const handleGoogleCredentialResponse = async (response) => {
+    if (!response || !response.credential) {
+      showStatus("Google authentication did not return a credential.");
+      return;
+    }
+
+    toggleLoader(true);
+    hideStatus();
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/google`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ id_token: response.credential }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        if (data.user && data.user.role !== "customer") {
+          const isLogin = loginForm?.classList.contains("active");
+          setFieldError(
+            isLogin ? "loginUser" : "signupName",
+            "Staff and Admin accounts must use the admin login portal.",
+          );
+          return;
+        }
+
+        localStorage.setItem("customer_token", data.access_token);
+        localStorage.setItem("customer_info", JSON.stringify(data.user));
+        showStatus("Signed in with Google! Redirecting to your account...");
+        setTimeout(() => {
+          window.location.href = "../home-page/main.html";
+        }, 300);
+        return;
+      }
+
+      const errorMessage = data.message || "Google sign-in failed. Please try again.";
+      const isLogin = loginForm?.classList.contains("active");
+      if (isLogin) {
+        setFieldError("loginUser", errorMessage);
+      } else {
+        setFieldError("signupName", errorMessage);
+      }
+    } catch {
+      const isLogin = loginForm?.classList.contains("active");
+      setFieldError(
+        isLogin ? "loginUser" : "signupName",
+        "Cannot connect to server for Google Sign-In. Please try again.",
+      );
+    } finally {
+      toggleLoader(false);
+    }
+  };
+
+  const initGoogleAuth = () => {
+    if (typeof window.google === "undefined" || !window.google.accounts || !window.google.accounts.id) {
+      setTimeout(initGoogleAuth, 300);
+      return;
+    }
+
+    try {
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleCredentialResponse,
+        auto_select: false,
+        cancel_on_tap_outside: true,
+      });
+
+      const hiddenContainer = document.getElementById("googleHiddenBtnContainer");
+      if (hiddenContainer) {
+        window.google.accounts.id.renderButton(hiddenContainer, {
+          theme: "outline",
+          size: "large",
+          type: "standard",
+        });
+      }
+
+      document.querySelectorAll(".google-auth-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault();
+          hideStatus();
+          if (loginForm) clearFormErrors(loginForm);
+          if (signupForm) clearFormErrors(signupForm);
+
+          const hiddenBtn = hiddenContainer?.querySelector('div[role="button"]');
+          if (hiddenBtn) {
+            hiddenBtn.click();
+          } else {
+            window.google.accounts.id.prompt();
+          }
+        });
+      });
+    } catch (e) {
+      console.warn("Google Auth Init Warning:", e);
+    }
+  };
+
+  initGoogleAuth();
 });

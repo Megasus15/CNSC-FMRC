@@ -34,6 +34,7 @@ Route::get('/psgc/cities-municipalities/{cityMunCode}/barangays', [PsgcControlle
 
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
+Route::post('/auth/google', [AuthController::class, 'googleLogin']);
 
 // Public: Customer password reset (forgot password flow)
 Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink']);
