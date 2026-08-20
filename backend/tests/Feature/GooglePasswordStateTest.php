@@ -7,6 +7,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -125,5 +127,44 @@ class GooglePasswordStateTest extends TestCase
                 'signed_with_google' => true,
                 'has_custom_password' => false,
             ]);
+    }
+
+    public function test_user_management_stays_available_before_the_live_database_is_migrated(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $customer = User::factory()->create(['role' => 'customer']);
+
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn(['signed_with_google', 'has_custom_password']);
+        });
+
+        try {
+            Sanctum::actingAs($admin);
+            Mail::fake();
+
+            $this->getJson('/api/users')
+                ->assertOk()
+                ->assertJsonFragment([
+                    'id' => $customer->id,
+                    'signed_with_google' => false,
+                    'has_custom_password' => true,
+                ]);
+
+            $this->postJson('/api/users', [
+                'name' => 'Compatibility Customer',
+                'username' => 'compat_customer',
+                'email' => 'compat.customer@gmail.com',
+                'role' => 'customer',
+                'password' => 'Compatibility123!',
+                'password_confirmation' => 'Compatibility123!',
+            ])
+                ->assertCreated()
+                ->assertJsonPath('data.has_custom_password', true);
+        } finally {
+            Schema::table('users', function (Blueprint $table) {
+                $table->boolean('signed_with_google')->default(false);
+                $table->boolean('has_custom_password')->default(true);
+            });
+        }
     }
 }

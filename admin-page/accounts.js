@@ -407,9 +407,9 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Failed to load accounts:", error);
       if (tableBody) {
         tableBody.innerHTML =
-          "<tr><td colspan='9' style='text-align:center;color:#991b1b;'>Could not load accounts. Ensure Laravel server is running.</td></tr>";
+          "<tr><td colspan='9' style='text-align:center;color:#991b1b;'>Could not load account data. Please refresh the page.</td></tr>";
       }
-      if (tableMeta) tableMeta.textContent = "Unable to fetch account data.";
+      if (tableMeta) tableMeta.textContent = "Account data is temporarily unavailable.";
     }
   };
 

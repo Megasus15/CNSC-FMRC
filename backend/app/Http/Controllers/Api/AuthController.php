@@ -12,11 +12,14 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
+    private ?bool $googlePasswordStateSupported = null;
+
     private const ALLOWED_CUSTOMER_TYPES = [
         'Student',
         'Educator',
@@ -26,6 +29,35 @@ class AuthController extends Controller
         'Association',
         'Others',
     ];
+
+    private function supportsGooglePasswordState(): bool
+    {
+        return $this->googlePasswordStateSupported ??= Schema::hasColumn('users', 'signed_with_google')
+            && Schema::hasColumn('users', 'has_custom_password');
+    }
+
+    private function withGooglePasswordState(
+        array $attributes,
+        bool $signedWithGoogle,
+        bool $hasCustomPassword,
+    ): array {
+        if ($this->supportsGooglePasswordState()) {
+            $attributes['signed_with_google'] = $signedWithGoogle;
+            $attributes['has_custom_password'] = $hasCustomPassword;
+        }
+
+        return $attributes;
+    }
+
+    private function exposeGooglePasswordStateFallback(User $user): void
+    {
+        if (!$this->supportsGooglePasswordState()) {
+            // Keep production usable before the migration is deployed. The
+            // reminder remains disabled until its state can be persisted.
+            $user->setAttribute('signed_with_google', false);
+            $user->setAttribute('has_custom_password', true);
+        }
+    }
 
     private function ensureAdmin(Request $request): ?\Illuminate\Http\JsonResponse
     {
@@ -60,15 +92,13 @@ class AuthController extends Controller
             'username.unique' => 'This username is already taken. Please choose another one.',
         ]);
 
-        $user = User::create([
+        $user = User::create($this->withGooglePasswordState([
             'name' => $request->name,
             'username' => $request->username,
             'email' => strtolower(trim($request->email)),
             'password' => Hash::make($request->password),
             'role' => 'customer',
-            'signed_with_google' => false,
-            'has_custom_password' => true,
-        ]);
+        ], false, true));
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -103,6 +133,8 @@ class AuthController extends Controller
             $this->dispatchAfterResponse($emailDispatch);
         }
 
+        $this->exposeGooglePasswordStateFallback($user);
+
         return response()->json([
             'user' => $user,
             'access_token' => $token,
@@ -130,12 +162,14 @@ class AuthController extends Controller
 
         // A successful password login proves this is a customer-usable password,
         // not the internal random password of a Google-only account.
-        if (!$user->has_custom_password) {
+        if ($this->supportsGooglePasswordState() && !$user->has_custom_password) {
             $user->has_custom_password = true;
             $user->save();
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
+
+        $this->exposeGooglePasswordStateFallback($user);
 
         return response()->json([
             'message' => 'Login successful',
@@ -232,16 +266,14 @@ class AuthController extends Controller
                     $counter++;
                 }
 
-                $user = User::create([
+                $user = User::create($this->withGooglePasswordState([
                     'name' => $name,
                     'username' => $username,
                     'email' => $email,
                     'password' => Hash::make(Str::random(32)),
                     'role' => 'customer',
                     'email_verified_at' => now(),
-                    'signed_with_google' => true,
-                    'has_custom_password' => false,
-                ]);
+                ], true, false));
 
                 // Send welcome email in background
                 $emailHtml = $this->buildWelcomeEmailHtml($user);
@@ -264,7 +296,7 @@ class AuthController extends Controller
             } else {
                 $needsSave = false;
 
-                if (!$user->signed_with_google) {
+                if ($this->supportsGooglePasswordState() && !$user->signed_with_google) {
                     $user->signed_with_google = true;
                     $needsSave = true;
                 }
@@ -290,6 +322,7 @@ class AuthController extends Controller
             }
 
             $token = $user->createToken('auth_token')->plainTextToken;
+            $this->exposeGooglePasswordStateFallback($user);
 
             return response()->json([
                 'message' => 'Google sign-in successful',
@@ -322,19 +355,22 @@ class AuthController extends Controller
             return $denied;
         }
 
+        $columns = ['id', 'name', 'username', 'email', 'role', 'created_at'];
+        if ($this->supportsGooglePasswordState()) {
+            $columns[] = 'signed_with_google';
+            $columns[] = 'has_custom_password';
+        }
+
         $users = User::query()
-            ->select([
-                'id',
-                'name',
-                'username',
-                'email',
-                'role',
-                'signed_with_google',
-                'has_custom_password',
-                'created_at',
-            ])
+            ->select($columns)
             ->orderBy('created_at', 'asc')
             ->get();
+
+        if (!$this->supportsGooglePasswordState()) {
+            $users->each(function (User $user) {
+                $this->exposeGooglePasswordStateFallback($user);
+            });
+        }
 
         return response()->json([
             'data' => $users,
@@ -357,15 +393,13 @@ class AuthController extends Controller
             'password' => 'required|string|min:8|confirmed',
         ]);
 
-        $user = User::create([
+        $user = User::create($this->withGooglePasswordState([
             'name'     => $validated['name'],
             'username' => $validated['username'] ?? null,
             'email'    => $validated['email'] ?? null,
             'password' => Hash::make($validated['password']),
             'role'     => $validated['role'],
-            'signed_with_google' => false,
-            'has_custom_password' => true,
-        ]);
+        ], false, true));
 
         // --- Admin-Created Account Welcome Email ---
         $emailDispatch = null;
@@ -397,6 +431,8 @@ class AuthController extends Controller
         if ($emailDispatch) {
             $this->dispatchAfterResponse($emailDispatch);
         }
+
+        $this->exposeGooglePasswordStateFallback($user);
 
         return response()->json([
             'message' => 'User account created successfully.',
@@ -585,8 +621,12 @@ class AuthController extends Controller
             'address_details' => $user->address_details,
             'department' => $user->department,
             'customer_type' => $user->customer_type,
-            'signed_with_google' => (bool) $user->signed_with_google,
-            'has_custom_password' => (bool) $user->has_custom_password,
+            'signed_with_google' => $this->supportsGooglePasswordState()
+                ? (bool) $user->signed_with_google
+                : false,
+            'has_custom_password' => $this->supportsGooglePasswordState()
+                ? (bool) $user->has_custom_password
+                : true,
             'updated_at' => optional($user->updated_at)->toIso8601String(),
         ];
     }
@@ -647,7 +687,10 @@ class AuthController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 401);
         }
 
-        if ($user->has_custom_password && empty($request->current_password)) {
+        $passwordStateSupported = $this->supportsGooglePasswordState();
+        $hasCustomPassword = !$passwordStateSupported || (bool) $user->has_custom_password;
+
+        if ($hasCustomPassword && empty($request->current_password)) {
             return response()->json([
                 'message' => 'Current password is required to change your password.',
             ], 422);
@@ -662,13 +705,17 @@ class AuthController extends Controller
         }
 
         $user->password = Hash::make($request->new_password);
-        $user->has_custom_password = true;
+        if ($passwordStateSupported) {
+            $user->has_custom_password = true;
+        }
         $user->save();
 
         return response()->json([
             'message' => 'Password updated successfully. You can now use your username and password to log in.',
             'data' => [
-                'signed_with_google' => (bool) $user->signed_with_google,
+                'signed_with_google' => $passwordStateSupported
+                    ? (bool) $user->signed_with_google
+                    : false,
                 'has_custom_password' => true,
             ],
         ]);
