@@ -18,15 +18,6 @@ class TurnstileSecurityTest extends TestCase
         Config::set('services.turnstile.timeout', 5);
     }
 
-    private function registerProbeRoutes(): void
-    {
-        Route::post('/_turnstile-probe/enforced', fn () => response()->json(['reached' => true]))
-            ->middleware(VerifyTurnstile::class);
-
-        Route::post('/_turnstile-probe/advisory', fn () => response()->json(['reached' => true]))
-            ->middleware(VerifyTurnstile::class . ':advisory');
-    }
-
     private function postRouteMiddleware(string $uri): array
     {
         foreach (Route::getRoutes() as $route) {
@@ -100,87 +91,66 @@ class TurnstileSecurityTest extends TestCase
             ->assertJsonMissing(['secret_key' => 'test-secret-key']);
     }
 
-    public function test_enforced_route_still_rejects_a_missing_token(): void
+    /*
+     * Admin/staff sign-in requires all three of email/username, password and a
+     * completed challenge. These two tests prove the third: the credentials are
+     * never even looked at while the token is missing or unverified.
+     */
+    public function test_admin_staff_login_rejects_a_missing_token(): void
     {
         $this->enableTurnstile();
-        $this->registerProbeRoutes();
         Http::fake();
 
-        $this->postJson('/_turnstile-probe/enforced', [])
+        $this->postJson('/api/login', [
+            'login' => 'admin',
+            'password' => 'correct-horse-battery-staple',
+        ])
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'Please complete the security check and try again.');
+            ->assertJsonPath('message', 'Please complete the security check and try again.')
+            ->assertJsonValidationErrors(['cf-turnstile-response']);
 
         Http::assertNothingSent();
     }
 
-    public function test_advisory_route_allows_a_missing_token_without_calling_cloudflare(): void
+    public function test_admin_staff_login_rejects_a_token_cloudflare_does_not_accept(): void
     {
         $this->enableTurnstile();
-        $this->registerProbeRoutes();
-        Http::fake();
-
-        $this->postJson('/_turnstile-probe/advisory', [])
-            ->assertOk()
-            ->assertJsonPath('reached', true);
-
-        Http::assertNothingSent();
-    }
-
-    public function test_advisory_route_allows_a_token_cloudflare_rejects(): void
-    {
-        $this->enableTurnstile();
-        $this->registerProbeRoutes();
         Http::fake([
             'https://challenges.cloudflare.com/turnstile/v0/siteverify' => Http::response([
                 'success' => false,
-                'error-codes' => ['invalid-input-response'],
+                'error-codes' => ['timeout-or-duplicate'],
             ]),
         ]);
 
-        $this->postJson('/_turnstile-probe/advisory', [
-            'cf-turnstile-response' => 'rejected-test-token',
+        $this->postJson('/api/login', [
+            'login' => 'admin',
+            'password' => 'correct-horse-battery-staple',
+            'cf-turnstile-response' => 'stale-test-token',
         ])
-            ->assertOk()
-            ->assertJsonPath('reached', true);
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Please complete the security check and try again.');
 
-        Http::assertSent(fn ($request) => $request['response'] === 'rejected-test-token');
+        Http::assertSent(fn ($request) => $request['response'] === 'stale-test-token');
     }
 
-    public function test_advisory_route_still_verifies_a_token_that_is_present(): void
+    public function test_every_guarded_form_including_the_admin_login_is_enforced(): void
     {
-        $this->enableTurnstile();
-        $this->registerProbeRoutes();
-        Http::fake([
-            'https://challenges.cloudflare.com/turnstile/v0/siteverify' => Http::response([
-                'success' => true,
-            ]),
-        ]);
+        $uris = ['api/login', 'api/customer/login', 'api/register', 'api/appointments'];
 
-        $this->postJson('/_turnstile-probe/advisory', [
-            'cf-turnstile-response' => 'valid-test-token',
-        ])->assertOk();
-
-        Http::assertSent(fn ($request) => $request['secret'] === 'test-secret-key'
-            && $request['response'] === 'valid-test-token');
-    }
-
-    public function test_admin_staff_login_is_wired_as_advisory_and_customer_forms_stay_enforced(): void
-    {
-        $this->assertContains(
-            VerifyTurnstile::class . ':advisory',
-            $this->postRouteMiddleware('api/login'),
-            'The admin/staff login must keep Turnstile advisory so a failed challenge cannot lock staff out.',
-        );
-
-        foreach (['api/customer/login', 'api/register', 'api/appointments'] as $uri) {
+        foreach ($uris as $uri) {
             $middleware = $this->postRouteMiddleware($uri);
 
             $this->assertContains(VerifyTurnstile::class, $middleware, "[{$uri}] lost its Turnstile guard.");
-            $this->assertNotContains(
-                VerifyTurnstile::class . ':advisory',
-                $middleware,
-                "[{$uri}] must stay enforced.",
-            );
+
+            // A middleware parameter would mean a relaxed mode had been
+            // reintroduced; every guarded route must reject an unsolved check.
+            foreach ($middleware as $entry) {
+                $this->assertStringStartsNotWith(
+                    VerifyTurnstile::class . ':',
+                    $entry,
+                    "[{$uri}] must not weaken the Turnstile guard with a mode parameter.",
+                );
+            }
         }
     }
 }

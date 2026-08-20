@@ -48,10 +48,9 @@ Route::get('/security-config', function () {
     ]);
 });
 
-// Admin/Staff login. The Turnstile widget stays on the portal and its token is
-// still verified and logged, but in "advisory" mode: a challenge that cannot be
-// completed must never keep an admin or staff member out of their workspace.
-Route::post('/login', [AuthController::class, 'login'])->middleware(VerifyTurnstile::class . ':advisory');
+// Admin/Staff login. Correct credentials alone are not enough: the Turnstile
+// token has to be present and verified by Cloudflare as well.
+Route::post('/login', [AuthController::class, 'login'])->middleware(VerifyTurnstile::class);
 
 // Customer authentication routes (protected by Turnstile CAPTCHA)
 Route::post('/customer/login', [AuthController::class, 'login'])->middleware(VerifyTurnstile::class);

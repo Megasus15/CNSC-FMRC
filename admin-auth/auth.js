@@ -15,30 +15,94 @@ document.addEventListener("DOMContentLoaded", () => {
   const authStatusText = document.getElementById("authStatusText");
 
   /*
-   * The security check is advisory on the staff portal. The widget stays on the
-   * form and its token is sent whenever Cloudflare issues one, but a challenge
-   * that is unavailable, expired or still pending must never keep an admin or
-   * staff member out of their workspace — so this resolves with "" instead of
-   * throwing, and the submit continues either way.
+   * Cloudflare Turnstile gate.
+   *
+   * Signing in requires all three of: a known email/username, the matching
+   * password, and a completed security check. The submit button therefore stays
+   * locked until Cloudflare hands us a token, and requireToken() throws (rather
+   * than resolving with "") whenever the challenge has not been solved, so the
+   * request is never sent without one.
+   *
+   * The one case that does not lock the button is a deployment where Turnstile
+   * is switched off (no site/secret key in .env): there is no widget to click,
+   * so the check reports itself disabled and the form behaves as before.
    */
-  const getTurnstileToken = async (widgetId) => {
-    const api = window.FMRC_TURNSTILE;
-    try {
-      if (typeof api?.optionalToken === "function") {
-        // A healthy widget has already solved itself by the time credentials are
-        // typed, so this short wait only ever costs anything when the challenge
-        // is pending or broken — and it never blocks.
-        return await api.optionalToken(widgetId, { waitMs: 800 });
-      }
-      // Fallback for a cached copy of turnstile.js without optionalToken().
-      if (typeof api?.getToken === "function") {
-        return api.getToken(widgetId);
-      }
-    } catch {
-      /* Advisory only — fall through to an empty token. */
-    }
-    return "";
+  const TURNSTILE_WIDGET_ID = "adminLoginTurnstile";
+  const turnstileWidget = document.getElementById(TURNSTILE_WIDGET_ID);
+  const turnstileNote = document.getElementById("adminTurnstileNote");
+  const loginSubmitBtn = loginForm?.querySelector('button[type="submit"]');
+  let turnstileRequired = false;
+
+  const PROMPT_COMPLETE = "Complete the security check to continue.";
+  const PROMPT_EXPIRED =
+    "The security check expired. Please complete it again.";
+  const PROMPT_FAILED =
+    "The security check could not be completed. Refresh the page and try again.";
+
+  const showTurnstileNote = (message) => {
+    if (!turnstileNote) return;
+    turnstileNote.textContent = message || "";
+    turnstileNote.hidden = !message;
   };
+
+  const setSubmitLocked = (locked) => {
+    if (!loginSubmitBtn) return;
+    loginSubmitBtn.disabled = locked;
+    loginSubmitBtn.setAttribute("aria-disabled", locked ? "true" : "false");
+  };
+
+  const lockUntilChallengeSolved = (message) => {
+    if (!turnstileRequired) return;
+    setSubmitLocked(true);
+    showTurnstileNote(message);
+  };
+
+  // Same re-lock, but keeps a message the API already produced (for example the
+  // 422 from a token Cloudflare rejected) instead of overwriting it.
+  const relockAfterAttempt = () => {
+    if (!turnstileRequired) return;
+    setSubmitLocked(true);
+    if (!turnstileNote || turnstileNote.hidden) showTurnstileNote(PROMPT_COMPLETE);
+  };
+
+  const initTurnstileGate = async () => {
+    const api = window.FMRC_TURNSTILE;
+    if (!turnstileWidget || typeof api?.ready !== "function") return;
+
+    const state = await api.ready().catch(() => ({
+      enabled: false,
+      error: true,
+    }));
+
+    if (!state?.enabled) {
+      // Either the challenge is not configured for this deployment (nothing to
+      // click) or /api/security-config could not be reached. In the second case
+      // requireToken() will refuse the submit, so say why up front.
+      if (state?.error) {
+        setSubmitLocked(true);
+        showTurnstileNote(
+          "The security check could not be loaded. Refresh the page and try again.",
+        );
+      }
+      return;
+    }
+
+    turnstileRequired = true;
+    lockUntilChallengeSolved(PROMPT_COMPLETE);
+
+    turnstileWidget.addEventListener("fmrc:turnstile-token", () => {
+      setSubmitLocked(false);
+      showTurnstileNote("");
+    });
+    turnstileWidget.addEventListener("fmrc:turnstile-expired", () =>
+      lockUntilChallengeSolved(PROMPT_EXPIRED),
+    );
+    turnstileWidget.addEventListener("fmrc:turnstile-error", () =>
+      lockUntilChallengeSolved(PROMPT_FAILED),
+    );
+  };
+
+  void initTurnstileGate();
 
   const toggleLoader = (show) => {
     let loader = document.getElementById("global-loader");
@@ -171,9 +235,22 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      // Never gates the submit: an empty token simply means the request goes out
-      // without one, and the API treats the check as advisory for this portal.
-      const turnstileToken = await getTurnstileToken("adminLoginTurnstile");
+      // Gates the submit: without a verified Cloudflare token the request is
+      // never sent, so correct credentials on their own cannot sign anyone in.
+      let turnstileToken = "";
+      try {
+        turnstileToken =
+          (await window.FMRC_TURNSTILE?.requireToken(TURNSTILE_WIDGET_ID)) || "";
+      } catch (error) {
+        const message =
+          error?.code === "TURNSTILE_UNAVAILABLE"
+            ? "The security check could not be loaded. Refresh the page and try again."
+            : PROMPT_COMPLETE;
+        setSubmitLocked(true);
+        showTurnstileNote(message);
+        turnstileWidget?.scrollIntoView({ block: "center", behavior: "smooth" });
+        return;
+      }
 
       toggleLoader(true);
       try {
@@ -224,7 +301,7 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         } else if (response.status === 422 && data.errors) {
           if (data.errors["cf-turnstile-response"]?.[0]) {
-            setFieldError("loginUser", data.errors["cf-turnstile-response"][0]);
+            showTurnstileNote(data.errors["cf-turnstile-response"][0]);
           }
           if (data.errors.login?.[0]) {
             setFieldError("loginUser", data.errors.login[0]);
@@ -249,7 +326,11 @@ document.addEventListener("DOMContentLoaded", () => {
           "Cannot connect to server. Ensure Laravel is running (php artisan serve).",
         );
       } finally {
-        window.FMRC_TURNSTILE?.reset("adminLoginTurnstile");
+        // A token is single-use: clear it and re-lock so the next attempt has to
+        // pass a fresh challenge. Cloudflare reissues one automatically when the
+        // widget is not interactive.
+        window.FMRC_TURNSTILE?.reset(TURNSTILE_WIDGET_ID);
+        relockAfterAttempt();
         toggleLoader(false);
       }
     });

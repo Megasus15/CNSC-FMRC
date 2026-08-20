@@ -1279,3 +1279,18 @@ body::after {
 .fmrc-turnstile-slot[hidden] {
   display: none;
 }
+
+/* Gate message shown under the widget while the security check is unsolved. */
+.turnstile-note {
+  margin: -4px auto 10px;
+  max-width: 300px;
+  color: #b3261e;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.turnstile-note[hidden] {
+  display: none;
+}

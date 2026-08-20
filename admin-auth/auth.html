@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" href="/images/favicon.ico" sizes="any" />
-    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
+    <link rel="icon" href="/images/favicon.ico?v=2" sizes="any" />
+    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png?v=2" />
     <title>UCN-FMRC Admin &amp; Staff Access</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -19,7 +19,7 @@
       crossorigin="anonymous"
       referrerpolicy="no-referrer"
     />
-    <link rel="stylesheet" href="auth.css?v=4.5" />
+    <link rel="stylesheet" href="auth.css?v=4.6" />
   </head>
   <body>
     <main class="auth-page">
@@ -139,6 +139,13 @@
               data-theme="auto"
               aria-label="Security check"
             ></div>
+
+            <p
+              id="adminTurnstileNote"
+              class="turnstile-note"
+              role="status"
+              hidden
+            ></p>
 
             <button class="auth-btn" type="submit">Enter Workspace</button>
           </form>
@@ -444,7 +451,7 @@
       <div class="status-box" id="authStatusText"></div>
     </div>
 
-    <script src="../home-page/turnstile.js?v=1.1"></script>
-    <script src="auth.js?v=4.5"></script>
+    <script src="../home-page/turnstile.js?v=1.2"></script>
+    <script src="auth.js?v=4.6"></script>
   </body>
 </html>
