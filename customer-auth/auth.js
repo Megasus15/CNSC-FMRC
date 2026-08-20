@@ -53,6 +53,12 @@ document.addEventListener("DOMContentLoaded", () => {
     authStatusModal?.classList.remove("show");
   };
 
+  // The bubble lives inside the field box so CSS can pin it to the input's own
+  // top edge; wrappers whose input has no box fall back to the wrapper itself.
+  const errorAnchor = (input) =>
+    input.closest(".input-icon-group, .input-field-box") ||
+    input.closest(".input-wrapper");
+
   const setFieldError = (inputId, message) => {
     const input = document.getElementById(inputId);
     if (!input) return;
@@ -60,12 +66,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const wrapper = input.closest(".input-wrapper");
     if (!wrapper) return;
 
+    const anchor = errorAnchor(input) || wrapper;
     let bubble = wrapper.querySelector(".field-error-bubble");
     if (!bubble) {
       bubble = document.createElement("div");
       bubble.className = "field-error-bubble";
       bubble.setAttribute("role", "alert");
-      wrapper.appendChild(bubble);
+    }
+    if (bubble.parentElement !== anchor) {
+      anchor.appendChild(bubble);
     }
 
     bubble.textContent = message;
@@ -93,6 +102,22 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   };
+
+  // Touching a field dismisses its own error bubble — a click or tap anywhere in
+  // the wrapper (input, label, password toggle) and keyboard focus both count.
+  // Delegated from the document so the forgot-password modal is covered too.
+  const dismissErrorFrom = (event) => {
+    const wrapper = event.target?.closest?.(".input-wrapper.has-error");
+    if (!wrapper) return;
+
+    wrapper.classList.remove("has-error");
+    wrapper
+      .querySelectorAll("[aria-invalid]")
+      .forEach((field) => field.removeAttribute("aria-invalid"));
+  };
+
+  document.addEventListener("pointerdown", dismissErrorFrom);
+  document.addEventListener("focusin", dismissErrorFrom);
 
   const showLogin = (event) => {
     if (event) event.preventDefault();

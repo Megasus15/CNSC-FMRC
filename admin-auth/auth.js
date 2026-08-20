@@ -122,6 +122,12 @@ document.addEventListener("DOMContentLoaded", () => {
     authStatusModal.classList.add("show");
   };
 
+  // The bubble lives inside the field box so CSS can pin it to the input's own
+  // top edge; wrappers whose input has no box fall back to the wrapper itself.
+  const errorAnchor = (input) =>
+    input.closest(".input-icon-group, .input-field-box") ||
+    input.closest(".input-wrapper");
+
   const setFieldError = (inputId, message) => {
     const input = document.getElementById(inputId);
     if (!input) return;
@@ -129,12 +135,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const wrapper = input.closest(".input-wrapper");
     if (!wrapper) return;
 
+    const anchor = errorAnchor(input) || wrapper;
     let bubble = wrapper.querySelector(".field-error-bubble");
     if (!bubble) {
       bubble = document.createElement("div");
       bubble.className = "field-error-bubble";
       bubble.setAttribute("role", "alert");
-      wrapper.appendChild(bubble);
+    }
+    if (bubble.parentElement !== anchor) {
+      anchor.appendChild(bubble);
     }
 
     bubble.textContent = message;
@@ -161,6 +170,38 @@ document.addEventListener("DOMContentLoaded", () => {
         input.removeAttribute("aria-invalid");
       }
     });
+  };
+
+  // Touching a field dismisses its own error bubble — a click or tap anywhere in
+  // the wrapper (input, label, password toggle) and keyboard focus both count.
+  // Delegated from the document so the forgot-password modal is covered too.
+  let focusExemptFromDismiss = null;
+
+  const dismissErrorFrom = (event) => {
+    const wrapper = event.target?.closest?.(".input-wrapper.has-error");
+    if (!wrapper) return;
+
+    if (event.type === "focusin" && event.target === focusExemptFromDismiss) {
+      focusExemptFromDismiss = null;
+      return;
+    }
+
+    wrapper.classList.remove("has-error");
+    wrapper
+      .querySelectorAll("[aria-invalid]")
+      .forEach((field) => field.removeAttribute("aria-invalid"));
+  };
+
+  document.addEventListener("pointerdown", dismissErrorFrom);
+  document.addEventListener("focusin", dismissErrorFrom);
+
+  // Sending focus to the first invalid field must not wipe the message that was
+  // just written there, so that one programmatic focus is exempt.
+  const focusWithoutDismissing = (field) => {
+    if (!field) return;
+    focusExemptFromDismiss = field;
+    field.focus();
+    focusExemptFromDismiss = null;
   };
 
   // Password Toggle Logic with SVG swapping
@@ -231,7 +272,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const firstErrorInput = loginForm.querySelector(
           ".input-wrapper.has-error input",
         );
-        if (firstErrorInput) firstErrorInput.focus();
+        focusWithoutDismissing(firstErrorInput);
         return;
       }
 

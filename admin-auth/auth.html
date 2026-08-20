@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" href="/images/favicon.ico?v=2" sizes="any" />
-    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png?v=2" />
+    <link rel="icon" href="/images/favicon.ico?v=3" sizes="any" />
+    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png?v=3" />
     <title>UCN-FMRC Admin &amp; Staff Access</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -19,7 +19,7 @@
       crossorigin="anonymous"
       referrerpolicy="no-referrer"
     />
-    <link rel="stylesheet" href="auth.css?v=4.6" />
+    <link rel="stylesheet" href="auth.css?v=5.0" />
   </head>
   <body>
     <main class="auth-page">
@@ -304,17 +304,19 @@
           <form id="otpVerifyForm" novalidate>
             <div class="input-wrapper">
               <label for="otpCodeInput">6-Digit OTP Code</label>
-              <input
-                id="otpCodeInput"
-                class="otp-code-input"
-                type="text"
-                inputmode="numeric"
-                pattern="[0-9]*"
-                maxlength="6"
-                placeholder="• • • • • •"
-                autocomplete="one-time-code"
-                required
-              />
+              <div class="input-field-box">
+                <input
+                  id="otpCodeInput"
+                  class="otp-code-input"
+                  type="text"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  maxlength="6"
+                  placeholder="• • • • • •"
+                  autocomplete="one-time-code"
+                  required
+                />
+              </div>
             </div>
 
             <div class="input-wrapper">
@@ -452,6 +454,6 @@
     </div>
 
     <script src="../home-page/turnstile.js?v=1.2"></script>
-    <script src="auth.js?v=4.6"></script>
+    <script src="auth.js?v=5.0"></script>
   </body>
 </html>
