@@ -5742,10 +5742,10 @@ document.addEventListener("DOMContentLoaded", () => {
               <span>Back</span>
             </button>
           </div>
-          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 14px; margin-top: 14px; margin-bottom: 6px; display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; color: #1e40af; line-height: 1.45;">
-            <i class="fa-solid fa-circle-info" style="font-size: 15px; margin-top: 2px; color: #3b82f6; flex-shrink: 0;"></i>
+          <div style="background: #fef9c3; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 14px; margin-top: 14px; margin-bottom: 6px; display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; color: #92400e; line-height: 1.45;">
+            <i class="fa-solid fa-circle-info" style="font-size: 15px; margin-top: 2px; color: #f59e0b; flex-shrink: 0;"></i>
             <div>
-              <strong style="color: #1e3a8a;">Google Sign-In:</strong> Create a password for your account so you can also log in directly anytime using your email/username and password.
+              <strong style="color: #78350f;">Google Sign-In:</strong> Create a password for your account so you can also log in directly anytime using your email/username and password.
             </div>
           </div>
           <form id="changePasswordForm" novalidate style="margin-top: 14px;">
