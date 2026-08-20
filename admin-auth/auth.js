@@ -14,6 +14,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const authStatusModal = document.getElementById("authStatusModal");
   const authStatusText = document.getElementById("authStatusText");
 
+  const getTurnstileToken = async (widgetId) => {
+    if (typeof window.FMRC_TURNSTILE?.requireToken !== "function") return "";
+    return window.FMRC_TURNSTILE.requireToken(widgetId);
+  };
+
   const toggleLoader = (show) => {
     let loader = document.getElementById("global-loader");
     if (!loader) {
@@ -145,18 +150,34 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
+      let turnstileToken = "";
+      try {
+        turnstileToken = await getTurnstileToken("adminLoginTurnstile");
+      } catch (error) {
+        setFieldError(
+          "loginUser",
+          error?.message || "Please complete the security check.",
+        );
+        return;
+      }
+
       toggleLoader(true);
       try {
+        const payload = {
+          login: user,
+          password: pass,
+        };
+        if (turnstileToken) {
+          payload["cf-turnstile-response"] = turnstileToken;
+        }
+
         const response = await fetch(`${API_BASE_URL}/login`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          body: JSON.stringify({
-            login: user,
-            password: pass,
-          }),
+          body: JSON.stringify(payload),
         });
 
         const data = await response.json();
@@ -188,6 +209,9 @@ document.addEventListener("DOMContentLoaded", () => {
             );
           }
         } else if (response.status === 422 && data.errors) {
+          if (data.errors["cf-turnstile-response"]?.[0]) {
+            setFieldError("loginUser", data.errors["cf-turnstile-response"][0]);
+          }
           if (data.errors.login?.[0]) {
             setFieldError("loginUser", data.errors.login[0]);
           }
@@ -211,6 +235,7 @@ document.addEventListener("DOMContentLoaded", () => {
           "Cannot connect to server. Ensure Laravel is running (php artisan serve).",
         );
       } finally {
+        window.FMRC_TURNSTILE?.reset("adminLoginTurnstile");
         toggleLoader(false);
       }
     });

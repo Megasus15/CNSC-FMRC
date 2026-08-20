@@ -48,8 +48,8 @@ Route::get('/security-config', function () {
     ]);
 });
 
-// Admin/Staff login (kept unblocked to prevent admin lockout)
-Route::post('/login', [AuthController::class, 'login']);
+// Admin/Staff login (protected by Turnstile CAPTCHA)
+Route::post('/login', [AuthController::class, 'login'])->middleware(VerifyTurnstile::class);
 
 // Customer authentication routes (protected by Turnstile CAPTCHA)
 Route::post('/customer/login', [AuthController::class, 'login'])->middleware(VerifyTurnstile::class);
