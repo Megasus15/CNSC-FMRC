@@ -201,6 +201,56 @@
 
       return token;
     },
+
+    /*
+     * Advisory counterpart to requireToken: resolves with whatever token is
+     * available and never throws, so a caller can attach the token when
+     * Cloudflare issues one without the challenge being able to block the
+     * submit. Used by the admin/staff portal.
+     *
+     * When the widget is still solving, this waits up to options.waitMs for the
+     * token callback so the common case (a managed challenge that clears itself
+     * in well under a second) still sends a token. An error or expiry callback
+     * ends the wait early — there is no point waiting out the timeout for a
+     * widget that has already given up.
+     */
+    async optionalToken(target, options = {}) {
+      let state;
+      try {
+        state = await start();
+      } catch {
+        return "";
+      }
+
+      if (!state?.enabled) return "";
+
+      const existing = getToken(target);
+      if (existing) return existing;
+
+      const waitMs = Number(options.waitMs);
+      const widget = resolveWidget(target);
+      if (!widget || !Number.isFinite(waitMs) || waitMs <= 0) return "";
+
+      return new Promise((resolve) => {
+        let settled = false;
+        const events = [
+          "fmrc:turnstile-token",
+          "fmrc:turnstile-error",
+          "fmrc:turnstile-expired",
+        ];
+
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          events.forEach((name) => widget.removeEventListener(name, finish));
+          resolve(getToken(target));
+        };
+
+        const timer = setTimeout(finish, waitMs);
+        events.forEach((name) => widget.addEventListener(name, finish));
+      });
+    },
   };
 
   if (document.readyState === "loading") {

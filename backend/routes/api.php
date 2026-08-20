@@ -48,8 +48,10 @@ Route::get('/security-config', function () {
     ]);
 });
 
-// Admin/Staff login (protected by Turnstile CAPTCHA)
-Route::post('/login', [AuthController::class, 'login'])->middleware(VerifyTurnstile::class);
+// Admin/Staff login. The Turnstile widget stays on the portal and its token is
+// still verified and logged, but in "advisory" mode: a challenge that cannot be
+// completed must never keep an admin or staff member out of their workspace.
+Route::post('/login', [AuthController::class, 'login'])->middleware(VerifyTurnstile::class . ':advisory');
 
 // Customer authentication routes (protected by Turnstile CAPTCHA)
 Route::post('/customer/login', [AuthController::class, 'login'])->middleware(VerifyTurnstile::class);

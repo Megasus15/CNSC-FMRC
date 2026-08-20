@@ -14,9 +14,30 @@ document.addEventListener("DOMContentLoaded", () => {
   const authStatusModal = document.getElementById("authStatusModal");
   const authStatusText = document.getElementById("authStatusText");
 
+  /*
+   * The security check is advisory on the staff portal. The widget stays on the
+   * form and its token is sent whenever Cloudflare issues one, but a challenge
+   * that is unavailable, expired or still pending must never keep an admin or
+   * staff member out of their workspace — so this resolves with "" instead of
+   * throwing, and the submit continues either way.
+   */
   const getTurnstileToken = async (widgetId) => {
-    if (typeof window.FMRC_TURNSTILE?.requireToken !== "function") return "";
-    return window.FMRC_TURNSTILE.requireToken(widgetId);
+    const api = window.FMRC_TURNSTILE;
+    try {
+      if (typeof api?.optionalToken === "function") {
+        // A healthy widget has already solved itself by the time credentials are
+        // typed, so this short wait only ever costs anything when the challenge
+        // is pending or broken — and it never blocks.
+        return await api.optionalToken(widgetId, { waitMs: 800 });
+      }
+      // Fallback for a cached copy of turnstile.js without optionalToken().
+      if (typeof api?.getToken === "function") {
+        return api.getToken(widgetId);
+      }
+    } catch {
+      /* Advisory only — fall through to an empty token. */
+    }
+    return "";
   };
 
   const toggleLoader = (show) => {
@@ -150,16 +171,9 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      let turnstileToken = "";
-      try {
-        turnstileToken = await getTurnstileToken("adminLoginTurnstile");
-      } catch (error) {
-        setFieldError(
-          "loginUser",
-          error?.message || "Please complete the security check.",
-        );
-        return;
-      }
+      // Never gates the submit: an empty token simply means the request goes out
+      // without one, and the API treats the check as advisory for this portal.
+      const turnstileToken = await getTurnstileToken("adminLoginTurnstile");
 
       toggleLoader(true);
       try {
