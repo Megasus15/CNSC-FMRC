@@ -5622,19 +5622,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const hasCustomerSetPassword = (user) => {
-    if (!user) return false;
-    if (user.has_custom_password === true) return true;
-    if (user.id && localStorage.getItem("google_pwd_set_" + user.id) === "true") return true;
-    const authMethod = localStorage.getItem("customer_auth_method");
-    if (authMethod === "password") return true;
-    const isGoogle =
-      Boolean(user.signed_with_google || user.is_google_account) ||
-      authMethod === "google" ||
-      (Boolean(user.email) && /@gmail\.com$/i.test(user.email) && !user.has_custom_password);
-    if (!isGoogle) {
-      return true;
-    }
-    return false;
+    return user?.has_custom_password === true;
   };
 
   const openProfileModal = (userInfo, token) => {
@@ -5952,14 +5940,18 @@ document.addEventListener("DOMContentLoaded", () => {
               '<i class="fa-solid fa-circle-check"></i> ' + successText;
             form.reset();
 
-            userInfo.has_custom_password = true;
-            if (userInfo?.id) {
-              localStorage.setItem("google_pwd_set_" + userInfo.id, "true");
+            const savedPasswordState = data?.data || {};
+            userInfo.has_custom_password =
+              savedPasswordState.has_custom_password !== false;
+            if (typeof savedPasswordState.signed_with_google === "boolean") {
+              userInfo.signed_with_google = savedPasswordState.signed_with_google;
             }
-            localStorage.setItem("customer_auth_method", "password");
             try {
               const currentInfo = JSON.parse(localStorage.getItem("customer_info") || "{}");
               currentInfo.has_custom_password = true;
+              if (typeof userInfo.signed_with_google === "boolean") {
+                currentInfo.signed_with_google = userInfo.signed_with_google;
+              }
               localStorage.setItem("customer_info", JSON.stringify(currentInfo));
             } catch {}
 
@@ -10224,17 +10216,15 @@ const openReturnRequestModal = (() => {
       openOrdersModal(userInfo);
     });
 
-  // Floating Animated Notice for Google-Authenticated Accounts without Custom Password
-  const isGoogleUser =
-    Boolean(userInfo.signed_with_google || userInfo.is_google_account) ||
-    localStorage.getItem("customer_auth_method") === "google" ||
-    (Boolean(userInfo.email) && /@gmail\.com$/i.test(userInfo.email) && !userInfo.has_custom_password);
+  // Only the saved server flags determine whether this reminder is shown.
+  // A Gmail address alone never means that the customer used Google sign-in.
+  const showGooglePasswordTip = () => {
+    const isGoogleUser = userInfo.signed_with_google === true;
+    const isPasswordSet = hasCustomerSetPassword(userInfo);
+    const isPromptDismissed = sessionStorage.getItem("google_pwd_prompt_dismissed") === "true";
 
-  const isPasswordSet = hasCustomerSetPassword(userInfo);
+    if (!isGoogleUser || isPasswordSet || isPromptDismissed) return;
 
-  const isPromptDismissed = sessionStorage.getItem("google_pwd_prompt_dismissed") === "true";
-
-  if (isGoogleUser && !isPasswordSet && !isPromptDismissed) {
     setTimeout(() => {
       const existingPrompt = document.getElementById("googlePwdFloatingCard");
       if (existingPrompt) return;
@@ -10274,7 +10264,41 @@ const openReturnRequestModal = (() => {
         openChangePasswordModal(userInfo, token);
       });
     }, 1200);
-  }
+  };
+
+  const refreshGooglePasswordState = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/customer/profile`, {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const payload = await response.json().catch(() => ({}));
+      const savedState = payload?.data;
+
+      if (response.ok && savedState) {
+        if (typeof savedState.signed_with_google === "boolean") {
+          userInfo.signed_with_google = savedState.signed_with_google;
+        }
+        if (typeof savedState.has_custom_password === "boolean") {
+          userInfo.has_custom_password = savedState.has_custom_password;
+        }
+
+        localStorage.setItem("customer_info", JSON.stringify({
+          ...userInfo,
+          signed_with_google: userInfo.signed_with_google === true,
+          has_custom_password: userInfo.has_custom_password === true,
+        }));
+      }
+    } catch {
+      // The saved sign-in response remains a safe fallback while offline.
+    }
+
+    showGooglePasswordTip();
+  };
+
+  void refreshGooglePasswordState();
 
   const showLogoutConfirmModal = (onConfirm) => {
     let modal = document.getElementById("laravelLogoutModal");

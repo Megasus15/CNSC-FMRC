@@ -228,7 +228,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!paged.length) {
       tableBody.innerHTML =
-        "<tr><td colspan='8' style='text-align:center;'>No user accounts found for this filter.</td></tr>";
+        "<tr><td colspan='9' style='text-align:center;'>No user accounts found for this filter.</td></tr>";
     } else {
       tableBody.innerHTML = paged
         .map((user, idx) => {
@@ -239,6 +239,11 @@ document.addEventListener("DOMContentLoaded", () => {
           const displayEmail = user?.email ? escapeHtml(user.email) : "N/A";
           const displayRole = toTitleCase(user?.role);
           const roleClass = `role-tag-${String(user?.role || "customer").toLowerCase()}`;
+          const hasCustomPassword = user?.has_custom_password !== false;
+          const passwordStatusClass = hasCustomPassword
+            ? "password-status-set"
+            : "password-status-pending";
+          const passwordStatusLabel = hasCustomPassword ? "Set" : "Not set";
           const isCurrentAdmin = Number(user?.id) === getCurrentAdminId();
 
           return `
@@ -248,6 +253,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <td>${escapeHtml(user?.name || "N/A")}</td>
               <td>${displayUsername}</td>
               <td>${displayEmail}</td>
+              <td><span class="password-status ${passwordStatusClass}">${passwordStatusLabel}</span></td>
               <td><span class="role-tag ${roleClass}">${displayRole}</span></td>
               <td>${formatDate(user?.created_at)}</td>
               <td class="action-icons sticky-action">
@@ -401,7 +407,7 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Failed to load accounts:", error);
       if (tableBody) {
         tableBody.innerHTML =
-          "<tr><td colspan='8' style='text-align:center;color:#991b1b;'>Could not load accounts. Ensure Laravel server is running.</td></tr>";
+          "<tr><td colspan='9' style='text-align:center;color:#991b1b;'>Could not load accounts. Ensure Laravel server is running.</td></tr>";
       }
       if (tableMeta) tableMeta.textContent = "Unable to fetch account data.";
     }
@@ -716,12 +722,19 @@ document.addEventListener("DOMContentLoaded", () => {
         viewTitle.textContent = escapeHtml(user?.name || "User Details");
       if (viewContent) {
         const roleClass = `role-tag-${String(user?.role || "customer").toLowerCase()}`;
+        const hasCustomPassword = user?.has_custom_password !== false;
+        const passwordStatusClass = hasCustomPassword
+          ? "password-status-set"
+          : "password-status-pending";
+        const passwordStatusLabel = hasCustomPassword ? "Set" : "Not set";
         viewContent.innerHTML = `
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;">
             <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Full Name</div><div style="font-size:.88rem;color:#111827;font-weight:500;">${escapeHtml(user?.name || "N/A")}</div></div>
             <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Role</div><div><span class="role-tag ${roleClass}">${toTitleCase(user?.role)}</span></div></div>
             <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Username</div><div style="font-size:.88rem;color:#111827;">${escapeHtml(user?.username || "N/A")}</div></div>
             <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Email</div><div style="font-size:.88rem;color:#111827;word-break:break-word;">${escapeHtml(user?.email || "N/A")}</div></div>
+            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Password Sign-in</div><div><span class="password-status ${passwordStatusClass}">${passwordStatusLabel}</span></div></div>
+            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Google Sign-in</div><div style="font-size:.88rem;color:#111827;">${user?.signed_with_google === true ? "Enabled" : "Not used"}</div></div>
             <div style="grid-column:1/-1;"><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Date Created</div><div style="font-size:.88rem;color:#111827;">${formatDate(user?.created_at)}</div></div>
           </div>`;
       }

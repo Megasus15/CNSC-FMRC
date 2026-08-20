@@ -915,8 +915,30 @@ input.page-number:focus,
   border-color: #a7f3d0;
 }
 
+.password-status {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.password-status-set {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.password-status-pending {
+  background: #fff7ed;
+  color: #9a3412;
+  border-color: #fed7aa;
+}
+
 .accounts-table {
-  min-width: 980px;
+  min-width: 1080px;
 }
 
 .accounts-table .sticky-action {

@@ -391,6 +391,7 @@ class PasswordResetController extends Controller
 
         // Update password & invalidate old session tokens
         $user->password = Hash::make($request->password);
+        $user->has_custom_password = true;
         $user->save();
         $user->tokens()->delete();
 

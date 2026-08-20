@@ -66,6 +66,8 @@ class AuthController extends Controller
             'email' => strtolower(trim($request->email)),
             'password' => Hash::make($request->password),
             'role' => 'customer',
+            'signed_with_google' => false,
+            'has_custom_password' => true,
         ]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -124,6 +126,13 @@ class AuthController extends Controller
             return response()->json([
                 'message' => 'Invalid login credentials',
             ], 401);
+        }
+
+        // A successful password login proves this is a customer-usable password,
+        // not the internal random password of a Google-only account.
+        if (!$user->has_custom_password) {
+            $user->has_custom_password = true;
+            $user->save();
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
@@ -230,6 +239,8 @@ class AuthController extends Controller
                     'password' => Hash::make(Str::random(32)),
                     'role' => 'customer',
                     'email_verified_at' => now(),
+                    'signed_with_google' => true,
+                    'has_custom_password' => false,
                 ]);
 
                 // Send welcome email in background
@@ -251,6 +262,13 @@ class AuthController extends Controller
                     }
                 });
             } else {
+                $needsSave = false;
+
+                if (!$user->signed_with_google) {
+                    $user->signed_with_google = true;
+                    $needsSave = true;
+                }
+
                 // If existing customer account has an email-like username or default name, align it to First Name
                 if ($user->role === 'customer' && (empty($user->username) || str_contains($user->username, '@') || $user->username === explode('@', $email)[0])) {
                     $username = $baseUsername;
@@ -263,6 +281,10 @@ class AuthController extends Controller
                     if (empty($user->name) || $user->name === 'User') {
                         $user->name = $name;
                     }
+                    $needsSave = true;
+                }
+
+                if ($needsSave) {
                     $user->save();
                 }
             }
@@ -301,7 +323,16 @@ class AuthController extends Controller
         }
 
         $users = User::query()
-            ->select(['id', 'name', 'username', 'email', 'role', 'created_at'])
+            ->select([
+                'id',
+                'name',
+                'username',
+                'email',
+                'role',
+                'signed_with_google',
+                'has_custom_password',
+                'created_at',
+            ])
             ->orderBy('created_at', 'asc')
             ->get();
 
@@ -332,6 +363,8 @@ class AuthController extends Controller
             'email'    => $validated['email'] ?? null,
             'password' => Hash::make($validated['password']),
             'role'     => $validated['role'],
+            'signed_with_google' => false,
+            'has_custom_password' => true,
         ]);
 
         // --- Admin-Created Account Welcome Email ---
@@ -552,6 +585,8 @@ class AuthController extends Controller
             'address_details' => $user->address_details,
             'department' => $user->department,
             'customer_type' => $user->customer_type,
+            'signed_with_google' => (bool) $user->signed_with_google,
+            'has_custom_password' => (bool) $user->has_custom_password,
             'updated_at' => optional($user->updated_at)->toIso8601String(),
         ];
     }
@@ -612,7 +647,14 @@ class AuthController extends Controller
             return response()->json(['message' => 'Unauthorized.'], 401);
         }
 
-        // If current password was provided, verify it
+        if ($user->has_custom_password && empty($request->current_password)) {
+            return response()->json([
+                'message' => 'Current password is required to change your password.',
+            ], 422);
+        }
+
+        // First-time Google customers do not have a customer-created password
+        // to verify. Once one has been set, every later change requires it.
         if (!empty($request->current_password)) {
             if (!Hash::check($request->current_password, $user->password)) {
                 return response()->json(['message' => 'Current password does not match.'], 422);
@@ -620,10 +662,15 @@ class AuthController extends Controller
         }
 
         $user->password = Hash::make($request->new_password);
+        $user->has_custom_password = true;
         $user->save();
 
         return response()->json([
             'message' => 'Password updated successfully. You can now use your username and password to log in.',
+            'data' => [
+                'signed_with_google' => (bool) $user->signed_with_google,
+                'has_custom_password' => true,
+            ],
         ]);
     }
 
