@@ -48,8 +48,10 @@ Route::get('/security-config', function () {
     ]);
 });
 
-// Admin/Staff login and Customer authentication routes
-Route::post('/login', [AuthController::class, 'login'])->middleware(VerifyTurnstile::class);
+// Admin/Staff login (kept unblocked to prevent admin lockout)
+Route::post('/login', [AuthController::class, 'login']);
+
+// Customer authentication routes (protected by Turnstile CAPTCHA)
 Route::post('/customer/login', [AuthController::class, 'login'])->middleware(VerifyTurnstile::class);
 Route::post('/register', [AuthController::class, 'register'])->middleware(VerifyTurnstile::class);
 Route::post('/auth/google', [AuthController::class, 'googleLogin']);
