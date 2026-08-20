@@ -40,4 +40,11 @@ return [
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
     ],
 
+    'turnstile' => [
+        'enabled' => filter_var(env('CLOUDFLARE_TURNSTILE_ENABLED', false), FILTER_VALIDATE_BOOL),
+        'site_key' => env('CLOUDFLARE_TURNSTILE_SITE_KEY'),
+        'secret_key' => env('CLOUDFLARE_TURNSTILE_SECRET_KEY'),
+        'timeout' => (int) env('CLOUDFLARE_TURNSTILE_TIMEOUT', 5),
+    ],
+
 ];

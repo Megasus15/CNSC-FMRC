@@ -7,6 +7,8 @@
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
     <meta name="theme-color" content="#8b0000" />
+    <link rel="icon" type="image/png" href="/images/CNSC%20logo.png" />
+    <link rel="apple-touch-icon" href="/images/CNSC%20logo.png" />
     <title>UCN-FMRC Customer Login</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -14,7 +16,7 @@
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="auth.css?v=4.3" />
+    <link rel="stylesheet" href="auth.css?v=4.4" />
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
@@ -152,6 +154,14 @@
               >
             </div>
 
+
+            <div
+              id="loginTurnstile"
+              class="fmrc-turnstile-slot"
+              data-fmrc-turnstile
+              data-theme="auto"
+              aria-label="Security check"
+            ></div>
 
             <button class="auth-btn" type="submit">Log In</button>
 
@@ -373,6 +383,14 @@
                 </button>
               </div>
             </div>
+
+            <div
+              id="signupTurnstile"
+              class="fmrc-turnstile-slot"
+              data-fmrc-turnstile
+              data-theme="auto"
+              aria-label="Security check"
+            ></div>
 
             <button class="auth-btn" type="submit">Create Account</button>
 
@@ -705,6 +723,7 @@
       <div class="status-box" id="authStatusText"></div>
     </div>
 
-    <script src="auth.js?v=4.3"></script>
+    <script src="../home-page/turnstile.js?v=1.0"></script>
+    <script src="auth.js?v=4.4"></script>
   </body>
 </html>

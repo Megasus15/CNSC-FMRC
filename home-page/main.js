@@ -4481,6 +4481,20 @@ document.addEventListener("DOMContentLoaded", () => {
       return { ok: false, error: msg };
     }
 
+    let turnstileToken = "";
+    try {
+      if (typeof window.FMRC_TURNSTILE?.requireToken === "function") {
+        turnstileToken = await window.FMRC_TURNSTILE.requireToken(
+          "appointmentTurnstile",
+        );
+      }
+    } catch (error) {
+      const message =
+        error?.message || "Please complete the security check before continuing.";
+      showSlotMessage(message);
+      return { ok: false, error: message };
+    }
+
     const formData = new FormData();
     formData.append(
       "last_name",
@@ -4541,6 +4555,9 @@ document.addEventListener("DOMContentLoaded", () => {
     );
     formData.append("appointment_date", date);
     formData.append("appointment_time", time);
+    if (turnstileToken) {
+      formData.append("cf-turnstile-response", turnstileToken);
+    }
 
     if (uploadedAppointmentFile) {
       formData.append("attachment", uploadedAppointmentFile);
@@ -4565,6 +4582,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const payload = await response.json().catch(() => ({}));
 
       if (!response.ok) {
+        window.FMRC_TURNSTILE?.reset("appointmentTurnstile");
         const message =
           payload?.message ||
           "Unable to submit appointment. Please review your details and try again.";
@@ -4578,6 +4596,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return { ok: true, error: null };
     } catch (error) {
       console.error("[APPT SUBMIT] Error:", error);
+      window.FMRC_TURNSTILE?.reset("appointmentTurnstile");
       const message =
         error?.message ||
         "Cannot connect to server. Please make sure Laravel is running.";
@@ -4934,6 +4953,7 @@ document.addEventListener("DOMContentLoaded", () => {
     submittedAppointment = null;
     appointmentSubmitted = false;
     uploadedAppointmentFile = null;
+    window.FMRC_TURNSTILE?.reset("appointmentTurnstile");
     if (aptFileInput) aptFileInput.value = "";
     if (aptFileName) aptFileName.textContent = "No file selected";
     setText("successReferenceNo", "PENDING");

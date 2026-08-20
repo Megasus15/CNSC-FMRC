@@ -21,6 +21,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const authTitle = document.querySelector(".auth-title");
   const authCaption = document.querySelector(".auth-caption");
 
+  const getTurnstileToken = async (widgetId) => {
+    if (typeof window.FMRC_TURNSTILE?.requireToken !== "function") return "";
+    return window.FMRC_TURNSTILE.requireToken(widgetId);
+  };
+
   const setHeroText = (title, caption) => {
     if (authTitle) authTitle.textContent = title;
     if (authCaption) authCaption.textContent = caption;
@@ -237,6 +242,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (hasError) return;
 
+      let turnstileToken = "";
+      try {
+        turnstileToken = await getTurnstileToken("signupTurnstile");
+      } catch (error) {
+        setFieldError(
+          "signupUser",
+          error?.message || "Please complete the security check.",
+        );
+        return;
+      }
+
       toggleLoader(true);
       try {
         const response = await fetch(`${API_BASE_URL}/register`, {
@@ -251,6 +267,7 @@ document.addEventListener("DOMContentLoaded", () => {
             email,
             password,
             password_confirmation: passwordConfirmation,
+            "cf-turnstile-response": turnstileToken,
           }),
         });
 
@@ -276,6 +293,7 @@ document.addEventListener("DOMContentLoaded", () => {
           "Cannot connect to server. Ensure Laravel is running.",
         );
       } finally {
+        window.FMRC_TURNSTILE?.reset("signupTurnstile");
         toggleLoader(false);
       }
     });
@@ -310,15 +328,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (hasError) return;
 
+      let turnstileToken = "";
+      try {
+        turnstileToken = await getTurnstileToken("loginTurnstile");
+      } catch (error) {
+        setFieldError(
+          "loginUser",
+          error?.message || "Please complete the security check.",
+        );
+        return;
+      }
+
       toggleLoader(true);
       try {
-        const response = await fetch(`${API_BASE_URL}/login`, {
+        const response = await fetch(`${API_BASE_URL}/customer/login`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          body: JSON.stringify({ login, password }),
+          body: JSON.stringify({
+            login,
+            password,
+            "cf-turnstile-response": turnstileToken,
+          }),
         });
 
         const data = await response.json();
@@ -365,6 +398,7 @@ document.addEventListener("DOMContentLoaded", () => {
           "Cannot connect to server. Ensure Laravel is running.",
         );
       } finally {
+        window.FMRC_TURNSTILE?.reset("loginTurnstile");
         toggleLoader(false);
       }
     });

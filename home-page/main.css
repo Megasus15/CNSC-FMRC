@@ -14999,3 +14999,16 @@ textarea:focus-visible,
 .google-pwd-action-btn:active {
   transform: scale(0.97);
 }
+
+/* Cloudflare Turnstile stays collapsed until the backend keys are enabled. */
+.fmrc-turnstile-slot {
+  display: flex;
+  min-height: 65px;
+  margin: 12px auto;
+  justify-content: center;
+  align-items: center;
+}
+
+.fmrc-turnstile-slot[hidden] {
+  display: none;
+}

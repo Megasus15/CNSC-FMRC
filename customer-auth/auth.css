@@ -2243,3 +2243,15 @@ textarea:focus-visible {
   outline-offset: 2px;
 }
 
+.fmrc-turnstile-slot {
+  display: flex;
+  min-height: 65px;
+  margin: 10px auto;
+  justify-content: center;
+  align-items: center;
+}
+
+.fmrc-turnstile-slot[hidden] {
+  display: none;
+}
+

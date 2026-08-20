@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\ProductRatingController;
 use App\Http\Controllers\Api\PromotionController;
 use App\Http\Controllers\Api\AnnouncementController;
+use App\Http\Middleware\VerifyTurnstile;
 
 
 // ─── PSGC Address Proxy (public, no auth needed) ──────────────────────────
@@ -32,8 +33,26 @@ Route::get('/psgc/provinces/{provinceCode}/cities-municipalities', [PsgcControll
 Route::get('/psgc/cities-municipalities/{cityMunCode}/barangays', [PsgcController::class, 'barangays']);
 // ────────────────────────────────────────────────────────────────────────────
 
+Route::get('/security-config', function () {
+    $siteKey = trim((string) config('services.turnstile.site_key', ''));
+    $secretKey = trim((string) config('services.turnstile.secret_key', ''));
+    $enabled = (bool) config('services.turnstile.enabled', false)
+        && $siteKey !== ''
+        && $secretKey !== '';
+
+    return response()->json([
+        'turnstile' => [
+            'enabled' => $enabled,
+            'site_key' => $enabled ? $siteKey : null,
+        ],
+    ]);
+});
+
+// The Admin/Staff login remains on /login. Customer authentication uses its
+// own protected endpoint so enabling Turnstile does not break the admin portal.
 Route::post('/login', [AuthController::class, 'login']);
-Route::post('/register', [AuthController::class, 'register']);
+Route::post('/customer/login', [AuthController::class, 'login'])->middleware(VerifyTurnstile::class);
+Route::post('/register', [AuthController::class, 'register'])->middleware(VerifyTurnstile::class);
 Route::post('/auth/google', [AuthController::class, 'googleLogin']);
 
 // Public: Customer OTP-based password reset (forgot password flow)
@@ -45,7 +64,7 @@ Route::post('/forgot-password/verify-otp', [PasswordResetController::class, 'ver
 Route::post('/reset-password', [PasswordResetController::class, 'verifyOtpAndReset']);
 
 Route::get('/appointments', [AppointmentController::class, 'index']);
-Route::post('/appointments', [AppointmentController::class, 'store']);
+Route::post('/appointments', [AppointmentController::class, 'store'])->middleware(VerifyTurnstile::class);
 Route::delete('/appointments/{appointment}', [AppointmentController::class, 'destroy']);
 Route::patch('/appointments/{appointment}/archive', [AppointmentController::class, 'archive']);
 Route::patch('/appointments/{appointment}/unarchive', [AppointmentController::class, 'unarchive']);
