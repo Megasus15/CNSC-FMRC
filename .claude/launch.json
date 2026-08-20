@@ -6,6 +6,12 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "5500"],
       "port": 5500
+    },
+    {
+      "name": "backend",
+      "runtimeExecutable": "php",
+      "runtimeArgs": ["backend/artisan", "serve", "--host=127.0.0.1", "--port=8000"],
+      "port": 8000
     }
   ]
 }
