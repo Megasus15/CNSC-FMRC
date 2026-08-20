@@ -14,6 +14,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const authStatusModal = document.getElementById("authStatusModal");
   const authStatusText = document.getElementById("authStatusText");
 
+  const getTurnstileToken = async (widgetId) => {
+    if (typeof window.FMRC_TURNSTILE?.requireToken !== "function") return "";
+    return window.FMRC_TURNSTILE.requireToken(widgetId);
+  };
+
   const toggleLoader = (show) => {
     let loader = document.getElementById("global-loader");
     if (!loader) {
@@ -145,18 +150,31 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
+      let turnstileToken = "";
+      try {
+        turnstileToken = await getTurnstileToken("adminLoginTurnstile");
+      } catch (turnstileError) {
+        showStatus(turnstileError.message || "Please complete the security check.");
+        return;
+      }
+
       toggleLoader(true);
       try {
+        const payload = {
+          login: user,
+          password: pass,
+        };
+        if (turnstileToken) {
+          payload["cf-turnstile-response"] = turnstileToken;
+        }
+
         const response = await fetch(`${API_BASE_URL}/login`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
           },
-          body: JSON.stringify({
-            login: user,
-            password: pass,
-          }),
+          body: JSON.stringify(payload),
         });
 
         const data = await response.json();
@@ -187,25 +205,32 @@ document.addEventListener("DOMContentLoaded", () => {
               "Unauthorized access. This portal is for Admin and Staff only.",
             );
           }
-        } else if (response.status === 422 && data.errors) {
-          if (data.errors.login?.[0]) {
-            setFieldError("loginUser", data.errors.login[0]);
-          }
-          if (data.errors.password?.[0]) {
-            setFieldError("loginPass", data.errors.password[0]);
-          }
-        } else if (
-          data.message &&
-          /invalid|incorrect|credentials/i.test(data.message)
-        ) {
-          setFieldError("loginPass", "Password is incorrect.");
         } else {
-          setFieldError(
-            "loginUser",
-            data.message || "Unable to log in with the provided details.",
-          );
+          window.FMRC_TURNSTILE?.reset("adminLoginTurnstile");
+          if (response.status === 422 && data.errors) {
+            if (data.errors["cf-turnstile-response"]?.[0]) {
+              showStatus(data.errors["cf-turnstile-response"][0]);
+            }
+            if (data.errors.login?.[0]) {
+              setFieldError("loginUser", data.errors.login[0]);
+            }
+            if (data.errors.password?.[0]) {
+              setFieldError("loginPass", data.errors.password[0]);
+            }
+          } else if (
+            data.message &&
+            /invalid|incorrect|credentials/i.test(data.message)
+          ) {
+            setFieldError("loginPass", "Password is incorrect.");
+          } else {
+            setFieldError(
+              "loginUser",
+              data.message || "Unable to log in with the provided details.",
+            );
+          }
         }
       } catch {
+        window.FMRC_TURNSTILE?.reset("adminLoginTurnstile");
         setFieldError(
           "loginUser",
           "Cannot connect to server. Ensure Laravel is running (php artisan serve).",

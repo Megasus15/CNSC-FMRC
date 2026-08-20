@@ -48,9 +48,8 @@ Route::get('/security-config', function () {
     ]);
 });
 
-// The Admin/Staff login remains on /login. Customer authentication uses its
-// own protected endpoint so enabling Turnstile does not break the admin portal.
-Route::post('/login', [AuthController::class, 'login']);
+// Admin/Staff login and Customer authentication routes
+Route::post('/login', [AuthController::class, 'login'])->middleware(VerifyTurnstile::class);
 Route::post('/customer/login', [AuthController::class, 'login'])->middleware(VerifyTurnstile::class);
 Route::post('/register', [AuthController::class, 'register'])->middleware(VerifyTurnstile::class);
 Route::post('/auth/google', [AuthController::class, 'googleLogin']);

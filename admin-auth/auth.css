@@ -1267,3 +1267,15 @@ body::after {
     transition: none !important;
   }
 }
+
+.fmrc-turnstile-slot {
+  display: flex;
+  min-height: 65px;
+  margin: 12px auto;
+  justify-content: center;
+  align-items: center;
+}
+
+.fmrc-turnstile-slot[hidden] {
+  display: none;
+}
