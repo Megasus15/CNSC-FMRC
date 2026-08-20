@@ -228,7 +228,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!paged.length) {
       tableBody.innerHTML =
-        "<tr><td colspan='9' style='text-align:center;'>No user accounts found for this filter.</td></tr>";
+        "<tr><td colspan='8' style='text-align:center;'>No user accounts found for this filter.</td></tr>";
     } else {
       tableBody.innerHTML = paged
         .map((user, idx) => {
@@ -239,11 +239,6 @@ document.addEventListener("DOMContentLoaded", () => {
           const displayEmail = user?.email ? escapeHtml(user.email) : "N/A";
           const displayRole = toTitleCase(user?.role);
           const roleClass = `role-tag-${String(user?.role || "customer").toLowerCase()}`;
-          const hasCustomPassword = user?.has_custom_password !== false;
-          const passwordStatusClass = hasCustomPassword
-            ? "password-status-set"
-            : "password-status-pending";
-          const passwordStatusLabel = hasCustomPassword ? "Set" : "Not set";
           const isCurrentAdmin = Number(user?.id) === getCurrentAdminId();
 
           return `
@@ -253,7 +248,6 @@ document.addEventListener("DOMContentLoaded", () => {
               <td>${escapeHtml(user?.name || "N/A")}</td>
               <td>${displayUsername}</td>
               <td>${displayEmail}</td>
-              <td><span class="password-status ${passwordStatusClass}">${passwordStatusLabel}</span></td>
               <td><span class="role-tag ${roleClass}">${displayRole}</span></td>
               <td>${formatDate(user?.created_at)}</td>
               <td class="action-icons sticky-action">
@@ -365,11 +359,11 @@ document.addEventListener("DOMContentLoaded", () => {
       ) {
         const usedSharedSkeleton = window.AdminTableSkeleton?.show(tableBody, {
           rows: 3,
-          columns: 8,
+          columns: 7,
         });
         if (!usedSharedSkeleton) {
           const cells = Array.from(
-            { length: 8 },
+            { length: 7 },
             () => '<td><span class="admin-table-skeleton-bar"></span></td>',
           ).join("");
           tableBody.innerHTML = `<tr class="admin-table-skeleton-row" aria-hidden="true">${cells}</tr>`.repeat(
@@ -407,7 +401,7 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Failed to load accounts:", error);
       if (tableBody) {
         tableBody.innerHTML =
-          "<tr><td colspan='9' style='text-align:center;color:#991b1b;'>Could not load account data. Please refresh the page.</td></tr>";
+          "<tr><td colspan='8' style='text-align:center;color:#991b1b;'>Could not load account data. Please refresh the page.</td></tr>";
       }
       if (tableMeta) tableMeta.textContent = "Account data is temporarily unavailable.";
     }
