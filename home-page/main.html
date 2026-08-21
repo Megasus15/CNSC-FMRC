@@ -22,7 +22,7 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
 
-    <link rel="stylesheet" href="main.css?v=4.5" />
+    <link rel="stylesheet" href="main.css?v=4.6" />
     <link rel="stylesheet" href="responsive.css" />
 
     <!-- Renders the hero headline from site settings. Loaded here, ahead of the
@@ -771,7 +771,23 @@
                   <option value="Business">Business</option>
                   <option value="Association">Association</option>
                   <option value="Educators">Educators</option>
+                  <option value="Others">Others</option>
                 </select>
+              </div>
+
+              <div
+                class="apt-input-group"
+                id="aptRoleOtherField"
+                style="display: none; grid-column: span 3"
+              >
+                <label>Please Specify Type of Client</label>
+                <input
+                  type="text"
+                  id="aptRoleOther"
+                  class="c-input"
+                  maxlength="100"
+                  placeholder="Please specify your type of client"
+                />
               </div>
 
               <div class="apt-input-group" style="grid-column: span 3">
@@ -1539,7 +1555,7 @@
       referrerpolicy="no-referrer"
     ></script>
     <script src="turnstile.js?v=1.2"></script>
-    <script src="main.js?v=4.5"></script>
+    <script src="main.js?v=4.6"></script>
     <script src="customer-announcements.js"></script>
   </body>
 </html>

@@ -29,7 +29,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const API_BASE_URL = resolveApiBaseUrl();
-  const PAGE_SIZE = 10;
+  const PAGE_SIZE = window.AdminTablePagination?.PAGE_SIZE || 10;
   const getToken = () =>
     window.AdminSession?.getToken?.() ||
     localStorage.getItem("auth_token") ||
@@ -97,6 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
     announcement: { all: [], page: 1, controller: null },
   };
   let searchQuery = "";
+  const inventoryVariantPages = new Map();
 
   const moduleConfig = {
     inventory: {
@@ -321,7 +322,25 @@ document.addEventListener("DOMContentLoaded", () => {
       <td class="action-icons sticky-action">${restoreButton("inventory", item, item.item_name)}${deleteButton("inventory", item, item.item_name)}</td>
     </tr>`;
 
-    variants.forEach((variant) => {
+    const variantTotalPages = Math.max(
+      1,
+      Math.ceil(variants.length / PAGE_SIZE),
+    );
+    const variantPage = Math.min(
+      Math.max(
+        1,
+        Number(inventoryVariantPages.get(String(item.source_id))) || 1,
+      ),
+      variantTotalPages,
+    );
+    const variantStart = (variantPage - 1) * PAGE_SIZE;
+    const pagedVariants = variants.slice(
+      variantStart,
+      variantStart + PAGE_SIZE,
+    );
+    inventoryVariantPages.set(String(item.source_id), variantPage);
+
+    pagedVariants.forEach((variant) => {
       const variantOnHand = Number(variant.on_hand || 0);
       const variantStatus =
         variant.status ||
@@ -340,6 +359,24 @@ document.addEventListener("DOMContentLoaded", () => {
         <td class="sticky-action"></td>
       </tr>`;
     });
+
+    if (variants.length > PAGE_SIZE) {
+      const variantFrom = variantStart + 1;
+      const variantTo = Math.min(variantStart + PAGE_SIZE, variants.length);
+      html += `<tr class="inv-variant-row inv-variant-pagination-row" data-parent-inv="${item.source_id}" style="display:none;">
+        <td class="admin-bulk-select-cell"></td>
+        <td colspan="10">
+          <div class="table-footer" style="padding:6px 0;background:transparent;border:0;">
+            <div class="table-footer-meta">Showing ${variantFrom}&ndash;${variantTo} of ${variants.length} variants</div>
+            <div class="table-pagination" aria-label="${esc(item.item_name)} archived variant pages">
+              <button type="button" class="page-btn" data-archive-variant-prev="${item.source_id}" ${variantPage <= 1 ? "disabled" : ""} aria-label="Previous archived variant page"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+              <input class="page-number" data-archive-variant-page="${item.source_id}" type="number" min="1" max="${variantTotalPages}" value="${variantPage}" inputmode="numeric" aria-label="Go to archived variant page for ${esc(item.item_name)}" />
+              <button type="button" class="page-btn" data-archive-variant-next="${item.source_id}" ${variantPage >= variantTotalPages ? "disabled" : ""} aria-label="Next archived variant page"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+            </div>
+          </div>
+        </td>
+      </tr>`;
+    }
 
     return html;
   };
@@ -474,6 +511,7 @@ document.addEventListener("DOMContentLoaded", () => {
       config.tbody.innerHTML = scoped.length
         ? scoped.map((row, index) => renderRow(module, row, index)).join("")
         : `<tr><td colspan="${config.colCount}"><div class="table-empty-state"><i class="fa-regular fa-folder-open"></i><span>${esc(config.emptyMessage)}</span></div></td></tr>`;
+      window.AdminPageNumberInput?.upgrade(config.tbody);
     }
 
     const from = rows.length ? (state[module].page - 1) * PAGE_SIZE + 1 : 0;
@@ -709,6 +747,7 @@ document.addEventListener("DOMContentLoaded", () => {
           : [];
         state[module].page = 1;
       });
+      inventoryVariantPages.clear();
       renderAll();
     } catch (error) {
       setError(error?.message || "Unable to load archived records.");
@@ -785,6 +824,54 @@ document.addEventListener("DOMContentLoaded", () => {
     const target = event.target;
     if (!(target instanceof Element)) return;
 
+    const goToInventoryVariantPage = (itemId, rawPage) => {
+      const item = state.inventory.all.find(
+        (row) => String(row.source_id) === String(itemId),
+      );
+      if (!item) return;
+      const variants = Array.isArray(item.variants) ? item.variants : [];
+      const totalPages = Math.max(1, Math.ceil(variants.length / PAGE_SIZE));
+      const current = inventoryVariantPages.get(String(itemId)) || 1;
+      const raw = String(rawPage ?? "").trim();
+      const requested = /^\d+$/.test(raw) ? Number(raw) : current;
+      inventoryVariantPages.set(
+        String(itemId),
+        Math.min(Math.max(requested, 1), totalPages),
+      );
+      renderModule("inventory");
+      const toggle = document.querySelector(
+        `[data-inv-toggle="${CSS.escape(String(itemId))}"]`,
+      );
+      toggle?.setAttribute("aria-expanded", "true");
+      document
+        .querySelectorAll(
+          `.inv-variant-row[data-parent-inv="${CSS.escape(String(itemId))}"]`,
+        )
+        .forEach((row) => {
+          row.style.display = "table-row";
+        });
+    };
+
+    const variantPrev = target.closest("[data-archive-variant-prev]");
+    if (variantPrev) {
+      const itemId = variantPrev.getAttribute("data-archive-variant-prev");
+      goToInventoryVariantPage(
+        itemId,
+        (inventoryVariantPages.get(String(itemId)) || 1) - 1,
+      );
+      return;
+    }
+
+    const variantNext = target.closest("[data-archive-variant-next]");
+    if (variantNext) {
+      const itemId = variantNext.getAttribute("data-archive-variant-next");
+      goToInventoryVariantPage(
+        itemId,
+        (inventoryVariantPages.get(String(itemId)) || 1) + 1,
+      );
+      return;
+    }
+
     const toggle = target.closest("[data-inv-toggle]");
     if (toggle) {
       const parentId = toggle.getAttribute("data-inv-toggle");
@@ -816,6 +903,45 @@ document.addEventListener("DOMContentLoaded", () => {
       openDeleteConfirmModal(module, id);
       return;
     }
+  });
+
+  document.body.addEventListener("change", (event) => {
+    const input = event.target.closest?.("[data-archive-variant-page]");
+    if (!input) return;
+    const itemId = input.getAttribute("data-archive-variant-page");
+    const item = state.inventory.all.find(
+      (row) => String(row.source_id) === String(itemId),
+    );
+    if (!item) return;
+    const variants = Array.isArray(item.variants) ? item.variants : [];
+    const totalPages = Math.max(1, Math.ceil(variants.length / PAGE_SIZE));
+    const requested = /^\d+$/.test(String(input.value).trim())
+      ? Number(input.value)
+      : inventoryVariantPages.get(String(itemId)) || 1;
+    inventoryVariantPages.set(
+      String(itemId),
+      Math.min(Math.max(requested, 1), totalPages),
+    );
+    renderModule("inventory");
+    const toggle = document.querySelector(
+      `[data-inv-toggle="${CSS.escape(String(itemId))}"]`,
+    );
+    toggle?.setAttribute("aria-expanded", "true");
+    document
+      .querySelectorAll(
+        `.inv-variant-row[data-parent-inv="${CSS.escape(String(itemId))}"]`,
+      )
+      .forEach((row) => {
+        row.style.display = "table-row";
+      });
+  });
+
+  document.body.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    const input = event.target.closest?.("[data-archive-variant-page]");
+    if (!input) return;
+    event.preventDefault();
+    input.dispatchEvent(new Event("change", { bubbles: true }));
   });
 
   // ─── Delete Confirmation Modal ──────────────────────────────────────────────

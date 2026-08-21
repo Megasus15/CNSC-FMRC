@@ -145,6 +145,15 @@ document.addEventListener("DOMContentLoaded", () => {
     return String(value);
   };
 
+  /** Escape a value that is about to be written into an HTML attribute. */
+  const escapeAttribute = (value) =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
   const prettyDate = (isoDate) => {
     const m = String(isoDate || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (!m) return safe(isoDate);
@@ -581,7 +590,42 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const calculateRowsPerPage = () => {
-    return 5;
+    return window.AdminTablePagination?.PAGE_SIZE || 10;
+  };
+
+  /**
+   * File Attach cell/field. Images and videos open in the shared
+   * AdminMediaViewer; PDFs and documents open in a new tab. Never forces a
+   * download — clicking should show the file.
+   *
+   * @param {object} appointment
+   * @param {{emptyHtml?: string, withThumb?: boolean}} [options]
+   */
+  const attachmentHtml = (appointment, options = {}) => {
+    const emptyHtml = options.emptyHtml ?? "N/A";
+    const fileName = safe(appointment.attachment_name);
+    const fileUrl = String(appointment.attachment_url || "").trim();
+
+    if (fileName === "N/A") return emptyHtml;
+    if (!fileUrl) return `<span class="photo-link">${fileName}</span>`;
+
+    const kind =
+      window.AdminMediaViewer?.resolveType(fileUrl, fileName) || "file";
+    const safeUrl = escapeAttribute(fileUrl);
+    const safeName = escapeAttribute(fileName);
+
+    if (kind === "file") {
+      return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="photo-link" title="Open ${safeName}">${fileName}</a>`;
+    }
+
+    const preview =
+      kind === "image" && options.withThumb !== false
+        ? `<img src="${safeUrl}" alt="" loading="lazy" />`
+        : `<span class="admin-media-thumb-icon" aria-hidden="true"><i class="fa-solid fa-${kind === "video" ? "circle-play" : "image"}"></i></span>`;
+
+    return `<button type="button" class="admin-media-thumb" data-media-url="${safeUrl}" data-media-name="${safeName}" data-media-type="${kind}" title="View ${safeName}">
+        ${preview}<span class="admin-media-thumb-name">${fileName}</span>
+      </button>`;
   };
 
   const renderTable = () => {
@@ -597,14 +641,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     tableBody.innerHTML = pagedItems
       .map((item) => {
-        const fileName = safe(item.attachment_name);
-        const fileUrl = String(item.attachment_url || "").trim();
-        const fileCell =
-          fileName === "N/A"
-            ? "N/A"
-            : fileUrl
-              ? `<a href="${fileUrl}" download="${fileName}" target="_blank" rel="noopener" class="photo-link">${fileName}</a>`
-              : `<span class="photo-link">${fileName}</span>`;
+        const fileCell = attachmentHtml(item);
 
         const canArchive = isAppointmentCompleted(item);
         const archiveTitle = canArchive
@@ -1044,14 +1081,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const apNo = formatApNo(appt.reference_no);
     const status = safe(appt.status);
     const statusCls = statusClass(status);
-    const fileUrl = String(appt.attachment_url || "").trim();
-    const fileName = safe(appt.attachment_name);
-    const fileHtml =
-      fileName === "N/A"
-        ? '<span style="color:#9ca3af;">No file attached</span>'
-        : fileUrl
-          ? `<a href="${fileUrl}" download="${fileName}" target="_blank" rel="noopener" class="photo-link">${fileName}</a>`
-          : `<span class="photo-link">${fileName}</span>`;
+    const fileHtml = attachmentHtml(appt, {
+      emptyHtml: '<span style="color:#9ca3af;">No file attached</span>',
+    });
 
     const body = document.getElementById("apptViewBody");
     if (body) {

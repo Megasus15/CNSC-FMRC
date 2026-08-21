@@ -147,8 +147,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const deductMetaByVariantId = new Map();
   let activeDeductItem = null;
   let deductMode = "add"; // "add" or "deduct"
-  const PAGE_SIZE = 5;
+  const PAGE_SIZE = window.AdminTablePagination?.PAGE_SIZE || 10;
   const categoryPages = {};
+  const inlineVariantPages = new Map();
+  let viewVariantPage = 1;
 
   const openModal = (m) => m?.classList.add("show");
   const closeModal = (m) => m?.classList.remove("show");
@@ -600,9 +602,9 @@ document.addEventListener("DOMContentLoaded", () => {
       const isSelectionMode = categoriesInSelectionMode.has(category);
       const selectedIds = getCategorySelection(category);
       const selectedCount = selectedIds.size;
-      const allTableIds = allItems
-        .filter((item) => item.category === category)
-        .map((item) => Number(item.id));
+      const allTableIds = getFilteredItemsByCategory(category).map((item) =>
+        Number(item.id),
+      );
       const allTableItemsSelected =
         allTableIds.length > 0 &&
         allTableIds.every((id) => selectedIds.has(id));
@@ -685,6 +687,32 @@ document.addEventListener("DOMContentLoaded", () => {
     renderCategoryTable(category);
   };
 
+  const goToInlineVariantPage = (itemId, rawPage) => {
+    const id = Number(itemId);
+    const item = allItems.find((entry) => Number(entry.id) === id);
+    if (!item) return;
+
+    const variants = Array.isArray(item.variants) ? item.variants : [];
+    const totalPages = Math.max(1, Math.ceil(variants.length / PAGE_SIZE));
+    const fallbackPage = inlineVariantPages.get(id) || 1;
+    const raw = String(rawPage ?? "").trim();
+    const requestedPage = /^\d+$/.test(raw) ? Number(raw) : fallbackPage;
+    inlineVariantPages.set(
+      id,
+      Math.min(Math.max(requestedPage, 1), totalPages),
+    );
+
+    renderCategoryTable(item.category);
+    const card = document.getElementById(getCategoryCardId(item.category));
+    const toggle = card?.querySelector(`[data-inv-toggle="${id}"]`);
+    toggle?.setAttribute("aria-expanded", "true");
+    card
+      ?.querySelectorAll(`tr[data-variant-parent="${id}"]`)
+      .forEach((row) => {
+        row.style.display = "table-row";
+      });
+  };
+
   // ─── Render one category table ────────────────────────────────────────────────
   const renderCategoryTable = (category) => {
     const containerId = getCategoryCardId(category);
@@ -723,6 +751,20 @@ document.addEventListener("DOMContentLoaded", () => {
         const rowNum = start + idx + 1;
         const variants = Array.isArray(item.variants) ? item.variants : [];
         const hasVariants = Boolean(item.has_variants ?? variants.length > 0);
+        const variantTotalPages = Math.max(
+          1,
+          Math.ceil(variants.length / PAGE_SIZE),
+        );
+        const variantPage = Math.min(
+          Math.max(Number(inlineVariantPages.get(Number(item.id)) || 1), 1),
+          variantTotalPages,
+        );
+        const variantStart = (variantPage - 1) * PAGE_SIZE;
+        const pagedVariants = variants.slice(
+          variantStart,
+          variantStart + PAGE_SIZE,
+        );
+        inlineVariantPages.set(Number(item.id), variantPage);
         const statusText = displayStatus(item.status);
         const statusHtml = `<span class="status-pill ${statusClass(statusText)}">${escHtml(statusText)}</span>`;
         const remarksHtml = item.remarks
@@ -764,7 +806,7 @@ document.addEventListener("DOMContentLoaded", () => {
         `);
 
         if (hasVariants) {
-          variants.forEach((variant) => {
+          pagedVariants.forEach((variant) => {
             const variantStatus = displayStatus(
               computeStatus(variant.on_hand, {
                 category: item.category,
@@ -796,6 +838,28 @@ document.addEventListener("DOMContentLoaded", () => {
               </tr>
             `);
           });
+          if (variants.length > PAGE_SIZE) {
+            const variantFrom = variantStart + 1;
+            const variantTo = Math.min(
+              variantStart + PAGE_SIZE,
+              variants.length,
+            );
+            rows.push(`
+              <tr class="inv-variant-row inv-variant-pagination-row" data-variant-parent="${item.id}" style="display:none;">
+                <td aria-hidden="true"></td>
+                <td colspan="8">
+                  <div class="table-footer" style="padding:6px 0;background:transparent;border:0;">
+                    <div class="table-footer-meta">Showing ${variantFrom}&ndash;${variantTo} of ${variants.length} variants</div>
+                    <div class="table-pagination" aria-label="${escHtml(item.item_name)} variant pages">
+                      <button type="button" class="page-btn" data-inv-variant-prev="${item.id}" ${variantPage <= 1 ? "disabled" : ""} aria-label="Previous variant page"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+                      <input class="page-number" data-inv-variant-page="${item.id}" type="number" min="1" max="${variantTotalPages}" value="${variantPage}" inputmode="numeric" aria-label="Go to variant page for ${escHtml(item.item_name)}">
+                      <button type="button" class="page-btn" data-inv-variant-next="${item.id}" ${variantPage >= variantTotalPages ? "disabled" : ""} aria-label="Next variant page"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            `);
+          }
         }
       });
       tableRows = rows.join("");
@@ -869,6 +933,7 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
     `;
 
+    window.AdminPageNumberInput?.upgrade(card);
     updateSelectionUi(category);
   };
 
@@ -1729,8 +1794,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ─── View Modal ───────────────────────────────────────────────────────────────
-  const openViewModal = (item) => {
+  const openViewModal = (item, { resetVariantPage = true } = {}) => {
     viewingItemId = item.id;
+    if (resetVariantPage) viewVariantPage = 1;
     if (invViewTitle)
       invViewTitle.textContent = item.item_name || "Item Details";
     if (invViewSubtitle)
@@ -1744,7 +1810,20 @@ document.addEventListener("DOMContentLoaded", () => {
       : '<span style="color:#9ca3af;">—</span>';
 
     const variants = Array.isArray(item.variants) ? item.variants : [];
-    const variantRows = variants
+    const variantTotalPages = Math.max(
+      1,
+      Math.ceil(variants.length / PAGE_SIZE),
+    );
+    viewVariantPage = Math.min(
+      Math.max(Number(viewVariantPage || 1), 1),
+      variantTotalPages,
+    );
+    const variantStart = (viewVariantPage - 1) * PAGE_SIZE;
+    const pagedVariants = variants.slice(
+      variantStart,
+      variantStart + PAGE_SIZE,
+    );
+    const variantRows = pagedVariants
       .map((variant) => {
         const variantStatus = displayStatus(
           computeStatus(variant.on_hand, {
@@ -1788,6 +1867,18 @@ document.addEventListener("DOMContentLoaded", () => {
             </thead>
             <tbody>${variantRows}</tbody>
           </table>
+          ${
+            variants.length > PAGE_SIZE
+              ? `<div class="table-footer" style="padding:10px 0 0;background:transparent;border:0;">
+                   <div class="table-footer-meta">Showing ${variantStart + 1}&ndash;${Math.min(variantStart + PAGE_SIZE, variants.length)} of ${variants.length} variants</div>
+                   <div class="table-pagination" aria-label="Inventory variant pages">
+                     <button type="button" class="page-btn" data-inv-view-variant-prev ${viewVariantPage <= 1 ? "disabled" : ""} aria-label="Previous variant page"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+                     <input class="page-number" data-inv-view-variant-page type="number" min="1" max="${variantTotalPages}" value="${viewVariantPage}" inputmode="numeric" aria-label="Go to inventory variant page">
+                     <button type="button" class="page-btn" data-inv-view-variant-next ${viewVariantPage >= variantTotalPages ? "disabled" : ""} aria-label="Next variant page"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+                   </div>
+                 </div>`
+              : ""
+          }
         </div>
       `
       : `
@@ -1820,11 +1911,48 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>`
         }
         ${variantsHtml}`;
+      window.AdminPageNumberInput?.upgrade(invViewContent);
     }
     openModal(modalView);
   };
 
   btnCloseView?.addEventListener("click", () => closeModal(modalView));
+
+  const goToViewVariantPage = (rawPage) => {
+    const item = allItems.find(
+      (entry) => Number(entry.id) === Number(viewingItemId),
+    );
+    if (!item) return;
+    const variants = Array.isArray(item.variants) ? item.variants : [];
+    const totalPages = Math.max(1, Math.ceil(variants.length / PAGE_SIZE));
+    const raw = String(rawPage ?? "").trim();
+    const requestedPage = /^\d+$/.test(raw) ? Number(raw) : viewVariantPage;
+    viewVariantPage = Math.min(Math.max(requestedPage, 1), totalPages);
+    openViewModal(item, { resetVariantPage: false });
+  };
+
+  invViewContent?.addEventListener("click", (event) => {
+    if (event.target.closest("[data-inv-view-variant-prev]")) {
+      goToViewVariantPage(viewVariantPage - 1);
+      return;
+    }
+    if (event.target.closest("[data-inv-view-variant-next]")) {
+      goToViewVariantPage(viewVariantPage + 1);
+    }
+  });
+
+  invViewContent?.addEventListener("change", (event) => {
+    const input = event.target.closest("[data-inv-view-variant-page]");
+    if (input) goToViewVariantPage(input.value);
+  });
+
+  invViewContent?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    const input = event.target.closest("[data-inv-view-variant-page]");
+    if (!input) return;
+    event.preventDefault();
+    goToViewVariantPage(input.value);
+  });
 
   btnEditFromView?.addEventListener("click", () => {
     const item = allItems.find((x) => x.id === viewingItemId);
@@ -2168,9 +2296,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!categoriesInSelectionMode.has(category)) return;
 
       const selectedIds = getCategorySelection(category);
-      const allTableIds = allItems
-        .filter((item) => item.category === category)
-        .map((item) => Number(item.id));
+      const allTableIds = getFilteredItemsByCategory(category).map((item) =>
+        Number(item.id),
+      );
       const allTableItemsSelected =
         allTableIds.length > 0 &&
         allTableIds.every((id) => selectedIds.has(id));
@@ -2190,6 +2318,20 @@ document.addEventListener("DOMContentLoaded", () => {
       openArchiveConfirmation(category, [...getCategorySelection(category)], {
         exitSelectionMode: true,
       });
+      return;
+    }
+
+    const variantPrevBtn = target.closest("[data-inv-variant-prev]");
+    if (variantPrevBtn) {
+      const id = Number(variantPrevBtn.getAttribute("data-inv-variant-prev"));
+      goToInlineVariantPage(id, (inlineVariantPages.get(id) || 1) - 1);
+      return;
+    }
+
+    const variantNextBtn = target.closest("[data-inv-variant-next]");
+    if (variantNextBtn) {
+      const id = Number(variantNextBtn.getAttribute("data-inv-variant-next"));
+      goToInlineVariantPage(id, (inlineVariantPages.get(id) || 1) + 1);
       return;
     }
 
@@ -2337,6 +2479,11 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("change", (e) => {
     const target = e.target;
     if (!(target instanceof HTMLInputElement)) return;
+    const variantItemId = target.getAttribute("data-inv-variant-page");
+    if (variantItemId) {
+      goToInlineVariantPage(variantItemId, target.value);
+      return;
+    }
     const category = target.getAttribute("data-cat-page");
     if (!category) return;
     goToCategoryPage(category, target.value);
@@ -2345,6 +2492,12 @@ document.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("keydown", (e) => {
     const target = e.target;
     if (!(target instanceof HTMLInputElement)) return;
+    const variantItemId = target.getAttribute("data-inv-variant-page");
+    if (variantItemId && e.key === "Enter") {
+      e.preventDefault();
+      goToInlineVariantPage(variantItemId, target.value);
+      return;
+    }
     const category = target.getAttribute("data-cat-page");
     if (!category || e.key !== "Enter") return;
     e.preventDefault();
@@ -2355,6 +2508,12 @@ document.addEventListener("DOMContentLoaded", () => {
   searchInput?.addEventListener("input", () => {
     CATEGORIES.forEach((cat) => {
       categoryPages[cat] = 1;
+      const filteredIds = new Set(
+        getFilteredItemsByCategory(cat).map((item) => Number(item.id)),
+      );
+      getCategorySelection(cat).forEach((id) => {
+        if (!filteredIds.has(Number(id))) getCategorySelection(cat).delete(id);
+      });
     });
     renderAllTables();
   });
@@ -2362,6 +2521,12 @@ document.addEventListener("DOMContentLoaded", () => {
   categoryFilter?.addEventListener("change", () => {
     CATEGORIES.forEach((cat) => {
       categoryPages[cat] = 1;
+      const filteredIds = new Set(
+        getFilteredItemsByCategory(cat).map((item) => Number(item.id)),
+      );
+      getCategorySelection(cat).forEach((id) => {
+        if (!filteredIds.has(Number(id))) getCategorySelection(cat).delete(id);
+      });
     });
     renderAllTables();
   });

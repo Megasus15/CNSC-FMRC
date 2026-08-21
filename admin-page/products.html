@@ -6,8 +6,8 @@
     <link rel="icon" href="../images/favicon.ico?v=3" sizes="any" />
     <link rel="apple-touch-icon" href="../images/apple-touch-icon.png?v=3" />
     <title>Products | UCN-FMRC Admin</title>
-    <link rel="stylesheet" href="dashboard.css?v=4.4" />
-    <link rel="stylesheet" href="admin-modules.css?v=4.4" />
+    <link rel="stylesheet" href="dashboard.css?v=5.1" />
+    <link rel="stylesheet" href="admin-modules.css?v=5.1" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -1028,6 +1028,48 @@
                     </p>
                   </div>
                 </div>
+                  <div
+                    class="table-footer"
+                    id="productPerformanceFooter"
+                    style="display: none; padding: 0 14px 10px"
+                  >
+                    <div
+                      class="table-footer-meta"
+                      id="productPerformanceMeta"
+                    >
+                      Showing 0 of 0 products
+                    </div>
+                    <div
+                      class="table-pagination"
+                      aria-label="Product performance pages"
+                    >
+                      <button
+                        type="button"
+                        class="page-btn"
+                        id="productPerformancePrev"
+                        aria-label="Previous product performance page"
+                      >
+                        <i class="fa-solid fa-chevron-left"></i>
+                      </button>
+                      <input
+                        class="page-number"
+                        id="productPerformancePage"
+                        type="number"
+                        min="1"
+                        value="1"
+                        inputmode="numeric"
+                        aria-label="Go to product performance page"
+                      />
+                      <button
+                        type="button"
+                        class="page-btn"
+                        id="productPerformanceNext"
+                        aria-label="Next product performance page"
+                      >
+                        <i class="fa-solid fa-chevron-right"></i>
+                      </button>
+                    </div>
+                  </div>
               </div>
             </div>
             <div
@@ -1689,7 +1731,7 @@
     </div>
 
     <script src="session-helper.js"></script>
-    <script src="admin-common.js?v=4.4"></script>
-    <script src="products.js"></script>
+    <script src="admin-common.js?v=5.1"></script>
+    <script src="products.js?v=5.1"></script>
   </body>
 </html>

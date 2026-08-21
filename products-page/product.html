@@ -20,7 +20,7 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
-    <link rel="stylesheet" href="../home-page/main.css?v=4.5" />
+    <link rel="stylesheet" href="../home-page/main.css?v=4.6" />
     <style>
       @keyframes shimmer {
         0% {
@@ -448,11 +448,12 @@
       </div>
     </div>
 
-    <!-- Product Image Fullscreen Lightbox Modal -->
-    <div class="modal-overlay" id="imageLightboxModal" style="z-index: 21000;">
+    <!-- Product Image / Review Media Fullscreen Lightbox Modal -->
+    <div class="modal-overlay" id="imageLightboxModal" style="z-index: 21020;">
       <div class="lightbox-box">
         <button class="lightbox-close-btn" id="closeLightboxBtn" aria-label="Close image preview">&times;</button>
         <img id="lightboxImage" src="" alt="Product Large Preview" />
+        <video id="lightboxVideo" controls preload="metadata" playsinline hidden></video>
         <p id="lightboxCaption" class="lightbox-caption"></p>
       </div>
     </div>
@@ -1427,7 +1428,7 @@
     <!-- Order success modal above replaces the previous inline card. -->
 
     <script src="../home-page/customer-announcements.js"></script>
-    <script src="../home-page/main.js?v=4.5"></script>
-    <script src="products.js"></script>
+    <script src="../home-page/main.js?v=4.6"></script>
+    <script src="products.js?v=4.6"></script>
   </body>
 </html>

@@ -567,7 +567,7 @@ class ProductRatingController extends Controller
     {
         return collect($media ?? [])
             ->map(fn ($item) => [
-                'url' => $item['url'] ?? null,
+                'url' => $this->publicMediaUrl($item),
                 'type' => $item['type'] ?? 'image',
                 'mime' => $item['mime'] ?? null,
                 'name' => $item['name'] ?? null,
@@ -576,5 +576,23 @@ class ProductRatingController extends Controller
             ->filter(fn ($item) => !empty($item['url']))
             ->values()
             ->all();
+    }
+
+    /**
+     * Resolve a stored media item to a URL the current host can actually load.
+     *
+     * The absolute URL saved at upload time is baked from APP_URL, so a review
+     * uploaded while APP_URL pointed elsewhere would hand the browser a dead
+     * link. Rebuild from the stored relative path against the incoming request
+     * host whenever the path is available.
+     */
+    private function publicMediaUrl(array $item): ?string
+    {
+        $path = trim((string) ($item['path'] ?? ''), '/');
+        if ($path !== '') {
+            return url('/storage/' . $path);
+        }
+
+        return $item['url'] ?? null;
     }
 }

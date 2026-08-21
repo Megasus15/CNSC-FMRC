@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const DASHBOARD_REQUEST_TIMEOUT_MS = 15000;
   const DASHBOARD_MIN_SYNC_GAP_MS = 2500;
   const DASHBOARD_EVENT_DEBOUNCE_MS = 300;
+  const DASHBOARD_LIVE_POLL_MS = 30000;
   const DASHBOARD_ORDERS_SIGNAL_KEY = "fmrc_orders_updated_at";
   const DASHBOARD_ORDERS_CHANNEL = "fmrc-orders-realtime";
 
@@ -68,6 +69,11 @@ document.addEventListener("DOMContentLoaded", () => {
   let dashboardLastRealtimeSignalTs = 0;
   let dashboardPendingForceSync = false;
   let dashboardQueuedSyncTimer = null;
+  let dashboardLiveCountsTimer = null;
+  let dashboardLiveCountsController = null;
+  let dashboardLastLiveCountsAt = 0;
+  let dashboardHasGoodSummary = false;
+  let unsubscribeAdminLiveData = null;
 
   const getDashboardOrdersChannel = () => {
     if (typeof window.BroadcastChannel !== "function") return null;
@@ -505,6 +511,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const dashboardArchivesCount = document.getElementById(
     "dashboardArchivesCount",
   );
+  const dashboardReportsCount = document.getElementById(
+    "dashboardReportsCount",
+  );
   const dashboardRecentAppointments = document.getElementById(
     "dashboardRecentAppointments",
   );
@@ -616,23 +625,26 @@ document.addEventListener("DOMContentLoaded", () => {
     accounts,
     orders,
     products,
+    generated_reports,
     total_archives,
     total_revenue,
     total_inventory_items,
   }) => {
-    if (dashboardAppointmentsCount)
+    if (dashboardAppointmentsCount && appointments !== undefined)
       dashboardAppointmentsCount.textContent = formatCount(appointments);
-    if (dashboardAccountsCount)
+    if (dashboardAccountsCount && accounts !== undefined)
       dashboardAccountsCount.textContent = formatCount(accounts);
-    if (dashboardOrdersCount)
+    if (dashboardOrdersCount && orders !== undefined)
       dashboardOrdersCount.textContent = formatCount(orders);
-    if (dashboardProductsCount)
+    if (dashboardProductsCount && products !== undefined)
       dashboardProductsCount.textContent = formatCount(products);
-    if (dashboardArchivesCount)
+    if (dashboardReportsCount && generated_reports !== undefined)
+      dashboardReportsCount.textContent = formatCount(generated_reports);
+    if (dashboardArchivesCount && total_archives !== undefined)
       dashboardArchivesCount.textContent = formatCount(total_archives);
-    if (dashboardRevenueAmount)
+    if (dashboardRevenueAmount && total_revenue !== undefined)
       dashboardRevenueAmount.textContent = formatCurrency(total_revenue);
-    if (dashboardInventoryCount)
+    if (dashboardInventoryCount && total_inventory_items !== undefined)
       dashboardInventoryCount.textContent = formatCount(total_inventory_items);
   };
 
@@ -1089,10 +1101,30 @@ document.addEventListener("DOMContentLoaded", () => {
       accounts: counts?.accounts,
       orders: counts?.orders,
       products: counts?.products,
+      generated_reports: counts?.generated_reports,
       total_archives: counts?.total_archives,
       total_revenue: counts?.total_revenue,
       total_inventory_items: counts?.total_inventory_items,
     });
+
+    const availability = summary?.availability || {};
+    const archiveAvailability = availability?.archives || {};
+    const allArchiveModulesAvailable = [
+      "inventory",
+      "appointments",
+      "orders",
+      "returns",
+      "ratings",
+      "promotions",
+      "announcements",
+    ].every((module) => archiveAvailability?.[module] !== false);
+    window.AdminLiveData?.setAvailability?.(
+      "dashboard-counts",
+      availability?.report_generations !== false && allArchiveModulesAvailable,
+    );
+
+    dashboardLastLiveCountsAt = Date.now();
+    dashboardHasGoodSummary = true;
 
     renderRecentAppointments(appointments);
     renderRecentOrders(orders, []);
@@ -1133,6 +1165,8 @@ document.addEventListener("DOMContentLoaded", () => {
       products: products.length,
     });
 
+    dashboardHasGoodSummary = true;
+
     renderRecentAppointments(appointments);
     renderRecentOrders(incomingOrders, directoryOrders);
   };
@@ -1161,7 +1195,7 @@ document.addEventListener("DOMContentLoaded", () => {
     dashboardSyncController = new AbortController();
     dashboardSyncInProgress = true;
 
-    if (source === "manual") {
+    if (source === "manual" && !dashboardHasGoodSummary) {
       renderDashboardLoading();
     }
 
@@ -1201,17 +1235,21 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      setCountCards({
-        appointments: "--",
-        accounts: "--",
-        orders: "--",
-        products: "--",
-        total_revenue: null,
-        total_inventory_items: null,
-      });
-      renderDashboardSyncError(
-        error?.message || "Please check your network and backend server.",
-      );
+      if (!dashboardHasGoodSummary) {
+        setCountCards({
+          appointments: "--",
+          accounts: "--",
+          orders: "--",
+          products: "--",
+          generated_reports: "--",
+          total_archives: "--",
+          total_revenue: null,
+          total_inventory_items: null,
+        });
+        renderDashboardSyncError(
+          error?.message || "Please check your network and backend server.",
+        );
+      }
     } finally {
       if (requestId === dashboardSyncRequestId) {
         dashboardSyncInProgress = false;
@@ -1224,6 +1262,83 @@ document.addEventListener("DOMContentLoaded", () => {
         queueDashboardSync({ force: true, source: "realtime" });
       }
     }
+  };
+
+  const applyDashboardLiveCounts = (payload = {}) => {
+    const data = payload?.data || {};
+    setCountCards({
+      generated_reports: data.generated_reports,
+      total_archives: data.total_archives,
+    });
+    dashboardLastLiveCountsAt = Date.now();
+
+    const availability = data?.availability || {};
+    const archiveAvailability = availability?.archives || {};
+    const allArchiveModulesAvailable = [
+      "inventory",
+      "appointments",
+      "orders",
+      "returns",
+      "ratings",
+      "promotions",
+      "announcements",
+    ].every((module) => archiveAvailability?.[module] !== false);
+    window.AdminLiveData?.setAvailability?.(
+      "dashboard-counts",
+      availability?.report_generations !== false && allArchiveModulesAvailable,
+    );
+  };
+
+  const syncDashboardLiveCounts = async ({ force = false } = {}) => {
+    if (document.hidden) return;
+    if (dashboardLiveCountsController) {
+      if (!force) return;
+      dashboardLiveCountsController.abort();
+    }
+
+    const controller = new AbortController();
+    dashboardLiveCountsController = controller;
+    try {
+      const payload = await requestDashboardJson(
+        "/admin/dashboard/live-counts",
+        true,
+        { signal: controller.signal },
+      );
+      if (dashboardLiveCountsController !== controller) return;
+      applyDashboardLiveCounts(payload);
+    } catch (error) {
+      if (error?.code === "CANCELLED") return;
+      if (error?.code === "AUTH") {
+        window.AdminSession?.clearSession();
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("user_info");
+        window.location.href = "../admin-auth/auth.html";
+      }
+      // Preserve the last-good cards. The shared status chip already reflects
+      // the failed request and the next visible poll will retry.
+    } finally {
+      if (dashboardLiveCountsController === controller) {
+        dashboardLiveCountsController = null;
+      }
+    }
+  };
+
+  const scheduleDashboardLiveCounts = (delay = DASHBOARD_LIVE_POLL_MS) => {
+    window.clearTimeout(dashboardLiveCountsTimer);
+    dashboardLiveCountsTimer = null;
+    if (document.hidden) return;
+    dashboardLiveCountsTimer = window.setTimeout(async () => {
+      dashboardLiveCountsTimer = null;
+      await syncDashboardLiveCounts();
+      scheduleDashboardLiveCounts();
+    }, Math.max(0, delay));
+  };
+
+  const refreshDashboardLiveCounts = async () => {
+    window.clearTimeout(dashboardLiveCountsTimer);
+    dashboardLiveCountsTimer = null;
+    await syncDashboardLiveCounts({ force: true });
+    scheduleDashboardLiveCounts();
   };
 
   const shouldProcessRealtimeSignal = (payload = {}) => {
@@ -1298,17 +1413,59 @@ document.addEventListener("DOMContentLoaded", () => {
     queueDashboardSync({ force: true, source: "realtime" });
   });
 
+  unsubscribeAdminLiveData = window.AdminLiveData?.subscribe((payload = {}) => {
+    if (document.hidden) return;
+    if (!["reports", "archives"].includes(String(payload.scope || ""))) {
+      return;
+    }
+    void refreshDashboardLiveCounts();
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      window.clearTimeout(dashboardLiveCountsTimer);
+      dashboardLiveCountsTimer = null;
+      dashboardLiveCountsController?.abort();
+      return;
+    }
+
+    const age = Date.now() - dashboardLastLiveCountsAt;
+    if (!dashboardLastLiveCountsAt || age >= DASHBOARD_LIVE_POLL_MS) {
+      void refreshDashboardLiveCounts();
+    } else {
+      scheduleDashboardLiveCounts(DASHBOARD_LIVE_POLL_MS - age);
+    }
+  });
+
   if (dashboardRefreshBtn) {
-    dashboardRefreshBtn.addEventListener("click", () => {
-      // Make refresh consistent with Inventory page: perform a full reload
+    dashboardRefreshBtn.addEventListener("click", async () => {
+      if (dashboardRefreshBtn.disabled) return;
+      const originalMarkup = dashboardRefreshBtn.innerHTML;
       dashboardRefreshBtn.disabled = true;
+      dashboardRefreshBtn.setAttribute("aria-busy", "true");
+      dashboardRefreshBtn.innerHTML =
+        '<i class="fa-solid fa-arrows-rotate fa-spin" aria-hidden="true"></i><span>Refreshing...</span>';
       try {
-        window.location.reload();
+        if (dashboardSyncController) dashboardSyncController.abort();
+        const waitStartedAt = Date.now();
+        while (
+          dashboardSyncInProgress &&
+          Date.now() - waitStartedAt < DASHBOARD_REQUEST_TIMEOUT_MS
+        ) {
+          await new Promise((resolve) => window.setTimeout(resolve, 25));
+        }
+        window.clearTimeout(dashboardQueuedSyncTimer);
+        dashboardQueuedSyncTimer = null;
+        dashboardPendingForceSync = false;
+        await Promise.all([
+          syncDashboardData({ force: true, source: "manual" }),
+          syncDashboardLiveCounts({ force: true }),
+        ]);
       } finally {
-        // ensure button isn't permanently disabled if reload is blocked
-        window.setTimeout(() => {
-          dashboardRefreshBtn.disabled = false;
-        }, 900);
+        dashboardRefreshBtn.innerHTML = originalMarkup;
+        dashboardRefreshBtn.removeAttribute("aria-busy");
+        dashboardRefreshBtn.disabled = false;
+        scheduleDashboardLiveCounts();
       }
     });
   }
@@ -1320,10 +1477,15 @@ document.addEventListener("DOMContentLoaded", () => {
     if (dashboardSyncController) {
       dashboardSyncController.abort();
     }
+    window.clearTimeout(dashboardLiveCountsTimer);
+    dashboardLiveCountsController?.abort();
+    unsubscribeAdminLiveData?.();
     dashboardOrdersChannel?.close();
   });
 
-  void syncDashboardData({ force: true, source: "manual" });
+  void syncDashboardData({ force: true, source: "manual" }).finally(() => {
+    void refreshDashboardLiveCounts();
+  });
 
   syncSidebarMode();
 });

@@ -119,6 +119,581 @@ if (document.body) {
   }
 })();
 
+// One pagination contract for every Admin and Staff table. Page modules keep
+// ownership of filtering, rendering, and server-side pagination; this helper
+// only provides the shared ten-row limit and safe page calculations.
+(() => {
+  const PAGE_SIZE = 10;
+  const MAX_PAGE_SIZE = 10;
+
+  const normalizePageSize = (value = PAGE_SIZE) => {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isFinite(parsed) || parsed < 1) return PAGE_SIZE;
+    return Math.min(parsed, MAX_PAGE_SIZE);
+  };
+
+  const totalPages = (totalItems, pageSize = PAGE_SIZE) =>
+    Math.max(
+      1,
+      Math.ceil(
+        Math.max(0, Number(totalItems) || 0) / normalizePageSize(pageSize),
+      ),
+    );
+
+  const clampPage = (page, totalItems, pageSize = PAGE_SIZE) => {
+    const parsed = Number.parseInt(page, 10);
+    return Math.min(
+      totalPages(totalItems, pageSize),
+      Math.max(1, Number.isFinite(parsed) ? parsed : 1),
+    );
+  };
+
+  const bounds = (page, totalItems, pageSize = PAGE_SIZE) => {
+    const size = normalizePageSize(pageSize);
+    const current = clampPage(page, totalItems, size);
+    const start = (current - 1) * size;
+    return {
+      page: current,
+      pageSize: size,
+      totalPages: totalPages(totalItems, size),
+      start,
+      end: Math.min(start + size, Math.max(0, Number(totalItems) || 0)),
+    };
+  };
+
+  const slice = (rows, page, pageSize = PAGE_SIZE) => {
+    const source = Array.isArray(rows) ? rows : [];
+    const range = bounds(page, source.length, pageSize);
+    return {
+      ...range,
+      rows: source.slice(range.start, range.end),
+    };
+  };
+
+  window.AdminTablePagination = Object.freeze({
+    PAGE_SIZE,
+    MAX_PAGE_SIZE,
+    normalizePageSize,
+    totalPages,
+    clampPage,
+    bounds,
+    slice,
+  });
+})();
+
+// Shared connection/data-freshness bridge for all Admin and Staff pages.
+// There is no visible chip: pages show their own neutral "Last updated" text.
+// What lives here is the invisible plumbing — a tracked window.fetch plus a
+// cross-tab publish/subscribe channel — so that generating a report or
+// archiving a record in one tab refreshes the dashboard cards in another.
+(() => {
+  if (window.AdminLiveData || typeof window.fetch !== "function") return;
+
+  const nativeFetch = window.fetch;
+  const CHANNEL_NAME = "fmrc-admin-live-data";
+  const STORAGE_KEY = "fmrc_admin_live_data_event";
+  const STATES = ["connecting", "syncing", "live", "delayed", "offline"];
+  const TRACKED_API_SEGMENT = "/api/";
+  const IGNORED_PATHS = [
+    /\/admin\/notifications(?:\/|$)/i,
+    /\/logout(?:\/|$)/i,
+    /\/sanctum\/csrf-cookie(?:\/|$)/i,
+  ];
+
+  const subscribers = new Set();
+  const pendingRequests = new Set();
+  const seenSignals = new Set();
+  const unavailableScopes = new Set();
+  let state = navigator.onLine === false ? "offline" : "connecting";
+  let lastSuccessAt = 0;
+  let lastFailureAt = 0;
+  let lastFailureKind = "";
+  let eventClock = Date.now();
+  let requestSequence = 0;
+  let channel = null;
+
+  const normalizeState = (value) =>
+    STATES.includes(value) ? value : "connecting";
+
+  const setState = (nextState, options = {}) => {
+    const requestedState = normalizeState(nextState);
+    state =
+      !options.force && pendingRequests.size && requestedState !== "offline"
+        ? "syncing"
+        : requestedState;
+    return state;
+  };
+
+  const nextEventTime = () => {
+    eventClock = Math.max(Date.now(), eventClock + 1);
+    return eventClock;
+  };
+
+  const resolveRequest = (input, init = {}) => {
+    const rawUrl =
+      typeof input === "string" || input instanceof URL
+        ? String(input)
+        : String(input?.url || "");
+    let url;
+    try {
+      url = new URL(rawUrl, window.location.href);
+    } catch {
+      return null;
+    }
+
+    const path = `${url.pathname}${url.search}`;
+    if (!url.pathname.toLowerCase().includes(TRACKED_API_SEGMENT)) return null;
+    if (IGNORED_PATHS.some((pattern) => pattern.test(url.pathname))) return null;
+    if (init?.adminLiveData === false) return null;
+
+    return {
+      url: url.href,
+      path,
+      method: String(init?.method || input?.method || "GET").toUpperCase(),
+    };
+  };
+
+  const mutationScope = (request) => {
+    if (!request || ["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+      return "";
+    }
+    if (/\/admin\/reports\/generate(?:\?|$)/i.test(request.path)) {
+      return "reports";
+    }
+    if (
+      /\/archive(?:-bulk|-payment)?(?:\/|\?|$)/i.test(request.path) ||
+      /\/admin\/archives(?:\/|\?|$)/i.test(request.path)
+    ) {
+      return "archives";
+    }
+    return "";
+  };
+
+  const settleState = () => {
+    if (pendingRequests.size) {
+      setState("syncing");
+      return;
+    }
+    if (navigator.onLine === false) {
+      setState("offline");
+      return;
+    }
+    if (lastFailureAt > lastSuccessAt && lastFailureKind === "offline") {
+      setState("offline");
+      return;
+    }
+    if (unavailableScopes.size) {
+      setState("delayed");
+      return;
+    }
+    if (lastFailureAt > lastSuccessAt) {
+      setState("delayed");
+      return;
+    }
+    setState(lastSuccessAt ? "live" : "connecting");
+  };
+
+  const begin = () => {
+    const id = ++requestSequence;
+    pendingRequests.add(id);
+    setState("syncing");
+    return id;
+  };
+
+  const succeed = (id) => {
+    if (id) pendingRequests.delete(id);
+    lastSuccessAt = nextEventTime();
+    lastFailureKind = "";
+    settleState();
+  };
+
+  const fail = (id, error = null) => {
+    if (id) pendingRequests.delete(id);
+    if (error?.name === "AbortError") {
+      settleState();
+      return;
+    }
+    lastFailureAt = nextEventTime();
+    lastFailureKind =
+      navigator.onLine === false || !lastSuccessAt ? "offline" : "delayed";
+    settleState();
+  };
+
+  const serverFailure = (id) => {
+    if (id) pendingRequests.delete(id);
+    // Any HTTP response proves that the browser can reach the application.
+    // Keep service/auth/schema failures distinct from a true offline state.
+    lastSuccessAt = nextEventTime();
+    lastFailureAt = nextEventTime();
+    lastFailureKind = "delayed";
+    settleState();
+  };
+
+  const setAvailability = (scope, available = true) => {
+    const key = String(scope || "page").trim().toLowerCase() || "page";
+    if (available) unavailableScopes.delete(key);
+    else unavailableScopes.add(key);
+    settleState();
+    return !unavailableScopes.has(key);
+  };
+
+  const trackedFetch = function (...args) {
+    const request = resolveRequest(args[0], args[1]);
+    if (!request) return nativeFetch.apply(this, args);
+
+    const id = begin();
+    let promise;
+    try {
+      promise = nativeFetch.apply(this, args);
+    } catch (error) {
+      fail(id, error);
+      throw error;
+    }
+
+    return Promise.resolve(promise).then(
+      (response) => {
+        if (response?.ok || response?.status === 304) {
+          succeed(id);
+          const scope = mutationScope(request);
+          if (scope) publish(scope, { source: "api" });
+        } else if ([400, 409, 422].includes(Number(response?.status))) {
+          // User-correctable validation/conflict responses do not mean that
+          // the live data connection failed.
+          succeed(id);
+        } else {
+          serverFailure(id);
+        }
+        return response;
+      },
+      (error) => {
+        fail(id, error);
+        throw error;
+      },
+    );
+  };
+
+  const notifySubscribers = (payload) => {
+    const stamp = `${payload?.scope || "all"}:${Number(payload?.timestamp || 0)}`;
+    if (seenSignals.has(stamp)) return;
+    seenSignals.add(stamp);
+    if (seenSignals.size > 100) {
+      const oldest = seenSignals.values().next().value;
+      seenSignals.delete(oldest);
+    }
+    subscribers.forEach((callback) => {
+      try {
+        callback(payload);
+      } catch {
+        // A page subscriber cannot break the shared realtime bridge.
+      }
+    });
+  };
+
+  const publish = (scope, detail = {}) => {
+    const payload = {
+      ...detail,
+      scope: String(scope || "all").toLowerCase(),
+      timestamp: Number(detail.timestamp) || Date.now(),
+    };
+    notifySubscribers(payload);
+    window.dispatchEvent(
+      new CustomEvent("fmrc:live-data-updated", { detail: payload }),
+    );
+    try {
+      channel?.postMessage(payload);
+    } catch {
+      // BroadcastChannel is optional.
+    }
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      // Storage can be unavailable in privacy modes.
+    }
+    return payload;
+  };
+
+  const subscribe = (callback) => {
+    if (typeof callback !== "function") return () => {};
+    subscribers.add(callback);
+    return () => subscribers.delete(callback);
+  };
+
+  if (typeof window.BroadcastChannel === "function") {
+    try {
+      channel = new window.BroadcastChannel(CHANNEL_NAME);
+      channel.addEventListener("message", (event) => {
+        notifySubscribers(event?.data || {});
+      });
+    } catch {
+      channel = null;
+    }
+  }
+
+  window.addEventListener("storage", (event) => {
+    if (event.key !== STORAGE_KEY || !event.newValue) return;
+    try {
+      notifySubscribers(JSON.parse(event.newValue));
+    } catch {
+      // Ignore malformed signals from older tabs.
+    }
+  });
+  window.addEventListener("offline", () => setState("offline"));
+  window.addEventListener("online", () => {
+    lastFailureAt = 0;
+    settleState();
+  });
+
+  window.fetch = trackedFetch;
+  window.AdminLiveData = {
+    begin,
+    succeed,
+    fail,
+    setState,
+    setAvailability,
+    getState: () => state,
+    // The visible chip was removed; keep the entry point as a no-op so a
+    // month-cached page script that still calls mount() cannot throw.
+    mount: () => [],
+    publish,
+    subscribe,
+    shouldTrack: (input, init) => Boolean(resolveRequest(input, init)),
+  };
+
+  window.addEventListener("beforeunload", () => {
+    channel?.close();
+  });
+})();
+
+// One image/video viewer for every Admin and Staff page. Appointment file
+// attachments, review media and return evidence all used to be plain links
+// (or nothing at all), so an attachment either downloaded or silently did
+// nothing. This gives all of them the same lightbox: click to view, Escape or
+// backdrop to close, focus returned to the trigger, and a readable error state
+// when the file cannot be loaded.
+(() => {
+  if (window.AdminMediaViewer) return;
+
+  const IMAGE_EXTENSIONS = [
+    "jpg",
+    "jpeg",
+    "png",
+    "gif",
+    "webp",
+    "bmp",
+    "svg",
+    "avif",
+  ];
+  const VIDEO_EXTENSIONS = ["mp4", "webm", "ogg", "ogv", "mov", "m4v"];
+
+  let overlay = null;
+  let stage = null;
+  let image = null;
+  let video = null;
+  let titleEl = null;
+  let errorEl = null;
+  let openLink = null;
+  let lastTrigger = null;
+
+  /** Strip the query/hash so "photo.jpg?v=2" still reads as an image. */
+  const extensionOf = (value) => {
+    const raw = String(value || "").split(/[?#]/)[0];
+    const match = raw.match(/\.([A-Za-z0-9]+)$/);
+    return match ? match[1].toLowerCase() : "";
+  };
+
+  /**
+   * Decide how a file should be presented.
+   * @returns {"image"|"video"|"file"}
+   */
+  const resolveType = (url, name = "", hint = "") => {
+    const declared = String(hint || "").toLowerCase();
+    if (declared === "image" || declared === "video") return declared;
+    if (declared.startsWith("image/")) return "image";
+    if (declared.startsWith("video/")) return "video";
+
+    const ext = extensionOf(name) || extensionOf(url);
+    if (IMAGE_EXTENSIONS.includes(ext)) return "image";
+    if (VIDEO_EXTENSIONS.includes(ext)) return "video";
+    return "file";
+  };
+
+  const build = () => {
+    if (overlay) return overlay;
+
+    overlay = document.createElement("div");
+    overlay.className = "admin-media-viewer";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.setAttribute("aria-label", "Attachment preview");
+    overlay.hidden = true;
+    overlay.innerHTML = `
+      <div class="admin-media-viewer-dialog" role="document">
+        <div class="admin-media-viewer-head">
+          <p class="admin-media-viewer-title"></p>
+          <div class="admin-media-viewer-head-actions">
+            <a class="admin-media-viewer-open" target="_blank" rel="noopener noreferrer">Open in new tab</a>
+            <button type="button" class="admin-media-viewer-close" aria-label="Close preview">&times;</button>
+          </div>
+        </div>
+        <div class="admin-media-viewer-stage">
+          <img class="admin-media-viewer-image" alt="" hidden />
+          <video class="admin-media-viewer-video" controls preload="metadata" hidden></video>
+          <p class="admin-media-viewer-error" hidden></p>
+        </div>
+      </div>`;
+
+    stage = overlay.querySelector(".admin-media-viewer-stage");
+    image = overlay.querySelector(".admin-media-viewer-image");
+    video = overlay.querySelector(".admin-media-viewer-video");
+    titleEl = overlay.querySelector(".admin-media-viewer-title");
+    errorEl = overlay.querySelector(".admin-media-viewer-error");
+    openLink = overlay.querySelector(".admin-media-viewer-open");
+
+    overlay.addEventListener("click", (event) => {
+      if (event.target === overlay) close();
+    });
+    overlay
+      .querySelector(".admin-media-viewer-close")
+      ?.addEventListener("click", close);
+    image.addEventListener("error", () =>
+      showError("This image could not be loaded. Use “Open in new tab”."),
+    );
+    video.addEventListener("error", () =>
+      showError("This video could not be played. Use “Open in new tab”."),
+    );
+
+    document.body.appendChild(overlay);
+    return overlay;
+  };
+
+  const showError = (message) => {
+    if (!errorEl) return;
+    errorEl.textContent = message;
+    errorEl.hidden = false;
+    if (image) image.hidden = true;
+    if (video) video.hidden = true;
+  };
+
+  const resetStage = () => {
+    if (image) {
+      image.hidden = true;
+      image.removeAttribute("src");
+      image.alt = "";
+    }
+    if (video) {
+      video.hidden = true;
+      try {
+        video.pause();
+      } catch {
+        // Pausing an unloaded video is harmless.
+      }
+      video.removeAttribute("src");
+      video.load();
+    }
+    if (errorEl) {
+      errorEl.hidden = true;
+      errorEl.textContent = "";
+    }
+    stage?.classList.remove("is-video");
+  };
+
+  const onKeydown = (event) => {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      close();
+    }
+  };
+
+  function close() {
+    if (!overlay || overlay.hidden) return;
+    resetStage();
+    overlay.hidden = true;
+    document.body.classList.remove("admin-media-viewer-open");
+    document.removeEventListener("keydown", onKeydown, true);
+    const trigger = lastTrigger;
+    lastTrigger = null;
+    if (trigger && document.contains(trigger)) {
+      try {
+        trigger.focus({ preventScroll: true });
+      } catch {
+        trigger.focus();
+      }
+    }
+  }
+
+  /**
+   * Show a file. Images and videos open in the overlay; anything else (PDF,
+   * DOC, unknown) is opened in a new tab, which is the only thing a browser
+   * can reliably do with it.
+   *
+   * @param {{url: string, name?: string, type?: string, trigger?: Element}} options
+   * @returns {boolean} true when the overlay was used
+   */
+  const open = (options = {}) => {
+    const url = String(options.url || "").trim();
+    if (!url) return false;
+
+    const name = String(options.name || "").trim();
+    const kind = resolveType(url, name, options.type);
+
+    if (kind === "file") {
+      window.open(url, "_blank", "noopener,noreferrer");
+      return false;
+    }
+
+    build();
+    resetStage();
+
+    lastTrigger =
+      options.trigger instanceof Element
+        ? options.trigger
+        : document.activeElement instanceof Element
+          ? document.activeElement
+          : null;
+
+    titleEl.textContent = name || "Attachment preview";
+    openLink.href = url;
+
+    if (kind === "video") {
+      stage.classList.add("is-video");
+      video.hidden = false;
+      video.src = url;
+    } else {
+      image.hidden = false;
+      image.alt = name || "Attachment preview";
+      image.src = url;
+    }
+
+    overlay.hidden = false;
+    document.body.classList.add("admin-media-viewer-open");
+    document.addEventListener("keydown", onKeydown, true);
+    overlay.querySelector(".admin-media-viewer-close")?.focus();
+    return true;
+  };
+
+  window.AdminMediaViewer = { open, close, resolveType };
+
+  // One delegated listener for every page: any element carrying
+  // data-media-url opens in the viewer, so table cells and media grids only
+  // have to render markup.
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const trigger = target.closest("[data-media-url]");
+    if (!trigger) return;
+
+    const url = trigger.getAttribute("data-media-url") || "";
+    if (!url) return;
+
+    const name = trigger.getAttribute("data-media-name") || "";
+    const type = trigger.getAttribute("data-media-type") || "";
+    if (resolveType(url, name, type) === "file") return; // let the <a> work
+
+    event.preventDefault();
+    open({ url, name, type, trigger });
+  });
+})();
+
 // Shared, presentation-only loading helpers for every Admin and Staff page.
 // They are defined synchronously because a few pages register their own
 // DOMContentLoaded handlers before admin-common.js is loaded.
@@ -283,7 +858,6 @@ if (document.body) {
   let quietTimer = 0;
   let hideTimer = 0;
   let obscuredRegions = [];
-  let staticReportTables = [];
 
   const restoreObscuredRegions = () => {
     obscuredRegions.forEach(
@@ -296,66 +870,6 @@ if (document.body) {
       },
     );
     obscuredRegions = [];
-  };
-
-  const prepareStaticReportTables = () => {
-    if (!/(?:admin-page|staff-page)\/reports\.html$/i.test(location.pathname)) {
-      return;
-    }
-
-    staticReportTables = Array.from(
-      document.querySelectorAll("table.admin-table"),
-    ).map((table) => {
-      const wrapper = table.closest(".table-wrapper");
-      const surface = table.closest(".panel");
-      const overlay = document.createElement("div");
-      const clone = table.cloneNode(true);
-      const cloneBody = clone.tBodies[0];
-      const ariaBusy = table.getAttribute("aria-busy");
-
-      clone.removeAttribute("id");
-      clone.setAttribute("aria-hidden", "true");
-      clone.querySelectorAll("[id]").forEach((element) => {
-        element.removeAttribute("id");
-      });
-      if (cloneBody) {
-        cloneBody.innerHTML = buildTableRows(table.tBodies[0], {
-          rows: 3,
-          columns: table.tHead?.rows?.[0]?.cells?.length || 1,
-        });
-      }
-
-      overlay.className = "admin-static-table-skeleton-overlay";
-      overlay.setAttribute("aria-hidden", "true");
-      overlay.appendChild(clone);
-      wrapper?.classList.add("has-admin-static-table-skeleton");
-      wrapper?.appendChild(overlay);
-      surface?.classList.add("admin-table-skeleton-active");
-      table.classList.add("admin-static-table-source");
-      table.setAttribute("aria-busy", "true");
-
-      return {
-        table,
-        wrapper,
-        surface,
-        overlay,
-        ariaBusy,
-      };
-    });
-  };
-
-  const finishStaticReportTables = () => {
-    staticReportTables.forEach(
-      ({ table, wrapper, surface, overlay, ariaBusy }) => {
-        overlay.remove();
-        table.classList.remove("admin-static-table-source");
-        wrapper?.classList.remove("has-admin-static-table-skeleton");
-        surface?.classList.remove("admin-table-skeleton-active");
-        if (ariaBusy === null) table.removeAttribute("aria-busy");
-        else table.setAttribute("aria-busy", ariaBusy);
-      },
-    );
-    staticReportTables = [];
   };
 
   const showInitial = () => {
@@ -429,7 +943,6 @@ if (document.body) {
       skeleton?.remove();
       main?.classList.remove("admin-global-skeleton-host");
       restoreObscuredRegions();
-      finishStaticReportTables();
     }, 180);
   };
 
@@ -528,7 +1041,6 @@ if (document.body) {
 
   const init = () => {
     showInitial();
-    prepareStaticReportTables();
     initialDomReady = true;
     scheduleInitialHide();
   };
@@ -3239,7 +3751,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!tbody) return;
 
     // Tables with stable IDs are populated and paginated by their page module.
-    // The generic enhancer is reserved for static markup such as Reports.
+    // The generic enhancer is reserved for intentionally static markup.
     if (table.id || tbody.id) return;
 
     const skeletonSelector =
@@ -3285,10 +3797,9 @@ document.addEventListener("DOMContentLoaded", () => {
       ...(toolbar ? toolbar.querySelectorAll(".filter-select") : []),
     ];
 
-    const pageSize = Math.max(
-      Number.parseInt(table.dataset.pageSize || "5", 10),
-      1,
-    );
+    const pageSize = window.AdminTablePagination?.normalizePageSize(
+      table.dataset.pageSize || window.AdminTablePagination.PAGE_SIZE,
+    ) || 10;
 
     let currentPage = 1;
     let filteredRows = allRows;

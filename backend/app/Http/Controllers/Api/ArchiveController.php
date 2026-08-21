@@ -3,15 +3,17 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Appointment;
 use App\Models\Announcement;
+use App\Models\Appointment;
 use App\Models\InventoryItem;
 use App\Models\Order;
 use App\Models\OrderReturn;
-use App\Models\Promotion;
 use App\Models\ProductRating;
 use App\Models\ProductRatingLike;
+use App\Models\Promotion;
+use App\Support\AdminArchiveRecords;
 use App\Support\ReturnPresenter;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -26,43 +28,42 @@ class ArchiveController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (!$user || !in_array($user->role, self::ALLOWED_ADMIN_ROLES, true)) {
+        if (! $user || ! in_array($user->role, self::ALLOWED_ADMIN_ROLES, true)) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
         $module = strtolower($request->query('module', 'all'));
 
-        $inventory   = collect();
+        $inventory = collect();
         $appointments = collect();
-        $orders      = collect();
-        $returns     = collect();
-        $promotions  = collect();
+        $orders = collect();
+        $returns = collect();
+        $promotions = collect();
         $announcements = collect();
-        $ratings     = collect();
+        $ratings = collect();
 
         try {
             // ── Inventory Items ────────────────────────────────────────────────
             if ($module === 'all' || $module === 'inventory') {
-                $inventory = InventoryItem::query()
-                    ->where('is_archived', true)
+                $inventory = AdminArchiveRecords::query('inventory')
                     ->orderByDesc('archived_at')
                     ->get()
                     ->map(fn (InventoryItem $item) => [
-                        'id'           => 'inv-' . $item->id,
-                        'source_id'    => $item->id,
-                        'module'       => 'inventory',
+                        'id' => 'inv-'.$item->id,
+                        'source_id' => $item->id,
+                        'module' => 'inventory',
                         // Matches the Inventory table columns exactly
-                        'category'     => $item->category ?? '—',
-                        'item_name'    => $item->item_name ?? '—',
-                        'description'  => $item->description ?? '—',
-                        'unit'         => $item->unit ?? '—',
-                        'on_hand'      => $item->on_hand ?? 0,
-                        'status'       => $item->status ?? '—',
-                        'remarks'      => $item->remarks ?? '—',
-                        'variants'     => $item->variants ?? [],
-                        'has_variants' => !empty($item->variants),
-                        'archived_at'  => $item->archived_at?->toIso8601String(),
-                        'created_at'   => $item->created_at?->toIso8601String(),
+                        'category' => $item->category ?? '—',
+                        'item_name' => $item->item_name ?? '—',
+                        'description' => $item->description ?? '—',
+                        'unit' => $item->unit ?? '—',
+                        'on_hand' => $item->on_hand ?? 0,
+                        'status' => $item->status ?? '—',
+                        'remarks' => $item->remarks ?? '—',
+                        'variants' => $item->variants ?? [],
+                        'has_variants' => ! empty($item->variants),
+                        'archived_at' => $item->archived_at?->toIso8601String(),
+                        'created_at' => $item->created_at?->toIso8601String(),
                     ]);
             }
         } catch (\Throwable $e) {
@@ -72,13 +73,12 @@ class ArchiveController extends Controller
         try {
             // ── Appointments ───────────────────────────────────────────────────
             if ($module === 'all' || $module === 'appointment') {
-                $appointments = Appointment::query()
-                    ->where('status', 'Archived')
+                $appointments = AdminArchiveRecords::query('appointments')
                     ->orderByDesc('updated_at')
                     ->get()
                     ->map(function (Appointment $a) {
                         $mi = trim((string) ($a->middle_initial ?? ''));
-                        $mi = $mi ? rtrim($mi, '.') . '.' : '';
+                        $mi = $mi ? rtrim($mi, '.').'.' : '';
                         $clientName = implode(' ', array_filter([
                             trim((string) $a->first_name),
                             $mi,
@@ -86,28 +86,28 @@ class ArchiveController extends Controller
                         ])) ?: '—';
 
                         // Format appointment date same as the Appointments table
-                        $apptDate = $a->appointment_date ? \Carbon\Carbon::parse($a->appointment_date)->format('M d, Y') : '—';
+                        $apptDate = $a->appointment_date ? Carbon::parse($a->appointment_date)->format('M d, Y') : '—';
 
                         // Format reference_no same as the Appointments table
                         $refNo = $a->reference_no ?? '—';
 
                         return [
-                            'id'               => 'appt-' . $a->id,
-                            'source_id'        => $a->id,
-                            'module'           => 'appointment',
+                            'id' => 'appt-'.$a->id,
+                            'source_id' => $a->id,
+                            'module' => 'appointment',
                             // Matches the Appointments table columns exactly
-                            'reference_no'     => $refNo,
-                            'client_name'      => $clientName,
-                            'contact_number'   => $a->contact_number ?? '—',
-                            'email'            => $a->email ?? '—',
-                            'full_address'     => $a->full_address ?? '—',
-                            'client_type'      => $a->client_type ?? '—',
-                            'purpose'          => $a->purpose ?? '—',
+                            'reference_no' => $refNo,
+                            'client_name' => $clientName,
+                            'contact_number' => $a->contact_number ?? '—',
+                            'email' => $a->email ?? '—',
+                            'full_address' => $a->full_address ?? '—',
+                            'client_type' => $a->client_type ?? '—',
+                            'purpose' => $a->purpose ?? '—',
                             'appointment_date' => $apptDate,
                             'appointment_time' => $a->appointment_time ?? '—',
-                            'status'           => $a->status ?? '—',
-                            'archived_at'      => $a->updated_at?->toIso8601String(),
-                            'created_at'       => $a->created_at?->toIso8601String(),
+                            'status' => $a->status ?? '—',
+                            'archived_at' => $a->updated_at?->toIso8601String(),
+                            'created_at' => $a->created_at?->toIso8601String(),
                         ];
                     });
             }
@@ -118,30 +118,29 @@ class ArchiveController extends Controller
         try {
             // ── Orders ─────────────────────────────────────────────────────────
             if ($module === 'all' || $module === 'order') {
-                $orders = Order::query()
+                $orders = AdminArchiveRecords::query('orders')
                     ->with(['items'])
-                    ->where('is_archived', true)
                     ->orderByDesc('archived_at')
                     ->get()
                     ->map(function (Order $o) {
                         $productName = $o->items->last()?->product_name ?? 'Custom Order';
-                        $totalLabel  = '₱ ' . number_format((float) ($o->total ?? 0), 2, '.', ',');
+                        $totalLabel = '₱ '.number_format((float) ($o->total ?? 0), 2, '.', ',');
 
                         return [
-                            'id'               => 'ord-' . $o->id,
-                            'source_id'        => $o->id,
-                            'module'           => 'order',
+                            'id' => 'ord-'.$o->id,
+                            'source_id' => $o->id,
+                            'module' => 'order',
                             // Matches the Orders Directory table columns exactly
-                            'order_no'         => $o->order_no ?? "ORD-{$o->id}",
-                            'order_item'       => $productName,
-                            'date'             => $o->created_at?->format('M d, Y') ?? '—',
-                            'customer_name'    => $o->customer_name ?? '—',
-                            'payment_method'   => $o->payment?->method ?? $o->payment_method ?? 'WALKIN VIA CASHIER',
-                            'total'            => (float) ($o->total ?? 0),
-                            'total_label'      => $totalLabel,
+                            'order_no' => $o->order_no ?? "ORD-{$o->id}",
+                            'order_item' => $productName,
+                            'date' => $o->created_at?->format('M d, Y') ?? '—',
+                            'customer_name' => $o->customer_name ?? '—',
+                            'payment_method' => $o->payment?->method ?? $o->payment_method ?? 'WALKIN VIA CASHIER',
+                            'total' => (float) ($o->total ?? 0),
+                            'total_label' => $totalLabel,
                             'lifecycle_status' => ucfirst($o->lifecycle_status ?? '—'),
-                            'archived_at'      => $o->archived_at?->toIso8601String(),
-                            'created_at'       => $o->created_at?->toIso8601String(),
+                            'archived_at' => $o->archived_at?->toIso8601String(),
+                            'created_at' => $o->created_at?->toIso8601String(),
                         ];
                     });
             }
@@ -152,14 +151,13 @@ class ArchiveController extends Controller
         try {
             // ── Returns & Refunds ──────────────────────────────────────────────
             if ($module === 'all' || $module === 'return') {
-                $returns = OrderReturn::query()
+                $returns = AdminArchiveRecords::query('returns')
                     ->with([
                         'order:id,order_no,customer_name',
                         'customer:id,name,email',
                         'handler:id,name,role',
                         'items',
                     ])
-                    ->where('is_archived', true)
                     ->orderByDesc('archived_at')
                     ->get()
                     ->map(function (OrderReturn $orderReturn) {
@@ -175,30 +173,30 @@ class ArchiveController extends Controller
                             ?? $orderReturn->requested_amount;
 
                         return [
-                            'id'                => 'return-' . $orderReturn->id,
-                            'source_id'         => $orderReturn->id,
-                            'module'            => 'return',
+                            'id' => 'return-'.$orderReturn->id,
+                            'source_id' => $orderReturn->id,
+                            'module' => 'return',
                             // Matches the Returns & Refunds table columns exactly
-                            'return_no'         => $orderReturn->return_no ?: "RTN-{$orderReturn->id}",
-                            'order_no'          => $orderReturn->order?->order_no ?: "ORD-{$orderReturn->order_id}",
-                            'customer_name'     => $orderReturn->customer?->name
+                            'return_no' => $orderReturn->return_no ?: "RTN-{$orderReturn->id}",
+                            'order_no' => $orderReturn->order?->order_no ?: "ORD-{$orderReturn->order_id}",
+                            'customer_name' => $orderReturn->customer?->name
                                 ?: ($orderReturn->order?->customer_name ?: 'Guest customer'),
-                            'customer_email'    => $orderReturn->customer?->email ?: '',
-                            'product_name'      => $extra > 0 ? "{$firstName} (+{$extra} more)" : $firstName,
-                            'items_count'       => $items->count(),
-                            'quantity'          => (int) $items->sum('quantity'),
-                            'reason_label'      => $orderReturn->reasonLabel(),
-                            'resolution_label'  => $orderReturn->resolutionLabel(),
-                            'status'            => $orderReturn->status,
-                            'status_label'      => $orderReturn->statusLabel(),
-                            'amount'            => (float) $settled,
-                            'amount_label'      => ReturnPresenter::money((float) $settled),
+                            'customer_email' => $orderReturn->customer?->email ?: '',
+                            'product_name' => $extra > 0 ? "{$firstName} (+{$extra} more)" : $firstName,
+                            'items_count' => $items->count(),
+                            'quantity' => (int) $items->sum('quantity'),
+                            'reason_label' => $orderReturn->reasonLabel(),
+                            'resolution_label' => $orderReturn->resolutionLabel(),
+                            'status' => $orderReturn->status,
+                            'status_label' => $orderReturn->statusLabel(),
+                            'amount' => (float) $settled,
+                            'amount_label' => ReturnPresenter::money((float) $settled),
                             'refund_method_label' => $orderReturn->refundMethodLabel(),
-                            'refund_reference'  => $orderReturn->refund_reference,
-                            'handled_by'        => $orderReturn->handler?->name,
-                            'media_count'       => count($orderReturn->media ?? []),
-                            'created_at'        => $orderReturn->created_at?->toIso8601String(),
-                            'archived_at'       => $orderReturn->archived_at?->toIso8601String(),
+                            'refund_reference' => $orderReturn->refund_reference,
+                            'handled_by' => $orderReturn->handler?->name,
+                            'media_count' => count($orderReturn->media ?? []),
+                            'created_at' => $orderReturn->created_at?->toIso8601String(),
+                            'archived_at' => $orderReturn->archived_at?->toIso8601String(),
                         ];
                     });
             }
@@ -208,12 +206,11 @@ class ArchiveController extends Controller
 
         try {
             if ($module === 'all' || $module === 'promotion') {
-                $promotions = Promotion::query()
-                    ->where('is_archived', true)
+                $promotions = AdminArchiveRecords::query('promotions')
                     ->orderByDesc('archived_at')
                     ->get()
                     ->map(fn (Promotion $promotion) => [
-                        'id' => 'promo-' . $promotion->id,
+                        'id' => 'promo-'.$promotion->id,
                         'source_id' => $promotion->id,
                         'module' => 'promotion',
                         'title' => $promotion->title,
@@ -233,12 +230,11 @@ class ArchiveController extends Controller
 
         try {
             if ($module === 'all' || $module === 'announcement') {
-                $announcements = Announcement::query()
-                    ->where('is_archived', true)
+                $announcements = AdminArchiveRecords::query('announcements')
                     ->orderByDesc('archived_at')
                     ->get()
                     ->map(fn (Announcement $announcement) => [
-                        'id' => 'announcement-' . $announcement->id,
+                        'id' => 'announcement-'.$announcement->id,
                         'source_id' => $announcement->id,
                         'module' => 'announcement',
                         'title' => $announcement->title,
@@ -258,17 +254,16 @@ class ArchiveController extends Controller
         try {
             // â”€â”€ Product Reviews â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             if ($module === 'all' || $module === 'rating') {
-                $ratings = ProductRating::query()
+                $ratings = AdminArchiveRecords::query('ratings')
                     ->with([
                         'user:id,name,email',
                         'order:id,order_no',
                     ])
                     ->withCount('likes')
-                    ->where('is_archived', true)
                     ->orderByDesc('archived_at')
                     ->get()
                     ->map(fn (ProductRating $rating) => [
-                        'id' => 'rating-' . $rating->id,
+                        'id' => 'rating-'.$rating->id,
                         'source_id' => $rating->id,
                         'module' => 'rating',
                         'customer_name' => $rating->user?->name ?: ($rating->user?->email ?: 'Unknown'),
@@ -290,20 +285,20 @@ class ArchiveController extends Controller
         }
 
         return response()->json([
-            'inventory'    => $inventory->values(),
+            'inventory' => $inventory->values(),
             'appointments' => $appointments->values(),
-            'orders'       => $orders->values(),
-            'returns'      => $returns->values(),
-            'promotions'   => $promotions->values(),
-            'announcements'=> $announcements->values(),
-            'ratings'      => $ratings->values(),
+            'orders' => $orders->values(),
+            'returns' => $returns->values(),
+            'promotions' => $promotions->values(),
+            'announcements' => $announcements->values(),
+            'ratings' => $ratings->values(),
         ]);
     }
 
     public function restoreBulk(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (!$user || !in_array($user->role, self::ALLOWED_ADMIN_ROLES, true)) {
+        if (! $user || ! in_array($user->role, self::ALLOWED_ADMIN_ROLES, true)) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
@@ -334,7 +329,7 @@ class ArchiveController extends Controller
                 ->values()
                 ->all();
 
-            if (!$eligibleIds) {
+            if (! $eligibleIds) {
                 return [];
             }
 
@@ -351,10 +346,11 @@ class ArchiveController extends Controller
             };
 
             $query->whereIn('id', $eligibleIds)->update($updates);
+
             return $eligibleIds;
         });
 
-        if (!$restoredIds) {
+        if (! $restoredIds) {
             return response()->json(['message' => 'No archived records were found to restore in this section.'], 404);
         }
 
@@ -364,14 +360,14 @@ class ArchiveController extends Controller
             'processed_ids' => $restoredIds,
             'processed_count' => count($restoredIds),
             'skipped_ids' => array_values(array_diff($ids, $restoredIds)),
-            'message' => count($restoredIds) . ' archived record(s) restored successfully.',
+            'message' => count($restoredIds).' archived record(s) restored successfully.',
         ]);
     }
 
     public function deleteBulk(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (!$user || !in_array($user->role, self::ALLOWED_ADMIN_ROLES, true)) {
+        if (! $user || ! in_array($user->role, self::ALLOWED_ADMIN_ROLES, true)) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
@@ -401,7 +397,7 @@ class ArchiveController extends Controller
                 ->values()
                 ->all();
 
-            if (!$eligibleIds) {
+            if (! $eligibleIds) {
                 return [];
             }
 
@@ -423,10 +419,11 @@ class ArchiveController extends Controller
             }
 
             $query->whereIn('id', $eligibleIds)->delete();
+
             return $eligibleIds;
         });
 
-        if (!$deletedIds) {
+        if (! $deletedIds) {
             return response()->json(['message' => 'No archived records were found to delete.'], 404);
         }
 
@@ -437,14 +434,14 @@ class ArchiveController extends Controller
             'processed_count' => count($deletedIds),
             'skipped_ids' => array_values(array_diff($ids, $deletedIds)),
             'deleted_count' => count($deletedIds),
-            'message' => count($deletedIds) . ' archived record(s) permanently deleted.',
+            'message' => count($deletedIds).' archived record(s) permanently deleted.',
         ]);
     }
 
     public function autoDelete(Request $request): JsonResponse
     {
         $user = $request->user();
-        if (!$user || !in_array($user->role, self::ALLOWED_ADMIN_ROLES, true)) {
+        if (! $user || ! in_array($user->role, self::ALLOWED_ADMIN_ROLES, true)) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
@@ -464,7 +461,7 @@ class ArchiveController extends Controller
                 ->where('archived_at', '<=', $cutoffDate)
                 ->delete();
         } catch (\Throwable $e) {
-            Log::warning('Auto-delete inventory failed: ' . $e->getMessage());
+            Log::warning('Auto-delete inventory failed: '.$e->getMessage());
         }
 
         try {
@@ -474,7 +471,7 @@ class ArchiveController extends Controller
                 ->where('updated_at', '<=', $cutoffDate)
                 ->delete();
         } catch (\Throwable $e) {
-            Log::warning('Auto-delete appointments failed: ' . $e->getMessage());
+            Log::warning('Auto-delete appointments failed: '.$e->getMessage());
         }
 
         try {
@@ -484,7 +481,7 @@ class ArchiveController extends Controller
                 ->where('archived_at', '<=', $cutoffDate)
                 ->delete();
         } catch (\Throwable $e) {
-            Log::warning('Auto-delete orders failed: ' . $e->getMessage());
+            Log::warning('Auto-delete orders failed: '.$e->getMessage());
         }
 
         try {
@@ -501,7 +498,7 @@ class ArchiveController extends Controller
                 $totalDeleted += OrderReturn::query()->whereIn('id', $returnIds->all())->delete();
             }
         } catch (\Throwable $e) {
-            Log::warning('Auto-delete order returns failed: ' . $e->getMessage());
+            Log::warning('Auto-delete order returns failed: '.$e->getMessage());
         }
 
         try {
@@ -511,7 +508,7 @@ class ArchiveController extends Controller
                 ->where('archived_at', '<=', $cutoffDate)
                 ->delete();
         } catch (\Throwable $e) {
-            Log::warning('Auto-delete promotions failed: ' . $e->getMessage());
+            Log::warning('Auto-delete promotions failed: '.$e->getMessage());
         }
 
         try {
@@ -521,7 +518,7 @@ class ArchiveController extends Controller
                 ->where('archived_at', '<=', $cutoffDate)
                 ->delete();
         } catch (\Throwable $e) {
-            Log::warning('Auto-delete announcements failed: ' . $e->getMessage());
+            Log::warning('Auto-delete announcements failed: '.$e->getMessage());
         }
 
         try {
@@ -539,7 +536,7 @@ class ArchiveController extends Controller
                 $totalDeleted += ProductRating::query()->whereIn('id', $ratingIds->all())->delete();
             }
         } catch (\Throwable $e) {
-            Log::warning('Auto-delete product ratings failed: ' . $e->getMessage());
+            Log::warning('Auto-delete product ratings failed: '.$e->getMessage());
         }
 
         return response()->json([
@@ -547,7 +544,7 @@ class ArchiveController extends Controller
             'retention_days' => $retentionDays,
             'deleted_count' => $totalDeleted,
             'message' => $totalDeleted > 0
-                ? $totalDeleted . ' expired archived record(s) permanently deleted.'
+                ? $totalDeleted.' expired archived record(s) permanently deleted.'
                 : 'No expired archived records found.',
         ]);
     }
@@ -556,7 +553,7 @@ class ArchiveController extends Controller
     private function deleteMediaFiles(?array $media): void
     {
         foreach ($media ?? [] as $item) {
-            if (!empty($item['path'])) {
+            if (! empty($item['path'])) {
                 Storage::disk('public')->delete($item['path']);
             }
         }

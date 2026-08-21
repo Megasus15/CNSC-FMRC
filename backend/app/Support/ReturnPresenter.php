@@ -188,7 +188,7 @@ class ReturnPresenter
     {
         return collect($media ?? [])
             ->map(fn ($item) => [
-                'url'  => $item['url'] ?? null,
+                'url'  => self::mediaUrl($item),
                 'type' => $item['type'] ?? 'image',
                 'mime' => $item['mime'] ?? null,
                 'name' => $item['name'] ?? null,
@@ -197,6 +197,24 @@ class ReturnPresenter
             ->filter(fn ($item) => !empty($item['url']))
             ->values()
             ->all();
+    }
+
+    /**
+     * Evidence uploads store an absolute URL baked from APP_URL, so a return
+     * filed while APP_URL pointed elsewhere would hand the browser a dead link.
+     * Rebuild from the stored relative path against the incoming request host
+     * whenever the path is available.
+     *
+     * @param  array<string, mixed>  $item
+     */
+    private static function mediaUrl(array $item): ?string
+    {
+        $path = trim((string) ($item['path'] ?? ''), '/');
+        if ($path !== '') {
+            return url('/storage/'.$path);
+        }
+
+        return $item['url'] ?? null;
     }
 
     public static function iso(?DateTimeInterface $dateTime): ?string

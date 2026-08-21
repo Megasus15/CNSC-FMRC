@@ -46,7 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const REALTIME_SIGNAL_KEY = "fmrc_customer_msgs_updated_at";
   const REALTIME_CHANNEL_KEY = "fmrc-customer-messages-realtime";
   const MANILA_TZ = "Asia/Manila";
-  const PAGE_SIZE = 8;
+  const PAGE_SIZE = window.AdminTablePagination?.PAGE_SIZE || 10;
 
   const tableBody = document.getElementById("inquiriesTableBody");
   const inquiriesTable = document.getElementById("inquiriesTable");

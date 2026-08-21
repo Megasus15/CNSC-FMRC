@@ -48,6 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const REQUEST_TIMEOUT_MS = 25000; // Increased to 25s because local Laravel SMTP blocking causes long load times
   const ORDERS_REALTIME_CHANNEL = "fmrc-orders-realtime";
   const MIN_SYNC_GAP_MS = 2500;
+  const PAGE_SIZE = window.AdminTablePagination?.PAGE_SIZE || 10;
 
   let ordersRealtimeChannel = null;
 
@@ -258,6 +259,7 @@ document.addEventListener("DOMContentLoaded", () => {
     walkInPage: 1,
     rejectedPage: 1,
     returnsPage: 1,
+    returnItemsPage: 1,
     isSyncing: false,
     syncController: null,
     syncRequestId: 0,
@@ -926,7 +928,7 @@ document.addEventListener("DOMContentLoaded", () => {
       colCount: 10,
       footer: incomingOrdersFooter,
       currentPage: state.incomingPage,
-      pageSize: 5,
+      pageSize: PAGE_SIZE,
       emptyMessage: "No incoming orders found.",
       renderRow: (order) => {
         const statusClass = lifecycleClass("incoming");
@@ -962,7 +964,7 @@ document.addEventListener("DOMContentLoaded", () => {
       colCount: 8,
       footer: ordersDirectoryFooter,
       currentPage: state.directoryPage,
-      pageSize: 5,
+      pageSize: PAGE_SIZE,
       emptyMessage: "No orders available.",
       renderRow: (order) => {
         const lifecycle = String(
@@ -1003,7 +1005,7 @@ document.addEventListener("DOMContentLoaded", () => {
       colCount: 9,
       footer: paymentsHistoryFooter,
       currentPage: state.paymentsPage,
-      pageSize: 5,
+      pageSize: PAGE_SIZE,
       emptyMessage: "No payments available.",
       renderRow: (payment) => {
         const orderId = payment.id || payment.order_id || "";
@@ -1054,7 +1056,7 @@ document.addEventListener("DOMContentLoaded", () => {
       colCount: 13,
       footer: walkInOrdersFooter,
       currentPage: state.walkInPage,
-      pageSize: 5,
+      pageSize: PAGE_SIZE,
       emptyMessage: "No walk-in orders available.",
       renderRow: (row) => `
         <tr>
@@ -1087,7 +1089,7 @@ document.addEventListener("DOMContentLoaded", () => {
       colCount: 9,
       footer: rejectedOrdersFooter,
       currentPage: state.rejectedPage,
-      pageSize: 5,
+      pageSize: PAGE_SIZE,
       emptyMessage: "No rejected orders found.",
       renderRow: (order) => {
         const orderNo = escapeHtml(
@@ -1283,7 +1285,7 @@ document.addEventListener("DOMContentLoaded", () => {
       colCount: 11,
       footer: returnsRefundsFooter,
       currentPage: state.returnsPage,
-      pageSize: 5,
+      pageSize: PAGE_SIZE,
       emptyMessage: "No return requests found.",
       renderRow: (row) => {
         const returnNo = escapeHtml(
@@ -1369,8 +1371,8 @@ document.addEventListener("DOMContentLoaded", () => {
             "incoming",
         ),
       getPageRows: () => {
-        const start = (state.incomingPage - 1) * 5;
-        return state.incoming.slice(start, start + 5);
+        const start = (state.incomingPage - 1) * PAGE_SIZE;
+        return state.incoming.slice(start, start + PAGE_SIZE);
       },
       idleAction: {
         label: "Select incoming orders for a mass action",
@@ -1416,8 +1418,8 @@ document.addEventListener("DOMContentLoaded", () => {
       tableLabel: "Rejected Orders",
       getEligibleRows: getRejectedRows,
       getPageRows: () => {
-        const start = (state.rejectedPage - 1) * 5;
-        return getRejectedRows().slice(start, start + 5);
+        const start = (state.rejectedPage - 1) * PAGE_SIZE;
+        return getRejectedRows().slice(start, start + PAGE_SIZE);
       },
       idleAction: {
         label: "Select rejected orders to archive",
@@ -1450,8 +1452,8 @@ document.addEventListener("DOMContentLoaded", () => {
       getId: (payment) => payment?.id || payment?.order_id,
       getEligibleRows: getPaymentRows,
       getPageRows: () => {
-        const start = (state.paymentsPage - 1) * 5;
-        return getPaymentRows().slice(start, start + 5);
+        const start = (state.paymentsPage - 1) * PAGE_SIZE;
+        return getPaymentRows().slice(start, start + PAGE_SIZE);
       },
       idleAction: {
         label: "Select payments to archive their associated orders",
@@ -1486,9 +1488,9 @@ document.addEventListener("DOMContentLoaded", () => {
       // someone to act on it, which the backend also enforces.
       getEligibleRows: () => getReturnRows().filter((row) => row.can_archive),
       getPageRows: () => {
-        const start = (state.returnsPage - 1) * 5;
+        const start = (state.returnsPage - 1) * PAGE_SIZE;
         return getReturnRows()
-          .slice(start, start + 5)
+          .slice(start, start + PAGE_SIZE)
           .filter((row) => row.can_archive);
       },
       idleAction: {
@@ -1797,11 +1799,20 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="return-evidence-grid">
         ${list
           .map((item) => {
-            const src = escapeHtml(resolveMediaUrl(item?.url));
-            if (!src) return "";
-            return String(item?.type) === "video"
-              ? `<video src="${src}" controls preload="metadata" aria-label="Return evidence video"></video>`
-              : `<a href="${src}" target="_blank" rel="noopener" title="Open full size"><img src="${src}" alt="Return evidence photo" loading="lazy" /></a>`;
+            const url = resolveMediaUrl(item?.url);
+            if (!url) return "";
+            const src = escapeHtml(url);
+            const kind =
+              window.AdminMediaViewer?.resolveType(url, item?.name || "", item?.type) ||
+              (String(item?.type) === "video" ? "video" : "image");
+            const isVideo = kind === "video";
+            const label = isVideo
+              ? "Play return evidence video"
+              : "View return evidence photo";
+            const inner = isVideo
+              ? `<video src="${src}" preload="metadata" muted playsinline tabindex="-1" aria-hidden="true"></video><span class="return-evidence-play" aria-hidden="true"><i class="fa-solid fa-circle-play"></i></span>`
+              : `<img src="${src}" alt="Return evidence photo" loading="lazy" />`;
+            return `<button type="button" class="return-evidence-item" data-media-url="${src}" data-media-type="${kind}" data-media-name="${escapeHtml(item?.name || label)}" title="${label}" aria-label="${label}">${inner}</button>`;
           })
           .join("")}
       </div>`;
@@ -1813,6 +1824,14 @@ document.addEventListener("DOMContentLoaded", () => {
       return `<span class="return-empty-note">No item lines recorded.</span>`;
     }
 
+    const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+    state.returnItemsPage = Math.min(
+      Math.max(Number(state.returnItemsPage || 1), 1),
+      totalPages,
+    );
+    const start = (state.returnItemsPage - 1) * PAGE_SIZE;
+    const pageItems = list.slice(start, start + PAGE_SIZE);
+
     return `
       <div class="return-items-scroll">
         <table class="return-items-table">
@@ -1820,7 +1839,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Line Total</th></tr>
           </thead>
           <tbody>
-            ${list
+            ${pageItems
               .map(
                 (item) => `
                   <tr>
@@ -1833,7 +1852,19 @@ document.addEventListener("DOMContentLoaded", () => {
               .join("")}
           </tbody>
         </table>
-      </div>`;
+      </div>
+      ${
+        list.length > PAGE_SIZE
+          ? `<div class="table-footer" style="padding:10px 0 0;background:transparent;border:0;">
+               <div class="table-footer-meta">Showing ${start + 1}&ndash;${Math.min(start + PAGE_SIZE, list.length)} of ${list.length} returned items</div>
+               <div class="table-pagination" aria-label="Returned item pages">
+                 <button type="button" class="page-btn" data-return-items-prev ${state.returnItemsPage <= 1 ? "disabled" : ""} aria-label="Previous returned item page"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+                 <input class="page-number" data-return-items-page type="number" min="1" max="${totalPages}" value="${state.returnItemsPage}" inputmode="numeric" aria-label="Go to returned item page">
+                 <button type="button" class="page-btn" data-return-items-next ${state.returnItemsPage >= totalPages ? "disabled" : ""} aria-label="Next returned item page"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+               </div>
+             </div>`
+          : ""
+      }`;
   };
 
   const renderReturnTimeline = (timeline) => {
@@ -1921,6 +1952,58 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>`;
   };
 
+  const goToReturnItemsPage = (rawPage) => {
+    const detail =
+      state.returnDetailsById.get(String(activeReturnId || "")) ||
+      state.returns.find(
+        (row) => String(row?.id) === String(activeReturnId || ""),
+      );
+    if (!detail || !returnDetailsBody) return;
+
+    const list = Array.isArray(detail.items) ? detail.items : [];
+    const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE));
+    const raw = String(rawPage ?? "").trim();
+    const requestedPage = /^\d+$/.test(raw)
+      ? Number(raw)
+      : state.returnItemsPage;
+    state.returnItemsPage = Math.min(
+      Math.max(requestedPage, 1),
+      totalPages,
+    );
+    returnDetailsBody.innerHTML = renderReturnDetailsBody(detail);
+    window.AdminPageNumberInput?.upgrade(returnDetailsBody);
+  };
+
+  returnDetailsBody?.addEventListener("click", (event) => {
+    if (event.target.closest("[data-return-items-prev]")) {
+      goToReturnItemsPage(state.returnItemsPage - 1);
+      return;
+    }
+    if (event.target.closest("[data-return-items-next]")) {
+      goToReturnItemsPage(state.returnItemsPage + 1);
+    }
+  });
+
+  returnDetailsBody?.addEventListener("change", (event) => {
+    const input = event.target.closest("[data-return-items-page]");
+    if (input) goToReturnItemsPage(input.value);
+  });
+
+  returnDetailsBody?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    const input = event.target.closest("[data-return-items-page]");
+    if (!input) return;
+    event.preventDefault();
+    goToReturnItemsPage(input.value);
+  });
+
+  modalReturnDetails
+    ?.querySelector('[data-modal-close="#modalReturnDetails"]')
+    ?.addEventListener("click", () => {
+      activeReturnId = null;
+      state.returnItemsPage = 1;
+    });
+
   const upsertReturnInState = (record) => {
     if (!record || record.id === undefined || record.id === null) return;
     const key = String(record.id);
@@ -1939,6 +2022,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const key = String(returnId || "");
     if (!key) return;
+    if (activeReturnId !== key) state.returnItemsPage = 1;
     activeReturnId = key;
 
     const cached =
@@ -1957,6 +2041,7 @@ document.addEventListener("DOMContentLoaded", () => {
     returnDetailsBody.innerHTML = cached
       ? renderReturnDetailsBody(cached)
       : `<div class="return-empty-note">Loading return details...</div>`;
+    window.AdminPageNumberInput?.upgrade(returnDetailsBody);
     modalReturnDetails.classList.add("show");
 
     try {
@@ -1966,6 +2051,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // A second return may have been opened while this was in flight.
       if (activeReturnId !== key) return;
       returnDetailsBody.innerHTML = renderReturnDetailsBody(response.data);
+      window.AdminPageNumberInput?.upgrade(returnDetailsBody);
       if (returnDetailsSubtitle) {
         returnDetailsSubtitle.textContent = `${response.data.return_no_display || `#${key}`} · ${returnStatusLabel(response.data)}`;
       }
@@ -2221,6 +2307,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!modalReturnDetails?.classList.contains("show")) return;
 
     returnDetailsBody.innerHTML = renderReturnDetailsBody(record);
+    window.AdminPageNumberInput?.upgrade(returnDetailsBody);
     if (returnDetailsSubtitle) {
       returnDetailsSubtitle.textContent = `${
         record.return_no_display || `#${record.return_no || id}`
@@ -3259,7 +3346,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   incomingPager.next?.addEventListener("click", () => {
-    const totalPages = Math.max(1, Math.ceil(state.incoming.length / 5));
+    const totalPages = Math.max(1, Math.ceil(state.incoming.length / PAGE_SIZE));
     if (state.incomingPage >= totalPages) return;
     state.incomingPage += 1;
     renderIncomingTable();
@@ -3272,7 +3359,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   directoryPager.next?.addEventListener("click", () => {
-    const totalPages = Math.max(1, Math.ceil(getDirectoryRows().length / 5));
+    const totalPages = Math.max(
+      1,
+      Math.ceil(getDirectoryRows().length / PAGE_SIZE),
+    );
     if (state.directoryPage >= totalPages) return;
     state.directoryPage += 1;
     renderDirectoryTable();
@@ -3285,7 +3375,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   paymentsPager.next?.addEventListener("click", () => {
-    const totalPages = Math.max(1, Math.ceil(getPaymentRows().length / 5));
+    const totalPages = Math.max(
+      1,
+      Math.ceil(getPaymentRows().length / PAGE_SIZE),
+    );
     if (state.paymentsPage >= totalPages) return;
     state.paymentsPage += 1;
     renderPaymentsTable();
@@ -3298,7 +3391,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   walkInPager.next?.addEventListener("click", () => {
-    const totalPages = Math.max(1, Math.ceil(state.walkIn.length / 5));
+    const totalPages = Math.max(1, Math.ceil(state.walkIn.length / PAGE_SIZE));
     if (state.walkInPage >= totalPages) return;
     state.walkInPage += 1;
     renderWalkInTable();
@@ -3311,7 +3404,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   rejectedPager.next?.addEventListener("click", () => {
-    const totalPages = Math.max(1, Math.ceil(getRejectedRows().length / 5));
+    const totalPages = Math.max(
+      1,
+      Math.ceil(getRejectedRows().length / PAGE_SIZE),
+    );
     if (state.rejectedPage >= totalPages) return;
     state.rejectedPage += 1;
     renderRejectedTable();
@@ -3324,7 +3420,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   returnsPager.next?.addEventListener("click", () => {
-    const totalPages = Math.max(1, Math.ceil(getReturnRows().length / 5));
+    const totalPages = Math.max(
+      1,
+      Math.ceil(getReturnRows().length / PAGE_SIZE),
+    );
     if (state.returnsPage >= totalPages) return;
     state.returnsPage += 1;
     renderReturnsTable();
@@ -3332,7 +3431,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   window.AdminPageNumberInput?.bind(incomingPager.pageNumber, {
     getPage: () => state.incomingPage,
-    getTotalPages: () => Math.max(1, Math.ceil(state.incoming.length / 5)),
+    getTotalPages: () =>
+      Math.max(1, Math.ceil(state.incoming.length / PAGE_SIZE)),
     onChange: (page) => {
       state.incomingPage = page;
       renderIncomingTable();
@@ -3341,7 +3441,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   window.AdminPageNumberInput?.bind(directoryPager.pageNumber, {
     getPage: () => state.directoryPage,
-    getTotalPages: () => Math.max(1, Math.ceil(getDirectoryRows().length / 5)),
+    getTotalPages: () =>
+      Math.max(1, Math.ceil(getDirectoryRows().length / PAGE_SIZE)),
     onChange: (page) => {
       state.directoryPage = page;
       renderDirectoryTable();
@@ -3350,7 +3451,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   window.AdminPageNumberInput?.bind(paymentsPager.pageNumber, {
     getPage: () => state.paymentsPage,
-    getTotalPages: () => Math.max(1, Math.ceil(getPaymentRows().length / 5)),
+    getTotalPages: () =>
+      Math.max(1, Math.ceil(getPaymentRows().length / PAGE_SIZE)),
     onChange: (page) => {
       state.paymentsPage = page;
       renderPaymentsTable();
@@ -3359,7 +3461,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   window.AdminPageNumberInput?.bind(walkInPager.pageNumber, {
     getPage: () => state.walkInPage,
-    getTotalPages: () => Math.max(1, Math.ceil(state.walkIn.length / 5)),
+    getTotalPages: () =>
+      Math.max(1, Math.ceil(state.walkIn.length / PAGE_SIZE)),
     onChange: (page) => {
       state.walkInPage = page;
       renderWalkInTable();
@@ -3368,7 +3471,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   window.AdminPageNumberInput?.bind(rejectedPager.pageNumber, {
     getPage: () => state.rejectedPage,
-    getTotalPages: () => Math.max(1, Math.ceil(getRejectedRows().length / 5)),
+    getTotalPages: () =>
+      Math.max(1, Math.ceil(getRejectedRows().length / PAGE_SIZE)),
     onChange: (page) => {
       state.rejectedPage = page;
       renderRejectedTable();
@@ -3377,7 +3481,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   window.AdminPageNumberInput?.bind(returnsPager.pageNumber, {
     getPage: () => state.returnsPage,
-    getTotalPages: () => Math.max(1, Math.ceil(getReturnRows().length / 5)),
+    getTotalPages: () =>
+      Math.max(1, Math.ceil(getReturnRows().length / PAGE_SIZE)),
     onChange: (page) => {
       state.returnsPage = page;
       renderReturnsTable();

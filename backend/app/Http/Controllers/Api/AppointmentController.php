@@ -523,11 +523,12 @@ class AppointmentController extends Controller
 
         $attachmentUrl = null;
         if ($appointment->attachment_path) {
-            // Use Storage::url() so it always resolves to the correct Laravel
-            // storage URL (port 8000) regardless of which port the frontend uses.
+            // Build the URL from the incoming request host (same helper used for
+            // qr_payload) instead of config('app.url'). A stale production
+            // APP_URL would otherwise hand the browser a localhost link and the
+            // File Attach item would silently fail to open.
             $storagePath = ltrim($appointment->attachment_path, '/');
-            $appUrl = rtrim(config('app.url', url('/')), '/');
-            $attachmentUrl = $appUrl . '/storage/' . $storagePath;
+            $attachmentUrl = url('/storage/' . $storagePath);
         }
 
 

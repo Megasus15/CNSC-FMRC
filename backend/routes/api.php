@@ -1,30 +1,30 @@
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
-
-use App\Http\Controllers\Api\AuthController;
-use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\AdminDashboardController;
+use App\Http\Controllers\Api\AnnouncementController;
+use App\Http\Controllers\Api\AppointmentController;
+use App\Http\Controllers\Api\ArchiveController;
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CustomerMessageController;
+use App\Http\Controllers\Api\HomeSdgController;
+use App\Http\Controllers\Api\InventoryItemController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OrderReturnController;
-use App\Http\Controllers\Api\ProductController;
-use App\Http\Controllers\Api\SiteSettingController;
-use App\Http\Controllers\Api\ServiceController;
-use App\Http\Controllers\Api\HomeSdgController;
-use App\Http\Controllers\Api\NotificationController;
-use App\Http\Controllers\Api\ProductAnalyticsController;
-use App\Http\Controllers\Api\WalkInOrderController;
-use App\Http\Controllers\Api\InventoryItemController;
-use App\Http\Controllers\Api\ArchiveController;
-use App\Http\Controllers\Api\CustomerMessageController;
-use App\Http\Controllers\Api\PsgcController;
 use App\Http\Controllers\Api\PasswordResetController;
+use App\Http\Controllers\Api\ProductAnalyticsController;
+use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProductRatingController;
 use App\Http\Controllers\Api\PromotionController;
-use App\Http\Controllers\Api\AnnouncementController;
+use App\Http\Controllers\Api\PsgcController;
+use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\ServiceController;
+use App\Http\Controllers\Api\SiteSettingController;
+use App\Http\Controllers\Api\WalkInOrderController;
+use App\Http\Controllers\CartItemController;
 use App\Http\Middleware\VerifyTurnstile;
-
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 // ─── PSGC Address Proxy (public, no auth needed) ──────────────────────────
 Route::get('/psgc/regions', [PsgcController::class, 'regions']);
@@ -138,12 +138,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/admin/ratings/archive-bulk', [ProductRatingController::class, 'archiveBulk']);
     Route::post('/admin/ratings/{rating}/reply', [ProductRatingController::class, 'reply']);
 
-    Route::get('/customer/cart', [\App\Http\Controllers\CartItemController::class, 'index']);
-    Route::post('/customer/cart/sync', [\App\Http\Controllers\CartItemController::class, 'sync']);
+    Route::get('/customer/cart', [CartItemController::class, 'index']);
+    Route::post('/customer/cart/sync', [CartItemController::class, 'sync']);
     Route::post('/customer/messages', [CustomerMessageController::class, 'store']);
 
     Route::get('/admin/orders', [OrderController::class, 'adminIndex']);
     Route::get('/admin/dashboard/summary', [AdminDashboardController::class, 'summary']);
+    Route::get('/admin/dashboard/live-counts', [AdminDashboardController::class, 'liveCounts']);
+    Route::get('/admin/reports', [ReportController::class, 'index']);
+    Route::post('/admin/reports/generate', [ReportController::class, 'generate']);
     Route::post('/admin/orders/approve-bulk', [OrderController::class, 'approveBulk']);
     Route::post('/admin/orders/reject-bulk', [OrderController::class, 'rejectBulk']);
     Route::patch('/admin/orders/archive-bulk', [OrderController::class, 'archiveBulk']);

@@ -6,7 +6,7 @@
     <link rel="icon" href="../images/favicon.ico?v=3" sizes="any" />
     <link rel="apple-touch-icon" href="../images/apple-touch-icon.png?v=3" />
     <title>Admin Dashboard | UCN-FMRC</title>
-    <link rel="stylesheet" href="dashboard.css?v=4.4" />
+    <link rel="stylesheet" href="dashboard.css?v=5.1" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -245,14 +245,16 @@
               </div>
             </a>
 
-            <!-- Reports (hardcoded) -->
+            <!-- Reports (realtime) -->
             <a
               class="card card-link"
               href="reports.html"
               data-nav-label="Reports"
             >
               <div class="card-info">
-                <h3>24</h3>
+                <h3 id="dashboardReportsCount">
+                  <span class="card-value-loading"></span>
+                </h3>
                 <p>Generated Reports</p>
               </div>
               <div class="card-icon-box card-icon-amber">
@@ -458,7 +460,7 @@
     </div>
 
     <script src="session-helper.js"></script>
-    <script src="admin-common.js?v=4.4"></script>
-    <script src="dashboard.js"></script>
+    <script src="admin-common.js?v=5.1"></script>
+    <script src="dashboard.js?v=5.1"></script>
   </body>
 </html>

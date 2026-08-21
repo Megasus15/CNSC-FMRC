@@ -47,7 +47,18 @@ class SiteSettingController extends Controller
      */
     public function bulkUpdate(Request $request): JsonResponse
     {
-        $payload = $request->validate([
+        // auth:sanctum alone would let any signed-in customer token rewrite the
+        // public site content and the official report letterhead, so the role is
+        // checked here with the same rule the admin dashboard uses.
+        $actor = $request->user();
+        $role = strtolower((string) ($actor->role ?? ''));
+        if (! $actor || ! in_array($role, ['admin', 'staff'], true)) {
+            return response()->json([
+                'message' => 'Forbidden. Admin or staff access is required.',
+            ], 403);
+        }
+
+        $request->validate([
             '*' => 'nullable',
         ]);
 

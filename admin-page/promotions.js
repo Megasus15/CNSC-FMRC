@@ -78,9 +78,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let previewIndex = 0;
 
   let promotionPage = 1;
-  const PROMOTIONS_PER_PAGE = 5;
+  const PROMOTIONS_PER_PAGE = window.AdminTablePagination?.PAGE_SIZE || 10;
   let announcementPage = 1;
-  const ANNOUNCEMENTS_PER_PAGE = 5;
+  const ANNOUNCEMENTS_PER_PAGE = window.AdminTablePagination?.PAGE_SIZE || 10;
   let promotionBulkController = null;
   let announcementBulkController = null;
   let campaignRefreshTimer = null;

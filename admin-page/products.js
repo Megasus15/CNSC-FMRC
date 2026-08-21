@@ -156,7 +156,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // ─── State ──────────────────────────────────────────────────────────────────
   let products = [];
   let currentPage = 1;
-  const PAGE_SIZE = 5;
+  const PAGE_SIZE = window.AdminTablePagination?.PAGE_SIZE || 10;
+  let productPerformanceRows = [];
+  let productPerformancePage = 1;
   let productBulkController = null;
   let activeProductId = null;
   let activePhotoData = ""; // final edited image data URL
@@ -1048,10 +1050,118 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ── 3. Product Performance Table (from API) ──
-  const loadProductPerformance = async () => {
+  const renderProductPerformance = () => {
     const perfBody = document.getElementById("productPerformanceBody");
     const emptyEl = document.getElementById("productPerformanceEmpty");
     const tableEl = document.getElementById("productPerformanceTable");
+    if (!perfBody) return;
+
+    const footer = document.getElementById("productPerformanceFooter");
+    const meta = document.getElementById("productPerformanceMeta");
+    const pageInput = document.getElementById("productPerformancePage");
+    const prev = document.getElementById("productPerformancePrev");
+    const next = document.getElementById("productPerformanceNext");
+    const totalPages = Math.max(
+      1,
+      Math.ceil(productPerformanceRows.length / PAGE_SIZE),
+    );
+    productPerformancePage = Math.min(
+      Math.max(Number(productPerformancePage || 1), 1),
+      totalPages,
+    );
+
+    if (!productPerformanceRows.length) {
+      perfBody.innerHTML = "";
+      if (tableEl) tableEl.style.display = "none";
+      if (emptyEl) emptyEl.style.display = "flex";
+      if (footer) footer.style.display = "none";
+      return;
+    }
+
+    if (tableEl) tableEl.style.display = "";
+    if (emptyEl) emptyEl.style.display = "none";
+    if (footer) footer.style.display = "flex";
+
+    const start = (productPerformancePage - 1) * PAGE_SIZE;
+    const pageRows = productPerformanceRows.slice(start, start + PAGE_SIZE);
+    perfBody.innerHTML = pageRows
+      .map((p) => {
+        let statusClass = "perf-status--low";
+        const statusLabel = p.status || "Low";
+        if (p.status_class === "top") statusClass = "perf-status--top";
+        else if (p.status_class === "high") statusClass = "perf-status--high";
+
+        const revenue = parseFloat(p.total_revenue || 0).toLocaleString(
+          "en-PH",
+          {
+            style: "currency",
+            currency: "PHP",
+          },
+        );
+
+        return `<tr>
+          <td>${escHtml(p.product_code || "N/A")}</td>
+          <td>${escHtml(p.product_name || "Unnamed")}</td>
+          <td>${escHtml(p.category || "N/A")}</td>
+          <td>${escHtml(p.total_sold ?? 0)}</td>
+          <td>${escHtml(revenue)}</td>
+          <td><span class="perf-status ${statusClass}">${escHtml(statusLabel)}</span></td>
+        </tr>`;
+      })
+      .join("");
+
+    if (meta) {
+      meta.textContent = `Showing ${start + 1}-${Math.min(start + PAGE_SIZE, productPerformanceRows.length)} of ${productPerformanceRows.length} products`;
+    }
+    if (pageInput) {
+      pageInput.value = String(productPerformancePage);
+      pageInput.max = String(totalPages);
+    }
+    if (prev) prev.disabled = productPerformancePage <= 1;
+    if (next) next.disabled = productPerformancePage >= totalPages;
+  };
+
+  const goToProductPerformancePage = (rawPage) => {
+    const totalPages = Math.max(
+      1,
+      Math.ceil(productPerformanceRows.length / PAGE_SIZE),
+    );
+    const raw = String(rawPage ?? "").trim();
+    const requestedPage = /^\d+$/.test(raw)
+      ? Number(raw)
+      : productPerformancePage;
+    productPerformancePage = Math.min(
+      Math.max(requestedPage, 1),
+      totalPages,
+    );
+    renderProductPerformance();
+  };
+
+  document
+    .getElementById("productPerformancePrev")
+    ?.addEventListener("click", () =>
+      goToProductPerformancePage(productPerformancePage - 1),
+    );
+  document
+    .getElementById("productPerformanceNext")
+    ?.addEventListener("click", () =>
+      goToProductPerformancePage(productPerformancePage + 1),
+    );
+  document
+    .getElementById("productPerformancePage")
+    ?.addEventListener("change", (event) =>
+      goToProductPerformancePage(event.target.value),
+    );
+  document
+    .getElementById("productPerformancePage")
+    ?.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      goToProductPerformancePage(event.target.value);
+    });
+
+  const loadProductPerformance = async () => {
+    const perfBody = document.getElementById("productPerformanceBody");
     const perfWrapper = document.getElementById("productPerformanceTableWrapper");
     if (!perfBody) return;
 
@@ -1072,48 +1182,14 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       const payload = await res.json();
       const data = Array.isArray(payload?.data) ? payload.data : [];
-
-      if (!data.length) {
-        perfBody.innerHTML = "";
-        if (tableEl) tableEl.style.display = "none";
-        if (emptyEl) emptyEl.style.display = "flex";
-        return;
-      }
-
-      if (tableEl) tableEl.style.display = "";
-      if (emptyEl) emptyEl.style.display = "none";
-
-      perfBody.innerHTML = data
-        .map((p) => {
-          let statusClass = "perf-status--low";
-          let statusLabel = p.status || "Low";
-          if (p.status_class === "top") statusClass = "perf-status--top";
-          else if (p.status_class === "high") statusClass = "perf-status--high";
-
-          const revenue = parseFloat(p.total_revenue || 0).toLocaleString(
-            "en-PH",
-            {
-              style: "currency",
-              currency: "PHP",
-            },
-          );
-
-          return `<tr>
-          <td>${p.product_code || "N/A"}</td>
-          <td>${p.product_name || "Unnamed"}</td>
-          <td>${p.category || "N/A"}</td>
-          <td>${p.total_sold ?? 0}</td>
-          <td>${revenue}</td>
-          <td><span class="perf-status ${statusClass}">${statusLabel}</span></td>
-        </tr>`;
-        })
-        .join("");
+      productPerformanceRows = data;
+      renderProductPerformance();
     } catch (err) {
       console.error("Product performance load error:", err);
       perfWrapper?.querySelectorAll(".analytics-shimmer-loader").forEach((el) => el.remove());
-      perfBody.innerHTML = "";
-      if (tableEl) tableEl.style.display = "none";
-      if (emptyEl) emptyEl.style.display = "flex";
+      productPerformanceRows = [];
+      productPerformancePage = 1;
+      renderProductPerformance();
     }
   };
 
@@ -1317,8 +1393,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const perfWrapper = document.getElementById(
       "productPerformanceTableWrapper",
     );
+    const perfFooter = document.getElementById("productPerformanceFooter");
     if (perfTable) perfTable.style.display = "";
     if (perfEmpty) perfEmpty.style.display = "none";
+    if (perfFooter) perfFooter.style.display = "none";
     perfWrapper
       ?.querySelectorAll(".analytics-shimmer-loader")
       .forEach((loader) => loader.remove());

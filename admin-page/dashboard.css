@@ -1830,8 +1830,234 @@ table tbody > .admin-table-skeleton-row > td,
 .toolbar-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
 }
+
+/* ─── Shared attachment / media viewer (window.AdminMediaViewer) ───────────
+   Used by Appointments file attachments, Ratings review media and Orders
+   return evidence so every Admin/Staff page opens media the same way. */
+.admin-media-viewer[hidden] {
+  display: none;
+}
+
+.admin-media-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 30000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 18, 24, 0.82);
+}
+
+body.admin-media-viewer-open {
+  overflow: hidden;
+}
+
+.admin-media-viewer-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(960px, 100%);
+  max-height: 100%;
+  overflow: hidden;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+}
+
+.admin-media-viewer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex: 0 0 auto;
+  padding: 13px 16px;
+  border-bottom: 1px solid #e6e8ec;
+  background: #f8f9fb;
+}
+
+.admin-media-viewer-title {
+  min-width: 0;
+  overflow: hidden;
+  color: #232a35;
+  font-size: 0.88rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-media-viewer-head-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-media-viewer-open {
+  color: var(--primary-color, #800000);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.admin-media-viewer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid #d9dde3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #3d4652;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.admin-media-viewer-close:hover {
+  border-color: var(--primary-color, #800000);
+  color: var(--primary-color, #800000);
+}
+
+.admin-media-viewer-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  min-height: 180px;
+  padding: 16px;
+  overflow: auto;
+  background: #111418;
+}
+
+.admin-media-viewer-image,
+.admin-media-viewer-video {
+  max-width: 100%;
+  max-height: calc(100vh - 190px);
+  border-radius: 8px;
+  background: #000000;
+  object-fit: contain;
+}
+
+.admin-media-viewer-video {
+  width: 100%;
+}
+
+.admin-media-viewer-error {
+  max-width: 420px;
+  color: #f4f6f8;
+  font-size: 0.86rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* A clickable attachment/media thumbnail. Used in table cells and grids. */
+.admin-media-thumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 3px;
+  border: 1px solid #dfe3e8;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #2f3742;
+  font: inherit;
+  font-size: 0.78rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-media-thumb:hover,
+.admin-media-thumb:focus-visible {
+  border-color: var(--primary-color, #800000);
+  color: var(--primary-color, #800000);
+}
+
+.admin-media-thumb img {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 6px;
+  background: #f1f3f6;
+  object-fit: cover;
+}
+
+.admin-media-thumb-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border-radius: 6px;
+  background: #f1f3f6;
+  color: #5b6472;
+  font-size: 0.95rem;
+}
+
+.admin-media-thumb-name {
+  min-width: 0;
+  max-width: 150px;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Review media tiles (ratings detail modal, orders return evidence). */
+.rating-media-item {
+  position: relative;
+  display: inline-flex;
+  padding: 0;
+  border: 1px solid #e2e6ec;
+  border-radius: 8px;
+  background: #f3f4f6;
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.rating-media-item:hover,
+.rating-media-item:focus-visible {
+  border-color: var(--primary-color, #800000);
+  transform: translateY(-1px);
+}
+
+.rating-media-item img,
+.rating-media-item video {
+  display: block;
+  pointer-events: none;
+}
+
+.rating-media-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.32);
+  color: #fff;
+  font-size: 1.1rem;
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .admin-media-viewer {
+    padding: 12px;
+  }
+
+  .admin-media-viewer-image,
+  .admin-media-viewer-video {
+    max-height: calc(100vh - 150px);
+  }
+}
+
 
 .btn-admin {
   display: inline-flex;

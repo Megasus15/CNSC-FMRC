@@ -4,12 +4,17 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
+use App\Models\CustomerMessage;
 use App\Models\InventoryItem;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrderReturn;
 use App\Models\Product;
+use App\Models\ReportGeneration;
+use App\Models\User;
 use App\Models\WalkInOrder;
-use App\Models\User;use App\Models\CustomerMessage;use Illuminate\Http\JsonResponse;
+use App\Support\AdminArchiveRecords;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -20,7 +25,7 @@ class AdminDashboardController extends Controller
     {
         $actor = $request->user();
         $role = strtolower((string) ($actor->role ?? ''));
-        if (!$actor || !in_array($role, ['admin', 'staff'], true)) {
+        if (! $actor || ! in_array($role, ['admin', 'staff'], true)) {
             return response()->json([
                 'message' => 'Forbidden. Admin or staff access is required.',
             ], 403);
@@ -42,21 +47,38 @@ class AdminDashboardController extends Controller
         $productsCount = Product::query()->count();
         $customerInquiriesCount = CustomerMessage::query()->count();
 
-        // ─── Archive Counts ───
-        $archivedInventoryCount = InventoryItem::query()->where('is_archived', true)->count();
-        $archivedAppointmentsCount = Appointment::query()->where('status', 'Archived')->count();
-        $archivedOrdersCount = Order::query()->where('is_archived', true)->count();
-        $totalArchivesCount = $archivedInventoryCount + $archivedAppointmentsCount + $archivedOrdersCount;
+        $liveCounts = $this->liveCountSnapshot();
 
-        // ─── Total Revenue (completed orders + walk-in subtotal costs) ───
+        // ─── Total Revenue ───
+        // Completed orders + approved GCash orders (already paid online) +
+        // walk-in sales, minus refunds that have been approved onward.
         $completedOrdersRevenue = (float) Order::query()
             ->where('lifecycle_status', 'completed')
+            ->sum('total');
+
+        // GCash is collected up front, so an approved GCash order is real money
+        // in hand. 'pending' and 'completed' are mutually exclusive lifecycle
+        // states, so this cannot double count the sum above.
+        $approvedGcashRevenue = (float) Order::query()
+            ->where('lifecycle_status', 'pending')
+            ->where('payment_method', 'GCash')
+            ->whereNotNull('approved_at')
             ->sum('total');
 
         $walkInRevenue = (float) WalkInOrder::query()
             ->sum('total');
 
-        $totalRevenue = $completedOrdersRevenue + $walkInRevenue;
+        // Only 'refund' resolutions give money back — replacement and repair
+        // returns also carry an approved_amount but cost no revenue.
+        $refundedAmount = (float) OrderReturn::query()
+            ->whereIn('status', OrderReturn::REVENUE_DEDUCTING_STATUSES)
+            ->where('resolution', 'refund')
+            ->sum(DB::raw('COALESCE(refunded_amount, approved_amount, 0)'));
+
+        $totalRevenue = max(
+            0.0,
+            $completedOrdersRevenue + $approvedGcashRevenue + $walkInRevenue - $refundedAmount
+        );
 
         // ─── Total Inventory Items ───
         $totalInventoryItems = InventoryItem::query()->count();
@@ -74,7 +96,7 @@ class AdminDashboardController extends Controller
             ->orderByDesc('total_sold')
             ->limit(3)
             ->get()
-            ->map(fn($item) => [
+            ->map(fn ($item) => [
                 'name' => $item->product_name,
                 'total_sold' => (int) $item->total_sold,
             ]);
@@ -93,7 +115,7 @@ class AdminDashboardController extends Controller
             ->orderByDesc('total_revenue')
             ->limit(3)
             ->get()
-            ->map(fn($item) => [
+            ->map(fn ($item) => [
                 'category' => $item->category,
                 'total_sold' => (int) $item->total_sold,
                 'total_revenue' => (float) $item->total_revenue,
@@ -113,7 +135,7 @@ class AdminDashboardController extends Controller
             ->orderByDesc('total_revenue')
             ->limit(3)
             ->get()
-            ->map(fn($item) => [
+            ->map(fn ($item) => [
                 'name' => $item->product_name,
                 'total_sold' => (int) $item->total_sold,
                 'total_revenue' => (float) $item->total_revenue,
@@ -121,11 +143,14 @@ class AdminDashboardController extends Controller
 
         // Yearly sales trend (current year, monthly totals)
         $currentYear = $now->year;
+        $monthExpression = DB::connection()->getDriverName() === 'sqlite'
+            ? "CAST(strftime('%m', created_at) AS INTEGER)"
+            : 'MONTH(created_at)';
         $monthlyData = Order::query()
             ->where('lifecycle_status', 'completed')
             ->whereYear('created_at', $currentYear)
             ->select(
-                DB::raw('MONTH(created_at) as month'),
+                DB::raw("{$monthExpression} as month"),
                 DB::raw('SUM(total) as total_sales')
             )
             ->groupBy('month')
@@ -185,7 +210,7 @@ class AdminDashboardController extends Controller
 
                 return [
                     'id' => $order->id,
-                    'order_no_display' => $order->order_no ?: ('#' . $order->id),
+                    'order_no_display' => $order->order_no ?: ('#'.$order->id),
                     'product_name' => $order->latestItem?->product_name ?: 'Custom Order',
                     'quantity' => max(1, (int) $order->quantity),
                     'lifecycle_status' => $order->lifecycle_status,
@@ -222,7 +247,9 @@ class AdminDashboardController extends Controller
                     'orders' => $ordersCount,
                     'products' => $productsCount,
                     'customer_inquiries' => $customerInquiriesCount,
-                    'total_archives' => $totalArchivesCount,
+                    'generated_reports' => $liveCounts['generated_reports'],
+                    'total_archives' => $liveCounts['total_archives'],
+                    'archives' => $liveCounts['archives'],
                     'total_revenue' => $totalRevenue,
                     'total_inventory_items' => $totalInventoryItems,
                 ],
@@ -236,8 +263,58 @@ class AdminDashboardController extends Controller
                 'recent_appointments' => $recentAppointments,
                 'recent_orders' => $recentOrders,
                 'recent_customer_inquiries' => $recentCustomerInquiries,
-                'generated_at' => now()->toIso8601String(),
+                'availability' => $liveCounts['availability'],
+                'generated_at' => now('Asia/Manila')->toIso8601String(),
             ],
-        ]);
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    }
+
+    public function liveCounts(Request $request): JsonResponse
+    {
+        if ($denied = $this->ensureAdmin($request)) {
+            return $denied;
+        }
+
+        return response()->json([
+            'data' => $this->liveCountSnapshot() + [
+                'generated_at' => now('Asia/Manila')->toIso8601String(),
+            ],
+        ])
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, private')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
+    }
+
+    /**
+     * @return array{
+     *     generated_reports: int,
+     *     total_archives: int,
+     *     archives: array<string, int>,
+     *     availability: array{report_generations: bool, archives: array<string, bool>}
+     * }
+     */
+    private function liveCountSnapshot(): array
+    {
+        $archives = AdminArchiveRecords::snapshot();
+        $reportGenerationsAvailable = ReportGeneration::schemaAvailable();
+        $generatedReports = 0;
+
+        if ($reportGenerationsAvailable) {
+            try {
+                $generatedReports = ReportGeneration::query()->count();
+            } catch (\Throwable) {
+                $reportGenerationsAvailable = false;
+            }
+        }
+
+        return [
+            'generated_reports' => $generatedReports,
+            'total_archives' => $archives['total'],
+            'archives' => $archives['counts'],
+            'availability' => [
+                'report_generations' => $reportGenerationsAvailable,
+                'archives' => $archives['availability'],
+            ],
+        ];
     }
 }

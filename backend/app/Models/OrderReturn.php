@@ -25,6 +25,19 @@ class OrderReturn extends Model
     /** Statuses that close a return for good. */
     public const TERMINAL_STATUSES = ['refunded', 'rejected', 'cancelled'];
 
+    /**
+     * Statuses where the money is already committed back to the customer, so the
+     * amount must be deducted from reported revenue. Shared by the dashboard
+     * Total Revenue card and the Overall Sales report so the two cannot drift.
+     */
+    public const REVENUE_DEDUCTING_STATUSES = [
+        'approved',
+        'item_in_transit',
+        'item_received',
+        'refund_processing',
+        'refunded',
+    ];
+
     public const STATUSES = [
         'requested',
         'cancelled',

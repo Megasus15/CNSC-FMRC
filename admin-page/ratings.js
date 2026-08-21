@@ -18,7 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const API_BASE_URL = resolveApiBaseUrl();
   const token = (window.AdminSession && window.AdminSession.getToken()) || localStorage.getItem("auth_token") || "";
   const MANILA_TZ = "Asia/Manila";
-  const PAGE_SIZE = 10;
+  const PAGE_SIZE = window.AdminTablePagination?.PAGE_SIZE || 10;
 
   const tableBody = document.getElementById("ratingsTableBody");
   const starFilter = document.getElementById("ratingsStarFilter");
@@ -256,11 +256,18 @@ document.addEventListener("DOMContentLoaded", () => {
     if (detailFeedback) detailFeedback.textContent = row.feedback || "No feedback provided.";
     if (detailMedia) {
       detailMedia.innerHTML = (Array.isArray(row.media) ? row.media : []).map((media) => {
-        const src = escapeHtml(resolveMediaUrl(media?.url));
-        if (!src) return "";
-        return media?.type === "video"
-          ? `<video src="${src}" controls preload="metadata" aria-label="Customer review video"></video>`
+        const url = resolveMediaUrl(media?.url);
+        if (!url) return "";
+        const src = escapeHtml(url);
+        const kind =
+          window.AdminMediaViewer?.resolveType(url, media?.name || "", media?.type) ||
+          (media?.type === "video" ? "video" : "image");
+        const isVideo = kind === "video";
+        const label = isVideo ? "Play customer review video" : "View customer review photo";
+        const inner = isVideo
+          ? `<video src="${src}" preload="metadata" muted playsinline tabindex="-1" aria-hidden="true"></video><span class="rating-media-play" aria-hidden="true"><i class="fa-solid fa-circle-play"></i></span>`
           : `<img src="${src}" alt="Customer review photo" loading="lazy" />`;
+        return `<button type="button" class="rating-media-item" data-media-url="${src}" data-media-type="${kind}" data-media-name="${escapeHtml(media?.name || label)}" title="${label}" aria-label="${label}">${inner}</button>`;
       }).join("") || `<span class="rating-no-feedback">No photos or videos uploaded.</span>`;
     }
     if (detailVisibility) detailVisibility.hidden = !row.is_anonymous;
@@ -437,9 +444,15 @@ document.addEventListener("DOMContentLoaded", () => {
             ids: payload?.processed_ids || [],
           },
         }));
-        if (state.currentPage > 1 && state.currentPage > Math.ceil(Math.max(0, state.totalRows - validIds.length) / PAGE_SIZE)) {
-          state.currentPage -= 1;
-        }
+        const processedCount = Array.isArray(payload?.processed_ids)
+          ? payload.processed_ids.length
+          : validIds.length;
+        const remainingRows = Math.max(0, state.totalRows - processedCount);
+        const remainingPages = Math.max(
+          1,
+          Math.ceil(remainingRows / PAGE_SIZE),
+        );
+        state.currentPage = Math.min(state.currentPage, remainingPages);
         await syncData();
       },
     });
@@ -477,4 +490,3 @@ document.addEventListener("DOMContentLoaded", () => {
 
   void syncData();
 });
-

@@ -95,7 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const state = {
     users: [],
     currentPage: 1,
-    pageSize: 5,
+    pageSize: window.AdminTablePagination?.PAGE_SIZE || 10,
     activeDeleteId: 0,
   };
   let userBulkController = null;

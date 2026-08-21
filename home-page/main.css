@@ -1970,6 +1970,20 @@ body {
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.15);
 }
 
+.lightbox-box video {
+  max-width: 80vw;
+  max-height: 68vh;
+  width: min(80vw, 860px);
+  background: #0f172a;
+  border-radius: 16px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.15);
+}
+
+.lightbox-box img[hidden],
+.lightbox-box video[hidden] {
+  display: none;
+}
+
 .lightbox-caption {
   font-family: "Montserrat", sans-serif;
   font-size: 16px;
@@ -7277,13 +7291,49 @@ body.sidebar-open {
 }
 
 .customer-review-media-item {
+  position: relative;
+  display: block;
   width: 100%;
   aspect-ratio: 1 / 0.86;
+  padding: 0;
   object-fit: cover;
   overflow: hidden;
   border: 1px solid rgba(105, 52, 42, 0.12);
   border-radius: 14px;
   background: #f4eeee;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.customer-review-media-item:hover,
+.customer-review-media-item:focus-visible {
+  border-color: rgba(133, 19, 19, 0.55);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(105, 52, 42, 0.18);
+}
+
+.customer-review-media-item > img,
+.customer-review-media-item > video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.customer-review-media-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.32);
+  color: #fff;
+  font-size: 1.6rem;
+  pointer-events: none;
 }
 
 .customer-review-reply {
@@ -11663,6 +11713,12 @@ body {
     max-height: 60vh;
   }
 
+  .lightbox-box video {
+    max-width: 92vw;
+    max-height: 60vh;
+    width: 92vw;
+  }
+
   .lightbox-close-btn {
     top: -10px;
     right: -10px;
@@ -13094,6 +13150,12 @@ textarea {
 .lightbox-box img {
   max-width: min(86vw, 1000px);
   max-height: min(64vh, calc(100dvh - 160px));
+}
+
+.lightbox-box video {
+  max-width: min(86vw, 1000px);
+  max-height: min(64vh, calc(100dvh - 160px));
+  width: min(86vw, 1000px);
 }
 
 .shop-modal-box {

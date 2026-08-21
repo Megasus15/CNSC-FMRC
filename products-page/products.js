@@ -171,10 +171,14 @@ document.addEventListener("DOMContentLoaded", () => {
         ${media.map((item) => {
           const src = escAttr(resolveMediaUrl(item?.url));
           if (!src) return "";
-          if (item?.type === "video") {
-            return `<video class="customer-review-media-item" src="${src}" controls preload="metadata" aria-label="Customer review video"></video>`;
-          }
-          return `<img class="customer-review-media-item" src="${src}" alt="Customer review photo" loading="lazy" />`;
+          const isVideo = item?.type === "video";
+          const label = isVideo
+            ? "Play customer review video"
+            : "View customer review photo";
+          const inner = isVideo
+            ? `<video src="${src}" preload="metadata" muted playsinline tabindex="-1" aria-hidden="true"></video><span class="customer-review-media-play" aria-hidden="true"><i class="fa-solid fa-circle-play"></i></span>`
+            : `<img src="${src}" alt="Customer review photo" loading="lazy" />`;
+          return `<button type="button" class="customer-review-media-item" data-review-media="${src}" data-review-media-type="${isVideo ? "video" : "image"}" title="${label}" aria-label="${label}">${inner}</button>`;
         }).join("")}
       </div>
     `;
@@ -377,6 +381,24 @@ document.addEventListener("DOMContentLoaded", () => {
     reviewState.page += 1;
     customerReviewsLoadMore.disabled = true;
     void loadCustomerReviews({ append: true });
+  });
+
+  // Review photos and videos open in the same fullscreen viewer as product images.
+  customerReviewsList?.addEventListener("click", (event) => {
+    const mediaButton = event.target.closest("[data-review-media]");
+    if (!mediaButton) return;
+    const src = mediaButton.getAttribute("data-review-media") || "";
+    if (!src) return;
+    event.preventDefault();
+    const type =
+      mediaButton.getAttribute("data-review-media-type") === "video"
+        ? "video"
+        : "image";
+    openLightboxMedia({
+      src,
+      title: type === "video" ? "Customer review video" : "Customer review photo",
+      type,
+    });
   });
 
   customerReviewsList?.addEventListener("click", async (event) => {
@@ -642,19 +664,66 @@ document.addEventListener("DOMContentLoaded", () => {
   // Lightbox Modal elements
   const imageLightboxModal = document.getElementById("imageLightboxModal");
   const lightboxImage = document.getElementById("lightboxImage");
+  const lightboxVideo = document.getElementById("lightboxVideo");
   const lightboxCaption = document.getElementById("lightboxCaption");
   const closeLightboxBtn = document.getElementById("closeLightboxBtn");
 
-  const openLightbox = (src, title) => {
-    if (!imageLightboxModal || !lightboxImage) return;
-    lightboxImage.src = src;
-    lightboxImage.alt = title ? `${title} large preview` : "Product large preview";
+  // Shared by product images and customer-review media so both use one viewer.
+  let lightboxReturnFocus = null;
+
+  const openLightboxMedia = ({ src, title, type = "image" }) => {
+    if (!imageLightboxModal || !src) return;
+    const isVideo = type === "video";
+    lightboxReturnFocus =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    if (lightboxVideo) {
+      if (isVideo) {
+        lightboxVideo.hidden = false;
+        lightboxVideo.src = src;
+      } else {
+        lightboxVideo.pause?.();
+        lightboxVideo.removeAttribute("src");
+        lightboxVideo.load?.();
+        lightboxVideo.hidden = true;
+      }
+    }
+
+    if (lightboxImage) {
+      if (isVideo) {
+        lightboxImage.hidden = true;
+        lightboxImage.removeAttribute("src");
+      } else {
+        lightboxImage.hidden = false;
+        lightboxImage.src = src;
+        lightboxImage.alt = title
+          ? `${title} large preview`
+          : "Product large preview";
+      }
+    }
+
     if (lightboxCaption) lightboxCaption.textContent = title || "";
     imageLightboxModal.classList.add("show-modal");
   };
 
+  const openLightbox = (src, title) => openLightboxMedia({ src, title });
+
   const closeLightbox = () => {
     imageLightboxModal?.classList.remove("show-modal");
+    if (lightboxVideo) {
+      lightboxVideo.pause?.();
+      lightboxVideo.removeAttribute("src");
+      lightboxVideo.load?.();
+      lightboxVideo.hidden = true;
+    }
+    if (lightboxImage) lightboxImage.hidden = false;
+
+    // Hand the keyboard back to the thumbnail that opened the viewer.
+    const returnTo = lightboxReturnFocus;
+    lightboxReturnFocus = null;
+    if (returnTo?.isConnected && returnTo.offsetParent !== null) {
+      returnTo.focus({ preventScroll: true });
+    }
   };
 
   closeLightboxBtn?.addEventListener("click", closeLightbox);

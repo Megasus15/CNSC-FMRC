@@ -4239,6 +4239,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "aptIntlAddress",
     "aptPurpose",
     "aptRole",
+    "aptRoleOther",
     "aptDesc",
   ].forEach((id) => {
     const el = document.getElementById(id);
@@ -4246,6 +4247,37 @@ document.addEventListener("DOMContentLoaded", () => {
     el.addEventListener("input", () => clearFieldError(id));
     el.addEventListener("change", () => clearFieldError(id));
   });
+
+  // "Others" client type: reveal a free-text box and store the combined value
+  // (e.g. "Others: Local cooperative") in the same client_type field.
+  const isOtherClientType = () =>
+    (document.getElementById("aptRole")?.value || "").trim() === "Others";
+
+  const syncAptRoleOtherField = () => {
+    const wrapper = document.getElementById("aptRoleOtherField");
+    const input = document.getElementById("aptRoleOther");
+    if (!wrapper || !input) return;
+    const showOther = isOtherClientType();
+    wrapper.style.display = showOther ? "" : "none";
+    if (!showOther) {
+      input.value = "";
+      clearFieldError("aptRoleOther");
+    }
+  };
+
+  document
+    .getElementById("aptRole")
+    ?.addEventListener("change", syncAptRoleOtherField);
+  syncAptRoleOtherField();
+
+  const getAppointmentClientType = () => {
+    const selected = (document.getElementById("aptRole")?.value || "").trim();
+    if (selected !== "Others") return selected;
+    const other = (
+      document.getElementById("aptRoleOther")?.value || ""
+    ).trim();
+    return other ? `Others: ${other}` : "Others";
+  };
 
   const getSelectedSchedule = () => {
     const date = Object.keys(appointmentSelections)[0] || "";
@@ -4313,6 +4345,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!clientType) {
       markError("aptRole", "Type of Client is required.");
+    } else if (clientType === "Others") {
+      const otherClientType = (
+        document.getElementById("aptRoleOther")?.value || ""
+      ).trim();
+      if (!otherClientType) {
+        markError("aptRoleOther", "Please specify your type of client.");
+      } else if (otherClientType.length > 100) {
+        markError(
+          "aptRoleOther",
+          "Type of Client must not exceed 100 characters.",
+        );
+      } else if (!/^[A-Za-z0-9 .,'()\/&-]+$/.test(otherClientType)) {
+        markError(
+          "aptRoleOther",
+          "Type of Client is invalid. Use letters, numbers and basic punctuation only.",
+        );
+      }
     }
 
     if (country === "Philippines") {
@@ -4379,8 +4428,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const email = document.getElementById("aptEmail")?.value?.trim() || "N/A";
     const purpose =
       document.getElementById("aptPurpose")?.value?.trim() || "N/A";
-    const clientType =
-      document.getElementById("aptRole")?.value?.trim() || "N/A";
+    const clientType = getAppointmentClientType() || "N/A";
     const country =
       document.getElementById("aptCountry")?.value?.trim() || "Philippines";
     const notes = document.getElementById("aptDesc")?.value?.trim() || "N/A";
@@ -4541,10 +4589,7 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("aptIntlAddress")?.value?.trim() || "",
     );
     formData.append("full_address", getAppointmentAddress() || "");
-    formData.append(
-      "client_type",
-      document.getElementById("aptRole")?.value?.trim() || "",
-    );
+    formData.append("client_type", getAppointmentClientType());
     formData.append(
       "purpose",
       document.getElementById("aptPurpose")?.value?.trim() || "",
