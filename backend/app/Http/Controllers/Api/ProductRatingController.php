@@ -473,7 +473,11 @@ class ProductRatingController extends Controller
 
                 return [
                     'path' => $path,
-                    'url' => Storage::disk('public')->url($path),
+                    // Root-relative on purpose: an absolute URL would bake the
+                    // upload-time APP_URL into the row. Read paths rebuild from
+                    // `path` (publicMediaUrl); this keeps the stored fallback
+                    // host-agnostic for any other consumer.
+                    'url' => '/storage/' . ltrim($path, '/'),
                     'type' => str_starts_with((string) $file->getMimeType(), 'video/') ? 'video' : 'image',
                     'mime' => $file->getMimeType(),
                     'name' => $file->getClientOriginalName(),

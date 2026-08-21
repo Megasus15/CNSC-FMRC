@@ -454,6 +454,21 @@
         <button class="lightbox-close-btn" id="closeLightboxBtn" aria-label="Close image preview">&times;</button>
         <img id="lightboxImage" src="" alt="Product Large Preview" />
         <video id="lightboxVideo" controls preload="metadata" playsinline hidden></video>
+        <!-- Shown instead of a broken-image icon when the file cannot be fetched. -->
+        <div id="lightboxError" class="lightbox-error" role="alert" hidden>
+          <span class="lightbox-error-icon" aria-hidden="true">!</span>
+          <p class="lightbox-error-text" id="lightboxErrorText">
+            This file could not be loaded.
+          </p>
+          <a
+            class="lightbox-error-link"
+            id="lightboxErrorLink"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Open in new tab</a
+          >
+        </div>
         <p id="lightboxCaption" class="lightbox-caption"></p>
       </div>
     </div>

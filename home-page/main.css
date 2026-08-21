@@ -1984,6 +1984,61 @@ body {
   display: none;
 }
 
+/* Load-failure state: replaces the broken-image icon with a readable message
+   and an escape hatch, mirroring the admin media viewer. */
+.lightbox-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(80vw, 420px);
+  padding: 26px 22px;
+  border: 1px dashed rgba(133, 19, 19, 0.35);
+  border-radius: 16px;
+  background: rgba(255, 245, 245, 0.9);
+  text-align: center;
+}
+
+.lightbox-error[hidden] {
+  display: none;
+}
+
+.lightbox-error-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #851313;
+  color: #ffffff;
+  font-family: "Montserrat", sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.lightbox-error-text {
+  margin: 0;
+  font-family: "Montserrat", sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #5f0d0d;
+  line-height: 1.5;
+}
+
+.lightbox-error-link {
+  font-family: "Montserrat", sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  color: #851313;
+  text-decoration: underline;
+}
+
+.lightbox-error-link:hover {
+  color: #5f0d0d;
+}
+
 .lightbox-caption {
   font-family: "Montserrat", sans-serif;
   font-size: 16px;
@@ -7333,6 +7388,35 @@ body.sidebar-open {
   background: rgba(15, 23, 42, 0.32);
   color: #fff;
   font-size: 1.6rem;
+  pointer-events: none;
+}
+
+/* A thumbnail whose file failed to load: hide the broken glyph and show a
+   neutral marker. The tile stays clickable so the viewer can explain the error
+   and offer "Open in new tab". */
+.customer-review-media-item.is-media-error > img,
+.customer-review-media-item.is-media-error > video {
+  visibility: hidden;
+}
+
+.customer-review-media-item.is-media-error {
+  border-style: dashed;
+  border-color: rgba(133, 19, 19, 0.35);
+  background: #faf1f1;
+}
+
+.customer-review-media-item.is-media-error::after {
+  content: "Unavailable";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Montserrat", sans-serif;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: rgba(133, 19, 19, 0.62);
   pointer-events: none;
 }
 

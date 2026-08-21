@@ -13,8 +13,18 @@
 
     # --------------------------------------------------------------------------
     # 2. Block Direct Access to Sensitive Files & Folders
+    #
+    # `storage` is deliberately NOT blocked as a whole. Section 3 rewrites
+    # /storage/* into backend/storage/app/public/*, and mod_rewrite re-runs this
+    # ruleset on that internal redirect, so a blanket ^backend/storage block
+    # answered every uploaded photo, attachment and video with 403 Forbidden.
+    # Only the public disk is reachable, only as a file, and never as code.
     # --------------------------------------------------------------------------
-    RewriteRule ^backend/(\.env|config|storage|database|app|bootstrap|vendor) - [F,L]
+    RewriteRule ^backend/(\.env|config|database|app|bootstrap|vendor) - [F,L]
+    RewriteRule ^backend/storage/app/public/.*\.(php[0-9s]?|phtml|phar|cgi|pl|py|sh|ini|htaccess)$ - [F,L,NC]
+    RewriteRule ^backend/storage/app/public/(.*/)?$ - [F,L]
+    RewriteRule ^backend/storage/app/public/ - [L]
+    RewriteRule ^backend/storage/ - [F,L]
     RewriteRule ^\.env - [F,L]
     RewriteRule ^\.git - [F,L]
 
@@ -25,6 +35,8 @@
     RewriteRule ^api$ backend/public/index.php [QSA,L]
     RewriteRule ^reset-password(.*)$ backend/public/index.php [QSA,L]
     RewriteRule ^appointments/verify/(.*)$ backend/public/index.php [QSA,L]
+    # Uploaded files (appointment attachments, review photos/videos, return
+    # evidence). Section 2 keeps everything except this folder locked down.
     RewriteRule ^storage/(.*)$ backend/storage/app/public/$1 [L]
 
     # --------------------------------------------------------------------------

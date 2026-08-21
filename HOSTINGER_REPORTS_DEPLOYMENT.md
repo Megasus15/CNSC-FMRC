@@ -4,9 +4,19 @@ This runbook deploys the Reports release: the editable official letterhead, the
 measured Letter-size print, the professional CSV, dashboard live counts, the
 revenue corrections (approved GCash in, approved refunds out), the appointment
 and review media viewers, the customer `Others` client type, ten-row tables on
-every Admin/Staff page, and the removal of the green Live data chip. It does not
-require a historical report-count backfill: `Generated Reports` starts at `0`
-when the new audit table is created.
+every Admin/Staff page, the removal of the green Live data chip, and the root
+`.htaccess` fix that stops every uploaded file returning `403 Forbidden`. It
+does not require a historical report-count backfill: `Generated Reports` starts
+at `0` when the new audit table is created.
+
+**This release replaces the root `.htaccess`.** The previous rule
+`RewriteRule ^backend/(\.env|config|storage|database|app|bootstrap|vendor) - [F,L]`
+also matched the internal redirect produced by
+`RewriteRule ^storage/(.*)$ backend/storage/app/public/$1 [L]`, because
+mod_rewrite re-runs the whole ruleset on an internal redirect. Every appointment
+attachment, review photo, review video and return-evidence image therefore
+answered `403 Forbidden` on the live domain no matter what URL the frontend
+built. The media viewers cannot work until the new file is in place.
 
 ## 1. Record and back up the current production state
 
@@ -36,11 +46,13 @@ assets.
    php artisan down --retry=60
    ```
 
-2. Upload or check out the reviewed release, including the new migration,
-   model/controller changes, report-template images, and Admin/Staff assets.
-   Keep the root `.htaccess` and production `.env` intact. Record the exact
-   deployed Git commit (or the checksum/name of the uploaded release archive)
-   in the deployment log before continuing.
+2. Back up the live root `.htaccess` to a name the web server will not serve
+   (for example `../htaccess-backup-<date>.txt`, outside the document root), then
+   upload or check out the reviewed release, including the new migration,
+   model/controller changes, report-template images, Admin/Staff assets **and the
+   new root `.htaccess`**. Keep the production `backend/.env` intact. Record the
+   exact deployed Git commit (or the checksum/name of the uploaded release
+   archive) in the deployment log before continuing.
 3. Install optimized production dependencies if the Hostinger workflow does
    not already do so:
 
@@ -70,6 +82,25 @@ assets.
    ```text
    php artisan up
    ```
+
+7. Verify the new `.htaccess` storage rules before touching the portals. Pick any
+   real uploaded file from `backend/storage/app/public/appointment-attachments`
+   or `product-reviews` and substitute its name below. The first command must
+   return `200` with an `image/*` or `video/*` content type; every other command
+   must keep returning `403`:
+
+   ```text
+   curl -sI https://ucn-fabmanlab.com/storage/product-reviews/<real-file>.jpg
+   ```
+
+   ```text
+   for u in storage/ storage/product-reviews/ storage/evil.php backend/.env backend/config/app.php backend/storage/logs/laravel.log .env .git/HEAD; do printf '%s -> ' "$u"; curl -s -o /dev/null -w '%{http_code}\n' "https://ucn-fabmanlab.com/$u"; done
+   ```
+
+   A `403` on the first command means the old deny rule is still live: the
+   upload did not replace `.htaccess`, or a hosting-level override is shadowing
+   it. A `200` anywhere in the second command is a security regression — restore
+   the backed-up `.htaccess` and stop the deployment.
 
 The release uses new query-string versions for modified CSS and JavaScript, so
 the month-long Hostinger browser-cache rules will fetch the new assets. Every
@@ -129,13 +160,18 @@ to confirm JSON responses; do not place access tokens in shared notes.
 13. Appointments (Admin and Staff): open a record with a `File Attach`. An image
     or video attachment must open in the shared media viewer — Escape and the
     backdrop close it and focus returns to the trigger — while a PDF or document
-    opens in a new tab. Confirm the attachment URL uses the live
-    `https://ucn-fabmanlab.com/storage/...` host, not `localhost`. Do the same
-    for the review media grid on Ratings and the return-evidence photos on
-    Orders.
+    opens in a new tab. In the Network panel confirm each `/storage/...` request
+    uses the live `https://ucn-fabmanlab.com` host, not `localhost`, and returns
+    `200`; a `403` means step 2.7 has not actually taken effect. Do the same for
+    the review media grid on Ratings and the return-evidence photos on Orders,
+    including the `Product Review Details` modal thumbnails.
 14. Customer product page: open `Customer feedback`, then click a review photo
-    and a review video. The viewer must open above the reviews overlay, the
-    video must play, and closing must pause and clear it.
+    and a review video. Thumbnails must render rather than show a broken-image
+    glyph, the viewer must open above the reviews overlay, the video must play,
+    and closing must pause and clear it. A file that genuinely cannot be fetched
+    must show `This image could not be loaded.` (or `This video ...`) with a
+    working `Open in new tab` link, and its thumbnail must read `Unavailable`
+    instead of showing a broken glyph.
 15. Customer appointment Step 2: pick `Others`, fill `Please specify`, and submit.
     Confirm the combined `Others: <text>` value appears in the Admin and Staff
     appointment table, the view modal, the archived row and the emailed or
@@ -158,6 +194,9 @@ and browser Network responses for:
 - `PUT /api/admin/site-settings`
 - archive/restore/delete mutations
 - order approval and return decision mutations
+- `GET /storage/...` upload responses: any `403` here is the old `.htaccess`
+  rule resurfacing (a hosting-panel edit, a cached LiteSpeed config, or a
+  partially uploaded release), and it silently breaks every media viewer at once
 
 Any missing-table condition must return the controlled availability response,
 not an SQL exception. A failed refresh must preserve the last-good dashboard
@@ -170,9 +209,13 @@ visible only in that timestamp and in the Network panel.
 1. Put Laravel into maintenance mode.
 2. Restore the previous reviewed application files or Git revision.
 3. Run `php artisan optimize:clear`, then `php artisan up`.
-4. Leave the additive `report_generations` table in place so audit records are
+4. Keep the new root `.htaccess`. Restoring the old one reintroduces the
+   `403 Forbidden` on every uploaded attachment, review photo and evidence
+   image; the new file is compatible with the previous code, which requested the
+   same `/storage/...` URLs.
+5. Leave the additive `report_generations` table in place so audit records are
    preserved and a later redeployment remains compatible.
-5. Leave any `report_letterhead_*` rows in `site_settings` in place. They are
+6. Leave any `report_letterhead_*` rows in `site_settings` in place. They are
    inert for the previous code, which resolves only its own keys, and deleting
    them would discard the operator's corrected letterhead wording.
 

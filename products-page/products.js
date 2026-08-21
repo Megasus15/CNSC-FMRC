@@ -401,6 +401,19 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  // Resource `error` events do not bubble, but they do reach a capture-phase
+  // listener on the container, so a thumbnail that 404s or 403s shows a marker
+  // instead of the browser's broken-image glyph.
+  customerReviewsList?.addEventListener(
+    "error",
+    (event) => {
+      const media = event.target;
+      if (!(media instanceof HTMLImageElement) && !(media instanceof HTMLVideoElement)) return;
+      media.closest(".customer-review-media-item")?.classList.add("is-media-error");
+    },
+    true,
+  );
+
   customerReviewsList?.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-review-like]");
     if (!button || !reviewState.product || button.disabled) return;
@@ -666,10 +679,31 @@ document.addEventListener("DOMContentLoaded", () => {
   const lightboxImage = document.getElementById("lightboxImage");
   const lightboxVideo = document.getElementById("lightboxVideo");
   const lightboxCaption = document.getElementById("lightboxCaption");
+  const lightboxError = document.getElementById("lightboxError");
+  const lightboxErrorText = document.getElementById("lightboxErrorText");
+  const lightboxErrorLink = document.getElementById("lightboxErrorLink");
   const closeLightboxBtn = document.getElementById("closeLightboxBtn");
 
   // Shared by product images and customer-review media so both use one viewer.
   let lightboxReturnFocus = null;
+
+  const hideLightboxError = () => {
+    if (lightboxError) lightboxError.hidden = true;
+  };
+
+  // A failed upload used to leave the viewer showing the browser's broken-image
+  // icon with no explanation. Say what happened and offer a direct link.
+  const showLightboxError = (src, isVideo) => {
+    if (lightboxImage) lightboxImage.hidden = true;
+    if (lightboxVideo) lightboxVideo.hidden = true;
+    if (lightboxErrorText) {
+      lightboxErrorText.textContent = isVideo
+        ? "This video could not be loaded."
+        : "This image could not be loaded.";
+    }
+    if (lightboxErrorLink) lightboxErrorLink.href = src || "#";
+    if (lightboxError) lightboxError.hidden = false;
+  };
 
   const openLightboxMedia = ({ src, title, type = "image" }) => {
     if (!imageLightboxModal || !src) return;
@@ -677,10 +711,15 @@ document.addEventListener("DOMContentLoaded", () => {
     lightboxReturnFocus =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
+    hideLightboxError();
+
     if (lightboxVideo) {
+      lightboxVideo.onerror = null;
       if (isVideo) {
         lightboxVideo.hidden = false;
+        lightboxVideo.onerror = () => showLightboxError(src, true);
         lightboxVideo.src = src;
+        lightboxVideo.load?.();
       } else {
         lightboxVideo.pause?.();
         lightboxVideo.removeAttribute("src");
@@ -690,11 +729,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (lightboxImage) {
+      lightboxImage.onerror = null;
+      lightboxImage.onload = null;
       if (isVideo) {
         lightboxImage.hidden = true;
         lightboxImage.removeAttribute("src");
       } else {
         lightboxImage.hidden = false;
+        lightboxImage.onerror = () => showLightboxError(src, false);
+        lightboxImage.onload = hideLightboxError;
         lightboxImage.src = src;
         lightboxImage.alt = title
           ? `${title} large preview`
@@ -711,12 +754,18 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeLightbox = () => {
     imageLightboxModal?.classList.remove("show-modal");
     if (lightboxVideo) {
+      lightboxVideo.onerror = null;
       lightboxVideo.pause?.();
       lightboxVideo.removeAttribute("src");
       lightboxVideo.load?.();
       lightboxVideo.hidden = true;
     }
-    if (lightboxImage) lightboxImage.hidden = false;
+    if (lightboxImage) {
+      lightboxImage.onerror = null;
+      lightboxImage.onload = null;
+      lightboxImage.hidden = false;
+    }
+    hideLightboxError();
 
     // Hand the keyboard back to the thumbnail that opened the viewer.
     const returnTo = lightboxReturnFocus;

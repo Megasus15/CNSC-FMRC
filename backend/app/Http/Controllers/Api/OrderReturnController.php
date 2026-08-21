@@ -1085,7 +1085,13 @@ class OrderReturnController extends Controller
 
                 return [
                     'path' => $path,
-                    'url'  => Storage::disk('public')->url($path),
+                    // Root-relative on purpose. An absolute URL here would bake
+                    // whatever APP_URL happened to be at upload time into the
+                    // row, so evidence filed from one host would hand the
+                    // browser a dead link on another. Read paths rebuild from
+                    // `path` (ReturnPresenter::mediaUrl); this keeps the stored
+                    // fallback usable too.
+                    'url'  => '/storage/'.ltrim($path, '/'),
                     'type' => str_starts_with((string) $file->getMimeType(), 'video/') ? 'video' : 'image',
                     'mime' => $file->getMimeType(),
                     'name' => $file->getClientOriginalName(),
