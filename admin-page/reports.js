@@ -8,6 +8,12 @@
   const SITE_SETTINGS_REQUEST_TIMEOUT_MS = 8_000;
   const REPORT_ASSET_TIMEOUT_MS = 10_000;
   const REPORT_REALTIME_DEBOUNCE_MS = 550;
+  // Last-resort restore of the print-only geometry when a browser never fires
+  // afterprint and never flips the print media query back. Deliberately longer
+  // than any realistic print dialog, including choosing a folder in the
+  // Save as PDF flow, so it can never strip the sheets while they are still
+  // being measured; it exists only so the page cannot stay print-only forever.
+  const PRINT_RESTORE_FALLBACK_MS = 300_000;
   const ORDERS_REALTIME_CHANNEL = "fmrc-orders-realtime";
   const ORDERS_STORAGE_KEY = "fmrc_orders_updated_at";
   const SITE_SETTINGS_REALTIME_CHANNEL = "fmrc-site-settings-realtime";
@@ -1009,7 +1015,7 @@
         <div><dt>Time zone</dt><dd>${escapeHtml(report.timezone)}</dd></div>`;
     };
 
-    const renderReport = () => {
+    const renderReport = (options = {}) => {
       if (!state.reportData) return;
       const data = state.reportData;
       renderResultHeader(data.report);
@@ -1021,7 +1027,10 @@
       elements.tableSubtitle.textContent = `Up to 10 records are shown per page · ${data.table.rows.length} total record${data.table.rows.length === 1 ? "" : "s"}.`;
       renderTablePage();
       syncActionButtons();
-      if (elements.previewModal?.classList.contains("show")) {
+      if (
+        options.refreshPreview !== false &&
+        elements.previewModal?.classList.contains("show")
+      ) {
         void refreshPreviewSnapshot(true).catch(showPreviewRefreshError);
       }
     };
@@ -1205,6 +1214,60 @@
         setButtonPending(initiatingButton, false);
         syncActionButtons();
       }
+    };
+
+    /**
+     * Record the audited generation behind an official artifact.
+     *
+     * Print / Save PDF and Export CSV both hand a finished document to the
+     * operator, so the Dashboard "Generated Reports" card has to count them even
+     * when the page was opened, auto-synchronised and printed without pressing
+     * Generate Report first — the reason the card could sit at 0 while reports
+     * were being produced. The audited identity is reused for the active filter
+     * set for as long as the page stays open, so printing and exporting the same
+     * report add one record between them, and Refresh and the 30-second poll
+     * stay read-only.
+     */
+    const recordArtifactGeneration = async (options = {}) => {
+      const params = state.activeParams || readFilterParams();
+      if (!state.reportData || !params) return;
+      const filterKey = reportFilterKey(params);
+      if (state.auditedReport?.filterKey === filterKey) return;
+
+      let data;
+      try {
+        data = await requestReport(
+          { ...params, generationKey: createGenerationKey() },
+          "generate",
+        );
+      } catch {
+        // Never hold an official document hostage to its audit row. The
+        // artifact is produced from the data already on screen and the next
+        // Generate Report or artifact retries the record.
+        return;
+      }
+
+      state.auditedReport = {
+        filterKey,
+        metadata: {
+          id: data.report.id,
+          generated_at: data.report.generated_at,
+          generated_by: data.report.generated_by,
+          generated_by_role: data.report.generated_by_role,
+        },
+      };
+      state.reportData = data;
+      state.activeParams = copyReportFilters(params);
+      renderReport({ refreshPreview: options.refreshPreview !== false });
+      window.dispatchEvent(
+        new CustomEvent("fmrc:reports-updated", {
+          detail: {
+            type: "generated",
+            reportId: data.report.id,
+            generatedAt: data.report.generated_at,
+          },
+        }),
+      );
     };
 
     const getPreviewFocusableElements = () =>
@@ -2240,9 +2303,11 @@
       setButtonPending(elements.print, true, "Preparing...");
       const previousTitle = document.title;
       let cleanedUp = false;
+      let releaseWatchers = () => {};
       const cleanup = () => {
         if (cleanedUp) return;
         cleanedUp = true;
+        releaseWatchers();
         document.documentElement.classList.remove("report-printing-root");
         document.body.classList.remove("report-printing");
         document.title = previousTitle;
@@ -2250,6 +2315,11 @@
         syncActionButtons();
       };
       try {
+        // Printing an official document is an audited generation. Record it
+        // once for these filters before the sheet leaves the system. The
+        // preview is re-rendered by the snapshot refresh below, so the audited
+        // report ID reaches the printed pages without a second render pass.
+        await recordArtifactGeneration({ refreshPreview: false });
         await refreshPreviewSnapshot(true);
         await waitForDocumentAssets(elements.previewContent);
         document.documentElement.classList.add("report-printing-root");
@@ -2257,17 +2327,40 @@
         document.title = `UCN-FMRC ${state.reportData.report.id} - ${state.reportData.report.title}`;
         await nextPaint();
         await nextPaint();
+
+        // The print classes must survive for as long as the browser is
+        // measuring the sheets. Cleaning up in a finally block races browsers
+        // whose window.print() returns before the print layout is captured,
+        // which strips the print geometry mid-render and prints the on-screen
+        // modal instead of the official pages. Only print-lifecycle signals may
+        // restore the page — afterprint, the print media query switching back,
+        // or a last-resort timer. Restoring on a stray pointer or wheel event
+        // would reintroduce the same race in exactly the browsers whose
+        // window.print() does not block.
+        const printMedia = window.matchMedia?.("print") || null;
+        const onMediaChange = (event) => {
+          if (!event.matches) cleanup();
+        };
+        const fallbackTimer = window.setTimeout(
+          cleanup,
+          PRINT_RESTORE_FALLBACK_MS,
+        );
+        releaseWatchers = () => {
+          window.clearTimeout(fallbackTimer);
+          window.removeEventListener("afterprint", cleanup);
+          printMedia?.removeEventListener?.("change", onMediaChange);
+        };
         window.addEventListener("afterprint", cleanup, { once: true });
+        printMedia?.addEventListener?.("change", onMediaChange);
         window.print();
       } catch (error) {
+        cleanup();
         showPreviewRefreshError(
           new Error(
             error?.message ||
               "The official report could not be prepared for printing.",
           ),
         );
-      } finally {
-        cleanup();
       }
     };
 
@@ -2308,89 +2401,96 @@
       return `"${text.replace(/"/g, '""')}"`;
     };
 
+    /**
+     * Sortable, spreadsheet-friendly stamp in the report time zone.
+     * "2026-08-21" / "2026-08-21 14:05" are parsed by Excel and LibreOffice as
+     * real dates, so date columns right-align and sort with the other records
+     * instead of arriving as long ISO strings with an offset.
+     */
+    const csvDateStamp = (value, withTime) => {
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return String(value);
+      const parts = Object.fromEntries(
+        new Intl.DateTimeFormat("en-CA", {
+          timeZone: "Asia/Manila",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        })
+          .formatToParts(parsed)
+          .map((part) => [part.type, part.value]),
+      );
+      const date = `${parts.year}-${parts.month}-${parts.day}`;
+      if (!withTime) return date;
+      return `${date} ${parts.hour === "24" ? "00" : parts.hour}:${parts.minute}`;
+    };
+
+    /**
+     * One data cell of the exported sheet. Numeric columns are written as bare
+     * numbers so the spreadsheet stores them as numbers — right-aligned and
+     * ready for its own totals — while text keeps the quoting and
+     * formula-injection guard.
+     */
+    const csvDataCell = (value, type = "text") => {
+      if (value === null || value === undefined || value === "") return "";
+      const normalizedType = normalizeType(type);
+      if (
+        [
+          "currency",
+          "money",
+          "amount",
+          "sales",
+          "integer",
+          "count",
+          "quantity",
+          "number",
+          "decimal",
+          "percent",
+          "percentage",
+        ].includes(normalizedType)
+      ) {
+        const numeric =
+          typeof value === "number"
+            ? value
+            : Number(String(value).replace(/[^0-9+\-.]/g, ""));
+        if (Number.isFinite(numeric)) return String(numeric);
+      }
+      if (normalizedType === "boolean") return csvCell(value ? "Yes" : "No");
+      if (normalizedType === "date") return csvCell(csvDateStamp(value, false));
+      if (["datetime", "date_time", "timestamp"].includes(normalizedType)) {
+        return csvCell(csvDateStamp(value, true));
+      }
+      if (typeof value === "object") return csvCell(asDisplayText(value, ""));
+      return csvCell(value, normalizedType);
+    };
+
+    /**
+     * Export the records only: one header row of column labels followed by one
+     * row per record, every row carrying the same number of cells so the sheet
+     * opens as a single aligned table. Letterhead, metadata, metrics, breakdown
+     * and certification prose belong to the printed document, not to the
+     * spreadsheet the operator filters and pivots.
+     */
     const exportCsv = async () => {
       const data = state.reportData;
       if (!data) return;
       setButtonPending(elements.csv, true, "Exporting...");
       syncActionButtons();
       try {
-        await loadLetterhead(false);
-        await nextPaint();
-        const report = data.report;
-        const generatedAt = rawCsvValue(report.generated_at, "timestamp");
+        // Exporting is an audited generation for the same reason printing is:
+        // finished records leave the system.
+        await recordArtifactGeneration();
+        const report = state.reportData?.report || data.report;
+        const table = state.reportData?.table || data.table;
         const lines = [
-          csvCell(state.letterhead.republic),
-          csvCell(state.letterhead.university),
-          csvCell(state.letterhead.unitName),
-          csvCell(state.letterhead.address),
-          [csvCell("Official contact"), csvCell(state.letterhead.unitContact)].join(","),
-          "",
-          csvCell("REPORT METADATA"),
-          [csvCell("Field"), csvCell("Value")].join(","),
-          [csvCell("Report ID"), csvCell(report.id)].join(","),
-          [csvCell("Report title"), csvCell(report.title)].join(","),
-          [csvCell("Category"), csvCell(CATEGORY_LABELS[report.category] || report.category)].join(","),
-          [csvCell("Reporting period"), csvCell(report.period_label)].join(","),
-          [csvCell("Coverage start"), csvCell(report.start_date, "date")].join(","),
-          [csvCell("Coverage end"), csvCell(report.end_date, "date")].join(","),
-          [csvCell("Generated at"), csvCell(generatedAt, "timestamp")].join(","),
-          [csvCell("Prepared by"), csvCell(report.generated_by)].join(","),
-          [csvCell("Prepared by role"), csvCell(getPreparedRole())].join(","),
-          [csvCell("Time zone"), csvCell(report.timezone || "Asia/Manila")].join(","),
-          [csvCell("Document code"), csvCell(state.letterhead.documentCode)].join(","),
-          [csvCell("Revision"), csvCell(state.letterhead.revision)].join(","),
-          [csvCell("Records included"), csvCell(data.table.rows.length, "number")].join(","),
-          "",
-          csvCell("SUMMARY METRICS"),
-          [csvCell("Metric"), csvCell("Raw value"), csvCell("Display value"), csvCell("Value type")].join(","),
-          ...data.metrics.map((metric) =>
-            [
-              csvCell(metric.label),
-              csvCell(metric.value, metric.format),
-              csvCell(formatValue(metric.value, metric.format)),
-              csvCell(metric.format),
-            ].join(","),
-          ),
-          "",
-          csvCell(data.breakdown.title.toUpperCase()),
-          [csvCell("Item"), csvCell("Raw value"), csvCell("Display value"), csvCell("Value type")].join(","),
-          ...data.breakdown.items.map((item) =>
-            [
-              csvCell(item.label),
-              csvCell(item.value, data.breakdown.value_type),
-              csvCell(formatValue(item.value, data.breakdown.value_type)),
-              csvCell(data.breakdown.value_type),
-            ].join(","),
-          ),
-          "",
-          csvCell(data.table.title.toUpperCase()),
-          data.table.columns.map((column) => csvCell(column.label)).join(","),
-          ...data.table.rows.map((row) =>
-            data.table.columns
-              .map((column) => csvCell(row[column.key], column.type))
+          table.columns.map((column) => csvCell(column.label)).join(","),
+          ...table.rows.map((row) =>
+            table.columns
+              .map((column) => csvDataCell(row[column.key], column.type))
               .join(","),
-          ),
-          "",
-          csvCell("CERTIFICATION"),
-          [csvCell("Role"), csvCell("Name"), csvCell("Position")].join(","),
-          [
-            csvCell("Prepared by"),
-            csvCell(state.letterhead.preparedByName || report.generated_by),
-            csvCell(state.letterhead.preparedByPosition || getPreparedRole()),
-          ].join(","),
-          [
-            csvCell("Reviewed by"),
-            csvCell(state.letterhead.reviewedByName),
-            csvCell(state.letterhead.reviewedByPosition),
-          ].join(","),
-          [
-            csvCell("Approved by"),
-            csvCell(state.letterhead.approvedByName),
-            csvCell(state.letterhead.approvedByPosition),
-          ].join(","),
-          "",
-          csvCell(
-            `Certified true and correct based on the verified electronic records of the ${state.letterhead.unitName} as of ${rawCsvValue(report.generated_at, "timestamp")} (${report.timezone || "Asia/Manila"}).`,
           ),
         ];
         const csv = `\uFEFF${lines.join("\r\n")}`;

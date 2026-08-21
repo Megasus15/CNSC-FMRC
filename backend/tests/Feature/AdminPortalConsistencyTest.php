@@ -125,7 +125,6 @@ class AdminPortalConsistencyTest extends TestCase
         $this->assertStringContainsString('/admin/site-settings', $reportsJs);
         $this->assertStringContainsString('CNSC-SP-QMS-05F5', $reportsJs);
         $this->assertStringContainsString('buildCertificationBlock', $reportsJs);
-        $this->assertStringContainsString('csvCell("CERTIFICATION")', $reportsJs);
 
         // No hardcoded institution line may remain in the rendered letterhead.
         $this->assertStringNotContainsString('<strong>UNIVERSITY OF CAMARINES NORTE</strong>', $reportsJs);
@@ -180,10 +179,67 @@ class AdminPortalConsistencyTest extends TestCase
         $this->assertStringContainsString('/^[\\s\\u0000-\\u001f]*[=+\\-@]/u', $reportsJs);
         $this->assertStringContainsString('`\\uFEFF${lines.join("\\r\\n")}`', $reportsJs);
         $this->assertStringContainsString('"UCN-FMRC"', $reportsJs);
-        $this->assertStringContainsString('csvCell("REPORT METADATA")', $reportsJs);
-        $this->assertStringContainsString('csvCell("SUMMARY METRICS")', $reportsJs);
         $this->assertStringNotContainsString('window.AdminLiveData?.mount(moduleHost);', $productsLoader);
         $this->assertStringContainsString('window.AdminPageNumberInput?.upgrade(moduleHost);', $productsLoader);
+    }
+
+    public function test_the_csv_export_is_a_single_horizontal_data_table(): void
+    {
+        $root = dirname(__DIR__, 3);
+        $reportsJs = (string) file_get_contents($root.'/admin-page/reports.js');
+
+        // The spreadsheet carries the records only: one header row of column
+        // labels, then one row per record. The letterhead, metadata pairs,
+        // summary metrics, breakdown and certification prose belong to the
+        // printed document, and a vertical "Field,Value" block would break the
+        // operator's own filtering and pivoting.
+        foreach ([
+            'csvCell("REPORT METADATA")',
+            'csvCell("SUMMARY METRICS")',
+            'csvCell("CERTIFICATION")',
+            'csvCell("Report ID")',
+            'csvCell("Official contact")',
+            'csvCell(state.letterhead.republic)',
+            'data.breakdown.title.toUpperCase()',
+            'data.table.title.toUpperCase()',
+        ] as $removed) {
+            $this->assertStringNotContainsString($removed, $reportsJs, $removed);
+        }
+
+        // Header row, typed data cells, and the preserved BOM / CRLF / formula
+        // guard so Excel still opens it as UTF-8 and never evaluates a cell.
+        $this->assertStringContainsString(
+            'table.columns.map((column) => csvCell(column.label)).join(",")',
+            $reportsJs,
+        );
+        $this->assertStringContainsString('const csvDataCell', $reportsJs);
+        $this->assertStringContainsString('const csvDateStamp', $reportsJs);
+        $this->assertStringContainsString('csvDataCell(row[column.key], column.type)', $reportsJs);
+    }
+
+    public function test_print_and_export_record_one_audited_generation(): void
+    {
+        $root = dirname(__DIR__, 3);
+        $reportsJs = (string) file_get_contents($root.'/admin-page/reports.js');
+        $modulesCss = (string) file_get_contents($root.'/admin-page/admin-modules.css');
+
+        // Handing a finished document to the operator is a generation, so the
+        // dashboard "Generated Reports" card counts printing and exporting even
+        // when the auto-loaded report was never explicitly generated. Refresh
+        // and the poll stay read-only.
+        $this->assertStringContainsString('const recordArtifactGeneration', $reportsJs);
+        $this->assertSame(
+            2,
+            preg_match_all('/await recordArtifactGeneration\(/', $reportsJs),
+            'Print and Export CSV must each record the audited generation.',
+        );
+
+        // Print geometry: an 11in page box that fragments across two sheets
+        // drops its absolutely positioned footer band mid-sheet and carries the
+        // next header onto the same sheet.
+        $this->assertStringContainsString('break-inside: avoid;', $modulesCss);
+        $this->assertStringContainsString('page-break-inside: avoid;', $modulesCss);
+        $this->assertStringContainsString('body.report-printing .official-report-header,', $modulesCss);
     }
 
     private function allPortalHtml(): string

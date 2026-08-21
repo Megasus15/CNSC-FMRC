@@ -74,8 +74,10 @@ class ReportController extends Controller
         // When the report_generations table is available, persist an audit
         // trail record.  When it is not (migration has not run yet), the
         // report is still generated and returned — only the tracking row
-        // is skipped so the operator is never blocked.
-        if (ReportGeneration::schemaAvailable()) {
+        // is skipped so the operator is never blocked. ensureSchema() creates
+        // the table on first use so a build that reaches the server before its
+        // migration is run by hand still counts its generations.
+        if (ReportGeneration::ensureSchema()) {
             $existing = ReportGeneration::query()
                 ->where('generation_key', $generationKey)
                 ->first();

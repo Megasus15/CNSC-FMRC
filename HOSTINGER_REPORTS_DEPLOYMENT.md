@@ -1,13 +1,14 @@
 # UCN-FMRC Reports Release - Hostinger Runbook
 
 This runbook deploys the Reports release: the editable official letterhead, the
-measured Letter-size print, the professional CSV, dashboard live counts, the
-revenue corrections (approved GCash in, approved refunds out), the appointment
-and review media viewers, the customer `Others` client type, ten-row tables on
-every Admin/Staff page, the removal of the green Live data chip, and the root
-`.htaccess` fix that stops every uploaded file returning `403 Forbidden`. It
-does not require a historical report-count backfill: `Generated Reports` starts
-at `0` when the new audit table is created.
+measured Letter-size print with one header and one footer band per sheet, the
+data-only CSV export, dashboard live counts that include printed and exported
+documents, the revenue corrections (approved GCash in, approved refunds out), the
+appointment and review media viewers, the customer `Others` client type, ten-row
+tables on every Admin/Staff page, the removal of the green Live data chip, and
+the root `.htaccess` fix that stops every uploaded file returning
+`403 Forbidden`. It does not require a historical report-count backfill:
+`Generated Reports` starts at `0` when the new audit table is created.
 
 **This release replaces the root `.htaccess`.** The previous rule
 `RewriteRule ^backend/(\.env|config|storage|database|app|bootstrap|vendor) - [F,L]`
@@ -35,9 +36,11 @@ built. The media viewers cannot work until the new file is in place.
 
 ## 2. Deploy migration-first
 
-The migration is additive. The application also guards an unmigrated server,
-but the intended sequence is still database first, then the versioned browser
-assets.
+The migration is additive. The first generation on a server that has not run it
+yet creates `report_generations` itself, with exactly the migration's definition,
+so the count is never silently stuck at `0`; running the migration afterwards is
+a no-op. The intended sequence is still database first, then the versioned
+browser assets.
 
 1. Put Laravel into maintenance mode:
 
@@ -125,16 +128,35 @@ to confirm JSON responses; do not place access tokens in shared notes.
 3. Click `Generate Report` once. Confirm
    `POST /api/admin/reports/generate` succeeds and the dashboard count becomes
    `1` immediately in another open tab or within 30 seconds on another device.
-4. Use Refresh, Report preview, Print / Save PDF, and Export CSV. Confirm none
-   of those actions increments the report count.
+4. Use Refresh and Report preview and confirm neither increments the report
+   count: both only re-read `GET /api/admin/reports`. Then, without pressing
+   `Generate Report` first, use Print / Save PDF and confirm the count rises by
+   exactly one, because handing a finished document to the operator is itself a
+   generation — this is what previously left the card at `0` when Staff printed
+   the auto-loaded report. Print the same filter set again, then Export CSV for
+   it, and confirm the count does not move: the audited identity is reused for
+   the active filters for as long as the page stays open. Reloading the page and
+   printing again counts once more, exactly as pressing `Generate Report` twice
+   does; the card is a log of generation events, not of distinct reports.
 5. Confirm the preview locks the background page, only the preview body
    scrolls, and closing restores the original page position and focus.
 6. Save a Letter-size PDF with browser headers/footers disabled and 100% scale.
    Inspect every page for the official UCN header/footer, FMRC unit block,
    dynamic `Page N of M`, intact rows, and no more than ten detail records per
-   sheet.
-7. Export CSV and confirm institutional metadata, metrics, breakdown, every
-   matching detail row, Philippine characters, and safe spreadsheet opening.
+   sheet. Every sheet must carry exactly one header band at the top and one
+   footer band at the bottom: a footer printed halfway down a sheet, or the
+   `FABRICATION AND MANUFACTURING RESEARCH CENTER` unit block and its
+   `<email> / <phone>` contact line appearing near the bottom of the previous
+   sheet, means an `11in` page box was fragmented and the print CSS did not load
+   (check that `admin-modules.css?v=5.1` was fetched, not a cached copy).
+7. Export CSV and open the file in Excel. It must contain the data only: row 1 is
+   the column labels of the on-screen detail table and every following row is one
+   record, all rows the same width, with no letterhead, `REPORT METADATA`,
+   `SUMMARY METRICS`, breakdown or `CERTIFICATION` blocks. Amounts and counts must
+   arrive as right-aligned numbers, dates as `YYYY-MM-DD` (`YYYY-MM-DD HH:MM` for
+   timestamps) in Philippine time, Philippine characters intact, and no cell may
+   be evaluated as a formula. Confirm the row count matches the report and that
+   sorting and filtering by any column works without first deleting header rows.
 8. Check representative 11-record tables in Accounts (Admin), Appointments,
    Archives, Orders, Inventory, Products, Promotions, Announcements, Ratings,
    and Reports. Each first page must show ten rows and the second page one.
@@ -154,7 +176,8 @@ to confirm JSON responses; do not place access tokens in shared notes.
     with the official template wording shown as the placeholder when a field is
     blank. Change the unit contact line and the form code, save, then confirm
     `PUT /api/admin/site-settings` returns `200` and the new wording appears in
-    both the report preview and a fresh `Export CSV`. Click `Restore official
+    the report preview and in a freshly printed PDF. (`Export CSV` carries the
+    records only, so it is deliberately unaffected.) Click `Restore official
     defaults`, confirm the template wording returns, and confirm a signed-in
     customer token receives `403` from the same endpoint.
 13. Appointments (Admin and Staff): open a record with a `File Attach`. An image
@@ -198,11 +221,14 @@ and browser Network responses for:
   rule resurfacing (a hosting-panel edit, a cached LiteSpeed config, or a
   partially uploaded release), and it silently breaks every media viewer at once
 
-Any missing-table condition must return the controlled availability response,
-not an SQL exception. A failed refresh must preserve the last-good dashboard
-values and leave the `Last updated` timestamp at its previous value rather than
-blanking the cards; there is no longer a status chip, so a stalled refresh is
-visible only in that timestamp and in the Network panel.
+A missing `report_generations` table must be created by the first generation and
+logged once as `Unable to prepare the report_generations audit table.` only if
+that creation fails; either way the operator still receives the report and the
+dashboard reports its own availability rather than raising an SQL exception. A
+failed refresh must preserve the last-good dashboard values and leave the
+`Last updated` timestamp at its previous value rather than blanking the cards;
+there is no longer a status chip, so a stalled refresh is visible only in that
+timestamp and in the Network panel.
 
 ## 5. Rollback
 

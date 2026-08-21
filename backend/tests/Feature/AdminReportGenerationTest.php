@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\ReportGeneration;
 use App\Models\User;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
@@ -186,25 +187,75 @@ class AdminReportGenerationTest extends TestCase
         $this->assertSame(1, ReportGeneration::query()->count());
     }
 
-    public function test_missing_generation_schema_is_controlled_and_get_reports_stays_available(): void
+    public function test_a_missing_audit_table_is_created_on_first_generation(): void
     {
         $this->actingAsRole('admin');
         Schema::drop('report_generations');
 
+        // The Hostinger deploy copies files only, so a released build can reach
+        // the server before `php artisan migrate` is run by hand. Generating a
+        // report must never be blocked by that, and the audit row must still be
+        // written so the dashboard "Generated Reports" card is not stuck at 0.
         $response = $this->postJson(
             '/api/admin/reports/generate',
             $this->payload('migration-pending-key'),
         );
         $response
-            ->assertServiceUnavailable()
-            ->assertJsonPath('code', 'REPORT_GENERATIONS_UNAVAILABLE');
+            ->assertOk()
+            ->assertJsonPath('data.report.category', 'sales');
         $this->assertStringContainsString(
             'no-store',
             (string) $response->headers->get('Cache-Control'),
         );
+        $this->assertMatchesRegularExpression(
+            '/^RPT-SALES-[A-F0-9]{64}$/',
+            (string) $response->json('data.report.id'),
+        );
+
+        $this->assertTrue(Schema::hasTable('report_generations'));
+        $this->assertTrue(ReportGeneration::schemaAvailable());
+        $this->assertDatabaseHas('report_generations', [
+            'generation_key' => 'migration-pending-key',
+            'category' => 'sales',
+        ]);
 
         $this->getJson('/api/admin/reports?'.http_build_query($this->filters()))
             ->assertOk();
+
+        $this->getJson('/api/admin/dashboard/live-counts')
+            ->assertOk()
+            ->assertJsonPath('data.generated_reports', 1)
+            ->assertJsonPath('data.availability.report_generations', true);
+
+        $this->getJson('/api/admin/dashboard/summary')
+            ->assertOk()
+            ->assertJsonPath('data.counts.generated_reports', 1)
+            ->assertJsonPath('data.availability.report_generations', true);
+    }
+
+    public function test_an_incompatible_audit_table_is_left_alone_and_never_blocks_a_report(): void
+    {
+        $this->actingAsRole('admin');
+        Schema::drop('report_generations');
+        // A table this application does not own: it must not be altered, and the
+        // operator must still get the document.
+        Schema::create('report_generations', function (Blueprint $table): void {
+            $table->id();
+            $table->string('unrelated_column');
+        });
+
+        $this->postJson(
+            '/api/admin/reports/generate',
+            $this->payload('incompatible-schema-key'),
+        )
+            ->assertOk()
+            ->assertJsonPath('data.report.category', 'sales');
+
+        $this->assertFalse(ReportGeneration::schemaAvailable());
+        $this->assertSame(
+            ['id', 'unrelated_column'],
+            Schema::getColumnListing('report_generations'),
+        );
 
         $this->getJson('/api/admin/dashboard/live-counts')
             ->assertOk()

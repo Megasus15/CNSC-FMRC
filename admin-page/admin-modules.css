@@ -4208,21 +4208,53 @@ html.report-modal-open-root {
     margin: 0 !important;
   }
 
+  /*
+   * One sheet per page box. The header and footer bands are anchored to this
+   * box, so it must never be fragmented across two sheets: a split box makes
+   * the printer place the footer band directly under the last row it fitted and
+   * carries the remainder — including the next page's header block — onto the
+   * same sheet. break-inside/page-break-inside keep every sheet whole, and the
+   * explicit break-before pairs with break-after so a single dropped property
+   * cannot merge two pages.
+   */
   body.report-printing .official-report-page {
+    position: relative !important;
+    box-sizing: border-box !important;
     width: 8.5in !important;
     height: 11in !important;
     min-height: 11in !important;
+    max-height: 11in !important;
     margin: 0 !important;
+    padding: 0 !important;
     overflow: hidden !important;
     border: 0 !important;
     box-shadow: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
     break-after: page;
     page-break-after: always;
+  }
+
+  body.report-printing .official-report-page + .official-report-page {
+    break-before: page;
+    page-break-before: always;
   }
 
   body.report-printing .official-report-page:last-child {
     break-after: auto;
     page-break-after: auto;
+  }
+
+  /*
+   * Re-assert the anchoring in the print cascade. Both bands keep the offsets
+   * declared with the on-screen geometry above, so the header always prints in
+   * the header area and the footer always prints in the footer area of every
+   * sheet, whatever the record count on that page is.
+   */
+  body.report-printing .official-report-header,
+  body.report-printing .official-report-footer {
+    position: absolute !important;
+    z-index: 2;
   }
 
   body.report-printing .official-report-body,
