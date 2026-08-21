@@ -67,60 +67,59 @@ class ReportController extends Controller
 
         $validated = $this->validateReportRequest($request, true);
 
-        if (! ReportGeneration::schemaAvailable()) {
-            return $this->noStoreResponse([
-                'message' => 'Report generation tracking is temporarily unavailable while the required database migration is being applied.',
-                'code' => 'REPORT_GENERATIONS_UNAVAILABLE',
-            ], 503);
-        }
-
         $actor = $request->user();
         $generationKey = (string) $validated['generation_key'];
-        $existing = ReportGeneration::query()
-            ->where('generation_key', $generationKey)
-            ->first();
-
-        if ($existing && ! $this->generationMatches($existing, $actor->id, $validated)) {
-            return $this->generationKeyConflict();
-        }
-
         $data = $this->buildReportData($request, $validated);
 
-        if (! $existing) {
-            $descriptor = $data['report'];
-            $existing = ReportGeneration::query()->firstOrCreate(
-                ['generation_key' => $generationKey],
-                [
-                    'generated_by_user_id' => $actor->id,
-                    'generated_by_name' => $descriptor['generated_by'],
-                    'generated_by_role' => $descriptor['generated_by_role'],
-                    'report_code' => $this->generationReportCode(
-                        $validated['category'],
-                        $generationKey,
-                    ),
-                    'category' => $validated['category'],
-                    'period' => $validated['period'],
-                    'year' => $validated['year'],
-                    'month' => $validated['month'],
-                    'quarter' => $validated['quarter'],
-                ],
-            );
+        // When the report_generations table is available, persist an audit
+        // trail record.  When it is not (migration has not run yet), the
+        // report is still generated and returned — only the tracking row
+        // is skipped so the operator is never blocked.
+        if (ReportGeneration::schemaAvailable()) {
+            $existing = ReportGeneration::query()
+                ->where('generation_key', $generationKey)
+                ->first();
 
-            // A concurrent request can win the unique-key insert between the
-            // initial lookup and firstOrCreate. Recheck ownership and filters
-            // before returning any persisted report metadata.
-            if (! $this->generationMatches($existing, $actor->id, $validated)) {
+            if ($existing && ! $this->generationMatches($existing, $actor->id, $validated)) {
                 return $this->generationKeyConflict();
             }
-        }
 
-        $data['report']['id'] = $existing->report_code;
-        $data['report']['generated_at'] = $existing->created_at
-            ->copy()
-            ->setTimezone(self::REPORT_TIME_ZONE)
-            ->toIso8601String();
-        $data['report']['generated_by'] = $existing->generated_by_name;
-        $data['report']['generated_by_role'] = $existing->generated_by_role;
+            if (! $existing) {
+                $descriptor = $data['report'];
+                $existing = ReportGeneration::query()->firstOrCreate(
+                    ['generation_key' => $generationKey],
+                    [
+                        'generated_by_user_id' => $actor->id,
+                        'generated_by_name' => $descriptor['generated_by'],
+                        'generated_by_role' => $descriptor['generated_by_role'],
+                        'report_code' => $this->generationReportCode(
+                            $validated['category'],
+                            $generationKey,
+                        ),
+                        'category' => $validated['category'],
+                        'period' => $validated['period'],
+                        'year' => $validated['year'],
+                        'month' => $validated['month'],
+                        'quarter' => $validated['quarter'],
+                    ],
+                );
+
+                // A concurrent request can win the unique-key insert between the
+                // initial lookup and firstOrCreate. Recheck ownership and filters
+                // before returning any persisted report metadata.
+                if (! $this->generationMatches($existing, $actor->id, $validated)) {
+                    return $this->generationKeyConflict();
+                }
+            }
+
+            $data['report']['id'] = $existing->report_code;
+            $data['report']['generated_at'] = $existing->created_at
+                ->copy()
+                ->setTimezone(self::REPORT_TIME_ZONE)
+                ->toIso8601String();
+            $data['report']['generated_by'] = $existing->generated_by_name;
+            $data['report']['generated_by_role'] = $existing->generated_by_role;
+        }
 
         return $this->reportResponse($data);
     }
