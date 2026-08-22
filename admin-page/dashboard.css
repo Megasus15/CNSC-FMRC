@@ -2210,55 +2210,45 @@ body.admin-media-viewer-open {
   background: linear-gradient(135deg, #475569, #94a3b8);
 }
 
-/* ─── Reports quick-action tile ───────────────────────────────────────
-   Replaces the old "Generated Reports" counter. It is a call to action,
-   not a metric: the whole tile links to the Reports page. Every rule is
-   scoped to .card-action so the counter cards keep their exact look, and
-   the emphasis is carried by the tinted surface, the lifted amber icon
-   and the sliding arrow — never by a coloured edge. */
-.card-action {
-  background-image: linear-gradient(135deg, #fffdf5 0%, #ffffff 65%);
-}
-
-.card-action .card-action-title {
-  font-size: 1.05rem;
+/* ─── Generate Report toolbar button ──────────────────────────────────
+   Premium CTA styled as a warm amber/gold gradient button that sits
+   inside the Dashboard Controls toolbar alongside the Refresh button. */
+.btn-generate-report {
+  text-decoration: none;
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+  border-color: #d97706;
+  color: #fff;
   font-weight: 700;
-  line-height: 1.25;
-  color: var(--primary-color);
-  margin-bottom: 6px;
+  font-size: 0.84rem;
+  padding: 9px 18px;
+  gap: 9px;
+  border-radius: 9px;
+  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.25);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
 }
 
-/* Inline, not a flex item: on narrow screens the heading wraps and the arrow
-   has to stay glued to the last word instead of floating beside both lines. */
-.card-action .card-action-title i {
-  display: inline-block;
-  margin-left: 7px;
-  font-size: 0.72rem;
-  color: #b45309;
-  transition: transform 0.25s ease;
+.btn-generate-report:hover {
+  background: linear-gradient(135deg, #b45309, #d97706);
+  border-color: #b45309;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(217, 119, 6, 0.4);
+  transform: translateY(-1px);
 }
 
-.card-action .card-action-text {
-  font-size: 0.78rem;
-  line-height: 1.45;
-  color: var(--text-muted);
+.btn-generate-report:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.25);
 }
 
-.card-action .card-action-icon {
-  box-shadow: 0 6px 14px rgba(217, 119, 6, 0.28);
-}
-
-.card-action:hover {
-  border-color: #f59e0b;
-}
-
-.card-action:hover .card-action-title i,
-.card-action:focus-visible .card-action-title i {
-  transform: translateX(4px);
+.btn-generate-report i {
+  font-size: 0.92em;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .card-action .card-action-title i {
+  .btn-generate-report {
     transition-duration: 1ms;
   }
 }
