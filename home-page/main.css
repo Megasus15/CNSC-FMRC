@@ -1146,10 +1146,17 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  transition: color 0.2s ease;
+  /* No transition at all: the hover state must switch instantly, so neither the
+     underline nor the colour is allowed to ease. This overrides the generic
+     `.details-btn { transition: color 0.2s ease }` for the services grid only. */
+  transition: none;
 }
 
-/* Underline only appears on hover/focus — no animation. */
+/* The underline exists only while the cursor (or keyboard focus) is on the link,
+   and it appears and disappears instantly. It is drawn as a 2px ::after bar that
+   is toggled with `display` — an un-animatable property — rather than with
+   opacity or a scaled transform, so there is nothing for a transition to
+   interpolate even if one were inherited from elsewhere. */
 .services-grid .details-btn::after {
   content: "";
   position: absolute;
@@ -14651,13 +14658,15 @@ textarea:focus-visible {
   border-bottom: 1px solid rgba(176, 28, 28, 0.12);
 }
 
-.customer-orders-head .ux-dlg__badge {
-  align-self: start;
-  margin-top: 2px;
-}
-
-.customer-orders-title-wrap {
-  min-width: 0;
+/* My Orders is the only head with a four-line copy stack: eyebrow, title,
+   subtitle and the live sync status. Centred against all four lines the badge
+   drifts down beside the subtitle, so it spans just the first two rows and
+   centres against the eyebrow + title pair — the part the eye reads as the
+   heading. Scoped through the overlay id to clear the shell's (1,2,0) badge
+   rule; the copy is a flat run of children (no wrapper) so that rows 1 and 2
+   really are those two lines at every breakpoint. */
+#customerOrdersModal.ux-dlg .ux-dlg__card .customer-orders-head .ux-dlg__badge {
+  grid-row: 1 / span 2;
 }
 
 .customer-orders-title {
@@ -15787,8 +15796,8 @@ textarea:focus-visible {
 /* -- Head: the maroon band ------------------------------------------------- */
 /* Two columns: the badge on the left, every line of copy on the right. The band
    is a grid rather than a flex row because the copy is a variable number of
-   siblings (eyebrow, title, and sometimes a subtitle, a product line or a whole
-   `.customer-orders-title-wrap`) with no shared wrapper to flex against. The
+   siblings: eyebrow, title, and sometimes a subtitle, a product line or a live
+   status line, with no shared wrapper to flex against. The
    column gap is carried by the badge's own right margin, not `column-gap`, so a
    head with no badge collapses column 1 to zero and keeps its original indent. */
 :is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__head {

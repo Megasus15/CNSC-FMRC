@@ -6382,15 +6382,13 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="customer-orders-head ux-dlg__head">
             <button type="button" class="customer-orders-close ux-dlg__close" id="closeCustomerOrdersModal" aria-label="Close">&times;</button>
             <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-bag-shopping"></i></span>
-            <div class="customer-orders-title-wrap">
-              <p class="ux-dlg__eyebrow">Order tracking</p>
-              <h2 class="customer-orders-title ux-dlg__title" id="customerOrdersTitle">My Orders</h2>
-              <p class="customer-orders-subtitle">Track every order from payment to completion.</p>
-              <p class="customer-orders-sync-status is-syncing" id="customerOrdersSyncStatus" aria-live="polite">
-                <span class="customer-orders-sync-dot" aria-hidden="true"></span>
-                <span>Loading current orders...</span>
-              </p>
-            </div>
+            <p class="ux-dlg__eyebrow">Order tracking</p>
+            <h2 class="customer-orders-title ux-dlg__title" id="customerOrdersTitle">My Orders</h2>
+            <p class="customer-orders-subtitle">Track every order from payment to completion.</p>
+            <p class="customer-orders-sync-status is-syncing" id="customerOrdersSyncStatus" aria-live="polite">
+              <span class="customer-orders-sync-dot" aria-hidden="true"></span>
+              <span>Loading current orders...</span>
+            </p>
           </div>
 
           <div class="customer-orders-tabs" id="customerOrdersTabs">
