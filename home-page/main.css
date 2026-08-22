@@ -1149,8 +1149,7 @@ body {
   transition: color 0.2s ease;
 }
 
-/* A plain, permanent underline: the bar is drawn at full width and never
-   animates, so hovering only changes the colour it inherits. */
+/* Underline only appears on hover/focus — no animation. */
 .services-grid .details-btn::after {
   content: "";
   position: absolute;
@@ -1160,8 +1159,12 @@ body {
   height: 2px;
   border-radius: 2px;
   background: currentColor;
-  transform: none;
-  transition: none;
+  display: none;
+}
+
+.services-grid .details-btn:hover::after,
+.services-grid .details-btn:focus-visible::after {
+  display: block;
 }
 
 .services-grid .details-btn:hover,
@@ -14646,6 +14649,11 @@ textarea:focus-visible {
   align-items: center;
   padding: 4px 0 18px;
   border-bottom: 1px solid rgba(176, 28, 28, 0.12);
+}
+
+.customer-orders-head .ux-dlg__badge {
+  align-self: start;
+  margin-top: 2px;
 }
 
 .customer-orders-title-wrap {
