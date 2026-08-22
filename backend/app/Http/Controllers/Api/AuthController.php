@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
@@ -340,7 +341,19 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        $request->user()->tokens()->delete();
+        // Revoke only the token that made this request. Deleting every token of
+        // the account signed the user out of all their other devices at once and
+        // left those sessions holding a token that no longer existed, which the
+        // customer portal could only show as an endless "reconnecting..." state.
+        $token = $request->user()?->currentAccessToken();
+
+        if ($token instanceof PersonalAccessToken) {
+            $token->delete();
+        } elseif ($request->user()) {
+            // Session-based (cookie) callers have no personal access token to
+            // revoke, so fall back to clearing the account's API tokens.
+            $request->user()->tokens()->delete();
+        }
 
         return response()->json([
             'message' => 'Logged out successfully'

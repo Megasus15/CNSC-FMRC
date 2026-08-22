@@ -8632,6 +8632,27 @@ body.sidebar-open {
   font-size: 1.1rem;
 }
 
+/* Recovery link inside an empty state - currently only the expired-session one,
+   which needs a way back to the login page from inside the drawer. */
+.customer-orders-empty-action {
+  margin-top: 2px;
+  padding: 7px 16px;
+  border-radius: 8px;
+  background: #8b0000;
+  color: #ffffff;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+.customer-orders-empty-action:hover,
+.customer-orders-empty-action:focus-visible {
+  background: #6d0000;
+  color: #ffffff;
+  outline: none;
+}
+
 @media (max-width: 900px) {
   .customer-orders-modal {
     width: 100vw;

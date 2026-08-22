@@ -6273,6 +6273,25 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  // Customer API failures are not all alike and the drawer has to tell them
+  // apart. A 401 means the stored token no longer exists server-side (it was
+  // revoked, or it belongs to another database), so retrying can never succeed
+  // and the session has to be dropped; a timeout or a 5xx is worth retrying
+  // quietly behind the cached rows. The status rides along on the error so
+  // callers branch on it instead of string-matching "Unauthenticated.".
+  const createCustomerApiError = (response, data, fallbackMessage) => {
+    const status = Number(response?.status) || 0;
+    const isSessionExpired = status === 401;
+    const error = new Error(
+      isSessionExpired
+        ? "Your session has expired. Please login again."
+        : data?.message || fallbackMessage,
+    );
+    error.status = status;
+    error.isSessionExpired = isSessionExpired;
+    return error;
+  };
+
   const fetchCustomerOrders = async (customerToken, etag = "") => {
     const requestHeaders = {
       Accept: "application/json",
@@ -6300,7 +6319,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (!response.ok) {
-      throw new Error(data.message || "Unable to load your orders.");
+      throw createCustomerApiError(
+        response,
+        data,
+        "Unable to load your orders.",
+      );
     }
 
     return {
@@ -6342,7 +6365,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (!response.ok) {
-      throw new Error(data.message || "Unable to load order details.");
+      throw createCustomerApiError(
+        response,
+        data,
+        "Unable to load order details.",
+      );
     }
 
     return {
@@ -6366,7 +6393,11 @@ document.addEventListener("DOMContentLoaded", () => {
     );
 
     if (!response.ok) {
-      throw new Error(data.message || "Unable to load return details.");
+      throw createCustomerApiError(
+        response,
+        data,
+        "Unable to load return details.",
+      );
     }
 
     return data.data || null;
@@ -6680,6 +6711,59 @@ document.addEventListener("DOMContentLoaded", () => {
           window.clearInterval(state.refreshTimer);
           state.refreshTimer = null;
         }
+      };
+
+      // A 401 is terminal: the token in localStorage is gone server-side, so the
+      // 3s poller would otherwise sit on "Showing saved orders - reconnecting..."
+      // forever while every request failed, and a reload would land straight back
+      // in the same dead session. Stop polling, drop the dead credentials and
+      // hand the customer a way back in. Guarded because the list, the detail
+      // sub-modal and the return detail can all fail in the same tick.
+      let sessionExpiredHandled = false;
+      const handleSessionExpired = async () => {
+        if (sessionExpiredHandled) return;
+        sessionExpiredHandled = true;
+
+        stopRealtimeRefresh();
+        state.token = "";
+        state.loading = false;
+        state.detailLoading = false;
+        state.returnDetailLoading = false;
+        state.refreshQueued = false;
+
+        try {
+          localStorage.removeItem("customer_token");
+          localStorage.removeItem("customer_info");
+        } catch {
+          // Ignore storage write issues.
+        }
+
+        setSyncStatus("offline", "Session expired - please log in again");
+        tabs.forEach((tab) => {
+          const countEl = tab.querySelector(".customer-orders-tab-count");
+          if (countEl) countEl.textContent = "0";
+        });
+
+        const expiredHtml = `
+          <div class="customer-orders-empty">
+            <i class="fa-regular fa-circle-xmark"></i>
+            <p>Session expired. Please login again.</p>
+            <a class="customer-orders-empty-action" href="../customer-auth/auth.html#login">Log in</a>
+          </div>
+        `;
+        panels.forEach((panel) => {
+          panel.innerHTML = expiredHtml;
+        });
+        if (detailModal?.classList.contains("show") && detailContent) {
+          if (detailTitle) detailTitle.textContent = "Order Details";
+          detailContent.innerHTML = expiredHtml;
+        }
+
+        await showCustomerPopup(
+          "Your session has expired, so your orders cannot be loaded. You will be taken to the login page.",
+          { title: "Login required" },
+        );
+        window.location.href = "../customer-auth/auth.html#login";
       };
 
       const startRealtimeRefresh = () => {
@@ -8684,7 +8768,11 @@ document.addEventListener("DOMContentLoaded", () => {
             state.returnDetailsById.set(key, detail);
             renderReturnDetailModal(detail);
           }
-        } catch {
+        } catch (error) {
+          if (error?.isSessionExpired) {
+            void handleSessionExpired();
+            return;
+          }
           // Keep the current view; the poller will retry.
         } finally {
           state.returnDetailLoading = false;
@@ -8729,6 +8817,10 @@ document.addEventListener("DOMContentLoaded", () => {
             state.lastDetailRefreshAt = Date.now();
           }
         } catch (error) {
+          if (error?.isSessionExpired) {
+            void handleSessionExpired();
+            return;
+          }
           detailTitle.textContent = "Order Details";
           detailContent.innerHTML = `
             <div class="customer-orders-empty">
@@ -8763,7 +8855,11 @@ document.addEventListener("DOMContentLoaded", () => {
             renderDetailModal(result.detail);
           }
           state.lastDetailRefreshAt = Date.now();
-        } catch {
+        } catch (error) {
+          if (error?.isSessionExpired) {
+            void handleSessionExpired();
+            return;
+          }
           // Keep current detail view; periodic refresh will retry.
         } finally {
           state.detailLoading = false;
@@ -8785,21 +8881,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (!state.token) {
-          state.loading = false;
-          tabs.forEach((tab) => {
-            const countEl = tab.querySelector(".customer-orders-tab-count");
-            if (countEl) countEl.textContent = "0";
-          });
-
-          panels.forEach((panel) => {
-            panel.innerHTML = `
-              <div class="customer-orders-empty">
-                <i class="fa-regular fa-circle-xmark"></i>
-                <p>Session expired. Please login again.</p>
-              </div>
-            `;
-          });
-          stopRealtimeRefresh();
+          // No credentials to send at all: same dead-session treatment as a 401.
+          void handleSessionExpired();
           return;
         }
 
@@ -8842,6 +8925,11 @@ document.addEventListener("DOMContentLoaded", () => {
           void refreshActiveReturnDetail();
         } catch (error) {
           state.lastRefreshAt = Date.now();
+          if (error?.isSessionExpired) {
+            // Not a connectivity blip - retrying would never recover.
+            void handleSessionExpired();
+            return;
+          }
           if (state.orders.length) {
             state.loading = false;
             setSyncStatus(
