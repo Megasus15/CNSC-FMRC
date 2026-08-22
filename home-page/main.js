@@ -10301,6 +10301,7 @@ const openReturnRequestModal = (() => {
       <div class="popup-profile-row">
         <span class="popup-profile-icon profile-initial">${initial}</span>
         <div class="popup-profile-meta">
+          <span class="popup-eyebrow">Signed in as</span>
           <p class="popup-identity${profileIdentitySizeClass}"></p>
         </div>
       </div>

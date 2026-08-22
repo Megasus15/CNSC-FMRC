@@ -15730,7 +15730,11 @@ textarea:focus-visible {
     max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
 }
 
-/* -- Standalone overlay (logout confirm builds its own root) --------------- */
+/* -- Standalone overlay (logout confirm builds its own root) ---------------
+   Deliberately transparent: this root always contains a `.ux-dlg__backdrop`
+   child, which already paints the shared scrim and blur. Painting the scrim
+   here as well stacked two 0.8 veils (0.96 effective) and blurred twice, which
+   made Confirm Logout markedly darker than every other dialog. */
 .ux-dlg--standalone {
   position: fixed;
   inset: 0;
@@ -15738,9 +15742,7 @@ textarea:focus-visible {
   display: none;
   align-items: center;
   justify-content: center;
-  background: var(--ux-dlg-scrim);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: transparent;
   opacity: 0;
   transition: opacity 0.22s ease;
 }
@@ -15837,11 +15839,17 @@ textarea:focus-visible {
   margin: 0;
 }
 
+/* `text-align` and `max-width` are restated here for the same reason the title
+   restates them: legacy per-dialog rules target the band's paragraphs directly
+   (`#aptConfirmModal .apt-nested-box p` centres them inside 30ch), and a
+   directly matched declaration beats the head's inherited `text-align: left`. */
 :is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__eyebrow {
   position: relative;
   z-index: 1;
   margin: 0 0 6px;
   padding: 0;
+  max-width: none;
+  text-align: left;
   color: var(--ux-dlg-eyebrow);
   font-family: "Montserrat", "Poppins", sans-serif;
   font-size: 11px;
@@ -16178,39 +16186,55 @@ textarea:focus-visible {
    Per-dialog reconciliation with the legacy layers
    ------------------------------------------------------------------------- */
 
-/* My Orders: the full-height right-hand drawer becomes a centered card so it
-   matches every other dialog. The legacy overlay padding is `!important`, so
-   the override has to be too. */
-.customer-orders-overlay.ux-dlg {
-  align-items: center;
-  justify-content: center;
-  padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right))
-    max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)) !important;
+/* My Orders stays the full-height right-hand drawer customers already know —
+   only the skin is shared with the other dialogs. Everything that has to clear
+   the (1,2,0) card shell above is scoped through the overlay id.
+   The overlay's own `padding: 0 !important` and `align-items: stretch` already
+   come from the edge-to-edge drawer block further up, so they are not repeated. */
+#customerOrdersModal.ux-dlg {
+  justify-content: flex-end;
 }
 
-.customer-orders-overlay.ux-dlg .customer-orders-modal.ux-dlg__card {
+#customerOrdersModal.ux-dlg .customer-orders-modal.ux-dlg__card {
   width: min(880px, 100%);
-  max-width: min(880px, 100%);
-  height: auto;
+  max-width: 100%;
+  height: 100%;
   min-height: 0;
-  max-height: min(920px, calc(100dvh - 28px));
+  max-height: none;
   gap: 0;
-  border: 1px solid var(--ux-dlg-edge);
-  border-radius: var(--ux-dlg-radius);
+  border: 0;
+  border-left: 1px solid var(--ux-dlg-edge);
+  border-radius: var(--ux-dlg-radius) 0 0 var(--ux-dlg-radius);
   background: #ffffff;
-  box-shadow: var(--ux-dlg-shadow);
-  transform: translateY(16px) scale(0.975);
+  box-shadow: -30px 0 78px rgba(27, 4, 4, 0.5);
+  transform: translateX(100%);
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.customer-orders-overlay.ux-dlg.show .customer-orders-modal.ux-dlg__card {
+#customerOrdersModal.ux-dlg.show .customer-orders-modal.ux-dlg__card {
   transform: none;
 }
 
-.customer-orders-overlay.ux-dlg .customer-orders-modal.ux-dlg__card > .customer-orders-tabs {
+/* Seven status chips, one row, no horizontal scrollbar on a laptop canvas.
+   `wrap` is the safety valve if a label or a count ever grows; the mobile block
+   at the end of this file is the only place the strip scrolls again. */
+#customerOrdersModal.ux-dlg .ux-dlg__card > .customer-orders-tabs {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 5px;
   margin: 16px var(--ux-dlg-pad-x) 0;
+  padding: 5px;
+  overflow: visible;
 }
 
-.customer-orders-overlay.ux-dlg .customer-orders-modal.ux-dlg__card > .customer-orders-viewport {
+#customerOrdersModal.ux-dlg .ux-dlg__card > .customer-orders-tabs .customer-orders-tab {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 8px 11px;
+  font-size: 0.76rem;
+}
+
+#customerOrdersModal.ux-dlg .ux-dlg__card > .customer-orders-viewport {
   margin: 14px var(--ux-dlg-pad-x) max(18px, env(safe-area-inset-bottom));
 }
 
@@ -16232,23 +16256,26 @@ textarea:focus-visible {
   background: #ffb457;
 }
 
-/* Order detail is a sheet *inside* the orders card, so it keeps its own
-   absolute positioning and stays hidden until `.show` is added — the generic
-   card shell above would otherwise reveal it permanently. */
-:is(.ux-dlg) .customer-order-detail-modal.ux-dlg__card {
+/* Order detail is a sheet *inside* the orders drawer, so it keeps its own
+   absolute positioning and stays hidden until `.show` is added. Scoped through
+   both ids: the generic card shell is (1,2,0) and would otherwise force
+   `position: relative; display: flex` and leave the sheet permanently open in
+   the drawer's flow. */
+#customerOrdersModal.ux-dlg #customerOrderDetailModal.ux-dlg__card {
   position: absolute;
   inset: 0;
   z-index: 4;
   display: none;
   width: auto;
   max-width: none;
+  height: auto;
   max-height: none;
   border: 0;
   border-radius: 0;
   box-shadow: 0 0 42px rgba(27, 4, 4, 0.28);
 }
 
-:is(.ux-dlg) .customer-order-detail-modal.ux-dlg__card.show {
+#customerOrdersModal.ux-dlg #customerOrderDetailModal.ux-dlg__card.show {
   display: flex;
 }
 
@@ -16267,17 +16294,19 @@ textarea:focus-visible {
   background: #ffffff;
 }
 
-:is(.ux-dlg) .customer-rating-card.ux-dlg__card,
-:is(.ux-dlg) .customer-return-request-card.ux-dlg__card,
-:is(.ux-dlg) .customer-return-form-card.ux-dlg__card,
-:is(.ux-dlg) .customer-buy-again-card.ux-dlg__card {
+/* Rate / return / buy-again all carry `.customer-rating-card`, and the discard
+   confirm is the small one. Same specificity lever as above — as class-only
+   rules these lost to the (1,2,0) shell and every one of them rendered at the
+   shell's 520px instead of its own width. */
+:is(.ux-dlg, #aptPrivacyModal).customer-rating-overlay .customer-rating-card.ux-dlg__card {
   width: min(100%, 560px);
   max-width: min(100%, 560px);
   max-height: min(860px, calc(100dvh - 28px));
   gap: 0;
 }
 
-:is(.ux-dlg) .customer-rating-discard-card.ux-dlg__card {
+:is(.ux-dlg, #aptPrivacyModal).customer-rating-discard-overlay
+  .customer-rating-discard-card.ux-dlg__card {
   width: min(100%, 420px);
   max-width: min(100%, 420px);
 }
@@ -16291,10 +16320,22 @@ textarea:focus-visible {
   -webkit-backdrop-filter: blur(8px);
 }
 
-.modal-overlay.ux-dlg .modal-box.ux-dlg__card {
+/* The `:is(.ux-dlg, #aptPrivacyModal)` prefix is a specificity lever, nothing
+   else: it lifts this rule to (1,3,0) so the intended content width clears the
+   (1,2,0) card shell. Without it every `.modal-box` dialog — product details,
+   service details — silently rendered at the shell's 520px default. */
+:is(.ux-dlg, #aptPrivacyModal).modal-overlay .modal-box.ux-dlg__card {
   width: min(750px, 100%);
   max-width: min(750px, 100%);
   max-height: min(92vh, calc(100dvh - 24px));
+}
+
+/* Product details is the one `.modal-box` dialog with a two-column body, so it
+   gets the extra width on a laptop canvas and never scrolls sideways. */
+#productInfoModal.ux-dlg .modal-box.ux-dlg__card {
+  width: min(940px, 100%);
+  max-width: min(940px, 100%);
+  max-height: min(94vh, calc(100dvh - 24px));
 }
 
 .modal-overlay.ux-dlg .ux-dlg__card > .modal-divider {
@@ -16316,10 +16357,13 @@ textarea:focus-visible {
 
 /* Customer reviews: the widest card of the set, children already carry their
    own 28px gutters so only the frame needs restating. */
-.customer-reviews-overlay.ux-dlg .customer-reviews-box.ux-dlg__card {
-  width: min(820px, 100%);
-  max-width: min(820px, 100%);
-  max-height: min(92vh, calc(100dvh - 24px));
+/* Customer feedback: the widest card of the set — a rating summary, seven
+   filter chips and a media grid all want the room. Scoped through the id so it
+   clears the (1,2,0) shell. */
+#customerReviewsModal.ux-dlg .customer-reviews-box.ux-dlg__card {
+  width: min(1040px, 100%);
+  max-width: min(1040px, 100%);
+  max-height: min(94vh, calc(100dvh - 24px));
 }
 
 .customer-reviews-overlay.ux-dlg .ux-dlg__head .customer-reviews-product {
@@ -16456,4 +16500,362 @@ textarea:focus-visible {
   overflow-wrap: anywhere;
 }
 
-/* UXDLG-APPEND */
+/* ---------------------------------------------------------------------------
+   Follow-up pass: drawer, wide content cards, tighter account band, solid
+   profile menu. Everything here is scoped through a dialog id so it clears the
+   (1,2,0) `:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card`
+   shell — a class-only override, however long, loses to it because ids are
+   compared before classes.
+   ------------------------------------------------------------------------- */
+
+/* -- My Account / Account security: a little wider, a shorter band --------- */
+#customerProfileModal.ux-dlg .customer-modal.ux-dlg__card,
+#customerPasswordModal.ux-dlg .customer-modal.ux-dlg__card {
+  width: min(100%, 640px);
+  max-width: min(100%, 640px);
+}
+
+#customerProfileModal.ux-dlg .ux-dlg__card .ux-dlg__head,
+#customerPasswordModal.ux-dlg .ux-dlg__card .ux-dlg__head {
+  padding: clamp(15px, 3.2vw, 19px) var(--ux-dlg-pad-x) 15px;
+  padding-right: max(64px, var(--ux-dlg-pad-x));
+}
+
+#customerProfileModal.ux-dlg .ux-dlg__card .ux-dlg__badge,
+#customerPasswordModal.ux-dlg .ux-dlg__card .ux-dlg__badge {
+  width: 44px;
+  height: 44px;
+  margin-bottom: 9px;
+  border-width: 2px;
+  font-size: 19px;
+}
+
+#customerProfileModal.ux-dlg .ux-dlg__card .ux-dlg__eyebrow,
+#customerPasswordModal.ux-dlg .ux-dlg__card .ux-dlg__eyebrow {
+  margin-bottom: 3px;
+  font-size: 10.5px;
+}
+
+#customerProfileModal.ux-dlg .ux-dlg__card .ux-dlg__title,
+#customerPasswordModal.ux-dlg .ux-dlg__card .ux-dlg__title {
+  font-size: clamp(17px, 3.6vw, 21px);
+}
+
+/* The band's decorative ring is sized for the taller heads; pull it down so a
+   shorter band still reads as a soft glow rather than a stripe. */
+#customerProfileModal.ux-dlg .ux-dlg__card .ux-dlg__head::after,
+#customerPasswordModal.ux-dlg .ux-dlg__card .ux-dlg__head::after {
+  bottom: -140px;
+}
+
+/* Back sits in the close button's slot — same 14px inset, same 36px height — so
+   Account security's control lines up with My Account's X when the two dialogs
+   swap. The head then reserves the pill's width instead of the X's. */
+#customerPasswordModal.ux-dlg .ux-dlg__card .ux-dlg__head {
+  padding-right: max(104px, var(--ux-dlg-pad-x));
+}
+
+#customerPasswordModal.ux-dlg .ux-dlg__card .ux-dlg__back {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
+  height: 36px;
+  min-height: 36px;
+  margin: 0;
+  padding: 0 14px 0 11px;
+}
+
+/* -- Product details: two columns once the card is wide ------------------- */
+/* At 940px a single stacked column left the 250px image as a grey letterbox and
+   ran body text past 100 characters a line, so the body splits: image parked in
+   a sticky left rail, copy and lists in the right. Below 900px it stays the
+   original stack. */
+@media (min-width: 900px) {
+  #productInfoModal.ux-dlg .ux-dlg__card > .modal-scroll-area {
+    display: grid;
+    grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+    column-gap: clamp(24px, 3vw, 36px);
+    align-content: start;
+  }
+
+  #productInfoModal.ux-dlg .modal-scroll-area > .modal-img-holder {
+    grid-column: 1;
+    grid-row: 1 / span 4;
+    position: sticky;
+    top: 0;
+    height: 300px;
+    margin-bottom: 0;
+  }
+
+  #productInfoModal.ux-dlg .modal-scroll-area > :not(.modal-img-holder) {
+    grid-column: 2;
+  }
+
+  #productInfoModal.ux-dlg .modal-scroll-area > .modal-columns:last-child {
+    margin-bottom: 0;
+  }
+}
+
+/* -- Customer feedback: nothing scrolls sideways on a laptop -------------- */
+/* The seven rating filters were a `overflow-x: auto` strip. With the card at
+   1040px they fit on one line; `wrap` keeps that true if a label grows. */
+#customerReviewsModal.ux-dlg .ux-dlg__card > .customer-reviews-filters {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
+@media (min-width: 900px) {
+  /* Three `1fr` tracks would blow each review photo up to ~300px on the wide
+     card. Fixed 150px tracks keep the grid a thumbnail strip that wraps. */
+  #customerReviewsModal.ux-dlg .customer-reviews-list .customer-review-media {
+    grid-template-columns: repeat(auto-fill, minmax(0, 150px));
+  }
+}
+
+/* -- Mobile: the drawer goes edge to edge and the chips scroll again ------ */
+/* Below this width the seven status chips can no longer share a row, and a
+   horizontal strip beats two stacked rows on a phone — which is the one place
+   the user asked for scrolling. */
+@media (max-width: 960px) {
+  #customerOrdersModal.ux-dlg .customer-orders-modal.ux-dlg__card {
+    width: 100%;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  #customerOrdersModal.ux-dlg .ux-dlg__card > .customer-orders-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  #customerOrdersModal.ux-dlg .ux-dlg__card > .customer-orders-tabs::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* -- Navbar profile menu: one solid card, same language as the dialogs -----
+   Built once in main.js and appended to `.user-profile`, so the four customer
+   pages share this markup — styling it here is what makes them identical.
+   Selectors are scoped through `.user-profile` / `.profile-popup` (two classes)
+   because responsive.css loads after this file and its single-class small-screen
+   rules would otherwise put the old padding and radius back.
+   No translucency and no `backdrop-filter`: the card is opaque so text never
+   sits on whatever is scrolling underneath.
+   `:not(.guest-profile-popup)` keeps the signed-out variant out of this: it is
+   the same element with a different body (blurb, benefits, two auth buttons)
+   and it already carries its own band header, which these gutters would fight. */
+.user-profile .profile-popup:not(.guest-profile-popup) {
+  width: min(344px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  /* Cream shows through around the logout button, which is what gives the menu
+     the same footer strip every dialog has. The rows paint themselves white. */
+  background: var(--ux-dlg-foot-bg);
+  border: 1px solid rgba(95, 13, 13, 0.16);
+  border-radius: 20px;
+  box-shadow:
+    0 26px 60px rgba(45, 12, 12, 0.26),
+    0 2px 6px rgba(45, 12, 12, 0.08);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* The pointer has to match whatever it points out of — the band, not the body. */
+.user-profile .profile-popup:not(.guest-profile-popup)::before {
+  right: 18px;
+  width: 16px;
+  height: 16px;
+  border-left-color: rgba(95, 13, 13, 0.16);
+  border-top-color: rgba(95, 13, 13, 0.16);
+  background: #5b0d0c;
+}
+
+.profile-popup:not(.guest-profile-popup) .popup-header {
+  position: relative;
+  overflow: hidden;
+  margin: 0;
+  padding: 15px 17px 16px;
+  background: var(--ux-dlg-band);
+  border-radius: 19px 19px 0 0;
+}
+
+/* Same faint ring the dialog bands carry, scaled to a dropdown. */
+.profile-popup:not(.guest-profile-popup) .popup-header::after {
+  content: "";
+  position: absolute;
+  right: -34px;
+  bottom: -72px;
+  width: 132px;
+  height: 132px;
+  border: 1px solid rgba(241, 237, 18, 0.24);
+  border-radius: 50%;
+  box-shadow: 0 0 0 16px rgba(241, 237, 18, 0.05);
+  pointer-events: none;
+}
+
+.profile-popup .popup-profile-row {
+  position: relative;
+  z-index: 1;
+  gap: 12px;
+}
+
+.profile-popup:not(.guest-profile-popup) .popup-profile-icon {
+  width: 42px;
+  height: 42px;
+  border: 2px solid rgba(255, 255, 255, 0.42);
+  background: var(--ux-dlg-badge);
+  color: var(--ux-dlg-badge-ink);
+  font-size: 18px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+}
+
+.profile-popup .popup-eyebrow {
+  display: block;
+  margin: 0 0 2px;
+  color: var(--ux-dlg-eyebrow);
+  font-family: "Montserrat", sans-serif;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.profile-popup .popup-identity {
+  color: #ffffff;
+  font-size: 15px;
+}
+
+.profile-popup .popup-identity.is-long {
+  font-size: 13.5px;
+}
+
+.profile-popup .popup-identity.is-very-long {
+  font-size: 12.5px;
+}
+
+/* Full-bleed rows instead of stacked cards: fewer edges, easier to scan. The
+   legacy border is `!important`, so undoing it has to be too. */
+.profile-popup .profile-popup-link {
+  gap: 12px;
+  min-height: 52px;
+  margin: 0;
+  padding: 13px 17px;
+  background: #ffffff;
+  border: 0 !important;
+  border-radius: 0;
+  box-shadow: none;
+  color: #3f3535;
+  font-size: 14.5px;
+  transition:
+    background-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.profile-popup .profile-popup-link + .profile-popup-link {
+  border-top: 1px solid rgba(95, 13, 13, 0.08) !important;
+}
+
+.profile-popup .profile-popup-link i {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(133, 19, 19, 0.08);
+  color: #851313;
+  font-size: 14px;
+  transition: background-color 0.18s ease;
+}
+
+/* Border chevron rather than an icon font: nothing to load, and it inherits the
+   row's colour transition. */
+.profile-popup .profile-popup-link::after {
+  content: "";
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  border-right: 2px solid rgba(95, 13, 13, 0.32);
+  border-bottom: 2px solid rgba(95, 13, 13, 0.32);
+  transform: rotate(-45deg);
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.profile-popup .profile-popup-link:hover,
+.profile-popup .profile-popup-link:focus-visible {
+  background: #fff6f6;
+  color: #5f0d0d;
+  transform: none;
+}
+
+.profile-popup .profile-popup-link:hover i,
+.profile-popup .profile-popup-link:focus-visible i {
+  background: rgba(133, 19, 19, 0.16);
+}
+
+.profile-popup .profile-popup-link:hover::after,
+.profile-popup .profile-popup-link:focus-visible::after {
+  border-color: #851313;
+  transform: translateX(2px) rotate(-45deg);
+}
+
+/* A full-bleed row that scales shows the card behind it on every edge, so these
+   press with colour while the pill below keeps the shared press scale. */
+.profile-popup .profile-popup-link:active {
+  background: #fdeaea;
+  transform: none;
+}
+
+.profile-popup .profile-popup-link:focus-visible {
+  outline: 2px solid rgba(133, 19, 19, 0.45);
+  outline-offset: -2px;
+}
+
+/* The rule above the logout is the footer boundary; the cream comes from the
+   card itself. */
+.profile-popup hr {
+  margin: 0;
+  border: 0;
+  border-top: 1px solid var(--ux-dlg-foot-line);
+}
+
+.profile-popup .popup-logout {
+  width: auto;
+  min-height: 44px;
+  margin: 12px 14px 14px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+@media (max-width: 420px) {
+  .user-profile .profile-popup:not(.guest-profile-popup) {
+    width: min(320px, calc(100vw - 16px));
+    max-width: calc(100vw - 16px);
+  }
+
+  .profile-popup:not(.guest-profile-popup) .popup-header {
+    padding: 13px 14px 14px;
+  }
+
+  .profile-popup .profile-popup-link {
+    min-height: 48px;
+    padding: 12px 14px;
+    font-size: 13.5px;
+  }
+
+  .profile-popup .popup-logout {
+    margin: 10px 12px 12px;
+    font-size: 13.5px;
+  }
+}
+
+/* UXDLG-APPEND-8 */
