@@ -2,13 +2,15 @@
 
 This runbook deploys the Reports release: the editable official letterhead, the
 measured Letter-size print with one header and one footer band per sheet, the
-data-only CSV export, dashboard live counts that include printed and exported
-documents, the revenue corrections (approved GCash in, approved refunds out), the
-appointment and review media viewers, the customer `Others` client type, ten-row
-tables on every Admin/Staff page, the removal of the green Live data chip, and
-the root `.htaccess` fix that stops every uploaded file returning
-`403 Forbidden`. It does not require a historical report-count backfill:
-`Generated Reports` starts at `0` when the new audit table is created.
+data-only CSV export, the revenue corrections (approved GCash in, approved
+refunds out), the appointment and review media viewers, the customer `Others`
+client type, ten-row tables on every Admin/Staff page that now open with the
+newest record in row 1, the dashboard Reports quick-action tile that replaced the
+`Generated Reports` counter, the removal of the green Live data chip, and the
+root `.htaccess` fix that stops every uploaded file returning `403 Forbidden`. It
+does not require a historical report-count backfill: nothing on the dashboard
+counts reports any more, and the `report_generations` audit table simply starts
+empty.
 
 **This release replaces the root `.htaccess`.** The previous rule
 `RewriteRule ^backend/(\.env|config|storage|database|app|bootstrap|vendor) - [F,L]`
@@ -118,26 +120,29 @@ return `200`, not a cached `304` for an old file name.
 Run these checks once as Admin and once as Staff. Use the browser Network panel
 to confirm JSON responses; do not place access tokens in shared notes.
 
-1. Open Dashboard and confirm `Generated Reports` is `0` before the first new
-   generation and that `Archived Records` matches the sum of all seven Archive
-   tabs: Inventory, Appointments, Orders, Returns, Ratings, Promotions, and
-   Announcements.
-2. Open Reports and confirm initial loading and the 30-second refresh call the
-   read-only `GET /api/admin/reports` route without changing the dashboard
-   report count.
-3. Click `Generate Report` once. Confirm
-   `POST /api/admin/reports/generate` succeeds and the dashboard count becomes
-   `1` immediately in another open tab or within 30 seconds on another device.
-4. Use Refresh and Report preview and confirm neither increments the report
+1. Open Dashboard and confirm the Reports tile is the `Generate Report` quick
+   action — a plain white/ivory card with the amber document icon, no number, no
+   `Generated Reports` label and no coloured edge on its left side — and that
+   clicking anywhere on it opens Reports. Confirm `Archived Records` matches the
+   sum of all seven Archive tabs: Inventory, Appointments, Orders, Returns,
+   Ratings, Promotions, and Announcements.
+2. The dashboard no longer displays a report count, so for checks 2-4 read
+   `data.generated_reports` from `GET /api/admin/dashboard/live-counts` in the
+   Network panel. Open Reports and confirm initial loading and the 30-second
+   refresh call the read-only `GET /api/admin/reports` route and leave that
+   number unchanged.
+3. Click `Generate Report` once. Confirm `POST /api/admin/reports/generate`
+   succeeds and `data.generated_reports` rises by exactly one.
+4. Use Refresh and Report preview and confirm neither increments the audit
    count: both only re-read `GET /api/admin/reports`. Then, without pressing
    `Generate Report` first, use Print / Save PDF and confirm the count rises by
    exactly one, because handing a finished document to the operator is itself a
-   generation — this is what previously left the card at `0` when Staff printed
-   the auto-loaded report. Print the same filter set again, then Export CSV for
-   it, and confirm the count does not move: the audited identity is reused for
-   the active filters for as long as the page stays open. Reloading the page and
+   generation. Print the same filter set again, then Export CSV for it, and
+   confirm the count does not move: the audited identity is reused for the
+   active filters for as long as the page stays open. Reloading the page and
    printing again counts once more, exactly as pressing `Generate Report` twice
-   does; the card is a log of generation events, not of distinct reports.
+   does; `report_generations` is a log of generation events, not of distinct
+   reports.
 5. Confirm the preview locks the background page, only the preview body
    scrolls, and closing restores the original page position and focus.
 6. Save a Letter-size PDF with browser headers/footers disabled and 100% scale.
@@ -159,15 +164,18 @@ to confirm JSON responses; do not place access tokens in shared notes.
    sorting and filtering by any column works without first deleting header rows.
 8. Check representative 11-record tables in Accounts (Admin), Appointments,
    Archives, Orders, Inventory, Products, Promotions, Announcements, Ratings,
-   and Reports. Each first page must show ten rows and the second page one.
+   and Reports. Each first page must show ten rows and the second page one, and
+   the newest record must be the first row of page 1 — never the last row of the
+   last page. Verify this on every Orders tab (Incoming, Orders Directory,
+   Walk-In, Returns & Refunds, Rejected, Payments History). Accounts is the one
+   exception: the founding Admin stays `No. 001` and the newest account is row 2.
 9. Archive, restore, and permanently delete a test record in approved test
    data. Confirm the Archive dashboard count refreshes without reloading.
 10. Visit every Admin and Staff page, including Staff Products, and confirm no
     green `Live data` chip remains in any toolbar while the neutral
     `Last updated` timestamp still advances. With two tabs open on the Dashboard,
-    generate a report in one and confirm `Generated Reports` and
-    `Archived Records` still refresh in the other: the chip markup is gone but
-    the silent cross-tab bridge must survive.
+    archive a record in one and confirm `Archived Records` still refreshes in the
+    other: the chip markup is gone but the silent cross-tab bridge must survive.
 11. Confirm the Reports hint reads `Choose a category and reporting period, then
     generate a live report` with `Generate Report` in plain bold text, not a
     maroon or yellow highlight pill.

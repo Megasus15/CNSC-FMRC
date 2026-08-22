@@ -1220,13 +1220,12 @@
      * Record the audited generation behind an official artifact.
      *
      * Print / Save PDF and Export CSV both hand a finished document to the
-     * operator, so the Dashboard "Generated Reports" card has to count them even
+     * operator, so the report_generations audit trail has to record them even
      * when the page was opened, auto-synchronised and printed without pressing
-     * Generate Report first — the reason the card could sit at 0 while reports
-     * were being produced. The audited identity is reused for the active filter
-     * set for as long as the page stays open, so printing and exporting the same
-     * report add one record between them, and Refresh and the 30-second poll
-     * stay read-only.
+     * Generate Report first. The audited identity is reused for the active
+     * filter set for as long as the page stays open, so printing and exporting
+     * the same report add one record between them, and Refresh and the
+     * 30-second poll stay read-only.
      */
     const recordArtifactGeneration = async (options = {}) => {
       const params = state.activeParams || readFilterParams();

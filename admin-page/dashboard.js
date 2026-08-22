@@ -511,9 +511,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const dashboardArchivesCount = document.getElementById(
     "dashboardArchivesCount",
   );
-  const dashboardReportsCount = document.getElementById(
-    "dashboardReportsCount",
-  );
+  // There is no "Generated Reports" counter any more: that tile is now a
+  // quick action that links to the Reports page, so nothing on the dashboard
+  // renders generated_reports. The API still returns the count for the audit
+  // trail; the dashboard simply ignores it.
   const dashboardRecentAppointments = document.getElementById(
     "dashboardRecentAppointments",
   );
@@ -625,7 +626,6 @@ document.addEventListener("DOMContentLoaded", () => {
     accounts,
     orders,
     products,
-    generated_reports,
     total_archives,
     total_revenue,
     total_inventory_items,
@@ -638,8 +638,6 @@ document.addEventListener("DOMContentLoaded", () => {
       dashboardOrdersCount.textContent = formatCount(orders);
     if (dashboardProductsCount && products !== undefined)
       dashboardProductsCount.textContent = formatCount(products);
-    if (dashboardReportsCount && generated_reports !== undefined)
-      dashboardReportsCount.textContent = formatCount(generated_reports);
     if (dashboardArchivesCount && total_archives !== undefined)
       dashboardArchivesCount.textContent = formatCount(total_archives);
     if (dashboardRevenueAmount && total_revenue !== undefined)
@@ -1101,7 +1099,6 @@ document.addEventListener("DOMContentLoaded", () => {
       accounts: counts?.accounts,
       orders: counts?.orders,
       products: counts?.products,
-      generated_reports: counts?.generated_reports,
       total_archives: counts?.total_archives,
       total_revenue: counts?.total_revenue,
       total_inventory_items: counts?.total_inventory_items,
@@ -1241,7 +1238,6 @@ document.addEventListener("DOMContentLoaded", () => {
           accounts: "--",
           orders: "--",
           products: "--",
-          generated_reports: "--",
           total_archives: "--",
           total_revenue: null,
           total_inventory_items: null,
@@ -1266,8 +1262,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const applyDashboardLiveCounts = (payload = {}) => {
     const data = payload?.data || {};
+    // Archived Records is the only card left that has to move on its own; the
+    // Reports tile is a static quick action now, so data.generated_reports is
+    // deliberately not rendered.
     setCountCards({
-      generated_reports: data.generated_reports,
       total_archives: data.total_archives,
     });
     dashboardLastLiveCountsAt = Date.now();

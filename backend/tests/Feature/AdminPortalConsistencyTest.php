@@ -95,12 +95,91 @@ class AdminPortalConsistencyTest extends TestCase
         $this->assertStringNotContainsString('AdminLiveData?.mount', $productsLoader);
         $this->assertStringNotContainsString('admin-live-data', $this->allPortalHtml());
 
-        // The invisible cross-tab bridge that keeps the dashboard Generated
-        // Reports and Archived Records cards realtime must survive, and mount()
-        // must stay callable for month-cached copies of products-loader.js.
+        // The invisible cross-tab bridge that keeps the dashboard Archived
+        // Records card realtime must survive, and mount() must stay callable
+        // for month-cached copies of products-loader.js.
         foreach (['trackedFetch', 'publish', 'subscribe', 'setAvailability', 'mount: () => []'] as $needle) {
             $this->assertStringContainsString($needle, $adminCommon);
         }
+    }
+
+    public function test_the_dashboard_reports_tile_is_a_quick_action_not_a_counter(): void
+    {
+        $root = dirname(__DIR__, 3);
+        $dashboardJs = (string) file_get_contents($root.'/admin-page/dashboard.js');
+        $dashboardCss = (string) file_get_contents($root.'/admin-page/dashboard.css');
+
+        foreach (['admin-page', 'staff-page'] as $portal) {
+            $html = (string) file_get_contents($root.'/'.$portal.'/dashboard.html');
+
+            // Counting generated reports on the dashboard carried no decision,
+            // so the tile is now a call to action that opens the Reports page.
+            $this->assertStringNotContainsString('dashboardReportsCount', $html, $portal);
+            $this->assertStringNotContainsString('Generated Reports', $html, $portal);
+
+            $this->assertStringContainsString('class="card card-link card-action"', $html, $portal);
+            $this->assertStringContainsString('href="reports.html"', $html, $portal);
+            $this->assertStringContainsString('class="card-action-title"', $html, $portal);
+            $this->assertStringContainsString('Generate Report', $html, $portal);
+            $this->assertStringContainsString('Turn records into official reports.', $html, $portal);
+        }
+
+        // Nothing renders the count any more; the API keeps returning it for the
+        // report_generations audit trail.
+        $this->assertStringNotContainsString('dashboardReportsCount', $dashboardJs);
+
+        // The tile is styled by tint, icon and arrow only: a coloured left edge
+        // was explicitly rejected.
+        $this->assertSame(
+            1,
+            preg_match_all('/^\.card-action \{$/m', $dashboardCss),
+            'The quick-action tile needs exactly one base rule.',
+        );
+        preg_match_all('/\.card-action[^{}]*\{[^}]*\}/', $dashboardCss, $blocks);
+        $this->assertNotEmpty($blocks[0]);
+        foreach ($blocks[0] as $block) {
+            $this->assertStringNotContainsString('border-left', $block);
+            $this->assertStringNotContainsString('border-inline-start', $block);
+        }
+    }
+
+    public function test_every_portal_table_puts_the_newest_record_in_the_first_row(): void
+    {
+        $root = dirname(__DIR__, 3);
+        $ordersJs = (string) file_get_contents($root.'/admin-page/orders.js');
+        $accountsJs = (string) file_get_contents($root.'/admin-page/accounts.js');
+        $appointmentsJs = (string) file_get_contents($root.'/admin-page/appointments.js');
+
+        // Orders: incoming, the directory (which also feeds Rejected Orders),
+        // walk-ins and payment history are all newest-first, and the realtime
+        // upserts re-apply that order instead of appending.
+        foreach ([
+            'const sortOrdersByCreatedDesc',
+            'const sortPaymentsByPaidDesc',
+            'const sortWalkInByDateDesc',
+            'state.incoming = sortOrdersByCreatedDesc(state.incoming);',
+            'state.directory = sortOrdersByCreatedDesc(state.directory);',
+            'state.payments = sortPaymentsByPaidDesc(getCompletedDirectoryRows());',
+        ] as $needle) {
+            $this->assertStringContainsString($needle, $ordersJs, $needle);
+        }
+        $this->assertGreaterThanOrEqual(
+            4,
+            preg_match_all('/normalizeStateOrdering\(\);/', $ordersJs),
+            'Every state mutation must re-apply the newest-first order.',
+        );
+        foreach (['sortOrdersByCreatedAsc', 'sortPaymentsByOrderAsc'] as $obsolete) {
+            $this->assertStringNotContainsString($obsolete, $ordersJs, $obsolete);
+        }
+
+        // User Management is the one exception: the founding Admin stays No. 001
+        // and a newly created account lands in row 2 of page 1.
+        $this->assertStringContainsString('const isAdminAccount', $accountsJs);
+        $this->assertStringContainsString('const sortAccountsForTable', $accountsJs);
+        $this->assertStringContainsString('state.users = sortAccountsForTable(', $accountsJs);
+
+        // Appointments keeps Completed grouped last, newest-first within groups.
+        $this->assertStringContainsString('const tsB = toTimestamp(b?.created_at', $appointmentsJs);
     }
 
     public function test_the_official_letterhead_is_editable_from_both_reports_pages(): void
@@ -224,7 +303,7 @@ class AdminPortalConsistencyTest extends TestCase
         $modulesCss = (string) file_get_contents($root.'/admin-page/admin-modules.css');
 
         // Handing a finished document to the operator is a generation, so the
-        // dashboard "Generated Reports" card counts printing and exporting even
+        // report_generations audit trail records printing and exporting even
         // when the auto-loaded report was never explicitly generated. Refresh
         // and the poll stay read-only.
         $this->assertStringContainsString('const recordArtifactGeneration', $reportsJs);

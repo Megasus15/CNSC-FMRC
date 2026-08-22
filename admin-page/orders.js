@@ -376,20 +376,33 @@ document.addEventListener("DOMContentLoaded", () => {
     return Number.isFinite(parsed) ? parsed : 0;
   };
 
-  const sortOrdersByCreatedAsc = (rows) =>
+  // Every table in the Admin and Staff portals puts the newest record in the
+  // first row of page 1 — the same contract the Inventory tables already
+  // follow — so a record that was just created is never buried on the last
+  // page. Walk-ins were already newest-first; incoming, the directory (which
+  // also feeds Rejected Orders) and payment history now match them.
+  const sortOrdersByCreatedDesc = (rows) =>
     [...(Array.isArray(rows) ? rows : [])].sort(
       (a, b) =>
-        toTimestamp(a?.created_at || a?.created_at_label) -
-          toTimestamp(b?.created_at || b?.created_at_label) ||
-        toNumericId(a?.id || a?.order_id || a?.order_no) -
-          toNumericId(b?.id || b?.order_id || b?.order_no),
+        toTimestamp(b?.created_at || b?.created_at_label) -
+          toTimestamp(a?.created_at || a?.created_at_label) ||
+        toNumericId(b?.id || b?.order_id || b?.order_no) -
+          toNumericId(a?.id || a?.order_id || a?.order_no),
     );
 
-  const sortPaymentsByOrderAsc = (rows) =>
+  // Payment rows are completed directory orders, so the most recent settlement
+  // is whichever timestamp the row actually carries.
+  const paymentTimestamp = (row) =>
+    toTimestamp(
+      row?.date_paid || row?.completed_at || row?.updated_at || row?.created_at,
+    );
+
+  const sortPaymentsByPaidDesc = (rows) =>
     [...(Array.isArray(rows) ? rows : [])].sort(
       (a, b) =>
-        toNumericId(a?.order_id || a?.order_no || a?.payment_id) -
-        toNumericId(b?.order_id || b?.order_no || b?.payment_id),
+        paymentTimestamp(b) - paymentTimestamp(a) ||
+        toNumericId(b?.order_id || b?.order_no || b?.payment_id || b?.id) -
+          toNumericId(a?.order_id || a?.order_no || a?.payment_id || a?.id),
     );
 
   const sortWalkInByDateDesc = (rows) =>
@@ -401,8 +414,8 @@ document.addEventListener("DOMContentLoaded", () => {
     );
 
   const normalizeStateOrdering = () => {
-    state.incoming = sortOrdersByCreatedAsc(state.incoming);
-    state.directory = sortOrdersByCreatedAsc(state.directory);
+    state.incoming = sortOrdersByCreatedDesc(state.incoming);
+    state.directory = sortOrdersByCreatedDesc(state.directory);
     state.walkIn = sortWalkInByDateDesc(state.walkIn);
   };
 
@@ -413,7 +426,7 @@ document.addEventListener("DOMContentLoaded", () => {
     );
 
   const refreshPaymentsFromDirectory = () => {
-    state.payments = sortPaymentsByOrderAsc(getCompletedDirectoryRows());
+    state.payments = sortPaymentsByPaidDesc(getCompletedDirectoryRows());
   };
 
   const formatMoney = (amount) => {

@@ -2210,6 +2210,59 @@ body.admin-media-viewer-open {
   background: linear-gradient(135deg, #475569, #94a3b8);
 }
 
+/* ─── Reports quick-action tile ───────────────────────────────────────
+   Replaces the old "Generated Reports" counter. It is a call to action,
+   not a metric: the whole tile links to the Reports page. Every rule is
+   scoped to .card-action so the counter cards keep their exact look, and
+   the emphasis is carried by the tinted surface, the lifted amber icon
+   and the sliding arrow — never by a coloured edge. */
+.card-action {
+  background-image: linear-gradient(135deg, #fffdf5 0%, #ffffff 65%);
+}
+
+.card-action .card-action-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--primary-color);
+  margin-bottom: 6px;
+}
+
+/* Inline, not a flex item: on narrow screens the heading wraps and the arrow
+   has to stay glued to the last word instead of floating beside both lines. */
+.card-action .card-action-title i {
+  display: inline-block;
+  margin-left: 7px;
+  font-size: 0.72rem;
+  color: #b45309;
+  transition: transform 0.25s ease;
+}
+
+.card-action .card-action-text {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.card-action .card-action-icon {
+  box-shadow: 0 6px 14px rgba(217, 119, 6, 0.28);
+}
+
+.card-action:hover {
+  border-color: #f59e0b;
+}
+
+.card-action:hover .card-action-title i,
+.card-action:focus-visible .card-action-title i {
+  transform: translateX(4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-action .card-action-title i {
+    transition-duration: 1ms;
+  }
+}
+
 .dashboard-widgets {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));

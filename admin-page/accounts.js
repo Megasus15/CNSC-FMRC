@@ -189,6 +189,26 @@ document.addEventListener("DOMContentLoaded", () => {
     return Number.isFinite(parsed) ? parsed : 0;
   };
 
+  // The signed-up-first Admin row is the portal's anchor: it must stay No. 001
+  // on page 1. Every other account is newest-first, so a freshly created user
+  // lands in row 2 instead of on the last page.
+  const isAdminAccount = (user) =>
+    String(user?.role || "").toLowerCase() === "admin";
+
+  const sortAccountsForTable = (users) =>
+    [...(Array.isArray(users) ? users : [])].sort((a, b) => {
+      const adminRank = Number(isAdminAccount(b)) - Number(isAdminAccount(a));
+      if (adminRank !== 0) return adminRank;
+
+      const oldestFirst =
+        toTimestamp(a?.created_at) - toTimestamp(b?.created_at) ||
+        toNumericId(a?.id) - toNumericId(b?.id);
+
+      // Admins keep their original order so the founding Admin stays first even
+      // when a second Admin exists; everyone else is reversed.
+      return isAdminAccount(a) ? oldestFirst : -oldestFirst;
+    });
+
   const escapeHtml = (value) =>
     String(value ?? "")
       .replace(/&/g, "&amp;")
@@ -390,11 +410,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const payload = await response.json();
       const fetchedUsers = Array.isArray(payload?.data) ? payload.data : [];
-      state.users = [...fetchedUsers].sort(
-        (a, b) =>
-          toTimestamp(a?.created_at) - toTimestamp(b?.created_at) ||
-          toNumericId(a?.id) - toNumericId(b?.id),
-      );
+      state.users = sortAccountsForTable(fetchedUsers);
       state.currentPage = 1;
       renderTable();
     } catch (error) {
