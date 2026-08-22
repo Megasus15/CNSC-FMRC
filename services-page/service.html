@@ -20,8 +20,8 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
-    <link rel="stylesheet" href="../home-page/main.css?v=4.7" />
-    <link rel="stylesheet" href="../home-page/responsive.css" />
+    <link rel="stylesheet" href="../home-page/main.css?v=4.8" />
+    <link rel="stylesheet" href="../home-page/responsive.css?v=4.8" />
   </head>
   <body class="services-page-body">
     <header class="site-header">
@@ -142,11 +142,13 @@
       </div>
     </section>
 
-    <div class="modal-overlay" id="serviceModal">
-      <div class="modal-box">
-        <div class="modal-header">
-          <h2 class="modal-title" id="modalTitle">Service Details</h2>
-          <button class="close-modal-btn" id="closeModalBtn">&times;</button>
+    <div class="modal-overlay ux-dlg" id="serviceModal">
+      <div class="modal-box ux-dlg__card">
+        <div class="modal-header ux-dlg__head">
+          <button class="close-modal-btn ux-dlg__close" id="closeModalBtn">&times;</button>
+          <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-screwdriver-wrench"></i></span>
+          <p class="ux-dlg__eyebrow">Service details</p>
+          <h2 class="modal-title ux-dlg__title" id="modalTitle">Service Details</h2>
         </div>
 
         <div class="modal-divider"></div>
@@ -345,8 +347,8 @@
       </div>
     </footer>
 
-    <script src="../home-page/main.js?v=4.6"></script>
-    <script src="services.js"></script>
-    <script src="../home-page/customer-announcements.js"></script>
+    <script src="../home-page/main.js?v=4.8"></script>
+    <script src="services.js?v=4.8"></script>
+    <script src="../home-page/customer-announcements.js?v=4.8"></script>
   </body>
 </html>

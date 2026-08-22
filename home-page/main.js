@@ -120,23 +120,65 @@ const emitCustomerOrdersUpdated = (detail = {}) => {
 };
 
 // â”€â”€ Customer System Popup (global â€” accessible from all page IIFEs) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Every customer dialog shares the "ux-dlg" shell: a maroon header band with a
+// yellow badge + eyebrow + white title, a white body, and a cream footer strip
+// of pill buttons. Tones only swap the badge glyph and the eyebrow wording.
+const CUSTOMER_POPUP_TONES = {
+  success: { icon: "fa-solid fa-check", eyebrow: "Success" },
+  error: { icon: "fa-solid fa-circle-exclamation", eyebrow: "Request failed" },
+  warning: { icon: "fa-solid fa-triangle-exclamation", eyebrow: "Action needed" },
+  confirm: { icon: "fa-solid fa-circle-question", eyebrow: "Confirmation" },
+  info: { icon: "fa-solid fa-circle-info", eyebrow: "Notice" },
+};
+
+const resolveCustomerPopupTone = (title, isConfirm, options = {}) => {
+  const requested = String(options.tone || "").toLowerCase();
+  if (CUSTOMER_POPUP_TONES[requested]) {
+    return { key: requested, ...CUSTOMER_POPUP_TONES[requested] };
+  }
+  const label = String(title || "").toLowerCase();
+  let key = "info";
+  if (isConfirm || /^confirm|confirmation|are you sure|discard/.test(label)) {
+    key = "confirm";
+  } else if (
+    /success|sent|submitted|received|placed|thank|complete|saved|updated|added|approved|cancell?ed|removed/.test(
+      label,
+    )
+  ) {
+    key = "success";
+  } else if (/fail|error|unable|denied|rejected|problem|wrong/.test(label)) {
+    key = "error";
+  } else if (
+    /valid|required|limit|locked|unavailable|missing|select|stock|expired|warning|notice|restrict/.test(
+      label,
+    )
+  ) {
+    key = "warning";
+  }
+  return { key, ...CUSTOMER_POPUP_TONES[key] };
+};
+
 const ensureCustomerSystemPopup = () => {
   let popup = document.getElementById("customerSystemPopup");
   if (popup) return popup;
 
   popup = document.createElement("div");
   popup.id = "customerSystemPopup";
-  popup.className = "admin-system-popup";
+  popup.className = "admin-system-popup ux-dlg";
   popup.innerHTML = `
-    <div class="admin-system-popup__backdrop"></div>
-    <div class="admin-system-popup__card" role="dialog" aria-modal="true" aria-labelledby="customerSystemPopupTitle">
-      <h3 id="customerSystemPopupTitle" class="admin-system-popup__title">System Message</h3>
-      <hr class="admin-system-popup__separator" />
-      <p id="customerSystemPopupMessage" class="admin-system-popup__message"></p>
-      <hr class="admin-system-popup__separator" />
-      <div class="admin-system-popup__actions">
-        <button id="customerSystemPopupCancel" type="button" class="btn-admin btn-secondary">Cancel</button>
-        <button id="customerSystemPopupOk" type="button" class="btn-admin">Okay</button>
+    <div class="admin-system-popup__backdrop ux-dlg__backdrop"></div>
+    <div class="admin-system-popup__card ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="customerSystemPopupTitle">
+      <div class="ux-dlg__head">
+        <span class="ux-dlg__badge" id="customerSystemPopupBadge" aria-hidden="true"><i class="fa-solid fa-circle-info"></i></span>
+        <p class="ux-dlg__eyebrow" id="customerSystemPopupEyebrow">Notice</p>
+        <h3 id="customerSystemPopupTitle" class="admin-system-popup__title ux-dlg__title">System Message</h3>
+      </div>
+      <div class="ux-dlg__body">
+        <p id="customerSystemPopupMessage" class="admin-system-popup__message ux-dlg__text"></p>
+      </div>
+      <div class="admin-system-popup__actions ux-dlg__foot">
+        <button id="customerSystemPopupCancel" type="button" class="btn-admin btn-secondary ux-dlg__btn ux-dlg__btn--ghost">Cancel</button>
+        <button id="customerSystemPopupOk" type="button" class="btn-admin ux-dlg__btn ux-dlg__btn--primary">Okay</button>
       </div>
     </div>
   `;
@@ -148,14 +190,18 @@ const ensureCustomerSystemPopup = () => {
 const showCustomerPopup = (message, options = {}) =>
   new Promise((resolve) => {
     const popup = ensureCustomerSystemPopup();
+    const card = popup.querySelector(".admin-system-popup__card");
     const titleEl = popup.querySelector("#customerSystemPopupTitle");
     const msgEl = popup.querySelector("#customerSystemPopupMessage");
+    const badgeEl = popup.querySelector("#customerSystemPopupBadge");
+    const eyebrowEl = popup.querySelector("#customerSystemPopupEyebrow");
     const okBtn = popup.querySelector("#customerSystemPopupOk");
     const cancelBtn = popup.querySelector("#customerSystemPopupCancel");
     const actions = popup.querySelector(".admin-system-popup__actions");
     const backdrop = popup.querySelector(".admin-system-popup__backdrop");
 
-    if (titleEl) titleEl.textContent = options.title || "System Message";
+    const resolvedTitle = options.title || "System Message";
+    if (titleEl) titleEl.textContent = resolvedTitle;
     if (msgEl) msgEl.textContent = String(message || "Done.");
 
     const isConfirm = Boolean(options.isConfirm);
@@ -165,6 +211,11 @@ const showCustomerPopup = (message, options = {}) =>
     if (actions) {
       actions.classList.toggle("is-confirm", isConfirm);
     }
+
+    const tone = resolveCustomerPopupTone(resolvedTitle, isConfirm, options);
+    if (card) card.dataset.tone = tone.key;
+    if (badgeEl) badgeEl.innerHTML = `<i class="${tone.icon}"></i>`;
+    if (eyebrowEl) eyebrowEl.textContent = options.eyebrow || tone.eyebrow;
 
     const closePopup = (accepted) => {
       popup.classList.remove("show");
@@ -344,15 +395,21 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!modal) {
       modal = document.createElement("div");
       modal.id = "guestAccessModal";
-      modal.className = "guest-access-modal";
+      modal.className = "guest-access-modal ux-dlg";
       modal.innerHTML = `
-        <div class="guest-access-card" role="dialog" aria-modal="true" aria-labelledby="guestAccessTitle">
-          <button type="button" class="guest-access-close" id="closeGuestAccessModal" aria-label="Close guest access prompt">&times;</button>
-          <h2 class="guest-access-title" id="guestAccessTitle">Welcome, Guest</h2>
-          <p class="guest-access-copy" id="guestAccessCopy">Please log in or create an account to continue.</p>
-          <div class="guest-access-actions">
-            <a href="../customer-auth/auth.html#login" class="guest-access-btn login">Login</a>
-            <a href="../customer-auth/auth.html#signup" class="guest-access-btn signup">Sign Up</a>
+        <div class="guest-access-card ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="guestAccessTitle">
+          <div class="ux-dlg__head">
+            <button type="button" class="guest-access-close ux-dlg__close" id="closeGuestAccessModal" aria-label="Close guest access prompt">&times;</button>
+            <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-user-lock"></i></span>
+            <p class="ux-dlg__eyebrow">Guest access</p>
+            <h2 class="guest-access-title ux-dlg__title" id="guestAccessTitle">Welcome, Guest</h2>
+          </div>
+          <div class="ux-dlg__body">
+            <p class="guest-access-copy ux-dlg__text" id="guestAccessCopy">Please log in or create an account to continue.</p>
+          </div>
+          <div class="guest-access-actions ux-dlg__foot">
+            <a href="../customer-auth/auth.html#login" class="guest-access-btn login ux-dlg__btn ux-dlg__btn--primary">Login</a>
+            <a href="../customer-auth/auth.html#signup" class="guest-access-btn signup ux-dlg__btn ux-dlg__btn--ghost">Sign Up</a>
           </div>
         </div>
       `;
@@ -5675,7 +5732,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!overlay) {
       overlay = document.createElement("div");
       overlay.id = "customerProfileModal";
-      overlay.className = "customer-modal-overlay";
+      overlay.className = "customer-modal-overlay ux-dlg";
       document.body.appendChild(overlay);
     }
 
@@ -5686,16 +5743,22 @@ document.addEventListener("DOMContentLoaded", () => {
       : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 6px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
 
     overlay.innerHTML = `
-      <section class="customer-modal" role="dialog" aria-modal="true" aria-labelledby="customerModalTitle">
-        <div class="customer-modal-head">
-          <h2 class="customer-modal-title" id="customerModalTitle">My Account</h2>
-          <button class="customer-modal-close" id="closeProfileModal" type="button" aria-label="Close">&times;</button>
+      <section class="customer-modal ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="customerModalTitle">
+        <div class="customer-modal-head ux-dlg__head">
+          <button class="customer-modal-close ux-dlg__close" id="closeProfileModal" type="button" aria-label="Close">&times;</button>
+          <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-user"></i></span>
+          <p class="ux-dlg__eyebrow">Customer profile</p>
+          <h2 class="customer-modal-title ux-dlg__title" id="customerModalTitle">My Account</h2>
         </div>
-        <div class="customer-card" id="customerInfoBox"></div>
-        <button type="button" class="change-password-trigger-btn" id="openChangePasswordBtn">
-          ${pwdBtnIcon}
-          ${pwdBtnLabel}
-        </button>
+        <div class="ux-dlg__body">
+          <div class="customer-card" id="customerInfoBox"></div>
+        </div>
+        <div class="ux-dlg__foot">
+          <button type="button" class="change-password-trigger-btn ux-dlg__btn ux-dlg__btn--primary" id="openChangePasswordBtn">
+            ${pwdBtnIcon}
+            ${pwdBtnLabel}
+          </button>
+        </div>
       </section>
     `;
 
@@ -5768,7 +5831,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     overlay = document.createElement("div");
     overlay.id = "customerPasswordModal";
-    overlay.className = "customer-modal-overlay";
+    overlay.className = "customer-modal-overlay ux-dlg";
 
     const isPasswordSet = hasCustomerSetPassword(userInfo);
     const eyeClosedSvg =
@@ -5779,86 +5842,96 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!isPasswordSet) {
       // MODE 1: Google Account creating password for the first time (2 fields only: Create Password & Confirm Password)
       overlay.innerHTML = `
-        <section class="customer-modal" role="dialog" aria-modal="true" aria-labelledby="cpModalTitle">
-          <div class="customer-modal-head" style="display: flex; align-items: center; justify-content: space-between;">
-            <h2 class="customer-modal-title" id="cpModalTitle" style="font-size: 22px; margin: 0;">Create Password</h2>
-            <button class="customer-modal-back-pill" id="backToProfileBtn" type="button" aria-label="Back to My Account">
+        <section class="customer-modal ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="cpModalTitle">
+          <div class="customer-modal-head ux-dlg__head">
+            <button class="customer-modal-back-pill ux-dlg__back" id="backToProfileBtn" type="button" aria-label="Back to My Account">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
               <span>Back</span>
             </button>
+            <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-lock"></i></span>
+            <p class="ux-dlg__eyebrow">Account security</p>
+            <h2 class="customer-modal-title ux-dlg__title" id="cpModalTitle">Create Password</h2>
           </div>
-          <div style="background: #fef9c3; border: 1px solid #fde68a; border-radius: 8px; padding: 10px 14px; margin-top: 14px; margin-bottom: 6px; display: flex; align-items: flex-start; gap: 10px; font-size: 12.5px; color: #92400e; line-height: 1.45;">
-            <i class="fa-solid fa-circle-info" style="font-size: 15px; margin-top: 2px; color: #f59e0b; flex-shrink: 0;"></i>
-            <div>
-              <strong style="color: #78350f;">Google Sign-In:</strong> Create a password for your account so you can also log in directly anytime using your email/username and password.
-            </div>
+          <div class="ux-dlg__body">
+            <p class="ux-dlg__note">
+              <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+              <span><strong>Google Sign-In:</strong> Create a password for your account so you can also log in directly anytime using your email/username and password.</span>
+            </p>
+            <form id="changePasswordForm" novalidate>
+              <div class="customer-field">
+                <label for="cp_new">Create Password</label>
+                <div class="password-wrapper">
+                  <input type="password" id="cp_new" placeholder="Enter new password (min. 8 characters)" required />
+                  <button class="toggle-pass" type="button" data-target="cp_new" aria-label="Show password">
+                    ${eyeClosedSvg}
+                  </button>
+                </div>
+              </div>
+              <div class="customer-field">
+                <label for="cp_confirm">Confirm Password</label>
+                <div class="password-wrapper">
+                  <input type="password" id="cp_confirm" placeholder="Confirm your new password" required />
+                  <button class="toggle-pass" type="button" data-target="cp_confirm" aria-label="Show password">
+                    ${eyeClosedSvg}
+                  </button>
+                </div>
+              </div>
+              <div class="customer-msg" id="cp_msg"></div>
+            </form>
           </div>
-          <form id="changePasswordForm" novalidate style="margin-top: 14px;">
-            <div class="customer-field">
-              <label for="cp_new">Create Password</label>
-              <div class="password-wrapper">
-                <input type="password" id="cp_new" placeholder="Enter new password (min. 8 characters)" required />
-                <button class="toggle-pass" type="button" data-target="cp_new" aria-label="Show password">
-                  ${eyeClosedSvg}
-                </button>
-              </div>
-            </div>
-            <div class="customer-field">
-              <label for="cp_confirm">Confirm Password</label>
-              <div class="password-wrapper">
-                <input type="password" id="cp_confirm" placeholder="Confirm your new password" required />
-                <button class="toggle-pass" type="button" data-target="cp_confirm" aria-label="Show password">
-                  ${eyeClosedSvg}
-                </button>
-              </div>
-            </div>
-            <div class="customer-msg" id="cp_msg"></div>
-            <button type="submit" class="change-password-submit-btn">Create Password</button>
-          </form>
+          <div class="ux-dlg__foot">
+            <button type="submit" form="changePasswordForm" class="change-password-submit-btn ux-dlg__btn ux-dlg__btn--primary">Create Password</button>
+          </div>
         </section>
       `;
     } else {
       // MODE 2: Standard Account or Google Account that already has a password (Requires All 3 fields)
       overlay.innerHTML = `
-        <section class="customer-modal" role="dialog" aria-modal="true" aria-labelledby="cpModalTitle">
-          <div class="customer-modal-head" style="display: flex; align-items: center; justify-content: space-between;">
-            <h2 class="customer-modal-title" id="cpModalTitle" style="font-size: 22px; margin: 0;">Change Password</h2>
-            <button class="customer-modal-back-pill" id="backToProfileBtn" type="button" aria-label="Back to My Account">
+        <section class="customer-modal ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="cpModalTitle">
+          <div class="customer-modal-head ux-dlg__head">
+            <button class="customer-modal-back-pill ux-dlg__back" id="backToProfileBtn" type="button" aria-label="Back to My Account">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle; margin-right: 4px;"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
               <span>Back</span>
             </button>
+            <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-lock"></i></span>
+            <p class="ux-dlg__eyebrow">Account security</p>
+            <h2 class="customer-modal-title ux-dlg__title" id="cpModalTitle">Change Password</h2>
           </div>
-          <form id="changePasswordForm" novalidate style="margin-top: 14px;">
-            <div class="customer-field">
-              <label for="cp_current">Current Password</label>
-              <div class="password-wrapper">
-                <input type="password" id="cp_current" placeholder="Enter your current password" required />
-                <button class="toggle-pass" type="button" data-target="cp_current" aria-label="Show password">
-                  ${eyeClosedSvg}
-                </button>
+          <div class="ux-dlg__body">
+            <form id="changePasswordForm" novalidate>
+              <div class="customer-field">
+                <label for="cp_current">Current Password</label>
+                <div class="password-wrapper">
+                  <input type="password" id="cp_current" placeholder="Enter your current password" required />
+                  <button class="toggle-pass" type="button" data-target="cp_current" aria-label="Show password">
+                    ${eyeClosedSvg}
+                  </button>
+                </div>
               </div>
-            </div>
-            <div class="customer-field">
-              <label for="cp_new">New Password</label>
-              <div class="password-wrapper">
-                <input type="password" id="cp_new" placeholder="Enter new password (min. 8 characters)" required />
-                <button class="toggle-pass" type="button" data-target="cp_new" aria-label="Show password">
-                  ${eyeClosedSvg}
-                </button>
+              <div class="customer-field">
+                <label for="cp_new">New Password</label>
+                <div class="password-wrapper">
+                  <input type="password" id="cp_new" placeholder="Enter new password (min. 8 characters)" required />
+                  <button class="toggle-pass" type="button" data-target="cp_new" aria-label="Show password">
+                    ${eyeClosedSvg}
+                  </button>
+                </div>
               </div>
-            </div>
-            <div class="customer-field">
-              <label for="cp_confirm">Confirm New Password</label>
-              <div class="password-wrapper">
-                <input type="password" id="cp_confirm" placeholder="Confirm your new password" required />
-                <button class="toggle-pass" type="button" data-target="cp_confirm" aria-label="Show password">
-                  ${eyeClosedSvg}
-                </button>
+              <div class="customer-field">
+                <label for="cp_confirm">Confirm New Password</label>
+                <div class="password-wrapper">
+                  <input type="password" id="cp_confirm" placeholder="Confirm your new password" required />
+                  <button class="toggle-pass" type="button" data-target="cp_confirm" aria-label="Show password">
+                    ${eyeClosedSvg}
+                  </button>
+                </div>
               </div>
-            </div>
-            <div class="customer-msg" id="cp_msg"></div>
-            <button type="submit" class="change-password-submit-btn">Update Password</button>
-          </form>
+              <div class="customer-msg" id="cp_msg"></div>
+            </form>
+          </div>
+          <div class="ux-dlg__foot">
+            <button type="submit" form="changePasswordForm" class="change-password-submit-btn ux-dlg__btn ux-dlg__btn--primary">Update Password</button>
+          </div>
         </section>
       `;
     }
@@ -5951,7 +6024,9 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
-        const submitBtn = form.querySelector("button[type='submit']");
+        // The submit pill lives in the dialog footer (outside the <form>), so
+        // it has to be looked up on the overlay rather than on the form.
+        const submitBtn = overlay.querySelector("button[type='submit']");
         const originalBtnText = submitBtn ? submitBtn.textContent : (isPasswordSet ? "Update Password" : "Create Password");
         if (submitBtn) {
           submitBtn.disabled = true;
@@ -6301,19 +6376,21 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!customerOrdersController) {
       const overlay = document.createElement("div");
       overlay.id = "customerOrdersModal";
-      overlay.className = "customer-orders-overlay";
+      overlay.className = "customer-orders-overlay ux-dlg";
       overlay.innerHTML = `
-        <section class="customer-orders-modal" role="dialog" aria-modal="true" aria-labelledby="customerOrdersTitle">
-          <div class="customer-orders-head">
+        <section class="customer-orders-modal ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="customerOrdersTitle">
+          <div class="customer-orders-head ux-dlg__head">
+            <button type="button" class="customer-orders-close ux-dlg__close" id="closeCustomerOrdersModal" aria-label="Close">&times;</button>
+            <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-bag-shopping"></i></span>
             <div class="customer-orders-title-wrap">
-              <h2 class="customer-orders-title" id="customerOrdersTitle">My Orders</h2>
+              <p class="ux-dlg__eyebrow">Order tracking</p>
+              <h2 class="customer-orders-title ux-dlg__title" id="customerOrdersTitle">My Orders</h2>
               <p class="customer-orders-subtitle">Track every order from payment to completion.</p>
               <p class="customer-orders-sync-status is-syncing" id="customerOrdersSyncStatus" aria-live="polite">
                 <span class="customer-orders-sync-dot" aria-hidden="true"></span>
                 <span>Loading current orders...</span>
               </p>
             </div>
-            <button type="button" class="customer-orders-close" id="closeCustomerOrdersModal" aria-label="Close">&times;</button>
           </div>
 
           <div class="customer-orders-tabs" id="customerOrdersTabs">
@@ -6338,10 +6415,12 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </div>
 
-          <section class="customer-order-detail-modal" id="customerOrderDetailModal" aria-hidden="true">
-            <div class="customer-order-detail-head">
-              <h3 id="customerOrderDetailTitle">Order Details</h3>
-              <button type="button" class="customer-orders-close" id="closeCustomerOrderDetail" aria-label="Close">&times;</button>
+          <section class="customer-order-detail-modal ux-dlg__card" id="customerOrderDetailModal" aria-hidden="true">
+            <div class="customer-order-detail-head ux-dlg__head">
+              <button type="button" class="customer-orders-close ux-dlg__close" id="closeCustomerOrderDetail" aria-label="Close">&times;</button>
+              <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-receipt"></i></span>
+              <p class="ux-dlg__eyebrow">Order record</p>
+              <h3 id="customerOrderDetailTitle" class="ux-dlg__title">Order Details</h3>
             </div>
             <div class="customer-order-detail-content" id="customerOrderDetailContent"></div>
           </section>
@@ -7469,15 +7548,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const openBuyAgainPicker = (order, items) => {
         const overlayEl = document.createElement("div");
-        overlayEl.className = "customer-rating-overlay customer-buy-again-overlay";
+        overlayEl.className = "customer-rating-overlay customer-buy-again-overlay ux-dlg";
         overlayEl.innerHTML = `
-          <div class="customer-rating-card customer-buy-again-card" role="dialog" aria-modal="true" aria-labelledby="buyAgainTitle">
-            <div class="customer-rating-head">
+          <div class="customer-rating-card customer-buy-again-card ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="buyAgainTitle">
+            <div class="customer-rating-head ux-dlg__head">
+              <button type="button" class="customer-orders-close ux-dlg__close" data-buy-again-close aria-label="Close buy again picker">&times;</button>
+              <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-cart-plus"></i></span>
               <div>
-                <p class="customer-rating-eyebrow">Buy again</p>
-                <h3 id="buyAgainTitle">Choose a product to reorder</h3>
+                <p class="customer-rating-eyebrow ux-dlg__eyebrow">Buy again</p>
+                <h3 id="buyAgainTitle" class="ux-dlg__title">Choose a product to reorder</h3>
               </div>
-              <button type="button" class="customer-orders-close" data-buy-again-close aria-label="Close buy again picker">&times;</button>
             </div>
             <div class="customer-rating-body">
               <p class="customer-rating-product-name">Order ${escapeHtml(order.order_no_display || `#${order.order_no || order.id || "-"}`)} &bull; one product per checkout.</p>
@@ -7505,8 +7585,8 @@ document.addEventListener("DOMContentLoaded", () => {
                   .join("")}
               </div>
             </div>
-            <div class="customer-rating-actions">
-              <button type="button" class="customer-rating-cancel-btn" data-buy-again-close>Cancel</button>
+            <div class="customer-rating-actions ux-dlg__foot">
+              <button type="button" class="customer-rating-cancel-btn ux-dlg__btn ux-dlg__btn--ghost" data-buy-again-close>Cancel</button>
             </div>
           </div>
         `;
@@ -7908,15 +7988,16 @@ document.addEventListener("DOMContentLoaded", () => {
         new Promise((resolve) => {
           const overlayEl = document.createElement("div");
           overlayEl.className =
-            "customer-rating-overlay customer-return-form-overlay";
+            "customer-rating-overlay customer-return-form-overlay ux-dlg";
           overlayEl.innerHTML = `
-            <div class="customer-rating-card customer-return-form-card" role="dialog" aria-modal="true" aria-labelledby="returnShipTitle">
-              <div class="customer-rating-head">
+            <div class="customer-rating-card customer-return-form-card ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="returnShipTitle">
+              <div class="customer-rating-head ux-dlg__head">
+                <button type="button" class="customer-orders-close ux-dlg__close" data-return-form-close aria-label="Close">&times;</button>
+                <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-truck-fast"></i></span>
                 <div>
-                  <p class="customer-rating-eyebrow">Return shipment</p>
-                  <h3 id="returnShipTitle">Send the item back</h3>
+                  <p class="customer-rating-eyebrow ux-dlg__eyebrow">Return shipment</p>
+                  <h3 id="returnShipTitle" class="ux-dlg__title">Send the item back</h3>
                 </div>
-                <button type="button" class="customer-orders-close" data-return-form-close aria-label="Close">&times;</button>
               </div>
               <div class="customer-rating-body">
                 <p class="customer-rating-product-name">Return ${escapeHtml(returnNo || "")} &bull; Enter the courier you used so we can watch for the parcel.</p>
@@ -7927,9 +8008,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 <label class="customer-rating-field-label" for="returnShipNote">Note for the store <span>(optional)</span></label>
                 <textarea id="returnShipNote" class="customer-rating-feedback" maxlength="400" rows="3" placeholder="Anything we should know about the parcel..."></textarea>
               </div>
-              <div class="customer-rating-actions">
-                <button type="button" class="customer-rating-cancel-btn" data-return-form-close>Cancel</button>
-                <button type="button" class="btn-place-order customer-rating-submit-btn" data-return-form-submit>
+              <div class="customer-rating-actions ux-dlg__foot is-confirm">
+                <button type="button" class="customer-rating-cancel-btn ux-dlg__btn ux-dlg__btn--ghost" data-return-form-close>Cancel</button>
+                <button type="button" class="btn-place-order customer-rating-submit-btn ux-dlg__btn ux-dlg__btn--primary" data-return-form-submit>
                   <span class="customer-rating-submit-spinner" aria-hidden="true"></span>
                   <span>Mark as sent back</span>
                 </button>
@@ -9038,36 +9119,42 @@ const openRatingModal = (() => {
 
     ratingOverlay = document.createElement("div");
     ratingOverlay.id = "customerRatingModal";
-    ratingOverlay.className = "customer-rating-overlay";
+    ratingOverlay.className = "customer-rating-overlay ux-dlg";
     ratingOverlay.innerHTML = `
-      <div class="customer-rating-card" role="dialog" aria-modal="true" aria-labelledby="ratingModalTitle">
-        <div class="customer-rating-head">
+      <div class="customer-rating-card ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="ratingModalTitle">
+        <div class="customer-rating-head ux-dlg__head">
+          <button type="button" class="customer-orders-close ux-dlg__close" id="closeRatingModal" aria-label="Close rating modal">&times;</button>
+          <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-star"></i></span>
           <div>
-            <p class="customer-rating-eyebrow">Customer review</p>
-            <h3 id="ratingModalTitle">Rate each product</h3>
+            <p class="customer-rating-eyebrow ux-dlg__eyebrow">Customer review</p>
+            <h3 id="ratingModalTitle" class="ux-dlg__title">Rate each product</h3>
           </div>
-          <button type="button" class="customer-orders-close" id="closeRatingModal" aria-label="Close rating modal">&times;</button>
         </div>
         <div class="customer-rating-body" id="ratingModalBody">
           <p class="customer-rating-product-name" id="ratingProductName">Rate each product individually.</p>
           <div class="customer-rating-items" id="ratingItems"></div>
         </div>
-        <div class="customer-rating-actions">
-          <button type="button" class="customer-rating-cancel-btn" id="cancelRatingBtn">Cancel</button>
-          <button type="button" class="btn-place-order customer-rating-submit-btn" id="submitRatingBtn">
+        <div class="customer-rating-actions ux-dlg__foot is-confirm">
+          <button type="button" class="customer-rating-cancel-btn ux-dlg__btn ux-dlg__btn--ghost" id="cancelRatingBtn">Cancel</button>
+          <button type="button" class="btn-place-order customer-rating-submit-btn ux-dlg__btn ux-dlg__btn--primary" id="submitRatingBtn">
             <span class="customer-rating-submit-spinner" aria-hidden="true"></span>
             <span data-rating-submit-label>Submit reviews</span>
           </button>
         </div>
       </div>
-      <div class="customer-rating-discard-overlay" id="ratingDiscardModal" aria-hidden="true">
-        <div class="customer-rating-discard-card" role="dialog" aria-modal="true" aria-labelledby="ratingDiscardTitle">
-          <div class="customer-rating-discard-icon" aria-hidden="true"><i class="fa-solid fa-triangle-exclamation"></i></div>
-          <h3 id="ratingDiscardTitle">Discard changes?</h3>
-          <p>Your product ratings and review changes have not been submitted.</p>
-          <div class="customer-rating-discard-actions">
-            <button type="button" class="customer-rating-cancel-btn" id="continueRatingBtn">Continue to rate or review</button>
-            <button type="button" class="customer-rating-submit-btn" id="discardRatingBtn">Discard</button>
+      <div class="customer-rating-discard-overlay ux-dlg" id="ratingDiscardModal" aria-hidden="true">
+        <div class="customer-rating-discard-card ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="ratingDiscardTitle">
+          <div class="ux-dlg__head">
+            <span class="customer-rating-discard-icon ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-triangle-exclamation"></i></span>
+            <p class="ux-dlg__eyebrow">Unsaved changes</p>
+            <h3 id="ratingDiscardTitle" class="ux-dlg__title">Discard changes?</h3>
+          </div>
+          <div class="ux-dlg__body">
+            <p class="ux-dlg__text">Your product ratings and review changes have not been submitted.</p>
+          </div>
+          <div class="customer-rating-discard-actions ux-dlg__foot is-confirm">
+            <button type="button" class="customer-rating-cancel-btn ux-dlg__btn ux-dlg__btn--ghost" id="continueRatingBtn">Continue to rate or review</button>
+            <button type="button" class="customer-rating-submit-btn ux-dlg__btn ux-dlg__btn--danger" id="discardRatingBtn">Discard</button>
           </div>
         </div>
       </div>
@@ -9493,33 +9580,39 @@ const openReturnRequestModal = (() => {
   const buildReturnModalShell = () => {
     const overlay = document.createElement("div");
     overlay.id = "customerReturnRequestModal";
-    overlay.className = "customer-rating-overlay customer-return-request-overlay";
+    overlay.className = "customer-rating-overlay customer-return-request-overlay ux-dlg";
     overlay.innerHTML = `
-      <div class="customer-rating-card customer-return-request-card" role="dialog" aria-modal="true" aria-labelledby="returnRequestTitle">
-        <div class="customer-rating-head">
+      <div class="customer-rating-card customer-return-request-card ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="returnRequestTitle">
+        <div class="customer-rating-head ux-dlg__head">
+          <button type="button" class="customer-orders-close ux-dlg__close" data-return-request-close aria-label="Close return request form">&times;</button>
+          <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-rotate-left"></i></span>
           <div>
-            <p class="customer-rating-eyebrow">Return &amp; refund</p>
-            <h3 id="returnRequestTitle">Request a return</h3>
+            <p class="customer-rating-eyebrow ux-dlg__eyebrow">Return &amp; refund</p>
+            <h3 id="returnRequestTitle" class="ux-dlg__title">Request a return</h3>
           </div>
-          <button type="button" class="customer-orders-close" data-return-request-close aria-label="Close return request form">&times;</button>
         </div>
         <div class="customer-rating-body" id="returnRequestBody"></div>
-        <div class="customer-rating-actions">
-          <button type="button" class="customer-rating-cancel-btn" data-return-request-close>Cancel</button>
-          <button type="button" class="btn-place-order customer-rating-submit-btn" data-return-request-submit>
+        <div class="customer-rating-actions ux-dlg__foot is-confirm">
+          <button type="button" class="customer-rating-cancel-btn ux-dlg__btn ux-dlg__btn--ghost" data-return-request-close>Cancel</button>
+          <button type="button" class="btn-place-order customer-rating-submit-btn ux-dlg__btn ux-dlg__btn--primary" data-return-request-submit>
             <span class="customer-rating-submit-spinner" aria-hidden="true"></span>
             <span data-return-submit-label>Submit request</span>
           </button>
         </div>
       </div>
-      <div class="customer-rating-discard-overlay" data-return-discard aria-hidden="true">
-        <div class="customer-rating-discard-card" role="dialog" aria-modal="true" aria-labelledby="returnDiscardTitle">
-          <div class="customer-rating-discard-icon" aria-hidden="true"><i class="fa-solid fa-triangle-exclamation"></i></div>
-          <h3 id="returnDiscardTitle">Discard this request?</h3>
-          <p>Your return details have not been submitted yet.</p>
-          <div class="customer-rating-discard-actions">
-            <button type="button" class="customer-rating-cancel-btn" data-return-discard-continue>Continue the request</button>
-            <button type="button" class="customer-rating-submit-btn" data-return-discard-confirm>Discard</button>
+      <div class="customer-rating-discard-overlay ux-dlg" data-return-discard aria-hidden="true">
+        <div class="customer-rating-discard-card ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="returnDiscardTitle">
+          <div class="ux-dlg__head">
+            <span class="customer-rating-discard-icon ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-triangle-exclamation"></i></span>
+            <p class="ux-dlg__eyebrow">Unsaved request</p>
+            <h3 id="returnDiscardTitle" class="ux-dlg__title">Discard this request?</h3>
+          </div>
+          <div class="ux-dlg__body">
+            <p class="ux-dlg__text">Your return details have not been submitted yet.</p>
+          </div>
+          <div class="customer-rating-discard-actions ux-dlg__foot is-confirm">
+            <button type="button" class="customer-rating-cancel-btn ux-dlg__btn ux-dlg__btn--ghost" data-return-discard-continue>Continue the request</button>
+            <button type="button" class="customer-rating-submit-btn ux-dlg__btn ux-dlg__btn--danger" data-return-discard-confirm>Discard</button>
           </div>
         </div>
       </div>
@@ -10345,84 +10438,70 @@ const openReturnRequestModal = (() => {
 
   void refreshGooglePasswordState();
 
+  // Kept outside the builder so a second logout always runs the newest
+  // callback instead of the closure captured when the dialog was created.
+  let pendingLogoutConfirm = null;
+
   const showLogoutConfirmModal = (onConfirm) => {
+    pendingLogoutConfirm = typeof onConfirm === "function" ? onConfirm : null;
     let modal = document.getElementById("laravelLogoutModal");
     if (!modal) {
       modal = document.createElement("div");
       modal.id = "laravelLogoutModal";
+      modal.className = "ux-dlg ux-dlg--standalone";
       modal.innerHTML = `
-        <div style="position: fixed; inset: 0; background: rgba(17, 24, 39, 0.6); backdrop-filter: blur(2px); display: flex; justify-content: center; align-items: center; z-index: 100000; opacity: 0; transition: opacity 0.2s ease;">
-          <div style="background: #fff; border-radius: 12px; width: 100%; max-width: 420px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); transform: scale(0.95); transition: transform 0.2s ease; font-family: 'Montserrat', sans-serif; overflow: hidden;">
-            <div style="padding: 24px;">
-              <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px;">
-                <div style="width: 40px; height: 40px; border-radius: 50%; background: #fee2e2; display: flex; justify-content: center; align-items: center; flex-shrink: 0;">
-                  <svg width="24" height="24" fill="none" stroke="#dc2626" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                </div>
-                <h2 style="font-size: 1.25rem; font-weight: 600; color: #111827; margin: 0;">Confirm Logout</h2>
-              </div>
-              <p style="font-size: 0.9rem; color: #4b5563; margin: 0 0 0 54px; line-height: 1.5;">Are you sure you want to log out from your account? You will need to sign in again to access the portal.</p>
-            </div>
-            <div style="display: flex; justify-content: flex-end; gap: 12px; background: #f9fafb; padding: 16px 24px; border-top: 1px solid #f3f4f6;">
-              <button id="cancelLogoutBtn" style="padding: 8px 16px; background: #fff; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; color: #374151; font-weight: 600; font-family: inherit; font-size: 0.875rem; transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.08s ease;">Cancel</button>
-              <button id="confirmLogoutBtn" style="padding: 8px 16px; background: var(--primary-color, #a80f0f); border: none; border-radius: 6px; cursor: pointer; color: #fff; font-weight: 600; font-family: inherit; font-size: 0.875rem; transition: background-color 0.2s ease, transform 0.08s ease, box-shadow 0.2s ease;">Log Out</button>
-            </div>
+        <div class="ux-dlg__backdrop"></div>
+        <div class="ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="laravelLogoutTitle">
+          <div class="ux-dlg__head">
+            <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-right-from-bracket"></i></span>
+            <p class="ux-dlg__eyebrow">Account session</p>
+            <h2 class="ux-dlg__title" id="laravelLogoutTitle">Confirm Logout</h2>
+          </div>
+          <div class="ux-dlg__body">
+            <p class="ux-dlg__text">Are you sure you want to log out from your account? You will need to sign in again to access the portal.</p>
+          </div>
+          <div class="ux-dlg__foot is-confirm">
+            <button id="cancelLogoutBtn" type="button" class="ux-dlg__btn ux-dlg__btn--ghost">Cancel</button>
+            <button id="confirmLogoutBtn" type="button" class="ux-dlg__btn ux-dlg__btn--danger">Log Out</button>
           </div>
         </div>
       `;
       document.body.appendChild(modal);
 
-      const cancelBtn = modal.querySelector("#cancelLogoutBtn");
-      const confirmBtn = modal.querySelector("#confirmLogoutBtn");
-
-      cancelBtn.onmouseenter = () => {
-        cancelBtn.style.backgroundColor = "#fee2e2";
-        cancelBtn.style.color = "#dc2626";
-        cancelBtn.style.borderColor = "#fca5a5";
+      const closeLogoutModal = () => {
+        modal.classList.remove("show");
+        window.setTimeout(() => {
+          if (!modal.classList.contains("show")) modal.style.display = "none";
+        }, 220);
       };
-      cancelBtn.onmouseleave = () => {
-        cancelBtn.style.backgroundColor = "#fff";
-        cancelBtn.style.color = "#374151";
-        cancelBtn.style.borderColor = "#d1d5db";
-        cancelBtn.style.transform = "scale(1)";
-      };
-      cancelBtn.onmousedown = () => (cancelBtn.style.transform = "scale(0.96)");
-      cancelBtn.onmouseup = () => (cancelBtn.style.transform = "scale(1)");
 
-      confirmBtn.onmouseenter = () => {
-        confirmBtn.style.backgroundColor = "#7f1d1d"; // Darker red
-        confirmBtn.style.boxShadow =
-          "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)";
+      const dismiss = () => {
+        pendingLogoutConfirm = null;
+        closeLogoutModal();
       };
-      confirmBtn.onmouseleave = () => {
-        confirmBtn.style.backgroundColor = "var(--primary-color, #a80f0f)";
-        confirmBtn.style.boxShadow = "none";
-        confirmBtn.style.transform = "scale(1)";
-      };
-      confirmBtn.onmousedown = () =>
-        (confirmBtn.style.transform = "scale(0.96)");
-      confirmBtn.onmouseup = () => (confirmBtn.style.transform = "scale(1)");
 
-      cancelBtn.addEventListener("click", () => {
-        modal.children[0].style.opacity = "0";
-        modal.children[0].children[0].style.transform = "scale(0.95)";
-        setTimeout(() => (modal.style.display = "none"), 200);
-      });
-
-      confirmBtn.addEventListener("click", () => {
-        modal.children[0].style.opacity = "0";
-        modal.children[0].children[0].style.transform = "scale(0.95)";
-        setTimeout(() => {
-          modal.style.display = "none";
-          onConfirm();
-        }, 200);
+      modal.querySelector("#cancelLogoutBtn")?.addEventListener("click", dismiss);
+      modal.querySelector(".ux-dlg__backdrop")?.addEventListener("click", dismiss);
+      modal
+        .querySelector("#confirmLogoutBtn")
+        ?.addEventListener("click", () => {
+          const run = pendingLogoutConfirm;
+          pendingLogoutConfirm = null;
+          closeLogoutModal();
+          window.setTimeout(() => {
+            if (run) run();
+          }, 180);
+        });
+      document.addEventListener("keydown", (ev) => {
+        if (ev.key === "Escape" && modal.classList.contains("show")) dismiss();
       });
     }
 
-    modal.style.display = "block";
-    requestAnimationFrame(() => {
-      modal.children[0].style.opacity = "1";
-      modal.children[0].children[0].style.transform = "scale(1)";
-    });
+    modal.style.display = "flex";
+    // A short delay (instead of rAF, which never fires on hidden documents)
+    // guarantees the open transition runs from the closed state.
+    window.setTimeout(() => modal.classList.add("show"), 12);
+    window.setTimeout(() => modal.querySelector("#cancelLogoutBtn")?.focus(), 60);
   };
 
   dropdown.querySelector("#logoutBtn")?.addEventListener("click", async () => {
@@ -10906,17 +10985,20 @@ const openReturnRequestModal = (() => {
 
     popup = document.createElement("div");
     popup.id = "heroSdgDetailPopup";
-    popup.className = "admin-system-popup";
+    popup.className = "admin-system-popup ux-dlg";
     popup.innerHTML = `
-      <div class="admin-system-popup__backdrop"></div>
-      <div class="admin-system-popup__card" role="dialog" aria-modal="true" aria-labelledby="heroSdgDetailTitle">
-        <img id="heroSdgDetailImg" class="sdg-detail-modal__img" alt="" />
-        <h3 id="heroSdgDetailTitle" class="admin-system-popup__title" style="text-align: center"></h3>
-        <hr class="admin-system-popup__separator" />
-        <p id="heroSdgDetailMessage" class="admin-system-popup__message"></p>
-        <hr class="admin-system-popup__separator" />
-        <div class="admin-system-popup__actions">
-          <button id="heroSdgDetailClose" type="button" class="btn-admin">Close</button>
+      <div class="admin-system-popup__backdrop ux-dlg__backdrop"></div>
+      <div class="admin-system-popup__card ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="heroSdgDetailTitle">
+        <div class="ux-dlg__head ux-dlg__head--figure">
+          <img id="heroSdgDetailImg" class="sdg-detail-modal__img ux-dlg__figure" alt="" />
+          <p class="ux-dlg__eyebrow">Sustainable Development Goal</p>
+          <h3 id="heroSdgDetailTitle" class="admin-system-popup__title ux-dlg__title"></h3>
+        </div>
+        <div class="ux-dlg__body">
+          <p id="heroSdgDetailMessage" class="admin-system-popup__message ux-dlg__text"></p>
+        </div>
+        <div class="admin-system-popup__actions ux-dlg__foot">
+          <button id="heroSdgDetailClose" type="button" class="btn-admin ux-dlg__btn ux-dlg__btn--primary">Close</button>
         </div>
       </div>
     `;
@@ -10944,7 +11026,7 @@ const openReturnRequestModal = (() => {
     const img = popup.querySelector("#heroSdgDetailImg");
     const title = popup.querySelector("#heroSdgDetailTitle");
     const msg = popup.querySelector("#heroSdgDetailMessage");
-    const seps = popup.querySelectorAll(".admin-system-popup__separator");
+    const body = popup.querySelector(".ux-dlg__body");
     const label = String(sdg.title || "").trim() || "Sustainable Development Goal";
     const desc = String(sdg.description || "").trim();
 
@@ -10957,8 +11039,8 @@ const openReturnRequestModal = (() => {
       msg.textContent = desc;
       msg.style.display = desc ? "" : "none";
     }
-    // Collapse the second rule too when there is no description to frame.
-    if (seps[1]) seps[1].style.display = desc ? "" : "none";
+    // Collapse the whole body when there is no description to frame.
+    if (body) body.style.display = desc ? "" : "none";
 
     popup.classList.add("show");
     popup.querySelector("#heroSdgDetailClose")?.focus();
@@ -11094,99 +11176,13 @@ const openReturnRequestModal = (() => {
 })();
 
 /* ===========================================================================
-   HERO TITLE <-> LOGO OPTICAL ANCHOR
-   The SDG band lives under the CTA pills inside .hero-content-left, so every
-   badge added used to drag the flex-centred copy column upward and lift the
-   title off the logo's mid-line.
-   In a centre-aligned row the column's mid-line sits on the logo's, so the
-   title's mid-line rides (below - above)/2 above it -- "below" being the height
-   of everything under the title inside the column, "above" anything over it.
-   Nudging the column down by exactly that half closes the gap, at any badge
-   count and any width. Both terms are gaps between edges that the nudge shifts
-   together, so the measurement never feeds back on itself.
-   Stacked heroes (logo above the copy) get no offset: there is no side-by-side
-   mid-line to match.
+   HERO TITLE <-> LOGO OPTICAL ANCHOR — removed.
+   This block used to nudge .hero-content-left downward by half the height of
+   everything under the title (CTA pills + SDG band) so the title's mid-line
+   landed on the logo's. It cost the hero the top of its screen: the pair sat
+   ~45px lower and the badge band was pushed into the fold line.
+   The band is now lifted out of the copy column's flow in CSS
+   (see "Hero SDG band — pinned out of the copy column" in main.css), so the
+   column measures the title and the pills only and the flex row centres the
+   pair by itself. No script, nothing to re-measure on resize.
    =========================================================================== */
-(function () {
-  var hero = document.querySelector(".hero-section");
-  var container = hero && hero.querySelector(".hero-container");
-  var column = hero && hero.querySelector(".hero-content-left");
-  var title = column && column.querySelector(".hero-title");
-  var logo = hero && hero.querySelector(".hero-graphic");
-  // main.js is shared with the products, services and contact pages.
-  if (!hero || !container || !column || !title || !logo) return;
-
-  var scheduled = false;
-  var muted = false;
-  var applied = null;
-
-  function setAnchor(px) {
-    if (applied === px) return;
-    applied = px;
-    if (px === null) column.style.removeProperty("--hero-title-anchor");
-    else column.style.setProperty("--hero-title-anchor", px + "px");
-  }
-
-  /* The floor the copy column may not cross: the section's own content edge,
-     and — where the scroll cue is pinned to the bottom of the section — a band
-     wide enough for the cue plus a little air. The cue's band is derived from
-     its computed `bottom` and layout height, never from its rect, which the
-     bounce animation keeps moving; the copy's translate does not move the band,
-     so trimming the lift cannot feed back into this measurement. */
-  function copyFloor() {
-    var heroRect = hero.getBoundingClientRect();
-    var padBottom = parseFloat(getComputedStyle(hero).paddingBottom) || 0;
-    var floor = heroRect.bottom - padBottom;
-    var cue = hero.querySelector(".scroll-indicator");
-    if (cue) {
-      var cs = getComputedStyle(cue);
-      if (cs.display !== "none" && cs.position === "absolute") {
-        var offset = parseFloat(cs.bottom) || 0;
-        floor = Math.min(floor, heroRect.bottom - offset - cue.offsetHeight - 12);
-      }
-    }
-    return floor;
-  }
-
-  function align() {
-    scheduled = false;
-    muted = true;
-    if (getComputedStyle(container).flexDirection !== "row") {
-      setAnchor(null);
-      muted = false;
-      return;
-    }
-    var col = column.getBoundingClientRect();
-    var ttl = title.getBoundingClientRect();
-    var above = ttl.top - col.top;
-    var below = col.bottom - ttl.bottom;
-    var lift = Math.max(0, Math.round((below - above) / 2));
-    setAnchor(lift);
-    /* Height-starved landscape: never let the copy slide out of its section or
-       under the cue. The rest of the empty tail band is fair game. */
-    var spill = column.getBoundingClientRect().bottom - copyFloor();
-    if (spill > 1) setAnchor(Math.max(0, Math.round(lift - spill)));
-    muted = false;
-  }
-
-  function schedule() {
-    if (scheduled || muted) return;
-    scheduled = true;
-    requestAnimationFrame(align);
-  }
-
-  schedule();
-  window.addEventListener("resize", schedule);
-  window.addEventListener("orientationchange", schedule);
-  window.addEventListener("load", schedule);
-  if (document.fonts && document.fonts.ready) {
-    document.fonts.ready.then(schedule).catch(function () {});
-  }
-  /* The hero title text and the badge strip both arrive from the API, and the
-     badge images settle later still -- watch the boxes instead of the calls. */
-  if (window.ResizeObserver) {
-    var ro = new ResizeObserver(schedule);
-    ro.observe(column);
-    ro.observe(title);
-  }
-})();

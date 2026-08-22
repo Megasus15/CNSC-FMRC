@@ -99,7 +99,118 @@ body {
 }
 
 /* Customer announcements: shared with the products page and intentionally beside the profile control. */
-.announcement-bell{position:relative;display:grid;width:42px;height:42px;place-items:center;margin-right:7px;border:0;border-radius:50%;background:#fff4f2;color:#a51d1d;cursor:pointer;transition:transform .2s ease,background .2s ease}.announcement-bell:hover{background:#fee2df;transform:translateY(-1px)}.announcement-modal{position:fixed;inset:0;z-index:3000;display:none;align-items:center;justify-content:center;padding:22px;background:rgba(25,12,12,.58);backdrop-filter:blur(5px)}.announcement-modal.is-open{display:flex}.announcement-modal__card{position:relative;width:min(100%,520px);overflow:hidden;border-radius:22px;background:#fff;box-shadow:0 28px 70px rgba(20,8,8,.34)}.announcement-modal__hero{padding:30px 62px 26px 30px;color:#fff;background:linear-gradient(135deg,#831515,#c0392b 62%,#e56c37)}.announcement-modal__label{margin:0 0 9px;font-size:.74rem;font-weight:800;letter-spacing:.12em;opacity:.86}.announcement-modal__title{margin:0;font-size:clamp(1.35rem,3vw,1.85rem);line-height:1.2}.announcement-modal__body{padding:25px 30px 30px}.announcement-modal__message{margin:0;color:#4b5563;font-size:.95rem;line-height:1.65;white-space:pre-line}.announcement-modal__date{display:inline-flex;margin-top:17px;padding:7px 10px;border-radius:8px;background:#fff3ed;color:#9d2d16;font-size:.77rem;font-weight:700}.announcement-modal__actions{display:flex;justify-content:flex-end;gap:10px;margin-top:25px}.announcement-modal__button,.announcement-modal__close{border:0;cursor:pointer;font:inherit}.announcement-modal__button{padding:11px 17px;border-radius:9px;background:#a51d1d;color:#fff;font-weight:800;text-decoration:none}.announcement-modal__close{position:absolute;top:15px;right:15px;display:grid;width:34px;height:34px;place-items:center;border-radius:50%;background:rgba(255,255,255,.18);color:#fff;font-size:21px}
+.announcement-bell {
+  position: relative;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  margin-right: 7px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff4f2;
+  color: #a51d1d;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
+}
+.announcement-bell:hover {
+  background: #fee2df;
+  transform: translateY(-1px);
+}
+.announcement-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  background: rgba(25, 12, 12, 0.58);
+  backdrop-filter: blur(5px);
+}
+.announcement-modal.is-open {
+  display: flex;
+}
+.announcement-modal__card {
+  position: relative;
+  width: min(100%, 520px);
+  overflow: hidden;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 28px 70px rgba(20, 8, 8, 0.34);
+}
+.announcement-modal__hero {
+  padding: 30px 62px 26px 30px;
+  color: #fff;
+  background: linear-gradient(135deg, #831515, #c0392b 62%, #e56c37);
+}
+.announcement-modal__label {
+  margin: 0 0 9px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  opacity: 0.86;
+}
+.announcement-modal__title {
+  margin: 0;
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  line-height: 1.2;
+}
+.announcement-modal__body {
+  padding: 25px 30px 30px;
+}
+.announcement-modal__message {
+  margin: 0;
+  color: #4b5563;
+  font-size: 0.95rem;
+  line-height: 1.65;
+  white-space: pre-line;
+}
+.announcement-modal__date {
+  display: inline-flex;
+  margin-top: 17px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: #fff3ed;
+  color: #9d2d16;
+  font-size: 0.77rem;
+  font-weight: 700;
+}
+.announcement-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 25px;
+}
+.announcement-modal__button,
+.announcement-modal__close {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+}
+.announcement-modal__button {
+  padding: 11px 17px;
+  border-radius: 9px;
+  background: #a51d1d;
+  color: #fff;
+  font-weight: 800;
+  text-decoration: none;
+}
+.announcement-modal__close {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-size: 21px;
+}
 
 /* --- Hero Section Styles --- */
 .hero-section {
@@ -732,8 +843,16 @@ body {
    ========================================= */
 .services-page-body {
   background:
-    radial-gradient(circle at 8% 10%, rgba(241, 237, 18, 0.18), transparent 22rem),
-    radial-gradient(circle at 90% 18%, rgba(158, 20, 20, 0.12), transparent 24rem),
+    radial-gradient(
+      circle at 8% 10%,
+      rgba(241, 237, 18, 0.18),
+      transparent 22rem
+    ),
+    radial-gradient(
+      circle at 90% 18%,
+      rgba(158, 20, 20, 0.12),
+      transparent 24rem
+    ),
     linear-gradient(135deg, #fffaf0 0%, #f5f7f2 46%, #fffdf8 100%);
 }
 
@@ -753,8 +872,16 @@ body {
 .services-list-section {
   padding: 40px 5% 95px;
   background:
-    radial-gradient(1200px 400px at 50% 0%, rgba(158, 20, 20, 0.08), transparent 70%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, rgba(245, 247, 242, 0.5) 100%);
+    radial-gradient(
+      1200px 400px at 50% 0%,
+      rgba(158, 20, 20, 0.08),
+      transparent 70%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.3) 0%,
+      rgba(245, 247, 242, 0.5) 100%
+    );
   position: relative;
 }
 
@@ -810,7 +937,11 @@ body {
   border-radius: 24px;
   overflow: hidden;
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.97), rgba(255, 248, 238, 0.9)),
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.97),
+      rgba(255, 248, 238, 0.9)
+    ),
     #ffffff;
   box-shadow:
     0 18px 42px rgba(61, 35, 28, 0.09),
@@ -900,7 +1031,11 @@ body {
   display: grid;
   place-items: center;
   background:
-    radial-gradient(circle at 76% 20%, rgba(241, 237, 18, 0.35), transparent 24%),
+    radial-gradient(
+      circle at 76% 20%,
+      rgba(241, 237, 18, 0.35),
+      transparent 24%
+    ),
     linear-gradient(135deg, #f7eee3, #eee4d8);
   color: #8b7062;
 }
@@ -949,7 +1084,11 @@ body {
   text-transform: uppercase;
   font-weight: 800;
   color: #851313;
-  background: linear-gradient(135deg, rgba(158, 20, 20, 0.1), rgba(241, 237, 18, 0.16));
+  background: linear-gradient(
+    135deg,
+    rgba(158, 20, 20, 0.1),
+    rgba(241, 237, 18, 0.16)
+  );
   border: 1px solid rgba(158, 20, 20, 0.14);
 }
 
@@ -1554,7 +1693,11 @@ body {
 }
 
 .modal-box {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 238, 0.92));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.96),
+    rgba(255, 248, 238, 0.92)
+  );
   border: 1px solid rgba(105, 52, 42, 0.16);
   width: 100%;
   max-width: 750px;
@@ -1611,7 +1754,12 @@ body {
 .modal-divider {
   height: 1px;
   width: 100%;
-  background: linear-gradient(90deg, transparent, rgba(105, 52, 42, 0.12), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(105, 52, 42, 0.12),
+    transparent
+  );
   flex-shrink: 0;
 }
 
@@ -1667,7 +1815,11 @@ body {
 }
 
 .chip {
-  background: linear-gradient(135deg, rgba(158, 20, 20, 0.08), rgba(241, 237, 18, 0.14));
+  background: linear-gradient(
+    135deg,
+    rgba(158, 20, 20, 0.08),
+    rgba(241, 237, 18, 0.14)
+  );
   border: 1px solid rgba(158, 20, 20, 0.14);
   color: #851313;
   padding: 8px 18px;
@@ -1782,8 +1934,16 @@ body {
    ========================================= */
 .products-page-body {
   background:
-    radial-gradient(circle at 8% 10%, rgba(241, 237, 18, 0.18), transparent 22rem),
-    radial-gradient(circle at 90% 18%, rgba(158, 20, 20, 0.12), transparent 24rem),
+    radial-gradient(
+      circle at 8% 10%,
+      rgba(241, 237, 18, 0.18),
+      transparent 22rem
+    ),
+    radial-gradient(
+      circle at 90% 18%,
+      rgba(158, 20, 20, 0.12),
+      transparent 24rem
+    ),
     linear-gradient(135deg, #fffaf0 0%, #f5f7f2 46%, #fffdf8 100%);
 }
 
@@ -1889,7 +2049,11 @@ body {
 
 /* --- Product Card --- */
 .shop-card {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(255, 248, 238, 0.82));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.92),
+    rgba(255, 248, 238, 0.82)
+  );
   border-radius: 26px;
   border: 1px solid rgba(105, 52, 42, 0.12);
   overflow: hidden;
@@ -1945,7 +2109,11 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 248, 238, 0.95));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.98),
+    rgba(255, 248, 238, 0.95)
+  );
   border: 1px solid rgba(105, 52, 42, 0.2);
   border-radius: 28px;
   padding: 24px;
@@ -1954,7 +2122,9 @@ body {
   -webkit-backdrop-filter: blur(20px);
   transform: scale(0.95);
   opacity: 0;
-  transition: transform 0.25s ease, opacity 0.25s ease;
+  transition:
+    transform 0.25s ease,
+    opacity 0.25s ease;
 }
 
 .modal-overlay.show-modal .lightbox-box {
@@ -2400,7 +2570,13 @@ body {
   border-radius: 50% !important;
   background: linear-gradient(135deg, #ef4444, #991b1b) !important;
   color: #ffffff !important;
-  font-family: "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-family:
+    "Montserrat",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif !important;
   font-weight: 800 !important;
   line-height: 1 !important;
   text-align: center !important;
@@ -2411,7 +2587,9 @@ body {
   font-size: 8px; /* Fallback for 2-3 digits */
   letter-spacing: -0.04em;
   z-index: 10;
-  transition: transform 0.2s ease, opacity 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .announcement-bell .announcement-bell__badge {
@@ -2498,7 +2676,11 @@ body {
 }
 
 .shop-modal-box {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 238, 0.92));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.96),
+    rgba(255, 248, 238, 0.92)
+  );
   border: 1px solid rgba(105, 52, 42, 0.16);
   width: 100%;
   max-width: 520px;
@@ -3807,8 +3989,16 @@ input:checked + .toggle-slider:before {
   width: 100%;
   height: 100%;
   background:
-    radial-gradient(circle at 85% 15%, rgba(241, 237, 18, 0.22), transparent 22rem),
-    radial-gradient(circle at 15% 85%, rgba(158, 20, 20, 0.3), transparent 24rem),
+    radial-gradient(
+      circle at 85% 15%,
+      rgba(241, 237, 18, 0.22),
+      transparent 22rem
+    ),
+    radial-gradient(
+      circle at 15% 85%,
+      rgba(158, 20, 20, 0.3),
+      transparent 24rem
+    ),
     linear-gradient(135deg, #3d0808 0%, #5f0d0d 45%, #851313 100%);
   z-index: 20000;
   display: flex;
@@ -3966,7 +4156,11 @@ input:checked + .toggle-slider:before {
 }
 
 .apt-card {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 248, 238, 0.88));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.95),
+    rgba(255, 248, 238, 0.88)
+  );
   border: 1px solid rgba(105, 52, 42, 0.16);
   border-radius: 28px;
   padding: 32px;
@@ -5683,8 +5877,16 @@ input:checked + .toggle-slider:before {
 
 .contact-page-body {
   background:
-    radial-gradient(circle at 8% 10%, rgba(241, 237, 18, 0.18), transparent 22rem),
-    radial-gradient(circle at 90% 18%, rgba(158, 20, 20, 0.12), transparent 24rem),
+    radial-gradient(
+      circle at 8% 10%,
+      rgba(241, 237, 18, 0.18),
+      transparent 22rem
+    ),
+    radial-gradient(
+      circle at 90% 18%,
+      rgba(158, 20, 20, 0.12),
+      transparent 24rem
+    ),
     linear-gradient(135deg, #fffaf0 0%, #f5f7f2 46%, #fffdf8 100%);
 }
 
@@ -5705,7 +5907,11 @@ input:checked + .toggle-slider:before {
 
 .contact-info-card,
 .contact-form-card {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(255, 248, 238, 0.88));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.94),
+    rgba(255, 248, 238, 0.88)
+  );
   border: 1px solid rgba(105, 52, 42, 0.14);
   border-radius: 28px;
   padding: 40px;
@@ -7105,7 +7311,11 @@ body.sidebar-open {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.99), rgba(255, 248, 238, 0.98));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.99),
+    rgba(255, 248, 238, 0.98)
+  );
   border: 1px solid rgba(105, 52, 42, 0.16);
   border-radius: 28px;
   box-shadow: 0 35px 90px rgba(45, 12, 12, 0.28);
@@ -7232,8 +7442,6 @@ body.sidebar-open {
   color: #f1b400;
 }
 
-
-
 .customer-review-filter {
   flex: 0 0 auto;
   min-height: 34px;
@@ -7243,8 +7451,13 @@ body.sidebar-open {
   background: #fff;
   color: #5f636d;
   cursor: pointer;
-  font: 700 0.75rem/1 "Montserrat", sans-serif;
-  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+  font:
+    700 0.75rem/1 "Montserrat",
+    sans-serif;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
 }
 
 .customer-review-filter:hover,
@@ -7300,7 +7513,9 @@ body.sidebar-open {
   border-radius: 50%;
   background: #ffe2e2;
   color: #851313;
-  font: 800 0.9rem/1 "Montserrat", sans-serif;
+  font:
+    800 0.9rem/1 "Montserrat",
+    sans-serif;
 }
 
 .customer-review-author strong {
@@ -7458,8 +7673,13 @@ body.sidebar-open {
   background: transparent;
   color: #7e858f;
   cursor: pointer;
-  font: 700 0.78rem/1 "Montserrat", sans-serif;
-  transition: background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+  font:
+    700 0.78rem/1 "Montserrat",
+    sans-serif;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
 }
 
 .customer-review-like:hover:not(:disabled) {
@@ -7481,7 +7701,9 @@ body.sidebar-open {
 }
 
 @keyframes customer-review-like-pop {
-  50% { transform: scale(1.12); }
+  50% {
+    transform: scale(1.12);
+  }
 }
 
 .customer-reviews-load-more {
@@ -7493,7 +7715,9 @@ body.sidebar-open {
   background: #fff;
   color: #851313;
   cursor: pointer;
-  font: 800 0.78rem/1 "Montserrat", sans-serif;
+  font:
+    800 0.78rem/1 "Montserrat",
+    sans-serif;
 }
 
 .customer-reviews-load-more:hover:not(:disabled) {
@@ -8231,7 +8455,6 @@ body.sidebar-open {
   font-size: 0.75rem;
   font-weight: 600;
 }
-
 
 .customer-order-detail-logistics h4,
 .customer-order-detail-map-wrap h4,
@@ -9077,37 +9300,76 @@ body.sidebar-open {
 }
 
 /* ===== To Rate / My Ratings Panel ===== */
-.customer-torate-wrap { display: flex; flex-direction: column; gap: 0; }
-.customer-torate-section { padding: 0 0 8px; }
+.customer-torate-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.customer-torate-section {
+  padding: 0 0 8px;
+}
 .customer-torate-section-head {
-  display: flex; align-items: center; gap: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 14px 18px 10px;
   border-bottom: 1px solid #f0f0f0;
 }
 .customer-torate-section-head h3 {
-  font-size: 0.95rem; font-weight: 700; color: #1a202c; margin: 0;
-  display: flex; align-items: center; gap: 6px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
-.customer-torate-section-head h3 i { color: #f59e0b; }
+.customer-torate-section-head h3 i {
+  color: #f59e0b;
+}
 .customer-torate-badge {
-  background: #f59e0b; color: #fff;
-  font-size: 0.72rem; font-weight: 700;
-  padding: 2px 8px; border-radius: 20px; min-width: 22px; text-align: center;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  min-width: 22px;
+  text-align: center;
 }
-.customer-torate-badge.alt { background: #6b7280; }
-.customer-torate-list { display: flex; flex-direction: column; gap: 0; }
+.customer-torate-badge.alt {
+  background: #6b7280;
+}
+.customer-torate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
 
 /* To Rate card */
 .customer-torate-card {
-  display: flex; align-items: center; gap: 12px;
-  padding: 14px 18px; border-bottom: 1px solid #f5f5f5;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #f5f5f5;
   transition: background 0.15s;
 }
-.customer-torate-card:hover { background: #fafafa; }
-.customer-torate-main { flex: 1; min-width: 0; }
+.customer-torate-card:hover {
+  background: #fafafa;
+}
+.customer-torate-main {
+  flex: 1;
+  min-width: 0;
+}
 .customer-torate-main h4 {
-  font-size: 0.88rem; font-weight: 600; color: #1a202c;
-  margin: 0 0 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #1a202c;
+  margin: 0 0 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .customer-order-item-names {
   margin: 0 0 3px;
@@ -9119,37 +9381,73 @@ body.sidebar-open {
   white-space: nowrap;
 }
 .customer-torate-side {
-  display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 /* Rated card */
 .customer-rated-card {
-  display: flex; align-items: flex-start; gap: 12px;
-  padding: 14px 18px; border-bottom: 1px solid #f5f5f5;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid #f5f5f5;
   transition: background 0.15s;
 }
-.customer-rated-card:hover { background: #fafafa; }
-.customer-rated-main { flex: 1; min-width: 0; }
+.customer-rated-card:hover {
+  background: #fafafa;
+}
+.customer-rated-main {
+  flex: 1;
+  min-width: 0;
+}
 .customer-rated-main h4 {
-  font-size: 0.88rem; font-weight: 600; color: #1a202c;
-  margin: 0 0 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #1a202c;
+  margin: 0 0 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .customer-rated-main .customer-order-item-names {
   margin-bottom: 4px;
 }
 .customer-rated-stars {
-  display: flex; align-items: center; gap: 3px; margin: 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin: 4px 0;
 }
-.customer-rating-star-display { font-size: 1.1rem; color: #d1d5db; }
-.customer-rating-star-display.filled { color: #f59e0b; }
+.customer-rating-star-display {
+  font-size: 1.1rem;
+  color: #d1d5db;
+}
+.customer-rating-star-display.filled {
+  color: #f59e0b;
+}
 .customer-rated-score {
-  font-size: 0.78rem; font-weight: 700; color: #f59e0b; margin-left: 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #f59e0b;
+  margin-left: 4px;
 }
 .customer-rated-feedback {
-  font-size: 0.8rem; color: #6b7280; margin: 2px 0 0; font-style: italic;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin: 2px 0 0;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.customer-rated-feedback.muted { color: #9ca3af; font-style: normal; }
+.customer-rated-feedback.muted {
+  color: #9ca3af;
+  font-style: normal;
+}
 
 /* Admin reply box inside My Ratings */
 .customer-rated-admin-reply {
@@ -9177,24 +9475,46 @@ body.sidebar-open {
 }
 
 .customer-rated-side {
-  display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 /* Rate Now / Edit Rating button */
 .customer-order-rate-btn {
-  display: inline-flex; align-items: center; justify-content: center;
-  padding: 6px 14px; border-radius: 6px; font-size: 0.78rem; font-weight: 700;
-  cursor: pointer; border: none; background: #f59e0b; color: #fff;
-  transition: background 0.18s, transform 0.1s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  background: #f59e0b;
+  color: #fff;
+  transition:
+    background 0.18s,
+    transform 0.1s;
   white-space: nowrap;
 }
-.customer-order-rate-btn:hover { background: #d97706; }
-.customer-order-rate-btn:active { transform: scale(0.97); }
+.customer-order-rate-btn:hover {
+  background: #d97706;
+}
+.customer-order-rate-btn:active {
+  transform: scale(0.97);
+}
 .customer-order-rate-btn.ghost {
-  background: transparent; color: #6b7280;
+  background: transparent;
+  color: #6b7280;
   border: 1px solid #d1d5db;
 }
-.customer-order-rate-btn.ghost:hover { background: #f3f4f6; color: #374151; }
+.customer-order-rate-btn.ghost:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
 
 /* ===== Buy Again ===== */
 /* Same box metrics as `.customer-order-detail-btn` so the actions row stays
@@ -9285,9 +9605,12 @@ body.sidebar-open {
 
 /* Compact empty state inside sections */
 .customer-orders-empty.compact {
-  padding: 20px 18px; font-size: 0.82rem;
+  padding: 20px 18px;
+  font-size: 0.82rem;
 }
-.customer-orders-empty.compact i { font-size: 1.4rem; }
+.customer-orders-empty.compact i {
+  font-size: 1.4rem;
+}
 
 /* Back pill button for Change Password & sub-modals */
 .customer-modal-back-pill {
@@ -9338,8 +9661,17 @@ body.sidebar-open {
   pointer-events: all;
 }
 .customer-rating-card {
-  background: radial-gradient(circle at 95% 0%, rgba(241, 237, 18, 0.18), transparent 14rem),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 248, 238, 0.95));
+  background:
+    radial-gradient(
+      circle at 95% 0%,
+      rgba(241, 237, 18, 0.18),
+      transparent 14rem
+    ),
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.98),
+      rgba(255, 248, 238, 0.95)
+    );
   border: 1px solid rgba(105, 52, 42, 0.16);
   border-radius: 28px;
   padding: 28px 24px 24px;
@@ -9381,7 +9713,9 @@ body.sidebar-open {
   color: #d1d5db;
   cursor: pointer;
   padding: 0 2px;
-  transition: color 0.15s ease, transform 0.1s ease;
+  transition:
+    color 0.15s ease,
+    transform 0.1s ease;
   line-height: 1;
 }
 .rating-star-large.filled {
@@ -9410,7 +9744,9 @@ body.sidebar-open {
   resize: none;
   outline: none;
   box-sizing: border-box;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 .customer-rating-feedback:focus {
   border-color: #851313;
@@ -9609,7 +9945,11 @@ body.sidebar-open {
   border: 1px solid rgba(133, 19, 19, 0.1);
   border-radius: 16px;
   background:
-    radial-gradient(circle at 90% 10%, rgba(241, 237, 18, 0.13), transparent 92px),
+    radial-gradient(
+      circle at 90% 10%,
+      rgba(241, 237, 18, 0.13),
+      transparent 92px
+    ),
     rgba(255, 255, 255, 0.76);
   color: #737984;
 }
@@ -9787,7 +10127,9 @@ body.sidebar-open {
   cursor: pointer;
   font-size: 0.76rem;
   font-weight: 800;
-  transition: background-color 0.18s ease, border-color 0.18s ease;
+  transition:
+    background-color 0.18s ease,
+    border-color 0.18s ease;
 }
 
 .customer-rating-upload:hover {
@@ -10020,14 +10362,20 @@ body.sidebar-open {
   z-index: 99999;
   max-width: 350px;
   width: calc(100vw - 48px);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 248, 238, 0.95));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.98),
+    rgba(255, 248, 238, 0.95)
+  );
   border: 1px solid rgba(105, 52, 42, 0.16);
   border-radius: 20px;
   box-shadow: 0 20px 50px rgba(45, 12, 12, 0.22);
   backdrop-filter: blur(16px);
   opacity: 0;
   transform: translateY(16px);
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
   pointer-events: none;
 }
 .customer-rate-prompt-popup.show {
@@ -10075,7 +10423,9 @@ body.sidebar-open {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-.customer-rate-prompt-link:hover { color: #7f0000; }
+.customer-rate-prompt-link:hover {
+  color: #7f0000;
+}
 .customer-rate-prompt-close {
   background: none;
   border: none;
@@ -10087,7 +10437,9 @@ body.sidebar-open {
   flex-shrink: 0;
   margin-top: -2px;
 }
-.customer-rate-prompt-close:hover { color: #374151; }
+.customer-rate-prompt-close:hover {
+  color: #374151;
+}
 
 /* =========================================================
    Returns & Refunds
@@ -10794,7 +11146,9 @@ body.sidebar-open {
     text-align: center;
   }
 
-  .customer-order-card > .customer-order-actions > button:last-child:nth-child(odd),
+  .customer-order-card
+    > .customer-order-actions
+    > button:last-child:nth-child(odd),
   .customer-return-detail-actions > button:last-child:nth-child(odd) {
     grid-column: 1 / -1;
   }
@@ -10818,10 +11172,6 @@ body.sidebar-open {
   }
 }
 
-
-
-
-
 /* =========================================================
    Customer-facing final visual refresh (CSS-only)
    Scope: shared header/footer, home sections, customer menu,
@@ -10843,8 +11193,16 @@ body.sidebar-open {
 body {
   color: var(--customer-ink);
   background:
-    radial-gradient(circle at 9% 0%, rgba(241, 237, 18, 0.12), transparent 23rem),
-    radial-gradient(circle at 92% 12%, rgba(176, 28, 28, 0.09), transparent 22rem),
+    radial-gradient(
+      circle at 9% 0%,
+      rgba(241, 237, 18, 0.12),
+      transparent 23rem
+    ),
+    radial-gradient(
+      circle at 92% 12%,
+      rgba(176, 28, 28, 0.09),
+      transparent 22rem
+    ),
     #fffdf9;
 }
 
@@ -10904,11 +11262,17 @@ body {
   bottom: 3px;
   height: 3px;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--customer-primary), var(--customer-gold));
+  background: linear-gradient(
+    90deg,
+    var(--customer-primary),
+    var(--customer-gold)
+  );
   opacity: 0;
   transform: scaleX(0.35);
   transform-origin: center;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 
 .nav-link:hover,
@@ -10956,8 +11320,16 @@ body {
   min-height: calc(100vh - 76px);
   padding: clamp(54px, 7vw, 92px) clamp(18px, 5vw, 72px);
   background:
-    radial-gradient(circle at 78% 18%, rgba(241, 237, 18, 0.28), transparent 14rem),
-    radial-gradient(circle at 14% 20%, rgba(255, 255, 255, 0.18), transparent 18rem),
+    radial-gradient(
+      circle at 78% 18%,
+      rgba(241, 237, 18, 0.28),
+      transparent 14rem
+    ),
+    radial-gradient(
+      circle at 14% 20%,
+      rgba(255, 255, 255, 0.18),
+      transparent 18rem
+    ),
     linear-gradient(130deg, #4f0909 0%, #8b0000 42%, #c33425 100%);
 }
 
@@ -11049,7 +11421,11 @@ body {
   height: auto;
   border-radius: 50%;
   padding: 16px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 238, 0.92));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.96),
+    rgba(255, 248, 238, 0.92)
+  );
   border: 8px solid rgba(255, 255, 255, 0.4);
   box-shadow:
     0 25px 60px rgba(35, 8, 8, 0.32),
@@ -11057,7 +11433,10 @@ body {
     inset 0 1px 0 rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.4s ease, border-color 0.4s ease;
+  transition:
+    transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1),
+    box-shadow 0.4s ease,
+    border-color 0.4s ease;
   cursor: pointer;
   animation: heroLogoBreathe 4.5s ease-in-out infinite alternate;
 }
@@ -11097,16 +11476,32 @@ body {
 .mission-section,
 .services-preview-section {
   background:
-    radial-gradient(circle at 8% 8%, rgba(241, 237, 18, 0.14), transparent 22rem),
-    radial-gradient(circle at 92% 80%, rgba(158, 20, 20, 0.08), transparent 24rem),
+    radial-gradient(
+      circle at 8% 8%,
+      rgba(241, 237, 18, 0.14),
+      transparent 22rem
+    ),
+    radial-gradient(
+      circle at 92% 80%,
+      rgba(158, 20, 20, 0.08),
+      transparent 24rem
+    ),
     #fffaf8;
   padding: 80px 5%;
 }
 
 .vision-section {
   background:
-    radial-gradient(circle at 92% 10%, rgba(241, 237, 18, 0.12), transparent 22rem),
-    radial-gradient(circle at 10% 90%, rgba(158, 20, 20, 0.07), transparent 24rem),
+    radial-gradient(
+      circle at 92% 10%,
+      rgba(241, 237, 18, 0.12),
+      transparent 22rem
+    ),
+    radial-gradient(
+      circle at 10% 90%,
+      rgba(158, 20, 20, 0.07),
+      transparent 24rem
+    ),
     #ffffff;
   padding: 80px 5%;
 }
@@ -11115,11 +11510,17 @@ body {
 .vision-container,
 .mission-container {
   max-width: 1240px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(255, 248, 238, 0.88));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.94),
+    rgba(255, 248, 238, 0.88)
+  );
   border: 1px solid rgba(105, 52, 42, 0.12);
   border-radius: 32px;
   padding: 48px;
-  box-shadow: 0 24px 60px rgba(61, 35, 28, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  box-shadow:
+    0 24px 60px rgba(61, 35, 28, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }
@@ -11142,7 +11543,11 @@ body {
 .features-card {
   border: 1px solid rgba(105, 52, 42, 0.14);
   border-radius: 24px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 248, 240, 0.92));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.98),
+    rgba(255, 248, 240, 0.92)
+  );
   box-shadow: 0 20px 48px rgba(61, 35, 28, 0.09);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -11180,7 +11585,9 @@ body {
   border-color: transparent;
   color: #ffffff;
   box-shadow: 0 12px 28px rgba(128, 24, 18, 0.2);
-  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .view-all-btn:hover {
@@ -11197,7 +11604,11 @@ body {
   position: relative;
   overflow: hidden;
   background:
-    radial-gradient(circle at 16% 0%, rgba(241, 237, 18, 0.16), transparent 18rem),
+    radial-gradient(
+      circle at 16% 0%,
+      rgba(241, 237, 18, 0.16),
+      transparent 18rem
+    ),
     linear-gradient(145deg, #3f0707 0%, #7a0000 48%, #9e1414 100%);
   padding-top: 68px;
 }
@@ -11266,8 +11677,14 @@ body {
   padding: 22px;
   border: 1px solid rgba(105, 52, 42, 0.16);
   border-radius: 28px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(255, 248, 238, 0.95));
-  box-shadow: 0 30px 70px rgba(45, 12, 12, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.98),
+    rgba(255, 248, 238, 0.95)
+  );
+  box-shadow:
+    0 30px 70px rgba(45, 12, 12, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
@@ -11488,8 +11905,16 @@ body {
   border-radius: 32px;
   border: 1px solid rgba(105, 52, 42, 0.16);
   background:
-    radial-gradient(circle at 95% 0%, rgba(241, 237, 18, 0.18), transparent 14rem),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 238, 0.94));
+    radial-gradient(
+      circle at 95% 0%,
+      rgba(241, 237, 18, 0.18),
+      transparent 14rem
+    ),
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.96),
+      rgba(255, 248, 238, 0.94)
+    );
   box-shadow:
     0 35px 90px rgba(45, 12, 12, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.95);
@@ -11529,7 +11954,11 @@ body {
 .customer-card {
   border: 1px solid rgba(105, 52, 42, 0.12);
   border-radius: 24px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 238, 0.92));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.96),
+    rgba(255, 248, 238, 0.92)
+  );
   box-shadow: 0 14px 36px rgba(61, 35, 28, 0.07);
   padding: 24px;
 }
@@ -11621,7 +12050,11 @@ body {
   padding: 24px;
   border-left: 1px solid rgba(176, 28, 28, 0.12);
   background:
-    radial-gradient(circle at 100% 0%, rgba(241, 237, 18, 0.13), transparent 15rem),
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(241, 237, 18, 0.13),
+      transparent 15rem
+    ),
     linear-gradient(180deg, #ffffff 0%, #fffafa 100%);
   box-shadow: -30px 0 70px rgba(15, 23, 42, 0.26);
 }
@@ -11672,7 +12105,10 @@ body {
 .customer-order-card {
   border-radius: 16px;
   box-shadow: 0 12px 28px rgba(65, 16, 16, 0.06);
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
 }
 
 .customer-order-card:hover {
@@ -12173,7 +12609,11 @@ body {
   overflow: hidden;
   border-radius: 23px 23px 17px 17px;
   background:
-    radial-gradient(circle at 88% 4%, rgba(241, 237, 18, 0.2), transparent 58px),
+    radial-gradient(
+      circle at 88% 4%,
+      rgba(241, 237, 18, 0.2),
+      transparent 58px
+    ),
     linear-gradient(135deg, #4a0808 0%, #7f1111 60%, #9e2218 100%);
 }
 
@@ -12597,12 +13037,18 @@ video {
    hard-coded column counts. `auto-fill` keeps card proportions
    consistent even when only one or two items are returned. */
 .shop-grid {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)) !important;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, 280px), 1fr)
+  ) !important;
   gap: var(--ux-gap) !important;
 }
 
 .services-grid {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)) !important;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, 300px), 1fr)
+  ) !important;
   gap: var(--ux-gap) !important;
 }
 
@@ -13145,7 +13591,8 @@ textarea {
 }
 
 .modal-header {
-  padding: clamp(16px, 2.6vw, 28px) clamp(16px, 3vw, 36px) clamp(12px, 1.8vw, 18px);
+  padding: clamp(16px, 2.6vw, 28px) clamp(16px, 3vw, 36px)
+    clamp(12px, 1.8vw, 18px);
 }
 
 .modal-title {
@@ -14084,11 +14531,17 @@ textarea {
   }
 
   .shop-grid {
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)) !important;
+    grid-template-columns: repeat(
+      auto-fill,
+      minmax(min(100%, 300px), 1fr)
+    ) !important;
   }
 
   .services-grid {
-    grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)) !important;
+    grid-template-columns: repeat(
+      auto-fill,
+      minmax(min(100%, 330px), 1fr)
+    ) !important;
   }
 
   .hero-title {
@@ -14174,14 +14627,17 @@ textarea:focus-visible {
   min-height: 100vh;
   max-height: none;
   padding: max(20px, env(safe-area-inset-top))
-    max(20px, env(safe-area-inset-right))
-    max(20px, env(safe-area-inset-bottom))
+    max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom))
     max(20px, env(safe-area-inset-left));
   border: 0;
   border-left: 1px solid rgba(176, 28, 28, 0.16);
   border-radius: 0;
   background:
-    radial-gradient(circle at 100% 0, rgba(241, 237, 18, 0.16), transparent 18rem),
+    radial-gradient(
+      circle at 100% 0,
+      rgba(241, 237, 18, 0.16),
+      transparent 18rem
+    ),
     linear-gradient(180deg, #ffffff 0%, #fffafa 100%);
   box-shadow: -30px 0 78px rgba(15, 23, 42, 0.3);
   gap: 18px;
@@ -14540,8 +14996,7 @@ textarea:focus-visible {
    hierarchy and controls that remain comfortable on small screens. */
 #aptConfirmModal {
   padding: max(16px, env(safe-area-inset-top))
-    max(16px, env(safe-area-inset-right))
-    max(16px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom))
     max(16px, env(safe-area-inset-left));
   background: rgba(42, 7, 7, 0.72);
   backdrop-filter: blur(6px);
@@ -14607,8 +15062,7 @@ textarea:focus-visible {
   height: 100dvh;
   min-height: 100vh;
   padding: max(16px, env(safe-area-inset-top))
-    max(16px, env(safe-area-inset-right))
-    max(16px, env(safe-area-inset-bottom))
+    max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom))
     max(16px, env(safe-area-inset-left));
   overflow-y: auto;
   background: rgba(42, 7, 7, 0.8);
@@ -14619,7 +15073,10 @@ textarea:focus-visible {
 .success-card {
   width: min(100%, 520px);
   max-width: 520px;
-  max-height: min(720px, calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+  max-height: min(
+    720px,
+    calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom))
+  );
   min-height: 0;
   padding: 0;
   overflow: hidden;
@@ -14709,7 +15166,9 @@ textarea:focus-visible {
 
   .success-card {
     width: 100%;
-    max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-height: calc(
+      100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)
+    );
     border-radius: 22px;
   }
 
@@ -14725,7 +15184,6 @@ textarea:focus-visible {
     padding: 16px 24px max(22px, env(safe-area-inset-bottom));
   }
 }
-
 
 /* ==========================================================================
    Hero SDG strip — up to 8 round badges under the hero CTAs (4 + 4).
@@ -14796,7 +15254,11 @@ textarea:focus-visible {
   overflow: hidden;
   cursor: pointer;
   font-family: "Montserrat", sans-serif;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 238, 0.92));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.96),
+    rgba(255, 248, 238, 0.92)
+  );
   border: 2px solid rgba(255, 255, 255, 0.4);
   box-shadow:
     0 12px 26px rgba(35, 8, 8, 0.32),
@@ -14908,7 +15370,11 @@ textarea:focus-visible {
   border-radius: 50%;
   padding: 4px;
   object-fit: cover;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 238, 0.92));
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.96),
+    rgba(255, 248, 238, 0.92)
+  );
   border: 2px solid rgba(168, 15, 15, 0.18);
   box-shadow: 0 10px 24px rgba(35, 8, 8, 0.18);
   display: block;
@@ -14959,16 +15425,51 @@ textarea:focus-visible {
      the title/logo pair keeps its position. */
 }
 
-/* Written by main.js (alignHeroTitleWithLogo): half the height of everything
-   below the title inside the copy column — CTA pills plus the SDG band — which
-   is exactly the distance the title had been riding above the logo's mid-line.
-   Applied through the standalone `translate` property, not `transform`: it
-   composes with the reveal-on-scroll transform this column already uses, and
-   being layout-neutral it lets the badges grow without inflating the section or
-   re-centring the pair. Default 0px, so the layout is unchanged if the script
-   never runs. */
-.hero-content-left {
-  translate: 0 var(--hero-title-anchor, 0px);
+/* ==========================================================================
+   Hero SDG band — pinned out of the copy column.
+
+   The badges used to sit in the copy column's flow, so their height stretched
+   the column, the flex row re-centred it, and a script then nudged the whole
+   column back down to put the title on the logo's mid-line. Between them the
+   title, the CTA pills and the logo lost the top of the hero screen and the
+   badge band ended up sliced by the fold.
+
+   Taking the band out of flow at the side-by-side widths fixes both ends: the
+   column measures the title and the pills only, so the row centres the
+   title/logo pair on its own with no script, and the band keeps the exact
+   place it already occupied — the title's left edge, in the hero's below-fold
+   tail — because `top: 100%` measures from the column's own bottom edge. The
+   offset is what used to be the band's `margin-top` plus the nudge the script
+   was adding, so the badges do not move.
+
+   `position: relative` on the column is deliberate: .reveal-on-scroll gives it
+   a transform, which would make it the containing block anyway, but only once
+   main.js has run — pinning it here makes the band's reference box the same
+   before and after that.
+
+   Below 901px the hero stacks and the band goes back to being a normal block
+   under the pills, where the copy column is centred and full width.
+   ========================================================================== */
+@media (min-width: 901px) {
+  .hero-content-left {
+    position: relative;
+  }
+
+  .hero-sdg-strip {
+    position: absolute;
+    top: 100%;
+    /* The band's own margin, plus exactly what the column lost by shedding it:
+       the row re-centres the shorter column by half the height of the block
+       between the title and the band, i.e. half of the title's margin plus the
+       CTA pills. Both terms are the live tokens from those rules, so the
+       badges land on the pixel they were on before and stay there if either
+       one is ever retuned. */
+    margin-top: calc(
+      clamp(28px, 4.6vw, 58px) + (clamp(18px, 3vw, 34px) + clamp(44px, 9vw, 56px)) / 2
+    );
+    /* 100% is the column's width here, so the 430px cap still decides. */
+    width: min(100%, 430px);
+  }
 }
 
 /* ==========================================================================
@@ -14982,27 +15483,23 @@ textarea:focus-visible {
    header or turn a circle into an ellipse.
    ========================================================================== */
 
-/* Square plate, sized exactly as the emblem is today — height still comes from
-   the rules above and from responsive.css, the ratio just squares it off. The
-   warm plate and hairline are the same treatment the SDG badge thumbs and the
-   hero graphic use, so an uploaded mark reads as framed rather than pasted on
-   the translucent header. */
+/* Square framing only — the emblem sits directly on the header with no plate
+   and no hairline, so an uploaded mark with a transparent background reads as
+   part of the chrome instead of being boxed in. */
 .header-emblem {
   aspect-ratio: 1;
   width: auto;
   object-fit: contain;
-  border-radius: 22%;
-  padding: 2px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 238, 0.92));
-  border: 1px solid rgba(168, 15, 15, 0.16);
+  padding: 0;
+  background: none;
+  border: 0;
 }
 
 @media (max-width: 900px) {
-  /* The plate shrinks to ~24-30px here, so the inset has to come down with it
-     or the mark inside loses most of its room. */
+  /* Nothing to inset now that the plate is gone; kept so the mobile emblem
+     keeps its own square ratio if a future rule sets a width instead. */
   .header-emblem {
-    padding: 1px;
-    border-radius: 20%;
+    padding: 0;
   }
 }
 
@@ -15032,7 +15529,9 @@ textarea:focus-visible {
   background: #ffffff;
   border: 1.5px solid #fecaca;
   border-radius: 16px;
-  box-shadow: 0 14px 38px rgba(158, 20, 20, 0.16), 0 4px 12px rgba(0, 0, 0, 0.06);
+  box-shadow:
+    0 14px 38px rgba(158, 20, 20, 0.16),
+    0 4px 12px rgba(0, 0, 0, 0.06);
   padding: 16px 18px;
   z-index: 2100;
   color: #1f2937;
@@ -15147,7 +15646,9 @@ textarea:focus-visible {
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.1s ease;
+  transition:
+    background-color 0.2s ease,
+    transform 0.1s ease;
 }
 
 .google-pwd-action-btn:hover {
@@ -15170,3 +15671,789 @@ textarea:focus-visible {
 .fmrc-turnstile-slot[hidden] {
   display: none;
 }
+
+/* ============================================================================
+   UNIFIED CUSTOMER DIALOG SYSTEM ("ux-dlg")
+   Every customer pop-up now wears the same skin as the appointment/order
+   success cards: a maroon gradient band carrying a yellow badge, an uppercase
+   eyebrow and a white title, a white scrollable body, and a cream footer strip
+   of pill buttons. Declared last in the file so it beats the legacy dialog
+   layers above; the `:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal)` prefix
+   lifts every rule to id-level specificity so the older id-scoped appointment
+   overrides cannot leak back through.
+   ========================================================================== */
+:root {
+  --ux-dlg-band: linear-gradient(135deg, #3d0808 0%, #5f0d0d 52%, #851313 100%);
+  --ux-dlg-badge: #f1ed12;
+  --ux-dlg-badge-ink: #4b0a0a;
+  --ux-dlg-eyebrow: #f5ef8e;
+  --ux-dlg-radius: 26px;
+  --ux-dlg-edge: rgba(241, 237, 18, 0.6);
+  --ux-dlg-shadow: 0 30px 78px rgba(27, 4, 4, 0.5);
+  --ux-dlg-scrim: rgba(42, 7, 7, 0.8);
+  --ux-dlg-foot-bg: #fffdf4;
+  --ux-dlg-foot-line: #f0e8c8;
+  --ux-dlg-pad-x: clamp(22px, 5.6vw, 34px);
+  --ux-dlg-text: #4b5563;
+  --ux-dlg-maroon: #5f0d0d;
+}
+
+/* -- Scrims: one glass treatment for every dialog layer -------------------- */
+.ux-dlg__backdrop,
+.guest-access-modal,
+.customer-modal-overlay,
+.customer-rating-overlay,
+.customer-rating-discard-overlay,
+.customer-orders-overlay,
+#aptPrivacyModal.apt-nested-modal,
+#aptConfirmModal.apt-nested-modal {
+  background: var(--ux-dlg-scrim);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.ux-dlg__backdrop {
+  position: absolute;
+  inset: 0;
+}
+
+/* -- Overlay gutters (safe-area aware, never a display rule) --------------- */
+.guest-access-modal,
+.customer-modal-overlay,
+.customer-rating-overlay,
+.customer-rating-discard-overlay,
+.customer-orders-overlay,
+.ux-dlg--standalone,
+#aptPrivacyModal.apt-nested-modal,
+#aptConfirmModal.apt-nested-modal {
+  padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right))
+    max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+}
+
+/* -- Standalone overlay (logout confirm builds its own root) --------------- */
+.ux-dlg--standalone {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--ux-dlg-scrim);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+
+.ux-dlg--standalone.show {
+  opacity: 1;
+}
+
+.ux-dlg--standalone .ux-dlg__card {
+  transform: translateY(16px) scale(0.975);
+  transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ux-dlg--standalone.show .ux-dlg__card {
+  transform: none;
+}
+
+/* -- The card shell -------------------------------------------------------- */
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 520px);
+  max-width: min(100%, 520px);
+  min-width: 0;
+  min-height: 0;
+  max-height: min(760px, calc(100dvh - 30px));
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+  background: #ffffff;
+  border: 1px solid var(--ux-dlg-edge);
+  border-radius: var(--ux-dlg-radius);
+  box-shadow: var(--ux-dlg-shadow);
+}
+
+/* -- Head: the maroon band ------------------------------------------------- */
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__head {
+  position: relative;
+  flex: 0 0 auto;
+  display: block;
+  overflow: hidden;
+  padding: clamp(24px, 5vw, 32px) var(--ux-dlg-pad-x) 26px;
+  padding-right: max(64px, var(--ux-dlg-pad-x));
+  background: var(--ux-dlg-band);
+  border: 0;
+  border-radius: 0;
+  text-align: left;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__head::after {
+  content: "";
+  position: absolute;
+  right: -45px;
+  bottom: -105px;
+  width: 220px;
+  height: 220px;
+  border: 1px solid rgba(241, 237, 18, 0.26);
+  border-radius: 50%;
+  box-shadow: 0 0 0 26px rgba(241, 237, 18, 0.06);
+  pointer-events: none;
+}
+
+/* Lift every band child above the decorative ring drawn by ::after. */
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__head > * {
+  position: relative;
+  z-index: 1;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__badge {
+  position: relative;
+  z-index: 1;
+  inset: auto;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  min-width: 0;
+  margin: 0 0 16px;
+  padding: 0;
+  transform: none;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.42);
+  background: var(--ux-dlg-badge);
+  color: var(--ux-dlg-badge-ink);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.22);
+  font-size: 24px;
+  line-height: 1;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__badge i {
+  font-size: inherit;
+  color: inherit;
+  margin: 0;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__eyebrow {
+  position: relative;
+  z-index: 1;
+  margin: 0 0 6px;
+  padding: 0;
+  color: var(--ux-dlg-eyebrow);
+  font-family: "Montserrat", "Poppins", sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  line-height: 1.3;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__title {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  padding: 0;
+  color: #ffffff;
+  font-family: "Poppins", "Segoe UI", sans-serif;
+  font-size: clamp(19px, 4.4vw, 24px);
+  font-weight: 800;
+  line-height: 1.24;
+  letter-spacing: 0.1px;
+  text-align: left;
+  text-transform: none;
+  max-width: none;
+}
+
+/* -- Figure head (SDG detail) --------------------------------------------- */
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__head--figure {
+  text-align: center;
+  padding-right: var(--ux-dlg-pad-x);
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__head--figure .ux-dlg__eyebrow,
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__head--figure .ux-dlg__title {
+  text-align: center;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__figure {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: auto;
+  max-width: 190px;
+  max-height: 150px;
+  margin: 0 auto 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.26);
+  object-fit: contain;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__figure:not([src]),
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__figure[src=""] {
+  display: none;
+}
+
+/* -- Secondary lines that ride on the band -------------------------------- */
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__head .customer-orders-subtitle {
+  margin: 6px 0 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__head .customer-orders-sync-status {
+  margin: 10px 0 0;
+  padding: 5px 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(241, 237, 18, 0.34);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--ux-dlg-eyebrow);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__head .customer-orders-sync-dot {
+  background: var(--ux-dlg-badge);
+  box-shadow: 0 0 0 3px rgba(241, 237, 18, 0.2);
+}
+
+/* -- Close (×) and Back controls ------------------------------------------- */
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  /* `min-height` has to be reset too, not just `min-width`: the tap-target rule
+     for `.guest-access-close` / `.customer-modal-close` / `.customer-orders-close`
+     sets `min-height: var(--ux-tap)` (44px), and a min-height always beats the
+     `height` above regardless of specificity — the circle rendered as a 36x44
+     ellipse until this line existed. */
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+/* Hover is a colour change only — no lift, no spin. The press keeps a small
+   scale so a tap still reads as a click. */
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__close:hover {
+  background: rgba(255, 255, 255, 0.34);
+  border-color: rgba(255, 255, 255, 0.6);
+  color: #ffffff;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__close:active {
+  transform: scale(0.94);
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__back {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  width: auto;
+  margin: 0 0 14px;
+  padding: 7px 14px 7px 11px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__back:hover {
+  background: rgba(255, 255, 255, 0.34);
+  border-color: rgba(255, 255, 255, 0.6);
+  color: #ffffff;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__back:active {
+  transform: scale(0.96);
+}
+
+/* -- Body ------------------------------------------------------------------ */
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 24px var(--ux-dlg-pad-x) 22px;
+  background: #ffffff;
+  text-align: left;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__text {
+  margin: 0;
+  max-width: none;
+  color: var(--ux-dlg-text);
+  font-size: 14.5px;
+  line-height: 1.62;
+  text-align: left;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__text + * {
+  margin-top: 16px;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 18px;
+  padding: 13px 15px;
+  border: 1px solid #eadc9a;
+  border-radius: 14px;
+  background: #fffbed;
+  color: #6b5a24;
+  font-size: 13px;
+  line-height: 1.55;
+  text-align: left;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__note i {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: #c62828;
+  font-size: 15px;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__note strong {
+  color: var(--ux-dlg-maroon);
+  font-weight: 800;
+}
+
+/* -- Footer strip ---------------------------------------------------------- */
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__foot {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  justify-content: stretch;
+  gap: 10px;
+  margin: 0;
+  padding: 16px var(--ux-dlg-pad-x) max(18px, env(safe-area-inset-bottom));
+  border: 0;
+  border-top: 1px solid var(--ux-dlg-foot-line);
+  border-radius: 0;
+  background: var(--ux-dlg-foot-bg);
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__foot.is-confirm {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal)
+  .ux-dlg__card
+  .ux-dlg__foot:not(.is-confirm)
+  #customerSystemPopupCancel {
+  display: none;
+}
+
+/* -- Pill buttons ---------------------------------------------------------- */
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 15px 20px;
+  min-height: 51px;
+  border: 0;
+  border-radius: 999px;
+  font-family: "Montserrat", "Poppins", sans-serif;
+  font-size: 14.5px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: 0.2px;
+  text-align: center;
+  text-decoration: none;
+  text-transform: none;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease,
+    background 0.18s ease, color 0.18s ease;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__btn--primary {
+  background: linear-gradient(135deg, #f1ed12 0%, #e0dc0b 64%, #c6bf0a 100%);
+  color: #2d2a12;
+  box-shadow: 0 14px 28px rgba(196, 177, 20, 0.3);
+}
+
+/* Hover darkens the fill and nothing else — no lift, no shadow growth. The
+   only motion is the press scale below. */
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__btn--primary:hover {
+  background: linear-gradient(135deg, #d2cc0c 0%, #b8b208 64%, #9c9707 100%);
+  color: #2d2a12;
+  /* Repeating the resting shadow pins it: `.btn-place-order` and
+     `.customer-rating-submit-btn` (both carried by the submit pills) swap in a
+     smaller maroon-tinted hover shadow, which read as the button moving. */
+  box-shadow: 0 14px 28px rgba(196, 177, 20, 0.3);
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__btn--ghost {
+  background: #ffffff;
+  color: var(--ux-dlg-maroon);
+  border: 1.5px solid rgba(95, 13, 13, 0.32);
+  box-shadow: 0 6px 16px rgba(95, 13, 13, 0.08);
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__btn--ghost:hover {
+  background: #f2dede;
+  border-color: var(--ux-dlg-maroon);
+  color: var(--ux-dlg-maroon);
+  box-shadow: 0 6px 16px rgba(95, 13, 13, 0.08);
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__btn--danger {
+  background: linear-gradient(180deg, #a51919 0%, #851313 55%, #6f1010 100%);
+  color: #ffffff;
+  box-shadow: 0 12px 24px rgba(133, 19, 19, 0.32);
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__btn--danger:hover {
+  background: linear-gradient(180deg, #8a1414 0%, #6c0f0f 55%, #560b0b 100%);
+  color: #ffffff;
+  box-shadow: 0 12px 24px rgba(133, 19, 19, 0.32);
+}
+
+/* No hover lift anywhere in the shell. Legacy `translateY(-2px)` hovers on
+   `.apt-btn`, `.modal-btn` and friends still match inside these dialogs, so
+   they are cancelled here — hover is colour only. The matching `:active` list
+   below repeats the same selector shapes so the press scale still wins on
+   source order while a pressed button is also hovered. */
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__btn:hover,
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__foot button:hover,
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__foot a:hover,
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__head button:hover {
+  transform: none;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__btn:active,
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__foot button:active,
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__foot a:active,
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__head button:active {
+  transform: scale(0.97);
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__btn:focus-visible {
+  outline: 3px solid rgba(241, 237, 18, 0.55);
+  outline-offset: 2px;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__btn:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Per-dialog reconciliation with the legacy layers
+   ------------------------------------------------------------------------- */
+
+/* My Orders: the full-height right-hand drawer becomes a centered card so it
+   matches every other dialog. The legacy overlay padding is `!important`, so
+   the override has to be too. */
+.customer-orders-overlay.ux-dlg {
+  align-items: center;
+  justify-content: center;
+  padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right))
+    max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)) !important;
+}
+
+.customer-orders-overlay.ux-dlg .customer-orders-modal.ux-dlg__card {
+  width: min(880px, 100%);
+  max-width: min(880px, 100%);
+  height: auto;
+  min-height: 0;
+  max-height: min(920px, calc(100dvh - 28px));
+  gap: 0;
+  border: 1px solid var(--ux-dlg-edge);
+  border-radius: var(--ux-dlg-radius);
+  background: #ffffff;
+  box-shadow: var(--ux-dlg-shadow);
+  transform: translateY(16px) scale(0.975);
+}
+
+.customer-orders-overlay.ux-dlg.show .customer-orders-modal.ux-dlg__card {
+  transform: none;
+}
+
+.customer-orders-overlay.ux-dlg .customer-orders-modal.ux-dlg__card > .customer-orders-tabs {
+  margin: 16px var(--ux-dlg-pad-x) 0;
+}
+
+.customer-orders-overlay.ux-dlg .customer-orders-modal.ux-dlg__card > .customer-orders-viewport {
+  margin: 14px var(--ux-dlg-pad-x) max(18px, env(safe-area-inset-bottom));
+}
+
+/* Sync pill states have to stay legible on the maroon band. */
+:is(.ux-dlg) .ux-dlg__head .customer-orders-sync-status.is-live {
+  color: #c8f7d6;
+}
+
+:is(.ux-dlg) .ux-dlg__head .customer-orders-sync-status.is-live .customer-orders-sync-dot {
+  background: #57e07f;
+  box-shadow: 0 0 0 3px rgba(87, 224, 127, 0.22);
+}
+
+:is(.ux-dlg) .ux-dlg__head .customer-orders-sync-status.is-offline {
+  color: #ffdcae;
+}
+
+:is(.ux-dlg) .ux-dlg__head .customer-orders-sync-status.is-offline .customer-orders-sync-dot {
+  background: #ffb457;
+}
+
+/* Order detail is a sheet *inside* the orders card, so it keeps its own
+   absolute positioning and stays hidden until `.show` is added — the generic
+   card shell above would otherwise reveal it permanently. */
+:is(.ux-dlg) .customer-order-detail-modal.ux-dlg__card {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: none;
+  width: auto;
+  max-width: none;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: 0 0 42px rgba(27, 4, 4, 0.28);
+}
+
+:is(.ux-dlg) .customer-order-detail-modal.ux-dlg__card.show {
+  display: flex;
+}
+
+:is(.ux-dlg) .customer-order-detail-modal.ux-dlg__card > .customer-order-detail-content {
+  padding: 20px clamp(18px, 4.6vw, 26px) max(22px, env(safe-area-inset-bottom));
+  background: #fffafa;
+}
+
+/* Rating / return / buy-again cards: the shared body needs its own gutters now
+   that the card itself has no padding. */
+:is(.ux-dlg) .ux-dlg__card > .customer-rating-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 22px var(--ux-dlg-pad-x) 20px;
+  background: #ffffff;
+}
+
+:is(.ux-dlg) .customer-rating-card.ux-dlg__card,
+:is(.ux-dlg) .customer-return-request-card.ux-dlg__card,
+:is(.ux-dlg) .customer-return-form-card.ux-dlg__card,
+:is(.ux-dlg) .customer-buy-again-card.ux-dlg__card {
+  width: min(100%, 560px);
+  max-width: min(100%, 560px);
+  max-height: min(860px, calc(100dvh - 28px));
+  gap: 0;
+}
+
+:is(.ux-dlg) .customer-rating-discard-card.ux-dlg__card {
+  width: min(100%, 420px);
+  max-width: min(100%, 420px);
+}
+
+/* Product-info / service-details modals: wider content cards on the same
+   shell, with the hairline dividers dropped now that the band and the cream
+   action strip provide the separation. */
+.modal-overlay.ux-dlg {
+  background: var(--ux-dlg-scrim);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.modal-overlay.ux-dlg .modal-box.ux-dlg__card {
+  width: min(750px, 100%);
+  max-width: min(750px, 100%);
+  max-height: min(92vh, calc(100dvh - 24px));
+}
+
+.modal-overlay.ux-dlg .ux-dlg__card > .modal-divider {
+  display: none;
+}
+
+.modal-overlay.ux-dlg .ux-dlg__card > .modal-scroll-area {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  background: #ffffff;
+}
+
+.modal-overlay.ux-dlg .ux-dlg__card > .modal-actions {
+  flex: 0 0 auto;
+  border-top: 1px solid var(--ux-dlg-foot-line);
+  background: var(--ux-dlg-foot-bg);
+}
+
+/* Customer reviews: the widest card of the set, children already carry their
+   own 28px gutters so only the frame needs restating. */
+.customer-reviews-overlay.ux-dlg .customer-reviews-box.ux-dlg__card {
+  width: min(820px, 100%);
+  max-width: min(820px, 100%);
+  max-height: min(92vh, calc(100dvh - 24px));
+}
+
+.customer-reviews-overlay.ux-dlg .ux-dlg__head .customer-reviews-product {
+  margin: 6px 0 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.customer-reviews-overlay.ux-dlg .ux-dlg__card > .customer-reviews-list {
+  background: #ffffff;
+}
+
+/* Cart / checkout / address sheets keep their single-row header layout (a back
+   arrow, a centered title, one trailing control) but wear the same band. */
+.shop-modal-overlay {
+  background: var(--ux-dlg-scrim);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.shop-modal-box {
+  border: 1px solid var(--ux-dlg-edge);
+  border-radius: var(--ux-dlg-radius);
+  box-shadow: var(--ux-dlg-shadow);
+  background: #ffffff;
+}
+
+.shop-modal-box > .shop-modal-header {
+  position: relative;
+  overflow: hidden;
+  padding: 16px 20px;
+  border-bottom: 0;
+  background: var(--ux-dlg-band);
+}
+
+.shop-modal-box > .shop-modal-header::after {
+  content: "";
+  position: absolute;
+  right: -60px;
+  bottom: -120px;
+  width: 200px;
+  height: 200px;
+  border: 1px solid rgba(241, 237, 18, 0.24);
+  border-radius: 50%;
+  box-shadow: 0 0 0 24px rgba(241, 237, 18, 0.05);
+  pointer-events: none;
+}
+
+.shop-modal-box > .shop-modal-header > * {
+  position: relative;
+  z-index: 1;
+}
+
+.shop-modal-header .shop-modal-title {
+  color: #ffffff;
+}
+
+.shop-modal-header .cart-short-address {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.shop-modal-header .back-shop-modal,
+.shop-modal-header .trash-btn {
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+}
+
+.shop-modal-header .back-shop-modal:hover,
+.shop-modal-header .trash-btn:hover {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.34);
+  color: #ffffff;
+}
+
+.shop-modal-box > .shop-modal-footer {
+  border-top: 1px solid var(--ux-dlg-foot-line);
+  background: var(--ux-dlg-foot-bg);
+}
+
+/* -- `hidden` stays hidden -------------------------------------------------
+   The shell sets `display` on badges, figures and pill buttons, which would
+   otherwise out-specify the UA `[hidden]` rule and reveal controls the scripts
+   keep collapsed (the announcement Next/View Details buttons, empty states).
+   Declared last in this section so it wins on source order. */
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card [hidden] {
+  display: none;
+}
+
+/* -- Announcement dialog ---------------------------------------------------
+   Same shell as every other dialog. Its footer is the exception: it carries a
+   "1 of 3" counter plus up to three buttons, so it flexes instead of using the
+   default one/two-column grid. The runtime sheet in customer-announcements.js
+   still forces a stacked grid at <=420px, which is the wanted narrow layout. */
+.announcement-modal.ux-dlg {
+  padding: max(14px, env(safe-area-inset-top))
+    max(14px, env(safe-area-inset-right))
+    max(14px, env(safe-area-inset-bottom))
+    max(14px, env(safe-area-inset-left));
+  /* The runtime sheet centres this overlay with `place-items`, which leaves the
+     implicit column content-sized — the card's `width: min(100%, 520px)` would
+     then resolve its percentage against its own text and collapse to about
+     290px. A full-width track gives the percentage something definite to
+     resolve against, and `justify-items: center` still centres the card. */
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  background: var(--ux-dlg-scrim);
+  backdrop-filter: blur(8px);
+}
+
+/* Scoped through the id so these clear the (1,2,0) shell defaults above. */
+#announcementModal.ux-dlg .ux-dlg__card .ux-dlg__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+#announcementModal.ux-dlg .ux-dlg__card .ux-dlg__foot .ux-dlg__btn {
+  flex: 1 1 auto;
+  width: auto;
+}
+
+#announcementModal.ux-dlg .ux-dlg__card .announcement-modal__counter {
+  margin: 0 auto 0 0;
+  color: var(--ux-dlg-text);
+  font-family: "Montserrat", "Poppins", sans-serif;
+  font-size: clamp(10px, 3.2vw, 11.5px);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+/* UXDLG-APPEND */

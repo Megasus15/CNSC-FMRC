@@ -1566,3 +1566,68 @@
     max-width: 40px;
   }
 }
+
+/* -------------------------------------------------------------------------
+   Compact brand lockup — one straight row reading "UCN-FMRC".
+   Declared after every earlier header block so it decides the layout at all
+   widths below 901px, in the sticky header and in the cloned sidebar header.
+   A single font-size on `.logo-text` drives both halves, so the narrower
+   breakpoints no longer need their own pair of sizes: the clamp shrinks the
+   whole word together and the row can never break in two.
+   ------------------------------------------------------------------------- */
+@media (max-width: 900px) {
+  .site-header .logo-text,
+  .sidebar-logo-container .logo-text {
+    flex-direction: row;
+    align-items: baseline;
+    flex-wrap: nowrap;
+    gap: 0;
+    min-width: 0;
+    width: auto;
+    max-width: none;
+    font-size: clamp(11px, 3.2vw, 19px);
+    white-space: nowrap;
+  }
+
+  .site-header .logo-title,
+  .sidebar-logo-container .logo-title,
+  .site-header .logo-subtitle,
+  .sidebar-logo-container .logo-subtitle {
+    display: inline;
+    font-size: inherit;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.05em;
+    color: #b01c1c;
+    white-space: nowrap;
+  }
+
+  /* Joins "UCN" and "FMRC" into the requested single hyphenated word. The
+     short spans only exist below 901px, so no hyphen leaks onto desktop. */
+  .site-header .logo-title .brand-name-short::after,
+  .sidebar-logo-container .logo-title .brand-name-short::after {
+    content: "-";
+  }
+}
+
+/* Dialog gutters follow the viewport. One token drives the shared band, body
+   and footer padding of every ux-dlg dialog, so narrow phones and watch-sized
+   canvases get tighter margins without per-dialog overrides. */
+@media (max-width: 430px) {
+  :root {
+    --ux-dlg-pad-x: 18px;
+  }
+}
+
+@media (max-width: 320px) {
+  :root {
+    --ux-dlg-pad-x: 14px;
+  }
+}
+
+@media (max-width: 280px) {
+  :root {
+    --ux-dlg-pad-x: 11px;
+  }
+}
+

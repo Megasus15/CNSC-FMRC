@@ -593,7 +593,7 @@
         
         .announcement-modal__button--primary {
           background: var(--announcement-accent-secondary, #800000);
-          color: #ffffff !important;
+          color: #ffffff;
         }
         /* Dynamic darkening on hover for WHICHEVER preset gradient color is active */
         .announcement-modal__button--primary:hover {
@@ -851,29 +851,28 @@
     if (!isAdminOrStaff) {
       modal = document.getElementById("announcementModal");
       const createModalInnerHtml = () => `
-        <div class="announcement-modal__card">
-          <button type="button" class="announcement-modal__close-x" id="announcementModalCloseX" aria-label="Close announcement">&times;</button>
-          <div class="announcement-modal__hero">
-            <p class="announcement-modal__label" id="announcementModalBadgeLabel">FMRC ANNOUNCEMENT</p>
-            <h2 class="announcement-modal__title" id="announcementModalTitle">Announcements</h2>
+        <div class="announcement-modal__card ux-dlg__card">
+          <div class="announcement-modal__hero ux-dlg__head">
+            <button type="button" class="announcement-modal__close-x ux-dlg__close" id="announcementModalCloseX" aria-label="Close announcement">&times;</button>
+            <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-bullhorn"></i></span>
+            <p class="announcement-modal__label ux-dlg__eyebrow" id="announcementModalBadgeLabel">FMRC ANNOUNCEMENT</p>
+            <h2 class="announcement-modal__title ux-dlg__title" id="announcementModalTitle">Announcements</h2>
           </div>
-          <div class="announcement-modal__body">
-            <p class="announcement-modal__message" id="announcementModalMessage">Loading announcements...</p>
-            <div class="announcement-modal__actions">
-              <span class="announcement-modal__counter" id="announcementModalCounter"></span>
-              <div style="display:flex; gap:8px; align-items:center; margin-left:auto;">
-                <button type="button" class="announcement-modal__button announcement-modal__button--secondary" id="announcementModalNext" hidden>Next</button>
-                <a class="announcement-modal__button announcement-modal__button--primary" id="announcementModalCta" hidden>View Details</a>
-                <button type="button" class="announcement-modal__button announcement-modal__button--secondary" id="announcementModalClose">Got it</button>
-              </div>
-            </div>
+          <div class="announcement-modal__body ux-dlg__body">
+            <p class="announcement-modal__message ux-dlg__text" id="announcementModalMessage">Loading announcements...</p>
+          </div>
+          <div class="announcement-modal__actions ux-dlg__foot">
+            <span class="announcement-modal__counter" id="announcementModalCounter"></span>
+            <button type="button" class="announcement-modal__button announcement-modal__button--secondary ux-dlg__btn ux-dlg__btn--ghost" id="announcementModalNext" hidden>Next</button>
+            <a class="announcement-modal__button announcement-modal__button--primary ux-dlg__btn ux-dlg__btn--ghost" id="announcementModalCta" hidden>View Details</a>
+            <button type="button" class="announcement-modal__button announcement-modal__button--secondary ux-dlg__btn ux-dlg__btn--primary" id="announcementModalClose">Got it</button>
           </div>
         </div>
       `;
 
       if (!modal) {
         modal = document.createElement("div");
-        modal.className = "announcement-modal";
+        modal.className = "announcement-modal ux-dlg";
         modal.id = "announcementModal";
         modal.hidden = true;
         modal.setAttribute("role", "dialog");
@@ -882,11 +881,16 @@
         document.body.appendChild(modal);
       }
 
+      // The shared dialog shell is scoped to `.ux-dlg`, so guarantee the hook
+      // even when the page shipped the markup before the unified redesign.
+      modal.classList.add("ux-dlg");
+
       const requiredModalControls = [
         "#announcementModalCloseX",
         "#announcementModalClose",
         "#announcementModalNext",
         "#announcementModalCta",
+        ".ux-dlg__foot",
       ];
       if (
         !requiredModalControls.every((selector) =>

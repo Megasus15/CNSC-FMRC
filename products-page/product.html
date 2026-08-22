@@ -20,7 +20,7 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
-    <link rel="stylesheet" href="../home-page/main.css?v=4.7" />
+    <link rel="stylesheet" href="../home-page/main.css?v=4.8" />
     <style>
       @keyframes shimmer {
         0% {
@@ -135,19 +135,9 @@
       .promotion-spotlight__eyebrow { margin: 0 0 3px; font-size: .72rem; font-weight: 800; letter-spacing: .12em; opacity: .84; }
       .promotion-spotlight__title { margin: 0; font-size: 1rem; font-weight: 800; }
       .promotion-spotlight__message { margin: 4px 0 0; font-size: .84rem; line-height: 1.45; opacity: .92; }
-      .announcement-modal { position: fixed; inset: 0; z-index: 3000; display: none; align-items: center; justify-content: center; padding: 22px; background: rgba(25, 12, 12, .58); backdrop-filter: blur(5px); }
-      .announcement-modal.is-open { display: flex; }
-      .announcement-modal__card { position: relative; width: min(100%, 520px); overflow: hidden; border-radius: 22px; background: #fff; box-shadow: 0 28px 70px rgba(20, 8, 8, .34); }
-      .announcement-modal__hero { padding: 30px 62px 26px 30px; color: #fff; background: linear-gradient(135deg, #831515, #c0392b 62%, #e56c37); }
-      .announcement-modal__label { margin: 0 0 9px; font-size: .74rem; font-weight: 800; letter-spacing: .12em; opacity: .86; }
-      .announcement-modal__title { margin: 0; font-size: clamp(1.35rem, 3vw, 1.85rem); line-height: 1.2; }
-      .announcement-modal__body { padding: 25px 30px 30px; }
-      .announcement-modal__message { margin: 0; color: #4b5563; font-size: .95rem; line-height: 1.65; white-space: pre-line; }
-      .announcement-modal__date { display: inline-flex; margin-top: 17px; padding: 7px 10px; border-radius: 8px; background: #fff3ed; color: #9d2d16; font-size: .77rem; font-weight: 700; }
-      .announcement-modal__actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
-      .announcement-modal__button, .announcement-modal__close { border: 0; cursor: pointer; font: inherit; }
-      .announcement-modal__button { padding: 11px 17px; border-radius: 9px; background: #a51d1d; color: #fff; font-weight: 800; }
-      .announcement-modal__close { position: absolute; top: 15px; right: 15px; display: grid; width: 34px; height: 34px; place-items: center; border-radius: 50%; background: rgba(255,255,255,.18); color: #fff; font-size: 21px; }
+      /* Announcement dialog styling now comes from the shared ux-dlg shell in
+         main.css plus the runtime sheet in customer-announcements.js. The old
+         per-page copy lived here and only fought them, so it was removed. */
       .product-discount-badge { position: absolute; top: 10px; left: 10px; z-index: 2; padding: 6px 9px; border-radius: 8px; color: #fff; background: #c0392b; box-shadow: 0 4px 10px rgba(105, 16, 16, .23); font-size: .72rem; font-weight: 800; }
       .product-price-sale { display: flex; align-items: baseline; flex-wrap: wrap; gap: 7px; }
       .product-price-sale .sale-price { color: #ad201c; font-size: 1.17rem; font-weight: 900; }
@@ -155,12 +145,9 @@
       @media (max-width: 640px) {
         .promotion-spotlight { padding: 0 15px; margin-top: 16px; }
         .promotion-spotlight__inner { align-items: flex-start; padding: 15px; }
-        .announcement-modal { padding: 14px; }
-        .announcement-modal__hero { padding: 28px 56px 23px 23px; }
-        .announcement-modal__body { padding: 22px 23px 25px; }
       }
     </style>
-    <link rel="stylesheet" href="../home-page/responsive.css" />
+    <link rel="stylesheet" href="../home-page/responsive.css?v=4.8" />
   </head>
   <body class="products-page-body">
     <header class="site-header">
@@ -346,30 +333,35 @@
       </div>
     </section>
 
-    <div class="announcement-modal" id="announcementModal" role="dialog" aria-modal="true" aria-labelledby="announcementModalTitle" aria-hidden="true">
-      <div class="announcement-modal__card">
-        <button type="button" class="announcement-modal__close" id="announcementModalClose" aria-label="Close announcement">&times;</button>
-        <div class="announcement-modal__hero">
-          <p class="announcement-modal__label">FMRC UPDATE</p>
-          <h2 class="announcement-modal__title" id="announcementModalTitle">Announcements</h2>
+    <div class="announcement-modal ux-dlg" id="announcementModal" role="dialog" aria-modal="true" aria-labelledby="announcementModalTitle" aria-hidden="true" hidden>
+      <div class="announcement-modal__card ux-dlg__card">
+        <div class="announcement-modal__hero ux-dlg__head">
+          <button type="button" class="announcement-modal__close-x ux-dlg__close" id="announcementModalCloseX" aria-label="Close announcement">&times;</button>
+          <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-bullhorn"></i></span>
+          <p class="announcement-modal__label ux-dlg__eyebrow">FMRC ANNOUNCEMENT</p>
+          <h2 class="announcement-modal__title ux-dlg__title" id="announcementModalTitle">Announcements</h2>
         </div>
-        <div class="announcement-modal__body">
-          <p class="announcement-modal__message" id="announcementModalMessage">There are no active announcements right now.</p>
-          <span class="announcement-modal__date" id="announcementModalDate" hidden></span>
-          <div class="announcement-modal__actions">
-            <button type="button" class="announcement-modal__button" id="announcementModalAcknowledge">Got it</button>
-          </div>
+        <div class="announcement-modal__body ux-dlg__body">
+          <p class="announcement-modal__message ux-dlg__text" id="announcementModalMessage">Loading announcements...</p>
+        </div>
+        <div class="announcement-modal__actions ux-dlg__foot">
+          <span class="announcement-modal__counter" id="announcementModalCounter"></span>
+          <button type="button" class="announcement-modal__button announcement-modal__button--secondary ux-dlg__btn ux-dlg__btn--ghost" id="announcementModalNext" hidden>Next</button>
+          <a class="announcement-modal__button announcement-modal__button--primary ux-dlg__btn ux-dlg__btn--ghost" id="announcementModalCta" hidden>View Details</a>
+          <button type="button" class="announcement-modal__button announcement-modal__button--secondary ux-dlg__btn ux-dlg__btn--primary" id="announcementModalClose">Got it</button>
         </div>
       </div>
     </div>
 
-    <div class="modal-overlay" id="productInfoModal">
-      <div class="modal-box">
-        <div class="modal-header">
-          <h2 class="modal-title" id="productInfoTitle">Product Information</h2>
-          <button class="close-modal-btn" id="closeProductInfoModal">
+    <div class="modal-overlay ux-dlg" id="productInfoModal">
+      <div class="modal-box ux-dlg__card">
+        <div class="modal-header ux-dlg__head">
+          <button class="close-modal-btn ux-dlg__close" id="closeProductInfoModal">
             &times;
           </button>
+          <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-cube"></i></span>
+          <p class="ux-dlg__eyebrow">Product details</p>
+          <h2 class="modal-title ux-dlg__title" id="productInfoTitle">Product Information</h2>
         </div>
 
         <div class="modal-divider"></div>
@@ -415,15 +407,16 @@
     </div>
 
     <!-- Product reviews modal -->
-    <div class="customer-reviews-overlay modal-overlay" id="customerReviewsModal" aria-hidden="true">
-      <div class="customer-reviews-box" role="dialog" aria-modal="true" aria-labelledby="customerReviewsTitle">
-        <div class="customer-reviews-header">
+    <div class="customer-reviews-overlay modal-overlay ux-dlg" id="customerReviewsModal" aria-hidden="true">
+      <div class="customer-reviews-box ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="customerReviewsTitle">
+        <div class="customer-reviews-header ux-dlg__head">
+          <button type="button" class="close-modal-btn ux-dlg__close" id="closeCustomerReviewsModal" aria-label="Close customer reviews">&times;</button>
+          <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-comment-dots"></i></span>
           <div>
-            <p class="customer-reviews-eyebrow">Customer feedback</p>
-            <h2 class="customer-reviews-title" id="customerReviewsTitle">Customer Reviews</h2>
+            <p class="customer-reviews-eyebrow ux-dlg__eyebrow">Customer feedback</p>
+            <h2 class="customer-reviews-title ux-dlg__title" id="customerReviewsTitle">Customer Reviews</h2>
             <p class="customer-reviews-product" id="customerReviewsProductName"></p>
           </div>
-          <button type="button" class="close-modal-btn" id="closeCustomerReviewsModal" aria-label="Close customer reviews">&times;</button>
         </div>
 
         <div class="customer-reviews-summary" id="customerReviewsSummary">
@@ -1103,7 +1096,7 @@
                 height="12"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="#555"
+                stroke="currentColor"
                 stroke-width="2"
                 stroke-linecap="round"
                 stroke-linejoin="round"
@@ -1115,7 +1108,6 @@
                 id="cartShortAddressText"
                 style="
                   font-size: 11px;
-                  color: #555;
                   white-space: nowrap;
                   overflow: hidden;
                   text-overflow: ellipsis;
@@ -1129,7 +1121,7 @@
                 height="12"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="#555"
+                stroke="currentColor"
                 stroke-width="2"
                 stroke-linecap="round"
                 stroke-linejoin="round"
@@ -1442,8 +1434,8 @@
 
     <!-- Order success modal above replaces the previous inline card. -->
 
-    <script src="../home-page/customer-announcements.js"></script>
-    <script src="../home-page/main.js?v=4.6"></script>
-    <script src="products.js?v=4.6"></script>
+    <script src="../home-page/customer-announcements.js?v=4.8"></script>
+    <script src="../home-page/main.js?v=4.8"></script>
+    <script src="products.js?v=4.8"></script>
   </body>
 </html>

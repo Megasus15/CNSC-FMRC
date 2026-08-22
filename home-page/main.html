@@ -22,8 +22,8 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
 
-    <link rel="stylesheet" href="main.css?v=4.7" />
-    <link rel="stylesheet" href="responsive.css" />
+    <link rel="stylesheet" href="main.css?v=4.8" />
+    <link rel="stylesheet" href="responsive.css?v=4.8" />
 
     <!-- Renders the hero headline from site settings. Loaded here, ahead of the
          hero markup, so the inline call below it can paint before first paint. -->
@@ -95,21 +95,22 @@
       </div>
     </header>
 
-    <div class="announcement-modal" id="announcementModal" role="dialog" aria-modal="true" aria-labelledby="announcementModalTitle" aria-hidden="true" hidden>
-      <div class="announcement-modal__card">
-        <button type="button" class="announcement-modal__close-x" id="announcementModalCloseX" aria-label="Close announcement">&times;</button>
-        <div class="announcement-modal__hero">
-          <p class="announcement-modal__label">FMRC ANNOUNCEMENT</p>
-          <h2 class="announcement-modal__title" id="announcementModalTitle">Announcements</h2>
+    <div class="announcement-modal ux-dlg" id="announcementModal" role="dialog" aria-modal="true" aria-labelledby="announcementModalTitle" aria-hidden="true" hidden>
+      <div class="announcement-modal__card ux-dlg__card">
+        <div class="announcement-modal__hero ux-dlg__head">
+          <button type="button" class="announcement-modal__close-x ux-dlg__close" id="announcementModalCloseX" aria-label="Close announcement">&times;</button>
+          <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-bullhorn"></i></span>
+          <p class="announcement-modal__label ux-dlg__eyebrow">FMRC ANNOUNCEMENT</p>
+          <h2 class="announcement-modal__title ux-dlg__title" id="announcementModalTitle">Announcements</h2>
         </div>
-        <div class="announcement-modal__body">
-          <p class="announcement-modal__message" id="announcementModalMessage">Loading announcements...</p>
-          <div class="announcement-modal__actions">
-            <span class="announcement-modal__counter" id="announcementModalCounter"></span>
-            <button type="button" class="announcement-modal__button announcement-modal__button--secondary" id="announcementModalNext" hidden>Next</button>
-            <a class="announcement-modal__button announcement-modal__button--primary" id="announcementModalCta" hidden>View Details</a>
-            <button type="button" class="announcement-modal__button announcement-modal__button--secondary" id="announcementModalClose">Got it</button>
-          </div>
+        <div class="announcement-modal__body ux-dlg__body">
+          <p class="announcement-modal__message ux-dlg__text" id="announcementModalMessage">Loading announcements...</p>
+        </div>
+        <div class="announcement-modal__actions ux-dlg__foot">
+          <span class="announcement-modal__counter" id="announcementModalCounter"></span>
+          <button type="button" class="announcement-modal__button announcement-modal__button--secondary ux-dlg__btn ux-dlg__btn--ghost" id="announcementModalNext" hidden>Next</button>
+          <a class="announcement-modal__button announcement-modal__button--primary ux-dlg__btn ux-dlg__btn--ghost" id="announcementModalCta" hidden>View Details</a>
+          <button type="button" class="announcement-modal__button announcement-modal__button--secondary ux-dlg__btn ux-dlg__btn--primary" id="announcementModalClose">Got it</button>
         </div>
       </div>
     </div>
@@ -1326,34 +1327,41 @@
     </div>
 
     <div
-      class="apt-nested-modal"
+      class="apt-nested-modal ux-dlg"
       id="aptPrivacyModal"
       role="dialog"
       aria-modal="true"
       aria-labelledby="aptPrivacyTitle"
     >
-      <div class="apt-nested-box">
-        <div class="nested-icon">!</div>
-        <h3 id="aptPrivacyTitle">DATA PRIVACY NOTICE</h3>
-        <p>
-          By entering the UCN Fabrication and Manufacturing Research Center -
-          Online Appointment Form (OAF), you voluntarily agree or allow
-          University of Camarines Norte (UCN) FMRC to collect and record your
-          PERSONAL INFORMATION in our systems to process your appointment. Click
-          PROCEED only if you agree with our data collection process, otherwise,
-          click CANCEL.
-        </p>
-        <div class="nested-actions">
+      <div class="apt-nested-box ux-dlg__card">
+        <div class="ux-dlg__head">
+          <div class="nested-icon ux-dlg__badge" aria-hidden="true">
+            <i class="fa-solid fa-shield-halved"></i>
+          </div>
+          <p class="ux-dlg__eyebrow">Before you continue</p>
+          <h3 id="aptPrivacyTitle" class="ux-dlg__title">DATA PRIVACY NOTICE</h3>
+        </div>
+        <div class="ux-dlg__body">
+          <p class="ux-dlg__text">
+            By entering the UCN Fabrication and Manufacturing Research Center -
+            Online Appointment Form (OAF), you voluntarily agree or allow
+            University of Camarines Norte (UCN) FMRC to collect and record your
+            PERSONAL INFORMATION in our systems to process your appointment.
+            Click PROCEED only if you agree with our data collection process,
+            otherwise, click CANCEL.
+          </p>
+        </div>
+        <div class="nested-actions ux-dlg__foot is-confirm">
           <button
             type="button"
-            class="apt-btn apt-btn-cancel"
+            class="apt-btn apt-btn-cancel ux-dlg__btn ux-dlg__btn--ghost"
             id="cancelPrivacyBtn"
           >
             Cancel
           </button>
           <button
             type="button"
-            class="apt-btn apt-btn-blue"
+            class="apt-btn apt-btn-blue ux-dlg__btn ux-dlg__btn--primary"
             id="acceptPrivacyBtn"
           >
             Proceed
@@ -1363,29 +1371,36 @@
     </div>
 
     <div
-      class="apt-nested-modal"
+      class="apt-nested-modal ux-dlg"
       id="aptConfirmModal"
       role="dialog"
       aria-modal="true"
       aria-labelledby="aptConfirmTitle"
     >
-      <div class="apt-nested-box apt-confirm-box">
-        <div class="nested-icon brown-icon">!</div>
-        <h3 id="aptConfirmTitle">Confirmation</h3>
-        <p>
-          Are you sure you want to proceed?
-        </p>
-        <div class="nested-actions">
+      <div class="apt-nested-box apt-confirm-box ux-dlg__card">
+        <div class="ux-dlg__head">
+          <div class="nested-icon brown-icon ux-dlg__badge" aria-hidden="true">
+            <i class="fa-solid fa-circle-question"></i>
+          </div>
+          <p class="ux-dlg__eyebrow">Confirmation</p>
+          <h3 id="aptConfirmTitle" class="ux-dlg__title">
+            Submit this appointment?
+          </h3>
+        </div>
+        <div class="ux-dlg__body">
+          <p class="ux-dlg__text">Are you sure you want to proceed?</p>
+        </div>
+        <div class="nested-actions ux-dlg__foot is-confirm">
           <button
             type="button"
-            class="apt-btn apt-btn-cancel"
+            class="apt-btn apt-btn-cancel ux-dlg__btn ux-dlg__btn--ghost"
             id="cancelConfirmBtn"
           >
             Cancel
           </button>
           <button
             type="button"
-            class="apt-btn apt-btn-blue"
+            class="apt-btn apt-btn-blue ux-dlg__btn ux-dlg__btn--primary"
             id="acceptConfirmBtn"
           >
             Proceed
@@ -1555,7 +1570,7 @@
       referrerpolicy="no-referrer"
     ></script>
     <script src="turnstile.js?v=1.2"></script>
-    <script src="main.js?v=4.6"></script>
-    <script src="customer-announcements.js"></script>
+    <script src="main.js?v=4.8"></script>
+    <script src="customer-announcements.js?v=4.8"></script>
   </body>
 </html>
