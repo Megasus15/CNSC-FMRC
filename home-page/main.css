@@ -1039,8 +1039,8 @@ body {
 
 .service-image-trigger:focus-visible,
 .services-grid .details-btn:focus-visible {
-  outline: 3px solid rgba(241, 189, 18, 0.72);
-  outline-offset: -3px;
+  outline: 2px solid rgba(176, 28, 28, 0.45);
+  outline-offset: -2px;
 }
 
 .service-modal-image-trigger {
@@ -1052,7 +1052,7 @@ body {
 }
 
 .service-modal-image-trigger:focus-visible {
-  outline: 3px solid rgba(241, 189, 18, 0.72);
+  outline: 2px solid rgba(176, 28, 28, 0.45);
   outline-offset: 3px;
 }
 
@@ -5204,7 +5204,7 @@ input:checked + .toggle-slider:before {
 .apt-nested-modal button:focus-visible,
 .success-modal-overlay button:focus-visible,
 .cal-day-cell:not(.disabled):not(.unavailable):focus-visible {
-  outline: 3px solid rgba(241, 237, 18, 0.9);
+  outline: 2px solid rgba(176, 28, 28, 0.45);
   outline-offset: 3px;
 }
 
@@ -12147,9 +12147,9 @@ body {
 
 .guest-sign-in-trigger:focus-visible {
   outline: none;
-  border-color: #c68317;
+  border-color: rgba(176, 28, 28, 0.55);
   box-shadow:
-    0 0 0 3px rgba(241, 237, 18, 0.34),
+    0 0 0 3px rgba(176, 28, 28, 0.16),
     0 9px 22px rgba(65, 16, 16, 0.16);
 }
 
@@ -14128,15 +14128,24 @@ textarea {
   }
 }
 
-/* --- Visible keyboard focus everywhere ------------------------- */
+/* --- Visible keyboard focus everywhere -------------------------
+   A hint of the brand red, never a thick amber ring. Links, buttons and
+   custom widgets get a slim maroon outline; fields get an even lighter
+   one because they already tint their own border and halo red on focus
+   (see .c-input:focus / .contact-input:focus), so the two read as a
+   single delicate red edge. */
 a:focus-visible,
 button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid rgba(176, 28, 28, 0.42);
+  outline-offset: 2px;
+}
+
 input:focus-visible,
 select:focus-visible,
-textarea:focus-visible,
-[tabindex]:focus-visible {
-  outline: 3px solid rgba(241, 189, 18, 0.85);
-  outline-offset: 2px;
+textarea:focus-visible {
+  outline: 1px solid rgba(176, 28, 28, 0.45);
+  outline-offset: 3px;
 }
 
 /* ------------------------------------------------------------------
@@ -14380,7 +14389,7 @@ textarea:focus-visible,
 }
 
 .customer-order-image-trigger:focus-visible {
-  outline: 3px solid rgba(176, 28, 28, 0.42);
+  outline: 2px solid rgba(176, 28, 28, 0.42);
   outline-offset: 2px;
 }
 
@@ -14816,8 +14825,11 @@ textarea:focus-visible,
   transform: scale(0.97);
 }
 
+/* The badges sit on the maroon hero, so the focus ring is a light rose
+   rather than the deep maroon used elsewhere — same red family, but it
+   still reads against the dark gradient. */
 .hero-sdg-btn:focus-visible {
-  outline: 3px solid rgba(238, 242, 36, 0.9);
+  outline: 2px solid rgba(255, 214, 214, 0.9);
   outline-offset: 3px;
 }
 

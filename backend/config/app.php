@@ -56,6 +56,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Customer Website URL
+    |--------------------------------------------------------------------------
+    |
+    | Public address of the customer-facing site. FRONTEND_URL was already set
+    | in every .env (local dev server and the live domain) but had no config
+    | key, so nothing could read it once the config was cached. Outgoing mail
+    | uses it to link customers back to the booking page.
+    |
+    */
+
+    'frontend_url' => env('FRONTEND_URL', 'https://ucn-fabmanlab.com'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

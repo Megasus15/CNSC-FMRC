@@ -113,29 +113,30 @@ class AdminPortalConsistencyTest extends TestCase
             $html = (string) file_get_contents($root.'/'.$portal.'/dashboard.html');
 
             // Counting generated reports on the dashboard carried no decision,
-            // so the tile is now a call to action that opens the Reports page.
+            // so the counter is gone and the call to action now lives in the
+            // Dashboard Controls toolbar, next to Refresh.
             $this->assertStringNotContainsString('dashboardReportsCount', $html, $portal);
             $this->assertStringNotContainsString('Generated Reports', $html, $portal);
+            $this->assertStringNotContainsString('card-action', $html, $portal);
 
-            $this->assertStringContainsString('class="card card-link card-action"', $html, $portal);
+            $this->assertStringContainsString('class="btn-admin btn-generate-report"', $html, $portal);
             $this->assertStringContainsString('href="reports.html"', $html, $portal);
-            $this->assertStringContainsString('class="card-action-title"', $html, $portal);
             $this->assertStringContainsString('Generate Report', $html, $portal);
-            $this->assertStringContainsString('Turn records into official reports.', $html, $portal);
         }
 
         // Nothing renders the count any more; the API keeps returning it for the
         // report_generations audit trail.
         $this->assertStringNotContainsString('dashboardReportsCount', $dashboardJs);
 
-        // The tile is styled by tint, icon and arrow only: a coloured left edge
-        // was explicitly rejected.
+        // The CTA is styled by gradient and icon only: a coloured left edge was
+        // explicitly rejected, and the summary-card variant is fully retired.
+        $this->assertStringNotContainsString('.card-action', $dashboardCss);
         $this->assertSame(
             1,
-            preg_match_all('/^\.card-action \{$/m', $dashboardCss),
-            'The quick-action tile needs exactly one base rule.',
+            preg_match_all('/^\.btn-generate-report \{$/m', $dashboardCss),
+            'The Generate Report CTA needs exactly one base rule.',
         );
-        preg_match_all('/\.card-action[^{}]*\{[^}]*\}/', $dashboardCss, $blocks);
+        preg_match_all('/\.btn-generate-report[^{}]*\{[^}]*\}/', $dashboardCss, $blocks);
         $this->assertNotEmpty($blocks[0]);
         foreach ($blocks[0] as $block) {
             $this->assertStringNotContainsString('border-left', $block);

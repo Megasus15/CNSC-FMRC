@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\AppointmentCompleted;
 use App\Mail\AppointmentConfirmation;
 use App\Models\AdminNotification;
 use App\Models\Appointment;
@@ -322,6 +323,32 @@ class AppointmentController extends Controller
 
         $appointment->status = 'Completed';
         $appointment->save();
+
+        // --- Customer Email: Thank-you note for the completed visit ---
+        // Same deferred-send pattern as store(): queued behind the response so
+        // SMTP latency or an SMTP outage can never make "Mark as Done" fail in
+        // the Admin/Staff portal.
+        $emailAddress = trim((string) ($appointment->email ?? ''));
+        if ($emailAddress !== '' && filter_var($emailAddress, FILTER_VALIDATE_EMAIL)) {
+            $appointmentForMail = $appointment;
+            OrderNotifier::afterResponse(function () use ($emailAddress, $appointmentForMail) {
+                try {
+                    Mail::to($emailAddress)
+                        ->send(new AppointmentCompleted($appointmentForMail));
+
+                    Log::info(
+                        '[APPT EMAIL] Sent AppointmentCompleted to '
+                        . $emailAddress
+                        . ' | Ref: ' . $appointmentForMail->reference_no
+                    );
+                } catch (\Throwable $e) {
+                    Log::error(
+                        '[APPT EMAIL] Thank-you SMTP send FAILED for '
+                        . $appointmentForMail->reference_no . ': ' . $e->getMessage()
+                    );
+                }
+            });
+        }
 
         return response()->json([
             'message' => 'Appointment marked as completed.',
