@@ -1149,6 +1149,8 @@ body {
   transition: color 0.2s ease;
 }
 
+/* A plain, permanent underline: the bar is drawn at full width and never
+   animates, so hovering only changes the colour it inherits. */
 .services-grid .details-btn::after {
   content: "";
   position: absolute;
@@ -1158,22 +1160,17 @@ body {
   height: 2px;
   border-radius: 2px;
   background: currentColor;
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform 0.22s ease;
+  transform: none;
+  transition: none;
 }
 
 .services-grid .details-btn:hover,
 .services-grid .details-btn:focus-visible {
   color: #5f0d0d;
   outline: none;
-  /* Keep only the animated ::after bar; suppress the generic .details-btn:hover underline. */
+  /* The ::after bar is already the underline; suppress the generic
+     `.details-btn:hover` text-decoration so the two cannot double up. */
   text-decoration: none;
-}
-
-.services-grid .details-btn:hover::after,
-.services-grid .details-btn:focus-visible::after {
-  transform: scaleX(1);
 }
 
 .service-image-trigger:focus-visible,
@@ -15780,12 +15777,21 @@ textarea:focus-visible {
 }
 
 /* -- Head: the maroon band ------------------------------------------------- */
+/* Two columns: the badge on the left, every line of copy on the right. The band
+   is a grid rather than a flex row because the copy is a variable number of
+   siblings (eyebrow, title, and sometimes a subtitle, a product line or a whole
+   `.customer-orders-title-wrap`) with no shared wrapper to flex against. The
+   column gap is carried by the badge's own right margin, not `column-gap`, so a
+   head with no badge collapses column 1 to zero and keeps its original indent. */
 :is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__head {
   position: relative;
   flex: 0 0 auto;
-  display: block;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0;
   overflow: hidden;
-  padding: clamp(24px, 5vw, 32px) var(--ux-dlg-pad-x) 26px;
+  margin: 0;
+  padding: clamp(15px, 3.2vw, 19px) var(--ux-dlg-pad-x) 15px;
   padding-right: max(64px, var(--ux-dlg-pad-x));
   background: var(--ux-dlg-band);
   border: 0;
@@ -15793,43 +15799,70 @@ textarea:focus-visible {
   text-align: left;
 }
 
+/* Sized and pulled down for the shorter band: a top arc in the lower-right
+   corner rather than a wash across the whole band. */
 :is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__head::after {
   content: "";
   position: absolute;
-  right: -45px;
+  right: -38px;
   bottom: -105px;
-  width: 220px;
-  height: 220px;
+  width: 170px;
+  height: 170px;
   border: 1px solid rgba(241, 237, 18, 0.26);
   border-radius: 50%;
   box-shadow: 0 0 0 26px rgba(241, 237, 18, 0.06);
   pointer-events: none;
 }
 
-/* Lift every band child above the decorative ring drawn by ::after. */
+/* Lift every band child above the decorative ring drawn by ::after, and stack
+   the copy in the second column. The badge is excluded because this selector is
+   one class more specific than the badge's own rule and would otherwise drag it
+   out of column 1. The close button and the back pill are excluded too, but for
+   a different reason: an absolutely positioned grid child with an explicit
+   column is inset from *that column's* edge, which would drag both controls 64px
+   in from the corner they are anchored to. */
 :is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__head > * {
   position: relative;
   z-index: 1;
 }
 
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal)
+  .ux-dlg__card
+  .ux-dlg__head
+  > *:not(.ux-dlg__close, .ux-dlg__back, .ux-dlg__badge, .ux-dlg__figure) {
+  grid-column: 2;
+}
+
+:is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__head > :is(.ux-dlg__close, .ux-dlg__back) {
+  grid-column: auto;
+  grid-row: auto;
+}
+
+/* `span 99` is deliberate: the copy occupies as many implicit rows as the dialog
+   happens to have lines, and the badge has to span all of them for
+   `align-self: center` to centre it against the whole text block. `gap: 0` above
+   is what keeps the surplus empty rows free. */
 :is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__badge {
   position: relative;
   z-index: 1;
   inset: auto;
+  grid-column: 1;
+  grid-row: 1 / span 99;
+  align-self: center;
   display: grid;
   place-items: center;
-  width: 56px;
-  height: 56px;
+  width: 44px;
+  height: 44px;
   min-width: 0;
-  margin: 0 0 16px;
+  margin: 0 14px 0 0;
   padding: 0;
   transform: none;
   border-radius: 50%;
-  border: 3px solid rgba(255, 255, 255, 0.42);
+  border: 2px solid rgba(255, 255, 255, 0.42);
   background: var(--ux-dlg-badge);
   color: var(--ux-dlg-badge-ink);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.22);
-  font-size: 24px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+  font-size: 19px;
   line-height: 1;
 }
 
@@ -15846,13 +15879,13 @@ textarea:focus-visible {
 :is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__eyebrow {
   position: relative;
   z-index: 1;
-  margin: 0 0 6px;
+  margin: 0 0 3px;
   padding: 0;
   max-width: none;
   text-align: left;
   color: var(--ux-dlg-eyebrow);
   font-family: "Montserrat", "Poppins", sans-serif;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 800;
   letter-spacing: 0.13em;
   text-transform: uppercase;
@@ -15866,7 +15899,7 @@ textarea:focus-visible {
   padding: 0;
   color: #ffffff;
   font-family: "Poppins", "Segoe UI", sans-serif;
-  font-size: clamp(19px, 4.4vw, 24px);
+  font-size: clamp(17px, 3.6vw, 21px);
   font-weight: 800;
   line-height: 1.24;
   letter-spacing: 0.1px;
@@ -15876,7 +15909,10 @@ textarea:focus-visible {
 }
 
 /* -- Figure head (SDG detail) --------------------------------------------- */
+/* The one head that opts out of the icon-left grid: its "badge" is a full-width
+   SDG plate, not a 44px circle, so it stays a centred stack. */
 :is(.ux-dlg, #aptPrivacyModal, #aptConfirmModal) .ux-dlg__card .ux-dlg__head--figure {
+  display: block;
   text-align: center;
   padding-right: var(--ux-dlg-pad-x);
 }
@@ -16508,44 +16544,14 @@ textarea:focus-visible {
    compared before classes.
    ------------------------------------------------------------------------- */
 
-/* -- My Account / Account security: a little wider, a shorter band --------- */
+/* -- My Account / Account security: a little wider ------------------------- */
+/* The squished band, the 44px badge and the tighter eyebrow/title sizes these
+   two dialogs used to set for themselves are now the shared defaults, so only
+   the extra width and the relocated Back pill are left here. */
 #customerProfileModal.ux-dlg .customer-modal.ux-dlg__card,
 #customerPasswordModal.ux-dlg .customer-modal.ux-dlg__card {
   width: min(100%, 640px);
   max-width: min(100%, 640px);
-}
-
-#customerProfileModal.ux-dlg .ux-dlg__card .ux-dlg__head,
-#customerPasswordModal.ux-dlg .ux-dlg__card .ux-dlg__head {
-  padding: clamp(15px, 3.2vw, 19px) var(--ux-dlg-pad-x) 15px;
-  padding-right: max(64px, var(--ux-dlg-pad-x));
-}
-
-#customerProfileModal.ux-dlg .ux-dlg__card .ux-dlg__badge,
-#customerPasswordModal.ux-dlg .ux-dlg__card .ux-dlg__badge {
-  width: 44px;
-  height: 44px;
-  margin-bottom: 9px;
-  border-width: 2px;
-  font-size: 19px;
-}
-
-#customerProfileModal.ux-dlg .ux-dlg__card .ux-dlg__eyebrow,
-#customerPasswordModal.ux-dlg .ux-dlg__card .ux-dlg__eyebrow {
-  margin-bottom: 3px;
-  font-size: 10.5px;
-}
-
-#customerProfileModal.ux-dlg .ux-dlg__card .ux-dlg__title,
-#customerPasswordModal.ux-dlg .ux-dlg__card .ux-dlg__title {
-  font-size: clamp(17px, 3.6vw, 21px);
-}
-
-/* The band's decorative ring is sized for the taller heads; pull it down so a
-   shorter band still reads as a soft glow rather than a stripe. */
-#customerProfileModal.ux-dlg .ux-dlg__card .ux-dlg__head::after,
-#customerPasswordModal.ux-dlg .ux-dlg__card .ux-dlg__head::after {
-  bottom: -140px;
 }
 
 /* Back sits in the close button's slot — same 14px inset, same 36px height — so
@@ -16700,6 +16706,7 @@ textarea:focus-visible {
 .profile-popup .popup-profile-row {
   position: relative;
   z-index: 1;
+  align-items: center;
   gap: 12px;
 }
 
@@ -16711,18 +16718,6 @@ textarea:focus-visible {
   color: var(--ux-dlg-badge-ink);
   font-size: 18px;
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
-}
-
-.profile-popup .popup-eyebrow {
-  display: block;
-  margin: 0 0 2px;
-  color: var(--ux-dlg-eyebrow);
-  font-family: "Montserrat", sans-serif;
-  font-size: 9.5px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  line-height: 1.2;
 }
 
 .profile-popup .popup-identity {
