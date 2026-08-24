@@ -2,11 +2,17 @@
   "use strict";
 
   const REPORT_PAGE_SIZE = 10;
-  const REPORT_ROWS_PER_SHEET = 10;
+  // Only a fallback. How many detail rows a printed sheet really holds is
+  // measured from the rendered sheet (see `measureDetailGroups`); this flat
+  // count is used when that measurement cannot run.
+  const REPORT_ROWS_PER_SHEET_FALLBACK = 10;
   const REPORT_POLL_INTERVAL_MS = 30_000;
   const REPORT_REQUEST_TIMEOUT_MS = 20_000;
   const SITE_SETTINGS_REQUEST_TIMEOUT_MS = 8_000;
   const REPORT_ASSET_TIMEOUT_MS = 10_000;
+  // Cap on the best-effort decode of one letterhead image (see
+  // `waitForDocumentAssets`); a hidden tab can leave decode() unsettled.
+  const IMAGE_DECODE_BUDGET_MS = 1_500;
   const REPORT_REALTIME_DEBOUNCE_MS = 550;
   // Last-resort restore of the print-only geometry when a browser never fires
   // afterprint and never flips the print media query back. Deliberately longer
@@ -561,8 +567,26 @@
     };
   };
 
+  // One paint tick, used between building a sheet and measuring it. Browsers
+  // stop firing requestAnimationFrame while the tab is hidden, so awaiting a
+  // bare rAF can park the whole pagination pass - and with it the print flow -
+  // until the tab comes back. Race it against a short timer instead: the
+  // measurements that follow read layout properties, which force the layout
+  // to flush on their own, so a tick without an actual paint still measures
+  // correctly.
+  const PAINT_TICK_FALLBACK_MS = 40;
   const nextPaint = () =>
-    new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+    new Promise((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        resolve();
+      };
+      const timer = window.setTimeout(finish, PAINT_TICK_FALLBACK_MS);
+      window.requestAnimationFrame(finish);
+    });
 
   const init = () => {
     const elements = {
@@ -1804,20 +1828,19 @@
         </main>`;
     };
 
-    const createDetailGroups = (rows) => {
-      const fragments = rows.map((row, index) => ({
+    const createDetailFragments = (rows) =>
+      rows.map((row, index) => ({
         row,
         recordNumber: index + 1,
         continuation: false,
         displayValues: null,
       }));
+
+    const chunkFragments = (fragments, size) => {
+      const step = Math.max(1, size);
       const groups = [];
-      for (
-        let index = 0;
-        index < fragments.length;
-        index += REPORT_ROWS_PER_SHEET
-      ) {
-        groups.push(fragments.slice(index, index + REPORT_ROWS_PER_SHEET));
+      for (let index = 0; index < fragments.length; index += step) {
+        groups.push(fragments.slice(index, index + step));
       }
       return groups;
     };
@@ -1929,7 +1952,19 @@
             `Official artwork is unavailable: ${image.getAttribute("src") || "unknown asset"}`,
           );
         }
-        if (typeof image.decode === "function") await image.decode();
+        // The checks above are what decide whether the artwork is really there.
+        // decode() only pre-rasterises it so the first paint of the sheet is
+        // not janky, and its promise can sit unsettled in a tab that is not
+        // being rendered - which would fail the whole preview over a detail
+        // that does not affect the sheet. Best effort, capped, never fatal.
+        if (typeof image.decode === "function") {
+          await Promise.race([
+            image.decode().catch(() => {}),
+            new Promise((resolve) =>
+              window.setTimeout(resolve, IMAGE_DECODE_BUDGET_MS),
+            ),
+          ]);
+        }
       };
 
       let timeoutId = 0;
@@ -1965,8 +2000,78 @@
       page.classList.add("is-scaled-to-fit");
     };
 
+    /**
+     * Work out how many detail rows one sheet actually holds, by measuring
+     * instead of guessing.
+     *
+     * The preview used to cut every sheet at a flat ten rows, which left a wide
+     * band of blank paper above the footer on every page and spread short
+     * reports over more sheets than they needed. This renders one probe sheet
+     * carrying every row, reads the real height of each row and of the fixed
+     * furniture around them (the detail heading, the caption and the table
+     * head), then fills each sheet down to the footer and starts a new one only
+     * when the next row would not fit.
+     *
+     * Row heights are read from `offsetTop`/`offsetHeight`, which are layout
+     * pixels and so ignore the print-fit transform; the probe is measured
+     * before `is-scaled-to-fit` is ever applied, and the sheet is a fixed
+     * 8.5in x 11in box in both the modal and the print layout, so one
+     * measurement is valid for both.
+     *
+     * The measured pass in `renderMeasuredPreview` still has the last word: a
+     * row can wrap differently once the columns are laid out for a subset of
+     * the data, so whatever still overflows is moved down there.
+     *
+     * @returns {Promise<Array<Array<object>>>} one array of fragments per sheet
+     */
+    const measureDetailGroups = async (data) => {
+      const fragments = createDetailFragments(data.table.rows);
+      if (!fragments.length) return [];
+
+      elements.previewContent.innerHTML = buildPreviewMarkup(data, [fragments]);
+      await waitForDocumentAssets(elements.previewContent);
+      await nextPaint();
+
+      const content = elements.previewContent.querySelector(
+        ".official-report-detail-content",
+      );
+      const rowNodes = Array.from(
+        content?.querySelectorAll(".official-detail-table tbody tr") || [],
+      );
+      // Anything unexpected about the probe (no sheet, a row count that does
+      // not match) means the measurement cannot be trusted, so fall back to the
+      // old flat chunk rather than paginate on bad numbers.
+      if (!content || rowNodes.length !== fragments.length) {
+        return chunkFragments(fragments, REPORT_ROWS_PER_SHEET_FALLBACK);
+      }
+
+      const tops = rowNodes.map((row) => row.offsetTop);
+      const bottoms = rowNodes.map((row) => row.offsetTop + row.offsetHeight);
+      const furniture = content.scrollHeight - (bottoms[bottoms.length - 1] - tops[0]);
+      const available = content.clientHeight - furniture;
+      if (!(available > 0)) {
+        return chunkFragments(fragments, REPORT_ROWS_PER_SHEET_FALLBACK);
+      }
+
+      const groups = [];
+      let current = [];
+      let groupTop = tops[0];
+      fragments.forEach((fragment, index) => {
+        // Always keep at least one row on a sheet, even a row taller than the
+        // sheet itself - `splitDetailFragment` is what deals with that.
+        if (current.length && bottoms[index] - groupTop > available) {
+          groups.push(current);
+          current = [];
+          groupTop = tops[index];
+        }
+        current.push(fragment);
+      });
+      if (current.length) groups.push(current);
+      return groups;
+    };
+
     const renderMeasuredPreview = async (data) => {
-      const detailGroups = createDetailGroups(data.table.rows);
+      const detailGroups = await measureDetailGroups(data);
       const maximumPasses = Math.min(
         2000,
         Math.max(40, data.table.rows.length * 4 + 40),
@@ -1982,16 +2087,6 @@
         );
         let paginationChanged = false;
         for (let pageIndex = 0; pageIndex < pageNodes.length; pageIndex += 1) {
-          if (detailGroups[pageIndex]?.length > REPORT_ROWS_PER_SHEET) {
-            const moved = detailGroups[pageIndex].pop();
-            if (detailGroups[pageIndex + 1]) {
-              detailGroups[pageIndex + 1].unshift(moved);
-            } else {
-              detailGroups.push([moved]);
-            }
-            paginationChanged = true;
-            break;
-          }
           const content = pageNodes[pageIndex].querySelector(
             ".official-report-detail-content",
           );
@@ -2024,16 +2119,6 @@
           }
         }
         if (!paginationChanged) break;
-      }
-
-      for (let index = 0; index < detailGroups.length; index += 1) {
-        if (detailGroups[index].length <= REPORT_ROWS_PER_SHEET) continue;
-        const overflow = detailGroups[index].splice(REPORT_ROWS_PER_SHEET);
-        if (detailGroups[index + 1]) {
-          detailGroups[index + 1] = overflow.concat(detailGroups[index + 1]);
-        } else {
-          detailGroups.push(overflow);
-        }
       }
 
       elements.previewContent.innerHTML = buildPreviewMarkup(data, detailGroups);

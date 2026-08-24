@@ -314,16 +314,18 @@ document.addEventListener("DOMContentLoaded", () => {
     return Math.max(0, threshold);
   };
 
+  // Plain-words version of a rule, shown under every row. Always phrased as
+  // "N or less are left" because that is the only question staff ask of it.
   const describeRule = (rule, baseline) => {
     if (rule?.mode === "percent") {
       const base = Number(baseline) || 0;
       // Category rows have no single baseline, so only show the resolved
       // quantity when an actual starting stock is known.
       return base > 0
-        ? `Low Stock when on hand ≤ ${rule.threshold}% of starting stock (≤ ${resolveLowThreshold(rule, base)})`
-        : `Low Stock when on hand ≤ ${rule.threshold}% of each item's starting stock`;
+        ? `Low Stock when ${resolveLowThreshold(rule, base)} or less are left (${rule.threshold}% of ${base})`
+        : `Low Stock when ${rule.threshold}% or less of the starting stock is left`;
     }
-    return `Low Stock when stocks on hand ≤ ${resolveLowThreshold(rule, baseline)}`;
+    return `Low Stock when ${resolveLowThreshold(rule, baseline)} or less are left`;
   };
 
   const remarksClass = (r) => {
@@ -2534,8 +2536,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // ─── Stock Level Rules modal ──────────────────────────────────────────────────
   const ruleModeOptions = (selected) =>
     [
-      { value: "fixed", label: "Fixed qty" },
-      { value: "percent", label: "% of start" },
+      { value: "fixed", label: "Pieces" },
+      { value: "percent", label: "Percent" },
     ]
       .map(
         (opt) =>
@@ -2543,15 +2545,18 @@ document.addEventListener("DOMContentLoaded", () => {
       )
       .join("");
 
-  // Placeholder text for a threshold field that is currently inheriting.
+  // Placeholder text for a threshold field that is currently blank, i.e. one
+  // that follows a wider rule. It names which wider rule that is - "default",
+  // "category" or "item" - so the reader can tell where the number came from.
   // Percent rules resolve to 0 when the row has no single baseline (category
   // rows), so show the percentage itself instead of a misleading "0".
   const inheritPlaceholder = (rule, baseline) => {
     const base = Number(baseline) || 0;
+    const source = rule?.scope ? `Same as ${rule.scope}` : "Same as above";
     if (rule?.mode === "percent" && base <= 0) {
-      return `Inherit (${rule.threshold}%)`;
+      return `${source} (${rule.threshold}%)`;
     }
-    return `Inherit (${resolveLowThreshold(rule, base)})`;
+    return `${source} (${resolveLowThreshold(rule, base)})`;
   };
 
   const renderStockRuleRow = ({
@@ -2580,7 +2585,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="stock-rule-row-meta">
             ${metaHtml}
             <span class="stock-rule-chip ${override ? "stock-rule-chip--custom" : "stock-rule-chip--inherited"}">
-              ${override ? "Custom rule" : `Inherits ${escHtml(inheritedRule.scope)}`}
+              ${override ? "Own rule" : `Same as ${escHtml(inheritedRule.scope)}`}
             </span>
             <span data-rule-formula>${escHtml(describeRule(effective, baseline))}</span>
           </div>
@@ -2602,8 +2607,8 @@ document.addEventListener("DOMContentLoaded", () => {
             type="button"
             class="stock-rule-clear"
             data-rule-clear
-            title="Reset to inherited rule"
-            aria-label="Reset ${escHtml(name)} to inherited rule"
+            title="Clear this number"
+            aria-label="Clear the number for ${escHtml(name)}"
             ${override ? "" : "disabled"}
           >
             <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
@@ -2617,8 +2622,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!stockRuleGlobalFormula || !stockRuleDraft) return;
     const label =
       stockRuleDraft.global.mode === "percent"
-        ? `Low Stock when stocks on hand ≤ ${stockRuleDraft.global.threshold}% of the item's starting stock`
-        : `Low Stock when stocks on hand ≤ ${stockRuleDraft.global.threshold}`;
+        ? `Low Stock when ${stockRuleDraft.global.threshold}% or less of the starting stock is left`
+        : `Low Stock when ${stockRuleDraft.global.threshold} or less are left`;
     stockRuleGlobalFormula.innerHTML = `<i class="fa-solid fa-function"></i><span>${escHtml(label)}</span>`;
   };
 
@@ -2888,9 +2893,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (chip) {
       chip.classList.toggle("stock-rule-chip--custom", Boolean(override));
       chip.classList.toggle("stock-rule-chip--inherited", !override);
-      chip.textContent = override
-        ? "Custom rule"
-        : `Inherits ${inherited.scope}`;
+      chip.textContent = override ? "Own rule" : `Same as ${inherited.scope}`;
     }
 
     const formula = row.querySelector("[data-rule-formula]");
@@ -2911,6 +2914,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  // Typing in one row can change what every row below it follows, so refresh
+  // the chrome of all of them. This only rewrites chips, wording, placeholders
+  // and the reset icon - never a field's value - so focus and the caret stay
+  // exactly where they are, unlike a full re-render.
+  const refreshAllStockRuleRowChrome = () => {
+    modalStockRules
+      ?.querySelectorAll("[data-rule-scope]")
+      .forEach((row) => refreshStockRuleRowChrome(row));
+  };
+
   modalStockRules?.addEventListener("input", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -2919,7 +2932,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const { scopeType, scopeKey, rule } = readStockRuleRow(row);
     setStockRuleDraftValue(scopeType, scopeKey, rule);
-    refreshStockRuleRowChrome(row);
+    refreshAllStockRuleRowChrome();
   });
 
   modalStockRules?.addEventListener("change", (event) => {

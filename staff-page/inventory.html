@@ -488,6 +488,43 @@
       .stock-rule-formula i {
         color: var(--primary-color, #800000);
       }
+      /* Plain-words primer at the top of the modal. */
+      .stock-rule-guide {
+        display: grid;
+        gap: 7px;
+        margin: 0 0 14px;
+        padding: 12px 14px;
+        border: 1px dashed #d8dee7;
+        border-radius: 12px;
+        background: #f8fafc;
+        list-style: none;
+        font-size: 0.78rem;
+        color: #475569;
+      }
+      .stock-rule-guide li {
+        display: flex;
+        align-items: flex-start;
+        gap: 9px;
+        line-height: 1.45;
+      }
+      .stock-rule-guide li i {
+        flex: 0 0 auto;
+        margin-top: 3px;
+        width: 13px;
+        text-align: center;
+        color: var(--primary-color, #800000);
+        font-size: 0.72rem;
+      }
+      .stock-rule-guide strong {
+        color: #111827;
+      }
+      .stock-rule-guide-sample {
+        padding: 1px 5px;
+        border-radius: 5px;
+        background: #eef2f7;
+        font-weight: 700;
+        color: #334155;
+      }
       .stock-rule-toolbar {
         display: flex;
         flex-wrap: wrap;
@@ -1223,31 +1260,78 @@
             Level Rules
           </h3>
           <p class="field-hint" style="margin: 4px 0 0">
-            Control when each item or variant is flagged as
-            <strong>Low Stock</strong> or <strong>Good</strong>. Rules cascade:
-            variant overrides item, item overrides category, category overrides
-            the default.
+            Pick the point where an item is tagged
+            <strong>Low Stock</strong> instead of <strong>Good</strong>.
           </p>
         </div>
         <div class="modal-body-scroll">
+          <ul class="stock-rule-guide">
+            <li>
+              <i class="fa-solid fa-circle-check"></i>
+              <span
+                ><strong>Good</strong> &mdash; more stock left than your
+                number.</span
+              >
+            </li>
+            <li>
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              <span
+                ><strong>Low Stock</strong> &mdash; stock left is the same as
+                your number, or under it.</span
+              >
+            </li>
+            <li>
+              <i class="fa-solid fa-circle-xmark"></i>
+              <span
+                ><strong>Out of Stock</strong> &mdash; nothing left. This one
+                never changes.</span
+              >
+            </li>
+            <li>
+              <i class="fa-solid fa-hashtag"></i>
+              <span
+                ><strong>Pieces</strong> &mdash; you type the count itself.
+                Type <span class="stock-rule-guide-sample">5</span> and an item
+                is Low Stock at 5 left or fewer.</span
+              >
+            </li>
+            <li>
+              <i class="fa-solid fa-percent"></i>
+              <span
+                ><strong>Percent</strong> &mdash; you type a share of the
+                starting stock, so big items get a bigger number. Type
+                <span class="stock-rule-guide-sample">20</span> and an item
+                that started at 100 is Low Stock at 20 left or fewer, while one
+                that started at 10 is Low Stock at 2 left or fewer.</span
+              >
+            </li>
+            <li>
+              <i class="fa-solid fa-arrow-down-short-wide"></i>
+              <span
+                >The closest rule wins: variant first, then item, then
+                category, then the default below. Leave a box empty and it just
+                follows the wider rule.</span
+              >
+            </li>
+          </ul>
           <div class="stock-rule-block stock-rule-block--accent">
             <div class="stock-rule-block-head">
               <div class="stock-rule-block-title">
-                <i class="fa-solid fa-globe"></i> Default Rule (All Tables)
+                <i class="fa-solid fa-globe"></i> Default Rule (All Items)
               </div>
-              <span class="stock-rule-chip">Applies when nothing else is set</span>
+              <span class="stock-rule-chip">Used when nothing else is set</span>
             </div>
             <div class="form-grid">
               <div class="field-stack">
-                <label>Rule Type</label>
+                <label>Count by</label>
                 <select class="filter-select" id="stockRuleGlobalMode">
-                  <option value="fixed">Fixed quantity</option>
+                  <option value="fixed">Pieces left</option>
                   <option value="percent">Percent of starting stock</option>
                 </select>
               </div>
               <div class="field-stack">
                 <label>
-                  Threshold <span style="color: #dc2626">*</span>
+                  Low Stock at <span style="color: #dc2626">*</span>
                 </label>
                 <input
                   class="input-field"
@@ -1260,7 +1344,7 @@
             </div>
             <div class="stock-rule-formula" id="stockRuleGlobalFormula">
               <i class="fa-solid fa-function"></i>
-              <span>Low Stock when stocks on hand &le; 5</span>
+              <span>Low Stock when 5 or less are left</span>
             </div>
           </div>
 
@@ -1269,7 +1353,7 @@
               <div class="stock-rule-block-title">
                 <i class="fa-solid fa-layer-group"></i> Per Category
               </div>
-              <span class="stock-rule-chip">Leave blank to inherit default</span>
+              <span class="stock-rule-chip">Leave empty to use the default</span>
             </div>
             <div class="stock-rule-list" id="stockRuleCategoryList"></div>
           </div>
@@ -1279,7 +1363,7 @@
               <div class="stock-rule-block-title">
                 <i class="fa-solid fa-boxes-stacked"></i> Per Item &amp; Variant
               </div>
-              <span class="stock-rule-chip">Most specific wins</span>
+              <span class="stock-rule-chip">Closest rule wins</span>
             </div>
             <div class="stock-rule-toolbar">
               <select class="filter-select" id="stockRuleCategoryFilter">
@@ -1316,6 +1400,6 @@
     <script src="../admin-page/session-helper.js"></script>
     <script src="../admin-page/admin-common.js?v=5.1"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="../admin-page/inventory.js?v=5.1"></script>
+    <script src="../admin-page/inventory.js?v=5.2"></script>
   </body>
 </html>
