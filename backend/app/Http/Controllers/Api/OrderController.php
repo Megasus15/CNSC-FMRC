@@ -78,6 +78,15 @@ class OrderController extends Controller
      */
     private static ?bool $orderItemsHaveImageReference = null;
 
+    /**
+     * Column listings per table, cached for the life of the request so the
+     * select-list guards below cost one metadata query each instead of one
+     * per column.
+     *
+     * @var array<string, array<int, string>>
+     */
+    private static array $tableColumns = [];
+
     public function customerStore(Request $request): JsonResponse
     {
         $denied = $this->ensureCustomer($request);
@@ -561,7 +570,7 @@ class OrderController extends Controller
         }
 
         $orders = Order::query()
-            ->select([
+            ->select($this->existingColumns('orders', [
                 'id',
                 'order_no',
                 'customer_id',
@@ -614,7 +623,7 @@ class OrderController extends Controller
                 'completed_at',
                 'created_at',
                 'updated_at',
-            ])
+            ]))
             ->with([
                 'items' => fn ($query) => $query
                     ->select($this->customerOrderItemColumns()),
@@ -622,7 +631,7 @@ class OrderController extends Controller
                 // same reason `paid_at` is: the customer's card has to be able to
                 // say "Refunded on <date>" after a cancellation, and a column left
                 // out of the select reads back as null rather than as an error.
-                'payment:id,order_id,payment_no,method,reference,amount,status,submitted_at,proof_path,paid_at,refunded_at,refund_reference',
+                'payment' => fn ($query) => $query->select($this->paymentSelectColumns()),
                 'latestTrackingEvent',
                 'ratings:id,order_id,order_item_id,product_id,stars,feedback,media,is_anonymous,admin_reply,replied_at,created_at,updated_at',
                 // Returns ride along with the orders so the Returns tab, the
@@ -1476,7 +1485,7 @@ class OrderController extends Controller
         $orders = Order::query()
             ->with([
                 'items:id,order_id,product_id,product_name,unit_price,quantity,line_total',
-                'payment:id,order_id,payment_no,method,reference,amount,status,submitted_at,proof_path,paid_at,refunded_at,refund_reference',
+                'payment' => fn ($query) => $query->select($this->paymentSelectColumns()),
                 'latestTrackingEvent',
             ])
             ->where('is_archived', false)
@@ -1657,6 +1666,11 @@ class OrderController extends Controller
                 $order->rejected_at = Carbon::now();
                 $order->save();
 
+                // Same leak as the single-order reject(): the stock left the
+                // shelf at checkout and nothing puts it back. Already inside
+                // the surrounding transaction.
+                $restocked = $this->restockOrder($order);
+
                 $genericReason = 'Your order could not be processed at this time.';
                 $this->createTrackingEvent($order, [
                     'created_by_user_id' => $request->user()?->id,
@@ -1665,7 +1679,10 @@ class OrderController extends Controller
                     'title' => 'Order rejected',
                     'description' => $genericReason,
                     'occurred_at' => now(),
-                    'metadata' => ['lifecycle_status' => 'rejected'],
+                    'metadata' => [
+                        'lifecycle_status' => 'rejected',
+                        'restocked' => $restocked,
+                    ],
                 ]);
 
                 $orderNoLabel = $order->order_no ?? "ORD-{$order->id}";
@@ -1782,6 +1799,14 @@ class OrderController extends Controller
         }
         $order->save();
 
+        // Checkout already took the stock off the shelf. A rejected order is
+        // never fulfilled, so without this the goods are lost on paper - the
+        // same leak that cancellations restock. Wrapped with the save so a
+        // failed restock cannot leave the order rejected and the stock gone.
+        $restocked = DB::transaction(function () use ($order): array {
+            return $this->restockOrder($order);
+        });
+
         $this->createTrackingEvent($order, [
             'created_by_user_id' => $request->user()?->id,
             'stage' => $order->customer_stage,
@@ -1791,6 +1816,7 @@ class OrderController extends Controller
             'occurred_at' => now(),
             'metadata' => [
                 'lifecycle_status' => 'rejected',
+                'restocked' => $restocked,
             ],
         ]);
 
@@ -2627,6 +2653,91 @@ class OrderController extends Controller
         }
 
         return self::$orderItemsHaveImageReference;
+    }
+
+    /**
+     * Drop from a select list any column the database does not actually have.
+     *
+     * Deploys copy the PHP up first and the migrations are run by hand
+     * afterwards, so there is always a window where this code knows about a
+     * column the schema does not. Naming a missing column in a select list
+     * turns that window into a 500 on the whole screen - MySQL answers
+     * "Unknown column 'submitted_at' in 'field list'" - which is what blanked
+     * the Orders pages with a bare "Server Error". Leaving the column out
+     * instead costs the one feature that reads it until the migration runs,
+     * and the rest of the page still loads.
+     *
+     * @param  array<int, string>  $columns
+     * @return array<int, string>
+     */
+    private function existingColumns(string $table, array $columns): array
+    {
+        $known = $this->tableColumns($table);
+
+        // Inspection failed (permissions, driver, table gone): behave exactly
+        // as before rather than silently narrowing the payload.
+        if ($known === []) {
+            return $columns;
+        }
+
+        $present = array_values(array_filter(
+            $columns,
+            fn (string $column) => in_array($column, $known, true),
+        ));
+
+        if (count($present) !== count($columns)) {
+            Log::warning('[ORDERS] Skipped columns missing from the database - run the pending migrations', [
+                'table' => $table,
+                'missing' => array_values(array_diff($columns, $present)),
+            ]);
+        }
+
+        return $present;
+    }
+
+    /** @return array<int, string> */
+    private function tableColumns(string $table): array
+    {
+        if (! array_key_exists($table, self::$tableColumns)) {
+            try {
+                self::$tableColumns[$table] = Schema::getColumnListing($table);
+            } catch (\Throwable $error) {
+                Log::warning('[ORDERS] Unable to inspect table columns', [
+                    'table' => $table,
+                    'message' => $error->getMessage(),
+                ]);
+
+                self::$tableColumns[$table] = [];
+            }
+        }
+
+        return self::$tableColumns[$table];
+    }
+
+    /**
+     * The payment columns every orders payload needs. `submitted_at` and
+     * `proof_path` arrived with the manual GCash rail and `refunded_at` /
+     * `refund_reference` with cancellations, so all four go through the
+     * schema guard.
+     *
+     * @return array<int, string>
+     */
+    private function paymentSelectColumns(): array
+    {
+        return $this->existingColumns('payments', [
+            'id',
+            'order_id',
+            'payment_no',
+            'method',
+            'reference',
+            'amount',
+            'status',
+            'submitted_at',
+            'proof_path',
+            'paid_at',
+            'refunded_at',
+            'refund_reference',
+        ]);
     }
 
     private function transformOrderItem(

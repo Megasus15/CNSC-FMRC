@@ -796,8 +796,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (!response.ok) {
-      const message =
+      let message =
         data.message || `Request failed with status ${response.status}.`;
+
+      // Laravel answers a 500 with a bare {"message":"Server Error"} whenever
+      // APP_DEBUG is off, which is what this modal used to show - a string that
+      // tells whoever is reading it nothing at all. The usual cause is deployed
+      // code running ahead of the database, so point at that instead of leaving
+      // the reader with two words.
+      if (response.status >= 500) {
+        message = `${message} (HTTP ${response.status}) — the server could not build this response. If the site was updated recently, its database migrations may still be pending.`;
+      }
+
       const error = new Error(message);
       error.status = response.status;
       throw error;
