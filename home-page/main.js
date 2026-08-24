@@ -1529,6 +1529,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (checkoutGrandTotal) checkoutGrandTotal.innerText = formatPrice(total);
     if (footerTotalDisplay) footerTotalDisplay.innerText = formatPrice(total);
     if (footerItemCount) footerItemCount.innerText = String(totalQty);
+
+    // The GCash panel quotes the exact peso amount to send, so it has to follow
+    // the total as quantities change. Safe to call even though it is defined
+    // further down: every caller of this function is an event handler.
+    renderGcashSection();
   }
 
   // Delegated +/- handlers for individual cart items inside the Order summary.
@@ -1796,18 +1801,59 @@ document.addEventListener("DOMContentLoaded", () => {
   const displayClientName = document.getElementById("displayClientName");
   const displayClientPhone = document.getElementById("displayClientPhone");
   const displayClientAddress = document.getElementById("displayClientAddress");
+  const displayClientAddressGrid = document.getElementById(
+    "displayClientAddressGrid",
+  );
+  const displayClientAddressAlert = document.getElementById(
+    "displayClientAddressAlert",
+  );
   const displayClientRole = document.getElementById("displayClientRole");
   const displayClientDept = document.getElementById("displayClientDept");
+  const displayAddrStreet = document.getElementById("displayAddrStreet");
+  const displayAddrBarangay = document.getElementById("displayAddrBarangay");
+  const displayAddrCity = document.getElementById("displayAddrCity");
+  const displayAddrProvince = document.getElementById("displayAddrProvince");
+  const displayAddrPostal = document.getElementById("displayAddrPostal");
+  const displayAddrLandmark = document.getElementById("displayAddrLandmark");
+  const fulfillPickupRadio = document.getElementById("fulfillPickupRadio");
+  const fulfillDeliveryRadio = document.getElementById("fulfillDeliveryRadio");
+  const fulfillmentNote = document.getElementById("fulfillmentNote");
+
+  const gcashPaymentSection = document.getElementById("gcashPaymentSection");
+  const gcashAmountDue = document.getElementById("gcashAmountDue");
+  const gcashAccountNameEl = document.getElementById("gcashAccountName");
+  const gcashAccountNumberEl = document.getElementById("gcashAccountNumber");
+  const gcashCopyNumberBtn = document.getElementById("gcashCopyNumberBtn");
+  const gcashQrBlock = document.getElementById("gcashQrBlock");
+  const gcashQrImage = document.getElementById("gcashQrImage");
+  const gcashQrDownload = document.getElementById("gcashQrDownload");
+  const gcashMobileBlock = document.getElementById("gcashMobileBlock");
+  const gcashOpenAppBtn = document.getElementById("gcashOpenAppBtn");
+  const gcashOpenAppHint = document.getElementById("gcashOpenAppHint");
+  const gcashSteps = document.getElementById("gcashSteps");
+  const gcashReferenceInput = document.getElementById("gcashReferenceInput");
+  const gcashPayLaterNote = document.getElementById("gcashPayLaterNote");
+  const gcashUnconfiguredNote = document.getElementById(
+    "gcashUnconfiguredNote",
+  );
 
   const inpFullName = document.getElementById("inpFullName");
   const inpPhone = document.getElementById("inpPhone");
   const inpAddress = document.getElementById("inpAddress");
+  const inpBarangay = document.getElementById("inpBarangay");
+  const inpCity = document.getElementById("inpCity");
+  const inpProvince = document.getElementById("inpProvince");
+  const inpPostal = document.getElementById("inpPostal");
   const inpDetails = document.getElementById("inpDetails");
   const inpDept = document.getElementById("inpDept");
   const inpSetDefault = document.getElementById("inpSetDefault");
   const addInpFullName = document.getElementById("addInpFullName");
   const addInpPhone = document.getElementById("addInpPhone");
   const addInpAddress = document.getElementById("addInpAddress");
+  const addInpBarangay = document.getElementById("addInpBarangay");
+  const addInpCity = document.getElementById("addInpCity");
+  const addInpProvince = document.getElementById("addInpProvince");
+  const addInpPostal = document.getElementById("addInpPostal");
   const addInpDetails = document.getElementById("addInpDetails");
   const addInpDept = document.getElementById("addInpDept");
   const addInpSetDefault = document.getElementById("addInpSetDefault");
@@ -1874,13 +1920,53 @@ document.addEventListener("DOMContentLoaded", () => {
     id: String(entry.id || createAddressId()),
     name: String(entry.name || "").trim(),
     phone_number: normalizePhoneDigits(entry.phone_number || entry.phone || ""),
+    // `address_line` keeps its original meaning: the house/unit number and
+    // street only. The parts a courier needs separated live on their own so a
+    // missing one can actually be detected instead of hiding inside a blob.
     address_line: String(entry.address_line || "").trim(),
+    barangay: String(entry.barangay || "").trim(),
+    city_municipality: String(
+      entry.city_municipality || entry.city || "",
+    ).trim(),
+    province: String(entry.province || "").trim(),
+    postal_code: String(entry.postal_code || "")
+      .replace(/\D/g, "")
+      .slice(0, 4),
     address_details: String(entry.address_details || "").trim(),
     department: String(entry.department || "").trim(),
     customer_type: String(entry.customer_type || "Student").trim() || "Student",
     is_default: Boolean(entry.is_default),
     updated_at: String(entry.updated_at || new Date().toISOString()),
   });
+
+  /** The address parts a courier cannot deliver without, in reading order. */
+  const REQUIRED_DELIVERY_PARTS = [
+    { key: "address_line", label: "Street", field: "address" },
+    { key: "barangay", label: "Barangay", field: "barangay" },
+    { key: "city_municipality", label: "City / Municipality", field: "city" },
+    { key: "province", label: "Province", field: "province" },
+    { key: "postal_code", label: "Postal code", field: "postal" },
+    { key: "address_details", label: "Landmark", field: "details" },
+  ];
+
+  /** Which required parts of a saved address are still blank. */
+  const getMissingAddressParts = (entry) =>
+    REQUIRED_DELIVERY_PARTS.filter(
+      (part) => !String(entry?.[part.key] || "").trim(),
+    );
+
+  /** The saved address on one line, in Philippine address order. */
+  const buildAddressOneLine = (entry) =>
+    [
+      entry?.address_line,
+      entry?.barangay ? `Brgy. ${entry.barangay}` : "",
+      entry?.city_municipality,
+      entry?.province,
+      entry?.postal_code,
+    ]
+      .map((part) => String(part || "").trim())
+      .filter(Boolean)
+      .join(", ");
 
   const setRoleByRadioName = (radioName, value) => {
     const targetValue = String(value || "Student");
@@ -1912,6 +1998,10 @@ document.addEventListener("DOMContentLoaded", () => {
         name: "addInpFullName",
         phone: "addInpPhone",
         address: "addInpAddress",
+        barangay: "addInpBarangay",
+        city: "addInpCity",
+        province: "addInpProvince",
+        postal: "addInpPostal",
         details: "addInpDetails",
         dept: "addInpDept",
       };
@@ -1921,6 +2011,10 @@ document.addEventListener("DOMContentLoaded", () => {
       name: "inpFullName",
       phone: "inpPhone",
       address: "inpAddress",
+      barangay: "inpBarangay",
+      city: "inpCity",
+      province: "inpProvince",
+      postal: "inpPostal",
       details: "inpDetails",
       dept: "inpDept",
     };
@@ -2032,45 +2126,504 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   };
 
+  /**
+   * Collapse the checkout dropdown label to the code the API expects.
+   * Returns "" when the customer has not chosen yet.
+   */
+  const normalizeCheckoutPaymentKey = (raw) => {
+    const value = String(raw || "").toLowerCase();
+    if (!value || value.includes("choose payment method")) return "";
+    if (value.includes("gcash")) return "GCash";
+    if (value.includes("pickup")) return "COP";
+    if (value.includes("delivery")) return "COD";
+    return "";
+  };
+
+  const getCheckoutPaymentKey = () =>
+    normalizeCheckoutPaymentKey(
+      document.querySelector("#checkoutModal .payment-select")?.value,
+    );
+
+  /**
+   * Cash payments already answer "pickup or delivery": Cash on Pickup is paid
+   * at the FMRC counter, Cash on Delivery is paid to the courier at the door.
+   * GCash is prepaid and works either way, so it stays the customer's choice.
+   */
+  const getLockedFulfillmentForPayment = (paymentKey) => {
+    if (paymentKey === "COP") return "pickup";
+    if (paymentKey === "COD") return "delivery";
+    return null;
+  };
+
+  const getSelectedFulfillmentType = () => {
+    const locked = getLockedFulfillmentForPayment(getCheckoutPaymentKey());
+    if (locked) return locked;
+
+    if (fulfillPickupRadio?.checked) return "pickup";
+    if (fulfillDeliveryRadio?.checked) return "delivery";
+    return "";
+  };
+
+  /**
+   * Keep the pickup/delivery block honest about the chosen payment method:
+   * locked and explained for cash, open for GCash, and loud about an
+   * incomplete address while delivery is selected.
+   */
+  const syncFulfillmentUi = () => {
+    if (!fulfillPickupRadio || !fulfillDeliveryRadio) return;
+
+    const paymentKey = getCheckoutPaymentKey();
+    const locked = getLockedFulfillmentForPayment(paymentKey);
+    const missing = getMissingAddressParts(getEffectiveCheckoutAddress());
+
+    fulfillPickupRadio.disabled = Boolean(locked);
+    fulfillDeliveryRadio.disabled = Boolean(locked);
+
+    if (locked === "pickup") {
+      fulfillPickupRadio.checked = true;
+      fulfillDeliveryRadio.checked = false;
+    } else if (locked === "delivery") {
+      fulfillDeliveryRadio.checked = true;
+      fulfillPickupRadio.checked = false;
+    }
+
+    if (!fulfillmentNote) return;
+
+    let note = "";
+    if (locked === "pickup") {
+      note =
+        "Cash on Pickup is collected at the FMRC office, so this order is set to pickup. No delivery address is needed.";
+    } else if (locked === "delivery") {
+      note =
+        "Cash on Delivery is paid to the courier at your door, so this order is set to delivery. Complete delivery details are required.";
+    } else if (!paymentKey) {
+      note = "Choose a payment method first.";
+    } else {
+      note =
+        "GCash is paid in advance, so you can either collect the order at FMRC or have it delivered.";
+    }
+
+    if (getSelectedFulfillmentType() === "delivery" && missing.length) {
+      note += ` Your saved address is still missing: ${missing
+        .map((part) => part.label)
+        .join(", ")}.`;
+    }
+
+    fulfillmentNote.innerText = note;
+    fulfillmentNote.hidden = false;
+  };
+
+  // ── GCash payment step ─────────────────────────────────────────────────────
+  // FMRC collects GCash on the free "manual" rail: the centre's own QR and
+  // number are shown, the customer pays from their own GCash app, and the
+  // 13-digit reference number GCash prints is what staff match against the FMRC
+  // account. There is no gateway call here, so nothing on this screen can claim
+  // the money arrived - only that the customer says it did.
+  const GCASH_REFERENCE_DIGITS = 13;
+  // GCash registers this scheme, so a phone can be handed straight to the app.
+  // A laptop has no app to open, which is the whole reason the QR exists.
+  const GCASH_APP_SCHEME = "gcash://";
+  let gcashOpenAppTimer = null;
+
+  const getGcashSettings = () => {
+    const published = window.FMRC_GCASH_SETTINGS;
+    return {
+      accountName: String(published?.accountName || "").trim(),
+      accountNumber: String(published?.accountNumber || "").trim(),
+      qrImage: String(published?.qrImage || "").trim(),
+    };
+  };
+
+  /**
+   * True when GCash can actually be paid: staff must have published a number to
+   * send to, or a QR to scan. Without either there is nowhere for the money to
+   * go, so the option is blocked rather than failing at submit.
+   */
+  const isGcashCollectionReady = () => {
+    const settings = getGcashSettings();
+    return Boolean(settings.accountNumber || settings.qrImage);
+  };
+
+  /**
+   * Phone-or-laptop decides which half of the panel is useful. The UA string is
+   * the only signal that survives a desktop browser resized narrow, so a coarse
+   * pointer is required as well before we promise an app that is not there.
+   */
+  const isMobileCheckoutDevice = () => {
+    const ua = String(navigator.userAgent || "");
+    if (/Android|iPhone|iPod|IEMobile|Opera Mini/i.test(ua)) return true;
+    // iPads report a desktop UA, so they are recognised by touch instead.
+    const touchPoints = Number(navigator.maxTouchPoints || 0);
+    if (/Macintosh/i.test(ua) && touchPoints > 1) return true;
+    return (
+      touchPoints > 0 &&
+      window.matchMedia?.("(pointer: coarse)")?.matches === true
+    );
+  };
+
+  const getNormalizedGcashReference = () =>
+    String(gcashReferenceInput?.value || "").replace(/\D/g, "");
+
+  /**
+   * Build one numbered step. Segments flagged `strong` carry the amount and the
+   * account number, which are the two things a mistyped payment turns on, so
+   * they are set as text nodes rather than interpolated into markup.
+   */
+  const buildGcashStep = (segments) => {
+    const li = document.createElement("li");
+    segments.forEach((segment) => {
+      if (typeof segment === "string") {
+        li.appendChild(document.createTextNode(segment));
+        return;
+      }
+      const strong = document.createElement("strong");
+      strong.textContent = String(segment?.strong ?? "");
+      li.appendChild(strong);
+    });
+    return li;
+  };
+
+  const renderGcashSteps = (isMobile, amountText, settings) => {
+    if (!gcashSteps) return;
+    gcashSteps.textContent = "";
+
+    const sendTarget = settings.accountNumber
+      ? [
+          "Send ",
+          { strong: amountText },
+          " to ",
+          { strong: settings.accountNumber },
+          settings.accountName ? ` (${settings.accountName}).` : ".",
+        ]
+      : ["Send ", { strong: amountText }, " to the account in the QR code."];
+
+    const steps = isMobile
+      ? [
+          ["Tap ", { strong: "Open the GCash app" }, ", then Send Money."],
+          sendTarget,
+          [
+            "Copy the ",
+            { strong: `${GCASH_REFERENCE_DIGITS}-digit Ref. No.` },
+            " from your GCash receipt.",
+          ],
+          [
+            "Paste it below, then place the order — or ",
+            { strong: "place the order now" },
+            " and pay from My Orders.",
+          ],
+        ]
+      : [
+          [
+            "Open GCash on your phone and tap ",
+            { strong: "Scan QR" },
+            settings.qrImage
+              ? " to scan the code above."
+              : ", or use Send Money.",
+          ],
+          sendTarget,
+          [
+            "Copy the ",
+            { strong: `${GCASH_REFERENCE_DIGITS}-digit Ref. No.` },
+            " from your GCash receipt.",
+          ],
+          [
+            "Type it below, then place the order — or ",
+            { strong: "place the order now" },
+            " and pay from My Orders.",
+          ],
+        ];
+
+    steps.forEach((segments) => gcashSteps.appendChild(buildGcashStep(segments)));
+  };
+
+  /**
+   * Show, hide and fill the GCash step. Called on every checkout re-render, so
+   * an admin publishing a new QR mid-session reaches an already-open checkout on
+   * the next settings poll instead of only after a reload.
+   */
+  const renderGcashSection = () => {
+    if (!gcashPaymentSection) return;
+
+    const isGcash = getCheckoutPaymentKey() === "GCash";
+    gcashPaymentSection.hidden = !isGcash;
+    if (!isGcash) {
+      clearCheckoutFieldError("gcashReferenceInput");
+      return;
+    }
+
+    const settings = getGcashSettings();
+    const ready = isGcashCollectionReady();
+    const isMobile = isMobileCheckoutDevice();
+    const amountText =
+      checkoutGrandTotal?.innerText?.trim() ||
+      gcashAmountDue?.textContent?.trim() ||
+      "₱0.00";
+
+    if (gcashAmountDue) gcashAmountDue.textContent = amountText;
+    if (gcashAccountNameEl)
+      gcashAccountNameEl.textContent = settings.accountName || "—";
+    if (gcashAccountNumberEl)
+      gcashAccountNumberEl.textContent = settings.accountNumber || "—";
+    if (gcashCopyNumberBtn)
+      gcashCopyNumberBtn.hidden = !settings.accountNumber;
+
+    // A saved QR is the centre's own GCash QR image. It cannot be generated
+    // here: the QR Ph payload is issued to the merchant, not derived from a
+    // phone number, so with no upload there is simply no code to show.
+    const showQr = Boolean(settings.qrImage) && !isMobile;
+    if (gcashQrBlock) gcashQrBlock.hidden = !showQr;
+    if (showQr && gcashQrImage && gcashQrImage.src !== settings.qrImage) {
+      gcashQrImage.src = settings.qrImage;
+    }
+    if (gcashQrDownload) gcashQrDownload.href = settings.qrImage || "#";
+
+    // Opening GCash with nothing to send to would just strand the customer in
+    // another app, so the button waits until FMRC has published a destination.
+    const showOpenApp = isMobile && ready;
+    if (gcashMobileBlock) gcashMobileBlock.hidden = !showOpenApp;
+    if (gcashOpenAppHint && !showOpenApp) gcashOpenAppHint.textContent = "";
+
+    renderGcashSteps(isMobile, amountText, settings);
+
+    if (gcashUnconfiguredNote) {
+      gcashUnconfiguredNote.textContent = ready
+        ? ""
+        : "FMRC has not published its GCash details yet, so there is nowhere to send the payment. Please choose Cash on Pickup or Cash on Delivery for now, or contact FMRC.";
+      gcashUnconfiguredNote.hidden = ready;
+    }
+    if (gcashSteps) gcashSteps.hidden = !ready;
+    // Promising a pay-later window while there is nowhere to send the money
+    // would be worse than saying nothing, so it hides with the rest.
+    if (gcashPayLaterNote) gcashPayLaterNote.hidden = !ready;
+    if (gcashReferenceInput) gcashReferenceInput.disabled = !ready;
+  };
+
+  /**
+   * The submit gate for GCash. Nothing here proves the money moved, and an
+   * empty reference is not an error: the order is allowed through and waits in
+   * "To Pay" until the customer submits the reference from My Orders. What it
+   * still refuses is a *wrong* reference, which staff would have no way to
+   * reconcile, and GCash with nowhere to send the money.
+   */
+  const validateGcashPaymentStep = () => {
+    if (!isGcashCollectionReady()) {
+      return {
+        ok: false,
+        title: "GCash Not Available Yet",
+        message:
+          "FMRC has not published its GCash number or QR code yet, so there is nowhere to send the payment. Please choose Cash on Pickup or Cash on Delivery.",
+      };
+    }
+
+    const reference = getNormalizedGcashReference();
+
+    // Paying later is a supported choice, not an omission.
+    if (reference === "") {
+      clearCheckoutFieldError("gcashReferenceInput");
+      return { ok: true, reference: "" };
+    }
+
+    if (reference.length !== GCASH_REFERENCE_DIGITS) {
+      const message = `That reference number has ${reference.length} digit${reference.length === 1 ? "" : "s"}. GCash reference numbers are ${GCASH_REFERENCE_DIGITS} digits long — check the "Ref. No." on your receipt, or clear the field and pay later from My Orders.`;
+      setCheckoutFieldError("gcashReferenceInput", message);
+      return {
+        ok: false,
+        title: "Check Your GCash Reference",
+        message,
+        focusReference: true,
+      };
+    }
+
+    clearCheckoutFieldError("gcashReferenceInput");
+    return { ok: true, reference };
+  };
+
+  if (gcashCopyNumberBtn) {
+    gcashCopyNumberBtn.addEventListener("click", async () => {
+      const number = getGcashSettings().accountNumber;
+      if (!number) return;
+      const original = gcashCopyNumberBtn.textContent;
+      try {
+        await navigator.clipboard.writeText(number);
+        gcashCopyNumberBtn.textContent = "Copied";
+      } catch {
+        // Clipboard access is denied on insecure origins and in some in-app
+        // browsers, so fall back to selecting the number for a manual copy.
+        try {
+          const range = document.createRange();
+          range.selectNodeContents(gcashAccountNumberEl);
+          const selection = window.getSelection();
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+          gcashCopyNumberBtn.textContent = "Copy it";
+        } catch {
+          gcashCopyNumberBtn.textContent = "Copy it";
+        }
+      }
+      window.setTimeout(() => {
+        gcashCopyNumberBtn.textContent = original || "Copy";
+      }, 1600);
+    });
+  }
+
+  // Handing the phone to GCash is a convenience, not a payment request: the
+  // manual rail has no gateway to build a pay-this-amount link from, so the app
+  // opens on its own home screen and the steps above say what to do next.
+  if (gcashOpenAppBtn) {
+    gcashOpenAppBtn.addEventListener("click", () => {
+      if (gcashOpenAppHint) gcashOpenAppHint.textContent = "Opening GCash…";
+      window.clearTimeout(gcashOpenAppTimer);
+
+      try {
+        window.location.href = GCASH_APP_SCHEME;
+      } catch {
+        // Some browsers throw instead of ignoring an unknown scheme.
+      }
+
+      // If the app took over, this tab is hidden by the time the timer fires.
+      // Still visible means the scheme went nowhere - most likely GCash is not
+      // installed on this device - so say so instead of leaving "Opening…".
+      gcashOpenAppTimer = window.setTimeout(() => {
+        if (!gcashOpenAppHint) return;
+        gcashOpenAppHint.textContent = document.hidden
+          ? ""
+          : "GCash did not open. Install or open the GCash app yourself, then send the amount to the number above.";
+      }, 1500);
+    });
+  }
+
+  if (gcashReferenceInput) {
+    // GCash receipts are sometimes copied with spaces or dashes, so the field
+    // keeps only digits and clears its own error as soon as 13 of them exist.
+    gcashReferenceInput.addEventListener("input", () => {
+      const digits = gcashReferenceInput.value
+        .replace(/\D/g, "")
+        .slice(0, GCASH_REFERENCE_DIGITS);
+      if (gcashReferenceInput.value !== digits) gcashReferenceInput.value = digits;
+      if (digits.length === GCASH_REFERENCE_DIGITS) {
+        clearCheckoutFieldError("gcashReferenceInput");
+      }
+    });
+  }
+
+  // An admin can publish or change the GCash details while a checkout is open;
+  // the settings poller announces it and the panel repaints in place.
+  document.addEventListener("fmrc:gcash-settings", () => {
+    renderGcashSection();
+  });
+
+  /**
+   * The address the checkout will actually send: the selected book entry, with
+   * the saved server profile filling any gap so a customer who only ever edited
+   * their profile is not treated as having no address.
+   */
+  const getEffectiveCheckoutAddress = () => {
+    const selected = getSelectedCheckoutAddress();
+    const profile = customerCheckoutProfile || {};
+
+    return normalizeAddressEntry({
+      id: selected?.id || "profile",
+      name:
+        selected?.name ||
+        profile.name ||
+        customerSession.userInfo?.name ||
+        "",
+      phone_number: selected?.phone_number || profile.phone_number || "",
+      address_line: selected?.address_line || profile.address_line || "",
+      barangay: selected?.barangay || profile.barangay || "",
+      city_municipality:
+        selected?.city_municipality || profile.city_municipality || "",
+      province: selected?.province || profile.province || "",
+      postal_code: selected?.postal_code || profile.postal_code || "",
+      address_details: selected?.address_details || profile.address_details || "",
+      department: selected?.department || profile.department || "",
+      customer_type: selected?.customer_type || profile.customer_type || "Student",
+      is_default: Boolean(selected?.is_default),
+    });
+  };
+
   const renderCheckoutAddress = () => {
     const selected = getSelectedCheckoutAddress();
-    const fallbackName =
-      customerCheckoutProfile?.name ||
-      customerSession.userInfo?.name ||
-      "No Name Provided";
-    const name = selected?.name || fallbackName;
-    const phone =
-      selected?.phone_number || customerCheckoutProfile?.phone_number || "";
-    const addressLine =
-      selected?.address_line || customerCheckoutProfile?.address_line || "";
-    const addressDetails =
-      selected?.address_details ||
-      customerCheckoutProfile?.address_details ||
-      "";
-    const department =
-      selected?.department || customerCheckoutProfile?.department || "Not set";
-    const role =
-      selected?.customer_type ||
-      customerCheckoutProfile?.customer_type ||
-      "Not set";
+    const effective = getEffectiveCheckoutAddress();
+    const name = effective.name || "No Name Provided";
+    const department = effective.department || "Not set";
+    const role = effective.customer_type || "Not set";
+    const hasAnyAddress = Boolean(
+      selected ||
+        effective.address_line ||
+        effective.barangay ||
+        effective.city_municipality,
+    );
+    // A pickup order never ships, so the address is reference only: still shown,
+    // but not flagged as blocking.
+    const isPickupSelected = getSelectedFulfillmentType() === "pickup";
 
     if (displayClientName) displayClientName.innerText = name;
     if (displayClientPhone)
-      displayClientPhone.innerText = getMaskedPhone(phone);
-    if (displayClientAddress) {
-      displayClientAddress.innerHTML =
-        [addressLine, addressDetails]
-          .filter(Boolean)
-          .map((entry) => escapeCustomerHtml(entry))
-          .join("<br>") || "No saved address yet. Add your details first.";
+      displayClientPhone.innerText = getMaskedPhone(effective.phone_number);
+
+    // Each part on its own row. A blank required part is shown as "Required"
+    // in red rather than omitted, so the customer sees what is still missing.
+    const partValues = {
+      address_line: displayAddrStreet,
+      barangay: displayAddrBarangay,
+      city_municipality: displayAddrCity,
+      province: displayAddrProvince,
+      postal_code: displayAddrPostal,
+      address_details: displayAddrLandmark,
+    };
+
+    REQUIRED_DELIVERY_PARTS.forEach((part) => {
+      const node = partValues[part.key];
+      if (!(node instanceof HTMLElement)) return;
+
+      const value = String(effective[part.key] || "").trim();
+      node.innerText = value || (isPickupSelected ? "Not set" : "Required");
+      const row = node.closest(".client-address-row");
+      if (row instanceof HTMLElement) {
+        row.classList.toggle("is-missing", !value && !isPickupSelected);
+      }
+    });
+
+    if (displayClientAddressGrid) {
+      displayClientAddressGrid.hidden = !hasAnyAddress;
     }
+
+    if (displayClientAddress) {
+      displayClientAddress.innerText = hasAnyAddress
+        ? buildAddressOneLine(effective) || "No saved address"
+        : "No saved address yet. Add your details first.";
+    }
+
+    const missing = getMissingAddressParts(effective);
+    if (displayClientAddressAlert) {
+      if (isPickupSelected) {
+        displayClientAddressAlert.hidden = false;
+        displayClientAddressAlert.classList.add("is-info");
+        displayClientAddressAlert.innerText =
+          "Pickup order: collect it at the FMRC Office, University of Camarines Norte, Daet. Bring a valid ID and your pickup code.";
+      } else if (missing.length) {
+        displayClientAddressAlert.hidden = false;
+        displayClientAddressAlert.classList.remove("is-info");
+        displayClientAddressAlert.innerText = `Still missing: ${missing
+          .map((part) => part.label)
+          .join(", ")}. Complete it before choosing delivery.`;
+      } else {
+        displayClientAddressAlert.hidden = true;
+        displayClientAddressAlert.classList.remove("is-info");
+        displayClientAddressAlert.innerText = "";
+      }
+    }
+
     if (displayClientRole) displayClientRole.innerText = role;
     if (displayClientDept) displayClientDept.innerText = department;
     if (cartShortAddressText) {
       cartShortAddressText.innerText = getShortAddress(
-        addressLine || addressDetails,
+        buildAddressOneLine(effective) || effective.address_details,
       );
     }
+
+    syncFulfillmentUi();
   };
 
   const syncAddressEditUi = () => {
@@ -2132,10 +2685,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const isSelected =
           String(entry.id) === String(selectedCheckoutAddressId);
         const isChecked = addressDeleteSelection.has(String(entry.id));
-        const displayAddress = [entry.address_line, entry.address_details]
+        const oneLine = buildAddressOneLine(entry);
+        const displayAddress = [oneLine, entry.address_details]
           .filter(Boolean)
           .map((part) => escapeCustomerHtml(part))
           .join("<br>");
+        const missing = getMissingAddressParts(entry);
 
         return `
           <div class="address-item ${isSelected ? "selected" : ""} ${isAddressEditMode ? "select-mode" : ""}" data-address-id="${safeId}">
@@ -2155,6 +2710,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div class="a-address-text">${displayAddress || "No saved address"}</div>
                 <div class="a-badges">
                   ${entry.is_default ? '<span class="a-badge default-badge">Default</span>' : ""}
+                  ${
+                    missing.length
+                      ? `<span class="a-badge incomplete-badge">Incomplete: ${escapeCustomerHtml(
+                          missing.map((part) => part.label).join(", "),
+                        )}</span>`
+                      : ""
+                  }
                 </div>
               </div>
 
@@ -2183,6 +2745,11 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (addInpPhone) addInpPhone.value = source.phone_number || "";
       if (addInpAddress) addInpAddress.value = source.address_line || "";
+      if (addInpBarangay) addInpBarangay.value = source.barangay || "";
+      if (addInpCity)
+        addInpCity.value = source.city_municipality || source.city || "";
+      if (addInpProvince) addInpProvince.value = source.province || "";
+      if (addInpPostal) addInpPostal.value = source.postal_code || "";
       if (addInpDetails) addInpDetails.value = source.address_details || "";
       if (addInpDept) addInpDept.value = source.department || "";
       if (addInpSetDefault) {
@@ -2197,6 +2764,10 @@ document.addEventListener("DOMContentLoaded", () => {
       inpFullName.value = source.name || customerSession.userInfo?.name || "";
     if (inpPhone) inpPhone.value = source.phone_number || "";
     if (inpAddress) inpAddress.value = source.address_line || "";
+    if (inpBarangay) inpBarangay.value = source.barangay || "";
+    if (inpCity) inpCity.value = source.city_municipality || source.city || "";
+    if (inpProvince) inpProvince.value = source.province || "";
+    if (inpPostal) inpPostal.value = source.postal_code || "";
     if (inpDetails) inpDetails.value = source.address_details || "";
     if (inpDept) inpDept.value = source.department || "";
     if (inpSetDefault) inpSetDefault.checked = Boolean(source.is_default);
@@ -2209,17 +2780,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
     clearCheckoutFormErrors(mode);
 
+    const readField = (fieldKey) =>
+      String(document.getElementById(ids[fieldKey])?.value || "").trim();
+
     const nameInput = document.getElementById(ids.name);
     const phoneInput = document.getElementById(ids.phone);
-    const addressInput = document.getElementById(ids.address);
-    const detailsInput = document.getElementById(ids.details);
-    const deptInput = document.getElementById(ids.dept);
 
     const name = String(nameInput?.value || "").trim();
     const phone = normalizePhoneDigits(phoneInput?.value || "");
-    const addressLine = String(addressInput?.value || "").trim();
-    const addressDetails = String(detailsInput?.value || "").trim();
-    const department = String(deptInput?.value || "").trim();
+    const addressLine = readField("address");
+    const barangay = readField("barangay");
+    const city = readField("city");
+    const province = readField("province");
+    const postalCode = readField("postal").replace(/\D/g, "").slice(0, 4);
+    const addressDetails = readField("details");
+    const department = readField("dept");
     const customerType = getSelectedRole(
       isAddMode ? "addUserRole" : "userRole",
     );
@@ -2229,6 +2804,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (phoneInput instanceof HTMLInputElement) {
       phoneInput.value = phone;
+    }
+
+    const postalInput = document.getElementById(ids.postal);
+    if (postalInput instanceof HTMLInputElement) {
+      postalInput.value = postalCode;
     }
 
     let firstInvalidInput = null;
@@ -2253,14 +2833,40 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     }
 
+    // Every address part is required. A courier cannot deliver to a partial
+    // address, and a half-saved one only fails later at checkout.
     if (!addressLine) {
-      registerError(ids.address, "Please enter your main address.");
+      registerError(
+        ids.address,
+        "Please enter the house/unit number and street.",
+      );
+    }
+
+    if (!barangay) {
+      registerError(ids.barangay, "Please enter your barangay.");
+    }
+
+    if (!city) {
+      registerError(ids.city, "Please enter your city or municipality.");
+    }
+
+    if (!province) {
+      registerError(ids.province, "Please enter your province.");
+    }
+
+    if (!postalCode) {
+      registerError(ids.postal, "Please enter your 4-digit postal code.");
+    } else if (postalCode.length !== 4) {
+      registerError(
+        ids.postal,
+        "A Philippine postal code is exactly 4 digits (Daet is 4600).",
+      );
     }
 
     if (!addressDetails) {
       registerError(
         ids.details,
-        "Please add a detail like room, unit, or landmark.",
+        "Please add a landmark or a detail like room or unit.",
       );
     }
 
@@ -2278,6 +2884,10 @@ document.addEventListener("DOMContentLoaded", () => {
         name,
         phone_number: phone,
         address_line: addressLine,
+        barangay,
+        city_municipality: city,
+        province,
+        postal_code: postalCode,
         address_details: addressDetails,
         department,
         customer_type: customerType || "Student",
@@ -2300,6 +2910,10 @@ document.addEventListener("DOMContentLoaded", () => {
       pushFieldError(ids.name, errors.name?.[0]);
       pushFieldError(ids.phone, errors.phone_number?.[0]);
       pushFieldError(ids.address, errors.address_line?.[0]);
+      pushFieldError(ids.barangay, errors.barangay?.[0]);
+      pushFieldError(ids.city, errors.city_municipality?.[0]);
+      pushFieldError(ids.province, errors.province?.[0]);
+      pushFieldError(ids.postal, errors.postal_code?.[0]);
       pushFieldError(ids.details, errors.address_details?.[0]);
       pushFieldError(ids.dept, errors.department?.[0]);
       pushFieldError(ids.dept, errors.customer_type?.[0]);
@@ -2324,6 +2938,10 @@ document.addEventListener("DOMContentLoaded", () => {
       name: addressEntry?.name || customerSession.userInfo?.name || null,
       phone_number: addressEntry?.phone_number || null,
       address_line: addressEntry?.address_line || null,
+      barangay: addressEntry?.barangay || null,
+      city_municipality: addressEntry?.city_municipality || null,
+      province: addressEntry?.province || null,
+      postal_code: addressEntry?.postal_code || null,
       address_details: addressEntry?.address_details || null,
       department: addressEntry?.department || null,
       customer_type: addressEntry?.customer_type || "Student",
@@ -2373,9 +2991,16 @@ document.addEventListener("DOMContentLoaded", () => {
         ok: true,
       };
     } catch (error) {
+      // A network failure surfaces as the raw "Failed to fetch", which means
+      // nothing to a customer, so say what actually went wrong.
+      const isOffline =
+        error?.name === "TypeError" || /failed to fetch/i.test(error?.message || "");
+
       return {
         ok: false,
-        message: error?.message || "Unable to save your details right now.",
+        message: isOffline
+          ? "Cannot reach the server. Check your connection and try again."
+          : error?.message || "Unable to save your details right now.",
       };
     }
   };
@@ -2469,6 +3094,28 @@ document.addEventListener("DOMContentLoaded", () => {
       is_default: customerAddressBook.length === 0,
     });
 
+    addInfoModal.classList.add("show-modal");
+  };
+
+  /**
+   * Send the customer straight to the form that can fix an incomplete address.
+   * Edits the saved entry when there is one; otherwise opens the add form
+   * prefilled with whatever we already know, so nothing is retyped.
+   */
+  const openAddressCompletionModal = (fallbackEntry) => {
+    const selected = getSelectedCheckoutAddress();
+    if (selected) {
+      openEditAddressModal(selected.id);
+      return;
+    }
+
+    if (!addInfoModal) return;
+
+    clearCheckoutFormErrors("add");
+    applyAddressToForm("add", {
+      ...(fallbackEntry || customerCheckoutProfile || {}),
+      is_default: customerAddressBook.length === 0,
+    });
     addInfoModal.classList.add("show-modal");
   };
 
@@ -2583,6 +3230,10 @@ document.addEventListener("DOMContentLoaded", () => {
       name: profile?.name || customerSession.userInfo?.name || "",
       phone_number: profile?.phone_number || "",
       address_line: profile?.address_line || "",
+      barangay: profile?.barangay || "",
+      city_municipality: profile?.city_municipality || "",
+      province: profile?.province || "",
+      postal_code: profile?.postal_code || "",
       address_details: profile?.address_details || "",
       department: profile?.department || "",
       customer_type: profile?.customer_type || "Student",
@@ -2801,6 +3452,25 @@ document.addEventListener("DOMContentLoaded", () => {
     void fetchCustomerCheckoutProfile();
   }
 
+  // Changing the payment method can lock pickup/delivery, and changing
+  // pickup/delivery changes whether the address block is even relevant, so both
+  // re-render the summary. The payment method also decides whether the GCash
+  // step is on screen at all.
+  document
+    .querySelector("#checkoutModal .payment-select")
+    ?.addEventListener("change", () => {
+      renderCheckoutAddress();
+      renderGcashSection();
+    });
+
+  [fulfillPickupRadio, fulfillDeliveryRadio].forEach((radio) => {
+    radio?.addEventListener("change", () => {
+      renderCheckoutAddress();
+    });
+  });
+
+  renderGcashSection();
+
   // Submit Order logic
   const submitOrderBtn = document.getElementById("submitOrderBtn");
   if (submitOrderBtn) {
@@ -2821,24 +3491,75 @@ document.addEventListener("DOMContentLoaded", () => {
         "#checkoutModal .payment-select",
       );
       const paymentMethod = String(paymentSelect?.value || "").trim();
-      if (
-        !paymentMethod ||
-        paymentMethod.toLowerCase().includes("choose payment method")
-      ) {
+      const paymentKey = getCheckoutPaymentKey();
+      if (!paymentKey) {
         await showCustomerPopup("Please choose a payment method first.", {
           title: "Validation",
         });
         return;
       }
 
-      const selectedAddress = getSelectedCheckoutAddress();
-      if (!selectedAddress) {
+      // GCash is paid before the order exists, so the reference number that
+      // proves it has to be on the form. The server refuses the order without
+      // one too; this only turns that 422 into a pointed message.
+      let gcashReference = "";
+      if (paymentKey === "GCash") {
+        const gcashCheck = validateGcashPaymentStep();
+        if (!gcashCheck.ok) {
+          await showCustomerPopup(gcashCheck.message, {
+            title: gcashCheck.title,
+          });
+          if (gcashCheck.focusReference) {
+            gcashReferenceInput?.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            });
+            gcashReferenceInput?.focus();
+          }
+          return;
+        }
+        gcashReference = gcashCheck.reference;
+      }
+
+      // Pickup vs delivery decides whether an address is needed at all, so it
+      // has to be settled before the address is validated.
+      const fulfillmentType = getSelectedFulfillmentType();
+      if (!fulfillmentType) {
         await showCustomerPopup(
-          "Please add and select your delivery details first.",
-          {
-            title: "Address Required",
-          },
+          "Please choose whether you will pick this order up at FMRC or have it delivered.",
+          { title: "Pickup or Delivery" },
         );
+        fulfillPickupRadio?.focus();
+        return;
+      }
+
+      const effectiveAddress = getEffectiveCheckoutAddress();
+
+      if (fulfillmentType === "delivery") {
+        const missingParts = getMissingAddressParts(effectiveAddress);
+        const missingContact = !String(
+          effectiveAddress.phone_number || "",
+        ).trim();
+
+        if (missingParts.length || missingContact) {
+          const missingLabels = [
+            ...(missingContact ? ["Mobile number"] : []),
+            ...missingParts.map((part) => part.label),
+          ].join(", ");
+
+          await showCustomerPopup(
+            `A courier delivery needs your complete address. Still missing: ${missingLabels}.`,
+            { title: "Complete Your Delivery Details" },
+          );
+          openAddressCompletionModal(effectiveAddress);
+          return;
+        }
+      } else if (!String(effectiveAddress.phone_number || "").trim()) {
+        await showCustomerPopup(
+          "Please add your mobile number so we can text you when the order is ready for pickup.",
+          { title: "Contact Number Required" },
+        );
+        openAddressCompletionModal(effectiveAddress);
         return;
       }
 
@@ -2887,23 +3608,24 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const contactNumber = String(
-          selectedAddress.phone_number || "",
+          effectiveAddress.phone_number || "",
         ).replace(/\D/g, "");
+        const isPickupOrder = fulfillmentType === "pickup";
         const orderNotes = [
-          selectedAddress.address_line,
-          selectedAddress.address_details,
-          selectedAddress.department
-            ? `Department: ${selectedAddress.department}`
+          isPickupOrder ? "" : buildAddressOneLine(effectiveAddress),
+          effectiveAddress.address_details,
+          effectiveAddress.department
+            ? `Department: ${effectiveAddress.department}`
             : "",
-          selectedAddress.customer_type
-            ? `Role: ${selectedAddress.customer_type}`
+          effectiveAddress.customer_type
+            ? `Role: ${effectiveAddress.customer_type}`
             : "",
         ]
           .filter(Boolean)
           .join(" | ");
 
         const customerName =
-          selectedAddress.name ||
+          effectiveAddress.name ||
           customerCheckoutProfile?.name ||
           customerSession.userInfo?.name ||
           customerSession.userInfo?.username ||
@@ -2919,12 +3641,34 @@ document.addEventListener("DOMContentLoaded", () => {
           customer_name: customerName,
           customer_contact: customerContact,
           notes: orderNotes,
-          location_name:
-            selectedAddress.address_line ||
-            customerCheckoutProfile?.address_line ||
-            null,
-          courier_name: "J&T Express",
+          fulfillment_type: fulfillmentType,
         };
+
+        // The reference the customer read off their GCash receipt. It is a
+        // claim, not a confirmation: the order still waits at "To Pay" until
+        // staff match it in the FMRC GCash account.
+        if (gcashReference) {
+          basePayload.payment_reference = gcashReference;
+        }
+
+        // A pickup order has no destination to ship to: the server pins the
+        // location to the FMRC office, so we send no address and no courier.
+        if (!isPickupOrder) {
+          Object.assign(basePayload, {
+            location_name: buildAddressOneLine(effectiveAddress) || null,
+            // Courier deliberately left out: config/couriers.php holds the
+            // default, so the checkout cannot drift from the admin dropdown.
+
+            delivery_recipient_name: customerName,
+            delivery_contact_no: contactNumber ? `+63${contactNumber}` : "",
+            delivery_street: effectiveAddress.address_line || "",
+            delivery_barangay: effectiveAddress.barangay || "",
+            delivery_city: effectiveAddress.city_municipality || "",
+            delivery_province: effectiveAddress.province || "",
+            delivery_postal_code: effectiveAddress.postal_code || "",
+            delivery_landmark: effectiveAddress.address_details || "",
+          });
+        }
 
         let payload;
 
@@ -3056,6 +3800,12 @@ document.addEventListener("DOMContentLoaded", () => {
         currentCheckoutMode = "single";
         currentCheckoutItems = [];
         setCheckoutQtyLock(false);
+
+        // A reference number belongs to exactly one payment, so it must not be
+        // left in the field for the next order to reuse.
+        if (gcashReferenceInput) gcashReferenceInput.value = "";
+        clearCheckoutFieldError("gcashReferenceInput");
+        if (gcashOpenAppHint) gcashOpenAppHint.textContent = "";
 
         checkoutModal.classList.remove("show-modal");
         document.body.style.overflow = "";
@@ -6137,6 +6887,7 @@ document.addEventListener("DOMContentLoaded", () => {
     pending: "Pending",
     rejected: "Rejected",
     completed: "Completed",
+    cancelled: "Cancelled",
   };
 
   const buildGoogleMapEmbedUrl = (latitude, longitude) => {
@@ -6153,11 +6904,15 @@ document.addEventListener("DOMContentLoaded", () => {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
   };
 
-  const buildJntTrackingUrl = (trackingNo) => {
-    const code = String(trackingNo || "").trim();
-    if (!code) return "";
-    return `https://www.jtexpress.ph/index/query/gzquery.html?waybillNo=${encodeURIComponent(code)}`;
-  };
+  // FMRC has no courier API contract, so a tracking link can only ever be the
+  // courier's own public page. The server picks that page out of
+  // config/couriers.php and hands it over as fulfillment.courier.tracking_url;
+  // 17TRACK is the fallback because it detects the carrier from the number
+  // itself, so it works even for a courier the registry has never heard of.
+  const UNIVERSAL_TRACKING_URL = "https://www.17track.net/en/tracking";
+
+  const isUniversalTrackingUrl = (url) =>
+    String(url || "").startsWith("https://www.17track.net");
 
   let customerOrdersController = null;
   const customerOrdersCache = new Map();
@@ -6314,6 +7069,7 @@ document.addEventListener("DOMContentLoaded", () => {
         returns: null,
         counts: null,
         returnWindowDays: null,
+        cancelReasonOptions: null,
         etag: response.headers.get("ETag") || etag,
       };
     }
@@ -6334,6 +7090,12 @@ document.addEventListener("DOMContentLoaded", () => {
       returns: Array.isArray(data.returns) ? data.returns : [],
       counts: data.counts && typeof data.counts === "object" ? data.counts : null,
       returnWindowDays: Number(data.return_window_days) || null,
+      // One list for the whole page, not one per order - the codes are the same
+      // for every order and the ETag covers the payload, so a new option would
+      // invalidate the cache on its own.
+      cancelReasonOptions: Array.isArray(data.cancel_reason_options)
+        ? data.cancel_reason_options
+        : [],
       etag: response.headers.get("ETag") || "",
     };
   };
@@ -6430,6 +7192,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <button type="button" class="customer-orders-tab" data-tab="completed">Completed <span class="customer-orders-tab-count">0</span></button>
             <button type="button" class="customer-orders-tab" data-tab="to_rate">To Rate <span class="customer-orders-tab-count">0</span></button>
             <button type="button" class="customer-orders-tab" data-tab="returns">Returns <span class="customer-orders-tab-count">0</span></button>
+            <button type="button" class="customer-orders-tab" data-tab="cancelled">Cancelled <span class="customer-orders-tab-count">0</span></button>
           </div>
 
           <div class="customer-orders-viewport" id="customerOrdersViewport">
@@ -6441,6 +7204,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <section class="customer-orders-panel" data-panel="completed"></section>
               <section class="customer-orders-panel" data-panel="to_rate"></section>
               <section class="customer-orders-panel" data-panel="returns"></section>
+              <section class="customer-orders-panel" data-panel="cancelled"></section>
             </div>
           </div>
 
@@ -6479,6 +7243,9 @@ document.addEventListener("DOMContentLoaded", () => {
         "completed",
         "to_rate",
         "returns",
+        // Cancelled orders keep the stage they died at, so they cannot live in a
+        // stage panel. They get their own tab, the way Shopee and Lazada do it.
+        "cancelled",
       ];
       // Panel indexes used by handlers that jump the drawer to a tab.
       const RETURNS_PANEL_INDEX = stageByPanel.indexOf("returns");
@@ -6493,6 +7260,10 @@ document.addEventListener("DOMContentLoaded", () => {
         // the order list response so the tab needs no extra request.
         returns: [],
         returnWindowDays: 7,
+        // The reason list the cancel sheet offers. Sent once at the root of the
+        // orders payload rather than per order, and kept here so the sheet never
+        // shows a code the API would reject.
+        cancelReasonOptions: [],
         returnDetailsById: new Map(),
         activeReturnDetailId: null,
         returnDetailLoading: false,
@@ -6986,6 +7757,7 @@ document.addEventListener("DOMContentLoaded", () => {
           completed: "No completed orders yet.",
           to_rate: "No products to rate yet.",
           returns: "No return or refund requests yet.",
+          cancelled: "No cancelled orders.",
         };
 
         return `
@@ -7003,10 +7775,13 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       `;
 
-      // Rank used by the "All" tab. Rejected orders stay visible but are
-      // terminal, so they must never outrank a live order.
+      // Rank used by the "All" tab. Rejected and cancelled orders stay visible
+      // but are terminal, so they must never outrank a live order. They share a
+      // rank because neither is more urgent than the other - the recency
+      // tie-break below decides which dead order is listed first.
       const resolveAllTabRank = (order) => {
-        if (String(order?.lifecycle_status || "").toLowerCase() === "rejected") {
+        const lifecycle = String(order?.lifecycle_status || "").toLowerCase();
+        if (lifecycle === "rejected" || lifecycle === "cancelled") {
           return ALL_TAB_REJECTED_RANK;
         }
 
@@ -7024,11 +7799,42 @@ document.addEventListener("DOMContentLoaded", () => {
         return Number.isFinite(parsed) ? parsed : null;
       };
 
+      // Terminal states that must not be counted as live work in a stage tab. A
+      // cancelled order keeps `customer_stage` as it was when it died, so
+      // filtering on the stage alone would leave it sitting in To Pay or To Ship
+      // as though FMRC were still waiting on it.
+      const isDeadOrder = (order) => {
+        const lifecycle = String(order?.lifecycle_status || "").toLowerCase();
+        return lifecycle === "rejected" || lifecycle === "cancelled";
+      };
+
       const getVisibleOrdersByPanel = (stageKey) => {
         if (stageKey === "returns") {
           // Returns are their own records. The server already sorts them
           // open-first/newest-first; the copy keeps state.returns untouched.
           return state.returns.slice();
+        }
+        if (stageKey === "cancelled") {
+          // Newest first: a cancellation is something the customer just did, so
+          // the most recent one is the one they are looking for.
+          return state.orders
+            .filter(
+              (order) =>
+                String(order.lifecycle_status || "").toLowerCase() ===
+                "cancelled",
+            )
+            .sort((left, right) => {
+              const leftTime = resolveOrderRecencyKey(left);
+              const rightTime = resolveOrderRecencyKey(right);
+              if (
+                leftTime !== null &&
+                rightTime !== null &&
+                leftTime !== rightTime
+              ) {
+                return rightTime - leftTime;
+              }
+              return (Number(right?.id) || 0) - (Number(left?.id) || 0);
+            });
         }
         if (stageKey === "all") {
           // A sorted copy: renderOrders(), the tab counters and the
@@ -7050,22 +7856,21 @@ document.addEventListener("DOMContentLoaded", () => {
           // Returns completed orders â€” split into rated/unrated is done in renderToRatePanel
           return state.orders.filter(
             (order) =>
-              String(order.lifecycle_status || "").toLowerCase() !== "rejected" &&
+              !isDeadOrder(order) &&
               String(order.customer_stage || "") === "completed",
           );
         }
         if (stageKey === "completed") {
           return state.orders.filter(
             (order) =>
-              String(order.lifecycle_status || "").toLowerCase() !==
-                "rejected" &&
+              !isDeadOrder(order) &&
               String(order.customer_stage || "") === "completed",
           );
         }
 
         return state.orders.filter(
           (order) =>
-            String(order.lifecycle_status || "").toLowerCase() !== "rejected" &&
+            !isDeadOrder(order) &&
             String(order.customer_stage || "") === stageKey,
         );
       };
@@ -7098,11 +7903,39 @@ document.addEventListener("DOMContentLoaded", () => {
           };
         }
 
+        // Both cancellation states are checked before anything stage-based: a
+        // cancelled order keeps the stage it died at, so falling through would
+        // label a cancelled To Pay order "To Pay" as though it were still live.
+        if (lifecycle === "cancelled") {
+          return {
+            label: ORDER_LIFECYCLE_LABELS.cancelled,
+            className: "status-cancelled",
+          };
+        }
+
+        if (order?.cancel_pending) {
+          return {
+            label: "Cancelling",
+            className: "status-cancel-pending",
+          };
+        }
+
         if (lifecycle === "completed" || stage === "completed") {
           return {
             label: ORDER_STAGE_LABELS.completed,
             className: "status-completed",
           };
+        }
+
+        // A GCash order sitting in To Pay has three meaningfully different
+        // states, and "To Pay" describes only the first of them.
+        if (stage === "to_pay") {
+          if (order?.payment_under_review) {
+            return { label: "Under Review", className: "status-to-pay is-review" };
+          }
+          if (order?.payment_is_overdue) {
+            return { label: "Payment Overdue", className: "status-to-pay is-overdue" };
+          }
         }
 
         return {
@@ -8155,6 +8988,908 @@ document.addEventListener("DOMContentLoaded", () => {
           setTimeout(() => courierInput?.focus(), 200);
         });
 
+      /* ─────────────────── GCash: pay after checkout ───────────────────
+         An order may be placed before the money is sent, exactly like Shopee
+         and Lazada. Everything the customer needs to finish paying lives in one
+         panel opened from the To Pay card: where to send it, how much, the
+         deadline, and the field for the reference number GCash prints.
+
+         Nothing here marks the order paid. The reference is a *claim*; staff
+         confirm it against the FMRC GCash account, and that confirmation is
+         what turns it into revenue. The copy is careful not to imply otherwise.
+      ───────────────────────────────────────────────────────────────────── */
+
+      const GCASH_REF_DIGITS = 13;
+
+      // Published by the site-settings poller in another IIFE, so it is read
+      // fresh on every open instead of being captured once.
+      const readGcashSettings = () => {
+        const published = window.FMRC_GCASH_SETTINGS;
+        return {
+          accountName: String(published?.accountName || "").trim(),
+          accountNumber: String(published?.accountNumber || "").trim(),
+          qrImage: String(published?.qrImage || "").trim(),
+        };
+      };
+
+      /**
+       * A phone can hand itself to the GCash app; a laptop cannot, and needs the
+       * QR instead. Mirrors the checkout's own detection: UA first, because a
+       * desktop browser resized narrow is still a desktop, then touch for iPads
+       * that report a desktop UA.
+       */
+      const isHandheldDevice = () => {
+        const ua = String(navigator.userAgent || "");
+        if (/Android|iPhone|iPod|IEMobile|Opera Mini/i.test(ua)) return true;
+        const touchPoints = Number(navigator.maxTouchPoints || 0);
+        if (/Macintosh/i.test(ua) && touchPoints > 1) return true;
+        return (
+          touchPoints > 0 &&
+          window.matchMedia?.("(pointer: coarse)")?.matches === true
+        );
+      };
+
+      /**
+       * How the deadline reads to the customer. Deliberately never says the
+       * order will be cancelled: shared hosting gives FMRC no scheduler, so
+       * nothing expires on its own and promising otherwise would be a lie.
+       */
+      const describePaymentDeadline = (order) => {
+        const raw = order?.payment_due_at;
+        if (!raw) return null;
+        const due = new Date(raw);
+        if (Number.isNaN(due.getTime())) return null;
+
+        const label = order?.payment_due_label || formatOrderDate(raw);
+        const msLeft = due.getTime() - Date.now();
+
+        if (msLeft <= 0) {
+          return {
+            overdue: true,
+            text: `This payment was due ${label}. You can still send it — FMRC will confirm it once the money arrives.`,
+          };
+        }
+
+        const hoursLeft = msLeft / 3600000;
+        const remaining =
+          hoursLeft < 1
+            ? `${Math.max(1, Math.round(msLeft / 60000))} minutes`
+            : hoursLeft < 24
+              ? `${Math.round(hoursLeft)} hour${Math.round(hoursLeft) === 1 ? "" : "s"}`
+              : `${Math.round(hoursLeft / 24)} day${Math.round(hoursLeft / 24) === 1 ? "" : "s"}`;
+
+        return {
+          overdue: false,
+          text: `Please pay within ${remaining} — by ${label}.`,
+        };
+      };
+
+      /**
+       * The instructions half of the panel: where the money goes, and how.
+       * Split out so the QR/app choice and the numbered steps stay readable.
+       */
+      const renderGcashHowToPay = (settings, amountText) => {
+        const handheld = isHandheldDevice();
+        const showQr = Boolean(settings.qrImage) && !handheld;
+        const target = settings.accountNumber
+          ? `<strong>${escapeHtml(amountText)}</strong> to <strong>${escapeHtml(settings.accountNumber)}</strong>${settings.accountName ? ` (${escapeHtml(settings.accountName)})` : ""}`
+          : `<strong>${escapeHtml(amountText)}</strong> to the account in the QR code`;
+
+        const steps = handheld
+          ? [
+              `Tap <strong>Open the GCash app</strong>, then Send Money.`,
+              `Send exactly ${target}.`,
+              `Copy the <strong>${GCASH_REF_DIGITS}-digit Ref. No.</strong> from your GCash receipt.`,
+              `Paste it below and submit. FMRC confirms it against their GCash account.`,
+            ]
+          : [
+              settings.qrImage
+                ? `Open GCash on your phone and tap <strong>Scan QR</strong> to scan the code below.`
+                : `Open GCash on your phone and tap <strong>Send Money</strong>.`,
+              `Send exactly ${target}.`,
+              `Copy the <strong>${GCASH_REF_DIGITS}-digit Ref. No.</strong> from your GCash receipt.`,
+              `Type it below and submit. FMRC confirms it against their GCash account.`,
+            ];
+
+        return `
+          <div class="cgc-account">
+            <div class="cgc-account-row">
+              <span class="cgc-account-label">Account name</span>
+              <span class="cgc-account-value">${escapeHtml(settings.accountName || "—")}</span>
+            </div>
+            <div class="cgc-account-row">
+              <span class="cgc-account-label">GCash number</span>
+              <span class="cgc-account-value" data-gcash-number>${escapeHtml(settings.accountNumber || "—")}</span>
+              ${settings.accountNumber ? `<button type="button" class="cgc-copy-btn" data-gcash-copy="${escapeHtml(settings.accountNumber)}">Copy</button>` : ""}
+            </div>
+          </div>
+          ${showQr ? `<div class="cgc-qr"><img class="cgc-qr-img" src="${escapeHtml(settings.qrImage)}" alt="FMRC GCash QR code" /><a class="cgc-qr-save" href="${escapeHtml(settings.qrImage)}" download="fmrc-gcash-qr.png">Save QR image</a></div>` : ""}
+          ${handheld ? `<div class="cgc-openapp"><button type="button" class="cgc-openapp-btn" data-gcash-openapp>Open the GCash app</button><p class="cgc-openapp-hint" data-gcash-openapp-hint></p></div>` : ""}
+          <ol class="cgc-steps">${steps.map((step) => `<li>${step}</li>`).join("")}</ol>
+        `;
+      };
+
+      /**
+       * The pay panel itself. Resolves with the updated order once a reference
+       * is accepted, or null when the customer just closes it.
+       */
+      const openGcashPayPanel = (order) =>
+        new Promise((resolve) => {
+          const settings = readGcashSettings();
+          const collectible = Boolean(
+            settings.accountNumber || settings.qrImage,
+          );
+          const amountText =
+            order?.total_label ||
+            formatOrderCurrency(Number(order?.total_amount || 0));
+          const deadline = describePaymentDeadline(order);
+          const underReview = order?.payment_under_review === true;
+          const submittedRef = String(order?.payment_reference || "");
+          const claimedRef = /^\d+$/.test(submittedRef) ? submittedRef : "";
+
+          const overlayEl = document.createElement("div");
+          overlayEl.className =
+            "customer-rating-overlay customer-gcash-overlay ux-dlg";
+          overlayEl.innerHTML = `
+            <div class="customer-rating-card customer-gcash-card ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="gcashPayTitle">
+              <div class="customer-rating-head ux-dlg__head">
+                <button type="button" class="customer-orders-close ux-dlg__close" data-gcash-close aria-label="Close">&times;</button>
+                <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-mobile-screen-button"></i></span>
+                <div>
+                  <p class="customer-rating-eyebrow ux-dlg__eyebrow">Order ${escapeHtml(order?.order_no_display || `#${order?.order_no || order?.id || "-"}`)}</p>
+                  <h3 id="gcashPayTitle" class="ux-dlg__title">${underReview ? "Payment under review" : "Pay with GCash"}</h3>
+                </div>
+              </div>
+              <div class="customer-rating-body customer-gcash-body">
+                <div class="cgc-amount">
+                  <span class="cgc-amount-label">Amount to send</span>
+                  <div class="cgc-amount-row">
+                    <strong class="cgc-amount-value">${escapeHtml(amountText)}</strong>
+                    <button type="button" class="cgc-copy-btn" data-gcash-copy="${escapeHtml(String(Number(order?.total_amount || 0).toFixed(2)))}">Copy</button>
+                  </div>
+                </div>
+                ${
+                  underReview
+                    ? `<div class="cgc-review">
+                        <p class="cgc-review-title"><i class="fa-regular fa-hourglass-half" aria-hidden="true"></i> FMRC is checking your payment</p>
+                        <p class="cgc-review-body">Reference <strong>${escapeHtml(claimedRef || "submitted")}</strong>${order?.payment_submitted_at ? ` &bull; sent ${escapeHtml(formatOrderDate(order.payment_submitted_at))}` : ""}. Your order moves to <strong>To Ship</strong> once staff confirm the money arrived. Wrong number? Submit the correct one below.</p>
+                        ${order?.payment_proof_url ? `<a class="cgc-review-proof" href="${escapeHtml(order.payment_proof_url)}" target="_blank" rel="noopener">View the screenshot you sent</a>` : ""}
+                      </div>`
+                    : deadline
+                      ? `<p class="cgc-deadline${deadline.overdue ? " is-overdue" : ""}"><i class="fa-regular fa-clock" aria-hidden="true"></i> ${escapeHtml(deadline.text)}</p>`
+                      : ""
+                }
+                ${
+                  collectible
+                    ? renderGcashHowToPay(settings, amountText)
+                    : `<p class="cgc-unavailable">FMRC has not published its GCash number or QR code yet, so there is nowhere to send the payment. Please contact FMRC before paying.</p>`
+                }
+                <div class="cgc-field">
+                  <label class="customer-rating-field-label" for="cgcReferenceInput">GCash reference number <span class="cgc-req">*</span></label>
+                  <input id="cgcReferenceInput" class="customer-return-input cgc-ref-input" type="text" inputmode="numeric" maxlength="19" autocomplete="off" placeholder="${GCASH_REF_DIGITS} digits, e.g. 0123456789012" value="${escapeHtml(claimedRef)}" />
+                  <p class="cgc-error" data-gcash-error hidden></p>
+                </div>
+                <div class="cgc-field">
+                  <label class="customer-rating-field-label" for="cgcProofInput">Receipt screenshot <span>(optional, helps us confirm faster)</span></label>
+                  <input id="cgcProofInput" class="cgc-file-input" type="file" accept="image/png,image/jpeg,image/webp" />
+                  <p class="cgc-file-name" data-gcash-file-name hidden></p>
+                </div>
+                <p class="cgc-honesty">Submitting this tells FMRC you have sent the money. It does not mark the order paid — staff confirm it against the FMRC GCash account first.</p>
+              </div>
+              <div class="customer-rating-actions ux-dlg__foot is-confirm">
+                <button type="button" class="customer-rating-cancel-btn ux-dlg__btn ux-dlg__btn--ghost" data-gcash-close>Close</button>
+                <button type="button" class="btn-place-order customer-rating-submit-btn ux-dlg__btn ux-dlg__btn--primary" data-gcash-submit>
+                  <span class="customer-rating-submit-spinner" aria-hidden="true"></span>
+                  <span data-gcash-submit-label>${underReview ? "Update my reference" : "I've sent the payment"}</span>
+                </button>
+              </div>
+            </div>
+          `;
+          document.body.appendChild(overlayEl);
+          requestAnimationFrame(() => overlayEl.classList.add("show"));
+          overlayEl.dataset.previousOverflow = document.body.style.overflow;
+          document.body.style.overflow = "hidden";
+
+          wireGcashPayPanel(overlayEl, order, resolve);
+        });
+
+      // Mirrors payments.gcash.proof_max_kb in the backend config. Checked here
+      // only so an oversized screenshot fails instantly instead of after an
+      // upload the server is going to reject anyway.
+      const GCASH_PROOF_MAX_KB = 2048;
+
+      /**
+       * Behaviour for an open pay panel: the copy buttons, the GCash app hand-off,
+       * input hygiene, and the submit that posts the claim.
+       */
+      const wireGcashPayPanel = (overlayEl, order, resolve) => {
+        const referenceInput = overlayEl.querySelector("#cgcReferenceInput");
+        const proofInput = overlayEl.querySelector("#cgcProofInput");
+        const errorEl = overlayEl.querySelector("[data-gcash-error]");
+        const fileNameEl = overlayEl.querySelector("[data-gcash-file-name]");
+        const submitBtn = overlayEl.querySelector("[data-gcash-submit]");
+        const submitLabel = overlayEl.querySelector("[data-gcash-submit-label]");
+        let settled = false;
+        let busy = false;
+        let openAppTimer = null;
+        // The My Orders drawer owns body scrolling and is still open underneath,
+        // so this restores what it had rather than clearing the lock outright.
+        const previousBodyOverflow = overlayEl.dataset.previousOverflow || "";
+
+        const finish = (value) => {
+          if (settled) return;
+          settled = true;
+          window.clearTimeout(openAppTimer);
+          overlayEl.classList.remove("show");
+          document.removeEventListener("keydown", onKeydown, true);
+          document.body.style.overflow = previousBodyOverflow;
+          setTimeout(() => overlayEl.remove(), 180);
+          resolve(value);
+        };
+
+        const onKeydown = (event) => {
+          if (event.key !== "Escape" || busy) return;
+          event.stopPropagation();
+          finish(null);
+        };
+        document.addEventListener("keydown", onKeydown, true);
+
+        const showError = (message) => {
+          if (!errorEl) return;
+          errorEl.textContent = message;
+          errorEl.hidden = !message;
+          referenceInput?.classList.toggle("has-error", Boolean(message));
+        };
+
+        referenceInput?.addEventListener("input", () => {
+          const digits = referenceInput.value
+            .replace(/\D/g, "")
+            .slice(0, GCASH_REF_DIGITS);
+          if (referenceInput.value !== digits) referenceInput.value = digits;
+          if (digits.length === GCASH_REF_DIGITS) showError("");
+        });
+
+        proofInput?.addEventListener("change", () => {
+          const file = proofInput.files?.[0];
+          if (!file) {
+            if (fileNameEl) fileNameEl.hidden = true;
+            return;
+          }
+          const kb = Math.round(file.size / 1024);
+          if (kb > GCASH_PROOF_MAX_KB) {
+            proofInput.value = "";
+            if (fileNameEl) fileNameEl.hidden = true;
+            showError(
+              `That screenshot is ${(kb / 1024).toFixed(1)} MB. Please attach an image under ${Math.floor(GCASH_PROOF_MAX_KB / 1024)} MB, or submit the reference number on its own.`,
+            );
+            return;
+          }
+          if (fileNameEl) {
+            fileNameEl.textContent = `Attached: ${file.name} (${kb} KB)`;
+            fileNameEl.hidden = false;
+          }
+        });
+
+        // Single click handler for the whole card, so the markup builder above
+        // stays declarative and nothing has to be re-bound after a re-render.
+        overlayEl.addEventListener("click", async (event) => {
+          const target = event.target;
+
+          if (
+            target === overlayEl ||
+            target?.closest?.("[data-gcash-close]")
+          ) {
+            if (!busy) finish(null);
+            return;
+          }
+
+          const copyBtn = target?.closest?.("[data-gcash-copy]");
+          if (copyBtn) {
+            const value = copyBtn.getAttribute("data-gcash-copy") || "";
+            const original = copyBtn.textContent;
+            try {
+              await navigator.clipboard.writeText(value);
+              copyBtn.textContent = "Copied";
+            } catch {
+              // Insecure origins and some in-app browsers deny the clipboard.
+              copyBtn.textContent = "Copy it manually";
+            }
+            window.setTimeout(() => {
+              copyBtn.textContent = original || "Copy";
+            }, 1600);
+            return;
+          }
+
+          if (target?.closest?.("[data-gcash-openapp]")) {
+            const hint = overlayEl.querySelector("[data-gcash-openapp-hint]");
+            if (hint) hint.textContent = "Opening GCash…";
+            window.clearTimeout(openAppTimer);
+            try {
+              window.location.href = "gcash://";
+            } catch {
+              // Some browsers throw on an unknown scheme instead of ignoring it.
+            }
+            // Still visible after a beat means the scheme went nowhere, which
+            // almost always means GCash is not installed on this device.
+            openAppTimer = window.setTimeout(() => {
+              if (!hint) return;
+              hint.textContent = document.hidden
+                ? ""
+                : "GCash did not open. Open the app yourself, then send the amount above.";
+            }, 1500);
+            return;
+          }
+
+          if (!target?.closest?.("[data-gcash-submit]") || busy) return;
+
+          const reference = String(referenceInput?.value || "").replace(
+            /\D/g,
+            "",
+          );
+          if (reference.length !== GCASH_REF_DIGITS) {
+            showError(
+              reference
+                ? `That reference number has ${reference.length} digit${reference.length === 1 ? "" : "s"}. GCash reference numbers are ${GCASH_REF_DIGITS} digits — check the "Ref. No." on your receipt.`
+                : `Send the payment in GCash first, then enter the ${GCASH_REF_DIGITS}-digit reference number from your receipt.`,
+            );
+            referenceInput?.focus();
+            return;
+          }
+
+          showError("");
+          busy = true;
+          submitBtn?.classList.add("is-loading");
+          if (submitBtn) submitBtn.disabled = true;
+          const previousLabel = submitLabel?.textContent || "";
+          if (submitLabel) submitLabel.textContent = "Sending…";
+
+          const restore = () => {
+            busy = false;
+            submitBtn?.classList.remove("is-loading");
+            if (submitBtn) submitBtn.disabled = false;
+            if (submitLabel) submitLabel.textContent = previousLabel;
+          };
+
+          const updated = await submitGcashPayment(
+            order?.id,
+            reference,
+            proofInput?.files?.[0] || null,
+            showError,
+          );
+          if (!updated) {
+            restore();
+            return;
+          }
+          finish(updated);
+        });
+
+        setTimeout(() => referenceInput?.focus(), 200);
+      };
+
+      /**
+       * Post the customer's GCash claim. Returns the updated order on success,
+       * or null after reporting the reason through `showError` - validation
+       * messages from the server are shown against the field rather than in a
+       * popup, because the field is what has to change.
+       */
+      const submitGcashPayment = async (
+        orderId,
+        reference,
+        proofFile,
+        showError,
+      ) => {
+        if (!orderId) return null;
+
+        const token =
+          state.token || localStorage.getItem("customer_token") || "";
+        if (!token) {
+          showError("Your session has expired. Please log in again.");
+          return null;
+        }
+
+        const body = new FormData();
+        body.append("payment_reference", reference);
+        if (proofFile) body.append("proof", proofFile);
+
+        try {
+          // A screenshot on a phone connection needs more than the shared 8s
+          // budget, so this one request gets a longer leash.
+          const { response: res, data } = await fetchJsonWithTimeout(
+            `${API_BASE_URL}/customer/orders/${orderId}/payment`,
+            {
+              method: "POST",
+              // Content-Type is deliberately unset: the browser has to add the
+              // multipart boundary itself.
+              headers: {
+                Accept: "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body,
+            },
+            proofFile ? 30000 : 12000,
+          );
+
+          if (!res.ok) {
+            const fieldError = data?.errors?.payment_reference?.[0];
+            showError(
+              fieldError ||
+                data?.message ||
+                "We could not record that reference number. Please try again.",
+            );
+            return null;
+          }
+
+          return data?.data || null;
+        } catch (error) {
+          showError(
+            error?.message ||
+              "We could not reach FMRC. Please check your connection and try again.",
+          );
+          return null;
+        }
+      };
+
+      /**
+       * "Pay Now" on a To Pay card. Opens the panel, then folds the server's
+       * updated order straight back into the list so the card flips to "under
+       * review" without waiting for the next poll.
+       */
+      const handleGcashPay = async (orderId) => {
+        if (!orderId) return;
+
+        const wanted = String(orderId);
+        const order =
+          state.orders.find((row) => String(row?.id) === wanted) ||
+          state.detailsById.get(wanted) ||
+          null;
+
+        if (!order) {
+          await showCustomerPopup(
+            "We could not load that order. Please refresh and try again.",
+            { title: "Order unavailable" },
+          );
+          return;
+        }
+
+        if (order.payment_is_confirmed) {
+          await showCustomerPopup(
+            "FMRC has already confirmed this payment. Nothing more is needed from you.",
+            { title: "Payment confirmed" },
+          );
+          return;
+        }
+
+        if (String(order.lifecycle_status || "") === "rejected") {
+          await showCustomerPopup(
+            "This order was rejected, so there is nothing to pay. Contact FMRC if you already sent the money.",
+            { title: "Order rejected" },
+          );
+          return;
+        }
+
+        const updated = await openGcashPayPanel(order);
+        if (!updated) return;
+
+        const updatedId = String(updated.id ?? wanted);
+        const index = state.orders.findIndex(
+          (row) => String(row?.id) === updatedId,
+        );
+        if (index >= 0) {
+          state.orders[index] = { ...state.orders[index], ...updated };
+        }
+        state.detailsById.set(updatedId, updated);
+        // The list ETag no longer describes what we are holding, so drop it and
+        // let the next refresh fetch a full body instead of a 304.
+        state.etag = "";
+        state.lastDetailRefreshAt = 0;
+        writeCustomerOrdersCache(state.cacheKey, state.orders, state.etag);
+        renderOrders();
+        void refreshOrders(false, true);
+
+        await showCustomerPopup(
+          "Thank you! FMRC will match your reference number against their GCash account. Your order moves to To Ship once the payment is confirmed.",
+          { title: "Reference number received" },
+        );
+      };
+
+      // Same capture-phase bridge the return controls use, for the same reason:
+      // the panels are re-rendered wholesale, so per-button listeners would be
+      // thrown away on every repaint.
+      document.addEventListener(
+        "click",
+        (event) => {
+          const payBtn = event.target?.closest?.("[data-order-pay]");
+          if (!payBtn || payBtn.dataset.payClickHandled === "true") return;
+
+          payBtn.dataset.payClickHandled = "true";
+          event.preventDefault();
+          event.stopPropagation();
+          void handleGcashPay(payBtn.getAttribute("data-order-pay"));
+
+          queueMicrotask(() => {
+            delete payBtn.dataset.payClickHandled;
+          });
+        },
+        true,
+      );
+
+      // ─── Cancel order ──────────────────────────────────────────────────────
+      // Modelled on the Shopee/Lazada "Select reason" sheet: one screen, a radio
+      // list of pre-written reasons, and a single confirm button. The reason list
+      // comes from the server (`cancel_reason_options`) rather than being
+      // hard-coded here, so the codes the customer picks are always ones the API
+      // will accept. The fallback below only exists for a cached payload written
+      // before this field was added.
+      const FALLBACK_CANCEL_REASONS = [
+        { value: "no_longer_needed", label: "No longer needed", requires_detail: false },
+        { value: "ordered_by_mistake", label: "Ordered by mistake", requires_detail: false },
+        { value: "other", label: "Other reason", requires_detail: true },
+      ];
+
+      const getCancelReasonOptions = () =>
+        Array.isArray(state.cancelReasonOptions) &&
+        state.cancelReasonOptions.length
+          ? state.cancelReasonOptions
+          : FALLBACK_CANCEL_REASONS;
+
+      const openCancelReasonSheet = (order) =>
+        new Promise((resolve) => {
+          const options = getCancelReasonOptions();
+          const immediate = order?.cancel_is_immediate === true;
+          const amountText =
+            order?.total_label ||
+            formatOrderCurrency(Number(order?.total_amount || 0));
+          // Money that FMRC is holding. A confirmed payment is a refund staff
+          // have to send by hand, and an unverified claim still has to be
+          // checked - promising either automatically would be a lie, because
+          // there is no GCash API and no cron on this hosting.
+          const paymentConfirmed = order?.payment_is_confirmed === true;
+          const paymentClaimed = order?.payment_under_review === true;
+
+          const overlayEl = document.createElement("div");
+          overlayEl.className =
+            "customer-rating-overlay customer-cancel-overlay ux-dlg";
+          overlayEl.innerHTML = `
+            <div class="customer-rating-card customer-cancel-card ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="cancelReasonTitle">
+              <div class="customer-rating-head ux-dlg__head">
+                <button type="button" class="customer-orders-close ux-dlg__close" data-cancel-close aria-label="Close">&times;</button>
+                <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-regular fa-circle-xmark"></i></span>
+                <div>
+                  <p class="customer-rating-eyebrow ux-dlg__eyebrow">Order ${escapeHtml(order?.order_no_display || `#${order?.order_no || order?.id || "-"}`)}</p>
+                  <h3 id="cancelReasonTitle" class="ux-dlg__title">Select reason</h3>
+                  <p class="ccx-subtitle">${
+                    immediate
+                      ? "Select a reason to cancel your order instantly."
+                      : "Select a reason. FMRC staff review the request before the order is cancelled."
+                  }</p>
+                </div>
+              </div>
+              <div class="customer-rating-body customer-cancel-body">
+                ${
+                  immediate
+                    ? ""
+                    : `<p class="ccx-notice"><i class="fa-regular fa-hourglass-half" aria-hidden="true"></i> ${
+                        paymentConfirmed
+                          ? `FMRC has already confirmed your ${escapeHtml(amountText)} payment, so this sends a request instead of cancelling straight away. If staff approve it, they refund the ${escapeHtml(amountText)} to the GCash number you paid from — by hand, so allow a few working days.`
+                          : "FMRC has already accepted this order and may have started preparing it, so this sends a request instead of cancelling straight away."
+                      }</p>`
+                }
+                ${
+                  immediate && paymentClaimed
+                    ? `<p class="ccx-notice"><i class="fa-regular fa-circle-question" aria-hidden="true"></i> You have told FMRC you sent ${escapeHtml(amountText)} but staff have not confirmed it yet. Cancelling now still closes the order — if the money did arrive, staff will send it back.</p>`
+                    : ""
+                }
+                <div class="ccx-reasons" role="radiogroup" aria-labelledby="cancelReasonTitle">
+                  ${options
+                    .map(
+                      (option, index) => `
+                        <label class="ccx-reason">
+                          <input type="radio" name="cancelReason" value="${escapeHtml(option.value)}" data-requires-detail="${option.requires_detail ? "1" : "0"}"${index === 0 ? "" : ""} />
+                          <span class="ccx-reason-mark" aria-hidden="true"></span>
+                          <span class="ccx-reason-label">${escapeHtml(option.label)}</span>
+                        </label>
+                      `,
+                    )
+                    .join("")}
+                </div>
+                <div class="ccx-detail" data-cancel-detail hidden>
+                  <label class="customer-rating-field-label" for="ccxDetailInput">Tell FMRC why <span class="cgc-req">*</span></label>
+                  <textarea id="ccxDetailInput" class="customer-return-input ccx-detail-input" rows="3" maxlength="600" placeholder="A sentence is enough."></textarea>
+                </div>
+                <p class="ccx-error" data-cancel-error hidden></p>
+              </div>
+              <div class="customer-rating-actions ux-dlg__foot is-confirm">
+                <button type="button" class="customer-rating-cancel-btn ux-dlg__btn ux-dlg__btn--ghost" data-cancel-close>Keep my order</button>
+                <button type="button" class="btn-place-order customer-rating-submit-btn ux-dlg__btn ux-dlg__btn--primary" data-cancel-submit>
+                  <span class="customer-rating-submit-spinner" aria-hidden="true"></span>
+                  <span data-cancel-submit-label>${immediate ? "Cancel order" : "Send request"}</span>
+                </button>
+              </div>
+            </div>
+          `;
+          document.body.appendChild(overlayEl);
+          requestAnimationFrame(() => overlayEl.classList.add("show"));
+          overlayEl.dataset.previousOverflow = document.body.style.overflow;
+          document.body.style.overflow = "hidden";
+
+          wireCancelReasonSheet(overlayEl, order, resolve);
+        });
+
+      /**
+       * Behaviour for an open cancel sheet: reveal the detail box only for the
+       * reason that needs it, block an empty submit, and post the cancellation.
+       */
+      const wireCancelReasonSheet = (overlayEl, order, resolve) => {
+        const detailWrap = overlayEl.querySelector("[data-cancel-detail]");
+        const detailInput = overlayEl.querySelector("#ccxDetailInput");
+        const errorEl = overlayEl.querySelector("[data-cancel-error]");
+        const submitBtn = overlayEl.querySelector("[data-cancel-submit]");
+        const submitLabel = overlayEl.querySelector("[data-cancel-submit-label]");
+        let settled = false;
+        let busy = false;
+        // The My Orders drawer owns body scrolling and is still open underneath.
+        const previousBodyOverflow = overlayEl.dataset.previousOverflow || "";
+
+        const finish = (value) => {
+          if (settled) return;
+          settled = true;
+          overlayEl.classList.remove("show");
+          document.removeEventListener("keydown", onKeydown, true);
+          document.body.style.overflow = previousBodyOverflow;
+          setTimeout(() => overlayEl.remove(), 180);
+          resolve(value);
+        };
+
+        const onKeydown = (event) => {
+          if (event.key !== "Escape" || busy) return;
+          event.stopPropagation();
+          finish(null);
+        };
+        document.addEventListener("keydown", onKeydown, true);
+
+        const showError = (message) => {
+          if (!errorEl) return;
+          errorEl.textContent = message;
+          errorEl.hidden = !message;
+        };
+
+        const selectedRadio = () =>
+          overlayEl.querySelector('input[name="cancelReason"]:checked');
+
+        overlayEl.addEventListener("change", () => {
+          const radio = selectedRadio();
+          const needsDetail = radio?.dataset.requiresDetail === "1";
+          if (detailWrap) detailWrap.hidden = !needsDetail;
+          if (needsDetail) setTimeout(() => detailInput?.focus(), 60);
+          showError("");
+        });
+
+        overlayEl.addEventListener("click", async (event) => {
+          const target = event.target;
+
+          if (target === overlayEl || target?.closest?.("[data-cancel-close]")) {
+            if (!busy) finish(null);
+            return;
+          }
+
+          if (!target?.closest?.("[data-cancel-submit]") || busy) return;
+
+          const radio = selectedRadio();
+          if (!radio) {
+            showError("Choose a reason so FMRC knows what went wrong.");
+            return;
+          }
+
+          const needsDetail = radio.dataset.requiresDetail === "1";
+          const detail = String(detailInput?.value || "").trim();
+          if (needsDetail && !detail) {
+            showError("Tell FMRC briefly why you are cancelling.");
+            detailInput?.focus();
+            return;
+          }
+
+          showError("");
+          busy = true;
+          submitBtn?.classList.add("is-loading");
+          if (submitBtn) submitBtn.disabled = true;
+          const previousLabel = submitLabel?.textContent || "";
+          if (submitLabel) submitLabel.textContent = "Sending…";
+
+          const result = await submitOrderCancellation(
+            order?.id,
+            radio.value,
+            detail,
+            showError,
+          );
+
+          if (!result) {
+            busy = false;
+            submitBtn?.classList.remove("is-loading");
+            if (submitBtn) submitBtn.disabled = false;
+            if (submitLabel) submitLabel.textContent = previousLabel;
+            return;
+          }
+
+          finish(result);
+        });
+      };
+
+      /**
+       * Post the cancellation. Returns `{order, immediate, message}` on success,
+       * or null after reporting the reason inside the sheet - the server decides
+       * whether this cancelled the order or only filed a request, so its own
+       * `immediate` flag is what the confirmation copy is based on.
+       */
+      const submitOrderCancellation = async (
+        orderId,
+        reason,
+        reasonDetail,
+        showError,
+      ) => {
+        if (!orderId) return null;
+
+        const token =
+          state.token || localStorage.getItem("customer_token") || "";
+        if (!token) {
+          showError("Your session has expired. Please log in again.");
+          return null;
+        }
+
+        try {
+          const { response: res, data } = await fetchJsonWithTimeout(
+            `${API_BASE_URL}/customer/orders/${orderId}/cancel`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                reason,
+                ...(reasonDetail ? { reason_detail: reasonDetail } : {}),
+              }),
+            },
+            12000,
+          );
+
+          if (!res.ok) {
+            showError(
+              data?.errors?.reason?.[0] ||
+                data?.errors?.reason_detail?.[0] ||
+                data?.message ||
+                "We could not cancel that order. Please refresh and try again.",
+            );
+            return null;
+          }
+
+          return {
+            order: data?.data || null,
+            immediate: data?.immediate === true,
+            message: String(data?.message || ""),
+          };
+        } catch (error) {
+          showError(
+            error?.message ||
+              "We could not reach FMRC. Please check your connection and try again.",
+          );
+          return null;
+        }
+      };
+
+      /**
+       * "Cancel Order" / "Request Cancellation" on a card. Folds the server's
+       * updated order straight back into the list so the card flips without
+       * waiting for the next poll, exactly like the GCash pay panel does.
+       */
+      const handleOrderCancel = async (orderId) => {
+        if (!orderId) return;
+
+        const wanted = String(orderId);
+        const order =
+          state.orders.find((row) => String(row?.id) === wanted) ||
+          state.detailsById.get(wanted) ||
+          null;
+
+        if (!order) {
+          await showCustomerPopup(
+            "We could not load that order. Please refresh and try again.",
+            { title: "Order unavailable" },
+          );
+          return;
+        }
+
+        if (!order.can_request_cancel) {
+          await showCustomerPopup(
+            order.cancel_blocked_reason ||
+              "This order can no longer be cancelled.",
+            { title: "Cancellation unavailable" },
+          );
+          return;
+        }
+
+        const result = await openCancelReasonSheet(order);
+        if (!result) return;
+
+        if (result.order) {
+          const updatedId = String(result.order.id ?? wanted);
+          const index = state.orders.findIndex(
+            (row) => String(row?.id) === updatedId,
+          );
+          if (index >= 0) {
+            state.orders[index] = { ...state.orders[index], ...result.order };
+          }
+          state.detailsById.set(updatedId, result.order);
+        }
+
+        // The list ETag no longer describes what we are holding, so drop it and
+        // let the next refresh fetch a full body instead of a 304.
+        state.etag = "";
+        state.lastDetailRefreshAt = 0;
+        writeCustomerOrdersCache(
+          state.cacheKey,
+          state.orders,
+          state.etag,
+          state.returns,
+        );
+        renderOrders();
+        void refreshOrders(false, true);
+
+        if (result.immediate) {
+          // `cancel_refund_due` covers two different situations: staff already
+          // matched the money, or the customer typed a reference nobody has
+          // checked yet. Only the first one is a debt FMRC can promise to pay,
+          // so the unverified case has to stay conditional.
+          const refundDue = result.order?.cancel_refund_due === true;
+          const paymentConfirmed = result.order?.payment_is_confirmed === true;
+          await showCustomerPopup(
+            paymentConfirmed
+              ? "Your order is cancelled. FMRC will send your payment back by hand, so allow a few working days."
+              : refundDue
+                ? "Your order is cancelled. If your GCash payment reached FMRC, staff will check the account and send it back — allow a few working days."
+                : "Your order is cancelled and the stock has been returned. Nothing is owed on it.",
+            { title: "Order cancelled" },
+          );
+        } else {
+          await showCustomerPopup(
+            result.message ||
+              "Cancellation request sent. FMRC staff will review it shortly.",
+            { title: "Request sent" },
+          );
+        }
+      };
+
+      // Same capture-phase bridge as the pay and return controls.
+      document.addEventListener(
+        "click",
+        (event) => {
+          const cancelBtn = event.target?.closest?.(
+            "[data-order-cancel],[data-cancel-blocked]",
+          );
+          if (!cancelBtn || cancelBtn.dataset.cancelClickHandled === "true") {
+            return;
+          }
+
+          cancelBtn.dataset.cancelClickHandled = "true";
+          event.preventDefault();
+          event.stopPropagation();
+
+          const blocked = cancelBtn.getAttribute("data-cancel-blocked");
+          if (blocked) {
+            void showCustomerPopup(blocked, { title: "Cancellation status" });
+          } else {
+            void handleOrderCancel(
+              cancelBtn.getAttribute("data-order-cancel"),
+            );
+          }
+
+          queueMicrotask(() => {
+            delete cancelBtn.dataset.cancelClickHandled;
+          });
+        },
+        true,
+      );
+
       // Single capture-phase bridge for every return control, so the buttons
       // survive the drawer's innerHTML re-renders exactly like Buy Again.
       window.__fmrcReturnAction = (buttonEl) => {
@@ -8272,9 +10007,9 @@ document.addEventListener("DOMContentLoaded", () => {
               // Single-item orders reorder straight away; the picker only opens
               // when there is more than one reorderable product.
               const buyAgainSeed = getBuyAgainItems(order)[0] || null;
+              const isLive = !isDeadOrder(order);
               const isCompleted =
-                String(order.customer_stage) === "completed" &&
-                String(order.lifecycle_status || "") !== "rejected";
+                String(order.customer_stage) === "completed" && isLive;
 
               // Return entry point. `return_eligible` and `return_blocked_reason`
               // come straight from the same rule the API enforces, so the button
@@ -8293,8 +10028,54 @@ document.addEventListener("DOMContentLoaded", () => {
                         : ""
                   }`;
 
+              // GCash placed before the money was sent. `awaiting_customer_payment`
+              // and `payment_under_review` are the server's own read of the
+              // payment row, so the button never contradicts what staff see.
+              const payActionsHtml = order.awaiting_customer_payment
+                ? `<button type="button" class="customer-order-pay-btn${order.payment_is_overdue ? " is-overdue" : ""}" data-order-pay="${escapeHtml(order.id)}"><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i> Pay Now</button>`
+                : order.payment_under_review
+                  ? `<button type="button" class="customer-order-pay-btn is-review" data-order-pay="${escapeHtml(order.id)}"><i class="fa-regular fa-hourglass-half" aria-hidden="true"></i> Payment under review</button>`
+                  : "";
+
+              // Cancellation. `can_request_cancel` and `cancel_is_immediate` are
+              // the server's own read of the same rule the API enforces, so the
+              // button never promises something the POST will refuse: at To Pay
+              // with nothing confirmed it cancels outright, and once the payment
+              // is verified or staff have started the job it only files a
+              // request. `cancel_blocked_reason` explains a missing button.
+              const cancelActionsHtml = order.can_request_cancel
+                ? `<button type="button" class="customer-order-cancel-btn" data-order-cancel="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || "Order")}"><i class="fa-regular fa-circle-xmark" aria-hidden="true"></i> ${order.cancel_is_immediate ? "Cancel Order" : "Request Cancellation"}</button>`
+                : order.cancel_pending
+                  ? `<button type="button" class="customer-order-cancel-btn is-pending" data-cancel-blocked="${escapeHtml(order.cancel_blocked_reason || "Your cancellation request is already being reviewed.")}"><i class="fa-regular fa-hourglass-half" aria-hidden="true"></i> Cancellation pending</button>`
+                  : "";
+
+              const cancelBandHtml = order.is_cancelled
+                ? `<p class="customer-order-cancel-band is-cancelled">
+                     <i class="fa-regular fa-circle-xmark" aria-hidden="true"></i>
+                     <span><strong>Cancelled${order.cancelled_at_label ? ` on ${escapeHtml(order.cancelled_at_label)}` : ""}.</strong>${order.cancel_reason_label ? ` ${escapeHtml(order.cancel_reason_label)}.` : ""}${
+                       order.cancel_refund_due && order.payment_is_confirmed
+                         ? " FMRC still owes you a refund — staff send it back to the GCash number you paid from."
+                         : order.cancel_refund_due
+                           ? " If your GCash payment reached FMRC, staff will send it back to the number you paid from."
+                           : order.payment_is_refunded
+                             ? ` Refunded${order.payment_refunded_label ? ` on ${escapeHtml(order.payment_refunded_label)}` : ""}${order.payment_refund_reference ? ` (ref. ${escapeHtml(order.payment_refund_reference)})` : ""}.`
+                             : ""
+                     }</span>
+                   </p>`
+                : order.cancel_pending
+                  ? `<p class="customer-order-cancel-band is-pending">
+                       <i class="fa-regular fa-hourglass-half" aria-hidden="true"></i>
+                       <span><strong>Cancellation requested${order.cancel_requested_label ? ` ${escapeHtml(order.cancel_requested_label)}` : ""}.</strong> FMRC staff are reviewing it${order.cancel_reason_label ? ` — ${escapeHtml(order.cancel_reason_label)}` : ""}.</span>
+                     </p>`
+                  : String(order.cancel_state || "") === "declined"
+                    ? `<p class="customer-order-cancel-band is-declined">
+                         <i class="fa-regular fa-circle-question" aria-hidden="true"></i>
+                         <span><strong>Cancellation declined.</strong>${order.cancel_decision_note ? ` ${escapeHtml(order.cancel_decision_note)}` : " FMRC has already started preparing this order."}</span>
+                       </p>`
+                    : "";
+
               return `
-                <article class="customer-order-card">
+                <article class="customer-order-card${order.is_cancelled ? " is-cancelled" : ""}">
                   <div class="customer-order-thumb">
                     ${renderOrderThumbTrigger(order)}
                   </div>
@@ -8302,6 +10083,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <h4>${productName}</h4>
                     <p class="customer-order-meta">Order ${orderNo} &bull; ${quantityLabel}</p>
                     <p class="customer-order-meta">${paymentMethod} &bull; ${formatOrderDate(order.created_at)}</p>
+                    ${cancelBandHtml}
                   </div>
                   <div class="customer-order-side">
                     <span class="customer-order-status ${statusMeta.className}">${statusMeta.label}</span>
@@ -8309,16 +10091,18 @@ document.addEventListener("DOMContentLoaded", () => {
                   </div>
                   <div class="customer-order-actions">
                     <button type="button" class="customer-order-detail-btn" data-order-detail="${escapeHtml(order.id)}">Order Details</button>
-                    ${String(order.customer_stage) === 'to_receive' && String(order.lifecycle_status || '') !== 'rejected'
+                    ${payActionsHtml}
+                    ${String(order.customer_stage) === 'to_receive' && isLive
                       ? `<button type="button" class="customer-order-received-btn" data-order-received="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || 'Order')}">Order Received</button>`
                       : ''}
-                    ${String(order.customer_stage) === 'completed' && String(order.lifecycle_status || '') !== 'rejected' && !order.has_rating
+                    ${String(order.customer_stage) === 'completed' && isLive && !order.has_rating
                       ? `<button type="button" class="customer-order-rate-btn" data-order-rate="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || 'Order')}">Rate Product</button>`
                       : ''}
                     ${isCompleted
                       ? `<button type="button" class="customer-order-buy-again-btn" data-order-buy-again="${escapeHtml(order.id)}" data-buy-again-product="${escapeHtml(buyAgainSeed?.product_id ?? '')}" data-buy-again-name="${escapeHtml(buyAgainSeed?.product_name || order.product_name || 'Order')}"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Buy Again</button>`
                       : ''}
                     ${returnActionsHtml}
+                    ${cancelActionsHtml}
                   </div>
                 </article>
               `;
@@ -8332,7 +10116,8 @@ document.addEventListener("DOMContentLoaded", () => {
           // The "To Rate" tab badge should reflect only products still
           // awaiting a rating (unrated completed orders), not every
           // completed order. "Returns" follows the same needs-attention
-          // rule: only requests that are still open are counted.
+          // rule: only requests that are still open are counted. "Cancelled"
+          // is a history tab, so it counts everything in it.
           let count = scoped.length;
           if (stageKey === "to_rate") {
             count = scoped.filter((order) => !order.has_rating).length;
@@ -8402,13 +10187,64 @@ document.addEventListener("DOMContentLoaded", () => {
             "Pending",
         );
 
+        // The same three-way band the card shows, restated here because the
+        // detail modal is where a customer goes to find out what happened to a
+        // dead order - the reason, the decision note and the refund state all
+        // have to be readable without closing it again.
+        const cancelDetailHtml = detail.is_cancelled
+          ? `<div class="customer-order-cancel-detail is-cancelled">
+               <h4><i class="fa-regular fa-circle-xmark" aria-hidden="true"></i> ${
+                 detail.cancelled_by_customer
+                   ? "You cancelled this order"
+                   : "This order was cancelled"
+               }</h4>
+               <p>${
+                 detail.cancelled_at_label
+                   ? `Cancelled on ${escapeHtml(detail.cancelled_at_label)}.`
+                   : ""
+               }${detail.cancel_reason_label ? ` Reason: ${escapeHtml(detail.cancel_reason_label)}.` : ""}</p>
+               ${detail.cancel_reason_detail ? `<p class="customer-order-cancel-detail-note">&ldquo;${escapeHtml(detail.cancel_reason_detail)}&rdquo;</p>` : ""}
+               <p>${
+                 detail.cancel_refund_due && detail.payment_is_confirmed
+                   ? "FMRC still has to send your payment back. Staff transfer it by hand to the GCash number you paid from, so allow a few working days."
+                   : detail.cancel_refund_due
+                     ? "You sent a GCash reference that nobody had verified yet. Staff will check the FMRC account and, if the money arrived, transfer it back by hand to the number you paid from."
+                     : detail.payment_is_refunded
+                       ? `Refunded${detail.payment_refunded_label ? ` on ${escapeHtml(detail.payment_refunded_label)}` : ""}${detail.payment_refund_reference ? ` — GCash ref. ${escapeHtml(detail.payment_refund_reference)}` : ""}.`
+                       : "No payment was collected on this order, so there is nothing to refund."
+               }</p>
+               ${detail.cancel_decision_note ? `<p class="customer-order-cancel-detail-note">Staff note: ${escapeHtml(detail.cancel_decision_note)}</p>` : ""}
+             </div>`
+          : detail.cancel_pending
+            ? `<div class="customer-order-cancel-detail is-pending">
+                 <h4><i class="fa-regular fa-hourglass-half" aria-hidden="true"></i> Cancellation requested</h4>
+                 <p>${detail.cancel_requested_label ? `Sent ${escapeHtml(detail.cancel_requested_label)}.` : ""}${detail.cancel_reason_label ? ` Reason: ${escapeHtml(detail.cancel_reason_label)}.` : ""} FMRC staff review it before the order is cancelled — the order carries on as normal until they decide.</p>
+                 ${detail.cancel_reason_detail ? `<p class="customer-order-cancel-detail-note">&ldquo;${escapeHtml(detail.cancel_reason_detail)}&rdquo;</p>` : ""}
+               </div>`
+            : String(detail.cancel_state || "") === "declined"
+              ? `<div class="customer-order-cancel-detail is-declined">
+                   <h4><i class="fa-regular fa-circle-question" aria-hidden="true"></i> Cancellation declined</h4>
+                   <p>${detail.cancel_decided_label ? `Decided ${escapeHtml(detail.cancel_decided_label)}.` : ""} ${escapeHtml(detail.cancel_decision_note || "FMRC has already started preparing this order.")}</p>
+                 </div>`
+              : "";
+
         const timeline = Array.isArray(detail.timeline) ? detail.timeline : [];
+        // Prefer the newest checkpoint that carries coordinates; fall back to the
+        // order's own last-known point, then to the destination (the FMRC counter
+        // for a pickup) so the map is never blank when we know where it is going.
         const withCoords =
           timeline.find(
             (entry) =>
               Number.isFinite(Number(entry?.latitude)) &&
               Number.isFinite(Number(entry?.longitude)),
-          ) || detail;
+          ) ||
+          (Number.isFinite(Number(detail?.latitude)) &&
+          Number.isFinite(Number(detail?.longitude))
+            ? detail
+            : {
+                latitude: detail?.destination_latitude,
+                longitude: detail?.destination_longitude,
+              });
         const mapEmbedUrl = buildGoogleMapEmbedUrl(
           withCoords?.latitude,
           withCoords?.longitude,
@@ -8417,11 +10253,87 @@ document.addEventListener("DOMContentLoaded", () => {
           withCoords?.latitude,
           withCoords?.longitude,
         );
-        const courierName = escapeHtml(detail.courier_name || "J&T Express");
+        // The courier sub-object is the server's own read of the registry, so
+        // the name, the waybill and the link can never disagree with what the
+        // admin stamped on the order.
+        const courierState =
+          detail.courier && typeof detail.courier === "object"
+            ? detail.courier
+            : {};
+        const courierName = escapeHtml(
+          courierState.name || detail.courier_name || "Courier",
+        );
         const courierTrackingNo = String(
-          detail.courier_tracking_no || "",
+          courierState.tracking_no || detail.courier_tracking_no || "",
         ).trim();
-        const jntUrl = buildJntTrackingUrl(courierTrackingNo);
+        const courierTrackingUrl = String(
+          courierState.tracking_url || "",
+        ).trim();
+
+        // How this order is handed over. Pickup orders never ship, so they show
+        // the FMRC counter and a pickup code instead of a courier address.
+        const isPickupOrder = Boolean(detail.is_pickup);
+        const fulfillmentLabel = escapeHtml(
+          detail.fulfillment_label ||
+            (isPickupOrder ? "Pickup at FMRC" : "Courier Delivery"),
+        );
+        const deliveryAddress =
+          detail.delivery_address && typeof detail.delivery_address === "object"
+            ? detail.delivery_address
+            : {};
+        const destinationLabel = String(
+          detail.destination_label ||
+            detail.delivery_address_line ||
+            detail.location_name ||
+            "",
+        ).trim();
+        const pickupCode = String(detail.pickup_code || "").trim();
+
+        const fulfillmentRows = isPickupOrder
+          ? [
+              ["Pickup location", destinationLabel],
+              ["Pickup code", pickupCode],
+              ["Ready since", detail.pickup_ready_at_label],
+              ["Collected", detail.picked_up_at_label],
+            ]
+          : [
+              ["Recipient", deliveryAddress.recipient_name],
+              ["Contact", deliveryAddress.contact_no],
+              ["Street", deliveryAddress.street],
+              ["Barangay", deliveryAddress.barangay],
+              ["City / Municipality", deliveryAddress.city],
+              ["Province", deliveryAddress.province],
+              ["Postal code", deliveryAddress.postal_code],
+              ["Landmark", deliveryAddress.landmark],
+            ];
+
+        const fulfillmentRowsHtml = fulfillmentRows
+          .filter(([, value]) => String(value || "").trim())
+          .map(
+            ([label, value]) => `
+              <div class="customer-order-fulfillment-row">
+                <dt>${escapeHtml(label)}</dt>
+                <dd>${escapeHtml(String(value))}</dd>
+              </div>
+            `,
+          )
+          .join("");
+
+        const fulfillmentHtml = `
+          <div class="customer-order-detail-fulfillment">
+            <h4>${isPickupOrder ? "Pickup Details" : "Delivery Details"}</h4>
+            <p class="customer-order-fulfillment-mode"><strong>${fulfillmentLabel}</strong></p>
+            ${
+              fulfillmentRowsHtml
+                ? `<dl class="customer-order-fulfillment-grid">${fulfillmentRowsHtml}</dl>`
+                : `<p class="customer-order-logistics-note">${
+                    destinationLabel
+                      ? escapeHtml(destinationLabel)
+                      : "Address details are not on file for this order."
+                  }</p>`
+            }
+          </div>
+        `;
 
         detailTitle.textContent = `Order ${safeOrderNo}`;
 
@@ -8432,6 +10344,8 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="customer-order-detail-chip"><span>Total</span><strong>${escapeHtml(detail.total_label || formatOrderCurrency(detail.total_amount))}</strong></div>
           </div>
 
+          ${cancelDetailHtml}
+
           <div class="customer-order-detail-items">
             <h4>Items (${detailItems.length || 1})</h4>
             <div class="customer-order-detail-items-list">
@@ -8439,19 +10353,38 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </div>
 
+          ${fulfillmentHtml}
 
-          <div class="customer-order-detail-logistics">
+          ${
+            isPickupOrder
+              ? ""
+              : `<div class="customer-order-detail-logistics">
             <h4>Courier Tracking</h4>
-            <p><strong>${courierName}</strong>${courierTrackingNo ? ` &bull; ${escapeHtml(courierTrackingNo)}` : ""}</p>
+            <p><strong>${courierName}</strong></p>
             ${
-              jntUrl
-                ? `<a class="customer-order-logistics-link" href="${escapeHtml(jntUrl)}" target="_blank" rel="noopener noreferrer">Track on J&T Express</a>`
+              courierTrackingNo
+                ? `<div class="customer-order-waybill">
+                     <span class="customer-order-waybill-label">Waybill no.</span>
+                     <code class="customer-order-waybill-no">${escapeHtml(courierTrackingNo)}</code>
+                     <button type="button" class="customer-order-waybill-copy" data-copy-text="${escapeHtml(courierTrackingNo)}">Copy</button>
+                   </div>`
+                : ""
+            }
+            ${
+              courierTrackingUrl
+                ? `<a class="customer-order-logistics-link" href="${escapeHtml(courierTrackingUrl)}" target="_blank" rel="noopener noreferrer">${
+                    isUniversalTrackingUrl(courierTrackingUrl)
+                      ? "Look this number up on 17TRACK"
+                      : `Track on ${courierName}`
+                  }</a>
+                   <p class="customer-order-logistics-note">Paste the waybill number into the courier's tracking box — FMRC copies each checkpoint into the timeline below as the courier reports it.</p>`
                 : '<p class="customer-order-logistics-note">Tracking number will appear here once shipment info is available.</p>'
             }
-          </div>
+          </div>`
+          }
 
           <div class="customer-order-detail-map-wrap">
-            <h4>Realtime Location</h4>
+            <h4>${isPickupOrder ? "Pickup Location" : "Latest Known Location"}</h4>
             ${
               mapEmbedUrl
                 ? `<iframe class="customer-order-map-frame" src="${escapeHtml(mapEmbedUrl)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Order location map"></iframe>
@@ -8594,8 +10527,11 @@ document.addEventListener("DOMContentLoaded", () => {
               <h4>Return Shipment</h4>
               <p><strong>${escapeHtml(detail.return_courier_name)}</strong>${detail?.return_tracking_no ? ` &bull; ${escapeHtml(detail.return_tracking_no)}` : ""}</p>
               ${
-                buildJntTrackingUrl(detail?.return_tracking_no)
-                  ? `<a class="customer-order-logistics-link" href="${escapeHtml(buildJntTrackingUrl(detail.return_tracking_no))}" target="_blank" rel="noopener noreferrer">Track on J&T Express</a>`
+                // The customer chose this courier themselves, so there is no
+                // registry entry to look a tracking page up in - 17TRACK reads
+                // the carrier off the number.
+                String(detail?.return_tracking_no || "").trim()
+                  ? `<a class="customer-order-logistics-link" href="${UNIVERSAL_TRACKING_URL}" target="_blank" rel="noopener noreferrer">Look this number up on 17TRACK</a>`
                   : '<p class="customer-order-logistics-note">Keep your shipping receipt until the refund is released.</p>'
               }
             </div>
@@ -8907,6 +10843,14 @@ document.addEventListener("DOMContentLoaded", () => {
             if (result.returnWindowDays) {
               state.returnWindowDays = result.returnWindowDays;
             }
+            // Only overwrite when the server actually sent options: an empty
+            // array here would leave the cancel sheet with nothing to show.
+            if (
+              Array.isArray(result.cancelReasonOptions) &&
+              result.cancelReasonOptions.length
+            ) {
+              state.cancelReasonOptions = result.cancelReasonOptions;
+            }
             state.etag = result.etag || "";
             writeCustomerOrdersCache(
               state.cacheKey,
@@ -9017,6 +10961,40 @@ document.addEventListener("DOMContentLoaded", () => {
 
       closeBtn?.addEventListener("click", close);
       closeDetailBtn?.addEventListener("click", closeDetailModal);
+
+      // Waybill numbers are long and get retyped into the courier's own site,
+      // so copying beats transcribing. Delegated because the detail body is
+      // re-rendered from innerHTML on every open.
+      detailContent?.addEventListener("click", async (event) => {
+        const button = event.target?.closest?.("[data-copy-text]");
+        if (!button) return;
+
+        const text = button.getAttribute("data-copy-text") || "";
+        const original = button.textContent;
+        let copied = false;
+        try {
+          await navigator.clipboard.writeText(text);
+          copied = true;
+        } catch {
+          // Insecure origin or a browser without the clipboard API: select the
+          // number so a manual copy is one keystroke away.
+          const code = button
+            .closest(".customer-order-waybill")
+            ?.querySelector(".customer-order-waybill-no");
+          if (code) {
+            const range = document.createRange();
+            range.selectNodeContents(code);
+            const selection = window.getSelection();
+            selection?.removeAllRanges();
+            selection?.addRange(range);
+          }
+        }
+
+        button.textContent = copied ? "Copied" : "Copy it";
+        window.setTimeout(() => {
+          button.textContent = original;
+        }, 1600);
+      });
 
       document.addEventListener("keydown", (event) => {
         if (event.key !== "Escape" || !overlay.classList.contains("show"))
@@ -10838,6 +12816,36 @@ const openReturnRequestModal = (() => {
       "contactConsentTextEl",
       s.contact_consent_text ||
         "I hereby consent to the collection, processing, and storage of my personal information in accordance with the Data Privacy Act of 2012 (R.A. 10173).",
+    );
+    // GCash collection details for the checkout. The checkout modal lives in a
+    // different IIFE, so the values are published on window and announced
+    // instead of being written into the DOM here.
+    publishGcashSettings(s);
+  }
+
+  /**
+   * Hand the three GCash fields the customer needs to pay to whichever page has
+   * a checkout. Announced only when something actually changed, so the poller's
+   * unchanged responses do not repaint an open panel on every tick.
+   */
+  function publishGcashSettings(s) {
+    var next = {
+      accountName: String(s.gcash_account_name || "").trim(),
+      accountNumber: String(s.gcash_account_number || "").trim(),
+      qrImage: String(s.gcash_qr_image || "").trim(),
+    };
+    var previous = window.FMRC_GCASH_SETTINGS;
+    window.FMRC_GCASH_SETTINGS = next;
+    if (
+      previous &&
+      previous.accountName === next.accountName &&
+      previous.accountNumber === next.accountNumber &&
+      previous.qrImage === next.qrImage
+    ) {
+      return;
+    }
+    document.dispatchEvent(
+      new CustomEvent("fmrc:gcash-settings", { detail: next }),
     );
   }
 

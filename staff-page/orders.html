@@ -7,7 +7,7 @@
     <link rel="apple-touch-icon" href="../images/apple-touch-icon.png?v=3" />
     <title>Orders | UCN-FMRC Staff</title>
     <link rel="stylesheet" href="../admin-page/dashboard.css?v=5.1" />
-    <link rel="stylesheet" href="../admin-page/admin-modules.css?v=5.1" />
+    <link rel="stylesheet" href="../admin-page/admin-modules.css?v=5.6" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -146,6 +146,19 @@
                 </div>
                 <span class="status-pill status-yellow">Urgent Review</span>
               </div>
+
+              <!--
+                Cancellations have no tab of their own - a cancelled order is
+                still an order and stays in the directory - so this strip is how
+                staff learn that somebody is waiting on a decision, or that a
+                refund is still owed. Hidden whenever there is neither.
+              -->
+              <div
+                class="cancellation-alert"
+                id="cancellationAlert"
+                role="status"
+                hidden
+              ></div>
 
               <div class="table-wrapper incoming-orders-table-wrapper">
                 <table
@@ -436,6 +449,13 @@
               <div class="panel-header">
                 <h3>Payments History</h3>
                 <div class="filters-row">
+                  <button
+                    class="btn-admin btn-secondary"
+                    id="btnOpenGcashSettings"
+                    type="button"
+                  >
+                    <i class="fa-solid fa-qrcode"></i> GCash Details
+                  </button>
                   <select class="filter-select" id="paymentsMethodFilter">
                     <option value="all">All Payments</option>
                     <option value="gcash">GCash</option>
@@ -534,6 +554,147 @@
               <label>Payment Reference</label
               ><input id="modalOrderReference" class="input-field" readonly />
             </div>
+            <!--
+              GCash arrives on the manual rail: the customer types the reference
+              number their own GCash app printed, and nothing confirms it until
+              a human matches it in the FMRC GCash account. Until then the order
+              sits at "To Pay", so this is the control that releases it.
+
+              Everything needed for that match sits side by side below - the
+              reference to search for, the amount it has to equal, when the
+              customer says they sent it, and the receipt they uploaded - so
+              staff never have to leave this modal to check a payment.
+            -->
+            <div class="field-stack full" id="modalPaymentVerifyBlock" hidden>
+              <label>Payment Verification</label>
+              <div class="payment-claim" id="modalPaymentClaim" hidden>
+                <div class="payment-claim-facts">
+                  <div class="payment-claim-row">
+                    <span class="payment-claim-label">Reference no.</span>
+                    <code
+                      class="payment-claim-ref"
+                      id="modalPaymentClaimRef"
+                    ></code>
+                    <button
+                      class="payment-claim-copy"
+                      id="btnCopyPaymentRef"
+                      type="button"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <div class="payment-claim-row">
+                    <span class="payment-claim-label">Amount to match</span>
+                    <strong
+                      class="payment-claim-amount"
+                      id="modalPaymentClaimAmount"
+                    ></strong>
+                  </div>
+                  <div class="payment-claim-row">
+                    <span class="payment-claim-label">Customer sent</span>
+                    <span id="modalPaymentClaimSubmitted">-</span>
+                  </div>
+                  <div class="payment-claim-row" id="modalPaymentClaimDeadlineRow">
+                    <span class="payment-claim-label">Pay by</span>
+                    <span id="modalPaymentClaimDeadline">-</span>
+                  </div>
+                </div>
+                <div class="payment-claim-proof" id="modalPaymentProofWrap">
+                  <a
+                    id="modalPaymentProofLink"
+                    href="#"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    hidden
+                  >
+                    <img id="modalPaymentProofImg" alt="GCash receipt screenshot uploaded by the customer" />
+                    <span>Open full size</span>
+                  </a>
+                  <p class="payment-claim-proof-empty" id="modalPaymentProofEmpty">
+                    No receipt screenshot was uploaded.
+                  </p>
+                </div>
+              </div>
+              <p class="field-hint" id="modalPaymentVerifyHint"></p>
+              <!--
+                Only shown once a refund is actually owed. The reference is the
+                GCash transaction number of the money staff sent BACK, which is
+                the only proof the customer was made whole.
+              -->
+              <div class="payment-refund-field" id="modalRefundRefWrap" hidden>
+                <label for="modalRefundReference">GCash reference of the refund you sent</label>
+                <input
+                  id="modalRefundReference"
+                  class="input-field"
+                  type="text"
+                  maxlength="180"
+                  placeholder="e.g. 9012345678901"
+                  autocomplete="off"
+                />
+              </div>
+              <div class="payment-verify-actions">
+                <button class="btn-admin" id="btnMarkPaymentPaid" type="button">
+                  <i class="fa-solid fa-circle-check"></i> Mark payment as
+                  received
+                </button>
+                <button
+                  class="btn-admin btn-secondary"
+                  id="btnMarkPaymentPending"
+                  type="button"
+                >
+                  Set back to unpaid
+                </button>
+                <button
+                  class="btn-admin btn-secondary"
+                  id="btnRecordRefund"
+                  type="button"
+                  hidden
+                >
+                  <i class="fa-solid fa-rotate-left"></i> Record refund sent
+                </button>
+              </div>
+            </div>
+            <!--
+              The customer's cancellation request. Shown only while one is
+              waiting on a decision, or once it has been decided, so the modal
+              never carries a dead banner.
+            -->
+            <div class="field-stack full" id="modalCancellationBlock" hidden>
+              <label>Cancellation</label>
+              <div class="cancel-request" id="modalCancellationCard">
+                <p class="cancel-request-title" id="modalCancellationTitle"></p>
+                <p class="cancel-request-reason" id="modalCancellationReason"></p>
+                <p class="cancel-request-detail" id="modalCancellationDetail" hidden></p>
+                <p class="cancel-request-money" id="modalCancellationMoney"></p>
+                <div class="cancel-request-note-field" id="modalCancellationNoteWrap" hidden>
+                  <label for="modalCancellationNote">Note to the customer</label>
+                  <textarea
+                    id="modalCancellationNote"
+                    class="input-field"
+                    rows="2"
+                    maxlength="500"
+                    placeholder="Required to decline. Say why FMRC cannot cancel this order."
+                  ></textarea>
+                </div>
+                <div class="payment-verify-actions" id="modalCancellationActions" hidden>
+                  <button
+                    class="btn-admin"
+                    id="btnApproveCancellation"
+                    type="button"
+                  >
+                    <i class="fa-solid fa-circle-check"></i> Approve
+                    cancellation
+                  </button>
+                  <button
+                    class="btn-admin btn-secondary"
+                    id="btnDeclineCancellation"
+                    type="button"
+                  >
+                    Decline request
+                  </button>
+                </div>
+              </div>
+            </div>
             <div class="field-stack">
               <label>Quantity</label
               ><input id="modalOrderQty" class="input-field" readonly />
@@ -608,13 +769,15 @@
                 placeholder="Add extra details for customer visibility."
               ></textarea>
             </div>
+            <!--
+              FMRC ships through third-party couriers, so every checkpoint here
+              is what the courier told staff. The courier list comes from
+              config/couriers.php via the order payload, so this dropdown and
+              the customer's tracking link can never name different companies.
+            -->
             <div class="field-stack">
-              <label>Courier</label
-              ><input
-                id="trackingCourierName"
-                class="input-field"
-                placeholder="ex. J&T Express"
-              />
+              <label>Courier</label>
+              <select id="trackingCourierSelect" class="filter-select"></select>
             </div>
             <div class="field-stack">
               <label>Tracking No.</label
@@ -624,6 +787,14 @@
                 placeholder="ex. JT123456789PH"
               />
             </div>
+            <div class="field-stack full" id="trackingCourierOtherWrap" hidden>
+              <label>Courier name</label
+              ><input
+                id="trackingCourierName"
+                class="input-field"
+                placeholder="Type the courier's name"
+              />
+            </div>
             <div class="field-stack">
               <label>Location Name</label
               ><input
@@ -631,6 +802,32 @@
                 class="input-field"
                 placeholder="ex. Daet Distribution Hub"
               />
+            </div>
+            <!--
+              Latitude/longitude are what put this checkpoint on the customer's
+              map. Optional: a courier who only says "in transit" gives no
+              coordinates, and a checkpoint without them is still worth posting.
+            -->
+            <div class="field-stack">
+              <label>Checkpoint Coordinates</label>
+              <div class="tracking-latlng-row">
+                <input
+                  id="trackingLatitude"
+                  class="input-field"
+                  inputmode="decimal"
+                  placeholder="Latitude ex. 14.1122"
+                />
+                <input
+                  id="trackingLongitude"
+                  class="input-field"
+                  inputmode="decimal"
+                  placeholder="Longitude ex. 122.9550"
+                />
+              </div>
+              <p class="field-hint" id="trackingLatLngHint">
+                Optional. Paste "14.1122, 122.9550" into either box and it will
+                split itself.
+              </p>
             </div>
           </div>
         </div>
@@ -644,6 +841,109 @@
           </button>
           <button class="btn-admin" id="btnSaveTrackingUpdate" type="button">
             Save Update
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---- GCASH COLLECTION DETAILS MODAL ---- -->
+    <!--
+      What the customer sees on the checkout page when they pick GCash: the name
+      and number to send money to, and the QR a desktop shopper scans. Stored in
+      site_settings, so there is no gateway account and no API key anywhere -
+      FMRC collects into its own GCash and a human matches the reference number.
+    -->
+    <div
+      class="modal-overlay"
+      id="modalGcashSettings"
+      data-backdrop-close="false"
+    >
+      <div class="modal-card product-modal">
+        <div class="modal-header-fixed">
+          <h3 class="modal-title">GCash Collection Details</h3>
+        </div>
+        <div class="modal-body-scroll">
+          <div class="form-grid">
+            <div class="field-stack">
+              <label>GCash Account Name</label
+              ><input
+                id="gcashSettingName"
+                class="input-field"
+                maxlength="120"
+                placeholder="Name shown in your GCash account"
+              />
+            </div>
+            <div class="field-stack">
+              <label>GCash Number</label
+              ><input
+                id="gcashSettingNumber"
+                class="input-field"
+                inputmode="numeric"
+                maxlength="20"
+                placeholder="09XXXXXXXXX"
+              />
+            </div>
+            <div class="field-stack full">
+              <label>GCash QR Code</label>
+              <p class="field-hint">
+                Screenshot the "Receive Money" QR from your own GCash app and
+                upload it here. Desktop shoppers scan this; phone shoppers get
+                an "Open the GCash app" button instead. PNG, JPG or WebP up to
+                2 MB.
+              </p>
+              <div class="gcash-qr-admin">
+                <div class="gcash-qr-admin-preview">
+                  <img
+                    id="gcashSettingQrPreview"
+                    alt="Saved GCash QR code"
+                    hidden
+                  />
+                  <span id="gcashSettingQrPlaceholder">No QR uploaded</span>
+                </div>
+                <div class="gcash-qr-admin-actions">
+                  <input
+                    type="file"
+                    id="gcashSettingQrInput"
+                    accept="image/png,image/jpeg,image/webp"
+                    hidden
+                  />
+                  <button
+                    class="btn-admin btn-secondary"
+                    id="btnGcashUploadQr"
+                    type="button"
+                  >
+                    <i class="fa-solid fa-upload"></i> Upload QR
+                  </button>
+                  <button
+                    class="btn-admin btn-secondary"
+                    id="btnGcashRemoveQr"
+                    type="button"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="field-stack full">
+              <p class="field-hint gcash-setting-warning">
+                Collect sales into a GCash <strong>business</strong> account.
+                BSP Memo M-2026-017 requires providers to separate merchant
+                activity from personal accounts, so a personal number used for
+                store payments can be restricted or reclassified.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer-fixed">
+          <button
+            class="btn-admin btn-secondary"
+            id="btnCancelGcashSettings"
+            type="button"
+          >
+            Cancel
+          </button>
+          <button class="btn-admin" id="btnSaveGcashSettings" type="button">
+            Save Details
           </button>
         </div>
       </div>
@@ -1231,6 +1531,6 @@
 
     <script src="../admin-page/session-helper.js"></script>
     <script src="../admin-page/admin-common.js?v=5.1"></script>
-    <script src="../admin-page/orders.js?v=5.1"></script>
+    <script src="../admin-page/orders.js?v=5.7"></script>
   </body>
 </html>

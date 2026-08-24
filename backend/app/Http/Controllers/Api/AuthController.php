@@ -560,8 +560,16 @@ class AuthController extends Controller
             'phone_number' => ['nullable', 'string', 'max:30', 'regex:/^[0-9\+\-\s\(\)]+$/'],
             'address_line' => 'nullable|string|max:500',
             'address_details' => 'nullable|string|max:255',
+            // Address parts a courier needs separated. `address_line` keeps its
+            // original meaning (house/unit number and street).
+            'barangay' => 'nullable|string|max:120',
+            'city_municipality' => 'nullable|string|max:120',
+            'province' => 'nullable|string|max:120',
+            'postal_code' => 'nullable|digits:4',
             'department' => 'nullable|string|max:120',
             'customer_type' => 'nullable|string|max:120|in:' . implode(',', self::ALLOWED_CUSTOMER_TYPES),
+        ], [
+            'postal_code.digits' => 'A Philippine postal code is exactly 4 digits (Daet is 4600).',
         ]);
 
         if (array_key_exists('name', $validated)) {
@@ -586,6 +594,12 @@ class AuthController extends Controller
 
         if (array_key_exists('address_details', $validated)) {
             $user->address_details = trim((string) $validated['address_details']) ?: null;
+        }
+
+        foreach (['barangay', 'city_municipality', 'province', 'postal_code'] as $addressPart) {
+            if (array_key_exists($addressPart, $validated)) {
+                $user->{$addressPart} = trim((string) $validated[$addressPart]) ?: null;
+            }
         }
 
         if (array_key_exists('department', $validated)) {
@@ -632,6 +646,10 @@ class AuthController extends Controller
             'phone_number' => $user->phone_number,
             'address_line' => $user->address_line,
             'address_details' => $user->address_details,
+            'barangay' => $user->barangay,
+            'city_municipality' => $user->city_municipality,
+            'province' => $user->province,
+            'postal_code' => $user->postal_code,
             'department' => $user->department,
             'customer_type' => $user->customer_type,
             'signed_with_google' => $this->supportsGooglePasswordState()

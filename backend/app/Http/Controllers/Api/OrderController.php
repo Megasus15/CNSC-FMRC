@@ -18,6 +18,7 @@ use DateTimeInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -36,6 +37,9 @@ class OrderController extends Controller
 
     private const ALLOWED_PAYMENT_STATUSES = ['paid', 'pending', 'refunded'];
 
+    /** Where a customer's GCash receipt screenshot is stored on the public disk. */
+    private const PAYMENT_PROOF_FOLDER = 'payment-proofs';
+
     private const STAGE_LABELS = [
         'to_pay' => 'To Pay',
         'to_ship' => 'To Ship',
@@ -48,7 +52,25 @@ class OrderController extends Controller
         'pending' => 'Pending',
         'rejected' => 'Rejected',
         'completed' => 'Completed',
+        'cancelled' => 'Cancelled',
     ];
+
+    /** Where pickup orders are collected; mirrored into `location_name`. */
+    private const PICKUP_LOCATION_NAME = 'FMRC Office, University of Camarines Norte, Daet';
+
+    /**
+     * Coordinates of the FMRC office, used as the pickup destination pin and as
+     * the origin of a delivery route.
+     */
+    private const PICKUP_LATITUDE = 14.1122;
+
+    private const PICKUP_LONGITUDE = 122.9550;
+
+    private const FULFILLMENT_LABELS = [
+        'pickup' => 'Pickup at FMRC',
+        'delivery' => 'Courier Delivery',
+    ];
+
 
     /**
      * Cached result of the optional `order_items.product_image_reference`
@@ -87,6 +109,31 @@ class OrderController extends Controller
             'location_name' => 'nullable|string|max:160',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
+
+            // How the customer receives the order. Everything below is only
+            // required for a delivery: a pickup has no destination to validate,
+            // and demanding a barangay from someone collecting at the counter
+            // would just be a fake field they have to fill in.
+            'fulfillment_type' => 'nullable|in:pickup,delivery',
+            'delivery_recipient_name' => 'required_if:fulfillment_type,delivery|nullable|string|max:160',
+            'delivery_contact_no' => 'required_if:fulfillment_type,delivery|nullable|string|max:40',
+            'delivery_street' => 'required_if:fulfillment_type,delivery|nullable|string|max:255',
+            'delivery_barangay' => 'required_if:fulfillment_type,delivery|nullable|string|max:120',
+            'delivery_city' => 'required_if:fulfillment_type,delivery|nullable|string|max:120',
+            'delivery_province' => 'required_if:fulfillment_type,delivery|nullable|string|max:120',
+            'delivery_postal_code' => 'required_if:fulfillment_type,delivery|nullable|digits:4',
+            'delivery_landmark' => 'nullable|string|max:255',
+            'delivery_lat' => 'nullable|numeric|between:-90,90',
+            'delivery_lng' => 'nullable|numeric|between:-180,180',
+        ], [
+            'delivery_recipient_name.required_if' => 'Please provide the recipient name for delivery.',
+            'delivery_contact_no.required_if' => 'Please provide a contact number the courier can call.',
+            'delivery_street.required_if' => 'Please provide the house/unit number and street.',
+            'delivery_barangay.required_if' => 'Please provide the barangay.',
+            'delivery_city.required_if' => 'Please provide the city or municipality.',
+            'delivery_province.required_if' => 'Please provide the province.',
+            'delivery_postal_code.required_if' => 'Please provide the 4-digit postal code.',
+            'delivery_postal_code.digits' => 'A Philippine postal code is exactly 4 digits (Daet is 4600).',
         ]);
 
         $paymentMethod = $this->normalizePaymentMethod($validated['payment_method']);
@@ -94,6 +141,36 @@ class OrderController extends Controller
             return response()->json([
                 'message' => 'Unsupported payment method. Allowed values are GCash, COP, and COD.',
             ], 422);
+        }
+
+        // Payment method and fulfillment are two different questions, and only
+        // cash answers both at once: Cash-on-Pickup is by definition collected
+        // at the centre, Cash-on-Delivery is by definition handed to a courier.
+        // GCash is prepaid, so the customer still has to say which one they want
+        // - defaulting a silent GCash order to delivery would ship an item that
+        // was meant to be collected.
+        $fulfillmentType = $this->resolveFulfillmentType(
+            $paymentMethod,
+            $validated['fulfillment_type'] ?? null,
+        );
+
+        if ($fulfillmentType === null) {
+            return response()->json([
+                'message' => 'Please choose whether this order is for pickup or delivery.',
+                'errors' => ['fulfillment_type' => ['Choose pickup or delivery.']],
+            ], 422);
+        }
+
+        if ($fulfillmentType === Order::FULFILLMENT_DELIVERY) {
+            // required_if only fires when the client sent the discriminator, so
+            // re-check here for the COD case where the server inferred it.
+            $missing = $this->missingDeliveryAddressFields($validated);
+            if ($missing !== []) {
+                return response()->json([
+                    'message' => 'Complete delivery details are required before placing this order.',
+                    'errors' => $missing,
+                ], 422);
+            }
         }
 
         $customer = $request->user();
@@ -119,11 +196,49 @@ class OrderController extends Controller
             ], 422);
         }
 
-        $paymentStatus = $paymentMethod === 'GCash' ? 'paid' : 'pending';
+        // A GCash order can be placed before the money is sent, the way Shopee and
+        // Lazada do it: the order is recorded, a deadline is shown, and the
+        // customer pays from My Orders afterwards. A reference number supplied
+        // here is still accepted - it just is not demanded up front, because
+        // forcing it meant sending money before knowing the order would go
+        // through. What is never optional is that the digits be plausible: a
+        // half-typed reference is worse than none, since staff would hunt for a
+        // number that was never issued.
+        $gcashReference = null;
+        $paymentDueAt = null;
+        if ($paymentMethod === 'GCash') {
+            $rawReference = trim((string) ($validated['payment_reference'] ?? ''));
+            $expectedDigits = (int) config('payments.gcash.reference_digits', 13);
+
+            if ($rawReference !== '') {
+                $gcashReference = $this->normalizeGcashReference($rawReference);
+
+                if ($gcashReference === null) {
+                    return response()->json([
+                        'message' => 'That GCash reference number does not look right.',
+                        'errors' => [
+                            'payment_reference' => [
+                                "A GCash reference number is exactly {$expectedDigits} digits. Leave it blank if you have not sent the payment yet - you can enter it later from My Orders.",
+                            ],
+                        ],
+                    ], 422);
+                }
+            }
+
+            $windowHours = max(1, (int) config('payments.gcash.payment_window_hours', 48));
+            $paymentDueAt = now()->addHours($windowHours);
+        }
+
+        // A customer-typed reference number is a claim, not a receipt. Marking
+        // the order paid on the strength of it would push an unpaid order into
+        // the shipping queue, so a manual GCash order waits for staff to match
+        // the reference in their own GCash app and confirm it.
+        $gcashAutoConfirm = (bool) config('payments.gcash.auto_confirm', false);
+        $paymentStatus = ($paymentMethod === 'GCash' && $gcashAutoConfirm) ? 'paid' : 'pending';
         $customerStage = $paymentStatus === 'paid' ? 'to_ship' : 'to_pay';
 
         try {
-            $createdOrder = DB::transaction(function () use ($validated, $customer, $orderItems, $quantity, $paymentMethod, $paymentStatus, $customerStage): Order {
+            $createdOrder = DB::transaction(function () use ($validated, $customer, $orderItems, $quantity, $paymentMethod, $paymentStatus, $customerStage, $fulfillmentType, $gcashReference, $paymentDueAt): Order {
                 $productIds = collect($orderItems)
                     ->pluck('product_id')
                     ->filter(fn ($id) => !is_null($id))
@@ -172,7 +287,45 @@ class OrderController extends Controller
                     }
                 }
 
-                $order = Order::query()->create([
+                $isPickup = $fulfillmentType === Order::FULFILLMENT_PICKUP;
+
+                // A pickup order carries no destination at all - storing a
+                // half-filled address on it would later be indistinguishable
+                // from a delivery whose address went missing.
+                $deliveryParts = $isPickup ? [
+                    'delivery_recipient_name' => null,
+                    'delivery_contact_no' => null,
+                    'delivery_street' => null,
+                    'delivery_barangay' => null,
+                    'delivery_city' => null,
+                    'delivery_province' => null,
+                    'delivery_postal_code' => null,
+                    'delivery_landmark' => null,
+                    'delivery_lat' => null,
+                    'delivery_lng' => null,
+                ] : [
+                    'delivery_recipient_name' => $this->cleanAddressPart($validated['delivery_recipient_name'] ?? null)
+                        ?? $validated['customer_name']
+                        ?? $customer?->name,
+                    'delivery_contact_no' => $this->cleanAddressPart($validated['delivery_contact_no'] ?? null),
+                    'delivery_street' => $this->cleanAddressPart($validated['delivery_street'] ?? null),
+                    'delivery_barangay' => $this->cleanAddressPart($validated['delivery_barangay'] ?? null),
+                    'delivery_city' => $this->cleanAddressPart($validated['delivery_city'] ?? null),
+                    'delivery_province' => $this->cleanAddressPart($validated['delivery_province'] ?? null),
+                    'delivery_postal_code' => $this->cleanAddressPart($validated['delivery_postal_code'] ?? null),
+                    'delivery_landmark' => $this->cleanAddressPart($validated['delivery_landmark'] ?? null),
+                    'delivery_lat' => $validated['delivery_lat'] ?? null,
+                    'delivery_lng' => $validated['delivery_lng'] ?? null,
+                ];
+
+                // `location_name` predates the structured columns and is still
+                // what the admin table, the courier label and the old customer
+                // screens read, so keep it as a mirror rather than a source.
+                $locationName = $isPickup
+                    ? self::PICKUP_LOCATION_NAME
+                    : ($this->buildAddressLineFromParts($deliveryParts) ?: ($validated['location_name'] ?? null));
+
+                $order = Order::query()->create(array_merge([
                     'order_no' => null,
                     'customer_id' => $customer?->id,
                     'customer_name' => $validated['customer_name']
@@ -187,16 +340,36 @@ class OrderController extends Controller
                     'subtotal' => $totalAmount,
                     'total' => $totalAmount,
                     'payment_method' => $paymentMethod,
-                    'payment_reference' => $validated['payment_reference'] ?? $this->defaultPaymentReference($paymentMethod),
+                    // The GCash reference is normalised to bare digits so staff
+                    // can search for it verbatim; other methods keep their
+                    // human-readable placeholder. A GCash order placed before the
+                    // money was sent carries the placeholder until the customer
+                    // submits their reference from My Orders.
+                    'payment_reference' => $paymentMethod === 'GCash'
+                        ? ($gcashReference ?? $this->defaultPaymentReference($paymentMethod))
+                        : ($validated['payment_reference'] ?? $this->defaultPaymentReference($paymentMethod)),
+                    // Only GCash has a deadline: cash is handed over at the
+                    // counter or to the courier, so there is nothing to wait for.
+                    'payment_due_at' => $paymentDueAt,
+                    'fulfillment_type' => $fulfillmentType,
                     'lifecycle_status' => 'incoming',
                     'customer_stage' => $customerStage,
                     'notes' => $validated['notes'] ?? null,
-                    'courier_name' => $validated['courier_name'] ?? 'J&T Express',
-                    'courier_tracking_no' => $validated['courier_tracking_no'] ?? null,
-                    'location_name' => $validated['location_name'] ?? null,
-                    'last_known_lat' => $validated['latitude'] ?? null,
-                    'last_known_lng' => $validated['longitude'] ?? null,
-                ]);
+                    // A pickup never travels, so it gets a handover code at the
+                    // counter instead of a courier and a tracking number.
+                    'courier_name' => $isPickup ? null : ($validated['courier_name'] ?? $this->defaultCourierLabel()),
+                    'courier_tracking_no' => $isPickup ? null : ($validated['courier_tracking_no'] ?? null),
+                    'pickup_code' => $isPickup ? $this->generatePickupCode() : null,
+                    'location_name' => $locationName,
+                    // A pickup order sits at the FMRC counter from the start, so
+                    // its last-known point is known immediately.
+                    'last_known_lat' => $isPickup
+                        ? self::PICKUP_LATITUDE
+                        : ($validated['latitude'] ?? null),
+                    'last_known_lng' => $isPickup
+                        ? self::PICKUP_LONGITUDE
+                        : ($validated['longitude'] ?? null),
+                ], $deliveryParts));
 
                 $order->order_no = $this->generateOrderNo((int) $order->id);
                 $order->save();
@@ -251,9 +424,15 @@ class OrderController extends Controller
                     'order_id' => $order->id,
                     'payment_no' => $this->generatePaymentNo((int) $order->id),
                     'method' => $paymentMethod,
-                    'reference' => $validated['payment_reference'] ?? $this->defaultPaymentReference($paymentMethod),
+                    'reference' => $paymentMethod === 'GCash'
+                        ? ($gcashReference ?? $this->defaultPaymentReference($paymentMethod))
+                        : ($validated['payment_reference'] ?? $this->defaultPaymentReference($paymentMethod)),
                     'amount' => $totalAmount,
                     'status' => $paymentStatus,
+                    // A reference typed at checkout is the customer's claim that
+                    // they already sent the money; without one there is nothing to
+                    // have submitted yet.
+                    'submitted_at' => $gcashReference !== null ? now() : null,
                     'paid_at' => $paymentStatus === 'paid' ? now() : null,
                 ]);
 
@@ -264,13 +443,20 @@ class OrderController extends Controller
                     'stage' => 'to_pay',
                     'event_type' => 'system',
                     'title' => "Order placed: {$trackingLabel}",
-                    'description' => 'Your order has been received and is currently being reviewed.',
-                    'location_name' => $validated['location_name'] ?? null,
-                    'latitude' => $validated['latitude'] ?? null,
-                    'longitude' => $validated['longitude'] ?? null,
+                    'description' => $isPickup
+                        ? 'Your order has been received and is being reviewed. You will collect it at the FMRC office once it is ready.'
+                        : 'Your order has been received and is currently being reviewed.',
+                    'location_name' => $locationName,
+                    'latitude' => $isPickup
+                        ? self::PICKUP_LATITUDE
+                        : ($deliveryParts['delivery_lat'] ?? null),
+                    'longitude' => $isPickup
+                        ? self::PICKUP_LONGITUDE
+                        : ($deliveryParts['delivery_lng'] ?? null),
                     'occurred_at' => now(),
                     'metadata' => [
                         'lifecycle_status' => 'incoming',
+                        'fulfillment_type' => $fulfillmentType,
                     ],
                 ]);
 
@@ -278,13 +464,22 @@ class OrderController extends Controller
                     'created_by_user_id' => $customer?->id,
                     'stage' => $customerStage,
                     'event_type' => 'system',
-                    'title' => $paymentStatus === 'paid' ? 'Payment confirmed' : 'Awaiting payment confirmation',
-                    'description' => $paymentStatus === 'paid'
-                        ? 'Payment was confirmed and the order is queued for shipping.'
-                        : 'Payment is pending. We will verify and continue processing your order shortly.',
+                    'title' => match (true) {
+                        $paymentStatus === 'paid' => 'Payment confirmed',
+                        $paymentMethod === 'GCash' && $gcashReference === null => 'Waiting for your GCash payment',
+                        default => 'Awaiting payment confirmation',
+                    },
+                    'description' => $this->initialPaymentEventDescription(
+                        $paymentMethod,
+                        $paymentStatus,
+                        $isPickup,
+                        $gcashReference !== null,
+                    ),
                     'occurred_at' => now(),
                     'metadata' => [
                         'payment_status' => $paymentStatus,
+                        'fulfillment_type' => $fulfillmentType,
+                        'payment_due_at' => optional($paymentDueAt)->toIso8601String(),
                     ],
                 ]);
 
@@ -307,6 +502,35 @@ class OrderController extends Controller
                 "{$customerName} placed a new order for {$itemLabel}. Total: ₱" . number_format((float) $createdOrder->total, 2, '.', ','),
                 ['order_id' => $createdOrder->id, 'order_no' => $orderNoLabel]
             );
+
+            // --- Admin/Staff Notification: GCash payment to verify ---
+            // A GCash order is money that has supposedly already moved, so it
+            // needs a different action from a cash order: open GCash, search
+            // for the reference, then confirm the payment. Folding that into the
+            // generic "new order" line would bury it.
+            //
+            // Only raised when a reference actually arrived. An order placed to be
+            // paid later has nothing to reconcile yet, and announcing a
+            // verification task for it would send staff hunting for a number the
+            // customer has not been given. That notification is raised instead by
+            // customerSubmitPayment(), when the reference does arrive.
+            if ($createdOrder->payment_method === 'GCash'
+                && $createdOrder->payment?->status !== 'paid'
+                && $gcashReference !== null
+            ) {
+                $this->createAdminNotification(
+                    'warning',
+                    "Verify GCash Payment: {$orderNoLabel}",
+                    "{$customerName} says they sent ₱" . number_format((float) $createdOrder->total, 2, '.', ',')
+                        . " via GCash with reference {$createdOrder->payment_reference}. Match it in the FMRC GCash app, then mark the payment as paid.",
+                    [
+                        'order_id' => $createdOrder->id,
+                        'order_no' => $orderNoLabel,
+                        'payment_reference' => $createdOrder->payment_reference,
+                        'requires_payment_verification' => true,
+                    ]
+                );
+            }
 
             // --- Customer Email: Order Confirmed ---
             $emailHtml = $this->buildOrderEmailHtml(
@@ -347,14 +571,46 @@ class OrderController extends Controller
                 'total',
                 'payment_method',
                 'payment_reference',
+                // Without this column the GCash deadline line and the overdue
+                // styling in My Orders silently render as nothing, because the
+                // transform reads it straight off the model.
+                'payment_due_at',
+                'fulfillment_type',
                 'lifecycle_status',
                 'customer_stage',
+                // Same trap as `payment_due_at` above: the cancel sheet, the
+                // "Cancellation requested" band and the Cancelled tab all read
+                // these straight off the model, so leaving them out of the
+                // select renders them as nothing at all.
+                'cancel_state',
+                'cancel_reason',
+                'cancel_reason_detail',
+                'cancel_requested_at',
+                'cancelled_at',
+                'cancel_decided_at',
+                'cancel_decision_note',
+                'cancel_refund_due',
                 'notes',
                 'courier_name',
                 'courier_tracking_no',
                 'location_name',
                 'last_known_lat',
                 'last_known_lng',
+                // Structured destination: the list renders the same address the
+                // detail modal does, so the columns have to come along.
+                'delivery_recipient_name',
+                'delivery_contact_no',
+                'delivery_street',
+                'delivery_barangay',
+                'delivery_city',
+                'delivery_province',
+                'delivery_postal_code',
+                'delivery_landmark',
+                'delivery_lat',
+                'delivery_lng',
+                'pickup_code',
+                'pickup_ready_at',
+                'picked_up_at',
                 'completed_at',
                 'created_at',
                 'updated_at',
@@ -362,7 +618,11 @@ class OrderController extends Controller
             ->with([
                 'items' => fn ($query) => $query
                     ->select($this->customerOrderItemColumns()),
-                'payment:id,order_id,payment_no,method,reference,amount,status,paid_at',
+                // `refunded_at`/`refund_reference` are part of this list for the
+                // same reason `paid_at` is: the customer's card has to be able to
+                // say "Refunded on <date>" after a cancellation, and a column left
+                // out of the select reads back as null rather than as an error.
+                'payment:id,order_id,payment_no,method,reference,amount,status,submitted_at,proof_path,paid_at,refunded_at,refund_reference',
                 'latestTrackingEvent',
                 'ratings:id,order_id,order_item_id,product_id,stars,feedback,media,is_anonymous,admin_reply,replied_at,created_at,updated_at',
                 // Returns ride along with the orders so the Returns tab, the
@@ -399,13 +659,23 @@ class OrderController extends Controller
             return $leftOpen <=> $rightOpen ?: (int) $right['id'] <=> (int) $left['id'];
         });
 
+        // A cancelled order is no longer waiting on anybody, so it leaves the
+        // working tabs and appears under Cancelled instead - the same treatment
+        // `rejected` already gets, except that this one the customer asked for
+        // and therefore has to be able to find again.
+        $live = ['rejected', 'cancelled'];
+
         $counts = [
             'all'         => $data->count(),
-            'to_pay'      => $data->where('customer_stage', 'to_pay')->where('lifecycle_status', '!=', 'rejected')->count(),
-            'to_ship'     => $data->where('customer_stage', 'to_ship')->where('lifecycle_status', '!=', 'rejected')->count(),
-            'to_receive'  => $data->where('customer_stage', 'to_receive')->where('lifecycle_status', '!=', 'rejected')->count(),
-            'completed'   => $data->where('customer_stage', 'completed')->where('lifecycle_status', '!=', 'rejected')->count(),
-            'to_rate'     => $data->where('customer_stage', 'completed')->where('lifecycle_status', '!=', 'rejected')->where('has_rating', false)->count(),
+            'to_pay'      => $data->where('customer_stage', 'to_pay')->whereNotIn('lifecycle_status', $live)->count(),
+            'to_ship'     => $data->where('customer_stage', 'to_ship')->whereNotIn('lifecycle_status', $live)->count(),
+            'to_receive'  => $data->where('customer_stage', 'to_receive')->whereNotIn('lifecycle_status', $live)->count(),
+            'completed'   => $data->where('customer_stage', 'completed')->whereNotIn('lifecycle_status', $live)->count(),
+            'to_rate'     => $data->where('customer_stage', 'completed')->whereNotIn('lifecycle_status', $live)->where('has_rating', false)->count(),
+            'cancelled'   => $data->where('lifecycle_status', 'cancelled')->count(),
+            // Requests still awaiting a decision, so the customer can see the
+            // tab is worth opening.
+            'cancel_pending' => $data->where('cancel_pending', true)->count(),
             'returns'     => count($returnRows),
             'returns_open' => count(array_filter($returnRows, fn (array $row) => $row['status_group'] === 'open')),
         ];
@@ -415,6 +685,10 @@ class OrderController extends Controller
             'counts' => $counts,
             'returns' => $returnRows,
             'return_window_days' => OrderReturn::WINDOW_DAYS,
+            // Sent once for the whole list rather than repeated on every order:
+            // the sheet is the same sheet whichever card opened it, and this
+            // payload is re-hashed for an ETag on every poll.
+            'cancel_reason_options' => $this->cancelReasonOptions(),
         ];
         $etag = '"' . hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) . '"';
         $responseHeaders = [
@@ -605,6 +879,593 @@ class OrderController extends Controller
         ]);
     }
 
+    /**
+     * Customer: "I have sent the GCash payment, here is my reference number."
+     *
+     * This is the second half of a Shopee-style flow - the order was placed first,
+     * the money follows. Nothing here marks the order paid: the reference is a
+     * claim, and only staff confirming it against the FMRC GCash account turns it
+     * into revenue. What this does is give staff something to reconcile and give
+     * the customer a receipt trail that they submitted it.
+     */
+    public function customerSubmitPayment(Request $request, Order $order): JsonResponse
+    {
+        $denied = $this->ensureCustomer($request);
+        if ($denied) {
+            return $denied;
+        }
+
+        if ((int) $order->customer_id !== (int) $request->user()->id) {
+            return response()->json(['message' => 'You are not allowed to update this order.'], 403);
+        }
+
+        if ($order->payment_method !== 'GCash') {
+            return response()->json([
+                'message' => 'This order is not paid through GCash, so there is no reference number to submit.',
+            ], 422);
+        }
+
+        if ($order->lifecycle_status === 'rejected') {
+            return response()->json([
+                'message' => 'This order was rejected. Do not send any payment for it - contact FMRC if you already did.',
+            ], 422);
+        }
+
+        $order->load('payment');
+
+        if ($order->payment?->status === 'paid') {
+            return response()->json([
+                'message' => 'This payment has already been confirmed. There is nothing left to submit.',
+            ], 422);
+        }
+
+        $expectedDigits = (int) config('payments.gcash.reference_digits', 13);
+        $maxKb = max(256, (int) config('payments.gcash.proof_max_kb', 2048));
+
+        $validated = $request->validate([
+            'payment_reference' => ['required', 'string', 'max:180'],
+            'proof' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', "max:{$maxKb}"],
+        ], [
+            'payment_reference.required' => "Enter the {$expectedDigits}-digit reference number from your GCash receipt.",
+            'proof.mimes' => 'Attach a screenshot as a JPG, PNG or WEBP image.',
+            'proof.max' => 'That screenshot is too large. Please attach one under '.round($maxKb / 1024, 1).' MB.',
+        ]);
+
+        $reference = $this->normalizeGcashReference($validated['payment_reference']);
+
+        if ($reference === null) {
+            return response()->json([
+                'message' => 'That GCash reference number does not look right.',
+                'errors' => [
+                    'payment_reference' => [
+                        "A GCash reference number is exactly {$expectedDigits} digits. Check your receipt and try again.",
+                    ],
+                ],
+            ], 422);
+        }
+
+        // One reference number is one transfer. Seeing it on a second order means
+        // one of the two was never actually paid, and catching it here saves staff
+        // from confirming both against a single payment in their GCash app.
+        $duplicate = Payment::query()
+            ->where('reference', $reference)
+            ->where('order_id', '!=', $order->id)
+            ->with('order:id,order_no')
+            ->first();
+
+        if ($duplicate) {
+            $usedOn = $duplicate->order?->order_no ?: ('order #'.$duplicate->order_id);
+
+            return response()->json([
+                'message' => "That reference number is already recorded against {$usedOn}. Each GCash transfer has its own reference - please send this order's total separately and submit the new reference.",
+                'errors' => ['payment_reference' => ['This reference number is already in use.']],
+            ], 422);
+        }
+
+        $proofPath = null;
+        $proof = $request->file('proof');
+        if ($proof instanceof UploadedFile && $proof->isValid()) {
+            $proofPath = $proof->store(self::PAYMENT_PROOF_FOLDER, 'public');
+        }
+
+        $payment = $order->payment;
+
+        DB::transaction(function () use ($order, &$payment, $reference, $proofPath) {
+            if (! $payment) {
+                // Older orders were created before a payments row was guaranteed.
+                $payment = Payment::query()->create([
+                    'order_id' => $order->id,
+                    'payment_no' => $this->generatePaymentNo((int) $order->id),
+                    'method' => $order->payment_method,
+                    'amount' => $order->total,
+                    'status' => 'pending',
+                ]);
+            }
+
+            $previousProof = $payment->proof_path;
+
+            $payment->reference = $reference;
+            $payment->status = 'pending';
+            $payment->submitted_at = now();
+            if ($proofPath !== null) {
+                $payment->proof_path = $proofPath;
+            }
+            $payment->save();
+
+            // A resubmission replaces the screenshot; keeping the old one would
+            // leave staff looking at a receipt for a reference nobody recorded.
+            if ($proofPath !== null && filled($previousProof) && $previousProof !== $proofPath) {
+                Storage::disk('public')->delete($previousProof);
+            }
+
+            $order->payment_reference = $reference;
+            $order->save();
+        });
+
+        $amountLabel = '₱'.number_format((float) $order->total, 2, '.', ',');
+
+        $this->createTrackingEvent($order, [
+            'created_by_user_id' => $request->user()->id,
+            'stage' => $order->customer_stage ?: 'to_pay',
+            'event_type' => 'system',
+            'title' => 'GCash reference submitted',
+            'description' => "We received reference {$reference} for {$amountLabel} and are matching it against the FMRC GCash account. Your order moves forward as soon as it is confirmed.",
+            'occurred_at' => now(),
+            'metadata' => [
+                'source' => 'customer_payment_submission',
+                'payment_reference' => $reference,
+                'has_proof' => $proofPath !== null || filled($payment->proof_path),
+            ],
+        ]);
+
+        $customerName = $order->customer_name ?: 'A customer';
+        $orderNoLabel = $order->order_no ?: "ORD-{$order->id}";
+        $this->createAdminNotification(
+            'warning',
+            "Verify GCash Payment: {$orderNoLabel}",
+            "{$customerName} says they sent {$amountLabel} via GCash with reference {$reference}."
+                . ($proofPath !== null ? ' A receipt screenshot is attached.' : '')
+                . ' Match it in the FMRC GCash app, then mark the payment as paid.',
+            [
+                'order_id' => $order->id,
+                'order_no' => $orderNoLabel,
+                'payment_reference' => $reference,
+                'requires_payment_verification' => true,
+            ]
+        );
+
+        $order->load([
+            'items' => fn ($query) => $query
+                ->select($this->customerOrderItemColumns()),
+            'payment',
+            'latestTrackingEvent',
+            'ratings',
+            'returns' => fn ($query) => $query
+                ->where('is_archived', false)
+                ->with(['items', 'latestEvent'])
+                ->orderByDesc('id'),
+            'trackingEvents' => fn ($query) => $query->orderByDesc('occurred_at')->orderByDesc('id'),
+        ]);
+
+        return response()->json([
+            'message' => 'Reference number received. FMRC will confirm your payment shortly.',
+            'data' => $this->transformOrderDetail($order, false, true),
+        ]);
+    }
+
+    /**
+     * Customer: call off an order that has not been handed over yet.
+     *
+     * Two outcomes, decided by the server and never by the client - the same
+     * split Shopee and Lazada use:
+     *
+     *  - nothing confirmed and nothing prepared (still at To Pay), so the order
+     *    is cancelled on the spot and the stock goes straight back; or
+     *  - the payment is confirmed or staff already accepted the order into the
+     *    shipping queue, so this only files a request. Staff decide, because by
+     *    then the job may already be on a machine and the money may already be
+     *    in the FMRC wallet.
+     *
+     * Either way admin and staff are notified - "MUST CONNECTED TO ADMIN AND
+     * STAFF THAT THEY WILL KNOW THAT CUSTOMER CANCEL ORDER".
+     */
+    public function customerCancel(Request $request, Order $order): JsonResponse
+    {
+        $denied = $this->ensureCustomer($request);
+        if ($denied) {
+            return $denied;
+        }
+
+        if ((int) $order->customer_id !== (int) $request->user()->id) {
+            return response()->json(['message' => 'This order belongs to another account.'], 403);
+        }
+
+        $validated = $request->validate([
+            'reason' => ['required', Rule::in(Order::CANCEL_REASONS)],
+            'reason_detail' => ['nullable', 'string', 'max:600'],
+        ]);
+
+        $detail = trim((string) ($validated['reason_detail'] ?? ''));
+
+        if ($validated['reason'] === 'other' && $detail === '') {
+            return response()->json([
+                'message' => 'Tell us briefly why you are cancelling.',
+                'errors' => ['reason_detail' => ['Tell us briefly why you are cancelling.']],
+            ], 422);
+        }
+
+        $order->load(['payment', 'items']);
+        $availability = $order->cancellationAvailability();
+
+        if (! $availability['allowed']) {
+            return response()->json(['message' => $availability['reason']], 422);
+        }
+
+        $reasonLabel = Order::CANCEL_REASON_LABELS[$validated['reason']];
+        $payment = $order->payment;
+        // Either staff already matched the money, or the customer says they sent
+        // it and nobody has looked yet. Both mean somebody has to check the FMRC
+        // GCash account before this order is closed out.
+        $paymentConfirmed = $payment?->status === 'paid';
+        $refundDue = $paymentConfirmed || (bool) $payment?->hasCustomerClaim();
+        $immediate = $availability['immediate'];
+        $restocked = [];
+
+        try {
+            DB::transaction(function () use (
+                $order,
+                $request,
+                $validated,
+                $detail,
+                $immediate,
+                $refundDue,
+                &$restocked,
+            ): void {
+                // Re-read under a lock: two taps, or a tap racing staff pressing
+                // "Mark payment received", must not both get through.
+                $fresh = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+                $fresh->setRelation('payment', $order->payment);
+
+                $recheck = $fresh->cancellationAvailability();
+                if (! $recheck['allowed']) {
+                    throw new \DomainException($recheck['reason'] ?? 'This order can no longer be cancelled.');
+                }
+
+                $fresh->cancel_reason = $validated['reason'];
+                $fresh->cancel_reason_detail = $detail !== '' ? $detail : null;
+                $fresh->cancel_requested_at = now();
+                $fresh->cancel_decision_note = null;
+                $fresh->cancel_decided_at = null;
+                $fresh->cancel_decided_by_user_id = null;
+
+                if ($immediate) {
+                    $fresh->cancel_state = 'approved';
+                    $fresh->lifecycle_status = 'cancelled';
+                    $fresh->cancelled_at = now();
+                    $fresh->cancel_decided_at = now();
+                    $fresh->cancel_refund_due = $refundDue;
+                    $restocked = $this->restockOrder($order);
+                } else {
+                    $fresh->cancel_state = 'requested';
+                    $fresh->cancel_refund_due = false;
+                }
+
+                $fresh->save();
+
+                // Copy the decided values back onto the instance the response and
+                // the notifications are built from.
+                $order->forceFill($fresh->only([
+                    'cancel_state',
+                    'cancel_reason',
+                    'cancel_reason_detail',
+                    'cancel_requested_at',
+                    'cancelled_at',
+                    'cancel_decided_at',
+                    'cancel_decided_by_user_id',
+                    'cancel_decision_note',
+                    'cancel_refund_due',
+                    'lifecycle_status',
+                ]))->syncOriginal();
+            });
+        } catch (\DomainException $error) {
+            return response()->json(['message' => $error->getMessage()], 422);
+        } catch (\Throwable $error) {
+            Log::error('[ORDER CANCEL] '.$error->getMessage());
+
+            return response()->json(['message' => 'Could not cancel this order. Please try again.'], 500);
+        }
+
+        $orderNoLabel = $order->order_no ?: "ORD-{$order->id}";
+        $amountLabel = $this->formatMoney((float) $order->total);
+        $customerName = $order->customer_name ?: 'A customer';
+
+        $this->createTrackingEvent($order, [
+            'created_by_user_id' => $request->user()->id,
+            'stage' => $order->customer_stage ?: 'to_pay',
+            'event_type' => 'system',
+            'title' => $immediate ? 'Order cancelled' : 'Cancellation requested',
+            'description' => $immediate
+                ? "You cancelled this order. Reason: {$reasonLabel}."
+                : "You asked to cancel this order. Reason: {$reasonLabel}. FMRC will review it shortly.",
+            'occurred_at' => now(),
+            'metadata' => array_filter([
+                'source' => 'customer_cancellation',
+                'cancel_reason' => $validated['reason'],
+                'cancel_reason_detail' => $detail !== '' ? $detail : null,
+                'cancel_state' => $order->cancel_state,
+                'refund_due' => $refundDue,
+                'restocked' => $restocked ?: null,
+            ], fn ($value) => $value !== null),
+        ]);
+
+        $moneyLine = match (true) {
+            $paymentConfirmed => " The confirmed GCash payment of {$amountLabel} has to be sent back to the customer.",
+            $refundDue => " The customer submitted a GCash reference for {$amountLabel} that nobody has verified yet - check the FMRC GCash account, and send the money back if it arrived.",
+            default => ' No money was received for this order.',
+        };
+
+        $this->createAdminNotification(
+            $immediate ? 'info' : 'warning',
+            $immediate
+                ? "Order Cancelled by Customer: {$orderNoLabel}"
+                : "Cancellation Requested: {$orderNoLabel}",
+            $immediate
+                ? "{$customerName} cancelled order {$orderNoLabel} ({$reasonLabel})."
+                    .($detail !== '' ? " Note: {$detail}" : '')
+                    .$moneyLine
+                : "{$customerName} asked to cancel order {$orderNoLabel} ({$reasonLabel})."
+                    .($detail !== '' ? " Note: {$detail}" : '')
+                    ." Approve or decline it in Orders."
+                    .$moneyLine,
+            [
+                'order_id' => $order->id,
+                'order_no' => $orderNoLabel,
+                'cancel_state' => $order->cancel_state,
+                'cancel_reason' => $validated['reason'],
+                'requires_cancellation_decision' => ! $immediate,
+                'refund_due' => $refundDue,
+            ]
+        );
+
+        $emailHtml = $this->buildOrderEmailHtml(
+            $order,
+            $immediate ? 'Your Order Has Been Cancelled' : 'We Received Your Cancellation Request',
+            $immediate
+                ? "Hi {$order->customer_name},\n\nOrder {$orderNoLabel} has been cancelled as you requested.\n\nReason: {$reasonLabel}\n\n"
+                    .($refundDue
+                        ? "If you already sent the {$amountLabel} through GCash, FMRC will check the account and return it to you. Staff will contact you once it has been sent back.\n\n"
+                        : "No payment was collected, so there is nothing to refund.\n\n")
+                    .'You can place a new order any time.'
+                : "Hi {$order->customer_name},\n\nWe received your request to cancel order {$orderNoLabel}.\n\nReason: {$reasonLabel}\n\nBecause this order is already being prepared, FMRC staff need to review the request. You will be notified as soon as they decide."
+                    .($refundDue ? "\n\nIf it is approved and your {$amountLabel} GCash payment has already been confirmed, staff will send the money back to your GCash number." : ''),
+            $immediate ? '#b45309' : '#0a5fd6'
+        );
+        $this->sendCustomerOrderEmail(
+            $order,
+            ($immediate ? 'Order Cancelled – ' : 'Cancellation Request Received – ').$orderNoLabel,
+            $emailHtml
+        );
+
+        $order->load([
+            'items' => fn ($query) => $query
+                ->select($this->customerOrderItemColumns()),
+            'payment',
+            'latestTrackingEvent',
+            'ratings',
+            'returns' => fn ($query) => $query
+                ->where('is_archived', false)
+                ->with(['items', 'latestEvent'])
+                ->orderByDesc('id'),
+            'trackingEvents' => fn ($query) => $query->orderByDesc('occurred_at')->orderByDesc('id'),
+        ]);
+
+        return response()->json([
+            'message' => $immediate
+                ? 'Order cancelled.'
+                : 'Cancellation request sent. FMRC staff will review it shortly.',
+            'immediate' => $immediate,
+            'data' => $this->transformOrderDetail($order, false, true),
+        ]);
+    }
+
+    /**
+     * Admin/Staff: accept or refuse a customer's cancellation request.
+     *
+     * Approving is the only path that puts stock back and flags the refund; a
+     * decline hands the order back to its previous stage with a note the
+     * customer can read, so the request never just disappears.
+     */
+    public function decideCancellation(Request $request, Order $order): JsonResponse
+    {
+        $denied = $this->ensureAdmin($request);
+        if ($denied) {
+            return $denied;
+        }
+
+        $validated = $request->validate([
+            'decision' => ['required', Rule::in(['approve', 'decline'])],
+            'note' => ['nullable', 'string', 'max:600'],
+        ]);
+
+        $order->load(['payment', 'items']);
+
+        if ($order->cancel_state !== 'requested' || $order->isCancelled()) {
+            return response()->json([
+                'message' => 'There is no cancellation request waiting on this order.',
+            ], 422);
+        }
+
+        $approve = $validated['decision'] === 'approve';
+        $note = trim((string) ($validated['note'] ?? ''));
+
+        if (! $approve && $note === '') {
+            return response()->json([
+                'message' => 'Tell the customer why the cancellation was declined.',
+                'errors' => ['note' => ['Tell the customer why the cancellation was declined.']],
+            ], 422);
+        }
+
+        $payment = $order->payment;
+        $paymentConfirmed = $payment?->status === 'paid';
+        $refundDue = $paymentConfirmed || (bool) $payment?->hasCustomerClaim();
+        $restocked = [];
+
+        try {
+            DB::transaction(function () use ($order, $request, $approve, $note, $refundDue, &$restocked): void {
+                $fresh = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+
+                if ($fresh->cancel_state !== 'requested' || $fresh->lifecycle_status === 'cancelled') {
+                    throw new \DomainException('This request has already been decided.');
+                }
+
+                $fresh->cancel_state = $approve ? 'approved' : 'declined';
+                $fresh->cancel_decided_at = now();
+                $fresh->cancel_decided_by_user_id = $request->user()?->id;
+                $fresh->cancel_decision_note = $note !== '' ? $note : null;
+
+                if ($approve) {
+                    $fresh->lifecycle_status = 'cancelled';
+                    $fresh->cancelled_at = now();
+                    $fresh->cancel_refund_due = $refundDue;
+                    $restocked = $this->restockOrder($order);
+                } else {
+                    $fresh->cancel_refund_due = false;
+                }
+
+                $fresh->save();
+
+                $order->forceFill($fresh->only([
+                    'cancel_state',
+                    'cancel_decided_at',
+                    'cancel_decided_by_user_id',
+                    'cancel_decision_note',
+                    'cancelled_at',
+                    'cancel_refund_due',
+                    'lifecycle_status',
+                ]))->syncOriginal();
+            });
+        } catch (\DomainException $error) {
+            return response()->json(['message' => $error->getMessage()], 422);
+        } catch (\Throwable $error) {
+            Log::error('[ORDER CANCEL DECISION] '.$error->getMessage());
+
+            return response()->json(['message' => 'Could not save the decision. Please try again.'], 500);
+        }
+
+        $orderNoLabel = $order->order_no ?: "ORD-{$order->id}";
+        $amountLabel = $this->formatMoney((float) $order->total);
+        $reasonLabel = $order->cancelReasonLabel() ?? 'No reason given';
+
+        $this->createTrackingEvent($order, [
+            'created_by_user_id' => $request->user()?->id,
+            'stage' => $order->customer_stage ?: 'to_pay',
+            'event_type' => 'admin_update',
+            'title' => $approve ? 'Cancellation approved' : 'Cancellation declined',
+            'description' => $approve
+                ? 'FMRC approved your cancellation request.'
+                    .($refundDue ? " Your {$amountLabel} GCash payment will be sent back to you." : '')
+                    .($note !== '' ? " Note: {$note}" : '')
+                : "FMRC could not cancel this order. {$note}",
+            'occurred_at' => now(),
+            'metadata' => array_filter([
+                'cancel_state' => $order->cancel_state,
+                'refund_due' => $approve ? $refundDue : false,
+                'restocked' => $restocked ?: null,
+            ], fn ($value) => $value !== null),
+        ]);
+
+        $this->createAdminNotification(
+            $approve ? 'info' : 'info',
+            $approve
+                ? "Cancellation Approved: {$orderNoLabel}"
+                : "Cancellation Declined: {$orderNoLabel}",
+            $approve
+                ? "Order {$orderNoLabel} ({$order->customer_name}) was cancelled. Reason: {$reasonLabel}."
+                    .($refundDue ? " A GCash refund of {$amountLabel} is still owed - record it once sent." : '')
+                : "The cancellation request on order {$orderNoLabel} ({$order->customer_name}) was declined. {$note}",
+            [
+                'order_id' => $order->id,
+                'order_no' => $orderNoLabel,
+                'cancel_state' => $order->cancel_state,
+                'refund_due' => $approve ? $refundDue : false,
+            ]
+        );
+
+        $emailHtml = $this->buildOrderEmailHtml(
+            $order,
+            $approve ? 'Your Order Has Been Cancelled' : 'We Could Not Cancel Your Order',
+            $approve
+                ? "Hi {$order->customer_name},\n\nFMRC approved your cancellation request for order {$orderNoLabel}.\n\nReason: {$reasonLabel}\n\n"
+                    .($refundDue
+                        ? "Your GCash payment of {$amountLabel} will be sent back to the number you paid from. Staff process refunds by hand, so please allow a few working days.\n\n"
+                        : "No payment was collected for this order, so there is nothing to refund.\n\n")
+                    .($note !== '' ? "Note from FMRC: {$note}\n\n" : '')
+                    .'You can place a new order any time.'
+                : "Hi {$order->customer_name},\n\nFMRC could not cancel order {$orderNoLabel}.\n\nReason from FMRC: {$note}\n\nYour order continues as normal. If you have questions, please reply to this email or message FMRC directly.",
+            $approve ? '#b45309' : '#dc2626'
+        );
+        $this->sendCustomerOrderEmail(
+            $order,
+            ($approve ? 'Order Cancelled – ' : 'Cancellation Not Approved – ').$orderNoLabel,
+            $emailHtml
+        );
+
+        $order->load(['items', 'payment', 'latestTrackingEvent', 'ratings']);
+
+        return response()->json([
+            'message' => $approve
+                ? 'Order cancelled. The customer has been notified.'
+                : 'Cancellation declined. The customer has been notified.',
+            'order' => $this->transformOrderSummary($order),
+        ]);
+    }
+
+    /**
+     * Put a cancelled order's quantities back on the shelf.
+     *
+     * Stock is taken at checkout, so a cancelled order that never restocks leaks
+     * inventory: the product stays "sold" forever. Only rows that still point at
+     * a live product can be restored - a deleted product has nowhere to go back
+     * to - and the running total is recomputed rather than blindly incremented so
+     * `stock_status` cannot drift out of step with `stock`.
+     *
+     * @return array<int, array{product_id: int, quantity: int, stock: int}>
+     */
+    private function restockOrder(Order $order): array
+    {
+        $restored = [];
+
+        $lines = $order->relationLoaded('items')
+            ? $order->items
+            : $order->items()->get();
+
+        foreach ($lines as $lineItem) {
+            $productId = (int) ($lineItem->product_id ?? 0);
+            $quantity = max(0, (int) $lineItem->quantity);
+
+            if ($productId < 1 || $quantity < 1) {
+                continue;
+            }
+
+            $product = Product::query()->whereKey($productId)->lockForUpdate()->first();
+            if (! $product) {
+                continue;
+            }
+
+            $product->stock = max(0, (int) $product->stock) + $quantity;
+            $product->stock_status = $product->stock > 0 ? 'in_stock' : 'out_of_stock';
+            $product->save();
+
+            $restored[] = [
+                'product_id' => $productId,
+                'quantity' => $quantity,
+                'stock' => (int) $product->stock,
+            ];
+        }
+
+        return $restored;
+    }
+
     public function adminIndex(Request $request): JsonResponse
     {
         $denied = $this->ensureAdmin($request);
@@ -615,7 +1476,7 @@ class OrderController extends Controller
         $orders = Order::query()
             ->with([
                 'items:id,order_id,product_id,product_name,unit_price,quantity,line_total',
-                'payment:id,order_id,payment_no,method,reference,amount,status,paid_at',
+                'payment:id,order_id,payment_no,method,reference,amount,status,submitted_at,proof_path,paid_at,refunded_at,refund_reference',
                 'latestTrackingEvent',
             ])
             ->where('is_archived', false)
@@ -679,6 +1540,15 @@ class OrderController extends Controller
             'returns' => $returns,
             'returns_summary' => $returnsSummary,
             'return_window_days' => OrderReturn::WINDOW_DAYS,
+            // Cancellations do not get their own tab - a cancelled order is still
+            // an order and stays in the directory - but staff need to see at a
+            // glance that somebody is waiting on a decision, and that a refund is
+            // still owed on an order that was already paid.
+            'cancellations_summary' => [
+                'pending' => $mapped->where('cancel_pending', true)->count(),
+                'cancelled' => $mapped->where('is_cancelled', true)->count(),
+                'refund_due' => $mapped->where('cancel_refund_due', true)->count(),
+            ],
             'generated_at' => $this->formatPhilippineIso(now()),
         ]);
     }
@@ -1190,14 +2060,32 @@ class OrderController extends Controller
 
         $nextStage = $validated['stage'] ?? $order->customer_stage;
         $title = trim((string) ($validated['title'] ?? ''));
+        $isPickup = $order->isPickup();
+
+        // A cancelled order has no next stage. Advancing one would tell the
+        // customer their cancelled order is out for delivery.
+        if ($order->isCancelled()) {
+            return response()->json([
+                'message' => 'This order was cancelled, so its tracking can no longer be advanced.',
+            ], 422);
+        }
 
         if ($title === '') {
-            $title = match ($nextStage) {
-                'to_ship' => 'Order moved to shipping queue',
-                'to_receive' => 'Order is out for delivery / pickup',
-                'completed' => 'Order marked as completed',
-                default => 'Order is waiting for payment confirmation',
-            };
+            // A pickup order never ships, so the generic "out for delivery"
+            // wording would be wrong on the customer's timeline.
+            $title = $isPickup
+                ? match ($nextStage) {
+                    'to_ship' => 'Order is being prepared for pickup',
+                    'to_receive' => 'Order is ready for pickup at the FMRC office',
+                    'completed' => 'Order collected',
+                    default => 'Order is waiting for payment confirmation',
+                }
+                : match ($nextStage) {
+                    'to_ship' => 'Order moved to shipping queue',
+                    'to_receive' => 'Order is out for delivery',
+                    'completed' => 'Order marked as completed',
+                    default => 'Order is waiting for payment confirmation',
+                };
         }
 
         if (!empty($validated['courier_name'])) {
@@ -1221,6 +2109,25 @@ class OrderController extends Controller
         }
 
         $order->customer_stage = $nextStage;
+
+        // Pickup milestones: "ready" is when the customer may come and collect,
+        // "picked up" is the handover itself. Stamped once so a later re-save of
+        // the same stage does not keep moving the time.
+        if ($isPickup) {
+            // Orders placed before pickup codes existed get one the first time
+            // staff move them along, so the counter always has something to ask for.
+            if (blank($order->pickup_code)) {
+                $order->pickup_code = $this->generatePickupCode();
+            }
+
+            if ($nextStage === 'to_receive') {
+                $order->pickup_ready_at = $order->pickup_ready_at ?? now();
+            }
+
+            if ($nextStage === 'completed') {
+                $order->picked_up_at = $order->picked_up_at ?? now();
+            }
+        }
 
         if ($nextStage === 'completed') {
             $order->lifecycle_status = 'completed';
@@ -1285,6 +2192,9 @@ class OrderController extends Controller
 
         $validated = $request->validate([
             'status' => 'required|in:paid,pending,refunded',
+            // Only meaningful with `refunded`: the reference GCash printed when
+            // staff sent the money back, so the return leg is auditable too.
+            'refund_reference' => 'nullable|string|max:64',
         ]);
 
         $payment = $order->payment;
@@ -1307,16 +2217,48 @@ class OrderController extends Controller
             ], 422);
         }
 
+        // Confirming money on a cancelled order would push it back into the
+        // shipping queue and back into Total Revenue. Recording the refund is the
+        // only payment move a cancelled order still has.
+        if ($nextStatus === 'paid' && $order->isCancelled()) {
+            return response()->json([
+                'message' => 'This order was cancelled. If the customer did send the money, record it as refunded once you have returned it.',
+            ], 422);
+        }
+
         $payment->status = $nextStatus;
-        $payment->paid_at = $nextStatus === 'paid' ? now() : null;
+        // Never re-stamp an existing confirmation: `paid_at` is when the money
+        // was first matched, and reports read it.
+        $payment->paid_at = $nextStatus === 'paid'
+            ? ($payment->paid_at ?? now())
+            : $payment->paid_at;
+
+        if ($nextStatus === 'refunded') {
+            $payment->refunded_at = $payment->refunded_at ?? now();
+            $refundReference = trim((string) ($validated['refund_reference'] ?? ''));
+            if ($refundReference !== '') {
+                $payment->refund_reference = $refundReference;
+            }
+        } elseif ($nextStatus === 'pending') {
+            // Setting a payment back to unpaid undoes the confirmation itself, so
+            // the timestamp that made it revenue has to go with it.
+            $payment->paid_at = null;
+        }
+
         $payment->save();
 
-        if ($nextStatus === 'paid' && $order->customer_stage === 'to_pay' && $order->lifecycle_status !== 'rejected') {
+        if ($nextStatus === 'paid' && $order->customer_stage === 'to_pay' && ! in_array($order->lifecycle_status, ['rejected', 'cancelled'], true)) {
             $order->customer_stage = 'to_ship';
             if ($order->lifecycle_status === 'incoming') {
                 $order->lifecycle_status = 'pending';
                 $order->approved_at = $order->approved_at ?? now();
             }
+            $order->save();
+        }
+
+        // The refund that a cancellation left outstanding is now settled.
+        if ($nextStatus === 'refunded' && $order->cancel_refund_due) {
+            $order->cancel_refund_due = false;
             $order->save();
         }
 
@@ -1483,6 +2425,135 @@ class OrderController extends Controller
         return 'ORD-' . now()->format('ymd') . '-' . str_pad((string) $orderId, 5, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * Decide whether an order is collected or shipped.
+     *
+     * Cash payments already answer the question: Cash-on-Pickup is money handed
+     * over at the counter, Cash-on-Delivery is money handed to the courier at
+     * the door. GCash is prepaid and works either way, so the customer must
+     * choose - returning null asks them to.
+     */
+    private function resolveFulfillmentType(string $paymentMethod, ?string $requested): ?string
+    {
+        $requested = in_array($requested, [Order::FULFILLMENT_PICKUP, Order::FULFILLMENT_DELIVERY], true)
+            ? $requested
+            : null;
+
+        return match ($paymentMethod) {
+            'COP' => Order::FULFILLMENT_PICKUP,
+            'COD' => Order::FULFILLMENT_DELIVERY,
+            default => $requested,
+        };
+    }
+
+    /**
+     * The address fields a delivery cannot go out without, as a validation-style
+     * error bag so the checkout form can highlight each missing input.
+     */
+    private function missingDeliveryAddressFields(array $validated): array
+    {
+        $required = [
+            'delivery_contact_no' => 'Please provide a contact number the courier can call.',
+            'delivery_street' => 'Please provide the house/unit number and street.',
+            'delivery_barangay' => 'Please provide the barangay.',
+            'delivery_city' => 'Please provide the city or municipality.',
+            'delivery_province' => 'Please provide the province.',
+            'delivery_postal_code' => 'Please provide the 4-digit postal code.',
+        ];
+
+        $errors = [];
+        foreach ($required as $field => $message) {
+            if (!filled($this->cleanAddressPart($validated[$field] ?? null))) {
+                $errors[$field] = [$message];
+            }
+        }
+
+        return $errors;
+    }
+
+    /** Collapse whitespace and treat a blank string as absent. */
+    private function cleanAddressPart(mixed $value): ?string
+    {
+        if (!is_scalar($value)) {
+            return null;
+        }
+
+        $value = trim(preg_replace('/\s+/u', ' ', (string) $value) ?? '');
+
+        return $value === '' ? null : $value;
+    }
+
+    /** The destination on one line, in Philippine address order. */
+    private function buildAddressLineFromParts(array $parts): string
+    {
+        return collect([
+            $parts['delivery_street'] ?? null,
+            filled($parts['delivery_barangay'] ?? null) ? 'Brgy. ' . $parts['delivery_barangay'] : null,
+            $parts['delivery_city'] ?? null,
+            $parts['delivery_province'] ?? null,
+            $parts['delivery_postal_code'] ?? null,
+        ])
+            ->filter(fn ($part) => filled($part))
+            ->implode(', ');
+    }
+
+    /**
+     * A short code the customer shows at the counter. Ambiguous characters are
+     * left out because this gets read aloud and copied off a screen.
+     */
+    private function generatePickupCode(): string
+    {
+        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        $code = '';
+
+        for ($i = 0; $i < 6; $i++) {
+            $code .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+        }
+
+        return 'PU-' . $code;
+    }
+
+    /** What the customer is told to do next, which depends on how they pay. */
+    private function initialPaymentEventDescription(
+        string $paymentMethod,
+        string $paymentStatus,
+        bool $isPickup,
+        bool $hasGcashReference = true,
+    ): string {
+        if ($paymentStatus === 'paid') {
+            return $isPickup
+                ? 'Payment was confirmed. We are preparing your order for pickup at the FMRC office.'
+                : 'Payment was confirmed and the order is queued for shipping.';
+        }
+
+        return match ($paymentMethod) {
+            'COP' => 'No advance payment is needed. Pay in cash at the FMRC office when you collect your order.',
+            'COD' => 'No advance payment is needed. Pay in cash to the courier when your order is delivered.',
+            'GCash' => $hasGcashReference
+                ? 'We received your GCash reference number and are matching it against the FMRC GCash account. Your order moves forward as soon as it is confirmed.'
+                : 'Send the total to the FMRC GCash account, then enter your reference number under My Orders. Your order moves forward once we confirm the payment.',
+            default => 'Payment is pending. We will verify and continue processing your order shortly.',
+        };
+    }
+
+    /**
+     * Reduce a customer-supplied GCash reference to the bare digits GCash
+     * itself prints on the receipt.
+     *
+     * Customers paste it with spaces or dashes, or type the whole "Ref. No.
+     * 0123 456 789 012" line. Stripping to digits means staff can search the
+     * exact string in their GCash app, and the length check catches an order
+     * number or a phone number typed into the wrong box. Returns null when
+     * there is nothing usable.
+     */
+    private function normalizeGcashReference(?string $raw): ?string
+    {
+        $digits = preg_replace('/\D/', '', (string) $raw);
+        $expected = (int) config('payments.gcash.reference_digits', 13);
+
+        return strlen((string) $digits) === $expected ? $digits : null;
+    }
+
     private function generatePaymentNo(int $orderId): string
     {
         return 'PAY-' . now()->format('ymd') . '-' . str_pad((string) $orderId, 5, '0', STR_PAD_LEFT);
@@ -1594,6 +2665,260 @@ class OrderController extends Controller
         }
 
         return $summaryItem;
+    }
+
+    /**
+     * Where this order stands on money, for both the customer's "Pay now" panel
+     * and the staff verification queue.
+     *
+     * Three states matter and they are easy to conflate: nothing sent yet, the
+     * customer says they sent it, and staff have confirmed it. Only the third is
+     * revenue. Cash orders have none of this - there is nothing to wait for when
+     * the money changes hands at the counter or at the door.
+     */
+    private function buildPaymentState(Order $order): array
+    {
+        $payment = $order->payment;
+        $status = $payment?->status ?? 'pending';
+        $isGcash = ($payment?->method ?? $order->payment_method) === 'GCash';
+        $isConfirmed = $status === 'paid';
+        // A cancelled order is as dead as a rejected one as far as collecting
+        // money goes, so both close the pay panel.
+        $isRejected = in_array($order->lifecycle_status, ['rejected', 'cancelled'], true);
+        $hasClaim = (bool) $payment?->hasCustomerClaim();
+
+        // A rejected order must not invite payment, and a confirmed one has
+        // nothing left to ask for.
+        $awaitingPayment = $isGcash && ! $isConfirmed && ! $isRejected && ! $hasClaim;
+        $underReview = $isGcash && ! $isConfirmed && ! $isRejected && $hasClaim;
+
+        $dueAt = $order->payment_due_at;
+        $isOverdue = $awaitingPayment && $dueAt !== null && $dueAt->isPast();
+
+        return [
+            'payment_due_at' => $this->formatPhilippineIso($dueAt),
+            'payment_due_label' => $this->formatPhilippineLabel($dueAt),
+            'payment_submitted_at' => $this->formatPhilippineIso($payment?->submitted_at),
+            'payment_submitted_label' => $this->formatPhilippineLabel($payment?->submitted_at),
+            'payment_confirmed_at' => $this->formatPhilippineIso($payment?->paid_at),
+            'payment_confirmed_label' => $this->formatPhilippineLabel($payment?->paid_at),
+            'payment_amount_label' => $this->formatMoney((float) ($payment?->amount ?? $order->total)),
+            'payment_proof_url' => $payment?->proofUrl(),
+            'payment_reference_supplied' => $hasClaim,
+            'awaiting_customer_payment' => $awaitingPayment,
+            'payment_under_review' => $underReview,
+            'payment_is_confirmed' => $isConfirmed,
+            'payment_is_overdue' => $isOverdue,
+            // Refund side of the same row: set once staff have sent the money
+            // back, which is the only thing that closes out a cancelled paid
+            // order or an approved return.
+            'payment_is_refunded' => $status === 'refunded',
+            'payment_refunded_at' => $this->formatPhilippineIso($payment?->refunded_at),
+            'payment_refunded_label' => $this->formatPhilippineLabel($payment?->refunded_at),
+            'payment_refund_reference' => $payment?->refund_reference,
+            'payment_action_label' => match (true) {
+                $isConfirmed => 'Payment confirmed',
+                $underReview => 'Payment under review',
+                $awaitingPayment => 'Pay with GCash',
+                default => null,
+            },
+        ];
+    }
+
+    /**
+     * Everything the customer's card and the admin modal need to say about a
+     * cancellation: whether one can be started, whether one is pending, and - if
+     * the order is already dead - why and whether money is owed back.
+     */
+    private function buildCancellationState(Order $order): array
+    {
+        $availability = $order->cancellationAvailability();
+        $state = (string) ($order->cancel_state ?? 'none');
+        $isCancelled = $order->isCancelled();
+        $requestedByCustomer = $state !== 'none';
+
+        return [
+            'cancel_state' => $state,
+            'cancel_state_label' => Order::CANCEL_STATE_LABELS[$state] ?? 'Not requested',
+            'is_cancelled' => $isCancelled,
+            // Only a customer-driven cancellation says "cancelled by you" in the
+            // customer's list; staff rejecting an order is a different message.
+            'cancelled_by_customer' => $isCancelled && $requestedByCustomer,
+            'can_request_cancel' => $availability['allowed'],
+            // False means "we will ask staff first" - the sheet changes its
+            // button and its warning accordingly.
+            'cancel_is_immediate' => $availability['immediate'],
+            'cancel_blocked_reason' => $availability['reason'],
+            'cancel_pending' => $order->hasPendingCancellation(),
+            'cancel_reason' => $order->cancel_reason,
+            'cancel_reason_label' => $order->cancelReasonLabel(),
+            'cancel_reason_detail' => $order->cancel_reason_detail,
+            'cancel_requested_at' => $this->formatPhilippineIso($order->cancel_requested_at),
+            'cancel_requested_label' => $this->formatPhilippineLabel($order->cancel_requested_at),
+            'cancelled_at' => $this->formatPhilippineIso($order->cancelled_at),
+            'cancelled_at_label' => $this->formatPhilippineLabel($order->cancelled_at),
+            'cancel_decided_at' => $this->formatPhilippineIso($order->cancel_decided_at),
+            'cancel_decided_label' => $this->formatPhilippineLabel($order->cancel_decided_at),
+            'cancel_decision_note' => $order->cancel_decision_note,
+            'cancel_refund_due' => (bool) $order->cancel_refund_due,
+        ];
+    }
+
+    /** The cancel sheet's radio list, in display order. */
+    private function cancelReasonOptions(): array
+    {
+        return array_map(
+            fn (string $value) => [
+                'value' => $value,
+                'label' => Order::CANCEL_REASON_LABELS[$value] ?? $value,
+                // Only "Other" forces the customer to type something.
+                'requires_detail' => $value === 'other',
+            ],
+            Order::CANCEL_REASONS,
+        );
+    }
+
+    /**
+     * How this order reaches the customer, as one flat block the customer app,
+     * the admin table and the courier label can all read.
+     *
+     * Older rows predate `fulfillment_type`, so it is inferred from the payment
+     * method rather than assumed - Cash-on-Pickup was never shipped.
+     */
+    private function buildFulfillmentState(Order $order): array
+    {
+        $type = in_array($order->fulfillment_type, [Order::FULFILLMENT_PICKUP, Order::FULFILLMENT_DELIVERY], true)
+            ? $order->fulfillment_type
+            : ($order->payment_method === 'COP' ? Order::FULFILLMENT_PICKUP : Order::FULFILLMENT_DELIVERY);
+
+        $isPickup = $type === Order::FULFILLMENT_PICKUP;
+
+        $address = [
+            'recipient_name' => $order->delivery_recipient_name,
+            'contact_no' => $order->delivery_contact_no,
+            'street' => $order->delivery_street,
+            'barangay' => $order->delivery_barangay,
+            'city' => $order->delivery_city,
+            'province' => $order->delivery_province,
+            'postal_code' => $order->delivery_postal_code,
+            'landmark' => $order->delivery_landmark,
+            'latitude' => $order->delivery_lat !== null ? (float) $order->delivery_lat : null,
+            'longitude' => $order->delivery_lng !== null ? (float) $order->delivery_lng : null,
+        ];
+
+        // Rows created before the structured columns existed only have the
+        // free-text mirror, so fall back to it rather than showing nothing.
+        $addressLine = $order->deliveryAddressLine();
+        if ($addressLine === '') {
+            $addressLine = trim((string) ($order->location_name ?? ''));
+        }
+
+        return [
+            'fulfillment_type' => $type,
+            'fulfillment_label' => self::FULFILLMENT_LABELS[$type] ?? 'Courier Delivery',
+            'is_pickup' => $isPickup,
+            'delivery_address' => $isPickup ? null : $address,
+            'delivery_address_line' => $isPickup ? null : ($addressLine !== '' ? $addressLine : null),
+            'destination_label' => $isPickup ? self::PICKUP_LOCATION_NAME : ($addressLine !== '' ? $addressLine : null),
+            'destination_latitude' => $isPickup
+                ? self::PICKUP_LATITUDE
+                : ($order->delivery_lat !== null ? (float) $order->delivery_lat : null),
+            'destination_longitude' => $isPickup
+                ? self::PICKUP_LONGITUDE
+                : ($order->delivery_lng !== null ? (float) $order->delivery_lng : null),
+            'pickup_code' => $isPickup ? $order->pickup_code : null,
+            'pickup_ready_at' => $this->formatPhilippineIso($order->pickup_ready_at),
+            'pickup_ready_at_label' => $this->formatPhilippineLabel($order->pickup_ready_at),
+            'picked_up_at' => $this->formatPhilippineIso($order->picked_up_at),
+            'picked_up_at_label' => $this->formatPhilippineLabel($order->picked_up_at),
+            'courier' => $isPickup ? null : $this->buildCourierState($order),
+        ];
+    }
+
+    /**
+     * Human-readable name of the courier a new delivery order is stamped with
+     * when the client does not name one. Reads the registry so changing the
+     * centre's default courier is a config edit, not a code hunt.
+     */
+    private function defaultCourierLabel(): string
+    {
+        $key = (string) config('couriers.default', 'jnt');
+
+        return (string) config("couriers.options.{$key}.label", 'J&T Express');
+    }
+
+    /**
+     * The courier registry, for the admin tracking dropdown.
+     *
+     * Public and unauthenticated on purpose: it is the same list already
+     * printed on the customer's order, holds no credentials, and serving it
+     * from here means the dropdown cannot drift from what an order is stamped
+     * with. No courier API is involved - FMRC has no contract with any of them.
+     */
+    public function couriers(): JsonResponse
+    {
+        $options = [];
+        foreach ((array) config('couriers.options', []) as $key => $courier) {
+            $options[] = [
+                'key' => (string) $key,
+                'label' => (string) ($courier['label'] ?? $key),
+                'tracking_url' => $courier['tracking_url'] ?? null,
+                'accepts_tracking_no' => (bool) ($courier['accepts_tracking_no'] ?? true),
+            ];
+        }
+
+        return response()->json([
+            'data' => $options,
+            'default' => (string) config('couriers.default', 'jnt'),
+            'universal_tracking_url' => config('couriers.universal_tracking_url'),
+        ]);
+    }
+
+    /**
+     * Where the customer can follow the parcel on the courier's own site.
+     *
+     * FMRC has no courier API contract, so the waybill number is whatever staff
+     * typed in and the link is the courier's public tracking page. Couriers
+     * whose deep-link format is not documented get their landing page plus the
+     * number to paste; a courier that is not in the registry falls back to
+     * 17TRACK, which detects the carrier from the number itself.
+     */
+    private function buildCourierState(Order $order): ?array
+    {
+        $name = trim((string) ($order->courier_name ?? ''));
+        $trackingNo = trim((string) ($order->courier_tracking_no ?? ''));
+
+        if ($name === '' && $trackingNo === '') {
+            return null;
+        }
+
+        $registry = (array) config('couriers.options', []);
+        $matchKey = null;
+        foreach ($registry as $key => $courier) {
+            $label = (string) ($courier['label'] ?? '');
+            if ($label !== '' && strcasecmp($label, $name) === 0) {
+                $matchKey = $key;
+                break;
+            }
+        }
+
+        $trackingUrl = $matchKey !== null
+            ? ($registry[$matchKey]['tracking_url'] ?? null)
+            : null;
+
+        // Only send the customer somewhere when there is a number to look up.
+        if ($trackingNo === '') {
+            $trackingUrl = null;
+        } elseif ($trackingUrl === null) {
+            $trackingUrl = config('couriers.universal_tracking_url');
+        }
+
+        return [
+            'key' => $matchKey,
+            'name' => $name !== '' ? $name : null,
+            'tracking_no' => $trackingNo !== '' ? $trackingNo : null,
+            'tracking_url' => $trackingUrl,
+        ];
     }
 
     /**
@@ -1785,6 +3110,17 @@ class OrderController extends Controller
             'created_at_label' => $this->formatPhilippineLabel($createdAt),
             'latest_event' => $latestEvent ? $this->transformTimelineEvent($latestEvent) : null,
         ];
+
+        // Fulfillment: how the customer receives this order, and - for a
+        // delivery - the destination broken into the parts a courier needs.
+        $summary = array_merge($summary, $this->buildFulfillmentState($order));
+
+        // Money: sent or not, claimed or not, confirmed or not.
+        $summary = array_merge($summary, $this->buildPaymentState($order));
+
+        // Cancellation: whether the customer may still call it off, and what
+        // happened if they already did.
+        $summary = array_merge($summary, $this->buildCancellationState($order));
 
         // Return/refund badges + the "Return / Refund" button's own gate.
         $summary = array_merge($summary, $this->buildReturnState($order));
@@ -2206,9 +3542,25 @@ class OrderController extends Controller
             'amount' => (float) ($payment?->amount ?? $order->total),
             'amount_label' => $this->formatMoney((float) ($payment?->amount ?? $order->total)),
             'status' => $payment?->status ?? 'pending',
+            // What the customer claims, kept separate from what staff confirmed:
+            // `date_submitted` is when they said they sent it, `date_paid` is when
+            // it was matched in the FMRC GCash account.
+            'date_submitted' => $this->formatPhilippineIso($payment?->submitted_at),
+            'date_submitted_label' => $this->formatPhilippineLabel($payment?->submitted_at) ?? '-',
+            'has_customer_claim' => (bool) $payment?->hasCustomerClaim(),
+            'proof_url' => $payment?->proofUrl(),
             'date_paid' => $this->formatPhilippineIso($payment?->paid_at),
             'date_paid_label' => $this->formatPhilippineLabel($payment?->paid_at) ?? '-',
+            'date_refunded' => $this->formatPhilippineIso($payment?->refunded_at),
+            'date_refunded_label' => $this->formatPhilippineLabel($payment?->refunded_at) ?? '-',
+            'refund_reference' => $payment?->refund_reference,
+            'payment_due_at' => $this->formatPhilippineIso($order->payment_due_at),
+            'payment_due_label' => $this->formatPhilippineLabel($order->payment_due_at) ?? '-',
             'lifecycle_status' => $order->lifecycle_status,
+            // A cancelled order whose money is still with FMRC: the payments
+            // table flags it so the refund does not get forgotten.
+            'cancel_refund_due' => (bool) $order->cancel_refund_due,
+            'is_cancelled' => $order->isCancelled(),
         ];
     }
 

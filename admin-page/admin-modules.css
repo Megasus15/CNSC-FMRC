@@ -807,6 +807,322 @@ input.page-number:focus,
   color: #7b828b;
 }
 
+/* Confirm/undo pair under the payment reference in the order details modal. */
+.payment-verify-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.payment-verify-actions .btn-admin {
+  flex: 0 0 auto;
+}
+.payment-verify-actions[hidden] {
+  display: none;
+}
+
+/* ── GCash payment claim ─────────────────────────────────────────────────────
+   Verifying a manual GCash transfer is a matching exercise: the reference the
+   customer typed has to be found in the FMRC GCash app, against the right
+   amount. Facts on the left, the receipt screenshot on the right, so staff can
+   read both without scrolling or opening a second window. */
+.payment-claim {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 132px;
+  gap: 14px;
+  align-items: start;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: #f8f9fb;
+}
+.payment-claim[hidden] {
+  display: none;
+}
+
+.payment-claim-facts {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.payment-claim-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: #2f3742;
+}
+.payment-claim-row[hidden] {
+  display: none;
+}
+
+.payment-claim-label {
+  flex: 0 0 108px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #7b828b;
+}
+
+/* The reference is read digit by digit against a phone screen, so it gets a
+   monospace face and enough tracking to stop 0/O and 1/l blurring together. */
+.payment-claim-ref {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #1f2630;
+  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 3px 8px;
+  word-break: break-all;
+}
+.payment-claim-ref.is-empty {
+  color: #9aa1ab;
+  font-style: italic;
+  letter-spacing: normal;
+  font-weight: 500;
+}
+
+.payment-claim-copy {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: #fff;
+  color: #2f3742;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 4px 9px;
+  cursor: pointer;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+.payment-claim-copy:hover {
+  background: #eef1f6;
+  color: var(--primary-color);
+}
+.payment-claim-copy[hidden] {
+  display: none;
+}
+
+.payment-claim-amount {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1f2630;
+}
+
+/* A missed deadline is the one fact here that changes what staff do next. */
+.payment-claim-row .is-overdue {
+  color: #a3260f;
+  font-weight: 600;
+}
+
+.payment-claim-proof {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+.payment-claim-proof[hidden] {
+  display: none;
+}
+.payment-claim-proof a {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  text-decoration: none;
+  color: var(--primary-color);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+.payment-claim-proof a[hidden] {
+  display: none;
+}
+.payment-claim-proof img {
+  width: 132px;
+  height: 132px;
+  object-fit: cover;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: #fff;
+  transition: transform 0.2s ease;
+}
+.payment-claim-proof a:hover img {
+  transform: scale(1.03);
+}
+.payment-claim-proof-empty {
+  margin: 0;
+  font-size: 0.7rem;
+  color: #9aa1ab;
+  text-align: center;
+  line-height: 1.4;
+}
+.payment-claim-proof-empty[hidden] {
+  display: none;
+}
+
+/* Refund reference: only in the DOM's way once money is actually owed back. */
+.payment-refund-field {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+}
+.payment-refund-field[hidden] {
+  display: none;
+}
+.payment-refund-field label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #2f3742;
+}
+
+/* ── Cancellation request ────────────────────────────────────────────────────
+   Amber while a decision is owed, grey once the order is dead, plain once the
+   request was turned down - the colour alone tells staff whether this card is
+   still work. */
+.cancel-request {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-left: 4px solid #c9ced6;
+  border-radius: 10px;
+  background: #f8f9fb;
+}
+.cancel-request.is-pending {
+  border-left-color: #d99a1c;
+  background: #fff9ec;
+}
+.cancel-request.is-cancelled {
+  border-left-color: #8b939f;
+  background: #f2f4f7;
+}
+.cancel-request.is-declined {
+  border-left-color: #4f7fbf;
+  background: #f4f8fd;
+}
+
+.cancel-request-title {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1f2630;
+}
+
+.cancel-request-reason {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #2f3742;
+}
+
+/* The customer's own words, kept visually apart from FMRC's summary of them. */
+.cancel-request-detail {
+  margin: 0;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px dashed var(--border-color);
+  font-size: 0.76rem;
+  font-style: italic;
+  color: #3d444d;
+  line-height: 1.5;
+}
+.cancel-request-detail[hidden] {
+  display: none;
+}
+
+.cancel-request-money {
+  margin: 0;
+  font-size: 0.74rem;
+  color: #5b6472;
+  line-height: 1.5;
+}
+
+.cancel-request-note-field {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+}
+.cancel-request-note-field[hidden] {
+  display: none;
+}
+.cancel-request-note-field label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #2f3742;
+}
+
+@media (max-width: 560px) {
+  .payment-claim {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .payment-claim-proof {
+    justify-items: start;
+  }
+  .payment-claim-label {
+    flex-basis: 100%;
+  }
+}
+
+/* Latitude and longitude belong to one checkpoint, so they share a row. */
+.tracking-latlng-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+@media (max-width: 560px) {
+  .tracking-latlng-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* GCash collection details: QR preview beside its upload/remove buttons. */
+.gcash-qr-admin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 8px;
+}
+.gcash-qr-admin-preview {
+  display: grid;
+  place-items: center;
+  width: 140px;
+  height: 140px;
+  flex: 0 0 auto;
+  padding: 6px;
+  border: 1px dashed var(--border-color);
+  border-radius: 10px;
+  background: #fff;
+  overflow: hidden;
+}
+.gcash-qr-admin-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.gcash-qr-admin-preview span {
+  font-size: 0.78rem;
+  color: #7b8494;
+  text-align: center;
+}
+.gcash-qr-admin-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.gcash-qr-admin-actions .btn-admin {
+  flex: 0 0 auto;
+}
+/* The regulatory note has to read as a caution, not as another hint. */
+.gcash-setting-warning {
+  border-left: 3px solid #e0a80d;
+  padding-left: 10px;
+}
+
 .accounts-layout-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -1084,6 +1400,39 @@ input.page-number:focus,
   color: #b71c1c;
 }
 
+/* Cancelled is closed, not failed - a customer calling off an order is not the
+   same event as FMRC rejecting one, so it gets its own neutral pill. */
+.status-grey {
+  background-color: #eef0f4;
+  color: #5b6472;
+}
+
+/* Row-level flags that ride alongside the status pill: a cancellation waiting
+   on a decision, and money FMRC still owes back. */
+.row-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.row-flag-cancel {
+  background-color: #fff4db;
+  color: #96590a;
+  border: 1px solid #f0d89c;
+}
+.row-flag-refund {
+  background-color: #fde8e8;
+  color: #a3260f;
+  border: 1px solid #f4c9c4;
+}
+
 .payment-status-select {
   min-width: 132px;
   border-radius: 999px;
@@ -1249,6 +1598,61 @@ input.page-number:focus,
 .returns-summary-total strong {
   color: var(--primary-color);
   font-size: 0.86rem;
+}
+
+/* ── Cancellation alert strip ────────────────────────────────────────────────
+   Sits under the Incoming Orders header. Cancellations have no tab of their
+   own, so this is the only place staff can see unread work without opening
+   orders one by one. */
+.cancellation-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid #f0d89c;
+  border-left: 4px solid #d99a1c;
+  border-radius: 10px;
+  background: #fff9ec;
+}
+.cancellation-alert[hidden] {
+  display: none;
+}
+
+.cancellation-alert-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 4px 11px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  background: #fff;
+  border: 1px solid #f0d89c;
+  color: #96590a;
+}
+.cancellation-alert-chip strong {
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+.cancellation-alert-chip.is-refund {
+  border-color: #f4c9c4;
+  color: #a3260f;
+}
+
+.cancellation-alert-hint {
+  flex: 1 1 220px;
+  min-width: 0;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: #7a6534;
+}
+
+@media (max-width: 560px) {
+  .cancellation-alert-hint {
+    flex-basis: 100%;
+  }
 }
 .return-amount-caption {
   font-size: 0.68rem;

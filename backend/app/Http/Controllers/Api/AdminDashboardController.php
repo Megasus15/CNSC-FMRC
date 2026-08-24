@@ -50,19 +50,19 @@ class AdminDashboardController extends Controller
         $liveCounts = $this->liveCountSnapshot();
 
         // ─── Total Revenue ───
-        // Completed orders + approved GCash orders (already paid online) +
+        // Completed orders + GCash orders whose payment staff have verified +
         // walk-in sales, minus refunds that have been approved onward.
         $completedOrdersRevenue = (float) Order::query()
             ->where('lifecycle_status', 'completed')
             ->sum('total');
 
-        // GCash is collected up front, so an approved GCash order is real money
-        // in hand. 'pending' and 'completed' are mutually exclusive lifecycle
-        // states, so this cannot double count the sum above.
-        $approvedGcashRevenue = (float) Order::query()
-            ->where('lifecycle_status', 'pending')
-            ->where('payment_method', 'GCash')
-            ->whereNotNull('approved_at')
+        // GCash is collected up front, so a *verified* GCash payment is real money
+        // in the FMRC wallet even before the order ships. The scope keys off
+        // payments.status = 'paid' and excludes 'completed' and 'rejected', so this
+        // can neither double count the sum above nor credit money that is owed
+        // back. See Order::scopeGcashAdvanceRevenue().
+        $verifiedGcashRevenue = (float) Order::query()
+            ->gcashAdvanceRevenue()
             ->sum('total');
 
         $walkInRevenue = (float) WalkInOrder::query()
@@ -77,7 +77,7 @@ class AdminDashboardController extends Controller
 
         $totalRevenue = max(
             0.0,
-            $completedOrdersRevenue + $approvedGcashRevenue + $walkInRevenue - $refundedAmount
+            $completedOrdersRevenue + $verifiedGcashRevenue + $walkInRevenue - $refundedAmount
         );
 
         // ─── Total Inventory Items ───
@@ -202,6 +202,10 @@ class AdminDashboardController extends Controller
                 $statusLabel = match (true) {
                     $lifecycle === 'completed' || $stage === 'completed' => 'Completed',
                     $lifecycle === 'rejected' => 'Rejected',
+                    // Checked before the stage arms: a cancelled order keeps the
+                    // stage it died at, so falling through would label it
+                    // "To Pay" as though it were still live.
+                    $lifecycle === 'cancelled' => 'Cancelled',
                     $lifecycle === 'incoming' => 'Incoming',
                     $stage === 'to_ship' => 'To Ship',
                     $stage === 'to_receive' => 'To Receive',

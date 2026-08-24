@@ -2841,6 +2841,70 @@ body {
   color: #5c626e;
   line-height: 1.45;
 }
+
+/*
+  The saved address, itemised. Two columns of label/value so the customer can
+  scan each part a courier will read instead of one run-on line.
+*/
+.client-address-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 14px;
+  margin: 2px 0 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(133, 19, 19, 0.14);
+  border-radius: 10px;
+  background: rgba(133, 19, 19, 0.03);
+}
+.client-address-grid[hidden] {
+  display: none;
+}
+.client-address-row {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.client-address-row dt {
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #96909a;
+}
+.client-address-row dd {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #222833;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+/* A part the customer still has to fill in before a delivery can go out. */
+.client-address-row.is-missing dd {
+  color: #b01c1c;
+  font-weight: 800;
+}
+.client-address-alert {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #b01c1c;
+  background: rgba(176, 28, 28, 0.07);
+  border: 1px solid rgba(176, 28, 28, 0.2);
+  border-radius: 8px;
+  padding: 6px 9px;
+}
+.client-address-alert[hidden] {
+  display: none;
+}
+/* Same bubble, informational tone: used for the pickup notice, which is not an
+   error the customer has to fix. */
+.client-address-alert.is-info {
+  color: #1b5e20;
+  background: rgba(46, 125, 50, 0.08);
+  border-color: rgba(46, 125, 50, 0.25);
+}
 .client-dept-role {
   display: flex;
   gap: 8px;
@@ -3154,6 +3218,334 @@ body {
   box-shadow: 0 0 0 4px rgba(158, 20, 20, 0.08);
 }
 
+/* --- Pickup vs delivery choice --- */
+.c-fulfillment-options {
+  display: grid;
+  gap: 10px;
+}
+.c-fulfillment-option {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(92, 43, 38, 0.14);
+  background: rgba(255, 254, 250, 0.9);
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.c-fulfillment-option:has(input:checked) {
+  border-color: rgba(127, 17, 17, 0.64);
+  background: rgba(158, 20, 20, 0.05);
+  box-shadow: 0 0 0 4px rgba(158, 20, 20, 0.07);
+}
+/* Locked by the payment method, so it reads as information, not a choice. */
+.c-fulfillment-option:has(input:disabled) {
+  cursor: default;
+  opacity: 0.55;
+}
+.c-fulfillment-option:has(input:checked):has(input:disabled) {
+  opacity: 1;
+}
+.c-fulfillment-option input {
+  margin-top: 3px;
+  accent-color: #851313;
+  flex-shrink: 0;
+}
+.c-fulfillment-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.c-fulfillment-copy strong {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #222833;
+}
+.c-fulfillment-copy small {
+  font-size: 11.5px;
+  color: #5c626e;
+  line-height: 1.45;
+}
+.c-fulfillment-note {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: #6d5b1e;
+  background: rgba(214, 158, 46, 0.12);
+  border: 1px solid rgba(214, 158, 46, 0.28);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+.c-fulfillment-note[hidden],
+.c-fulfillment-note:empty {
+  display: none;
+}
+
+/* --- GCash payment step ---
+   Sits outside .checkout-form, so the field/label/error styling that block
+   scopes to itself has to be restated here rather than inherited. */
+.gcash-pay-section[hidden] {
+  display: none;
+}
+.gcash-amount-line {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  color: #5c626e;
+  line-height: 1.5;
+}
+.gcash-amount-line strong {
+  font-size: 15px;
+  font-weight: 900;
+  color: #851313;
+}
+/* Placing the order is free and the money can follow, so this says so before
+   the reference field is reached - otherwise an empty field reads as a blocker. */
+.gcash-paylater-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 122, 255, 0.22);
+  background: rgba(0, 122, 255, 0.07);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #2c4a6b;
+}
+.gcash-paylater-note[hidden] {
+  display: none;
+}
+.gcash-paylater-note i {
+  margin-top: 1px;
+  color: #0a72c4;
+}
+.gcash-paylater-note strong {
+  font-weight: 800;
+  color: #1d3a57;
+}
+.gcash-account-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(92, 43, 38, 0.14);
+  background: rgba(255, 254, 250, 0.9);
+}
+.gcash-account-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.gcash-account-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #7a808c;
+  min-width: 96px;
+}
+.gcash-account-value {
+  font-size: 14px;
+  font-weight: 800;
+  color: #222833;
+  word-break: break-word;
+}
+.gcash-copy-btn {
+  margin-left: auto;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(158, 20, 20, 0.24);
+  background: rgba(158, 20, 20, 0.06);
+  color: #851313;
+  font-family: "Montserrat", sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+.gcash-copy-btn:hover {
+  background: rgba(158, 20, 20, 0.12);
+  border-color: rgba(158, 20, 20, 0.4);
+}
+.gcash-pay-methods {
+  margin-top: 14px;
+}
+.gcash-qr-block[hidden],
+.gcash-mobile-block[hidden] {
+  display: none;
+}
+.gcash-qr-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.gcash-qr-image {
+  width: 100%;
+  max-width: 230px;
+  aspect-ratio: 1 / 1;
+  object-fit: contain;
+  padding: 10px;
+  border-radius: 16px;
+  border: 1px solid rgba(92, 43, 38, 0.14);
+  background: #ffffff;
+}
+.gcash-qr-save {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #851313;
+  text-decoration: underline;
+}
+.gcash-mobile-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.gcash-open-app-btn {
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: 999px;
+  border: none;
+  /* GCash's own brand blue, so the button reads as "this opens GCash". */
+  background: #0075f6;
+  color: #ffffff;
+  font-family: "Montserrat", sans-serif;
+  font-size: 13.5px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(0, 117, 246, 0.24);
+  transition:
+    filter 0.2s ease,
+    transform 0.15s ease;
+}
+.gcash-open-app-btn:hover {
+  filter: brightness(1.06);
+}
+.gcash-open-app-btn:active {
+  transform: translateY(1px);
+}
+.gcash-open-app-hint {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #5c626e;
+  text-align: center;
+}
+.gcash-open-app-hint:empty {
+  display: none;
+}
+.gcash-steps {
+  margin: 14px 0 16px;
+  padding-left: 20px;
+  display: grid;
+  gap: 5px;
+}
+.gcash-steps:empty {
+  display: none;
+}
+.gcash-steps[hidden] {
+  display: none;
+}
+.gcash-steps li {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #5c626e;
+}
+.gcash-steps li strong {
+  color: #343b49;
+  font-weight: 800;
+}
+.gcash-reference-group {
+  position: relative;
+  margin: 0;
+}
+.gcash-reference-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  color: #343b49;
+  margin-bottom: 8px;
+  letter-spacing: 0.04em;
+}
+.gcash-reference-group .req-mark {
+  color: #b01c1c;
+  font-weight: 900;
+}
+/* GCash may be paid after checkout, so the field is asked for rather than
+   demanded. The marker says so at a glance instead of relying on the help
+   text underneath being read. */
+.gcash-reference-group .opt-mark {
+  color: #8a8f9a;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.gcash-reference-group input {
+  letter-spacing: 0.08em;
+}
+.gcash-reference-help {
+  display: block;
+  margin-top: 7px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #7a808c;
+}
+.gcash-reference-group.has-error .c-input {
+  border-color: #d32f2f;
+  box-shadow: 0 0 0 3px rgba(211, 47, 47, 0.14);
+  background-color: #fffafa;
+}
+.gcash-reference-group.has-error .checkout-field-error-bubble {
+  opacity: 1;
+}
+/* Shown only when staff have not saved the GCash details yet, so the customer
+   is told to pick another method instead of guessing where to send money. */
+.gcash-unconfigured-note {
+  margin: 12px 0 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.45;
+  color: #6d5b1e;
+  background: rgba(214, 158, 46, 0.12);
+  border: 1px solid rgba(214, 158, 46, 0.28);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+.gcash-unconfigured-note[hidden],
+.gcash-unconfigured-note:empty {
+  display: none;
+}
+
+/* --- Two-up form rows (barangay/city, province/postal) --- */
+.checkout-form .form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 12px;
+}
+@media (max-width: 480px) {
+  .checkout-form .form-row-2 {
+    grid-template-columns: 1fr;
+  }
+  .client-address-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* Marks a field the order cannot be placed without. */
+.checkout-form .req-mark {
+  color: #b01c1c;
+  font-weight: 900;
+}
+
 .c-terms-box {
   display: flex;
   gap: 10px;
@@ -3383,6 +3775,19 @@ body {
   padding: 3px 10px;
   border-radius: 999px;
   font-weight: 700;
+}
+/* Flags a saved address that cannot be shipped to yet, so the customer notices
+   it in the list instead of only at checkout. */
+.a-badge.incomplete-badge {
+  background: rgba(198, 124, 0, 0.1);
+  border: 1px solid rgba(198, 124, 0, 0.22);
+  color: #8a5300;
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-weight: 800;
+  display: inline-block;
+  margin-top: 6px;
 }
 .edit-address-btn {
   background: rgba(255, 255, 255, 0.9);
@@ -8254,6 +8659,19 @@ body.sidebar-open {
   color: #2055c6;
   border-color: #c5d8ff;
 }
+/* Same stage, different truth: the reference is in and FMRC is checking it. */
+.customer-order-status.status-to-pay.is-review {
+  background: #f1f3f8;
+  color: #545f72;
+  border-color: #d6dbe6;
+}
+/* Past the deadline. Nothing cancels automatically, so this warns rather than
+   declaring the order dead. */
+.customer-order-status.status-to-pay.is-overdue {
+  background: #fff2e3;
+  color: #9a5200;
+  border-color: #f4d0a2;
+}
 
 .customer-order-status.status-to-ship {
   background: #fff4db;
@@ -8277,6 +8695,22 @@ body.sidebar-open {
   background: #fde8e8;
   color: #b71c1c;
   border-color: #f4b6b6;
+}
+
+/* Cancelled reads as closed, not failed: the customer asked for it, so it is
+   grey rather than the red FMRC uses when it turns an order down. */
+.customer-order-status.status-cancelled {
+  background: #eef0f4;
+  color: #5b6472;
+  border-color: #d5dae3;
+}
+
+/* A request that staff have not answered yet. Amber because the order is still
+   alive - a decline puts it straight back into its old stage. */
+.customer-order-status.status-cancel-pending {
+  background: #fff4db;
+  color: #96590a;
+  border-color: #f0d89c;
 }
 
 .customer-order-price {
@@ -8399,6 +8833,7 @@ body.sidebar-open {
 }
 
 .customer-order-detail-items,
+.customer-order-detail-fulfillment,
 .customer-order-detail-logistics,
 .customer-order-detail-map-wrap,
 .customer-order-detail-timeline {
@@ -8406,6 +8841,58 @@ body.sidebar-open {
   border-radius: 11px;
   background: #fff;
   padding: 12px;
+}
+
+/* Pickup / delivery block of the order detail modal: the exact address parts a
+   courier would use, itemised so the customer can proof-read them. */
+.customer-order-detail-fulfillment h4 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.customer-order-fulfillment-mode {
+  margin: 7px 0 0;
+  color: #8f1111;
+  font-size: 0.78rem;
+}
+
+.customer-order-fulfillment-grid {
+  margin: 9px 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px 12px;
+}
+
+.customer-order-fulfillment-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.customer-order-fulfillment-row dt {
+  color: #64748b;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.customer-order-fulfillment-row dd {
+  margin: 0;
+  color: #1f2937;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 480px) {
+  .customer-order-fulfillment-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .customer-order-detail-items h4 {
@@ -8494,6 +8981,51 @@ body.sidebar-open {
   margin-top: 8px;
   color: #64748b;
   font-size: 0.74rem;
+}
+
+/* Waybill number: read off the screen and retyped into the courier's own
+   tracking box, so it gets a monospace face and a copy button. */
+.customer-order-waybill {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.customer-order-waybill-label {
+  color: #64748b;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.customer-order-waybill-no {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #0f172a;
+  font-family: "Courier New", monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  user-select: all;
+}
+
+.customer-order-waybill-copy {
+  padding: 4px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #fff;
+  color: #334155;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.customer-order-waybill-copy:hover {
+  border-color: #8f1111;
+  color: #8f1111;
 }
 
 .customer-order-map-frame {
@@ -9260,6 +9792,61 @@ body.sidebar-open {
 .toggle-pass svg {
   width: 20px;
   height: 20px;
+}
+
+/* ===== Pay Now Button (GCash placed, money not sent yet) =====
+   GCash blue rather than the FMRC maroon, so the one card action that leaves
+   for another app is not mistaken for an ordinary order control. */
+.customer-order-pay-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #0a5fd6 0%, #1d8bf1 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 14px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(13, 110, 231, 0.26);
+  transition: all 0.2s ease;
+  margin-top: 8px;
+}
+.customer-order-pay-btn:hover {
+  background: linear-gradient(135deg, #084ead 0%, #0a5fd6 100%);
+  box-shadow: 0 12px 26px rgba(13, 110, 231, 0.34);
+}
+.customer-order-pay-btn:active {
+  transform: scale(0.97);
+}
+.customer-order-pay-btn:disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+/* Past the deadline. Amber, not red: the payment is still accepted, and a red
+   button next to "overdue" reads as a dead end. */
+.customer-order-pay-btn.is-overdue {
+  background: linear-gradient(135deg, #b45309 0%, #d97706 100%);
+  box-shadow: 0 8px 20px rgba(180, 83, 9, 0.26);
+}
+.customer-order-pay-btn.is-overdue:hover {
+  background: linear-gradient(135deg, #92400e 0%, #b45309 100%);
+}
+/* Claim submitted, staff not finished. Still clickable so a mistyped reference
+   can be corrected, but it must not look like an outstanding task. */
+.customer-order-pay-btn.is-review {
+  background: #f4f6fa;
+  color: #4a5464;
+  border: 1px solid rgba(74, 84, 100, 0.22);
+  box-shadow: none;
+  font-weight: 700;
+}
+.customer-order-pay-btn.is-review:hover {
+  background: #e9edf4;
+  box-shadow: none;
 }
 
 /* ===== Order Received Button ===== */
@@ -11091,6 +11678,639 @@ body.sidebar-open {
   box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.12);
 }
 
+/* ── GCash "pay after checkout" panel ─────────────────────────
+   Opened from a To Pay card. Reuses the rating overlay shell for every
+   animation, and only restates what is specific to paying: the amount, the
+   destination, and the reference field. */
+.customer-gcash-card {
+  max-width: 480px;
+}
+
+.customer-gcash-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 24px 20px;
+}
+
+/* The one number a mistyped payment turns on, so it is the largest thing here. */
+.cgc-amount {
+  border: 1px solid rgba(13, 110, 231, 0.22);
+  background: linear-gradient(135deg, #f3f8ff 0%, #eaf2ff 100%);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.cgc-amount-label {
+  display: block;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #5a7196;
+}
+
+.cgc-amount-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.cgc-amount-value {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: #0a4ea8;
+  letter-spacing: -0.01em;
+}
+
+.cgc-copy-btn {
+  border: 1px solid rgba(13, 110, 231, 0.32);
+  background: #ffffff;
+  color: #0a4ea8;
+  border-radius: 999px;
+  padding: 5px 13px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.cgc-copy-btn:hover {
+  background: #eaf2ff;
+}
+
+/* Deadline. Amber, never red: nothing is cancelled automatically, so this is a
+   prompt and not a threat. */
+.cgc-deadline {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid rgba(214, 158, 46, 0.3);
+  background: rgba(214, 158, 46, 0.1);
+  font-size: 0.73rem;
+  line-height: 1.5;
+  font-weight: 700;
+  color: #6d5b1e;
+}
+
+.cgc-deadline.is-overdue {
+  border-color: rgba(180, 83, 9, 0.34);
+  background: rgba(180, 83, 9, 0.1);
+  color: #8a4708;
+}
+
+/* Shown instead of the deadline once a reference is in. */
+.cgc-review {
+  border: 1px solid rgba(74, 84, 100, 0.2);
+  background: #f6f8fb;
+  border-radius: 12px;
+  padding: 11px 13px;
+}
+
+.cgc-review-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 5px;
+  font-size: 0.79rem;
+  font-weight: 800;
+  color: #2f3846;
+}
+
+.cgc-review-body {
+  margin: 0;
+  font-size: 0.73rem;
+  line-height: 1.55;
+  color: #5b6473;
+}
+
+.cgc-review-proof {
+  display: inline-block;
+  margin-top: 7px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #0a4ea8;
+  text-decoration: underline;
+}
+
+/* Where the money goes. */
+.cgc-account {
+  display: grid;
+  gap: 8px;
+  padding: 11px 13px;
+  border-radius: 12px;
+  border: 1px solid rgba(92, 43, 38, 0.14);
+  background: rgba(255, 254, 250, 0.92);
+}
+
+.cgc-account-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cgc-account-label {
+  min-width: 96px;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #7a808c;
+}
+
+.cgc-account-value {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: #222833;
+  letter-spacing: 0.03em;
+}
+
+/* The QR is the centre's own uploaded image - it cannot be generated from a
+   phone number, because a QR Ph payload is issued to the merchant. */
+.cgc-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
+.cgc-qr-img {
+  width: 190px;
+  max-width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  border-radius: 12px;
+  border: 1px solid rgba(92, 43, 38, 0.14);
+  background: #ffffff;
+  padding: 8px;
+}
+
+.cgc-qr-save {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #0a4ea8;
+  text-decoration: underline;
+}
+
+.cgc-openapp {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cgc-openapp-btn {
+  width: 100%;
+  padding: 11px 18px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0a5fd6 0%, #1d8bf1 100%);
+  color: #ffffff;
+  font-family: "Montserrat", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(13, 110, 231, 0.24);
+}
+
+.cgc-openapp-hint {
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: #7a808c;
+}
+
+.cgc-steps {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+  font-size: 0.74rem;
+  line-height: 1.55;
+  color: #4d5563;
+}
+
+.cgc-steps strong {
+  font-weight: 800;
+  color: #222833;
+}
+
+.cgc-unavailable {
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid rgba(214, 158, 46, 0.3);
+  background: rgba(214, 158, 46, 0.1);
+  font-size: 0.73rem;
+  font-weight: 700;
+  line-height: 1.5;
+  color: #6d5b1e;
+}
+
+.cgc-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.cgc-field .customer-rating-field-label {
+  margin: 0 0 6px;
+}
+
+.cgc-field .customer-rating-field-label span {
+  font-weight: 700;
+  color: #8a8f9a;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.cgc-req {
+  color: #b01c1c;
+  font-weight: 900;
+}
+
+.cgc-ref-input {
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+
+.cgc-error {
+  margin: 6px 0 0;
+  font-size: 0.71rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: #b71c1c;
+}
+
+.cgc-error[hidden] {
+  display: none;
+}
+
+.cgc-file-input {
+  width: 100%;
+  font-family: "Montserrat", sans-serif;
+  font-size: 0.74rem;
+  color: #4d5563;
+  padding: 8px 10px;
+  border: 1px dashed rgba(105, 52, 42, 0.28);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+}
+
+.cgc-file-name {
+  margin: 6px 0 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #15803d;
+}
+
+.cgc-file-name[hidden] {
+  display: none;
+}
+
+/* The panel records a claim, not a payment. Saying so here is what keeps the
+   customer from reading a submitted reference as a settled order. */
+.cgc-honesty {
+  margin: 0;
+  font-size: 0.69rem;
+  line-height: 1.5;
+  color: #8a8f9a;
+}
+
+@media (max-width: 560px) {
+  .customer-gcash-body {
+    padding: 4px 14px 20px;
+  }
+
+  .cgc-amount-value {
+    font-size: 1.3rem;
+  }
+
+  .cgc-account-label {
+    min-width: 84px;
+  }
+}
+
+/* ── Customer-initiated cancellation ──────────────────────────
+   Shopee and Lazada both settle on the same shape: one sheet, a radio list of
+   pre-written reasons, one confirm button. The list is server-supplied, so
+   nothing here assumes a fixed number of options. */
+
+/* A cancelled card stays in the list as history. Draining the colour is what
+   stops it competing with the live orders above it. */
+.customer-order-card.is-cancelled {
+  background: #fbfbfc;
+  border-color: #e2e6ed;
+}
+
+.customer-order-card.is-cancelled .customer-order-thumb img {
+  filter: grayscale(0.55);
+  opacity: 0.85;
+}
+
+.customer-order-cancel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 6px 13px;
+  font-family: "Montserrat", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid #e0c3c3;
+  background: #fff;
+  color: #a03535;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.customer-order-cancel-btn:hover {
+  background: #fdf1f1;
+  border-color: #d59a9a;
+  color: #8f1111;
+}
+
+/* The pending variant is a status, not an action - it opens an explanation
+   instead of a form, so it must not look pressable in the same way. */
+.customer-order-cancel-btn.is-pending {
+  border-color: #f0d89c;
+  background: #fff8e8;
+  color: #96590a;
+  cursor: help;
+}
+
+.customer-order-cancel-btn.is-pending:hover {
+  background: #fff2d6;
+  border-color: #e6c777;
+  color: #7d4906;
+}
+
+/* One band under the order meta that says what happened and who owes what.
+   Three variants, all the same geometry so the card height barely moves. */
+.customer-order-cancel-band {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 6px 0 0;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font-size: 0.69rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.customer-order-cancel-band i {
+  flex-shrink: 0;
+  margin-top: 2px;
+  font-size: 0.78rem;
+}
+
+.customer-order-cancel-band strong {
+  font-weight: 800;
+}
+
+.customer-order-cancel-band.is-cancelled {
+  background: #f4f5f8;
+  border-color: #e0e4ec;
+  color: #59616f;
+}
+
+.customer-order-cancel-band.is-pending {
+  background: #fff8e8;
+  border-color: #f2e0b4;
+  color: #8a5308;
+}
+
+/* Declined is informational, not an error: the order carried on as normal. */
+.customer-order-cancel-band.is-declined {
+  background: #eef4ff;
+  border-color: #cfdefb;
+  color: #2d5395;
+}
+
+/* Same three states, told at length inside the detail modal. */
+.customer-order-cancel-detail {
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 0 0 14px;
+}
+
+.customer-order-cancel-detail h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.customer-order-cancel-detail p {
+  margin: 0 0 5px;
+  font-size: 0.73rem;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.customer-order-cancel-detail p:last-child {
+  margin-bottom: 0;
+}
+
+/* The customer's own words, and any staff note, set apart from FMRC's copy so
+   it is obvious which is which. */
+.customer-order-cancel-detail-note {
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  font-style: italic;
+}
+
+.customer-order-cancel-detail.is-cancelled {
+  background: #f4f5f8;
+  border-color: #e0e4ec;
+  color: #59616f;
+}
+
+.customer-order-cancel-detail.is-pending {
+  background: #fff8e8;
+  border-color: #f2e0b4;
+  color: #8a5308;
+}
+
+.customer-order-cancel-detail.is-declined {
+  background: #eef4ff;
+  border-color: #cfdefb;
+  color: #2d5395;
+}
+
+/* The sheet. Reuses the rating overlay shell for every animation, so only what
+   is specific to picking a reason is restated.
+
+   The shell's width rule is `(1,3,0)` and lives further down this file, so it
+   has to be out-specified rather than merely restated - naming both the rating
+   and the cancel classes takes this to `(1,5,0)`. A radio list reads better
+   narrow than the 560px the rating card wants. */
+:is(.ux-dlg, #aptPrivacyModal).customer-rating-overlay.customer-cancel-overlay
+  .customer-rating-card.customer-cancel-card.ux-dlg__card {
+  width: min(100%, 460px);
+  max-width: min(100%, 460px);
+}
+
+.customer-cancel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 24px 20px;
+}
+
+.ccx-subtitle {
+  margin: 3px 0 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #6b7280;
+}
+
+/* Says what the button will actually do. On a paid order this is the only place
+   the by-hand refund is spelled out before the customer commits. */
+.ccx-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid #f2e0b4;
+  border-radius: 10px;
+  background: #fff8e8;
+  font-size: 0.71rem;
+  font-weight: 600;
+  line-height: 1.55;
+  color: #8a5308;
+}
+
+.ccx-notice i {
+  flex-shrink: 0;
+  margin-top: 2px;
+  font-size: 0.82rem;
+}
+
+.ccx-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid #e3e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.ccx-reason {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  cursor: pointer;
+  border-bottom: 1px solid #eef1f6;
+  transition: background 0.15s ease;
+}
+
+.ccx-reason:last-child {
+  border-bottom: 0;
+}
+
+.ccx-reason:hover {
+  background: #f7f9fc;
+}
+
+/* The native radio is hidden rather than removed so the group stays keyboard
+   and screen-reader operable; `.ccx-reason-mark` is only its picture. */
+.ccx-reason input[type="radio"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ccx-reason-mark {
+  flex-shrink: 0;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 2px solid #c3cbd8;
+  background: #fff;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.ccx-reason input[type="radio"]:checked ~ .ccx-reason-mark {
+  border-color: #8f1111;
+  box-shadow: inset 0 0 0 3.5px #fff, inset 0 0 0 9px #8f1111;
+}
+
+.ccx-reason input[type="radio"]:focus-visible ~ .ccx-reason-mark {
+  outline: 2px solid #8f1111;
+  outline-offset: 2px;
+}
+
+.ccx-reason-label {
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #3b4252;
+}
+
+.ccx-reason input[type="radio"]:checked ~ .ccx-reason-label {
+  font-weight: 800;
+  color: #8f1111;
+}
+
+/* Only shown for the reason that needs it, so it never asks for typing the
+   customer does not owe. */
+.ccx-detail[hidden] {
+  display: none;
+}
+
+.ccx-detail-input {
+  resize: vertical;
+  min-height: 66px;
+}
+
+.ccx-error {
+  margin: 0;
+  font-size: 0.71rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: #b71c1c;
+}
+
+.ccx-error[hidden] {
+  display: none;
+}
+
+@media (max-width: 560px) {
+  .customer-cancel-body {
+    padding: 4px 14px 20px;
+  }
+
+  .ccx-reason {
+    padding: 12px 11px;
+  }
+}
+
+
 /* ── Returns toast ────────────────────────────────────────── */
 /* `.customer-return-toast` deliberately adds no rules: it inherits every
    metric and animation from `.customer-rate-prompt-popup`. The class exists
@@ -12119,6 +13339,7 @@ body {
 .customer-order-detail-modal,
 .customer-order-detail-chip,
 .customer-order-detail-items,
+.customer-order-detail-fulfillment,
 .customer-order-detail-logistics,
 .customer-order-detail-map-wrap,
 .customer-order-detail-timeline {

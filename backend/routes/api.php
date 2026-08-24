@@ -91,6 +91,11 @@ Route::get('/services/{service}/image', [ServiceController::class, 'image']);
 // Public: Home hero SDG badges (ETag-revalidated for cheap polling)
 Route::get('/site-sdgs', [HomeSdgController::class, 'index']);
 
+// Public: Courier registry. The admin tracking dropdown and the customer's
+// "track it yourself" link both read this, so config/couriers.php stays the one
+// place that knows which companies FMRC ships through.
+Route::get('/couriers', [OrderController::class, 'couriers']);
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/users', [AuthController::class, 'getUsers']);
     Route::post('/users', [AuthController::class, 'adminCreateUser']);
@@ -108,6 +113,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/customer/orders/{order}', [OrderController::class, 'customerShow']);
     Route::get('/customer/orders/{order}/items/{orderItem}/image', [OrderController::class, 'customerItemImage']);
     Route::post('/customer/orders/{order}/received', [OrderController::class, 'customerMarkReceived']);
+
+    // Customer: submit the GCash reference number for an order placed to be paid
+    // later. Records a claim for staff to verify; it never marks the order paid.
+    Route::post('/customer/orders/{order}/payment', [OrderController::class, 'customerSubmitPayment']);
+
+    // Customer: call off an order that has not been handed over yet. The server
+    // decides whether this cancels outright (nothing paid, nothing prepared) or
+    // only files a request for staff to approve.
+    Route::post('/customer/orders/{order}/cancel', [OrderController::class, 'customerCancel']);
 
     // Customer: Product ratings (rate a completed order)
     Route::get('/customer/ratings', [ProductRatingController::class, 'customerRatings']);
@@ -156,6 +170,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/admin/orders/{order}/complete', [OrderController::class, 'complete']);
     Route::patch('/admin/orders/{order}/tracking', [OrderController::class, 'updateTracking']);
     Route::patch('/admin/orders/{order}/payment-status', [OrderController::class, 'updatePaymentStatus']);
+    // Admin/Staff: accept or refuse a customer's cancellation request.
+    Route::post('/admin/orders/{order}/cancellation', [OrderController::class, 'decideCancellation']);
     Route::patch('/admin/orders/{order}/archive', [OrderController::class, 'adminArchive']);
     Route::patch('/admin/orders/{order}/archive-payment', [OrderController::class, 'adminArchivePayment']);
     Route::patch('/admin/orders/{order}/unarchive', [OrderController::class, 'adminUnarchivePayment']);

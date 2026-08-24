@@ -20,7 +20,7 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
-    <link rel="stylesheet" href="../home-page/main.css?v=5.2" />
+    <link rel="stylesheet" href="../home-page/main.css?v=5.6" />
     <style>
       @keyframes shimmer {
         0% {
@@ -147,7 +147,7 @@
         .promotion-spotlight__inner { align-items: flex-start; padding: 15px; }
       }
     </style>
-    <link rel="stylesheet" href="../home-page/responsive.css?v=5.2" />
+    <link rel="stylesheet" href="../home-page/responsive.css?v=5.6" />
   </head>
   <body class="products-page-body">
     <header class="site-header">
@@ -512,9 +512,46 @@
                 <span id="displayClientName">No Name Provided</span>
                 <span id="displayClientPhone">+63 -</span>
               </div>
+              <!--
+                Itemised on purpose. A courier needs the barangay, city,
+                province and postal code as separate lines, and the customer
+                can only spot a wrong one if each is shown on its own.
+              -->
+              <dl class="client-address-grid" id="displayClientAddressGrid">
+                <div class="client-address-row">
+                  <dt>Street</dt>
+                  <dd id="displayAddrStreet">—</dd>
+                </div>
+                <div class="client-address-row">
+                  <dt>Barangay</dt>
+                  <dd id="displayAddrBarangay">—</dd>
+                </div>
+                <div class="client-address-row">
+                  <dt>City / Municipality</dt>
+                  <dd id="displayAddrCity">—</dd>
+                </div>
+                <div class="client-address-row">
+                  <dt>Province</dt>
+                  <dd id="displayAddrProvince">—</dd>
+                </div>
+                <div class="client-address-row">
+                  <dt>Postal code</dt>
+                  <dd id="displayAddrPostal">—</dd>
+                </div>
+                <div class="client-address-row">
+                  <dt>Landmark</dt>
+                  <dd id="displayAddrLandmark">—</dd>
+                </div>
+              </dl>
               <div class="client-address-text" id="displayClientAddress">
                 No saved address yet. Add your details first.
               </div>
+              <p
+                class="client-address-alert"
+                id="displayClientAddressAlert"
+                role="alert"
+                hidden
+              ></p>
               <div class="client-dept-role">
                 <span class="badge-role" id="displayClientRole">Not set</span>
                 <span class="badge-role gray-badge" id="displayClientDept"
@@ -596,6 +633,159 @@
                 <option>GCash</option>
               </select>
             </div>
+          </div>
+
+          <!--
+            GCash can be paid now or after the order is placed, the way Shopee
+            and Lazada do it: placing the order is free, and the customer has a
+            window (see config/payments.php) to send the money from My Orders.
+            On a phone the GCash app can be opened directly; on a laptop there
+            is no app to open, so the centre's QR is shown for the customer to
+            scan with their phone. GCash prints a 13-digit reference number,
+            and that number is the only proof staff can match against the FMRC
+            GCash account - so it is asked for here, but never required: an
+            order placed without it simply waits in "To Pay".
+          -->
+          <div
+            class="checkout-section gcash-pay-section"
+            id="gcashPaymentSection"
+            hidden
+          >
+            <h3 class="checkout-section-title">Pay with GCash</h3>
+
+            <p class="gcash-amount-line">
+              Send exactly
+              <strong id="gcashAmountDue">₱0.00</strong>
+              to the FMRC GCash account below.
+            </p>
+
+            <p class="gcash-paylater-note" id="gcashPayLaterNote">
+              <i class="fa-regular fa-clock" aria-hidden="true"></i>
+              <span
+                >You can also place the order first and pay later &mdash; it
+                will wait for you under <strong>My Orders &rsaquo; To Pay</strong>.</span
+              >
+            </p>
+
+            <div class="gcash-account-card">
+              <div class="gcash-account-row">
+                <span class="gcash-account-label">Account name</span>
+                <span class="gcash-account-value" id="gcashAccountName">—</span>
+              </div>
+              <div class="gcash-account-row">
+                <span class="gcash-account-label">GCash number</span>
+                <span class="gcash-account-value" id="gcashAccountNumber"
+                  >—</span
+                >
+                <button
+                  type="button"
+                  class="gcash-copy-btn"
+                  id="gcashCopyNumberBtn"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+
+            <div class="gcash-pay-methods">
+              <div class="gcash-qr-block" id="gcashQrBlock" hidden>
+                <img
+                  id="gcashQrImage"
+                  class="gcash-qr-image"
+                  alt="FMRC GCash QR code"
+                />
+                <a
+                  id="gcashQrDownload"
+                  class="gcash-qr-save"
+                  download="fmrc-gcash-qr.png"
+                  href="#"
+                  >Save QR image</a
+                >
+              </div>
+              <div class="gcash-mobile-block" id="gcashMobileBlock" hidden>
+                <button
+                  type="button"
+                  class="gcash-open-app-btn"
+                  id="gcashOpenAppBtn"
+                >
+                  Open the GCash app
+                </button>
+                <p class="gcash-open-app-hint" id="gcashOpenAppHint"></p>
+              </div>
+            </div>
+
+            <ol class="gcash-steps" id="gcashSteps"></ol>
+
+            <div class="form-group gcash-reference-group">
+              <label for="gcashReferenceInput"
+                >GCash reference number
+                <span class="opt-mark">(optional)</span></label
+              >
+              <input
+                type="text"
+                class="c-input"
+                id="gcashReferenceInput"
+                inputmode="numeric"
+                autocomplete="off"
+                maxlength="19"
+                placeholder="13 digits, e.g. 0123456789012"
+              />
+              <small class="gcash-reference-help"
+                >Already sent it? Your GCash receipt shows this as "Ref. No." —
+                we match it against the FMRC GCash account before the order
+                moves forward. Haven't sent it yet? Leave this blank and pay
+                from My Orders.</small
+              >
+            </div>
+
+            <p
+              class="gcash-unconfigured-note"
+              id="gcashUnconfiguredNote"
+              hidden
+            ></p>
+          </div>
+
+          <!--
+            How the order reaches the customer. Cash payments already decide it
+            (Cash on Pickup is paid at the counter, Cash on Delivery is paid to
+            the courier), so for those the choice is locked and only explained.
+            GCash is prepaid and works either way, so it must be chosen.
+          -->
+          <div class="checkout-section" id="checkoutFulfillmentSection">
+            <h3 class="checkout-section-title">How will you get it?</h3>
+            <div class="c-fulfillment-options">
+              <label class="c-fulfillment-option" for="fulfillPickupRadio">
+                <input
+                  type="radio"
+                  name="fulfillmentType"
+                  value="pickup"
+                  id="fulfillPickupRadio"
+                />
+                <span class="c-fulfillment-copy">
+                  <strong>Pickup at FMRC</strong>
+                  <small
+                    >Collect it yourself at the FMRC Office, University of
+                    Camarines Norte, Daet. No delivery address needed.</small
+                  >
+                </span>
+              </label>
+              <label class="c-fulfillment-option" for="fulfillDeliveryRadio">
+                <input
+                  type="radio"
+                  name="fulfillmentType"
+                  value="delivery"
+                  id="fulfillDeliveryRadio"
+                />
+                <span class="c-fulfillment-copy">
+                  <strong>Courier delivery</strong>
+                  <small
+                    >Shipped by J&amp;T Express to the address above. Every
+                    address field is required.</small
+                  >
+                </span>
+              </label>
+            </div>
+            <p class="c-fulfillment-note" id="fulfillmentNote"></p>
           </div>
 
           <div class="c-terms-box">
@@ -773,22 +963,73 @@
             </div>
 
             <div class="form-group">
-              <label>Address</label>
+              <label>House / unit no. and street <span class="req-mark">*</span></label>
               <textarea
                 id="inpAddress"
                 class="c-input c-textarea"
                 style="margin-bottom: 10px"
+                placeholder="e.g. 123 Rizal St., Purok 4"
                 required
               ></textarea>
             </div>
 
+            <div class="form-row-2">
+              <div class="form-group">
+                <label>Barangay <span class="req-mark">*</span></label>
+                <input
+                  type="text"
+                  id="inpBarangay"
+                  class="c-input"
+                  placeholder="e.g. Barangay II"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label>City / Municipality <span class="req-mark">*</span></label>
+                <input
+                  type="text"
+                  id="inpCity"
+                  class="c-input"
+                  placeholder="e.g. Daet"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label>Province <span class="req-mark">*</span></label>
+                <input
+                  type="text"
+                  id="inpProvince"
+                  class="c-input"
+                  placeholder="e.g. Camarines Norte"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label>Postal code <span class="req-mark">*</span></label>
+                <input
+                  type="text"
+                  id="inpPostal"
+                  class="c-input"
+                  inputmode="numeric"
+                  maxlength="4"
+                  placeholder="4600"
+                  required
+                />
+              </div>
+            </div>
+
             <div class="form-group">
-              <label>Address details</label>
+              <label>Landmark / delivery notes <span class="req-mark">*</span></label>
               <input
                 type="text"
                 id="inpDetails"
                 class="c-input"
-                placeholder="Apartment, room, landmark"
+                placeholder="Apartment, room, nearest landmark"
                 required
               />
             </div>
@@ -940,22 +1181,73 @@
             </div>
 
             <div class="form-group">
-              <label>Address</label>
+              <label>House / unit no. and street <span class="req-mark">*</span></label>
               <textarea
                 id="addInpAddress"
                 class="c-input c-textarea"
                 style="margin-bottom: 10px"
+                placeholder="e.g. 123 Rizal St., Purok 4"
                 required
               ></textarea>
             </div>
 
+            <div class="form-row-2">
+              <div class="form-group">
+                <label>Barangay <span class="req-mark">*</span></label>
+                <input
+                  type="text"
+                  id="addInpBarangay"
+                  class="c-input"
+                  placeholder="e.g. Barangay II"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label>City / Municipality <span class="req-mark">*</span></label>
+                <input
+                  type="text"
+                  id="addInpCity"
+                  class="c-input"
+                  placeholder="e.g. Daet"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="form-row-2">
+              <div class="form-group">
+                <label>Province <span class="req-mark">*</span></label>
+                <input
+                  type="text"
+                  id="addInpProvince"
+                  class="c-input"
+                  placeholder="e.g. Camarines Norte"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label>Postal code <span class="req-mark">*</span></label>
+                <input
+                  type="text"
+                  id="addInpPostal"
+                  class="c-input"
+                  inputmode="numeric"
+                  maxlength="4"
+                  placeholder="4600"
+                  required
+                />
+              </div>
+            </div>
+
             <div class="form-group">
-              <label>Address details</label>
+              <label>Landmark / delivery notes <span class="req-mark">*</span></label>
               <input
                 type="text"
                 id="addInpDetails"
                 class="c-input"
-                placeholder="Apartment, room, landmark"
+                placeholder="Apartment, room, nearest landmark"
                 required
               />
             </div>
@@ -1434,8 +1726,8 @@
 
     <!-- Order success modal above replaces the previous inline card. -->
 
-    <script src="../home-page/customer-announcements.js?v=5.2"></script>
-    <script src="../home-page/main.js?v=5.2"></script>
-    <script src="products.js?v=5.2"></script>
+    <script src="../home-page/customer-announcements.js?v=5.4"></script>
+    <script src="../home-page/main.js?v=5.7"></script>
+    <script src="products.js?v=5.4"></script>
   </body>
 </html>

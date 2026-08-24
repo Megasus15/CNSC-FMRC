@@ -239,19 +239,18 @@ class ReportController extends Controller
         );
         $onlineOrders = $onlineQuery->get();
 
-        // GCash is collected up front, so an approved GCash order is recognised
-        // revenue even before fulfilment completes. Mirrors the dashboard
-        // Total Revenue card; 'pending' and 'completed' are mutually exclusive
-        // lifecycle states, so nothing is counted twice.
+        // GCash is collected up front, so a *verified* GCash payment is recognised
+        // revenue even before fulfilment completes — and an unverified one is not
+        // recognised at all, however far the order has moved. Shares the dashboard
+        // Total Revenue card's scope so the two cannot drift; the scope excludes
+        // 'completed' and 'rejected', so nothing here is counted twice or credited
+        // while it is owed back. The period is keyed off when the money was
+        // confirmed (payments.paid_at) rather than when the order was accepted.
         $advanceQuery = Order::query()
-            ->with(['payment:id,order_id,method,status'])
-            ->where('lifecycle_status', 'pending')
-            ->where('payment_method', 'GCash')
-            ->whereNotNull('approved_at');
-        $this->applyFallbackTimestampRange(
+            ->with(['payment:id,order_id,method,status,paid_at'])
+            ->gcashAdvanceRevenue();
+        $this->applyPaymentTimestampRange(
             $advanceQuery,
-            'approved_at',
-            'created_at',
             $period['start_utc'],
             $period['end_utc'],
         );
@@ -316,7 +315,9 @@ class ReportController extends Controller
         }
 
         foreach ($advanceOrders as $order) {
-            $transactionDate = $order->approved_at ?? $order->created_at;
+            // Must match applyPaymentTimestampRange()'s fallback exactly, or a row
+            // inside the window could bucket outside it.
+            $transactionDate = $order->payment?->paid_at ?? $order->created_at;
             $amount = (float) $order->total;
             $advanceSales += $amount;
             $this->addToBucket($onlineSeries, $bucketKeys, $transactionDate, $amount, $period['period']);
@@ -326,7 +327,7 @@ class ReportController extends Controller
                 'transaction_no' => $order->order_no ?: ('ORD-'.$order->id),
                 'transaction_date' => $this->formatReportTimestamp($transactionDate),
                 'customer' => $order->customer_name ?: 'Unknown Customer',
-                'status' => 'Approved',
+                'status' => 'Payment Verified',
                 'payment_method' => $order->payment?->method ?: ($order->payment_method ?: 'GCash'),
                 'amount' => round($amount, 2),
                 'archived' => (bool) $order->is_archived,
@@ -400,7 +401,7 @@ class ReportController extends Controller
                 'value_type' => 'currency',
                 'items' => [
                     ['label' => 'Completed Online Orders', 'value' => round($onlineSales, 2)],
-                    ['label' => 'Approved GCash Orders', 'value' => round($advanceSales, 2)],
+                    ['label' => 'Verified GCash Orders', 'value' => round($advanceSales, 2)],
                     ['label' => 'Walk-in Orders', 'value' => round($walkInSales, 2)],
                     ['label' => 'Refunds (Approved & Released)', 'value' => round(-$refundsIssued, 2)],
                     ['label' => 'Net Sales', 'value' => round($netSales, 2)],
@@ -950,6 +951,41 @@ class ReportController extends Controller
                         ->where($fallbackColumn, '>=', $startUtc)
                         ->where($fallbackColumn, '<', $endUtc);
                 });
+        });
+    }
+
+    /**
+     * Restrict orders to those whose payment was verified inside the period.
+     *
+     * Keyed off `payments.paid_at` — the moment staff matched the reference against
+     * the FMRC GCash account — because that is when the money became real, not when
+     * the order was placed or accepted. Rows marked paid before that column was
+     * being stamped fall back to the order's own `created_at`, mirroring
+     * applyFallbackTimestampRange()'s half-open [start, end) window.
+     */
+    private function applyPaymentTimestampRange(
+        Builder $query,
+        Carbon $startUtc,
+        Carbon $endUtc,
+    ): void {
+        $query->whereHas('payment', function (Builder $payment) use ($startUtc, $endUtc) {
+            $payment->where(function (Builder $dateQuery) use ($startUtc, $endUtc) {
+                $dateQuery
+                    ->where(function (Builder $paidAtQuery) use ($startUtc, $endUtc) {
+                        $paidAtQuery
+                            ->whereNotNull('payments.paid_at')
+                            ->where('payments.paid_at', '>=', $startUtc)
+                            ->where('payments.paid_at', '<', $endUtc);
+                    })
+                    ->orWhere(function (Builder $fallbackQuery) use ($startUtc, $endUtc) {
+                        // Correlated back to the parent row: whereHas keeps `orders`
+                        // in scope inside the EXISTS subquery.
+                        $fallbackQuery
+                            ->whereNull('payments.paid_at')
+                            ->where('orders.created_at', '>=', $startUtc)
+                            ->where('orders.created_at', '<', $endUtc);
+                    });
+            });
         });
     }
 
