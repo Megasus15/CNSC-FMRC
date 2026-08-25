@@ -7006,15 +7006,24 @@ document.addEventListener("DOMContentLoaded", () => {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
   };
 
-  // FMRC has no courier API contract, so a tracking link can only ever be the
-  // courier's own public page. The server picks that page out of
-  // config/couriers.php and hands it over as fulfillment.courier.tracking_url;
-  // 17TRACK is the fallback because it detects the carrier from the number
-  // itself, so it works even for a courier the registry has never heard of.
+  // FMRC has no courier API contract, so a tracking link can only ever be a
+  // public web page. The server builds it in buildCourierState() and hands it
+  // over as fulfillment.courier.tracking_url, already carrying the waybill: one
+  // click and the checkpoints are on screen. 17TRACK is what makes that
+  // possible for J&T, LBC, Flash and PHLPost, whose own pages only read the
+  // number from an in-page form - it works out the carrier from the number
+  // itself, so it also covers a courier the registry has never heard of.
   const UNIVERSAL_TRACKING_URL = "https://www.17track.net/en/tracking";
 
+  const prefilledUniversalTrackingUrl = (trackingNo) => {
+    const no = String(trackingNo || "").trim();
+    return no
+      ? `https://t.17track.net/en#nums=${encodeURIComponent(no)}`
+      : UNIVERSAL_TRACKING_URL;
+  };
+
   const isUniversalTrackingUrl = (url) =>
-    String(url || "").startsWith("https://www.17track.net");
+    /^https:\/\/(www|t)\.17track\.net\b/.test(String(url || ""));
 
   let customerOrdersController = null;
   const customerOrdersCache = new Map();
@@ -7043,14 +7052,36 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  const writeCustomerOrdersCache = (cacheKey, orders, etag = "", returns = null) => {
+  const writeCustomerOrdersCache = (
+    cacheKey,
+    orders,
+    etag = "",
+    returns = null,
+    cancelReasonOptions = null,
+  ) => {
     if (!cacheKey || !Array.isArray(orders)) return;
+
+    // The reason list only arrives with a full 200 body. Five of the six writers
+    // here are row-level touch-ups that know nothing about it, so an omitted
+    // argument keeps whatever was cached rather than blanking it.
+    const previous = readCustomerOrdersCache(cacheKey);
+    const reasons =
+      Array.isArray(cancelReasonOptions) && cancelReasonOptions.length
+        ? cancelReasonOptions
+        : Array.isArray(previous?.cancelReasonOptions)
+          ? previous.cancelReasonOptions
+          : [];
 
     const entry = {
       orders,
       // Returns arrive in the same response as the orders, so they are cached
       // together. Older entries simply have no `returns` key.
       returns: Array.isArray(returns) ? returns : [],
+      // Cached for the same reason: a 304 reply carries no body at all, so on
+      // every reload - where the very first request matches the cached ETag -
+      // the cancel sheet was falling back to three hard-coded reasons instead of
+      // the server's ten.
+      cancelReasonOptions: reasons,
       etag: String(etag || ""),
       savedAt: Date.now(),
     };
@@ -9682,7 +9713,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     : `<p class="ccx-notice"><i class="fa-regular fa-hourglass-half" aria-hidden="true"></i> ${
                         paymentConfirmed
                           ? `FMRC has already confirmed your ${escapeHtml(amountText)} payment, so this sends a request instead of cancelling straight away. If staff approve it, they refund the ${escapeHtml(amountText)} to the GCash number you paid from — by hand, so allow a few working days.`
-                          : "FMRC has already accepted this order and may have started preparing it, so this sends a request instead of cancelling straight away."
+                          : `FMRC is holding a payment for this order, so this sends a request instead of cancelling straight away. Staff check the ${escapeHtml(amountText)} before closing the order.`
                       }</p>`
                 }
                 ${
@@ -9771,7 +9802,17 @@ document.addEventListener("DOMContentLoaded", () => {
           const radio = selectedRadio();
           const needsDetail = radio?.dataset.requiresDetail === "1";
           if (detailWrap) detailWrap.hidden = !needsDetail;
-          if (needsDetail) setTimeout(() => detailInput?.focus(), 60);
+          if (needsDetail) {
+            // The card's height is fixed, so revealing this box grows the
+            // scroller rather than the dialog - and with ten reasons above it,
+            // the box lands below the fold. Focusing it does not reliably bring
+            // it back, so the wrapper is scrolled in by hand and focus is told
+            // not to fight it.
+            setTimeout(() => {
+              detailWrap?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+              detailInput?.focus({ preventScroll: true });
+            }, 60);
+          }
           showError("");
         });
 
@@ -10150,10 +10191,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
               // Cancellation. `can_request_cancel` and `cancel_is_immediate` are
               // the server's own read of the same rule the API enforces, so the
-              // button never promises something the POST will refuse: at To Pay
-              // with nothing confirmed it cancels outright, and once the payment
-              // is verified or staff have started the job it only files a
-              // request. `cancel_blocked_reason` explains a missing button.
+              // button never promises something the POST will refuse: it only
+              // appears while the order is still at To Pay, and there it cancels
+              // outright unless FMRC has already confirmed the payment, in which
+              // case it files a request so staff can arrange the refund.
+              // `cancel_blocked_reason` explains a missing button.
               const cancelActionsHtml = order.can_request_cancel
                 ? `<button type="button" class="customer-order-cancel-btn" data-order-cancel="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || "Order")}"><i class="fa-regular fa-circle-xmark" aria-hidden="true"></i> ${order.cancel_is_immediate ? "Cancel Order" : "Request Cancellation"}</button>`
                 : order.cancel_pending
@@ -10380,6 +10422,16 @@ document.addEventListener("DOMContentLoaded", () => {
         const courierTrackingUrl = String(
           courierState.tracking_url || "",
         ).trim();
+        // The courier's own tracking page, when the one-click link had to come
+        // from 17TRACK instead. Secondary on purpose: it needs the number pasted
+        // into a form, so it is the long way round to the same checkpoints.
+        const courierOwnTrackingUrl = String(
+          courierState.courier_tracking_url || "",
+        ).trim();
+        const trackingIsUniversal =
+          courierState.tracking_url_provider === "universal" ||
+          (!courierState.tracking_url_provider &&
+            isUniversalTrackingUrl(courierTrackingUrl));
 
         // How this order is handed over. Pickup orders never ship, so they show
         // the FMRC counter and a pickup code instead of a courier address.
@@ -10483,12 +10535,21 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             ${
               courierTrackingUrl
-                ? `<a class="customer-order-logistics-link" href="${escapeHtml(courierTrackingUrl)}" target="_blank" rel="noopener noreferrer">${
-                    isUniversalTrackingUrl(courierTrackingUrl)
-                      ? "Look this number up on 17TRACK"
-                      : `Track on ${courierName}`
+                ? `<a class="customer-order-logistics-link" href="${escapeHtml(courierTrackingUrl)}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i> ${
+                    trackingIsUniversal
+                      ? "Track this parcel on 17TRACK"
+                      : `Track this parcel on ${courierName}`
                   }</a>
-                   <p class="customer-order-logistics-note">Paste the waybill number into the courier's tracking box — FMRC copies each checkpoint into the timeline below as the courier reports it.</p>`
+                   ${
+                     courierOwnTrackingUrl
+                       ? `<a class="customer-order-logistics-link customer-order-logistics-link--ghost" href="${escapeHtml(courierOwnTrackingUrl)}" target="_blank" rel="noopener noreferrer">Or open ${courierName}'s own site</a>`
+                       : ""
+                   }
+                   <p class="customer-order-logistics-note">${
+                     trackingIsUniversal
+                       ? `The waybill number is already in that link — 17TRACK recognises ${courierName} from the number and lists their checkpoints, no typing needed. ${courierName}'s own site asks you to paste the number in yourself, which is why it is the second link.`
+                       : `Opens ${courierName}'s tracking page with this waybill already filled in.`
+                   } FMRC also copies each checkpoint into the timeline below as the courier reports it.</p>`
                 : '<p class="customer-order-logistics-note">Tracking number will appear here once shipment info is available.</p>'
             }
           </div>`
@@ -10640,9 +10701,9 @@ document.addEventListener("DOMContentLoaded", () => {
               ${
                 // The customer chose this courier themselves, so there is no
                 // registry entry to look a tracking page up in - 17TRACK reads
-                // the carrier off the number.
+                // the carrier off the number, which is already in the link.
                 String(detail?.return_tracking_no || "").trim()
-                  ? `<a class="customer-order-logistics-link" href="${UNIVERSAL_TRACKING_URL}" target="_blank" rel="noopener noreferrer">Look this number up on 17TRACK</a>`
+                  ? `<a class="customer-order-logistics-link" href="${escapeHtml(prefilledUniversalTrackingUrl(detail.return_tracking_no))}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i> Track this return on 17TRACK</a>`
                   : '<p class="customer-order-logistics-note">Keep your shipping receipt until the refund is released.</p>'
               }
             </div>
@@ -10968,6 +11029,7 @@ document.addEventListener("DOMContentLoaded", () => {
               state.orders,
               state.etag,
               state.returns,
+              state.cancelReasonOptions,
             );
             renderOrders();
           } else if (result.etag) {
@@ -11234,6 +11296,16 @@ document.addEventListener("DOMContentLoaded", () => {
             state.returns = Array.isArray(cachedEntry.returns)
               ? cachedEntry.returns
               : [];
+            // Restored with the rows because the request that follows will match
+            // the cached ETag and come back 304 - bodiless - so this is the only
+            // chance to have the server's reason list before the customer taps
+            // Cancel Order.
+            if (
+              Array.isArray(cachedEntry.cancelReasonOptions) &&
+              cachedEntry.cancelReasonOptions.length
+            ) {
+              state.cancelReasonOptions = cachedEntry.cancelReasonOptions;
+            }
             state.etag = String(cachedEntry.etag || "");
             renderOrders();
             setSyncStatus("syncing", "Checking for new updates...");

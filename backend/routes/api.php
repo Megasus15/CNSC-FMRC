@@ -169,6 +169,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/admin/orders/{order}/reject', [OrderController::class, 'reject']);
     Route::post('/admin/orders/{order}/complete', [OrderController::class, 'complete']);
     Route::patch('/admin/orders/{order}/tracking', [OrderController::class, 'updateTracking']);
+    // Admin/Staff: the ready-made checkpoint list for the tracking modal, out of
+    // config/tracking_checkpoints.php. Saves retyping the same checkpoints and
+    // their coordinates; it is not a courier feed, nothing here is automatic.
+    Route::get('/admin/tracking/checkpoint-presets', [OrderController::class, 'checkpointPresets']);
     Route::patch('/admin/orders/{order}/payment-status', [OrderController::class, 'updatePaymentStatus']);
     // Admin/Staff: accept or refuse a customer's cancellation request.
     Route::post('/admin/orders/{order}/cancellation', [OrderController::class, 'decideCancellation']);

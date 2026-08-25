@@ -36,16 +36,29 @@ return new class extends Migration
         // Widen the lifecycle enum in place. Adding a member to an enum rewrites
         // no rows, and the surrounding definition is repeated verbatim so the
         // default and nullability survive the ALTER.
-        if (Schema::hasColumn('orders', 'lifecycle_status') && $this->isMySql()) {
-            $current = $this->enumMembers('orders', 'lifecycle_status');
+        if (Schema::hasColumn('orders', 'lifecycle_status')) {
+            if ($this->isMySql()) {
+                $current = $this->enumMembers('orders', 'lifecycle_status');
 
-            if ($current !== [] && ! in_array('cancelled', $current, true)) {
-                $members = array_merge($current, ['cancelled']);
-                $list = implode(',', array_map(fn (string $value) => "'".$value."'", $members));
+                if ($current !== [] && ! in_array('cancelled', $current, true)) {
+                    $members = array_merge($current, ['cancelled']);
+                    $list = implode(',', array_map(fn (string $value) => "'".$value."'", $members));
 
-                DB::statement(
-                    "ALTER TABLE `orders` MODIFY COLUMN `lifecycle_status` ENUM({$list}) NOT NULL DEFAULT 'incoming'"
-                );
+                    DB::statement(
+                        "ALTER TABLE `orders` MODIFY COLUMN `lifecycle_status` ENUM({$list}) NOT NULL DEFAULT 'incoming'"
+                    );
+                }
+            } elseif (DB::connection()->getDriverName() === 'sqlite') {
+                // SQLite compiles an enum into a CHECK constraint and has no way
+                // to alter one, so the column becomes a plain string instead.
+                // Without this the test suite runs against a schema that refuses
+                // `cancelled` outright, and an immediate customer cancellation
+                // 500s in every environment that is not MySQL. The values are
+                // validated in the controller either way - the constraint was
+                // never the thing keeping them honest.
+                Schema::table('orders', function (Blueprint $table): void {
+                    $table->string('lifecycle_status', 20)->default('incoming')->change();
+                });
             }
         }
 

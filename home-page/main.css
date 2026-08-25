@@ -8977,6 +8977,49 @@ body.sidebar-open {
   font-weight: 700;
 }
 
+/* The parcel link is the whole point of the courier block - one click and the
+   checkpoints are on screen, waybill already filled in - so it is dressed as a
+   button instead of as body text. It sits on its own line because a secondary
+   link may follow it, and two inline-flex anchors would otherwise touch. */
+.customer-order-detail-logistics
+  .customer-order-logistics-link:not(.customer-order-logistics-link--ghost) {
+  padding: 8px 15px;
+  border-radius: 999px;
+  background: #8f1111;
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(143, 17, 17, 0.22);
+  transition:
+    background 0.16s ease,
+    transform 0.16s ease;
+}
+
+.customer-order-detail-logistics
+  .customer-order-logistics-link:not(.customer-order-logistics-link--ghost):hover {
+  background: #741010;
+  transform: translateY(-1px);
+}
+
+/* The courier's own page. It needs the number pasted into a form, so it is the
+   long way round to the same information and is styled to say so. */
+.customer-order-logistics-link--ghost {
+  color: #64748b;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.customer-order-logistics-link--ghost:hover {
+  color: #334155;
+}
+
+/* Pill first, courier link beside it. Both are inline-flex, so on a narrow
+   phone the second one simply wraps to the next line. */
+.customer-order-detail-logistics
+  .customer-order-logistics-link
+  + .customer-order-logistics-link {
+  margin-left: 12px;
+}
+
 .customer-order-logistics-note {
   margin-top: 8px;
   color: #64748b;
@@ -12165,6 +12208,14 @@ body.sidebar-open {
   .customer-rating-card.customer-cancel-card.ux-dlg__card {
   width: min(100%, 460px);
   max-width: min(100%, 460px);
+  /* Fixed, not content-driven. The shell only caps the height, so picking "Other
+     reason" reveals the detail box and the whole dialog jumps taller under the
+     customer's cursor - the radio they just clicked slides out from under it.
+     Pinning the height hands that growth to `.customer-rating-body`, which
+     already scrolls, and focusing the textarea pulls it into view. The viewport
+     term keeps a short screen from overflowing; there the value is the same one
+     the shell's max-height would have produced anyway. */
+  height: min(calc(100dvh - 28px), 640px);
 }
 
 .customer-cancel-body {
@@ -12172,6 +12223,15 @@ body.sidebar-open {
   flex-direction: column;
   gap: 12px;
   padding: 4px 24px 20px;
+}
+
+/* The body is the scroller, so nothing inside it may shrink instead of
+   overflowing. Left shrinkable, `.ccx-reasons` - which is `overflow: hidden` for
+   its rounded corners - was squashed from 435px to 26px the moment the detail
+   box appeared, clipping nine of the ten reasons with no scrollbar anywhere,
+   because a child that shrinks never overflows its parent. */
+.customer-cancel-body > * {
+  flex: 0 0 auto;
 }
 
 .ccx-subtitle {

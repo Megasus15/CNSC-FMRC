@@ -1079,6 +1079,58 @@ input.page-number:focus,
   }
 }
 
+/* The two coordinates FMRC already knows, plus a way to check the pin before the
+   customer sees it. Small and quiet: they sit under the boxes as shortcuts, not
+   as the main way to fill them in. */
+.tracking-latlng-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tracking-coord-btn {
+  padding: 5px 11px;
+  border: 1px solid #d6dbe2;
+  border-radius: 999px;
+  background: #fff;
+  color: #414a55;
+  font-family: inherit;
+  font-size: 0.71rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.tracking-coord-btn:hover {
+  border-color: #8f1111;
+  background: #fdf4f4;
+  color: #8f1111;
+}
+
+.tracking-coord-btn[hidden] {
+  display: none;
+}
+
+/* "Check on map" leaves the page, so it reads as a link rather than a control. */
+.tracking-coord-btn--link {
+  border-style: dashed;
+}
+
+/* A hint that has become a correction - a pasted link with no coordinates in it,
+   or an order with no map pin to copy. Same size, different weight, so it does
+   not shove the modal's layout around when it appears. */
+.field-hint--warn {
+  color: #9a3412;
+  font-weight: 600;
+}
+
 /* GCash collection details: QR preview beside its upload/remove buttons. */
 .gcash-qr-admin {
   display: flex;

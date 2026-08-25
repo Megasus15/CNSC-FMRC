@@ -88,12 +88,17 @@ class Order extends Model
     /**
      * Customer stages from which a customer may still call the order off.
      *
-     * The cut-off is handover: once the order reaches `to_receive` it is with the
-     * courier (or already waiting at the FMRC counter), and Shopee, Lazada and
-     * TikTok Shop all stop offering cancellation at that point and send the
-     * customer to returns instead. FMRC does the same.
+     * To Pay only. The cut-off is FMRC accepting the order: from `to_ship`
+     * onwards a staff member has already pulled stock, started engraving or
+     * printing, or packed the parcel, and a cancellation at that point is work
+     * thrown away plus a review the staff have to sit down and decide. Shopee
+     * and Lazada do allow a To Ship request, but they are cancelling a sealed
+     * box a warehouse can put back on the shelf - FMRC is cancelling a keychain
+     * with somebody's name already cut into it. So the button disappears once
+     * the order is accepted, and from there the customer messages FMRC or files
+     * a return after delivery.
      */
-    public const CANCELLABLE_STAGES = ['to_pay', 'to_ship'];
+    public const CANCELLABLE_STAGES = ['to_pay'];
 
     /** Lifecycle states that are already finished, so nothing can be cancelled. */
     public const UNCANCELLABLE_LIFECYCLE_STATUSES = ['rejected', 'completed', 'cancelled'];
@@ -180,12 +185,10 @@ class Order extends Model
      * Whether this order may be cancelled at all, and if so whether the customer
      * gets to do it outright or only gets to ask.
      *
-     * Cancelling outright is reserved for the case where FMRC has neither been
-     * paid nor started work: the order is still sitting at To Pay. Once money has
-     * been confirmed, or staff have accepted the order into the shipping queue,
-     * the tap files a request instead - that is how Shopee treats a To Ship
-     * order, and it is what stops a customer from voiding a job that is already
-     * being fabricated.
+     * Only a To Pay order can be called off, and there the one thing that stops
+     * an outright cancel is money FMRC has already confirmed: a refund has to be
+     * sent back by hand from the centre's own GCash, so a human decides. An
+     * unpaid order costs nobody anything and closes on the spot.
      *
      * @return array{allowed: bool, immediate: bool, reason: ?string}
      */
@@ -210,17 +213,21 @@ class Order extends Model
         }
 
         if (! in_array($this->customer_stage, self::CANCELLABLE_STAGES, true)) {
-            return $deny($this->isPickup()
-                ? 'This order is already waiting for you at FMRC, so it can no longer be cancelled here. Message FMRC if you can no longer collect it.'
-                : 'This order is already on its way, so it can no longer be cancelled. You can refuse the delivery or file a return once it arrives.');
+            // Name the actual situation. "Already on its way" on an order still
+            // sitting on the workbench reads as a lie, and a pickup order is
+            // never on its way at all.
+            return $deny(match (true) {
+                $this->customer_stage === 'to_ship' => 'FMRC has accepted this order and is already preparing it, so it can no longer be cancelled here. Message FMRC if something needs to change.',
+                $this->isPickup() => 'This order is already waiting for you at FMRC, so it can no longer be cancelled here. Message FMRC if you can no longer collect it.',
+                default => 'This order is already on its way, so it can no longer be cancelled. You can refuse the delivery or file a return once it arrives.',
+            });
         }
 
         $paymentConfirmed = $this->payment?->status === 'paid';
-        $workStarted = $this->customer_stage === 'to_ship';
 
         return [
             'allowed' => true,
-            'immediate' => ! $paymentConfirmed && ! $workStarted,
+            'immediate' => ! $paymentConfirmed,
             'reason' => null,
         ];
     }

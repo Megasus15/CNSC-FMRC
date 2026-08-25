@@ -1318,8 +1318,8 @@ class OrderController extends Controller
                         ? "If you already sent the {$amountLabel} through GCash, FMRC will check the account and return it to you. Staff will contact you once it has been sent back.\n\n"
                         : "No payment was collected, so there is nothing to refund.\n\n")
                     .'You can place a new order any time.'
-                : "Hi {$order->customer_name},\n\nWe received your request to cancel order {$orderNoLabel}.\n\nReason: {$reasonLabel}\n\nBecause this order is already being prepared, FMRC staff need to review the request. You will be notified as soon as they decide."
-                    .($refundDue ? "\n\nIf it is approved and your {$amountLabel} GCash payment has already been confirmed, staff will send the money back to your GCash number." : ''),
+                : "Hi {$order->customer_name},\n\nWe received your request to cancel order {$orderNoLabel}.\n\nReason: {$reasonLabel}\n\nFMRC has already confirmed your payment for this order, so staff review the request before closing it - that is also how the refund gets arranged. You will be notified as soon as they decide."
+                    .($refundDue ? "\n\nOnce it is approved, staff send the {$amountLabel} back to the GCash number you paid from." : ''),
             $immediate ? '#b45309' : '#0a5fd6'
         );
         $this->sendCustomerOrderEmail(
@@ -3079,11 +3079,17 @@ class OrderController extends Controller
     {
         $options = [];
         foreach ((array) config('couriers.options', []) as $key => $courier) {
+            $trackingUrl = $courier['tracking_url'] ?? null;
             $options[] = [
                 'key' => (string) $key,
                 'label' => (string) ($courier['label'] ?? $key),
-                'tracking_url' => $courier['tracking_url'] ?? null,
+                'tracking_url' => $trackingUrl,
                 'accepts_tracking_no' => (bool) ($courier['accepts_tracking_no'] ?? true),
+                // False means this courier's site cannot take the waybill in a
+                // URL, so a customer's one-click link comes from 17TRACK
+                // instead. Shown to staff as a hint, not a setting they change.
+                'links_by_number' => is_string($trackingUrl)
+                    && str_contains($trackingUrl, '{tracking_no}'),
             ];
         }
 
@@ -3091,17 +3097,96 @@ class OrderController extends Controller
             'data' => $options,
             'default' => (string) config('couriers.default', 'jnt'),
             'universal_tracking_url' => config('couriers.universal_tracking_url'),
+            'universal_tracking_landing' => config('couriers.universal_tracking_landing'),
         ]);
     }
 
     /**
-     * Where the customer can follow the parcel on the courier's own site.
+     * Ready-made checkpoints for the admin/staff tracking modal.
+     *
+     * Still a manual relay - this only stops staff retyping the same seven
+     * checkpoints, and the coordinates with them. Behind auth because it is a
+     * staff tool, not because hub locations are secret.
+     */
+    public function checkpointPresets(Request $request): JsonResponse
+    {
+        $denied = $this->ensureAdmin($request);
+        if ($denied) {
+            return $denied;
+        }
+
+        $presets = [];
+        foreach ((array) config('tracking_checkpoints.presets', []) as $preset) {
+            $key = trim((string) ($preset['key'] ?? ''));
+            $title = trim((string) ($preset['title'] ?? ''));
+            if ($key === '' || $title === '') {
+                continue;
+            }
+
+            $fulfillment = (string) ($preset['fulfillment'] ?? 'both');
+
+            $presets[] = [
+                'key' => $key,
+                'label' => trim((string) ($preset['label'] ?? $title)),
+                'fulfillment' => in_array($fulfillment, ['pickup', 'delivery', 'both'], true)
+                    ? $fulfillment
+                    : 'both',
+                'stage' => in_array($preset['stage'] ?? null, ['to_pay', 'to_ship', 'to_receive', 'completed'], true)
+                    ? (string) $preset['stage']
+                    : null,
+                'title' => $title,
+                'description' => filled($preset['description'] ?? null)
+                    ? (string) $preset['description']
+                    : null,
+                'location_name' => filled($preset['location_name'] ?? null)
+                    ? (string) $preset['location_name']
+                    : null,
+                // Null means "the courier named no place", and the modal leaves
+                // whatever is already in the boxes alone.
+                'lat' => isset($preset['lat']) && is_numeric($preset['lat'])
+                    ? (float) $preset['lat']
+                    : null,
+                'lng' => isset($preset['lng']) && is_numeric($preset['lng'])
+                    ? (float) $preset['lng']
+                    : null,
+            ];
+        }
+
+        $origin = (array) config('tracking_checkpoints.origin', []);
+
+        return response()->json([
+            'data' => $presets,
+            // Falls back to the same office pin a pickup order's destination
+            // uses, so a missing config section cannot leave the modal's
+            // "Use FMRC office" button pointing at nothing.
+            'origin' => [
+                'location_name' => filled($origin['location_name'] ?? null)
+                    ? (string) $origin['location_name']
+                    : self::PICKUP_LOCATION_NAME,
+                'lat' => isset($origin['lat']) && is_numeric($origin['lat'])
+                    ? (float) $origin['lat']
+                    : self::PICKUP_LATITUDE,
+                'lng' => isset($origin['lng']) && is_numeric($origin['lng'])
+                    ? (float) $origin['lng']
+                    : self::PICKUP_LONGITUDE,
+            ],
+        ]);
+    }
+
+    /**
+     * Where the customer can follow the parcel themselves.
      *
      * FMRC has no courier API contract, so the waybill number is whatever staff
-     * typed in and the link is the courier's public tracking page. Couriers
-     * whose deep-link format is not documented get their landing page plus the
-     * number to paste; a courier that is not in the registry falls back to
-     * 17TRACK, which detects the carrier from the number itself.
+     * were told and typed in. What this builds out of it is one link the
+     * customer clicks once and sees checkpoints on — no copying, no pasting.
+     *
+     * A courier whose own site accepts the number in the URL (a `{tracking_no}`
+     * template in the registry) gets that link. Every other courier — which is
+     * all of them right now, because J&T, LBC, Flash and PHLPost all read the
+     * number from an in-page form — falls through to a pre-filled 17TRACK
+     * lookup, which works out the carrier from the number itself. The courier's
+     * own tracking page is still handed over as a secondary link so the
+     * customer can go to the source if they want to.
      */
     private function buildCourierState(Order $order): ?array
     {
@@ -3122,23 +3207,64 @@ class OrderController extends Controller
             }
         }
 
-        $trackingUrl = $matchKey !== null
+        $courierUrl = $matchKey !== null
             ? ($registry[$matchKey]['tracking_url'] ?? null)
             : null;
+        $acceptsNumber = $matchKey === null
+            || (bool) ($registry[$matchKey]['accepts_tracking_no'] ?? true);
 
-        // Only send the customer somewhere when there is a number to look up.
-        if ($trackingNo === '') {
-            $trackingUrl = null;
-        } elseif ($trackingUrl === null) {
-            $trackingUrl = config('couriers.universal_tracking_url');
+        $primaryUrl = null;
+        $secondaryUrl = null;
+        $provider = null;
+
+        // Without a waybill there is nothing to look up, so no link is offered
+        // at all — a bare courier homepage helps nobody.
+        if ($trackingNo !== '' && $acceptsNumber) {
+            if (is_string($courierUrl) && str_contains($courierUrl, '{tracking_no}')) {
+                $primaryUrl = $this->fillTrackingTemplate($courierUrl, $trackingNo);
+                $provider = 'courier';
+            } else {
+                $primaryUrl = $this->fillTrackingTemplate(
+                    (string) config('couriers.universal_tracking_url'),
+                    $trackingNo,
+                );
+                $provider = $primaryUrl !== null ? 'universal' : null;
+                $secondaryUrl = is_string($courierUrl) && $courierUrl !== '' ? $courierUrl : null;
+            }
         }
 
         return [
             'key' => $matchKey,
             'name' => $name !== '' ? $name : null,
             'tracking_no' => $trackingNo !== '' ? $trackingNo : null,
-            'tracking_url' => $trackingUrl,
+            'tracking_url' => $primaryUrl,
+            // Tells the customer UI what it is linking to, so it can label the
+            // button honestly instead of sniffing the hostname.
+            'tracking_url_provider' => $provider,
+            'tracking_url_is_prefilled' => $primaryUrl !== null,
+            'courier_tracking_url' => $secondaryUrl,
         ];
+    }
+
+    /**
+     * Substitute a waybill into a registry tracking template.
+     *
+     * Returns null for an unusable template so a misconfigured entry shows no
+     * link rather than a broken one.
+     */
+    private function fillTrackingTemplate(?string $template, string $trackingNo): ?string
+    {
+        $template = trim((string) $template);
+
+        if ($template === '' || ! str_starts_with($template, 'https://')) {
+            return null;
+        }
+
+        if (! str_contains($template, '{tracking_no}')) {
+            return $template;
+        }
+
+        return str_replace('{tracking_no}', rawurlencode($trackingNo), $template);
     }
 
     /**

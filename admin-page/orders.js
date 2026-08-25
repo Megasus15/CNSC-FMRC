@@ -246,6 +246,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const trackingLocationName = document.getElementById("trackingLocationName");
   const trackingLatitude = document.getElementById("trackingLatitude");
   const trackingLongitude = document.getElementById("trackingLongitude");
+  // Phase 3 of tracking: the same seven checkpoints get relayed every day, so
+  // they are picked from a list instead of retyped, and the two coordinates FMRC
+  // already knows are one button each.
+  const trackingPresetSelect = document.getElementById("trackingPresetSelect");
+  const trackingLatLngOrigin = document.getElementById("trackingLatLngOrigin");
+  const trackingLatLngDestination = document.getElementById(
+    "trackingLatLngDestination",
+  );
+  const trackingLatLngClear = document.getElementById("trackingLatLngClear");
+  const trackingMapPreview = document.getElementById("trackingMapPreview");
+  const trackingLatLngHint = document.getElementById("trackingLatLngHint");
   const modalPaymentVerifyBlock = document.getElementById(
     "modalPaymentVerifyBlock",
   );
@@ -2637,19 +2648,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return findCourierOption(key)?.label || "";
   };
 
-  // Couriers and staff both quote coordinates as one "lat, lng" string, so a
-  // paste into either box splits itself rather than being rejected.
-  const wireLatLngPasteSplit = (input) => {
-    input?.addEventListener("input", () => {
-      const parts = input.value.split(/[,;\s]+/).filter(Boolean);
-      if (parts.length < 2) return;
-      if (trackingLatitude) trackingLatitude.value = parts[0];
-      if (trackingLongitude) trackingLongitude.value = parts[1];
-    });
-  };
-  wireLatLngPasteSplit(trackingLatitude);
-  wireLatLngPasteSplit(trackingLongitude);
-
   /**
    * A coordinate box, read as a number. Blank stays blank - an empty box means
    * "the courier did not say", not "0, 0" in the Gulf of Guinea.
@@ -2663,6 +2661,318 @@ document.addEventListener("DOMContentLoaded", () => {
       return { ok: false, value: null };
     }
     return { ok: true, value };
+  };
+
+  const TRACKING_LATLNG_HINT_DEFAULT = String(
+    trackingLatLngHint?.textContent || "",
+  ).trim();
+
+  const setTrackingCoordHint = (message) => {
+    if (!trackingLatLngHint) return;
+    trackingLatLngHint.textContent = message || TRACKING_LATLNG_HINT_DEFAULT;
+    trackingLatLngHint.classList.toggle("field-hint--warn", Boolean(message));
+  };
+
+  /**
+   * "Check on map" appears only once both boxes hold a usable coordinate, so it
+   * can never open a map of the middle of the Atlantic. It is how staff confirm
+   * a pasted number is the hub they meant before the customer sees the pin.
+   */
+  const syncTrackingMapPreview = () => {
+    if (!trackingMapPreview) return;
+
+    const lat = readCoordinate(trackingLatitude, -90, 90);
+    const lng = readCoordinate(trackingLongitude, -180, 180);
+    const usable = lat.ok && lng.ok && lat.value !== null && lng.value !== null;
+
+    trackingMapPreview.hidden = !usable;
+    trackingMapPreview.href = usable
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+          `${lat.value},${lng.value}`,
+        )}`
+      : "#";
+  };
+
+  const setCheckpointCoordinates = (lat, lng) => {
+    if (trackingLatitude)
+      trackingLatitude.value =
+        lat === null || lat === undefined ? "" : String(lat);
+    if (trackingLongitude)
+      trackingLongitude.value =
+        lng === null || lng === undefined ? "" : String(lng);
+    syncTrackingMapPreview();
+  };
+
+  /**
+   * Pull a lat/lng out of a Google Maps URL.
+   *
+   * A staff member who wants the exact spot of a hub finds it in Maps and copies
+   * the address bar, so the address bar has to work as an input. Returns null for
+   * a link with no numbers in it - a shortened maps.app.goo.gl, for instance,
+   * where only Google's own server knows where it points.
+   */
+  const parseGoogleMapsCoordinates = (raw) => {
+    const text = String(raw || "").trim();
+    if (!/^https?:\/\//i.test(text)) return null;
+
+    let url = text;
+    try {
+      url = decodeURIComponent(text);
+    } catch {
+      // A half-encoded paste. The raw text still holds the numbers.
+    }
+
+    // `!3d`/`!4d` is the pin Google itself resolved, so it is tried before the
+    // `@` segment, which is only wherever the camera happened to be sitting.
+    const patterns = [
+      /!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/,
+      /[?&](?:q|query|ll|daddr|destination)=(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/,
+      /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/,
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) return { lat: match[1], lng: match[2] };
+    }
+
+    return null;
+  };
+
+  // Couriers and staff quote a checkpoint as one "lat, lng" string; Google Maps
+  // hands it over as a URL. Both paste into either box and sort themselves out
+  // rather than being rejected - which is the difference between a checkpoint
+  // that lands on the customer's map and one posted with no coordinates because
+  // typing them was fiddly.
+  const wireCoordinateInput = (input) => {
+    input?.addEventListener("input", () => {
+      const raw = String(input.value || "");
+
+      const fromUrl = parseGoogleMapsCoordinates(raw);
+      if (fromUrl) {
+        setCheckpointCoordinates(fromUrl.lat, fromUrl.lng);
+        setTrackingCoordHint("");
+        return;
+      }
+
+      if (/^https?:\/\//i.test(raw.trim())) {
+        setTrackingCoordHint(
+          "That link has no coordinates in it. Open it in Google Maps, right-click the pin, click the numbers that appear to copy them, then paste those here.",
+        );
+        return;
+      }
+
+      const parts = raw.split(/[,;\s]+/).filter(Boolean);
+      if (parts.length >= 2) {
+        setCheckpointCoordinates(parts[0], parts[1]);
+      }
+      setTrackingCoordHint("");
+      syncTrackingMapPreview();
+    });
+  };
+  wireCoordinateInput(trackingLatitude);
+  wireCoordinateInput(trackingLongitude);
+
+  // ── Checkpoint presets ─────────────────────────────────────────────────────
+  // Still a manual relay: this only means the checkpoint FMRC posts twenty times
+  // a week is picked instead of retyped, coordinates included. Nothing here
+  // talks to a courier. config/tracking_checkpoints.php holds the list.
+  const checkpointPresets = { items: [], origin: null, loaded: false };
+
+  // The order the modal is currently open on, so "Use delivery address" has an
+  // address to reach for.
+  let trackingModalOrder = null;
+
+  const toPresetCoordinate = (value, limit) => {
+    if (value === null || value === undefined || value === "") return null;
+    const number = Number(value);
+    return Number.isFinite(number) && Math.abs(number) <= limit ? number : null;
+  };
+
+  const loadCheckpointPresets = async () => {
+    if (checkpointPresets.loaded) return;
+
+    try {
+      const payload = await request("/admin/tracking/checkpoint-presets");
+      const items = (Array.isArray(payload?.data) ? payload.data : [])
+        .map((preset) => ({
+          key: String(preset?.key || ""),
+          label: String(preset?.label || preset?.title || ""),
+          fulfillment: ["pickup", "delivery", "both"].includes(
+            preset?.fulfillment,
+          )
+            ? preset.fulfillment
+            : "both",
+          stage: ["to_pay", "to_ship", "to_receive", "completed"].includes(
+            preset?.stage,
+          )
+            ? preset.stage
+            : "",
+          title: String(preset?.title || ""),
+          description: String(preset?.description || ""),
+          locationName: String(preset?.location_name || ""),
+          lat: toPresetCoordinate(preset?.lat, 90),
+          lng: toPresetCoordinate(preset?.lng, 180),
+        }))
+        .filter((preset) => preset.key && preset.title);
+
+      const origin = payload?.origin;
+      checkpointPresets.items = items;
+      checkpointPresets.origin =
+        origin && typeof origin === "object"
+          ? {
+              locationName: String(origin.location_name || ""),
+              lat: toPresetCoordinate(origin.lat, 90),
+              lng: toPresetCoordinate(origin.lng, 180),
+            }
+          : null;
+      checkpointPresets.loaded = items.length > 0;
+    } catch {
+      // Offline, or a backend that predates the presets. Every field a preset
+      // would have filled is a field staff can type, so the modal still works -
+      // the dropdown just stays empty and hides itself.
+      checkpointPresets.items = [];
+      checkpointPresets.origin = null;
+    }
+
+    renderCheckpointPresetOptions(trackingModalOrder);
+  };
+
+  /**
+   * List the presets that make sense for this order. A pickup order never ships,
+   * so offering "Out for delivery" on one is how a wrong checkpoint gets posted.
+   */
+  const renderCheckpointPresetOptions = (order) => {
+    if (!trackingPresetSelect) return;
+
+    const wrap = trackingPresetSelect.closest(".field-stack");
+    if (!checkpointPresets.items.length) {
+      if (wrap) wrap.hidden = true;
+      return;
+    }
+    if (wrap) wrap.hidden = false;
+
+    const isPickup = Boolean(
+      order && (order.is_pickup || order.fulfillment_type === "pickup"),
+    );
+    const wanted = isPickup ? "pickup" : "delivery";
+
+    trackingPresetSelect.innerHTML = [
+      '<option value="">Type it myself</option>',
+      ...checkpointPresets.items
+        .filter(
+          (preset) =>
+            preset.fulfillment === "both" || preset.fulfillment === wanted,
+        )
+        .map(
+          (preset) =>
+            `<option value="${escapeHtml(preset.key)}">${escapeHtml(
+              preset.label,
+            )}</option>`,
+        ),
+    ].join("");
+    trackingPresetSelect.value = "";
+  };
+
+  /**
+   * Fill the checkpoint fields from a preset. `{courier}` becomes the company
+   * chosen in the dropdown, so one preset covers J&T, LBC and the rest.
+   *
+   * Coordinates are only written when the preset actually has them: a parcel
+   * that is out for delivery is somewhere in the customer's own street, and
+   * blanking the boxes would throw away the last pin the customer saw.
+   */
+  const applyCheckpointPreset = (key) => {
+    const preset = checkpointPresets.items.find((item) => item.key === key);
+    if (!preset) return;
+
+    const courier = getSelectedCourierName() || "the courier";
+    const fill = (text) => String(text || "").replaceAll("{courier}", courier);
+
+    if (trackingEventTitle) trackingEventTitle.value = fill(preset.title);
+    if (trackingEventDescription)
+      trackingEventDescription.value = fill(preset.description);
+    if (preset.locationName && trackingLocationName)
+      trackingLocationName.value = preset.locationName;
+    if (preset.lat !== null && preset.lng !== null)
+      setCheckpointCoordinates(preset.lat, preset.lng);
+
+    // A staff member posting "Out for delivery" always means the order is now To
+    // Receive, so the stage follows the checkpoint instead of being a second
+    // thing to remember. Still a dropdown they can override.
+    if (preset.stage && trackingStage) trackingStage.value = preset.stage;
+
+    setTrackingCoordHint("");
+  };
+
+  trackingPresetSelect?.addEventListener("change", () => {
+    const key = String(trackingPresetSelect.value || "");
+    if (key) applyCheckpointPreset(key);
+  });
+
+  // Re-fill the wording when the courier changes after a preset was picked -
+  // otherwise a title still reads "Handed over to J&T Express" on an LBC parcel.
+  trackingCourierSelect?.addEventListener("change", () => {
+    const key = String(trackingPresetSelect?.value || "");
+    if (key) applyCheckpointPreset(key);
+  });
+
+  trackingLatLngOrigin?.addEventListener("click", () => {
+    const origin = checkpointPresets.origin;
+    if (!origin || origin.lat === null || origin.lng === null) {
+      setTrackingCoordHint(
+        "The FMRC office coordinates are not configured yet. Type them in, or paste them from Google Maps.",
+      );
+      return;
+    }
+    setCheckpointCoordinates(origin.lat, origin.lng);
+    if (trackingLocationName && !trackingLocationName.value.trim())
+      trackingLocationName.value = origin.locationName;
+    setTrackingCoordHint("");
+  });
+
+  trackingLatLngDestination?.addEventListener("click", () => {
+    const order = trackingModalOrder;
+    const lat = toPresetCoordinate(
+      order?.destination_latitude ?? order?.delivery_latitude,
+      90,
+    );
+    const lng = toPresetCoordinate(
+      order?.destination_longitude ?? order?.delivery_longitude,
+      180,
+    );
+
+    if (lat === null || lng === null) {
+      // Checkout only pins a map when the customer drops one, so plenty of real
+      // orders have an address in words and no coordinates at all.
+      setTrackingCoordHint(
+        "This order has no map pin on its delivery address, so there is nothing to copy. Paste the rider's location from Google Maps instead.",
+      );
+      return;
+    }
+
+    setCheckpointCoordinates(lat, lng);
+    if (trackingLocationName && !trackingLocationName.value.trim())
+      trackingLocationName.value = String(
+        order?.destination_label || order?.delivery_address_line || "",
+      );
+    setTrackingCoordHint("");
+  });
+
+  trackingLatLngClear?.addEventListener("click", () => {
+    setCheckpointCoordinates(null, null);
+    setTrackingCoordHint("");
+  });
+
+  /**
+   * A pickup order has no delivery address, and `destination_*` on one points at
+   * the FMRC office - the very thing the other button already does. Offering both
+   * would be two buttons doing the same job under different names.
+   */
+  const syncCoordinateButtons = (order) => {
+    const isPickup = Boolean(
+      order && (order.is_pickup || order.fulfillment_type === "pickup"),
+    );
+    if (trackingLatLngDestination) trackingLatLngDestination.hidden = isPickup;
   };
 
   /**
@@ -2687,6 +2997,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const openTrackingModal = (order) => {
     if (!order || !modalTrackingUpdate) return;
+
+    // Remembered for "Use delivery address" and for filtering the checkpoint
+    // presets down to the ones this kind of order can actually reach.
+    trackingModalOrder = order;
+    renderCheckpointPresetOptions(order);
+    syncCoordinateButtons(order);
+    setTrackingCoordHint("");
 
     if (trackingOrderId) trackingOrderId.value = String(order.id || "");
     if (trackingOrderNo)
@@ -2747,6 +3064,7 @@ document.addEventListener("DOMContentLoaded", () => {
         order.longitude === null || order.longitude === undefined
           ? ""
           : String(order.longitude);
+    syncTrackingMapPreview();
 
     trackingDiscardGuard?.capture();
     modalTrackingUpdate.classList.add("show");
@@ -4801,6 +5119,9 @@ document.addEventListener("DOMContentLoaded", () => {
   showQueuedSuccess();
   // Fill the tracking modal's courier dropdown before anyone can open it.
   void loadCourierRegistry();
+  // Same for the ready-made checkpoints. Both are small config reads, and both
+  // fail soft into a still-usable modal.
+  void loadCheckpointPresets();
 
   const isPopupVisible = () => {
     const popup = document.getElementById("adminSystemPopup");

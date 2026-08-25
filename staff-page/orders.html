@@ -7,7 +7,7 @@
     <link rel="apple-touch-icon" href="../images/apple-touch-icon.png?v=3" />
     <title>Orders | UCN-FMRC Staff</title>
     <link rel="stylesheet" href="../admin-page/dashboard.css?v=5.1" />
-    <link rel="stylesheet" href="../admin-page/admin-modules.css?v=5.6" />
+    <link rel="stylesheet" href="../admin-page/admin-modules.css?v=5.7" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -753,6 +753,23 @@
                 <option value="completed">Completed</option>
               </select>
             </div>
+            <!--
+              Ready-made checkpoints out of config/tracking_checkpoints.php.
+              FMRC relays what the courier said by hand, and it is the same
+              handful of checkpoints every day, so picking one here fills the
+              title, description, location and coordinates in one go. Every
+              field stays editable afterwards, and typing a checkpoint from
+              scratch still works - this select is a shortcut, not a gate.
+            -->
+            <div class="field-stack full">
+              <label>Quick Checkpoint</label>
+              <select id="trackingPresetSelect" class="filter-select">
+                <option value="">Type it myself</option>
+              </select>
+              <p class="field-hint">
+                Fills the fields below from the courier's usual checkpoints.
+              </p>
+            </div>
             <div class="field-stack full">
               <label>Timeline Title</label
               ><input
@@ -807,8 +824,11 @@
               Latitude/longitude are what put this checkpoint on the customer's
               map. Optional: a courier who only says "in transit" gives no
               coordinates, and a checkpoint without them is still worth posting.
+              The two buttons are the two places FMRC already knows - its own
+              office and this order's delivery address - so the common cases are
+              never typed at all.
             -->
-            <div class="field-stack">
+            <div class="field-stack full">
               <label>Checkpoint Coordinates</label>
               <div class="tracking-latlng-row">
                 <input
@@ -824,9 +844,40 @@
                   placeholder="Longitude ex. 122.9550"
                 />
               </div>
+              <div class="tracking-latlng-actions">
+                <button
+                  type="button"
+                  class="tracking-coord-btn"
+                  id="trackingLatLngOrigin"
+                >
+                  Use FMRC office
+                </button>
+                <button
+                  type="button"
+                  class="tracking-coord-btn"
+                  id="trackingLatLngDestination"
+                >
+                  Use delivery address
+                </button>
+                <button
+                  type="button"
+                  class="tracking-coord-btn"
+                  id="trackingLatLngClear"
+                >
+                  Clear
+                </button>
+                <a
+                  class="tracking-coord-btn tracking-coord-btn--link"
+                  id="trackingMapPreview"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  hidden
+                  >Check on map</a
+                >
+              </div>
               <p class="field-hint" id="trackingLatLngHint">
-                Optional. Paste "14.1122, 122.9550" into either box and it will
-                split itself.
+                Optional. Paste "14.1122, 122.9550" or a Google Maps link into
+                either box and the coordinates sort themselves out.
               </p>
             </div>
           </div>
@@ -1531,6 +1582,6 @@
 
     <script src="../admin-page/session-helper.js"></script>
     <script src="../admin-page/admin-common.js?v=5.1"></script>
-    <script src="../admin-page/orders.js?v=5.9"></script>
+    <script src="../admin-page/orders.js?v=6.0"></script>
   </body>
 </html>
