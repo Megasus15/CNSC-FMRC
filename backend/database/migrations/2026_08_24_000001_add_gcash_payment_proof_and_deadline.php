@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -50,6 +51,12 @@ return new class extends Migration
 
         // Orders already waiting to be paid predate the deadline, so give them one
         // measured from when they were placed instead of leaving it blank.
+        //
+        // The arithmetic is done in PHP rather than in a DATE_ADD() expression
+        // because the test suite runs this same migration against SQLite, which
+        // has no DATE_ADD - and a migration that only works on one driver is a
+        // migration nobody can test. The affected set is "GCash orders still
+        // waiting to be paid", so it is small enough to walk.
         if (Schema::hasColumn('orders', 'payment_due_at')) {
             $hours = max(1, (int) config('payments.gcash.payment_window_hours', 48));
 
@@ -57,9 +64,19 @@ return new class extends Migration
                 ->where('payment_method', 'GCash')
                 ->where('customer_stage', 'to_pay')
                 ->whereNull('payment_due_at')
-                ->update([
-                    'payment_due_at' => DB::raw("DATE_ADD(created_at, INTERVAL {$hours} HOUR)"),
-                ]);
+                ->orderBy('id')
+                ->select(['id', 'created_at'])
+                ->chunk(200, function ($rows) use ($hours): void {
+                    foreach ($rows as $row) {
+                        $placedAt = $row->created_at
+                            ? Carbon::parse($row->created_at)
+                            : Carbon::now();
+
+                        DB::table('orders')
+                            ->where('id', $row->id)
+                            ->update(['payment_due_at' => $placedAt->copy()->addHours($hours)]);
+                    }
+                });
         }
     }
 

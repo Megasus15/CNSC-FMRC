@@ -47,6 +47,23 @@ class OrderController extends Controller
         'completed' => 'Completed',
     ];
 
+    /**
+     * The same four stages, named for an order that never travels.
+     *
+     * A pickup order in `to_ship` is being packed for the counter, not handed to
+     * a courier, and `to_receive` means it is already sitting at FMRC waiting -
+     * "To Ship" and "To Receive" both describe a parcel in motion. Only the two
+     * middle stages differ: "To Pay" and "Completed" mean the same thing either
+     * way, and they are also the tab names the customer filters by, so renaming
+     * them would leave the chip disagreeing with the tab that holds it.
+     */
+    private const PICKUP_STAGE_LABELS = [
+        'to_pay' => 'To Pay',
+        'to_ship' => 'Preparing',
+        'to_receive' => 'Ready for Pickup',
+        'completed' => 'Completed',
+    ];
+
     private const LIFECYCLE_LABELS = [
         'incoming' => 'Incoming',
         'pending' => 'Pending',
@@ -555,10 +572,31 @@ class OrderController extends Controller
                 'data' => $this->transformOrderDetail($createdOrder, false, true),
             ], 201);
 
-        } catch (\Exception $e) {
+        } catch (\RuntimeException $e) {
+            // Raised on purpose above for things the customer can act on -
+            // "Insufficient stock for product X", "no longer available". These
+            // messages are written for them, so pass them straight through.
             return response()->json([
                 'message' => $e->getMessage() ?: 'Unable to place order at the moment.',
-            ], 400);
+            ], 422);
+        } catch (\Throwable $e) {
+            // Anything else is ours, not theirs. The previous version echoed
+            // $e->getMessage() verbatim, which put a full MySQL error - the
+            // database name, host, port, every column of the INSERT - inside the
+            // customer's "Order Failed" popup. Log it where it belongs and give
+            // them a sentence they can actually use.
+            Log::error('[ORDERS] Checkout failed', [
+                'customer_id' => $request->user()?->id,
+                'payment_method' => $paymentMethod,
+                'fulfillment_type' => $fulfillmentType,
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+                'file' => $e->getFile().':'.$e->getLine(),
+            ]);
+
+            return response()->json([
+                'message' => 'We could not place your order right now. Nothing was charged. Please try again in a moment, or contact FMRC if it keeps happening.',
+            ], 500);
         }
     }
 
@@ -847,7 +885,13 @@ class OrderController extends Controller
         }
 
         if ($order->customer_stage !== 'to_receive') {
-            return response()->json(['message' => 'Only orders in "To Receive" status can be marked as received.'], 422);
+            // Quote the stage by the name this order actually shows, or a pickup
+            // customer is told to look for a "To Receive" chip that does not exist.
+            $stageName = $this->stageLabel($order, 'to_receive');
+
+            return response()->json([
+                'message' => "Only orders in \"{$stageName}\" status can be marked as received.",
+            ], 422);
         }
 
         if ($order->lifecycle_status === 'rejected') {
@@ -857,14 +901,26 @@ class OrderController extends Controller
         $order->customer_stage = 'completed';
         $order->lifecycle_status = 'completed';
         $order->completed_at = Carbon::now();
+
+        // A pickup order finishes at the FMRC counter, so the customer pressing
+        // this button *is* the handover. Without stamping it here, `picked_up_at`
+        // would stay empty on every order the customer closed themselves and only
+        // ever be filled on the ones staff closed for them.
+        $isPickup = $order->isPickup();
+        if ($isPickup) {
+            $order->picked_up_at = $order->picked_up_at ?? now();
+        }
+
         $order->save();
 
         $this->createTrackingEvent($order, [
             'created_by_user_id' => $request->user()->id,
             'stage'              => 'completed',
             'event_type'         => 'system',
-            'title'              => 'Order Received',
-            'description'        => 'Customer confirmed receipt of the order.',
+            'title'              => $isPickup ? 'Order collected' : 'Order Received',
+            'description'        => $isPickup
+                ? 'Customer confirmed they collected the order at the FMRC office.'
+                : 'Customer confirmed receipt of the order.',
             'occurred_at'        => now(),
             'metadata'           => ['source' => 'customer_received'],
         ]);
@@ -1104,6 +1160,23 @@ class OrderController extends Controller
         }
 
         $order->load(['payment', 'items']);
+
+        // Cancellation cannot degrade the way an optional column can: the whole
+        // point is a record of who called the order off and why, plus a
+        // `lifecycle_status` of 'cancelled' that the enum has to accept. If the
+        // cancellation migration has not been run on this database, writing it
+        // would either lose the reason silently or truncate the enum value, so
+        // refuse with something a human can act on instead.
+        if (! $order->hasSchemaColumns(['cancel_state', 'cancel_reason', 'cancel_requested_at', 'cancelled_at'])) {
+            Log::error('[ORDERS] Cancellation attempted before the cancellation migration was run', [
+                'order_id' => $order->id,
+            ]);
+
+            return response()->json([
+                'message' => 'Order cancellation is not available yet on this site. Please message FMRC and they will cancel it for you.',
+            ], 503);
+        }
+
         $availability = $order->cancellationAvailability();
 
         if (! $availability['allowed']) {
@@ -1613,7 +1686,7 @@ class OrderController extends Controller
                     'stage' => $order->customer_stage,
                     'event_type' => 'admin_update',
                     'title' => 'Order approved',
-                    'description' => 'Your order has been confirmed and is now being processed.',
+                    'description' => $this->approvalEventDescription($order),
                     'occurred_at' => now(),
                     'metadata' => ['lifecycle_status' => 'pending'],
                 ]);
@@ -1742,7 +1815,7 @@ class OrderController extends Controller
             'stage' => $order->customer_stage,
             'event_type' => 'admin_update',
             'title' => 'Order approved',
-            'description' => 'Your order has been confirmed and is now being processed.',
+            'description' => $this->approvalEventDescription($order),
             'occurred_at' => now(),
             'metadata' => [
                 'lifecycle_status' => 'pending',
@@ -2896,6 +2969,42 @@ class OrderController extends Controller
      * Older rows predate `fulfillment_type`, so it is inferred from the payment
      * method rather than assumed - Cash-on-Pickup was never shipped.
      */
+    /**
+     * What "approved" means to the customer, which depends on where the order
+     * goes next: a pickup order is being packed for the counter, a delivery
+     * order is queued for the courier. Same event, two different next steps.
+     */
+    private function approvalEventDescription(Order $order): string
+    {
+        return $order->isPickup()
+            ? 'Your order has been confirmed. FMRC is preparing it and will tell you as soon as it is ready to collect at the office.'
+            : 'Your order has been confirmed and is now being processed for delivery.';
+    }
+
+    /**
+     * Stage names as this particular order should say them.
+     *
+     * Sent with every order so the customer's chip, the admin table and the
+     * tracking modal's dropdown all read the same words. The alternative -
+     * each of the three re-deciding pickup wording for itself - is how a
+     * pickup order ends up labelled "Out for delivery" in one place and
+     * "Ready for pickup" in another.
+     *
+     * @return array<string, string>
+     */
+    private function stageLabels(Order $order): array
+    {
+        return $order->isPickup() ? self::PICKUP_STAGE_LABELS : self::STAGE_LABELS;
+    }
+
+    /** One stage of this order, named the way this order should say it. */
+    private function stageLabel(Order $order, ?string $stage): string
+    {
+        $labels = $this->stageLabels($order);
+
+        return $labels[(string) $stage] ?? $labels['to_pay'];
+    }
+
     private function buildFulfillmentState(Order $order): array
     {
         $type = in_array($order->fulfillment_type, [Order::FULFILLMENT_PICKUP, Order::FULFILLMENT_DELIVERY], true)
@@ -3210,7 +3319,8 @@ class OrderController extends Controller
             'lifecycle_status' => $order->lifecycle_status,
             'lifecycle_status_label' => self::LIFECYCLE_LABELS[$order->lifecycle_status] ?? 'Pending',
             'customer_stage' => $order->customer_stage,
-            'customer_stage_label' => self::STAGE_LABELS[$order->customer_stage] ?? 'To Pay',
+            'customer_stage_label' => $this->stageLabel($order, $order->customer_stage),
+            'stage_labels' => $this->stageLabels($order),
             'notes' => $order->notes,
             'courier_name' => $order->courier_name,
             'courier_tracking_no' => $order->courier_tracking_no,
@@ -3219,7 +3329,7 @@ class OrderController extends Controller
             'longitude' => $order->last_known_lng !== null ? (float) $order->last_known_lng : null,
             'created_at' => $this->formatPhilippineIso($createdAt),
             'created_at_label' => $this->formatPhilippineLabel($createdAt),
-            'latest_event' => $latestEvent ? $this->transformTimelineEvent($latestEvent) : null,
+            'latest_event' => $latestEvent ? $this->transformTimelineEvent($latestEvent, $order) : null,
         ];
 
         // Fulfillment: how the customer receives this order, and - for a
@@ -3277,7 +3387,7 @@ class OrderController extends Controller
         $timeline = $order->trackingEvents
             ->sortByDesc(fn (OrderTrackingEvent $event) => $event->occurred_at?->getTimestamp() ?? 0)
             ->values()
-            ->map(fn (OrderTrackingEvent $event) => $this->transformTimelineEvent($event))
+            ->map(fn (OrderTrackingEvent $event) => $this->transformTimelineEvent($event, $order))
             ->all();
 
         return array_merge($summary, [
@@ -3620,12 +3730,22 @@ class OrderController extends Controller
         return $this->buildOrderItemLabelFromRows($rows);
     }
 
-    private function transformTimelineEvent(OrderTrackingEvent $event): array
+    /**
+     * One timeline row.
+     *
+     * `$order` is only needed to name the stage: the event stores the stage key,
+     * and whether that key reads "To Receive" or "Ready for Pickup" is a
+     * property of the order, not of the row. Older callers may omit it, in which
+     * case the delivery wording is used.
+     */
+    private function transformTimelineEvent(OrderTrackingEvent $event, ?Order $order = null): array
     {
         return [
             'id' => $event->id,
             'stage' => $event->stage,
-            'stage_label' => self::STAGE_LABELS[$event->stage] ?? 'To Pay',
+            'stage_label' => $order !== null
+                ? $this->stageLabel($order, $event->stage)
+                : (self::STAGE_LABELS[$event->stage] ?? 'To Pay'),
             'event_type' => $event->event_type,
             'title' => $event->title,
             'description' => $event->description,

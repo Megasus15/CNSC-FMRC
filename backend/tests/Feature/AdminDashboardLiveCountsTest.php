@@ -8,6 +8,7 @@ use App\Models\InventoryItem;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderReturn;
+use App\Models\Payment;
 use App\Models\ProductRating;
 use App\Models\Promotion;
 use App\Models\User;
@@ -96,7 +97,7 @@ class AdminDashboardLiveCountsTest extends TestCase
      * onward. A GCash order counts the moment admin/staff approve it, and an
      * approved refund reduces the card even before the money is released.
      */
-    public function test_total_revenue_adds_approved_gcash_and_deducts_approved_refunds(): void
+    public function test_total_revenue_adds_verified_gcash_and_deducts_approved_refunds(): void
     {
         $this->actingAsRole('admin');
         $customer = User::factory()->create(['role' => 'customer']);
@@ -108,22 +109,28 @@ class AdminDashboardLiveCountsTest extends TestCase
             'customer_stage' => 'completed',
         ]);
 
-        // Approved but still pending delivery: GCash is already paid.
-        $this->makeOrder($customer, 'ORD-REV-GCASH', [
+        // Still pending delivery, but staff have matched the reference inside the
+        // FMRC GCash account, so the money is already in the wallet.
+        $gcashVerified = $this->makeOrder($customer, 'ORD-REV-GCASH', [
             'total' => 500,
             'payment_method' => 'GCash',
             'lifecycle_status' => 'pending',
             'customer_stage' => 'to_ship',
             'approved_at' => now(),
         ]);
+        $this->makePayment($gcashVerified, 'paid');
 
-        // Not approved yet, and a COD order that was approved: neither counts.
-        $this->makeOrder($customer, 'ORD-REV-GCASH-UNAPPROVED', [
+        // The customer says they sent it and even attached a screenshot, but
+        // nobody has found the money yet. A claim is not revenue, so this must
+        // not count however far the order has been moved along - and neither
+        // does an approved COD order, where the cash arrives on delivery.
+        $gcashClaimed = $this->makeOrder($customer, 'ORD-REV-GCASH-UNVERIFIED', [
             'total' => 900,
             'payment_method' => 'GCash',
             'lifecycle_status' => 'pending',
             'customer_stage' => 'to_pay',
         ]);
+        $this->makePayment($gcashClaimed, 'pending');
         $this->makeOrder($customer, 'ORD-REV-COD-APPROVED', [
             'total' => 700,
             'payment_method' => 'COD',
@@ -241,6 +248,28 @@ class AdminDashboardLiveCountsTest extends TestCase
             'quantity' => 1,
             'subtotal' => $attributes['total'] ?? 0,
         ], $attributes));
+    }
+
+    /**
+     * The payment row an order really carries, in the state staff left it in.
+     *
+     * `paid` is the confirmation staff record once they have found the reference
+     * in the FMRC GCash account; `pending` is a customer claim that has not been
+     * matched yet. Revenue keys off this row, not off the order's own approval,
+     * so the difference is the whole point of the fixture.
+     */
+    private function makePayment(Order $order, string $status): Payment
+    {
+        return Payment::create([
+            'order_id' => $order->id,
+            'payment_no' => 'PAY-'.$order->order_no,
+            'method' => $order->payment_method,
+            'reference' => '1234567890123',
+            'amount' => $order->total,
+            'status' => $status,
+            'submitted_at' => now(),
+            'paid_at' => $status === 'paid' ? now() : null,
+        ]);
     }
 
     /** @return array<string, object> */

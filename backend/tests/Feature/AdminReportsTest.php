@@ -8,6 +8,7 @@ use App\Models\InventoryTransaction;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderReturn;
+use App\Models\Payment;
 use App\Models\SiteSetting;
 use App\Models\User;
 use App\Models\WalkInOrder;
@@ -232,7 +233,7 @@ class AdminReportsTest extends TestCase
      * as revenue and an approved-but-unreleased refund already reduces it. Only
      * 'refund' resolutions may deduct.
      */
-    public function test_sales_report_counts_approved_gcash_and_approved_refunds(): void
+    public function test_sales_report_counts_verified_gcash_and_approved_refunds(): void
     {
         $this->actingAsRole('admin');
 
@@ -292,7 +293,9 @@ class AdminReportsTest extends TestCase
             ->firstWhere('transaction_no', $gcash->order_no);
         $this->assertNotNull($gcashRow);
         $this->assertSame('Online Order (GCash Paid)', $gcashRow['source']);
-        $this->assertSame('Approved', $gcashRow['status']);
+        // The row's status is about the money, not about the order's approval:
+        // it is on the sheet because staff verified the payment.
+        $this->assertSame('Payment Verified', $gcashRow['status']);
 
         // The row must carry the real return status, not a hardcoded "Refunded".
         $refundRow = collect($response->json('data.table.rows'))
@@ -302,7 +305,7 @@ class AdminReportsTest extends TestCase
         $this->assertSame(-60.0, (float) $refundRow['amount']);
 
         $advanceBreakdown = collect($response->json('data.breakdown.items'))
-            ->firstWhere('label', 'Approved GCash Orders');
+            ->firstWhere('label', 'Verified GCash Orders');
         $this->assertIsArray($advanceBreakdown);
         $this->assertSame(400.0, (float) $advanceBreakdown['value']);
     }
@@ -321,6 +324,21 @@ class AdminReportsTest extends TestCase
             'lifecycle_status' => 'pending',
             'customer_stage' => 'to_ship',
             'approved_at' => $approvedAt,
+        ]);
+
+        // A GCash order is recognised revenue because staff matched the reference
+        // in the FMRC GCash account, and the report period is keyed off when they
+        // did it (payments.paid_at) rather than off the order's approval - so the
+        // confirmation is stamped at the same moment here.
+        Payment::create([
+            'order_id' => $order->id,
+            'payment_no' => 'PAY-'.$order->order_no,
+            'method' => 'GCash',
+            'reference' => '1234567890'.str_pad((string) $this->orderSequence, 3, '0', STR_PAD_LEFT),
+            'amount' => $total,
+            'status' => 'paid',
+            'submitted_at' => $approvedAt,
+            'paid_at' => $approvedAt,
         ]);
 
         DB::table('orders')->where('id', $order->id)->update([

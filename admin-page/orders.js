@@ -2665,6 +2665,26 @@ document.addEventListener("DOMContentLoaded", () => {
     return { ok: true, value };
   };
 
+  /**
+   * Rewrite a stage <select>'s option text from the labels the server sent with
+   * this order, keeping every option's `value` untouched - those are the four
+   * stage keys the API validates against, and they must not change with the
+   * wording. Each option remembers its original text, so reopening the modal on
+   * a delivery order after a pickup one restores the delivery wording instead of
+   * leaving "Ready for Pickup" behind.
+   */
+  const applyStageLabelsToSelect = (selectEl, labels) => {
+    if (!selectEl) return;
+
+    Array.from(selectEl.options).forEach((option) => {
+      if (option.dataset.defaultLabel === undefined) {
+        option.dataset.defaultLabel = option.textContent || "";
+      }
+      const sent = labels && typeof labels === "object" ? labels[option.value] : "";
+      option.textContent = sent || option.dataset.defaultLabel;
+    });
+  };
+
   const openTrackingModal = (order) => {
     if (!order || !modalTrackingUpdate) return;
 
@@ -2672,8 +2692,24 @@ document.addEventListener("DOMContentLoaded", () => {
     if (trackingOrderNo)
       trackingOrderNo.value =
         order.order_no_display || `#${order.order_no || order.id}`;
-    if (trackingStage) trackingStage.value = order.customer_stage || "to_pay";
-    if (trackingEventTitle) trackingEventTitle.value = "";
+    if (trackingStage) {
+      // Relabel the stage options for the order being edited. A pickup order is
+      // never shipped or delivered, so leaving the delivery wording here is how
+      // staff end up posting "Out for delivery" on an order the customer is
+      // coming to collect. The server sends the wording it also shows the
+      // customer, so both sides read the same words.
+      applyStageLabelsToSelect(trackingStage, order.stage_labels);
+      trackingStage.value = order.customer_stage || "to_pay";
+    }
+    if (trackingEventTitle) {
+      trackingEventTitle.value = "";
+      // The example has to be something staff would actually type for this
+      // order: a pickup order has no shipping step to prepare for.
+      trackingEventTitle.placeholder =
+        order.fulfillment_type === "pickup" || order.is_pickup
+          ? "ex. Order is ready for pickup at the FMRC office"
+          : "ex. Order prepared for shipping";
+    }
     if (trackingEventDescription) trackingEventDescription.value = "";
 
     // Pickup orders never travel, so the courier defaults to the counter rather

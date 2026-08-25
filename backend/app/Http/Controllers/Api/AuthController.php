@@ -610,7 +610,23 @@ class AuthController extends Controller
             $user->customer_type = trim((string) $validated['customer_type']) ?: null;
         }
 
-        $user->save();
+        try {
+            $user->save();
+        } catch (\Throwable $error) {
+            // The Edit Details sheet in checkout posts here, so a bare 500 shows
+            // up as a red "Server Error" bubble next to a field with no hint at
+            // what to do. Log the real cause and answer with something readable.
+            Log::error('[PROFILE] Unable to save customer profile', [
+                'user_id' => $user->id,
+                'exception' => $error::class,
+                'message' => $error->getMessage(),
+                'file' => $error->getFile().':'.$error->getLine(),
+            ]);
+
+            return response()->json([
+                'message' => 'We could not save your details right now. Please try again in a moment.',
+            ], 500);
+        }
 
         return response()->json([
             'message' => 'Customer profile updated successfully.',

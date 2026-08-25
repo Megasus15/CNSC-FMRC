@@ -2734,8 +2734,99 @@ document.addEventListener("DOMContentLoaded", () => {
     syncAddressEditUi();
   };
 
+  /**
+   * Recover what can be recovered from a one-line address saved before the
+   * structured fields existed.
+   *
+   * Every customer who ordered before the address split has their whole address
+   * sitting inside `address_line` - "Purok 6, Brgy. Masalong, Labo, Camarines
+   * Norte, 4604" - and blank Barangay / City / Province / Postal boxes. Making
+   * them retype what the system already knows is the kind of friction that loses
+   * an order, so the parts that can be identified beyond doubt are lifted out.
+   *
+   * Deliberately timid: it only claims a barangay when the text says "Brgy." or
+   * "Barangay", and only claims a city and province when what is left is two
+   * clean comma-separated names. Anything else is left for the customer, because
+   * a guessed province is printed on a parcel and misdelivers it. The saved
+   * record is never touched - this only fills the form.
+   */
+  const splitLegacyAddressLine = (source) => {
+    const line = String(source?.address_line || "").trim();
+    const alreadyStructured = ["barangay", "city_municipality", "province", "postal_code"]
+      .some((key) => String(source?.[key] || "").trim() !== "");
+
+    if (!line || alreadyStructured || !line.includes(",")) {
+      return source;
+    }
+
+    const tokens = line
+      .split(",")
+      .map((token) => token.trim())
+      .filter(Boolean);
+
+    let barangay = "";
+    let postalCode = "";
+
+    // The postal code is the only token that can be recognised on its own.
+    const postalIndex = tokens.findIndex((token) => /^\d{4}$/.test(token));
+    if (postalIndex >= 0) {
+      postalCode = tokens[postalIndex];
+      tokens.splice(postalIndex, 1);
+    } else {
+      // Often it is written without its own comma - "Camarines Norte 4600".
+      const lastIndex = tokens.length - 1;
+      const trailing = tokens[lastIndex].match(/^(.*\S)\s+(\d{4})$/);
+      if (trailing) {
+        tokens[lastIndex] = trailing[1];
+        postalCode = trailing[2];
+      }
+    }
+
+    const barangayIndex = tokens.findIndex((token) =>
+      /^(?:brgy\.?|bgy\.?|barangay)\s+\S/i.test(token),
+    );
+    if (barangayIndex >= 0) {
+      barangay = tokens[barangayIndex]
+        .replace(/^(?:brgy\.?|bgy\.?|barangay)\s+/i, "")
+        .trim();
+      tokens.splice(barangayIndex, 1);
+    }
+
+    let city = "";
+    let province = "";
+
+    // A place name carries no digits and no street keyword. "Camarines Norte
+    // Purok 6" fails both, which is exactly the case that must not be split.
+    const looksLikePlaceName = (token) =>
+      token.length <= 40 &&
+      !/\d/.test(token) &&
+      !/\b(?:st|st\.|street|ave|ave\.|avenue|rd|rd\.|road|purok|blk|block|unit|room|rm\.?|apt|floor|bldg|building)\b/i.test(
+        token,
+      );
+
+    if (
+      tokens.length >= 3 &&
+      looksLikePlaceName(tokens[tokens.length - 1]) &&
+      looksLikePlaceName(tokens[tokens.length - 2])
+    ) {
+      province = tokens.pop();
+      city = tokens.pop();
+    }
+
+    const street = tokens.join(", ").trim();
+
+    return {
+      ...source,
+      address_line: street || line,
+      barangay: barangay || source?.barangay || "",
+      city_municipality: city || source?.city_municipality || "",
+      province: province || source?.province || "",
+      postal_code: postalCode || source?.postal_code || "",
+    };
+  };
+
   const applyAddressToForm = (mode, addressEntry) => {
-    const source = addressEntry || {};
+    const source = splitLegacyAddressLine(addressEntry || {});
     const isAddMode = mode === "add";
 
     if (isAddMode) {
@@ -6882,6 +6973,17 @@ document.addEventListener("DOMContentLoaded", () => {
     completed: "Completed",
   };
 
+  // A pickup order never travels, so "To Ship" and "To Receive" are the wrong
+  // words for it: it is being packed for the FMRC counter, then waiting there.
+  // The server decides the wording per order and sends it as `stage_labels`,
+  // which keeps the customer's chip, the admin table and the staff tracking
+  // dropdown reading the same thing. The map above is only the fallback for a
+  // cached payload from before the server started sending them.
+  const resolveStageLabels = (order) => {
+    const sent = order?.stage_labels;
+    return sent && typeof sent === "object" ? sent : ORDER_STAGE_LABELS;
+  };
+
   const ORDER_LIFECYCLE_LABELS = {
     incoming: "Incoming",
     pending: "Pending",
@@ -7940,7 +8042,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         return {
           label:
-            ORDER_STAGE_LABELS[stage] ||
+            order?.customer_stage_label ||
+            resolveStageLabels(order)[stage] ||
             ORDER_LIFECYCLE_LABELS[lifecycle] ||
             "Pending",
           className: `status-${stage.replace("_", "-")}`,
@@ -8273,12 +8376,20 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
+        // The same button closes a pickup and a delivery, but it means two
+        // different things: "the courier handed it to me" versus "I walked into
+        // the FMRC office and took it". The card marks which one this is.
+        const isPickupOrder = triggerBtn?.dataset?.orderPickup === "1";
+        const doneLabel = isPickupOrder ? "Order Collected" : "Order Received";
+
         const confirmed = await showCustomerPopup(
-          "Confirm that you have received this order? This action cannot be undone.",
+          isPickupOrder
+            ? "Confirm that you have collected this order from the FMRC office? This action cannot be undone."
+            : "Confirm that you have received this order? This action cannot be undone.",
           {
-            title: "Order Received",
+            title: doneLabel,
             isConfirm: true,
-            okText: "Yes, Received",
+            okText: isPickupOrder ? "Yes, Collected" : "Yes, Received",
             cancelText: "Cancel",
             allowBackdropClose: false,
           },
@@ -8353,7 +8464,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="customer-rate-prompt-inner">
               <span class="customer-rate-prompt-icon">&#127881;</span>
               <div class="customer-rate-prompt-text">
-                <strong>Order received!</strong>
+                <strong>${isPickupOrder ? "Order collected!" : "Order received!"}</strong>
                 <p>How was your experience? <button type="button" class="customer-rate-prompt-link">Rate it now &rarr;</button></p>
               </div>
               <button type="button" class="customer-rate-prompt-close" aria-label="Close">&times;</button>
@@ -8394,7 +8505,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           if (triggerBtn) {
             triggerBtn.disabled = false;
-            triggerBtn.textContent = "Order Received";
+            triggerBtn.textContent = doneLabel;
           }
         }
       };
@@ -10093,7 +10204,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <button type="button" class="customer-order-detail-btn" data-order-detail="${escapeHtml(order.id)}">Order Details</button>
                     ${payActionsHtml}
                     ${String(order.customer_stage) === 'to_receive' && isLive
-                      ? `<button type="button" class="customer-order-received-btn" data-order-received="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || 'Order')}">Order Received</button>`
+                      ? `<button type="button" class="customer-order-received-btn" data-order-received="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || 'Order')}" data-order-pickup="${order.is_pickup ? '1' : '0'}">${order.is_pickup ? 'Order Collected' : 'Order Received'}</button>`
                       : ''}
                     ${String(order.customer_stage) === 'completed' && isLive && !order.has_rating
                       ? `<button type="button" class="customer-order-rate-btn" data-order-rate="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || 'Order')}">Rate Product</button>`

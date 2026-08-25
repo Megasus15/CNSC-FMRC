@@ -73,11 +73,38 @@ class AdminPortalConsistencyTest extends TestCase
 
         foreach ($affected as $script) {
             $quoted = preg_quote($script, '/');
-            $this->assertStringContainsString("{$script}?v=5.1", $html);
+
+            // Every reference has to carry a cache-buster, because a Hostinger
+            // deploy copies files without touching browser caches - an
+            // unversioned script means the fix never reaches the live site.
             $this->assertDoesNotMatchRegularExpression(
-                "/{$quoted}(?!\\?v=5\\.1)/",
+                "/{$quoted}(?!\\?v=\\d)/",
                 $html,
                 "Unversioned affected script: {$script}",
+            );
+
+            preg_match_all("/{$quoted}\\?v=(\\d+(?:\\.\\d+)?)/", $html, $found);
+            $versions = array_values(array_unique($found[1] ?? []));
+
+            $this->assertNotEmpty($versions, "No versioned reference to {$script}");
+
+            // staff-page/*.html loads several of these straight out of
+            // admin-page/, so a version that differs between the two portals
+            // means one of them is pinned to a stale cached copy of the very
+            // same file.
+            $this->assertCount(
+                1,
+                $versions,
+                "{$script} is referenced at more than one version: ".implode(', ', $versions),
+            );
+
+            // 5.1 is the release that introduced the shared-UI contract these
+            // tests describe. Bumping past it is expected; going below it would
+            // mean serving a build from before the contract existed.
+            $this->assertGreaterThanOrEqual(
+                5.1,
+                (float) $versions[0],
+                "{$script} is pinned below the shared-UI contract version",
             );
         }
     }
@@ -250,7 +277,15 @@ class AdminPortalConsistencyTest extends TestCase
             $this->assertStringNotContainsString('border-left:', $html);
         }
 
-        $this->assertStringContainsString('const REPORT_ROWS_PER_SHEET = 10;', $reportsJs);
+        // A printed sheet holds as many rows as fit above its footer, measured
+        // from the rendered page rather than assumed. The flat count survives
+        // only as the fallback for when the measurement cannot be trusted, and
+        // `data-page-size="10"` above is the on-screen table pager, which is a
+        // different thing entirely.
+        $this->assertStringNotContainsString('const REPORT_ROWS_PER_SHEET =', $reportsJs);
+        $this->assertStringContainsString('const REPORT_ROWS_PER_SHEET_FALLBACK = 10;', $reportsJs);
+        $this->assertStringContainsString('const measureDetailGroups = async (data) => {', $reportsJs);
+        $this->assertStringContainsString('chunkFragments(fragments, REPORT_ROWS_PER_SHEET_FALLBACK)', $reportsJs);
         $this->assertStringContainsString('/admin/reports/generate', $reportsJs);
         $this->assertStringContainsString('generation_key:', $reportsJs);
         $this->assertStringNotContainsString('LegacyPreview', $reportsJs);
