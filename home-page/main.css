@@ -6,10 +6,22 @@
   scroll-behavior: smooth;
 }
 
+/* The scrollbar gutter is reserved whether or not a scrollbar is showing.
+   Every dialog on the site sets body.style.overflow = "hidden" while it is open
+   (~38 call sites in main.js); without a reserved gutter that removes the ~15px
+   desktop scrollbar and the whole page reflows 15px wider behind the dialog. */
+html {
+  scrollbar-gutter: stable;
+}
+
 body {
   font-family: "Montserrat", sans-serif;
   background-color: #fff;
+  /* clip is the same clipping as hidden, minus the scrollable-overflow region, so
+     nothing can be scrolled sideways programmatically either. hidden is kept first
+     as the fallback for browsers without clip. */
   overflow-x: hidden;
+  overflow-x: clip;
   display: flex;
   flex-direction: column;
 }
@@ -1336,6 +1348,16 @@ body {
   height: 550px; /* Adjust based on your card content height */
   max-width: 1200px;
   margin: 0 auto;
+  /* The off-stage cards are absolutely positioned at translateX(±110%) and ±200%,
+     so without clipping they made the document 888px wide inside a 375px phone
+     viewport — 2.4x the screen. Desktop hid it because body's overflow-x clips at
+     the viewport; on iOS the page just zoomed out to fit the 888px.
+     overflow-x: clip (not hidden) keeps the y axis visible, so the active card's
+     drop shadow is not sliced off at the top and bottom, and it does not create a
+     scroll container. Browsers without clip fall back to today's behaviour. */
+  overflow-x: clip;
+  overflow-y: visible;
+  overflow-clip-margin: 10px;
 }
 
 .carousel-track {
@@ -12934,7 +12956,14 @@ body {
 
 .footer-container {
   display: grid;
-  grid-template-columns: minmax(260px, 1.45fr) repeat(3, minmax(180px, 1fr));
+  /* minmax(0, …) floors, not 260px/180px. The old floors summed to 800px plus
+     three gaps, so between 901px (where the two-column phone layout stops
+     applying) and ~1010px the four tracks were wider than the container and
+     the contact column spilled past the clip edge — measured 938px against a
+     917px viewport on a 932x430 landscape iPhone, with the address text cut
+     off. Above 1010px there was free space to distribute, so the fr ratios
+     resolve exactly as before and desktop is unchanged. */
+  grid-template-columns: minmax(0, 1.45fr) repeat(3, minmax(0, 1fr));
   gap: clamp(28px, 4vw, 58px);
 }
 
@@ -13484,13 +13513,17 @@ body {
     padding-inline: 18px;
   }
 
+  /* Two columns all the way down. The single-column fallback that used to live
+     here stacked all four blocks, which is what made the footer 893px tall at
+     390px wide and 915px at 320px — taller than the phone screen holding it.
+     minmax(0, 1fr) lets Quick Links and Business Hours keep sharing a row even
+     when the text is wider than the track. */
   .footer-container {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-areas:
-      "brand"
-      "quick"
-      "hours"
-      "contact";
+      "brand brand"
+      "quick hours"
+      "contact contact";
   }
 
   .customer-modal,
@@ -15571,13 +15604,13 @@ textarea {
     flex: 1 1 auto;
   }
 
+  /* Still two columns at 400px and under — see the note in the 560px block. */
   .footer-container {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-areas:
-      "brand"
-      "quick"
-      "hours"
-      "contact";
+      "brand brand"
+      "quick hours"
+      "contact contact";
   }
 
   .cal-legend {

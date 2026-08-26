@@ -178,12 +178,40 @@ document.addEventListener("DOMContentLoaded", () => {
   // is focusing, so that one focusin is exempt from the dismiss handler.
   let focusExemptFromDismiss = null;
 
+  // The alert takes itself off the screen 5s after the last message landed.
+  // Two timers, never `transitionend`: a transition does not advance while the
+  // tab is hidden, so a removal that waited on the fade to finish would leave
+  // the alert parked on top of the form at an invisible frame. The class is for
+  // the visual; these timers are what actually remove the node.
+  const DISMISS_AFTER = 5000;
+  const DISMISS_FADE = 260;
+  let dismissTimer = null;
+  let dismissRemoveTimer = null;
+
+  const stopDismissTimer = () => {
+    clearTimeout(dismissTimer);
+    clearTimeout(dismissRemoveTimer);
+    dismissTimer = null;
+    dismissRemoveTimer = null;
+    errorAlert.el?.classList.remove("is-leaving");
+  };
+
+  const startDismissTimer = () => {
+    stopDismissTimer();
+    dismissTimer = setTimeout(() => {
+      if (!errorAlert.el) return;
+      errorAlert.el.classList.add("is-leaving");
+      dismissRemoveTimer = setTimeout(() => clearAllErrors(), DISMISS_FADE);
+    }, DISMISS_AFTER);
+  };
+
   const syncErrorAlert = () => {
     if (!errorAlert.el) return;
 
     const count = errorAlert.list.children.length;
     if (!count) {
       // Nothing left to say: drop the node so it cannot intercept a tap.
+      stopDismissTimer();
       errorAlert.el.remove();
       errorAlert.el = null;
       errorAlert.title = null;
@@ -213,6 +241,13 @@ document.addEventListener("DOMContentLoaded", () => {
     alert
       .querySelector(".auth-error-close")
       .addEventListener("click", () => clearAllErrors());
+
+    // Someone reading the list should not be racing the 5s clock: hovering it
+    // or tabbing into it holds the alert, and leaving restarts the countdown.
+    alert.addEventListener("pointerenter", stopDismissTimer);
+    alert.addEventListener("pointerleave", startDismissTimer);
+    alert.addEventListener("focusin", stopDismissTimer);
+    alert.addEventListener("focusout", startDismissTimer);
 
     document.body.appendChild(alert);
     errorAlert.el = alert;
@@ -253,6 +288,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     item.querySelector(".auth-error-link").textContent = message;
     syncErrorAlert();
+    // Restarted, not merely started: a second field failing in the same submit
+    // gives the whole alert a fresh 5s rather than inheriting the first one's.
+    startDismissTimer();
   };
 
   const dropAlertMessage = (key) => {
@@ -298,6 +336,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // The alert's dismiss button clears every message and every ring at once.
   const clearAllErrors = () => {
+    // First, so the close button and the auto-dismiss cannot both fire.
+    stopDismissTimer();
     document.querySelectorAll(".input-wrapper.has-error").forEach((wrapper) => {
       wrapper.classList.remove("has-error");
       wrapper

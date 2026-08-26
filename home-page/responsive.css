@@ -1637,3 +1637,451 @@
   }
 }
 
+/* =========================================================================
+   PHONES — 480px and under.  iPhone SE (320) through Pro Max (430).
+
+   Everything above this point bands at 900 / 720 / 640 / 480 / 430 / 400 /
+   340 / 300 / 280, but almost all of the real compaction sits in the 280px
+   block, so the sizes an actual iPhone gets came from the light 900/720
+   rules: the hero ran 903px, About 927px, the footer 893px inside an 844px
+   screen. This block is the missing middle — the 280px treatment applied at
+   a gentler scale so 320-430px reads as a designed phone layout rather than
+   a squeezed desktop one. It is last in the last stylesheet, so it settles
+   the argument between the earlier layers without needing !important
+   (except where an earlier layer used it, or a style attribute has to lose).
+   ========================================================================= */
+@media (max-width: 480px) {
+  /* ---- Hero ------------------------------------------------------------ */
+  /* The tail is the slice of hero below the fold that carries the SDG band.
+     At 90-170px it left a measured ~169px hole between the badges and the
+     scroll cue. Trimming the tail and spending it on the band's own top
+     margin moves the badges down into that hole — the requested "a little
+     bit below" — and takes ~130px off the hero at the same time. */
+  .hero-section {
+    --hero-tail: 34px;
+  }
+
+  .hero-container {
+    gap: 16px;
+  }
+
+  .hero-title {
+    font-size: clamp(21px, 6.9vw, 29px) !important;
+    line-height: 1.22;
+  }
+
+  .hero-graphic {
+    width: min(52vw, 210px);
+  }
+
+  .hero-sdg-strip {
+    margin-top: 40px;
+    width: 100%;
+  }
+
+  /* One centred row instead of the renderer's hard 4 + 4 split: `contents`
+     drops the <ul>s out of the box tree so all the badges become children of
+     the same wrapping flex row. Five SDGs stop rendering as an off-balance
+     4 + 1, and eight still break 4 + 4 on their own. No change to
+     renderSdgs() — this is purely how the boxes are laid out. */
+  .hero-sdg-rows {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    row-gap: calc(var(--sdg-gap) + 2px);
+  }
+
+  .hero-sdg-row {
+    display: contents;
+  }
+
+  .hero-sdg-item {
+    flex: 0 0 auto;
+    width: clamp(42px, 12.4vw, 56px);
+    max-width: none;
+  }
+
+  .hero-sdg-caption {
+    margin-top: 12px;
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+  }
+
+  /* ---- About / Our Vision / Our Mission -------------------------------- */
+  /* Every size below is a vw clamp rather than a flat px value on purpose.
+     The 340 / 300 / 280 / 190 blocks sit *earlier* in this file, so a flat
+     value here would out-rank them and undo their work; a clamp keeps
+     shrinking past the end of this band instead of fighting it. The upper
+     bound is the 480px value, the lower bound is the floor for 190px. */
+  .about-section,
+  .vision-section,
+  .mission-section {
+    padding-block: clamp(16px, 6.7vw, 28px);
+  }
+
+  .about-container,
+  .vision-container,
+  .mission-container {
+    padding-block: clamp(8px, 3.6vw, 16px);
+    gap: clamp(12px, 4.6vw, 20px);
+  }
+
+  /* The 50px bottom margin here stacks on top of the container's own gap,
+     so the copy and the video sat ~72px apart on a 390px screen. */
+  .about-content-left {
+    margin-bottom: 0;
+  }
+
+  .section-title {
+    font-size: clamp(17px, 5.4vw, 22px);
+    line-height: 1.25;
+    margin-bottom: clamp(7px, 2.6vw, 12px);
+  }
+
+  .section-text {
+    font-size: clamp(11.5px, 3.5vw, 13.6px);
+    line-height: 1.62;
+    margin-bottom: clamp(7px, 2.6vw, 12px);
+  }
+
+  .section-text:last-child {
+    margin-bottom: 0;
+  }
+
+  .vm-title {
+    font-size: clamp(16px, 5.1vw, 21px);
+    line-height: 1.25;
+    margin-bottom: clamp(6px, 2.2vw, 10px);
+  }
+
+  .vm-text {
+    font-size: clamp(12px, 3.6vw, 14px);
+    line-height: 1.6;
+  }
+
+  /* Media stops driving section height: the mission blob was a full-width
+     1:1 square (302x306 at 390px, a quarter of the screen), and the vision
+     photo and About video were free to grow with the column. */
+  .blob-wrapper {
+    width: min(62vw, 240px);
+    margin-inline: auto;
+  }
+
+  .mission-img {
+    width: 100%;
+    height: auto;
+  }
+
+  .vision-img,
+  .about-video-holder {
+    height: auto;
+    aspect-ratio: 16 / 10;
+    object-fit: cover;
+  }
+
+  /* ---- "What We Offer" carousel ---------------------------------------- */
+  /* The heading carries an inline margin-bottom: 50px in main.html, so this
+     is one of the few places that genuinely needs !important. */
+  .services-container .section-title {
+    margin-bottom: clamp(14px, 4.8vw, 22px) !important;
+  }
+
+  /* The card was text-first on a phone: a 20px title over a 15px paragraph
+     filled the whole 252px card and squeezed the photo down to 35px, so the
+     card read as a wall of type. Sizing the type down and pinning the image
+     holder gives the picture back ~100px and takes ~30px off the card. */
+  .landscape-carousel.carousel-wrapper {
+    height: clamp(240px, 66vw, 290px);
+  }
+
+  .landscape-carousel .carousel-item {
+    width: min(76vw, 300px);
+    height: clamp(210px, 58vw, 250px);
+  }
+
+  .landscape-card .card-img-holder {
+    flex: 0 0 auto;
+    height: clamp(80px, 25vw, 104px);
+  }
+
+  .carousel-item .card-content {
+    padding: clamp(9px, 3vw, 13px);
+  }
+
+  .carousel-item .card-title {
+    font-size: clamp(13px, 4vw, 15.5px);
+    line-height: 1.25;
+    margin-bottom: clamp(3px, 1.4vw, 6px);
+  }
+
+  .carousel-item .card-desc {
+    font-size: clamp(11px, 3.3vw, 12.8px);
+    line-height: 1.5;
+    margin-bottom: 0;
+  }
+
+  /* Service copy comes from the API, so its length is not ours to control.
+     Clamping the lines is what keeps one wordy service from blowing the
+     card out of the wrapper on a 320px screen. */
+  .carousel-item .card-title,
+  .carousel-item .card-desc {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .carousel-item .card-title {
+    -webkit-line-clamp: 2;
+  }
+
+  .carousel-item .card-desc {
+    -webkit-line-clamp: 3;
+  }
+
+  /* Swipe is the primary gesture on a phone; the arrows stay as a visible
+     affordance but stop eating the card's width. */
+  .carousel-track {
+    touch-action: pan-y;
+  }
+
+  .view-all-container {
+    margin-top: clamp(14px, 4.6vw, 22px);
+  }
+
+  /* ---- Footer ---------------------------------------------------------- */
+  /* Scrolling to the bottom of a phone handed you a footer taller than the
+     screen (745px against 844px, and 915px against 568px on an SE). The
+     two-column grid landed earlier in main.css; this is the type layer that
+     goes with it. Nothing is hidden or collapsed behind a tap — every link
+     stays on screen, it is the vertical padding and the desktop-scale type
+     that shrink. All four customer pages share this stylesheet, so this is
+     also the "apply this footer to all pages" half of the request. */
+  .site-footer {
+    padding-top: clamp(18px, 6.4vw, 26px);
+    padding-bottom: calc(clamp(8px, 3vw, 12px) + var(--ux-safe-b, 0px));
+  }
+
+  .footer-container {
+    gap: clamp(11px, 4.2vw, 17px);
+    margin-bottom: clamp(10px, 3.6vw, 15px);
+  }
+
+  /* Quick Links spans both of the lower rows, so Business Hours (two short
+     lines) and Contact Us stack in the right-hand column instead of leaving
+     ~90px of dead space under Hours — that dead space was the single largest
+     block of nothing in the footer. Nothing is hidden or collapsed: the same
+     four blocks, packed. The right column is the wider of the two because it
+     carries the four-line street address, and Quick Links only needs room for
+     "Products". */
+  .footer-container {
+    grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+    grid-template-areas:
+      "brand brand"
+      "quick hours"
+      "quick contact";
+  }
+
+  .footer-container .footer-col:nth-child(1) {
+    grid-area: brand;
+  }
+  .footer-container .footer-col:nth-child(2) {
+    grid-area: quick;
+    align-self: start;
+  }
+  .footer-container .footer-col:nth-child(3) {
+    grid-area: hours;
+  }
+  .footer-container .footer-col:nth-child(4) {
+    grid-area: contact;
+  }
+
+  .footer-logo-row {
+    gap: clamp(6px, 2vw, 9px);
+    margin-bottom: clamp(6px, 2.2vw, 10px);
+  }
+
+  .footer-logo {
+    height: clamp(26px, 8.6vw, 34px);
+    width: clamp(26px, 8.6vw, 34px);
+  }
+
+  .footer-brand {
+    font-size: clamp(14px, 4.4vw, 17px);
+  }
+
+  .footer-desc,
+  .footer-text,
+  .footer-menu a,
+  .footer-link,
+  .contact-list li {
+    font-size: clamp(10.5px, 3.2vw, 12.5px);
+    line-height: 1.5;
+  }
+
+  .footer-heading {
+    font-size: clamp(12.5px, 3.8vw, 14.5px);
+    line-height: 1.2;
+    margin-bottom: clamp(5px, 2vw, 8px);
+    /* The underline hangs off ::after; 11px of clearance is a desktop measure
+       and it is paid three times over in a footer this short. */
+    padding-bottom: clamp(5px, 2vw, 8px);
+  }
+
+  /* 26px keeps the links comfortably tappable while the 9-15px list rhythm
+     that came from the desktop layout drops to a phone-scale 4px. */
+  .footer-menu li,
+  .contact-list li {
+    margin-bottom: clamp(2px, 1.2vw, 5px);
+  }
+
+  .footer-menu li:last-child,
+  .contact-list li:last-child {
+    margin-bottom: 0;
+  }
+
+  .contact-list li {
+    gap: clamp(5px, 1.8vw, 8px);
+  }
+
+  .contact-icon {
+    width: clamp(13px, 4.2vw, 16px);
+    height: clamp(13px, 4.2vw, 16px);
+    flex: 0 0 auto;
+  }
+
+  .footer-line {
+    margin-bottom: clamp(6px, 2.6vw, 11px);
+  }
+
+  .footer-bottom {
+    padding-bottom: calc(clamp(4px, 2vw, 8px) + var(--ux-safe-b, 0px));
+  }
+
+  .footer-bottom p {
+    font-size: clamp(9.5px, 2.9vw, 11.5px);
+    line-height: 1.35;
+  }
+
+  /* ---- Navbar surfaces -------------------------------------------------- */
+  /* Header, sidebar, announcement card and My Account already measure inside
+     the viewport at 320-430 (the screenshot's "ruins the screen size" was the
+     document being 888px wide, fixed in main.css), and every .ux-dlg__card
+     already caps at calc(100dvh - 30px) with its body scrolling. The one
+     surface with no width ceiling of its own is the profile dropdown, which
+     is positioned from the right edge and sized in px. */
+  .profile-popup {
+    max-width: calc(100vw - 24px);
+  }
+}
+
+/* -------------------------------------------------------------------------
+   Small phones — 360px and under (iPhone SE 320, mini 375 in landscape UI).
+   The block above is written in vw clamps so it keeps shrinking on its own;
+   these are the few places that needed a second, flatter cut. The footer is
+   the reason this block exists: on a 568px-tall SE even the compacted
+   two-column footer still fills most of the screen.
+   ------------------------------------------------------------------------- */
+@media (max-width: 360px) {
+  .site-footer {
+    padding-top: 14px;
+  }
+
+  .footer-container {
+    gap: 9px;
+  }
+
+  /* 22px is still a usable target for a text link in a list this dense, and
+     it is what buys the last ~25px of footer height. */
+  .footer-menu a,
+  .footer-link {
+    min-height: 22px;
+    padding-block: 0;
+  }
+
+  .hero-section {
+    --hero-tail: 26px;
+  }
+
+  .hero-sdg-strip {
+    margin-top: 30px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Landscape phones (932x430 and friends). The width is wide enough that none
+   of the phone width bands above apply, so the footer was still being drawn at
+   desktop scale — 56px of top padding and 20px headings — and stood 504px tall
+   inside a 430px-tall screen. Same content and still four columns, because the
+   width is genuinely there; only the vertical scale comes down.
+   Keyed on height, so portrait phones never see it.
+   ------------------------------------------------------------------------- */
+@media (min-width: 641px) and (max-height: 520px) and (orientation: landscape) {
+  .site-footer {
+    padding-top: 22px;
+    padding-bottom: calc(12px + var(--ux-safe-b, 0px));
+  }
+
+  .footer-container {
+    gap: 14px 26px;
+    margin-bottom: 14px;
+  }
+
+  .footer-logo-row {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .footer-logo {
+    height: 30px;
+    width: 30px;
+  }
+
+  .footer-brand {
+    font-size: 16px;
+  }
+
+  .footer-heading {
+    font-size: 13.5px;
+    margin-bottom: 8px;
+    padding-bottom: 7px;
+  }
+
+  .footer-desc,
+  .footer-text,
+  .footer-menu a,
+  .footer-link,
+  .contact-list li {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .footer-menu li,
+  .contact-list li {
+    margin-bottom: 4px;
+  }
+
+  .footer-menu li:last-child,
+  .contact-list li:last-child {
+    margin-bottom: 0;
+  }
+
+  .contact-icon {
+    width: 15px;
+    height: 15px;
+  }
+
+  .footer-line {
+    margin-bottom: 10px;
+  }
+
+  .footer-bottom {
+    padding-bottom: calc(6px + var(--ux-safe-b, 0px));
+  }
+
+  .footer-bottom p {
+    font-size: 11px;
+    line-height: 1.35;
+  }
+}
+

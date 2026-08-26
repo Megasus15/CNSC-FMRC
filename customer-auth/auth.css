@@ -335,8 +335,9 @@ body {
    full-width message sat on top of the next label. One fixed alert at the top of
    the screen collects them all instead — it is out of flow, so it cannot move a
    single field, and it stays above the dialogs too.
-   No fade in or out: a CSS animation or transition does not advance while the tab
-   is hidden, which can leave the message stuck at its invisible start frame. */
+   No fade in, and the fade out is cosmetic only: a CSS animation or transition
+   does not advance while the tab is hidden, so the JS keeps the 5s dismissal on
+   its own timers and never waits on transitionend. */
 .auth-error-alert {
   position: fixed;
   /* Below the fixed "Back to Homepage" pill, which owns the top-left corner. */
@@ -444,6 +445,98 @@ body {
 
 .auth-error-close:hover {
   background: rgba(211, 47, 47, 0.12);
+}
+
+/* The 5s auto-dismiss fade. The JS owns the removal on its own timer and uses
+   this class for the visual only, so a hidden tab — where transitions do not
+   advance — still has the node removed on schedule instead of latching at an
+   invisible frame. That is also why there is no matching fade *in*. */
+.auth-error-alert.is-leaving {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-6px);
+  transition:
+    opacity 240ms ease,
+    transform 240ms ease;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-error-alert.is-leaving {
+    transition: none;
+  }
+}
+
+/* Laptops and up: one line.
+   The mobile shape is a 430px column with the heading stacked over a vertical
+   list, which on a 1440px screen turned "Please check these fields" plus two
+   short messages into a three-line block in the middle of the viewport. Above
+   768px the alert becomes a single baseline row that is only as wide as its
+   own text, and the messages read as a separated series. The row still wraps
+   when there are enough long messages to need it — that is the graceful case,
+   not the shape it is designed around. Phones keep the stacked column below. */
+@media (min-width: 768px) {
+  .auth-error-alert {
+    /* max-content, not auto. The alert is fixed at left: 50% with a -50%
+       translate, so its available width is only the half of the screen to the
+       right of centre — `auto` shrink-to-fit capped the row at 720px on a
+       1440px screen and wrapped it. max-content sizes to the text and lets
+       max-width do the limiting. */
+    width: max-content;
+    max-width: min(1180px, calc(100% - 32px));
+    align-items: center;
+    max-height: none;
+    /* auto, not visible: the landscape-phone band further down re-caps the
+       height on short screens, and it needs to stay scrollable when it does. */
+    overflow-y: auto;
+    padding: 9px 14px;
+  }
+
+  .auth-error-body {
+    display: flex;
+    flex: 0 1 auto;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .auth-error-title {
+    margin: 0;
+    white-space: nowrap;
+  }
+
+  .auth-error-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 14px;
+  }
+
+  /* A dot between adjacent messages, so a row of them still reads as a list
+     and not as one run-on sentence. */
+  .auth-error-item + .auth-error-item {
+    position: relative;
+  }
+
+  .auth-error-item + .auth-error-item::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: -8px;
+    width: 3px;
+    height: 3px;
+    margin-top: -1px;
+    border-radius: 50%;
+    background: #d9a1a1;
+  }
+
+  .auth-error-link {
+    width: auto;
+    white-space: nowrap;
+    overflow-wrap: normal;
+  }
+
+  .auth-error-close {
+    margin: 0 0 0 2px;
+  }
 }
 
 /* The security check is not a field, so a blocked submit marks the widget itself
@@ -1911,6 +2004,16 @@ svg {
   .auth-error-alert {
     width: calc(100% - 16px);
     padding: 11px 10px;
+  }
+
+  /* Phone type for the alert: the desktop row above reads at 12.5px, a phone
+     column of two or three wrapped messages reads better a notch smaller. */
+  .auth-error-link {
+    font-size: 12px;
+  }
+
+  .auth-error-title {
+    font-size: 11px;
   }
 }
 

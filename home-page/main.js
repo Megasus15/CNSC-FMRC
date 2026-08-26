@@ -13554,6 +13554,12 @@ const openReturnRequestModal = (() => {
     });
     items.forEach(function (it) {
       it.addEventListener("click", function () {
+        // A drag that already moved the carousel must not also register as a
+        // tap on whichever neighbour card the finger happened to land on.
+        if (swiped) {
+          swiped = false;
+          return;
+        }
         if (it.classList.contains("prev")) prv();
         else if (it.classList.contains("next")) nxt();
       });
@@ -13564,6 +13570,85 @@ const openReturnRequestModal = (() => {
     wrapper.addEventListener("mouseleave", function () {
       timer = setInterval(nxt, 5000);
     });
+
+    // Swipe. The original bindings near the top of this file belong to the
+    // placeholder track that ships in main.html; as soon as the services API
+    // answers, that track is rebuilt and this function re-binds the arrows,
+    // the card taps, the hover pause and the autoplay — but touch was never
+    // re-bound, so on the live site swiping did nothing at all.
+    // One code path for both inputs: touch events for a finger, pointer
+    // events for a trackpad or mouse drag, with pointerType "touch" ignored
+    // so a phone cannot advance twice from a single swipe.
+    var SWIPE_MIN = 40;
+    var gx = 0,
+      gy = 0,
+      dragging = false,
+      swiped = false;
+
+    function gestureStart(x, y) {
+      gx = x;
+      gy = y;
+      dragging = true;
+      swiped = false;
+      clearInterval(timer);
+    }
+
+    function restartAutoPlay() {
+      clearInterval(timer);
+      timer = setInterval(nxt, 5000);
+    }
+
+    function gestureEnd(x, y) {
+      if (!dragging) return;
+      dragging = false;
+      var dx = x - gx;
+      var dy = y - gy;
+      // A mostly-vertical drag is the page being scrolled, not the cards being
+      // browsed, so it must not steal the gesture.
+      if (Math.abs(dx) > SWIPE_MIN && Math.abs(dx) > Math.abs(dy)) {
+        swiped = true;
+        if (dx < 0) nxt();
+        else prv();
+      }
+      restartAutoPlay();
+    }
+
+    track.addEventListener(
+      "touchstart",
+      function (e) {
+        gestureStart(e.touches[0].clientX, e.touches[0].clientY);
+      },
+      { passive: true },
+    );
+
+    track.addEventListener(
+      "touchend",
+      function (e) {
+        var t = e.changedTouches[0];
+        gestureEnd(t.clientX, t.clientY);
+      },
+      { passive: true },
+    );
+
+    track.addEventListener(
+      "touchcancel",
+      function () {
+        dragging = false;
+        restartAutoPlay();
+      },
+      { passive: true },
+    );
+
+    track.addEventListener("pointerdown", function (e) {
+      if (e.pointerType === "touch") return;
+      gestureStart(e.clientX, e.clientY);
+    });
+
+    track.addEventListener("pointerup", function (e) {
+      if (e.pointerType === "touch") return;
+      gestureEnd(e.clientX, e.clientY);
+    });
+
     upd();
     timer = setInterval(nxt, 5000);
   }
