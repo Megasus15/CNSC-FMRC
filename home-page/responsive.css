@@ -1657,16 +1657,27 @@
 
   /* The close button hangs outside the box on desktop, which put it flush with
      the screen edge at 320px. Bring it inside the frame. */
+  /* The gutter is wide enough for the corner badge below to hang outside the
+     frame and still keep ~10px of clearance from the screen edge. */
   #serviceImageLightboxModal .lightbox-box {
-    max-width: calc(100vw - 20px);
-    padding: 14px;
+    max-width: calc(100vw - 44px);
+    padding: 12px;
   }
 
-  /* Keeps the 40px tap target (`--ux-tap` floors it in main.css) but inside the
-     frame instead of hanging off the corner. */
+  /* Same corner badge as desktop — the circle straddles the top-right edge of
+     the frame — only pulled in from the stock -14px so the 40px tap target
+     never reaches the screen edge on a narrow phone. */
   #serviceImageLightboxModal .lightbox-close-btn {
-    top: 6px;
-    right: 6px;
+    top: -12px;
+    right: -12px;
+  }
+
+  /* The shared photo cap is `min(86vw, 1000px)`, which ignores the frame and
+     would poke the image past the white border now that the box is narrower.
+     44px of gutter + 2 x 12px of padding = the 68px subtracted here, so the
+     frame hugs the photo exactly. */
+  #serviceImageLightboxModal .lightbox-box img {
+    max-width: calc(100vw - 68px);
   }
 
   #serviceImageLightboxModal .lightbox-caption {
