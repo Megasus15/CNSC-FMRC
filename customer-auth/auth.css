@@ -351,9 +351,8 @@ body {
   max-height: min(42vh, 300px);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 12px 12px 12px 14px;
+  padding: 12px;
   border: 1px solid #f3c2bf;
-  border-left: 4px solid #d32f2f;
   border-radius: var(--ux-dlg-radius);
   background: #fff6f5;
   box-shadow: 0 14px 34px rgba(75, 12, 12, 0.18);
@@ -1911,7 +1910,7 @@ svg {
 
   .auth-error-alert {
     width: calc(100% - 16px);
-    padding: 11px 10px 11px 12px;
+    padding: 11px 10px;
   }
 }
 
@@ -2145,7 +2144,7 @@ svg {
 
   .auth-error-alert {
     top: max(52px, calc(46px + var(--ux-safe-t, 0px)));
-    padding: 8px 7px 8px 9px;
+    padding: 8px 7px;
   }
 
   .auth-error-link {
