@@ -230,7 +230,8 @@
   :root {
     --ux-gutter: 7px;
     --ux-gap: 8px;
-    --ux-card-radius: 12px;
+    /* Matches the dialog radius; the cards stay pointy all the way down. */
+    --ux-card-radius: 8px;
     --ux-tap: 38px;
   }
 
@@ -425,7 +426,6 @@
     height: auto;
     min-height: 82px;
     aspect-ratio: 4 / 3;
-    border-radius: 12px;
   }
 
   .carousel-btn {
@@ -1155,7 +1155,6 @@
   .shop-card {
     width: 100%;
     min-width: 0;
-    border-radius: 15px;
   }
 
   .products-page-body #productGrid .product-img-wrapper {

@@ -2147,9 +2147,66 @@ textarea:focus-visible {
   margin: 10px auto;
   justify-content: center;
   align-items: center;
+  /* The widget renders at a 300px minimum even in "flexible" mode, so the slot
+     itself must never be the thing that overflows the card. */
+  width: 100%;
+  max-width: 100%;
 }
 
 .fmrc-turnstile-slot[hidden] {
   display: none;
+}
+
+/* Gate message shown under the widget while the security check is unsolved.
+   Mirrors admin-auth/auth.css so both portals speak with one voice. */
+.turnstile-note {
+  margin: -4px auto 10px;
+  max-width: 300px;
+  color: #b3261e;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.turnstile-note[hidden] {
+  display: none;
+}
+
+/* --- Turnstile on narrow iPhones ----------------------------------------
+   Cloudflare's "flexible" size will not render below 300px, but the content box
+   inside the form panel is only ~246px on a 320px iPhone SE. Scaling the widget
+   down is the only way to keep the whole checkbox reachable; `body` has
+   `overflow-x: hidden`, so without this the right edge is simply unclickable.
+   The compensating `min-height` stops the scale from leaving a gap. */
+@media (max-width: 380px) {
+  .fmrc-turnstile-slot > * {
+    transform: scale(0.92);
+    transform-origin: center center;
+  }
+
+  .fmrc-turnstile-slot {
+    min-height: 60px;
+  }
+}
+
+@media (max-width: 340px) {
+  .fmrc-turnstile-slot > * {
+    transform: scale(0.84);
+  }
+
+  .fmrc-turnstile-slot {
+    min-height: 55px;
+  }
+}
+
+@media (max-width: 300px) {
+  .fmrc-turnstile-slot > * {
+    transform: scale(0.76);
+  }
+
+  .fmrc-turnstile-slot {
+    min-height: 50px;
+  }
 }
 

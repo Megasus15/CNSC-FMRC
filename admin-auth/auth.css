@@ -10,6 +10,11 @@
   --border-color: #e2e8f0;
   --input-bg: #fafbfc;
   --input-focus: rgba(158, 20, 20, 0.1);
+  /* Mirrors the `ux-dlg` dialog tokens in home-page/main.css. This page never
+     loads main.css, so the two files have to be kept in step by hand: pointy
+     8px dialog corners over a neutral slate scrim, no reddish veil. */
+  --ux-dlg-radius: 8px;
+  --ux-dlg-scrim: rgba(15, 23, 42, 0.55);
 }
 
 * {
@@ -319,7 +324,7 @@ body {
 .success-modal {
   position: fixed;
   inset: 0;
-  background: rgba(45, 55, 72, 0.8);
+  background: var(--ux-dlg-scrim);
   backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
@@ -342,7 +347,7 @@ body {
   width: 100%;
   max-width: 380px;
   background: #fff;
-  border-radius: 16px;
+  border-radius: var(--ux-dlg-radius);
   padding: 32px 24px;
   text-align: center;
   transform: scale(0.95);
@@ -480,7 +485,7 @@ body {
 .status-box {
   background: #121824;
   color: #fff;
-  border-radius: 10px;
+  border-radius: var(--ux-dlg-radius);
   padding: 12px 16px;
   font-size: 13px;
   font-weight: 600;
@@ -514,7 +519,7 @@ body {
 .forgot-modal {
   position: fixed;
   inset: 0;
-  background: rgba(45, 55, 72, 0.8);
+  background: var(--ux-dlg-scrim);
   backdrop-filter: blur(4px);
   display: flex;
   justify-content: center;
@@ -538,7 +543,7 @@ body {
   width: 100%;
   max-width: 400px;
   background: #fff;
-  border-radius: 16px;
+  border-radius: var(--ux-dlg-radius);
   padding: 32px 24px 28px;
   text-align: center;
   transform: scale(0.95);
@@ -1174,7 +1179,7 @@ body::after {
 
 .success-box,
 .forgot-box {
-  border-radius: 26px;
+  border-radius: var(--ux-dlg-radius);
   border: 1px solid rgba(255, 255, 255, 0.7);
   box-shadow: 0 28px 70px rgba(0, 0, 0, 0.2);
 }
@@ -1316,4 +1321,736 @@ body::after {
 
 .turnstile-note[hidden] {
   display: none;
+}
+
+/* =================================================================
+   UNIVERSAL RESPONSIVE + COMFORT LAYER — ADMIN / STAFF LOGIN
+   Ported 1:1 from customer-auth/auth.css so both portals share one set
+   of breakpoints, tap targets and safe-area rules. Works from 126px up
+   to 7680px wide, iPhone-first. Declared last so it resolves the older
+   rules above it.
+   ================================================================= */
+
+:root {
+  --ux-tap: 46px;
+  --ux-safe-t: env(safe-area-inset-top, 0px);
+  --ux-safe-b: env(safe-area-inset-bottom, 0px);
+  --ux-safe-l: env(safe-area-inset-left, 0px);
+  --ux-safe-r: env(safe-area-inset-right, 0px);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+  /* dvh keeps the page from being taller than the visible area once iOS
+     Safari's toolbars are on screen; vh stays as the fallback. */
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+/* This portal carries no fixed "Back to Homepage" pill, so the padding is
+   symmetric instead of clearing one, but the safe-area insets are the same. */
+.auth-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding-top: max(clamp(18px, 4vw, 50px), var(--ux-safe-t));
+  padding-bottom: calc(clamp(18px, 4vw, 50px) + var(--ux-safe-b));
+  padding-left: max(clamp(12px, 4vw, 22px), var(--ux-safe-l));
+  padding-right: max(clamp(12px, 4vw, 22px), var(--ux-safe-r));
+}
+
+/* Card geometry matched to the customer portal: same fluid padding, same
+   nested-border inset, same radius ramp. The fixed 610px/586px minimums are
+   released so the card is content-tall — that is what stops the top of the
+   card being cut off inside a centred flex parent on short viewports. */
+.auth-card {
+  width: 100%;
+  max-width: min(990px, 100%);
+  min-height: 0;
+  padding: clamp(8px, 1.4vw, 12px);
+  border-radius: clamp(18px, 3.4vw, 38px);
+}
+
+.auth-card::before {
+  inset: clamp(8px, 1.4vw, 12px);
+  border-radius: clamp(12px, 2.6vw, 29px);
+}
+
+.auth-side-panel {
+  min-height: 0;
+  gap: clamp(18px, 3vw, 28px);
+  padding: clamp(20px, 3.4vw, 36px) clamp(18px, 3vw, 32px);
+}
+
+.portal-mark {
+  width: clamp(62px, 14vw, 96px);
+  height: clamp(62px, 14vw, 96px);
+  margin-bottom: clamp(14px, 2.6vw, 28px);
+  border-radius: clamp(18px, 3.2vw, 30px);
+}
+
+.auth-kicker {
+  max-width: 100%;
+  font-size: clamp(10px, 1.2vw, 11px);
+  overflow-wrap: anywhere;
+}
+
+.side-title h2 {
+  max-width: 100%;
+  font-size: clamp(22px, 3.4vw, 40px);
+}
+
+.side-title p {
+  max-width: 100%;
+  font-size: clamp(12px, 1.4vw, 13px);
+}
+
+.side-feature {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.auth-form-panel {
+  min-width: 0;
+  padding: clamp(24px, 4.4vw, 54px) clamp(16px, 3.4vw, 48px)
+    clamp(22px, 3.6vw, 48px);
+  border-radius: clamp(16px, 2.8vw, 30px);
+}
+
+.auth-form {
+  min-width: 0;
+}
+
+.auth-hero {
+  margin-bottom: clamp(18px, 3vw, 28px);
+}
+
+.auth-brand {
+  gap: clamp(8px, 1.6vw, 12px);
+  margin-bottom: clamp(12px, 2.2vw, 20px);
+  flex-wrap: wrap;
+}
+
+.brand-logo {
+  width: clamp(40px, 10vw, 54px);
+  height: clamp(40px, 10vw, 54px);
+  border-radius: clamp(12px, 2.4vw, 18px);
+}
+
+.auth-title {
+  font-size: clamp(21px, 4.2vw, 38px);
+}
+
+.auth-caption {
+  font-size: clamp(11.5px, 1.4vw, 13px);
+}
+
+.input-wrapper {
+  min-width: 0;
+  margin-bottom: clamp(12px, 1.8vw, 16px);
+}
+
+.input-icon-group,
+.input-field-box {
+  min-width: 0;
+}
+
+.input-wrapper label {
+  font-size: clamp(11.5px, 1.3vw, 12px);
+}
+
+/* 16px minimum keeps iOS Safari from zooming the whole page when a field is
+   focused — the admin fields were 14px, which triggered it on every iPhone. */
+.input-icon-group input {
+  min-width: 0;
+  min-height: var(--ux-tap);
+  padding: 13px 16px 13px 46px;
+  border-radius: clamp(12px, 2vw, 18px);
+  font-size: max(16px, 0.9rem);
+}
+
+/* The OTP field carries no icon and is centre-aligned, so it takes the tap
+   target and the anti-zoom floor without the icon padding. */
+.otp-code-input {
+  min-height: var(--ux-tap);
+  font-size: max(16px, 22px);
+}
+
+.password-field input {
+  padding-right: 48px;
+}
+
+.input-icon {
+  left: clamp(14px, 3.4vw, 18px);
+}
+
+.toggle-pass {
+  right: 8px;
+  min-width: 38px;
+  min-height: 38px;
+}
+
+.auth-btn {
+  min-height: var(--ux-tap);
+  padding: clamp(12px, 1.7vw, 15px);
+  border-radius: clamp(10px, 1.8vw, 14px);
+  font-size: clamp(13.5px, 1.5vw, 15px);
+  overflow-wrap: anywhere;
+}
+
+.form-link,
+.switch-account-link,
+.inline-link,
+.otp-resend-btn {
+  display: inline-block;
+  min-height: 28px;
+  padding-block: 4px;
+  font-size: clamp(12.5px, 1.4vw, 13px);
+  overflow-wrap: anywhere;
+}
+
+.switch-copy {
+  font-size: clamp(12.5px, 1.4vw, 14px);
+  overflow-wrap: anywhere;
+}
+
+/* Modals never exceed the viewport and respect the notch. */
+.success-modal,
+.forgot-modal,
+.status-modal,
+.global-loader-overlay {
+  padding: clamp(12px, 3vw, 18px);
+  padding-top: max(clamp(12px, 3vw, 18px), var(--ux-safe-t));
+  padding-bottom: max(clamp(12px, 3vw, 18px), var(--ux-safe-b));
+  overscroll-behavior: contain;
+}
+
+/* This portal needs the clamp more than the customer one does: the forgot
+   password modal carries the Staff Notice banner, and step 2 stacks the OTP
+   field plus two password fields — taller than a 568px iPhone SE viewport. With
+   no max-height and no scroller of its own, the buttons were unreachable. */
+.success-box,
+.forgot-box {
+  width: min(100%, 420px);
+  max-height: min(92vh, calc(100dvh - 24px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: clamp(22px, 4.4vw, 32px) clamp(16px, 3.4vw, 24px);
+  border-radius: var(--ux-dlg-radius);
+}
+
+.forgot-close {
+  min-width: 40px;
+  min-height: 40px;
+}
+
+.success-icon,
+.forgot-icon {
+  width: clamp(52px, 13vw, 64px);
+  height: clamp(52px, 13vw, 64px);
+}
+
+.success-box h3,
+.forgot-box h3 {
+  font-size: clamp(17px, 3.2vw, 22px);
+}
+
+.success-box p,
+.forgot-box p {
+  font-size: clamp(12.5px, 1.5vw, 14px);
+  overflow-wrap: anywhere;
+}
+
+.status-box {
+  width: fit-content;
+  max-width: min(100%, 38rem);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Countdown text and the resend button share one row: below ~360px they have to
+   be allowed to wrap rather than squeeze each other out of the box. */
+.otp-resend-row {
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  overflow-wrap: anywhere;
+}
+
+.otp-lockout-banner {
+  border-radius: var(--ux-dlg-radius);
+  overflow-wrap: anywhere;
+}
+
+/* Was a block of inline styles on the element, which no media query could
+   override — the banner kept its desktop padding and font size on every phone.
+   Same treatment as `.otp-lockout-banner`, which it visually duplicates. */
+.staff-notice-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border: 1px solid #fef08a;
+  border-radius: var(--ux-dlg-radius);
+  background: #fefce8;
+  color: #854d0e;
+  font-size: 12.5px;
+  line-height: 1.45;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.otp-info-pill {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.otp-input-wrapper {
+  min-width: 0;
+}
+
+/* --- Stack the promo panel above the form on tablets and phones -- */
+@media (max-width: 920px) {
+  .auth-page {
+    align-items: flex-start;
+  }
+
+  .auth-card {
+    max-width: 640px;
+    grid-template-columns: 1fr;
+  }
+
+  .auth-side-panel {
+    min-height: clamp(200px, 42vw, 330px);
+    border-radius: clamp(16px, 3vw, 24px) clamp(34px, 8vw, 62px)
+      clamp(16px, 3vw, 24px) clamp(16px, 3vw, 24px);
+  }
+
+  .side-features {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .auth-form-panel::before {
+    display: none;
+  }
+}
+
+/* --- Phones ----------------------------------------------------- */
+@media (max-width: 560px) {
+  /* The promo is decorative. Removing it on phones puts the log-in controls
+     above the fold and avoids scrolling past a full-bleed image first. */
+  .auth-side-panel {
+    display: none;
+  }
+
+  .auth-btn {
+    line-height: 1.35;
+  }
+
+  .form-link,
+  .switch-account-link,
+  .inline-link,
+  .otp-resend-btn {
+    line-height: 1.45;
+  }
+
+  .status-box {
+    text-align: center;
+  }
+
+  .auth-brand {
+    justify-content: center;
+  }
+
+  .auth-hero,
+  .auth-caption {
+    text-align: center;
+  }
+
+  .auth-caption {
+    justify-content: center;
+  }
+
+  .side-features {
+    display: none;
+  }
+
+  /* Narrow cards: the bubble drops into the flow directly under its own input,
+     so a full-width message never covers the label or the next field. */
+  .input-icon-group {
+    flex-wrap: wrap;
+  }
+
+  .field-error-bubble {
+    position: relative;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    flex: 0 0 100%;
+    max-width: 100%;
+    margin-top: 7px;
+    box-shadow: none;
+  }
+
+  .field-error-bubble::after {
+    top: -5px;
+    bottom: auto;
+    left: 16px;
+    right: auto;
+  }
+}
+
+/* --- Ultra-narrow (smartwatch / 240–320px) ---------------------- */
+@media (max-width: 340px) {
+  :root {
+    --ux-tap: 40px;
+  }
+
+  .auth-side-panel {
+    display: none;
+  }
+
+  .auth-card {
+    grid-template-columns: 1fr;
+    padding: 6px;
+  }
+
+  .auth-form-panel {
+    padding: 20px 12px 18px;
+  }
+
+  .auth-title {
+    font-size: 19px;
+  }
+
+  .input-icon-group input {
+    padding-left: 40px;
+  }
+
+  .input-icon {
+    left: 12px;
+    width: 16px;
+    height: 16px;
+  }
+
+  .otp-code-input {
+    font-size: 18px;
+    letter-spacing: 4px;
+  }
+}
+
+/* --- Extreme narrow widths (126-239px) --------------------------
+   Preserve every action while spending less space on decoration. */
+@media (max-width: 239px) {
+  .auth-page {
+    padding-top: max(10px, var(--ux-safe-t));
+    padding-bottom: max(10px, var(--ux-safe-b));
+    padding-left: max(5px, var(--ux-safe-l));
+    padding-right: max(5px, var(--ux-safe-r));
+  }
+
+  .auth-card {
+    padding: 4px;
+    border-radius: 14px;
+  }
+
+  .auth-card::before {
+    inset: 4px;
+    border-radius: 10px;
+  }
+
+  .auth-card::after,
+  body::after {
+    display: none;
+  }
+
+  .auth-form-panel {
+    padding: 16px 8px 14px;
+    border-radius: 11px;
+  }
+
+  .auth-hero {
+    margin-bottom: 14px;
+  }
+
+  .auth-brand {
+    gap: 5px;
+    margin-bottom: 8px;
+  }
+
+  .brand-logo {
+    width: 36px;
+    height: 36px;
+    padding: 4px;
+    border-radius: 10px;
+  }
+
+  .auth-title {
+    font-size: 18px;
+    letter-spacing: -0.035em;
+  }
+
+  .auth-caption {
+    gap: 5px;
+    font-size: 10.5px;
+    line-height: 1.4;
+  }
+
+  .auth-caption::before {
+    width: 16px;
+  }
+
+  .input-wrapper {
+    margin-bottom: 10px;
+  }
+
+  .input-wrapper label {
+    margin-bottom: 5px;
+    font-size: 10.5px;
+    line-height: 1.35;
+  }
+
+  .input-icon-group input {
+    min-height: 40px;
+    padding: 9px 7px 9px 32px;
+    border-radius: 9px;
+    font-size: 16px;
+  }
+
+  .password-field input {
+    padding-right: 36px;
+  }
+
+  .input-icon {
+    left: 9px;
+    width: 14px;
+    height: 14px;
+  }
+
+  .toggle-pass {
+    right: 1px;
+    min-width: 34px;
+    min-height: 34px;
+  }
+
+  .toggle-pass svg {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+  }
+
+  .otp-code-input {
+    min-height: 40px;
+    font-size: 16px;
+    letter-spacing: 3px;
+    padding: 8px 6px;
+  }
+
+  .form-link-wrap {
+    margin-bottom: 12px;
+  }
+
+  .form-link,
+  .switch-account-link,
+  .inline-link,
+  .otp-resend-btn {
+    font-size: 11px;
+  }
+
+  .auth-btn {
+    min-height: 40px;
+    padding: 9px 5px;
+    font-size: 12px;
+  }
+
+  .success-modal,
+  .forgot-modal,
+  .status-modal,
+  .global-loader-overlay {
+    padding: 5px;
+    padding-top: max(5px, var(--ux-safe-t));
+    padding-bottom: max(5px, var(--ux-safe-b));
+  }
+
+  .success-box,
+  .forgot-box {
+    padding-right: 9px;
+    padding-left: 9px;
+    border-radius: var(--ux-dlg-radius);
+  }
+
+  .forgot-box {
+    padding-top: 48px;
+  }
+
+  .forgot-close {
+    top: 4px;
+    right: 4px;
+    min-width: 36px;
+    min-height: 36px;
+  }
+
+  .success-icon,
+  .forgot-icon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .success-box h3,
+  .forgot-box h3 {
+    font-size: 16px;
+  }
+
+  .success-box p,
+  .forgot-box p,
+  .status-box,
+  .staff-notice-banner,
+  .otp-lockout-banner {
+    font-size: 11px;
+  }
+
+  .status-box {
+    padding: 9px 7px;
+  }
+
+  .field-error-bubble {
+    padding: 6px 7px;
+    font-size: 10.5px;
+  }
+}
+
+/* --- Landscape phones: reclaim vertical space -------------------
+   iPhone 14/16 Pro Max in landscape is 932×430, which never matched the old
+   `max-width: 900px` block, so a 610px-tall card sat inside a centred flex
+   parent and the top of it was cut off with no way to scroll up to it. */
+@media (max-height: 460px) and (orientation: landscape) {
+  .auth-page {
+    align-items: flex-start;
+    padding-top: max(14px, var(--ux-safe-t));
+    padding-bottom: 18px;
+  }
+
+  .auth-card {
+    min-height: auto;
+  }
+
+  .auth-side-panel {
+    min-height: 0;
+  }
+
+  .auth-form-panel {
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+
+  .auth-hero {
+    margin-bottom: 14px;
+  }
+}
+
+/* --- Large desktops --------------------------------------------- */
+@media (min-width: 1600px) {
+  .auth-card {
+    max-width: 1240px;
+  }
+}
+
+@media (min-width: 2400px) {
+  .auth-card {
+    max-width: 1420px;
+  }
+
+  .auth-title {
+    font-size: clamp(38px, 1.8vw, 48px);
+  }
+
+  .input-icon-group input,
+  .auth-btn {
+    min-height: 58px;
+    font-size: 17px;
+  }
+}
+
+/* --- Touch: drop hover lifts ------------------------------------ */
+@media (hover: none) {
+  .auth-btn:hover {
+    transform: none;
+  }
+}
+
+/* --- Reduced motion --------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* --- Visible keyboard focus ------------------------------------- */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(241, 189, 18, 0.85);
+  outline-offset: 2px;
+}
+
+.fmrc-turnstile-slot {
+  /* The widget renders at a 300px minimum even in "flexible" mode, so the slot
+     itself must never be the thing that overflows the card. */
+  width: 100%;
+  max-width: 100%;
+}
+
+/* --- Turnstile on narrow iPhones ----------------------------------------
+   Cloudflare's "flexible" size will not render below 300px, but the content box
+   inside the form panel is only ~246px on a 320px iPhone SE. Scaling the widget
+   down is the only way to keep the whole checkbox reachable; `body` has
+   `overflow-x: hidden`, so without this the right edge is simply unclickable.
+   The compensating `min-height` stops the scale from leaving a gap. */
+@media (max-width: 380px) {
+  .fmrc-turnstile-slot > * {
+    transform: scale(0.92);
+    transform-origin: center center;
+  }
+
+  .fmrc-turnstile-slot {
+    min-height: 60px;
+  }
+}
+
+@media (max-width: 340px) {
+  .fmrc-turnstile-slot > * {
+    transform: scale(0.84);
+  }
+
+  .fmrc-turnstile-slot {
+    min-height: 55px;
+  }
+}
+
+@media (max-width: 300px) {
+  .fmrc-turnstile-slot > * {
+    transform: scale(0.76);
+  }
+
+  .fmrc-turnstile-slot {
+    min-height: 50px;
+  }
 }

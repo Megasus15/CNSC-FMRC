@@ -7358,6 +7358,9 @@ document.addEventListener("DOMContentLoaded", () => {
       );
       const track = overlay.querySelector("#customerOrdersTrack");
       const viewport = overlay.querySelector("#customerOrdersViewport");
+      // The chip strip is one scrolling line now, so the active chip has to be
+      // scrolled into view whenever the panel changes by swipe.
+      const tabStrip = overlay.querySelector("#customerOrdersTabs");
       const closeBtn = overlay.querySelector("#closeCustomerOrdersModal");
       const detailModal = overlay.querySelector("#customerOrderDetailModal");
       const detailContent = overlay.querySelector(
@@ -7412,6 +7415,15 @@ document.addEventListener("DOMContentLoaded", () => {
         refreshTimer: null,
         touchStartX: 0,
         touchStartY: 0,
+        // Swipe bookkeeping. `dragging` flips only once the gesture has proven
+        // itself horizontal, so taps on the buttons inside a panel are never
+        // swallowed; `didDrag` suppresses the click the browser fires after a
+        // drag release.
+        dragging: false,
+        didDrag: false,
+        // "" until the finger has moved far enough to decide, then "x" (the
+        // carousel takes over) or "y" (the panel keeps its own scroll).
+        axisLock: "",
       };
 
       let orderImageObserver = null;
@@ -8015,7 +8027,26 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         if (track) {
+          // Clear any inline transition left behind by a finger drag so taps and
+          // swipe releases both animate.
+          track.style.transition = "";
           track.style.transform = `translateX(-${nextIndex * 100}%)`;
+        }
+
+        // With eight chips on one scrolling line the active chip can sit off
+        // screen after a swipe. Only scroll when the strip actually overflows,
+        // otherwise `scrollIntoView` nudges the page itself.
+        const activeTab = tabs[nextIndex];
+        if (
+          activeTab &&
+          tabStrip &&
+          tabStrip.scrollWidth > tabStrip.clientWidth + 1
+        ) {
+          activeTab.scrollIntoView({
+            inline: "center",
+            block: "nearest",
+            behavior: "smooth",
+          });
         }
       };
 
@@ -11119,7 +11150,25 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
-        // Modal: clicking the scrim is inert; use the close X below.
+        // The orders drawer is the one dialog the user asked to stay dismissible
+        // from the scrim, so it is a deliberate carve-out from the site-wide
+        // "modals only close from their own controls" rule. The order of the
+        // guards below mirrors the Escape handler further down: whatever is
+        // stacked on top of the drawer closes first, and the drawer itself only
+        // closes when nothing is layered over it.
+        if (event.target !== overlay) return;
+        // A horizontal swipe ends with a synthetic click; ignore it.
+        if (state.didDrag) return;
+        if (document.querySelector(".customer-buy-again-overlay.show")) return;
+        if (customerOrderImageLightbox?.classList.contains("show-modal")) {
+          closeCustomerOrderImagePreview();
+          return;
+        }
+        if (detailModal?.classList.contains("show")) {
+          closeDetailModal();
+          return;
+        }
+        close();
       });
 
       closeBtn?.addEventListener("click", close);
@@ -11175,6 +11224,24 @@ document.addEventListener("DOMContentLoaded", () => {
         close();
       });
 
+      // Panel swiping. The panels are full of tappable controls ("View details",
+      // "Order received", "Rate"), so nothing is hijacked until the gesture has
+      // proved itself horizontal: the axis is locked once the finger has moved
+      // 12px, and only an x-lock starts dragging the track with the finger.
+      const SWIPE_AXIS_LOCK = 12;
+      const SWIPE_COMMIT = 45;
+      const prefersLessMotion = () =>
+        window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ===
+        true;
+
+      const settleTrack = () => {
+        state.dragging = false;
+        state.axisLock = "";
+        if (!track) return;
+        track.style.transition = "";
+        track.style.transform = `translateX(-${state.activeIndex * 100}%)`;
+      };
+
       viewport?.addEventListener(
         "touchstart",
         (event) => {
@@ -11182,29 +11249,93 @@ document.addEventListener("DOMContentLoaded", () => {
           if (!touch) return;
           state.touchStartX = touch.clientX;
           state.touchStartY = touch.clientY;
+          state.dragging = false;
+          state.didDrag = false;
+          state.axisLock = "";
         },
         { passive: true },
       );
 
       viewport?.addEventListener(
-        "touchend",
+        "touchmove",
         (event) => {
           const touch = event.changedTouches?.[0];
-          if (!touch) return;
+          if (!touch || !track) return;
 
           const deltaX = touch.clientX - state.touchStartX;
           const deltaY = touch.clientY - state.touchStartY;
 
-          if (Math.abs(deltaX) < 45 || Math.abs(deltaX) <= Math.abs(deltaY))
-            return;
-          if (deltaX < 0) {
-            setActivePanel(state.activeIndex + 1);
-          } else {
-            setActivePanel(state.activeIndex - 1);
+          if (!state.axisLock) {
+            if (Math.abs(deltaX) < SWIPE_AXIS_LOCK &&
+              Math.abs(deltaY) < SWIPE_AXIS_LOCK)
+              return;
+            // A vertical lock hands the gesture back to the panel's own scroll.
+            state.axisLock =
+              Math.abs(deltaX) > Math.abs(deltaY) ? "x" : "y";
+            if (state.axisLock === "x") {
+              state.dragging = true;
+              // The finger owns the position, so no easing while it is down.
+              track.style.transition = "none";
+            }
           }
+
+          if (!state.dragging) return;
+          state.didDrag = true;
+
+          // Rubber-band the two ends so the first and last panels feel closed.
+          const atStart = state.activeIndex === 0 && deltaX > 0;
+          const atEnd =
+            state.activeIndex === stageByPanel.length - 1 && deltaX < 0;
+          const shift = atStart || atEnd ? deltaX * 0.32 : deltaX;
+          track.style.transform = `translateX(calc(-${state.activeIndex * 100}% + ${Math.round(shift)}px))`;
         },
         { passive: true },
       );
+
+      const finishSwipe = (event) => {
+        const touch = event.changedTouches?.[0];
+        if (!touch) return;
+
+        const deltaX = touch.clientX - state.touchStartX;
+        const deltaY = touch.clientY - state.touchStartY;
+        const wasDragging = state.dragging;
+
+        if (track && wasDragging && !prefersLessMotion()) {
+          track.style.transition = "transform 0.24s cubic-bezier(0.22, 1, 0.36, 1)";
+        }
+
+        if (
+          Math.abs(deltaX) >= SWIPE_COMMIT &&
+          Math.abs(deltaX) > Math.abs(deltaY)
+        ) {
+          state.dragging = false;
+          state.axisLock = "";
+          setActivePanel(
+            deltaX < 0 ? state.activeIndex + 1 : state.activeIndex - 1,
+          );
+        } else if (wasDragging) {
+          // Under the commit distance: snap back to where we started.
+          state.dragging = false;
+          state.axisLock = "";
+          if (track) {
+            track.style.transform = `translateX(-${state.activeIndex * 100}%)`;
+          }
+        } else {
+          settleTrack();
+        }
+
+        // The browser fires `click` right after `touchend`; keep the flag up long
+        // enough for the scrim handler to ignore that one, then clear it so a
+        // later real click still works.
+        if (state.didDrag) {
+          window.setTimeout(() => {
+            state.didDrag = false;
+          }, 350);
+        }
+      };
+
+      viewport?.addEventListener("touchend", finishSwipe, { passive: true });
+      viewport?.addEventListener("touchcancel", settleTrack, { passive: true });
 
       window.addEventListener("fmrc:orders-updated", (event) => {
         if (!overlay.classList.contains("show")) return;

@@ -26,6 +26,108 @@ document.addEventListener("DOMContentLoaded", () => {
     return window.FMRC_TURNSTILE.requireToken(widgetId);
   };
 
+  // ── Cloudflare security-check gate ─────────────────────────────────────────
+  // A message about the security check belongs under the widget it is about, not
+  // pinned to the username field, which was never the problem. Each slot owns
+  // its own note element and locks its own form's submit button; the page has
+  // two forms, so the gate is a factory over a widget id rather than the single
+  // set of module-level helpers the admin portal uses.
+  const TURNSTILE_PROMPTS = {
+    complete: "Please complete the security check before continuing.",
+    expired: "The security check expired. Please complete it again.",
+    failed:
+      "The security check could not be completed. Refresh the page and try again.",
+    unavailable:
+      "The security check could not be loaded. Refresh the page and try again.",
+  };
+
+  const createTurnstileGate = (widgetId, noteId, form) => {
+    const widget = document.getElementById(widgetId);
+    const note = document.getElementById(noteId);
+    const submitBtn = form?.querySelector('button[type="submit"]');
+    let required = false;
+
+    const showNote = (message) => {
+      if (!note) return;
+      note.textContent = message || "";
+      note.hidden = !message;
+    };
+
+    const setSubmitLocked = (locked) => {
+      if (!submitBtn) return;
+      submitBtn.disabled = locked;
+      submitBtn.setAttribute("aria-disabled", locked ? "true" : "false");
+    };
+
+    // Only re-lock while the challenge is actually in play — with Turnstile
+    // switched off server-side the button has to stay usable.
+    const lockUntilSolved = (message) => {
+      if (!required) return;
+      setSubmitLocked(true);
+      showNote(message);
+    };
+
+    // Same re-lock after a submit, but keeps a message the API already produced
+    // (for example a 422 from a token Cloudflare rejected) instead of it.
+    const relockAfterAttempt = () => {
+      if (!required) return;
+      setSubmitLocked(true);
+      if (!note || note.hidden) showNote(TURNSTILE_PROMPTS.complete);
+    };
+
+    // Used when a submit is blocked: point the user at the widget itself.
+    const focusChallenge = (message) => {
+      setSubmitLocked(true);
+      showNote(message);
+      widget?.scrollIntoView({ block: "center", behavior: "smooth" });
+    };
+
+    const init = async () => {
+      const api = window.FMRC_TURNSTILE;
+      if (!widget || typeof api?.ready !== "function") return;
+
+      const state = await api
+        .ready()
+        .catch(() => ({ enabled: false, error: true }));
+
+      if (!state?.enabled) {
+        if (state?.error) {
+          setSubmitLocked(true);
+          showNote(TURNSTILE_PROMPTS.unavailable);
+        }
+        return;
+      }
+
+      required = true;
+      lockUntilSolved(TURNSTILE_PROMPTS.complete);
+      widget.addEventListener("fmrc:turnstile-token", () => {
+        setSubmitLocked(false);
+        showNote("");
+      });
+      widget.addEventListener("fmrc:turnstile-expired", () =>
+        lockUntilSolved(TURNSTILE_PROMPTS.expired),
+      );
+      widget.addEventListener("fmrc:turnstile-error", () =>
+        lockUntilSolved(TURNSTILE_PROMPTS.failed),
+      );
+    };
+
+    void init();
+
+    return { showNote, focusChallenge, relockAfterAttempt };
+  };
+
+  const loginTurnstileGate = createTurnstileGate(
+    "loginTurnstile",
+    "loginTurnstileNote",
+    loginForm,
+  );
+  const signupTurnstileGate = createTurnstileGate(
+    "signupTurnstile",
+    "signupTurnstileNote",
+    signupForm,
+  );
+
   const setHeroText = (title, caption) => {
     if (authTitle) authTitle.textContent = title;
     if (authCaption) authCaption.textContent = caption;
@@ -271,9 +373,10 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         turnstileToken = await getTurnstileToken("signupTurnstile");
       } catch (error) {
-        setFieldError(
-          "signupUser",
-          error?.message || "Please complete the security check.",
+        signupTurnstileGate.focusChallenge(
+          error?.code === "TURNSTILE_UNAVAILABLE"
+            ? TURNSTILE_PROMPTS.unavailable
+            : error?.message || TURNSTILE_PROMPTS.complete,
         );
         return;
       }
@@ -303,7 +406,12 @@ document.addEventListener("DOMContentLoaded", () => {
           document.body.style.overflow = "hidden";
           signupForm.reset();
         } else if (response.status === 422) {
-          mapLaravelSignupErrors(data.errors || {});
+          const errors = data.errors || {};
+          // A rejected token is the widget's problem, not the username's.
+          if (errors["cf-turnstile-response"]?.[0]) {
+            signupTurnstileGate.showNote(errors["cf-turnstile-response"][0]);
+          }
+          mapLaravelSignupErrors(errors);
         } else if (data.message) {
           setFieldError("signupUser", data.message);
         } else {
@@ -319,6 +427,10 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       } finally {
         window.FMRC_TURNSTILE?.reset("signupTurnstile");
+        // The token was single-use: re-lock so the next attempt has to pass a
+        // fresh challenge (Cloudflare reissues one on its own when the widget is
+        // not interactive).
+        signupTurnstileGate.relockAfterAttempt();
         toggleLoader(false);
       }
     });
@@ -357,9 +469,10 @@ document.addEventListener("DOMContentLoaded", () => {
       try {
         turnstileToken = await getTurnstileToken("loginTurnstile");
       } catch (error) {
-        setFieldError(
-          "loginUser",
-          error?.message || "Please complete the security check.",
+        loginTurnstileGate.focusChallenge(
+          error?.code === "TURNSTILE_UNAVAILABLE"
+            ? TURNSTILE_PROMPTS.unavailable
+            : error?.message || TURNSTILE_PROMPTS.complete,
         );
         return;
       }
@@ -402,6 +515,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         if (response.status === 422 && data.errors) {
+          // A rejected token is the widget's problem, not the username's.
+          if (data.errors["cf-turnstile-response"]?.[0])
+            loginTurnstileGate.showNote(data.errors["cf-turnstile-response"][0]);
           if (data.errors.login?.[0])
             setFieldError("loginUser", data.errors.login[0]);
           if (data.errors.password?.[0])
@@ -424,6 +540,10 @@ document.addEventListener("DOMContentLoaded", () => {
         );
       } finally {
         window.FMRC_TURNSTILE?.reset("loginTurnstile");
+        // The token was single-use: re-lock so the next attempt has to pass a
+        // fresh challenge (Cloudflare reissues one on its own when the widget is
+        // not interactive).
+        loginTurnstileGate.relockAfterAttempt();
         toggleLoader(false);
       }
     });
