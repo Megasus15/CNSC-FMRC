@@ -6586,18 +6586,48 @@ input:checked + .toggle-slider:before {
   padding-bottom: 20px;
 }
 
-/* --- Scroll Reveal Animation --- */
+/* --- Scroll Reveal Animation ---
+   `--reveal-delay` is written by main.js: when a batch of blocks crosses the
+   viewport they are sorted by their on-screen top and handed 0ms, 90ms, 180ms…
+   so a stacked phone section lifts one block at a time instead of the whole
+   section arriving in a single frame. `ease` was also doing the animation no
+   favours at 0.8s — a decelerating curve reads as smooth at 0.7s and keeps a
+   staggered run from feeling long. */
 .reveal-on-scroll {
   opacity: 0;
   transform: translateY(26px);
   transition:
-    opacity 0.8s ease,
-    transform 0.8s ease;
+    opacity 0.7s cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
 }
 
+/* `none`, not `translateY(0)`: any transform value keeps the element a
+   containing block for fixed-position descendants, and `.about-content-right`
+   holds `.about-video-modal` (position: fixed). Resting at `none` hands the
+   viewport back. */
 .reveal-on-scroll.show-reveal {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
+}
+
+/* Dropped once the lift has played: `will-change` on a dozen sections keeps
+   compositor layers alive for the life of the page for no benefit. */
+.reveal-on-scroll.reveal-settled {
+  will-change: auto;
+  transition-delay: 0ms;
+}
+
+/* Reduced motion: show everything, animate nothing. */
+@media (prefers-reduced-motion: reduce) {
+  .reveal-on-scroll,
+  .reveal-on-scroll.show-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+    will-change: auto;
+  }
 }
 
 @media (max-width: 1100px) {
@@ -18256,6 +18286,92 @@ textarea:focus-visible {
     margin: 10px 12px 12px;
     font-size: 13.5px;
   }
+}
+
+/* ===========================================================================
+   PHONE OVERLAY STACKING — the navbar is never on top of an open overlay
+   ---------------------------------------------------------------------------
+   Below 901px `.site-header` climbs to z-index 12000 (see the @media block at
+   ~line 7550) so the sticky navbar wins against page decoration. Every
+   full-screen customer surface, though, was authored *below* that number:
+
+     .sidebar-backdrop        11000
+     .mobile-sidebar          11010
+     .announcement-modal      10050   (injected by customer-announcements.js)
+     .customer-modal-overlay    150   (My Account, Set/Change Password)
+
+   so on a phone the navbar painted over the drawer and stayed clickable — with
+   the drawer open, a hit test at (100, 30) returned the header logo, not the
+   drawer, and the profile popup could sit on top of My Account. This block
+   lifts those four surfaces into one band above the header and makes the header
+   inert while any of them owns the screen. main.css is shared by all four
+   customer pages, so it applies site-wide.
+   ========================================================================= */
+@media (max-width: 900px) {
+  .sidebar-backdrop {
+    z-index: 12200;
+  }
+
+  .mobile-sidebar {
+    z-index: 12210;
+  }
+
+  /* Doubled class on purpose: customer-announcements.js injects
+     `.announcement-modal { z-index: 10050 }` in a <style> element that lands
+     after this stylesheet, so an equal-specificity rule here would lose on
+     source order. */
+  .announcement-modal.announcement-modal {
+    z-index: 12220;
+  }
+
+  .customer-modal-overlay {
+    z-index: 12230;
+  }
+
+  /* Not clickable while an overlay is open. One selector per rule so an engine
+     that chokes on any of them cannot invalidate the rest. Every closing
+     affordance lives inside the overlay itself (the drawer's own X, the scrim,
+     Escape), so nothing becomes unreachable. */
+  body.sidebar-open .site-header {
+    pointer-events: none;
+  }
+
+  body.fmrc-announcement-open .site-header {
+    pointer-events: none;
+  }
+}
+
+@media (max-width: 900px) {
+  /* My Account sets no body class, and the header is its sibling, so `:has()`
+     is the only way to reach it. Progressive enhancement — where `:has()` is
+     unsupported the raised z-index above still covers the navbar with the
+     modal's own full-screen scrim. */
+  body:has(.customer-modal-overlay.show) .site-header {
+    pointer-events: none;
+  }
+}
+
+/* ===========================================================================
+   OUR MISSION — the decorative blob layers stay inside the card
+   ---------------------------------------------------------------------------
+   `.blob-wrapper::before` hangs 5% of the wrapper's height below the wrapper
+   and `::after` 12%; that overhang is the organic look, but nothing reserved
+   room for it, so the pale blob cleared the bottom border of the card
+   (`.mission-container`) by 35px at 1265px, 55px at 753px and 13px at 375px.
+   Reserving the room keeps the design instead of clipping it — `overflow:
+   hidden` on the card would have sliced the blobs against a 24-32px rounded
+   corner.
+
+   A flat length, not the obvious `margin-bottom: 14%`: the columns are
+   `flex: 1` items, so their height comes from the automatic minimum size, and
+   percentage margins count as zero in that intrinsic pass. The reserve was
+   applied only afterwards, which pushed the blob 25px back out of the card.
+   62px covers the largest droop the wrapper can produce (12% of its 480px
+   `max-height`); narrower columns are over-reserved by at most ~10px, and the
+   blob itself fills ~58px of it.
+   ========================================================================= */
+.blob-wrapper {
+  margin-bottom: 62px;
 }
 
 /* UXDLG-APPEND-8 */

@@ -582,20 +582,59 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Landing page reveal animation (home -> footer)
+  // `.about-video-holder` rather than `.about-content-right`: that column also
+  // holds `.about-video-modal` (position: fixed), and a transformed ancestor
+  // would make the full-screen video modal size to the column instead of the
+  // viewport.
   const revealTargets = document.querySelectorAll(
-    ".hero-content-left, .hero-content-right, .scroll-indicator, .about-content-left, .vision-content-left, .vision-content-right, .mission-content-left, .mission-content-right, #services-preview .section-title, #services-preview .carousel-wrapper, #services-preview .view-all-container, .products-toolbar, .services-carousel-section .carousel-wrapper, .shop-section .shop-card, .contact-info-card, .contact-form-card",
+    ".hero-content-left, .hero-content-right, .scroll-indicator, .about-content-left, .about-video-holder, .vision-content-left, .vision-content-right, .mission-content-left, .mission-content-right, #services-preview .section-title, #services-preview .carousel-wrapper, #services-preview .view-all-container, .products-toolbar, .services-carousel-section .carousel-wrapper, .shop-section .shop-card, .contact-info-card, .contact-form-card",
   );
 
   revealTargets.forEach((element) => element.classList.add("reveal-on-scroll"));
 
+  // One block at a time. A phone shows a whole stacked section at once, so the
+  // observer used to hand `show-reveal` to every child of that section in the
+  // same frame and they all rose together. Sorting each batch by its on-screen
+  // top and spacing `--reveal-delay` plays them in the order the eye reads
+  // them, which also fixes pairs that CSS reorders (the vision photo sits below
+  // its text on phones although it comes first in the DOM).
+  const REVEAL_STEP_MS = 90;
+  const REVEAL_MAX_STEPS = 5;
+
+  // Presentational only: drops `will-change` once the lift has finished so a
+  // dozen sections are not each holding a compositor layer for the whole visit.
+  // Not `{ once: true }` — `transitionend` bubbles, so the first transition to
+  // finish anywhere inside the block (a button, the video poster) would spend
+  // the one-shot listener on an event the guard below discards, and the block's
+  // own lift would never be settled.
+  const settleReveal = (element) => {
+    const onRevealEnd = (event) => {
+      if (event.target !== element || event.propertyName !== "transform") {
+        return;
+      }
+      element.removeEventListener("transitionend", onRevealEnd);
+      element.classList.add("reveal-settled");
+      element.style.removeProperty("--reveal-delay");
+    };
+
+    element.addEventListener("transitionend", onRevealEnd);
+  };
+
   const revealObserver = new IntersectionObserver(
     (entries, activeObserver) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
+      entries
+        .filter((entry) => entry.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+        .forEach((entry, index) => {
+          const step = Math.min(index, REVEAL_MAX_STEPS);
+          entry.target.style.setProperty(
+            "--reveal-delay",
+            `${step * REVEAL_STEP_MS}ms`,
+          );
+          settleReveal(entry.target);
           entry.target.classList.add("show-reveal");
           activeObserver.unobserve(entry.target);
-        }
-      });
+        });
     },
     {
       threshold: 0.14,

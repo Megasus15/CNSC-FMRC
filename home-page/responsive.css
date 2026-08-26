@@ -1766,11 +1766,26 @@
   .blob-wrapper {
     width: min(62vw, 240px);
     margin-inline: auto;
+    /* The 1:1 wrapper left ~57px of empty box under a 4:3 photo at 390px, and
+       both blob layers drooped through that void before spilling past the
+       card's bottom border. Height now follows the photo. */
+    aspect-ratio: auto;
+    /* Scaled-down version of the 62px blob reserve in main.css: the wrapper is
+       min(62vw, 240px) at 4:3, so the 12% droop of `::after` is at most
+       min(5.6vw, 21.6px). Reserving the desktop 62px here would open ~40px of
+       dead space in a card that is only ~376px tall on a phone. */
+    margin-bottom: min(7vw, 26px);
   }
 
   .mission-img {
     width: 100%;
     height: auto;
+    /* A fixed ratio rather than "whatever the admin uploaded": the wrapper's
+       height drives the blob droop (a percentage of it), and the reserved
+       margin in main.css can only contain a predictable one. `cover` keeps the
+       organic mask filled. */
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
   }
 
   .vision-img,
@@ -1867,19 +1882,19 @@
     margin-bottom: clamp(10px, 3.6vw, 15px);
   }
 
-  /* Quick Links spans both of the lower rows, so Business Hours (two short
-     lines) and Contact Us stack in the right-hand column instead of leaving
-     ~90px of dead space under Hours — that dead space was the single largest
-     block of nothing in the footer. Nothing is hidden or collapsed: the same
-     four blocks, packed. The right column is the wider of the two because it
-     carries the four-line street address, and Quick Links only needs room for
-     "Products". */
+  /* Business Hours and Contact Information take the left column, Quick Links
+     the right, where it spans both lower rows. Hours is two short lines, so
+     stacking Contact under it in the same column keeps ~90px of dead space out
+     of the footer — that void was the single largest block of nothing here.
+     Nothing is hidden or collapsed: the same four blocks, packed. The left
+     column is the wider of the two because it carries the four-line street
+     address; Quick Links only needs room for "Products". */
   .footer-container {
-    grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+    grid-template-columns: minmax(0, 1.18fr) minmax(0, 0.82fr);
     grid-template-areas:
       "brand brand"
-      "quick hours"
-      "quick contact";
+      "hours quick"
+      "contact quick";
   }
 
   .footer-container .footer-col:nth-child(1) {
