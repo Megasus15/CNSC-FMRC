@@ -83,7 +83,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const renderServices = (items) => {
     if (!servicesGrid) return;
     if (!items.length) {
-      servicesGrid.innerHTML = `<div style="grid-column: 1 / -1; text-align:center; padding: 50px 20px; color: #6d7480; font-weight:700;">No services found matching your search.</div>`;
+      servicesGrid.innerHTML = `<div class="services-empty-state" role="status">No services found matching your search.</div>`;
       return;
     }
 
@@ -121,7 +121,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <p class="card-desc">${escHtml(description)}</p>
             <div class="service-card-footer">
               <button class="details-btn open-modal-btn" type="button" aria-label="View details for ${titleAttr}" title="View details for ${titleAttr}" data-title="${titleAttr}" data-desc="${modalDescription}" data-features="${featuresAttr}" data-materials="${materialsAttr}" data-best-for="${bestForAttr}" data-img="${imageAttr}">
-                <span>View service details</span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+                <span class="details-btn-label">View<span class="details-btn-tail"> service details</span></span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
               </button>
             </div>
           </div>
@@ -175,4 +175,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
   searchInput?.addEventListener("input", filterServices);
   categorySelect?.addEventListener("change", filterServices);
+
+  /* Presentational only: on the narrowest phones the toolbar keeps the search
+     field and the category box on one line, which leaves too little room for
+     "Search Services...". Swap in the short label there so the placeholder is
+     never clipped. Nothing here touches the filter logic or the API. */
+  if (searchInput && typeof window.matchMedia === "function") {
+    const narrowToolbar = window.matchMedia("(max-width: 420px)");
+    if (!searchInput.dataset.fullPlaceholder) {
+      searchInput.dataset.fullPlaceholder =
+        searchInput.getAttribute("placeholder") || "Search Services...";
+    }
+    const fullPlaceholder = searchInput.dataset.fullPlaceholder;
+    const syncPlaceholder = () => {
+      searchInput.setAttribute(
+        "placeholder",
+        narrowToolbar.matches ? "Search..." : fullPlaceholder,
+      );
+    };
+    syncPlaceholder();
+    if (typeof narrowToolbar.addEventListener === "function") {
+      narrowToolbar.addEventListener("change", syncPlaceholder);
+    } else if (typeof narrowToolbar.addListener === "function") {
+      narrowToolbar.addListener(syncPlaceholder);
+    }
+  }
 });

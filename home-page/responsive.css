@@ -16,6 +16,17 @@
   flex: 0 0 32px;
 }
 
+/* "No services found" placeholder. Same presentation the services grid used
+   inline before, kept in one place so phones can tighten it. Mirrors
+   `.services-load-error` in main.css. */
+.services-empty-state {
+  grid-column: 1 / -1;
+  padding: 50px 20px;
+  color: #6d7480;
+  font-weight: 700;
+  text-align: center;
+}
+
 /* Calendar dates are native buttons; neutralize browser button chrome so
    their established visual treatment remains unchanged. */
 .cal-day-cell {
@@ -693,6 +704,7 @@
   .service-image-preview-label {
     right: 6px;
     bottom: 6px;
+    gap: 0;
     width: 30px;
     height: 30px;
     justify-content: center;
@@ -1379,9 +1391,14 @@
     aspect-ratio: 4 / 3;
   }
 
+  /* The label collapses to an icon-only circle here (`font-size: 0`), but the
+     ` Preview` text node is still a flex item, so the inherited 7px gap pushed
+     the glyph 3.45px left of centre. Zero the gap for the collapsed state only
+     — the expanded pill at wider widths keeps its icon/text spacing. */
   .service-image-preview-label {
     right: 7px;
     bottom: 7px;
+    gap: 0;
     width: 30px;
     height: 30px;
     justify-content: center;
@@ -1436,36 +1453,57 @@
     line-height: 1.4;
   }
 
+  /* A touch more breathing room under the card body so the footer no longer
+     hugs the bottom edge (+10px of card height on a phone). */
   .service-card-footer {
-    margin-top: 2px;
-    padding-top: 7px;
+    margin-top: 6px;
+    padding-top: 9px;
+    padding-bottom: 4px;
   }
 
+  /* `main.css`'s ≤600px rule stacks the footer into a column; the services card
+     needs a single row so the View control can span the full width. */
+  .services-page-body .service-card-footer {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  /* The View control reads as a real button on touch: a full-width pill with
+     the word "View" plus the arrow, which also signals that the card opens
+     details. */
   .services-grid .details-btn {
-    display: inline-grid;
-    place-items: center;
-    width: 36px;
-    min-width: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    min-width: 0;
     height: 36px;
     min-height: 36px;
-    padding: 0;
+    padding: 0 10px;
     border: 1px solid rgba(133, 19, 19, 0.16);
     border-radius: 10px;
     background: rgba(133, 19, 19, 0.07);
+    font-size: clamp(10.5px, 3vw, 12.5px);
+    font-weight: 800;
+    letter-spacing: 0.2px;
   }
 
-  /* The label collapses to a 36px icon tile here, so there is nothing to
-     underline. The hover and focus variants are listed too: the desktop rule
+  /* The control is a bordered pill here, so the desktop underline bar would cut
+     across it. The hover and focus variants are listed too: the desktop rule
      that reveals the bar is `:hover::after`, one class more specific than a
      bare `::after`, so a sticky hover on a touch screen would otherwise draw a
-     2px bar across the tile. */
+     2px bar across the pill. */
   .services-grid .details-btn::after,
   .services-grid .details-btn:hover::after,
   .services-grid .details-btn:focus-visible::after {
     display: none;
   }
 
-  .services-grid .details-btn span,
+  /* Only the tail of the services label is hidden, so the pill reads "View →"
+     while assistive tech still gets the full "View service details" wording.
+     The products page keeps its whole label off-screen (icon-only buttons). */
+  .services-grid .details-btn .details-btn-tail,
   .products-page-body .action-btn-label {
     position: absolute !important;
     width: 1px !important;
@@ -1481,6 +1519,28 @@
 
   .services-grid .details-btn i {
     font-size: 13px;
+  }
+
+  /* Services list intro: the desktop copy ran to four lines on a 320px screen. */
+  .services-page-body .services-list-header h2 {
+    font-size: clamp(17px, 4.6vw, 22px);
+    line-height: 1.2;
+  }
+
+  .services-page-body .services-list-header p {
+    font-size: clamp(11px, 3.2vw, 13px);
+    line-height: 1.45;
+  }
+
+  /* Match the loading skeleton to the real card's mobile image ratio (4/3)
+     so the grid does not jump when the API data lands. */
+  .services-page-body .service-skeleton-img {
+    aspect-ratio: 4 / 3;
+  }
+
+  .services-page-body .services-empty-state {
+    padding: 28px 14px;
+    font-size: clamp(11px, 3.2vw, 13px);
   }
 
   .product-info {
@@ -1565,6 +1625,109 @@
   .products-page-body .product-actions .action-btn > svg {
     width: 15px;
     height: 15px;
+  }
+
+  /* ---- Service details modal on phones -------------------------------- */
+
+  /* Matches the specificity of the shared ux-dlg cap in main.css and wins by
+     load order, so the sheet can use the last few pixels of a short screen. */
+  #serviceModal.ux-dlg .modal-box.ux-dlg__card {
+    max-height: min(94vh, calc(100dvh - 12px));
+  }
+
+  #serviceModal .modal-scroll-area {
+    padding: 12px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* The fixed clamp band left letterboxing on narrow screens; a 4/3 box keeps
+     the banner in step with the card images. */
+  #serviceModal .modal-img-holder {
+    height: auto;
+    aspect-ratio: 4 / 3;
+  }
+
+  #serviceModal .modal-desc,
+  #serviceModal .modal-list li {
+    overflow-wrap: anywhere;
+  }
+
+  /* ---- Service image lightbox on phones ------------------------------- */
+
+  /* The close button hangs outside the box on desktop, which put it flush with
+     the screen edge at 320px. Bring it inside the frame. */
+  #serviceImageLightboxModal .lightbox-box {
+    max-width: calc(100vw - 20px);
+    padding: 14px;
+  }
+
+  /* Keeps the 40px tap target (`--ux-tap` floors it in main.css) but inside the
+     frame instead of hanging off the corner. */
+  #serviceImageLightboxModal .lightbox-close-btn {
+    top: 6px;
+    right: 6px;
+  }
+
+  #serviceImageLightboxModal .lightbox-caption {
+    font-size: clamp(11px, 3.2vw, 13px);
+    line-height: 1.35;
+  }
+}
+
+/* Services toolbar on phones: the search field and the category box share one
+   line that fills the toolbar exactly. Scoped to `.services-page-body` because
+   the same `.products-toolbar` markup is reused by the Products page, and the
+   floor of 301px is where the two controls stop fitting side by side. */
+@media (min-width: 301px) and (max-width: 720px) {
+  /* Three classes, so this outranks the legacy `flex-direction: column`
+     stacking rule for `.products-toolbar .toolbar-container` in main.css. */
+  .services-page-body .products-toolbar .toolbar-container {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .services-page-body .toolbar-search {
+    min-width: 0;
+    max-width: none;
+  }
+
+  /* A plain block wrapper: as a flex item the box's `flex-basis: 140px` from
+     main.css would override the width below. It stretches to the grid row, and
+     the box fills it, so both controls always share the same height. */
+  .services-page-body .toolbar-actions {
+    display: block;
+    width: auto;
+    min-width: 0;
+  }
+
+  /* Sized so the resting "All Categories" label (116.5px at the 16px iOS-safe
+     font) clears the chevron, its padding and the box padding with room to
+     spare, while the search field keeps the rest of the row. The longest
+     option ellipsises once selected — the native picker is unaffected. */
+  .services-page-body .category-dropdown-box {
+    width: clamp(160px, 42vw, 182px);
+    height: 100%;
+    padding: 0 8px 0 12px;
+    border-radius: 14px;
+  }
+
+  /* The select keeps `width: 100%`: an `auto` width would resolve to the widest
+     option and blow the row apart. Removing the OS chrome for a compact
+     chevron does not affect the native picker on tap. */
+  .services-page-body .category-select {
+    width: 100%;
+    padding-right: 14px;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%23343b49' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0 center;
+    background-size: 9px;
+    text-overflow: ellipsis;
   }
 }
 
@@ -1653,9 +1816,10 @@
     height: 32px;
   }
 
+  /* The services pill keeps its full-width label; only its height shrinks. */
   .services-grid .details-btn {
-    width: 32px;
-    min-width: 32px;
+    padding: 0 8px;
+    font-size: 10px;
   }
 
   .products-page-body .product-actions {
