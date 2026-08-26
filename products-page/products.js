@@ -446,8 +446,14 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   closeCustomerReviewsModal?.addEventListener("click", closeCustomerReviews);
-  customerReviewsModal?.addEventListener("click", (event) => {
-    if (event.target === customerReviewsModal) closeCustomerReviews();
+  // Modal: no scrim dismissal — the close X is the way out, with Escape as its
+  // keyboard equivalent. The image preview stacks above this card, so it keeps
+  // first refusal on the key.
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    if (!customerReviewsModal?.classList.contains("show-modal")) return;
+    if (document.querySelector("#imageLightboxModal.show-modal")) return;
+    closeCustomerReviews();
   });
 
   const CART_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>`;
@@ -669,9 +675,14 @@ document.addEventListener("DOMContentLoaded", () => {
     productInfoModal?.classList.remove("show-modal");
   });
 
-  productInfoModal?.addEventListener("click", (e) => {
-    if (e.target === productInfoModal)
-      productInfoModal.classList.remove("show-modal");
+  // Modal: no scrim dismissal — the close X is the way out, with Escape as its
+  // keyboard equivalent. The image preview stacks above this card, so it keeps
+  // first refusal on the key.
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    if (!productInfoModal?.classList.contains("show-modal")) return;
+    if (document.querySelector("#imageLightboxModal.show-modal")) return;
+    productInfoModal.classList.remove("show-modal");
   });
 
   // Lightbox Modal elements

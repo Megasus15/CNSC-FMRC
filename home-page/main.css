@@ -1677,7 +1677,7 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(25, 18, 18, 0.65);
+  background-color: var(--ux-dlg-scrim-media);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   z-index: 9999;
@@ -2122,7 +2122,7 @@ body {
     rgba(255, 248, 238, 0.95)
   );
   border: 1px solid rgba(105, 52, 42, 0.2);
-  border-radius: 28px;
+  border-radius: var(--ux-dlg-radius);
   padding: 24px;
   box-shadow: 0 35px 90px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(20px);
@@ -2143,7 +2143,7 @@ body {
   max-width: 80vw;
   max-height: 68vh;
   object-fit: contain;
-  border-radius: 16px;
+  border-radius: var(--ux-dlg-radius-sm);
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.15);
 }
 
@@ -2152,7 +2152,7 @@ body {
   max-height: 68vh;
   width: min(80vw, 860px);
   background: #0f172a;
-  border-radius: 16px;
+  border-radius: var(--ux-dlg-radius-sm);
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.15);
 }
 
@@ -2171,7 +2171,7 @@ body {
   width: min(80vw, 420px);
   padding: 26px 22px;
   border: 1px dashed rgba(133, 19, 19, 0.35);
-  border-radius: 16px;
+  border-radius: var(--ux-dlg-radius-sm);
   background: rgba(255, 245, 245, 0.9);
   text-align: center;
 }
@@ -2662,7 +2662,7 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(25, 18, 18, 0.65);
+  background-color: var(--ux-dlg-scrim);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   display: flex;
@@ -5884,7 +5884,7 @@ input:checked + .toggle-slider:before {
 
 /* Step 5 — solid, customer-site-aligned confirmation modal */
 .success-modal-overlay {
-  background: rgba(42, 7, 7, 0.78);
+  background: var(--ux-dlg-scrim);
   backdrop-filter: blur(7px);
   -webkit-backdrop-filter: blur(7px);
   padding: 24px;
@@ -6233,7 +6233,7 @@ input:checked + .toggle-slider:before {
 .about-video-modal {
   position: fixed;
   inset: 0;
-  background: rgba(12, 0, 0, 0.9);
+  background: var(--ux-dlg-scrim-media);
   z-index: 22000;
   display: flex;
   justify-content: center;
@@ -6255,7 +6255,7 @@ input:checked + .toggle-slider:before {
 
 .about-video-modal-box {
   width: min(1100px, 95vw);
-  border-radius: 16px;
+  border-radius: var(--ux-dlg-radius);
   overflow: hidden;
   background: #000;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
@@ -8347,7 +8347,7 @@ body.sidebar-open {
   position: relative;
   width: min(420px, 96vw);
   background: #fff;
-  border-radius: 14px;
+  border-radius: var(--ux-dlg-radius);
   border: 1px solid #dce4ee;
   box-shadow: 0 24px 40px rgba(15, 23, 42, 0.24);
   padding: 18px;
@@ -9778,7 +9778,7 @@ body.sidebar-open {
   background: #121824;
   color: #fff;
   padding: 12px 16px;
-  border-radius: 10px;
+  border-radius: var(--ux-dlg-radius);
   font-size: 13px;
   font-weight: 600;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
@@ -11026,7 +11026,7 @@ body.sidebar-open {
     rgba(255, 248, 238, 0.95)
   );
   border: 1px solid rgba(105, 52, 42, 0.16);
-  border-radius: 20px;
+  border-radius: var(--ux-dlg-radius);
   box-shadow: 0 20px 50px rgba(45, 12, 12, 0.22);
   backdrop-filter: blur(16px);
   opacity: 0;
@@ -13534,7 +13534,7 @@ body {
 
   .lightbox-box {
     padding: 16px;
-    border-radius: 20px;
+    border-radius: var(--ux-dlg-radius);
   }
 
   .lightbox-box img {
@@ -13902,7 +13902,7 @@ body {
   width: min(356px, calc(100vw - 24px));
   padding: 18px;
   border-color: rgba(95, 13, 13, 0.2);
-  border-radius: 24px;
+  border-radius: var(--ux-dlg-radius);
   background: linear-gradient(160deg, #ffffff 0%, #fffaf3 100%);
 }
 
@@ -13916,7 +13916,7 @@ body {
   margin: -18px -18px 16px;
   padding: 18px;
   overflow: hidden;
-  border-radius: 23px 23px 17px 17px;
+  border-radius: 7px 7px 6px 6px;
   background:
     radial-gradient(
       circle at 88% 4%,
@@ -16239,7 +16239,7 @@ textarea:focus-visible {
   min-height: min(58vh, 520px);
   place-items: center;
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: var(--ux-dlg-radius-sm);
   background: linear-gradient(145deg, #ffffff, #fff7f4);
 }
 
@@ -16314,7 +16314,7 @@ textarea:focus-visible {
   padding: max(16px, env(safe-area-inset-top))
     max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom))
     max(16px, env(safe-area-inset-left));
-  background: rgba(42, 7, 7, 0.72);
+  background: var(--ux-dlg-scrim);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
@@ -16325,7 +16325,7 @@ textarea:focus-visible {
   padding: 32px clamp(22px, 5vw, 36px) 30px;
   border: 1px solid rgba(176, 28, 28, 0.14);
   border-top: 1px solid rgba(176, 28, 28, 0.14);
-  border-radius: 24px;
+  border-radius: var(--ux-dlg-radius);
   background: #ffffff;
   box-shadow: 0 28px 70px rgba(27, 4, 4, 0.38);
   text-align: center;
@@ -16381,7 +16381,7 @@ textarea:focus-visible {
     max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom))
     max(16px, env(safe-area-inset-left));
   overflow-y: auto;
-  background: rgba(42, 7, 7, 0.8);
+  background: var(--ux-dlg-scrim);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
@@ -16399,7 +16399,7 @@ textarea:focus-visible {
   display: flex;
   flex-direction: column;
   border: 1px solid rgba(241, 237, 18, 0.6);
-  border-radius: 26px;
+  border-radius: var(--ux-dlg-radius);
   background: #ffffff;
   box-shadow: 0 30px 78px rgba(27, 4, 4, 0.5);
 }
@@ -16485,7 +16485,7 @@ textarea:focus-visible {
     max-height: calc(
       100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)
     );
-    border-radius: 22px;
+    border-radius: var(--ux-dlg-radius);
   }
 
   .success-card__header {
@@ -17003,10 +17003,12 @@ textarea:focus-visible {
   --ux-dlg-badge: #f1ed12;
   --ux-dlg-badge-ink: #4b0a0a;
   --ux-dlg-eyebrow: #f5ef8e;
-  --ux-dlg-radius: 26px;
+  --ux-dlg-radius: 8px;
+  --ux-dlg-radius-sm: 6px;
   --ux-dlg-edge: rgba(241, 237, 18, 0.6);
   --ux-dlg-shadow: 0 30px 78px rgba(27, 4, 4, 0.5);
-  --ux-dlg-scrim: rgba(42, 7, 7, 0.8);
+  --ux-dlg-scrim: rgba(15, 23, 42, 0.55);
+  --ux-dlg-scrim-media: rgba(15, 23, 42, 0.82);
   --ux-dlg-foot-bg: #fffdf4;
   --ux-dlg-foot-line: #f0e8c8;
   --ux-dlg-pad-x: clamp(22px, 5.6vw, 34px);
@@ -17249,7 +17251,7 @@ textarea:focus-visible {
   max-width: 190px;
   max-height: 150px;
   margin: 0 auto 16px;
-  border-radius: 16px;
+  border-radius: var(--ux-dlg-radius-sm);
   background: rgba(255, 255, 255, 0.14);
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.26);
   object-fit: contain;
@@ -17390,7 +17392,7 @@ textarea:focus-visible {
   margin: 0 0 18px;
   padding: 13px 15px;
   border: 1px solid #eadc9a;
-  border-radius: 14px;
+  border-radius: var(--ux-dlg-radius-sm);
   background: #fffbed;
   color: #6b5a24;
   font-size: 13px;
@@ -17981,7 +17983,7 @@ textarea:focus-visible {
      the same footer strip every dialog has. The rows paint themselves white. */
   background: var(--ux-dlg-foot-bg);
   border: 1px solid rgba(95, 13, 13, 0.16);
-  border-radius: 20px;
+  border-radius: var(--ux-dlg-radius);
   box-shadow:
     0 26px 60px rgba(45, 12, 12, 0.26),
     0 2px 6px rgba(45, 12, 12, 0.08);
@@ -18005,7 +18007,7 @@ textarea:focus-visible {
   margin: 0;
   padding: 15px 17px 16px;
   background: var(--ux-dlg-band);
-  border-radius: 19px 19px 0 0;
+  border-radius: 7px 7px 0 0;
 }
 
 /* Same faint ring the dialog bands carry, scaled to a dropdown. */

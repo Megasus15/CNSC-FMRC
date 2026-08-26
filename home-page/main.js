@@ -205,9 +205,6 @@ const showCustomerPopup = (message, options = {}) =>
     if (msgEl) msgEl.textContent = String(message || "Done.");
 
     const isConfirm = Boolean(options.isConfirm);
-    const allowBackdropClose = Boolean(
-      options.allowBackdropClose ?? isConfirm,
-    );
     if (actions) {
       actions.classList.toggle("is-confirm", isConfirm);
     }
@@ -239,22 +236,14 @@ const showCustomerPopup = (message, options = {}) =>
       };
     }
 
-    // Prevent the popup from being closed immediately by any residual click
-    // event that bubbled from the original button press. Attach the
-    // backdrop click handler after a short delay so the originating click
-    // cannot close it instantly.
+    // This is a modal, so the scrim is inert: the customer dismisses it with the
+    // Okay/Confirm/Cancel buttons inside the card, never by clicking outside. That
+    // also removes the old race where the click that opened the popup could close
+    // it again on the way back up the tree.
     popup.classList.add("show");
 
     if (backdrop) {
       backdrop.onclick = null;
-      if (allowBackdropClose) {
-        setTimeout(() => {
-          backdrop.onclick = (ev) => {
-            ev?.stopPropagation();
-            closePopup(false);
-          };
-        }, 60);
-      }
     }
 
     if (isConfirm && cancelBtn) {
@@ -422,11 +411,14 @@ document.addEventListener("DOMContentLoaded", () => {
           document.body.style.overflow = "";
         });
 
-      modal.addEventListener("click", (event) => {
-        if (event.target === modal) {
-          modal.classList.remove("show");
-          document.body.style.overflow = "";
-        }
+      // No scrim-click dismissal: this is a modal, so the close X and the
+      // Login / Sign Up buttons are the only ways out. Escape is kept as the
+      // keyboard equivalent of the close X so the card is never a dead end.
+      document.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") return;
+        if (!modal.classList.contains("show")) return;
+        modal.classList.remove("show");
+        document.body.style.overflow = "";
       });
     }
     return modal;
@@ -871,11 +863,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // Close Modal by clicking the dark overlay background
-    if (e.target === modal) {
-      modal.classList.remove("show-modal");
-      document.body.style.overflow = "";
-    }
+    // The service detail modal is only dismissed from inside the card — clicking
+    // the dark overlay deliberately does nothing.
   });
 
   document.addEventListener("keydown", (event) => {
@@ -1261,11 +1250,10 @@ document.addEventListener("DOMContentLoaded", () => {
       closeProductInfoModal.addEventListener("click", closeInfoModal);
     }
 
-    if (productInfoModal) {
-      productInfoModal.addEventListener("click", (event) => {
-        if (event.target === productInfoModal) closeInfoModal();
-      });
-    }
+    // Modal: no overlay-click dismissal, the close X handles it. Escape lives in
+    // products.js, which is what actually owns this card — the block around here
+    // only runs when `.shop-card` markup is already in the DOM at load, and the
+    // cards are fetched in after that.
 
     if (productInfoAddToCart) {
       productInfoAddToCart.addEventListener("click", () => {
@@ -6654,15 +6642,18 @@ document.addEventListener("DOMContentLoaded", () => {
       openChangePasswordModal(userInfo, token);
     });
 
-    overlay.addEventListener(
-      "click",
-      (event) => {
-        if (event.target === overlay) {
-          closeModal();
-        }
-      },
-      { once: true },
-    );
+    // Modal: dismissed only from inside the card — the close X, or Escape as its
+    // keyboard equivalent. The overlay is reused across opens, so the key handler
+    // is bound once and then just reads whatever `closeModal` is current.
+    overlay._closeProfileModal = closeModal;
+    if (!overlay.dataset.escBound) {
+      overlay.dataset.escBound = "1";
+      document.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape") return;
+        if (!overlay.classList.contains("show")) return;
+        overlay._closeProfileModal?.();
+      });
+    }
   };
 
   const openChangePasswordModal = (userInfo, token) => {
@@ -6803,11 +6794,24 @@ document.addEventListener("DOMContentLoaded", () => {
     const closePwdModal = () => {
       overlay.classList.add("closing");
       overlay.classList.remove("show");
+      document.removeEventListener("keydown", onPwdKeydown, true);
       setTimeout(() => {
         overlay.classList.remove("closing");
         document.body.style.overflow = "";
       }, 180);
     };
+
+    // Modal: dismissed only from inside the card (Back button, or Escape as its
+    // keyboard equivalent) so a stray click never throws away a half-typed
+    // password. The overlay is rebuilt on every open, so the listener is torn
+    // down again in `closePwdModal` instead of accumulating.
+    function onPwdKeydown(event) {
+      if (event.key !== "Escape") return;
+      if (!overlay.classList.contains("show")) return;
+      event.stopPropagation();
+      closePwdModal();
+    }
+    document.addEventListener("keydown", onPwdKeydown, true);
 
     overlay.classList.add("show");
     document.body.style.overflow = "hidden";
@@ -6815,12 +6819,6 @@ document.addEventListener("DOMContentLoaded", () => {
     overlay.querySelector("#backToProfileBtn")?.addEventListener("click", () => {
       closePwdModal();
       openProfileModal(userInfo, token);
-    });
-
-    overlay.addEventListener("click", (event) => {
-      if (event.target === overlay) {
-        closePwdModal();
-      }
     });
 
     const form = overlay.querySelector("#changePasswordForm");
@@ -8672,7 +8670,7 @@ document.addEventListener("DOMContentLoaded", () => {
         document.addEventListener("keydown", onKeydown, true);
 
         overlayEl.addEventListener("click", (event) => {
-          if (event.target === overlayEl || event.target?.closest?.("[data-buy-again-close]")) {
+          if (event.target?.closest?.("[data-buy-again-close]")) {
             event.preventDefault();
             dismiss();
             return;
@@ -9100,10 +9098,7 @@ document.addEventListener("DOMContentLoaded", () => {
           document.addEventListener("keydown", onKeydown, true);
 
           overlayEl.addEventListener("click", (event) => {
-            if (
-              event.target === overlayEl ||
-              event.target?.closest?.("[data-return-form-close]")
-            ) {
+            if (event.target?.closest?.("[data-return-form-close]")) {
               finish(null);
               return;
             }
@@ -9417,10 +9412,7 @@ document.addEventListener("DOMContentLoaded", () => {
         overlayEl.addEventListener("click", async (event) => {
           const target = event.target;
 
-          if (
-            target === overlayEl ||
-            target?.closest?.("[data-gcash-close]")
-          ) {
+          if (target?.closest?.("[data-gcash-close]")) {
             if (!busy) finish(null);
             return;
           }
@@ -9819,7 +9811,7 @@ document.addEventListener("DOMContentLoaded", () => {
         overlayEl.addEventListener("click", async (event) => {
           const target = event.target;
 
-          if (target === overlayEl || target?.closest?.("[data-cancel-close]")) {
+          if (target?.closest?.("[data-cancel-close]")) {
             if (!busy) finish(null);
             return;
           }
@@ -11127,9 +11119,7 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
-        if (event.target === overlay) {
-          close();
-        }
+        // Modal: clicking the scrim is inert; use the close X below.
       });
 
       closeBtn?.addEventListener("click", close);
@@ -11612,8 +11602,20 @@ const openRatingModal = (() => {
 
     ratingOverlay.querySelector("#closeRatingModal")?.addEventListener("click", requestClose);
     ratingOverlay.querySelector("#cancelRatingBtn")?.addEventListener("click", requestClose);
-    ratingOverlay.addEventListener("click", (event) => {
-      if (event.target === ratingOverlay) requestClose();
+    // Modal: no scrim dismissal — a stray click must not discard a written review.
+    // Escape is the keyboard twin of the close X, so it goes through the same
+    // draft check: with a review in progress it raises the discard confirm rather
+    // than throwing the text away. `ensureModal` runs once, so this binds once.
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      if (!ratingOverlay.classList.contains("show")) return;
+      event.stopPropagation();
+      if (discardOverlay?.classList.contains("show")) {
+        discardOverlay.classList.remove("show");
+        discardOverlay.setAttribute("aria-hidden", "true");
+        return;
+      }
+      requestClose();
     });
     continueBtn?.addEventListener("click", () => {
       discardOverlay?.classList.remove("show");
@@ -12183,10 +12185,7 @@ const openReturnRequestModal = (() => {
     };
 
     returnOverlay.addEventListener("click", (event) => {
-      if (
-        event.target === returnOverlay ||
-        event.target?.closest?.("[data-return-request-close]")
-      ) {
+      if (event.target?.closest?.("[data-return-request-close]")) {
         requestReturnClose();
         return;
       }
@@ -12728,7 +12727,7 @@ const openReturnRequestModal = (() => {
       };
 
       modal.querySelector("#cancelLogoutBtn")?.addEventListener("click", dismiss);
-      modal.querySelector(".ux-dlg__backdrop")?.addEventListener("click", dismiss);
+      // Modal: the backdrop is inert, Cancel / Log Out are the only exits.
       modal
         .querySelector("#confirmLogoutBtn")
         ?.addEventListener("click", () => {
@@ -13285,9 +13284,7 @@ const openReturnRequestModal = (() => {
       popup.classList.remove("show");
     };
     popup.querySelector("#heroSdgDetailClose")?.addEventListener("click", close);
-    popup
-      .querySelector(".admin-system-popup__backdrop")
-      ?.addEventListener("click", close);
+    // Modal: the scrim is inert, the in-card Close button is the way out.
     document.addEventListener("keydown", function (ev) {
       if (ev.key === "Escape" && popup.classList.contains("show")) close();
     });

@@ -590,7 +590,7 @@
     width: 100%;
     max-width: 100%;
     padding: 10px;
-    border-radius: 12px;
+    border-radius: var(--ux-dlg-radius, 8px);
   }
 
   .modal-header,
@@ -635,7 +635,7 @@
   .profile-popup,
   .guest-profile-popup {
     padding: 10px;
-    border-radius: 14px;
+    border-radius: var(--ux-dlg-radius, 8px);
   }
 
   .profile-popup-link,

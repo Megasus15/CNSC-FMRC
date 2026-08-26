@@ -477,7 +477,7 @@
           display: grid;
           place-items: center;
           padding: 20px;
-          background: rgba(0, 0, 0, 0.65);
+          background: var(--ux-dlg-scrim, rgba(15, 23, 42, 0.55));
           opacity: 0;
           pointer-events: none;
           transition: opacity 0.25s ease;
@@ -491,7 +491,7 @@
         .announcement-modal__card {
           width: min(520px, 92vw);
           overflow: hidden;
-          border-radius: 20px;
+          border-radius: var(--ux-dlg-radius, 8px);
           background: #ffffff;
           box-shadow: 0 25px 65px rgba(0, 0, 0, 0.35);
           animation: fmrcAnnouncementIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -632,7 +632,7 @@
             max-width: 100%;
             max-height: calc(100dvh - 16px);
             overflow-y: auto;
-            border-radius: 16px;
+            border-radius: var(--ux-dlg-radius, 8px);
           }
 
           .announcement-modal__hero {
@@ -697,7 +697,7 @@
 
           .announcement-modal__card {
             max-height: calc(100dvh - 10px);
-            border-radius: 12px;
+            border-radius: var(--ux-dlg-radius, 8px);
           }
 
           .announcement-modal__hero,
@@ -928,9 +928,9 @@
         });
       }
 
-      modal.addEventListener("click", (event) => {
-        if (event.target === modal) closeModal();
-      });
+      // Announcements are a modal, so clicking the scrim must NOT dismiss them —
+      // the customer has to use the in-card close X or the action buttons. Escape
+      // stays wired up below so keyboard users are never trapped.
 
       document.addEventListener("keydown", (event) => {
         if (event.key === "Escape" && !modal.hidden) closeModal();
