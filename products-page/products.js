@@ -456,7 +456,9 @@ document.addEventListener("DOMContentLoaded", () => {
     closeCustomerReviews();
   });
 
-  const CART_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>`;
+  // A plus inside the basket, so the icon reads "add to cart" on its own — the
+  // wording is sr-only at every width per the mobile UI pass.
+  const CART_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path><line x1="14.5" y1="8" x2="14.5" y2="13"></line><line x1="12" y1="10.5" x2="17" y2="10.5"></line></svg>`;
   const BUY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>`;
   const INFO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>`;
 
@@ -788,11 +790,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   closeLightboxBtn?.addEventListener("click", closeLightbox);
 
-  imageLightboxModal?.addEventListener("click", (e) => {
-    if (e.target === imageLightboxModal) {
-      closeLightbox();
-    }
-  });
+  // No scrim dismissal by design — on this site modals close only from their own
+  // controls (see the note at main.js:11415). The X button above and the Escape
+  // handler below are the two ways out.
 
   // Close only the preview on Escape while it is open.
   document.addEventListener("keydown", (e) => {

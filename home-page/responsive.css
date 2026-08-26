@@ -1502,9 +1502,9 @@
 
   /* Only the tail of the services label is hidden, so the pill reads "View →"
      while assistive tech still gets the full "View service details" wording.
-     The products page keeps its whole label off-screen (icon-only buttons). */
-  .services-grid .details-btn .details-btn-tail,
-  .products-page-body .action-btn-label {
+     The products page hides only its cart label, at every width — see the
+     file-scope rule after this band. */
+  .services-grid .details-btn .details-btn-tail {
     position: absolute !important;
     width: 1px !important;
     height: 1px !important;
@@ -1605,11 +1605,21 @@
     left: 6px;
   }
 
+  /* Card footer on phones: "View Info" owns the first row full-width, then the
+     icon-only plus-cart and "Buy Now" share the second. Three labelled buttons
+     cannot fit one row at these widths (the footer's inner width is 132px at
+     320), and this is the same shape the details modal uses. Placement is by
+     grid area, so `buildCard`'s DOM order is untouched. */
   .products-page-body .product-actions {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    /* `!important` clears the 1-column override main.css forces at <=340px. */
+    grid-template-columns: auto minmax(0, 1fr) !important;
     gap: 4px;
     padding: 6px;
     border-radius: 0 0 15px 15px;
+  }
+
+  .products-page-body .product-actions .btn-view-info {
+    grid-column: 1 / -1;
   }
 
   .products-page-body .product-actions .action-btn {
@@ -1617,14 +1627,36 @@
     min-width: 0;
     min-height: 36px;
     height: 36px;
-    padding: 0;
+    padding: 0 8px;
+    gap: 6px;
     border-width: 1px;
     border-radius: 10px;
+    /* Both `!important`s answer main.css's <=340px band, which pins the font to
+       11px and re-enables wrapping; three classes here still out-rank it. */
+    font-size: clamp(10px, 2.9vw, 12px) !important;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+    white-space: nowrap !important;
+  }
+
+  /* The cart is a square icon button at every width — see the file-scope rules
+     after this band for the desktop half. */
+  .products-page-body .product-actions .btn-add-cart {
+    width: 40px;
+    padding: 0;
+    gap: 0;
   }
 
   .products-page-body .product-actions .action-btn > svg {
     width: 15px;
     height: 15px;
+  }
+
+  /* The rating row kept its desktop type scale, which crowded the 146px card. */
+  .products-page-body .product-rating-row {
+    margin-bottom: 6px;
+    gap: 4px;
+    font-size: clamp(10px, 3vw, 12px);
   }
 
   /* ---- Service details modal on phones -------------------------------- */
@@ -1684,6 +1716,191 @@
     font-size: clamp(11px, 3.2vw, 13px);
     line-height: 1.35;
   }
+
+  /* ---- Product details modal on phones -------------------------------- */
+
+  #productInfoModal.ux-dlg .modal-box.ux-dlg__card {
+    max-height: min(94vh, calc(100dvh - 12px));
+  }
+
+  /* `contain` stops a flick inside the sheet from scrolling the catalogue
+     behind it once the body reaches its end. */
+  #productInfoModal .modal-scroll-area {
+    padding: 12px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #productInfoModal .modal-img-holder {
+    height: auto;
+    aspect-ratio: 4 / 3;
+  }
+
+  #productInfoModal .modal-desc,
+  #productInfoModal .modal-list li,
+  #productInfoModal .modal-spec-value {
+    overflow-wrap: anywhere;
+  }
+
+  /* Deterministic two rows: "Customer Reviews" spans the first, then the
+     icon-only cart and "Buy Now" share the second. The flex version wrapped
+     into the same shape by luck and re-flowed as soon as the count changed. */
+  #productInfoModal .modal-actions {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    flex-wrap: nowrap;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  #productInfoModal .modal-actions .reviews-btn {
+    grid-column: 1 / -1;
+    margin-right: 0;
+  }
+
+  #productInfoModal .modal-actions .modal-btn {
+    min-width: 0;
+    width: auto;
+    min-height: 42px;
+    padding: 0 10px;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  /* Styled by id: products.js rewrites this button's className on every open. */
+  #productInfoModal #productInfoAddToCart {
+    width: 46px;
+    padding: 0;
+    gap: 0;
+  }
+
+  /* ---- Customer reviews modal on phones ------------------------------- */
+
+  #customerReviewsModal.ux-dlg .customer-reviews-box.ux-dlg__card {
+    max-height: min(94vh, calc(100dvh - 12px));
+  }
+
+  /* Same selector as the unconditional rule in main.css that forces wrapping,
+     so this wins by load order. The seven chips need ~606px against 298px of
+     track at 320px, and three stacked rows ate 144px of the sheet. */
+  #customerReviewsModal.ux-dlg .ux-dlg__card > .customer-reviews-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 6px;
+    padding: 10px 14px 12px;
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  #customerReviewsModal .customer-reviews-filters::-webkit-scrollbar {
+    display: none;
+  }
+
+  #customerReviewsModal .customer-review-filter {
+    white-space: nowrap;
+    scroll-snap-align: start;
+  }
+
+  #customerReviewsModal .customer-reviews-list {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #customerReviewsModal .customer-review-card {
+    overflow-wrap: anywhere;
+  }
+
+  /* ---- Product image lightbox on phones ------------------------------- */
+
+  #imageLightboxModal .lightbox-box {
+    max-width: calc(100vw - 44px);
+    padding: 12px;
+  }
+
+  #imageLightboxModal .lightbox-close-btn {
+    top: -12px;
+    right: -12px;
+  }
+
+  /* main.css sizes lightbox media in viewport units (86vw for images, 92vw for
+     video), which ignores the frame; 44px of gutter + 2 x 12px of padding is
+     the 68px subtracted here, so the media hugs the white border exactly. */
+  #imageLightboxModal .lightbox-box img,
+  #imageLightboxModal .lightbox-box video {
+    max-width: calc(100vw - 68px);
+  }
+
+  #imageLightboxModal .lightbox-box video {
+    width: 100%;
+    height: auto;
+  }
+
+  #imageLightboxModal .lightbox-caption {
+    font-size: clamp(11px, 3.2vw, 13px);
+    line-height: 1.35;
+  }
+
+  /* The checkout/cart sheets are already full-screen scrollers here; keep a
+     flick inside them from dragging the catalogue underneath. */
+  .products-page-body .shop-modal-body {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* The cart control is icon-only at EVERY width, by request: a plus-cart square
+   in the card footer and in the details modal, with the wording kept for
+   assistive tech and a `title` tooltip for pointer users. Outside the phone
+   band on purpose. */
+.products-page-body .btn-add-cart .action-btn-label,
+#productInfoAddToCart .modal-btn-label {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  clip-path: inset(50%) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* Above the phone band: one row of three, with the cart column shrunk to its
+   icon. Bounded by a query rather than left at file scope because these rules
+   repeat the phone band's selectors and would otherwise win on load order. */
+@media (min-width: 721px) {
+  .products-page-body .product-actions {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+
+  .products-page-body .product-actions .btn-add-cart {
+    width: 44px;
+    padding-inline: 0;
+    gap: 0;
+  }
+
+  /* A flex item here, so it needs `flex: 0 0 auto` to hold its square. */
+  #productInfoModal #productInfoAddToCart {
+    flex: 0 0 auto;
+    width: 52px;
+    padding-inline: 0;
+    gap: 0;
+  }
+}
+
+/* A phone held sideways is ~837px wide, so it lands above the band above and
+   misses the scroll containment. The height ceiling keeps desktop out. */
+@media (max-width: 900px) and (max-height: 520px) {
+  .products-page-body .shop-modal-body,
+  #productInfoModal .modal-scroll-area,
+  #customerReviewsModal .customer-reviews-list {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 /* Services toolbar on phones: the search field and the category box share one
@@ -1730,6 +1947,64 @@
      option and blow the row apart. Removing the OS chrome for a compact
      chevron does not affect the native picker on tap. */
   .services-page-body .category-select {
+    width: 100%;
+    padding-right: 14px;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5 6 6.5 11 1.5' stroke='%23343b49' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0 center;
+    background-size: 9px;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Products toolbar on phones. Three controls cannot share one line here: the
+   iOS no-zoom floor (16px) makes the two selects alone need ~267px of a 300px
+   container, so the search keeps its own full-width row above them and the two
+   selects share one exactly-fitting row. Scoped to this page because the same
+   `.products-toolbar` markup is reused by Services, whose band sits above. */
+@media (min-width: 301px) and (max-width: 720px) {
+  /* Three classes, so this outranks the legacy `flex-direction: column`
+     stacking rule for `.products-toolbar .toolbar-container` in main.css. */
+  .products-page-body .products-toolbar .toolbar-container {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .products-page-body .toolbar-search {
+    min-width: 0;
+    max-width: none;
+  }
+
+  /* 1.25fr : 1fr, because "All Categories" is 116.5px at the 16px iOS-safe font
+     and "All Filters" only 78.5px — the split gives 162 / 130 at 320px, so both
+     resting labels clear the 9px chevron with room to spare. Two classes, which
+     outranks the 1-column grid this page's <=420px band would otherwise use. */
+  .products-page-body .toolbar-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 8px;
+    width: auto;
+    min-width: 0;
+  }
+
+  /* `width: auto` so the box fills its grid track instead of main.css's
+     `flex-basis: 140px`, which would push the row past the container. */
+  .products-page-body .category-dropdown-box {
+    width: auto;
+    min-width: 0;
+    min-height: 44px;
+    padding: 0 8px 0 12px;
+    border-radius: 14px;
+  }
+
+  /* Same compact chevron as the Services band; the long options ("Price: Low to
+     High") ellipsise once selected and the native picker is unaffected. */
+  .products-page-body .category-select {
     width: 100%;
     padding-right: 14px;
     appearance: none;
