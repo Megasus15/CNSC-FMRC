@@ -311,11 +311,11 @@ body {
 /* Hover, focus, active and disabled states for .auth-btn are defined once, in
    the button block further down this file. */
 
-/* Field error bubble.
-   The bubble is appended inside the field box (.input-icon-group, or
-   .input-field-box for inputs that carry no icon), so it is positioned against
-   the input itself and its tail lands on the input's top edge instead of
-   floating above the label. */
+/* Invalid field marking.
+   The message itself no longer lives next to the field — it goes to the floating
+   alert defined below — so all the field keeps is the red ring that says "this
+   one". Nothing here changes the field's size, which is what stops the form from
+   moving when an error appears or clears. */
 .input-wrapper.has-error .input-icon-group input,
 .input-wrapper.has-error .input-field-box input {
   border-color: #d32f2f;
@@ -328,42 +328,131 @@ body {
   display: block;
 }
 
-.field-error-bubble {
+/* Floating error alert.
+   Messages used to render in a bubble inside the field box, which on phones
+   dropped into the flow under its own input: every message added ~39px to the
+   field, so the whole form jumped as errors appeared and cleared, and a
+   full-width message sat on top of the next label. One fixed alert at the top of
+   the screen collects them all instead — it is out of flow, so it cannot move a
+   single field, and it stays above the dialogs too.
+   No fade in or out: a CSS animation or transition does not advance while the tab
+   is hidden, which can leave the message stuck at its invisible start frame. */
+.auth-error-alert {
+  position: fixed;
+  /* Below the fixed "Back to Homepage" pill, which owns the top-left corner. */
+  top: max(72px, calc(64px + var(--ux-safe-t, 0px)));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20000;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: min(430px, calc(100% - 24px));
+  max-height: min(42vh, 300px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px 12px 12px 14px;
+  border: 1px solid #f3c2bf;
+  border-left: 4px solid #d32f2f;
+  border-radius: var(--ux-dlg-radius);
+  background: #fff6f5;
+  box-shadow: 0 14px 34px rgba(75, 12, 12, 0.18);
+  text-align: left;
+}
+
+.auth-error-alert[hidden] {
   display: none;
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 7px);
-  max-width: 100%;
-  background: #d32f2f;
-  color: #fff;
-  font-size: 12px;
-  line-height: 1.35;
-  font-weight: 600;
-  padding: 8px 10px;
-  border-radius: 10px;
-  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.2);
-  z-index: 20;
-  pointer-events: none;
 }
 
-.field-error-bubble::after {
-  content: "";
-  position: absolute;
-  right: 18px;
-  bottom: -6px;
-  width: 13px;
-  height: 13px;
+.auth-error-mark {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: 50%;
   background: #d32f2f;
-  border-radius: 2px;
-  transform: rotate(45deg);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 20px;
+  text-align: center;
 }
 
-/* display:none while resting keeps the in-flow mobile variant from reserving
-   empty space once the error is dismissed. No fade: a CSS animation or
-   transition does not advance while the tab is hidden, which can leave the
-   message stuck at its invisible start frame. */
-.input-wrapper.has-error .field-error-bubble {
+.auth-error-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Only shown once there is more than one message, so a single error reads as a
+   plain sentence instead of a heading plus a one-item list. */
+.auth-error-title {
+  margin: 0 0 5px;
+  color: #7f1d1d;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.auth-error-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.auth-error-item {
+  min-width: 0;
+}
+
+/* Each line is a button: tapping it sends focus to the field it is about, which
+   on a phone is far quicker than hunting for the red ring. */
+.auth-error-link {
   display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #b3261e;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.auth-error-link:hover {
+  text-decoration: underline;
+}
+
+.auth-error-close {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  margin: -3px -3px 0 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: #9c2a22;
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.auth-error-close:hover {
+  background: rgba(211, 47, 47, 0.12);
+}
+
+/* The security check is not a field, so a blocked submit marks the widget itself
+   rather than borrowing a field's ring. */
+.fmrc-turnstile-slot.has-error {
+  outline: 2px solid #d32f2f;
+  outline-offset: 3px;
+  border-radius: var(--ux-dlg-radius);
 }
 
 .switch-copy {
@@ -1526,19 +1615,26 @@ svg {
 
 .auth-page {
   /* Top padding clears the fixed "Back to Homepage" pill (44px tall
-     at 14–24px from the top) on every screen size. */
+     at 14–24px from the top) on every screen size, and the bottom matches it so
+     the card lands on the true centre of the screen rather than 20-odd pixels
+     below it. */
   min-height: 100vh;
   min-height: 100dvh;
+  align-items: flex-start;
   padding-top: max(74px, calc(58px + var(--ux-safe-t)));
-  padding-bottom: calc(clamp(18px, 4vw, 50px) + var(--ux-safe-b));
+  padding-bottom: max(74px, calc(58px + var(--ux-safe-b)));
   padding-left: max(clamp(12px, 4vw, 22px), var(--ux-safe-l));
   padding-right: max(clamp(12px, 4vw, 22px), var(--ux-safe-r));
 }
 
+/* Centred by auto margins, not by `align-items: center`: auto margins only take
+   the space that is actually free, so a card taller than the screen still starts
+   at the top edge and can be scrolled to instead of having its head cut off. */
 .auth-shell {
   width: 100%;
   max-width: min(1120px, 100%);
   min-width: 0;
+  margin-block: auto;
 }
 
 /* Back link: always reachable, never overlapping the card content. */
@@ -1738,6 +1834,7 @@ svg {
   .auth-page {
     align-items: flex-start;
     padding-top: max(84px, calc(72px + var(--ux-safe-t)));
+    padding-bottom: max(84px, calc(72px + var(--ux-safe-b)));
   }
 
   .auth-shell {
@@ -1804,29 +1901,17 @@ svg {
     display: none;
   }
 
-  /* Narrow cards: the bubble drops into the flow directly under its own input,
-     so a full-width message never covers the label or the next field. */
+  /* The field row stays one line. It used to be allowed to wrap so the error
+     message could drop in under the input, which also let the password toggle
+     wrap onto its own line on the narrowest phones — the field looked broken
+     the moment it was flagged. Messages float at the top of the screen now. */
   .input-icon-group {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
-  .field-error-bubble {
-    position: relative;
-    top: auto;
-    right: auto;
-    bottom: auto;
-    left: auto;
-    flex: 0 0 100%;
-    max-width: 100%;
-    margin-top: 7px;
-    box-shadow: none;
-  }
-
-  .field-error-bubble::after {
-    top: -5px;
-    bottom: auto;
-    left: 16px;
-    right: auto;
+  .auth-error-alert {
+    width: calc(100% - 16px);
+    padding: 11px 10px 11px 12px;
   }
 }
 
@@ -1838,6 +1923,7 @@ svg {
 
   .auth-page {
     padding-top: 66px;
+    padding-bottom: 66px;
   }
 
   .auth-back-link {
@@ -1882,7 +1968,7 @@ svg {
 @media (max-width: 239px) {
   .auth-page {
     padding-top: max(58px, calc(48px + var(--ux-safe-t)));
-    padding-bottom: max(10px, var(--ux-safe-b));
+    padding-bottom: max(58px, calc(48px + var(--ux-safe-b)));
     padding-left: max(5px, var(--ux-safe-l));
     padding-right: max(5px, var(--ux-safe-r));
   }
@@ -2057,9 +2143,17 @@ svg {
     padding: 9px 7px;
   }
 
-  .field-error-bubble {
-    padding: 6px 7px;
+  .auth-error-alert {
+    top: max(52px, calc(46px + var(--ux-safe-t, 0px)));
+    padding: 8px 7px 8px 9px;
+  }
+
+  .auth-error-link {
     font-size: 10.5px;
+  }
+
+  .auth-error-title {
+    font-size: 10px;
   }
 }
 
@@ -2071,6 +2165,13 @@ svg {
     align-items: flex-start;
     padding-top: max(58px, calc(50px + var(--ux-safe-t)));
     padding-bottom: 18px;
+  }
+
+  /* Short screen: the alert stays a strip near the top instead of covering the
+     form it is talking about. */
+  .auth-error-alert {
+    top: max(52px, calc(46px + var(--ux-safe-t, 0px)));
+    max-height: min(58vh, 180px);
   }
 
   .auth-side-panel {

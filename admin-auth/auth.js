@@ -65,6 +65,22 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!turnstileNote || turnstileNote.hidden) showTurnstileNote(PROMPT_COMPLETE);
   };
 
+  const revealChallenge = () => {
+    turnstileWidget?.scrollIntoView({ block: "center", behavior: "smooth" });
+  };
+
+  // Used when a submit is blocked by the security check. The message joins the
+  // floating alert so the check reports through the same surface as the fields,
+  // and the slot is ringed so it is still obvious which control is being asked
+  // for. The inline note is cleared first so the sentence is not shown twice.
+  const blockSubmitOnChallenge = (message) => {
+    setSubmitLocked(true);
+    showTurnstileNote("");
+    turnstileWidget?.classList.add("has-error");
+    pushAlertMessage(TURNSTILE_WIDGET_ID, message, revealChallenge);
+    revealChallenge();
+  };
+
   const initTurnstileGate = async () => {
     const api = window.FMRC_TURNSTILE;
     if (!turnstileWidget || typeof api?.ready !== "function") return;
@@ -93,6 +109,8 @@ document.addEventListener("DOMContentLoaded", () => {
     turnstileWidget.addEventListener("fmrc:turnstile-token", () => {
       setSubmitLocked(false);
       showTurnstileNote("");
+      turnstileWidget.classList.remove("has-error");
+      dropAlertMessage(TURNSTILE_WIDGET_ID);
     });
     turnstileWidget.addEventListener("fmrc:turnstile-expired", () =>
       lockUntilChallengeSolved(PROMPT_EXPIRED),
@@ -122,11 +140,100 @@ document.addEventListener("DOMContentLoaded", () => {
     authStatusModal.classList.add("show");
   };
 
-  // The bubble lives inside the field box so CSS can pin it to the input's own
-  // top edge; wrappers whose input has no box fall back to the wrapper itself.
-  const errorAnchor = (input) =>
-    input.closest(".input-icon-group, .input-field-box") ||
-    input.closest(".input-wrapper");
+  // ── Floating error alert ───────────────────────────────────────────────────
+  // Every field message collects in one alert pinned to the top of the screen.
+  // The old bubble was appended inside the field box, so on phones it dropped
+  // into the flow and grew the field by ~39px: each error shifted the rest of the
+  // form, and a full-width message landed on the next label. A fixed alert cannot
+  // move a field, and it renders above the dialogs as well.
+  const errorAlert = { el: null, title: null, list: null };
+
+  // A programmatic focus must not wipe the message just written for the field it
+  // is focusing, so that one focusin is exempt from the dismiss handler.
+  let focusExemptFromDismiss = null;
+
+  const syncErrorAlert = () => {
+    if (!errorAlert.el) return;
+
+    const count = errorAlert.list.children.length;
+    if (!count) {
+      // Nothing left to say: drop the node so it cannot intercept a tap.
+      errorAlert.el.remove();
+      errorAlert.el = null;
+      errorAlert.title = null;
+      errorAlert.list = null;
+      return;
+    }
+
+    errorAlert.title.hidden = count < 2;
+  };
+
+  const ensureErrorAlert = () => {
+    if (errorAlert.el?.isConnected) return errorAlert;
+
+    const alert = document.createElement("div");
+    alert.id = "authErrorAlert";
+    alert.className = "auth-error-alert";
+    alert.setAttribute("role", "alert");
+    alert.setAttribute("aria-live", "assertive");
+    alert.innerHTML =
+      '<span class="auth-error-mark" aria-hidden="true">!</span>' +
+      '<div class="auth-error-body">' +
+      '<p class="auth-error-title" hidden>Please check these fields</p>' +
+      '<ul class="auth-error-list"></ul>' +
+      "</div>" +
+      '<button class="auth-error-close" type="button" aria-label="Dismiss messages">&times;</button>';
+
+    alert
+      .querySelector(".auth-error-close")
+      .addEventListener("click", () => clearAllErrors());
+
+    document.body.appendChild(alert);
+    errorAlert.el = alert;
+    errorAlert.title = alert.querySelector(".auth-error-title");
+    errorAlert.list = alert.querySelector(".auth-error-list");
+    return errorAlert;
+  };
+
+  const focusFieldFromAlert = (inputId) => {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    // The focus is what the message asked for, so it must not dismiss it.
+    focusExemptFromDismiss = input;
+    input.focus({ preventScroll: true });
+    focusExemptFromDismiss = null;
+    input.scrollIntoView({ block: "center", behavior: "smooth" });
+  };
+
+  // One line per key, so re-validating the same field rewrites its message
+  // instead of stacking duplicates.
+  const pushAlertMessage = (key, message, onSelect) => {
+    const { list } = ensureErrorAlert();
+
+    let item = list.querySelector(`[data-error-for="${key}"]`);
+    if (!item) {
+      item = document.createElement("li");
+      item.className = "auth-error-item";
+      item.dataset.errorFor = key;
+
+      const line = document.createElement("button");
+      line.type = "button";
+      line.className = "auth-error-link";
+      line.addEventListener("click", () => onSelect(key));
+      item.appendChild(line);
+      list.appendChild(item);
+    }
+
+    item.querySelector(".auth-error-link").textContent = message;
+    syncErrorAlert();
+  };
+
+  const dropAlertMessage = (key) => {
+    if (!key || !errorAlert.list) return;
+    errorAlert.list.querySelector(`[data-error-for="${key}"]`)?.remove();
+    syncErrorAlert();
+  };
 
   const setFieldError = (inputId, message) => {
     const input = document.getElementById(inputId);
@@ -135,20 +242,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const wrapper = input.closest(".input-wrapper");
     if (!wrapper) return;
 
-    const anchor = errorAnchor(input) || wrapper;
-    let bubble = wrapper.querySelector(".field-error-bubble");
-    if (!bubble) {
-      bubble = document.createElement("div");
-      bubble.className = "field-error-bubble";
-      bubble.setAttribute("role", "alert");
-    }
-    if (bubble.parentElement !== anchor) {
-      anchor.appendChild(bubble);
-    }
-
-    bubble.textContent = message;
     wrapper.classList.add("has-error");
     input.setAttribute("aria-invalid", "true");
+    pushAlertMessage(inputId, message, focusFieldFromAlert);
   };
 
   const clearFieldError = (inputId) => {
@@ -160,6 +256,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     wrapper.classList.remove("has-error");
     input.removeAttribute("aria-invalid");
+    dropAlertMessage(inputId);
   };
 
   const clearFormErrors = (form) => {
@@ -168,21 +265,35 @@ document.addEventListener("DOMContentLoaded", () => {
       const input = wrapper.querySelector("input");
       if (input) {
         input.removeAttribute("aria-invalid");
+        dropAlertMessage(input.id);
       }
     });
   };
 
-  // Touching a field dismisses its own error bubble — a click or tap anywhere in
-  // the wrapper (input, label, password toggle) and keyboard focus both count.
-  // Delegated from the document so the forgot-password modal is covered too.
-  let focusExemptFromDismiss = null;
+  // The alert's dismiss button clears every message and every ring at once.
+  const clearAllErrors = () => {
+    document.querySelectorAll(".input-wrapper.has-error").forEach((wrapper) => {
+      wrapper.classList.remove("has-error");
+      wrapper
+        .querySelectorAll("[aria-invalid]")
+        .forEach((field) => field.removeAttribute("aria-invalid"));
+    });
+    document
+      .querySelectorAll(".fmrc-turnstile-slot.has-error")
+      .forEach((slot) => slot.classList.remove("has-error"));
 
+    errorAlert.list?.replaceChildren();
+    syncErrorAlert();
+  };
+
+  // Touching a field dismisses its own message — a click or tap anywhere in the
+  // wrapper (input, label, password toggle) and keyboard focus both count.
+  // Delegated from the document so the forgot-password modal is covered too.
   const dismissErrorFrom = (event) => {
     const wrapper = event.target?.closest?.(".input-wrapper.has-error");
     if (!wrapper) return;
 
     if (event.type === "focusin" && event.target === focusExemptFromDismiss) {
-      focusExemptFromDismiss = null;
       return;
     }
 
@@ -190,6 +301,9 @@ document.addEventListener("DOMContentLoaded", () => {
     wrapper
       .querySelectorAll("[aria-invalid]")
       .forEach((field) => field.removeAttribute("aria-invalid"));
+    wrapper
+      .querySelectorAll("input[id]")
+      .forEach((field) => dropAlertMessage(field.id));
   };
 
   document.addEventListener("pointerdown", dismissErrorFrom);
@@ -287,9 +401,7 @@ document.addEventListener("DOMContentLoaded", () => {
           error?.code === "TURNSTILE_UNAVAILABLE"
             ? "The security check could not be loaded. Refresh the page and try again."
             : PROMPT_COMPLETE;
-        setSubmitLocked(true);
-        showTurnstileNote(message);
-        turnstileWidget?.scrollIntoView({ block: "center", behavior: "smooth" });
+        blockSubmitOnChallenge(message);
         return;
       }
 
@@ -505,6 +617,13 @@ document.addEventListener("DOMContentLoaded", () => {
     document.body.style.overflow = "";
     if (lockoutTimerInterval) clearInterval(lockoutTimerInterval);
     if (resendTimerInterval) clearInterval(resendTimerInterval);
+
+    // The alert is fixed to the page, not to the dialog, so a message about a
+    // field inside the dialog has to leave with it.
+    clearFieldError("forgotEmail");
+    clearFieldError("otpCodeInput");
+    clearFieldError("otpNewPassword");
+    clearFieldError("otpConfirmPassword");
   };
 
   forgotPasswordLink?.addEventListener("click", openForgotModal);
