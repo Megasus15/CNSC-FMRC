@@ -5111,6 +5111,166 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  /* ------------------------------------------------------------------
+     Appointment field errors — portal-style summary alert.
+
+     Mirrors the customer/admin portal pattern (customer-auth/auth.js):
+     one fixed, out-of-flow panel that lists every invalid field, each
+     line tappable to jump straight to that field. CSS reveals it on
+     phones only, where the old in-flow bubbles used to push the form
+     down by ~350px; on desktop the per-field bubbles are untouched.
+     ------------------------------------------------------------------ */
+  const aptAlert = { el: null, title: null, list: null };
+  const APT_DISMISS_AFTER = 5000;
+  const APT_DISMISS_FADE = 260;
+  const APT_MAX_ATTACHMENT_BYTES = 51200 * 1024;
+  let aptDismissTimer = null;
+  let aptDismissRemoveTimer = null;
+
+  const stopAptDismissTimer = () => {
+    clearTimeout(aptDismissTimer);
+    clearTimeout(aptDismissRemoveTimer);
+    aptDismissTimer = null;
+    aptDismissRemoveTimer = null;
+    aptAlert.el?.classList.remove("is-leaving");
+  };
+
+  const removeAptAlert = () => {
+    stopAptDismissTimer();
+    aptAlert.el?.remove();
+    aptAlert.el = null;
+    aptAlert.title = null;
+    aptAlert.list = null;
+  };
+
+  const startAptDismissTimer = () => {
+    stopAptDismissTimer();
+    // The panel disappears on its own, but the red rings stay until the
+    // user actually edits the field — same as before this alert existed.
+    aptDismissTimer = setTimeout(() => {
+      if (!aptAlert.el) return;
+      aptAlert.el.classList.add("is-leaving");
+      aptDismissRemoveTimer = setTimeout(removeAptAlert, APT_DISMISS_FADE);
+    }, APT_DISMISS_AFTER);
+  };
+
+  const syncAptAlert = () => {
+    if (!aptAlert.el) return;
+    const count = aptAlert.list.children.length;
+    if (!count) {
+      removeAptAlert();
+      return;
+    }
+    aptAlert.title.hidden = count < 2;
+  };
+
+  const ensureAptAlert = () => {
+    if (aptAlert.el?.isConnected) return aptAlert;
+
+    const alert = document.createElement("div");
+    alert.id = "aptErrorAlert";
+    alert.className = "apt-error-alert";
+    alert.setAttribute("role", "alert");
+    alert.setAttribute("aria-live", "assertive");
+    alert.innerHTML =
+      '<span class="apt-error-mark" aria-hidden="true">!</span>' +
+      '<div class="apt-error-body">' +
+      '<p class="apt-error-title" hidden>Please check these fields</p>' +
+      '<ul class="apt-error-list"></ul>' +
+      "</div>" +
+      '<button class="apt-error-close" type="button" aria-label="Dismiss messages">&times;</button>';
+
+    alert
+      .querySelector(".apt-error-close")
+      .addEventListener("click", removeAptAlert);
+    alert.addEventListener("pointerenter", stopAptDismissTimer);
+    alert.addEventListener("pointerleave", startAptDismissTimer);
+    alert.addEventListener("focusin", stopAptDismissTimer);
+    alert.addEventListener("focusout", startAptDismissTimer);
+
+    document.body.appendChild(alert);
+    aptAlert.el = alert;
+    aptAlert.title = alert.querySelector(".apt-error-title");
+    aptAlert.list = alert.querySelector(".apt-error-list");
+    return aptAlert;
+  };
+
+  const focusAptField = (key) => {
+    const field = document.getElementById(key);
+    // Keys that are not inputs (the attachment, the schedule) fall back to
+    // the block the user has to act on.
+    const target = field || document.querySelector(".apt-calendar-left");
+    if (!target) return;
+
+    if (field) field.focus({ preventScroll: true });
+
+    const behavior = window.matchMedia("(prefers-reduced-motion: reduce)")
+      .matches
+      ? "auto"
+      : "smooth";
+
+    // On a short phone with several messages open, centring the field parks it
+    // behind the alert itself. Aim for the gap under the panel instead, and only
+    // when the panel is actually on screen — desktop keeps plain centring.
+    const panel = aptAlert.el;
+    const panelBottom =
+      panel && getComputedStyle(panel).display !== "none"
+        ? panel.getBoundingClientRect().bottom
+        : 0;
+    const scroller = target.closest(".apt-overlay");
+
+    if (panelBottom && scroller) {
+      const rect = target.getBoundingClientRect();
+      const view = scroller.getBoundingClientRect();
+      const centred = view.top + (view.height - rect.height) / 2;
+      const wanted = Math.max(panelBottom + 16, centred);
+      scroller.scrollTo({
+        top: scroller.scrollTop + (rect.top - wanted),
+        behavior,
+      });
+      return;
+    }
+
+    target.scrollIntoView({ block: "center", behavior });
+  };
+
+  const pushAptAlertMessage = (key, message) => {
+    const { list } = ensureAptAlert();
+    let item = list.querySelector(`[data-error-for="${key}"]`);
+    if (!item) {
+      item = document.createElement("li");
+      item.className = "apt-error-item";
+      item.dataset.errorFor = key;
+      const line = document.createElement("button");
+      line.type = "button";
+      line.className = "apt-error-link";
+      line.addEventListener("click", () => focusAptField(key));
+      item.appendChild(line);
+      list.appendChild(item);
+    }
+    item.querySelector(".apt-error-link").textContent = message;
+    syncAptAlert();
+    startAptDismissTimer();
+  };
+
+  const dropAptAlertMessage = (key) => {
+    if (!key || !aptAlert.list) return;
+    aptAlert.list.querySelector(`[data-error-for="${key}"]`)?.remove();
+    syncAptAlert();
+  };
+
+  // The attachment lives inside the "Purpose of Visit" group, so it gets its
+  // own ring instead of reddening the select next to it.
+  const setAptFileError = (message) => {
+    aptFileInput?.closest(".file-upload-wrapper")?.classList.add("has-error");
+    pushAptAlertMessage("aptFile", message);
+  };
+
+  const clearAptFileError = () => {
+    aptFileInput?.closest(".file-upload-wrapper")?.classList.remove("has-error");
+    dropAptAlertMessage("aptFile");
+  };
+
   const setFieldError = (inputId, message) => {
     const input = document.getElementById(inputId);
     if (!input) return;
@@ -5129,6 +5289,7 @@ document.addEventListener("DOMContentLoaded", () => {
     bubble.textContent = message;
     group.classList.add("has-error");
     input.setAttribute("aria-invalid", "true");
+    pushAptAlertMessage(inputId, message);
   };
 
   const clearFieldError = (inputId) => {
@@ -5140,6 +5301,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     group.classList.remove("has-error");
     input.removeAttribute("aria-invalid");
+    dropAptAlertMessage(inputId);
   };
 
   const clearAllFieldErrors = () => {
@@ -5148,6 +5310,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const input = group.querySelector("input, select, textarea");
       if (input) input.removeAttribute("aria-invalid");
     });
+    removeAptAlert();
   };
 
   [
@@ -5277,6 +5440,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!otherClientType) {
         markError("aptRoleOther", "Please specify your type of client.");
       } else if (otherClientType.length > 100) {
+        // Stays at 100 even though the server allows 120: this box is submitted
+        // as `Others: <text>`, so the prefix eats 8 of the server's characters.
+        // 100 also matches this input's own maxlength attribute.
         markError(
           "aptRoleOther",
           "Type of Client must not exceed 100 characters.",
@@ -5310,7 +5476,22 @@ document.addEventListener("DOMContentLoaded", () => {
           "aptIntlAddress",
           "Complete Residential Address is required.",
         );
+      } else if (intlAddress.length > 500) {
+        markError(
+          "aptIntlAddress",
+          "Complete Residential Address must not exceed 500 characters.",
+        );
       }
+    }
+
+    // Mirrors the server's additional_notes rule so an over-long request is
+    // named here instead of coming back as a bare 422.
+    const description = document.getElementById("aptDesc")?.value?.trim() || "";
+    if (description.length > 2000) {
+      markError(
+        "aptDesc",
+        "Description must not exceed 2000 characters.",
+      );
     }
 
     if (firstInvalidId) {
@@ -5382,6 +5563,8 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const switchAptStep = (stepNumber) => {
+    // Messages belong to the step that raised them.
+    removeAptAlert();
     document
       .querySelectorAll(".apt-content-section")
       .forEach((sec) => sec.classList.remove("active"));
@@ -5435,6 +5618,8 @@ document.addEventListener("DOMContentLoaded", () => {
       clearSlotMessage();
       renderCalendar(currentMonth, currentYear);
       if (selectedDateKey) renderTimeSlots(selectedDateKey);
+      // Keeps the poll's change-detection in step with what is on screen.
+      aptAvailabilitySignature = getAvailabilitySignature();
       showSlotMessage(
         "Reminder: You can select only 1 time slot for this appointment.",
         "#9a6a00",
@@ -5451,6 +5636,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!date || !time) {
       const msg = "Please select a date and time first before continuing.";
       showSlotMessage(msg);
+      pushAptAlertMessage("aptSchedule", msg);
       return { ok: false, error: msg };
     }
 
@@ -6114,7 +6300,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   aptFileInput?.addEventListener("change", () => {
     const file = aptFileInput.files?.[0];
-    clearFieldError("aptFile");
+    clearAptFileError();
 
     if (!file) {
       uploadedAppointmentFile = null;
@@ -6138,8 +6324,20 @@ document.addEventListener("DOMContentLoaded", () => {
       if (aptFileName)
         aptFileName.textContent =
           "Invalid file. Use image, DOC/DOCX, or PDF only.";
-      showSlotMessage(
+      setAptFileError(
         "Attachment is invalid. Please upload an image, DOC/DOCX, or PDF file only.",
+      );
+      return;
+    }
+
+    // Matches the server's attachment rule (max:51200 KB).
+    if (file.size > APT_MAX_ATTACHMENT_BYTES) {
+      uploadedAppointmentFile = null;
+      aptFileInput.value = "";
+      if (aptFileName)
+        aptFileName.textContent = "File is too large. Use 50 MB or smaller.";
+      setAptFileError(
+        "Attachment is too large. Please upload a file of 50 MB or smaller.",
       );
       return;
     }
@@ -6178,16 +6376,35 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   let aptPollTimer = null;
+  let aptAvailabilitySignature = "";
+
+  // Cheap fingerprint of everything the calendar and the slot list draw from.
+  const getAvailabilitySignature = () =>
+    JSON.stringify([
+      calendarState.timeSlots,
+      calendarState.daySettings,
+      calendarState.bookedSlots,
+    ]);
 
   const startAptPolling = () => {
     if (aptPollTimer) clearInterval(aptPollTimer);
+    aptAvailabilitySignature = getAvailabilitySignature();
     aptPollTimer = setInterval(async () => {
       // Only fetch if Step 3 is visible inside the modal
       if (
         document.getElementById("aptStep3")?.classList.contains("active") &&
-        appointmentOverlay?.classList.contains("show-modal")
+        appointmentOverlay?.classList.contains("show-modal") &&
+        !document.hidden
       ) {
         await fetchCalendarAvailability();
+
+        // Availability rarely moves between two ticks. Rebuilding all 37+ day
+        // cells and every slot button anyway is what made Step 3 feel heavy on
+        // phones, and it also blinked away the user's slot highlight.
+        const signature = getAvailabilitySignature();
+        if (signature === aptAvailabilitySignature) return;
+        aptAvailabilitySignature = signature;
+
         renderCalendar(currentMonth, currentYear);
         renderTimeSlots(selectedDateKey);
       }
@@ -6196,6 +6413,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const stopAptPolling = () => {
     if (aptPollTimer) clearInterval(aptPollTimer);
+    aptPollTimer = null;
+    aptAvailabilitySignature = "";
   };
 
   if (appointmentBtn && appointmentOverlay) {
@@ -6279,6 +6498,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   bindClick("btnGoToPrivacy", () => {
+    removeAptAlert();
     privacyModal?.classList.add("show-modal");
     focusAppointmentControl(document.getElementById("cancelPrivacyBtn"));
   });
@@ -6303,10 +6523,13 @@ document.addEventListener("DOMContentLoaded", () => {
   bindClick("btnGoToConfirm", () => {
     const { date, time } = getSelectedSchedule();
     if (!date || !time) {
-      showSlotMessage("Please select a date and time first before proceeding.");
+      const msg = "Please select a date and time first before proceeding.";
+      showSlotMessage(msg);
+      pushAptAlertMessage("aptSchedule", msg);
       return;
     }
     clearSlotMessage();
+    dropAptAlertMessage("aptSchedule");
     confirmModal?.classList.add("show-modal");
     focusAppointmentControl(document.getElementById("cancelConfirmBtn"));
   });

@@ -174,30 +174,181 @@
   }
 }
 
+/* ---------------------------------------------------------------------------
+   Appointment field errors — portal-style summary alert (phones only).
+
+   Built by main.js and appended to <body>. Hidden by default so the desktop
+   experience (absolute bubbles beside each field) is untouched; the <=640px
+   band below turns it on and keeps the bubbles out of the flow, because seven
+   in-flow bubbles used to grow Step 2 by ~356px and shove the form under the
+   user's thumb. Geometry mirrors .auth-error-alert in customer-auth/auth.css.
+   --------------------------------------------------------------------------- */
+.apt-error-alert {
+  display: none;
+}
+
 @media (max-width: 640px) {
-  /* Validation belongs below its field on a one-column form; floating error
-     bubbles otherwise cover the label/input above on short phone screens. */
+  /* Message text now lives in the summary alert; the field keeps only its ring
+     so nothing below it moves when validation runs. */
   .apt-field-error-bubble {
-    position: static;
-    display: none;
-    width: 100%;
-    max-width: 100%;
-    margin-top: 6px;
-    transform: none;
-    opacity: 1;
-    box-shadow: none;
+    display: none !important;
   }
 
-  .apt-input-group.has-error .apt-field-error-bubble {
+  .file-upload-wrapper.has-error {
+    border-color: #d32f2f;
+    box-shadow: 0 0 0 3px rgba(211, 47, 47, 0.14);
+    background-color: #fffafa;
+  }
+
+  .apt-error-alert {
+    position: fixed;
+    /* Clears the sticky .apt-header-top, whose bottom edge measures 70px. */
+    top: max(78px, calc(74px + var(--ux-safe-t, 0px)));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 26000;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    width: min(430px, calc(100% - 20px));
+    /* Deliberately short. Ten messages at once is the worst case (Next on a
+       blank form) and the list scrolls; what matters more is that the panel
+       stops short of the first field, which cannot be scrolled out from under
+       a taller panel because the form is already at the top of its range. */
+    max-height: min(34vh, 210px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 12px;
+    border: 1px solid #f3c2bf;
+    border-radius: var(--ux-dlg-radius, 8px);
+    background: #fff6f5;
+    box-shadow: 0 14px 34px rgba(75, 12, 12, 0.18);
+  }
+
+  .apt-error-alert.is-leaving {
+    opacity: 0;
+    transition: opacity 0.26s ease;
+  }
+
+  .apt-error-mark {
+    flex: 0 0 20px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #b3261e;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 20px;
+    text-align: center;
+  }
+
+  .apt-error-body {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .apt-error-title {
+    margin: 0 0 6px;
+    color: #7f1d1d;
+    font-size: 11.5px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .apt-error-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .apt-error-item + .apt-error-item {
+    margin-top: 2px;
+  }
+
+  .apt-error-link {
     display: block;
+    width: 100%;
+    margin: 0;
+    padding: 3px 0;
+    border: 0;
+    background: none;
+    color: #b3261e;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    line-height: 1.4;
+    text-align: left;
+    overflow-wrap: anywhere;
+    cursor: pointer;
   }
 
-  .apt-field-error-bubble::after {
-    display: none;
+  .apt-error-close {
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: #7f1d1d;
+    font-size: 19px;
+    line-height: 1;
+    cursor: pointer;
   }
 }
 
 @media (max-width: 430px) {
+  .apt-error-alert {
+    top: max(72px, calc(68px + var(--ux-safe-t, 0px)));
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .apt-error-link {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 430px) {
+  /* The month grid shrinks to the card instead of scrolling sideways inside it:
+     a 332px floor used to hide ~35px of Saturday behind an easy-to-miss
+     scroller on every iPhone width. */
+  .apt-calendar-left {
+    overflow-x: visible;
+    padding-inline: clamp(6px, 2.4vw, 14px);
+  }
+
+  .cal-days-header,
+  .cal-days-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: clamp(2px, 1vw, 4px);
+  }
+
+  .cal-days-header {
+    row-gap: 0;
+  }
+
+  .cal-day-cell {
+    aspect-ratio: 1;
+    min-height: 0;
+    font-size: clamp(10px, 2.8vw, 12px);
+  }
+
+  .cal-legend {
+    flex-wrap: wrap;
+  }
+
+  /* Native title text is unreliable on touch and the pseudo-tooltip would be
+     clipped by the calendar card; screen readers use the ARIA label. */
+  .cal-day-cell[title]::before {
+    display: none;
+  }
+}
+
+/* Below ~300px seven squares stop being tappable, so the scroller comes back. */
+@media (max-width: 300px) {
   .apt-calendar-left {
     overflow-x: auto;
     overscroll-behavior-x: contain;
@@ -207,21 +358,80 @@
   .cal-navigation,
   .cal-days-header,
   .cal-days-grid {
-    min-width: 332px;
-  }
-
-  .cal-days-grid {
-    gap: 4px;
+    min-width: 266px;
   }
 
   .cal-day-cell {
-    min-height: 44px;
+    aspect-ratio: auto;
+    min-height: 34px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Appointment progress strip + tickets (phones only)
+   --------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  /* Fixed-width steps left each caption wider than its own box, so
+     "Appointment" bled across its neighbours. Let the five steps share the
+     strip evenly instead, and give single words somewhere to break. */
+  .apt-step {
+    width: auto;
+    flex: 1 1 0;
+    min-width: 0;
   }
 
-  /* Native title text is unreliable on touch and the pseudo-tooltip would be
-     clipped by the calendar scroller; screen readers use the ARIA label. */
-  .cal-day-cell[title]::before {
-    display: none;
+  /* Thin fixed connectors: left growable they would take an equal share of the
+     strip and starve the five captions. */
+  .apt-line {
+    flex: 0 0 clamp(4px, 1.6vw, 10px);
+    min-width: 4px;
+  }
+
+  /* Sized so the longest caption ("Appointment") clears its box on one line at
+     every width in this band; `anywhere` is only the safety net below that. */
+  .apt-step span:last-child {
+    font-size: clamp(7.5px, 2vw, 10px);
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+
+  .apt-step .step-label {
+    font-size: clamp(6.5px, 1.9vw, 9px);
+    letter-spacing: 0.04em;
+  }
+
+  /* `margin: 0 auto` on a column flex item overrides `stretch`, which shrank
+     Step 4's ticket to its own content (~280px) and wasted a third of the
+     screen. Step 5 escaped it only because its QR column is wider. */
+  .apt-content-section .ticket-container {
+    width: 100%;
+  }
+
+  #officialReceiptCard .ticket-body + div {
+    padding: 12px 14px !important;
+  }
+
+  #receiptQrImage {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+/* Below ~340px five even steps stop fitting, so main.css turns the strip into a
+   swipeable rail. Re-assert the fixed basis the rule above would otherwise win. */
+@media (max-width: 340px) {
+  .apt-step {
+    flex: 0 0 auto;
+    /* 6px wider than main.css's 52px: at this width the caption font bottoms out
+       at 7.5px, where "Appointment" needs the full 52px and wrapped onto a second
+       line, leaving that one step taller than its neighbours. The rail already
+       scrolls here, so the extra width costs nothing. */
+    width: 58px;
+  }
+
+  .apt-line {
+    flex: 0 0 12px;
+    min-width: 12px;
   }
 }
 

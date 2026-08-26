@@ -18375,3 +18375,157 @@ textarea:focus-visible {
 }
 
 /* UXDLG-APPEND-8 */
+
+/* ===========================================================================
+   APPOINTMENT FLOW — PHONE / SMALL-TABLET PERFORMANCE PASS (<=900px)
+   ---------------------------------------------------------------------------
+   Steps 1-5 felt sluggish on real phones. Measured causes inside
+   `#appointmentFlow`, all of them paint cost rather than script cost:
+
+     * nine live `backdrop-filter` surfaces (the back button, the progress
+       pill, three `.apt-card`s and the four ghost footer buttons) stacked over
+       an `overflow-y: auto` container — every scroll frame re-blurs each one;
+     * the overlay background resolving to 28 comma-separated gradient parts
+       (two radials over a linear);
+     * `.apt-card`'s `0 25px 60px` shadow, re-rasterised at that blur radius;
+     * `fadeInApt` animating opacity *and* a 20px translate on that whole
+       blurred, shadowed card on every step change;
+     * `transition: all` on the controls, so any repaint is a candidate for a
+       full-property interpolation.
+
+   Desktop keeps the frosted-glass design untouched: everything below is inside
+   the media query, and the substituted fills are tuned to land on the same
+   colours the blur produced over the dark maroon overlay.
+
+   Deliberately NOT using `will-change` here — it would pin permanent
+   compositing layers for the whole overlay and cost more memory than it saves.
+   ========================================================================= */
+@media (max-width: 900px) {
+  .apt-back-btn,
+  .apt-progress-wrapper,
+  .apt-card,
+  .apt-btn-back,
+  .apt-btn-outline,
+  .apt-btn-outline-brown,
+  .apt-nested-modal,
+  #aptPrivacyModal.apt-nested-modal,
+  #aptConfirmModal.apt-nested-modal,
+  .success-modal-overlay {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  /* One linear gradient instead of two radials over a linear, plus a flat
+     fallback colour so the very first frame is never transparent. */
+  .apt-overlay {
+    background-color: #5f0d0d;
+    background-image: linear-gradient(
+      160deg,
+      #3d0808 0%,
+      #5f0d0d 48%,
+      #851313 100%
+    );
+  }
+
+  /* Slightly stronger alphas stand in for what the blur used to contribute. */
+  .apt-back-btn {
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  .apt-progress-wrapper {
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  .apt-btn-back,
+  .apt-btn-outline,
+  .apt-btn-outline-brown {
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  .apt-nested-modal,
+  #aptPrivacyModal.apt-nested-modal,
+  #aptConfirmModal.apt-nested-modal,
+  .success-modal-overlay {
+    background: rgba(0, 0, 0, 0.72);
+  }
+
+  /* Opaque card: the two translucent stops resolved to roughly these colours
+     over the maroon backdrop anyway, and an opaque box also lets the browser
+     skip everything painted behind it. */
+  .apt-card {
+    background: linear-gradient(135deg, #fffcf9 0%, #f4e9dd 100%);
+    box-shadow:
+      0 8px 20px rgba(45, 12, 12, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  /* Opacity only, and short: translating the card meant re-rasterising its
+     shadow on every frame of the step change. */
+  .apt-content-section.active {
+    animation: aptFadeFlat 0.18s ease;
+  }
+
+  /* Named property lists so a repaint cannot turn into an all-property
+     interpolation. Buttons are already tuned further up this file. */
+  .apt-btn {
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease,
+      transform 0.1s ease;
+  }
+
+  .apt-back-btn,
+  .cal-navigation button,
+  .time-slot-btn,
+  .cal-day-cell {
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .apt-icon {
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      color 0.2s ease,
+      transform 0.2s ease;
+  }
+
+  .apt-overlay .c-input,
+  .apt-nested-modal .c-input {
+    transition:
+      border-color 0.15s ease,
+      background-color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+
+  .file-upload-wrapper {
+    transition:
+      border-color 0.15s ease,
+      background-color 0.15s ease;
+  }
+
+  .apt-nested-modal,
+  .success-modal-overlay {
+    transition:
+      opacity 0.24s ease,
+      visibility 0.24s ease;
+  }
+}
+
+@keyframes aptFadeFlat {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .apt-content-section.active {
+    animation: none;
+  }
+}
