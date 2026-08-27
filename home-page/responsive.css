@@ -2760,3 +2760,933 @@
   }
 }
 
+/* ===========================================================================
+   STEP 7 — CONTACT PAGE, ACCOUNT DIALOGS & ORDER DRAWER: PHONE PASS
+   ---------------------------------------------------------------------------
+   Every rule below is width-gated, so desktop is untouched.
+
+   Dialog rules are scoped to the six Step 7 dialog ids instead of `.ux-dlg`,
+   because the appointment dialogs (`#aptPrivacyModal`, `#aptConfirmModal`)
+   share the same chrome classes and are deliberately left byte-identical.
+
+   `:is(#a, #b, ...)` counts as a single id, so
+   `:is(#ids) .ux-dlg__card .ux-dlg__head > .child` lands on (1,3,0) — the same
+   weight as main.css:17217 `:is(.ux-dlg, ...) .ux-dlg__card .ux-dlg__head >
+   *:not(...)`. This file loads after main.css, so the tie goes here. Drop
+   `.ux-dlg__card` from a head-child selector and it loses the tie instead.
+
+   The `.customer-rating-overlay` sub-sheets (rate, return, cancel, GCash,
+   ship-back, discard) are appended to `document.body` with no id at all, so one
+   id in main.css outweighs any class chain written here — those overrides use
+   `!important`, already the idiom at lines 589-614 above.
+   ------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+   §1 / §3 — Contact page body, and the My Account details card.
+   Gated at 720px, below which main.css has already collapsed `.contact-grid`
+   and `.contact-form-grid` to one column (main.css:6662, 6679, 15519).
+   ------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  /* The icon span is a flex item of the row and carries no `flex-shrink: 0`,
+     so an unbreakable address or email token starves it — measured 9.4px and
+     7.64px wide against its own 20px artwork. Pin the span, pin the SVG, and
+     let the text wrap instead of pushing. */
+  .contact-links-list li .contact-link-icon {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    align-items: flex-start;
+    justify-content: center;
+  }
+
+  .contact-links-list li .contact-link-icon svg {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+  }
+
+  .contact-links-list li .contact-link-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  /* Consent row: the checkbox is the smallest hit target on the page at 18px,
+     and it sits next to three lines of statute text. 20px plus the maroon
+     accent makes the checked state readable without touching the inline
+     layout the markup sets. */
+  .contact-form-actions .consent-label input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: #9e1414;
+  }
+
+  .contact-form-actions .consent-label {
+    line-height: 1.55;
+  }
+
+  /* The submit label was drawn at the bottom of its clamp (13.5px) on every
+     phone while the dialog pills next to it sit at 14.5px. Same size, same
+     51px pill height, so the page's one primary action matches the dialogs. */
+  .contact-form-actions .contact-submit-btn {
+    min-height: 50px;
+    padding: 14px 20px;
+    font-size: 14.5px;
+    letter-spacing: 0.2px;
+    border-radius: 14px;
+  }
+
+  /* ---- §3 My Account details card ---------------------------------------
+     The reported right-edge overlap. `.profile-detail-item` is a flex row with
+     `justify-content: space-between` and no `min-width: 0` on either span, so
+     the unbreakable email in `.detail-val` gives the row a 496px min-content
+     contribution; the `1fr` track of `.profile-details-grid` takes that as its
+     automatic minimum and every row overhangs a 362px card by ~192px, clipped
+     rather than scrollable because `.ux-dlg__card` is `overflow: hidden`.
+     Stacking the row into a single `minmax(0, 1fr)` column removes the
+     contribution entirely, and `overflow-wrap: anywhere` breaks the token. */
+  #customerProfileModal .customer-card .profile-detail-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
+    align-items: start;
+    padding: 11px 13px;
+    border-radius: 12px;
+  }
+
+  #customerProfileModal .customer-card .detail-label {
+    min-width: 0;
+    font-size: 10px;
+    line-height: 1.3;
+  }
+
+  #customerProfileModal .customer-card .detail-val {
+    min-width: 0;
+    font-size: 13.5px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+  /* Same untamed email one row up: `.user-avatar-meta` is a flex column with no
+     `min-width: 0`, so it measured 401.8px inside the same card. */
+  #customerProfileModal .customer-card .profile-header-avatar {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+  }
+
+  #customerProfileModal .customer-card .user-avatar-initial {
+    width: 52px;
+    height: 52px;
+    font-size: 22px;
+    border-width: 2px;
+  }
+
+  #customerProfileModal .customer-card .user-avatar-meta {
+    min-width: 0;
+  }
+
+  #customerProfileModal .customer-card .user-meta-name {
+    font-size: 17px;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+
+  #customerProfileModal .customer-card .user-meta-email {
+    font-size: 12.8px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   §2 — Shared dialog chrome for the Step 7 dialogs.
+   The maroon band was measuring 88.8px, 102.4px and 123.5px tall on a 667px
+   screen before a single line of content, and the footer pills were 51px tall
+   with 30px of strip padding around them. A tighter vertical rhythm, a 36px
+   badge instead of 44px and a 52px close-lane instead of 64px hand the copy
+   column ~30px of width and each card ~35px of height, without changing a
+   single colour, radius or shadow.
+   ------------------------------------------------------------------------- */
+@media (max-width: 480px) {
+  :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card .ux-dlg__head {
+    padding-top: 13px;
+    padding-bottom: 13px;
+    padding-right: max(52px, var(--ux-dlg-pad-x));
+  }
+
+  :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card .ux-dlg__badge {
+    width: 36px;
+    height: 36px;
+    margin-right: 11px;
+    border-width: 1.5px;
+    font-size: 15.5px;
+    box-shadow: 0 5px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card .ux-dlg__eyebrow {
+    margin-bottom: 2px;
+    font-size: 9.6px;
+    letter-spacing: 0.11em;
+  }
+
+  :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card .ux-dlg__title {
+    font-size: clamp(15.5px, 4.2vw, 18.5px);
+    line-height: 1.22;
+    overflow-wrap: anywhere;
+  }
+
+  /* The decorative ring is sized for a 44px badge; scaled down it stays a
+     corner arc instead of a wash across the shorter band. */
+  :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card .ux-dlg__head::after {
+    right: -30px;
+    bottom: -88px;
+    width: 138px;
+    height: 138px;
+    box-shadow: 0 0 0 20px rgba(241, 237, 18, 0.055);
+  }
+  /* Pulled into the corner so the reserved lane can shrink from 64px to 52px.
+     The 36px box is kept: it is the whole hit target. */
+  :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card .ux-dlg__close {
+    top: 10px;
+    right: 10px;
+  }
+
+  /* Scroll containment: without it a flick that reaches the end of the body
+     hands the gesture to the page behind the scrim, which then scrolls under
+     the open dialog. */
+  :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card .ux-dlg__body {
+    padding-top: 18px;
+    padding-bottom: 16px;
+    overscroll-behavior: contain;
+  }
+
+  /* -- Footer strip and pills --------------------------------------------- */
+  /* 16px + 18px of strip padding around a 51px pill put the system pop-up's
+     footer at 117px, and 20px of pill side-padding wrapped "Got it, thanks"
+     onto a second line — an 82px-tall button. 13px padding, a 46px pill and a
+     13.6px label keep every label on one line and stay above the 44px tap
+     floor. */
+  :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card .ux-dlg__foot {
+    gap: 8px;
+    padding-top: 12px;
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+  }
+
+  :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card .ux-dlg__btn {
+    gap: 6px;
+    padding: 12px 13px;
+    min-height: 46px;
+    font-size: 13.6px;
+    line-height: 1.2;
+    letter-spacing: 0.1px;
+  }
+
+  /* -- §5 System pop-up ---------------------------------------------------
+     The one dialog built without a close X (main.js:161-188), so the 52px lane
+     the shared rule reserves is dead space. Giving it back widens the title
+     column by ~34px, which is what stopped "Message Sent Successfully" from
+     wrapping to three lines. */
+  #customerSystemPopup .admin-system-popup__card .ux-dlg__head {
+    padding-right: var(--ux-dlg-pad-x);
+  }
+  /* -- §4 Account security (change / set password) ------------------------
+     The Back pill sits in the close button's slot, so the band reserves 104px
+     for it (main.css:18008). On a 292px card that is more than a third of the
+     width. A shorter pill needs an 86px lane. */
+  #customerPasswordModal .customer-modal.ux-dlg__card .ux-dlg__head {
+    padding-right: max(90px, var(--ux-dlg-pad-x));
+  }
+
+  #customerPasswordModal .customer-modal.ux-dlg__card .ux-dlg__back {
+    top: 10px;
+    right: 10px;
+    height: 36px;
+    min-height: 36px;
+    padding: 0 11px 0 9px;
+    font-size: 11px;
+  }
+
+  /* The eye toggle was a bare 20px icon with no box. 40px square clears the
+     44px-ish floor once the 8px of surrounding pill padding is counted, and the
+     input reserves the room so masked text never runs under it. */
+  #customerPasswordModal #changePasswordForm .password-wrapper input {
+    min-height: 46px;
+    padding-right: 50px;
+    border-radius: 10px;
+  }
+
+  #customerPasswordModal #changePasswordForm .toggle-pass {
+    right: 7px;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+
+  #customerPasswordModal #changePasswordForm .customer-field {
+    margin-bottom: 14px;
+  }
+
+  #customerPasswordModal #changePasswordForm .customer-field label {
+    margin-bottom: 6px;
+    font-size: 12.5px;
+  }
+
+  /* -- §6 Guest access dialog ---------------------------------------------
+     "Login" and "Sign Up" are short enough to sit side by side, which takes the
+     footer from 147px (47% of the card) down to ~72px. */
+  #guestAccessModal .guest-access-card.ux-dlg__card .ux-dlg__foot {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  /* The signed-out dropdown runs 9.28px-12.48px throughout — the smallest type
+     on the phone site. Scoped through its own id so the class-based rules in
+     main.css cannot put the old sizes back. */
+  #guestProfilePopup.guest-profile-popup {
+    padding: 15px;
+  }
+
+  /* The header bleeds to the card edge with a negative margin sized to the old
+     18px gutter, so it has to be re-cut whenever the gutter changes — measured
+     3px of it painting outside the rounded corners once the padding dropped. */
+  #guestProfilePopup .guest-popup-header {
+    margin: -15px -15px 12px;
+    padding: 15px;
+  }
+
+  #guestProfilePopup .guest-popup-eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+  }
+
+  #guestProfilePopup .guest-popup-copy {
+    margin: 0 0 11px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  #guestProfilePopup .guest-popup-benefits {
+    gap: 7px;
+    margin-bottom: 12px;
+  }
+
+  #guestProfilePopup .guest-popup-benefits span {
+    padding: 8px;
+    font-size: 11.5px;
+    line-height: 1.3;
+  }
+
+  #guestProfilePopup .guest-popup-benefits i {
+    font-size: 11.5px;
+  }
+
+  #guestProfilePopup .guest-auth-btn {
+    min-height: 46px;
+    padding: 0 14px;
+    font-size: 13.5px;
+  }
+
+  #guestProfilePopup .guest-auth-separator {
+    font-size: 10.5px;
+  }
+
+  /* -- §7 Announcement modal ----------------------------------------------
+     Its runtime stylesheet is appended to <head> after this file, so only
+     specificity can beat it: the id chain here is (1,3,0) against that sheet's
+     (0,1,0). The counter is the footer grid's first item, so it already lands
+     on its own row — centring it and pulling the gap in keeps the two visible
+     buttons as the bottom of the card. */
+  /* main.css also carries its own `#announcementModal.ux-dlg .ux-dlg__card
+     .ux-dlg__foot` (1,3,0), which outranks the six-id foot rule above at
+     (1,2,0) and puts the 10px desktop gap back. Naming the card class here
+     ties that specificity and wins on load order. Between 421 and 480 this is
+     the only thing setting the gap; at 420 and under the runtime sheet's
+     `gap: 8px !important` already agrees, so the two never disagree. */
+  #announcementModal .announcement-modal__card.ux-dlg__card .ux-dlg__foot {
+    gap: 8px;
+  }
+
+  #announcementModal .announcement-modal__card .ux-dlg__foot .announcement-modal__counter {
+    margin-bottom: 1px;
+    font-size: 11.5px;
+    text-align: center;
+    /* The announcements sheet switches this foot to a one-column grid under
+       420px. Stretching the counter across that column is what makes the
+       centred text actually read as centred; the property is inert in the
+       flex layout that still applies between 421 and 480. */
+    justify-self: stretch;
+  }
+  /* -- §8 My Orders drawer: the head -------------------------------------
+     Measured 154.1px tall in portrait, and 139.2px plus a 50px tab strip in
+     landscape — 189px of a 393px viewport, leaving a 153.8px panel. The head is
+     a two-column grid of five loose children (close, badge, eyebrow, title,
+     subtitle, sync line), each stacking its own row. Dropping the decorative
+     subtitle and lifting the live-sync chip onto the title's row turns three
+     copy rows into two: ~76px instead of 154px, with nothing removed from the
+     DOM and no JS touched. */
+  #customerOrdersModal .customer-orders-modal.ux-dlg__card .customer-orders-head {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: 9px;
+  }
+
+  /* The badge carries the column-1 gap as its own margin in main.css; now that
+     the head has a real `column-gap`, most of that margin has to come off or
+     the badge sits 20px from the copy. */
+  #customerOrdersModal .customer-orders-modal.ux-dlg__card .customer-orders-head .ux-dlg__badge {
+    margin-right: 2px;
+  }
+
+  #customerOrdersModal .customer-orders-modal.ux-dlg__card .customer-orders-head > .ux-dlg__eyebrow {
+    grid-column: 2 / -1;
+    grid-row: 1;
+  }
+
+  #customerOrdersModal .customer-orders-modal.ux-dlg__card .customer-orders-head > .customer-orders-title {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+  }
+
+  #customerOrdersModal .customer-orders-modal.ux-dlg__card .customer-orders-head > .customer-orders-subtitle {
+    display: none;
+  }
+
+  /* Capped rather than truncated: the longest state string is "Showing saved
+     orders - reconnecting...", and `aria-live` announces it either way, so the
+     chip wraps inside its 138px lane instead of hiding the tail behind an
+     ellipsis. Two 10px lines still fit inside the 36px badge row, so the head
+     does not grow. */
+  #customerOrdersModal .customer-orders-modal.ux-dlg__card .customer-orders-head > .customer-orders-sync-status {
+    grid-column: 3;
+    grid-row: 2;
+    align-self: center;
+    justify-self: end;
+    max-width: 138px;
+    margin: 0;
+    padding: 4px 9px;
+    gap: 5px;
+    font-size: 10px;
+    line-height: 1.3;
+    text-align: left;
+  }
+
+  #customerOrdersModal .customer-orders-head .customer-orders-sync-dot {
+    flex: 0 0 auto;
+    width: 6px;
+    height: 6px;
+    box-shadow: 0 0 0 2px rgba(241, 237, 18, 0.2);
+  }
+  /* Tab strip and viewport: the head gave back ~78px, so the gaps around the
+     strip come in to hand that height to the panel rather than to whitespace. */
+  #customerOrdersModal .customer-orders-modal.ux-dlg__card > .customer-orders-tabs {
+    margin-top: 11px;
+    padding: 4px;
+    gap: 4px;
+  }
+
+  #customerOrdersModal .customer-orders-modal.ux-dlg__card > .customer-orders-tabs .customer-orders-tab {
+    min-height: 40px;
+    padding: 8px 10px;
+    font-size: 12.4px;
+  }
+
+  #customerOrdersModal .customer-orders-modal.ux-dlg__card > .customer-orders-viewport {
+    margin-top: 10px;
+    margin-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  #customerOrdersModal .customer-orders-panel {
+    padding: 2px;
+    gap: 10px;
+    overscroll-behavior-y: contain;
+  }
+
+  /* Order card actions: the ≤480 block in main.css (12482) grids them two-up but
+     leaves each button its own padding and label size, so a row could hold a
+     42px-tall 11.52px "View Details" next to a 34px-tall 13.12px "Order
+     Received". One height, one label size, one radius for every action. */
+  #customerOrdersModal .customer-order-card > .customer-order-actions,
+  #customerOrdersModal .customer-return-detail-actions {
+    gap: 7px;
+    padding-top: 9px;
+  }
+
+  #customerOrdersModal .customer-order-card > .customer-order-actions > button,
+  #customerOrdersModal .customer-order-card > .customer-order-actions > a,
+  #customerOrdersModal .customer-return-detail-actions > button {
+    min-height: 40px;
+    padding: 8px 9px;
+    border-radius: 10px;
+    font-size: 12.4px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  /* -- §9 Order detail sub-card -------------------------------------------
+     main.css:9322 collapses the summary to one column for everything under
+     900px, so three 54px chips ate 182px of the sheet before the timeline. The
+     chips hold four to twelve characters each; two-up is the right density on a
+     phone, with a lone third chip spanning the row. */
+  #customerOrdersModal .customer-order-detail-modal .customer-order-detail-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  #customerOrdersModal .customer-order-detail-modal .customer-order-detail-summary > .customer-order-detail-chip {
+    min-width: 0;
+    padding: 8px 10px;
+  }
+
+  #customerOrdersModal .customer-order-detail-modal .customer-order-detail-summary > .customer-order-detail-chip:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  #customerOrdersModal .customer-order-detail-modal.ux-dlg__card > .customer-order-detail-content {
+    padding-top: 15px;
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
+    overscroll-behavior: contain;
+  }
+
+  /* -- §10 Order sub-sheets ------------------------------------------------
+     Rate, Return request, Cancel order, GCash payment, Ship back and the
+     discard prompt are appended straight to `document.body` with no id, so one
+     id anywhere in main.css outweighs any class chain written here. `!important`
+     is the only lever, and it is already this file's idiom at lines 589-614. */
+  .customer-rating-overlay .customer-rating-card.ux-dlg__card > .customer-rating-head {
+    padding-top: 13px !important;
+    padding-bottom: 13px !important;
+    padding-right: max(52px, var(--ux-dlg-pad-x)) !important;
+  }
+
+  .customer-rating-overlay .customer-rating-card.ux-dlg__card > .ux-dlg__head > .ux-dlg__close {
+    top: 10px !important;
+    right: 10px !important;
+  }
+
+  /* The eyebrow and title of these six sheets sit inside an anonymous wrapper
+     div rather than as loose head children, so the wrapper is the grid item and
+     the type has to be reached through it. */
+  .customer-rating-overlay .customer-rating-card.ux-dlg__card .ux-dlg__head .ux-dlg__title {
+    font-size: clamp(15.5px, 4.2vw, 18.5px) !important;
+    line-height: 1.22 !important;
+  }
+
+  .customer-rating-overlay .customer-rating-card.ux-dlg__card .ux-dlg__head .ux-dlg__eyebrow {
+    margin-bottom: 2px !important;
+    font-size: 9.6px !important;
+  }
+  .customer-rating-overlay .customer-rating-card.ux-dlg__card .ux-dlg__badge {
+    width: 36px !important;
+    height: 36px !important;
+    margin-right: 11px !important;
+    font-size: 15.5px !important;
+  }
+
+  .customer-rating-overlay {
+    padding: 8px;
+  }
+
+  .customer-rating-overlay .customer-rating-card.ux-dlg__card > .customer-rating-body {
+    padding-top: 16px !important;
+    padding-bottom: 14px !important;
+    padding-left: var(--ux-dlg-pad-x) !important;
+    padding-right: var(--ux-dlg-pad-x) !important;
+  }
+
+  .customer-rating-overlay .customer-rating-card.ux-dlg__card > .ux-dlg__foot {
+    gap: 8px !important;
+    padding-top: 12px !important;
+    padding-bottom: max(14px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .customer-rating-overlay .customer-rating-card.ux-dlg__card .ux-dlg__btn {
+    gap: 6px !important;
+    padding: 12px 13px !important;
+    min-height: 46px !important;
+    font-size: 13.6px !important;
+    line-height: 1.2 !important;
+  }
+
+  /* Rating stars are the sheet's primary control: 2rem glyphs with 1px of side
+     padding gave a 32px hit box on a 34px pitch. 30px boxes on a 38px pitch keep
+     five of them inside a 292px card and stay tappable. */
+  .customer-rating-overlay .customer-rating-item .rating-star-large,
+  .customer-rating-overlay .customer-rating-stars .rating-star-large {
+    padding: 2px 4px !important;
+    font-size: 1.85rem !important;
+    line-height: 1 !important;
+  }
+
+  /* iOS zooms the viewport on focus for any control under 16px. These four were
+     the last violations on the customer site: 13.12px on the return reason
+     select, 13.6px and 12.8px on the two feedback textareas. */
+  .customer-rating-overlay .customer-return-select,
+  .customer-rating-overlay .customer-rating-feedback,
+  .customer-rating-overlay .customer-rating-item .customer-rating-feedback,
+  .customer-rating-overlay .customer-return-input {
+    font-size: 16px !important;
+  }
+
+  .customer-rating-overlay .customer-return-select {
+    min-height: 46px !important;
+    padding: 11px 12px !important;
+  }
+  /* The quantity stepper on the return sheet was a pair of 24px buttons — the
+     smallest touch target in any dialog. */
+  .customer-rating-overlay .customer-return-qty {
+    padding: 3px !important;
+    gap: 3px !important;
+  }
+
+  .customer-rating-overlay .customer-return-qty button {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 15px !important;
+  }
+
+  .customer-rating-overlay .customer-return-qty span {
+    min-width: 26px !important;
+    font-size: 13px !important;
+  }
+
+  /* Cancellation reasons are radio rows: 12.16px labels beside a 17px mark, in
+     rows short enough that two of them fell inside one thumb. */
+  .customer-rating-overlay .ccx-reason {
+    min-height: 46px !important;
+    padding: 11px 12px !important;
+  }
+
+  .customer-rating-overlay .ccx-reason-mark {
+    flex: 0 0 auto !important;
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  .customer-rating-overlay .ccx-reason-label {
+    font-size: 13px !important;
+    line-height: 1.4 !important;
+  }
+
+  /* GCash sheet: the reference amount and its copy control share a wrapping
+     row, so the 0.68rem button lost its tap height whenever the amount grew. */
+  .customer-rating-overlay .cgc-amount-value {
+    font-size: 1.35rem !important;
+  }
+
+  .customer-rating-overlay .cgc-copy-btn {
+    min-height: 40px !important;
+    padding: 8px 14px !important;
+    font-size: 12px !important;
+  }
+
+  .customer-rating-overlay .cgc-file-input {
+    padding: 11px 12px !important;
+    font-size: 13px !important;
+  }
+
+  /* Rating list gutters: 24px of side padding inside a body that already has
+     `--ux-dlg-pad-x` of its own left a 292px card with 62px of margin per side. */
+  .customer-rating-overlay .customer-rating-items {
+    padding: 8px 14px 14px !important;
+  }
+
+  .customer-rating-overlay .customer-rating-item {
+    padding: 12px !important;
+  }
+
+  .customer-rating-overlay .customer-rating-product-name {
+    padding: 10px 14px 4px !important;
+    font-size: 13px !important;
+  }
+  /* To Rate and My Ratings cards are flex rows: thumb, a `flex: 1; min-width: 0`
+     main column, and a `flex-shrink: 0` price/action strip. Once the strip's
+     "Rate products" pill and the price stack up, the main column is starved to
+     almost nothing. Same grid main.css already gives `.customer-order-card`
+     under 900px: thumb and copy on row one, the strip across row two. */
+  #customerOrdersModal .customer-torate-card,
+  #customerOrdersModal .customer-rated-card {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  #customerOrdersModal .customer-torate-card > .customer-order-thumb,
+  #customerOrdersModal .customer-rated-card > .customer-order-thumb {
+    grid-column: 1;
+  }
+
+  #customerOrdersModal .customer-torate-main,
+  #customerOrdersModal .customer-rated-main {
+    grid-column: 2;
+    min-width: 0;
+  }
+
+  #customerOrdersModal .customer-torate-side,
+  #customerOrdersModal .customer-rated-side {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed #e2e8f0;
+  }
+
+  #customerOrdersModal .customer-torate-side .customer-order-rate-btn {
+    min-height: 40px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 12.4px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Narrow phones (iPhone SE 1st gen at 320px, and the 360px Android floor).
+   A 1fr/1.25fr confirm footer gives the primary pill about 116px of inner
+   width here, which wraps "Confirm Cancellation" and "Submit Return Request"
+   onto three lines. Stacking is the honest answer, primary on top so the
+   affirmative action keeps the position the thumb lands on.
+   ------------------------------------------------------------------------- */
+@media (max-width: 360px) {
+  :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card .ux-dlg__foot.is-confirm {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card .ux-dlg__foot.is-confirm > .ux-dlg__btn--primary {
+    order: -1;
+  }
+
+  .customer-rating-overlay .customer-rating-card.ux-dlg__card > .ux-dlg__foot.is-confirm {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .customer-rating-overlay .customer-rating-card.ux-dlg__card > .ux-dlg__foot.is-confirm > .ux-dlg__btn--primary {
+    order: -1 !important;
+  }
+
+  /* "Login" and "Sign Up" still fit two-up at 360px; below that the pair is
+     narrower than the labels, so the guest footer goes back to a stack. */
+  #guestAccessModal .guest-access-card.ux-dlg__card .ux-dlg__foot {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* The sync chip's lane comes in with the card so the title keeps one line. */
+  #customerOrdersModal .customer-orders-modal.ux-dlg__card .customer-orders-head > .customer-orders-sync-status {
+    max-width: 104px;
+  }
+
+  #customerOrdersModal .customer-orders-modal.ux-dlg__card > .customer-orders-tabs .customer-orders-tab {
+    padding: 8px;
+    font-size: 12px;
+  }
+
+  .customer-rating-overlay .customer-rating-items {
+    padding: 6px 10px 12px !important;
+  }
+
+  .customer-rating-overlay .customer-rating-item {
+    padding: 10px !important;
+  }
+
+  .customer-rating-overlay .customer-rating-item .rating-star-large,
+  .customer-rating-overlay .customer-rating-stars .rating-star-large {
+    padding: 2px 2px !important;
+    font-size: 1.65rem !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   §11 — Landscape phones. 852x393 is wider than every width band above, so the
+   dialogs were still drawn at full portrait scale: the My Orders head measured
+   139.2px and the tab strip 50px, which is 189px of a 393px viewport and left
+   the panel 153.8px to scroll orders in. Only vertical scale changes here; the
+   width is genuinely there, so gutters and columns are left alone.
+   ------------------------------------------------------------------------- */
+@media (max-width: 900px) and (max-height: 520px) and (orientation: landscape) {
+  :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card {
+    max-height: calc(100dvh - 12px);
+  }
+
+  :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card .ux-dlg__head {
+    padding-top: 9px;
+    padding-bottom: 9px;
+  }
+
+  :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card .ux-dlg__badge {
+    width: 32px;
+    height: 32px;
+    margin-right: 10px;
+    font-size: 14px;
+  }
+
+  :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card .ux-dlg__eyebrow {
+    margin-bottom: 1px;
+    font-size: 9.5px;
+  }
+
+  :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card .ux-dlg__title {
+    font-size: 16px;
+    line-height: 1.2;
+  }
+
+  :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card .ux-dlg__close {
+    top: 8px;
+    right: 8px;
+    width: 32px;
+    height: 32px;
+  }
+
+  :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card .ux-dlg__body {
+    padding-top: 12px;
+    padding-bottom: 12px;
+    overscroll-behavior: contain;
+  }
+
+  :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card .ux-dlg__foot {
+    gap: 8px;
+    padding-top: 9px;
+    padding-bottom: max(9px, env(safe-area-inset-bottom));
+  }
+
+  :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card .ux-dlg__btn {
+    padding: 10px 16px;
+    min-height: 42px;
+    font-size: 13.5px;
+  }
+
+  /* Same specificity tie-break as the ≤480 band: main.css keeps an
+     announcement-only foot rule at (1,3,0), so the shared (1,2,0) gap above
+     never reaches this one card. */
+  #announcementModal .announcement-modal__card.ux-dlg__card .ux-dlg__foot {
+    gap: 8px;
+  }
+  /* My Orders: same three-column head as the ≤480 band, so the sync chip sits
+     beside the title instead of consuming a fourth row of height. */
+  #customerOrdersModal .customer-orders-modal.ux-dlg__card .customer-orders-head {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: 10px;
+  }
+
+  #customerOrdersModal .customer-orders-modal.ux-dlg__card .customer-orders-head .ux-dlg__badge {
+    margin-right: 2px;
+  }
+
+  #customerOrdersModal .customer-orders-modal.ux-dlg__card .customer-orders-head > .ux-dlg__eyebrow {
+    grid-column: 2 / -1;
+    grid-row: 1;
+  }
+
+  #customerOrdersModal .customer-orders-modal.ux-dlg__card .customer-orders-head > .customer-orders-title {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+  }
+
+  #customerOrdersModal .customer-orders-modal.ux-dlg__card .customer-orders-head > .customer-orders-subtitle {
+    display: none;
+  }
+
+  #customerOrdersModal .customer-orders-modal.ux-dlg__card .customer-orders-head > .customer-orders-sync-status {
+    grid-column: 3;
+    grid-row: 2;
+    align-self: center;
+    justify-self: end;
+    max-width: 210px;
+    margin: 0;
+    padding: 4px 9px;
+    gap: 5px;
+    font-size: 10px;
+    line-height: 1.3;
+    text-align: left;
+  }
+
+  #customerOrdersModal .customer-orders-head .customer-orders-sync-dot {
+    flex: 0 0 auto;
+    width: 6px;
+    height: 6px;
+  }
+  #customerOrdersModal .customer-orders-modal.ux-dlg__card .customer-orders-tabs {
+    margin-top: 8px;
+    padding: 3px;
+    gap: 4px;
+  }
+
+  /* main.css reaches this button through `#customerOrdersModal.ux-dlg
+     .ux-dlg__card > .customer-orders-tabs .customer-orders-tab` (1,4,0), so the
+     strip has to be named in the chain here as well — a card-then-tab selector
+     is only (1,3,0) and silently loses the 34px row back to the 38px default,
+     which is 4px of head the landscape band cannot spare. */
+  #customerOrdersModal .customer-orders-modal.ux-dlg__card > .customer-orders-tabs .customer-orders-tab {
+    min-height: 34px;
+    padding: 6px 12px;
+    font-size: 12.4px;
+  }
+
+  #customerOrdersModal .customer-orders-modal.ux-dlg__card .customer-orders-viewport {
+    margin-top: 8px;
+    margin-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+
+  #customerOrdersModal .customer-orders-panel {
+    gap: 10px;
+    overscroll-behavior-y: contain;
+  }
+
+  #customerOrdersModal .customer-order-detail-modal.ux-dlg__card > .customer-order-detail-content {
+    padding-top: 12px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+    overscroll-behavior: contain;
+  }
+  /* Rating / return / cancel / GCash sub-sheets. These are appended to
+     document.body with no id, so main.css reaches them through its
+     id-weighted :is() list and only !important can win. */
+  .customer-rating-overlay {
+    padding: 6px !important;
+  }
+
+  .customer-rating-overlay .customer-rating-card.ux-dlg__card {
+    max-height: calc(100dvh - 12px) !important;
+  }
+
+  .customer-rating-overlay .customer-rating-card.ux-dlg__card .ux-dlg__head {
+    padding-top: 9px !important;
+    padding-bottom: 9px !important;
+  }
+
+  .customer-rating-overlay .customer-rating-card.ux-dlg__card .ux-dlg__title {
+    font-size: 16px !important;
+    line-height: 1.2 !important;
+  }
+
+  .customer-rating-overlay .customer-rating-card.ux-dlg__card .ux-dlg__badge {
+    width: 32px !important;
+    height: 32px !important;
+    margin-right: 10px !important;
+    font-size: 14px !important;
+  }
+
+  .customer-rating-overlay .customer-rating-card.ux-dlg__card .ux-dlg__close {
+    top: 8px !important;
+    right: 8px !important;
+    width: 32px !important;
+    height: 32px !important;
+  }
+
+  .customer-rating-overlay .customer-rating-card.ux-dlg__card > .ux-dlg__foot {
+    padding-top: 9px !important;
+    padding-bottom: max(9px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .customer-rating-overlay .customer-rating-card.ux-dlg__card > .ux-dlg__foot .ux-dlg__btn {
+    padding: 10px 16px !important;
+    min-height: 42px !important;
+    font-size: 13.5px !important;
+  }
+
+  .customer-rating-overlay .customer-rating-item .rating-star-large,
+  .customer-rating-overlay .customer-rating-stars .rating-star-large {
+    font-size: 1.6rem !important;
+  }
+}
+
