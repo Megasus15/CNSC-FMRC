@@ -2251,7 +2251,11 @@
     min-width: 0;
     width: auto;
     max-width: none;
-    font-size: clamp(11px, 3.2vw, 19px);
+    /* STEP 8: 3.2vw → 3.9vw, one step up on real phones (390 → 15.2px, 430 →
+       16.8px) where the measured slack beside the lockup was 63-93px. The 11px
+       floor is kept, so nothing below ~282px moves and there is no new clipping
+       risk at the narrow end. */
+    font-size: clamp(11px, 3.9vw, 20px);
     white-space: nowrap;
   }
 
@@ -3012,7 +3016,9 @@
   #customerPasswordModal #changePasswordForm .password-wrapper input {
     min-height: 46px;
     padding-right: 50px;
-    border-radius: 10px;
+    /* STEP 8: matches the portal field radius. This rule is (2,3,1) and would
+       otherwise undo it on every phone. */
+    border-radius: 18px;
   }
 
   #customerPasswordModal #changePasswordForm .toggle-pass {
@@ -3689,4 +3695,334 @@
     font-size: 1.6rem !important;
   }
 }
+
+/* ===========================================================================
+   STEP 8 — ONE FIELD LOOK, TIP-CARD FIT, CONTACT TYPE, BRAND LOCKUP
+   ---------------------------------------------------------------------------
+   §1 and §2 are deliberately NOT width-gated: the field look and the password
+   tip were both asked for "in all sizes". §3 and §4 stay width-gated.
+
+   §1 reuses the token set that `.c-input` (main.css:3974), `.contact-input`
+   (main.css:6451) and `.payment-select` (main.css:3226) already share, so the
+   fields that were already right do not move a pixel. The values are copied
+   verbatim rather than re-derived:
+
+     rest   border 1px solid rgba(92,43,38,.14) · radius 18px
+            background rgba(255,254,250,.86)
+            shadow inset 0 1px 0 rgba(255,255,255,.9), 0 8px 18px rgba(72,27,22,.04)
+     focus  border-color rgba(127,17,17,.64) · background #fff
+            shadow 0 0 0 4px rgba(158,20,20,.08), 0 14px 28px rgba(72,27,22,.09)
+
+   Never declare `font-size` on a text control in this section: main.css:14849
+   pins every one of them to `max(16px, 0.95rem)` so iOS Safari cannot auto-zoom
+   on focus, and an equal-weight `font-size` here would silently undo it.
+   ------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+   §1a — The controls that never got the portal field look.
+   This file loads after main.css, so an equal-weight selector wins the tie;
+   where main.css is heavier the chain is lengthened rather than reaching for
+   `!important`.
+   ------------------------------------------------------------------------- */
+
+/* My Account → profile modal. main.css:9721 `.customer-field input` (0,1,1) was
+   a cool #d1dae8 hairline at radius 10. Padding and min-height are left alone —
+   only the edge was wrong. */
+.customer-field input {
+  background: rgba(255, 254, 250, 0.86);
+  border: 1px solid rgba(92, 43, 38, 0.14);
+  border-radius: 18px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 8px 18px rgba(72, 27, 22, 0.04);
+  transition: all 0.2s ease;
+}
+
+.customer-field input:focus {
+  outline: none;
+  border-color: rgba(127, 17, 17, 0.64);
+  background: #ffffff;
+  box-shadow:
+    0 0 0 4px rgba(158, 20, 20, 0.08),
+    0 14px 28px rgba(72, 27, 22, 0.09);
+}
+
+/* Set / Change Password modal. main.css:9848 `.password-wrapper input` (0,1,1)
+   was #d1d5db at radius 8; `.customer-field` in front of it lands on (0,2,1).
+   48px of right padding clears the toggle (28px wide at `right: 12px`). */
+.customer-field .password-wrapper input {
+  padding: 12px 48px 12px 18px;
+  background: rgba(255, 254, 250, 0.86);
+  border: 1px solid rgba(92, 43, 38, 0.14);
+  border-radius: 18px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 8px 18px rgba(72, 27, 22, 0.04);
+  transition: all 0.2s ease;
+}
+
+.customer-field .password-wrapper input:focus {
+  outline: none;
+  border-color: rgba(127, 17, 17, 0.64);
+  background: #ffffff;
+  box-shadow:
+    0 0 0 4px rgba(158, 20, 20, 0.08),
+    0 14px 28px rgba(72, 27, 22, 0.09);
+}
+
+/* Checkout / address phone field. main.css:4088 was #d9d9d9 at radius 8 with no
+   focus state at all. The group owns the edge — main.css:4110 strips its
+   `.c-input` child to `border: none; border-radius: 0` — so the focus ring goes
+   on the group. `border-color` (not `border-right-color`) on the prefix because
+   the ≤280 band at line 1000 swaps that divider to a `border-bottom`. */
+.phone-input-group {
+  background: rgba(255, 254, 250, 0.86);
+  border: 1px solid rgba(92, 43, 38, 0.14);
+  border-radius: 18px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 8px 18px rgba(72, 27, 22, 0.04);
+  transition: all 0.2s ease;
+}
+
+.phone-input-group:focus-within {
+  border-color: rgba(127, 17, 17, 0.64);
+  background: #ffffff;
+  box-shadow:
+    0 0 0 4px rgba(158, 20, 20, 0.08),
+    0 14px 28px rgba(72, 27, 22, 0.09);
+}
+
+.phone-prefix {
+  border-color: rgba(92, 43, 38, 0.14);
+}
+
+/* The inner field must not paint its own surface or halo: the group is
+   `overflow: hidden`, so a child shadow is clipped into a hard rectangle. */
+.phone-input-group .c-input,
+.phone-input-group .c-input:focus {
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Quantity steppers — product card, product page, checkout line items and the
+   return-request rows. All had an off-token edge and no focus state. The radius
+   is left as authored: 18px on a 32px stepper reads as a pill, not a field. */
+.qty-selector {
+  border-color: rgba(92, 43, 38, 0.14);
+}
+
+.qty-selector:focus-within {
+  border-color: rgba(127, 17, 17, 0.64);
+  box-shadow: 0 0 0 3px rgba(158, 20, 20, 0.08);
+}
+
+.qty-selector input {
+  border-color: rgba(92, 43, 38, 0.12);
+}
+
+.customer-return-qty {
+  border-color: rgba(92, 43, 38, 0.14);
+}
+
+.customer-return-qty:focus-within {
+  border-color: rgba(127, 17, 17, 0.64);
+  box-shadow: 0 0 0 3px rgba(158, 20, 20, 0.08);
+}
+
+/* Return / cancellation / GCash reference fields (main.css:11745, 11623 — plus
+   `.cgc-ref-input` and `.ccx-detail-input`, which are modifiers on the same
+   bases) sat one shade off the token at radius 10. */
+.customer-return-input,
+.customer-return-select {
+  background: rgba(255, 254, 250, 0.86);
+  border: 1px solid rgba(92, 43, 38, 0.14);
+  border-radius: 18px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 8px 18px rgba(72, 27, 22, 0.04);
+}
+
+.customer-return-input:focus,
+.customer-return-select:focus {
+  border-color: rgba(127, 17, 17, 0.64);
+  background: #ffffff;
+  box-shadow:
+    0 0 0 4px rgba(158, 20, 20, 0.08),
+    0 14px 28px rgba(72, 27, 22, 0.09);
+}
+
+/* main.css declares `.has-error` after its own `:focus`, so the error edge used
+   to survive focus. Re-assert it at (0,3,0) or the new focus rule would hide a
+   validation error the moment the field is focused. */
+.customer-return-input.has-error,
+.customer-return-input.has-error:focus,
+.customer-return-select.has-error,
+.customer-return-select.has-error:focus {
+  border-color: #b71c1c;
+  box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.12);
+}
+
+/* File drop zones. `.customer-rating-upload` (main.css:10821) already carries a
+   red dashed treatment, so the appointment attachment field (`2px dashed #ccc`
+   on #fafafa) and the GCash receipt field are brought onto it rather than a
+   third look being invented. Radii stay as authored — STEP 1 set the flat 8px
+   card language on purpose. */
+.file-upload-wrapper,
+.cgc-file-input {
+  border: 1px dashed rgba(133, 19, 19, 0.34);
+  background: #fffafa;
+}
+
+.file-upload-wrapper:focus-within,
+.cgc-file-input:focus-within,
+.customer-rating-upload:focus-within {
+  border-color: #851313;
+  background: #fff0f0;
+  box-shadow: 0 0 0 3px rgba(133, 19, 19, 0.12);
+}
+
+/* Everything else was still browser blue. `:where()` is (0,0,0) on purpose so
+   every existing `accent-color` keeps winning — including the deliberate white
+   one on `.customer-return-resolution-option input` (main.css:11685), which is
+   white-on-maroon and must not flip. */
+:where(input[type="checkbox"], input[type="radio"]) {
+  accent-color: #9e1414;
+}
+
+/* ---------------------------------------------------------------------------
+   §1b — Remove the red rectangle drawn inside the rounded wrappers.
+   main.css:15966 gives every field `outline: 1px solid rgba(176,28,28,.45)`
+   with `outline-offset: 3px` on focus. Chrome follows `border-radius` when it
+   draws an outline, so on an ordinary field that is a rounded hairline — but
+   these children are `border-radius: 0` inside a rounded box, so the outline
+   becomes a hard rectangle floating inside it (measured at 1280: a 155x24
+   square select, outlined 3px out, inside a 193x46 box at radius 16).
+   `select:focus-visible` is (0,1,1), so the wrapper has to be named to win.
+   Keyboard focus is not lost: every wrapper here draws its own rounded red
+   `:focus-within` ring (`.category-dropdown-box` main.css:2041,
+   `.toolbar-search` main.css:2000, and the two added above).
+   ------------------------------------------------------------------------- */
+.category-dropdown-box .category-select:focus-visible,
+.toolbar-search .search-input:focus-visible,
+.phone-input-group .c-input:focus-visible,
+.qty-selector input:focus-visible,
+.qty-selector .qty-btn:focus-visible {
+  outline: none;
+}
+
+/* ---------------------------------------------------------------------------
+   §2 — The "Set a password" tip card has to fit every width.
+   main.css:16907-17043 styles it with zero media queries and a fixed 290px
+   width, and `showGooglePasswordTip()` (main.js:12998) has no width gate. It
+   is not clipped today (measured 20 → 310 at a 320px viewport) but it has no
+   headroom below ~310px, and its controls are under the 34px tap floor: the
+   close button measured 20.5x22 and the action button 252x30.
+   The `::before` arrow stays at `right: 18px`, still under the avatar.
+   ------------------------------------------------------------------------- */
+#googlePwdFloatingCard.google-pwd-floating-card {
+  width: min(290px, calc(100vw - 28px));
+  max-width: calc(100vw - 28px);
+}
+
+.google-pwd-close-btn {
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0;
+  line-height: 1;
+  border-radius: 10px;
+  /* Vertical only: the 34px hit area reclaims its extra height from the card
+     padding instead of pushing the 11px badge row down. Kept off the horizontal
+     axis so the button's border box never reaches past the header's content
+     edge, which would read as overflow in a layout audit. */
+  margin: -4px 0;
+}
+
+.google-pwd-action-btn {
+  min-height: 40px;
+}
+
+/* Phone comfort band: the card is now ~28px narrower than its desktop self, so
+   the padding and type step down with it instead of crowding the edges. */
+@media (max-width: 420px) {
+  #googlePwdFloatingCard.google-pwd-floating-card {
+    top: calc(100% + 12px);
+    padding: 14px 15px;
+    border-radius: 14px;
+  }
+
+  .google-pwd-badge {
+    font-size: 10px;
+    padding: 3px 7px;
+  }
+
+  .google-pwd-text {
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+
+  .google-pwd-text strong {
+    font-size: 12.5px;
+  }
+
+  .google-pwd-action-btn {
+    font-size: 11.5px;
+  }
+}
+
+/* Ultra-narrow: this band restacks the header into two rows, and the avatar the
+   card hangs from is then centred in its row instead of sitting at the right
+   edge — measured at 280, its right edge is 208, not 273. A card sized off the
+   viewport alone therefore starts at -44 and `body { overflow-x: hidden }` cuts
+   it off. `50vw + 56px` is that centred avatar's right edge (50vw + 68px) less a
+   12px breathing margin, so the left edge lands on 12px at every width in the
+   band. The `::before` arrow needs no change: 18px in from the card's right is
+   still the centre of the 34px avatar. */
+@media (max-width: 280px) {
+  #googlePwdFloatingCard.google-pwd-floating-card {
+    width: min(290px, calc(50vw + 56px));
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   §3 — "Send Us a Message" card type, phones and tablets.
+   main.css:7290 (inside its own `@media (max-width: 900px)`) sets
+   `.contact-link-text, .contact-input, .contact-field-group label { 16px }`.
+   Later unmedia'd layers re-declare the first two at the same weight so they
+   recover — but nothing ever re-declares the label, so it stayed 16px/800 on
+   every phone while its own base rule (main.css:6444) is 12px, and the card
+   read larger than the 13.5px body copy beside it.
+   Gated at 900, not 720, so it cancels exactly the band that caused it.
+   `.contact-input`'s own size is deliberately untouched: main.css:14849 holds
+   it at `max(16px, .95rem)` for the iOS no-zoom floor. The placeholder can
+   shrink freely — iOS keys auto-zoom off the input, not the placeholder.
+   ------------------------------------------------------------------------- */
+@media (max-width: 900px) {
+  .contact-field-group label {
+    font-size: clamp(11.5px, 3.2vw, 13px);
+    letter-spacing: 0.04em;
+  }
+
+  /* main.css:15605 sets this `!important` in its own ≤480 band, so matching it
+     is the only way to win — no specificity trick avoids it. */
+  .contact-subtitle {
+    font-size: clamp(16px, 4.4vw, 19px) !important;
+  }
+
+  .contact-input::placeholder,
+  .contact-textarea::placeholder {
+    font-size: clamp(13px, 3.6vw, 14px);
+  }
+
+  #contactConsentTextEl {
+    font-size: clamp(12px, 3.3vw, 13.2px);
+  }
+}
+
+/* §4 — the `UCN-FMRC` lockup lives on one declaration (line 2254), which drives
+   both the sticky header and the cloned mobile-sidebar brand; it was widened
+   there rather than duplicated here, so there is only ever one clamp. */
+
 
