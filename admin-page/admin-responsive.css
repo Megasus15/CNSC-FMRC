@@ -1,0 +1,3689 @@
+/* ==========================================================================
+   UCN-FMRC — Admin & Staff mobile responsiveness
+   --------------------------------------------------------------------------
+   Loads LAST in <head> on all 31 admin/staff pages: after dashboard.css,
+   after admin-modules.css, and after each page's inline <style> block — so
+   equal-specificity rules declared here win the cascade.
+
+   Reference viewports (modern iPhones):
+     portrait  320 · 375 · 390 · 393 · 402 · 414 · 428 · 430 · 440
+     landscape 852x393 · 874x402 · 932x430   (height <= 440px)
+
+   Rules:
+     - phone-only. Every block is width-gated; desktop must not move.
+     - no realtime / backend / database behaviour is touched.
+     - dashboard.css and admin-modules.css stay untouched; override from here.
+   ========================================================================== */
+
+/* ==========================================================================
+   STEP 1 — APP SHELL
+   Off-canvas navigation drawer + full-bleed content below 720px.
+   Baseline being overridden:
+     .sidebar         270px fixed              dashboard.css:270
+     .top-header      70px fixed, left: 270px  dashboard.css:528
+     .main-content    margin-left: 270px       dashboard.css:516
+     <=1024 rail      76px + expand-on-open    dashboard.css:2398
+     <=680  rail      68px                     dashboard.css:2596
+   ========================================================================== */
+
+@media (max-width: 720px) {
+  :root {
+    --admin-drawer-w: min(300px, 86vw);
+    --admin-toggle-size: 40px;
+    --admin-toggle-inset: 12px;
+  }
+
+  /* ---- Drawer -------------------------------------------------------------
+     The drawer slides with `left`, deliberately NOT with `transform`:
+     a transform on .sidebar would make it the containing block for the
+     position:fixed hamburger below and drag it off-screen with the drawer. */
+  .sidebar,
+  body.admin-sidebar-open .sidebar {
+    width: var(--admin-drawer-w);
+    max-width: var(--admin-drawer-w);
+  }
+
+  .sidebar {
+    left: calc(-1 * var(--admin-drawer-w));
+    height: 100dvh;
+    padding-left: env(safe-area-inset-left);
+    box-shadow: none;
+    transition:
+      left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+      box-shadow 0.28s ease;
+  }
+
+  body.admin-sidebar-open .sidebar {
+    left: 0;
+    box-shadow: 12px 0 34px rgba(12, 16, 24, 0.28);
+  }
+
+  /* ---- Content and header go full-bleed ---------------------------------- */
+  .main-content {
+    margin-left: 0;
+  }
+
+  .top-header {
+    left: 0;
+    padding-left: calc(
+      var(--admin-toggle-inset) * 2 + var(--admin-toggle-size) +
+        env(safe-area-inset-left)
+    );
+    padding-right: calc(12px + env(safe-area-inset-right));
+    gap: 10px;
+  }
+  /* ---- Hamburger --------------------------------------------------------
+     admin-common.js:1346 appends it INSIDE .sidebar-header, so it would ride
+     off-canvas with the drawer. position:fixed lifts it back onto the
+     viewport: no ancestor of .sidebar sets transform / filter /
+     backdrop-filter / contain, so the fixed child both escapes the drawer's
+     `overflow: hidden` and keeps the sidebar's z-index: 130 stacking context
+     (above the 90 header and the 115 backdrop, below the 200 modals). */
+  .admin-sidebar-toggle {
+    display: inline-flex;
+    position: fixed;
+    top: 15px;
+    left: calc(var(--admin-toggle-inset) + env(safe-area-inset-left));
+    width: var(--admin-toggle-size);
+    height: var(--admin-toggle-size);
+    /* padding only — the base `gap: 4px` must stay, the X morph at
+       dashboard.css:2572-2582 translates the bars by exactly 6px (2 + 4). */
+    padding: 9px 10px;
+    border-radius: 10px;
+    z-index: 2;
+  }
+
+  /* ---- Drawer header: aligns with the 70px top bar, clears the toggle ---- */
+  .sidebar-header {
+    grid-template-areas: "logo title";
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0 12px;
+    min-height: 70px;
+    padding: 12px 16px 12px 64px;
+  }
+
+  .sidebar-header h2,
+  body.admin-sidebar-open .sidebar-header h2 {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    max-width: none;
+    font-size: 1rem;
+  }
+  /* ---- Nav is always in its expanded form: nothing animates mid-slide ----
+     Both states are listed so the (0,3,0) `body.admin-sidebar-open …` chains
+     at dashboard.css:2545-2565 are matched at equal specificity, not lost to. */
+  .sidebar-nav {
+    padding: 12px 12px 16px;
+  }
+
+  :is(.nav-link, .sub-link, .dropdown-title, .logout-btn) .nav-label,
+  body.admin-sidebar-open
+    :is(.nav-link, .sub-link, .dropdown-title, .logout-btn)
+    .nav-label {
+    max-width: none;
+    opacity: 1;
+    transform: none;
+    overflow: visible;
+  }
+
+  .dropdown-toggle .arrow,
+  body.admin-sidebar-open .dropdown-toggle .arrow {
+    display: inline-block;
+  }
+
+  /* 42px tap target — the base .sub-link is a 36px inline-ish block. */
+  .sub-link,
+  body.admin-sidebar-open .sub-link {
+    display: flex;
+    align-items: center;
+    min-height: 42px;
+    padding: 8px 14px;
+    font-size: 0.85rem;
+  }
+
+  .sidebar-footer {
+    padding: 12px 12px calc(14px + env(safe-area-inset-bottom));
+  }
+
+  /* ---- Backdrop: swallow pan gestures so the page can't scroll behind ---- */
+  .admin-sidebar-backdrop {
+    touch-action: none;
+  }
+  /* ---- Header chrome ------------------------------------------------------
+     The title now shares a 320px strip with the relocated hamburger, so it
+     gets the only flexible track and truncates instead of pushing the
+     bell/avatar off-screen. */
+  .header-left {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .header-left h1 {
+    font-size: clamp(0.82rem, 3.6vw, 1.05rem);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .header-right {
+    flex: 0 0 auto;
+    gap: 10px;
+  }
+
+  /* Role text is duplicated in the profile popup; dropping it here buys the
+     ~54px the full page title needs at 320px. */
+  .user-profile .user-info {
+    display: none;
+  }
+
+  .notifications,
+  .profile-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  /* admin-common.js:2296-2307 writes `width: 320px` inline, which overhangs a
+     320px viewport by 8px; an inline declaration can only be beaten by
+     !important. `left` is already clamped to >= 8px by the same function. */
+  .notification-dropdown {
+    width: min(320px, calc(100vw - 16px)) !important;
+    max-width: calc(100vw - 16px);
+  }
+
+  .profile-popup {
+    width: min(300px, calc(100vw - 24px));
+  }
+}
+
+/* ---- Narrowest phones: the brand lockup gives way to the page title ------ */
+@media (max-width: 360px) {
+  .sidebar-header h2 {
+    font-size: 0.95rem;
+  }
+
+  .sidebar-header .logo {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+/* ---- Phone page titles wrap instead of truncating -----------------------
+   Amended during the STEP 6 sweep. This started as a `max-width: 360px` band,
+   but measuring every page's header at client 320/390/430 showed the ellipsis
+   still firing at 390: the title track is 214px there while the longest title
+   in the back office ("Promotions & Announcements") needs 227px at its clamped
+   14.57px, so the last word was being eaten on the 12/13/14/15/16/17 class of
+   iPhone. Two clamped lines at 1.18 line-height occupy 34px of the 70px bar and
+   show the title in full; shorter titles are untouched because
+   `-webkit-line-clamp` only sets a maximum, and the `overflow: hidden` from the
+   <=720 band above is what makes the clamp work. */
+@media (max-width: 430px) {
+  .header-left h1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    white-space: normal;
+    line-height: 1.18;
+    text-overflow: clip;
+  }
+}
+
+/* ==========================================================================
+   STEP 2 — DATA TABLES
+   --------------------------------------------------------------------------
+   Twenty-three tables across the 31 pages. Every one sits in an
+   `overflow-x: auto` wrapper and every one is held open by an explicit
+   `min-width` (820px base, up to 1960px on #appointmentsTable) plus
+   `white-space: nowrap` on every cell — so on a phone a row is a sideways
+   scroll with the Action column parked off-screen.
+
+   Two treatments, and which one a table gets is decided by ONE rule:
+   a column may only be hidden if that same value is reachable from the row's
+   own detail modal.
+
+   FIT — triage to identity + essentials + Action, drop `width: max-content`,
+   release `min-width`, let cells wrap. The table then fits the viewport and
+   scrolls in no direction. Detail modals verified for each:
+     #appointmentsTable     apptViewBody           appointments.js:1088
+     #incomingOrdersTable   #modalOrderDetails     orders.html:529
+     #ordersDirectoryTable  #modalOrderDetails     (data-order-view)
+     #rejectedOrdersTable   #modalOrderDetails     (data-order-view)
+     #paymentsHistoryTable  #modalOrderDetails     orders.js:1790
+     #walkInOrdersTable     data-walkin-view       orders.js:1824
+     #returnsRefundsTable   data-return-view       orders.js:1994
+     #productTable          #modalViewProduct      products.js:657
+     .inv-table             data-inv-view          inventory.js:805
+     #accountsTable         data-user-view         accounts.js:274
+     #inquiriesTable         data-action="view"    customer-inquiries.js:291
+     #ratingsTable           data-action="view"    ratings.js:175
+     #promotionTable/#announcementTable  edit dialog  promotions.js:245
+
+   SCROLL — the seven archive tables and #reportDataTable have NO row detail
+   modal (archives.js builds only restore + delete; archives.html holds just
+   #modalDeleteArchive and #modalAutoDeleteSettings), so nothing may be
+   hidden there. They keep every column, take a phone-sane min-width, and pin
+   the identity column opposite the Action column so a sideways scroll can
+   never lose track of which row is which.
+
+   Baseline being overridden (admin-modules.css unless noted):
+     .admin-table          min-width 820      :218   th/td nowrap  :224
+     .inventory-table      1080               :242
+     #appointmentsTable    1960 max-content   :248
+     #productTable         1280 max-content   :271
+     .enhanced-table       1080               :284
+     .accounts-table       1080               :1308
+     #incomingOrdersTable  1120               :1403
+     #walkInOrdersTable    1780 max-content   :1531
+     #returnsRefundsTable  1380 max-content   :1556
+     #reportDataTable      920                :3452
+     .analytics-perf-table 520                products.html:534 (inline)
+   ========================================================================== */
+@media (max-width: 720px) {
+  /* ---- 2.1 Scroll containers ----------------------------------------------
+     A sideways swipe inside a table must not chain to the page (iOS would
+     otherwise trigger the back-navigation gesture), and the FIT tables below
+     no longer scroll at all, so the wrappers stop reserving scrollbar space. */
+  .table-wrapper,
+  .appointments-table-wrapper,
+  .products-table-wrapper,
+  .incoming-orders-table-wrapper,
+  .walkin-table-wrapper,
+  .report-table-wrapper,
+  .analytics-table-wrapper {
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ---- 2.2 Cell metrics ---------------------------------------------------
+     `white-space: nowrap` (admin-modules.css:224) is the actual reason a row
+     is 820-1960px wide; releasing it is what lets a triaged table fit 320px.
+     Everything that must stay on one line re-asserts nowrap right below. */
+  .admin-table th,
+  .admin-table td {
+    padding: 10px 7px;
+    white-space: normal;
+    /* `anywhere` (not `break-word`) so a cell's min-content width collapses
+       and the auto table algorithm can actually squeeze a long proper name or
+       address into a 320px row. Reference codes are exempted just below —
+       without that exemption `anywhere` hyphen-breaks "AP-000123". */
+    overflow-wrap: anywhere;
+    vertical-align: middle;
+  }
+
+  /* Reference codes are identity — they never break, not even on the hyphen.
+     `td` only: a nowrap `th` would let a long label ("Payment Order No.",
+     measured at 132px) set the column width instead of the code. */
+  #appointmentsTable td:nth-child(2),
+  #appointmentArchiveTable td:nth-child(2),
+  #incomingOrdersTable td:nth-child(2),
+  #ordersDirectoryTable td:nth-child(1),
+  #walkInOrdersTable td:nth-child(1),
+  #rejectedOrdersTable td:nth-child(2),
+  #orderArchiveTable td:nth-child(2),
+  #returnsRefundsTable td:nth-child(2),
+  #returnArchiveTable td:nth-child(2),
+  #paymentsHistoryTable td:nth-child(2) {
+    white-space: nowrap;
+  }
+
+  .admin-table thead th {
+    line-height: 1.25;
+    /* 12.48px — restores the base size (admin-modules.css:224) over two
+       page-local overrides that drop the header to 0.72rem = 11.52px:
+       inventory.html:148 (`.inv-table th`) and the same value inside the
+       inventory modals. (0,1,1) beats their (0,1,0), so this holds even if a
+       page-local <style> block loads after this sheet. */
+    font-size: 0.78rem;
+  }
+
+  /* The inventory modal's variant table carries only `.inv-table`, so the rule
+     above cannot reach it. inventory.html:148. */
+  .inv-table thead th {
+    font-size: 0.78rem;
+  }
+
+  /* Pills, badges and star strips stay unbroken. Class names taken from the
+     row renderers, not guessed: status-pill (appointments/archives/inventory/
+     orders/products), campaign-status (promotions.js), role-tag (accounts.js),
+     inq-* (customer-inquiries.js), rating-* (ratings.js), perf-status
+     (products.js), archive-badge + badge-* (archives.html). */
+  .admin-table :is(
+      .status-pill, .badge, .badge-status, .archive-badge, .role-tag,
+      .campaign-status, .perf-status, .remarks-pill, .inv-category-badge,
+      .inq-status-pill, .inq-read-badge,
+      .rating-reply-status, .rating-visibility-badge, .star-display
+    ) {
+    white-space: nowrap;
+  }
+
+  /* ---- 2.3 Action column --------------------------------------------------
+     The fixed 158/178/130/128px action columns are wider than the icons need;
+     let the cluster wrap into a 2x2 grid and the column shrink to fit. */
+  .admin-table .action-icons {
+    white-space: normal;
+  }
+  /* 40px tap targets, two per row. `:is(#id, .admin-table)` is (1,1,1) so it
+     ties — and then beats by load order — the two baseline ID chains that set
+     wider margins: admin-modules.css:263 and :1582. */
+  :is(#appointmentsTable, #returnsRefundsTable, .admin-table)
+    .action-icons
+    button {
+    width: 40px;
+    height: 40px;
+    margin-right: 4px;
+    margin-bottom: 4px;
+  }
+
+  /* Inner flex clusters (customer-inquiries.html:135, ratings.html:105). */
+  .inquiry-table-actions,
+  .ratings-table-actions {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .inquiry-table-actions .btn-compact,
+  .ratings-table-actions .btn-compact {
+    width: 40px;
+    height: 40px;
+  }
+
+  /* One predictable action-column width everywhere: 2 x 40px + 4px gap + the
+     14px cell padding = 98px. `:is()` resolves to (1,1,0), which ties and
+     wins over #appointmentsTable/:253, #walkInOrdersTable/:1536,
+     #returnsRefundsTable/:1563 and its own <=600 band at :2018. */
+  :is(
+      #appointmentsTable, #walkInOrdersTable, #returnsRefundsTable,
+      #productTable, .accounts-table, .admin-table
+    )
+    .sticky-action {
+    min-width: 100px;
+    width: 100px;
+    max-width: 100px;
+  }
+
+  /* ---- 2.4 FIT tables: release the width floor ----------------------------
+     `width: max-content` (set on four of these) makes `min-width` irrelevant,
+     so both have to go or the table never shrinks. */
+  #appointmentsTable,
+  #incomingOrdersTable,
+  #ordersDirectoryTable,
+  #walkInOrdersTable,
+  #rejectedOrdersTable,
+  #returnsRefundsTable,
+  #paymentsHistoryTable,
+  #productTable,
+  #accountsTable,
+  #inquiriesTable,
+  #ratingsTable,
+  #promotionTable,
+  #announcementTable,
+  .inv-category-card .inv-table {
+    width: 100%;
+    min-width: 0;
+    table-layout: auto;
+  }
+  /* ---- 2.5 Column triage, <=720 ------------------------------------------
+     nth-child counts DOM position, not rendered position, so the normally
+     hidden `.admin-bulk-select-cell` / `.inv-select-cell` in column 1 does
+     NOT shift these indices when bulk mode toggles. Every index below was
+     read off that page's real <thead>, and every hidden value was confirmed
+     present in the row's detail modal (see the header note). */
+
+  /* appointments 14 cols -> AP-No | Client | Date | Status | Action */
+  #appointmentsTable
+    :is(th, td):is(
+      :nth-child(4),  /* Contact Number */
+      :nth-child(5),  /* Email */
+      :nth-child(6),  /* Address */
+      :nth-child(7),  /* Type */
+      :nth-child(8),  /* Purpose */
+      :nth-child(9),  /* File Attachment */
+      :nth-child(10), /* Additional Description / Notes */
+      :nth-child(12)  /* Time */
+    ) {
+    display: none;
+  }
+
+  /* incoming orders 10 -> Order No. | Customer | Total | Status | Action */
+  #incomingOrdersTable
+    :is(th, td):is(
+      :nth-child(4),  /* Order Items */
+      :nth-child(5),  /* Quantity */
+      :nth-child(6),  /* Payment Method */
+      :nth-child(8)   /* Submitted Date */
+    ) {
+    display: none;
+  }
+
+  /* orders directory 8 -> Order No. | Customer | Total | Status | Action */
+  #ordersDirectoryTable
+    :is(th, td):is(
+      :nth-child(2),  /* Order Item */
+      :nth-child(3),  /* Date */
+      :nth-child(5)   /* Payment Method */
+    ) {
+    display: none;
+  }
+  /* walk-in 13 -> Payment Order No. | Name | Total | Payment | Action */
+  #walkInOrdersTable
+    :is(th, td):is(
+      :nth-child(3),  /* Address */
+      :nth-child(4),  /* Contact Number */
+      :nth-child(5),  /* Type of Client */
+      :nth-child(6),  /* Agency / Organization */
+      :nth-child(7),  /* Description of the Project */
+      :nth-child(8),  /* Item Detail */
+      :nth-child(9),  /* Quantity (staff markup says "Unit") */
+      :nth-child(10)  /* Subtotal Cost */
+    ) {
+    display: none;
+  }
+
+  /* rejected orders 9 -> Order No. | Customer | Total | Status | Action */
+  #rejectedOrdersTable
+    :is(th, td):is(
+      :nth-child(3),  /* Order Item */
+      :nth-child(4),  /* Date */
+      :nth-child(6)   /* Payment Method */
+    ) {
+    display: none;
+  }
+
+  /* returns 11 -> Return No. | Customer | Amount | Status | Action */
+  #returnsRefundsTable
+    :is(th, td):is(
+      :nth-child(3),  /* Order No. */
+      :nth-child(4),  /* Date */
+      :nth-child(6),  /* Item(s) */
+      :nth-child(7),  /* Reason */
+      :nth-child(8)   /* Resolution */
+    ) {
+    display: none;
+  }
+
+  /* payments 9 -> Payment ID | Customer | Amount | Status | Action */
+  #paymentsHistoryTable
+    :is(th, td):is(
+      :nth-child(3),  /* Order No. */
+      :nth-child(5),  /* Method */
+      :nth-child(8)   /* Date Paid */
+    ) {
+    display: none;
+  }
+  /* products 11 -> Product Name | Price | Stock Status | Action */
+  #productTable
+    :is(th, td):is(
+      :nth-child(2),  /* No. */
+      :nth-child(4),  /* Category */
+      :nth-child(5),  /* Code */
+      :nth-child(6),  /* Image */
+      :nth-child(7),  /* Stock Qty */
+      :nth-child(10)  /* Visibility */
+    ) {
+    display: none;
+  }
+
+  /* inventory 9 -> Item Name | Stocks On Hand | Status | Action.
+     `.inv-category-card` scopes this away from the 6-column .inv-table inside
+     #modalAddInventoryItem (whose own nth-child(3)-(7) rules live at
+     inventory.html:393). `.inv-variant-pagination-row` is a 2-cell colspan row
+     (inventory.js:840) whose second cell is the whole pager — excluded. */
+  .inv-category-card
+    .inv-table
+    tr:not(.inv-variant-pagination-row)
+    > :is(th, td):is(
+      :nth-child(2),  /* No. */
+      :nth-child(4),  /* Description */
+      :nth-child(5),  /* Unit */
+      :nth-child(8)   /* Remarks */
+    ) {
+    display: none;
+  }
+
+  /* accounts 8 -> Name | Username | Role | Action */
+  #accountsTable
+    :is(th, td):is(
+      :nth-child(2),  /* No. */
+      :nth-child(5),  /* Gmail */
+      :nth-child(7)   /* Joined */
+    ) {
+    display: none;
+  }
+
+  /* inquiries 7 -> Sender | Message Preview | Status | Action */
+  #inquiriesTable
+    :is(th, td):is(
+      :nth-child(4),  /* Submitted */
+      :nth-child(6)   /* Read */
+    ) {
+    display: none;
+  }
+  /* ratings 9 -> Customer | Product/Order | Stars | Reply Status | Action */
+  #ratingsTable
+    :is(th, td):is(
+      :nth-child(5),  /* Feedback */
+      :nth-child(6),  /* Media / Likes */
+      :nth-child(8)   /* Submitted */
+    ) {
+    display: none;
+  }
+
+  /* promotions 8 -> Campaign Name | Discount | Status | Action */
+  #promotionTable
+    :is(th, td):is(
+      :nth-child(2),  /* No. */
+      :nth-child(5),  /* Applies To */
+      :nth-child(6)   /* Schedule */
+    ) {
+    display: none;
+  }
+
+  /* announcements 7 -> Headline | Schedule | Status | Action */
+  #announcementTable
+    :is(th, td):is(
+      :nth-child(2),  /* No. */
+      :nth-child(4)   /* Placement */
+    ) {
+    display: none;
+  }
+
+  /* The "No." column carries no data anywhere, and #inventoryArchiveTable is
+     the one archive table wide enough to be worth the 40px. Nothing else is
+     hidden in archives — those rows have no detail modal. */
+  #inventoryArchiveTable :is(th, td):nth-child(2) {
+    display: none;
+  }
+
+  /* ---- 2.6 SCROLL tables: archives + report data --------------------------
+     No row detail modal exists, so every column has to stay reachable. They
+     keep a horizontal scroll INSIDE the card (never the page) and pin the
+     identity column against the already-sticky Action column, so a sideways
+     swipe can never lose which row is which.
+
+     `--admin-ident-left` steps the identity column aside by exactly the 40px
+     the checkbox column takes when bulk mode is on (admin-modules.css:468). */
+  .admin-table {
+    --admin-ident-left: 0px;
+  }
+
+  .admin-table.is-bulk-selecting {
+    --admin-ident-left: 40px;
+  }
+  /* Phone-sane floors: ~80px per surviving column instead of the inherited
+     1080px, so the in-card scroll is short rather than absent. */
+  #promotionArchiveTable,
+  #announcementArchiveTable {
+    min-width: 620px;
+  }
+
+  /* #reportDataTable gets no floor at all, unlike its SCROLL siblings above.
+     Their column counts are static, straight out of the page's own <thead>, so
+     a measured floor is predictable. This one is not: reports.js:508-521
+     derives the columns from the selected report type and :996 rewrites the
+     <thead> to match, anywhere from one column to eight. A fixed 620px floor
+     therefore stretched every narrow report -- measured on the unloaded page,
+     whose static one-column placeholder (reports.html:370) sat in a 620px table
+     inside a 254px card, i.e. 366px of in-card scroll across empty space. With
+     no floor the table takes the card width and the 64px per-cell floor from
+     2.12 does the sizing: a 3-column report fits outright, an 8-column one
+     lands at the same ~620px it did before. */
+  #reportDataTable {
+    min-width: 0;
+  }
+
+  #orderArchiveTable,
+  #ratingArchiveTable,
+  #inventoryArchiveTable {
+    min-width: 740px;
+  }
+
+  #returnArchiveTable {
+    min-width: 800px;
+  }
+
+  #appointmentArchiveTable {
+    min-width: 880px;
+  }
+
+  /* A uniform header fill: a sticky cell with a transparent background would
+     let the scrolled columns show through it. `.admin-table th` sets no
+     background at all (admin-modules.css:233), and archives.html:195 already
+     tints its sticky Action header #f8fafc — so match that across the row. */
+  :is(
+      #inventoryArchiveTable, #appointmentArchiveTable, #orderArchiveTable,
+      #returnArchiveTable, #ratingArchiveTable, #promotionArchiveTable,
+      #announcementArchiveTable
+    )
+    thead th {
+    background: #f8fafc;
+  }
+
+  /* Identity column pinned left, opposite the sticky Action column. z-index
+     stays below the Action column's 10/11 (archives.html:189) so the two
+     never fight; the header cell sits above its own body cells. */
+  :is(
+      #appointmentArchiveTable, #orderArchiveTable, #returnArchiveTable,
+      #ratingArchiveTable, #promotionArchiveTable, #announcementArchiveTable
+    )
+    :is(th, td):nth-child(2),
+  #inventoryArchiveTable :is(th, td):nth-child(3),
+  #reportDataTable :is(th, td):nth-child(1) {
+    position: sticky;
+    left: var(--admin-ident-left);
+    z-index: 5;
+    min-width: 112px;
+    background: #fff;
+    box-shadow: 1px 0 0 #e3e9f0;
+  }
+  /* Header cells of the pinned column keep the row fill, not the body fill. */
+  :is(
+      #appointmentArchiveTable, #orderArchiveTable, #returnArchiveTable,
+      #ratingArchiveTable, #promotionArchiveTable, #announcementArchiveTable
+    )
+    thead th:nth-child(2),
+  #inventoryArchiveTable thead th:nth-child(3) {
+    background: #f8fafc;
+    z-index: 6;
+  }
+
+  #reportDataTable thead th:nth-child(1) {
+    background: #fafbfc;
+    z-index: 6;
+  }
+
+  /* When bulk mode turns the checkbox column on, it pins ahead of the identity
+     column (which has already stepped aside via --admin-ident-left). The rule
+     is inert while the cell is `display: none` (admin-modules.css:464). */
+  :is(
+      #inventoryArchiveTable, #appointmentArchiveTable, #orderArchiveTable,
+      #returnArchiveTable, #ratingArchiveTable, #promotionArchiveTable,
+      #announcementArchiveTable
+    )
+    thead
+    .admin-bulk-select-cell {
+    position: sticky;
+    left: 0;
+    z-index: 7;
+    background: #f8fafc;
+  }
+
+  :is(
+      #inventoryArchiveTable, #appointmentArchiveTable, #orderArchiveTable,
+      #returnArchiveTable, #ratingArchiveTable, #promotionArchiveTable,
+      #announcementArchiveTable
+    )
+    tbody
+    .admin-bulk-select-cell {
+    position: sticky;
+    left: 0;
+    z-index: 6;
+    background: #fff;
+  }
+
+  /* The hint is the affordance that tells the user these two still scroll. */
+  .table-scroll-hint {
+    width: 100%;
+    /* 0.74rem = 11.8px in the baseline, under the 12px floor. */
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+  /* ---- 2.7 Footer, pagination, empty state --------------------------------
+     `.table-footer` is a space-between flex row (admin-modules.css:349); at
+     phone width the meta line and the pager each take a row of their own. */
+  .table-footer {
+    row-gap: 10px;
+    justify-content: center;
+  }
+
+  .table-footer-meta {
+    flex: 1 1 100%;
+    text-align: center;
+  }
+
+  .table-pagination {
+    width: 100%;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  /* 30px -> 40px tap targets (admin-modules.css:667). */
+  .page-btn,
+  .inv-page-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+
+  .page-number,
+  input.page-number,
+  .page-number.admin-page-number-input,
+  .inv-page-number {
+    height: 40px;
+    min-width: 60px;
+    width: 60px;
+    border-radius: 10px;
+    /* 16px exactly: any smaller and Safari zooms the page on focus. */
+    font-size: 1rem;
+  }
+
+  .table-empty-state {
+    min-height: 150px;
+    padding: 18px 14px;
+    text-align: center;
+  }
+
+  /* ---- 2.8 Products analytics panel --------------------------------------
+     products.html:534-546 styles this table inline. On admin/products.html that
+     block sits above this sheet, so equal specificity would win -- but
+     staff-page/products.html does NOT own the markup: products-loader.js fetches
+     the admin page and injects it, and the copied <style> is appended to <head>
+     BELOW this sheet. Source order therefore flips per role, so every rule that
+     contends with the inline block is scoped by id instead. `:is()` takes its
+     highest-specificity argument, so `:is(#productPerformanceTable, .analytics-
+     perf-table)` is (1,0,0) and outranks the inline (0,1,0) in both directions.
+     Measured before the hardening, on staff-page/products.html at 320:
+     min-width 520px (wanted 440), cell padding 14px (wanted 8), white-space
+     nowrap (wanted wrap) -- i.e. the staff copy silently kept desktop metrics.
+     #productPerformanceTable is the only element that ever carries the class
+     (products.html:1009), so the class arm is future-proofing only.
+     No row modal and dynamic rows -> pin the identity column, hide nothing. */
+  :is(#productPerformanceTable, .analytics-perf-table) {
+    min-width: 440px;
+  }
+
+  :is(#productPerformanceTable, .analytics-perf-table) :is(th, td) {
+    padding: 9px 8px;
+    white-space: normal;
+  }
+
+  /* products.html:551 sets the header to 0.72rem = 11.52px. */
+  :is(#productPerformanceTable, .analytics-perf-table) thead th {
+    font-size: 0.75rem;
+  }
+
+  :is(#productPerformanceTable, .analytics-perf-table) td:nth-child(1) {
+    position: sticky;
+    left: 0;
+    background: #fff;
+    box-shadow: 1px 0 0 #e3e9f0;
+  }
+
+  /* Keeps the maroon fill and `top: 0` from the inline rule. */
+  :is(#productPerformanceTable, .analytics-perf-table) th:nth-child(1) {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+  }
+}
+/* --------------------------------------------------------------------------
+   2.9 Page-local cell constraints
+   Three inline <style> blocks pin cell widths that are wider than a phone's
+   whole content box. They load above this sheet, so equal specificity wins.
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  /* customer-inquiries.html:81 / :84 — 170px + 340px = 510px of a 320px page */
+  .inq-name-cell {
+    min-width: 0;
+  }
+
+  .inq-message-preview {
+    max-width: none;
+  }
+
+  /* ratings.html:86 */
+  .rating-feedback-preview {
+    max-width: none;
+  }
+
+  /* customer-inquiries.html:98 — the pill asks for 82px inside a 65px content
+     box at 320, so it overflowed sideways under the sticky action column. */
+  .inq-status-pill {
+    min-width: 0;
+  }
+}
+
+/* ==========================================================================
+   2.10 Second tier — <=480
+   The narrow phones (320/375/390/393/402/414/428/430/440 all land here) get
+   one more column dropped per table. Every value removed below is present in
+   that row's detail modal, which is one tap away in the Action column.
+   ========================================================================== */
+@media (max-width: 480px) {
+  #appointmentsTable :is(th, td):nth-child(11),      /* Date */
+  #incomingOrdersTable :is(th, td):nth-child(7),     /* Total */
+  #ordersDirectoryTable :is(th, td):nth-child(6),    /* Total */
+  #walkInOrdersTable :is(th, td):nth-child(12),      /* Payment */
+  #rejectedOrdersTable :is(th, td):nth-child(7),     /* Total */
+  #returnsRefundsTable :is(th, td):nth-child(9),     /* Amount */
+  #paymentsHistoryTable :is(th, td):nth-child(4),    /* Customer */
+  #accountsTable :is(th, td):nth-child(4),           /* Username */
+  #ratingsTable :is(th, td):nth-child(3),            /* Product / Order */
+  #announcementTable :is(th, td):nth-child(5) {      /* Schedule */
+    display: none;
+  }
+
+  /* Tighter gutters buy those columns their width back. */
+  .admin-table th,
+  .admin-table td {
+    padding: 9px 6px;
+  }
+}
+/* --------------------------------------------------------------------------
+   2.11 FIT tables — text floor and pinned identity column
+   At 375 and 320 even the triaged set is wider than the card (254px of usable
+   width at 320 after the 16px module + 16px panel gutters), so two things are
+   needed. A `min-width` floor stops `overflow-wrap: anywhere` from degrading a
+   squeezed name cell to one character per line — measured: a 35-character name
+   in a 25px column produced a 479px row. And the identity column pins left,
+   opposite the already-sticky Action column, so the residual in-card scroll
+   can never hide *which* row is being acted on. The page itself never scrolls.
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  /* Primary human-readable column per table. */
+  #appointmentsTable :is(th, td):nth-child(3),
+  #incomingOrdersTable :is(th, td):nth-child(3),
+  #ordersDirectoryTable :is(th, td):nth-child(4),
+  #walkInOrdersTable :is(th, td):nth-child(2),
+  #rejectedOrdersTable :is(th, td):nth-child(5),
+  #returnsRefundsTable :is(th, td):nth-child(5),
+  #productTable :is(th, td):nth-child(3),
+  .inv-category-card .inv-table :is(th, td):nth-child(3),
+  #accountsTable :is(th, td):nth-child(3),
+  #ratingsTable :is(th, td):nth-child(2),
+  #promotionTable :is(th, td):nth-child(3),
+  #announcementTable :is(th, td):nth-child(3),
+  #inquiriesTable :is(th, td):nth-child(2) {
+    min-width: 68px;
+  }
+
+  /* The inbox preview is the whole point of that page — give it more. */
+  #inquiriesTable :is(th, td):nth-child(3) {
+    min-width: 96px;
+  }
+
+  /* Money columns: "PHP 12,500.00" needs ~60px of text box. Without a floor
+     the auto algorithm squeezed the payments Amount cell to 25px and stacked
+     it into a 148px row. */
+  #incomingOrdersTable :is(th, td):nth-child(7),
+  #ordersDirectoryTable :is(th, td):nth-child(6),
+  #walkInOrdersTable :is(th, td):nth-child(11),
+  #rejectedOrdersTable :is(th, td):nth-child(7),
+  #returnsRefundsTable :is(th, td):nth-child(9),
+  #paymentsHistoryTable :is(th, td):nth-child(6),
+  #productTable :is(th, td):nth-child(8),
+  #promotionTable :is(th, td):nth-child(4) {
+    min-width: 72px;
+  }
+
+  /* Same reasoning for the inventory quantity column: measured 21px. */
+  .inv-category-card .inv-table :is(th, td):nth-child(6) {
+    min-width: 56px;
+  }
+
+  /* Pinned identity. z-index stays clear of the sticky Action column, which
+     runs 20/30 on .enhanced-table and .inventory-table (admin-modules.css:297)
+     and 40-61 on the four ID-scoped ones (:1536, :1563). */
+  #appointmentsTable :is(th, td):nth-child(2),
+  #incomingOrdersTable :is(th, td):nth-child(2),
+  #ordersDirectoryTable :is(th, td):nth-child(1),
+  #walkInOrdersTable :is(th, td):nth-child(1),
+  #rejectedOrdersTable :is(th, td):nth-child(2),
+  #returnsRefundsTable :is(th, td):nth-child(2),
+  #paymentsHistoryTable :is(th, td):nth-child(2),
+  #productTable :is(th, td):nth-child(3),
+  .inv-category-card .inv-table :is(th, td):nth-child(3),
+  #accountsTable :is(th, td):nth-child(3),
+  #inquiriesTable :is(th, td):nth-child(2),
+  #ratingsTable :is(th, td):nth-child(2),
+  #promotionTable :is(th, td):nth-child(3),
+  #announcementTable :is(th, td):nth-child(3) {
+    position: sticky;
+    left: var(--admin-ident-left);
+    z-index: 5;
+    background: #fff;
+    box-shadow: 1px 0 0 #e3e9f0;
+  }
+
+  /* Header cell of the pinned column sits above its own body cells; the one
+     row tint that would otherwise show a white seam is ratings.html:104. */
+  #appointmentsTable thead th:nth-child(2),
+  #incomingOrdersTable thead th:nth-child(2),
+  #ordersDirectoryTable thead th:nth-child(1),
+  #walkInOrdersTable thead th:nth-child(1),
+  #rejectedOrdersTable thead th:nth-child(2),
+  #returnsRefundsTable thead th:nth-child(2),
+  #paymentsHistoryTable thead th:nth-child(2),
+  #productTable thead th:nth-child(3),
+  .inv-category-card .inv-table thead th:nth-child(3),
+  #accountsTable thead th:nth-child(3),
+  #inquiriesTable thead th:nth-child(2),
+  #ratingsTable thead th:nth-child(2),
+  #promotionTable thead th:nth-child(3),
+  #announcementTable thead th:nth-child(3) {
+    z-index: 6;
+  }
+
+  #ratingsTable tbody tr.row-replied :is(th, td):nth-child(2) {
+    background: #f9fafb;
+  }
+}
+
+/* ==========================================================================
+   2.12 SCROLL tables — per-cell readability floor
+   `overflow-wrap: anywhere` (2.2) drops a cell's min-content width to a single
+   character, so the auto table algorithm is free to squeeze a short-content
+   column down to ~28px and stack its text one letter per line. The FIT tables
+   are protected by the explicit floors in 2.11; the SCROLL tables were not,
+   because they keep every column. Measured at 320 before this rule:
+   #appointmentArchiveTable had a 28px column, #inventoryArchiveTable 37px,
+   #orderArchiveTable 38px, #announcementArchiveTable 38px.
+   64px is the narrowest column that still reads as a column rather than a
+   ribbon. It costs nothing: the floor total stays under each table's existing
+   min-width (appointments 112 + 10x64 + 100 = 852 < 880), so the tables do not
+   get wider — the auto algorithm just distributes less to the long columns.
+   Specificity: `:is(#ids) :is(th, td)` = (1,0,1). It loses to the pinned
+   identity rule in 2.6 (1,1,1) and to `.sticky-action` in 2.3 (1,1,0), which is
+   exactly what we want — those two keep their own widths.
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  :is(
+      #inventoryArchiveTable,
+      #appointmentArchiveTable,
+      #orderArchiveTable,
+      #returnArchiveTable,
+      #ratingArchiveTable,
+      #promotionArchiveTable,
+      #announcementArchiveTable,
+      #reportDataTable
+    )
+    :is(th, td) {
+    min-width: 64px;
+  }
+
+  /* A colspan row (empty state, inventory variant pagination) must not inherit
+     a floor meant for a single data column. The id list is repeated here on
+     purpose: `.admin-table :is(th, td)[colspan]` alone is (0,2,1) and would
+     lose to the (1,0,1) floor above. With the ids it is (1,1,1) and wins. */
+  :is(
+      #inventoryArchiveTable,
+      #appointmentArchiveTable,
+      #orderArchiveTable,
+      #returnArchiveTable,
+      #ratingArchiveTable,
+      #promotionArchiveTable,
+      #announcementArchiveTable,
+      #reportDataTable,
+      .admin-table
+    )
+    :is(th, td)[colspan] {
+    min-width: 0;
+  }
+
+  .analytics-perf-table :is(th, td) {
+    min-width: 60px;
+  }
+
+  .analytics-perf-table :is(th, td):nth-child(1) {
+    min-width: 116px;
+  }
+}
+
+/* ==========================================================================
+   2.13 In-table status pills — 12px text floor
+   Measured in the pane at 390: `.status-pill` computed 11.2px, `.role-tag`
+   10.88px, `.archive-badge` 11.52px, `.remarks-pill` / `.perf-status` /
+   `.campaign-status` 11.2px, `.inq-status-pill` 10.88px, `.inq-read-badge`
+   10.56px. All are below the 12px readability floor this pass holds itself to.
+   Raising the type would normally widen the pill and cost table width, so the
+   horizontal padding comes down by 2px to pay for it — measured net effect on
+   the orders status column was -0.6px, i.e. free.
+   Base rules overridden: admin-modules.css:1414 and :1261; archives.html:73;
+   inventory.html:200; products.html:565; promotions.html:195;
+   customer-inquiries.html:101 and :118.
+   Specificity: two classes (0,2,0), so it beats every one of those
+   single-class rules on specificity rather than on source order — which
+   matters because a page-local <style> block can load after this sheet.
+   Not included: `.inv-category-badge` (inventory.js:897 renders it in the
+   category card header, not in a row) and `.rating-visibility-badge`
+   (ratings.html:136, modal only). Both are page chrome for step 6.
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  :is(.admin-table, .analytics-perf-table)
+    :is(
+      .status-pill,
+      .role-tag,
+      .archive-badge,
+      .remarks-pill,
+      .perf-status,
+      .campaign-status,
+      .inq-status-pill,
+      .inq-read-badge
+    ) {
+    /* 12px exactly. */
+    font-size: 0.75rem;
+    padding-left: 7px;
+    padding-right: 7px;
+  }
+}
+
+/* ==========================================================================
+   2.14 FIT tables — fallback floor for the columns 2.11 does not name
+   2.11 floors the identity and money columns of every FIT table because those
+   are the ones that measurably collapsed with real rows loaded. The remaining
+   visible column of each table (a status pill, a count, a date) was left to the
+   auto algorithm because with data present it settled at 76-77px on its own.
+   That is data-dependent, and the dependency is real: with the Laravel backend
+   down, `#productTable` on staff-page/products.html rendered its Stock Status
+   header into a 20px box at 320 -- "Stock Status" at one character per line,
+   the exact failure mode `overflow-wrap: anywhere` (2.2) trades for a narrow
+   row. A short pill ("In Stock") produces the same squeeze with data present.
+   So every FIT cell gets the same kind of guarantee 2.12 gives the SCROLL
+   tables, one tier tighter (56px vs 64px) because a FIT table spends its width
+   budget on 3-4 columns instead of spreading it over all of them.
+   The floor only ever binds a column the auto algorithm would have taken BELOW
+   56px, so no table that already fits gets wider: `#announcementTable`
+   ([78, 76, 100] = 254 at 320, zero scroll) is untouched.
+   Specificity, deliberately different per arm:
+   - the id arm is (1,0,1), above any page-local single-class rule but below
+     2.11's own (1,1,1) nth-child floors, so 68px/72px/100px still win;
+   - the inventory arm is class-only (0,2,1) on purpose. `.inv-table` has no id,
+     and folding it into the id list would have lifted the whole `:is()` to
+     (1,0,1) and silently overridden 2.11's (0,3,1) 68px identity floor.
+   Colspan rows (empty states, `.inv-variant-pagination-row`) are already
+   exempted globally by 2.12's `:is(..., .admin-table) :is(th, td)[colspan]`
+   rule at (1,1,1), which outranks both arms -- no second exemption needed.
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  :is(
+      #appointmentsTable, #incomingOrdersTable, #ordersDirectoryTable,
+      #walkInOrdersTable, #rejectedOrdersTable, #returnsRefundsTable,
+      #paymentsHistoryTable, #productTable, #accountsTable, #ratingsTable,
+      #promotionTable, #announcementTable, #inquiriesTable
+    ) :is(th, td) {
+    min-width: 56px;
+  }
+
+  .inv-category-card .inv-table :is(th, td) {
+    min-width: 56px;
+  }
+}
+
+/* ==========================================================================
+   2.15 Orders tables — the four whose Action column was never sticky
+   The baseline only pins `.sticky-action` for `#appointmentsTable`
+   (admin-modules.css:253), `.inventory-table` (:297), `.enhanced-table` (:305),
+   `.accounts-table` (:1312), `#walkInOrdersTable` (:1536) and
+   `#returnsRefundsTable` (:1563). Four tables carry the `admin-table` class and
+   nothing else -- orders.html:182, :240, :346, :486 -- so their Action column
+   has never been pinned. On a desktop that is invisible: the table fits.
+   At 320 it is a functional miss. Measured on staff-page/orders.html before
+   this rule, with the Action header as the probe: table 280px inside a 254px
+   wrapper, Action right edge at 313px, i.e. 26px of the button cluster clipped
+   until the user scrolls the card -- while the identity column stayed pinned,
+   so the row you were acting on was visible but its buttons were not. That is
+   the one thing step 2's acceptance criterion names outright.
+   Deliberately scoped to those four ids and not to `.admin-table` at large:
+   every other table already has the behaviour from a rule that also sets the
+   colours, and a blanket rule would silently repaint tables this pass has not
+   measured. `#reportDataTable` is excluded on purpose -- reports.js:996 emits
+   data columns only, there is no action cell to pin.
+   Divider, background and z-index copied from the `.enhanced-table` idiom
+   (:305-322) so the four match their siblings exactly: 20 for the body cell,
+   30 in the head, both clear of the 5/6 used by the pinned identity column in
+   2.11. Column width itself comes from 2.3's 100px rule.
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  :is(
+      #incomingOrdersTable, #ordersDirectoryTable,
+      #rejectedOrdersTable, #paymentsHistoryTable
+    ) .sticky-action {
+    position: sticky;
+    right: 0;
+    background-color: #fff;
+    z-index: 20;
+    box-shadow: -1px 0 0 #eef1f4;
+  }
+
+  :is(
+      #incomingOrdersTable, #ordersDirectoryTable,
+      #rejectedOrdersTable, #paymentsHistoryTable
+    ) tbody .sticky-action {
+    z-index: 30;
+  }
+}
+
+/* ==========================================================================
+   2.16 Loading skeleton bars — clamp the desktop placeholder widths
+   The loading placeholders, not the data, were the widest thing in several
+   tables on a phone. admin-common.js:704 declares
+   `DEFAULT_WIDTHS = [28, 120, 100, 40, 50, 70, 80, 60]`, cycles it across the
+   real <th> list (:723-747) and emits one bar per cell at
+   `style="width:${width}px;max-width:100%"` (:768). Those are desktop
+   proportions, so on a phone the skeleton rendered *wider* than the rows that
+   replace it and the table visibly narrowed the moment data arrived. The same
+   120/100 pair is hard-coded in inventory.js:959-966 for `.inv-skeleton-cell`.
+   Reproduced at 320 by injecting the exact markup admin-common.js emits, then
+   measuring with the clamp on and off (table width, and the 4 columns that
+   survive the triage):
+     #walkInOrdersTable     400 -> 324   [56,132,112,100] -> [56,84,84,100]
+     #incomingOrdersTable   360 -> 324   [56,132, 72,100] -> [56,84,84,100]
+     #inventoryArchiveTable 782 -> 758   identity 132 -> 112
+     #ordersDirectoryTable  316 -> 308   ·  #rejectedOrdersTable 316 -> 308
+     #returnsRefundsTable   280 -> 280   (its surviving bars are all <= 56)
+     #paymentsHistoryTable  310 -> 318   (+8; see below)
+   The inline `max-width: 100%` does not do this job: a percentage max-width on
+   a cell child in auto table layout resolves against a containing block whose
+   width depends on the content, so it is cyclic and treated as none -- the
+   bar's 120px still drives the column's max-content contribution. A *definite*
+   max-width does clamp it.
+   `!important` is required on the `.admin-table-skeleton-bar` arm and only
+   there: the value it has to beat is an inline style, and inline declarations
+   outrank any stylesheet selector regardless of specificity, so !important is
+   the only mechanism available. `.inv-skeleton-cell` carries no inline
+   max-width, so its arm stays a plain declaration.
+   56px matches the fallback column floor from 2.14, so the skeleton sizes to
+   the same grid the loaded rows do. The clamp can only ever shrink a bar, but
+   it cannot only ever shrink a *table*: auto layout redistributes whatever a
+   capped column gives up across its siblings' max-content, which is why
+   #paymentsHistoryTable settles 8px wider (its bars are 28/50/70/60, so only
+   two are capped and the freed space lands on Amount and Status). That is 8px
+   of in-card scroll on a table that already scrolls in-card, in an aria-hidden
+   state that lasts one fetch -- accepted against the 36-76px it removes
+   elsewhere and the layout jump it removes everywhere.
+   Height, shimmer and radius come from dashboard.css:129-143 and are
+   untouched. Loading state only, phones only: at >=721px the bars keep their
+   authored widths. */
+@media (max-width: 720px) {
+  .admin-table-skeleton-row .admin-table-skeleton-bar {
+    max-width: 56px !important;
+  }
+
+  .inv-skeleton-row .inv-skeleton-cell {
+    max-width: 56px;
+  }
+}
+
+/* ==========================================================================
+   2.17 Bulk-action bar — the last sub-40px target in the table surface
+   A sweep of every interactive element inside `[class*=table-wrapper]`,
+   `.table-footer`, `.table-pagination`, `.table-empty-state`, `.inv-category-
+   card` and the bulk bars at 320 found no text under 12px and exactly one class
+   of undersized target: the icon-only bulk buttons at 34x34. Counted 4 on
+   admin-page/orders.html, 2 on archives.html, 1 each on admin accounts, staff
+   appointments and staff products -- the bar admin-common.js:3372-3413 renders
+   next to each table (enter bulk mode, select all pages, run action, cancel),
+   i.e. the companion control to the `.admin-bulk-select-cell` column this step
+   already handles, plus the selection buttons inventory.js:876-998 emits.
+   40px is the tap-target floor this pass holds itself to everywhere, so the
+   square grows to it rather than being excused as "toolbar chrome".
+   Three declarations are needed, not one. The first attempt set only
+   width/height on `.icon-only-btn` (admin-modules.css:797-803) and measured
+   34x40: the buttons are flex items and admin-modules.css:516-525 /
+   :435-444 give them `flex: 0 0 34px; min-width: 34px; min-height: 34px`, and a
+   flex-basis beats `width` for an item's main size. So the basis and the floors
+   move too. `padding: 0` and `display: grid; place-items: center` from the base
+   rules keep each glyph centred at the new size; nothing else changes.
+   They fit: the widest real bar is 4 buttons, 4x40 + 3x8 gap = 184px inside a
+   254px footer, and a synthetic 5-button-plus-count bar measured 254px wide with
+   `overflowX: 0` -- 5x40 + 4x8 = 232px on one line and the count label wrapped
+   below it, taking the bar from 40px to 66px tall. `.admin-bulk-selection-tools`
+   is `flex-wrap: wrap` (:504) with a baseline `width: 100%` below 620
+   (:5171-5185), so a fuller bar keeps stacking instead of overflowing.
+   `.report-icon-button` (admin-modules.css:3555-3559) is the same 34px idiom but
+   carries neither class and is scoped to the report preview toolbar, so it is
+   deliberately left to step 5 along with the rest of that surface.
+   Every selector here is a plain (0,1,0) tie with its base rule and wins on
+   order -- admin-modules.css is linked before this sheet on both roles, and
+   unlike the products analytics table (2.8) no page-local <style> block
+   declares any of them, so there is no order flip to defend against. Phones
+   only; at >=721px the 34px desktop square is untouched. */
+@media (max-width: 720px) {
+  .icon-only-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .admin-bulk-mode-toggle,
+  .admin-bulk-select-all-pages,
+  .admin-bulk-cancel,
+  .admin-bulk-action {
+    flex: 0 0 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .inv-selection-toggle,
+  .inv-select-all-pages,
+  .inv-selection-cancel,
+  .inv-archive-selected {
+    flex: 0 0 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+}
+/* ===== end of STEP 2 ===== */
+
+/* ==========================================================================
+   STEP 3 — TOOLBARS, FILTERS, METRICS AND THE iOS ZOOM FLOOR
+   --------------------------------------------------------------------------
+   The chrome that wraps every table Step 2 fixed: content gutters, the page
+   toolbar, panel headers and filter rows, the metric strips, and every text
+   control in the back office.
+
+   Measured "before" at 390 across all 16 admin pages (one hidden same-origin
+   iframe at a time, `getAnimations().finish()` before every read):
+
+     - `.module-content` padding is already 16px from the baseline <=900 band
+       (admin-modules.css:4827) and `.panel` padding is 16px, which leaves a
+       309px card inside a 375px content box.
+     - `.dashboard-content` (dashboard.css:1804 — admin + staff dashboard.html)
+       has NO responsive band anywhere: 30px gutters on a 390px screen.
+     - 273 text controls across the 16 pages, and every single one computes
+       UNDER 16px (11.84px .. 14.08px), so iOS Safari zooms the page on every
+       focus. The only controls already at the floor are the 24 `.page-number`
+       pagination inputs Step 2 raised to exactly 16px, and nothing anywhere
+       computes ABOVE 16px — so a flat 16px floor cannot shrink one control on
+       any page. That is what makes the blanket rule in 3.5 safe.
+     - `.btn-admin` measures 38px tall, `.btn-manage-discounts` 36px and the
+       accounts toolbar `.search-input` 36px — all under the 40px contract.
+   ========================================================================== */
+
+/* ==========================================================================
+   3.1 Content gutters — hand 28px of a 320px screen back to the content
+   `.module-content` 16px -> 12px and `.panel` 16px -> 12px together widen
+   every card by 16px, which is the lever Step 2 flagged as still owing on the
+   orders tables. `.dashboard-content` 30px -> 12px is worth 36px on its own.
+   `body.reports-page .module-content` (admin-modules.css:2898, re-declared in
+   its own <=720 band at :4519) is (0,2,1) and would otherwise keep its 16px,
+   so it gets a matching arm rather than an `!important`.
+   The `[style*="padding"]` arm exists for exactly one node — promotions.html
+   :409 carries `style="margin-top:4px; padding:20px"` inline, and an inline
+   declaration cannot be beaten by any selector at any specificity. Scoping the
+   `!important` to `.panel[style*="padding"]` keeps it off the other 30 panels.
+   ========================================================================== */
+@media (max-width: 720px) {
+  .module-content,
+  .dashboard-content {
+    padding: 14px 12px 20px;
+    gap: 14px;
+  }
+
+  body.reports-page .module-content {
+    padding: 14px 12px 20px;
+    gap: 14px;
+  }
+
+  .panel {
+    padding: 12px;
+  }
+
+  .panel[style*="padding"] {
+    padding: 12px !important;
+  }
+}
+/* ==========================================================================
+   3.2 Page toolbar — stack the title over an exactly-fitting action grid
+   `.page-toolbar` (admin-modules.css:10, re-declared dashboard.css:1808) is a
+   wrapping flex row with `justify-content: space-between`, so on a phone the
+   actions either sit squeezed beside the title or wrap and then get spread
+   apart by `space-between`. Measured action counts per page: 1 (orders,
+   ratings, inquiries, my-account), 2 (dashboard, appointments, reports,
+   archives, accounts), 3 (products, promotions), 4 (inventory) — button widths
+   101px .. 184px, so no single fixed column count fits all of them.
+   `auto-fit, minmax(170px, 1fr)` was measured, not guessed: a 150px floor gave
+   two 157px tracks at 375, and "Manage Discounts" / the appointments primary
+   then wrapped to a second line (`157x56`, `164x60`). At 170px the grid
+   resolves to ONE full-width column from 320 up to ~421 and two ~185px tracks
+   at 428/430/440, where the longest labels still measure a single 40px line.
+   Measured: client 320 -> `266x40` per button on inventory/promotions;
+   client 430 -> `184x40,184x40,184x40,184x40` on inventory and
+   `184x40,184x40,376x40` on promotions, all `x40` (no wrap anywhere).
+   The `:last-child:nth-child(odd)` arm (0,2,0) stretches an orphan across the
+   full row, which is what makes promotions' third button 376px instead of
+   leaving a half-width stub.
+   `.archives-page-toolbar .toolbar-actions` is (0,2,0) with `flex: 0 0 auto`
+   (admin-modules.css:2150) and `width: 100%` in its own <=720 band (:2174);
+   neither declares `display`, so the grid here applies and the flex shorthand
+   only affects it as a column-flex item — no conflict.
+   ========================================================================== */
+@media (max-width: 720px) {
+  .page-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .toolbar-title h2 {
+    font-size: 1.15rem;
+    line-height: 1.3;
+  }
+
+  .toolbar-title p {
+    font-size: 0.82rem;
+    line-height: 1.45;
+  }
+
+  .toolbar-actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .toolbar-actions > * {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .toolbar-actions > *:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .toolbar-actions > button,
+  .toolbar-actions > a,
+  .toolbar-actions > .btn-admin {
+    justify-content: center;
+    min-height: 40px;
+  }
+
+  /* 38px -> 40px, the tap-target floor Step 2 set for the icon buttons.
+     `.icon-only-btn` already carries an explicit 40px box from 2.17, so the
+     min-height agrees with it — but it also carries `padding: 0`
+     (admin-modules.css:797-803) at the same (0,1,0) as `.btn-admin`, so the
+     padding arm has to exclude it or this sheet would silently re-pad every
+     icon button. The 14px -> 12px side padding and 8px -> 6px icon gap buy back
+     6px of label width, which is what keeps "Generate Report", "Manage
+     Discounts" and the appointments primary on one line in a 171px track. */
+  .btn-admin {
+    min-height: 40px;
+  }
+
+  .btn-admin:not(.icon-only-btn) {
+    padding: 9px 12px;
+    gap: 6px;
+  }
+}
+/* ==========================================================================
+   3.3 Panel headers and filter rows
+   `.panel-header` (admin-modules.css:140) is the same space-between flex row as
+   the toolbar and holds the per-table filters, so it stacks the same way.
+   `.filters-row` (:1371, used on admin+staff orders/inventory/products and
+   admin accounts) is a bare `flex-wrap` row: measured 294px wide with two
+   children at 390, i.e. two ~143px controls, which is unreadable once the
+   controls go to 16px. As an `auto-fit, minmax(150px, 1fr)` grid it stacks at
+   320 and sits 2-up from ~370 upward, with no width left stranded.
+   `.search-input, .input-field { min-width: 170px }` (:709) has to be relaxed
+   here or a 150px track overflows its own container.
+   `.ratings-filters` (ratings.html:63) and `.inquiry-filters`
+   (customer-inquiries.html:59) already collapse to 1fr in their own <=900
+   bands; they are re-stated only to pick up the tighter 8px gap.
+   ========================================================================== */
+@media (max-width: 720px) {
+  .panel-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .panel-header h3 {
+    font-size: 0.95rem;
+  }
+
+  .filters-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 8px;
+    width: 100%;
+  }
+
+  .filters-row > * {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .ratings-filters,
+  .inquiry-filters {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .report-filter-grid,
+  .report-category-grid {
+    gap: 10px;
+  }
+}
+/* ==========================================================================
+   3.4 Metric and stat strips — 2-up instead of a one-card-per-screen column
+   Every strip in the back office is an `auto-fit` grid whose track floor is
+   wider than half a phone, so each card takes a full row and a 4- or 5-card
+   strip pushes the table two screens down:
+     `.page-metrics`          minmax(180px, 1fr)   admin-modules.css:97
+     `.report-metrics-grid`   minmax(175px, 1fr)   admin-modules.css:2936
+     `.ratings-stats-grid`    minmax(190px, 1fr)   ratings.html:17
+     `.inquiry-stats-grid`    minmax(190px, 1fr)   customer-inquiries.html:20
+   142px is the largest floor that still fits two tracks plus the gap inside the
+   296px content box 3.1 leaves at 320 (142 + 142 + 10 = 294), and it holds 2-up
+   all the way to 4-up at 720.
+   `.metric-icon` and the two stat icons are flex items with only `width` set,
+   so they need a basis as well or they shrink inside the narrower card — the
+   same lesson as 2.17.
+   ========================================================================== */
+@media (max-width: 720px) {
+  .page-metrics,
+  .report-metrics-grid,
+  .ratings-stats-grid,
+  .inquiry-stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(142px, 1fr));
+    gap: 10px;
+  }
+
+  .metric-card,
+  .ratings-stat-card,
+  .inquiry-stat-card {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .metric-icon {
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
+  }
+
+  .ratings-stat-icon,
+  .inquiry-stat-icon {
+    flex: 0 0 34px;
+    width: 34px;
+    height: 34px;
+  }
+
+  .metric-value {
+    font-size: 1.15rem;
+  }
+
+  .ratings-stat-card p,
+  .inquiry-stat-card p {
+    font-size: 1.2rem;
+  }
+}
+/* ==========================================================================
+   3.5 The iOS zoom floor — every text control computes 16px on a phone
+   Mobile Safari zooms the whole page whenever a focused text control computes
+   under 16px, and then leaves the viewport zoomed. Measured across all 16 admin
+   pages: 273 controls, every one of them under the floor —
+
+     12.80px  .input-field · .search-input · .filter-select · .textarea-field
+              (admin-modules.css:697-707) plus .combobox-input,
+              .custom-select-search, .walkin-calc-field and .chip-hidden-input,
+              which all inherit through .input-field
+     13.12px  .ratings-input (ratings.html:68) · .inquiry-input
+              (customer-inquiries.html:64) · .wm-input / .wm-textarea /
+              .wm-select (the four website-*.html editors)
+     13.60px  the archive .page-number inputs Step 2's selector list missed
+     14.08px  .time-wheel-select · .time-wheel-select-period
+              (admin-modules.css:2681, :2713)
+     11.84px  .analytics-dropdown (products.html:586)
+
+   Enumerating those class names is what the first pass would have done, and it
+   would have missed three of them plus one unclassed input on
+   appointments.html. So the floor is declared by element type instead, which
+   cannot miss a control, and the census above proves it cannot shrink one:
+   nothing in the back office computes above 16px, and the only controls already
+   at 16px are Step 2's `.page-number` inputs.
+
+   The guard chain is deliberately repeated on all three arms. `select` and
+   `textarea` have no `type` content attribute, so those `:not()`s are always
+   true — they exist only to lift the two arms to the same specificity as the
+   `input` arm, (0,4,1) vs (0,8,1), because both have to out-rank
+   `select.analytics-dropdown` (0,1,1). That page-local rule lives in
+   products.html's inline <style>, and on `staff-page/products.html`
+   `products-loader.js:48` clones that block into a <style> appended AFTER this
+   sheet — so on exactly one of the 31 pages order is against us and only
+   specificity decides.
+
+   Everything that follows exists because the controls got bigger: `min-width:
+   170px` (:709) would burst the 150px filter tracks from 3.3; placeholders drop
+   to 13.12px so a long hint still fits a 16px field (the zoom trigger is the
+   control's own size, never the placeholder's); and `.field-stack label`
+   (:2869, 11.84px) and `.field-hint` (:805, 11.52px) are raised, not shrunk,
+   because both already sat under the 12px text floor this pass promises.
+   ========================================================================== */
+@media (max-width: 720px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="submit"]):not([type="reset"]):not([type="button"]),
+  select:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  textarea:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]) {
+    font-size: 16px;
+  }
+
+  .search-input,
+  .input-field,
+  .filter-select,
+  .ratings-input,
+  .inquiry-input,
+  .wm-input,
+  .wm-select {
+    min-width: 0;
+    min-height: 40px;
+  }
+
+  .search-input,
+  .input-field,
+  .textarea-field,
+  .wm-input,
+  .wm-textarea {
+    max-width: 100%;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    font-size: 0.82rem;
+  }
+
+  /* The last two controls in the back office still under the floor after the
+     type rule: promotions.html:506 and :572 (staff-page/promotions.html:444,
+     :510) carry `style="font-weight:600; font-size:0.85rem; color:#374151"`
+     inline on the two pagination inputs, and an inline declaration outranks
+     every selector at every specificity. Scoped to inputs that actually carry
+     an inline font-size, so it touches those two nodes and nothing else. */
+  input.page-number[style*="font-size"],
+  input.inv-page-number[style*="font-size"] {
+    font-size: 16px !important;
+  }
+
+  .field-stack label {
+    font-size: 0.78rem;
+  }
+
+  .field-hint,
+  .admin-bulk-selection-count {
+    font-size: 0.75rem;
+  }
+}
+/* ==========================================================================
+   3.6 Chrome residue — the last sub-12px text and sub-40px targets
+   Found by sweeping every visible element on all 16 admin pages at a true
+   405px-wide iframe (client 390) and keeping only nodes with their OWN text
+   node, so inherited sizes are not double-counted. Twelve distinct offenders,
+   each fixed at the class that declares it:
+     dashboard  `.aov-header span` 11.52px (dashboard.css:2734),
+                `.view-all-link` 58x36 and 59x18 (dashboard.css:2286)
+     products   `.sales-category-center span` 11.20px (products.html:669),
+                `select.analytics-dropdown` 131x37 / 123x37 (:586),
+                `a.analytics-view-all` 65x18 (:507)
+     promotions `#livePreviewBadgeTag` 11.52px — INLINE `style="font-size:
+                0.72rem"` (promotions.html:420, staff :358), so `!important`
+                is the only lever; `#btnPrevPreview` / `#btnNextPreview`
+                38x40 — `.btn-admin.btn-secondary` with an icon and no label,
+                and NOT `.icon-only-btn`, so 2.17's 40px box missed them
+     reports    `.report-category-button small` 10.56px (:3014),
+                `.report-filter-field > span` 11.52px (:3040),
+                `.report-sync-row` 11.20px (:3081, inherited by its `time`)
+     orders     `.status-pill` 11.20px (:1411) — in a `.panel-header`, and the
+                same class also labels every table row, so raising it here
+                clears the in-table copies too
+     accounts   `.toggle-pass` 30x30 (:737, `padding: 6px` + an 18px svg)
+   Three arms carry a type prefix — `select.analytics-dropdown`,
+   `a.analytics-view-all`, `.sales-category-chart-wrap .sales-category-center
+   span` — purely to out-rank their (0,1,0)/(0,1,1) originals, because those
+   live in products.html's inline <style> and `products-loader.js:48` clones
+   that block into a <style> appended AFTER this sheet on
+   `staff-page/products.html`. On that one page order is against us.
+   Deferred to Step 4 (dialogs): `.announcement-modal__label` 11.52px and
+   `.announcement-modal__close-x` 31x31 on promotions, both from the
+   `#fmrcAnnouncementStyles` block `home-page/customer-announcements.js`
+   injects after this sheet — they belong with the modal group, not here.
+   ========================================================================== */
+@media (max-width: 720px) {
+  .aov-header span,
+  .sales-category-chart-wrap .sales-category-center span,
+  .report-filter-field > span,
+  .report-category-button small,
+  .report-sync-row,
+  .status-pill {
+    font-size: 0.75rem;
+  }
+
+  span#livePreviewBadgeTag[style*="font-size"] {
+    font-size: 0.75rem !important;
+  }
+
+  /* Inline "See All" / "View All" links: 18px tall text with no padding.
+     Both already `display: flex` / `inline-flex`, so a min-height plus
+     centring grows the hit box without moving the label off its baseline row. */
+  .view-all-link,
+  a.analytics-view-all {
+    min-height: 40px;
+    align-items: center;
+    padding: 0 2px;
+  }
+
+  select.analytics-dropdown {
+    min-height: 40px;
+    padding: 6px 10px;
+  }
+
+  /* `#btnPrevPreview` / `#btnNextPreview` are 38px wide. Nothing in the back
+     office needs a `.btn-admin` narrower than 40px on a phone, and 3.2 already
+     stretches the toolbar copies to the full track, so this only ever grows
+     the unlabelled ones. */
+  .btn-admin {
+    min-width: 40px;
+  }
+
+  /* 30x30 -> 40x40. `.password-field input` reserves only 44px of right
+     padding (admin-modules.css:733), which a 40px button at `right: 8px`
+     would eat 4px into, so the reserve goes to 52px in the same band.
+     `.password-field .toggle-pass` (my-account.html:27) is (0,2,0) and sits
+     in an inline block ABOVE this sheet, so `right: 6px` here wins on order. */
+  .toggle-pass {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    right: 6px;
+  }
+
+  .password-field input,
+  .password-field .input-icon-group .input-field {
+    padding-right: 52px;
+  }
+
+  /* Second sweep, the nine pages the first pass had not visited yet. All four
+     originals live in page-local inline <style> blocks that sit ABOVE this
+     sheet (verified per file: archives.html:19-199 + link :200,
+     website-home.html:19-678 + :679, website-footer.html:19-152 + :153, and
+     the identical staff line numbers), so equal specificity plus source order
+     is enough — no `!important` and no type-prefix lever needed here.
+       archives       `.tab-count` 11.52px (archives.html:45) x7 and
+                      `.archive-badge` 11.52px (:67)
+       my-account     `.account-role-badge` 11.68px (admin-modules.css:4769),
+                      `.account-meta-label` 11.20px (:4793)
+       website-home   `input[type="color"]` 33x36 (website-home.html:118) —
+                      declared 44px wide but it is a flex item next to a text
+                      input and shrank to 33, so it needs `flex: 0 0` and not
+                      just a width
+       website-footer `.btn-add-link` 102x36 (website-footer.html:134)
+     `input[type="color"]` is deliberately NOT in 3.5's 16px floor: it opens a
+     colour picker rather than a keyboard, so it cannot trigger Safari's focus
+     zoom, and forcing 16px on it would only fatten the swatch. */
+  .archive-tab-btn .tab-count,
+  .archive-badge,
+  .account-role-badge,
+  .account-meta-label {
+    font-size: 0.75rem;
+  }
+
+  .btn-add-link {
+    min-height: 40px;
+  }
+
+  .color-row input[type="color"] {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 40px;
+  }
+}
+/* ===== end of STEP 3 ===== */
+
+/* ==========================================================================
+   STEP 4 — DIALOGS, MODALS, POPUPS AND TOASTS
+   --------------------------------------------------------------------------
+   Measured first, at a 405px iframe (client 390), by adding only the `show`
+   class to each overlay, reading geometry, and removing it again — nothing was
+   ever submitted and no request left the page. 60+ dialogs across the 31 pages
+   share one idiom, so this is fixed at the shared groups; the per-ID arms below
+   exist only where a page overrides the card itself.
+
+   SEVEN cards overflowed the viewport (`right` beyond `vw: 390`):
+     products   #modalAddProduct / #modalEditProduct   560px  (right 475)
+                #modalViewProduct                      500px  (inline style)
+                #modalProductPhotoEditor               480px
+     inventory  #modalViewInventoryItem                480px  (inline style)
+                #modalDeductInventoryItem              420px  (inline style)
+     accounts   #modalViewUser                         460px  (inline style)
+   Four of the six sources are inline `style="min-width: …"` attributes, which
+   only `!important` can beat; the other two are `.modal-card.product-modal`
+   and `.modal-card.photo-editor-modal` from products.html's inline <style>,
+   which `products-loader.js:48` clones into a <style> appended AFTER this
+   sheet on `staff-page/products.html` — so every products-derived selector
+   here carries an extra `.modal-overlay` / `.modal-card` ancestor purely as a
+   specificity lever, exactly like 3.6's type prefixes.
+
+   The rest already fit at 390 (orders 344-358px, appointments 358-373px,
+   promotions / ratings / reports / archives / website-* all inside), but the
+   TALLEST cards measured 799px (orders), 812px (promotions) and 828px
+   (reports) against an 844px viewport — near-fullscreen. That is why the body
+   becomes a real flex scroller here instead of relying on the card's own
+   `max-height`, and why Step 7's landscape bands are mandatory.
+   ========================================================================== */
+
+/* ==========================================================================
+   4.1 Sheet geometry — one near-full-width card, safe-area aware
+   `100dvh` (not `100vh`) so the card is not overlapped by Safari's collapsing
+   toolbars; the overlay owns the safe-area inset so no child double-counts it.
+   ========================================================================== */
+
+@media (max-width: 720px) {
+  .modal-overlay,
+  .wm-modal-overlay,
+  .admin-system-popup {
+    padding: 12px calc(12px + env(safe-area-inset-right))
+      calc(12px + env(safe-area-inset-bottom))
+      calc(12px + env(safe-area-inset-left));
+  }
+
+  .modal-card,
+  .wm-modal-card {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    border-radius: 16px;
+    max-height: calc(100dvh - 24px - env(safe-area-inset-bottom));
+  }
+
+  /* Padding is NOT part of the group above. `.modal-card` carries its own 18px
+     (:2276) only on the plain cards; every structural card zeroes it and lets
+     its header/body/footer own the inset — and those `padding: 0` declarations
+     are (0,1,0) in blocks that load BEFORE this sheet
+     (`.rating-detail-modal-card` ratings.html:144, `.modal-card.product-modal`
+     products.html:36), so a blanket `.modal-card { padding: 14px }` here would
+     win the tie and re-inflate them. `:has([class*="modal-body"])` is the exact
+     discriminator: the only three body classes in the whole back office are
+     `.modal-body-scroll` (30 uses), `.wm-modal-body` (8) and
+     `.rating-detail-modal-body` (2), and all three are scrollers. */
+  .modal-card:not(:has([class*="modal-body"])) {
+    padding: 14px;
+  }
+
+  /* The four inline `min-width` attributes: products.html:1632 (500px),
+     inventory.html:1046 (480px) and :1079 (420px), accounts.html:364 (460px).
+     Scoped to `[style*="min-width"]` so the arm can never touch a card that
+     did not declare one. */
+  .modal-card[style*="min-width"] {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* The two class-based ones, both from products.html's cloned block. */
+  .modal-overlay .modal-card.product-modal,
+  .modal-overlay .modal-card.photo-editor-modal {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    border-radius: 16px;
+  }
+
+  .modal-overlay .modal-card.product-modal {
+    max-height: calc(100dvh - 24px - env(safe-area-inset-bottom));
+  }
+
+  /* Cards that override `max-height` at (1,1,0) and so outrank the group
+     above: `min(88vh, 820px)` leaves a 100px gutter no phone needs. */
+  #modalOrderDetails .modal-card,
+  #modalTrackingUpdate .modal-card {
+    max-height: calc(100dvh - 24px - env(safe-area-inset-bottom));
+  }
+
+  /* The calendar dialog is sized in viewport units by both admin-modules.css
+     (`95vw`/`90vh`, :2321) and its own <=900 band (:4838), so it needs the
+     same dvh treatment rather than the width group's `100%`. */
+  .modal-calendar-admin {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    max-height: calc(100dvh - 24px - env(safe-area-inset-bottom));
+  }
+
+  /* Plain cards — the ones with no inner scroller — keep the base
+     `overflow: hidden`, which on a 812px-tall card silently clips the last
+     field. Same `:has()` discriminator as the padding arm above, so the two
+     always agree on which cards are "plain". */
+  .modal-card:not(:has([class*="modal-body"])) {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+}
+
+/* ==========================================================================
+   4.2 Card internals — a real flex scroller, tighter chrome
+   `.modal-body-scroll` is `max-height: calc(90vh - 150px)` (:4916), which on a
+   844px phone resolves to 610px INSIDE a card already capped at 820px: the
+   body stops short and the footer floats mid-card. Turning it into
+   `flex: 1 1 auto; min-height: 0; max-height: none` hands the sizing to the
+   card's own `max-height`, which is the only value that knows about the
+   safe-area inset.
+   ========================================================================== */
+
+@media (max-width: 720px) {
+  .modal-header-fixed,
+  .modal-overlay .product-modal .modal-header-fixed {
+    padding: 14px 16px 10px;
+  }
+
+  .modal-body-scroll,
+  .modal-overlay .product-modal .modal-body-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    padding: 14px 16px;
+    overscroll-behavior: contain;
+  }
+
+  .modal-footer-fixed,
+  .modal-overlay .product-modal .modal-footer-fixed {
+    padding: 12px 16px;
+    border-radius: 0 0 16px 16px;
+  }
+
+  /* The four website-* editors carry their own header/body/footer names. */
+  .wm-modal-header {
+    padding: 14px 16px 12px;
+  }
+
+  .wm-modal-body {
+    padding: 14px 16px;
+    overscroll-behavior: contain;
+  }
+
+  .wm-modal-footer {
+    padding: 12px 16px;
+  }
+
+  /* ratings.html's detail sheet is the third header/body/footer idiom (:146,
+     :153, :161) — 18px insets, and its body is already a correct
+     `flex: 1 1 auto; min-height: 0` scroller, so only the insets move. */
+  .rating-detail-modal-header {
+    padding: 14px 16px 10px;
+  }
+
+  .rating-detail-modal-body {
+    padding: 6px 16px 16px;
+  }
+
+  .rating-detail-modal-footer {
+    padding: 12px 16px;
+  }
+
+  .modal-title,
+  .modal-overlay .product-modal .modal-title {
+    font-size: 1rem;
+    margin-bottom: 8px;
+  }
+
+  /* (0,2,0): `.modal-section-title` is products.html's own (products.html:64),
+     which the staff clone re-declares after this sheet. */
+  .modal-body-scroll .modal-section-title {
+    margin: 14px 0 8px;
+  }
+
+}
+
+/* ==========================================================================
+   4.3 Action rows — thumb-sized, full-width, never off the right edge
+   `.modal-actions` is `justify-content: flex-end` with no wrap (:2875), so a
+   three-button row (View / Print / Close on reports, Save / Cancel / Delete on
+   promotions) pushes the last button past the card edge at 320. `flex: 1 1 …`
+   with `flex-wrap` turns each row into 1-up or 2-up depending on how many
+   buttons it holds, and 44px is the close-target floor from the plan.
+   ========================================================================== */
+
+@media (max-width: 720px) {
+  .modal-actions,
+  .modal-actions-sticky,
+  .modal-footer-fixed,
+  .wm-modal-footer,
+  .rating-detail-modal-footer,
+  .admin-system-popup__actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .modal-actions > .btn-admin,
+  .modal-actions-sticky > .btn-admin,
+  .modal-footer-fixed > .btn-admin,
+  .wm-modal-footer > .btn-admin,
+  .rating-detail-modal-footer > .btn-admin,
+  .admin-system-popup__actions > .btn-admin {
+    flex: 1 1 132px;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  /* Sticky action strips sit at the bottom of a scrolling card; on a phone the
+     card runs to the safe-area edge, so the strip inherits that padding. */
+  .modal-actions-sticky,
+  #modalOrderDetails .modal-actions {
+    position: sticky;
+    bottom: 0;
+    padding-bottom: 4px;
+    background: #fff;
+  }
+
+  /* ---- The two-column grids the <=900 baseline band does not cover --------
+     `admin-modules.css:4831` already collapses `.form-grid`, `.grid-two`,
+     `.admin-calendar-grid`, `.accounts-layout-grid` and `.accounts-form-grid`.
+     These seven are the remainder, resolved by reading the declaring rule for
+     each: `.tracking-latlng-row` (:1071), `.photo-editor-controls` (:1344),
+     `.inv-view-grid` (:5075 AND inventory.html:172), `.appt-view-grid`
+     (:5151), `.inv-variant-grid` (inventory.html:280), `.campaign-row`
+     (promotions.html:58), `.wm-form-grid` (all four website-* editors).
+     `.rating-detail-grid` / `.inquiry-detail-grid` already collapse in their
+     own page-local <=900 bands (ratings.html:189, customer-inquiries.html:206)
+     and are deliberately left alone. */
+  .wm-form-grid,
+  .tracking-latlng-row,
+  .photo-editor-controls,
+  .inv-view-grid,
+  .appt-view-grid,
+  .inv-variant-grid,
+  .campaign-row {
+    grid-template-columns: 1fr;
+  }
+
+  /* (0,2,0) lever: products.html:289, cloned after this sheet on staff. */
+  .modal-card .view-product-grid {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+/* ==========================================================================
+   4.4 Close targets — every dismiss control to >=44px
+   Measured at client 390: `.admin-media-viewer-close` 30x30
+   (dashboard.css:1905), `.all-notif-close` 34x34 (:1091),
+   `.admin-success-notification__close` 26x26 (:1600), `.btn-close-x` no box at
+   all (a bare 1.3rem glyph, website-home.html:294 / -services.html:169), and
+   `.announcement-modal__close-x` 31x31 from the `#fmrcAnnouncementStyles`
+   block `home-page/customer-announcements.js` injects AFTER this sheet.
+   That last one is the Step 3 deferral: the injected block's own small-target
+   rules live in `@media (max-width: 280px)` (:670), so the values active at
+   390 come from its (0,1,0) base rules — (0,2,0) here wins on specificity and
+   no `!important` is needed. Overriding it cannot touch the customer site,
+   which never loads this sheet.
+   ========================================================================== */
+
+@media (max-width: 720px) {
+  /* Negative margins keep the enlarged box from pushing the title row down:
+     the glyph stays on the header's baseline and only the hit area grows. */
+  .btn-close-x {
+    display: inline-grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    margin: -8px -10px -8px 0;
+    border-radius: 12px;
+    line-height: 1;
+  }
+
+  .admin-media-viewer-close,
+  .all-notif-close {
+    width: 44px;
+    height: 44px;
+    font-size: 1.3rem;
+  }
+
+  /* The toast's close sits in the third grid track, so the track has to grow
+     with it or the button is clipped. dashboard.css:1678's <=560 band declares
+     `38px minmax(0,1fr) 24px` at (0,1,0); this equal-specificity rule is later
+     in the cascade and wins in both the 560-720 and the sub-560 range. */
+  .admin-success-notification {
+    grid-template-columns: 38px minmax(0, 1fr) 40px;
+  }
+
+  .admin-success-notification__close {
+    width: 40px;
+    height: 40px;
+    margin: -8px -10px 0 0;
+  }
+
+  .announcement-modal__card .announcement-modal__close-x {
+    width: 44px;
+    height: 44px;
+    top: 10px;
+    right: 10px;
+  }
+
+  .announcement-modal__hero .announcement-modal__label {
+    font-size: 0.75rem;
+  }
+
+}
+
+/* ==========================================================================
+   4.5 System popup, toast stack, media viewer
+   The three non-`.modal-card` overlays. All three are already viewport-sized
+   (`min(460px,94vw)`, `min(460px, 100vw - 32px)`, `min(960px,100%)`) so none
+   of them overflowed — this is chrome and reach, not overflow: the toast stack
+   moves clear of the 70px header, and the media viewer's 24px frame gives its
+   image back 24px of a 390px screen.
+   ========================================================================== */
+
+@media (max-width: 720px) {
+  .admin-system-popup__card {
+    width: 100%;
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .admin-system-popup__message {
+    font-size: 0.85rem;
+  }
+
+  /* The stack is `position: fixed` and centred with `translateX(-50%)`, so its
+     width resolves against the initial containing block. `100%` is the right
+     unit here, not the `100vw` the baseline uses (dashboard.css:1680): `100vw`
+     includes a classic scrollbar, which pushes a centred fixed element past
+     the right edge. Measured at a 320px client with the pane's scrollbar
+     present: `100vw - 24px` gave 311px (4px gutters), `100% - 24px` gives 296px
+     (12px gutters, symmetric). */
+  .admin-success-notification-stack {
+    width: min(
+      460px,
+      calc(100% - 24px - env(safe-area-inset-left) - env(safe-area-inset-right))
+    );
+  }
+
+  .admin-media-viewer {
+    padding: 12px calc(12px + env(safe-area-inset-right))
+      calc(12px + env(safe-area-inset-bottom))
+      calc(12px + env(safe-area-inset-left));
+  }
+
+  .admin-media-viewer-dialog {
+    width: 100%;
+    max-height: calc(100dvh - 24px - env(safe-area-inset-bottom));
+    border-radius: 16px;
+  }
+
+  .admin-media-viewer-head {
+    padding: 10px 12px;
+  }
+
+  .admin-media-viewer-stage {
+    padding: 10px;
+  }
+
+  /* dashboard.css:2050's <=640 band says `calc(100vh - 150px)`, which does not
+     account for the 44px close button this section just grew, the 24px frame or
+     the safe area. Same specificity, later in the cascade. */
+  .admin-media-viewer-image,
+  .admin-media-viewer-video {
+    max-height: calc(100dvh - 200px - env(safe-area-inset-bottom));
+  }
+}
+
+/* ==========================================================================
+   4.6 Inside the sheet — residue from opening all 60 dialogs
+   Step 3's sweep only ever saw what a closed page renders, so every one of
+   these was invisible to it. Found by opening each overlay at client 390 and
+   sweeping the card for nodes with their OWN text node under 12px and for
+   interactive boxes under 40px. Each is fixed at the rule that declares it,
+   file:line noted, so nothing is over-reached:
+
+     text     .calendar-note 11.52 (admin-modules.css:2531)
+              .admin-inline-help 11.68 (:2405)
+              .time-wheel label 11.84 (:2675)  -- #modalTimePicker
+              .tracking-coord-btn 11.36 (:1093)
+              .report-result-eyebrow 10.40 (:3143)
+              .report-print-instruction 10.72 (:3611)
+              .report-letterhead-note 11.52 (:3672)
+              .rating-detail-box h5 10.56 (ratings.html:126)
+              .rating-visibility-badge 10.88 (ratings.html:136)
+              .inquiry-detail-box h5 10.56 (customer-inquiries.html:188)
+              .stock-rule-chip 10.56 (inventory.html:591)
+              .upload-area-text span 11.84 (products.html:273)
+              the "0/500" reply counter, inline (ratings.html:417)
+              the "Default" retention badge, inline (archives.html:995)
+     targets  .stock-toggle-btn 154x38 (products.html:84)
+              .tracking-coord-btn 114x28 / 144x28 / 55x28 (:1093)
+              .combobox-caret 21x21 (:4957)  -- #walkInItemDetailCaretBtn
+              .report-icon-button 34x34 (:3555)  -- the two report close-Xs
+              #btnCloseApptView 30x36 (appointments.html:403, inline padding)
+              .btn-edit-sm 334x29 (website-home.html:189)  -- #btnSdgModalCrop
+   ========================================================================== */
+
+@media (max-width: 720px) {
+  .calendar-note,
+  .admin-inline-help,
+  .time-wheel label,
+  .tracking-coord-btn,
+  .report-result-eyebrow,
+  .report-print-instruction,
+  .report-letterhead-note,
+  .rating-detail-box h5,
+  .rating-visibility-badge,
+  .inquiry-detail-box h5,
+  .stock-rule-chip {
+    font-size: 0.75rem;
+  }
+
+  /* (0,2,1) lever: products.html:273 is (0,1,1) and the staff clone re-declares
+     it after this sheet. */
+  .modal-body-scroll .upload-area-text span {
+    font-size: 0.75rem;
+  }
+
+  /* The two inline `font-size` attributes. An inline declaration outranks every
+     selector, so `!important` is the only lever; both arms are scoped to a node
+     that actually carries one, inside a dialog, so neither can reach further.
+     Checked: these are the only inline font-sizes in either container, and
+     both are badges being raised, never shrunk. */
+  .rating-detail-box [style*="font-size"],
+  .modal-card label span[style*="font-size"] {
+    font-size: 0.75rem !important;
+  }
+
+  /* ---- Targets ---------------------------------------------------------- */
+  .tracking-coord-btn,
+  .btn-edit-sm,
+  .btn-del-sm {
+    min-height: 40px;
+  }
+
+  /* The base pair is 0.74rem = 11.84px (website-home.html:189,
+     website-services.html:82); `#btnSdgModalCrop` is one of them. */
+  .btn-edit-sm,
+  .btn-del-sm {
+    font-size: 0.78rem;
+  }
+
+  /* The card-level copies of the same two chips are pinned to 0.68rem at
+     (0,2,0) (website-home.html:487, :585). They are invisible while the page
+     has no data, which is why Step 3's sweep never saw them; they render as
+     soon as an SDG or logo row exists, so they are raised here with the modal
+     copy rather than left for the page sweep. */
+  .wm-sdg-actions .btn-edit-sm,
+  .wm-sdg-actions .btn-del-sm,
+  .wm-logo-actions .btn-edit-sm,
+  .wm-logo-actions .btn-del-sm {
+    font-size: 0.75rem;
+  }
+
+  /* (0,2,0) lever for the staff-products clone. 44px, not 40: this is the
+     in-stock / out-of-stock choice, the most-tapped control in the sheet. */
+  .stock-toggle-group .stock-toggle-btn {
+    min-height: 44px;
+  }
+
+  /* The caret is absolutely positioned inside the combobox input, so the
+     input's reserve has to grow with it or the box overlaps the text:
+     34px (admin-modules.css:4943) -> 48px for a 40px caret at `right: 10px`. */
+  .combobox-caret {
+    width: 40px;
+    height: 40px;
+    font-size: 0.85rem;
+  }
+
+  .combobox-wrap .combobox-input {
+    padding-right: 48px;
+  }
+
+  /* `.report-icon-button` is the close-X on both report dialogs. Step 5 owns
+     the rest of the report chrome; this one is pulled forward because it is a
+     dialog dismiss control and belongs to this step's >=40px contract.
+     `flex: 0 0 34px` (:3558) is a flex-basis, so it pins the width even after
+     `width: 40px` — the basis has to move with it. */
+  .report-icon-button {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+  }
+
+  /* Inline `padding: 4px 8px` (appointments.html:405) cannot be beaten by a
+     selector, but the inline style declares no `min-*`, so the floor lands
+     without `!important`. */
+  #btnCloseApptView {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+/* ===== end of STEP 4 ===== */
+
+/* ==========================================================================
+   STEP 5 — REPORTS: THE LETTER-SIZE DOCUMENT, ITS PREVIEW SHEET AND THE
+   LETTERHEAD EDITOR
+   --------------------------------------------------------------------------
+   The report preview renders a true Letter-size facsimile: reports.js:1935
+   emits `<div class="report-document-stack">` holding one
+   `<article class="official-report-page">` per sheet, and every band inside
+   that article is absolutely positioned in inches (`admin-modules.css:3819`
+   onwards). The page box is `width: 8.5in; height: 11in` (:3800) = 816x1056
+   CSS px with `box-sizing: border-box` (dashboard.css:24), and the stack pins
+   a `min-width: 8.5in` floor (:3792). Measured inside the preview body with
+   Steps 1-4 in force:
+
+     client   body content   document   overflow inside the scroller
+     320      247px          816px      569px
+     390      349px          816px      499px
+     430      389px          816px      459px
+
+   Reflowing it is not an option — the inch geometry IS the printed output, and
+   `@media print` (:4592-4700) reasserts `8.5in` with `!important` on exactly
+   these nodes. So the sheet is scaled instead of reflowed, with `zoom` rather
+   than `transform: scale()` because `zoom` shrinks the layout box (the scroller
+   reflows around the smaller sheet) while a transform would leave an 816px hole
+   behind. Every scaling rule here is gated `@media screen and (...)`, so the
+   print path cannot see it — belt and braces on top of the fact that a Letter
+   page box is 816px wide and so never matches a `max-width: 720px` query.
+
+   What Step 5 deliberately does NOT touch:
+     - anything inside `.official-report-page`. The >=12px text floor this pass
+       promises stops at the document edge: the bands inside are print type at
+       print scale, and raising them would make the on-screen preview disagree
+       with the paper. Reading them on a phone is handled by re-enabling pinch
+       (5.3) instead, which is also why the scaled sheet is allowed to be small.
+     - `@media print` and `width: 8.5in !important`, per the plan.
+     - `.report-icon-button`, `body.reports-page .module-content`,
+       `.report-category-grid`, `.report-filter-grid`, `.report-metrics-grid`,
+       `.report-table-wrapper`, `#reportDataTable` and the six sub-12px report
+       labels already fixed in Steps 2-4 — not redone here.
+
+   `admin-modules.css:4519-4584` already carries a `max-width: 720px` band for
+   this page (overlay padding 8px, sheet `height: calc(100dvh - 16px)`, stacked
+   footer). It is kept and built on, not replaced; where Step 4's shared
+   `.modal-*` group now out-ranks it on source order the value is restated here
+   explicitly so the sheet reads as one decision instead of two fighting ones.
+   ========================================================================== */
+
+/* ==========================================================================
+   5.1 The preview sheet — every pixel of width goes to the document
+   The document IS the content, so the chrome around it is trimmed harder than
+   any other dialog in the back office: 10px overlay gutters (vs Step 4's 12px)
+   and no horizontal gutter at all on the scroller (vs Step 4's 16px) hand 32px
+   back to the sheet at every width, which is what makes the 5.2 ladder fit in
+   both scrollbar regimes instead of only on a phone. Losing the side padding
+   costs nothing visually — `.official-report-page` draws its own 1px border and
+   drop shadow (admin-modules.css:3805-3807), so the sheet edge stays legible.
+   `.report-preview-body` keeps its own `overflow: auto` from :3584 — it is the
+   pan surface for the scaled document, and `overscroll-behavior: contain`
+   (:3589) already stops the gesture chaining to the page behind.
+   ========================================================================== */
+@media screen and (max-width: 720px) {
+  .report-preview-overlay,
+  .report-letterhead-overlay {
+    padding: 10px calc(10px + env(safe-area-inset-right))
+      calc(10px + env(safe-area-inset-bottom))
+      calc(10px + env(safe-area-inset-left));
+  }
+
+  .report-preview-modal,
+  .report-letterhead-modal {
+    width: 100%;
+    max-width: 100%;
+    height: calc(100dvh - 20px - env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 20px - env(safe-area-inset-bottom));
+    border-radius: 16px;
+  }
+
+  .report-preview-modal .report-preview-header,
+  .report-letterhead-modal .modal-header-fixed {
+    padding: 12px 14px 10px;
+  }
+
+  .report-preview-modal .report-preview-body {
+    padding: 10px 0;
+    background: #eef1f4;
+  }
+
+  .report-letterhead-modal .report-letterhead-body {
+    padding: 14px;
+  }
+
+  .report-preview-modal .modal-footer-fixed,
+  .report-letterhead-modal .modal-footer-fixed {
+    padding: 10px 14px;
+    border-radius: 0 0 16px 16px;
+  }
+
+  /* Both footers hold a nested action group, so Step 4's
+     `.modal-footer-fixed > .btn-admin` reaches only the letterhead Reset
+     button. The groups are given a full row of their own and their children
+     the same 44px floor.
+     `flex-basis` stays `auto` on purpose: the preview footer is a COLUMN flex
+     container (`.report-preview-footer`, admin-modules.css:3605), so a `100%`
+     basis resolves against its *height* — measured, that handed the group a
+     definite 137.6px box whose two wrapped lines then stretched to 65px each.
+     `width: 100%` fills the row in both the column footer and the letterhead's
+     row footer, and `align-content: flex-start` keeps stacked lines at their
+     natural 44px. */
+  .report-preview-footer-actions,
+  .report-letterhead-footer-actions {
+    display: flex;
+    width: 100%;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 8px;
+  }
+
+  .report-preview-footer-actions .btn-admin,
+  .report-letterhead-footer-actions .btn-admin {
+    flex: 1 1 132px;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .report-preview-header > div:first-child,
+  .report-letterhead-header > div:first-child {
+    min-width: 0;
+  }
+}
+
+/* Two buttons per row stop fitting before the phone list runs out. The footer
+   action row is `client - 48px` wide (20px overlay gutters + 28px footer
+   padding), so a 2-up row gives each button `(client - 56) / 2`; measured, the
+   labels "Print / Save PDF" and "Save Letterhead" wrap below ~160px, which
+   turned a 44px button into a 101px three-line block at 320. Stacking them
+   under 391px keeps every label on one line: 270px x 44px at client 320,
+   340px x 44px at client 375. */
+@media screen and (max-width: 390px) {
+  .report-preview-footer-actions .btn-admin,
+  .report-letterhead-footer-actions .btn-admin {
+    flex: 1 1 100%;
+  }
+}
+/* ==========================================================================
+   5.2 Fit-to-width — stepped `zoom` on the document stack, screen only
+   Chrome evaluates a `max-width` query against the viewport INCLUDING the
+   classic scrollbar, measured on this page: an iframe of 735px reports
+   `clientWidth` 720 and does NOT match `max-width: 720px`. That matters here,
+   because it means the width a band sees and the width the scroller actually
+   gets differ by the scrollbars — and the same band has to serve both regimes:
+
+     phone (overlay scrollbars, nothing reserved)
+       available = MQ - 20 (overlay gutters), no inner gutter after 5.1
+     desktop window narrowed under 720 (classic scrollbars)
+       available = MQ - 15 (page scrollbar) - 20 - 17 (scroller scrollbar)
+                 = MQ - 52
+
+   So every band is sized against `lowest width in the band - 52`, the
+   pessimistic case, which makes it fit with room to spare on the phone the pass
+   is actually aimed at:
+
+     band      lowest   avail (desktop)   zoom    816 * zoom
+     <= 720    661      609px             0.74    603.8px
+     <= 660    601      549px             0.66    538.6px
+     <= 600    541      489px             0.59    481.4px
+     <= 540    481      429px             0.52    424.3px
+     <= 480    441      389px             0.47    383.5px
+     <= 440    411      359px             0.43    350.9px
+     <= 410    391      339px             0.41    334.6px
+     <= 390    376      324px             0.39    318.2px
+     <= 375    361      309px             0.37    301.9px
+     <= 360    341      289px             0.35    285.6px
+     <= 340    320      268px             0.32    261.1px
+
+   Eleven bands rather than one per iPhone width: at the TOP of each band the
+   sheet is at most ~12% narrower than the scroller, which reads as fit-to-width
+   without pretending a stepped ladder is fluid. A fluid `zoom` is not available
+   — `zoom` needs a `<number>`, and `calc(length / length)` is CSS Values 4 with
+   no shipped support, so there is no way to derive a factor from `100vw`.
+   Ordered widest-first: they all match at a phone width and the last one wins.
+   ========================================================================== */
+@media screen and (max-width: 720px) {
+  .report-document-stack {
+    zoom: 0.74;
+  }
+}
+
+@media screen and (max-width: 660px) {
+  .report-document-stack {
+    zoom: 0.66;
+  }
+}
+
+@media screen and (max-width: 600px) {
+  .report-document-stack {
+    zoom: 0.59;
+  }
+}
+
+@media screen and (max-width: 540px) {
+  .report-document-stack {
+    zoom: 0.52;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  .report-document-stack {
+    zoom: 0.47;
+  }
+}
+
+@media screen and (max-width: 440px) {
+  .report-document-stack {
+    zoom: 0.43;
+  }
+}
+
+@media screen and (max-width: 410px) {
+  .report-document-stack {
+    zoom: 0.41;
+  }
+}
+
+@media screen and (max-width: 390px) {
+  .report-document-stack {
+    zoom: 0.39;
+  }
+}
+
+@media screen and (max-width: 375px) {
+  .report-document-stack {
+    zoom: 0.37;
+  }
+}
+
+@media screen and (max-width: 360px) {
+  .report-document-stack {
+    zoom: 0.35;
+  }
+}
+
+@media screen and (max-width: 340px) {
+  .report-document-stack {
+    zoom: 0.32;
+  }
+}
+/* ==========================================================================
+   5.3 Pinch to read — the scaled sheet has to be zoomable
+   Scaling to fit is only half the answer: at 0.39 the print type inside the
+   facsimile is unreadable, so the gesture that gets it back must work.
+   `.report-preview-overlay { touch-action: none }` (admin-modules.css:3532)
+   kills every touch gesture over the whole dialog, and `.report-preview-body`
+   allows only `pan-x pan-y` (:3591) — between them, pinch-zoom is impossible on
+   a phone. Both are relaxed to `pan-x pan-y pinch-zoom`, which keeps the pan
+   behaviour they were written for and adds the one gesture a facsimile needs.
+   Nothing is lost by it: the reason `touch-action: none` was there — stopping
+   the page behind from scrolling — is already handled by
+   `body.report-modal-open { overflow: hidden }` (:3596) plus
+   `html.report-modal-open-root { overflow: hidden; overscroll-behavior: none }`
+   (:3600) and the scroller's own `overscroll-behavior: contain` (:3589), all of
+   which stay untouched. The page viewport allows scaling (no `maximum-scale`,
+   no `user-scalable=no` on any of the 31 pages), so pinch reaches the document.
+   ========================================================================== */
+@media screen and (max-width: 720px) {
+  .report-preview-overlay {
+    touch-action: pan-x pan-y pinch-zoom;
+  }
+
+  .report-preview-modal .report-preview-body {
+    touch-action: pan-x pan-y pinch-zoom;
+  }
+}
+
+/* ==========================================================================
+   5.4 The letterhead editor and the report result surfaces
+   Everything below is rendered by reports.js only once data exists, which is
+   why none of it appeared in the Step 3 and Step 4 sweeps of the loaded pages
+   — `#reportLetterheadFields` (reports.html:498), `#reportResultMeta` (:305)
+   and the chart/breakdown hosts are all empty in the static markup. Rebuilt
+   from the renderers (reports.js:1409-1440 for the letterhead groups,
+   :1935 for the document) and measured node by node.
+
+   Text raised to the 12px floor, all from admin-modules.css:
+     .report-result-meta dt          9.76px   (:3182)
+     .report-chart-label             9.92px   (:3374)
+     .report-letterhead-group legend 10.88px  (:3705)
+     .report-chart-legend-item       10.88px  (:3285)
+     .report-letterhead-hint         10.72px  (:3757)
+     .report-metric-label            11.20px  (:3251)
+     .report-result-meta dd          11.20px  (:3190)
+     .report-breakdown-value         11.36px  (:3412)
+     .report-letterhead-label        11.52px  (:3726)
+     .report-breakdown-label         11.52px  (:3403)
+     .report-letterhead-error        11.84px  (:3764)
+
+   `.report-letterhead-grid` needs no collapse rule: its own
+   `auto-fit, minmax(240px, 1fr)` (:3714) already yields one track at every
+   phone width, because the widest phone card leaves 343px inside the fieldset
+   and two tracks would need 494px. Verified rather than assumed.
+   ========================================================================== */
+@media screen and (max-width: 720px) {
+  .report-letterhead-group {
+    padding: 12px 12px 14px;
+  }
+
+  .report-letterhead-group legend,
+  .report-letterhead-hint,
+  .report-letterhead-error,
+  .report-result-meta dd,
+  .report-metric-label,
+  .report-chart-legend-item,
+  .report-chart-label,
+  .report-breakdown-label,
+  .report-breakdown-value {
+    font-size: 0.75rem;
+  }
+
+  .report-letterhead-label,
+  .report-result-meta dt {
+    font-size: 0.75rem;
+  }
+
+  .report-letterhead-field input {
+    min-height: 40px;
+  }
+
+  /* `justify-content: flex-end` (:3167) reads as right-ragged once the strip is
+     one card per row, and the same for the table action row. */
+  .report-result-meta {
+    justify-content: flex-start;
+  }
+
+  .report-result-meta > div {
+    min-width: 0;
+  }
+
+  /* The axis label column is `minmax(64px, 1fr)` (:3313) inside a
+     horizontally scrolling viewport (:3301), so a 12px label wraps to the two
+     lines the 30px min-height (:3374) already reserves instead of clipping. */
+  .report-chart-label {
+    min-height: 34px;
+    text-overflow: clip;
+    white-space: normal;
+  }
+}
+/* ===== end of STEP 5 ===== */
+
+/* ==========================================================================
+   ===== STEP 6 — PAGE-BY-PAGE SWEEP, ALL 31 PAGES =====
+   Every page was walked at client 320 with a clipped-overflow detector rather
+   than by eye: for each element, `scrollWidth - clientWidth` where the computed
+   `overflow-x` is NOT `auto`/`scroll`. Anything scrollable on purpose (the ten
+   `.table-wrapper` variants from Step 2, `.report-preview-body` from Step 5) is
+   excluded, and `body`/`.main-content` `overflow-x: hidden` can no longer hide a
+   blowout — the plan's trap #5.
+
+   Residue found, admin and staff identical in every case (measured, client 320):
+
+   | element                                | over  | cause                        | pages |
+   |----------------------------------------|-------|------------------------------|-------|
+   | .admin-global-page-skeleton            | 236px | auto track sized 539.6px     | 31    |
+   | .dashboard-widgets                     |  46px | minmax(300px,1fr) track      | 2     |
+   | #yearlySalesTrendBody canvas           |  46px | 300px default canvas box     | 2     |
+   | .wm-cards-grid                         |  14px | minmax(260px/270px,1fr)      | 4     |
+   | h2.announcement-modal__title           |  40px | 23.2px word in a 160px box   | 2     |
+
+   Nothing else: `sub12 []`, `sub40 []`, `documentElement` overflow 0 and every
+   text input >= 16px on all 31 pages before this section was written.
+
+   The twelve pre-existing inline media queries were read and reconciled, not
+   duplicated — each one already collapses its grid the same way Step 6 would, so
+   no rule here restates them:
+     inventory.html:27 (.inv-summary-grid 2-up <=1100), :32 (1-up <=600),
+       :686 (.stock-rule-row 2-up <=720)
+     products.html:426 (.product-analytics-grid 1fr <=992),
+       :729 (.sales-category-layout column <=1200)
+     promotions.html:262 (.campaign-layout 1fr <=1180), :267 (.campaign-row 1fr <=620)
+     website-home.html:656 (.wm-sdg/logo/grad 2-3 up <=1180), :666 (1fr/2-up <=520)
+     customer-inquiries.html:210 (.inquiry-filters + .inquiry-detail-grid 1fr <=900)
+     ratings.html:193 (.ratings-filters + .rating-detail-grid 1fr <=900)
+     website-services.html:327 (.services-toolbar .toolbar-actions full width <=768)
+   The `admin-responsive.css` link was re-confirmed to sit after `</style>` on
+   every one of them (inventory.html:698, products.html, promotions.html:276,
+   customer-inquiries.html:219, ratings.html:199, website-services.html:335,
+   website-home.html:679), so equal-specificity overrides here still win on order.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   6.1 The global loading skeleton — the first paint on all 31 pages
+   `admin-common.js:897-922` appends `.admin-global-page-skeleton` to
+   `.main-content` and `dashboard.css:50` makes it `position: absolute; display:
+   grid` with an implicit `auto` column. An `auto` track is floored by its items'
+   min-content contribution, and the items are fixed-px bars:
+   `.admin-global-skeleton-table-row` is a nowrap flex row of six bars with inline
+   `width:28/120/100/40/50/70px` plus five 18px gaps = 408 + 90 + 40px panel
+   padding = 538px. So the track measured 539.6px inside a 305px content box and
+   the placeholder was clipped 236px short of its right edge on every page while
+   the module loaded.
+   Pinning the track to `minmax(0, 1fr)` removes the automatic min sizing; from
+   there the bars' own inline `max-width:15%` and flex shrink do the rest.
+   The pre-existing `@media (max-width: 780px)` (dashboard.css:239) already sets
+   the 18px/16px padding and collapses `.admin-global-skeleton-cards` to one
+   column, so this band only adds what that one is missing.
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  .admin-global-page-skeleton {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  /* the toolbar is `justify-content: space-between` with a 24px gap
+     (dashboard.css:87); one column stacks the copy above the button */
+  .admin-global-skeleton-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .admin-global-skeleton-copy,
+  .admin-global-skeleton-card,
+  .admin-global-skeleton-panel,
+  .admin-global-skeleton-table-row {
+    min-width: 0;
+  }
+
+  .admin-global-skeleton-card,
+  .admin-global-skeleton-panel {
+    padding: 14px;
+  }
+
+  .admin-global-skeleton-card {
+    min-height: 104px;
+  }
+
+  /* fixed widths from dashboard.css:209-237, each capped at the track */
+  .admin-global-skeleton-bar.is-title {
+    width: min(220px, 100%);
+  }
+
+  .admin-global-skeleton-bar.is-subtitle {
+    width: min(360px, 100%);
+  }
+
+  .admin-global-skeleton-bar.is-button {
+    width: min(104px, 100%);
+  }
+
+  .admin-global-skeleton-bar.is-panel-title {
+    width: min(170px, 100%);
+  }
+
+  /* six 15%-capped bars plus five 18px gaps read as stripes on a phone; four
+     bars at an 8px gap keep the row legible as a row */
+  .admin-global-skeleton-table-row {
+    min-height: 38px;
+    gap: 8px;
+  }
+
+  .admin-global-skeleton-table-row .admin-global-skeleton-bar:nth-child(n + 5) {
+    display: none;
+  }
+}
+/* ===== end of STEP 6.1 ===== */
+
+/* --------------------------------------------------------------------------
+   6.2 Dashboard widgets — admin + staff dashboard.html
+   `.dashboard-widgets` is `repeat(auto-fit, minmax(300px, 1fr))`
+   (dashboard.css:2256). `auto-fit` can drop to a single track but it cannot go
+   below the 300px floor, so inside the 296px `.dashboard-content` box the track
+   measured 342.2px and the widget row overflowed by 46px.
+   `.summary-cards` and `.analytics-overview-grid` already have their own bands
+   (dashboard.css:2615/2625/2671) and are left alone.
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  .dashboard-widgets {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .widget {
+    min-width: 0;
+    padding: 14px;
+  }
+
+  .widget-header {
+    gap: 10px;
+  }
+
+  /* `.recent-list li` is a nowrap `space-between` row (dashboard.css:2310);
+     long product/customer names need the second column to wrap under */
+  .recent-list li {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .recent-list li > * {
+    min-width: 0;
+  }
+
+  /* real rows carry customer names, emails and product titles; the placeholder
+     rows carry a fetch-error sentence. `.recent-info` is a column flex whose
+     children stretch, so only an unbreakable token can push past the track —
+     measured at 160px inside a 155px box while the error state settled. */
+  .recent-info strong,
+  .recent-info span,
+  .recent-info p {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  /* `renderDashboardLoading` (dashboard.js:781-792) fills all three widgets with
+     four shimmer rows whose bars carry inline `width:160px` / `width:90px`.
+     Caught at 2.5s into the load at a 305px content width: `.recent-info` had
+     flex-shrunk to 140px while the 160px bar did not, overflowing by 20px on
+     twelve elements at once. `max-width` is NOT declared inline, so capping it
+     needs no `!important` — the used width becomes min(160px, 100%). Only the
+     loader uses bare `div` children here; the real rows use `strong`/`span`. */
+  .recent-info > div,
+  .recent-side > div {
+    max-width: 100%;
+  }
+}
+/* ===== end of STEP 6.2 ===== */
+
+/* --------------------------------------------------------------------------
+   6.3 Product analytics canvases — admin + staff products.html
+   `#yearlySalesTrendChart` is a bare `<canvas height="220">` with no `width`
+   attribute (products.html:1096), so it takes the HTML default 300px intrinsic
+   width. `#topSellingBody canvas` has `width: 100% !important` inline-styled in
+   the page's own `<style>` (products.html:492) — that one is fine — but the
+   yearly-trend canvas has no such rule, so it overflowed its 254px
+   `.analytics-card-body` content box by 46px.
+   `max-width` (not `width`) is used so Chart.js's own responsive resize still
+   owns the element.
+   Both the `!important` and the child-combinator specificity are forced by the
+   staff copy: `products-loader.js` fetches `../admin-page/products.html` and
+   appends its inline `<style>` to `<head>`, i.e. AFTER this sheet — measured, the
+   sheet order on staff/products.html ends
+     …, all.min.css, admin-responsive.css?v=1.0, style:inline
+   while on admin/products.html it ends
+     …, all.min.css, style:inline, admin-responsive.css?v=1.0
+   So a plain `.analytics-card-body` rule here wins on admin and LOSES on staff —
+   the two roles would drift by 6px of padding. `.analytics-card >
+   .analytics-card-body` is (0,2,0) against the page block's (0,1,0) and therefore
+   wins in both, and `!important` on the canvas beats the page's own
+   `width: 100% !important`.
+   The `--table` and `--donut` variants are re-declared at the same (0,2,0) so the
+   base rule cannot steal the table card's deliberate zero padding (which is what
+   gives `.analytics-table-wrapper` its full width).
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  .analytics-card > .analytics-card-body {
+    padding: 12px 14px 14px;
+  }
+
+  .analytics-card > .analytics-card-body--donut {
+    padding: 10px 14px 14px;
+  }
+
+  .analytics-card > .analytics-card-body--table {
+    padding: 0 0 8px;
+  }
+
+  .analytics-card-body canvas {
+    max-width: 100% !important;
+    height: auto;
+  }
+}
+/* ===== end of STEP 6.3 ===== */
+
+/* --------------------------------------------------------------------------
+   6.4 Website-management card grids — website-home + website-services, both roles
+   `.wm-cards-grid` is `repeat(auto-fill, minmax(260px, 1fr))`
+   (website-home.html:132) and `minmax(270px, 1fr)` in website-services.html:20.
+   `auto-fill` behaves like `auto-fit` here for the floor: the 260px track sat in
+   a 246px box (`#homeServicesGrid`), overflowing by 14px.
+   Both pages' inline `<style>` blocks sit ABOVE the `admin-responsive.css` link
+   (`</style>` at website-home.html:678, link at :679; :334/:335 in
+   website-services.html), so an equal-specificity single-class rule wins on order
+   and no `!important` is needed.
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  .wm-cards-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wm-cards-grid > * {
+    min-width: 0;
+  }
+}
+/* ===== end of STEP 6.4 ===== */
+
+/* --------------------------------------------------------------------------
+   6.5 Promotions live announcement preview — admin + staff promotions.html
+   `promotions.html:430` renders a real customer announcement card
+   (`#liveCustomerModalCard.announcement-modal__card`) inside a 34px/20px padded
+   centring box, so on a phone the card is only ~230px wide while the customer
+   modal itself would be `min(520px, 92vw)`.
+   `h2.announcement-modal__title` is `font-size: 1.45rem`
+   (home-page/customer-announcements.js:518), which makes the single word
+   "Announcements" 200px wide inside a 160px content box — a 40px clip.
+   That stylesheet is INJECTED into `<head>` at runtime (`#fmrcAnnouncementStyles`),
+   i.e. AFTER this file, so order loses and specificity has to win instead:
+   its rules are `(0,1,0)`, and `h2.announcement-modal__title` is `(0,1,1)` while
+   `.announcement-modal__card .announcement-modal__hero` is `(0,2,0)`.
+   Its only narrow bands are `<=420px`, `<=280px` and `max-height: 430px`, and the
+   clamp that fixes the title lives in the `<=280px` one — which never matches for
+   a 230px card inside a 390px viewport.
+   Trimming the hero padding from `26px 28px 20px` to `16px 14px 14px` returns 28px
+   of inner width, enough for the native 23.2px type to fit, so the renderer's
+   documented "EXACT 1:1 MATCH WITH CUSTOMER MODAL" intent survives at >= 431px;
+   `overflow-wrap: anywhere` is the guard for genuinely longer real titles, and the
+   clamp below only engages on the narrowest phones.
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  .announcement-modal__card .announcement-modal__hero {
+    padding: 16px 14px 14px;
+  }
+
+  .announcement-modal__card .announcement-modal__body {
+    padding: 14px;
+  }
+
+  h2.announcement-modal__title {
+    overflow-wrap: anywhere;
+    line-height: 1.3;
+  }
+}
+
+@media (max-width: 430px) {
+  h2.announcement-modal__title {
+    font-size: clamp(1.05rem, 6vw, 1.45rem);
+  }
+}
+/* ===== end of STEP 6.5 ===== */
+
+/* --------------------------------------------------------------------------
+   6.6 Inventory stock rules — defensive, admin + staff inventory.html
+   `.stock-rule-row` is rendered by JS from live inventory data, so it cannot be
+   measured with the Laravel backend down. Its own inline band
+   (inventory.html:686) keeps TWO columns all the way down to 320px:
+     `.stock-rule-row { grid-template-columns: minmax(0,1fr) minmax(0,1fr) }`
+   Both tracks are already `minmax(0, ...)` so it cannot overflow, but two number
+   inputs side by side inside a modal at 320px leaves ~120px each. This collapses
+   it to one column below 430px only — above that the page's own band is honoured.
+   -------------------------------------------------------------------------- */
+@media (max-width: 430px) {
+  .stock-rule-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .stock-rule-row-label {
+    grid-column: 1 / -1;
+  }
+}
+/* ===== end of STEP 6.6 ===== */
+
+/* --------------------------------------------------------------------------
+   6.7 Archives toolbar — admin + staff archives.html
+   `.archives-page-toolbar .toolbar-title` carries `flex: 1 1 520px;
+   min-width: 280px` (admin-modules.css:2140). Step 3 turns `.page-toolbar` into
+   a column, but `min-width` outranks the stretch, so at a 320px viewport the
+   title block measured a hard 280px inside the toolbar's 251.2px content box —
+   28.8px of overflow, reported as `scrollWidth 294` against `clientWidth 279`
+   (both include the 14px padding). It was the only page-level residue left after
+   6.1-6.6, and invisible because `.module-content` clips it.
+   The selector here is (0,2,0), the same as the baseline rule, and this sheet
+   loads after `admin-modules.css` on all 31 pages, so it wins on order without
+   `!important`. Dropping the 520px basis at the same time lets the actions grid
+   from 3.2 take the width it was measured for.
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  .archives-page-toolbar .toolbar-title {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+/* ===== end of STEP 6.7 ===== */
+/* ===== end of STEP 6 ===== */
+
+/* ==========================================================================
+   ===== STEP 7 — LANDSCAPE & SHORT VIEWPORTS =====
+
+   Every band in steps 1-6 is width-gated, and the widest condition is 720px.
+   iPhone landscape is 568-956 CSS px wide, so on a rotated phone almost all of
+   this sheet is switched OFF and `dashboard.css`'s `@media (max-width: 1024px)`
+   76px icon rail takes over instead. That is why this is the only step keyed on
+   HEIGHT.
+
+   Measured landscape baseline at 852x393 (iPhone 14/15/16 rotated), taken with
+   the rail active and each dialog opened by class toggle only:
+
+     .top-header ........ 70px fixed  (dashboard.css:529)
+     rail ............... 76px        (dashboard.css:2400)
+     .admin-sidebar-toggle 34x34, position: static, inside the rail header
+     order details ...... card 760x346, scroll body 165px
+     tracking update .... card 700x346, scroll body 159px
+     report preview ..... modal 797x354, body 194px
+     letterhead ......... modal 797x328
+     calendar ........... card 805x354
+     time picker ........ card 805x361
+     rating detail ...... card 700x369, body 242px
+
+   Nothing overflows — the honest finding is that landscape is not BROKEN, it is
+   CRAMPED. 70px of fixed header plus 20-24px of overlay gutters plus 150px of
+   `max-height: calc(90vh - 150px)` on `.modal-body-scroll` (admin-modules.css
+   :4916-4919) leave a scroll body of 159-242px out of a 393px screen: under
+   three lines of a form. Step 7 reclaims that vertical space. Two genuine
+   defects also get fixed: the rail's 34x34 hamburger is under this pass's 40px
+   tap floor, and every text control is back to 12.8px in landscape (the 16px
+   iOS zoom floor from 3.5 is width-gated off), so Safari auto-zooms the page on
+   focus after a rotation.
+
+   Band condition: `(orientation: landscape) and (max-height: 520px) and
+   (max-width: 1024px)`. The plan specified the first two; the 1024px arm is a
+   deliberate tightening. Landscape phones top out at 956x440 (16/17 Pro Max),
+   so 1024 excludes nothing real, and it guarantees the shell is already in
+   rail-or-drawer mode — which is what the 56px header and the trimmed rail
+   assume. It also keeps a short-and-wide DESKTOP window (a 1280x500 half-height
+   window) on the untouched desktop layout. Desktop 1280x800 / 1440x900 are
+   excluded twice over: 800 and 900 both exceed max-height 520.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   7.1 Shell — 70px header down to 56px, and the iOS zoom floor restored
+
+   `.top-header` (0,1,0) and `.main-content` (0,1,0) tie with dashboard.css
+   :529/:524 and win on order. 14px back at the top of the page is 14px added to
+   every dialog below, because `.modal-overlay` is `inset: 0` and centres.
+   `.sidebar-nav` already has `overflow-y: auto` in the 1024 band; it is
+   re-stated with the touch-momentum flag because a 430px-tall drawer has to
+   scroll 13 nav links plus a dropdown.
+   -------------------------------------------------------------------------- */
+@media (orientation: landscape) and (max-height: 520px) and (max-width: 1024px) {
+  .top-header {
+    height: 56px;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .main-content {
+    padding-top: 56px;
+  }
+
+  .header-left h1 {
+    font-size: clamp(0.95rem, 2vw, 1.3rem);
+    line-height: 1.2;
+  }
+
+  .header-right {
+    gap: 16px;
+  }
+
+  .sidebar-nav {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* The 3.5 zoom floor, re-armed for landscape. Selectors are copied verbatim,
+     including the inert `:not([type=...])` arms on `select`/`textarea`: those
+     exist purely to lift all three arms to the same specificity so they still
+     out-rank `select.analytics-dropdown` (0,1,1) on staff-page/products.html,
+     where products-loader.js:48 clones the admin inline <style> in AFTER this
+     sheet and order is against us. See the note at 3.5. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="submit"]):not([type="reset"]):not([type="button"]),
+  select:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  textarea:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]) {
+    font-size: 16px;
+  }
+
+  input.page-number[style*="font-size"],
+  input.inv-page-number[style*="font-size"] {
+    font-size: 16px !important;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    font-size: 0.82rem;
+  }
+}
+/* ===== end of STEP 7.1 ===== */
+
+/* --------------------------------------------------------------------------
+   7.2 Rail mode in landscape (721-1024px wide)
+
+   Split out from 7.1 because the two sidebar modes need OPPOSITE fixes and both
+   can be live in landscape: an SE rotates to 667x375 and 568x320, which is
+   inside step 1's <=720 drawer band, while a 14/15/16 rotates to 852-956 and is
+   in dashboard.css's 76px rail. Step 7 is later in the cascade than step 1, so
+   an ungated `.admin-sidebar-toggle` or `.sidebar-header` rule here would
+   overwrite step 1's `position: fixed` hamburger and its 64px header reserve and
+   break the drawer on exactly the smallest phones.
+
+   The 34x34 rail hamburger (dashboard.css:305-306, shown at :2444) is the last
+   sub-40px tap target left anywhere in the back office. 40px fits: the rail
+   header is `padding: 14px 16px` (:2421) inside a 76px rail, so the content box
+   is 44px, and the logo beside it is already 40x40 (:2427).
+   -------------------------------------------------------------------------- */
+@media (orientation: landscape) and (max-height: 520px) and (max-width: 1024px) and (min-width: 721px) {
+  .admin-sidebar-toggle {
+    width: 40px;
+    height: 40px;
+    /* padding, not font-size: the X morph at dashboard.css:2572-2582 translates
+       the bars by exactly 6px, which is `height: 2px` + the base `gap: 4px`, so
+       neither of those two may change. */
+    padding: 9px 8px;
+    border-radius: 10px;
+  }
+
+  .sidebar-header {
+    gap: 6px 10px;
+    padding: 10px 16px 8px;
+  }
+
+  .sidebar-footer {
+    padding-top: 10px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+}
+/* ===== end of STEP 7.2 ===== */
+
+/* --------------------------------------------------------------------------
+   7.3 Drawer mode in landscape (<=720px wide — rotated SE / mini)
+
+   Step 1 aligns the drawer header with the 70px top bar and reserves 64px of
+   left padding for the fixed hamburger. With the bar down to 56px both numbers
+   move: the toggle re-centres at `(56 - 40) / 2 = 8px`, and the header follows.
+   Every property here is one step 1 already sets, at the same specificity, so
+   these are corrections rather than additions.
+   -------------------------------------------------------------------------- */
+@media (orientation: landscape) and (max-height: 520px) and (max-width: 720px) {
+  .admin-sidebar-toggle {
+    top: 8px;
+  }
+
+  .sidebar-header {
+    min-height: 56px;
+    padding: 8px 14px 8px 62px;
+  }
+
+  .sidebar-footer {
+    padding-top: 10px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+}
+/* ===== end of STEP 7.3 ===== */
+
+/* --------------------------------------------------------------------------
+   7.4 Dialogs — full-height sheets with a real scroll body
+
+   Three separate caps stack up to shrink a landscape dialog, and all three have
+   to be lifted or the other two make the fix invisible:
+
+     1. `.modal-overlay { padding: 16px }`            (admin-modules.css:2268)
+     2. `max-height: min(88vh, 820px)` on the cards   (:2290, :2317) and
+        `calc(100vh - 32px)` on the base card         (:2281)
+     3. `.modal-body-scroll { max-height: calc(90vh - 150px) }` (:4918)
+        -> 203px at a 393px viewport, and this one is the binding constraint.
+        Step 4 already replaces it with `flex: 1 1 auto; min-height: 0;
+        max-height: none`, but that band is `(max-width: 720px)` and is off here.
+
+   Result at 852x393: gutters 16 -> 8px and the card cap to `100dvh - 16px` gives
+   377px instead of 346, and with the body released from 203px to flex the scroll
+   area goes 165px -> ~245px on order details. `1fr 1fr` on `.form-grid` is
+   deliberately LEFT ALONE: two columns is the right call on a 852px-wide screen,
+   and it is the reason landscape is worth reclaiming height for at all.
+
+   Per-ID arms are needed because `#modalOrderDetails .modal-card` (0,1,1) and
+   `#modalTrackingUpdate .modal-card` (1,1,0) both out-rank a bare `.modal-card`;
+   `.rating-detail-modal-card` also carries its own cap in ratings.html's inline
+   <style> (:141-145, plus a `max-width: 900px` band at :193 that misses 932px
+   screens entirely) — that block sits BEFORE this sheet's <link> at :199, so
+   order decides and one class is enough.
+   -------------------------------------------------------------------------- */
+@media (orientation: landscape) and (max-height: 520px) and (max-width: 1024px) {
+  .modal-overlay,
+  .wm-modal-overlay,
+  .admin-system-popup {
+    padding: 8px calc(10px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom))
+      calc(10px + env(safe-area-inset-left));
+  }
+
+  .modal-card,
+  .wm-modal-card,
+  #modalOrderDetails .modal-card,
+  #modalTrackingUpdate .modal-card,
+  .modal-overlay .modal-card.product-modal,
+  .rating-detail-modal-card {
+    max-height: calc(100dvh - 16px - env(safe-area-inset-bottom));
+  }
+
+  .modal-calendar-admin {
+    height: auto;
+    max-height: calc(100dvh - 16px - env(safe-area-inset-bottom));
+  }
+
+  /* Release the three scroll bodies from their vh caps and let flex size them.
+     `.rating-detail-modal-body` is already flex in ratings.html:153-160; it is
+     restated so all three behave identically. */
+  .modal-body-scroll,
+  .wm-modal-body,
+  .rating-detail-modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal-header-fixed,
+  .wm-modal-header,
+  .rating-detail-modal-header {
+    padding: 10px 16px 8px;
+  }
+
+  .modal-footer-fixed,
+  .wm-modal-footer,
+  .rating-detail-modal-footer {
+    padding: 8px 16px calc(8px + env(safe-area-inset-bottom));
+  }
+
+  .modal-body-scroll,
+  .wm-modal-body {
+    padding: 12px 16px;
+  }
+
+  .modal-title,
+  .wm-modal-title {
+    font-size: 1rem;
+  }
+
+  /* Cards with no header/body/footer split scroll as one block, so they need the
+     padding trimmed on the card itself instead. Mirrors step 4.1's `:has()` arm,
+     which is width-gated off here. */
+  .modal-card:not(:has([class*="modal-body"])) {
+    padding: 12px 14px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal-actions,
+  .modal-actions-sticky,
+  #modalOrderDetails .modal-actions {
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+}
+/* ===== end of STEP 7.4 ===== */
+
+/* --------------------------------------------------------------------------
+   7.5 Report preview and letterhead — `@media screen` only
+
+   The Letter sheet is 816x1056px of absolutely-positioned inches
+   (admin-modules.css:3792-3806). At 852x393 the preview body measured 797x194
+   before this step, so the sheet was 19px wider and 862px taller than its
+   window. Step 5's stepped `zoom` ladder solves the WIDTH problem in portrait;
+   in landscape the full-bleed modal below takes the body to 815px on its own,
+   leaving the sheet 1px wider than its window, so no zoom step is added here —
+   the fix is purely to give the body its height back and to leave pinch enabled.
+
+   `touch-action` has to be re-relaxed: admin-modules.css:3528 sets
+   `touch-action: none` on the preview overlay and `:3584` `pan-x pan-y` on the
+   body, which between them kill pinch-zoom — the only way to read 6pt print text
+   on a phone. Step 5.3 already fixes that, but under `screen and (max-width:
+   720px)`. `pan-x pan-y pinch-zoom` is the longhand Chrome reports back as
+   `manipulation`; the letterhead overlay never restricted touch and computes
+   `auto`, so it is left out of the list rather than pointlessly re-declared.
+
+   `@media print` (:4592) and `width: 8.5in !important` (:4679) are not touched,
+   and this band is `@media screen`, so the print path cannot see any of it.
+   -------------------------------------------------------------------------- */
+@media screen and (orientation: landscape) and (max-height: 520px) and (max-width: 1024px) {
+  .report-preview-overlay,
+  .report-letterhead-overlay {
+    padding: 8px calc(10px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom))
+      calc(10px + env(safe-area-inset-left));
+  }
+
+  .report-preview-modal,
+  .report-letterhead-modal {
+    width: 100%;
+    height: calc(100dvh - 16px - env(safe-area-inset-bottom));
+    max-height: calc(100dvh - 16px - env(safe-area-inset-bottom));
+  }
+
+  .report-preview-overlay,
+  .report-preview-modal .report-preview-body,
+  .report-letterhead-modal .report-letterhead-body {
+    touch-action: pan-x pan-y pinch-zoom;
+  }
+
+  .report-preview-header,
+  .report-letterhead-header,
+  .report-preview-footer,
+  .report-letterhead-footer {
+    gap: 10px;
+  }
+
+  .report-preview-modal .report-preview-body,
+  .report-letterhead-modal .report-letterhead-body {
+    padding: 8px 0;
+  }
+}
+/* ===== end of STEP 7.5 ===== */
+
+/* --------------------------------------------------------------------------
+   7.6 Toasts, system popup, media viewer
+
+   Correcting the plan's assumption here: the toast stack is TOP-anchored, not
+   bottom — `dashboard.css:1516` pins it at `top: calc(84px + safe-top)`, sized
+   for the 70px header. With the header at 56px it has to follow, or it floats
+   with a 28px gap. It also needs a height ceiling: three stacked toasts at 68px
+   each is 204px of a 393px screen and would run past the home indicator, so the
+   stack scrolls internally and stays `pointer-events: none`.
+
+   `.admin-media-viewer-image/video` is `calc(100vh - 190px)` (dashboard.css
+   :1938) = 203px at 393px tall. The viewer chrome in landscape is ~110px, so
+   `100dvh - 120px` = 273px is both taller and still correct.
+   -------------------------------------------------------------------------- */
+@media (orientation: landscape) and (max-height: 520px) and (max-width: 1024px) {
+  .admin-success-notification-stack {
+    top: calc(64px + env(safe-area-inset-top));
+    width: min(420px, calc(100% - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+    max-height: calc(100dvh - 76px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    overflow: hidden;
+    gap: 8px;
+  }
+
+  .admin-success-notification {
+    min-height: 0;
+    padding: 10px 12px;
+  }
+
+  .admin-system-popup__card {
+    max-height: calc(100dvh - 24px - env(safe-area-inset-bottom));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 14px 16px;
+  }
+
+  .admin-media-viewer-dialog {
+    max-height: calc(100dvh - 16px - env(safe-area-inset-bottom));
+  }
+
+  .admin-media-viewer-image,
+  .admin-media-viewer-video {
+    max-height: calc(100dvh - 120px - env(safe-area-inset-bottom));
+  }
+}
+/* ===== end of STEP 7.6 ===== */
+
+/* --------------------------------------------------------------------------
+   7.7 Touch and type floors in landscape
+
+   The finding that made this section necessary: every floor steps 2, 3 and 6
+   established is `(max-width: 720px)`, so rotating a phone from 390x844 to
+   852x393 silently hands the whole back office back its DESKTOP density. A
+   finger and an eye do not change size when the device turns, so those two
+   floors are device properties, not width properties, and they have to be
+   re-armed here. Audited at 852x393 across all 31 pages with the same
+   instrument used for step 6 (outermost clickable only, `I/SVG/PATH/IMG/USE`
+   skipped, scroller-aware right-edge test):
+
+     31/31 pages: 0 right-edge escapes, 0 page-level overflow, 0 inputs under
+                  16px (7.1 already covers the zoom floor)
+     but          280 sub-40px tap targets and 108 sub-12px text nodes, every
+                  one of them an element steps 2/3/6 already fix in portrait.
+                  Admin and staff mirror each other exactly, offender for
+                  offender; the only divergences are label widths
+                  (`.user-profile` 90x34 admin vs 76x34 staff, "Admin" vs
+                  "Staff") and staff/products.html's higher node count, which is
+                  products-loader.js injecting the admin module at runtime.
+
+   What is deliberately NOT imported from those steps: the LAYOUT. Single-column
+   grids, stacked toolbars, triaged table columns and hidden `.user-info` are
+   all correct answers to 390px of WIDTH, and landscape has 852-956px of it.
+   Only the two floors cross over. That is also why `.user-profile` gets a
+   min-height instead of step 1's `.user-info { display: none }` — there is
+   room for the role label here, it just needs a taller hit box.
+
+   Selectors are lifted verbatim from 2.7 / 2.12 / 2.13 / 2.17 / 3.2 / 3.6 /
+   4.5 so the two bands cannot drift; the per-selector provenance and the
+   specificity reasoning are documented at those sites and are not repeated.
+   -------------------------------------------------------------------------- */
+@media (orientation: landscape) and (max-height: 520px) and (max-width: 1024px) {
+  /* ---- 12px text floor (from 2.6, 2.12, 2.13, 3.5, 3.6, 4.5) ------------- */
+  .table-scroll-hint,
+  .aov-header span,
+  .sales-category-chart-wrap .sales-category-center span,
+  .report-filter-field > span,
+  .report-category-button small,
+  .report-sync-row,
+  .status-pill,
+  .archive-tab-btn .tab-count,
+  .archive-badge,
+  .account-role-badge,
+  .account-meta-label,
+  .field-hint,
+  .admin-bulk-selection-count {
+    font-size: 0.75rem;
+  }
+
+  /* The id arm is what Step 2.8 needed and this needs for the same reason:
+     `.analytics-perf-table th` (products.html:547, inline) is also (0,1,1), and
+     on staff-page/products.html products-loader.js appends that inline block
+     BELOW this sheet, so a class-only selector loses there while winning on the
+     admin page. (1,0,1) wins in both directions. */
+  :is(#productPerformanceTable, .analytics-perf-table) :is(th, td),
+  :is(.admin-table, .analytics-perf-table)
+    :is(
+      .status-pill,
+      .role-tag,
+      .archive-badge,
+      .remarks-pill,
+      .perf-status,
+      .campaign-status,
+      .inq-status-pill,
+      .inq-read-badge
+    ) {
+    font-size: 0.75rem;
+  }
+
+  .field-stack label {
+    font-size: 0.78rem;
+  }
+
+  /* Inline `style="font-size: 0.72rem"` on promotions.html's live-preview badge
+     — only !important reaches it. Same lever as 3.6. */
+  span#livePreviewBadgeTag[style*="font-size"] {
+    font-size: 0.75rem !important;
+  }
+
+  .announcement-modal__hero .announcement-modal__label {
+    font-size: 0.75rem;
+  }
+
+  /* ---- 40px tap floor (from 2.7, 2.17, 3.2, 3.6, 4.5) -------------------- */
+  .btn-admin,
+  .btn-manage-discounts,
+  .btn-add-link,
+  select.analytics-dropdown {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  /* `.report-generate-slot .btn-admin` (admin-modules.css:3076) pins
+     `min-height: 38px` at (0,2,0) and beats the arm above. Portrait never
+     noticed because at 390px the label wraps to two lines and overshoots 40px
+     on its own; in landscape it fits on one line and stays 38px. Both slots are
+     named so the pair behaves the same way. */
+  .report-generate-slot .btn-admin,
+  .report-table-actions .btn-admin {
+    min-height: 40px;
+  }
+
+  .icon-only-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .admin-bulk-mode-toggle,
+  .admin-bulk-select-all-pages,
+  .admin-bulk-cancel,
+  .admin-bulk-action,
+  .inv-selection-toggle,
+  .inv-select-all-pages,
+  .inv-selection-cancel,
+  .inv-archive-selected {
+    flex: 0 0 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .notifications,
+  .profile-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .user-profile {
+    min-height: 40px;
+  }
+
+  .page-btn,
+  .inv-page-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+  }
+
+  .view-all-link,
+  a.analytics-view-all {
+    min-height: 40px;
+    align-items: center;
+    padding: 0 2px;
+  }
+
+  /* 29x25 in the my-account `.input-icon-group`. The 52px right reserve keeps a
+     40px button from sitting on the text — see the note at 3.6. */
+  .toggle-pass {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    right: 6px;
+  }
+
+  .password-field input,
+  .password-field .input-icon-group .input-field {
+    padding-right: 52px;
+  }
+
+  /* `input[type="color"]` stays out of 7.1's 16px floor (it opens a picker, not
+     a keyboard) but it is still a tap target: 44x36 on website-home. */
+  .color-row input[type="color"] {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 40px;
+  }
+
+  .announcement-modal__card .announcement-modal__close-x {
+    width: 44px;
+    height: 44px;
+    top: 10px;
+    right: 10px;
+  }
+}
+/* ===== end of STEP 7.7 ===== */
+
+/* ---- 7.8 Floors the first audit instrument could not see -----------------
+   The 7.7 sweep measured tap targets with getBoundingClientRect(). That is the
+   wrong instrument for a size floor: `.admin-system-popup__card` runs a 0.14s
+   `adminPopupIn` keyframe whose `from` state is `scale(0.985)`, and a card caught
+   mid-animation reports a 40x40 button as 39.40px while its layout box is
+   exactly 40. Re-run with offsetWidth/offsetHeight (transform-free) the false
+   positive disappeared -- and five real offenders appeared that the old sweep had
+   been skipping for the opposite reason: it ignored the notification dropdown and
+   the profile popup because both sit at `opacity: 0` until tapped, so they never
+   entered the element list even though they are full-size, laid-out subtrees.
+
+   Measured on admin-page/inventory.html, both orientations (852x393 and 390x844):
+
+     element                       landscape   portrait   floor
+     .popup-role                   11.52px     11.52px    12px    <- both
+     #notifViewAllBtn              182x30      182x30     40px    <- both
+     .notif-mark-all-btn           32x32 decl  32x32      40px    <- both
+     .page-number  (+ 3 aliases)   48x30       60x40 OK   40px    <- landscape
+     .inv-table th                 11.52px     12.48px OK 12px    <- landscape
+     .ratings-input/.inquiry-input 228x38      40px OK    40px    <- landscape
+
+   The split is not arbitrary. The four landscape-only rows are already fixed for
+   portrait by 2.7 (`.page-number` at :763), 2.x (`.admin-table` cells) and 3.2
+   (`.ratings-input`/`.inquiry-input` at :1570); 7.1 lifted only the font-size arm
+   of 3.2 into landscape, not its 40px arm, so the control heights fell back to
+   their desktop values there. The three both-orientation rows were never fixed
+   anywhere -- they are pre-existing gaps in every band, surfaced only now that the
+   instrument can see closed dropdowns, and a finger does not change size when the
+   phone rotates. So they get a comma'd condition covering phone widths OR short
+   landscape, matching the union of every band in this sheet.
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px),
+  (orientation: landscape) and (max-height: 520px) and (max-width: 1024px) {
+  /* dashboard.css:1750 -- the role chip inside the avatar popup, on all 31 pages. */
+  .popup-role {
+    font-size: 0.75rem;
+  }
+
+  /* dashboard.css:957 has no height at all: 6px padding around 12.8px text = 30px.
+     dashboard.css:998-1002 pins the mark-all icon button to 32x32. Both live in
+     the bell dropdown, which is why the earlier sweeps never reported them. */
+  .notif-view-all-btn {
+    min-height: 40px;
+  }
+
+  .notif-mark-all-btn {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) and (max-width: 1024px) {
+  /* Same declaration block as 2.7 (:763). 7.7 lifted `.page-btn`/`.inv-page-btn`
+     but not the number input sitting between them, so the arrows were 40px and
+     the field they flank was 30px. */
+  .page-number,
+  input.page-number,
+  .page-number.admin-page-number-input,
+  .inv-page-number {
+    height: 40px;
+    min-width: 60px;
+    width: 60px;
+    border-radius: 10px;
+    font-size: 1rem;
+  }
+
+  /* The 40px arm of 3.2. `.ratings-input` (ratings.html:69) and `.inquiry-input`
+     (customer-inquiries.html:65) declare `height: 38px` in page-local <style>;
+     both pages link this sheet afterwards (ratings.html:199,
+     customer-inquiries.html:~230 and the two staff twins), so equal specificity
+     resolves in this sheet's favour on source order. */
+  .search-input,
+  .input-field,
+  .filter-select,
+  .ratings-input,
+  .inquiry-input,
+  .wm-input,
+  .wm-select {
+    min-width: 0;
+    min-height: 40px;
+  }
+
+  /* `.inv-table th { font-size: 0.72rem }` -- inventory.html:147 and
+     staff-page/inventory.html:147, both above this sheet's <link> (:698 / :699),
+     so (0,1,1) here beats (0,1,1) there on order. 32 header cells per page.
+     `td` is left alone: it is 0.8rem = 12.8px and already clears the floor. */
+  .inv-table th {
+    font-size: 0.75rem;
+  }
+}
+/* ===== end of STEP 7.8 ===== */
+/* ===== end of STEP 7 ===== */
+
+/* ==========================================================================
+   STEP 8 — CROSS-ROLE CONSISTENCY
+   One focus ring, one accent, one tap floor, one type scale, one radius scale,
+   applied identically to both roles. Everything here is width- or height-gated
+   like the rest of the sheet: the desktop back office is byte-for-byte the
+   layout it was before this file existed.
+   ========================================================================== */
+
+/* ---- 8.1 One focus ring --------------------------------------------------
+   Baseline survey: the back office carries 19 focus declarations in total
+   (12 in admin-modules.css, 7 in dashboard.css) and no global rule, so most
+   controls fall back to the UA ring and a few to nothing at all. A house idiom
+   already exists in four places -- `.combobox-wrap .combobox-input:focus`
+   (admin-modules.css:4951), `.report-filter-field .filter-select:focus`
+   (:3065), `.report-letterhead-field input:focus` (:3751) and
+   `input.page-number:focus` (:647): maroon border, soft maroon halo,
+   `outline: none`. 8.1 promotes that one idiom to everything focusable.
+
+   Two things make a single rule safe here, both read from the baselines rather
+   than assumed:
+
+   1. No wrapper in the back office draws the control's border.
+      `.input-icon-group` (:725), `.password-field` (:732) and `.combobox-wrap`
+      (:4936) are transparent positioning wrappers -- `position: relative` plus
+      layout, no border, no radius. The border lives on the input. So the
+      rounded-wrapper/square-child outline bug that cost two rounds on the
+      customer pass cannot occur here, and no child indicator gets suppressed.
+   2. `outline` follows `border-radius` in both WebKit and Blink, so one outline
+      declaration stays correctly rounded on a 40px pill button and on a 16px
+      sheet corner alike.
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px),
+  (orientation: landscape) and (max-height: 520px) and (max-width: 1024px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="reset"]):focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    border-color: var(--primary-color, #800000);
+    box-shadow: 0 0 0 3px rgba(128, 0, 0, 0.12);
+    outline: none;
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  summary:focus-visible,
+  [role="button"]:focus-visible,
+  input[type="checkbox"]:focus-visible,
+  input[type="radio"]:focus-visible,
+  input[type="button"]:focus-visible,
+  input[type="submit"]:focus-visible,
+  input[type="reset"]:focus-visible {
+    outline: 2px solid var(--primary-color, #800000);
+    outline-offset: 2px;
+  }
+
+  /* The rail and the drawer both clip their own overflow (dashboard.css:270),
+     and `.sticky-action` cells clip theirs, so an outward ring would be cut in
+     half on exactly the elements a keyboard user tabs through first. Inset it. */
+  .nav-link:focus-visible,
+  .sub-link:focus-visible,
+  .logout-btn:focus-visible,
+  .sticky-action :is(button, a):focus-visible {
+    outline-offset: -2px;
+  }
+}
+/* ===== end of STEP 8.1 ===== */
+
+/* ---- 8.2 One accent, and the checkbox hit area ---------------------------
+   `accent-color` exists in the baselines exactly twice -- admin-modules.css:400
+   and :485 -- and only on the two table select cells. Every other checkbox and
+   radio in the back office renders in the platform blue, which reads as a bug
+   next to maroon chrome. 8.2 extends the same `var(--primary-color, #800000)`
+   the two existing declarations already use.
+
+   Deliberate deviation from the plan's consistency contract, which specified
+   `accent-color: #9e1414` (the customer-site field accent): the admin shell
+   sets its own `--primary-color: #800000` (dashboard.css:8-19) and the two
+   pre-existing declarations already use it. Adopting #9e1414 would make the
+   checkboxes disagree with the sidebar, the buttons and the badges on the very
+   same screen. The contract itself scopes the customer tokens to *fields*, not
+   to the whole back office, so the maroon already in the file wins.
+
+   Tap area, stated honestly: the plan's floor is 40px, and these two cells hold
+   16x16 checkboxes. 24x24 is the CSS-only ceiling. The click handler is bound to
+   the input, not to the cell, so widening the hit area to a full 40px would mean
+   making the `<td>` clickable -- a JS change, and this sheet does not touch JS.
+   `<input>` is a replaced element, so the usual transparent `::after` overlay is
+   not available either. 24px is 50% more finger than the baseline and matches
+   what the row's other affordances need; the residual gap is reported, not
+   hidden. Every other control in the back office is at or above 40px.
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px),
+  (orientation: landscape) and (max-height: 520px) and (max-width: 1024px) {
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--primary-color, #800000);
+  }
+
+  /* `:is()` takes its highest-specificity argument, so this resolves to (0,3,1)
+     -- level with `.admin-bulk-table .admin-bulk-select-cell input[type=
+     "checkbox"]` (:481) and `.inventory-table .inv-select-cell input[type=
+     "checkbox"]` (:396) -- and wins on order. The bare `.admin-bulk-select-cell`
+     arm is there because the static `<thead>` select-all cell (e.g.
+     ratings.html:331) is not inside a table that carries `.admin-bulk-table`
+     until admin-common.js adds it. */
+  :is(
+      .inventory-table .inv-select-cell,
+      .admin-bulk-table .admin-bulk-select-cell,
+      .admin-bulk-select-cell
+    )
+    input[type="checkbox"] {
+    width: 24px;
+    height: 24px;
+  }
+}
+/* ===== end of STEP 8.2 ===== */
+/* ===== end of STEP 8 ===== */

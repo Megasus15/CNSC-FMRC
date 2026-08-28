@@ -1274,6 +1274,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const isMobileSidebarMode = () => window.innerWidth <= MOBILE_BREAKPOINT;
 
+  // Below DRAWER_BREAKPOINT the sidebar is a full off-canvas drawer that covers
+  // the page (admin-responsive.css), so a remembered "open" state would mean the
+  // nav sheet sits over the content on every page load. Tablets keep the
+  // expand-on-open rail and its memory; phones always start closed.
+  const DRAWER_BREAKPOINT = 720;
+  const isDrawerSidebarMode = () => window.innerWidth <= DRAWER_BREAKPOINT;
+
   const sanitizeRemovedPageLinks = () => {
     const currentPath = window.location.pathname.toLowerCase();
     const openedRemovedPage = REMOVED_ROUTES.some((route) =>
@@ -1406,7 +1413,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const syncSidebarMode = () => {
     if (isMobileSidebarMode()) {
-      if (getSavedSidebarState()) {
+      if (getSavedSidebarState() && !isDrawerSidebarMode()) {
         body.classList.add("admin-sidebar-open");
         if (sidebarToggleBtn)
           sidebarToggleBtn.setAttribute("aria-expanded", "true");
