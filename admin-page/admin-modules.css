@@ -1760,7 +1760,6 @@ input.page-number:focus,
 }
 
 .return-evidence-grid a:hover {
-  transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(143, 17, 17, 0.16);
 }
 
@@ -1784,7 +1783,6 @@ input.page-number:focus,
 
 .return-evidence-item:hover,
 .return-evidence-item:focus-visible {
-  transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(143, 17, 17, 0.16);
 }
 

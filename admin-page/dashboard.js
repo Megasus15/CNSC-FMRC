@@ -7,6 +7,20 @@ document.addEventListener("DOMContentLoaded", () => {
   const MOBILE_BREAKPOINT = 1024;
   const SIDEBAR_PREF_KEY = "adminSidebarMobileState";
   const DASHBOARD_REQUEST_TIMEOUT_MS = 15000;
+  /* How long the Refresh button is willing to wait for an in-flight sync to
+     settle BEFORE it issues its own. It used to reuse the 15s request timeout,
+     which is why the button felt dead: on a warm page it could sit on
+     "Refreshing..." for the full fifteen seconds without having asked the
+     server for anything yet. The wait is only a courtesy — if it expires,
+     syncDashboardData({ force: true }) hits the in-progress guard, sets
+     dashboardPendingForceSync, and the in-flight request's own `finally`
+     re-queues the forced sync. The refresh still lands; it just stops holding
+     the button hostage. */
+  const DASHBOARD_REFRESH_WAIT_MS = 1200;
+  /* The opposite problem: with a warm cache the whole sync finishes in under
+     100ms, so the spinner flashed and the button looked like it had done
+     nothing. A floor makes the work perceptible. */
+  const DASHBOARD_REFRESH_MIN_SPIN_MS = 450;
   const DASHBOARD_MIN_SYNC_GAP_MS = 2500;
   const DASHBOARD_EVENT_DEBOUNCE_MS = 300;
   const DASHBOARD_LIVE_POLL_MS = 30000;
@@ -1448,7 +1462,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const waitStartedAt = Date.now();
         while (
           dashboardSyncInProgress &&
-          Date.now() - waitStartedAt < DASHBOARD_REQUEST_TIMEOUT_MS
+          Date.now() - waitStartedAt < DASHBOARD_REFRESH_WAIT_MS
         ) {
           await new Promise((resolve) => window.setTimeout(resolve, 25));
         }
@@ -1458,7 +1472,23 @@ document.addEventListener("DOMContentLoaded", () => {
         await Promise.all([
           syncDashboardData({ force: true, source: "manual" }),
           syncDashboardLiveCounts({ force: true }),
+          new Promise((resolve) =>
+            window.setTimeout(resolve, DASHBOARD_REFRESH_MIN_SPIN_MS),
+          ),
         ]);
+        window.showAdminSuccessNotification?.("Dashboard data refreshed.", {
+          title: "Up to date",
+        });
+      } catch (err) {
+        /* The abort a few lines up is ours, so it is not a failure worth
+           reporting. Anything else is, or the button goes back to being
+           indistinguishable from a dead one. */
+        if (err?.name !== "AbortError") {
+          window.showAdminPopup?.(
+            "Could not refresh the dashboard. Check your connection and try again.",
+            { title: "Refresh failed" },
+          );
+        }
       } finally {
         dashboardRefreshBtn.innerHTML = originalMarkup;
         dashboardRefreshBtn.removeAttribute("aria-busy");

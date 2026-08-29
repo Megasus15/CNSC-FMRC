@@ -901,6 +901,9 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       </div>
       <div class="inv-category-body">
+        <div class="table-scroll-hint table-scroll-hint--mobile">
+          <i class="fa-solid fa-left-right"></i> Scroll horizontally to see all columns.
+        </div>
         <div class="table-wrapper">
             <table class="admin-table inventory-table inv-table${isSelectionMode ? " is-selecting" : ""}">
             <thead>
@@ -956,6 +959,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .map(
           () => `
         <tr class="inv-skeleton-row">
+          <td class="inv-select-cell"></td>
           <td><div class="inv-skeleton-cell" style="width:28px;"></div></td>
           <td><div class="inv-skeleton-cell" style="width:120px;"></div></td>
           <td><div class="inv-skeleton-cell" style="width:100px;"></div></td>
@@ -979,10 +983,23 @@ document.addEventListener("DOMContentLoaded", () => {
             <span class="inv-category-badge"><div class="inv-skeleton-cell" style="width:50px;height:12px;display:inline-block;"></div></span>
           </div>
           <div class="inv-category-body">
+            <div class="table-scroll-hint table-scroll-hint--mobile">
+              <i class="fa-solid fa-left-right"></i> Scroll horizontally to see all columns.
+            </div>
             <div class="table-wrapper">
               <table class="admin-table inventory-table inv-table">
                 <thead>
                   <tr>
+                    <!-- Column-index placeholder, not a control: the loaded
+                         table opens with an .inv-select-cell (:911), so without
+                         a matching cell here the skeleton's columns sit one
+                         index to the left and admin-responsive.css's nth-child
+                         rules land on the wrong ones -- measured at 390, the
+                         skeleton froze Description instead of Item Name. It
+                         stays invisible: .inventory-table .inv-select-cell is
+                         display:none until .is-selecting
+                         (admin-modules.css:383). -->
+                    <th class="inv-select-cell"></th>
                     <th>No.</th><th>Item Name</th><th>Description</th><th>Unit</th>
                     <th>Stocks On Hand</th><th>Status</th><th>Remarks</th>
                     <th class="th-action sticky-action">Action</th>
@@ -1856,6 +1873,10 @@ document.addEventListener("DOMContentLoaded", () => {
       ? `
         <div class="inv-view-variants">
           <div class="inv-view-section-title">Variants</div>
+          <div class="table-scroll-hint table-scroll-hint--mobile">
+            <i class="fa-solid fa-left-right"></i> Scroll horizontally to see all columns.
+          </div>
+          <div class="table-wrapper">
           <table class="inv-variant-table">
             <thead>
               <tr>
@@ -1869,6 +1890,7 @@ document.addEventListener("DOMContentLoaded", () => {
             </thead>
             <tbody>${variantRows}</tbody>
           </table>
+          </div>
           ${
             variants.length > PAGE_SIZE
               ? `<div class="table-footer" style="padding:10px 0 0;background:transparent;border:0;">

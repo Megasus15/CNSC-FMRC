@@ -10,8 +10,8 @@
     <link rel="icon" href="../images/favicon.ico?v=3" sizes="any" />
     <link rel="apple-touch-icon" href="../images/apple-touch-icon.png?v=3" />
     <title>Ratings &amp; Feedback | UCN-FMRC Admin</title>
-    <link rel="stylesheet" href="dashboard.css?v=6.0" />
-    <link rel="stylesheet" href="admin-modules.css?v=6.0" />
+    <link rel="stylesheet" href="dashboard.css?v=6.1" />
+    <link rel="stylesheet" href="admin-modules.css?v=6.1" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
       .ratings-stats-grid {
@@ -35,7 +35,6 @@
       }
       .ratings-stat-card:hover {
         box-shadow: 0 8px 24px rgba(128, 0, 0, 0.07);
-        transform: translateY(-2px);
       }
       .ratings-stat-card h4 {
         margin: 0;
@@ -114,6 +113,7 @@
       .ratings-table-actions .btn-compact.archive-action:hover {
         color: #fff; border-color: #b45309; background: #b45309;
       }
+      .ratings-table-actions .btn-compact:active { transform: scale(0.97); }
       .rating-detail-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(170px, 1fr));
@@ -196,7 +196,7 @@
         .rating-detail-modal-card { max-height: calc(100dvh - 24px); }
       }
     </style>
-    <link rel="stylesheet" href="admin-responsive.css?v=1.1" />
+    <link rel="stylesheet" href="admin-responsive.css?v=2.2" />
   </head>
   <body>
     <div class="dashboard-container">
@@ -324,6 +324,10 @@
               </div>
             </div>
 
+            <div class="table-scroll-hint table-scroll-hint--mobile">
+              <i class="fa-solid fa-left-right"></i> Scroll horizontally to see
+              all columns.
+            </div>
             <div class="table-wrapper">
               <table class="admin-table enhanced-table" id="ratingsTable">
                 <thead>

@@ -2026,7 +2026,6 @@ body.admin-media-viewer-open {
 .rating-media-item:hover,
 .rating-media-item:focus-visible {
   border-color: var(--primary-color, #800000);
-  transform: translateY(-1px);
 }
 
 .rating-media-item img,
@@ -2152,7 +2151,6 @@ body.admin-media-viewer-open {
 }
 
 .card:hover {
-  transform: translateY(-3px);
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
   border-color: var(--primary-color);
 }
@@ -2211,36 +2209,35 @@ body.admin-media-viewer-open {
 }
 
 /* ─── Generate Report toolbar button ──────────────────────────────────
-   Premium CTA styled as a warm amber/gold gradient button that sits
-   inside the Dashboard Controls toolbar alongside the Refresh button. */
+   Primary CTA in the Dashboard Controls toolbar. Deliberately identical to
+   `.btn-admin` (solid maroon, darker hover, scale press) so every button in
+   the back office has one interaction language — only the weight and padding
+   are heavier, to keep it reading as the primary action. */
 .btn-generate-report {
   text-decoration: none;
-  background: linear-gradient(135deg, #d97706, #f59e0b);
-  border-color: #d97706;
+  background: var(--primary-color);
+  border-color: var(--primary-color);
   color: #fff;
   font-weight: 700;
   font-size: 0.84rem;
   padding: 9px 18px;
   gap: 9px;
   border-radius: 9px;
-  box-shadow: 0 2px 8px rgba(217, 119, 6, 0.25);
+  box-shadow: none;
   transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    background 0.2s ease;
+    background-color 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .btn-generate-report:hover {
-  background: linear-gradient(135deg, #b45309, #d97706);
-  border-color: #b45309;
+  background: #5f0000;
+  border-color: #5f0000;
   color: #fff;
-  box-shadow: 0 4px 16px rgba(217, 119, 6, 0.4);
-  transform: translateY(-1px);
+  box-shadow: none;
 }
 
 .btn-generate-report:active {
-  transform: translateY(0) scale(0.97);
-  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.25);
+  transform: scale(0.97);
 }
 
 .btn-generate-report i {
@@ -2687,7 +2684,6 @@ body.admin-media-viewer-open {
 
 .analytics-overview-card:hover {
   box-shadow: 0 8px 24px rgba(128, 0, 0, 0.06);
-  transform: translateY(-2px);
   border-color: #e2d5d5;
 }
 
