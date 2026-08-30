@@ -269,6 +269,15 @@ function paintSummary() {
   const bannerText = document.getElementById("mtBannerText");
 
   if (pill) pill.classList.toggle("is-on", active.length > 0);
+  // Green + a pulsing dot only when the pill is literally about to print
+  // "Everything online", so the colour can never disagree with the words. Gated
+  // on the same expression the text below uses — a fault or a snapshot that never
+  // arrived leaves the pill grey, because "online" would be a claim the page is
+  // in no position to make. This reads the *form* state, like `is-on` does, not
+  // the banner's server-side `liveCount`.
+  if (pill) {
+    pill.classList.toggle("is-live", !fault && loaded && active.length === 0);
+  }
   if (pillText) {
     pillText.textContent = fault
       ? "Not loaded"

@@ -4377,23 +4377,32 @@
 /* ==========================================================================
    10.6d COLUMN RESIZING — the CSS half of the Excel-style module
    --------------------------------------------------------------------------
-   `admin-table-resize.js` adds `.atr-ready` to a table once it has written a
-   `<colgroup>` for it, so every rule here is inert until the module runs and
-   disappears the moment it tears down. Phones only, same union band as the rest
-   of the table work.
+   `admin-table-resize.js` adds `.atr-ready` to a table once it has pinned an
+   inline width onto every one of its header cells, so every rule here is inert
+   until the module runs and disappears the moment it tears down. Not phones any
+   more: the module freezes at every width in two bands (see its PROFILES), so
+   this section is unwrapped on purpose and the class alone is the gate.
+
+   `.atr-ready :is(th, td)` below is (0,1,1) and so is admin-modules.css's
+   `overflow: visible` on the same cells; this sheet is linked last on all 32
+   back-office pages, so that tie is settled by file order and lands here.
 
    Why `table-layout: fixed` is the whole trick: under `auto` the browser sizes
-   columns from their content, so a `<col width>` is only a suggestion and a wide
-   cell re-expands its column — which is exactly the "big gaps each data" the
-   request is about. Under `fixed` the `<col>` widths are the law, the first row
-   no longer has to be measured, and anything too long is ours to clip.
+   columns from their content, so an inline `<th>` width is only a suggestion and
+   a wide cell re-expands its column — which is exactly the "big gaps each data"
+   the request is about. Under `fixed` those widths are the law, the first row no
+   longer has to be measured, and anything too long is ours to clip.
 
    Clipping is deliberate and was the chosen trade-off: a value that outgrows its
-   column ends in an ellipsis, and the user can drag the column wider, double-tap
-   a handle to auto-fit it, or open the row's detail modal. Three kinds of cell
-   opt out — the frozen action cell (its buttons must wrap to 2 per line, 10.6b),
-   any `[colspan]` cell (empty states and "no records" rows span the table and
-   must stay readable), and `.admin-table-skeleton-row` bars.
+   column ends in an ellipsis, and the user can drag the column wider, double-click
+   a handle to auto-fit it, or open the row's detail modal. Four selectors opt out
+   — the frozen action cell and its icon row (the buttons must wrap to 2 per line,
+   10.6b), any `[colspan]` cell (empty states and "no records" rows span the table
+   and must stay readable), and `.specification-cell` — admin-modules.css:343's
+   `pre-line` + `min-width: 160px` multi-line cell, whose wrapped copy is the point
+   of the column. No renderer emits that class today, so this arm is a guard for
+   whichever one brings it back; under `fixed` such a cell can no longer re-widen
+   its own column anyway, so letting it wrap costs nothing.
 
    The handles sit INSIDE the `th` box, 12px at each edge over the full header
    height, because `overflow: hidden` on the same box would clip anything that
@@ -4401,87 +4410,115 @@
    That declaration is (0,1,1) and appended after 2.10's `.admin-table th`
    (0,1,1), so it wins on order.
    -------------------------------------------------------------------------- */
-@media (max-width: 720px),
-  (orientation: landscape) and (max-height: 520px) and (max-width: 1024px) {
+.atr-ready {
+  table-layout: fixed;
+}
+
+.atr-ready :is(th, td) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The action cell wraps its buttons; colspan and specification cells hold copy
+   that has to stay readable. */
+.atr-ready
+  :is(th, td):is(.sticky-action, .action-icons, [colspan], .specification-cell) {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.atr-ready th {
+  position: relative;
+  padding-inline: 14px;
+}
+
+/* No handle on the frozen action column — its width is the band's contract. */
+.atr-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  /* Without this the wrapper's horizontal pan swallows the drag. */
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 7;
+}
+
+.atr-handle--left {
+  left: 0;
+}
+
+.atr-handle--right {
+  right: 0;
+}
+
+.atr-handle::after {
+  content: "";
+  position: absolute;
+  top: 20%;
+  bottom: 20%;
+  left: 50%;
+  width: 1px;
+  background: #cbd5e1;
+  transition: background-color 0.15s ease, width 0.15s ease;
+}
+
+.atr-handle:hover::after,
+.atr-handle:active::after,
+.atr-handle.is-active::after {
+  width: 2px;
+  background: var(--primary-color, #800000);
+}
+
+.atr-handle:focus-visible {
+  outline: 2px solid var(--primary-color, #800000);
+  outline-offset: -2px;
+}
+
+/* Set on <body> for the duration of a drag: no text selection, no accidental
+   row tap, and the col-resize cursor follows the pointer outside the handle. */
+.atr-dragging,
+.atr-dragging * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.atr-dragging {
+  cursor: col-resize;
+}
+
+/* Printing. `reports.html` is the page that prints, and every width the module
+   writes is *inline*, so an ordinary print rule would lose to it — hence the
+   `!important`s here and, on the JS side, a `beforeprint` teardown that removes
+   the inline widths outright. Belt and braces: either one alone restores a
+   content-sized table, and if the teardown ever fails to run (a browser that
+   fires no `beforeprint`, a print triggered from devtools) this block still hands
+   the columns back to the browser. It lives here and never in admin-modules.css,
+   whose own `@media print` block is off limits. */
+@media print {
   .atr-ready {
-    table-layout: fixed;
+    table-layout: auto !important;
+    width: auto !important;
+    min-width: 0 !important;
   }
 
   .atr-ready :is(th, td) {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
   }
 
-  /* The action cell wraps its buttons, colspan cells hold empty-state copy. */
-  .atr-ready :is(th, td):is(.sticky-action, .action-icons, [colspan]) {
-    overflow: visible;
-    text-overflow: clip;
-    white-space: normal;
-  }
-
-  .atr-ready th {
-    position: relative;
-    padding-inline: 14px;
-  }
-
-  /* No handle on the frozen action column — its width is the 96px contract. */
   .atr-handle {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 12px;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    cursor: col-resize;
-    /* Without this the wrapper's horizontal pan swallows the drag. */
-    touch-action: none;
-    -webkit-tap-highlight-color: transparent;
-    z-index: 7;
-  }
-
-  .atr-handle--left {
-    left: 0;
-  }
-
-  .atr-handle--right {
-    right: 0;
-  }
-
-  .atr-handle::after {
-    content: "";
-    position: absolute;
-    top: 20%;
-    bottom: 20%;
-    left: 50%;
-    width: 1px;
-    background: #cbd5e1;
-    transition: background-color 0.15s ease, width 0.15s ease;
-  }
-
-  .atr-handle:hover::after,
-  .atr-handle:active::after,
-  .atr-handle.is-active::after {
-    width: 2px;
-    background: var(--primary-color, #800000);
-  }
-
-  .atr-handle:focus-visible {
-    outline: 2px solid var(--primary-color, #800000);
-    outline-offset: -2px;
-  }
-
-  /* Set on <body> for the duration of a drag: no text selection, no accidental
-     row tap, and the col-resize cursor follows the pointer outside the handle. */
-  .atr-dragging,
-  .atr-dragging * {
-    user-select: none;
-    -webkit-user-select: none;
-  }
-
-  .atr-dragging {
-    cursor: col-resize;
+    display: none !important;
   }
 }
 /* ===== end of 10.6d ===== */

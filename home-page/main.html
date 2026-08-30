@@ -22,8 +22,8 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
 
-    <link rel="stylesheet" href="main.css?v=6.5" />
-    <link rel="stylesheet" href="responsive.css?v=6.9" />
+    <link rel="stylesheet" href="main.css?v=6.6" />
+    <link rel="stylesheet" href="responsive.css?v=7.0" />
 
     <!-- Renders the hero headline from site settings. Loaded here, ahead of the
          hero markup, so the inline call below it can paint before first paint. -->
@@ -304,8 +304,10 @@
             </p>
           </div>
           <div class="mission-content-right reveal-from-right">
-            <!-- The deck sits inside `.blob-wrapper`, so the red and grey blobs,
-                 the 480px square footprint and the organic mask are untouched. -->
+            <!-- The deck sits inside `.blob-wrapper`, which is now purely the
+                 480px square footprint: the two decorative blobs it used to draw
+                 behind the photo are gone, and the organic mask lives on the
+                 deck's own cards so the shuffle shadows follow that silhouette. -->
             <div class="blob-wrapper">
               <div class="vm-deck vm-deck--mission" id="missionDeck">
                 <div class="vm-deck__card">
@@ -1617,7 +1619,7 @@
     <!-- Maintenance Mode gate: must run before main.js so the cached snapshot is
          applied before anything that should be hidden can be painted. -->
     <script src="maintenance-gate.js?v=1.1"></script>
-    <script src="main.js?v=7.0"></script>
+    <script src="main.js?v=7.1"></script>
     <script src="customer-announcements.js?v=5.5"></script>
   </body>
 </html>

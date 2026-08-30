@@ -598,39 +598,21 @@ body {
   font-weight: 500;
 }
 
-/* --- Organic Image Blob Styling for Mission Section --- */
+/* --- Organic Image Shape for Mission Section ---
+   The wrapper used to carry two decorative pseudo-element blobs behind the
+   photo — a dark red `::before` and a pale grey `::after`, each hanging below
+   the wrapper. They were removed by request: with a deck of admin-uploaded
+   photos on top of them they read as stray hard-coded shapes rather than as
+   part of the design, and their overhang was the only reason the wrapper needed
+   a bottom margin reserve (see the note further down this file). The organic
+   silhouette itself is unchanged — it lives on the photo, and now on the deck
+   card too. */
 .blob-wrapper {
   position: relative;
   width: 100%;
   max-width: 480px;
   aspect-ratio: 1;
   margin: 0 auto;
-}
-
-/* Dark Red Blob Background */
-.blob-wrapper::before {
-  content: "";
-  position: absolute;
-  bottom: -5%;
-  left: 5%;
-  width: 90%;
-  height: 90%;
-  background-color: #b01c1c;
-  border-radius: 40% 60% 70% 30% / 50% 60% 40% 50%;
-  z-index: 1;
-}
-
-/* Light Greyish-Blue Blob Background */
-.blob-wrapper::after {
-  content: "";
-  position: absolute;
-  bottom: -12%;
-  left: -8%;
-  width: 75%;
-  height: 75%;
-  background-color: #eaedf4;
-  border-radius: 60% 40% 30% 70% / 60% 50% 50% 40%;
-  z-index: 0;
 }
 
 .mission-img {
@@ -6156,6 +6138,25 @@ input:checked + .toggle-slider:before {
 .mission-section,
 .services-preview-section {
   position: relative;
+}
+
+/* A card in mid-gesture has to be able to leave its own section.
+   ---------------------------------------------------------------------------
+   The four sections above are positioned siblings with no z-index, so they
+   paint in document order and Our Mission covers Our Vision. A Vision card
+   thrown downwards travels `dy * 4`, which is far enough to cross the border,
+   and it was being painted *behind* the next section — the card's own
+   `z-index: 6` cannot help, because `.vision-content-left` is a stacking
+   context (`will-change: transform, opacity`, just below).
+
+   So the fix is on the ancestor: main.js toggles this class on the enclosing
+   section for the length of the gesture only. 5 beats a sibling's `auto` and
+   stays far below `.site-header`'s sticky 100 and the modals' 9999, so a photo
+   in flight can never cover the navbar. It is removed again the moment the card
+   is handed back to the slot system, so normal stacking is the resting state. */
+.vision-section.vm-card-aloft,
+.mission-section.vm-card-aloft {
+  z-index: 5;
 }
 
 .about-section {
@@ -18249,27 +18250,22 @@ textarea:focus-visible {
 }
 
 /* ===========================================================================
-   OUR MISSION — the decorative blob layers stay inside the card
+   OUR MISSION — the blob reserve is gone with the blobs
    ---------------------------------------------------------------------------
-   `.blob-wrapper::before` hangs 5% of the wrapper's height below the wrapper
-   and `::after` 12%; that overhang is the organic look, but nothing reserved
-   room for it, so the pale blob cleared the bottom border of the card
-   (`.mission-container`) by 35px at 1265px, 55px at 753px and 13px at 375px.
-   Reserving the room keeps the design instead of clipping it — `overflow:
-   hidden` on the card would have sliced the blobs against a 24-32px rounded
-   corner.
+   `.blob-wrapper` used to carry `margin-bottom: 62px` here. It was not spacing:
+   it reserved room for the overhang of `.blob-wrapper::before` (5% of the
+   wrapper's height) and `::after` (12%), which otherwise cleared the bottom
+   border of `.mission-container` by 35px at 1265px, 55px at 753px and 13px at
+   375px. A flat length rather than a percentage, because the columns are
+   `flex: 1` items whose height comes from the automatic minimum size, and
+   percentage margins count as zero in that intrinsic pass.
 
-   A flat length, not the obvious `margin-bottom: 14%`: the columns are
-   `flex: 1` items, so their height comes from the automatic minimum size, and
-   percentage margins count as zero in that intrinsic pass. The reserve was
-   applied only afterwards, which pushed the blob 25px back out of the card.
-   62px covers the largest droop the wrapper can produce (12% of its 480px
-   `max-height`); narrower columns are over-reserved by at most ~10px, and the
-   blob itself fills ~58px of it.
+   Both pseudo-elements were removed by request (see the note beside
+   `.blob-wrapper` earlier in this file), so nothing hangs below the wrapper any
+   more and the reserve is now just 62px of dead space at the bottom of the card.
+   Deleted rather than zeroed, so nobody has to wonder what it was holding open.
+   The phone twin in responsive.css went the same way.
    ========================================================================= */
-.blob-wrapper {
-  margin-bottom: 62px;
-}
 
 /* UXDLG-APPEND-8 */
 
@@ -18470,9 +18466,11 @@ textarea:focus-visible {
 
 /* Mission's image is `height: 100%` of the square `.blob-wrapper`, so the deck
    and its cards have to pass that height straight through or the photo collapses.
-   `z-index: 2` reproduces what `.mission-img` carried on its own — it keeps the
-   whole deck above the red and grey blobs, and makes the stack one stacking
-   context so the cards' own 1-3 z-indexes stay private to it. */
+   `z-index: 2` is inherited from what `.mission-img` carried on its own. It no
+   longer has anything to sit above — the two decorative blobs it used to cover
+   are gone — but it is kept because `.vm-deck` is positioned, so the z-index
+   makes the stack its own stacking context and the cards' 0-3 and 6 stay private
+   to the deck instead of competing with the rest of the section. */
 .vm-deck--mission {
   z-index: 2;
   height: 100%;
@@ -18536,6 +18534,36 @@ textarea:focus-visible {
   max-width: none;
   margin: 0;
   object-fit: cover;
+}
+
+/* -- The card is the shape, not just the photo -------------------------------
+   The silhouette has always lived on the <img>: `.mission-img`'s four-value
+   `border-radius` and `.vision-img`'s 12px. The card wrapping it was a plain
+   rectangle, which is invisible until the card paints something of its own —
+   and the shuffle and the peek both do, via `box-shadow`. A shadow follows its
+   element's `border-radius`, so a square card cast a hard rectangular halo
+   around an organic photo: the square edge visible mid-shuffle.
+
+   Giving the card the same radius fixes every state at once (lift, tuck, peek,
+   drag, fling) because card and photo are the identical box here — `inset: 0`
+   with `width/height: 100%` — so the two curves coincide exactly. `overflow:
+   hidden` makes the card's own shape authoritative rather than relying on the
+   photo to mask itself.
+
+   Deliberately NOT `filter: drop-shadow()`, which would also follow the alpha
+   shape: `.is-tucking` already animates `filter: brightness()` on this same
+   element, and one `filter` cannot hold both without the two fighting.
+
+   Scoped to `.has-stack` so an unconfigured section still renders exactly as it
+   did before the decks existed (rule 1 at the top of this block). */
+.vm-deck--vision.has-stack .vm-deck__card {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.vm-deck--mission.has-stack .vm-deck__card {
+  border-radius: 50% 50% 40% 60% / 60% 40% 60% 40%;
+  overflow: hidden;
 }
 
 /* -- Slot geometry ----------------------------------------------------------
@@ -18647,11 +18675,47 @@ textarea:focus-visible {
   cursor: pointer;
 }
 
+/* Beat 1: lift clear of the deck — and clear of the card the deck sits in.
+   The old value was `translateY(-26px)`, which could never read as breaking out:
+   `.mission-container` carries 48px of its own padding, so a 26px rise did not
+   even reach the card's inner edge. -72px plus the 1.06 scale about a 50% 85%
+   origin puts the top of the photo roughly 48px above the container's border,
+   which is the "you can break it" the redesign asked for, and still lands well
+   inside the section's own 40-90px padding. `.vm-card-aloft` (see the
+   `.vision-section` note earlier in this file) is what lets it paint there.
+
+   The shadow is warm rather than neutral black — it is now blob-shaped, because
+   the card carries the silhouette, so it reads as the photo's own cast shadow
+   against the cream card. It is on the transition so it grows with the lift
+   instead of appearing in one frame.
+
+   0.19s must stay at or below the lift/tuck midpoint in main.js's
+   `vmWireShuffle` (200ms), or the tuck would interrupt a lift still in flight. */
 .vm-deck--mission.has-stack .vm-deck__card.is-lifting {
   z-index: 6;
-  transform: translateY(-26px) scale(1.04) rotate(-2deg);
-  transition: transform 0.15s cubic-bezier(0.34, 1.4, 0.64, 1);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
+  transform: translateY(-72px) scale(1.06) rotate(-2.5deg);
+  transition:
+    transform 0.19s cubic-bezier(0.34, 1.4, 0.64, 1),
+    box-shadow 0.19s ease;
+  box-shadow: 0 34px 58px rgba(59, 12, 12, 0.3);
+}
+
+/* Below 768px the two columns stack, so the photo sits directly under the
+   Mission copy and a desktop-sized breakout would rise through the paragraph
+   rather than through the card's own padding. Here the only clearance is
+   `.mission-container`'s own gap, measured from the glyph box of the copy's last
+   line down to the photo: 39px at 700px wide, 28px at 481px, 21px at 375px.
+   A lift raises the card's box by `translate + (scale - 1) * height * 0.85`
+   (the deck's transform-origin is 50% 85%) plus about `width * sin(angle) / 2`
+   for the rotation, so every part of the transform has to stay small here. The
+   shadow shrinks with it: at `0 34px 58px` its blur reached 24px above the card,
+   which on a phone is most of the gap. The <=480px band, where the clearance is
+   tightest, retunes the transform once more in responsive.css. */
+@media (max-width: 768px) {
+  .vm-deck--mission.has-stack .vm-deck__card.is-lifting {
+    transform: translateY(-14px) scale(1.015) rotate(-1.2deg);
+    box-shadow: 0 16px 22px rgba(59, 12, 12, 0.26);
+  }
 }
 
 .vm-deck--mission.has-stack .vm-deck__card.is-tucking {

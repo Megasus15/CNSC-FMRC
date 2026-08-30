@@ -13918,6 +13918,18 @@ const openReturnRequestModal = (() => {
     vmIndexSlots(deck);
   }
 
+  /* Raise the whole section while a card is off the stack.
+     Vision and Mission are positioned siblings with no z-index, so Mission wins
+     on document order and a card thrown downwards used to slide *under* it. The
+     card cannot lift itself out — `.vision-content-left` is a stacking context —
+     so the section is raised instead, and only for the length of the gesture.
+     See `.vision-section.vm-card-aloft` in main.css for the z-index chosen. */
+  function vmAloft(deck, on) {
+    if (!deck || !deck.closest) return;
+    var host = deck.closest(".vision-section, .mission-section");
+    if (host) host.classList.toggle("vm-card-aloft", !!on);
+  }
+
   // Drop every generated card, leaving the original markup untouched.
   function vmResetToFirstCard(deck) {
     var cards = Array.prototype.slice.call(
@@ -14049,6 +14061,7 @@ const openReturnRequestModal = (() => {
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
           deck.classList.remove("is-settling");
+          vmAloft(deck, false);
           busy = false;
         });
       });
@@ -14057,6 +14070,8 @@ const openReturnRequestModal = (() => {
     function vanish(card, keyboard) {
       busy = true;
       var refocus = keyboard || deck.contains(document.activeElement);
+      // Also covers the keyboard path, where no pointerdown ever raised it.
+      vmAloft(deck, true);
       card.dataset.vmFlying = "1";
       card.setAttribute("data-slot", "flying");
       card.classList.remove("is-dragging");
@@ -14121,6 +14136,7 @@ const openReturnRequestModal = (() => {
       dy = 0;
       claimed = false;
       deck.classList.add("is-peeking");
+      vmAloft(deck, true);
       try {
         card.setPointerCapture(e.pointerId);
       } catch (err) {
@@ -14177,6 +14193,7 @@ const openReturnRequestModal = (() => {
       }
       card.classList.remove("is-dragging");
       card.style.transform = "";
+      vmAloft(deck, false);
     });
 
     deck.addEventListener("keydown", function (e) {
@@ -14204,6 +14221,9 @@ const openReturnRequestModal = (() => {
       var refocus = deck.contains(document.activeElement);
       card.dataset.vmFlying = "1";
       card.setAttribute("data-slot", "flying");
+      // The lift below clears the top of the Mission card, so the section has to
+      // be able to paint over the one above it for the length of the shuffle.
+      vmAloft(deck, true);
 
       function settle() {
         deck.classList.add("is-settling");
@@ -14213,6 +14233,7 @@ const openReturnRequestModal = (() => {
         requestAnimationFrame(function () {
           requestAnimationFrame(function () {
             deck.classList.remove("is-settling");
+            vmAloft(deck, false);
             busy = false;
           });
         });
@@ -14244,7 +14265,12 @@ const openReturnRequestModal = (() => {
         // The hand-back waits for the card promoted into the deepest slot to
         // finish fading in (0.42s from here), so the two never overlap there.
         setTimeout(settle, 430);
-      }, 155);
+        // The lift travels further than it used to (-72px, clear of the card's
+        // own 48px padding), so the midpoint moved with it: 200ms matches the
+        // 0.19s transform transition on `.is-lifting`, and the tuck now starts
+        // from a card that has finished rising rather than interrupting one
+        // still on its way up. Total shuffle ~630ms — still a quick one.
+      }, 200);
     }
 
     deck.addEventListener("click", function (e) {

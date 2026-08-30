@@ -312,6 +312,32 @@
         background: #fef3c7;
         color: #92400e;
       }
+      /* A third state rather than a recolour of `.is-on`, so the amber
+         "N of 9 under maintenance" pill is untouched. Painted by paintSummary()
+         on the same condition that prints "Everything online". */
+      .mt-live-pill.is-live {
+        background: #dcfce7;
+        color: #15803d;
+      }
+      /* The soft pulse is the "live" idiom — on the dot only, never the text,
+         and never a size change, so nothing around it reflows. */
+      .mt-live-pill.is-live i {
+        animation: mtLivePulse 2s ease-in-out infinite;
+      }
+      @keyframes mtLivePulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.35;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .mt-live-pill.is-live i {
+          animation: none;
+        }
+      }
       .mt-live-pill i {
         font-size: 0.62rem;
       }
@@ -322,7 +348,7 @@
         pointer-events: none;
       }
     </style>
-    <link rel="stylesheet" href="admin-responsive.css?v=2.4" />
+    <link rel="stylesheet" href="admin-responsive.css?v=2.5" />
   </head>
   <body>
     <div class="dashboard-container">
@@ -539,7 +565,7 @@
 
     <script src="session-helper.js"></script>
     <script src="admin-common.js?v=6.1"></script>
-    <script src="website-maintenance.js?v=1.1"></script>
-    <script src="admin-table-resize.js?v=1.0" defer></script>
+    <script src="website-maintenance.js?v=1.2"></script>
+    <script src="admin-table-resize.js?v=1.2" defer></script>
   </body>
 </html>

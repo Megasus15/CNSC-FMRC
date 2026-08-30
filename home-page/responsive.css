@@ -2430,24 +2430,24 @@
   .blob-wrapper {
     width: min(62vw, 240px);
     margin-inline: auto;
-    /* The 1:1 wrapper left ~57px of empty box under a 4:3 photo at 390px, and
-       both blob layers drooped through that void before spilling past the
-       card's bottom border. Height now follows the photo. */
+    /* The 1:1 wrapper left ~57px of empty box under a 4:3 photo at 390px.
+       Height follows the photo instead. */
     aspect-ratio: auto;
-    /* Scaled-down version of the 62px blob reserve in main.css: the wrapper is
-       min(62vw, 240px) at 4:3, so the 12% droop of `::after` is at most
-       min(5.6vw, 21.6px). Reserving the desktop 62px here would open ~40px of
-       dead space in a card that is only ~376px tall on a phone. */
-    margin-bottom: min(7vw, 26px);
+    /* The `margin-bottom: min(7vw, 26px)` that used to sit here was the phone
+       twin of main.css's 62px reserve, and both existed only to hold room for
+       the two decorative pseudo-element blobs that hung below the wrapper.
+       Those were removed by request, so the reserve went with them — on a card
+       whose own padding-block is only clamp(8px, 3.6vw, 16px), keeping it would
+       have left ~26px of visible dead space under the photo. */
   }
 
   .mission-img {
     width: 100%;
     height: auto;
-    /* A fixed ratio rather than "whatever the admin uploaded": the wrapper's
-       height drives the blob droop (a percentage of it), and the reserved
-       margin in main.css can only contain a predictable one. `cover` keeps the
-       organic mask filled. */
+    /* A fixed ratio rather than "whatever the admin uploaded": the wrapper is
+       the box the whole deck shares, so its height has to be predictable
+       whatever shape gets uploaded next. `cover` keeps the organic mask
+       filled. Must stay in step with `.vm-deck--mission.has-stack` below. */
     aspect-ratio: 4 / 3;
     object-fit: cover;
   }
@@ -2461,16 +2461,17 @@
 
   /* ---- Vision / Mission decks ------------------------------------------ */
   /* A stacked mission deck has to keep the same 4:3 the single photo uses just
-     above, or the wrapper goes back to being a square and the blob droop it
-     reserves for stops matching. Vision's 16/10 already agrees with .vision-img,
-     so it needs no override. */
+     above, or the wrapper goes back to being a square and opens a void under the
+     photo. Vision's 16/10 already agrees with .vision-img, so it needs no
+     override. */
   .vm-deck--mission.has-stack {
     aspect-ratio: 4 / 3;
   }
 
   /* The fan is pulled in by about a third. At desktop offsets the deepest card
-     reaches ~12px below a phone-sized deck, and the only room down there is the
-     min(7vw, 26px) the wrapper reserves for the blob's own droop. */
+     reached ~12px below a phone-sized deck; at these offsets the 7% scale-down
+     eats most of the 10px translate, so the deepest card lands within a few px
+     of the deck's own bottom edge and stays inside the card's padding. */
   .vm-deck.has-stack .vm-deck__card[data-slot="1"] {
     transform: translate(-7px, 5px) rotate(-2.4deg) scale(0.96);
   }
@@ -2489,8 +2490,17 @@
     transform: translate(-10px, 7px) rotate(-3.2deg) scale(0.945);
   }
 
+  /* The lift is the one part of the shuffle that has to shrink on a phone: the
+     copy sits directly above the photo here, and the container's gap is only
+     clamp(12px, 4.6vw, 20px) — measured 21px of clearance at 375px, from the
+     glyph box of the copy's last line down to the photo. A lift raises the card's
+     box by `translate + (scale - 1) * height * 0.85` (transform-origin 50% 85%)
+     plus about `width * sin(angle) / 2` for the rotation, so on a 174px card this
+     rises ~15px: visibly past the deck's own top edge, still inside the gap.
+     main.css uses -72px on a desktop, where 48px of card padding is there to
+     break out of, and -14px in the 481-768px band. */
   .vm-deck--mission.has-stack .vm-deck__card.is-lifting {
-    transform: translateY(-18px) scale(1.03) rotate(-1.6deg);
+    transform: translateY(-11px) scale(1.015) rotate(-1.2deg);
   }
 
   .vm-deck__hint {

@@ -526,6 +526,35 @@
       .crop-circle-wrapper.is-square {
         border-radius: 18px;
       }
+      /* Vision/Mission photo frames: the shape the customer page actually draws,
+         so what is framed here is what the visitor sees.
+
+         `content-box` is deliberate. Admin CSS is border-box, and the export
+         divides the output width by the frame's clientWidth to get one uniform
+         frame→canvas ratio — with content-box the content is exactly 320×200, so
+         that ratio is 1000/320 = 625/200 = 3.125 in both axes. Under border-box
+         the 3px dashed border would eat into it and the two axes would disagree.
+         Any change to these numbers must keep the frame's ratio equal to the
+         output's (GALLERIES in website-home.js). */
+      .crop-circle-wrapper.is-wide-frame {
+        box-sizing: content-box;
+        width: min(320px, 72vw);
+        height: auto;
+        aspect-ratio: 16 / 10;
+        border-radius: 12px;
+      }
+      /* Preview-only mask: the exported JPEG stays a full square because the live
+         site cuts this silhouette in CSS. */
+      .crop-circle-wrapper.is-blob-frame {
+        border-radius: 50% 50% 40% 60% / 60% 40% 60% 40%;
+      }
+      /* Two fit buttons live at the left of the crop footer; grouping them means
+         hiding one never shifts the other. */
+      .wm-crop-fit-group {
+        margin-right: auto;
+        display: flex;
+        gap: 8px;
+      }
       /* Brand logo slots — same card language as the SDG slots above. */
       .wm-logo-grid {
         display: grid;
@@ -698,7 +727,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="admin-responsive.css?v=2.4" />
+    <link rel="stylesheet" href="admin-responsive.css?v=2.5" />
   </head>
   <body>
     <div class="dashboard-container">
@@ -1157,6 +1186,15 @@
                   />
                   <button
                     type="button"
+                    class="btn-edit-sm"
+                    id="visionImgPreviewFitBtn"
+                    style="display: none; margin-top: 8px"
+                    onclick="adjustSingleFit('vision')"
+                  >
+                    <i class="fa-solid fa-crop-simple"></i> Adjust fit
+                  </button>
+                  <button
+                    type="button"
                     class="btn-del-sm"
                     id="visionImgPreviewRemoveBtn"
                     style="display: none; margin-top: 8px"
@@ -1177,9 +1215,9 @@
                     Photo 1 is the card the visitor sees on top; the rest sit
                     behind it and are dragged away one at a time, looping
                     forever. Two or more photos turn the section into a deck —
-                    with one or none it stays the single image above. Each
-                    upload is cropped to 16:10 and saves immediately, like SDG
-                    badges.
+                    with one or none it stays the single image above. Every
+                    upload opens the fit window at 16:10 and saves as soon as you
+                    apply it, like SDG badges.
                   </p>
                   <div
                     class="wm-sdg-grid wm-gal-grid"
@@ -1246,6 +1284,15 @@
                   />
                   <button
                     type="button"
+                    class="btn-edit-sm"
+                    id="missionImgPreviewFitBtn"
+                    style="display: none; margin-top: 8px"
+                    onclick="adjustSingleFit('mission')"
+                  >
+                    <i class="fa-solid fa-crop-simple"></i> Adjust fit
+                  </button>
+                  <button
+                    type="button"
                     class="btn-del-sm"
                     id="missionImgPreviewRemoveBtn"
                     style="display: none; margin-top: 8px"
@@ -1267,8 +1314,8 @@
                     it to the back like a shuffled deck, so the order below is
                     the order visitors cycle through. Two or more photos turn
                     the section into a deck — with one or none it stays the
-                    single image above. Each upload is cropped to a square and
-                    saves immediately.
+                    single image above. Every upload opens the fit window as a
+                    square and saves as soon as you apply it.
                   </p>
                   <div
                     class="wm-sdg-grid wm-gal-grid"
@@ -1415,13 +1462,14 @@
           </div>
         </div>
         <div class="wm-modal-footer">
-          <button
-            class="btn-edit-sm"
-            id="btnFitCrop"
-            style="margin-right: auto; display: none"
-          >
-            <i class="fa-solid fa-compress"></i> Fit to circle
-          </button>
+          <span class="wm-crop-fit-group">
+            <button class="btn-edit-sm" id="btnFitCrop" style="display: none">
+              <i class="fa-solid fa-compress"></i> Fit to circle
+            </button>
+            <button class="btn-edit-sm" id="btnFillCrop" style="display: none">
+              <i class="fa-solid fa-expand"></i> Fill frame
+            </button>
+          </span>
           <button class="btn-admin btn-secondary" onclick="closeCropModal()">
             Cancel
           </button>
@@ -1605,7 +1653,7 @@
     <!-- Shared with the customer hero, so a swatch here and the live banner can
          never render a preset differently. Must load before website-home.js. -->
     <script src="../home-page/hero-gradients.js"></script>
-    <script src="website-home.js?v=1.3"></script>
-    <script src="admin-table-resize.js?v=1.0" defer></script>
+    <script src="website-home.js?v=1.4"></script>
+    <script src="admin-table-resize.js?v=1.2" defer></script>
   </body>
 </html>

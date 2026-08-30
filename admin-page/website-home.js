@@ -106,7 +106,7 @@ let sdgImageData = null; // base64 for the SDG currently being edited/uploaded
 let sdgUploadTargetId = null; // id being replaced/adjusted, or null for a new badge
 
 // Crop state
-let cropTarget = null; // 'heroBg' | 'sdg:modal' | 'sdg:grid' | 'logo:<slot>'
+let cropTarget = null; // 'heroBg' | 'sdg:modal' | 'sdg:grid' | 'logo:<slot>' | 'vm:<kind>:<slot>'
 let cropImgNaturalSrc = null;
 let cropOffsetX = 0;
 let cropOffsetY = 0;
@@ -115,6 +115,11 @@ let cropRotate = 0;
 let isDragging = false;
 let dragStartX = 0;
 let dragStartY = 0;
+
+// Vision/Mission photo fitter. Same modal as the SDG badges and brand logos, with
+// a frame shaped like the deck the photo lands in.
+let vmCropData = null; // photo currently open in the fitter
+let vmCoverScale = 100; // the "Fill frame" scale worked out when it loaded
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
@@ -307,12 +312,18 @@ function bindEvents() {
       openCropModal("heroBg");
     },
   );
+  // Vision and Mission photos go through the same fitter as the SDG badges and
+  // the brand logos: the frame is the shape the deck draws on the home page, so
+  // what is framed here is what the visitor sees. Cancelling puts the preview
+  // back (see closeCropModal), and Apply replaces it with the fitted JPEG —
+  // which is also what stops a 4MB phone photo being stored as-is.
   setupImgInput(
     "visionImgInput",
     "visionImgPreview",
     "visionImgPlaceholder",
     (b64) => {
-      visionImageData = b64;
+      vmCropData = b64;
+      openCropModal("vm:vision:single");
     },
   );
   setupImgInput(
@@ -320,7 +331,8 @@ function bindEvents() {
     "missionImgPreview",
     "missionImgPlaceholder",
     (b64) => {
-      missionImageData = b64;
+      vmCropData = b64;
+      openCropModal("vm:mission:single");
     },
   );
   setupImgInput(
@@ -335,12 +347,14 @@ function bindEvents() {
 
   // Gallery pickers. These bypass setupImgInput() on purpose: it stores the raw
   // FileReader result, and a gallery of ten untouched phone photos would be
-  // downloaded by every visitor on their first page load.
+  // downloaded by every visitor on their first page load. Every pick goes to the
+  // fitter instead, which is what fixes the size *and* lets the operator choose
+  // what stays in frame; the fitter's Apply is what saves the deck.
   Object.keys(GALLERIES).forEach(function (kind) {
     const conf = GALLERIES[kind];
     const input = document.getElementById(conf.input);
     if (!input) return;
-    input.addEventListener("change", async function () {
+    input.addEventListener("change", function () {
       const file = this.files && this.files[0];
       this.value = "";
       if (!file) return;
@@ -353,31 +367,20 @@ function bindEvents() {
       const target = galleryUploadTarget || { kind: kind, index: null };
       galleryUploadTarget = null;
       const isAppend = target.index === null || target.index === undefined;
-      try {
-        const src = await downscaleToDataUrl(
-          file,
-          conf.width,
-          conf.height,
-          0.78,
-        );
-        const next = galleryData[kind].slice();
-        if (isAppend) {
-          if (next.length >= GALLERY_MAX) return;
-          next.push(src);
-        } else {
-          next[target.index] = src;
-        }
-        await saveGallery(
-          kind,
-          next,
-          isAppend ? "Photo added to the deck." : "Photo replaced.",
-        );
-      } catch {
+      if (isAppend && galleryData[target.kind].length >= GALLERY_MAX) return;
+      const reader = new FileReader();
+      reader.onerror = () =>
         window.showAdminPopup(
-          "That image could not be processed. Try a different file.",
+          "That image could not be read. Try a different file.",
           { title: "Upload failed" },
         );
-      }
+      reader.onload = (e) => {
+        vmCropData = e.target.result;
+        openCropModal(
+          "vm:" + target.kind + ":" + (isAppend ? "add" : target.index),
+        );
+      };
+      reader.readAsDataURL(file);
     });
   });
 
@@ -419,6 +422,9 @@ function bindEvents() {
   document
     .getElementById("btnFitCrop")
     ?.addEventListener("click", fitCropToCircle);
+  document
+    .getElementById("btnFillCrop")
+    ?.addEventListener("click", fillCropToFrame);
 
   // Shared grid file input: "+ Upload SDG" (new) and "Replace" (existing).
   document
@@ -931,24 +937,38 @@ function setImgPreview(previewId, placeholderId, src) {
   const preview = document.getElementById(previewId);
   const placeholder = document.getElementById(placeholderId);
   const removeBtn = document.getElementById(previewId + "RemoveBtn");
+  // Only the Vision/Mission photos have a re-fit button; it rides the same
+  // show/hide as Remove because both only make sense once a photo is there.
+  const fitBtn = document.getElementById(previewId + "FitBtn");
   if (preview) {
     preview.src = src;
     preview.classList.add("visible");
   }
   if (placeholder) placeholder.classList.add("hidden");
   if (removeBtn) removeBtn.style.display = "inline-flex";
+  if (fitBtn) fitBtn.style.display = "inline-flex";
 }
 
 function resetImgPreview(previewId, placeholderId) {
   const preview = document.getElementById(previewId);
   const placeholder = document.getElementById(placeholderId);
   const removeBtn = document.getElementById(previewId + "RemoveBtn");
+  const fitBtn = document.getElementById(previewId + "FitBtn");
   if (preview) {
     preview.src = "";
     preview.classList.remove("visible");
   }
   if (placeholder) placeholder.classList.remove("hidden");
   if (removeBtn) removeBtn.style.display = "none";
+  if (fitBtn) fitBtn.style.display = "none";
+}
+
+/** Re-frame the stored fallback photo without picking the file again. */
+function adjustSingleFit(kind) {
+  const src = kind === "mission" ? missionImageData : visionImageData;
+  if (!src) return;
+  vmCropData = src;
+  openCropModal("vm:" + kind + ":single");
 }
 
 function clearImage(target) {
@@ -980,6 +1000,63 @@ function cropLogoSlot(target) {
   return isLogoCrop(target) ? target.slice(5) : null;
 }
 
+function isVmCrop(target) {
+  return typeof target === "string" && target.startsWith("vm:");
+}
+
+/**
+ * `vm:<kind>:<slot>` → what the fitter should do once the operator hits Apply.
+ * `single` is the one photo the section falls back to when its deck is empty,
+ * `add` appends to the deck, and a number replaces that deck slot in place.
+ */
+function cropVmParts(target) {
+  if (!isVmCrop(target)) return null;
+  const bits = String(target).split(":");
+  const kind = bits[1] === "mission" ? "mission" : "vision";
+  const slot = bits[2] || "single";
+  if (slot === "single") return { kind, mode: "single", index: null };
+  if (slot === "add") return { kind, mode: "add", index: null };
+  return { kind, mode: "index", index: Number(slot) };
+}
+
+/** Move slider, readout and crop state to one scale, clamped to the slider. */
+function setCropScale(pct) {
+  const slider = document.getElementById("cropScale");
+  const min = slider ? Number(slider.min) || 50 : 50;
+  const max = slider ? Number(slider.max) || 300 : 300;
+  cropScale = Math.min(max, Math.max(min, Math.round(pct)));
+  if (slider) slider.value = cropScale;
+  const out = document.getElementById("cropScaleVal");
+  if (out) out.textContent = cropScale + "%";
+}
+
+/**
+ * The scale at which the photo just covers the frame — the sensible start state,
+ * and the one that reproduces what the gallery used to store automatically. The
+ * preview img is capped at 100% of the frame, so scale 100 is "whole photo
+ * visible" and anything above it crops.
+ */
+function vmFrameCoverScale(conf) {
+  const imgEl = document.getElementById("cropImg");
+  const wrapper = document.getElementById("cropCircle");
+  if (!imgEl || !wrapper) return 100;
+  const fw = wrapper.clientWidth || conf.width;
+  const fh = wrapper.clientHeight || conf.height;
+  const iw = imgEl.offsetWidth || imgEl.naturalWidth || fw;
+  const ih = imgEl.offsetHeight || imgEl.naturalHeight || fh;
+  if (!iw || !ih) return 100;
+  return Math.max(100, Math.round(Math.max(fw / iw, fh / ih) * 100));
+}
+
+/** Cover the frame, and give the slider room to go further than 300%. */
+function vmApplyCoverDefault(conf) {
+  const slider = document.getElementById("cropScale");
+  vmCoverScale = vmFrameCoverScale(conf);
+  if (slider) slider.max = String(Math.max(300, vmCoverScale + 200));
+  setCropScale(vmCoverScale);
+  applyCropTransform();
+}
+
 function openCropModal(target) {
   cropTarget = target;
   cropOffsetX = 0;
@@ -993,25 +1070,40 @@ function openCropModal(target) {
 
   const sdg = isSdgCrop(target);
   const logo = isLogoCrop(target);
+  const vm = cropVmParts(target);
   const conf = logo ? logoConf(cropLogoSlot(target)) : null;
-  const src = sdg ? sdgImageData : logo ? logoCropData : heroBgImageData;
+  const vmConf = vm ? GALLERIES[vm.kind] : null;
+  const src = sdg
+    ? sdgImageData
+    : logo
+      ? logoCropData
+      : vm
+        ? vmCropData
+        : heroBgImageData;
   const imgEl = document.getElementById("cropImg");
   const circle = document.getElementById("cropCircle");
   const fitBtn = document.getElementById("btnFitCrop");
+  const fillBtn = document.getElementById("btnFillCrop");
+  const scaleInput = document.getElementById("cropScale");
 
   // SDG badges and brand logos must fit *entirely* inside the holder, so the
   // preview is constrained to the wrapper: at 100% the browser letterboxes the
   // image instead of drawing it at natural size (which center-crops big
-  // uploads). The hero background path keeps its unconstrained behaviour.
-  if (sdg || logo) {
+  // uploads). Vision/Mission photos want the same constraint for the opposite
+  // reason — it makes 100% mean "whole photo", so "Fit whole photo" and "Fill
+  // frame" are two ends of one slider. The hero background path keeps its
+  // unconstrained behaviour.
+  if (sdg || logo || vm) {
     imgEl.style.maxWidth = "100%";
     imgEl.style.maxHeight = "100%";
-    circle?.classList.add("is-transparent");
+    circle?.classList.toggle("is-transparent", !vm);
     if (fitBtn) {
       fitBtn.style.display = "inline-flex";
       // The button label names the holder the artwork snaps back into.
       const shapeWord = conf && conf.shape === "square" ? "square" : "circle";
-      fitBtn.innerHTML = `<i class="fa-solid fa-compress"></i> Fit to ${shapeWord}`;
+      fitBtn.innerHTML = vm
+        ? '<i class="fa-solid fa-compress"></i> Fit whole photo'
+        : `<i class="fa-solid fa-compress"></i> Fit to ${shapeWord}`;
     }
   } else {
     imgEl.style.maxWidth = "";
@@ -1019,26 +1111,44 @@ function openCropModal(target) {
     circle?.classList.remove("is-transparent");
     if (fitBtn) fitBtn.style.display = "none";
   }
+  // "Fill frame" only means something where the frame has a shape to fill.
+  if (fillBtn) fillBtn.style.display = vm ? "inline-flex" : "none";
+  // Photos routinely need more than 300% to cover a tall frame; that ceiling is
+  // raised per-photo once its size is known (vmApplyCoverDefault).
+  if (scaleInput && !vm) scaleInput.max = "300";
 
   // The navbar emblem sits in a square holder on the live site, so its editor
-  // shows a square too — the frame has to match what the visitor will see.
+  // shows a square too — the frame has to match what the visitor will see. Same
+  // rule for the two home-page decks: Vision is a 16:10 card, Mission is the
+  // organic blob, and the frame here is that exact silhouette.
   circle?.classList.toggle("is-square", !!conf && conf.shape === "square");
+  circle?.classList.toggle("is-wide-frame", !!vm && vm.kind === "vision");
+  circle?.classList.toggle("is-blob-frame", !!vm && vm.kind === "mission");
 
+  // Covering the frame is the start state, worked out from the photo's own size,
+  // so it can only be measured once the browser has laid the image out.
+  imgEl.onload = vmConf ? () => vmApplyCoverDefault(vmConf) : null;
   imgEl.src = src;
   cropImgNaturalSrc = src;
+  if (vmConf && imgEl.complete && imgEl.naturalWidth) {
+    setTimeout(() => vmApplyCoverDefault(vmConf), 0);
+  }
 
   const title = sdg
     ? "Fit SDG in Circle"
-    : conf
-      ? `Fit ${conf.label} in ${conf.shape === "square" ? "Square" : "Circle"}`
-      : "Adjust Background Image";
+    : vmConf
+      ? `Fit ${vmConf.label} Photo`
+      : conf
+        ? `Fit ${conf.label} in ${conf.shape === "square" ? "Square" : "Circle"}`
+        : "Adjust Background Image";
   document.getElementById("cropModalTitle").textContent = title;
 
   const hintEl = document.getElementById("cropModalHint");
   if (hintEl) {
     const holder = conf && conf.shape === "square" ? "square" : "circle";
-    hintEl.textContent =
-      sdg || logo
+    hintEl.textContent = vmConf
+      ? "The frame is the exact shape the home page draws. Drag the photo to choose what stays in view, then resize and rotate."
+      : sdg || logo
         ? `Drag the image to position it within the ${holder}. Use the sliders to resize and rotate.`
         : "Drag the image to position it. Use the sliders to resize and rotate.";
   }
@@ -1051,17 +1161,44 @@ function openCropModal(target) {
 function fitCropToCircle() {
   cropOffsetX = 0;
   cropOffsetY = 0;
-  cropScale = 100;
   cropRotate = 0;
-  document.getElementById("cropScale").value = 100;
-  document.getElementById("cropScaleVal").textContent = "100%";
   document.getElementById("cropRotate").value = 0;
   document.getElementById("cropRotateVal").textContent = "0°";
+  setCropScale(100);
   applyCropTransform();
+}
+
+/** The other end of the same slider: photo covers the frame, nothing letterboxed. */
+function fillCropToFrame() {
+  cropOffsetX = 0;
+  cropOffsetY = 0;
+  cropRotate = 0;
+  document.getElementById("cropRotate").value = 0;
+  document.getElementById("cropRotateVal").textContent = "0°";
+  setCropScale(vmCoverScale);
+  applyCropTransform();
+}
+
+/**
+ * setupImgInput() paints the preview *before* it hands the photo to the fitter, so
+ * a cancelled fit would leave the raw upload on screen while the stored value is
+ * still the old photo. Repaint from state, whatever that state now is.
+ */
+function restoreVmSinglePreview(kind) {
+  const prefix = kind === "mission" ? "mission" : "vision";
+  const data = prefix === "mission" ? missionImageData : visionImageData;
+  if (data) {
+    setImgPreview(prefix + "ImgPreview", prefix + "ImgPlaceholder", data);
+  } else {
+    resetImgPreview(prefix + "ImgPreview", prefix + "ImgPlaceholder");
+  }
 }
 
 function closeCropModal() {
   document.getElementById("cropModal").classList.remove("show");
+  const vm = cropVmParts(cropTarget);
+  if (vm && vm.mode === "single") restoreVmSinglePreview(vm.kind);
+  vmCropData = null;
 }
 
 function applyCropTransform() {
@@ -1076,6 +1213,10 @@ function applyCropAndSave() {
   }
   if (isLogoCrop(cropTarget)) {
     applyLogoCropAndSave();
+    return;
+  }
+  if (isVmCrop(cropTarget)) {
+    applyVmCropAndSave();
     return;
   }
   // Capture rendered circle area via canvas
@@ -1111,6 +1252,93 @@ function applyCropAndSave() {
     heroBgImageData = canvas.toDataURL("image/jpeg", 0.9);
     setImgPreview("heroBgImgPreview", "heroBgImgPlaceholder", heroBgImageData);
     closeCropModal();
+  };
+  tmpImg.src = cropImgNaturalSrc;
+}
+
+/**
+ * Vision/Mission photo fit. Same recomposed-from-state maths as the logo path — a
+ * getBoundingClientRect() delta already carries the CSS transform, so it would
+ * double-count scale and rotation. Three differences: the output size is the
+ * deck's own pixel size from GALLERIES, which is also why the preview frame's
+ * aspect ratio has to equal the output's (one uniform frame→canvas `k`); the
+ * canvas starts on a white matte because JPEG has no alpha; and the Mission blob
+ * is *not* baked in — the live site cuts that silhouette in CSS, so the file
+ * stays a full rectangle and stays reusable if the shape ever changes.
+ */
+function applyVmCropAndSave() {
+  const vm = cropVmParts(cropTarget);
+  const conf = vm ? GALLERIES[vm.kind] : null;
+  if (!vm || !conf) return;
+
+  const imgEl = document.getElementById("cropImg");
+  const wrapper = document.getElementById("cropCircle");
+  const outW = conf.width;
+  const outH = conf.height;
+  const D = wrapper?.clientWidth || 214; // frame content box
+  const k = outW / D;
+  const dispW = imgEl.offsetWidth || imgEl.naturalWidth || D;
+  const dispH = imgEl.offsetHeight || imgEl.naturalHeight || D;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = outW;
+  canvas.height = outH;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, outW, outH);
+
+  const tmpImg = new Image();
+  tmpImg.onload = () => {
+    ctx.save();
+    // Mirrors the CSS order: translate(...) scale(...) rotate(...).
+    ctx.translate(outW / 2 + cropOffsetX * k, outH / 2 + cropOffsetY * k);
+    ctx.scale(cropScale / 100, cropScale / 100);
+    ctx.rotate((cropRotate * Math.PI) / 180);
+    ctx.drawImage(
+      tmpImg,
+      (-dispW * k) / 2,
+      (-dispH * k) / 2,
+      dispW * k,
+      dispH * k,
+    );
+    ctx.restore();
+
+    const fitted = canvas.toDataURL("image/jpeg", 0.82);
+    if (vm.mode === "single") {
+      // The fallback photo is part of the page form, exactly like the hero
+      // background: it lands in state and in the preview, and Save Changes is
+      // what writes it. Deck slots are their own settings key and save at once.
+      if (vm.kind === "mission") missionImageData = fitted;
+      else visionImageData = fitted;
+      setImgPreview(
+        vm.kind + "ImgPreview",
+        vm.kind + "ImgPlaceholder",
+        fitted,
+      );
+      closeCropModal();
+      return;
+    }
+
+    const next = galleryData[vm.kind].slice();
+    if (vm.mode === "add") {
+      if (next.length >= GALLERY_MAX) {
+        closeCropModal();
+        return;
+      }
+      next.push(fitted);
+    } else {
+      if (vm.index < 0 || vm.index >= next.length) {
+        closeCropModal();
+        return;
+      }
+      next[vm.index] = fitted;
+    }
+    closeCropModal();
+    saveGallery(
+      vm.kind,
+      next,
+      vm.mode === "add" ? "Photo added to the deck." : "Photo replaced.",
+    );
   };
   tmpImg.src = cropImgNaturalSrc;
 }
@@ -1347,7 +1575,8 @@ function broadcastSiteUpdate(type) {
    Two consequences of base64-in-a-setting, both handled here rather than on the
    server:
 
-   * Every upload is downscaled before it is stored. The customer page polls
+   * Every upload goes through the fit modal before it is stored, which is what
+     holds it to the deck's own pixel size. The customer page polls
      /api/site-settings, so an untouched 4MB phone photo would be paid for on
      every visitor's first load. Fixed output sizes hold a full pair of galleries
      to roughly 2.5MB worst case.
@@ -1364,9 +1593,9 @@ const GALLERIES = {
     input: "visionGalleryInput",
     meter: "visionGalleryMeter",
     // 16:10 and 1:1 are the ratios `.vision-img` and the mission blob already
-    // use on the customer page, so the downscale crops exactly what the deck
-    // would have cropped anyway. `shape` makes the editor thumb match, so what
-    // is previewed here is what the visitor sees.
+    // use on the customer page, so the fit modal frames exactly what the deck
+    // will show. `shape` makes the editor thumb match too, so what is previewed
+    // here is what the visitor sees.
     width: 1000,
     height: 625,
     shape: "is-wide",
@@ -1417,54 +1646,6 @@ function loadGalleries() {
   });
 }
 
-/**
- * Centre-crop a picked file to a fixed output size and hand back a JPEG data
- * URL. Same idiom as applyLogoCropAndSave(): an offscreen canvas at a known
- * size, drawn through a computed transform, read back with toDataURL.
- * Deliberately not setupImgInput(), which stores the raw FileReader result at
- * whatever size the camera produced.
- */
-function downscaleToDataUrl(file, outW, outH, quality) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("read failed"));
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onerror = () => reject(new Error("decode failed"));
-      img.onload = () => {
-        const sw = img.naturalWidth || img.width;
-        const sh = img.naturalHeight || img.height;
-        if (!sw || !sh) {
-          reject(new Error("empty image"));
-          return;
-        }
-        const canvas = document.createElement("canvas");
-        canvas.width = outW;
-        canvas.height = outH;
-        const ctx = canvas.getContext("2d");
-        // White underneath: a transparent PNG flattened into a JPEG would
-        // otherwise come out with black wherever it was see-through.
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, outW, outH);
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
-        // `cover`: fill the frame, crop the overflow, keep the centre.
-        const scale = Math.max(outW / sw, outH / sh);
-        const dw = sw * scale;
-        const dh = sh * scale;
-        ctx.drawImage(img, (outW - dw) / 2, (outH - dh) / 2, dw, dh);
-        try {
-          resolve(canvas.toDataURL("image/jpeg", quality));
-        } catch (err) {
-          reject(err);
-        }
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
 /* The grid markup is the SDG grid's, class for class, so this section needs no
    admin CSS of its own beyond the handful of `wm-gal-*` shape overrides that
    turn a round badge thumb into a photo thumb. */
@@ -1483,6 +1664,7 @@ function renderGallerySlots(kind) {
       <div class="wm-sdg-actions">
         <button class="btn-edit-sm wm-sdg-move" title="Move earlier" onclick="moveGalleryImage('${kind}', ${i}, -1)" ${i === 0 ? "disabled" : ""}><i class="fa-solid fa-arrow-left"></i></button>
         <button class="btn-edit-sm wm-sdg-move" title="Move later" onclick="moveGalleryImage('${kind}', ${i}, 1)" ${i === list.length - 1 ? "disabled" : ""}><i class="fa-solid fa-arrow-right"></i></button>
+        <button class="btn-edit-sm wm-sdg-move" title="Adjust how this photo sits in the frame" onclick="adjustGalleryFit('${kind}', ${i})"><i class="fa-solid fa-crop-simple"></i></button>
         <button class="btn-edit-sm wm-sdg-move" title="Replace this photo" onclick="openGalleryUpload('${kind}', ${i})"><i class="fa-regular fa-image"></i></button>
         <button class="btn-del-sm" onclick="removeGalleryImage('${kind}', ${i})"><i class="fa-solid fa-trash"></i> Remove</button>
       </div>
@@ -1545,6 +1727,20 @@ function openGalleryUpload(kind, index) {
   if (!input) return;
   input.value = "";
   input.click();
+}
+
+/**
+ * Re-frame a photo that is already in the deck. The stored JPEG is the source, so
+ * this is a second pass over an already-fitted image rather than over the
+ * original upload — good enough to nudge the framing, and it means a saved deck
+ * can be corrected without hunting for the file again.
+ */
+function adjustGalleryFit(kind, index) {
+  const src = galleryData[kind] && galleryData[kind][index];
+  if (!src) return;
+  galleryUploadTarget = null;
+  vmCropData = src;
+  openCropModal("vm:" + kind + ":" + index);
 }
 
 /* Order is the deck order: photo 1 is the card the visitor sees on top. */

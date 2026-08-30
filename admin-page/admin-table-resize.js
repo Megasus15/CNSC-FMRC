@@ -5,20 +5,29 @@
    touches data, requests, polling, auth or any renderer's state, and it holds
    no reference to anything but the <table> elements already on the page.
 
-   What it does, on phones only:
+   What it does, at every width:
      - freezes each table to `table-layout: fixed` with an explicit width per
-       column, clamped to [64, 200]px, so a long value can no longer stretch its
-       column and leave the short ones swimming in gaps (10.6d clips the
-       overflow with an ellipsis);
-     - pins the Action column at exactly 96px — the two-icons-per-line contract
-       from 10.6b — and the checkbox column at 40px;
+       column, so a long value can no longer stretch its column and leave the
+       short ones swimming in gaps (10.6d clips the overflow with an ellipsis);
+     - starts every data column at its *measured* natural width, so the instant
+       of freezing looks exactly like the page did a moment earlier, and clamps
+       every later width into the band's [min, max];
+     - keeps the Action and checkbox columns out of the operator's hands: on a
+       phone they are the 96px/40px contracts from 10.6b, on a desktop the
+       Action column keeps whatever width the page declared for it;
      - puts a 12px drag handle on the left and right edge of every data column's
        header. Dragging either edge resizes that one column, Excel-style; the
-       neighbours never move. Double-tapping a handle auto-fits the column;
-     - remembers the widths per page + table in `localStorage`.
+       neighbours never move. Double-clicking (or double-tapping) auto-fits it;
+     - remembers the widths per page + table + band in `localStorage`.
 
-   Above the phone band it does nothing at all, and `teardown()` restores the
-   table to exactly its pre-module rendering, so desktop is untouched.
+   Two bands, because a finger and a mouse do not want the same numbers, and a
+   200px phone width restored onto a 1440px layout would be a bug rather than a
+   preference — see PROFILES. Rotating a tablet across the band boundary
+   re-measures rather than carrying the old band's widths over.
+
+   `teardown()` restores every table to exactly its pre-module rendering, which
+   is also what makes printing safe: the widths here are inline, and an inline
+   style outranks `@media print` unless the print rule shouts. See onBeforePrint.
    ========================================================================== */
 (function () {
   "use strict";
@@ -31,10 +40,19 @@
   const PHONE_QUERY =
     "(max-width: 720px), (orientation: landscape) and (max-height: 520px) and (max-width: 1024px)";
 
-  const MIN_WIDTH = 64;
-  const MAX_WIDTH = 200;
-  const ACTION_WIDTH = 96;
-  const SELECT_WIDTH = 40;
+  /* Per-band numbers. `min`/`max` are the drag clamp — the "default width and a
+     maximum width" of the ask, the default being each column's own measured
+     width. `action: null` means "do not pin it, measure the width the page
+     declared and only clamp that", which is how #appointmentsTable's 158px and
+     .accounts-table's 130px survive on a desktop instead of being squeezed into
+     the phone band's 96px two-icon contract. `name` goes in the storage key. */
+  const PROFILES = {
+    phone: { name: "phone", min: 64, max: 200, action: 96, select: 40 },
+    desktop: { name: "desktop", min: 80, max: 420, action: null, select: 44 },
+  };
+  const ACTION_MIN = 120;
+  const ACTION_MAX = 260;
+
   const READY_CLASS = "atr-ready";
   const STORE_PREFIX = "fmrc.colw.";
   const SIG_DEBOUNCE = 120;
@@ -45,13 +63,15 @@
   const states = new Map();
   const handleStates = new WeakMap();
 
+  let LIM = PROFILES.desktop;
   let media = null;
   let domObserver = null;
   let scanTimer = null;
   let drag = null;
+  let printing = false;
 
   const clampWidth = (px) =>
-    !isFinite(px) ? MIN_WIDTH : Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, Math.round(px)));
+    !isFinite(px) ? LIM.min : Math.max(LIM.min, Math.min(LIM.max, Math.round(px)));
 
   /* `getClientRects()` is the only reliable "is this cell in the layout" test
      here: both bulk mechanisms hide their checkbox column with `display: none`
@@ -99,8 +119,12 @@
      keeps its own remembered widths instead of invalidating the normal ones. */
   const signature = (cells) => cells.map((cell) => kindOf(cell).charAt(0)).join("");
 
+  /* The band is part of the key on purpose: the two profiles clamp to different
+     ceilings, so a 200px phone width restored onto a desktop layout would look
+     like a bug. Keys written before the band was added simply never match again
+     and the column re-measures. */
   const storageKey = (state) =>
-    `${STORE_PREFIX}${location.pathname}#${state.table.id || state.index}:${state.sig}`;
+    `${STORE_PREFIX}${location.pathname}#${state.table.id || state.index}:${state.sig}:${LIM.name}`;
 
   const readStored = (state) => {
     try {
@@ -132,9 +156,11 @@
   };
 
   /* Hand any leftover space to the data columns, proportionally, and never past
-     the 200px cap. With two or more data columns on a phone there is no leftover
-     space at all (2 x 200 + 96 already exceeds a 320px screen), so this only
-     ever fires on the very narrow tables. */
+     the band's cap. With two or more data columns on a phone there is no leftover
+     space at all (2 x 200 + 96 already exceeds a 320px screen), so on a phone this
+     only ever fires on the very narrow tables. On a desktop it is the rule rather
+     than the exception: it is what keeps a short table filling its card the way
+     `width: 100%` used to. */
   const fillSlack = (widths, kinds, avail) => {
     let sum = widths.reduce((a, b) => a + b, 0);
     if (!avail || sum >= avail) return widths.map((w) => Math.round(w));
@@ -142,25 +168,26 @@
     let slack = avail - sum;
     let growable = widths
       .map((w, i) => i)
-      .filter((i) => kinds[i] === "data" && widths[i] < MAX_WIDTH);
+      .filter((i) => kinds[i] === "data" && widths[i] < LIM.max);
 
     for (let pass = 0; pass < 8 && slack >= 1 && growable.length; pass += 1) {
       const share = slack / growable.length;
       const next = [];
       growable.forEach((i) => {
-        const add = Math.min(MAX_WIDTH - widths[i], share);
+        const add = Math.min(LIM.max - widths[i], share);
         widths[i] += add;
         slack -= add;
-        if (widths[i] < MAX_WIDTH - 0.5) next.push(i);
+        if (widths[i] < LIM.max - 0.5) next.push(i);
       });
       growable = next;
     }
-    /* Still slack: every data column already sits on the 200px cap and the table
+    /* Still slack: every data column already sits on the band's cap and the table
        would render narrower than its card — the white strip down the right-hand
-       side that `width: 100%` never had. It only happens near the top of the
-       phone band (three data columns cap at 600px inside a ~660px card at
-       720px wide). The cap is a *drag* clamp, so hand the remainder over anyway;
-       the first drag pulls that column back inside [64, 200]. */
+       side that `width: 100%` never had. It happens near the top of the phone band
+       (three data columns cap at 600px inside a ~660px card at 720px wide) and on
+       a wide desktop with few columns. The cap is a *drag* clamp, so hand the
+       remainder over anyway; the first drag pulls that column back inside the
+       band. */
     if (slack >= 1) {
       const data = widths.map((w, i) => i).filter((i) => kinds[i] === "data");
       if (data.length) {
@@ -173,20 +200,44 @@
     return widths.map((w) => Math.round(w));
   };
 
+  /* The default width is each column's own measured width, so the frame in which
+     the table freezes is indistinguishable from the frame before it. Only the
+     clamp and the two reserved column kinds change anything.
+
+     Remembered widths skip `fillSlack` entirely. Measured: with 1035px of stored
+     widths in a 1061px card the fill handed +2px to each of the seven data
+     columns, so a column double-clicked to 148px came back as 150px — the widths
+     "did not stick", and the drift grows with however much the operator narrowed.
+     A stored array is an expressed intent; a table left a little narrower than its
+     card is the honest consequence of it. */
   const resolveWidths = (state, stored) => {
     const natural = state.cells.map((cell) => cell.getBoundingClientRect().width);
     const widths = state.cells.map((cell, i) => {
-      if (state.kinds[i] === "action") return ACTION_WIDTH;
-      if (state.kinds[i] === "select") return SELECT_WIDTH;
+      if (state.kinds[i] === "action") {
+        return LIM.action === null
+          ? Math.max(ACTION_MIN, Math.min(ACTION_MAX, Math.round(natural[i])))
+          : LIM.action;
+      }
+      if (state.kinds[i] === "select") return LIM.select;
       return clampWidth(stored ? stored[i] : natural[i]);
     });
+    if (stored) return widths.map((w) => Math.round(w));
     return fillSlack(widths, state.kinds, hostWidth(state.table));
   };
 
   const applyWidths = (state) => {
     let total = 0;
     state.cells.forEach((cell, i) => {
-      cell.style.width = `${state.widths[i]}px`;
+      const px = `${state.widths[i]}px`;
+      cell.style.width = px;
+      /* All three, pinned to the same value: the desktop sheets put real
+         `min-width`/`max-width` on individual cells (`.sticky-action`'s 158px,
+         `.specification-cell`'s 160px), and under `table-layout: fixed` a
+         surviving cell-level floor re-expands the column the operator just
+         narrowed. Writing the chosen width into all three neutralises the pin
+         without having to outrank it. Cleared again on teardown. */
+      cell.style.minWidth = px;
+      cell.style.maxWidth = px;
       total += state.widths[i];
     });
     /* Inline, and all three properties, deliberately: the per-table floors and
@@ -308,19 +359,26 @@
   }
 
   /* Auto-fit: measure the column the way the browser would with no constraints
-     (`max-content` on the table, every explicit width dropped), then clamp back
-     into [64, 200]. `REFIT_GUARD_MS` stops the synthetic double-tap and a real
-     `dblclick` from both firing on the same gesture. */
+     (`max-content` on the table, every explicit width — and every neutralised
+     min/max pin — dropped), then clamp back into the band. `REFIT_GUARD_MS` stops
+     the synthetic double-tap and a real `dblclick` from both firing on the same
+     gesture. */
   function autoFit(state, idx) {
     const now = Date.now();
     if (!state.cells[idx] || now - (state.lastFit || 0) < REFIT_GUARD_MS) return;
     state.lastFit = now;
     state.applying = true;
     try {
-      const saved = state.cells.map((cell) => cell.style.width);
+      const saved = state.cells.map((cell) => [
+        cell.style.width,
+        cell.style.minWidth,
+        cell.style.maxWidth,
+      ]);
       const savedTableWidth = state.table.style.width;
       state.cells.forEach((cell) => {
         cell.style.width = "";
+        cell.style.minWidth = "";
+        cell.style.maxWidth = "";
       });
       state.table.classList.remove(READY_CLASS);
       state.table.style.tableLayout = "";
@@ -329,7 +387,9 @@
       state.table.classList.add(READY_CLASS);
       state.table.style.width = savedTableWidth;
       state.cells.forEach((cell, i) => {
-        cell.style.width = saved[i];
+        cell.style.width = saved[i][0];
+        cell.style.minWidth = saved[i][1];
+        cell.style.maxWidth = saved[i][2];
       });
       state.widths[idx] = clampWidth(natural);
       applyWidths(state);
@@ -431,6 +491,8 @@
     });
     state.cells.forEach((cell) => {
       cell.style.width = "";
+      cell.style.minWidth = "";
+      cell.style.maxWidth = "";
     });
     table.classList.remove(READY_CLASS);
     table.style.width = "";
@@ -440,7 +502,7 @@
   }
 
   const scan = () => {
-    if (!media || !media.matches) return;
+    if (printing) return;
     const tables = document.querySelectorAll(TABLES);
     tables.forEach((table, i) => {
       if (states.has(table)) return;
@@ -490,22 +552,51 @@
   };
 
   const refresh = () => {
-    if (!media || !media.matches) return;
+    if (printing) return;
     Array.from(states.keys()).forEach(unfreeze);
     scan();
   };
 
+  const applyProfile = () => {
+    LIM = media && media.matches ? PROFILES.phone : PROFILES.desktop;
+  };
+
+  /* Crossing the band boundary — rotating a tablet, dragging a desktop window
+     narrow — re-measures instead of carrying the old band's widths over, because
+     the two profiles clamp to different ceilings. */
   const onMediaChange = () => {
-    if (media.matches) init();
-    else teardown();
+    applyProfile();
+    refresh();
+  };
+
+  /* reports.html prints. Every width this module sets is *inline*, and an inline
+     style outranks an `@media print` rule unless that rule shouts `!important` —
+     so instead of fighting the cascade from two directions, hand the tables back
+     to the browser for the duration of the print and freeze them again after. The
+     `printing` flag is what stops the document observer's debounced scan from
+     re-freezing while the print dialog is still open. The matching `@media print`
+     block in admin-responsive.css is the belt to this braces. */
+  const onBeforePrint = () => {
+    printing = true;
+    teardown();
+  };
+
+  const onAfterPrint = () => {
+    printing = false;
+    init();
   };
 
   const boot = () => {
-    if (!window.matchMedia || !document.body) return;
-    media = window.matchMedia(PHONE_QUERY);
-    if (media.addEventListener) media.addEventListener("change", onMediaChange);
-    else if (media.addListener) media.addListener(onMediaChange);
-    if (media.matches) init();
+    if (!document.body) return;
+    if (window.matchMedia) {
+      media = window.matchMedia(PHONE_QUERY);
+      if (media.addEventListener) media.addEventListener("change", onMediaChange);
+      else if (media.addListener) media.addListener(onMediaChange);
+    }
+    applyProfile();
+    window.addEventListener("beforeprint", onBeforePrint);
+    window.addEventListener("afterprint", onAfterPrint);
+    init();
   };
 
   if (document.readyState === "loading") {
