@@ -7,20 +7,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const MOBILE_BREAKPOINT = 1024;
   const SIDEBAR_PREF_KEY = "adminSidebarMobileState";
   const DASHBOARD_REQUEST_TIMEOUT_MS = 15000;
-  /* How long the Refresh button is willing to wait for an in-flight sync to
-     settle BEFORE it issues its own. It used to reuse the 15s request timeout,
-     which is why the button felt dead: on a warm page it could sit on
-     "Refreshing..." for the full fifteen seconds without having asked the
-     server for anything yet. The wait is only a courtesy — if it expires,
-     syncDashboardData({ force: true }) hits the in-progress guard, sets
-     dashboardPendingForceSync, and the in-flight request's own `finally`
-     re-queues the forced sync. The refresh still lands; it just stops holding
-     the button hostage. */
-  const DASHBOARD_REFRESH_WAIT_MS = 1200;
-  /* The opposite problem: with a warm cache the whole sync finishes in under
-     100ms, so the spinner flashed and the button looked like it had done
-     nothing. A floor makes the work perceptible. */
-  const DASHBOARD_REFRESH_MIN_SPIN_MS = 450;
+  /* #dashboardRefreshBtn deliberately has NO handler here. It reloads the page
+     from `onclick="window.location.reload()"` in dashboard.html, the same as
+     Inventory, Accounts, Appointments, Products and Promotions. */
   const DASHBOARD_MIN_SYNC_GAP_MS = 2500;
   const DASHBOARD_EVENT_DEBOUNCE_MS = 300;
   const DASHBOARD_LIVE_POLL_MS = 30000;
@@ -538,7 +527,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const dashboardRecentInquiries = document.getElementById(
     "dashboardRecentInquiries",
   );
-  const dashboardRefreshBtn = document.getElementById("dashboardRefreshBtn");
 
   // Analytics overview elements
   const aovTopSelling = document.getElementById("aovTopSelling");
@@ -1448,55 +1436,6 @@ document.addEventListener("DOMContentLoaded", () => {
       scheduleDashboardLiveCounts(DASHBOARD_LIVE_POLL_MS - age);
     }
   });
-
-  if (dashboardRefreshBtn) {
-    dashboardRefreshBtn.addEventListener("click", async () => {
-      if (dashboardRefreshBtn.disabled) return;
-      const originalMarkup = dashboardRefreshBtn.innerHTML;
-      dashboardRefreshBtn.disabled = true;
-      dashboardRefreshBtn.setAttribute("aria-busy", "true");
-      dashboardRefreshBtn.innerHTML =
-        '<i class="fa-solid fa-arrows-rotate fa-spin" aria-hidden="true"></i><span>Refreshing...</span>';
-      try {
-        if (dashboardSyncController) dashboardSyncController.abort();
-        const waitStartedAt = Date.now();
-        while (
-          dashboardSyncInProgress &&
-          Date.now() - waitStartedAt < DASHBOARD_REFRESH_WAIT_MS
-        ) {
-          await new Promise((resolve) => window.setTimeout(resolve, 25));
-        }
-        window.clearTimeout(dashboardQueuedSyncTimer);
-        dashboardQueuedSyncTimer = null;
-        dashboardPendingForceSync = false;
-        await Promise.all([
-          syncDashboardData({ force: true, source: "manual" }),
-          syncDashboardLiveCounts({ force: true }),
-          new Promise((resolve) =>
-            window.setTimeout(resolve, DASHBOARD_REFRESH_MIN_SPIN_MS),
-          ),
-        ]);
-        window.showAdminSuccessNotification?.("Dashboard data refreshed.", {
-          title: "Up to date",
-        });
-      } catch (err) {
-        /* The abort a few lines up is ours, so it is not a failure worth
-           reporting. Anything else is, or the button goes back to being
-           indistinguishable from a dead one. */
-        if (err?.name !== "AbortError") {
-          window.showAdminPopup?.(
-            "Could not refresh the dashboard. Check your connection and try again.",
-            { title: "Refresh failed" },
-          );
-        }
-      } finally {
-        dashboardRefreshBtn.innerHTML = originalMarkup;
-        dashboardRefreshBtn.removeAttribute("aria-busy");
-        dashboardRefreshBtn.disabled = false;
-        scheduleDashboardLiveCounts();
-      }
-    });
-  }
 
   window.addEventListener("beforeunload", () => {
     if (dashboardQueuedSyncTimer) {

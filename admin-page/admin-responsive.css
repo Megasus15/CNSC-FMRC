@@ -283,10 +283,11 @@
 /* Step 9 widened this band's condition from `(max-width: 720px)` to the sheet's
    standing phone union (the same comma'd list §3.6's landscape twin at :3428
    already uses). Reason: a rotated iPhone is 852-932px wide, so every table
-   mechanic in 2.1-2.6 — released `nowrap`, the 40px action buttons, the
-   per-table floors, `--admin-ident-left` and the archives pins — used to switch
-   off the moment the phone turned sideways, and the frozen identity column went
-   with it. `max-height: 520px` + `max-width: 1024px` keeps every laptop out. */
+   mechanic in 2.1-2.6 — released `nowrap`, the 40px action buttons and the
+   per-table floors — used to switch off the moment the phone turned sideways.
+   `max-height: 520px` + `max-width: 1024px` keeps every laptop out.
+   Step 10.6a deleted the identity pins and `--admin-ident-left` that this
+   comment also used to list; only `.sticky-action` is frozen now. */
 @media (max-width: 720px),
   (orientation: landscape) and (max-height: 520px) and (max-width: 1024px) {
   /* ---- 2.1 Scroll containers ----------------------------------------------
@@ -366,49 +367,99 @@
     white-space: nowrap;
   }
 
-  /* ---- 2.3 Action column --------------------------------------------------
-     The fixed 158/178/130/128px action columns are wider than the icons need;
-     let the cluster wrap into a 2x2 grid and the column shrink to fit. */
+  /* ---- 2.3 Action column (rewritten in STEP 10.6b) ------------------------
+     The Action column is the ONLY frozen column in the back office after 10.6a,
+     so its width is now a hard contract rather than a convenience: 96px, with
+     the icons wrapping deterministically 2 per line.
+
+     `.action-icons` IS the `<td>` — admin-modules.css:2056 gives it
+     `display: table-cell` — so it cannot become a flex or grid container without
+     dropping out of the table's formatting context. The wrap therefore has to
+     come from ordinary inline-level flow, and the wrap point is made exact by
+     `font-size: 0` on the cell, which is what removes the whitespace text nodes
+     the row renderers emit between buttons. Each button restores its own
+     `font-size` for the FontAwesome glyph. `line-height: 0` removes the leading
+     without collapsing anything: an inline-block's line box is never shorter
+     than its margin box.
+     The explicit `display: table-cell` is also what beats archives.html:167,
+     which sets `display: flex` on `.action-icons` from a page `<style>`. */
   .admin-table .action-icons {
+    display: table-cell;
     white-space: normal;
+    text-align: center;
+    vertical-align: middle;
+    /* 3px, not 4: archives.html:193 puts a 1px `border-left` on every
+       `td.sticky-action`, and with `box-sizing: border-box` that leaves 87px of
+       content inside the 96px cell -- one pixel short of the two 44px margin
+       boxes, which pushed all seven archive tables to one icon per line
+       (measured 96x189 for a 4-icon cell at 320). 3px a side leaves 89px there
+       and 90px on every other table; three buttons need 132px either way, so
+       the 2-per-line wrap stays deterministic. */
+    padding: 6px 3px;
+    font-size: 0;
+    line-height: 0;
   }
-  /* 40px tap targets, two per row. `:is(#id, .admin-table)` is (1,1,1) so it
+
+  /* 40px tap targets, two per line. `:is(#id, .admin-table)` is (1,1,1) so it
      ties — and then beats by load order — the two baseline ID chains that set
-     wider margins: admin-modules.css:263 and :1582. */
+     wider margins: admin-modules.css:263 and :1582.
+     `margin: 2px` on all four sides (not the old right/bottom pair) so a 2x2
+     cluster is optically centred inside the 88px content box. */
   :is(#appointmentsTable, #returnsRefundsTable, .admin-table)
     .action-icons
     button {
     width: 40px;
     height: 40px;
-    margin-right: 4px;
-    margin-bottom: 4px;
+    margin: 2px;
+    font-size: 0.9rem;
+    line-height: 1;
+    vertical-align: middle;
   }
 
-  /* Inner flex clusters (customer-inquiries.html:135, ratings.html:105). */
+  /* Inner flex clusters (customer-inquiries.html:135, ratings.html:105). These
+     two are real elements inside the cell, so they CAN be a grid — two fixed
+     40px tracks, centred, which is the same geometry the inline-flow cells
+     resolve to. `font-size` is restored here because the cell zeroed it. */
   .inquiry-table-actions,
   .ratings-table-actions {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, 40px);
+    justify-content: center;
+    align-content: center;
     gap: 4px;
+    font-size: 0.9rem;
+    line-height: 1;
   }
 
   .inquiry-table-actions .btn-compact,
   .ratings-table-actions .btn-compact {
     width: 40px;
     height: 40px;
+    min-width: 0;
+    margin: 0;
+    font-size: 0.9rem;
   }
 
-  /* One predictable action-column width everywhere: 2 x 40px + 4px gap + the
-     14px cell padding = 98px. `:is()` resolves to (1,1,0), which ties and
-     wins over #appointmentsTable/:253, #walkInOrdersTable/:1536,
-     #returnsRefundsTable/:1563 and its own <=600 band at :2018. */
+  /* The 96px contract. 96 - 6px of cell padding (- 1px of border on archives)
+     leaves 89-90px of content, and two 40px buttons with 2px margins a side are
+     88px — so two fit on a line and three (132px) never do. That is what makes
+     the wrap deterministic rather than width-dependent: inventory's 4 icons form
+     a 2x2 square, appointments' 3 go 2 + 1, and the 2-icon tables sit on one
+     line.
+     `:is()` resolves to (1,1,0), which ties and wins over
+     #appointmentsTable/:253, #walkInOrdersTable/:1536, #returnsRefundsTable/:1563
+     and its own <=600 band at :2018. `.inventory-table` and `.enhanced-table`
+     are named as well so the module's 96px `<col>` cannot disagree with the CSS
+     on any table. */
   :is(
       #appointmentsTable, #walkInOrdersTable, #returnsRefundsTable,
-      #productTable, .accounts-table, .admin-table
+      #productTable, .accounts-table, .inventory-table, .enhanced-table,
+      .admin-table
     )
     .sticky-action {
-    min-width: 100px;
-    width: 100px;
-    max-width: 100px;
+    min-width: 96px;
+    width: 96px;
+    max-width: 96px;
   }
 
   /* ---- 2.4 Every table scrolls (Step 9 reversal of the old FIT split) -----
@@ -481,32 +532,13 @@
 
   /* ---- 2.6 SCROLL tables: archives + report data --------------------------
      No row detail modal exists, so every column has to stay reachable. They
-     keep a horizontal scroll INSIDE the card (never the page) and pin the
-     identity column against the already-sticky Action column, so a sideways
-     swipe can never lose which row is which.
+     keep a horizontal scroll INSIDE the card (never the page).
 
-     `--admin-ident-left` steps the identity column aside by exactly the 40px
-     the checkbox column takes when bulk mode is on (admin-modules.css:468). */
-  .admin-table {
-    --admin-ident-left: 0px;
-  }
-
-  .admin-table.is-bulk-selecting {
-    --admin-ident-left: 40px;
-  }
-
-  /* The inventory tables run their own selection mechanism: `.inv-select-cell`
-     instead of `.admin-bulk-select-cell` (admin-modules.css:383) and
-     `.is-selecting` instead of `.is-bulk-selecting` (inventory.js:908), because
-     they predate admin-common.js's shared bulk bar. Both names therefore need
-     their own arm, or the step-aside above silently does not happen: measured at
-     390 with selection mode on, the 40px checkbox column was visible and
-     unpinned while the frozen Item Name column still sat at `left: 0`, so a
-     sideways swipe slid the frozen column straight over the checkboxes. (0,2,0)
-     beats the `.admin-table` declaration above. */
-  .inventory-table.is-selecting {
-    --admin-ident-left: 40px;
-  }
+     STEP 10.6a deleted the `--admin-ident-left` custom property that used to
+     live here (0px, 40px under `.is-bulk-selecting`, 40px under
+     `.inventory-table.is-selecting`). It existed only to step a pinned identity
+     column aside by the width of the checkbox column; with no pinned identity
+     column anywhere, all three declarations were dead. */
   /* Phone-sane floors: ~80px per surviving column instead of the inherited
      1080px, so the in-card scroll is short rather than absent. */
   #promotionArchiveTable,
@@ -556,66 +588,17 @@
     background: #f8fafc;
   }
 
-  /* Identity column pinned left, opposite the sticky Action column. z-index
-     stays below the Action column's 10/11 (archives.html:189) so the two
-     never fight; the header cell sits above its own body cells. */
+  /* STEP 10.6a — the archives identity pins, their header twins and the archives
+     bulk-checkbox pins are all gone. Only `.sticky-action` is frozen now (its
+     rules live in archives.html's own <style>, :187-198, and are untouched). The
+     112px identity floor is kept below so the column still reads on its own. */
   :is(
       #appointmentArchiveTable, #orderArchiveTable, #returnArchiveTable,
       #ratingArchiveTable, #promotionArchiveTable, #announcementArchiveTable
     )
     :is(th, td):nth-child(2),
-  #inventoryArchiveTable :is(th, td):nth-child(3),
-  #reportDataTable :is(th, td):nth-child(1) {
-    position: sticky;
-    left: var(--admin-ident-left);
-    z-index: 5;
+  #inventoryArchiveTable :is(th, td):nth-child(3) {
     min-width: 112px;
-    background: #fff;
-    box-shadow: 1px 0 0 #e3e9f0;
-  }
-  /* Header cells of the pinned column keep the row fill, not the body fill. */
-  :is(
-      #appointmentArchiveTable, #orderArchiveTable, #returnArchiveTable,
-      #ratingArchiveTable, #promotionArchiveTable, #announcementArchiveTable
-    )
-    thead th:nth-child(2),
-  #inventoryArchiveTable thead th:nth-child(3) {
-    background: #f8fafc;
-    z-index: 6;
-  }
-
-  #reportDataTable thead th:nth-child(1) {
-    background: #fafbfc;
-    z-index: 6;
-  }
-
-  /* When bulk mode turns the checkbox column on, it pins ahead of the identity
-     column (which has already stepped aside via --admin-ident-left). The rule
-     is inert while the cell is `display: none` (admin-modules.css:464). */
-  :is(
-      #inventoryArchiveTable, #appointmentArchiveTable, #orderArchiveTable,
-      #returnArchiveTable, #ratingArchiveTable, #promotionArchiveTable,
-      #announcementArchiveTable
-    )
-    thead
-    .admin-bulk-select-cell {
-    position: sticky;
-    left: 0;
-    z-index: 7;
-    background: #f8fafc;
-  }
-
-  :is(
-      #inventoryArchiveTable, #appointmentArchiveTable, #orderArchiveTable,
-      #returnArchiveTable, #ratingArchiveTable, #promotionArchiveTable,
-      #announcementArchiveTable
-    )
-    tbody
-    .admin-bulk-select-cell {
-    position: sticky;
-    left: 0;
-    z-index: 6;
-    background: #fff;
   }
 
   /* The hint is the affordance that tells the user the table still scrolls.
@@ -627,23 +610,103 @@
     font-size: 0.75rem;
     line-height: 1.35;
   }
-  /* ---- 2.7 Footer, pagination, empty state --------------------------------
-     `.table-footer` is a space-between flex row (admin-modules.css:349); at
-     phone width the meta line and the pager each take a row of their own. */
+  /* ---- 2.7 Footer, pagination, empty state (rewritten in STEP 10.6b/c) -----
+     `.table-footer` is a `space-between` flex row (admin-modules.css:349). Step
+     2 centred it and gave the meta line and the pager a row each. 10.6c makes
+     the controls a single LEFT-ALIGNED line with the bulk-archive icon first:
+
+       row 1   [archive icon] [<] [ 1 ] [>]
+       row 2   Page 1 of 4 · 37 records
+
+     `.admin-bulk-selection-tools` is injected into `.table-footer` immediately
+     BEFORE `.table-pagination` (admin-common.js:3327-3334) and its idle content
+     is the single `.btn-admin.icon-only-btn.admin-bulk-mode-toggle` — that is
+     the archive icon the request means. The DOM order is already
+     meta -> tools -> pagination, so `order: 2` on the meta and `order: 1` on the
+     other two lifts the controls above the meta line without touching any JS.
+
+     Width at 320px: 40 (icon) + 8 (column-gap) + 40 + 6 + 56 + 6 + 40 = 196px,
+     inside the 268px inner box 3.1 leaves — so it holds one line on the
+     narrowest iPhone, and every button keeps its 40px tap target.
+
+     Selection mode is the one case that cannot fit: the count text plus
+     select-all, cancel and the action button need their own row, which the
+     `:has()` arm gives them. Where `:has()` is unsupported the strip simply
+     wraps, which is the same outcome. */
   .table-footer {
-    row-gap: 10px;
-    justify-content: center;
+    justify-content: flex-start;
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 8px;
   }
 
   .table-footer-meta {
     flex: 1 1 100%;
-    text-align: center;
+    text-align: left;
+    order: 2;
+  }
+
+  /* `width: auto` is load-bearing: admin-modules.css:5181 sets
+     `.admin-bulk-selection-tools { width: 100% }` at <=620px, and `flex-basis:
+     auto` defers to `width`, so `flex: 0 0 auto` alone would still hand the
+     strip a full row and break the single line. */
+  .admin-bulk-selection-tools {
+    order: 1;
+    flex: 0 0 auto;
+    width: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
   }
 
   .table-pagination {
+    order: 1;
+    flex: 0 0 auto;
+    width: auto;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  /* Selection mode: count + select-all + cancel + action need the whole row. */
+  .admin-bulk-selection-tools:has(.admin-bulk-selection-count) {
+    flex: 1 1 100%;
     width: 100%;
-    justify-content: center;
-    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  /* Inventory's per-category pagers are NOT `.table-footer` -- inventory.js:925
+     emits `.inv-cat-footer` > `.inv-cat-footer-meta` + `.inv-cat-footer-actions`
+     (which wraps `.inv-selection-tools` then `.table-pagination`). Same three
+     declarations, same result: controls on row 1 at the left, meta on row 2.
+     admin-modules.css:660 already gives the actions strip `width: 100%` and
+     `margin-left: 0` at <=720, so only the alignment and the order flip. */
+  .inv-cat-footer {
+    justify-content: flex-start;
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 8px;
+  }
+
+  .inv-cat-footer-meta {
+    order: 2;
+    flex: 1 1 100%;
+    min-width: 0;
+    text-align: left;
+  }
+
+  .inv-cat-footer-actions {
+    order: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    margin-left: 0;
+  }
+
+  .inv-selection-tools {
+    gap: 6px;
+    min-height: 0;
   }
 
   /* 30px -> 40px tap targets (admin-modules.css:667). */
@@ -659,8 +722,8 @@
   .page-number.admin-page-number-input,
   .inv-page-number {
     height: 40px;
-    min-width: 60px;
-    width: 60px;
+    min-width: 56px;
+    width: 56px;
     border-radius: 10px;
     /* 16px exactly: any smaller and Safari zooms the page on focus. */
     font-size: 1rem;
@@ -701,19 +764,9 @@
     font-size: 0.75rem;
   }
 
-  :is(#productPerformanceTable, .analytics-perf-table) td:nth-child(1) {
-    position: sticky;
-    left: 0;
-    background: #fff;
-    box-shadow: 1px 0 0 #e3e9f0;
-  }
-
-  /* Keeps the maroon fill and `top: 0` from the inline rule. */
-  :is(#productPerformanceTable, .analytics-perf-table) th:nth-child(1) {
-    position: sticky;
-    left: 0;
-    z-index: 3;
-  }
+  /* STEP 10.6a removed the first-column pins here too. This table has no Action
+     column at all, so after the change nothing in it is frozen — it is a plain
+     in-card horizontal scroller with the 440px floor above. */
 }
 /* --------------------------------------------------------------------------
    2.9 Page-local cell constraints
@@ -757,29 +810,33 @@
   }
 }
 /* --------------------------------------------------------------------------
-   2.11 Scrolling tables — text floor and pinned identity column
+   2.11 Scrolling tables — per-column text floors
    At 375 and 320 every one of these is wider than the card (254px of usable
-   width at 320 after the 16px module + 16px panel gutters), so two things are
-   needed. A `min-width` floor stops `overflow-wrap: anywhere` from degrading a
-   squeezed name cell to one character per line — measured: a 35-character name
-   in a 25px column produced a 479px row. And the identity column pins left,
-   opposite the already-sticky Action column, so the in-card scroll can never
-   hide *which* row is being acted on. The page itself never scrolls.
+   width at 320 after the 16px module + 16px panel gutters), so a `min-width`
+   floor is needed to stop `overflow-wrap: anywhere` from degrading a squeezed
+   name cell to one character per line — measured: a 35-character name in a 25px
+   column produced a 479px row. The page itself never scrolls.
 
    Step 9 raised the identity floor from 68px to 112px, the same value 2.6 has
    always used for archives. When these tables were still triaged, 68px was a
    compromise: the name column had to leave room for 3-4 survivors inside 254px.
    Now that nothing is hidden and the table scrolls to its own floor, that
-   constraint is gone — and a pinned column that stays put while 12 others slide
-   past it has to be wide enough to identify the row on its own. 112px fits a
-   ~16-character name or "APT-2026-0142" on one line.
-   Step 9 also widened the band condition to the phone union, for the same
-   reason as 2.4/2.6: without it the pin vanished on a rotated phone.
+   constraint is gone. 112px fits a ~16-character name or "APT-2026-0142" on one
+   line.
+
+   STEP 10.6a stripped this section back to floors only. Everything that froze
+   the identity column — the pins, their header twins and the bulk-checkbox pins
+   — is deleted; the Action column is the only frozen column in the back office.
+   The floors themselves are kept: under the resize module's `table-layout:
+   fixed` a `min-width` is inert, and when the module tears down (desktop, or no
+   `pointer` events) these are the right values.
+   Step 9 widened the band condition to the phone union, for the same reason as
+   2.4/2.6: without it the floors vanished on a rotated phone.
    -------------------------------------------------------------------------- */
 @media (max-width: 720px),
   (orientation: landscape) and (max-height: 520px) and (max-width: 1024px) {
-  /* The one human-readable column that is not the pinned identity: the second
-     name-ish column of a table whose identity is a reference number. */
+  /* The one human-readable column that is not the identity: the second name-ish
+     column of a table whose identity is a reference number. */
   #appointmentsTable :is(th, td):nth-child(3),
   #incomingOrdersTable :is(th, td):nth-child(3),
   #ordersDirectoryTable :is(th, td):nth-child(4),
@@ -820,29 +877,20 @@
     min-width: 56px;
   }
 
-  /* Pinned identity. z-index stays clear of the sticky Action column, which
-     runs 20/30 on .enhanced-table and .inventory-table (admin-modules.css:297)
-     and 40-61 on the four ID-scoped ones (:1536, :1563). */
+  /* STEP 10.6a — identity columns are NO LONGER PINNED. Only `.sticky-action`
+     stays frozen, by explicit instruction. What survives is the width floor:
+     under the resize module's `table-layout: fixed` a `min-width` is inert, but
+     it is still the correct value when the module tears down (desktop, or a
+     browser without `pointer` events), and 2.12's 64px floor alone would let a
+     reference-code column sit narrower than its own code. */
   #appointmentsTable :is(th, td):nth-child(2),
   #incomingOrdersTable :is(th, td):nth-child(2),
   #ordersDirectoryTable :is(th, td):nth-child(1),
   #walkInOrdersTable :is(th, td):nth-child(1),
   #rejectedOrdersTable :is(th, td):nth-child(2),
   #returnsRefundsTable :is(th, td):nth-child(2),
-  #paymentsHistoryTable :is(th, td):nth-child(2),
-  #productTable :is(th, td):nth-child(3),
-  .inv-category-card .inv-table :is(th, td):nth-child(3),
-  #accountsTable :is(th, td):nth-child(3),
-  #inquiriesTable :is(th, td):nth-child(2),
-  #ratingsTable :is(th, td):nth-child(2),
-  #promotionTable :is(th, td):nth-child(3),
-  #announcementTable :is(th, td):nth-child(3) {
-    position: sticky;
-    left: var(--admin-ident-left);
-    z-index: 5;
+  #paymentsHistoryTable :is(th, td):nth-child(2) {
     min-width: 112px;
-    background: #fff;
-    box-shadow: 1px 0 0 #e3e9f0;
   }
 
   /* One header fill for the whole back office, matching 2.6's archives. A
@@ -860,26 +908,9 @@
     background: #f8fafc;
   }
 
-  /* Header cell of the pinned column sits above its own body cells and keeps
-     the header fill rather than the body's #fff, or the frozen column would
-     show a white notch in the header row. */
-  #appointmentsTable thead th:nth-child(2),
-  #incomingOrdersTable thead th:nth-child(2),
-  #ordersDirectoryTable thead th:nth-child(1),
-  #walkInOrdersTable thead th:nth-child(1),
-  #rejectedOrdersTable thead th:nth-child(2),
-  #returnsRefundsTable thead th:nth-child(2),
-  #paymentsHistoryTable thead th:nth-child(2),
-  #productTable thead th:nth-child(3),
-  .inv-category-card .inv-table thead th:nth-child(3),
-  #accountsTable thead th:nth-child(3),
-  #inquiriesTable thead th:nth-child(2),
-  #ratingsTable thead th:nth-child(2),
-  #promotionTable thead th:nth-child(3),
-  #announcementTable thead th:nth-child(3) {
-    background: #f8fafc;
-    z-index: 6;
-  }
+  /* STEP 10.6a deleted the pinned-header twins of the identity column with the
+     pins themselves — an unpinned header cell needs no z-index and no separate
+     fill, the row fill above already covers it. */
 
   /* The right-pinned Action header needs the header fill for the same reason:
      every baseline pin paints it #fff (admin-modules.css:259, :300, :308,
@@ -897,45 +928,17 @@
     background: #f8fafc;
   }
 
-  /* When bulk mode turns the checkbox column on it pins ahead of the identity
-     column, which has already stepped aside via --admin-ident-left. Inert while
-     the cell is `display: none` (admin-modules.css:464). #ordersDirectoryTable
-     and #walkInOrdersTable have no checkbox column and are absent on purpose. */
-  :is(
-      #appointmentsTable, #incomingOrdersTable, #rejectedOrdersTable,
-      #returnsRefundsTable, #paymentsHistoryTable, #productTable,
-      #accountsTable, #inquiriesTable, #ratingsTable, #promotionTable,
-      #announcementTable
-    )
-    thead
-    .admin-bulk-select-cell,
-  .inv-category-card .inv-table thead .admin-bulk-select-cell,
-  .inv-category-card .inv-table thead .inv-select-cell {
-    position: sticky;
-    left: 0;
-    z-index: 7;
-    background: #f8fafc;
-  }
-
-  :is(
-      #appointmentsTable, #incomingOrdersTable, #rejectedOrdersTable,
-      #returnsRefundsTable, #paymentsHistoryTable, #productTable,
-      #accountsTable, #inquiriesTable, #ratingsTable, #promotionTable,
-      #announcementTable
-    )
-    tbody
-    .admin-bulk-select-cell,
-  .inv-category-card .inv-table tbody .admin-bulk-select-cell,
-  .inv-category-card .inv-table tbody .inv-select-cell {
-    position: sticky;
-    left: 0;
-    z-index: 6;
-    background: #fff;
-  }
-
-  #ratingsTable tbody tr.row-replied :is(th, td):nth-child(2) {
-    background: #f9fafb;
-  }
+  /* STEP 10.6a: the bulk/select checkbox column is no longer pinned either. It
+     is the first column of the row and scrolls with it; a frozen 40px checkbox
+     stacked in front of a frozen 96px Action column left 184px of a 320px screen
+     for the data itself. */
+  /* STEP 10.6a removed the pinned-identity rules that used to close 2.11. Only
+     the Action column is frozen now, so a `tbody tr.row-replied` tint no longer
+     needs a per-cell repaint (the old rule existed purely because the frozen
+     identity cell painted its own #fff over the row tint). The remaining
+     `.admin-bulk-select-cell` / `.inv-select-cell` columns scroll with the rest
+     of the row, which is what makes a 320px screen usable: 96px of frozen Action
+     instead of 212px of frozen Action + identity. */
 }
 
 /* ==========================================================================
@@ -1052,8 +1055,9 @@
    data columns only, there is no action cell to pin.
    Divider, background and z-index copied from the `.enhanced-table` idiom
    (:305-322) so the four match their siblings exactly: 20 for the body cell,
-   30 in the head, both clear of the 5/6 used by the pinned identity column in
-   2.11. Column width itself comes from 2.3's 100px rule.
+   30 in the head. (Those used to be described as clear of the 5/6 the pinned
+   identity column took in 2.11 — 10.6a deleted that column, so the numbers are
+   now simply the shared idiom.) Column width itself comes from 2.3's 96px rule.
 
    Band condition widened to the phone union in Step 9: these four tables scroll
    in landscape too, so the Action column has to stay reachable there.
@@ -1277,6 +1281,13 @@
 @media (max-width: 720px) {
   .page-toolbar {
     flex-direction: column;
+    /* `nowrap` is load-bearing, not tidying: admin-modules.css leaves
+       `flex-wrap: wrap` on `.page-toolbar`, and once the direction is column a
+       child with a percentage `flex-basis` resolves it against the container's
+       height, overflows it, and starts a second flex *column* — which is how
+       archives ended up with its button pair standing beside the title instead
+       of under it (measured at 320 before 10.5 dropped that basis). */
+    flex-wrap: nowrap;
     align-items: stretch;
     padding: 14px;
     gap: 12px;
@@ -1444,11 +1455,22 @@
     height: 38px;
   }
 
+  /* STEP 10.2 — `.inv-summary-icon` was missing from this list, so between 601
+     and 720px it kept its baseline 46px chip (inventory.html:53) inside a tile
+     that is now half-width. 9.3 already shrinks it to 30px below 600. Its own
+     `font-size`/`min-width` are set separately so the two stat icons keep the
+     exact rendering step 3 gave them. */
   .ratings-stat-icon,
-  .inquiry-stat-icon {
+  .inquiry-stat-icon,
+  .inv-summary-icon {
     flex: 0 0 34px;
     width: 34px;
     height: 34px;
+  }
+
+  .inv-summary-icon {
+    min-width: 34px;
+    font-size: 0.85rem;
   }
 
   .metric-value {
@@ -2683,16 +2705,48 @@
     gap: 10px;
   }
 
-  /* `.recent-list li` is a nowrap `space-between` row (dashboard.css:2310);
-     long product/customer names need the second column to wrap under */
+  /* STEP 10.1b — `.recent-list li` is a nowrap `space-between` row
+     (dashboard.css:2307) whose right-hand column `.recent-side` is a 95px-wide
+     column flex pinned to `flex-end`. Step 9 only let the row wrap, so on a
+     phone that column dropped to its own line and stacked Latest / Scheduled /
+     timestamp vertically and right-indented. Make the stack deliberate instead:
+     three lines, name -> meta -> one horizontal chip strip with the timestamp
+     pushed to the far end by `margin-left: auto`. Applies to all three recent
+     widgets (appointments, orders, inquiries) — they share `.recent-list`. */
   .recent-list li {
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 10px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 10px 12px;
   }
 
   .recent-list li > * {
     min-width: 0;
+  }
+
+  .recent-info {
+    gap: 2px;
+  }
+
+  .recent-side {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    gap: 6px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .latest-chip,
+  .recent-side .badge-status {
+    flex: 0 0 auto;
+  }
+
+  .recent-date {
+    flex: 0 0 auto;
+    margin-left: auto;
+    text-align: right;
   }
 
   /* real rows carry customer names, emails and product titles; the placeholder
@@ -3825,15 +3879,17 @@
    9.4 Tables — the finish on the scroll
    2.4 / 2.10 / 2.11 / 2.12 did the structural half: the column-triage map is
    gone, all 21 tables now carry a per-table floor and scroll sideways inside
-   their card, the identity column is pinned at a uniform 112px and Action is
-   pinned right. What is left is the reason they read as "not attractive and not
+   their card, and Action is pinned right. (Step 9 also pinned the identity
+   column at 112px; 10.6a removed that — Action is the only frozen column now.)
+   What is left is the reason they read as "not attractive and not
    scrollable": nothing told the eye that there was more table to the right, and
    nothing separated one row from the next once the rows got tall.
 
-   The zebra has to be painted on the CELLS, not on the row. The pinned identity
-   cell sets its own `background: #fff` (2.11) so it can cover the cells sliding
-   under it; a `tr`-level stripe would leave a white notch in the frozen column
-   on every second row.
+   The zebra has to be painted on the CELLS, not on the row. The frozen Action
+   cell sets its own `background: #fff` (admin-modules.css:253/297/305) so it can
+   cover the cells sliding under it; a `tr`-level stripe would leave a white
+   notch in that column on every second row. (Before 10.6a the same was true of
+   the pinned identity cell — one more reason the cell-level stripe is correct.)
 
    Band condition is the phone union, matching 2.4-2.12: the same tables scroll
    on a rotated phone, so they get the same stripe and the same visible thumb.
@@ -4043,3 +4099,439 @@
 /* ===== end of STEP 9 ===== */
 
 
+
+/* ==========================================================================
+   ==========================================================================
+   STEP 10 — MOBILE POLISH, ROUND 2
+   ==========================================================================
+   Six complaints from a second real-phone review of steps 1-9. Three of them
+   are consequences of choices made in steps 2, 3 and 9, so most of this section
+   is corrective rather than additive.
+
+   Everything below is inside a phone band. The three pages this section has to
+   out-rank all put their inline `<style>` BEFORE the `admin-responsive.css`
+   link (archives.html:19-199 + link :200, ratings.html:16-198 + link :199,
+   website-services.html:19-334 + link :335), so a rule of EQUAL specificity
+   written here wins on load order and no page's `<style>` has to be edited.
+   ========================================================================== */
+
+/* ==========================================================================
+   10.2 Inventory summary cards — 3 across, no orphan
+   `.inv-summary-grid` holds exactly three cards (inventory.html:842-870), so
+   9.3's `repeat(2, minmax(0,1fr))` left "Low Stock" as a half-width orphan on
+   row 2. Three tracks is the only arrangement with no orphan and no truncation.
+
+   Arithmetic at 320px: 3.1 leaves 296px of inner width, minus two 8px gaps =
+   93px per tile, 81px inside the 6px side padding. The longest label,
+   "Good Status", measures ~71px at step 3's 12px label floor, so every label
+   still holds one line. Tile height lands ~92px, against two rows of ~86px
+   today, so this is also less vertical space.
+
+   The icon geometry is written at `.inv-summary-grid .inv-summary-card
+   .inv-summary-icon` = (0,3,0) on purpose. The page's own inline rule
+   (inventory.html:53) and 9.3's `:is(...)` list are both (0,1,0); at (0,3,0)
+   this cannot lose to either under any load order, which also closes the
+   full-width-gradient-bar the screenshot showed but source could not explain.
+   9.3's `flex-direction: column`, `align-items: center` and `text-align:
+   center` already apply to these tiles and are intentionally left in place.
+   ========================================================================== */
+@media (max-width: 600px) {
+  .inv-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .inv-summary-grid .inv-summary-card {
+    padding: 10px 6px;
+    gap: 5px;
+    min-width: 0;
+  }
+
+  .inv-summary-grid .inv-summary-card .inv-summary-icon {
+    flex: 0 0 28px;
+    width: 28px;
+    min-width: 28px;
+    max-width: 28px;
+    height: 28px;
+    font-size: 0.72rem;
+    border-radius: 8px;
+    margin: 0;
+    align-self: center;
+  }
+
+  .inv-summary-grid .inv-summary-card > div {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .inv-summary-grid .inv-summary-value {
+    font-size: 1.05rem;
+    line-height: 1.1;
+  }
+
+  .inv-summary-grid .inv-summary-label {
+    font-size: 0.75rem;
+    line-height: 1.2;
+  }
+}
+/* ===== end of 10.2 ===== */
+
+/* ==========================================================================
+   10.3 Ratings filters — the two selects share one line, search sits under
+   `ratings.html:194` (staff-page/ratings.html:193) carries its own
+   `@media (max-width: 900px) { .ratings-filters { grid-template-columns: 1fr } }`,
+   so all three controls went one-per-row and the strip was three deep. 3.2's
+   `.ratings-filters { grid-template-columns: 1fr }` at :1388 restated the same
+   thing to pick up the 8px gap.
+
+   Both of those are (0,1,0) and so is the rule below, but the page `<style>`
+   sits before the link (ratings.html:16-198, link :199) and 3.2 sits earlier in
+   this file, so load order decides and this wins. Two rows, not three:
+
+     row 1   #ratingsStarFilter | #ratingsReplyFilter
+     row 2   #ratingsSearchInput, spanning both tracks
+
+   At 320px each track is ~130px after 3.1's padding and the 8px gap. The
+   longest option label, "All Statuses", measures ~96px at the 16px iOS no-zoom
+   floor that 3.5 put on `.ratings-input`, so both selects read in full. That
+   floor is why the search input cannot join them on row 1 — three 16px controls
+   in ~93px each is what step 6 already proved impossible on the customer side.
+   Do not lower `.ratings-input`'s font-size to make it fit.
+
+   One rule serves both roles; no HTML is edited. `.inquiry-filters` is
+   deliberately left at 1fr — customer-inquiries has four controls, not three,
+   and was not part of this complaint.
+   ========================================================================== */
+@media (max-width: 900px) {
+  .ratings-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .ratings-filters > * {
+    min-width: 0;
+    width: 100%;
+  }
+
+  #ratingsSearchInput {
+    grid-column: 1 / -1;
+  }
+
+  /* 3.5 already floors this at 40px below 720; extend it across the whole band
+     so the tap target does not shrink back to 38px on a rotated phone. */
+  .ratings-input {
+    min-height: 40px;
+  }
+}
+/* ===== end of 10.3 ===== */
+
+/* ==========================================================================
+   10.4 Website > Services toolbar — 2 buttons per row, not one
+   `website-services.html:320` declares `.services-toolbar .toolbar-actions
+   { display: flex; flex-wrap: wrap }` at (0,2,0), which out-ranks 3.2's
+   `.toolbar-actions` grid at (0,1,0) no matter which sheet loads later. So this
+   one toolbar stayed a wrapping flex row and, with `justify-content: flex-start`
+   from the page's own <=768 band, each of the three buttons took its own line.
+   It is the only inline `.toolbar-actions` override in any admin/staff page.
+
+   The answer is the same specificity, (0,2,0), inside the phone band — the page
+   `<style>` sits at :19-334 and the link at :335, so this file wins on order.
+
+     row 1   Refresh | Preview Services Page
+     row 2   Add Service, stretched across both tracks
+
+   3.2 already gives the children `white-space: normal`, `text-align: center`,
+   `line-height: 1.2`, `justify-content: center` and `min-height: 40px`, so
+   "Preview Services Page" wraps to two centred lines and the grid equalises the
+   pair's height instead of leaving a tall button beside a short one. The
+   orphan-stretch arm is the same language 3.2 uses for promotions.
+   ========================================================================== */
+@media (max-width: 720px) {
+  .services-toolbar .toolbar-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    justify-content: stretch;
+    gap: 8px;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .services-toolbar .toolbar-actions > * {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .services-toolbar .toolbar-actions > *:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+/* ===== end of 10.4 ===== */
+
+/* ==========================================================================
+   10.5 Archives — toolbar pair, flat Auto-Delete, 7 tab chips in a tidy grid
+   Three separate causes behind one "the buttons are messy":
+
+   (a) `.archives-page-toolbar .toolbar-actions` (admin-modules.css:2148) is
+       (0,2,0) and re-declares `flex`/`margin-left`; it never declares `display`,
+       so 3.2's grid did reach it, but through the `auto-fit, minmax(128px, 1fr)`
+       floor — which is a track count that depends on the width. Restated here at
+       (0,2,0) as an explicit 2-track grid so Auto-Delete and Refresh are always
+       a matched pair, never a 1-up stack and never a 1.5-up stagger.
+
+   (b) The Auto-Delete button is the only button in the whole back office with a
+       `linear-gradient` (admin-modules.css:2153) — step 9 flattened the report
+       button's amber gradient for exactly this reason. Flattened to the solid
+       `#b91c1c` its own border already uses, PHONE-GATED so desktop keeps the
+       gradient it has today and the "mobile only" rule holds.
+
+   (c) The 7 `.archive-tab-btn` chips are a plain wrapping flex row with 18px
+       side padding (archives.html:20-27), so on a phone they broke into rows of
+       2, then 1, then 2 at ragged widths. A 2-track grid with the same
+       orphan-stretch arm 3.2 uses gives 3 even rows plus a full-width 7th
+       (Announcements), and the equal-height tracks stop the `.tab-count` pills
+       from sitting at different heights row to row.
+
+   `.archive-search-bar > input` also carries an inline `max-width: 320px`
+   (archives.html:369) that no rule can beat; `flex: 1 1 100%` is enough because
+   3.1 leaves less than 320px of inner width on every phone anyway.
+   ========================================================================== */
+@media (max-width: 720px) {
+  .archives-page-toolbar .toolbar-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+    margin-left: 0;
+    /* NOT `flex: 1 1 100%`: 3.2 turns `.page-toolbar` into a *column* flex
+       container and admin-modules.css:2140 leaves `flex-wrap: wrap` on it, so a
+       `flex-basis: 100%` here resolves against the container's HEIGHT, does not
+       fit, and starts a second flex *column* — measured at 320 it parked the
+       whole button pair at x=293, 184px tall, beside the title instead of under
+       it. `0 0 auto` keeps it on the one line, and `width: 100%` already makes
+       it full-width. */
+    flex: 0 0 auto;
+  }
+
+  .archives-page-toolbar .toolbar-actions > * {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .btn-admin.archives-auto-delete-btn,
+  .btn-admin.archives-save-auto-delete {
+    background: #b91c1c;
+  }
+
+  .btn-admin.archives-auto-delete-btn:hover,
+  .btn-admin.archives-save-auto-delete:hover {
+    background: #7f1d1d;
+  }
+
+  .archive-module-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .archive-tab-btn {
+    justify-content: center;
+    min-width: 0;
+    padding: 8px;
+    font-size: 0.78rem;
+    min-height: 40px;
+    gap: 5px;
+    border-width: 1px;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  .archive-tab-btn:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .archive-search-bar {
+    width: 100%;
+  }
+
+  .archive-search-bar > input {
+    flex: 1 1 100%;
+    width: 100%;
+    min-height: 40px;
+  }
+}
+/* ===== end of 10.5 ===== */
+
+/* ==========================================================================
+   10.6d COLUMN RESIZING — the CSS half of the Excel-style module
+   --------------------------------------------------------------------------
+   `admin-table-resize.js` adds `.atr-ready` to a table once it has written a
+   `<colgroup>` for it, so every rule here is inert until the module runs and
+   disappears the moment it tears down. Phones only, same union band as the rest
+   of the table work.
+
+   Why `table-layout: fixed` is the whole trick: under `auto` the browser sizes
+   columns from their content, so a `<col width>` is only a suggestion and a wide
+   cell re-expands its column — which is exactly the "big gaps each data" the
+   request is about. Under `fixed` the `<col>` widths are the law, the first row
+   no longer has to be measured, and anything too long is ours to clip.
+
+   Clipping is deliberate and was the chosen trade-off: a value that outgrows its
+   column ends in an ellipsis, and the user can drag the column wider, double-tap
+   a handle to auto-fit it, or open the row's detail modal. Three kinds of cell
+   opt out — the frozen action cell (its buttons must wrap to 2 per line, 10.6b),
+   any `[colspan]` cell (empty states and "no records" rows span the table and
+   must stay readable), and `.admin-table-skeleton-row` bars.
+
+   The handles sit INSIDE the `th` box, 12px at each edge over the full header
+   height, because `overflow: hidden` on the same box would clip anything that
+   stuck out. `padding-inline: 14px` then keeps the label clear of both strips.
+   That declaration is (0,1,1) and appended after 2.10's `.admin-table th`
+   (0,1,1), so it wins on order.
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px),
+  (orientation: landscape) and (max-height: 520px) and (max-width: 1024px) {
+  .atr-ready {
+    table-layout: fixed;
+  }
+
+  .atr-ready :is(th, td) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The action cell wraps its buttons, colspan cells hold empty-state copy. */
+  .atr-ready :is(th, td):is(.sticky-action, .action-icons, [colspan]) {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .atr-ready th {
+    position: relative;
+    padding-inline: 14px;
+  }
+
+  /* No handle on the frozen action column — its width is the 96px contract. */
+  .atr-handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 12px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: col-resize;
+    /* Without this the wrapper's horizontal pan swallows the drag. */
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+    z-index: 7;
+  }
+
+  .atr-handle--left {
+    left: 0;
+  }
+
+  .atr-handle--right {
+    right: 0;
+  }
+
+  .atr-handle::after {
+    content: "";
+    position: absolute;
+    top: 20%;
+    bottom: 20%;
+    left: 50%;
+    width: 1px;
+    background: #cbd5e1;
+    transition: background-color 0.15s ease, width 0.15s ease;
+  }
+
+  .atr-handle:hover::after,
+  .atr-handle:active::after,
+  .atr-handle.is-active::after {
+    width: 2px;
+    background: var(--primary-color, #800000);
+  }
+
+  .atr-handle:focus-visible {
+    outline: 2px solid var(--primary-color, #800000);
+    outline-offset: -2px;
+  }
+
+  /* Set on <body> for the duration of a drag: no text selection, no accidental
+     row tap, and the col-resize cursor follows the pointer outside the handle. */
+  .atr-dragging,
+  .atr-dragging * {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .atr-dragging {
+    cursor: col-resize;
+  }
+}
+/* ===== end of 10.6d ===== */
+
+/* ==========================================================================
+   10.8 The last labels under the 12px floor
+   Three names that every earlier pass missed because none of them renders inside
+   a table row, all found by measuring at 320 in step 10:
+
+   (a) `.inv-category-badge` (inventory.js:897, category card header) computed
+       11.52px. §2.13 named it as deferred page chrome and §5.2's chrome list
+       (:2106) never picked it up. Base rule: inventory.html:127 (0.72rem),
+       (0,1,0), so this answers at (0,2,0) — specificity, not load order, which
+       keeps staff/products.html's cloned <style> (products-loader.js:48) from
+       taking it back. `.rating-visibility-badge`, the other name §2.13
+       deferred, is already covered at :2115.
+
+   (b) `.card-cat` (website-services.js:85 and website-home.js:207, the
+       uppercase category eyebrow on each service card) computed 10.88px —
+       13 of them on the services page alone. Two different base rules to beat:
+       `.card-cat` (0,1,0) in website-services.html:59 and
+       `.wm-service-card .card-cat` (0,2,0) in website-home.html:166, so this
+       answers at (0,3,0) and cannot lose either way. `letter-spacing` comes
+       down to keep the uppercase label the same width it is today.
+
+   (c) The three captions in each `.wm-logo-slot` on website-home.html — the
+       brand-logo grid: `.wm-logo-name` 10.24px, `.wm-logo-tag` 9.92px and
+       `.wm-logo-hint` 11.2px, four slots each. They are back-office labels, not
+       part of a fidelity preview, so the floor applies to them like any other
+       caption. All three base rules live in that page's own <style>
+       (`:524`, `:556`, `:572`, each (0,1,0)) which loads before this sheet, so
+       naming the slot answers at (0,2,0). The grid is already one slot per row
+       at this width (measured 246px per slot at 320), and the widest caption
+       grows from 123px to about 149px, so nothing has to give way: the pill's
+       padding stays as it is.
+   -------------------------------------------------------------------------- */
+@media (max-width: 720px) {
+  .inv-category-header .inv-category-badge {
+    /* 12px exactly; padding trimmed 2px so the pill does not grow. */
+    font-size: 0.75rem;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .wm-service-card .card-body .card-cat {
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+  }
+
+  .wm-logo-slot .wm-logo-name,
+  .wm-logo-slot .wm-logo-tag,
+  .wm-logo-slot .wm-logo-hint {
+    font-size: 0.75rem;
+  }
+
+  .wm-logo-slot .wm-logo-name {
+    /* 0.08em of tracking on 12px uppercase is wide enough to push
+       "Footer Logo — Right" onto a second line inside the slot. */
+    letter-spacing: 0.04em;
+  }
+}
