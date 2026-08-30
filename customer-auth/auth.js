@@ -166,6 +166,28 @@ document.addEventListener("DOMContentLoaded", () => {
     authStatusModal?.classList.remove("show");
   };
 
+  // ── Maintenance Mode notices ──────────────────────────────────────────────
+  // A 503 from the server means the admin has taken customer sign-up or sign-in
+  // offline. That is not a problem with anything the visitor typed, so it must
+  // not render as a field error under the username box. maintenance-gate.js owns
+  // the dialog (it is loaded just before this file); showStatus is the fallback
+  // if the gate script ever fails to load.
+  const showMaintenanceNotice = (text) => {
+    const msg =
+      (text || "").trim() ||
+      "This service is temporarily unavailable for maintenance.";
+    hideStatus();
+    try {
+      if (typeof window.FMRC_MAINTENANCE?.notify === "function") {
+        window.FMRC_MAINTENANCE.notify(msg);
+        return;
+      }
+    } catch {
+      /* fall through to the status modal */
+    }
+    showStatus(msg);
+  };
+
   // ── Floating error alert ───────────────────────────────────────────────────
   // Every field message collects in one alert pinned to the top of the screen.
   // The old bubble was appended inside the field box, so on phones it dropped
@@ -559,6 +581,9 @@ document.addEventListener("DOMContentLoaded", () => {
           signupSuccessModal.classList.add("show");
           document.body.style.overflow = "hidden";
           signupForm.reset();
+        } else if (response.status === 503 && data.maintenance) {
+          // Maintenance Mode: an outage notice does not belong under a field.
+          showMaintenanceNotice(data.message);
         } else if (response.status === 422) {
           const errors = data.errors || {};
           // A rejected token is the widget's problem, not the username's.
@@ -665,6 +690,12 @@ document.addEventListener("DOMContentLoaded", () => {
           localStorage.setItem("customer_auth_method", "password");
           showStatus("Login successful. Redirecting to your account...");
           window.location.href = "../home-page/main.html";
+          return;
+        }
+
+        if (response.status === 503 && data.maintenance) {
+          // Maintenance Mode: an outage notice does not belong under a field.
+          showMaintenanceNotice(data.message);
           return;
         }
 
@@ -1137,6 +1168,12 @@ document.addEventListener("DOMContentLoaded", () => {
         setTimeout(() => {
           window.location.href = "../home-page/main.html";
         }, 400);
+        return;
+      }
+
+      if (res.status === 503 && data.maintenance) {
+        // Maintenance Mode: an outage notice does not belong under a field.
+        showMaintenanceNotice(data.message);
         return;
       }
 

@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CustomerMessageController;
 use App\Http\Controllers\Api\HomeSdgController;
 use App\Http\Controllers\Api\InventoryItemController;
+use App\Http\Controllers\Api\MaintenanceController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\OrderReturnController;
@@ -22,6 +23,7 @@ use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\SiteSettingController;
 use App\Http\Controllers\Api\WalkInOrderController;
 use App\Http\Controllers\CartItemController;
+use App\Http\Middleware\EnsureNotUnderMaintenance;
 use App\Http\Middleware\VerifyTurnstile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -54,7 +56,12 @@ Route::post('/login', [AuthController::class, 'login'])->middleware(VerifyTurnst
 
 // Customer authentication routes (protected by Turnstile CAPTCHA)
 Route::post('/customer/login', [AuthController::class, 'login'])->middleware(VerifyTurnstile::class);
-Route::post('/register', [AuthController::class, 'register'])->middleware(VerifyTurnstile::class);
+Route::post('/register', [AuthController::class, 'register'])->middleware([
+    VerifyTurnstile::class,
+    // Maintenance Mode: with `customer_register` on, no new account can be
+    // created even from a page the visitor already had open.
+    EnsureNotUnderMaintenance::class . ':customer_register',
+]);
 Route::post('/auth/google', [AuthController::class, 'googleLogin']);
 
 // Public: Customer OTP-based password reset (forgot password flow)
@@ -66,7 +73,10 @@ Route::post('/forgot-password/verify-otp', [PasswordResetController::class, 'ver
 Route::post('/reset-password', [PasswordResetController::class, 'verifyOtpAndReset']);
 
 Route::get('/appointments', [AppointmentController::class, 'index']);
-Route::post('/appointments', [AppointmentController::class, 'store'])->middleware(VerifyTurnstile::class);
+Route::post('/appointments', [AppointmentController::class, 'store'])->middleware([
+    VerifyTurnstile::class,
+    EnsureNotUnderMaintenance::class . ':page_appointment',
+]);
 Route::delete('/appointments/{appointment}', [AppointmentController::class, 'destroy']);
 Route::patch('/appointments/{appointment}/archive', [AppointmentController::class, 'archive']);
 Route::patch('/appointments/{appointment}/unarchive', [AppointmentController::class, 'unarchive']);
@@ -83,6 +93,11 @@ Route::get('/promotions/active', [PromotionController::class, 'active']);
 
 // Public: Site settings (read-only for customer pages)
 Route::get('/site-settings', [SiteSettingController::class, 'index']);
+
+// Public: Maintenance Mode snapshot. Read by every customer page before it
+// paints, and revalidated on the site-content tick that already exists, so it
+// carries an ETag and answers 304 whenever nothing has changed.
+Route::get('/maintenance', [MaintenanceController::class, 'index']);
 
 // Public: Services (shared between home "What We Offer" and Services page)
 Route::get('/services', [ServiceController::class, 'index']);
@@ -108,7 +123,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/customer/profile', [AuthController::class, 'customerProfile']);
     Route::put('/customer/profile', [AuthController::class, 'updateCustomerProfile']);
 
-    Route::post('/orders', [OrderController::class, 'customerStore']);
+    Route::post('/orders', [OrderController::class, 'customerStore'])
+        ->middleware(EnsureNotUnderMaintenance::class . ':page_products');
     Route::get('/customer/orders', [OrderController::class, 'customerIndex']);
     Route::get('/customer/orders/{order}', [OrderController::class, 'customerShow']);
     Route::get('/customer/orders/{order}/items/{orderItem}/image', [OrderController::class, 'customerItemImage']);
@@ -154,7 +170,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/customer/cart', [CartItemController::class, 'index']);
     Route::post('/customer/cart/sync', [CartItemController::class, 'sync']);
-    Route::post('/customer/messages', [CustomerMessageController::class, 'store']);
+    Route::post('/customer/messages', [CustomerMessageController::class, 'store'])
+        ->middleware(EnsureNotUnderMaintenance::class . ':page_contact');
 
     Route::get('/admin/orders', [OrderController::class, 'adminIndex']);
     Route::get('/admin/dashboard/summary', [AdminDashboardController::class, 'summary']);
@@ -211,6 +228,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Admin: Site Settings
     Route::put('/admin/site-settings', [SiteSettingController::class, 'bulkUpdate']);
+
+    // Admin: Maintenance Mode. The controller checks for role === 'admin', which
+    // is stricter than the site-settings route above (admin OR staff) on
+    // purpose: taking the customer site offline is not a staff action.
+    Route::put('/admin/maintenance', [MaintenanceController::class, 'update']);
 
     // Admin: Services CRUD
     Route::get('/admin/services', [ServiceController::class, 'adminIndex']);

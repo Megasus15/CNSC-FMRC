@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#800000" />
+    <link rel="icon" href="../images/favicon.ico?v=3" sizes="any" />
+    <link rel="apple-touch-icon" href="../images/apple-touch-icon.png?v=3" />
+    <title>Maintenance Mode | UCN-FMRC Admin</title>
+    <link rel="stylesheet" href="dashboard.css?v=6.1" />
+    <link rel="stylesheet" href="admin-modules.css?v=6.1" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <style>
+      /* Same vocabulary as website-home.html, so this page reads as one of the
+         Website Management screens rather than a bolt-on. */
+      .wm-section {
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 22px 24px;
+      }
+      .wm-section-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 6px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #f0f0f0;
+      }
+      .wm-section-header h3 {
+        font-size: 1rem;
+        color: var(--primary-color);
+        margin: 0;
+      }
+      .wm-section-header i {
+        color: var(--primary-color);
+      }
+      .section-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      .field-hint {
+        font-size: 0.76rem;
+        color: #6b7280;
+        line-height: 1.5;
+      }
+      .wm-input {
+        border: 1px solid #d8dde3;
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 0.82rem;
+        color: #333;
+        width: 100%;
+        background: #fff;
+        font-family: inherit;
+      }
+      .wm-save-bar {
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 16px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        position: sticky;
+        bottom: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      }
+      .wm-save-bar p {
+        font-size: 0.82rem;
+        color: #6b7280;
+        margin: 0;
+      }
+
+      /* ── Live banner ──────────────────────────────────────────────────── */
+      .mt-alert {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 12px;
+        padding: 14px 18px;
+        font-size: 0.82rem;
+        color: #713f12;
+        line-height: 1.5;
+      }
+      .mt-alert i {
+        color: #ca8a04;
+        margin-top: 2px;
+      }
+      .mt-alert strong {
+        color: #713f12;
+      }
+      /* ── One scope row ────────────────────────────────────────────────── */
+      .mt-row {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px 0;
+        border-bottom: 1px solid #f3f4f6;
+      }
+      .mt-row:last-child {
+        border-bottom: 0;
+        padding-bottom: 0;
+      }
+      .mt-row-main {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+      }
+      .mt-row-title {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        min-width: 0;
+      }
+      .mt-row-title > i {
+        width: 30px;
+        height: 30px;
+        flex: 0 0 30px;
+        border-radius: 8px;
+        background: #fdf1f1;
+        color: var(--primary-color);
+        display: grid;
+        place-items: center;
+        font-size: 0.78rem;
+      }
+      .mt-row-title h4 {
+        margin: 0 0 3px;
+        font-size: 0.88rem;
+        color: #111827;
+      }
+      .mt-row-title p {
+        margin: 0;
+        font-size: 0.76rem;
+        color: #6b7280;
+        line-height: 1.45;
+      }
+      /* ── Toggle switch ────────────────────────────────────────────────── */
+      /* No lift on hover anywhere: the track only darkens, and the knob presses
+         in with scale(0.97) — the same language as .btn-admin. */
+      .mt-switch {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        flex: 0 0 auto;
+        cursor: pointer;
+        user-select: none;
+      }
+      .mt-switch input {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        margin: 0;
+      }
+      .mt-switch-track {
+        position: relative;
+        width: 46px;
+        height: 26px;
+        flex: 0 0 46px;
+        border-radius: 999px;
+        background: #cbd5e1;
+        transform: none;
+        transition: background-color 0.18s ease;
+      }
+      .mt-switch:hover .mt-switch-track {
+        background: #94a3b8;
+        transform: none;
+      }
+      .mt-switch input:checked + .mt-switch-track {
+        background: #a80f0f;
+      }
+      .mt-switch:hover input:checked + .mt-switch-track {
+        background: #5f0000;
+      }
+      .mt-switch input:focus-visible + .mt-switch-track {
+        outline: 2px solid #a80f0f;
+        outline-offset: 2px;
+      }
+      .mt-switch-knob {
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        transition:
+          left 0.18s ease,
+          transform 0.12s ease;
+      }
+      .mt-switch input:checked + .mt-switch-track .mt-switch-knob {
+        left: 23px;
+      }
+      .mt-switch:active .mt-switch-knob {
+        transform: scale(0.97);
+      }
+      .mt-switch-state {
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #6b7280;
+        min-width: 26px;
+      }
+      .mt-switch input:checked ~ .mt-switch-state {
+        color: #a80f0f;
+      }
+
+      /* ── Message field ────────────────────────────────────────────────── */
+      .mt-row-msg {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding-left: 40px;
+      }
+      .mt-row-msg > label {
+        font-size: 0.76rem;
+        font-weight: 700;
+        color: #374151;
+      }
+      .mt-msg-field {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .mt-counter {
+        flex: 0 0 auto;
+        min-width: 46px;
+        text-align: right;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #9ca3af;
+        font-variant-numeric: tabular-nums;
+      }
+      .mt-counter.is-max {
+        color: #a80f0f;
+      }
+      .mt-default-link {
+        align-self: flex-start;
+        background: none;
+        border: 0;
+        padding: 0;
+        font: inherit;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        text-decoration: underline;
+        cursor: pointer;
+        transform: none;
+        transition: color 0.18s ease;
+      }
+      .mt-default-link:hover {
+        color: #5f0000;
+        transform: none;
+      }
+      .mt-default-link:active {
+        color: #3d0000;
+        transform: scale(0.97);
+      }
+      .mt-live-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        background: #f1f5f9;
+        color: #475569;
+      }
+      .mt-live-pill.is-on {
+        background: #fef3c7;
+        color: #92400e;
+      }
+      .mt-live-pill i {
+        font-size: 0.62rem;
+      }
+      /* The whole form is inert until the first snapshot lands, so a toggle can
+         never be published against a state that was never read. */
+      .mt-loading .mt-row {
+        opacity: 0.5;
+        pointer-events: none;
+      }
+    </style>
+    <link rel="stylesheet" href="admin-responsive.css?v=2.4" />
+  </head>
+  <body>
+    <div class="dashboard-container">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" />
+          <h2>UCN-FMRC</h2>
+        </div>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html" class="nav-link"
+            ><i class="fa-solid fa-house"></i> Dashboard</a
+          >
+          <a href="inventory.html" class="nav-link"
+            ><i class="fa-solid fa-box"></i> Inventory</a
+          >
+          <a href="products.html" class="nav-link"
+            ><i class="fa-solid fa-tags"></i> Products</a
+          >
+          <a
+            href="promotions.html"
+            class="nav-link"
+            title="Promotions &amp; Announcements"
+            ><i class="fa-solid fa-bullhorn"></i> Promotions</a
+          >
+          <a href="appointments.html" class="nav-link"
+            ><i class="fa-regular fa-calendar-check"></i> Appointment</a
+          >
+          <a href="accounts.html" class="nav-link"
+            ><i class="fa-solid fa-users"></i> User Management</a
+          >
+          <a href="reports.html" class="nav-link"
+            ><i class="fa-solid fa-chart-line"></i> Reports</a
+          >
+          <a href="orders.html" class="nav-link"
+            ><i class="fa-solid fa-box-open"></i> Orders</a
+          >
+          <a href="customer-inquiries.html" class="nav-link"
+            ><i class="fa-regular fa-envelope-open"></i> Customer Inquiries</a
+          >
+          <a href="ratings.html" class="nav-link"
+            ><i class="fa-solid fa-star"></i> Ratings &amp; Feedback</a
+          >
+          <div class="nav-item has-dropdown open">
+            <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn">
+              <div class="dropdown-title">
+                <i class="fa-solid fa-screwdriver-wrench"></i> Website
+                Management
+              </div>
+              <i class="fa-solid fa-chevron-down arrow"></i>
+            </a>
+            <div class="dropdown-menu">
+              <a href="website-home.html" class="sub-link">Home</a>
+              <a href="website-services.html" class="sub-link">Services</a>
+              <a href="website-contact.html" class="sub-link">Contact</a>
+              <a href="website-footer.html" class="sub-link">Footer</a>
+              <a href="website-maintenance.html" class="sub-link active"
+                >Maintenance</a
+              >
+            </div>
+          </div>
+          <a href="archives.html" class="nav-link"
+            ><i class="fa-solid fa-box-archive"></i> Archives</a
+          >
+          <a href="my-account.html" class="nav-link"
+            ><i class="fa-regular fa-id-card"></i> My Account</a
+          >
+        </nav>
+        <div class="sidebar-footer">
+          <button class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
+        </div>
+      </aside>
+      <main class="main-content">
+        <header class="top-header">
+          <div class="header-left"><h1>Maintenance Mode</h1></div>
+          <div class="header-right">
+            <div class="notifications" id="notifBell">
+              <i class="fa-regular fa-bell"></i
+              ><span class="badge" id="notifBadge" style="display: none"></span>
+            </div>
+            <div class="user-profile">
+              <div class="user-info"><span class="role">Admin</span></div>
+              <span
+                class="profile-icon profile-initial"
+                data-email="admin@cnsc.edu.ph"
+              ></span>
+              <div class="profile-popup" id="profilePopup">
+                <div class="popup-header">
+                  <div class="popup-profile-row">
+                    <span
+                      class="popup-profile-icon profile-initial"
+                      data-email="admin@cnsc.edu.ph"
+                    ></span>
+                    <div class="popup-profile-meta">
+                      <p class="popup-identity">admin@cnsc.edu.ph</p>
+                      <span class="popup-role">Admin</span>
+                    </div>
+                  </div>
+                </div>
+                <a href="my-account.html" class="profile-popup-link"
+                  ><i class="fa-regular fa-id-card"></i> My Account</a
+                >
+                <hr />
+                <button class="logout-btn popup-logout">
+                  <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+        <section class="module-content">
+          <div class="page-toolbar">
+            <div class="toolbar-title">
+              <h2>Maintenance Mode</h2>
+              <p>
+                Take parts of the customer website offline while you work.
+                Visitors keep the header and footer, so they can always navigate
+                away and still see your contact details.
+              </p>
+            </div>
+            <div class="toolbar-actions">
+              <span class="mt-live-pill" id="mtLivePill"
+                ><i class="fa-solid fa-circle"></i>
+                <span id="mtLivePillText">Loading…</span></span
+              >
+              <button
+                class="btn-admin btn-secondary"
+                type="button"
+                onclick="window.location.reload()"
+                title="Refresh Data"
+              >
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+              </button>
+              <a
+                href="/home-page/main.html"
+                target="_blank"
+                class="btn-admin btn-secondary"
+                ><i class="fa-solid fa-eye"></i> Preview Site</a
+              >
+            </div>
+          </div>
+
+          <div class="section-stack mt-loading" id="mtStack">
+            <div class="mt-alert" id="mtBanner" hidden>
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              <div>
+                <strong>Maintenance is live.</strong>
+                <span id="mtBannerText"></span>
+              </div>
+            </div>
+            <!-- The 11 rows are rendered by website-maintenance.js from one
+                 SCOPES table, the same way the Brand Logos grid is built on the
+                 Home screen: one template, so no row can drift from the others
+                 and the scope keys can never disagree with the backend. -->
+            <div class="wm-section">
+              <div class="wm-section-header">
+                <i class="fa-solid fa-user-lock"></i>
+                <h3>Customer Access</h3>
+              </div>
+              <p class="field-hint" style="margin: 12px 0 0">
+                Blocks new sign-ups and new customer sign-ins. Customers who are
+                already signed in stay signed in — nothing kicks them out.
+              </p>
+              <div id="mtRowsAccess"></div>
+            </div>
+
+            <div class="wm-section">
+              <div class="wm-section-header">
+                <i class="fa-regular fa-file-lines"></i>
+                <h3>Customer Pages</h3>
+              </div>
+              <p class="field-hint" style="margin: 12px 0 0">
+                The page content is replaced by your notice. The header, the
+                navigation and the footer stay visible. Turning the Home page off
+                covers all four Home sections below.
+              </p>
+              <div id="mtRowsPages"></div>
+            </div>
+
+            <div class="wm-section">
+              <div class="wm-section-header">
+                <i class="fa-solid fa-layer-group"></i>
+                <h3>Home Page Sections</h3>
+              </div>
+              <p class="field-hint" style="margin: 12px 0 0">
+                Take one band of the Home page offline and leave the rest of the
+                page working.
+              </p>
+              <div id="mtRowsSections"></div>
+            </div>
+
+            <div class="wm-save-bar" data-dock-save-bar>
+              <p>
+                <i
+                  class="fa-solid fa-circle-info"
+                  style="margin-right: 5px; color: var(--primary-color)"
+                ></i
+                >Changes only apply after clicking Save All Changes.
+              </p>
+              <button class="btn-admin" id="btnSaveMaintenance">
+                <i class="fa-solid fa-floppy-disk"></i> Save All Changes
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="session-helper.js"></script>
+    <script src="admin-common.js?v=6.1"></script>
+    <script src="website-maintenance.js?v=1.0"></script>
+    <script src="admin-table-resize.js?v=1.0" defer></script>
+  </body>
+</html>

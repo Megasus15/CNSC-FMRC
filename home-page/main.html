@@ -1570,7 +1570,10 @@
       referrerpolicy="no-referrer"
     ></script>
     <script src="turnstile.js?v=1.2"></script>
-    <script src="main.js?v=6.7"></script>
+    <!-- Maintenance Mode gate: must run before main.js so the cached snapshot is
+         applied before anything that should be hidden can be painted. -->
+    <script src="maintenance-gate.js?v=1.1"></script>
+    <script src="main.js?v=6.8"></script>
     <script src="customer-announcements.js?v=5.5"></script>
   </body>
 </html>

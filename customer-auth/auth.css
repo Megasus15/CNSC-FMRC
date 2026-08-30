@@ -2015,6 +2015,29 @@ svg {
   .auth-error-title {
     font-size: 11px;
   }
+
+  /* STEP 11.A4 — the placeholder was 16px, i.e. larger than its own label
+     (clamp(11.5px, 1.3vw, 12px), :1824 — 11.5px at this width) and sat left
+     where the icon already is. Only the PLACEHOLDER shrinks: the input itself
+     must stay at 16px or iOS Safari zooms the whole page the moment the field
+     is focused. `text-align` is not a permitted `::placeholder` property, so
+     the alignment has to come from the input via `:placeholder-shown`; the
+     `:focus` rule has equal specificity and is listed last, so it wins on order
+     and snaps the caret back to the left as soon as the field is in use —
+     typing is never right-aligned. Covers login, sign-up, forgot-password and
+     OTP, since every input in those forms is inside `.input-icon-group`. */
+  .input-icon-group input::placeholder {
+    font-size: 10px;
+    opacity: 0.72;
+  }
+
+  .input-icon-group input:placeholder-shown {
+    text-align: right;
+  }
+
+  .input-icon-group input:focus {
+    text-align: left;
+  }
 }
 
 /* --- Ultra-narrow (smartwatch / 240–320px) ---------------------- */

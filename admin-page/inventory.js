@@ -893,7 +893,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="inv-category-icon"><i class="fa-solid ${icon}"></i></div>
           <span class="inv-category-title">Inventory of ${escHtml(category)}</span>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;">
+        <div class="inv-category-header-right" style="display:flex;align-items:center;gap:8px;">
           <span class="inv-category-badge">${items.length} item${items.length !== 1 ? "s" : ""}</span>
           <button type="button" class="btn-admin btn-secondary" data-cat-export="${escHtml(category)}" title="Export this category to Excel">
             <i class="fa-solid fa-file-excel"></i> Export Excel

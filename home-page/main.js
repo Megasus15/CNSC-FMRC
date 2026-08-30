@@ -13721,6 +13721,10 @@ const openReturnRequestModal = (() => {
     _sdgRefreshAt = now;
     void loadSdgs();
     void reloadSettings();
+    // Maintenance Mode rides this pipeline instead of adding one of its own:
+    // same channel, same storage stamp, same tick. The /api/maintenance ETag
+    // makes the extra request a 304 whenever nothing has changed.
+    void window.FMRC_MAINTENANCE?.refresh();
   }
 
   function initSdgRealtime() {
@@ -13762,6 +13766,7 @@ const openReturnRequestModal = (() => {
       if (!document.hidden) {
         void loadSdgs();
         void reloadSettings();
+        void window.FMRC_MAINTENANCE?.refresh();
       }
     }, 20000);
     document.addEventListener("visibilitychange", function () {

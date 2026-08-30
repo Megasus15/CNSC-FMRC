@@ -29,7 +29,7 @@ let aboutVideoData = null; // base64 or null for video upload
 let heroBgGradient = "";
 
 /**
- * Brand logos. All four save the moment a crop is applied — like SDG badges and
+ * Brand logos. All six save the moment a crop is applied — like SDG badges and
  * service cards, and unlike the text fields that wait for Save All Changes —
  * because an upload is a finished action on its own.
  */
@@ -66,9 +66,36 @@ const BRAND_LOGOS = [
     fallback: "/images/FMRC Logo.png",
     hint: "Second mark in the footer of every customer page. Fixed circle.",
   },
+  // The two marks above the sign-in card on BOTH portals. One shared pair, so
+  // the admin/staff portal and the customer portal can never show different
+  // branding. `.brand-logo` is a 60px border-radius:50% holder in both auth
+  // sheets (admin-auth/auth.css:78), hence circle.
+  {
+    slot: "portal1",
+    key: "portal_logo_primary_image",
+    label: "Portal Login Logo — Left",
+    shape: "circle",
+    fallback: "/images/CNSC logo.png",
+    hint: "First mark above the sign-in card on the admin/staff and customer portals. Fixed circle.",
+  },
+  {
+    slot: "portal2",
+    key: "portal_logo_secondary_image",
+    label: "Portal Login Logo — Right",
+    shape: "circle",
+    fallback: "/images/FMRC Logo.png",
+    hint: "Second mark above the sign-in card on both login portals. Fixed circle.",
+  },
 ];
 // Saved base64 per slot, or "" when the slot is on its bundled default.
-let brandLogoData = { nav: "", hero: "", footer1: "", footer2: "" };
+let brandLogoData = {
+  nav: "",
+  hero: "",
+  footer1: "",
+  footer2: "",
+  portal1: "",
+  portal2: "",
+};
 let logoUploadSlot = null; // slot awaiting the shared file picker
 let logoCropData = null; // artwork currently open in the crop editor
 

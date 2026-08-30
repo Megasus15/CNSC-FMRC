@@ -23,7 +23,7 @@
       crossorigin="anonymous"
       referrerpolicy="no-referrer"
     />
-    <link rel="stylesheet" href="auth.css?v=5.4" />
+    <link rel="stylesheet" href="auth.css?v=5.5" />
   </head>
   <body>
     <main class="auth-page">
@@ -50,12 +50,14 @@
           <div class="auth-hero">
             <div class="auth-brand">
               <img
+                id="portalLogoPrimary"
                 src="/images/CNSC logo.png"
                 alt="CNSC Logo"
                 class="brand-logo"
                 onerror="this.style.display = 'none'"
               />
               <img
+                id="portalLogoSecondary"
                 src="/images/FMRC Logo.png"
                 alt="FMRC Logo"
                 class="brand-logo"
@@ -458,6 +460,9 @@
     </div>
 
     <script src="../home-page/turnstile.js?v=1.2"></script>
+    <!-- Admin-editable portal logos (Website Management -> Home -> Brand Logos).
+         Paints the last-known pair synchronously, then revalidates. -->
+    <script src="../home-page/portal-brand.js?v=1.0"></script>
     <script src="auth.js?v=5.2"></script>
   </body>
 </html>

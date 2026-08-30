@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\MaintenanceSetting;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -161,6 +162,16 @@ class AuthController extends Controller
             ], 401);
         }
 
+        // Maintenance Mode (STEP 11): /api/login and /api/customer/login both
+        // dispatch to THIS method, so route middleware cannot tell them apart --
+        // the gate has to key off the resolved user's role, which is why it
+        // lives here. Admin and staff sign-in is never blocked. Checked after
+        // the password so a 503 cannot be used to probe which accounts exist,
+        // and before createToken() so a refused sign-in mints nothing.
+        if ($maintenance = $this->customerLoginMaintenanceResponse($user)) {
+            return $maintenance;
+        }
+
         // A successful password login proves this is a customer-usable password,
         // not the internal random password of a Google-only account.
         if ($this->supportsGooglePasswordState() && !$user->has_custom_password) {
@@ -259,6 +270,22 @@ class AuthController extends Controller
 
             $user = User::where('email', $email)->first();
 
+            // Maintenance Mode (STEP 11): Google sign-UP is gated by
+            // `customer_register`, Google sign-IN by `customer_login`. An email
+            // Google has never seen here is a new customer registration, so
+            // both gates apply to it -- and the check sits BEFORE User::create()
+            // below, so a blocked sign-up leaves no row and sends no welcome
+            // mail. An existing admin/staff account is never gated, because
+            // customerLoginMaintenanceResponse() only fires for role customer.
+            $maintenance = $user
+                ? $this->customerLoginMaintenanceResponse($user)
+                : ($this->maintenanceResponse('customer_register')
+                    ?? $this->maintenanceResponse('customer_login'));
+
+            if ($maintenance) {
+                return $maintenance;
+            }
+
             if (!$user) {
                 $username = $baseUsername;
                 $counter = 1;
@@ -336,6 +363,48 @@ class AuthController extends Controller
             return response()->json([
                 'message' => 'Google sign-in failed. Please try again or use your password.',
             ], 500);
+        }
+    }
+
+    /**
+     * Maintenance Mode (STEP 11): the customer sign-in gate.
+     *
+     * Returns a 503 when the resolved account is a customer and the
+     * `customer_login` scope is switched on, or null when the sign-in may
+     * proceed. Admin and staff accounts always return null -- they share the
+     * controller method with customers but are never gated.
+     */
+    private function customerLoginMaintenanceResponse(User $user): ?JsonResponse
+    {
+        if (strtolower((string) ($user->role ?? '')) !== 'customer') {
+            return null;
+        }
+
+        return $this->maintenanceResponse('customer_login');
+    }
+
+    /**
+     * A 503 for `$scope` when it is under maintenance, otherwise null.
+     *
+     * Fails open when the table is missing: on a deployment where the frontend
+     * files have landed but `php artisan migrate` has not been run yet, sign-in
+     * keeps working exactly as it did before this feature existed.
+     */
+    private function maintenanceResponse(string $scope): ?JsonResponse
+    {
+        try {
+            if (!Schema::hasTable('maintenance_settings') || !MaintenanceSetting::isActive($scope)) {
+                return null;
+            }
+
+            return response()->json([
+                'message' => MaintenanceSetting::messageFor($scope),
+                'maintenance' => true,
+                'scope' => $scope,
+            ], 503);
+        } catch (\Throwable $e) {
+            Log::error('Maintenance gate check failed for ' . $scope . ': ' . $e->getMessage());
+            return null;
         }
     }
 

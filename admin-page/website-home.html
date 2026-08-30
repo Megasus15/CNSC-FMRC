@@ -676,7 +676,7 @@
         }
       }
     </style>
-    <link rel="stylesheet" href="admin-responsive.css?v=2.3" />
+    <link rel="stylesheet" href="admin-responsive.css?v=2.4" />
   </head>
   <body>
     <div class="dashboard-container">
@@ -732,6 +732,7 @@
               <a href="website-services.html" class="sub-link">Services</a>
               <a href="website-contact.html" class="sub-link">Contact</a>
               <a href="website-footer.html" class="sub-link">Footer</a>
+              <a href="website-maintenance.html" class="sub-link">Maintenance</a>
             </div>
           </div>
           <a href="archives.html" class="nav-link"
@@ -925,9 +926,11 @@
                 <h3>Brand Logos</h3>
               </div>
               <p class="field-hint" style="margin-bottom: 14px">
-                Every logo on the customer website. Each one sits in a holder with
-                a locked shape — a square for the navbar emblem, circles for the
-                hero and footer marks — so any upload keeps the layout intact. Use
+                Every logo on the customer website, plus the pair above the
+                sign-in card on both login portals. Each one sits in a holder
+                with a locked shape — a square for the navbar emblem, circles
+                for the hero, footer and portal marks — so any upload keeps the
+                layout intact. Use
                 <strong>Adjust</strong> to pan, zoom and rotate the artwork inside
                 its holder. Logos save immediately, like SDG badges and service
                 cards.
@@ -1524,11 +1527,11 @@
     </div>
 
     <script src="session-helper.js"></script>
-    <script src="admin-common.js?v=6.0"></script>
+    <script src="admin-common.js?v=6.1"></script>
     <!-- Shared with the customer hero, so a swatch here and the live banner can
          never render a preset differently. Must load before website-home.js. -->
     <script src="../home-page/hero-gradients.js"></script>
-    <script src="website-home.js"></script>
+    <script src="website-home.js?v=1.1"></script>
     <script src="admin-table-resize.js?v=1.0" defer></script>
   </body>
 </html>
