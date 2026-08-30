@@ -493,6 +493,28 @@
       .wm-sdg-actions button:active:not(:disabled) {
         transform: scale(0.97);
       }
+      /* Vision / Mission photo decks reuse the SDG slot card wholesale — only
+         the thumb changes shape, because these are photographs rather than
+         round badges. Held at a single class each so the two .wm-sdg-grid
+         media queries further down (also (0,1,0), and later in the file) still
+         win on narrow screens instead of leaving five columns on a phone. */
+      .wm-gal-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+      .wm-gal-thumb,
+      .wm-gal-add {
+        border-radius: 10px;
+      }
+      .wm-gal-thumb.is-wide,
+      .wm-gal-add.is-wide {
+        width: 104px;
+        height: 65px;
+      }
+      .wm-gal-thumb.is-square,
+      .wm-gal-add.is-square {
+        width: 84px;
+        height: 84px;
+      }
       /* The navbar emblem sits in a square holder on the live site, so its
          editor frame is squared off too — same 220px box, rounded corners only. */
       .crop-circle-wrapper.is-square {
@@ -1132,6 +1154,32 @@
                     style="display: none"
                   />
                 </div>
+                <div class="field-stack full">
+                  <label>Vision Photo Deck (max 10)</label>
+                  <p class="field-hint" style="margin-bottom: 14px">
+                    Photo 1 is the card the visitor sees on top; the rest sit
+                    behind it and are dragged away one at a time, looping
+                    forever. Two or more photos turn the section into a deck —
+                    with one or none it stays the single image above. Each
+                    upload is cropped to 16:10 and saves immediately, like SDG
+                    badges.
+                  </p>
+                  <div
+                    class="wm-sdg-grid wm-gal-grid"
+                    id="visionGalleryGrid"
+                  ></div>
+                  <p
+                    class="field-hint"
+                    id="visionGalleryMeter"
+                    style="margin-top: 12px"
+                  ></p>
+                  <input
+                    type="file"
+                    id="visionGalleryInput"
+                    accept="image/*"
+                    style="display: none"
+                  />
+                </div>
               </div>
             </div>
 
@@ -1190,6 +1238,32 @@
                   <input
                     type="file"
                     id="missionImgInput"
+                    accept="image/*"
+                    style="display: none"
+                  />
+                </div>
+                <div class="field-stack full">
+                  <label>Mission Photo Deck (max 10)</label>
+                  <p class="field-hint" style="margin-bottom: 14px">
+                    Photo 1 is the card on top of the stack; clicking it sends
+                    it to the back like a shuffled deck, so the order below is
+                    the order visitors cycle through. Two or more photos turn
+                    the section into a deck — with one or none it stays the
+                    single image above. Each upload is cropped to a square and
+                    saves immediately.
+                  </p>
+                  <div
+                    class="wm-sdg-grid wm-gal-grid"
+                    id="missionGalleryGrid"
+                  ></div>
+                  <p
+                    class="field-hint"
+                    id="missionGalleryMeter"
+                    style="margin-top: 12px"
+                  ></p>
+                  <input
+                    type="file"
+                    id="missionGalleryInput"
                     accept="image/*"
                     style="display: none"
                   />
@@ -1507,7 +1581,7 @@
     <script src="../admin-page/session-helper.js"></script>
     <script src="../admin-page/admin-common.js?v=6.1"></script>
     <script src="../home-page/hero-gradients.js"></script>
-    <script src="../admin-page/website-home.js?v=1.1"></script>
+    <script src="../admin-page/website-home.js?v=1.3"></script>
     <script src="../admin-page/admin-table-resize.js?v=1.0" defer></script>
   </body>
 </html>

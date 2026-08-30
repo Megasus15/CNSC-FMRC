@@ -13007,31 +13007,55 @@ const openReturnRequestModal = (() => {
       if (existingPrompt) return;
 
       const floatingCard = document.createElement("div");
-      floatingCard.className = "google-pwd-floating-card";
+      // `ux-dlg` on the root is purely the token unlock — bare `.ux-dlg` has no
+      // rules of its own, so an anchored popover can share the dialog system's
+      // radius, header band and footer strip without inheriting a modal's fixed
+      // positioning. The card, head, body and foot then match the profile
+      // dropdown directly above it part for part.
+      floatingCard.className = "google-pwd-floating-card ux-dlg";
       floatingCard.id = "googlePwdFloatingCard";
+      floatingCard.setAttribute("role", "dialog");
+      floatingCard.setAttribute("aria-label", "Account tip");
       floatingCard.innerHTML = `
-        <div class="google-pwd-card-header">
-          <span class="google-pwd-badge"><i class="fa-solid fa-key"></i> Account Tip</span>
-          <button type="button" class="google-pwd-close-btn" id="closeGooglePwdCard" aria-label="Dismiss">&times;</button>
+        <div class="google-pwd-card ux-dlg__card">
+          <div class="google-pwd-card-header ux-dlg__head">
+            <button type="button" class="google-pwd-close-btn ux-dlg__close" id="closeGooglePwdCard" aria-label="Dismiss">&times;</button>
+            <span class="google-pwd-badge ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-key"></i></span>
+            <p class="ux-dlg__eyebrow">Account Tip</p>
+            <h3 class="ux-dlg__title">Create a password first!</h3>
+          </div>
+          <div class="ux-dlg__body">
+            <p class="google-pwd-text ux-dlg__text">
+              You signed in with Google. Set a password in My Account so you can
+              also log in anytime using your username or Gmail.
+            </p>
+          </div>
+          <div class="ux-dlg__foot is-confirm">
+            <button type="button" class="ux-dlg__btn ux-dlg__btn--ghost" id="dismissPwdTipBtn">Not now</button>
+            <button type="button" class="ux-dlg__btn ux-dlg__btn--primary" id="openPwdFromFloatingCard">
+              <span>Set Password</span> <i class="fa-solid fa-arrow-right"></i>
+            </button>
+          </div>
         </div>
-        <div class="google-pwd-text">
-          <strong>Create a password first!</strong>
-          You signed in with Google. Set a password in My Account so you can also log in anytime using your username or Gmail.
-        </div>
-        <button type="button" class="google-pwd-action-btn" id="openPwdFromFloatingCard">
-          <span>Set Password Now</span> <i class="fa-solid fa-arrow-right"></i>
-        </button>
       `;
 
       userProfileBtn.style.position = "relative";
       userProfileBtn.appendChild(floatingCard);
 
-      floatingCard.querySelector("#closeGooglePwdCard")?.addEventListener("click", (e) => {
+      const dismissTip = (e) => {
         e.stopPropagation();
         sessionStorage.setItem("google_pwd_prompt_dismissed", "true");
         floatingCard.classList.add("fade-out");
         setTimeout(() => floatingCard.remove(), 300);
-      });
+      };
+
+      // The × and "Not now" are the same action, so they share the same path.
+      floatingCard
+        .querySelector("#closeGooglePwdCard")
+        ?.addEventListener("click", dismissTip);
+      floatingCard
+        .querySelector("#dismissPwdTipBtn")
+        ?.addEventListener("click", dismissTip);
 
       floatingCard.querySelector("#openPwdFromFloatingCard")?.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -13314,6 +13338,10 @@ const openReturnRequestModal = (() => {
     _txt("missionHeadingEl", s.mission_heading);
     _txt("missionTextEl", s.mission_text);
     if (s.mission_image) _src("missionImgEl", s.mission_image);
+    // Galleries go on *after* the legacy single images, so a configured gallery
+    // wins and an unconfigured site is left exactly as it was.
+    applyVmGallery("vision", s.vision_gallery);
+    applyVmGallery("mission", s.mission_gallery);
     // Footer
     _txt("footerBrandNameEl", s.footer_brand_name);
     _txt("footerBrandDescEl", s.footer_brand_desc);
@@ -13466,7 +13494,25 @@ const openReturnRequestModal = (() => {
             '" data-category="' +
             _attr(s.category || "") +
             '">' +
-            '<div class="card-img-holder">' +
+            // The holder doubles as the lightbox trigger so the offer artwork
+            // behaves exactly like the Services page's: zoom-in cursor, the same
+            // 1.05 hover, and a click that opens the shared viewer. No Preview
+            // pill here by design, so the scrim that exists to make that pill
+            // legible is switched off in CSS as well.
+            '<div class="card-img-holder' +
+            (s.image_data ? " service-image-trigger" : "") +
+            '"' +
+            (s.image_data
+              ? ' role="button" tabindex="0" title="Open image preview"' +
+                ' aria-label="Open full-size preview of ' +
+                _attr(s.title) +
+                '" data-image-src="' +
+                _attr(s.image_data) +
+                '" data-image-title="' +
+                _attr(s.title) +
+                '"'
+              : "") +
+            ">" +
             (s.image_data
               ? '<img src="' +
                 _attr(s.image_data) +
@@ -13776,12 +13822,457 @@ const openReturnRequestModal = (() => {
   }
 
 
+  /* ==========================================================================
+     VISION / MISSION IMAGE DECKS
+     --------------------------------------------------------------------------
+     Each section can be given a gallery of up to ten photos from the admin
+     editor, stored as one JSON array of data URLs under a single site_settings
+     key (`vision_gallery` / `mission_gallery`). Vision cards are dragged aside
+     and vanish; Mission cards are clicked and shuffle to the back. Both loop
+     forever — the card that leaves re-enters at the deepest slot.
+
+     Two invariants hold the whole thing together:
+
+     1. A section with nothing configured must render byte-identically to before
+        the decks existed. Every stacking rule is gated behind `.has-stack`,
+        which is only ever added when there are two or more photos.
+     2. The first card is the original markup, reused rather than regenerated, so
+        `id="visionImgEl"` / `id="missionImgEl"` and `.vision-img` /
+        `.mission-img` survive and every rule already written against them keeps
+        applying — including to the clones, which copy the class.
+     ========================================================================== */
+  var VM_DECK_MAX = 10;
+  var vmDeckSnapshots = { vision: null, mission: null };
+
+  function vmDeckEl(kind) {
+    return document.getElementById(
+      kind === "mission" ? "missionDeck" : "visionDeck",
+    );
+  }
+
+  function vmReducedMotion() {
+    return !!(
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    );
+  }
+
+  // Tolerant on purpose: the key is absent on every site that has never opened
+  // the editor, and a hand-edited row could hold anything at all.
+  function vmParseGallery(raw) {
+    if (!raw) return [];
+    var list = raw;
+    if (typeof raw === "string") {
+      try {
+        list = JSON.parse(raw);
+      } catch (err) {
+        return [];
+      }
+    }
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter(function (src) {
+        return typeof src === "string" && src.trim() !== "";
+      })
+      .slice(0, VM_DECK_MAX);
+  }
+
+  /* Which card sits in which slot is a number on the deck, not the order of the
+     nodes: moving a node inside its parent re-inserts it, and every browser
+     restarts a running transition when that happens. So the cards stay exactly
+     where the applier put them for the life of the page and only `data-slot`
+     rotates. A card marked flying is skipped — it is being positioned inline by
+     the gesture and must not be yanked back into a slot mid-flight. */
+  function vmIndexSlots(deck) {
+    var cards = Array.prototype.slice.call(
+      deck.querySelectorAll(".vm-deck__card"),
+    );
+    var total = cards.length;
+    if (!total) return;
+    var offset = parseInt(deck.dataset.vmOffset || "0", 10) || 0;
+    cards.forEach(function (card, i) {
+      if (card.dataset.vmFlying === "1") {
+        card.setAttribute("data-slot", "flying");
+        return;
+      }
+      var pos = (((i - offset) % total) + total) % total;
+      card.setAttribute("data-slot", pos < 3 ? String(pos) : "hidden");
+      // Only the card on top is reachable, by pointer or by keyboard: the ones
+      // behind are decoration until they get promoted.
+      if (pos === 0) {
+        card.setAttribute("role", "button");
+        card.setAttribute("tabindex", "0");
+        card.setAttribute("aria-label", deck.dataset.vmLabel || "");
+      } else {
+        card.removeAttribute("role");
+        card.removeAttribute("tabindex");
+        card.removeAttribute("aria-label");
+      }
+    });
+  }
+
+  function vmAdvance(deck) {
+    var total = deck.querySelectorAll(".vm-deck__card").length || 1;
+    var offset = parseInt(deck.dataset.vmOffset || "0", 10) || 0;
+    deck.dataset.vmOffset = String((offset + 1) % total);
+    vmIndexSlots(deck);
+  }
+
+  // Drop every generated card, leaving the original markup untouched.
+  function vmResetToFirstCard(deck) {
+    var cards = Array.prototype.slice.call(
+      deck.querySelectorAll(".vm-deck__card"),
+    );
+    cards.forEach(function (card, i) {
+      if (i === 0) {
+        card.removeAttribute("data-slot");
+        card.removeAttribute("role");
+        card.removeAttribute("tabindex");
+        card.removeAttribute("aria-label");
+        delete card.dataset.vmFlying;
+        card.className = "vm-deck__card";
+        card.style.transform = "";
+        return;
+      }
+      card.remove();
+    });
+    deck.dataset.vmOffset = "0";
+  }
+
+  function applyVmGallery(kind, raw) {
+    var deck = vmDeckEl(kind);
+    if (!deck) return;
+    var images = vmParseGallery(raw);
+
+    // Never rebuild under the visitor's finger. Poll back shortly; the snapshot
+    // below means the retry costs nothing once the gesture has finished.
+    if (
+      deck.querySelector(".is-dragging, .is-vanishing, .is-lifting, .is-tucking")
+    ) {
+      setTimeout(function () {
+        applyVmGallery(kind, raw);
+      }, 700);
+      return;
+    }
+
+    // The gallery owns the top card whenever it holds anything, so a realtime
+    // tick that only touched the legacy single image cannot leave the deck
+    // showing a photo that is not part of it any more.
+    if (images.length) {
+      var lead = deck.querySelector(".vm-deck__card img");
+      if (lead && lead.getAttribute("src") !== images[0]) lead.src = images[0];
+    }
+
+    // Rebuilding restarts the deck at card 1, so it has to happen only when the
+    // gallery genuinely changed — not on every 20s poll.
+    var snapshot = JSON.stringify(images);
+    if (vmDeckSnapshots[kind] === snapshot) return;
+    vmDeckSnapshots[kind] = snapshot;
+
+    // Fewer than two photos is not a deck: hand the section back to its
+    // original single-image rules.
+    if (images.length < 2) {
+      deck.classList.remove("has-stack", "is-peeking", "is-settling");
+      vmResetToFirstCard(deck);
+      return;
+    }
+
+    var first = deck.querySelector(".vm-deck__card");
+    var template = first && first.querySelector("img");
+    if (!template) return;
+    vmResetToFirstCard(deck);
+
+    var cls = template.className;
+    var alt = template.getAttribute("alt") || "";
+    for (var i = 1; i < images.length; i++) {
+      var card = document.createElement("div");
+      card.className = "vm-deck__card";
+      var img = document.createElement("img");
+      // Cloning the class is what gives every card the section's own shape and
+      // sizing — Mission's organic border-radius, Vision's 12px and its shadow.
+      if (cls) img.className = cls;
+      img.setAttribute("alt", alt);
+      img.setAttribute("draggable", "false");
+      img.src = images[i];
+      card.appendChild(img);
+      deck.appendChild(card);
+    }
+    template.setAttribute("draggable", "false");
+
+    deck.classList.add("has-stack");
+    initVmDeck(deck, kind === "mission" ? "shuffle" : "drag");
+    vmIndexSlots(deck);
+  }
+
+  function initVmDeck(deck, mode) {
+    deck.dataset.vmLabel =
+      mode === "shuffle"
+        ? "Mission photo — press to send it to the back of the deck"
+        : "Vision photo — drag it aside to reveal the next one";
+    // The deck element itself outlives every rebuild, and both handlers are
+    // delegated, so it is wired exactly once.
+    if (deck.dataset.vmWired === "1") return;
+    deck.dataset.vmWired = "1";
+    if (mode === "shuffle") vmWireShuffle(deck);
+    else vmWireDrag(deck);
+  }
+
+  /* -- Vision: press, drag, let go, vanish ----------------------------------
+     Pointer Events only, so mouse, pen and touch all run the same path. */
+  function vmWireDrag(deck) {
+    var CLAIM_PX = 8;
+    var active = null;
+    var startX = 0;
+    var startY = 0;
+    var dx = 0;
+    var dy = 0;
+    var claimed = false;
+    var busy = false;
+
+    function focusTop() {
+      var top = deck.querySelector('.vm-deck__card[data-slot="0"]');
+      if (top) top.focus();
+    }
+
+    function land(card) {
+      // One frame with transitions suppressed hands the card back to the slot
+      // system without it flying home from wherever the throw left it. With four
+      // or more photos it lands invisible; with exactly three it reappears in the
+      // deepest slot, which by then has been empty for the length of the throw.
+      deck.classList.add("is-settling");
+      card.classList.remove("is-vanishing", "is-dragging");
+      card.style.transform = "";
+      card.style.opacity = "";
+      card.style.filter = "";
+      delete card.dataset.vmFlying;
+      vmIndexSlots(deck);
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          deck.classList.remove("is-settling");
+          busy = false;
+        });
+      });
+    }
+
+    function vanish(card, keyboard) {
+      busy = true;
+      var refocus = keyboard || deck.contains(document.activeElement);
+      card.dataset.vmFlying = "1";
+      card.setAttribute("data-slot", "flying");
+      card.classList.remove("is-dragging");
+      deck.classList.remove("is-peeking");
+
+      // The cards behind come forward straight away rather than waiting for the
+      // throw to finish — that is what makes the deck feel like it has depth.
+      vmAdvance(deck);
+      if (refocus) focusTop();
+
+      var done = false;
+      function finish() {
+        if (done) return;
+        done = true;
+        card.removeEventListener("transitionend", finish);
+        land(card);
+      }
+
+      card.classList.add("is-vanishing");
+      if (vmReducedMotion()) {
+        card.style.transform = "";
+        setTimeout(finish, 240);
+        return;
+      }
+
+      var throwX = dx;
+      var throwY = dy;
+      // A press with no travel still has to go somewhere, so it lifts away.
+      if (Math.abs(throwX) < 6 && Math.abs(throwY) < 6) {
+        throwX = 0;
+        throwY = -110;
+      } else {
+        throwX *= 4;
+        throwY *= 4;
+      }
+      var spin = Math.max(-18, Math.min(18, throwX * 0.06)) || 11;
+      requestAnimationFrame(function () {
+        card.style.transform =
+          "translate(" +
+          Math.round(throwX) +
+          "px, " +
+          Math.round(throwY) +
+          "px) rotate(" +
+          spin.toFixed(2) +
+          "deg) scale(0.7)";
+      });
+      card.addEventListener("transitionend", finish);
+      // transitionend never arrives if the section is scrolled out of view or the
+      // tab is backgrounded mid-throw, and a stuck card would freeze the deck.
+      setTimeout(finish, 640);
+    }
+
+    deck.addEventListener("pointerdown", function (e) {
+      if (busy || active) return;
+      if (typeof e.button === "number" && e.button !== 0) return;
+      var card = e.target.closest && e.target.closest(".vm-deck__card");
+      if (!card || card.getAttribute("data-slot") !== "0") return;
+      active = card;
+      startX = e.clientX;
+      startY = e.clientY;
+      dx = 0;
+      dy = 0;
+      claimed = false;
+      deck.classList.add("is-peeking");
+      try {
+        card.setPointerCapture(e.pointerId);
+      } catch (err) {
+        /* capture is a nicety; the deck still works without it */
+      }
+    });
+
+    deck.addEventListener("pointermove", function (e) {
+      if (!active) return;
+      dx = e.clientX - startX;
+      dy = e.clientY - startY;
+      if (!claimed) {
+        // Nothing is claimed until the pointer has clearly gone sideways, so a
+        // finger that came down to scroll the page keeps scrolling the page.
+        if (Math.abs(dx) <= CLAIM_PX) return;
+        claimed = true;
+        active.classList.add("is-dragging");
+      }
+      if (e.cancelable) e.preventDefault();
+      active.style.transform =
+        "translate(" +
+        Math.round(dx) +
+        "px, " +
+        Math.round(dy) +
+        "px) rotate(" +
+        (dx * 0.045).toFixed(2) +
+        "deg) scale(0.955)";
+    });
+
+    deck.addEventListener("pointerup", function (e) {
+      if (!active) return;
+      var card = active;
+      active = null;
+      try {
+        card.releasePointerCapture(e.pointerId);
+      } catch (err) {
+        /* already released */
+      }
+      // Letting go always sends the card away, drag or plain press.
+      vanish(card, false);
+    });
+
+    // Cancel is not a release: the browser fires it when it takes the gesture
+    // over to pan the page, and a card must not disappear because someone
+    // scrolled past it.
+    deck.addEventListener("pointercancel", function () {
+      if (!active) return;
+      var card = active;
+      active = null;
+      deck.classList.remove("is-peeking");
+      if (claimed) {
+        vanish(card, false);
+        return;
+      }
+      card.classList.remove("is-dragging");
+      card.style.transform = "";
+    });
+
+    deck.addEventListener("keydown", function (e) {
+      if (busy) return;
+      if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
+      var card =
+        e.target.closest && e.target.closest('.vm-deck__card[data-slot="0"]');
+      if (!card) return;
+      e.preventDefault();
+      dx = 0;
+      dy = 0;
+      vanish(card, true);
+    });
+  }
+
+  /* -- Mission: the shuffle -------------------------------------------------
+     Lift clear, carry back, drop in. The two cards behind promote during the
+     carry rather than after it, so the whole thing reads as one movement. */
+  function vmWireShuffle(deck) {
+    var busy = false;
+
+    function run(card) {
+      if (busy) return;
+      busy = true;
+      var refocus = deck.contains(document.activeElement);
+      card.dataset.vmFlying = "1";
+      card.setAttribute("data-slot", "flying");
+
+      function settle() {
+        deck.classList.add("is-settling");
+        card.classList.remove("is-lifting", "is-tucking");
+        delete card.dataset.vmFlying;
+        vmIndexSlots(deck);
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            deck.classList.remove("is-settling");
+            busy = false;
+          });
+        });
+      }
+
+      if (vmReducedMotion()) {
+        vmAdvance(deck);
+        if (refocus) {
+          var top = deck.querySelector('.vm-deck__card[data-slot="0"]');
+          if (top) top.focus();
+        }
+        setTimeout(settle, 180);
+        return;
+      }
+
+      card.classList.add("is-lifting");
+      setTimeout(function () {
+        // Halfway: the card starts its journey to the deepest slot and drops
+        // below the deck at the same moment, and the cards behind are released
+        // forward. Swapping z-index here rather than at the start is what makes
+        // it read as going *behind* the others instead of under them.
+        card.classList.remove("is-lifting");
+        card.classList.add("is-tucking");
+        vmAdvance(deck);
+        if (refocus) {
+          var top = deck.querySelector('.vm-deck__card[data-slot="0"]');
+          if (top) top.focus();
+        }
+        // The hand-back waits for the card promoted into the deepest slot to
+        // finish fading in (0.42s from here), so the two never overlap there.
+        setTimeout(settle, 430);
+      }, 155);
+    }
+
+    deck.addEventListener("click", function (e) {
+      var card = e.target.closest && e.target.closest(".vm-deck__card");
+      if (!card || card.getAttribute("data-slot") !== "0") return;
+      run(card);
+    });
+
+    deck.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
+      var card =
+        e.target.closest && e.target.closest('.vm-deck__card[data-slot="0"]');
+      if (!card) return;
+      e.preventDefault();
+      run(card);
+    });
+  }
+
   function initCarousel(track) {
     var items = Array.from(track.querySelectorAll(".carousel-item"));
     var prevEl = document.querySelector(".prev-btn");
     var nextEl = document.querySelector(".next-btn");
     var wrapper = document.querySelector(".carousel-wrapper");
     if (!items.length || !prevEl || !nextEl || !wrapper) return;
+    // One constant instead of the five literals this function used to carry, so
+    // the autoplay beat is set in a single place and the arrows, the hover pause
+    // and the swipe all restart on the same interval.
+    var AUTOPLAY_MS = 6000;
     var cur = 0,
       timer;
     function upd() {
@@ -13812,30 +14303,41 @@ const openReturnRequestModal = (() => {
     nn.addEventListener("click", function () {
       nxt();
       clearInterval(timer);
-      timer = setInterval(nxt, 5000);
+      timer = setInterval(nxt, AUTOPLAY_MS);
     });
     np.addEventListener("click", function () {
       prv();
       clearInterval(timer);
-      timer = setInterval(nxt, 5000);
+      timer = setInterval(nxt, AUTOPLAY_MS);
     });
     items.forEach(function (it) {
-      it.addEventListener("click", function () {
+      it.addEventListener("click", function (e) {
         // A drag that already moved the carousel must not also register as a
         // tap on whichever neighbour card the finger happened to land on.
         if (swiped) {
           swiped = false;
+          // The offer artwork is now a lightbox trigger, and the click is on its
+          // way to the delegated handler on document.body. Stop it here or a
+          // swipe would also throw the viewer open.
+          e.stopPropagation();
           return;
         }
-        if (it.classList.contains("prev")) prv();
-        else if (it.classList.contains("next")) nxt();
+        if (it.classList.contains("prev")) {
+          prv();
+          e.stopPropagation();
+        } else if (it.classList.contains("next")) {
+          nxt();
+          e.stopPropagation();
+        }
+        // The active card falls through on purpose: only the card the visitor is
+        // actually looking at should open its image.
       });
     });
     wrapper.addEventListener("mouseenter", function () {
       clearInterval(timer);
     });
     wrapper.addEventListener("mouseleave", function () {
-      timer = setInterval(nxt, 5000);
+      timer = setInterval(nxt, AUTOPLAY_MS);
     });
 
     // Swipe. The original bindings near the top of this file belong to the
@@ -13862,7 +14364,7 @@ const openReturnRequestModal = (() => {
 
     function restartAutoPlay() {
       clearInterval(timer);
-      timer = setInterval(nxt, 5000);
+      timer = setInterval(nxt, AUTOPLAY_MS);
     }
 
     function gestureEnd(x, y) {
@@ -13916,8 +14418,82 @@ const openReturnRequestModal = (() => {
       gestureEnd(e.clientX, e.clientY);
     });
 
+    setupStackedEntrance(wrapper);
+
     upd();
-    timer = setInterval(nxt, 5000);
+    timer = setInterval(nxt, AUTOPLAY_MS);
+  }
+
+  // Stacked entrance for What We Offer. `.is-stacked` pins every carousel item to
+  // the active card's position, so the section travels up from below as a single
+  // card; taking the class off again lets `.carousel-item`'s pre-existing 0.6s
+  // transform transition carry prev and next outward, left and right at the same
+  // time. No keyframes, and not one line of the shared reveal system is touched.
+  function setupStackedEntrance(wrapper) {
+    // Only worth doing before the reveal has played. A services response that
+    // lands after the visitor has already scrolled past would otherwise stack the
+    // cards with no reveal left to unstack them.
+    if (
+      !wrapper ||
+      !wrapper.classList.contains("reveal-on-scroll") ||
+      wrapper.classList.contains("show-reveal")
+    ) {
+      return;
+    }
+    // Nothing here is essential, so reduced motion simply opts out rather than
+    // getting a spread with the travel removed.
+    if (
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+    if (typeof MutationObserver !== "function") return;
+
+    wrapper.classList.add("is-stacked");
+
+    var unstacked = false;
+    var safety = null;
+    var watcher = null;
+    var guard = null;
+
+    var unstack = function () {
+      if (unstacked) return;
+      unstacked = true;
+      if (watcher) watcher.disconnect();
+      if (guard) guard.disconnect();
+      if (safety) clearTimeout(safety);
+      wrapper.classList.remove("is-stacked");
+    };
+
+    watcher = new MutationObserver(function () {
+      if (!wrapper.classList.contains("show-reveal")) return;
+      // A beat behind the reveal so the block finishes arriving before the cards
+      // start spreading — two legible moves instead of one blur.
+      setTimeout(unstack, 140);
+    });
+    watcher.observe(wrapper, { attributes: true, attributeFilter: ["class"] });
+
+    // Fail open on a real signal instead of a clock. This section sits far down
+    // the page, so a plain "unstack after N seconds" timer expires while the
+    // visitor is still reading the hero and silently cancels the spread for
+    // everyone who does not race down to it. The only way `show-reveal` never
+    // lands is that the reveal observer itself did not run, and the honest test
+    // for that is "the block is half on screen and still has not been revealed".
+    if (typeof IntersectionObserver === "function") {
+      guard = new IntersectionObserver(function (entries) {
+        if (safety || wrapper.classList.contains("show-reveal")) return;
+        var visible = entries.some(function (entry) {
+          return entry.isIntersecting;
+        });
+        if (!visible) return;
+        safety = setTimeout(unstack, 1600);
+      }, { threshold: 0.5 });
+      guard.observe(wrapper);
+    } else {
+      // No observer support at all: the reveal cannot fire either, so never stack.
+      unstack();
+    }
   }
 
   function bootSiteContent() {

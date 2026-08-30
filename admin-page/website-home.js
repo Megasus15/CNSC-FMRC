@@ -173,6 +173,10 @@ function populateForm() {
     );
     missionImageData = s.mission_image;
   }
+  // The decks that sit behind those two single images. Called from here rather
+  // than from loadSettings() so every re-populate (including the one after a
+  // gallery save) redraws the grids from the server's copy.
+  loadGalleries();
 
   setText("aboutHeading", s.about_heading || "ABOUT US");
   setText("homeSdgHeading", s.home_sdg_heading || "");
@@ -328,6 +332,54 @@ function bindEvents() {
     },
     true,
   ); // requireSquare = true for service card images
+
+  // Gallery pickers. These bypass setupImgInput() on purpose: it stores the raw
+  // FileReader result, and a gallery of ten untouched phone photos would be
+  // downloaded by every visitor on their first page load.
+  Object.keys(GALLERIES).forEach(function (kind) {
+    const conf = GALLERIES[kind];
+    const input = document.getElementById(conf.input);
+    if (!input) return;
+    input.addEventListener("change", async function () {
+      const file = this.files && this.files[0];
+      this.value = "";
+      if (!file) return;
+      if (!/^image\//.test(file.type || "")) {
+        window.showAdminPopup("Pick an image file for the gallery.", {
+          title: "Not an image",
+        });
+        return;
+      }
+      const target = galleryUploadTarget || { kind: kind, index: null };
+      galleryUploadTarget = null;
+      const isAppend = target.index === null || target.index === undefined;
+      try {
+        const src = await downscaleToDataUrl(
+          file,
+          conf.width,
+          conf.height,
+          0.78,
+        );
+        const next = galleryData[kind].slice();
+        if (isAppend) {
+          if (next.length >= GALLERY_MAX) return;
+          next.push(src);
+        } else {
+          next[target.index] = src;
+        }
+        await saveGallery(
+          kind,
+          next,
+          isAppend ? "Photo added to the deck." : "Photo replaced.",
+        );
+      } catch {
+        window.showAdminPopup(
+          "That image could not be processed. Try a different file.",
+          { title: "Upload failed" },
+        );
+      }
+    });
+  });
 
   // Crop sliders
   document.getElementById("cropScale").addEventListener("input", function () {
@@ -1281,6 +1333,285 @@ function broadcastSiteUpdate(type) {
     localStorage.setItem("fmrc_site_content_updated_at", String(Date.now()));
   } catch {
     /* storage blocked — ETag polling still picks the change up */
+  }
+}
+
+/* ==========================================================================
+   VISION / MISSION GALLERIES
+   --------------------------------------------------------------------------
+   Up to ten photos per section, each gallery stored as one JSON array of data
+   URLs under a single site_settings key. Those keys needed no migration:
+   /admin/site-settings upserts whatever the body carries and `value` is a
+   longText — which is what let this ship as a copy-only deploy.
+
+   Two consequences of base64-in-a-setting, both handled here rather than on the
+   server:
+
+   * Every upload is downscaled before it is stored. The customer page polls
+     /api/site-settings, so an untouched 4MB phone photo would be paid for on
+     every visitor's first load. Fixed output sizes hold a full pair of galleries
+     to roughly 2.5MB worst case.
+   * The meter under each grid shows what that costs and turns amber past 1.5MB,
+     so the size of the decision is visible while it is being made.
+   ========================================================================== */
+const GALLERY_MAX = 10;
+
+const GALLERIES = {
+  vision: {
+    key: "vision_gallery",
+    label: "Vision",
+    grid: "visionGalleryGrid",
+    input: "visionGalleryInput",
+    meter: "visionGalleryMeter",
+    // 16:10 and 1:1 are the ratios `.vision-img` and the mission blob already
+    // use on the customer page, so the downscale crops exactly what the deck
+    // would have cropped anyway. `shape` makes the editor thumb match, so what
+    // is previewed here is what the visitor sees.
+    width: 1000,
+    height: 625,
+    shape: "is-wide",
+  },
+  mission: {
+    key: "mission_gallery",
+    label: "Mission",
+    grid: "missionGalleryGrid",
+    input: "missionGalleryInput",
+    meter: "missionGalleryMeter",
+    width: 760,
+    height: 760,
+    shape: "is-square",
+  },
+};
+
+let galleryData = { vision: [], mission: [] };
+let galleryUploadTarget = null; // { kind, index }; a null index means "append"
+
+// One save at a time per deck. Every entry point works out its next list from
+// `galleryData`, which is only updated once the PUT has come back, so two clicks
+// inside one round-trip would both start from the same stale list and the second
+// would silently undo the first. Refusing the overlap is the honest behaviour:
+// the list on screen is still the truth, and the click just needs repeating.
+let gallerySaving = { vision: false, mission: false };
+
+/** Tolerant on purpose: the key is absent until the first upload. */
+function parseGallery(raw) {
+  if (!raw) return [];
+  let list = raw;
+  if (typeof raw === "string") {
+    try {
+      list = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((src) => typeof src === "string" && src.trim() !== "")
+    .slice(0, GALLERY_MAX);
+}
+
+function loadGalleries() {
+  Object.keys(GALLERIES).forEach((kind) => {
+    galleryData[kind] = parseGallery(currentSettings[GALLERIES[kind].key]);
+    renderGallerySlots(kind);
+  });
+}
+
+/**
+ * Centre-crop a picked file to a fixed output size and hand back a JPEG data
+ * URL. Same idiom as applyLogoCropAndSave(): an offscreen canvas at a known
+ * size, drawn through a computed transform, read back with toDataURL.
+ * Deliberately not setupImgInput(), which stores the raw FileReader result at
+ * whatever size the camera produced.
+ */
+function downscaleToDataUrl(file, outW, outH, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("read failed"));
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("decode failed"));
+      img.onload = () => {
+        const sw = img.naturalWidth || img.width;
+        const sh = img.naturalHeight || img.height;
+        if (!sw || !sh) {
+          reject(new Error("empty image"));
+          return;
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = outW;
+        canvas.height = outH;
+        const ctx = canvas.getContext("2d");
+        // White underneath: a transparent PNG flattened into a JPEG would
+        // otherwise come out with black wherever it was see-through.
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, outW, outH);
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        // `cover`: fill the frame, crop the overflow, keep the centre.
+        const scale = Math.max(outW / sw, outH / sh);
+        const dw = sw * scale;
+        const dh = sh * scale;
+        ctx.drawImage(img, (outW - dw) / 2, (outH - dh) / 2, dw, dh);
+        try {
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        } catch (err) {
+          reject(err);
+        }
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/* The grid markup is the SDG grid's, class for class, so this section needs no
+   admin CSS of its own beyond the handful of `wm-gal-*` shape overrides that
+   turn a round badge thumb into a photo thumb. */
+function renderGallerySlots(kind) {
+  const conf = GALLERIES[kind];
+  const grid = document.getElementById(conf.grid);
+  if (!grid) return;
+  const list = galleryData[kind];
+
+  const filled = list
+    .map(
+      (src, i) => `
+    <div class="wm-sdg-slot">
+      <span class="wm-sdg-slot-index">Photo ${i + 1}${i === 0 ? " — on top" : ""}</span>
+      <div class="wm-sdg-thumb wm-gal-thumb ${conf.shape}"><img src="${sdgEsc(src)}" alt="${conf.label} photo ${i + 1}" /></div>
+      <div class="wm-sdg-actions">
+        <button class="btn-edit-sm wm-sdg-move" title="Move earlier" onclick="moveGalleryImage('${kind}', ${i}, -1)" ${i === 0 ? "disabled" : ""}><i class="fa-solid fa-arrow-left"></i></button>
+        <button class="btn-edit-sm wm-sdg-move" title="Move later" onclick="moveGalleryImage('${kind}', ${i}, 1)" ${i === list.length - 1 ? "disabled" : ""}><i class="fa-solid fa-arrow-right"></i></button>
+        <button class="btn-edit-sm wm-sdg-move" title="Replace this photo" onclick="openGalleryUpload('${kind}', ${i})"><i class="fa-regular fa-image"></i></button>
+        <button class="btn-del-sm" onclick="removeGalleryImage('${kind}', ${i})"><i class="fa-solid fa-trash"></i> Remove</button>
+      </div>
+    </div>`,
+    )
+    .join("");
+
+  const empty = Array.from(
+    { length: Math.max(0, GALLERY_MAX - list.length) },
+    (_, i) => `
+    <div class="wm-sdg-slot is-empty">
+      <span class="wm-sdg-slot-index">Slot ${list.length + i + 1}</span>
+      <button class="wm-sdg-add wm-gal-add ${conf.shape}" type="button" title="Upload a ${conf.label.toLowerCase()} photo"
+              onclick="openGalleryUpload('${kind}', null)"><i class="fa-solid fa-plus"></i></button>
+      <div class="wm-sdg-title" style="color:#9ca3af;font-weight:600">Upload photo</div>
+    </div>`,
+  ).join("");
+
+  grid.innerHTML = filled + empty;
+  renderGalleryMeter(kind);
+}
+
+function renderGalleryMeter(kind) {
+  const meter = document.getElementById(GALLERIES[kind].meter);
+  if (!meter) return;
+  const list = galleryData[kind];
+  if (!list.length) {
+    meter.textContent =
+      "No gallery set — the single image above is used on its own.";
+    meter.style.color = "#9ca3af";
+    return;
+  }
+  // Bytes on the wire, not characters of base64: every 4 characters carry 3.
+  const bytes = list.reduce(
+    (sum, src) => sum + Math.ceil((src.length * 3) / 4),
+    0,
+  );
+  const kb = Math.round(bytes / 1024);
+  const size = kb >= 1024 ? (kb / 1024).toFixed(2) + " MB" : kb + " KB";
+  const heavy = bytes > 1.5 * 1024 * 1024;
+  meter.textContent =
+    `${list.length} photo${list.length === 1 ? "" : "s"} · about ${size} added ` +
+    `to every visitor's first page load` +
+    (heavy ? " — consider trimming this gallery." : ".");
+  meter.style.color = heavy ? "#b45309" : "#9ca3af";
+}
+
+/** Open the shared picker. index = null appends, an index replaces that photo. */
+function openGalleryUpload(kind, index) {
+  const conf = GALLERIES[kind];
+  if (index === null && galleryData[kind].length >= GALLERY_MAX) {
+    window.showAdminPopup(
+      `The ${conf.label} deck holds at most ${GALLERY_MAX} photos. Remove one first.`,
+      { title: "All slots used" },
+    );
+    return;
+  }
+  galleryUploadTarget = { kind, index };
+  const input = document.getElementById(conf.input);
+  if (!input) return;
+  input.value = "";
+  input.click();
+}
+
+/* Order is the deck order: photo 1 is the card the visitor sees on top. */
+function moveGalleryImage(kind, index, dir) {
+  const list = galleryData[kind];
+  const to = index + dir;
+  if (index < 0 || index >= list.length || to < 0 || to >= list.length) return;
+  const next = list.slice();
+  next.splice(to, 0, next.splice(index, 1)[0]);
+  void saveGallery(kind, next, "Photo order updated.");
+}
+
+function removeGalleryImage(kind, index) {
+  const next = galleryData[kind].slice();
+  if (index < 0 || index >= next.length) return;
+  next.splice(index, 1);
+  void saveGallery(
+    kind,
+    next,
+    next.length
+      ? "Photo removed."
+      : "Gallery cleared. The single image above is used on its own again.",
+  );
+}
+
+/**
+ * One-key PUT, shaped on saveLogoSetting(): the gallery saves the moment it is
+ * changed and is deliberately absent from doSaveAll()'s payload, so a form that
+ * was loaded before an upload cannot overwrite it on the next "Save All".
+ */
+async function saveGallery(kind, list, successMsg) {
+  const conf = GALLERIES[kind];
+  if (gallerySaving[kind]) {
+    window.showAdminPopup(
+      `The ${conf.label} gallery is still saving your last change. Please try again in a moment.`,
+      { title: "One at a time" },
+    );
+    return;
+  }
+  gallerySaving[kind] = true;
+  const payload = {};
+  // Always a JSON array, even when empty: "[]" is what tells the customer page
+  // to hand the section back to its single-image rules.
+  payload[conf.key] = JSON.stringify(list.slice(0, GALLERY_MAX));
+  try {
+    const res = await fetch(`${API}/admin/site-settings`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + token(),
+        Accept: "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error("Save failed");
+    galleryData[kind] = list.slice(0, GALLERY_MAX);
+    renderGallerySlots(kind);
+    window.showAdminPopup(successMsg, { title: "Saved!" });
+    broadcastSiteUpdate("updated");
+    await loadSettings();
+  } catch {
+    window.showAdminPopup(
+      `Failed to save the ${conf.label} gallery. Check your connection and try again.`,
+      { title: "Error" },
+    );
+  } finally {
+    gallerySaving[kind] = false;
   }
 }
 

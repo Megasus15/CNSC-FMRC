@@ -22,8 +22,8 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
 
-    <link rel="stylesheet" href="main.css?v=6.3" />
-    <link rel="stylesheet" href="responsive.css?v=6.8" />
+    <link rel="stylesheet" href="main.css?v=6.5" />
+    <link rel="stylesheet" href="responsive.css?v=6.9" />
 
     <!-- Renders the hero headline from site settings. Loaded here, ahead of the
          hero markup, so the inline call below it can paint before first paint. -->
@@ -259,15 +259,30 @@
 
       <div class="vision-section">
         <div class="vision-container">
-          <div class="vision-content-left">
-            <img
-              src="/images/pic1.jpg"
-              alt="FMRC Vision"
-              class="vision-img"
-              id="visionImgEl"
-            />
+          <!-- reveal-from-left: both columns enter from the left edge together,
+               so the section slides in as one block rather than two halves. -->
+          <div class="vision-content-left reveal-from-left">
+            <!-- The deck is a plain wrapper until main.js finds more than one
+                 gallery image and adds `.has-stack`; with a single photo this
+                 renders exactly as it did before. The first card keeps the
+                 legacy id and class so `_src("visionImgEl", …)` and every
+                 existing sizing rule still find their target. -->
+            <div class="vm-deck vm-deck--vision" id="visionDeck">
+              <div class="vm-deck__card">
+                <img
+                  src="/images/pic1.jpg"
+                  alt="FMRC Vision"
+                  class="vision-img"
+                  id="visionImgEl"
+                />
+              </div>
+            </div>
+            <p class="vm-deck__hint" id="visionDeckHint">
+              <i class="fa-solid fa-hand-pointer"></i> Drag a photo aside to see
+              the next
+            </p>
           </div>
-          <div class="vision-content-right">
+          <div class="vision-content-right reveal-from-left">
             <h2 class="vm-title" id="visionHeadingEl">OUR VISION</h2>
             <p class="vm-text" id="visionTextEl">
               UCN FMRC as a leading manufacturing and fabrication laboratory in
@@ -279,7 +294,8 @@
 
       <div class="mission-section">
         <div class="mission-container">
-          <div class="mission-content-left">
+          <!-- reveal-from-right: the mirror of the Vision section above. -->
+          <div class="mission-content-left reveal-from-right">
             <h2 class="vm-title" id="missionHeadingEl">OUR MISSION</h2>
             <p class="vm-text" id="missionTextEl">
               UCN FMRC shall provide an avenue for creative thinking and
@@ -287,14 +303,20 @@
               means.
             </p>
           </div>
-          <div class="mission-content-right">
+          <div class="mission-content-right reveal-from-right">
+            <!-- The deck sits inside `.blob-wrapper`, so the red and grey blobs,
+                 the 480px square footprint and the organic mask are untouched. -->
             <div class="blob-wrapper">
-              <img
-                src="/images/pic2.jpg"
-                alt="FMRC Mission"
-                class="mission-img"
-                id="missionImgEl"
-              />
+              <div class="vm-deck vm-deck--mission" id="missionDeck">
+                <div class="vm-deck__card">
+                  <img
+                    src="/images/pic2.jpg"
+                    alt="FMRC Mission"
+                    class="mission-img"
+                    id="missionImgEl"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -304,13 +326,16 @@
     <section id="services-preview" class="services-preview-section">
       <div class="services-container">
         <h2
-          class="section-title"
+          class="section-title reveal-from-bottom"
           style="text-align: center; margin-bottom: 50px"
         >
           WHAT WE OFFER
         </h2>
 
-        <div class="carousel-wrapper landscape-carousel">
+        <!-- reveal-from-bottom + the `.is-stacked` class main.js adds before the
+             first paint: the cards arrive as one stack from below, then spread
+             left and right together once the section reaches the middle. -->
+        <div class="carousel-wrapper landscape-carousel reveal-from-bottom">
           <button class="carousel-btn prev-btn" aria-label="Previous Service">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -1564,6 +1589,25 @@
       </div>
     </footer>
 
+    <!-- Image lightbox for the What We Offer artwork. Copied from the Services
+         page so both surfaces open the same viewer: `openServiceImageLightbox()`
+         and the delegated `.service-image-trigger` handler already live in the
+         shared main.js scope and null-guard on this markup being absent. -->
+    <div class="modal-overlay" id="serviceImageLightboxModal" style="z-index: 21000;">
+      <div class="lightbox-box">
+        <button
+          class="lightbox-close-btn"
+          id="closeServiceLightboxBtn"
+          type="button"
+          aria-label="Close image preview"
+        >
+          &times;
+        </button>
+        <img id="serviceLightboxImage" src="" alt="Service large preview" />
+        <p id="serviceLightboxCaption" class="lightbox-caption"></p>
+      </div>
+    </div>
+
     <script
       src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
       crossorigin="anonymous"
@@ -1573,7 +1617,7 @@
     <!-- Maintenance Mode gate: must run before main.js so the cached snapshot is
          applied before anything that should be hidden can be painted. -->
     <script src="maintenance-gate.js?v=1.1"></script>
-    <script src="main.js?v=6.8"></script>
+    <script src="main.js?v=7.0"></script>
     <script src="customer-announcements.js?v=5.5"></script>
   </body>
 </html>

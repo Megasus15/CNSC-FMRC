@@ -6619,10 +6619,39 @@ input:checked + .toggle-slider:before {
   transition-delay: 0ms;
 }
 
-/* Reduced motion: show everything, animate nothing. */
+/* Direction variants. The default reveal rises from below; these three let a
+   section enter from a named edge instead, which is what gives Vision (left),
+   Mission (right) and What We Offer (bottom) three distinct entrances.
+
+   `:not(.show-reveal)` is load-bearing, not decoration. Without it a variant
+   would be `.reveal-on-scroll.reveal-from-left` — (0,2,0), exactly the same
+   weight as `.reveal-on-scroll.show-reveal` above — and whichever came last in
+   the file would win, so the block would either never move or never arrive.
+   Qualifying it takes the variant to (0,3,0) for the resting state only, and
+   the `transform: none` of `.show-reveal` still applies once the class lands,
+   regardless of source order. */
+.reveal-on-scroll.reveal-from-left:not(.show-reveal) {
+  transform: translate3d(-56px, 0, 0);
+}
+
+.reveal-on-scroll.reveal-from-right:not(.show-reveal) {
+  transform: translate3d(56px, 0, 0);
+}
+
+.reveal-on-scroll.reveal-from-bottom:not(.show-reveal) {
+  transform: translate3d(0, 64px, 0);
+}
+
+/* Reduced motion: show everything, animate nothing. The direction variants have
+   to be named here too — each is (0,3,0), so the plain `.reveal-on-scroll`
+   reset below cannot reach them and a block would sit permanently 56px off to
+   one side with no transition to bring it back. */
 @media (prefers-reduced-motion: reduce) {
   .reveal-on-scroll,
-  .reveal-on-scroll.show-reveal {
+  .reveal-on-scroll.show-reveal,
+  .reveal-on-scroll.reveal-from-left:not(.show-reveal),
+  .reveal-on-scroll.reveal-from-right:not(.show-reveal),
+  .reveal-on-scroll.reveal-from-bottom:not(.show-reveal) {
     opacity: 1;
     transform: none;
     transition: none;
@@ -16903,144 +16932,12 @@ textarea:focus-visible {
   object-fit: contain;
 }
 
-/* Google Account Password Creation Floating Card */
-.google-pwd-floating-card {
-  position: absolute;
-  top: calc(100% + 14px);
-  right: 0;
-  width: 290px;
-  background: #ffffff;
-  border: 1.5px solid #fecaca;
-  border-radius: 16px;
-  box-shadow:
-    0 14px 38px rgba(158, 20, 20, 0.16),
-    0 4px 12px rgba(0, 0, 0, 0.06);
-  padding: 16px 18px;
-  z-index: 2100;
-  color: #1f2937;
-  text-align: left;
-  animation: googleCardFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  pointer-events: auto;
-}
-
-.google-pwd-floating-card::before {
-  content: "";
-  position: absolute;
-  top: -8px;
-  right: 18px;
-  width: 14px;
-  height: 14px;
-  background: #ffffff;
-  border-top: 1.5px solid #fecaca;
-  border-left: 1.5px solid #fecaca;
-  transform: rotate(45deg);
-}
-
-.google-pwd-floating-card.fade-out {
-  animation: googleCardFadeOut 0.3s ease forwards;
-  pointer-events: none;
-}
-
-@keyframes googleCardFadeIn {
-  0% {
-    opacity: 0;
-    transform: translateY(-8px) scale(0.95);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-@keyframes googleCardFadeOut {
-  0% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(-8px) scale(0.95);
-  }
-}
-
-.google-pwd-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.google-pwd-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  background: #fff1f2;
-  color: #9e1414;
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px solid #fecdd3;
-}
-
-.google-pwd-close-btn {
-  background: none;
-  border: none;
-  font-size: 18px;
-  line-height: 1;
-  color: #9ca3af;
-  cursor: pointer;
-  padding: 2px 5px;
-  border-radius: 4px;
-  transition: color 0.15s ease;
-}
-
-.google-pwd-close-btn:hover {
-  color: #111827;
-}
-
-.google-pwd-text {
-  font-size: 12.5px;
-  line-height: 1.45;
-  color: #4b5563;
-  margin-bottom: 12px;
-}
-
-.google-pwd-text strong {
-  color: #9e1414;
-  display: block;
-  font-size: 13px;
-  margin-bottom: 2px;
-}
-
-.google-pwd-action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  width: 100%;
-  padding: 8px 12px;
-  background: #9e1414;
-  color: #ffffff;
-  border: none;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition:
-    background-color 0.2s ease,
-    transform 0.1s ease;
-}
-
-.google-pwd-action-btn:hover {
-  background: #7a0f0f;
-}
-
-.google-pwd-action-btn:active {
-  transform: scale(0.97);
-}
+/* The "Account Tip" popover that nudges Google-signed-in customers to set a
+   password used to be styled here in its own 2100-era language. It now wears the
+   shared `ux-dlg` skin, so its rules had to move *below* that system — see
+   "ACCOUNT TIP POPOVER" at the end of this file. Nothing is left here on purpose:
+   a rule at this height in the file could not beat `:is(.ux-dlg, …) .ux-dlg__card
+   .part`, which is (1,2,0). */
 
 /* Cloudflare Turnstile stays collapsed until the backend keys are enabled. */
 .fmrc-turnstile-slot {
@@ -18529,3 +18426,551 @@ textarea:focus-visible {
     animation: none;
   }
 }
+
+/* ==========================================================================
+   VISION / MISSION IMAGE DECKS ("vm-deck")
+   --------------------------------------------------------------------------
+   Both sections used to hold exactly one <img>. They now hold a deck of up to
+   ten, managed from Website Management -> Home in either portal, with two
+   different gestures: Vision cards are dragged aside and vanish, Mission cards
+   are clicked and shuffle to the back.
+
+   Two rules govern everything below.
+
+   1. A site with no gallery configured must render byte-identically to before.
+      That is why the stacking geometry is gated behind `.has-stack`, which
+      main.js only adds once it has more than one image to show. Until then the
+      deck is a transparent wrapper and the single image keeps its own natural
+      height, its own `max-width` and every rule that has ever targeted
+      `.vision-img` / `.mission-img`.
+   2. The first card keeps `id="visionImgEl"` / `id="missionImgEl"` and its
+      original class, so the legacy single-image applier and all the existing
+      sizing layers keep working untouched.
+
+   This block sits at the end of the file on purpose: the Vision/Mission sizing
+   is spread over five earlier layers (541-644, 6540, 7215, 12864, 14591), and
+   the stacked variants have to win against all of them without resorting to
+   `!important`.
+   ========================================================================== */
+
+.vm-deck {
+  position: relative;
+  width: 100%;
+  /* No `margin-inline: auto`: `.vision-img` was left-aligned in its 570px column
+     and `.blob-wrapper` already centres itself, so centring here would nudge the
+     Vision photo 10px right on an unconfigured site. */
+  /* Vertical scrolling always belongs to the page. The drag handler only claims
+     a gesture once it has travelled far enough sideways to be unambiguous. */
+  touch-action: pan-y;
+}
+
+.vm-deck--vision {
+  max-width: 550px;
+}
+
+/* Mission's image is `height: 100%` of the square `.blob-wrapper`, so the deck
+   and its cards have to pass that height straight through or the photo collapses.
+   `z-index: 2` reproduces what `.mission-img` carried on its own — it keeps the
+   whole deck above the red and grey blobs, and makes the stack one stacking
+   context so the cards' own 1-3 z-indexes stay private to it. */
+.vm-deck--mission {
+  z-index: 2;
+  height: 100%;
+}
+
+.vm-deck--mission .vm-deck__card {
+  height: 100%;
+}
+
+/* Unstacked, the card is a plain pass-through: no positioning, no clipping, so
+   the image inside behaves exactly as it did as a bare <img>. */
+.vm-deck__card {
+  position: relative;
+  display: block;
+}
+
+/* -- Stacked ---------------------------------------------------------------- */
+
+/* A stack needs one shared box, because ten uploads of ten different shapes
+   cannot take turns being the element that decides the section's height. The
+   ratios match what the phone layer already picked for each image, so nothing
+   about the shipped mobile pass has to be re-tuned. */
+.vm-deck.has-stack {
+  aspect-ratio: 16 / 10;
+}
+
+.vm-deck--mission.has-stack {
+  aspect-ratio: 1;
+}
+
+.vm-deck.has-stack .vm-deck__card {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  transform-origin: 50% 85%;
+  transition:
+    transform 0.42s cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 0.42s ease,
+    filter 0.42s ease;
+  will-change: transform, opacity;
+}
+
+/* One card stays in the flow. Both columns are `flex: 1 1 0%`, so their width is
+   negotiated from what they contain: lift *every* card out of the flow and the
+   Mission column's min-content drops to zero, the text column takes the whole
+   row, and `.blob-wrapper` resolves to 0x0 — the photo disappears at tablet
+   widths. Keeping the first card in the flow reproduces exactly the intrinsic
+   contribution the bare <img> used to make, and it also means a deck that is
+   left holding a single image can never collapse. The other cards are absolute
+   and pinned to `inset: 0`, so they overlay this one precisely; transforms do
+   not affect layout, so slot geometry is unchanged either way. */
+.vm-deck.has-stack .vm-deck__card:first-child {
+  position: relative;
+  height: 100%;
+}
+
+.vm-deck.has-stack .vm-deck__card > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  margin: 0;
+  object-fit: cover;
+}
+
+/* -- Slot geometry ----------------------------------------------------------
+   main.js writes `data-slot` on every card: 0 is the one you can touch, 1 and 2
+   peek out behind it to the left, and everything deeper is parked invisibly in
+   slot 2's position so promoting it costs no layout. Exactly three cards paint
+   however many are in the gallery.
+
+   Left rather than right: Vision's photo sits in the left column and Mission's
+   blob leans right, so a left-hand fan keeps both fans inside the section
+   instead of pushing them at the body text. */
+.vm-deck.has-stack .vm-deck__card[data-slot="0"] {
+  z-index: 3;
+  transform: none;
+  filter: none;
+  opacity: 1;
+}
+
+.vm-deck.has-stack .vm-deck__card[data-slot="1"] {
+  z-index: 2;
+  transform: translate(-11px, 8px) rotate(-3deg) scale(0.955);
+  filter: brightness(0.94);
+  opacity: 1;
+}
+
+.vm-deck.has-stack .vm-deck__card[data-slot="2"] {
+  z-index: 1;
+  transform: translate(-22px, 16px) rotate(-6deg) scale(0.915);
+  filter: brightness(0.88);
+  opacity: 1;
+}
+
+.vm-deck.has-stack .vm-deck__card[data-slot="hidden"] {
+  z-index: 0;
+  transform: translate(-22px, 16px) rotate(-6deg) scale(0.915);
+  filter: brightness(0.88);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The card currently in mid-gesture is taken out of the slot system entirely —
+   deliberately no transform, filter or opacity here, so the inline values script
+   is writing frame by frame are the only thing positioning it. It sits above the
+   whole deck while it travels; `.is-tucking` below reclaims the z-index once the
+   Mission card is supposed to slide behind. */
+.vm-deck.has-stack .vm-deck__card[data-slot="flying"] {
+  z-index: 6;
+}
+
+/* Photos are the drag target, so the browser's own image-drag and the text
+   selection a fast swipe would otherwise start both have to go. */
+.vm-deck.has-stack .vm-deck__card img {
+  -webkit-user-drag: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* -- Vision: grab, drag, vanish --------------------------------------------- */
+
+.vm-deck--vision.has-stack .vm-deck__card[data-slot="0"] {
+  cursor: grab;
+}
+
+/* The press itself is the affordance: the card shrinks a little, which is what
+   opens the gap that lets the next photo behind it be seen. */
+.vm-deck--vision.has-stack.is-peeking .vm-deck__card[data-slot="0"] {
+  transform: scale(0.955);
+  cursor: grabbing;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
+}
+
+.vm-deck--vision.has-stack.is-peeking .vm-deck__card[data-slot="1"] {
+  transform: translate(-6px, 4px) rotate(-1.6deg) scale(0.985);
+  filter: brightness(0.98);
+}
+
+.vm-deck--vision.has-stack.is-peeking .vm-deck__card[data-slot="2"] {
+  transform: translate(-15px, 11px) rotate(-4deg) scale(0.94);
+  filter: brightness(0.93);
+}
+
+/* While a finger is down the transform is written frame by frame from script,
+   so the transition has to be out of the way or every move would lag 420ms
+   behind the pointer. */
+.vm-deck__card.is-dragging {
+  transition: none !important;
+  cursor: grabbing;
+}
+
+/* The fling. Distance, rotation and direction are inline (they depend on the
+   gesture); only the curve and what fades belong in CSS. */
+.vm-deck__card.is-vanishing {
+  transition:
+    transform 0.46s cubic-bezier(0.2, 0.7, 0.3, 1),
+    opacity 0.46s ease-in,
+    filter 0.46s ease-in;
+  opacity: 0;
+  filter: blur(6px);
+  pointer-events: none;
+}
+
+/* -- Mission: the shuffle ---------------------------------------------------
+   Three beats, driven by script because the z-index has to change halfway
+   through: lift the card clear of the deck, carry it back to the deepest slot,
+   then drop it in. Swapping z-index at the midpoint is what makes it read as
+   going *behind* the others rather than sliding under them from the start. */
+
+.vm-deck--mission.has-stack .vm-deck__card[data-slot="0"] {
+  cursor: pointer;
+}
+
+.vm-deck--mission.has-stack .vm-deck__card.is-lifting {
+  z-index: 6;
+  transform: translateY(-26px) scale(1.04) rotate(-2deg);
+  transition: transform 0.15s cubic-bezier(0.34, 1.4, 0.64, 1);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
+}
+
+.vm-deck--mission.has-stack .vm-deck__card.is-tucking {
+  z-index: 0;
+  transform: translate(-22px, 16px) rotate(-6deg) scale(0.915);
+  filter: brightness(0.88);
+  transition:
+    transform 0.23s cubic-bezier(0.4, 0, 0.6, 1),
+    filter 0.23s ease;
+}
+
+/* One frame with transitions off, used the moment a gesture finishes so the card
+   that just left can be handed back to the slot system without animating all the
+   way home from wherever the fling threw it. */
+.vm-deck.is-settling .vm-deck__card {
+  transition: none !important;
+}
+
+/* -- The hint ---------------------------------------------------------------
+   Only shown once a gallery actually exists — a single-photo section has
+   nothing to drag, and inviting the visitor to try would be a dead end. */
+.vm-deck__hint {
+  display: none;
+  margin: 14px 0 0;
+  color: #8b6f6f;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  text-align: center;
+}
+
+.vm-deck.has-stack ~ .vm-deck__hint {
+  display: block;
+}
+
+.vm-deck__hint i {
+  margin-right: 5px;
+  color: #b01c1c;
+}
+
+/* -- Reduced motion ---------------------------------------------------------
+   The decks stay usable: cards still advance, they just cross-fade instead of
+   flying, lifting or blurring. The hint is dropped because the gesture it
+   advertises no longer has a visible payoff. */
+@media (prefers-reduced-motion: reduce) {
+  .vm-deck.has-stack .vm-deck__card,
+  .vm-deck--mission.has-stack .vm-deck__card.is-lifting,
+  .vm-deck--mission.has-stack .vm-deck__card.is-tucking {
+    transition: opacity 0.2s ease;
+  }
+
+  /* Neutralise the peek by pinning each card back to its own resting slot,
+     rather than to a shared value — slot 2 sits deeper than slot 1. */
+  .vm-deck--vision.has-stack.is-peeking .vm-deck__card[data-slot="0"] {
+    transform: none;
+  }
+
+  .vm-deck--vision.has-stack.is-peeking .vm-deck__card[data-slot="1"] {
+    transform: translate(-11px, 8px) rotate(-3deg) scale(0.955);
+    filter: brightness(0.94);
+  }
+
+  .vm-deck--vision.has-stack.is-peeking .vm-deck__card[data-slot="2"] {
+    transform: translate(-22px, 16px) rotate(-6deg) scale(0.915);
+    filter: brightness(0.88);
+  }
+
+  .vm-deck--mission.has-stack .vm-deck__card.is-lifting {
+    transform: none;
+  }
+
+  .vm-deck__card.is-vanishing {
+    transition: opacity 0.2s ease;
+    filter: none;
+  }
+
+  .vm-deck.has-stack ~ .vm-deck__hint {
+    display: none;
+  }
+}
+
+/* ==========================================================================
+   WHAT WE OFFER — stacked entrance, no card uplift, clickable artwork
+   --------------------------------------------------------------------------
+   Three separate asks, all scoped to #services-preview so the Services page's
+   own grid and carousel keep behaving exactly as they do today.
+   ========================================================================== */
+
+/* -- 1. The stacked entrance ------------------------------------------------
+   While `.is-stacked` is on the wrapper every item is pinned to the active
+   card's position, so the section arrives as one card. Removing the class lets
+   `.carousel-item`'s pre-existing 0.6s transform transition carry prev/next
+   outward to the left and right at the same time — no keyframes needed.
+
+   The id is load-bearing: `.carousel-item.active` is (0,2,0), so a class-only
+   override would lose to it no matter where it sat in the file. */
+#services-preview .carousel-wrapper.is-stacked .carousel-item {
+  transform: translateX(0) scale(0.86);
+  opacity: 1;
+}
+
+/* -- 2. No uplift on hover --------------------------------------------------
+   Site rule: buttons and cards darken and react to the click, they never lift.
+   `.service-card:hover` is (0,2,0) and `.landscape-card` inherits it, so the
+   kill has to be (1,2,0). The red glow and border stay. */
+#services-preview .landscape-card:hover {
+  transform: none;
+}
+
+/* -- 3. Artwork behaves like the Services page's ---------------------------
+   The carousel holder now carries `.service-image-trigger`, which brings
+   `cursor: zoom-in` and the shared delegated click handler with it. Two
+   deliberate exclusions:
+
+   - no Preview pill, and therefore no scrim. `.service-image-trigger::after`
+     exists only to make that pill legible; without the pill it would just
+     darken the bottom half of every offer image.
+   - `object-fit` is left alone. `.card-img-holder img` is later in the file at
+     equal specificity, so it keeps `contain` and service artwork is not newly
+     cropped. Only the hover timing is pinned, so the zoom matches the Services
+     page's 0.45s instead of the carousel's 0.5s. */
+#services-preview .landscape-card .service-image-trigger::after {
+  content: none;
+}
+
+#services-preview .card-img-holder.service-image-trigger img {
+  transition: transform 0.45s ease;
+}
+
+/* ==========================================================================
+   ACCOUNT TIP POPOVER — the profile dropdown's sibling
+   --------------------------------------------------------------------------
+   `#googlePwdFloatingCard`, built by `showGooglePasswordTip()` in main.js, is
+   the nudge that asks a Google-signed-in customer to set a password. It used to
+   carry its own chrome (16px radius, pink hairline, 290px) two elements below a
+   profile dropdown that had already been migrated to `ux-dlg`. It is now that
+   dropdown's sibling: same 344px width, same 8px radius, same maroon band, same
+   cream footer strip, same paired shadow, same arrow.
+
+   Two structural rules, both deliberate:
+
+   1. Every selector here carries the id AND the card class, so each part rule is
+      (1,3,0) and outranks the system's own `:is(.ux-dlg, #aptPrivacyModal,
+      #aptConfirmModal) .ux-dlg__card .part`, which is (1,2,0) — id-level despite
+      looking like three classes. Source order alone would be too fragile.
+   2. There is not one `@media` block in this section, and there must never be.
+      The tip's visibility is DATA-gated (a Google account with no password of its
+      own) and never width-gated; it belongs on a 1440px laptop exactly as much as
+      on a phone. Scoping the root through `.user-profile` as well means a
+      single-class rule in responsive.css — which loads after this file — cannot
+      re-hide or re-shrink it either.
+   ========================================================================== */
+
+.user-profile #googlePwdFloatingCard.google-pwd-floating-card {
+  /* Anchored under the avatar, not centred over the page: this is a passing
+     suggestion, so it must not take the screen hostage. */
+  position: absolute;
+  top: calc(100% + 14px);
+  right: 0;
+  z-index: 2100;
+  /* Stated explicitly so no future layout rule can collapse it. */
+  display: block;
+  width: min(344px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  /* The root is now a bare anchor — the card inside paints all the chrome. */
+  padding: 0;
+  background: none;
+  border: 0;
+  text-align: left;
+  pointer-events: auto;
+  /* Gutter for every shared part. The system default is clamp(22px, 5.6vw, 34px),
+     sized for a 520px dialog; 17px is what the dropdown uses and what a 344px
+     popover can afford. */
+  --ux-dlg-pad-x: 17px;
+  animation: googleCardFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.user-profile #googlePwdFloatingCard.google-pwd-floating-card.fade-out {
+  animation: googleCardFadeOut 0.3s ease forwards;
+  pointer-events: none;
+}
+
+@keyframes googleCardFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes googleCardFadeOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.95);
+  }
+}
+
+/* The pointer belongs to the root, not the card: the card is `overflow: hidden`
+   and would clip it. Same geometry and the same maroon as the dropdown's, because
+   an arrow has to match the surface it points out of — here that is the band. */
+.user-profile #googlePwdFloatingCard.google-pwd-floating-card::before {
+  content: "";
+  position: absolute;
+  top: -10px;
+  right: 18px;
+  width: 16px;
+  height: 16px;
+  background: #5b0d0c;
+  border-top: 1px solid rgba(95, 13, 13, 0.16);
+  border-left: 1px solid rgba(95, 13, 13, 0.16);
+  transform: rotate(45deg);
+}
+
+/* The card: the dropdown's exact border, radius and paired shadow. `max-height`
+   is released because a popover this small never scrolls, and the system's
+   `min(760px, 100dvh - 30px)` would otherwise make the body a scroll container. */
+#googlePwdFloatingCard .google-pwd-card.ux-dlg__card {
+  width: 100%;
+  max-width: 100%;
+  max-height: none;
+  border: 1px solid rgba(95, 13, 13, 0.16);
+  border-radius: var(--ux-dlg-radius);
+  box-shadow:
+    0 26px 60px rgba(45, 12, 12, 0.26),
+    0 2px 6px rgba(45, 12, 12, 0.08);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Band: tighter than a dialog's, and only as much right padding as the smaller
+   close button actually needs (the system reserves 64px for a 36px control). */
+#googlePwdFloatingCard .google-pwd-card .ux-dlg__head {
+  padding: 14px 17px;
+  padding-right: 54px;
+}
+
+/* The decorative ring scaled to a band a third the height. */
+#googlePwdFloatingCard .google-pwd-card .ux-dlg__head::after {
+  right: -30px;
+  bottom: -84px;
+  width: 130px;
+  height: 130px;
+  box-shadow: 0 0 0 18px rgba(241, 237, 18, 0.05);
+}
+
+/* 34px rather than 44px — one notch under the dropdown's 42px avatar, which is
+   the right hierarchy: the avatar identifies you, this only annotates. */
+#googlePwdFloatingCard .google-pwd-card .ux-dlg__badge {
+  width: 34px;
+  height: 34px;
+  margin-right: 12px;
+  font-size: 15px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.22);
+}
+
+#googlePwdFloatingCard .google-pwd-card .ux-dlg__eyebrow {
+  margin-bottom: 2px;
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+}
+
+/* The dialog title is `clamp(17px, 3.6vw, 21px)`, which on a laptop resolves to
+   21px and would wrap this headline over three lines inside 344px. */
+#googlePwdFloatingCard .google-pwd-card .ux-dlg__title {
+  font-size: 15.5px;
+  line-height: 1.3;
+}
+
+/* 34px rather than the system's 36px: one notch down for a popover, and still on
+   the 34px tap floor the rest of this file holds to, so no responsive layer has
+   to reach in and re-float it. The head reserves 54px on the right, which clears
+   a 34px button sitting 10px in. */
+#googlePwdFloatingCard .google-pwd-card .ux-dlg__close {
+  top: 10px;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  font-size: 18px;
+}
+
+/* `overflow: visible` because there is nothing to scroll — three lines of copy.
+   Leaving it `auto` would give the popover an inner scrollbar gutter on Windows. */
+#googlePwdFloatingCard .google-pwd-card .ux-dlg__body {
+  padding: 15px 17px 14px;
+  overflow: visible;
+}
+
+#googlePwdFloatingCard .google-pwd-card .ux-dlg__text {
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+/* Cream footer strip, same as the dropdown's logout row. The system reserves
+   `max(18px, env(safe-area-inset-bottom))` at the bottom for sheets that sit on
+   the screen edge; an anchored popover never does. */
+#googlePwdFloatingCard .google-pwd-card .ux-dlg__foot {
+  gap: 8px;
+  padding: 12px 17px 13px;
+}
+
+/* The pills keep their shape, colours, colour-only hover and press scale from the
+   system — only the scale changes, because 51px tall and 14.5px type would put
+   "Set Password" over two lines in a 167px grid track. */
+#googlePwdFloatingCard .google-pwd-card .ux-dlg__btn {
+  gap: 6px;
+  min-height: 44px;
+  padding: 12px 14px;
+  font-size: 13px;
+  letter-spacing: 0.1px;
+}
+
+#googlePwdFloatingCard .google-pwd-card .ux-dlg__btn i {
+  font-size: 11px;
+}
+

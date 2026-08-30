@@ -2459,6 +2459,45 @@
     object-fit: cover;
   }
 
+  /* ---- Vision / Mission decks ------------------------------------------ */
+  /* A stacked mission deck has to keep the same 4:3 the single photo uses just
+     above, or the wrapper goes back to being a square and the blob droop it
+     reserves for stops matching. Vision's 16/10 already agrees with .vision-img,
+     so it needs no override. */
+  .vm-deck--mission.has-stack {
+    aspect-ratio: 4 / 3;
+  }
+
+  /* The fan is pulled in by about a third. At desktop offsets the deepest card
+     reaches ~12px below a phone-sized deck, and the only room down there is the
+     min(7vw, 26px) the wrapper reserves for the blob's own droop. */
+  .vm-deck.has-stack .vm-deck__card[data-slot="1"] {
+    transform: translate(-7px, 5px) rotate(-2.4deg) scale(0.96);
+  }
+
+  .vm-deck.has-stack .vm-deck__card[data-slot="2"],
+  .vm-deck.has-stack .vm-deck__card[data-slot="hidden"],
+  .vm-deck--mission.has-stack .vm-deck__card.is-tucking {
+    transform: translate(-14px, 10px) rotate(-4.6deg) scale(0.93);
+  }
+
+  .vm-deck--vision.has-stack.is-peeking .vm-deck__card[data-slot="1"] {
+    transform: translate(-4px, 3px) rotate(-1.3deg) scale(0.985);
+  }
+
+  .vm-deck--vision.has-stack.is-peeking .vm-deck__card[data-slot="2"] {
+    transform: translate(-10px, 7px) rotate(-3.2deg) scale(0.945);
+  }
+
+  .vm-deck--mission.has-stack .vm-deck__card.is-lifting {
+    transform: translateY(-18px) scale(1.03) rotate(-1.6deg);
+  }
+
+  .vm-deck__hint {
+    margin-top: clamp(9px, 3vw, 14px);
+    font-size: 11.5px;
+  }
+
   /* ---- "What We Offer" carousel ---------------------------------------- */
   /* The heading carries an inline margin-bottom: 50px in main.html, so this
      is one of the few places that genuinely needs !important. */
@@ -3699,8 +3738,10 @@
 /* ===========================================================================
    STEP 8 — ONE FIELD LOOK, TIP-CARD FIT, CONTACT TYPE, BRAND LOCKUP
    ---------------------------------------------------------------------------
-   §1 and §2 are deliberately NOT width-gated: the field look and the password
-   tip were both asked for "in all sizes". §3 and §4 stay width-gated.
+   §1 is deliberately NOT width-gated: the field look was asked for "in all
+   sizes". Neither is the Account Tip card itself — but its own styling now lives
+   in main.css, and what is left in §2 here is only the two narrow bands where
+   344px genuinely does not fit. §3 and §4 stay width-gated.
 
    §1 reuses the token set that `.c-input` (main.css:3974), `.contact-input`
    (main.css:6451) and `.payment-select` (main.css:3226) already share, so the
@@ -3912,63 +3953,57 @@
 }
 
 /* ---------------------------------------------------------------------------
-   §2 — The "Set a password" tip card has to fit every width.
-   main.css:16907-17043 styles it with zero media queries and a fixed 290px
-   width, and `showGooglePasswordTip()` (main.js:12998) has no width gate. It
-   is not clipped today (measured 20 → 310 at a 320px viewport) but it has no
-   headroom below ~310px, and its controls are under the 34px tap floor: the
-   close button measured 20.5x22 and the action button 252x30.
-   The `::before` arrow stays at `right: 18px`, still under the avatar.
+   §2 — The "Account Tip" popover has to fit every width.
+   The card's whole look now comes from the ACCOUNT TIP POPOVER section at the
+   end of main.css, which rebuilds it on the `ux-dlg` system as a sibling of the
+   profile dropdown: 344px wide, `--ux-dlg-radius`, the maroon head band, the
+   cream footer strip, and no media query anywhere in it. That is deliberate —
+   the tip is gated on account data, never on viewport width — so nothing here
+   may hide it, and nothing here may shrink it below its own tap floors.
+
+   What is left for this section is the two places where 344px genuinely does not
+   fit: the phone comfort band, and the ultra-narrow band where the header
+   restacks and moves the avatar the card hangs from.
+
+   Every selector below carries `.user-profile` or `.google-pwd-card` for the
+   same reason main.css does: the part rules there are (1,2,0), so a plainer
+   selector in this file would silently lose even though it loads later.
    ------------------------------------------------------------------------- */
-#googlePwdFloatingCard.google-pwd-floating-card {
-  width: min(290px, calc(100vw - 28px));
-  max-width: calc(100vw - 28px);
-}
 
-.google-pwd-close-btn {
-  display: grid;
-  place-items: center;
-  min-width: 34px;
-  min-height: 34px;
-  padding: 0;
-  line-height: 1;
-  border-radius: 10px;
-  /* Vertical only: the 34px hit area reclaims its extra height from the card
-     padding instead of pushing the 11px badge row down. Kept off the horizontal
-     axis so the button's border box never reaches past the header's content
-     edge, which would read as overflow in a layout audit. */
-  margin: -4px 0;
-}
-
-.google-pwd-action-btn {
-  min-height: 40px;
-}
-
-/* Phone comfort band: the card is now ~28px narrower than its desktop self, so
-   the padding and type step down with it instead of crowding the edges. */
+/* Phone comfort band: 344px is wider than a 390px screen wants to give a
+   popover once the 12px page gutter is taken out, so the padding and type step
+   down together rather than the card crowding its own edges. */
 @media (max-width: 420px) {
-  #googlePwdFloatingCard.google-pwd-floating-card {
+  .user-profile #googlePwdFloatingCard.google-pwd-floating-card {
     top: calc(100% + 12px);
-    padding: 14px 15px;
-    border-radius: 14px;
+    /* One token, every part: head, body and foot all read `--ux-dlg-pad-x`. */
+    --ux-dlg-pad-x: 14px;
   }
 
-  .google-pwd-badge {
-    font-size: 10px;
-    padding: 3px 7px;
+  #googlePwdFloatingCard .google-pwd-card .ux-dlg__head {
+    padding: 12px 14px;
+    padding-right: 50px;
   }
 
-  .google-pwd-text {
-    font-size: 12px;
-    margin-bottom: 10px;
+  #googlePwdFloatingCard .google-pwd-card .ux-dlg__title {
+    font-size: 14.5px;
   }
 
-  .google-pwd-text strong {
-    font-size: 12.5px;
+  #googlePwdFloatingCard .google-pwd-card .ux-dlg__body {
+    padding: 13px 14px 12px;
   }
 
-  .google-pwd-action-btn {
-    font-size: 11.5px;
+  #googlePwdFloatingCard .google-pwd-card .ux-dlg__text {
+    font-size: 12.4px;
+  }
+
+  #googlePwdFloatingCard .google-pwd-card .ux-dlg__foot {
+    padding: 11px 14px 12px;
+  }
+
+  #googlePwdFloatingCard .google-pwd-card .ux-dlg__btn {
+    padding: 11px 12px;
+    font-size: 12.4px;
   }
 }
 
@@ -3979,10 +4014,22 @@
    it off. `50vw + 56px` is that centred avatar's right edge (50vw + 68px) less a
    12px breathing margin, so the left edge lands on 12px at every width in the
    band. The `::before` arrow needs no change: 18px in from the card's right is
-   still the centre of the 34px avatar. */
+   still the centre of the 34px avatar.
+
+   The footer also has to give up its two columns here: 196px of card leaves the
+   primary button ~86px, and "Set Password" does not fit in 86px at any readable
+   size. Stacked, the primary goes on top — it is the action being offered. */
 @media (max-width: 280px) {
-  #googlePwdFloatingCard.google-pwd-floating-card {
-    width: min(290px, calc(50vw + 56px));
+  .user-profile #googlePwdFloatingCard.google-pwd-floating-card {
+    width: min(344px, calc(50vw + 56px));
+  }
+
+  #googlePwdFloatingCard .google-pwd-card .ux-dlg__foot.is-confirm {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #googlePwdFloatingCard .google-pwd-card #openPwdFromFloatingCard {
+    order: -1;
   }
 }
 
@@ -4026,3 +4073,23 @@
    there rather than duplicated here, so there is only ever one clamp. */
 
 
+
+/* §5 — reduced motion, phone widths.
+   The phone band above re-tunes the deck fan, and a media query adds no
+   specificity, so those rules land on top of the reduced-motion pins in
+   main.css. Re-pin them here to the phone geometry, so a visitor who has asked
+   for less motion gets the same still deck on a phone that they get on a
+   desktop. */
+@media (max-width: 480px) and (prefers-reduced-motion: reduce) {
+  .vm-deck--vision.has-stack.is-peeking .vm-deck__card[data-slot="1"] {
+    transform: translate(-7px, 5px) rotate(-2.4deg) scale(0.96);
+  }
+
+  .vm-deck--vision.has-stack.is-peeking .vm-deck__card[data-slot="2"] {
+    transform: translate(-14px, 10px) rotate(-4.6deg) scale(0.93);
+  }
+
+  .vm-deck--mission.has-stack .vm-deck__card.is-lifting {
+    transform: none;
+  }
+}
