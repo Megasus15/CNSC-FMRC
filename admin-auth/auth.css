@@ -1870,25 +1870,18 @@ svg {
   }
 
   /* STEP 11.A4 — the placeholder was 16px, i.e. larger than its own 10.5px
-     label, and sat left where the icon already is. Only the PLACEHOLDER
-     shrinks: the input itself must stay at 16px or iOS Safari zooms the whole
-     page the moment the field is focused. 10px keeps it under the label.
-     `text-align` is not a permitted `::placeholder` property, so the alignment
-     has to come from the input via `:placeholder-shown`; the `:focus` rule has
-     equal specificity and is listed last, so it wins on order and snaps the
-     caret back to the left as soon as the field is in use — typing is never
-     right-aligned. */
+     label. Only the PLACEHOLDER shrinks: the input itself must stay at 16px or
+     iOS Safari zooms the whole page the moment the field is focused. 10px keeps
+     it under the label.
+
+     Alignment stays LEFT (revised 2026-08-30). The first pass right-aligned it
+     via `:placeholder-shown`, which read badly: the hint sat away from the icon
+     that introduces the field and then jumped to the left as soon as you typed.
+     No `text-align` is set here at all, so the placeholder simply inherits the
+     input's own left alignment and nothing moves on focus. */
   .input-icon-group input::placeholder {
     font-size: 10px;
     opacity: 0.72;
-  }
-
-  .input-icon-group input:placeholder-shown {
-    text-align: right;
-  }
-
-  .input-icon-group input:focus {
-    text-align: left;
   }
 }
 

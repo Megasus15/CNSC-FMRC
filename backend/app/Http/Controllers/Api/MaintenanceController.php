@@ -30,7 +30,14 @@ class MaintenanceController extends Controller
      */
     public function index(Request $request): Response|JsonResponse
     {
-        $payload = ['data' => MaintenanceSetting::snapshot()];
+        // `installed` is false only in the window between a files-only deploy and
+        // `php artisan migrate`. MaintenanceSetting fails open, so the snapshot is
+        // still a valid all-online answer; the flag is what lets the admin panel
+        // say WHY every switch is off instead of showing a silent, dead form.
+        $payload = [
+            'data' => MaintenanceSetting::snapshot(),
+            'installed' => MaintenanceSetting::tableReady(),
+        ];
 
         $etag = '"' . hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) . '"';
         $headers = [
@@ -59,6 +66,16 @@ class MaintenanceController extends Controller
             return response()->json([
                 'message' => 'Forbidden. Admin access is required to change maintenance mode.',
             ], 403);
+        }
+
+        // Writing is the one thing that cannot fail open: without the table there
+        // is nowhere to record the switch, and silently reporting success would
+        // leave the admin believing the site was offline when it was not.
+        if (! MaintenanceSetting::tableReady()) {
+            return response()->json([
+                'message' => 'Maintenance Mode is not installed on this server yet. Run "php artisan migrate" once, then reload this page.',
+                'installed' => false,
+            ], 503);
         }
 
         $validated = $request->validate([
@@ -103,6 +120,7 @@ class MaintenanceController extends Controller
         return response()->json([
             'message' => 'Maintenance settings updated successfully.',
             'data' => MaintenanceSetting::snapshot(),
+            'installed' => true,
         ]);
     }
 }

@@ -93,6 +93,32 @@
         color: #713f12;
         line-height: 1.5;
       }
+      /* `display: flex` above is (0,1,0) and out-ranks the browser's own
+         `[hidden] { display: none }` (0,0,0), so `banner.hidden = true` in
+         paintSummary() had no visible effect and the strip sat there reading
+         "Maintenance is live. 0 items are currently offline" with nothing
+         actually offline. This restores the attribute. */
+      .mt-alert[hidden] {
+        display: none;
+      }
+      /* The "not installed / could not load" variant of the same strip: red
+         instead of amber, because it reports a fault rather than a live state. */
+      .mt-alert.is-fault {
+        background: #fef2f2;
+        border-color: #fecaca;
+        color: #7f1d1d;
+      }
+      .mt-alert.is-fault i,
+      .mt-alert.is-fault strong {
+        color: #b91c1c;
+      }
+      .mt-alert code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.95em;
+        background: rgba(127, 29, 29, 0.08);
+        border-radius: 4px;
+        padding: 1px 5px;
+      }
       .mt-alert i {
         color: #ca8a04;
         margin-top: 2px;
@@ -426,7 +452,7 @@
               <button
                 class="btn-admin btn-secondary"
                 type="button"
-                onclick="window.location.reload()"
+                id="btnRefreshMaintenance"
                 title="Refresh Data"
               >
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
@@ -441,10 +467,15 @@
           </div>
 
           <div class="section-stack mt-loading" id="mtStack">
+            <!-- One strip, two jobs: the amber "N items are offline" state, and
+                 the red fault state when the snapshot could not be read (see
+                 paintSummary / showFault in website-maintenance.js). Both the
+                 icon and the lead-in are addressable so neither state has to
+                 duplicate the markup. -->
             <div class="mt-alert" id="mtBanner" hidden>
-              <i class="fa-solid fa-triangle-exclamation"></i>
+              <i class="fa-solid fa-triangle-exclamation" id="mtBannerIcon"></i>
               <div>
-                <strong>Maintenance is live.</strong>
+                <strong id="mtBannerTitle">Maintenance is live.</strong>
                 <span id="mtBannerText"></span>
               </div>
             </div>
@@ -508,7 +539,7 @@
 
     <script src="session-helper.js"></script>
     <script src="admin-common.js?v=6.1"></script>
-    <script src="website-maintenance.js?v=1.0"></script>
+    <script src="website-maintenance.js?v=1.1"></script>
     <script src="admin-table-resize.js?v=1.0" defer></script>
   </body>
 </html>

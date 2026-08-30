@@ -134,6 +134,12 @@ const form = {};
 const serverState = {};
 let loaded = false;
 let dirty = false;
+/**
+ * null while things are fine, otherwise { title, html } describing why the
+ * snapshot could not be read. Kept in state rather than written straight to the
+ * DOM so Refresh can clear it through the same paint path as everything else.
+ */
+let fault = null;
 
 SCOPES.forEach((cfg) => {
   form[cfg.key] = { active: false, message: "" };
@@ -258,24 +264,45 @@ function paintSummary() {
   const pill = document.getElementById("mtLivePill");
   const pillText = document.getElementById("mtLivePillText");
   const banner = document.getElementById("mtBanner");
+  const bannerIcon = document.getElementById("mtBannerIcon");
+  const bannerTitle = document.getElementById("mtBannerTitle");
   const bannerText = document.getElementById("mtBannerText");
 
   if (pill) pill.classList.toggle("is-on", active.length > 0);
   if (pillText) {
-    pillText.textContent = !loaded
-      ? "Loading…"
-      : active.length === 0
-        ? "Everything online"
-        : `${active.length} of ${SCOPES.length} under maintenance`;
+    pillText.textContent = fault
+      ? "Not loaded"
+      : !loaded
+        ? "Loading…"
+        : active.length === 0
+          ? "Everything online"
+          : `${active.length} of ${SCOPES.length} under maintenance`;
   }
 
+  // A fault outranks the live count: if the snapshot never arrived, "0 items are
+  // offline" would be a claim the page is in no position to make.
   const liveCount = SCOPES.filter((cfg) => serverState[cfg.key].active).length;
-  if (banner) banner.hidden = liveCount === 0;
+  if (banner) {
+    banner.hidden = !fault && liveCount === 0;
+    banner.classList.toggle("is-fault", Boolean(fault));
+  }
+  if (bannerIcon) {
+    bannerIcon.className = fault
+      ? "fa-solid fa-circle-exclamation"
+      : "fa-solid fa-triangle-exclamation";
+  }
+  if (bannerTitle) {
+    bannerTitle.textContent = fault ? fault.title : "Maintenance is live.";
+  }
   if (bannerText) {
-    bannerText.textContent =
-      liveCount === 1
-        ? "One item is currently offline for customers."
-        : `${liveCount} items are currently offline for customers.`;
+    if (fault) {
+      bannerText.innerHTML = fault.html;
+    } else {
+      bannerText.textContent =
+        liveCount === 1
+          ? "One item is currently offline for customers."
+          : `${liveCount} items are currently offline for customers.`;
+    }
   }
   paintSaveHint();
 }
@@ -301,18 +328,68 @@ function markDirty() {
 
 // ── Load ────────────────────────────────────────────────────────────────────
 /**
+ * Why this reports the cause instead of one generic message.
+ *
+ * The three ways this read can fail look identical on screen but need three
+ * different actions, and the first version of this function collapsed all of
+ * them into "check your connection", which is wrong advice for two of the three:
+ *
+ *   - the table is missing  -> run `php artisan migrate` on the server. A
+ *     files-only Hostinger deploy always lands here first.
+ *   - the API answered with an error status -> a server problem; the status code
+ *     is the only useful thing to hand over.
+ *   - the request never completed -> the API is genuinely unreachable (Laravel
+ *     not running, wrong host, offline).
+ *
+ * The controls stay locked in every case: publishing 11 scopes from a state that
+ * never loaded could switch something off that was switched on elsewhere.
+ */
+function failLoad(title, html) {
+  fault = { title, html };
+  loaded = false;
+  document.getElementById("mtStack")?.classList.add("mt-loading");
+  paintAll();
+}
+
+/**
  * A blank message means "use the default": the server stores NULL and fills the
  * default in when it answers. Folding an answer that equals the default back to
  * "" is what keeps the placeholder — and "Use the default wording" — meaningful.
  */
 async function load() {
+  let res;
   try {
-    const res = await fetch(`${API}/maintenance`, {
+    // `cache: "no-store"` on purpose. The endpoint ships an ETag for the
+    // customer gate's 20s revalidation, but the admin panel must never paint 11
+    // switches from a cached body — it is the screen you open to confirm what is
+    // actually live right now.
+    res = await fetch(`${API}/maintenance`, {
       headers: { Accept: "application/json" },
+      cache: "no-store",
     });
+  } catch {
+    failLoad(
+      "Could not reach the server.",
+      ` The request to <code>${esc(API)}/maintenance</code> did not complete, so the switches below are locked. Check that the backend is running, then click Refresh.`,
+    );
+    return;
+  }
+
+  try {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     const data = json && json.data ? json.data : {};
+
+    // The table has not been created on this server yet. Everything reads as
+    // online because the backend fails open, so say so plainly rather than
+    // letting the admin trust a form that cannot save.
+    if (json && json.installed === false) {
+      failLoad(
+        "Maintenance Mode is not installed on this server yet.",
+        ' The database table is missing, so nothing can be taken offline. Run <code>php artisan migrate</code> once on the server, then click Refresh.',
+      );
+      return;
+    }
 
     SCOPES.forEach((cfg) => {
       const row = data[cfg.key] && typeof data[cfg.key] === "object" ? data[cfg.key] : {};
@@ -322,14 +399,15 @@ async function load() {
       serverState[cfg.key] = { active: row.active === true, message };
     });
 
+    fault = null;
     loaded = true;
     dirty = false;
     document.getElementById("mtStack")?.classList.remove("mt-loading");
     paintAll();
   } catch {
-    window.showAdminPopup?.(
-      "Could not read the maintenance settings. The controls stay locked until they load, so nothing can be published by mistake. Check your connection and click Refresh.",
-      { title: "Error" },
+    failLoad(
+      "Could not read the maintenance settings.",
+      ` The server answered <code>HTTP ${esc(res.status)}</code>, so the switches below are locked and nothing can be published by mistake. Click Refresh to try again.`,
     );
   }
 }
@@ -415,6 +493,20 @@ async function doSave() {
       );
       return;
     }
+    // The table is missing, so there is nowhere to write. Say what to run rather
+    // than "check your connection" — the connection is fine.
+    if (res.status === 503 && data.installed === false) {
+      window.showAdminPopup?.(
+        data.message ||
+          'Maintenance Mode is not installed on this server yet. Run "php artisan migrate" once, then reload this page.',
+        { title: "Not installed" },
+      );
+      failLoad(
+        "Maintenance Mode is not installed on this server yet.",
+        ' The database table is missing, so nothing can be taken offline. Run <code>php artisan migrate</code> once on the server, then click Refresh.',
+      );
+      return;
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     applySnapshot(data.data);
@@ -472,11 +564,49 @@ function broadcastSiteUpdate(type) {
 }
 
 // ── Boot ────────────────────────────────────────────────────────────────────
+/**
+ * Refresh re-reads the snapshot in place instead of reloading the document. The
+ * button used to be `onclick="window.location.reload()"`, which threw away
+ * unsaved switch positions without a word — and the fault banners tell you to
+ * press this button, so it must not be a trap. Unsaved work is confirmed first.
+ */
+function requestRefresh() {
+  const run = () => {
+    fault = null;
+    loaded = false;
+    document.getElementById("mtStack")?.classList.add("mt-loading");
+    paintAll();
+    void load();
+  };
+
+  if (!dirty) {
+    run();
+    return;
+  }
+
+  if (typeof window.showAdminConfirmPopup === "function") {
+    window.showAdminConfirmPopup(
+      "You have unsaved changes. Refreshing reads the live settings again and discards them.",
+      {
+        title: "Discard unsaved changes?",
+        confirmText: "Discard & Refresh",
+        cancelText: "Keep Editing",
+        onConfirm: run,
+      },
+    );
+    return;
+  }
+  run();
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   renderRows();
   paintAll();
   document
     .getElementById("btnSaveMaintenance")
     ?.addEventListener("click", requestSave);
+  document
+    .getElementById("btnRefreshMaintenance")
+    ?.addEventListener("click", requestRefresh);
   void load();
 });

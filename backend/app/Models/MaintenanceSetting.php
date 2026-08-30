@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Maintenance Mode (STEP 11, Part B).
@@ -10,6 +11,15 @@ use Illuminate\Database\Eloquent\Model;
  * One row per gate-able scope. The class owns the canonical scope list and the
  * default copy so the controller, the middleware and the customer-facing
  * snapshot can never disagree about which keys exist.
+ *
+ * Every read fails OPEN. A Hostinger deploy copies files without running
+ * migrations, so there is always a window where this code exists and its table
+ * does not; in that window the whole feature has to behave as if nothing is
+ * under maintenance rather than throw. EnsureNotUnderMaintenance and
+ * AuthController already guarded their own calls -- these three statics now
+ * guard themselves, which is what GET /api/maintenance needs (it was the one
+ * read path that could still 500 and it is the path both the admin panel and
+ * the customer gate depend on).
  */
 class MaintenanceSetting extends Model
 {
@@ -18,6 +28,9 @@ class MaintenanceSetting extends Model
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    /** Memoised per request: Schema::hasTable() is a real query. */
+    private static ?bool $tableReady = null;
 
     /**
      * The 11 scopes, in the order the admin UI lists them: two account gates,
@@ -50,12 +63,42 @@ class MaintenanceSetting extends Model
     }
 
     /**
+     * Has `php artisan migrate` been run on this server yet?
+     *
+     * The admin panel surfaces this so a blank set of switches can be told apart
+     * from "the table is not there", which are otherwise identical on screen.
+     */
+    public static function tableReady(): bool
+    {
+        if (self::$tableReady === null) {
+            try {
+                self::$tableReady = Schema::hasTable('maintenance_settings');
+            } catch (\Throwable $e) {
+                self::$tableReady = false;
+            }
+        }
+
+        return self::$tableReady;
+    }
+
+    /**
      * Every scope, with rows that do not exist yet filled in from the defaults.
      * Shape: ['<scope>' => ['active' => bool, 'message' => string], ...].
      */
     public static function snapshot(): array
     {
-        $rows = static::query()->get()->keyBy('scope');
+        $rows = collect();
+
+        if (self::tableReady()) {
+            try {
+                $rows = static::query()->get()->keyBy('scope');
+            } catch (\Throwable $e) {
+                // Nothing under maintenance is the safe reading of a broken
+                // read: the customer site stays up and the admin panel says so.
+                $rows = collect();
+            }
+        }
+
         $out = [];
 
         foreach (self::DEFAULTS as $scope => $default) {
@@ -76,11 +119,15 @@ class MaintenanceSetting extends Model
     /** Is this scope currently under maintenance? Unknown scopes are never active. */
     public static function isActive(string $scope): bool
     {
-        if (!self::isKnownScope($scope)) {
+        if (!self::isKnownScope($scope) || !self::tableReady()) {
             return false;
         }
 
-        $row = static::where('scope', $scope)->first();
+        try {
+            $row = static::where('scope', $scope)->first();
+        } catch (\Throwable $e) {
+            return false;
+        }
 
         return (bool) ($row->is_active ?? false);
     }
@@ -89,7 +136,17 @@ class MaintenanceSetting extends Model
     public static function messageFor(string $scope): string
     {
         $default = self::DEFAULTS[$scope] ?? 'This section is temporarily unavailable for maintenance.';
-        $row = static::where('scope', $scope)->first();
+
+        if (!self::tableReady()) {
+            return $default;
+        }
+
+        try {
+            $row = static::where('scope', $scope)->first();
+        } catch (\Throwable $e) {
+            return $default;
+        }
+
         $message = trim((string) ($row->message ?? ''));
 
         return $message !== '' ? $message : $default;
