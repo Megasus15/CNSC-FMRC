@@ -12,6 +12,7 @@
     <title>My Account | UCN-FMRC Admin</title>
     <link rel="stylesheet" href="dashboard.css?v=6.1" />
     <link rel="stylesheet" href="admin-modules.css?v=6.1" />
+    <link rel="stylesheet" href="account-recovery.css?v=1.0" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -262,6 +263,49 @@
                 </div>
               </div>
 
+              <div class="email-pending" id="emailPendingStrip">
+                <div class="email-pending__title">
+                  <i class="fa-regular fa-clock"></i> Gmail change waiting for
+                  verification
+                </div>
+                <p class="email-pending__text">
+                  We sent a 6-digit code to
+                  <strong id="emailPendingAddress">the new address</strong>. Your
+                  current Gmail stays active until that code is entered, so a
+                  mistyped address can never lock you out.
+                </p>
+                <div class="email-pending__row">
+                  <input
+                    id="emailPendingOtp"
+                    class="input-field otp-input"
+                    type="text"
+                    inputmode="numeric"
+                    autocomplete="one-time-code"
+                    maxlength="6"
+                    placeholder="000000"
+                    aria-label="6-digit verification code"
+                  />
+                  <button
+                    class="btn-admin"
+                    id="emailPendingVerifyBtn"
+                    type="button"
+                  >
+                    <i class="fa-solid fa-check"></i> Verify
+                  </button>
+                  <button
+                    class="btn-admin btn-secondary"
+                    id="emailPendingCancelBtn"
+                    type="button"
+                  >
+                    Cancel change
+                  </button>
+                  <span
+                    class="email-pending__hint"
+                    id="emailPendingHint"
+                  ></span>
+                </div>
+              </div>
+
               <div class="modal-actions">
                 <button
                   id="cancelCredentialsBtn"
@@ -275,14 +319,166 @@
                 </button>
               </div>
             </div>
+
+            <div class="account-form-card recovery-card" id="recoveryCodesCard">
+              <div class="recovery-card__head">
+                <div class="recovery-card__intro">
+                  <h3>Recovery Codes</h3>
+                  <p class="account-form-subtext">
+                    Ten single-use codes. Any one of them can set a new admin
+                    password without the Gmail code, so keep them offline — printed
+                    and locked away, or in a password manager.
+                  </p>
+                </div>
+                <div class="recovery-card__actions">
+                  <button
+                    class="btn-admin"
+                    id="recoveryGenerateBtn"
+                    type="button"
+                  >
+                    <i class="fa-solid fa-key"></i>
+                    <span id="recoveryGenerateLabel">Generate Codes</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="recovery-stats">
+                <div class="recovery-stat">
+                  <div class="recovery-stat__label">Codes Left</div>
+                  <div class="recovery-stat__value" id="recoveryRemaining">—</div>
+                </div>
+                <div class="recovery-stat">
+                  <div class="recovery-stat__label">Last Generated</div>
+                  <div
+                    class="recovery-stat__value recovery-stat__value--muted"
+                    id="recoveryGeneratedAt"
+                  >
+                    —
+                  </div>
+                </div>
+                <div class="recovery-stat">
+                  <div class="recovery-stat__label">Last Used</div>
+                  <div
+                    class="recovery-stat__value recovery-stat__value--muted"
+                    id="recoveryLastUsedAt"
+                  >
+                    —
+                  </div>
+                </div>
+              </div>
+
+              <div class="recovery-meter">
+                <div class="recovery-meter__fill" id="recoveryMeterFill"></div>
+              </div>
+
+              <div class="recovery-note" id="recoveryNote">
+                Checking recovery codes…
+              </div>
+              <div class="recovery-reveal" id="recoveryRevealPanel">
+                <div class="recovery-print-head" id="recoveryPrintHead"></div>
+                <div class="recovery-reveal__title">Save these codes now</div>
+                <p class="recovery-reveal__text">
+                  This is the only time they will be shown. Each code works once,
+                  in any order, and you can type it with or without the dash.
+                </p>
+
+                <div class="recovery-codes" id="recoveryCodesList"></div>
+
+                <div class="recovery-reveal__actions">
+                  <button
+                    class="btn-admin btn-secondary"
+                    id="recoveryCopyBtn"
+                    type="button"
+                  >
+                    <i class="fa-regular fa-copy"></i> Copy
+                  </button>
+                  <button
+                    class="btn-admin btn-secondary"
+                    id="recoveryDownloadBtn"
+                    type="button"
+                  >
+                    <i class="fa-solid fa-download"></i> Download .txt
+                  </button>
+                  <button
+                    class="btn-admin btn-secondary"
+                    id="recoveryPrintBtn"
+                    type="button"
+                  >
+                    <i class="fa-solid fa-print"></i> Print
+                  </button>
+                  <button
+                    class="btn-admin"
+                    id="recoveryDoneBtn"
+                    type="button"
+                    disabled
+                  >
+                    <i class="fa-solid fa-check"></i> Done
+                  </button>
+                </div>
+
+                <label class="recovery-ack" for="recoveryAckCheck">
+                  <input type="checkbox" id="recoveryAckCheck" />
+                  <span
+                    >I have saved these codes somewhere safe and offline.</span
+                  >
+                </label>
+              </div>
+            </div>
           </div>
         </section>
       </main>
     </div>
 
+    <div class="modal-overlay" id="recoveryConfirmModal">
+      <div class="modal-card">
+        <h3 class="modal-title" id="recoveryConfirmTitle">
+          Generate Recovery Codes
+        </h3>
+        <p class="account-form-subtext" id="recoveryConfirmText">
+          Confirm your current password to issue ten new codes.
+        </p>
+
+        <div class="form-grid">
+          <div class="field-stack full password-field">
+            <label>Current Password</label>
+            <div class="input-icon-group">
+              <input
+                id="recoveryConfirmPassword"
+                class="input-field"
+                type="password"
+                placeholder="Enter current password"
+                autocomplete="current-password"
+              />
+              <button
+                id="toggleRecoveryPassword"
+                class="toggle-pass"
+                type="button"
+                aria-label="Toggle password visibility"
+              >
+                <i class="fa-solid fa-eye-slash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button
+            class="btn-admin btn-secondary"
+            id="recoveryConfirmCancel"
+            type="button"
+          >
+            Cancel
+          </button>
+          <button class="btn-admin" id="recoveryConfirmSubmit" type="button">
+            Generate
+          </button>
+        </div>
+      </div>
+    </div>
+
     <script src="session-helper.js"></script>
     <script src="admin-common.js?v=6.1"></script>
-    <script src="my-account.js"></script>
+    <script src="my-account.js?v=1.0"></script>
     <script src="admin-table-resize.js?v=1.2" defer></script>
   </body>
 </html>

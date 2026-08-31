@@ -555,6 +555,57 @@ document.addEventListener("DOMContentLoaded", () => {
   const resendSeconds = document.getElementById("resendSeconds");
   const btnChangeOtpEmail = document.getElementById("btnChangeOtpEmail");
 
+  // ── Recovery-code step (Administrator only) ──
+  // The markup ships on this one page for both roles, but only the admin holds
+  // codes: the backend answers a staff/customer login with the very same
+  // message as a wrong code, so nothing here can be used to probe accounts.
+  const forgotRecoveryStep = document.getElementById("forgotRecoveryStep");
+  const forgotSuccessText = document.getElementById("forgotSuccessText");
+  const useRecoveryCodeLink = document.getElementById("useRecoveryCodeLink");
+  const recoveryCodeForm = document.getElementById("recoveryCodeForm");
+  const recoveryLogin = document.getElementById("recoveryLogin");
+  const recoveryCodeInput = document.getElementById("recoveryCodeInput");
+  const recoveryNewPassword = document.getElementById("recoveryNewPassword");
+  const recoveryConfirmNewPassword = document.getElementById(
+    "recoveryConfirmNewPassword",
+  );
+  const btnRedeemRecovery = document.getElementById("btnRedeemRecovery");
+  const recoveryBackToOtp = document.getElementById("recoveryBackToOtp");
+  const recoveryStepHint = document.getElementById("recoveryStepHint");
+
+  // Captured once so the shared success step can be put back to the emailed-OTP
+  // wording after a recovery-code reset has rewritten it.
+  const forgotSuccessDefaultText = forgotSuccessText?.textContent?.trim() || "";
+
+  const setRecoveryHint = (text) => {
+    if (recoveryStepHint) recoveryStepHint.textContent = text || "";
+  };
+
+  const clearRecoveryErrors = () => {
+    clearFieldError("recoveryLogin");
+    clearFieldError("recoveryCodeInput");
+    clearFieldError("recoveryNewPassword");
+    clearFieldError("recoveryConfirmNewPassword");
+  };
+
+  const resetRecoveryStep = () => {
+    clearRecoveryErrors();
+    setRecoveryHint("");
+    if (recoveryLogin) recoveryLogin.value = "";
+    if (recoveryCodeInput) recoveryCodeInput.value = "";
+    if (recoveryNewPassword) recoveryNewPassword.value = "";
+    if (recoveryConfirmNewPassword) recoveryConfirmNewPassword.value = "";
+  };
+
+  // Codes are stored without the dash and case-folded, so any of
+  // "abcde-fghij", "ABCDEFGHIJ" or "abcde fghij" resolves to the same value.
+  const maskRecoveryCode = (raw) =>
+    String(raw || "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")
+      .slice(0, 10)
+      .replace(/^(.{5})(.+)$/, "$1-$2");
+
   let currentOtpEmail = "";
   let resendTimerInterval = null;
   let lockoutTimerInterval = null;
@@ -630,7 +681,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     forgotRequestStep?.removeAttribute("hidden");
     forgotVerifyStep?.setAttribute("hidden", "");
+    forgotRecoveryStep?.setAttribute("hidden", "");
     forgotSuccessStep?.setAttribute("hidden", "");
+
+    // The success step is shared, so the recovery wording must not leak into a
+    // later emailed-OTP reset.
+    if (forgotSuccessText && forgotSuccessDefaultText) {
+      forgotSuccessText.textContent = forgotSuccessDefaultText;
+    }
 
     if (otpLockoutBanner) otpLockoutBanner.style.display = "none";
     if (lockoutTimerInterval) clearInterval(lockoutTimerInterval);
@@ -645,6 +703,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (otpCodeInput) otpCodeInput.value = "";
     if (otpNewPassword) otpNewPassword.value = "";
     if (otpConfirmPassword) otpConfirmPassword.value = "";
+    resetRecoveryStep();
 
     forgotPasswordModal.classList.add("show");
     document.body.style.overflow = "hidden";
@@ -664,6 +723,7 @@ document.addEventListener("DOMContentLoaded", () => {
     clearFieldError("otpCodeInput");
     clearFieldError("otpNewPassword");
     clearFieldError("otpConfirmPassword");
+    clearRecoveryErrors();
   };
 
   forgotPasswordLink?.addEventListener("click", openForgotModal);
@@ -699,6 +759,46 @@ document.addEventListener("DOMContentLoaded", () => {
       forgotPasswordModal?.classList.contains("show")
     ) {
       closeForgotModal();
+    }
+  });
+
+  // Step 1 → Step 2b: the admin has the codes but not the inbox. Whatever was
+  // already typed as the email carries over, since it is a valid admin login.
+  useRecoveryCodeLink?.addEventListener("click", (event) => {
+    event.preventDefault();
+    const typed = forgotEmail?.value.trim() || "";
+    clearFieldError("forgotEmail");
+    resetRecoveryStep();
+    if (recoveryLogin) recoveryLogin.value = typed;
+    forgotRequestStep?.setAttribute("hidden", "");
+    forgotRecoveryStep?.removeAttribute("hidden");
+    setRecoveryHint("Each code works once.");
+    setTimeout(() => {
+      if (typed) recoveryCodeInput?.focus();
+      else recoveryLogin?.focus();
+    }, 120);
+  });
+
+  recoveryBackToOtp?.addEventListener("click", (event) => {
+    event.preventDefault();
+    clearRecoveryErrors();
+    forgotRecoveryStep?.setAttribute("hidden", "");
+    forgotRequestStep?.removeAttribute("hidden");
+    setTimeout(() => forgotEmail?.focus(), 100);
+  });
+
+  // Auto-format to xxxxx-xxxxx while typing, so a code read off paper lands the
+  // same way whether or not the dash is typed.
+  recoveryCodeInput?.addEventListener("input", () => {
+    const atEnd =
+      recoveryCodeInput.selectionStart === recoveryCodeInput.value.length;
+    recoveryCodeInput.value = maskRecoveryCode(recoveryCodeInput.value);
+    if (atEnd) {
+      const end = recoveryCodeInput.value.length;
+      recoveryCodeInput.setSelectionRange(end, end);
+    }
+    if (recoveryCodeInput.value.length === 11) {
+      clearFieldError("recoveryCodeInput");
     }
   });
 
@@ -910,6 +1010,153 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch {
         setFieldError("otpCodeInput", "Cannot connect to server. Please try again.");
       } finally {
+        toggleLoader(false);
+      }
+    });
+  }
+
+  // Step 2b: trade one recovery code for a new admin password. No email is
+  // involved, which is the whole point — this is the way back in when the
+  // account Gmail is unreachable.
+  if (recoveryCodeForm) {
+    recoveryCodeForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearRecoveryErrors();
+      setRecoveryHint("Each code works once.");
+      const login = recoveryLogin?.value.trim() || "";
+      const code = maskRecoveryCode(recoveryCodeInput?.value || "");
+      const password = recoveryNewPassword?.value || "";
+      const passwordConfirmation = recoveryConfirmNewPassword?.value || "";
+
+      let hasError = false;
+
+      if (!login) {
+        setFieldError("recoveryLogin", "Enter the admin username or email.");
+        hasError = true;
+      }
+
+      if (code.replace("-", "").length !== 10) {
+        setFieldError(
+          "recoveryCodeInput",
+          "Enter the full 10-character recovery code (xxxxx-xxxxx).",
+        );
+        hasError = true;
+      }
+
+      if (!password) {
+        setFieldError("recoveryNewPassword", "New password is required.");
+        hasError = true;
+      } else if (password.length < 8) {
+        setFieldError(
+          "recoveryNewPassword",
+          "Password must be at least 8 characters.",
+        );
+        hasError = true;
+      }
+
+      if (!passwordConfirmation) {
+        setFieldError(
+          "recoveryConfirmNewPassword",
+          "Please confirm your new password.",
+        );
+        hasError = true;
+      } else if (password !== passwordConfirmation) {
+        setFieldError(
+          "recoveryConfirmNewPassword",
+          "Password confirmation does not match.",
+        );
+        hasError = true;
+      }
+
+      if (hasError) return;
+      toggleLoader(true);
+      if (btnRedeemRecovery) btnRedeemRecovery.disabled = true;
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/forgot-password/recovery-code`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+            },
+            body: JSON.stringify({
+              login,
+              recovery_code: code,
+              new_password: password,
+              new_password_confirmation: passwordConfirmation,
+            }),
+          },
+        );
+
+        const data = await response.json().catch(() => ({}));
+
+        if (response.status === 429) {
+          const wait = Number(data.retry_after_seconds);
+          const waitText =
+            Number.isFinite(wait) && wait > 0
+              ? ` Try again in about ${Math.ceil(wait / 60)} minute(s).`
+              : "";
+          setFieldError(
+            "recoveryCodeInput",
+            `${data.message || "Too many incorrect attempts."}${waitText}`,
+          );
+          return;
+        }
+        if (response.ok) {
+          // Reuse the shared success step, and prefill the sign-in field the
+          // same way the emailed-OTP path does.
+          currentOtpEmail = login;
+          if (forgotSuccessText) {
+            const left = Number(data.remaining);
+            forgotSuccessText.textContent = data.exhausted
+              ? "Your admin password has been updated, and that was your last recovery code. Sign in, open My Account and generate a fresh set of ten right away."
+              : `Your admin password has been updated with a recovery code. That code is now used up${
+                  Number.isFinite(left)
+                    ? ` — ${left} code${left === 1 ? "" : "s"} left`
+                    : ""
+                }. You can log in with your new password.`;
+          }
+          if (recoveryCodeInput) recoveryCodeInput.value = "";
+          if (recoveryNewPassword) recoveryNewPassword.value = "";
+          if (recoveryConfirmNewPassword) recoveryConfirmNewPassword.value = "";
+          setRecoveryHint("");
+          forgotRecoveryStep?.setAttribute("hidden", "");
+          forgotSuccessStep?.removeAttribute("hidden");
+          return;
+        }
+
+        if (response.status === 422) {
+          if (data.errors?.login?.[0]) {
+            setFieldError("recoveryLogin", data.errors.login[0]);
+          } else if (data.errors?.new_password?.[0]) {
+            setFieldError("recoveryNewPassword", data.errors.new_password[0]);
+          } else if (data.errors?.recovery_code?.[0]) {
+            setFieldError("recoveryCodeInput", data.errors.recovery_code[0]);
+          } else {
+            setFieldError(
+              "recoveryCodeInput",
+              data.message ||
+                "That recovery code is not valid, or it has already been used.",
+            );
+          }
+          // The server answers a wrong code, a used code and a non-admin login
+          // identically, so say plainly that a fresh code is the next step.
+          setRecoveryHint("Try the next unused code on your saved list.");
+          return;
+        }
+
+        setFieldError(
+          "recoveryCodeInput",
+          data.message || "Could not reset the password. Please try again.",
+        );
+      } catch {
+        setFieldError(
+          "recoveryCodeInput",
+          "Cannot connect to server. Please try again.",
+        );
+      } finally {
+        if (btnRedeemRecovery) btnRedeemRecovery.disabled = false;
         toggleLoader(false);
       }
     });

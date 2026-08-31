@@ -1,0 +1,360 @@
+/* ==========================================================================
+   Recovery codes + pending-Gmail verification.
+
+   Loaded only by admin-page/my-account.html. These rules deliberately do NOT
+   live in admin-modules.css: that sheet is referenced by 32 admin/staff pages,
+   and a Hostinger deploy copies files without clearing browser caches, so a
+   change there would force a hand-bumped ?v= on every one of them.
+
+   Buttons reuse .btn-admin / .btn-admin.btn-secondary from dashboard.css,
+   which already give a darker hover and a press scale with no uplift. Nothing
+   here adds a hover transform.
+   ========================================================================== */
+
+/* ---------- Pending Gmail verification strip (credentials card) ---------- */
+
+.email-pending {
+  display: none;
+  margin-top: 12px;
+  border: 1px solid #f2dca9;
+  border-radius: 10px;
+  background: #fdf7e7;
+  padding: 12px;
+}
+
+.email-pending.show {
+  display: block;
+}
+
+.email-pending__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #7a5106;
+  margin-bottom: 5px;
+}
+
+.email-pending__text {
+  font-size: 0.76rem;
+  color: #6d6a5f;
+  line-height: 1.55;
+  margin-bottom: 10px;
+}
+
+.email-pending__text strong {
+  color: #4c4534;
+}
+
+.email-pending__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.otp-input {
+  width: 150px;
+  text-align: center;
+  font-family: "Courier New", ui-monospace, monospace;
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: 5px;
+}
+
+.email-pending__hint {
+  flex: 1 1 100%;
+  font-size: 0.72rem;
+  color: #8a8477;
+}
+
+/* ---------- Recovery codes card ---------- */
+
+.recovery-card {
+  grid-column: 1 / -1;
+}
+
+.recovery-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.recovery-card__intro {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.recovery-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.recovery-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 14px;
+}
+
+.recovery-stat {
+  border: 1px dashed #dae2eb;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.recovery-stat__label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: #7a838d;
+  margin-bottom: 4px;
+}
+
+.recovery-stat__value {
+  font-size: 1.16rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--primary-color);
+}
+
+.recovery-stat__value--muted {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #5c6672;
+}
+
+.recovery-meter {
+  height: 7px;
+  margin-top: 12px;
+  border-radius: 99px;
+  background: #eef1f5;
+  overflow: hidden;
+}
+
+.recovery-meter__fill {
+  height: 100%;
+  width: 0;
+  border-radius: 99px;
+  background: var(--primary-color);
+  transition: width 0.25s ease;
+}
+
+.recovery-meter__fill--low {
+  background: #d99b16;
+}
+
+.recovery-meter__fill--empty {
+  background: #c0392b;
+}
+
+.recovery-note {
+  margin-top: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 11px 12px;
+  font-size: 0.76rem;
+  line-height: 1.55;
+  color: #5c6672;
+}
+
+.recovery-note strong {
+  color: #34404d;
+}
+
+.recovery-note--warn {
+  border-color: #f2dca9;
+  background: #fdf7e7;
+  color: #6d5b2b;
+}
+
+.recovery-note--warn strong {
+  color: #4c4534;
+}
+
+.recovery-note--danger {
+  border-color: #f0c6c0;
+  background: #fdf2f0;
+  color: #8a3227;
+}
+
+.recovery-note--danger strong {
+  color: #6f261d;
+}
+
+.recovery-note[hidden] {
+  display: none;
+}
+
+/* ---------- One-time reveal panel ---------- */
+
+.recovery-reveal {
+  display: none;
+  margin-top: 14px;
+  border: 1px solid #ebd5d5;
+  border-radius: 12px;
+  background: linear-gradient(160deg, #ffffff, #fdf3f3);
+  padding: 14px;
+}
+
+.recovery-reveal.show {
+  display: block;
+}
+
+.recovery-reveal__title {
+  font-size: 0.94rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  margin-bottom: 4px;
+}
+
+.recovery-reveal__text {
+  font-size: 0.76rem;
+  color: #6b6060;
+  line-height: 1.55;
+}
+
+.recovery-codes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.recovery-code {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px dashed #d9c2c2;
+  border-radius: 8px;
+  background: #fff;
+  padding: 9px 11px;
+}
+
+.recovery-code__index {
+  min-width: 18px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #a98686;
+}
+
+.recovery-code__value {
+  font-family: "Courier New", ui-monospace, monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  color: #34404d;
+  overflow-wrap: anywhere;
+}
+
+.recovery-reveal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.recovery-ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #4c5661;
+  cursor: pointer;
+}
+
+.recovery-ack input {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  accent-color: var(--primary-color);
+  cursor: pointer;
+}
+
+/* Printed sheet only: identifies whose codes these are. */
+.recovery-print-head {
+  display: none;
+}
+
+/* ---------- Print: the reveal panel and nothing else ----------
+   Gated on body.recovery-printing, which my-account.js sets only for the
+   duration of window.print() from the reveal panel. The report print rules in
+   admin-modules.css key off body.report-printing and are untouched. */
+
+@media print {
+  body.recovery-printing * {
+    visibility: hidden !important;
+  }
+
+  body.recovery-printing #recoveryRevealPanel,
+  body.recovery-printing #recoveryRevealPanel * {
+    visibility: visible !important;
+  }
+
+  body.recovery-printing #recoveryRevealPanel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+    padding: 0;
+  }
+
+  body.recovery-printing .recovery-print-head {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 11pt;
+    color: #000;
+  }
+
+  body.recovery-printing .recovery-codes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.recovery-printing .recovery-reveal__actions,
+  body.recovery-printing .recovery-ack {
+    display: none !important;
+  }
+}
+
+/* ---------- Small screens ---------- */
+
+@media (max-width: 900px) {
+  .recovery-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .recovery-codes {
+    grid-template-columns: 1fr;
+  }
+
+  .recovery-card__actions {
+    width: 100%;
+  }
+
+  .recovery-card__actions .btn-admin {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .otp-input {
+    width: 100%;
+    flex: 1 1 100%;
+  }
+
+  .email-pending__row .btn-admin,
+  .recovery-reveal__actions .btn-admin {
+    flex: 1 1 auto;
+  }
+}

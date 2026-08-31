@@ -2241,3 +2241,86 @@ textarea:focus-visible {
     min-height: 50px;
   }
 }
+
+/* ── Recovery-code step (Administrator only) ──────────────────────────────
+   Declared last so it settles after the universal responsive layer above.
+   `.recovery-code-input` rides on `.otp-code-input`, which is tuned for six
+   digits: eleven characters (xxxxx-xxxxx) clip on a 320px iPhone at that
+   tracking. Every rule below is scoped to the new class, so the OTP field
+   itself keeps its own sizing. Links reuse `.inline-link`, which underlines
+   on hover and never lifts. */
+
+.forgot-alt-row {
+  margin-top: 14px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.forgot-alt-row .inline-link {
+  font-size: 12.5px;
+}
+
+/* `.inline-link` is worn by <button> elsewhere on this page, which carries no
+   default underline; the two recovery links are anchors, so their rest state
+   has to be told to match. Hover still underlines, per the rule above. */
+a.inline-link {
+  text-decoration: none;
+}
+
+a.inline-link:hover {
+  text-decoration: underline;
+}
+
+.recovery-code-input {
+  /* max() keeps the 16px iOS anti-zoom floor while shrinking from 22px. */
+  font-size: max(16px, 19px);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.recovery-code-input::placeholder {
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: none;
+  color: #94a3b8;
+}
+
+/* Sits in an `.otp-resend-row`, so it must not push the link off the row. */
+#recoveryStepHint {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-left: 10px;
+  text-align: right;
+  font-size: 11.5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 340px) {
+  .recovery-code-input {
+    font-size: 16px;
+    letter-spacing: 1.5px;
+  }
+}
+
+@media (max-width: 239px) {
+  .forgot-alt-row {
+    font-size: 11px;
+  }
+
+  .forgot-alt-row .inline-link {
+    font-size: 11px;
+  }
+
+  .recovery-code-input {
+    font-size: 16px;
+    letter-spacing: 0.5px;
+  }
+
+  #recoveryStepHint {
+    font-size: 10.5px;
+    padding-left: 6px;
+  }
+}

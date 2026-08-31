@@ -20,9 +20,9 @@ class AdminPortalConsistencyTest extends TestCase
         return array_map(static fn (string $file): array => [$file], $files);
     }
 
-    public function test_portal_has_the_expected_31_admin_and_staff_pages(): void
+    public function test_portal_has_the_expected_32_admin_and_staff_pages(): void
     {
-        $this->assertCount(31, self::portalHtmlProvider());
+        $this->assertCount(32, self::portalHtmlProvider());
     }
 
     #[DataProvider('portalHtmlProvider')]
@@ -30,8 +30,12 @@ class AdminPortalConsistencyTest extends TestCase
     {
         $html = (string) file_get_contents($file);
 
-        $this->assertSame(1, preg_match('/dashboard\.css\?v=5\.1/', $html), $file);
-        $this->assertSame(1, preg_match('/admin-common\.js\?v=5\.1/', $html), $file);
+        // Every page must carry a cache-buster on the shared pair. The exact number
+        // is checked once, across all pages together, by
+        // test_the_shared_live_ui_is_pinned_to_one_version_everywhere() -- pinning it
+        // here as well only meant 32 red tests every time the release was bumped.
+        $this->assertSame(1, preg_match('/dashboard\.css\?v=\d+(?:\.\d+)?/', $html), $file);
+        $this->assertSame(1, preg_match('/admin-common\.js\?v=\d+(?:\.\d+)?/', $html), $file);
         $this->assertStringNotContainsString('<h3>24</h3>', $html, $file);
 
         // The green "Live data" chip was removed from every toolbar; the silent
@@ -105,6 +109,38 @@ class AdminPortalConsistencyTest extends TestCase
                 5.1,
                 (float) $versions[0],
                 "{$script} is pinned below the shared-UI contract version",
+            );
+        }
+    }
+
+    public function test_the_shared_live_ui_is_pinned_to_one_version_everywhere(): void
+    {
+        $html = $this->allPortalHtml();
+
+        foreach (['dashboard.css', 'admin-common.js'] as $asset) {
+            $quoted = preg_quote($asset, '/');
+
+            $this->assertDoesNotMatchRegularExpression(
+                "/{$quoted}(?!\\?v=\\d)/",
+                $html,
+                "Unversioned shared-UI reference: {$asset}",
+            );
+
+            preg_match_all("/{$quoted}\\?v=(\\d+(?:\\.\\d+)?)/", $html, $found);
+            $versions = array_values(array_unique($found[1] ?? []));
+
+            // Two different versions for the same file means one portal is pinned to
+            // a stale cached copy of it.
+            $this->assertCount(
+                1,
+                $versions,
+                "{$asset} is referenced at more than one version: ".implode(', ', $versions),
+            );
+
+            $this->assertGreaterThanOrEqual(
+                5.1,
+                (float) $versions[0],
+                "{$asset} is pinned below the shared-UI contract version",
             );
         }
     }

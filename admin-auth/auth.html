@@ -23,7 +23,7 @@
       crossorigin="anonymous"
       referrerpolicy="no-referrer"
     />
-    <link rel="stylesheet" href="auth.css?v=5.6" />
+    <link rel="stylesheet" href="auth.css?v=5.7" />
   </head>
   <body>
     <main class="auth-page">
@@ -279,6 +279,13 @@
             <button class="auth-btn" id="btnSendOtp" type="submit">Send 6-Digit OTP</button>
           </form>
 
+          <div class="forgot-alt-row">
+            <span>Administrator with no access to that inbox?</span>
+            <a href="#" class="inline-link" id="useRecoveryCodeLink"
+              >Use a recovery code instead</a
+            >
+          </div>
+
           <div class="switch-account-wrap">
             <a href="#" class="switch-account-link" id="forgotBackToLogin"
               >Back to Log In</a
@@ -421,6 +428,165 @@
           </form>
         </div>
 
+        <!-- Step 2b: Recovery code (Administrator only) -->
+        <div class="forgot-step" id="forgotRecoveryStep" hidden>
+          <div class="forgot-icon">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"
+              ></path>
+            </svg>
+          </div>
+          <h3>Use a Recovery Code</h3>
+          <p>
+            Recovery codes belong to the <strong>Administrator</strong> account.
+            Enter one of the ten codes you saved and choose a new password — no
+            email is involved.
+          </p>
+
+          <form id="recoveryCodeForm" novalidate>
+            <div class="input-wrapper">
+              <label for="recoveryLogin">Admin Username or Email</label>
+              <div class="input-icon-group">
+                <svg
+                  class="input-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <input
+                  id="recoveryLogin"
+                  type="text"
+                  placeholder="Admin username or email"
+                  autocomplete="username"
+                  autocapitalize="none"
+                  spellcheck="false"
+                  required
+                />
+              </div>
+            </div>
+            <div class="input-wrapper">
+              <label for="recoveryCodeInput">Recovery Code</label>
+              <div class="input-field-box">
+                <input
+                  id="recoveryCodeInput"
+                  class="otp-code-input recovery-code-input"
+                  type="text"
+                  maxlength="11"
+                  placeholder="xxxxx-xxxxx"
+                  autocomplete="off"
+                  autocapitalize="characters"
+                  spellcheck="false"
+                  required
+                />
+              </div>
+            </div>
+
+            <div class="input-wrapper">
+              <label for="recoveryNewPassword">New Password</label>
+              <div class="input-icon-group">
+                <svg
+                  class="input-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                <input
+                  id="recoveryNewPassword"
+                  type="password"
+                  placeholder="Min. 8 characters"
+                  autocomplete="new-password"
+                  required
+                />
+                <button
+                  class="toggle-pass"
+                  type="button"
+                  data-target="recoveryNewPassword"
+                  aria-label="Show password"
+                >
+                  <svg
+                    class="eye-closed"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
+                    ></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="input-wrapper">
+              <label for="recoveryConfirmNewPassword">Confirm New Password</label>
+              <div class="input-icon-group">
+                <svg
+                  class="input-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+                <input
+                  id="recoveryConfirmNewPassword"
+                  type="password"
+                  placeholder="Confirm new password"
+                  autocomplete="new-password"
+                  required
+                />
+                <button
+                  class="toggle-pass"
+                  type="button"
+                  data-target="recoveryConfirmNewPassword"
+                  aria-label="Show password"
+                >
+                  <svg
+                    class="eye-closed"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
+                    ></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <button class="auth-btn" id="btnRedeemRecovery" type="submit">
+              Reset Password
+            </button>
+
+            <div class="otp-resend-row">
+              <a href="#" id="recoveryBackToOtp" class="inline-link" style="font-size: 12px; margin-left: 0;">Use an email code instead</a>
+              <span id="recoveryStepHint"></span>
+            </div>
+          </form>
+        </div>
+
         <!-- Step 3: Success Confirmation -->
         <div class="forgot-step" id="forgotSuccessStep" hidden>
           <div class="success-icon">
@@ -436,7 +602,7 @@
             </svg>
           </div>
           <h3>Password Reset Successful!</h3>
-          <p>
+          <p id="forgotSuccessText">
             Your admin/staff password has been updated successfully. You can now log in using your new credentials.
           </p>
           <button
@@ -463,6 +629,6 @@
     <!-- Admin-editable portal logos (Website Management -> Home -> Brand Logos).
          Paints the last-known pair synchronously, then revalidates. -->
     <script src="../home-page/portal-brand.js?v=1.0"></script>
-    <script src="auth.js?v=5.2"></script>
+    <script src="auth.js?v=5.3"></script>
   </body>
 </html>

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AdminDashboardController;
+use App\Http\Controllers\Api\AdminRecoveryController;
 use App\Http\Controllers\Api\AnnouncementController;
 use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\ArchiveController;
@@ -71,6 +72,12 @@ Route::post('/forgot-password/resend-otp', [PasswordResetController::class, 'res
 Route::post('/forgot-password/check-lockout', [PasswordResetController::class, 'checkLockout']);
 Route::post('/forgot-password/verify-otp', [PasswordResetController::class, 'verifyOtpAndReset']);
 Route::post('/reset-password', [PasswordResetController::class, 'verifyOtpAndReset']);
+
+// Public: admin recovery code -> new password. Stands in for the emailed OTP above
+// when the account's Gmail can no longer be reached. Throttled inside the
+// controller (5 wrong tries per 30 min per IP+identifier) and every use is
+// emailed to the account as a security alert.
+Route::post('/forgot-password/recovery-code', [AdminRecoveryController::class, 'redeem']);
 
 Route::get('/appointments', [AppointmentController::class, 'index']);
 Route::post('/appointments', [AppointmentController::class, 'store'])->middleware([
@@ -252,8 +259,16 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     // Update current authenticated user's profile (email)
     Route::put('/user', [AuthController::class, 'updateSelfProfile']);
+    // Admin Gmail changes are parked until the code sent to the NEW address is entered.
+    Route::get('/user/email-change', [AuthController::class, 'pendingEmailChange']);
+    Route::post('/user/email-change/confirm', [AuthController::class, 'confirmEmailChange']);
+    Route::post('/user/email-change/cancel', [AuthController::class, 'cancelEmailChange']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/change-password', [AuthController::class, 'changePassword']);
+
+    // Admin: one-time recovery codes (offline way back in if the Gmail is unreachable)
+    Route::get('/admin/recovery-codes', [AdminRecoveryController::class, 'status']);
+    Route::post('/admin/recovery-codes/generate', [AdminRecoveryController::class, 'generate']);
 
     // Admin: Notifications
     Route::get('/admin/notifications', [NotificationController::class, 'index']);

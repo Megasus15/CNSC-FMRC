@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\AdminEmailChangeCommitted;
+use App\Mail\AdminEmailChangeOtp;
 use App\Models\MaintenanceSetting;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
@@ -21,6 +24,14 @@ use Laravel\Sanctum\PersonalAccessToken;
 class AuthController extends Controller
 {
     private ?bool $googlePasswordStateSupported = null;
+
+    private ?bool $emailChangeVerificationSupported = null;
+
+    private const EMAIL_CHANGE_TABLE = 'email_change_requests';
+
+    private const EMAIL_CHANGE_EXPIRY_MINUTES = 15;
+
+    private const EMAIL_CHANGE_MAX_ATTEMPTS = 5;
 
     private const ALLOWED_CUSTOMER_TYPES = [
         'Student',
@@ -749,6 +760,12 @@ class AuthController extends Controller
     
     /**
      * Update the authenticated user's email (self profile update).
+     *
+     * For the admin the Gmail is not swapped straight away. There is exactly one
+     * admin account, and the emailed OTP reset is the only unaided way back into
+     * it, so a mistyped address here used to be enough to lock the portal out for
+     * good. An admin change is now parked in `email_change_requests` until the code
+     * mailed to the NEW address is entered. Staff and customers are untouched.
      */
     public function updateSelfProfile(Request $request)
     {
@@ -759,34 +776,296 @@ class AuthController extends Controller
         }
 
         // Allow updating of email and username for the authenticated user.
+        // NOTE: no `dns` rule here on purpose -- the regex already pins the domain
+        // to gmail.com, so a DNS lookup can only confirm what is already known. The
+        // address that a typo actually produces (admn@gmail.com) resolves fine; only
+        // the verification code below can catch it.
         $validated = $request->validate([
             'email' => ['nullable', 'string', 'email', 'max:255', 'regex:/^[A-Za-z0-9._%+-]+@gmail\.com$/i', Rule::unique('users', 'email')->ignore($user->id)],
             'username' => ['nullable', 'string', 'max:255', 'alpha_dash', Rule::unique('users', 'username')->ignore($user->id)],
         ]);
 
-        if (array_key_exists('email', $validated) && $validated['email']) {
-            $user->email = $validated['email'];
-        }
-
         if (array_key_exists('username', $validated) && $validated['username']) {
             $user->username = $validated['username'];
+        }
+
+        $requestedEmail = array_key_exists('email', $validated) && $validated['email']
+            ? trim((string) $validated['email'])
+            : null;
+        $emailIsChanging = $requestedEmail !== null
+            && strcasecmp($requestedEmail, (string) $user->email) !== 0;
+
+        // Admin only, and only while the table exists. Before the migration is run
+        // on the live server this falls through to the old immediate-apply path so
+        // nothing breaks mid-deploy.
+        if ($emailIsChanging && $user->role === 'admin' && $this->supportsEmailChangeVerification()) {
+            $user->save(); // Persist a username change even though the Gmail waits.
+
+            return $this->startEmailChangeVerification($user, $requestedEmail);
+        }
+
+        if ($emailIsChanging) {
+            $user->email = $requestedEmail;
         }
 
         $user->save();
 
         return response()->json([
             'message' => 'Profile updated successfully.',
-            'data' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'username' => $user->username,
-                'email' => $user->email,
-                'role' => $user->role,
-                'updated_at' => optional($user->updated_at)->toIso8601String(),
-            ],
+            'email_verification_required' => false,
+            'data' => $this->selfProfilePayload($user),
         ]);
     }
     
+    private function selfProfilePayload(User $user): array
+    {
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'username' => $user->username,
+            'email' => $user->email,
+            'role' => $user->role,
+            'updated_at' => optional($user->updated_at)->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Fail soft until the migration has been run by hand on the live server.
+     */
+    private function supportsEmailChangeVerification(): bool
+    {
+        return $this->emailChangeVerificationSupported ??= Schema::hasTable(self::EMAIL_CHANGE_TABLE);
+    }
+
+    /**
+     * Park the requested Gmail and mail a 6-digit code to it. The account keeps its
+     * current address until confirmEmailChange() succeeds.
+     */
+    private function startEmailChangeVerification(User $user, string $newEmail): JsonResponse
+    {
+        $code = (string) random_int(100000, 999999);
+        $now = now();
+        $expiresAt = $now->copy()->addMinutes(self::EMAIL_CHANGE_EXPIRY_MINUTES);
+
+        // One pending change at a time; a fresh request always replaces the old one.
+        DB::table(self::EMAIL_CHANGE_TABLE)->where('user_id', $user->id)->delete();
+        DB::table(self::EMAIL_CHANGE_TABLE)->insert([
+            'user_id' => $user->id,
+            'new_email' => $newEmail,
+            'otp_hash' => Hash::make($code),
+            'attempts' => 0,
+            'expires_at' => $expiresAt,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $userId = (string) $user->id;
+        $mailable = new AdminEmailChangeOtp($user, $code, self::EMAIL_CHANGE_EXPIRY_MINUTES);
+
+        $this->dispatchAfterResponse(function () use ($newEmail, $mailable, $userId) {
+            try {
+                Mail::to($newEmail)->send($mailable);
+                Log::info("Gmail change verification code sent for user #{$userId}");
+            } catch (\Throwable $e) {
+                Log::error("Gmail change verification code FAILED for user #{$userId}: " . $e->getMessage());
+            }
+        });
+
+        return response()->json([
+            'message' => 'Enter the 6-digit code we sent to the new Gmail address to finish the change. Your current Gmail stays active until then.',
+            'email_verification_required' => true,
+            'pending_email' => $this->maskEmailAddress($newEmail),
+            'expires_at' => $expiresAt->toIso8601String(),
+            'expires_in_minutes' => self::EMAIL_CHANGE_EXPIRY_MINUTES,
+            'data' => $this->selfProfilePayload($user),
+        ]);
+    }
+
+    /**
+     * Is a Gmail change waiting for its code? Lets the account page redraw the
+     * pending strip after a reload instead of losing it.
+     */
+    public function pendingEmailChange(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized.'], 401);
+        }
+
+        if (!$this->supportsEmailChangeVerification()) {
+            return response()->json(['supported' => false, 'pending' => false]);
+        }
+
+        $row = DB::table(self::EMAIL_CHANGE_TABLE)->where('user_id', $user->id)->first();
+
+        if (!$row) {
+            return response()->json(['supported' => true, 'pending' => false]);
+        }
+
+        if ($row->expires_at && Carbon::parse($row->expires_at)->isPast()) {
+            DB::table(self::EMAIL_CHANGE_TABLE)->where('id', $row->id)->delete();
+
+            return response()->json(['supported' => true, 'pending' => false]);
+        }
+
+        return response()->json([
+            'supported' => true,
+            'pending' => true,
+            'pending_email' => $this->maskEmailAddress((string) $row->new_email),
+            'expires_at' => $row->expires_at ? Carbon::parse($row->expires_at)->toIso8601String() : null,
+            'attempts_left' => max(0, self::EMAIL_CHANGE_MAX_ATTEMPTS - (int) $row->attempts),
+        ]);
+    }
+
+    /**
+     * Discard a pending Gmail change.
+     */
+    public function cancelEmailChange(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized.'], 401);
+        }
+
+        if ($this->supportsEmailChangeVerification()) {
+            DB::table(self::EMAIL_CHANGE_TABLE)->where('user_id', $user->id)->delete();
+        }
+
+        return response()->json([
+            'message' => 'Gmail change cancelled. Your account still uses your current address.',
+            'pending' => false,
+            'data' => $this->selfProfilePayload($user),
+        ]);
+    }
+
+    /**
+     * Commit a parked Gmail change once the code mailed to the new address is
+     * entered. Five wrong tries throw the request away and a new one is required.
+     */
+    public function confirmEmailChange(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized.'], 401);
+        }
+
+        $request->validate([
+            'otp' => 'required|string|digits:6',
+        ], [
+            'otp.digits' => 'Enter the 6-digit code from the email.',
+        ]);
+
+        if (!$this->supportsEmailChangeVerification()) {
+            return response()->json([
+                'supported' => false,
+                'message' => 'Gmail verification is not installed on this server yet.',
+            ], 422);
+        }
+
+        $row = DB::table(self::EMAIL_CHANGE_TABLE)->where('user_id', $user->id)->first();
+
+        if (!$row) {
+            return response()->json([
+                'message' => 'There is no Gmail change waiting for confirmation.',
+            ], 422);
+        }
+
+        if ($row->expires_at && Carbon::parse($row->expires_at)->isPast()) {
+            DB::table(self::EMAIL_CHANGE_TABLE)->where('id', $row->id)->delete();
+
+            return response()->json([
+                'message' => 'That code has expired. Please request the Gmail change again.',
+            ], 422);
+        }
+
+        if (!Hash::check($request->input('otp'), $row->otp_hash)) {
+            $attempts = (int) $row->attempts + 1;
+
+            if ($attempts >= self::EMAIL_CHANGE_MAX_ATTEMPTS) {
+                DB::table(self::EMAIL_CHANGE_TABLE)->where('id', $row->id)->delete();
+
+                return response()->json([
+                    'message' => 'Too many incorrect codes. The Gmail change was cancelled — please start again.',
+                    'attempts_left' => 0,
+                    'pending' => false,
+                ], 422);
+            }
+
+            DB::table(self::EMAIL_CHANGE_TABLE)
+                ->where('id', $row->id)
+                ->update(['attempts' => $attempts, 'updated_at' => now()]);
+
+            return response()->json([
+                'message' => 'That code is not correct.',
+                'attempts_left' => self::EMAIL_CHANGE_MAX_ATTEMPTS - $attempts,
+                'pending' => true,
+            ], 422);
+        }
+
+        return $this->commitVerifiedEmailChange($user, $row);
+    }
+
+    private function commitVerifiedEmailChange(User $user, object $row): JsonResponse
+    {
+        $newEmail = trim((string) $row->new_email);
+        $oldEmail = (string) $user->email;
+
+        // Re-check uniqueness: another account could have claimed the address in the
+        // 15 minutes the request sat waiting.
+        $taken = User::where('email', $newEmail)->where('id', '!=', $user->id)->exists();
+        if ($taken) {
+            DB::table(self::EMAIL_CHANGE_TABLE)->where('id', $row->id)->delete();
+
+            return response()->json([
+                'message' => 'That Gmail address is already used by another account. Please try a different one.',
+                'pending' => false,
+            ], 422);
+        }
+
+        $user->email = $newEmail;
+        $user->save();
+
+        DB::table(self::EMAIL_CHANGE_TABLE)->where('id', $row->id)->delete();
+
+        Log::info("Admin Gmail change confirmed for user #{$user->id}");
+
+        if ($oldEmail && filter_var($oldEmail, FILTER_VALIDATE_EMAIL)) {
+            $userId = (string) $user->id;
+            $mailable = new AdminEmailChangeCommitted($user, $oldEmail, $newEmail);
+
+            $this->dispatchAfterResponse(function () use ($oldEmail, $mailable, $userId) {
+                try {
+                    Mail::to($oldEmail)->send($mailable);
+                    Log::info("Gmail change notice sent to the previous address for user #{$userId}");
+                } catch (\Throwable $e) {
+                    Log::error("Gmail change notice FAILED for user #{$userId}: " . $e->getMessage());
+                }
+            });
+        }
+
+        return response()->json([
+            'message' => 'Gmail address updated. Password resets will now go to your new address.',
+            'pending' => false,
+            'data' => $this->selfProfilePayload($user),
+        ]);
+    }
+
+    /** Show enough of an address to recognise it, not enough to hand it over. */
+    private function maskEmailAddress(string $email): string
+    {
+        $parts = explode('@', $email, 2);
+        if (count($parts) !== 2 || $parts[0] === '') {
+            return $email;
+        }
+
+        $local = $parts[0];
+        $visible = mb_substr($local, 0, min(2, mb_strlen($local)));
+        $stars = str_repeat('*', max(1, mb_strlen($local) - mb_strlen($visible)));
+
+        return $visible . $stars . '@' . $parts[1];
+    }
+
+
     // Change / Set Password function (supports both standard users and Google-authenticated users)
     public function changePassword(Request $request)
     {
