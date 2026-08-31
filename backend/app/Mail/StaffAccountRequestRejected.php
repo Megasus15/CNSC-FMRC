@@ -2,8 +2,8 @@
 
 namespace App\Mail;
 
-use App\Models\Appointment;
 use App\Models\SiteSetting;
+use App\Models\StaffAccountRequest;
 use App\Support\Branding;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
@@ -11,19 +11,23 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-// NOTE: ShouldQueue is intentionally NOT implemented here, exactly like
-// AppointmentConfirmation. Mail goes out synchronously (no queue worker on
-// Hostinger) and AppointmentController::markCompleted() defers the send with
-// OrderNotifier::afterResponse() inside a try/catch, so SMTP latency or an
-// SMTP failure can never affect the PATCH response the portal is waiting on.
-class AppointmentCompleted extends Mailable
+// NOTE: ShouldQueue is intentionally NOT implemented, exactly like every other
+// mailable in this folder. There is no queue worker on Hostinger; instead
+// StaffAccountRequestController::sendDecisionEmail() defers the send with
+// OrderNotifier::afterResponse() inside a try/catch, so SMTP latency -- or an
+// outright SMTP failure -- can never affect the decision the admin just made.
+//
+// No `from:` is set on the envelope on purpose: the sender address and display
+// name come from config, and AppServiceProvider pins the display name to
+// Branding::NAME so it can never drift back to the retired institution name.
+class StaffAccountRequestRejected extends Mailable
 {
     use Queueable, SerializesModels;
 
     /**
-     * Office details as seeded in SiteSettingSeeder. Used when site_settings
-     * has no value for a key — or cannot be read at all — so the thank-you
-     * note always carries a way to reach the laboratory.
+     * Office details as seeded in SiteSettingSeeder. Used when site_settings has
+     * no value for a key -- or cannot be read at all -- so a declined applicant
+     * always has a way to ask why.
      */
     private const FALLBACKS = [
         'location' => 'First Flr., Graduate School Building, University of Camarines Norte, Daet, Philippines',
@@ -37,24 +41,16 @@ class AppointmentCompleted extends Mailable
     ];
 
     public function __construct(
-        public readonly Appointment $appointment,
+        public readonly StaffAccountRequest $accountRequest,
     ) {}
 
-    /**
-     * Get the message envelope.
-     */
     public function envelope(): Envelope
     {
-        $referenceNo = $this->appointment->reference_no ?? 'N/A';
-
         return new Envelope(
-            subject: "Thank You for Visiting UCN-FMRC - {$referenceNo}",
+            subject: 'Update on Your UCN-FMRC Staff Account Request',
         );
     }
 
-    /**
-     * Get the message content definition.
-     */
     public function content(): Content
     {
         return new Content(
@@ -82,7 +78,7 @@ class AppointmentCompleted extends Mailable
                 'footer_hours_days', 'footer_hours_time',
             ])->pluck('value', 'key')->all();
         } catch (\Throwable $e) {
-            // Settings unavailable — fall through to the seeded defaults below.
+            // Settings unavailable -- fall through to the seeded defaults below.
             $settings = [];
         }
 
@@ -113,42 +109,36 @@ class AppointmentCompleted extends Mailable
     }
 
     /**
-     * Build the HTML email body for the completed-visit thank-you note.
-     * Same 600px shell, maroon header and footer as AppointmentConfirmation so
-     * the two messages read as one family.
+     * Build the HTML body. Same shell as StaffAccountRequestApproved, so the two
+     * possible outcomes of one request look like two pages of the same letter.
+     *
+     * The tone is deliberately neutral: a declined request is usually an
+     * unverified applicant rather than a rejected person, and the message has to
+     * leave a legitimate colleague a clear next step.
      */
     private function buildHtml(): string
     {
-        $appointment = $this->appointment;
+        $row = $this->accountRequest;
         $office = $this->officeDetails();
 
-        $mi = trim((string) ($appointment->middle_initial ?? ''));
-        $mi = $mi ? rtrim($mi, '.') . '.' : '';
-        $clientName = implode(' ', array_filter([
-            trim((string) $appointment->first_name),
-            $mi,
-            trim((string) $appointment->last_name),
-        ])) ?: 'Valued Client';
-        $firstName = trim((string) $appointment->first_name) ?: $clientName;
-
-        $refNo   = e($appointment->reference_no ?? 'N/A');
-        $date    = e(optional($appointment->appointment_date)->format('F j, Y') ?? 'N/A');
-        $time    = e($appointment->appointment_time ?? 'N/A');
-        $purpose = e($appointment->purpose ?? 'N/A');
-        $name    = e($clientName);
-        $hello   = e($firstName);
+        $name = e($row->displayName());
+        $hello = e($row->firstName());
+        $username = e((string) $row->username);
+        $email = e((string) $row->email);
 
         $appName = Branding::NAME;
-        $year    = now()->year;
-        $accent  = '#800000';
-        $success = '#0f7b52';
+        $institution = Branding::INSTITUTION;
+        $year = now()->year;
+        $accent = '#800000';
+        $declined = '#b42318';
 
-        $siteUrl  = e($office['site_url']);
+        $siteUrl = e($office['site_url']);
+        $contactUrl = $siteUrl . '/contact-page/contact.html';
         $location = e($office['location']);
-        $hours    = e($office['hours']);
-        $mailTo   = e($office['email']);
-        $phone    = e($office['phone']);
-        $telHref  = e(preg_replace('/[^0-9+]/', '', (string) $office['phone']));
+        $hours = e($office['hours']);
+        $mailTo = e($office['email']);
+        $phone = e($office['phone']);
+        $telHref = e(preg_replace('/[^0-9+]/', '', (string) $office['phone']));
 
         $locationValue = $office['location_url'] !== ''
             ? '<a href="' . e($office['location_url']) . '" style="color:' . $accent . ';text-decoration:none;font-weight:600;">' . $location . '</a>'
@@ -162,6 +152,19 @@ class AppointmentCompleted extends Mailable
           </td>
         </tr>" : '';
 
+        // The note is optional. When the administrator left one it is quoted in
+        // its own card; when they did not, no empty card is rendered.
+        $note = trim((string) $row->decision_note);
+        $noteCard = $note !== '' ? '
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#fffbeb;border:1px solid #fde68a;border-radius:10px;">
+    <tr>
+      <td style="padding:16px 20px;">
+        <span style="color:#92400e;font-size:13px;font-weight:800;">Note From the Administrator</span>
+        <p style="margin:6px 0 0;color:#78350f;font-size:13.5px;line-height:1.7;">' . nl2br(e($note)) . '</p>
+      </td>
+    </tr>
+  </table>' : '';
+
         return <<<HTML
 <!DOCTYPE html>
 <html lang="en">
@@ -174,55 +177,55 @@ class AppointmentCompleted extends Mailable
 <!-- Header -->
 <tr><td style="background:{$accent};padding:28px 32px;text-align:center;">
   <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.3px;">{$appName}</h1>
-  <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">Thank You for Your Visit</p>
+  <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">Staff Account Request Update</p>
 </td></tr>
 
 <!-- Body -->
 <tr><td style="padding:32px;">
-  <h2 style="margin:0 0 8px;color:#1f2937;font-size:18px;font-weight:700;">Thank You for Visiting Us, {$hello}!</h2>
+  <h2 style="margin:0 0 8px;color:#1f2937;font-size:18px;font-weight:700;">Thank You for Your Interest, {$hello}</h2>
   <p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.7;">
     Hi {$name},<br><br>
-    It was a genuine pleasure to welcome you to the <strong>Fabrication and Manufacturing Research Center</strong>. Your appointment is now complete, and we hope our team, our facilities and our service made your visit worthwhile.<br><br>
-    Maraming salamat for trusting us with your project &mdash; clients like you are the very reason this laboratory exists.
+    Thank you for requesting a staff account at the <strong>Fabrication and Manufacturing Research Center</strong>. After review, an administrator was <strong>not able to approve this request</strong>, so no account has been created and the details you submitted are no longer held as sign-in credentials.
   </p>
 
-  <!-- Visit Summary Card -->
+  <!-- Request Summary Card -->
   <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;">
     <tr>
       <td style="padding:14px 20px;border-bottom:1px solid #f1f4f8;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Reference Number</span><br>
-        <span style="color:{$accent};font-size:18px;font-weight:800;">{$refNo}</span>
+        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Requested Username</span><br>
+        <span style="color:{$accent};font-size:18px;font-weight:800;">{$username}</span>
       </td>
     </tr>
     <tr>
       <td style="padding:10px 20px;border-bottom:1px solid #f1f4f8;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Visit Schedule</span><br>
-        <span style="color:#111827;font-size:15px;font-weight:700;">{$date} &mdash; {$time}</span>
+        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Submitted Name</span><br>
+        <span style="color:#111827;font-size:15px;font-weight:700;">{$name}</span>
       </td>
     </tr>
     <tr>
       <td style="padding:10px 20px;border-bottom:1px solid #f1f4f8;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Purpose of Visit</span><br>
-        <span style="color:#374151;font-size:14px;font-weight:600;">{$purpose}</span>
+        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Gmail Address</span><br>
+        <span style="color:#374151;font-size:14px;font-weight:600;">{$email}</span>
       </td>
     </tr>
     <tr>
       <td style="padding:12px 20px;">
-        <span style="display:inline-block;background:{$success};color:#fff;padding:5px 16px;border-radius:999px;font-size:12px;font-weight:700;">Status: Completed</span>
+        <span style="display:inline-block;background:{$declined};color:#fff;padding:5px 16px;border-radius:999px;font-size:12px;font-weight:700;">Status: Not Approved</span>
       </td>
     </tr>
   </table>
-  <!-- Invitation to come back -->
+{$noteCard}
+  <!-- What to do next -->
   <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#fff8f6;border:1px solid #f0d9d4;border-radius:10px;">
     <tr>
       <td style="padding:20px;text-align:center;">
-        <h3 style="margin:0 0 6px;color:{$accent};font-size:16px;font-weight:800;">You Are Always Welcome Back</h3>
+        <h3 style="margin:0 0 6px;color:{$accent};font-size:16px;font-weight:800;">If You Believe This Was a Mistake</h3>
         <p style="margin:0 0 16px;color:#4b5563;font-size:13.5px;line-height:1.7;">
-          Have another idea, prototype or project in mind? Booking is open anytime &mdash; pick a schedule that fits you and our team will be glad to accommodate you again.
+          Staff access is granted only to personnel affiliated with the laboratory, and a request is usually declined when that affiliation could not be confirmed. If you are staff, please contact the FMRC office so your details can be verified &mdash; you are welcome to submit a new request afterwards.
         </p>
-        <a href="{$siteUrl}" style="display:inline-block;background:{$accent};color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:999px;">Set Another Appointment</a>
+        <a href="{$contactUrl}" style="display:inline-block;background:{$accent};color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:999px;">Contact the FMRC Office</a>
         <p style="margin:12px 0 0;color:#9ca3af;font-size:11.5px;">
-          Or open <a href="{$siteUrl}" style="color:{$accent};text-decoration:none;font-weight:600;">{$siteUrl}</a> in your browser.
+          Or open <a href="{$contactUrl}" style="color:{$accent};text-decoration:none;font-weight:600;">{$contactUrl}</a> in your browser.
         </p>
       </td>
     </tr>
@@ -261,18 +264,17 @@ class AppointmentCompleted extends Mailable
     </tr>{$facebookRow}
   </table>
   <p style="color:#6b7280;font-size:13px;line-height:1.6;margin:0;">
-    Your feedback helps us serve the next client better, so please tell us how we did through any of the channels above. Until your next visit &mdash; keep creating, and we will keep the machines ready for you.
+    Looking for a customer account instead? You can register one yourself on <a href="{$siteUrl}" style="color:{$accent};text-decoration:none;font-weight:600;">{$siteUrl}</a> and book the laboratory's services right away &mdash; no approval needed.
   </p>
 </td></tr>
 
 <!-- Footer -->
 <tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 32px;text-align:center;">
   <p style="margin:0;color:#9ca3af;font-size:12px;">
-    &copy; {$year} {$appName}. All rights reserved.<br>
+    &copy; {$year} {$appName} &middot; {$institution}. All rights reserved.<br>
     This is an automated notification — please do not reply to this email.
   </p>
 </td></tr>
-
 </table>
 </td></tr>
 </table>

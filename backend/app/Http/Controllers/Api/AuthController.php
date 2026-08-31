@@ -7,6 +7,7 @@ use App\Mail\AdminEmailChangeCommitted;
 use App\Mail\AdminEmailChangeOtp;
 use App\Models\MaintenanceSetting;
 use App\Models\User;
+use App\Support\Branding;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -1120,10 +1121,7 @@ class AuthController extends Controller
     {
         $name    = e($user->name ?? 'Valued Customer');
         $email   = e($user->email);
-        $appName = config('app.name') ?: 'UCN-FMRC';
-        if (strtolower($appName) === 'laravel') {
-            $appName = 'UCN-FMRC';
-        }
+        $appName = Branding::NAME;
         $year    = now()->year;
         $accent  = '#800000';
 
@@ -1200,10 +1198,7 @@ HTML;
         $username = e($user->username ?? $email);
         $role     = ucfirst(strtolower($user->role ?? 'customer'));
         $password = e($plainPassword);
-        $appName  = config('app.name') ?: 'UCN-FMRC';
-        if (strtolower($appName) === 'laravel') {
-            $appName = 'UCN-FMRC';
-        }
+        $appName  = Branding::NAME;
         $year   = now()->year;
         $accent = '#800000';
 

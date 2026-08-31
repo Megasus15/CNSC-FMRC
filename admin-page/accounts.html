@@ -149,6 +149,70 @@
           </div>
 
           <div class="accounts-layout-grid">
+            <!--
+              Staff account request queue, placed first so a request that is
+              waiting for a decision is the first thing on the page. The
+              structure is a copy of the User Directory panel below (panel-header,
+              mobile scroll hint, table-wrapper, table-footer with its own pager)
+              so both tables look and behave identically, and the layout grid is
+              already single-column, so this needs no new CSS.
+
+              This panel is a queue, not an archive: it lists only requests that
+              are still waiting, and a row leaves it the moment it is approved or
+              rejected - approved applicants continue in the User Directory
+              below. That is why there is no status <select> here; the decided
+              rows are still kept in the database as an audit trail.
+            -->
+            <div class="panel">
+              <div class="panel-header">
+                <h3>Staff Account Requests</h3>
+              </div>
+              <div class="table-scroll-hint table-scroll-hint--mobile">
+                <i class="fa-solid fa-left-right"></i> Scroll horizontally to
+                see all columns.
+              </div>
+              <div class="table-wrapper">
+                <table class="admin-table enhanced-table" id="requestsTable">
+                  <thead>
+                    <tr>
+                      <th>No.</th>
+                      <th>Full Name</th>
+                      <th>Username</th>
+                      <th>Gmail</th>
+                      <th>Requested</th>
+                      <th>Status</th>
+                      <th class="sticky-action">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="requestsTableBody">
+                    <!-- Realtime data injected via JS -->
+                  </tbody>
+                </table>
+              </div>
+              <div class="table-footer" id="requestsTableFooter">
+                <div class="table-footer-meta" id="requestsTableMeta">
+                  Showing 0 of 0 requests
+                </div>
+                <div class="table-pagination">
+                  <button id="requestsPrevPage" class="page-btn" disabled>
+                    <i class="fa-solid fa-chevron-left"></i>
+                  </button>
+                  <input
+                    class="page-number"
+                    id="requestsCurrentPage"
+                    type="number"
+                    min="1"
+                    value="1"
+                    inputmode="numeric"
+                    aria-label="Go to account requests page"
+                  />
+                  <button id="requestsNextPage" class="page-btn" disabled>
+                    <i class="fa-solid fa-chevron-right"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <div class="panel">
               <div class="panel-header">
                 <h3>User Directory</h3>
@@ -378,9 +442,89 @@
         </div>
       </div>
     </div>
+    <!--
+      Approve / Reject confirmations. Same `.modal-overlay > .modal-card
+      .modal-confirm` shell as the delete dialog above, so they inherit its
+      scrim, entrance animation and button row without a line of new CSS.
+    -->
+    <div
+      class="modal-overlay"
+      id="modalApproveRequest"
+      data-backdrop-close="false"
+    >
+      <div class="modal-card modal-confirm">
+        <h3 class="modal-title">Approve Account Request</h3>
+        <hr class="confirm-separator" />
+        <p class="confirm-text">
+          You are about to approve the request from
+          <strong id="approveRequestTargetLabel">this applicant</strong>.
+        </p>
+        <p class="field-hint">
+          A staff account is created immediately using the username and password
+          the applicant chose, and a confirmation email is sent to their Gmail
+          address.
+        </p>
+        <hr class="confirm-separator" />
+        <div class="modal-actions">
+          <button
+            class="btn-admin btn-secondary"
+            data-modal-close="#modalApproveRequest"
+          >
+            Cancel
+          </button>
+          <button class="btn-admin" id="btnConfirmApproveRequest" type="button">
+            Approve Account
+          </button>
+        </div>
+      </div>
+    </div>
+    <div
+      class="modal-overlay"
+      id="modalRejectRequest"
+      data-backdrop-close="false"
+    >
+      <div class="modal-card modal-confirm">
+        <h3 class="modal-title">Reject Account Request</h3>
+        <hr class="confirm-separator" />
+        <p class="confirm-text">
+          You are about to reject the request from
+          <strong id="rejectRequestTargetLabel">this applicant</strong>.
+        </p>
+        <p class="field-hint">
+          No account is created. The applicant is emailed the decision, together
+          with the reason below if you provide one.
+        </p>
+        <div class="field-stack">
+          <label for="rejectRequestNote"
+            >Reason (optional &mdash; included in the applicant&rsquo;s
+            email)</label
+          ><textarea
+            id="rejectRequestNote"
+            class="textarea-field"
+            maxlength="300"
+            placeholder="e.g. We could not confirm your affiliation with the laboratory. Please visit the FMRC office first."
+          ></textarea>
+          <p class="field-hint" id="rejectRequestNoteCount">
+            0 / 300 characters
+          </p>
+        </div>
+        <hr class="confirm-separator" />
+        <div class="modal-actions">
+          <button
+            class="btn-admin btn-secondary"
+            data-modal-close="#modalRejectRequest"
+          >
+            Cancel
+          </button>
+          <button class="btn-admin" id="btnConfirmRejectRequest" type="button">
+            Reject Request
+          </button>
+        </div>
+      </div>
+    </div>
     <script src="session-helper.js?v=2.1"></script>
-    <script src="admin-common.js?v=6.1"></script>
-    <script src="accounts.js?v=5.1"></script>
+    <script src="admin-common.js?v=6.2"></script>
+    <script src="accounts.js?v=5.3"></script>
     <script src="admin-table-resize.js?v=1.2" defer></script>
   </body>
 </html>

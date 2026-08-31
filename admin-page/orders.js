@@ -1628,16 +1628,24 @@ document.addEventListener("DOMContentLoaded", () => {
         String(order?.lifecycle_status || "").toLowerCase() === "rejected",
     );
 
+  // The Directory panel never shows Completed or Rejected rows; they live in the
+  // Rejected panel and on the Archives page. The chip above the stack has to
+  // agree, or it advertises rows that opening the section does not reveal - and
+  // every Rejected row gets counted twice, here and on chip 2.
+  const getDirectoryScopeRows = () =>
+    state.directory.filter((order) => {
+      const ls = String(order?.lifecycle_status || "").toLowerCase();
+      return ls !== "completed" && ls !== "rejected";
+    });
+
   const getDirectoryRows = () => {
     const statusFilter = (directoryStatusFilter?.value || "all")
       .trim()
       .toLowerCase();
     const search = (directorySearch?.value || "").trim().toLowerCase();
 
-    return state.directory.filter((order) => {
+    return getDirectoryScopeRows().filter((order) => {
       const ls = String(order.lifecycle_status || "").toLowerCase();
-      if (ls === "completed") return false;
-      if (ls === "rejected") return false; // shown only in Rejected Orders panel
       const statusOk = statusFilter === "all" || ls === statusFilter;
       if (!statusOk) return false;
 
@@ -2380,7 +2388,10 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     setCount(
       ordersTabCountEls.main,
-      state.incoming.length + state.directory.length,
+      // Counted on the scope rule, not on the raw array, and deliberately
+      // without the search box or the status <select>: typing must not make the
+      // chip flicker.
+      state.incoming.length + getDirectoryScopeRows().length,
     );
     setCount(
       ordersTabCountEls.records,

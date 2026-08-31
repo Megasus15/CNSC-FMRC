@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\Appointment;
+use App\Support\Branding;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -73,10 +74,7 @@ class AppointmentConfirmation extends Mailable
         $notes      = e($appointment->additional_notes ?? '');
         $name       = e($clientName);
 
-        $appName = config('app.name') ?: 'UCN-FMRC';
-        if (strtolower($appName) === 'laravel') {
-            $appName = 'UCN-FMRC';
-        }
+        $appName = Branding::NAME;
         $year   = now()->year;
         $accent = '#800000';
 

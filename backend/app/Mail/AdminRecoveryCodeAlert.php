@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\User;
+use App\Support\Branding;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -46,10 +47,7 @@ class AdminRecoveryCodeAlert extends Mailable
     private function buildHtml(): string
     {
         $accent = '#800000';
-        $appName = config('app.name') ?: 'UCN-FMRC';
-        if (strtolower($appName) === 'laravel') {
-            $appName = 'UCN-FMRC';
-        }
+        $appName = Branding::NAME;
         $year = now()->year;
         $name = e($this->user->name ?: 'Administrator');
         $when = e($this->occurredAt ?: now()->format('F j, Y \a\t g:i A'));

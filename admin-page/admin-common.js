@@ -1090,6 +1090,7 @@ if (document.body) {
     rating: "#ratingsTable",
     product: "#productTable, #staffProductsModule",
     inventory: "#inventoryCategoryTables",
+    account_request: "#requestsTable",
   };
 
   const handlers = [];
@@ -1810,11 +1811,25 @@ document.addEventListener("DOMContentLoaded", () => {
       order: "fa-box-open",
       order_return: "fa-rotate-left",
       appointment: "fa-calendar-check",
+      account_request: "fa-user-plus",
       success: "fa-circle-check",
       warning: "fa-triangle-exclamation",
       error: "fa-circle-xmark",
       info: "fa-circle-info",
     };
+
+    // dashboard.css only names a colour swatch for these; every other type would
+    // render an uncoloured circle, so those fall back to the neutral `info` one.
+    const NOTIF_DOT_PALETTE = new Set([
+      "order",
+      "order_return",
+      "return",
+      "appointment",
+      "success",
+      "warning",
+      "error",
+      "info",
+    ]);
 
     // Every notification is about a record that lives on one specific Admin or
     // Staff page, so each row doubles as a link to that record. Metadata decides
@@ -1842,6 +1857,19 @@ document.addEventListener("DOMContentLoaded", () => {
         page: "appointments.html",
         label: "Appointments",
         titlePattern: /appointment|booking/i,
+      },
+      {
+        // Accounts Management is the only admin-only destination in this list,
+        // and accounts.html exists only in admin-page/ -- hence `adminOnly`,
+        // which resolveNotifTarget() honours so a staff session is never linked
+        // to a page it does not have.
+        kind: "account_request",
+        metaKeys: ["staff_account_request_id"],
+        types: ["account_request"],
+        page: "accounts.html",
+        label: "Accounts Management",
+        adminOnly: true,
+        titlePattern: /account request|staff account/i,
       },
       {
         kind: "inquiry",
@@ -1939,6 +1967,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const resolveNotifTarget = (n) => {
       const category = resolveNotifCategory(n);
       const meta = getNotifMeta(n);
+
+      // An admin-only destination has no counterpart in the Staff portal, so on a
+      // staff page the row points at the dashboard instead of a 404.
+      if (category.adminOnly && /\/staff-page\//i.test(location.pathname)) {
+        return { ...NOTIF_FALLBACK_CATEGORY, id: "", ref: "", href: NOTIF_FALLBACK_CATEGORY.page };
+      }
+
       const ref = String(
         meta.return_no || meta.order_no || meta.reference_no || "",
       );
@@ -1970,9 +2005,10 @@ document.addEventListener("DOMContentLoaded", () => {
       // (green check for an approval, amber warning for a rejection).
       const icon =
         target.icon || NOTIF_TYPE_ICONS[n.type] || "fa-circle-info";
-      const typeClass = target.icon
-        ? `notif-type-${target.kind}`
-        : `notif-type-${n.type || "info"}`;
+      const paletteKey = target.icon ? target.kind : n.type || "info";
+      const typeClass = NOTIF_DOT_PALETTE.has(paletteKey)
+        ? `notif-type-${paletteKey}`
+        : "notif-type-info";
       const readClass = n.is_read ? "" : " notif-unread";
       return `
         <div class="notif-item notif-clickable${readClass}" data-notif-id="${n.id}" data-notif-kind="${target.kind}" role="link" tabindex="0" title="Open ${escHtml(target.label)}" aria-label="${escHtml(n.title)}. Open ${escHtml(target.label)}.">

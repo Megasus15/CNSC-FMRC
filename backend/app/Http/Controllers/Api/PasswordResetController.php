@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Support\Branding;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -470,10 +471,8 @@ class PasswordResetController extends Controller
     private function buildOtpEmailHtml(User $user, string $otpCode, int $sendCount, int $tier, ?Carbon $lockedUntil): string
     {
         $name = e($user->name ?? 'Valued Customer');
-        $appName = config('app.name') ?: 'UCN-FMRC';
-        if (strtolower($appName) === 'laravel') {
-            $appName = 'UCN-FMRC';
-        }
+        $appName = Branding::NAME;
+        $institution = Branding::INSTITUTION;
         $year = now()->year;
         $accent = '#800000';
         $formattedOtp = implode(' ', str_split($otpCode));
@@ -536,7 +535,7 @@ HTML;
 <!-- Footer -->
 <tr><td style="background:#f9fafb;padding:20px 32px;text-align:center;border-top:1px solid #f3f4f6;">
     <p style="color:#9ca3af;font-size:12px;margin:0;">
-        &copy; {$year} {$appName} • Camarines Norte State College. All rights reserved.
+        &copy; {$year} {$appName} • {$institution}. All rights reserved.
     </p>
 </td></tr>
 

@@ -22,6 +22,7 @@ use App\Http\Controllers\Api\PsgcController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\SiteSettingController;
+use App\Http\Controllers\Api\StaffAccountRequestController;
 use App\Http\Controllers\Api\WalkInOrderController;
 use App\Http\Controllers\CartItemController;
 use App\Http\Middleware\EnsureNotUnderMaintenance;
@@ -64,6 +65,17 @@ Route::post('/register', [AuthController::class, 'register'])->middleware([
     EnsureNotUnderMaintenance::class . ':customer_register',
 ]);
 Route::post('/auth/google', [AuthController::class, 'googleLogin']);
+
+// Public: apply for a staff account from the Admin/Staff sign-in page.
+//
+// Carries the same Turnstile guard as /login and /register -- it costs nothing
+// until Cloudflare keys are configured and then protects the admin's approval
+// queue for free. A second layer (5 accepted submissions per IP per hour) lives
+// in the controller. Deliberately NOT behind EnsureNotUnderMaintenance: all 11
+// maintenance scopes are customer-facing, and locking staff out of applying
+// during maintenance would be the opposite of useful.
+Route::post('/staff-account-requests', [StaffAccountRequestController::class, 'store'])
+    ->middleware(VerifyTurnstile::class);
 
 // Public: Customer OTP-based password reset (forgot password flow)
 Route::post('/forgot-password', [PasswordResetController::class, 'sendOtp']);
@@ -271,6 +283,18 @@ Route::middleware('auth:sanctum')->group(function () {
     // Admin: one-time recovery codes (offline way back in if the Gmail is unreachable)
     Route::get('/admin/recovery-codes', [AdminRecoveryController::class, 'status']);
     Route::post('/admin/recovery-codes/generate', [AdminRecoveryController::class, 'generate']);
+
+    // Admin: staff-account approval queue on Accounts Management.
+    //
+    // Admin-only (not staff) -- enforced by ensureAdmin() inside the controller,
+    // matching accounts.js, which already bounces a staff session off that page.
+    // The {id} is a plain string rather than an implicit model binding on purpose:
+    // route-model binding would query the table before the controller's
+    // "is it installed?" probe could run, and a server without the table would
+    // answer 500 instead of a readable 503.
+    Route::get('/admin/staff-account-requests', [StaffAccountRequestController::class, 'index']);
+    Route::post('/admin/staff-account-requests/{id}/approve', [StaffAccountRequestController::class, 'approve']);
+    Route::post('/admin/staff-account-requests/{id}/reject', [StaffAccountRequestController::class, 'reject']);
 
     // Admin: Notifications
     Route::get('/admin/notifications', [NotificationController::class, 'index']);

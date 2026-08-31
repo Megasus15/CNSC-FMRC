@@ -2367,7 +2367,95 @@ a.inline-link:hover {
   #otpNewPassword,
   #otpConfirmPassword,
   #recoveryNewPassword,
-  #recoveryConfirmNewPassword {
+  #recoveryConfirmNewPassword,
+  #requestPassword,
+  #requestConfirmPassword {
     padding-right: 50px;
   }
 }
+
+/* ==========================================================================
+   Paneled dialog card (pinned head + foot, scrolling body)
+   --------------------------------------------------------------------------
+   `.forgot-box` caps itself at `min(92vh, calc(100dvh - 24px))` and scrolls the
+   whole card when the content is taller. For the five-field account request
+   card that meant the title and the Submit button could both scroll out of
+   sight on a short laptop or a phone.
+
+   `.forgot-box--paneled` moves the scroller one level in: the card's own
+   padding is handed to three regions, the head and foot are flex-fixed, and
+   only the body scrolls. The body is sized by `flex: 1 1 auto; min-height: 0`,
+   so when the content fits - every normal desktop and laptop height - nothing
+   overflows, no scrollbar appears and the card is visually identical to every
+   other dialog in this portal. The hairlines are painted only while the body
+   really can scroll (`.is-scrollable`, set from auth.js), so a card that fits
+   shows no panel seams at all.
+   ========================================================================== */
+.forgot-box.forgot-box--paneled {
+  /* Mirrors the padding clamp of the universal `.forgot-box` rule above, which
+     this card no longer applies to itself. */
+  --dlg-pane-x: clamp(16px, 3.4vw, 24px);
+  --dlg-pane-t: clamp(22px, 4.4vw, 32px);
+  --dlg-pane-b: clamp(18px, 3.6vw, 28px);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.forgot-box--paneled > .forgot-step:not([hidden]),
+.forgot-box--paneled form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.forgot-box--paneled .dlg-pane-head {
+  flex: 0 0 auto;
+  padding: var(--dlg-pane-t) var(--dlg-pane-x) 0;
+}
+
+.forgot-box--paneled .dlg-pane-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 var(--dlg-pane-x);
+}
+
+.forgot-box--paneled .dlg-pane-foot {
+  flex: 0 0 auto;
+  padding: 14px var(--dlg-pane-x) var(--dlg-pane-b);
+}
+
+/* Only while the body actually overflows does the card admit to being paneled. */
+.forgot-box--paneled.is-scrollable .dlg-pane-head {
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  padding-bottom: 14px;
+}
+
+.forgot-box--paneled.is-scrollable .dlg-pane-foot {
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 -6px 14px rgba(15, 23, 42, 0.05);
+}
+
+/* The head is a flex item, so it establishes its own formatting context and the
+   title's 8px bottom margin stays inside it - that margin is the gap between
+   the head and the body, which is why the head carries no bottom padding. */
+
+/* A little tighter than the shared rhythm: five fields plus a notice in one
+   card, so 4px per row is the difference between fitting a 720px-tall laptop
+   and scrolling on one. */
+.forgot-box--paneled .dlg-pane-body .input-wrapper {
+  margin-bottom: 12px;
+}
+
+.forgot-box--paneled .dlg-pane-body > p {
+  margin-bottom: 16px;
+}
+
+.forgot-box--paneled .dlg-pane-body > .staff-notice-banner:last-of-type {
+  margin-bottom: 14px;
+}
+

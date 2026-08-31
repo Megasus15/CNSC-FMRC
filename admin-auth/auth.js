@@ -1161,6 +1161,333 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  // ── Staff Account Request (public form, administrator approval) ────────────
+  // Modelled on the forgot-password block above: the same open/close contract
+  // with the body-scroll lock and the 120ms focus, the same floating-alert field
+  // errors, and the same 429 / 503 / network branches. On success the page's own
+  // `.success-modal` takes over, so no copy is written into the form itself.
+  const requestAccountModal = document.getElementById("requestAccountModal");
+  const requestAccountLink = document.getElementById("requestAccountLink");
+  const requestCloseBtn = document.getElementById("requestCloseBtn");
+  const requestBackToLogin = document.getElementById("requestBackToLogin");
+  const requestAccountForm = document.getElementById("requestAccountForm");
+  const requestName = document.getElementById("requestName");
+  const btnSubmitAccountRequest = document.getElementById(
+    "btnSubmitAccountRequest",
+  );
+  const requestSuccessModal = document.getElementById("requestSuccessModal");
+  const requestSuccessEmail = document.getElementById("requestSuccessEmail");
+  const requestSuccessContinueBtn = document.getElementById(
+    "requestSuccessContinueBtn",
+  );
+  const REQUEST_TURNSTILE_ID = "requestAccountTurnstile";
+  const requestTurnstileWidget = document.getElementById(REQUEST_TURNSTILE_ID);
+  const requestTurnstileNote = document.getElementById("requestTurnstileNote");
+
+  const REQUEST_FIELD_IDS = [
+    "requestName",
+    "requestUsername",
+    "requestEmail",
+    "requestPassword",
+    "requestConfirmPassword",
+  ];
+
+  // Laravel answers with its own field names; each maps back onto the input that
+  // produced it so a 422 message lands under the field it is about.
+  const REQUEST_ERROR_FIELDS = {
+    name: "requestName",
+    username: "requestUsername",
+    email: "requestEmail",
+    password: "requestPassword",
+  };
+  const showRequestTurnstileNote = (message) => {
+    if (!requestTurnstileNote) return;
+    requestTurnstileNote.textContent = message || "";
+    requestTurnstileNote.hidden = !message;
+  };
+
+  // The floating alert is fixed to the page rather than to the dialog, so every
+  // message raised from inside this modal has to be taken down with it.
+  const clearRequestErrors = () => {
+    REQUEST_FIELD_IDS.forEach((id) => clearFieldError(id));
+    showRequestTurnstileNote("");
+    requestTurnstileWidget?.classList.remove("has-error");
+    dropAlertMessage(REQUEST_TURNSTILE_ID);
+  };
+
+  // The card pins its head and foot and scrolls only the middle. Whether the
+  // middle can scroll at all depends on the viewport, so the seam hairlines are
+  // switched on here rather than in CSS: a card that fits shows none of them and
+  // reads as one plain dialog, which is how it looks on every desktop.
+  const requestPaneBox = requestAccountModal?.querySelector(".forgot-box");
+  const requestPaneBody = requestAccountModal?.querySelector(".dlg-pane-body");
+
+  const syncRequestPaneScroll = () => {
+    if (!requestPaneBox || !requestPaneBody) return;
+    // A 2px slack keeps sub-pixel rounding from flashing the hairlines on a
+    // card that visually fits exactly.
+    const overflows =
+      requestPaneBody.scrollHeight - requestPaneBody.clientHeight > 2;
+    requestPaneBox.classList.toggle("is-scrollable", overflows);
+  };
+
+  window.addEventListener("resize", () => {
+    if (requestAccountModal?.classList.contains("show")) {
+      syncRequestPaneScroll();
+    }
+  });
+
+  const openRequestModal = (event) => {
+    if (event) event.preventDefault();
+    if (!requestAccountModal) return;
+
+    clearRequestErrors();
+    if (requestAccountForm) {
+      clearFormErrors(requestAccountForm);
+      requestAccountForm.reset();
+    }
+
+    requestAccountModal.classList.add("show");
+    document.body.style.overflow = "hidden";
+    setTimeout(() => requestName?.focus(), 120);
+    syncRequestPaneScroll();
+  };
+
+  const closeRequestModal = () => {
+    if (!requestAccountModal) return;
+    requestAccountModal.classList.remove("show");
+    document.body.style.overflow = "";
+    clearRequestErrors();
+  };
+
+  requestAccountLink?.addEventListener("click", openRequestModal);
+  requestCloseBtn?.addEventListener("click", closeRequestModal);
+  requestBackToLogin?.addEventListener("click", (event) => {
+    event.preventDefault();
+    closeRequestModal();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (
+      event.key === "Escape" &&
+      requestAccountModal?.classList.contains("show")
+    ) {
+      closeRequestModal();
+    }
+  });
+  // Typing in a field takes its own message down, the same courtesy the two
+  // login fields already get.
+  REQUEST_FIELD_IDS.forEach((inputId) => {
+    const input = document.getElementById(inputId);
+    input?.addEventListener("input", () => {
+      if (input.value.trim()) clearFieldError(inputId);
+    });
+  });
+
+  const showRequestSuccess = (email) => {
+    if (requestSuccessEmail) {
+      requestSuccessEmail.textContent = email || "your Gmail address";
+    }
+    if (!requestSuccessModal) return;
+
+    requestSuccessModal.classList.add("show");
+    document.body.style.overflow = "hidden";
+    setTimeout(() => requestSuccessContinueBtn?.focus(), 120);
+  };
+
+  requestSuccessContinueBtn?.addEventListener("click", () => {
+    requestSuccessModal?.classList.remove("show");
+    document.body.style.overflow = "";
+    document.getElementById("loginUser")?.focus();
+  });
+  if (requestAccountForm) {
+    requestAccountForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      clearRequestErrors();
+      clearFormErrors(requestAccountForm);
+
+      const name = requestName?.value.trim() || "";
+      const username =
+        document.getElementById("requestUsername")?.value.trim() || "";
+      const email = document.getElementById("requestEmail")?.value.trim() || "";
+      const password = document.getElementById("requestPassword")?.value || "";
+      const confirmation =
+        document.getElementById("requestConfirmPassword")?.value || "";
+
+      // Checked here as well as on the server so an obvious slip is answered
+      // without a round trip; the API remains the authority either way.
+      let hasError = false;
+
+      if (!name) {
+        setFieldError("requestName", "Please enter your full name.");
+        hasError = true;
+      }
+
+      if (!username) {
+        setFieldError("requestUsername", "Please choose a username.");
+        hasError = true;
+      } else if (!/^[A-Za-z0-9_-]{3,50}$/.test(username)) {
+        setFieldError(
+          "requestUsername",
+          "Use 3 to 50 letters, numbers, dashes or underscores only.",
+        );
+        hasError = true;
+      }
+
+      if (!email) {
+        setFieldError("requestEmail", "Please enter your Gmail address.");
+        hasError = true;
+      } else if (!/^[A-Za-z0-9._%+-]+@gmail\.com$/i.test(email)) {
+        setFieldError(
+          "requestEmail",
+          "Please use a Gmail address, for example yourname@gmail.com.",
+        );
+        hasError = true;
+      }
+      if (!password) {
+        setFieldError("requestPassword", "Please choose a password.");
+        hasError = true;
+      } else if (password.length < 8) {
+        setFieldError(
+          "requestPassword",
+          "Password must be at least 8 characters long.",
+        );
+        hasError = true;
+      }
+
+      if (!confirmation) {
+        setFieldError("requestConfirmPassword", "Please confirm your password.");
+        hasError = true;
+      } else if (password !== confirmation) {
+        setFieldError(
+          "requestConfirmPassword",
+          "Password confirmation does not match.",
+        );
+        hasError = true;
+      }
+
+      if (hasError) {
+        focusWithoutDismissing(
+          requestAccountForm.querySelector(".input-wrapper.has-error input"),
+        );
+        return;
+      }
+
+      // Resolves to "" while Turnstile is switched off for this deployment, so
+      // the payload simply carries no token and the middleware waves it through.
+      let turnstileToken = "";
+      try {
+        turnstileToken =
+          (await window.FMRC_TURNSTILE?.requireToken(REQUEST_TURNSTILE_ID)) ||
+          "";
+      } catch (error) {
+        const message =
+          error?.code === "TURNSTILE_UNAVAILABLE"
+            ? "The security check could not be loaded. Refresh the page and try again."
+            : PROMPT_COMPLETE;
+        requestTurnstileWidget?.classList.add("has-error");
+        showRequestTurnstileNote("");
+        pushAlertMessage(REQUEST_TURNSTILE_ID, message, () =>
+          requestTurnstileWidget?.scrollIntoView({
+            block: "center",
+            behavior: "smooth",
+          }),
+        );
+        return;
+      }
+      toggleLoader(true);
+      if (btnSubmitAccountRequest) btnSubmitAccountRequest.disabled = true;
+
+      try {
+        const payload = {
+          name,
+          username,
+          email,
+          password,
+          password_confirmation: confirmation,
+        };
+        if (turnstileToken) {
+          payload["cf-turnstile-response"] = turnstileToken;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/staff-account-requests`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (response.ok) {
+          requestAccountForm.reset();
+          closeRequestModal();
+          showRequestSuccess(email);
+          return;
+        }
+        if (response.status === 429) {
+          const wait = Number(data.retry_after_seconds);
+          const waitText =
+            Number.isFinite(wait) && wait > 0
+              ? ` Please try again in about ${Math.ceil(wait / 60)} minute(s).`
+              : "";
+          setFieldError(
+            "requestEmail",
+            `${
+              data.message ||
+              "Too many requests have been submitted from this connection."
+            }${waitText}`,
+          );
+          return;
+        }
+
+        // The table ships as a hand-run install script, so a server where it has
+        // not been created yet says so plainly instead of reporting an error.
+        if (response.status === 503 || data.installed === false) {
+          setFieldError(
+            "requestEmail",
+            data.message ||
+              "Account requests are not enabled on this server yet. Please contact the FMRC office.",
+          );
+          return;
+        }
+
+        if (response.status === 422 && data.errors) {
+          if (data.errors["cf-turnstile-response"]?.[0]) {
+            requestTurnstileWidget?.classList.add("has-error");
+            showRequestTurnstileNote(data.errors["cf-turnstile-response"][0]);
+          }
+          Object.entries(REQUEST_ERROR_FIELDS).forEach(([key, inputId]) => {
+            const message = data.errors[key]?.[0];
+            if (message) setFieldError(inputId, message);
+          });
+          focusWithoutDismissing(
+            requestAccountForm.querySelector(".input-wrapper.has-error input"),
+          );
+          return;
+        }
+
+        setFieldError(
+          "requestEmail",
+          data.message ||
+            "Your request could not be submitted. Please try again.",
+        );
+      } catch {
+        setFieldError(
+          "requestEmail",
+          "Cannot connect to server. Please check your connection and try again.",
+        );
+      } finally {
+        // A token is single-use, so the widget is re-armed for the next attempt.
+        window.FMRC_TURNSTILE?.reset(REQUEST_TURNSTILE_ID);
+        if (btnSubmitAccountRequest) btnSubmitAccountRequest.disabled = false;
+        toggleLoader(false);
+      }
+    });
+  }
 });
 
 

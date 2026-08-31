@@ -3,6 +3,7 @@
 namespace App\Mail;
 
 use App\Models\User;
+use App\Support\Branding;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -41,10 +42,7 @@ class AdminEmailChangeCommitted extends Mailable
     private function buildHtml(): string
     {
         $accent = '#800000';
-        $appName = config('app.name') ?: 'UCN-FMRC';
-        if (strtolower($appName) === 'laravel') {
-            $appName = 'UCN-FMRC';
-        }
+        $appName = Branding::NAME;
         $year = now()->year;
         $name = e($this->user->name ?: 'Administrator');
         $old = e($this->oldEmail);

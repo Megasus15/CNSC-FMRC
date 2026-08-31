@@ -124,6 +124,12 @@ class OrderNotifier
         $stageHtml = htmlspecialchars($stage, ENT_QUOTES);
         $amountLabel = $amountOverride !== null ? 'Refund Amount' : 'Total Amount';
 
+        // Branding constants rather than literals: the header and the footer used to
+        // spell the name twice and the footer year was frozen at 2025.
+        $appName     = Branding::NAME;
+        $institution = Branding::INSTITUTION;
+        $year        = date('Y');
+
         return <<<HTML
 <!DOCTYPE html>
 <html lang="en">
@@ -139,7 +145,7 @@ class OrderNotifier
         <!-- Header -->
         <tr>
           <td style="background:{$statusColor};padding:28px 36px;text-align:center;">
-            <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;letter-spacing:.3px;">UCN-FMRC</h1>
+            <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;letter-spacing:.3px;">{$appName}</h1>
             <p style="margin:6px 0 0;color:rgba(255,255,255,.85);font-size:13px;">Fabrication &amp; Manufacturing Research Center</p>
           </td>
         </tr>
@@ -175,7 +181,7 @@ class OrderNotifier
         <!-- Footer -->
         <tr>
           <td style="background:#f8f9fb;border-top:1px solid #e2e8f0;padding:18px 36px;text-align:center;">
-            <p style="margin:0;color:#a0aec0;font-size:11px;">© 2025 UCN-FMRC · University of Camarines Norte</p>
+            <p style="margin:0;color:#a0aec0;font-size:11px;">&copy; {$year} {$appName} &middot; {$institution}</p>
           </td>
         </tr>
       </table>

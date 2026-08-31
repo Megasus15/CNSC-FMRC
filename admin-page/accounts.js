@@ -1,4 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
+  // Declared before anything loads so the shared notification focus does not
+  // give up on an `account_request` row while the queue is still being fetched.
+  window.AdminNotifFocus?.expect(["account_request"]);
+
   const resolveApiBaseUrl = () => {
     const configured =
       window.APP_API_BASE_URL ||
@@ -92,11 +96,54 @@ document.addEventListener("DOMContentLoaded", () => {
   );
   const formStatus = document.getElementById("accountsFormStatus");
 
+  // ── Staff account request queue ───────────────────────────────────────────
+  const requestsTableBody = document.getElementById("requestsTableBody");
+  const requestsTableMeta = document.getElementById("requestsTableMeta");
+  const requestsCurrentPageEl = document.getElementById("requestsCurrentPage");
+  const requestsPrevBtn = document.getElementById("requestsPrevPage");
+  const requestsNextBtn = document.getElementById("requestsNextPage");
+  const modalApproveRequest = document.getElementById("modalApproveRequest");
+  const modalRejectRequest = document.getElementById("modalRejectRequest");
+  const approveRequestTargetLabel = document.getElementById(
+    "approveRequestTargetLabel",
+  );
+  const rejectRequestTargetLabel = document.getElementById(
+    "rejectRequestTargetLabel",
+  );
+  const btnConfirmApproveRequest = document.getElementById(
+    "btnConfirmApproveRequest",
+  );
+  const btnConfirmRejectRequest = document.getElementById(
+    "btnConfirmRejectRequest",
+  );
+  const rejectRequestNote = document.getElementById("rejectRequestNote");
+  const rejectRequestNoteCount = document.getElementById(
+    "rejectRequestNoteCount",
+  );
+
+  const REQUEST_COLUMNS = 7;
+  const REQUEST_NOTE_LIMIT = 300;
+
+  // Statuses reuse the portal's existing pill palette rather than the role-tag
+  // family, which has no pending/approved/rejected members.
+  const REQUEST_STATUS_PILLS = {
+    pending: "status-yellow",
+    approved: "status-green",
+    rejected: "status-red",
+  };
+
   const state = {
     users: [],
     currentPage: 1,
     pageSize: window.AdminTablePagination?.PAGE_SIZE || 10,
     activeDeleteId: 0,
+    // Staff account request queue (the panel above the directory).
+    requests: [],
+    requestsPage: 1,
+    activeRequestId: 0,
+    // The table ships as a hand-run install script, so "empty" and "not
+    // installed" are two different things the queue has to tell apart.
+    requestsInstalled: true,
   };
   let userBulkController = null;
 
@@ -421,6 +468,209 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (tableMeta) tableMeta.textContent = "Account data is temporarily unavailable.";
     }
+  };
+
+  // The queue only ever holds requests that are still waiting, so there is
+  // nothing to filter by status here; the toolbar search box is shared with the
+  // directory below, so it is applied to both tables.
+  const getFilteredRequests = () => {
+    const query = String(searchInput?.value || "")
+      .trim()
+      .toLowerCase();
+    if (!query) return state.requests;
+
+    return state.requests.filter((row) =>
+      [row?.name, row?.username, row?.email]
+        .map((value) => String(value || "").toLowerCase())
+        .join(" ")
+        .includes(query),
+    );
+  };
+
+  /**
+   * Take a decided request out of the queue straight away. The API has already
+   * confirmed the decision at this point, so waiting for the reload that follows
+   * would only leave a row on screen that no longer belongs there - and an
+   * approved applicant is already visible in the User Directory instead.
+   */
+  const dropRequestFromQueue = (requestId) => {
+    const id = Number(requestId);
+    const remaining = state.requests.filter((row) => Number(row?.id) !== id);
+    if (remaining.length === state.requests.length) return;
+
+    state.requests = remaining;
+    renderRequestsTable();
+  };
+
+  const renderRequestsRow = (row, displayIndex) => {
+    const status = String(row?.status || "pending").toLowerCase();
+    const pillClass = REQUEST_STATUS_PILLS[status] || "status-grey";
+    const isPending = status === "pending";
+    const reviewer = row?.reviewed_by_name
+      ? ` by ${escapeHtml(row.reviewed_by_name)}`
+      : "";
+    const statusTooltip = isPending
+      ? "Waiting for an administrator's decision"
+      : `${toTitleCase(status)}${reviewer} on ${formatDate(row?.reviewed_at)}`;
+    const actions = isPending
+      ? `
+                <button type="button" data-tooltip="Approve Request" data-request-approve="${row.id}"><i class="fa-solid fa-circle-check"></i></button>
+                <button type="button" data-tooltip="Reject Request" data-request-reject="${row.id}"><i class="fa-solid fa-circle-xmark"></i></button>`
+      : `<span style="color: #9ca3af">&mdash;</span>`;
+
+    return `
+            <tr data-request-row="${row.id}">
+              <td>${displayIndex}</td>
+              <td>${escapeHtml(row?.name || "N/A")}</td>
+              <td>${row?.username ? escapeHtml(row.username) : "N/A"}</td>
+              <td>${row?.email ? escapeHtml(row.email) : "N/A"}</td>
+              <td>${formatDate(row?.created_at)}</td>
+              <td><span class="status-pill ${pillClass}" data-tooltip="${statusTooltip}">${toTitleCase(status)}</span></td>
+              <td class="action-icons sticky-action">${actions}
+              </td>
+            </tr>
+          `;
+  };
+
+  const renderRequestsTable = () => {
+    if (!requestsTableBody) return;
+
+    const rows = getFilteredRequests();
+    const totalRows = rows.length;
+    const totalPages = Math.max(1, Math.ceil(totalRows / state.pageSize));
+    state.requestsPage = Math.min(Math.max(1, state.requestsPage), totalPages);
+
+    const start = (state.requestsPage - 1) * state.pageSize;
+    const paged = rows.slice(start, start + state.pageSize);
+
+    if (!state.requestsInstalled) {
+      requestsTableBody.innerHTML = `<tr><td colspan="${REQUEST_COLUMNS}" style="text-align:center;">Account requests are not enabled on this server yet. Run the database install script, then reload this page.</td></tr>`;
+    } else if (!paged.length) {
+      requestsTableBody.innerHTML = `<tr><td colspan="${REQUEST_COLUMNS}" style="text-align:center;">No staff account requests are waiting for a decision.</td></tr>`;
+    } else {
+      requestsTableBody.innerHTML = paged
+        .map((row, idx) =>
+          renderRequestsRow(row, String(start + idx + 1).padStart(3, "0")),
+        )
+        .join("");
+    }
+
+    if (requestsTableMeta) {
+      requestsTableMeta.textContent = !state.requestsInstalled
+        ? "Account requests are not installed on this server yet."
+        : `Showing ${totalRows ? start + 1 : 0}-${Math.min(start + state.pageSize, totalRows)} of ${totalRows} requests`;
+    }
+
+    if (requestsCurrentPageEl) {
+      requestsCurrentPageEl.value = String(state.requestsPage);
+      requestsCurrentPageEl.max = String(totalPages);
+    }
+    if (requestsPrevBtn) requestsPrevBtn.disabled = state.requestsPage <= 1;
+    if (requestsNextBtn) {
+      requestsNextBtn.disabled = state.requestsPage >= totalPages;
+    }
+  };
+
+  /**
+   * Load the waiting requests. `silent` skips the skeleton for the re-sync that
+   * follows a decision: the row has already been removed on screen, and three
+   * grey placeholder rows flashing back into an empty table would undo that.
+   */
+  const loadRequests = async ({ silent = false } = {}) => {
+    try {
+      if (requestsTableBody && !silent) {
+        const usedSharedSkeleton = window.AdminTableSkeleton?.show(
+          requestsTableBody,
+          { rows: 3, columns: REQUEST_COLUMNS },
+        );
+        if (!usedSharedSkeleton) {
+          const cells = Array.from(
+            { length: REQUEST_COLUMNS },
+            () => '<td><span class="admin-table-skeleton-bar"></span></td>',
+          ).join("");
+          requestsTableBody.innerHTML = `<tr class="admin-table-skeleton-row" aria-hidden="true">${cells}</tr>`.repeat(
+            3,
+          );
+        }
+      }
+
+      // Always the waiting ones: a decided request leaves this panel for good.
+      const response = await fetch(
+        `${API_BASE_URL}/admin/staff-account-requests?status=pending`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        },
+      );
+
+      if (response.status === 401 || response.status === 403) {
+        setUnauthorizedState();
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error("Unable to fetch account requests.");
+      }
+
+      const payload = await response.json();
+      state.requestsInstalled = payload?.installed !== false;
+      state.requests = Array.isArray(payload?.data) ? payload.data : [];
+      state.requestsPage = 1;
+      renderRequestsTable();
+    } catch (error) {
+      console.error("Failed to load account requests:", error);
+      if (requestsTableBody) {
+        requestsTableBody.innerHTML = `<tr><td colspan="${REQUEST_COLUMNS}" style="text-align:center;color:#991b1b;">Could not load account requests. Please refresh the page.</td></tr>`;
+      }
+      if (requestsTableMeta) {
+        requestsTableMeta.textContent =
+          "Account request data is temporarily unavailable.";
+      }
+    }
+  };
+
+  /**
+   * Approve or reject one request. A 409 means somebody else decided it first,
+   * so the queue is reloaded to stop offering an action that no longer exists.
+   */
+  const decideRequest = async (requestId, action, note) => {
+    const response = await fetch(
+      `${API_BASE_URL}/admin/staff-account-requests/${requestId}/${action}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+        body: JSON.stringify(action === "reject" ? { note: note || null } : {}),
+      },
+    );
+
+    if (response.status === 401 || response.status === 403) {
+      setUnauthorizedState();
+      return false;
+    }
+
+    const payload = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      window.showAdminPopup?.(
+        payload?.message ||
+          (action === "approve"
+            ? "Unable to approve this request right now."
+            : "Unable to reject this request right now."),
+        {
+          title: action === "approve" ? "Approval Failed" : "Rejection Failed",
+        },
+      );
+      if (response.status === 409) await loadRequests({ silent: true });
+      return false;
+    }
+
+    return true;
   };
 
   const removeAccount = async (userId) => {
@@ -811,6 +1061,125 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  requestsTableBody?.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+
+    const approveBtn = target.closest("[data-request-approve]");
+    const rejectBtn = target.closest("[data-request-reject]");
+    if (!approveBtn && !rejectBtn) return;
+
+    const requestId = Number(
+      (approveBtn || rejectBtn)?.getAttribute(
+        approveBtn ? "data-request-approve" : "data-request-reject",
+      ) || 0,
+    );
+    if (!requestId) return;
+
+    state.activeRequestId = requestId;
+    const selected = state.requests.find(
+      (row) => Number(row.id) === requestId,
+    );
+    const label = selected?.name || "this applicant";
+
+    if (approveBtn) {
+      if (approveRequestTargetLabel) {
+        approveRequestTargetLabel.textContent = label;
+      }
+      modalApproveRequest?.classList.add("show");
+      return;
+    }
+
+    if (rejectRequestTargetLabel) rejectRequestTargetLabel.textContent = label;
+    if (rejectRequestNote) rejectRequestNote.value = "";
+    if (rejectRequestNoteCount) {
+      rejectRequestNoteCount.textContent = `0 / ${REQUEST_NOTE_LIMIT} characters`;
+    }
+    modalRejectRequest?.classList.add("show");
+  });
+
+  requestsPrevBtn?.addEventListener("click", () => {
+    state.requestsPage -= 1;
+    renderRequestsTable();
+  });
+
+  requestsNextBtn?.addEventListener("click", () => {
+    state.requestsPage += 1;
+    renderRequestsTable();
+  });
+
+  window.AdminPageNumberInput?.bind(requestsCurrentPageEl, {
+    getPage: () => state.requestsPage,
+    getTotalPages: () =>
+      Math.max(1, Math.ceil(getFilteredRequests().length / state.pageSize)),
+    onChange: (page) => {
+      state.requestsPage = page;
+      renderRequestsTable();
+    },
+  });
+
+  rejectRequestNote?.addEventListener("input", () => {
+    if (!rejectRequestNoteCount) return;
+    const used = Math.min(rejectRequestNote.value.length, REQUEST_NOTE_LIMIT);
+    rejectRequestNoteCount.textContent = `${used} / ${REQUEST_NOTE_LIMIT} characters`;
+  });
+
+  btnConfirmApproveRequest?.addEventListener("click", async () => {
+    if (!state.activeRequestId) return;
+
+    const originalHtml = btnConfirmApproveRequest.innerHTML;
+    btnConfirmApproveRequest.disabled = true;
+    btnConfirmApproveRequest.innerHTML =
+      '<i class="fa-solid fa-spinner fa-spin"></i> Approving...';
+
+    try {
+      const decidedId = state.activeRequestId;
+      const approved = await decideRequest(decidedId, "approve");
+      if (!approved) return;
+
+      state.activeRequestId = 0;
+      modalApproveRequest?.classList.remove("show");
+      dropRequestFromQueue(decidedId);
+      window.showAdminPopup?.("Staff account approved successfully.", {
+        title: "Approved",
+      });
+      // A new staff account now exists, so the directory is reloaded too. The
+      // queue is re-synced quietly behind the row that just left it.
+      await Promise.all([loadRequests({ silent: true }), loadAccounts()]);
+    } finally {
+      btnConfirmApproveRequest.disabled = false;
+      btnConfirmApproveRequest.innerHTML = originalHtml;
+    }
+  });
+
+  btnConfirmRejectRequest?.addEventListener("click", async () => {
+    if (!state.activeRequestId) return;
+
+    const note = String(rejectRequestNote?.value || "").trim();
+    const originalHtml = btnConfirmRejectRequest.innerHTML;
+    btnConfirmRejectRequest.disabled = true;
+    btnConfirmRejectRequest.innerHTML =
+      '<i class="fa-solid fa-spinner fa-spin"></i> Rejecting...';
+
+    try {
+      const decidedId = state.activeRequestId;
+      const rejected = await decideRequest(decidedId, "reject", note);
+      if (!rejected) return;
+
+      state.activeRequestId = 0;
+      if (rejectRequestNote) rejectRequestNote.value = "";
+      modalRejectRequest?.classList.remove("show");
+      dropRequestFromQueue(decidedId);
+      window.showAdminPopup?.("Account request rejected.", {
+        title: "Rejected",
+      });
+      await loadRequests({ silent: true });
+    } finally {
+      btnConfirmRejectRequest.disabled = false;
+      btnConfirmRejectRequest.innerHTML = originalHtml;
+    }
+  });
+
   roleFilter?.addEventListener("change", () => {
     state.currentPage = 1;
     renderTable();
@@ -818,7 +1187,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   searchInput?.addEventListener("input", () => {
     state.currentPage = 1;
+    state.requestsPage = 1;
     renderTable();
+    renderRequestsTable();
   });
 
   [
@@ -848,4 +1219,33 @@ document.addEventListener("DOMContentLoaded", () => {
   setupUserBulkSelection();
 
   void loadAccounts();
+  void loadRequests().finally(() => {
+    // Open the request a header notification points at. The queue is paginated,
+    // so the pager is moved to the page holding that row first. Returning false
+    // hands the intent back: the request has already been decided (it is no
+    // longer in the queue), and the shared fallback flashes the table instead so
+    // the admin still lands on the right panel.
+    window.AdminNotifFocus?.onFocus(["account_request"], (intent) => {
+      const id = String(intent?.id || "");
+      if (!id) return false;
+
+      const rows = getFilteredRequests();
+      const index = rows.findIndex((row) => String(row?.id) === id);
+      if (index < 0) return false;
+
+      const page = Math.floor(index / state.pageSize) + 1;
+      if (page !== state.requestsPage) {
+        state.requestsPage = page;
+        renderRequestsTable();
+      }
+
+      const row = requestsTableBody?.querySelector(
+        `[data-request-row="${id}"]`,
+      );
+      if (!row) return false;
+
+      window.AdminNotifFocus?.flash(row);
+      return true;
+    });
+  });
 });

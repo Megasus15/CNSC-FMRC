@@ -23,7 +23,7 @@
       crossorigin="anonymous"
       referrerpolicy="no-referrer"
     />
-    <link rel="stylesheet" href="auth.css?v=5.8" />
+    <link rel="stylesheet" href="auth.css?v=6.0" />
   </head>
   <body>
     <main class="auth-page">
@@ -154,17 +154,33 @@
             ></p>
 
             <button class="auth-btn" type="submit">Enter Workspace</button>
+
+            <!-- Staff account request entry point. `.forgot-alt-row` is the same
+                 centred, muted 12.5px row the "Use a recovery code instead" link
+                 wears inside the Forgot-Password dialog, so this needs no CSS. -->
+            <div class="forgot-alt-row">
+              <span>No staff account yet?</span>
+              <a href="#" class="inline-link" id="requestAccountLink"
+                >Request access</a
+              >
+            </div>
           </form>
         </div>
       </section>
     </main>
 
+    <!-- Confirmation for a submitted staff account request.
+         This dialog shipped as `#signupSuccessModal` for a self-service signup
+         that was never built: no script has ever referenced these ids, while
+         `.success-modal` / `.success-box` are fully styled (including the phone
+         media queries). Repurposing it removes the dead markup and gives the
+         request flow the portal's own success dialog for free. -->
     <div
       class="success-modal"
-      id="signupSuccessModal"
+      id="requestSuccessModal"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="successTitle"
+      aria-labelledby="requestSuccessTitle"
     >
       <div class="success-box">
         <div class="success-icon">
@@ -179,17 +195,45 @@
             <polyline points="20 6 9 17 4 12"></polyline>
           </svg>
         </div>
-        <h3 id="successTitle">Account Created</h3>
+        <h3 id="requestSuccessTitle">Request Submitted</h3>
         <p>
-          Your admin or staff account is ready. Please proceed to log in to
-          access the dashboard.
+          Your staff account request has been sent to the administrators for
+          review. A decision will be emailed to
+          <strong id="requestSuccessEmail">your Gmail address</strong>. Keep the
+          username and password you entered — they become your sign-in details
+          once the request is approved.
         </p>
+
+        <!-- The "approval takes a while" notice lives here rather than on the
+             form: it is only actionable once the request is actually in the
+             queue, and moving it out keeps the form itself short enough that a
+             laptop-height card never has to scroll. -->
+        <div class="staff-notice-banner">
+          <i
+            class="fa-solid fa-hourglass-half"
+            style="
+              font-size: 15px;
+              margin-top: 2px;
+              color: #ca8a04;
+              flex-shrink: 0;
+            "
+          ></i>
+          <div>
+            <strong style="color: #713f12"
+              >Approval is manual and may take some time.</strong
+            >
+            An administrator reviews every request personally, so there is no
+            need to submit this form again. You may close this window &mdash;
+            the decision will arrive by email either way.
+          </div>
+        </div>
+
         <button
-          id="successContinueBtn"
+          id="requestSuccessContinueBtn"
           class="auth-btn btn-yellow"
           type="button"
         >
-          Proceed to Login
+          Back to Sign In
         </button>
       </div>
     </div>
@@ -625,6 +669,302 @@
       </div>
     </div>
 
+    <!-- Staff Account Request Modal.
+         Built from the same `.forgot-modal > .forgot-box > .forgot-step` shell as
+         the Forgot-Password dialog, so it inherits that dialog's scrim, scale-in
+         transition, 64px icon, 680px desktop width, small-phone scroller and the
+         `.forgot-field-grid` two-column pairing.
+
+         The one addition is `.forgot-box--paneled`: this card carries five
+         fields, so on a short laptop or a phone it can still outgrow the
+         viewport cap. Instead of scrolling the whole card (which pushes the
+         title and the Submit button out of sight) the head and the foot are
+         pinned and only the middle scrolls. On a normal desktop the middle does
+         not overflow at all, so the card looks and behaves exactly like every
+         other dialog in this portal. -->
+    <div
+      class="forgot-modal"
+      id="requestAccountModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="requestAccountTitle"
+    >
+      <div class="forgot-box forgot-box--paneled">
+        <button
+          type="button"
+          class="forgot-close"
+          id="requestCloseBtn"
+          aria-label="Close"
+        >
+          &times;
+        </button>
+
+        <div class="forgot-step" id="requestAccountStep">
+          <div class="dlg-pane-head">
+            <div class="forgot-icon">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <line x1="19" y1="8" x2="19" y2="14"></line>
+                <line x1="22" y1="11" x2="16" y2="11"></line>
+              </svg>
+            </div>
+            <h3 id="requestAccountTitle">Request a Staff Account</h3>
+          </div>
+
+          <form id="requestAccountForm" novalidate>
+            <div class="dlg-pane-body">
+              <p>
+                Staff access is granted by an administrator. We will email you
+                the decision.
+              </p>
+              <div class="staff-notice-banner">
+                <i
+                  class="fa-solid fa-key"
+                  style="
+                    font-size: 15px;
+                    margin-top: 2px;
+                    color: #ca8a04;
+                    flex-shrink: 0;
+                  "
+                ></i>
+                <div>
+                  <strong style="color: #713f12"
+                    >Write these credentials down.</strong
+                  >
+                  The username and password you enter here become your sign-in
+                  details once an administrator approves this request, and
+                  cannot be shown to you again. Forgot them later? Use
+                  <strong>Forgot Password?</strong> on this screen.
+                </div>
+              </div>
+              <!-- paired side-by-side from 768px up so the card never scrolls on a laptop -->
+              <div class="forgot-field-grid">
+              <div class="input-wrapper">
+                <label for="requestName">Full Name</label>
+                <div class="input-icon-group">
+                  <svg
+                    class="input-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                  <input
+                    id="requestName"
+                    type="text"
+                    placeholder="e.g. Juan Dela Cruz"
+                    autocomplete="name"
+                    maxlength="255"
+                    required
+                  />
+                </div>
+              </div>
+              <div class="input-wrapper">
+                <label for="requestUsername">Username</label>
+                <div class="input-icon-group">
+                  <svg
+                    class="input-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <circle cx="12" cy="12" r="4"></circle>
+                    <path
+                      d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"
+                    ></path>
+                  </svg>
+                  <input
+                    id="requestUsername"
+                    type="text"
+                    placeholder="3-50 letters, numbers, - or _"
+                    autocomplete="username"
+                    maxlength="50"
+                    autocapitalize="none"
+                    spellcheck="false"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div class="input-wrapper">
+              <label for="requestEmail">Gmail Address</label>
+              <div class="input-icon-group">
+                <svg
+                  class="input-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path
+                    d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                  ></path>
+                  <polyline points="22,6 12,13 2,6"></polyline>
+                </svg>
+                <input
+                  id="requestEmail"
+                  type="email"
+                  placeholder="yourname@gmail.com"
+                  autocomplete="email"
+                  inputmode="email"
+                  autocapitalize="none"
+                  spellcheck="false"
+                  maxlength="255"
+                  required
+                />
+              </div>
+            </div>
+            <div class="forgot-field-grid">
+              <div class="input-wrapper">
+                <label for="requestPassword">Password</label>
+                <div class="input-icon-group">
+                  <svg
+                    class="input-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <rect
+                      x="3"
+                      y="11"
+                      width="18"
+                      height="11"
+                      rx="2"
+                      ry="2"
+                    ></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                  <input
+                    id="requestPassword"
+                    type="password"
+                    placeholder="Min. 8 characters"
+                    autocomplete="new-password"
+                    required
+                  />
+                  <button
+                    class="toggle-pass"
+                    type="button"
+                    data-target="requestPassword"
+                    aria-label="Show password"
+                  >
+                    <svg
+                      class="eye-closed"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path
+                        d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
+                      ></path>
+                      <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="input-wrapper">
+                <label for="requestConfirmPassword">Confirm Password</label>
+                <div class="input-icon-group">
+                  <svg
+                    class="input-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <rect
+                      x="3"
+                      y="11"
+                      width="18"
+                      height="11"
+                      rx="2"
+                      ry="2"
+                    ></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                  <input
+                    id="requestConfirmPassword"
+                    type="password"
+                    placeholder="Re-enter your password"
+                    autocomplete="new-password"
+                    required
+                  />
+                  <button
+                    class="toggle-pass"
+                    type="button"
+                    data-target="requestConfirmPassword"
+                    aria-label="Show password"
+                  >
+                    <svg
+                      class="eye-closed"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path
+                        d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"
+                      ></path>
+                      <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Same Cloudflare gate the sign-in form carries, because
+                 POST /api/staff-account-requests is guarded by VerifyTurnstile.
+                 While no keys are configured the slot hides itself and
+                 requireToken() resolves to "", so today the form behaves exactly
+                 as if it were not here. -->
+            <div
+              id="requestAccountTurnstile"
+              class="fmrc-turnstile-slot"
+              data-fmrc-turnstile
+              data-theme="auto"
+              aria-label="Security check"
+            ></div>
+
+            <p
+              id="requestTurnstileNote"
+              class="turnstile-note"
+              role="status"
+              hidden
+            ></p>
+            </div>
+
+            <!-- Pinned foot: the Submit button and the way back to sign-in stay
+                 reachable even when the body above has to scroll. -->
+            <div class="dlg-pane-foot">
+              <button class="auth-btn" id="btnSubmitAccountRequest" type="submit">
+                Submit Request
+              </button>
+
+              <div class="switch-account-wrap">
+                <a href="#" class="switch-account-link" id="requestBackToLogin"
+                  >Back to Log In</a
+                >
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
     <div
       class="status-modal"
       id="authStatusModal"
@@ -638,6 +978,6 @@
     <!-- Admin-editable portal logos (Website Management -> Home -> Brand Logos).
          Paints the last-known pair synchronously, then revalidates. -->
     <script src="../home-page/portal-brand.js?v=1.0"></script>
-    <script src="auth.js?v=5.3"></script>
+    <script src="auth.js?v=5.5"></script>
   </body>
 </html>
