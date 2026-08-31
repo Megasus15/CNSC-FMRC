@@ -22,8 +22,8 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
 
-    <link rel="stylesheet" href="main.css?v=6.6" />
-    <link rel="stylesheet" href="responsive.css?v=7.0" />
+    <link rel="stylesheet" href="main.css?v=6.8" />
+    <link rel="stylesheet" href="responsive.css?v=7.1" />
 
     <!-- Renders the hero headline from site settings. Loaded here, ahead of the
          hero markup, so the inline call below it can paint before first paint. -->
@@ -266,15 +266,23 @@
                  gallery image and adds `.has-stack`; with a single photo this
                  renders exactly as it did before. The first card keeps the
                  legacy id and class so `_src("visionImgEl", …)` and every
-                 existing sizing rule still find their target. -->
-            <div class="vm-deck vm-deck--vision" id="visionDeck">
+                 existing sizing rule still find their target.
+
+                 The <img> ships with no `src`. The real photo lives in
+                 site_settings.vision_image and arrives with /api/site-settings,
+                 so a hardcoded one would flash a picture that is not this
+                 site's for as long as the fetch takes. `.is-loading` paints the
+                 grey placeholder card on the first frame instead; main.js drops
+                 it once the real image has decoded. The tag itself must stay —
+                 applyVmGallery() clones its class and alt for every extra
+                 gallery card. -->
+            <div
+              class="vm-deck vm-deck--vision is-loading"
+              id="visionDeck"
+              aria-busy="true"
+            >
               <div class="vm-deck__card">
-                <img
-                  src="/images/pic1.jpg"
-                  alt="FMRC Vision"
-                  class="vision-img"
-                  id="visionImgEl"
-                />
+                <img alt="FMRC Vision" class="vision-img" id="visionImgEl" />
               </div>
             </div>
             <p class="vm-deck__hint" id="visionDeckHint">
@@ -307,12 +315,19 @@
             <!-- The deck sits inside `.blob-wrapper`, which is now purely the
                  480px square footprint: the two decorative blobs it used to draw
                  behind the photo are gone, and the organic mask lives on the
-                 deck's own cards so the shuffle shadows follow that silhouette. -->
+                 deck's own cards so the shuffle shadows follow that silhouette.
+
+                 As with Vision, the <img> ships src-less and the deck carries
+                 `.is-loading` so the first frame is a blob-shaped grey card
+                 rather than a hardcoded photo. -->
             <div class="blob-wrapper">
-              <div class="vm-deck vm-deck--mission" id="missionDeck">
+              <div
+                class="vm-deck vm-deck--mission is-loading"
+                id="missionDeck"
+                aria-busy="true"
+              >
                 <div class="vm-deck__card">
                   <img
-                    src="/images/pic2.jpg"
                     alt="FMRC Mission"
                     class="mission-img"
                     id="missionImgEl"
@@ -1619,7 +1634,7 @@
     <!-- Maintenance Mode gate: must run before main.js so the cached snapshot is
          applied before anything that should be hidden can be painted. -->
     <script src="maintenance-gate.js?v=1.1"></script>
-    <script src="main.js?v=7.1"></script>
+    <script src="main.js?v=7.2"></script>
     <script src="customer-announcements.js?v=5.5"></script>
   </body>
 </html>

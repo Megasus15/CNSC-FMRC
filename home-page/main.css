@@ -1487,7 +1487,11 @@ body {
   top: 0;
   left: 0;
   width: 100vw;
+  /* Same-property fallback, not two properties: on iOS 100vh is the large
+     viewport, so a lightbox sized in vh centres its image in a box taller than
+     the screen and pushes the edges under the toolbar. */
   height: 100vh;
+  height: 100dvh;
   background-color: rgba(0, 0, 0, 0.9); /* Darker background for image focus */
   z-index: 10000; /* Must be higher than the regular modal (9999) */
   display: flex;
@@ -9622,12 +9626,27 @@ body.sidebar-open {
 .customer-modal-overlay {
   position: fixed;
   inset: 0;
+  /* `inset: 0` alone sizes this to the fixed containing block, which on iOS is
+     the large viewport — measured 853.6px tall against an 812px screen here. The
+     card is centred inside it, so it sat ~40px low and its foot (Change
+     password) went under the Safari toolbar with no way to scroll to it. Pinning
+     the height to the *dynamic* viewport centres the card in what is visible;
+     `max-width: 100vw` is the horizontal twin, stopping the same containing
+     block from making the overlay wider than the screen. */
+  height: 100vh;
+  height: 100dvh;
+  max-width: 100vw;
   background: rgba(15, 23, 42, 0.56);
   backdrop-filter: blur(3px);
   display: flex;
   justify-content: center;
   align-items: center;
   padding: 16px;
+  /* A card taller than the viewport has to stay reachable. `margin-block: auto`
+     on the card is what keeps a centred flex item from clipping its own top once
+     this scrolls — the same pairing responsive.css already uses in the
+     short-screen band. */
+  overflow-y: auto;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -9645,6 +9664,17 @@ body.sidebar-open {
 
 .customer-modal-overlay.closing {
   opacity: 0;
+}
+
+/* Pairs with the overlay's `overflow-y: auto`: auto side margins let an
+   over-tall card scroll from its true top instead of having it clipped by the
+   centring, which is what a plain centred flex item does. Direct child only, so
+   nothing nested inside a card is affected. Not on the shared `.ux-dlg__card`
+   rule, because the orders drawer is `align-items: stretch` and an auto margin
+   there would collapse it to its content height. */
+.customer-modal-overlay > .ux-dlg__card,
+.customer-modal-overlay > .customer-modal {
+  margin-block: auto;
 }
 
 .customer-modal {
@@ -15540,9 +15570,23 @@ textarea {
     order: 1;
   }
 
+  /* Stacked, the photo columns are the cross axis, and the container's
+     `align-items: center` sizes them to their content — which is nothing at all
+     while a deck is still waiting for its photo, so the placeholder card had no
+     box to paint in and collapsed to 0x0. Width comes from the container
+     instead, exactly as `.about-content-*` above already takes it. What the
+     photo does with that width is unchanged: `.vm-deck--vision` still caps at
+     550px and `.blob-wrapper` at 480px, so nothing moves once it lands. */
+  .vision-content-left,
+  .mission-content-right {
+    width: 100%;
+  }
+
   .about-video-holder,
   .vision-img,
-  .blob-wrapper {
+  .blob-wrapper,
+  /* The deck is the box now, so it needs the centring the bare photo had. */
+  .vm-deck--vision {
     margin-inline: auto;
   }
 
@@ -16011,8 +16055,20 @@ textarea:focus-visible {
 .customer-orders-overlay {
   inset: 0;
   width: 100%;
+  /* Same property twice, never `min-height` as the fallback. iOS reports 100vh
+     as the *large* viewport (toolbars hidden) and 100dvh as what is actually on
+     screen, so `min-height: 100vh` beside `height: 100dvh` did not degrade — it
+     overrode, growing this overlay ~80px past the bottom of the screen. The
+     drawer is `height: 100%` of it and the order-detail sheet is `inset: 0`
+     inside that, so all three lost their bottom edge at once, and the
+     `overflow: hidden` below made the strip unreachable rather than merely
+     scrolled off. Chrome desktop never showed it: there 100vh == 100dvh. */
+  height: 100vh;
   height: 100dvh;
-  min-height: 100vh;
+  /* A fixed `inset: 0` box is sized by the fixed containing block, which is not
+     always the visible viewport. Capping at 100vw means the drawer can never be
+     wider than the layout viewport, and is a no-op wherever the two agree. */
+  max-width: 100vw;
   padding: 0 !important;
   overflow: hidden;
   align-items: stretch;
@@ -16020,10 +16076,12 @@ textarea:focus-visible {
 }
 
 .customer-orders-modal {
-  width: min(820px, 100%);
+  /* 100vw as a third bound for the same reason as the overlay's max-width. */
+  width: min(820px, 100%, 100vw);
   max-width: 100%;
-  height: 100dvh;
-  min-height: 100vh;
+  /* No height pair here: the `#customerOrdersModal.ux-dlg .customer-orders-modal
+     .ux-dlg__card` rule further down (1,3,0) already sets `height: 100%;
+     min-height: 0`, so the drawer follows the overlay fixed above. */
   max-height: none;
   padding: max(20px, env(safe-area-inset-top))
     max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom))
@@ -16472,8 +16530,11 @@ textarea:focus-visible {
 .success-modal-overlay {
   inset: 0;
   width: 100%;
+  /* Same-property dvh fallback — see `.customer-orders-overlay` for why
+     `min-height: 100vh` here was overriding rather than degrading. */
+  height: 100vh;
   height: 100dvh;
-  min-height: 100vh;
+  max-width: 100vw;
   padding: max(16px, env(safe-area-inset-top))
     max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom))
     max(16px, env(safe-area-inset-left));
@@ -17021,6 +17082,12 @@ textarea:focus-visible {
 .ux-dlg--standalone {
   position: fixed;
   inset: 0;
+  /* Third `position: fixed; inset: 0` dialog root on this page, given the same
+     dynamic-viewport pin as `.customer-modal-overlay` and
+     `.customer-orders-overlay` so it cannot outgrow the visible screen. */
+  height: 100vh;
+  height: 100dvh;
+  max-width: 100vw;
   z-index: 100000;
   display: none;
   align-items: center;
@@ -17052,7 +17119,16 @@ textarea:focus-visible {
   max-width: min(100%, 520px);
   min-width: 0;
   min-height: 0;
-  max-height: min(760px, calc(100dvh - 30px));
+  /* The 30px is the overlay's own gutter pair; the insets are what a notched
+     phone takes off the top and bottom of the dynamic viewport. Without them the
+     cap allowed a card that, plus its gutters, was taller than the screen — the
+     same allowance `.success-card` already makes above. */
+  max-height: min(
+    760px,
+    calc(
+      100dvh - 30px - env(safe-area-inset-top) - env(safe-area-inset-bottom)
+    )
+  );
   padding: 0;
   overflow: hidden;
   text-align: left;
@@ -18485,6 +18561,57 @@ textarea:focus-visible {
 .vm-deck__card {
   position: relative;
   display: block;
+}
+
+/* -- First-paint placeholder ------------------------------------------------
+   Both photos are admin-uploaded base64 in site_settings, so the markup ships
+   its <img> with no `src` and the deck carries `.is-loading` instead: a hard
+   coded /images/pic1.jpg used to flash on every load until
+   /api/site-settings answered. `.is-empty` is the settled twin — a site with no
+   photo configured (or an API that never answers) lands there rather than
+   holding a placeholder forever. Both paint the same flat grey as the
+   "WHAT WE OFFER" placeholder card in main.html, deliberately static: this is a
+   sub-second state and a shimmer on a 480px blob reads as a glitch.
+
+   The state lives on the deck, never on the card: vmResetToFirstCard() rewrites
+   `card.className` wholesale, so a class on the card would not survive a
+   gallery rebuild. */
+.vm-deck.is-loading .vm-deck__card > img,
+.vm-deck.is-empty .vm-deck__card > img {
+  display: none;
+}
+
+.vm-deck.is-loading::after,
+.vm-deck.is-empty::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: #f3f4f6;
+  border: 1px solid rgba(176, 28, 28, 0.15);
+}
+
+/* Vision has no wrapper to take its height from — `.vision-img` was the element
+   that decided it — so the ratio has to live here. 16/10 is what both
+   `.vm-deck.has-stack` above and `.vision-img` in the phone band already use. */
+.vm-deck--vision.is-loading,
+.vm-deck--vision.is-empty {
+  aspect-ratio: 16 / 10;
+  max-width: 550px;
+}
+
+.vm-deck--vision.is-loading::after,
+.vm-deck--vision.is-empty::after {
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+/* Mission already has height: the deck is `height: 100%` of the square
+   `.blob-wrapper`. Only the silhouette is copied across, from `.mission-img`. */
+.vm-deck--mission.is-loading::after,
+.vm-deck--mission.is-empty::after {
+  border-radius: 50% 50% 40% 60% / 60% 40% 60% 40%;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.1);
 }
 
 /* -- Stacked ---------------------------------------------------------------- */

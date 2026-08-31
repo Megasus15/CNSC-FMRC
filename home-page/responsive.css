@@ -2468,6 +2468,15 @@
     aspect-ratio: 4 / 3;
   }
 
+  /* The first-paint placeholder needs the same 4/3 for the same reason, and it
+     needs it more urgently: at this width `.blob-wrapper` is `aspect-ratio:
+     auto` and takes its height from the photo, so a src-less deck has no height
+     at all and the grey card would collapse to nothing. */
+  .vm-deck--mission.is-loading,
+  .vm-deck--mission.is-empty {
+    aspect-ratio: 4 / 3;
+  }
+
   /* The fan is pulled in by about a third. At desktop offsets the deepest card
      reached ~12px below a phone-sized deck; at these offsets the 7% scale-down
      eats most of the 10px translate, so the deepest card lands within a few px

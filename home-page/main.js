@@ -13342,6 +13342,13 @@ const openReturnRequestModal = (() => {
     // wins and an unconfigured site is left exactly as it was.
     applyVmGallery("vision", s.vision_gallery);
     applyVmGallery("mission", s.mission_gallery);
+    // The only path where no `src` is ever written: with neither a single image
+    // nor a gallery there is no `load` event coming, so settle the placeholder
+    // here instead of letting the 8s timeout do it.
+    ["vision", "mission"].forEach(function (k) {
+      var hasGallery = vmParseGallery(s[k + "_gallery"]).length > 0;
+      if (!s[k + "_image"] && !hasGallery) vmPhotoSettle(k, "empty");
+    });
     // Footer
     _txt("footerBrandNameEl", s.footer_brand_name);
     _txt("footerBrandDescEl", s.footer_brand_desc);
@@ -13928,6 +13935,50 @@ const openReturnRequestModal = (() => {
     if (!deck || !deck.closest) return;
     var host = deck.closest(".vision-section, .mission-section");
     if (host) host.classList.toggle("vm-card-aloft", !!on);
+  }
+
+  /* -- First-paint placeholder ----------------------------------------------
+     Both photos are admin uploads living as base64 in site_settings, so there is
+     nothing to paint until /api/site-settings answers. The markup therefore
+     ships its <img> with no `src` and the deck wearing `.is-loading`, which
+     draws a grey card the exact shape of the photo it stands in for; a
+     hardcoded /images/pic1.jpg used to flash on every single load instead.
+
+     Two settled states, both `.is-empty`: nothing configured, and an image that
+     failed to decode. Either way the section keeps a neutral card rather than a
+     hole where a photo should be. */
+  function vmPhotoSettle(kind, state) {
+    var deck = vmDeckEl(kind);
+    if (!deck) return;
+    deck.classList.remove("is-loading");
+    deck.classList.toggle("is-empty", state === "empty");
+    // aria-busy is only meaningful while the deck is still waiting.
+    deck.removeAttribute("aria-busy");
+  }
+
+  function initVmPhotoPlaceholder(kind) {
+    var deck = vmDeckEl(kind);
+    if (!deck) return;
+    var img = deck.querySelector(".vm-deck__card img");
+    if (!img) return;
+    // `load` fires again for every later src, so a realtime photo swap re-shows
+    // the placeholder for exactly as long as the new image takes to decode.
+    img.addEventListener("load", function () {
+      vmPhotoSettle(kind, "");
+    });
+    img.addEventListener("error", function () {
+      vmPhotoSettle(kind, "empty");
+    });
+    // Already decoded before this ran (a warm cache beats the listener).
+    if (img.getAttribute("src") && img.complete && img.naturalWidth) {
+      vmPhotoSettle(kind, "");
+      return;
+    }
+    // Never wait forever: an API that never answers settles to the neutral card
+    // rather than leaving a placeholder on screen for the rest of the visit.
+    setTimeout(function () {
+      if (deck.classList.contains("is-loading")) vmPhotoSettle(kind, "empty");
+    }, 8000);
   }
 
   // Drop every generated card, leaving the original markup untouched.
@@ -14523,6 +14574,10 @@ const openReturnRequestModal = (() => {
   }
 
   function bootSiteContent() {
+    // Wired before the fetch so the `load` listener is in place by the time
+    // applySettings writes the first src.
+    initVmPhotoPlaceholder("vision");
+    initVmPhotoPlaceholder("mission");
     loadSiteContent();
     initSdgRealtime();
   }
