@@ -23,7 +23,7 @@
       crossorigin="anonymous"
       referrerpolicy="no-referrer"
     />
-    <link rel="stylesheet" href="auth.css?v=5.7" />
+    <link rel="stylesheet" href="auth.css?v=5.8" />
   </head>
   <body>
     <main class="auth-page">
@@ -317,6 +317,7 @@
           <form id="otpVerifyForm" novalidate>
             <div class="input-wrapper">
               <label for="otpCodeInput">6-Digit OTP Code</label>
+              <!-- full-width: letter-spaced code field -->
               <div class="input-field-box">
                 <input
                   id="otpCodeInput"
@@ -332,6 +333,8 @@
               </div>
             </div>
 
+            <!-- paired side-by-side from 768px up so the card never scrolls on a laptop -->
+            <div class="forgot-field-grid">
             <div class="input-wrapper">
               <label for="otpNewPassword">New Password</label>
               <div class="input-icon-group">
@@ -415,6 +418,7 @@
                 </button>
               </div>
             </div>
+            </div>
 
             <button class="auth-btn" id="btnVerifyOtp" type="submit">Reset Password</button>
 
@@ -452,6 +456,8 @@
           </p>
 
           <form id="recoveryCodeForm" novalidate>
+            <!-- paired side-by-side from 768px up so the card never scrolls on a laptop -->
+            <div class="forgot-field-grid">
             <div class="input-wrapper">
               <label for="recoveryLogin">Admin Username or Email</label>
               <div class="input-icon-group">
@@ -492,7 +498,9 @@
                 />
               </div>
             </div>
+            </div>
 
+            <div class="forgot-field-grid">
             <div class="input-wrapper">
               <label for="recoveryNewPassword">New Password</label>
               <div class="input-icon-group">
@@ -574,6 +582,7 @@
                   </svg>
                 </button>
               </div>
+            </div>
             </div>
 
             <button class="auth-btn" id="btnRedeemRecovery" type="submit">

@@ -2488,14 +2488,18 @@ body.admin-media-viewer-open {
     padding: 12px 8px;
   }
 
-  .logout-btn {
+  /* Scoped to the collapsed sidebar rail. Left unscoped these also matched
+     `.logout-btn.popup-logout` in the profile dropdown and, at equal (0,1,0)
+     specificity, beat `.popup-logout` further up the file on source order —
+     which left the dropdown's Logout label and icon flush-left on phones. */
+  .sidebar-footer .logout-btn {
     justify-content: flex-start;
     font-size: 0.88rem;
     gap: 0;
     padding: 10px 14px;
   }
 
-  .logout-btn i {
+  .sidebar-footer .logout-btn i {
     width: 25px;
     font-size: 1rem;
     margin-right: 0;

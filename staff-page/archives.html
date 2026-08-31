@@ -10,54 +10,15 @@
     <link rel="icon" href="../images/favicon.ico?v=3" sizes="any" />
     <link rel="apple-touch-icon" href="../images/apple-touch-icon.png?v=3" />
     <title>Archives | UCN-FMRC Staff</title>
-    <link rel="stylesheet" href="../admin-page/dashboard.css?v=6.1" />
-    <link rel="stylesheet" href="../admin-page/admin-modules.css?v=6.1" />
+    <link rel="stylesheet" href="../admin-page/dashboard.css?v=6.2" />
+    <link rel="stylesheet" href="../admin-page/admin-modules.css?v=6.2" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
     <style>
-      .archive-module-tabs {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        margin-bottom: 16px;
-      }
-      .archive-tab-btn {
-        padding: 8px 18px;
-        border-radius: 8px;
-        border: 2px solid #e0e6ed;
-        background: #fff;
-        font-size: 0.82rem;
-        font-weight: 700;
-        cursor: pointer;
-        color: #5a6272;
-        transition: all 0.18s ease;
-        display: flex;
-        align-items: center;
-        gap: 7px;
-      }
-      .archive-tab-btn.active {
-        border-color: #800000;
-        background: #800000;
-        color: #fff;
-      }
-      .archive-tab-btn .tab-count {
-        background: rgba(255, 255, 255, 0.25);
-        border-radius: 99px;
-        padding: 1px 7px;
-        font-size: 0.72rem;
-      }
-      .archive-tab-btn:not(.active) .tab-count {
-        background: #f0f2f5;
-        color: #5a6272;
-      }
-      .archive-section {
-        display: none;
-      }
-      .archive-section.active {
-        display: block;
-      }
+      /* Tab-strip and section rules now live in admin-modules.css so the
+         Orders page can share them. */
       .archive-search-bar {
         display: flex;
         gap: 8px;
@@ -100,6 +61,10 @@
       .badge-return {
         background: #ccfbf1;
         color: #0f766e;
+      }
+      .badge-walkin {
+        background: #e0e7ff;
+        color: #4338ca;
       }
       .inv-name-cell {
         display: flex;
@@ -355,6 +320,10 @@
             <button class="archive-tab-btn" data-tab="announcement">
               <i class="fa-solid fa-bell"></i> Announcements
               <span class="tab-count" id="tabCountAnnouncement">0</span>
+            </button>
+            <button class="archive-tab-btn" data-tab="walkin">
+              <i class="fa-solid fa-cash-register"></i> Walk-in Customers
+              <span class="tab-count" id="tabCountWalkin">0</span>
             </button>
           </div>
 
@@ -898,6 +867,96 @@
               </div>
             </div>
           </div>
+          <!-- ═══════════════ WALK-IN CUSTOMERS TABLE ═══════════════ -->
+          <div class="archive-section" id="sectionWalkin">
+            <div class="panel">
+              <div class="panel-header">
+                <h3>
+                  <span class="archive-badge badge-walkin"
+                    ><i class="fa-solid fa-cash-register"></i> Walk-in</span
+                  >
+                  &nbsp;Archived Walk-in Customers
+                </h3>
+              </div>
+              <div class="table-scroll-hint">
+                <i class="fa-solid fa-left-right"></i> Scroll horizontally to
+                see all columns.
+              </div>
+              <div class="table-wrapper">
+                <table
+                  class="admin-table inventory-table"
+                  id="walkinArchiveTable"
+                >
+                  <thead>
+                    <tr>
+                      <th class="admin-bulk-select-cell">
+                        <input
+                          type="checkbox"
+                          data-admin-bulk-page="archive-walkin"
+                          aria-label="Select all archived walk-in orders on this page"
+                        />
+                      </th>
+                      <th>Payment Order No.</th>
+                      <th>Name</th>
+                      <th>Address</th>
+                      <th>Contact Number</th>
+                      <th>Type of Client</th>
+                      <th>Agency/Organization</th>
+                      <th>Description of the Project</th>
+                      <th>Item Detail</th>
+                      <th>Unit</th>
+                      <th>Subtotal Cost</th>
+                      <th>Total</th>
+                      <th>Payment</th>
+                      <th>Status</th>
+                      <th>Date Archived</th>
+                      <th class="sticky-action">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="walkinArchiveTbody">
+                    <tr>
+                      <td colspan="16">
+                        <div style="display: grid; gap: 8px">
+                          <div
+                            class="skeleton-text"
+                            style="width: 82%; height: 14px"
+                          ></div>
+                          <div
+                            class="skeleton-text"
+                            style="width: 64%; height: 14px"
+                          ></div>
+                          <div
+                            class="skeleton-text"
+                            style="width: 46%; height: 14px"
+                          ></div>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="table-footer" id="walkinArchiveFooter">
+                <div class="table-footer-meta" id="walkinArchiveMeta">—</div>
+                <div class="table-pagination">
+                  <button class="page-btn" id="walkinPrevBtn">
+                    <i class="fa-solid fa-chevron-left"></i>
+                  </button>
+                  <input
+                    class="page-number"
+                    id="walkinCurrentPage"
+                    type="number"
+                    min="1"
+                    value="1"
+                    inputmode="numeric"
+                    aria-label="Go to walk-in archives page"
+                  />
+                  <button class="page-btn" id="walkinNextBtn">
+                    <i class="fa-solid fa-chevron-right"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
       </main>
     </div>
@@ -1123,7 +1182,7 @@
     <script src="../admin-page/session-helper.js"></script>
     <script src="../admin-page/admin-common.js?v=6.1"></script>
 
-    <script src="../admin-page/archives.js?v=5.1"></script>
+    <script src="../admin-page/archives.js?v=5.2"></script>
     <script src="../admin-page/admin-table-resize.js?v=1.2" defer></script>
   </body>
 </html>

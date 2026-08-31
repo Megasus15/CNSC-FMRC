@@ -2324,3 +2324,50 @@ a.inline-link:hover {
     padding-left: 6px;
   }
 }
+
+/* ==========================================================================
+   Forgot-password field pairing
+   --------------------------------------------------------------------------
+   The universal responsive layer above caps `.forgot-box` at
+   `min(92vh, calc(100dvh - 24px))` with `overflow-y: auto`. That scroller is
+   deliberate on small phones (see the comment on that rule), but the recovery
+   step stacks four fields and grew tall enough to scroll on a laptop too.
+
+   Pairing the short fields into two columns from 768px up shortens the card so
+   the scroller simply never engages on a laptop, while the cap stays in place
+   as the small-phone safety net.
+
+   Below 768px this is a single-column grid, so each `.input-wrapper` keeps its
+   own `margin-bottom` as the row gap and the phone rendering is unchanged.
+   Declared last so source order settles it against the universal layer without
+   needing `!important`.
+   ========================================================================== */
+.forgot-field-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  column-gap: 14px;
+}
+
+@media (min-width: 768px) {
+  /* `max-width` is set twice further up the file (400px, then 420px), so both
+     it and `width` have to be raised here or the card stays 420px wide. The
+     width is sized so a half-column still fits the longest placeholder
+     ("Admin username or email") next to the 46px icon gutter. */
+  .forgot-box {
+    width: min(100%, 680px);
+    max-width: 680px;
+  }
+
+  .forgot-field-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* The show/hide eye covers the last 46px of these fields. At full card width
+     the placeholder never reached it; in a half column it does. */
+  #otpNewPassword,
+  #otpConfirmPassword,
+  #recoveryNewPassword,
+  #recoveryConfirmNewPassword {
+    padding-right: 50px;
+  }
+}

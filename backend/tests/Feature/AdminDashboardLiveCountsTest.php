@@ -12,6 +12,7 @@ use App\Models\Payment;
 use App\Models\ProductRating;
 use App\Models\Promotion;
 use App\Models\User;
+use App\Models\WalkInOrder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -40,7 +41,7 @@ class AdminDashboardLiveCountsTest extends TestCase
         }
     }
 
-    public function test_dashboard_counts_match_all_seven_unified_archive_modules(): void
+    public function test_dashboard_counts_match_all_eight_unified_archive_modules(): void
     {
         $admin = $this->actingAsRole('admin');
         $fixtures = $this->makeArchivedFixtures($admin);
@@ -53,12 +54,13 @@ class AdminDashboardLiveCountsTest extends TestCase
             'ratings' => 1,
             'promotions' => 1,
             'announcements' => 1,
+            'walkins' => 1,
         ];
 
         $live = $this->getJson('/api/admin/dashboard/live-counts');
         $live->assertOk()
             ->assertJsonPath('data.generated_reports', 0)
-            ->assertJsonPath('data.total_archives', 7)
+            ->assertJsonPath('data.total_archives', 8)
             ->assertJsonPath('data.archives', $expected)
             ->assertJsonPath('data.availability.report_generations', true)
             ->assertJsonPath('data.availability.archives', array_fill_keys(array_keys($expected), true));
@@ -71,7 +73,7 @@ class AdminDashboardLiveCountsTest extends TestCase
         $this->getJson('/api/admin/dashboard/summary')
             ->assertOk()
             ->assertJsonPath('data.counts.generated_reports', 0)
-            ->assertJsonPath('data.counts.total_archives', 7)
+            ->assertJsonPath('data.counts.total_archives', 8)
             ->assertJsonPath('data.counts.archives', $expected);
 
         $this->patchJson('/api/admin/archives/restore-bulk', [
@@ -86,7 +88,7 @@ class AdminDashboardLiveCountsTest extends TestCase
 
         $this->getJson('/api/admin/dashboard/live-counts')
             ->assertOk()
-            ->assertJsonPath('data.total_archives', 5)
+            ->assertJsonPath('data.total_archives', 6)
             ->assertJsonPath('data.archives.inventory', 0)
             ->assertJsonPath('data.archives.returns', 0);
     }
@@ -350,6 +352,21 @@ class AdminDashboardLiveCountsTest extends TestCase
             'order_item_id' => $item->id,
             'product_name' => $item->product_name,
             'stars' => 5,
+            'is_archived' => true,
+            'archived_at' => now(),
+        ]);
+        WalkInOrder::create([
+            'order_no' => 'WALK-LIVE-ARCHIVE-001',
+            'customer_name' => 'Archived Walk-in Customer',
+            'item_detail' => 'Archived Walk-in Item',
+            'unit' => '1',
+            'subtotal_cost' => 100,
+            'order_item' => 'Archived Walk-in Item',
+            'order_date' => now(),
+            'customer' => 'Archived Walk-in Customer',
+            'payment_method' => 'WALKIN VIA CASHIER',
+            'total' => 100,
+            'status' => 'Completed',
             'is_archived' => true,
             'archived_at' => now(),
         ]);

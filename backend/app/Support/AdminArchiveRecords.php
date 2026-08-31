@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\OrderReturn;
 use App\Models\ProductRating;
 use App\Models\Promotion;
+use App\Models\WalkInOrder;
 use Illuminate\Database\Eloquent\Builder;
 
 class AdminArchiveRecords
@@ -21,6 +22,7 @@ class AdminArchiveRecords
         'ratings',
         'promotions',
         'announcements',
+        'walkins',
     ];
 
     public static function query(string $module): Builder
@@ -33,12 +35,13 @@ class AdminArchiveRecords
             'ratings' => ProductRating::query()->where('is_archived', true),
             'promotions' => Promotion::query()->where('is_archived', true),
             'announcements' => Announcement::query()->where('is_archived', true),
+            'walkins' => WalkInOrder::query()->where('is_archived', true),
             default => throw new \InvalidArgumentException("Unknown archive module [{$module}]."),
         };
     }
 
     /**
-     * Return the exact seven module counts used by the unified Archives page.
+     * Return the exact eight module counts used by the unified Archives page.
      * Missing or partially deployed schemas degrade to zero for that module.
      *
      * @return array{counts: array<string, int>, availability: array<string, bool>, total: int}

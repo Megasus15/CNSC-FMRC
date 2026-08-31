@@ -11,6 +11,7 @@ use App\Models\OrderReturn;
 use App\Models\ProductRating;
 use App\Models\ProductRatingLike;
 use App\Models\Promotion;
+use App\Models\WalkInOrder;
 use App\Support\AdminArchiveRecords;
 use App\Support\ReturnPresenter;
 use Carbon\Carbon;
@@ -41,6 +42,7 @@ class ArchiveController extends Controller
         $promotions = collect();
         $announcements = collect();
         $ratings = collect();
+        $walkins = collect();
 
         try {
             // ── Inventory Items ────────────────────────────────────────────────
@@ -284,6 +286,49 @@ class ArchiveController extends Controller
             Log::error('ArchiveController: product ratings fetch failed', ['error' => $e->getMessage()]);
         }
 
+        try {
+            // ── Walk-in Customers ──────────────────────────────────────────────
+            if ($module === 'all' || $module === 'walkin') {
+                $walkins = AdminArchiveRecords::query('walkins')
+                    ->orderByDesc('archived_at')
+                    ->get()
+                    ->map(function (WalkInOrder $walkIn) {
+                        $money = fn ($amount) => '₱ '.number_format((float) ($amount ?? 0), 2, '.', ',');
+                        $withOther = function (?string $selected, ?string $other) {
+                            $selected = $selected ?: '—';
+
+                            return $other ? "{$selected}: {$other}" : $selected;
+                        };
+
+                        return [
+                            'id' => 'walkin-'.$walkIn->id,
+                            'source_id' => $walkIn->id,
+                            'module' => 'walkin',
+                            // Matches the Walk-in Customers table columns exactly
+                            'order_no' => $walkIn->order_no ?? '—',
+                            'customer_name' => $walkIn->customer_name ?: ($walkIn->customer ?: 'Walk-in Customer'),
+                            'address' => $walkIn->address ?? '—',
+                            'contact_number' => $walkIn->contact_number ?? '—',
+                            'client_type' => $withOther($walkIn->client_type, $walkIn->client_type_other),
+                            'agency_organization' => $walkIn->agency_organization ?? '—',
+                            'project_description' => $withOther($walkIn->project_description, $walkIn->project_description_other),
+                            'item_detail' => $walkIn->item_detail ?: ($walkIn->order_item ?: '—'),
+                            'unit' => $walkIn->unit ?? '—',
+                            'subtotal_cost' => (float) ($walkIn->subtotal_cost ?? 0),
+                            'subtotal_cost_label' => $money($walkIn->subtotal_cost ?? $walkIn->total),
+                            'total' => (float) ($walkIn->total ?? 0),
+                            'total_label' => $money($walkIn->total),
+                            'payment' => $walkIn->payment_method ?: 'WALKIN VIA CASHIER',
+                            'status' => $walkIn->status ?: 'Pending',
+                            'created_at' => $walkIn->created_at?->toIso8601String(),
+                            'archived_at' => $walkIn->archived_at?->toIso8601String(),
+                        ];
+                    });
+            }
+        } catch (\Throwable $e) {
+            Log::error('ArchiveController: walk-in orders fetch failed', ['error' => $e->getMessage()]);
+        }
+
         return response()->json([
             'inventory' => $inventory->values(),
             'appointments' => $appointments->values(),
@@ -292,6 +337,7 @@ class ArchiveController extends Controller
             'promotions' => $promotions->values(),
             'announcements' => $announcements->values(),
             'ratings' => $ratings->values(),
+            'walkins' => $walkins->values(),
         ]);
     }
 
@@ -303,7 +349,7 @@ class ArchiveController extends Controller
         }
 
         $validated = $request->validate([
-            'module' => ['required', 'string', Rule::in(['inventory', 'appointment', 'order', 'return', 'promotion', 'announcement', 'rating'])],
+            'module' => ['required', 'string', Rule::in(['inventory', 'appointment', 'order', 'return', 'promotion', 'announcement', 'rating', 'walkin'])],
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer', 'min:1', 'distinct'],
         ]);
@@ -321,6 +367,7 @@ class ArchiveController extends Controller
                 'promotion' => Promotion::query()->whereIn('id', $ids)->where('is_archived', true),
                 'announcement' => Announcement::query()->whereIn('id', $ids)->where('is_archived', true),
                 'rating' => ProductRating::query()->whereIn('id', $ids)->where('is_archived', true),
+                'walkin' => WalkInOrder::query()->whereIn('id', $ids)->where('is_archived', true),
             };
 
             $eligibleIds = (clone $query)
@@ -334,7 +381,7 @@ class ArchiveController extends Controller
             }
 
             $updates = match ($module) {
-                'inventory', 'order', 'return', 'promotion', 'announcement', 'rating' => [
+                'inventory', 'order', 'return', 'promotion', 'announcement', 'rating', 'walkin' => [
                     'is_archived' => false,
                     'archived_at' => null,
                     'updated_at' => $now,
@@ -372,7 +419,7 @@ class ArchiveController extends Controller
         }
 
         $validated = $request->validate([
-            'module' => ['required', 'string', Rule::in(['inventory', 'appointment', 'order', 'return', 'promotion', 'announcement', 'rating'])],
+            'module' => ['required', 'string', Rule::in(['inventory', 'appointment', 'order', 'return', 'promotion', 'announcement', 'rating', 'walkin'])],
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer', 'min:1', 'distinct'],
         ]);
@@ -389,6 +436,11 @@ class ArchiveController extends Controller
                 'promotion' => Promotion::query()->whereIn('id', $ids)->where('is_archived', true),
                 'announcement' => Announcement::query()->whereIn('id', $ids)->where('is_archived', true),
                 'rating' => ProductRating::query()->whereIn('id', $ids)->where('is_archived', true),
+                // No stock restore here on purpose: an archived walk-in is a sale
+                // that already happened, so its goods have left the building.
+                // `WalkInOrderController::destroy()` restores stock because that
+                // path is for undoing a mistaken entry, which is a different act.
+                'walkin' => WalkInOrder::query()->whereIn('id', $ids)->where('is_archived', true),
             };
 
             $eligibleIds = (clone $query)
@@ -537,6 +589,17 @@ class ArchiveController extends Controller
             }
         } catch (\Throwable $e) {
             Log::warning('Auto-delete product ratings failed: '.$e->getMessage());
+        }
+
+        try {
+            // Walk-in customers. Plain delete - no stock restore, same reasoning as
+            // the manual delete path above.
+            $totalDeleted += WalkInOrder::query()
+                ->where('is_archived', true)
+                ->where('archived_at', '<=', $cutoffDate)
+                ->delete();
+        } catch (\Throwable $e) {
+            Log::warning('Auto-delete walk-in orders failed: '.$e->getMessage());
         }
 
         return response()->json([

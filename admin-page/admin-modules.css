@@ -1380,6 +1380,88 @@ input.page-number:focus,
   gap: 14px;
 }
 
+/* ==========================================================================
+   Module tab strip (Archives page, Orders page)
+   --------------------------------------------------------------------------
+   Promoted here from the `archives.html` inline <style> so the Orders page can
+   reuse the same chips instead of duplicating them — `staff-page/orders.html`
+   has no inline style block of its own. Keeping the class names also keeps the
+   phone treatment in `admin-responsive.css` (2-track chip grid at <=720px and
+   the `.tab-count` font floor), which targets these classes by name.
+   ========================================================================== */
+.archive-module-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.archive-tab-btn {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 2px solid #e0e6ed;
+  background: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: #5a6272;
+  transition: all 0.18s ease;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.archive-tab-btn.active {
+  border-color: #800000;
+  background: #800000;
+  color: #fff;
+}
+
+/* Darker-only hover, no uplift — matches `.btn-admin`. */
+.archive-tab-btn:hover {
+  background: #f1e4e4;
+  border-color: #b06a6a;
+  color: #43484f;
+}
+
+.archive-tab-btn.active:hover {
+  background: #5f0000;
+  border-color: #5f0000;
+  color: #fff;
+}
+
+.archive-tab-btn:active {
+  transform: scale(0.97);
+}
+
+.archive-tab-btn .tab-count {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 99px;
+  padding: 1px 7px;
+  font-size: 0.72rem;
+}
+
+.archive-tab-btn:not(.active) .tab-count {
+  background: #f0f2f5;
+  color: #5a6272;
+}
+
+.archive-section {
+  display: none;
+}
+
+.archive-section.active {
+  display: block;
+}
+
+/* An Orders tab holds several panels, so the revealed section becomes the
+   stack that `.orders-layout-stack` used to be. */
+.orders-layout-stack .archive-section.active {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
 .incoming-orders-panel {
   border: 1px solid #f2d8d8;
   background: linear-gradient(160deg, #fff, #fff7f7);

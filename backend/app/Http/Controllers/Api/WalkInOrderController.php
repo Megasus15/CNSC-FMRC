@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class WalkInOrderController extends Controller
 {
@@ -51,12 +52,80 @@ class WalkInOrderController extends Controller
         }
 
         $rows = WalkInOrder::query()
+            ->when(
+                Schema::hasColumn('walk_in_orders', 'is_archived'),
+                fn ($query) => $query->where('is_archived', false)
+            )
             ->orderByDesc('order_date')
             ->orderByDesc('id')
             ->get();
 
         return response()->json([
             'data' => $rows->map(fn (WalkInOrder $order) => $this->transformRow($order))->values(),
+        ]);
+    }
+
+    /**
+     * Mark a walk-in order as done. `walk_in_orders.status` is free text, so this
+     * mirrors the appointment flow and simply stamps 'Completed' - which is also
+     * the gate the archive action below checks.
+     */
+    public function complete(Request $request, int $id): JsonResponse
+    {
+        $denied = $this->ensureAdmin($request);
+        if ($denied) {
+            return $denied;
+        }
+
+        $walkInOrder = WalkInOrder::query()->find($id);
+        if (!$walkInOrder) {
+            return response()->json(['message' => 'Walk-in order not found.'], 404);
+        }
+
+        $walkInOrder->status = 'Completed';
+        $walkInOrder->save();
+
+        return response()->json([
+            'message' => 'Walk-in order marked as done.',
+            'data' => $this->transformRow($walkInOrder->refresh()),
+        ]);
+    }
+
+    /**
+     * Archive a completed walk-in order. Archiving is list hygiene only - the row
+     * keeps counting toward revenue reports, and restoring it from the Archives
+     * page puts it straight back in the live list.
+     */
+    public function archive(Request $request, int $id): JsonResponse
+    {
+        $denied = $this->ensureAdmin($request);
+        if ($denied) {
+            return $denied;
+        }
+
+        if (!Schema::hasColumn('walk_in_orders', 'is_archived')) {
+            return response()->json([
+                'message' => 'Archiving is not available on this server yet.',
+            ], 422);
+        }
+
+        $walkInOrder = WalkInOrder::query()->find($id);
+        if (!$walkInOrder) {
+            return response()->json(['message' => 'Walk-in order not found.'], 404);
+        }
+
+        if (strtolower(trim((string) $walkInOrder->status)) !== 'completed') {
+            return response()->json([
+                'message' => 'Mark the walk-in order as done before archiving it.',
+            ], 422);
+        }
+
+        $walkInOrder->is_archived = true;
+        $walkInOrder->archived_at = now();
+        $walkInOrder->save();
+
+        return response()->json([
+            'message' => 'Walk-in order archived successfully.',
         ]);
     }
 

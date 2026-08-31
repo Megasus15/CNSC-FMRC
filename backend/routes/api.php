@@ -209,6 +209,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/walkin-orders', [WalkInOrderController::class, 'index']);
     Route::post('/admin/walkin-orders', [WalkInOrderController::class, 'store']);
     Route::put('/admin/walkin-orders/{id}', [WalkInOrderController::class, 'update']);
+    Route::patch('/admin/walkin-orders/{id}/complete', [WalkInOrderController::class, 'complete']);
+    Route::patch('/admin/walkin-orders/{id}/archive', [WalkInOrderController::class, 'archive']);
     Route::delete('/admin/walkin-orders/{id}', [WalkInOrderController::class, 'destroy']);
 
     // Admin: Products CRUD

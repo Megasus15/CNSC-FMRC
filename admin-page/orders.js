@@ -1797,16 +1797,40 @@ document.addEventListener("DOMContentLoaded", () => {
     paymentBulkController?.sync();
   };
 
+  // Walk-in `status` is free text (default "Pending"), so it is matched
+  // case-insensitively against the same three terminal words the appointment
+  // table uses.
+  const WALKIN_STATUS_PILL_CLASS = {
+    completed: "status-green",
+    cancelled: "status-red",
+    archived: "status-red",
+  };
+
+  const walkInStatusLabel = (row) => String(row?.status || "Pending").trim() || "Pending";
+
+  const walkInStatusClass = (row) =>
+    WALKIN_STATUS_PILL_CLASS[walkInStatusLabel(row).toLowerCase()] ||
+    "status-yellow";
+
+  const isWalkInCompleted = (row) =>
+    walkInStatusLabel(row).toLowerCase() === "completed";
+
   const renderWalkInTable = () => {
     state.walkInPage = renderPagedRows({
       rows: state.walkIn,
       tbody: walkInOrdersTbody,
-      colCount: 13,
+      colCount: 14,
       footer: walkInOrdersFooter,
       currentPage: state.walkInPage,
       pageSize: PAGE_SIZE,
       emptyMessage: "No walk-in orders available.",
-      renderRow: (row) => `
+      renderRow: (row) => {
+        const canArchive = isWalkInCompleted(row);
+        const isSettled = ["completed", "cancelled", "archived"].includes(
+          walkInStatusLabel(row).toLowerCase(),
+        );
+
+        return `
         <tr>
           <td>${escapeHtml(row.order_no || "-")}</td>
           <td>${escapeHtml(row.customer_name || row.customer || "-")}</td>
@@ -1820,11 +1844,21 @@ document.addEventListener("DOMContentLoaded", () => {
           <td>${escapeHtml(row.subtotal_cost_label || formatMoney(row.subtotal_cost))}</td>
           <td>${escapeHtml(row.total_label || formatMoney(row.total))}</td>
           <td>${escapeHtml(row.payment || row.payment_method || "WALKIN VIA CASHIER")}</td>
+          <td><span class="status-pill ${walkInStatusClass(row)}">${escapeHtml(walkInStatusLabel(row))}</span></td>
           <td class="action-icons sticky-action">
-            <button data-tooltip="View Order Info" data-walkin-view="${row.id}"><i class="fa-regular fa-eye"></i></button>
+            <button type="button" data-tooltip="View Order Info" data-walkin-view="${row.id}"><i class="fa-regular fa-eye"></i></button>
+            ${isSettled ? "" : `<button type="button" data-tooltip="Mark as Done" data-walkin-complete="${row.id}"><i class="fa-solid fa-circle-check"></i></button>`}
+            <button
+              type="button"
+              class="${canArchive ? "" : "is-disabled"}"
+              data-tooltip="${canArchive ? "Archive Walk-in Order" : "Mark walk-in order as Done before archiving"}"
+              data-walkin-archive="${row.id}"
+              ${canArchive ? "" : 'disabled aria-disabled="true"'}
+            ><i class="fa-solid fa-box-archive"></i></button>
           </td>
         </tr>
-      `,
+      `;
+      },
     });
   };
 
@@ -2330,6 +2364,31 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
   };
 
+  // The three section chips above the stack. Chip 1 covers the panels in
+  // #sectionOrders, chip 2 the three record panels, chip 3 the walk-ins - so the
+  // number on a chip always matches what opening it reveals.
+  const ordersTabCountEls = {
+    main: document.getElementById("tabCountOrdersMain"),
+    records: document.getElementById("tabCountOrdersRecords"),
+    walkin: document.getElementById("tabCountOrdersWalkin"),
+  };
+
+  const renderOrdersTabCounts = () => {
+    const setCount = (el, value) => {
+      if (!el) return;
+      el.textContent = String(value);
+    };
+    setCount(
+      ordersTabCountEls.main,
+      state.incoming.length + state.directory.length,
+    );
+    setCount(
+      ordersTabCountEls.records,
+      getRejectedRows().length + state.returns.length + state.payments.length,
+    );
+    setCount(ordersTabCountEls.walkin, state.walkIn.length);
+  };
+
   const renderAll = () => {
     renderIncomingTable();
     renderDirectoryTable();
@@ -2338,6 +2397,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderPaymentsTable();
     renderWalkInTable();
     renderCancellationAlert();
+    renderOrdersTabCounts();
   };
 
   const renderOrdersLoading = () => {
@@ -2397,7 +2457,7 @@ document.addEventListener("DOMContentLoaded", () => {
       (!walkInOrdersTbody.children.length ||
         walkInOrdersTbody.querySelector(".table-empty-state"))
     ) {
-      showSkeletons(walkInOrdersTbody, 13);
+      showSkeletons(walkInOrdersTbody, 14);
     }
   };
 
@@ -2521,7 +2581,7 @@ document.addEventListener("DOMContentLoaded", () => {
         11,
         "Unable to load return requests.",
       );
-      renderEmptyTable(walkInOrdersTbody, 13, "Unable to load walk-in orders.");
+      renderEmptyTable(walkInOrdersTbody, 14, "Unable to load walk-in orders.");
     } finally {
       if (state.syncController === syncController) {
         state.syncController = null;
@@ -3909,6 +3969,136 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
+  // ── Walk-in: Mark as Done + Archive ────────────────────────────────────
+  // Same two-step contract as appointments: a walk-in has to be Completed
+  // before it can leave the live table, so an in-progress sale can never be
+  // filed away by accident.
+
+  const openWalkInCompleteModal = (id, label) => {
+    const modal = document.getElementById("modalCompleteWalkInOrder");
+    if (!modal) return;
+    const labelEl = document.getElementById("completeWalkInTargetLabel");
+    if (labelEl) labelEl.textContent = label || `#${id}`;
+    modal._pendingWalkInId = id;
+    modal.classList.add("show");
+  };
+
+  const closeWalkInCompleteModal = () => {
+    const modal = document.getElementById("modalCompleteWalkInOrder");
+    modal?.classList.remove("show");
+    if (modal) modal._pendingWalkInId = null;
+  };
+
+  const openWalkInArchiveModal = (id, label) => {
+    const modal = document.getElementById("modalArchiveWalkInOrder");
+    if (!modal) return;
+    const labelEl = document.getElementById("walkInArchiveTargetLabel");
+    if (labelEl) labelEl.textContent = label || `#${id}`;
+    modal._pendingWalkInId = id;
+    modal.classList.add("show");
+  };
+
+  const closeWalkInArchiveModal = () => {
+    const modal = document.getElementById("modalArchiveWalkInOrder");
+    modal?.classList.remove("show");
+    if (modal) modal._pendingWalkInId = null;
+  };
+
+  document
+    .getElementById("btnCancelCompleteWalkIn")
+    ?.addEventListener("click", closeWalkInCompleteModal);
+
+  document
+    .getElementById("btnCancelArchiveWalkIn")
+    ?.addEventListener("click", closeWalkInArchiveModal);
+
+  document
+    .getElementById("btnConfirmCompleteWalkIn")
+    ?.addEventListener("click", async () => {
+      const modal = document.getElementById("modalCompleteWalkInOrder");
+      const id = modal?._pendingWalkInId;
+      if (!id) return;
+
+      const btn = document.getElementById("btnConfirmCompleteWalkIn");
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Saving...";
+      }
+
+      try {
+        const response = await request(`/admin/walkin-orders/${id}/complete`, {
+          method: "PATCH",
+        });
+        const updated = response?.data;
+        const index = state.walkIn.findIndex(
+          (row) => String(row.id) === String(id),
+        );
+        if (index >= 0) {
+          state.walkIn[index] = updated
+            ? { ...state.walkIn[index], ...updated }
+            : { ...state.walkIn[index], status: "Completed" };
+        }
+        renderAll();
+        notifyOrdersRealtimeUpdate({
+          type: "walkin-completed",
+          walkInId: String(id),
+        });
+        closeWalkInCompleteModal();
+        showPopup("Walk-in order marked as done.", { title: "Updated ✓" });
+      } catch (error) {
+        showPopup(error.message || "Unable to mark walk-in order as done.", {
+          title: "Action Failed",
+        });
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Mark as Done';
+        }
+      }
+    });
+
+  document
+    .getElementById("btnConfirmArchiveWalkIn")
+    ?.addEventListener("click", async () => {
+      const modal = document.getElementById("modalArchiveWalkInOrder");
+      const id = modal?._pendingWalkInId;
+      if (!id) return;
+
+      const btn = document.getElementById("btnConfirmArchiveWalkIn");
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Archiving...";
+      }
+
+      try {
+        await request(`/admin/walkin-orders/${id}/archive`, {
+          method: "PATCH",
+        });
+        state.walkIn = state.walkIn.filter(
+          (row) => String(row.id) !== String(id),
+        );
+        renderAll();
+        notifyOrdersRealtimeUpdate({
+          type: "walkin-archived",
+          walkInId: String(id),
+        });
+        closeWalkInArchiveModal();
+        showPopup("Walk-in order archived successfully.", {
+          title: "Archived ✓",
+        });
+      } catch (error) {
+        showPopup(error.message || "Unable to archive walk-in order.", {
+          title: "Archive Failed",
+        });
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML =
+            '<i class="fa-solid fa-box-archive"></i> Archive Order';
+        }
+      }
+    });
+
   const openPaymentDeleteModal = (payment) => {
     if (!modalDeletePaymentHistory || !payment) return;
 
@@ -4857,6 +5047,34 @@ document.addEventListener("DOMContentLoaded", () => {
     void submitReturnAction();
   });
 
+  // Section switcher - same behaviour as the Archives page tabs. Guarded so this
+  // file keeps working on a page that ships the stack without the chip strip.
+  const ordersTabButtons = Array.from(
+    document.querySelectorAll("#ordersModuleTabs .archive-tab-btn"),
+  );
+  if (ordersTabButtons.length) {
+    const ordersSections = Array.from(
+      document.querySelectorAll(".orders-layout-stack .archive-section"),
+    );
+    ordersTabButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const tab = String(button.dataset.tab || "");
+        ordersTabButtons.forEach((candidate) => {
+          candidate.classList.toggle("active", candidate === button);
+        });
+        ordersSections.forEach((section) => {
+          section.classList.toggle(
+            "active",
+            section.id.toLowerCase() === `section${tab}`.toLowerCase(),
+          );
+        });
+        // A table that was display:none is skipped by the column sizer, so the
+        // one that just became visible needs a pass.
+        window.AdminTableResize?.refresh?.();
+      });
+    });
+  }
+
   refreshBtn?.addEventListener("click", () => {
     refreshBtn.disabled = true;
     window.location.reload();
@@ -5086,12 +5304,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const editWalkInBtn = target.closest("[data-walkin-edit]");
     const viewWalkInBtn = target.closest("[data-walkin-view]");
+    const completeWalkInBtn = target.closest("[data-walkin-complete]");
+    const archiveWalkInBtn = target.closest("[data-walkin-archive]");
     if (viewWalkInBtn) {
       const id = viewWalkInBtn.getAttribute("data-walkin-view");
       const order = state.walkIn.find((o) => String(o.id) === String(id));
       if (order) {
         openWalkInDetailsModal(order);
       }
+      return;
+    }
+
+    if (completeWalkInBtn) {
+      const id = completeWalkInBtn.getAttribute("data-walkin-complete");
+      const order = state.walkIn.find((o) => String(o.id) === String(id));
+      openWalkInCompleteModal(id, order?.order_no);
+      return;
+    }
+
+    if (archiveWalkInBtn) {
+      if (archiveWalkInBtn.disabled) return;
+      const id = archiveWalkInBtn.getAttribute("data-walkin-archive");
+      const order = state.walkIn.find((o) => String(o.id) === String(id));
+      openWalkInArchiveModal(id, order?.order_no);
       return;
     }
 

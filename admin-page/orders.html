@@ -10,8 +10,8 @@
     <link rel="icon" href="../images/favicon.ico?v=3" sizes="any" />
     <link rel="apple-touch-icon" href="../images/apple-touch-icon.png?v=3" />
     <title>Orders | UCN-FMRC Admin</title>
-    <link rel="stylesheet" href="dashboard.css?v=6.1" />
-    <link rel="stylesheet" href="admin-modules.css?v=6.1" />
+    <link rel="stylesheet" href="dashboard.css?v=6.2" />
+    <link rel="stylesheet" href="admin-modules.css?v=6.2" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -152,7 +152,26 @@
             </div>
           </div>
 
+          <!-- Section switcher — same chips as the Archives page so the six
+               order panels are browsed one group at a time instead of one
+               long scroll. Styles live in admin-modules.css. -->
+          <div class="archive-module-tabs" id="ordersModuleTabs">
+            <button class="archive-tab-btn active" data-tab="orders" type="button">
+              <i class="fa-solid fa-box-open"></i> Orders
+              <span class="tab-count" id="tabCountOrdersMain">0</span>
+            </button>
+            <button class="archive-tab-btn" data-tab="records" type="button">
+              <i class="fa-solid fa-rotate-left"></i> Rejected, Returns &amp; Payments
+              <span class="tab-count" id="tabCountOrdersRecords">0</span>
+            </button>
+            <button class="archive-tab-btn" data-tab="walkin" type="button">
+              <i class="fa-solid fa-cash-register"></i> Walk-in Customers
+              <span class="tab-count" id="tabCountOrdersWalkin">0</span>
+            </button>
+          </div>
+
           <div class="orders-layout-stack">
+            <section class="archive-section active" id="sectionOrders">
             <article class="panel incoming-orders-panel">
               <div class="panel-header incoming-panel-header">
                 <div>
@@ -279,65 +298,9 @@
                 </div>
               </div>
             </article>
+            </section>
 
-            <article class="panel" id="walkInOrdersPanel">
-              <div class="panel-header">
-                <h3>Walk-in Customers</h3>
-                <div class="filters-row">
-                  <button
-                    class="btn-admin"
-                    id="openWalkInOrderModalBtn"
-                    type="button"
-                  >
-                    <i class="fa-solid fa-plus"></i> Add
-                  </button>
-                </div>
-              </div>
-              <div class="table-scroll-hint table-scroll-hint--mobile">
-                <i class="fa-solid fa-left-right"></i> Scroll horizontally to
-                see all columns.
-              </div>
-              <div class="table-wrapper walkin-table-wrapper">
-                <table
-                  class="admin-table"
-                  id="walkInOrdersTable"
-                  data-page-size="10"
-                  data-empty-message="No walk-in orders available."
-                >
-                  <thead>
-                    <tr>
-                      <th>Payment Order No.</th>
-                      <th>Name</th>
-                      <th>Address</th>
-                      <th>Contact Number</th>
-                      <th>Type of Client</th>
-                      <th>Agency/Organization</th>
-                      <th>Description of the Project</th>
-                      <th>Item Detail</th>
-                      <th>Quantity</th>
-                      <th>Subtotal Cost</th>
-                      <th>Total</th>
-                      <th>Payment</th>
-                      <th class="sticky-action">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody></tbody>
-                </table>
-              </div>
-              <div class="table-footer" id="walkInOrdersFooter">
-                <div class="table-footer-meta">Page 1 of 1</div>
-                <div class="table-pagination">
-                  <button class="page-btn" type="button" disabled>
-                    <i class="fa-solid fa-chevron-left"></i>
-                  </button>
-                  <input class="page-number" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to walk-in orders page" />
-                  <button class="page-btn" type="button" disabled>
-                    <i class="fa-solid fa-chevron-right"></i>
-                  </button>
-                </div>
-              </div>
-            </article>
-
+            <section class="archive-section" id="sectionRecords">
             <!-- ═══════════ REJECTED ORDERS PANEL ═══════════ -->
             <article class="panel" id="rejectedOrdersPanel">
               <div class="panel-header">
@@ -536,6 +499,69 @@
                 </div>
               </div>
             </article>
+            </section>
+
+            <!-- ═══════════ WALK-IN CUSTOMERS PANEL ═══════════ -->
+            <section class="archive-section" id="sectionWalkin">
+            <article class="panel" id="walkInOrdersPanel">
+              <div class="panel-header">
+                <h3>Walk-in Customers</h3>
+                <div class="filters-row">
+                  <button
+                    class="btn-admin"
+                    id="openWalkInOrderModalBtn"
+                    type="button"
+                  >
+                    <i class="fa-solid fa-plus"></i> Add
+                  </button>
+                </div>
+              </div>
+              <div class="table-scroll-hint table-scroll-hint--mobile">
+                <i class="fa-solid fa-left-right"></i> Scroll horizontally to
+                see all columns.
+              </div>
+              <div class="table-wrapper walkin-table-wrapper">
+                <table
+                  class="admin-table"
+                  id="walkInOrdersTable"
+                  data-page-size="10"
+                  data-empty-message="No walk-in orders available."
+                >
+                  <thead>
+                    <tr>
+                      <th>Payment Order No.</th>
+                      <th>Name</th>
+                      <th>Address</th>
+                      <th>Contact Number</th>
+                      <th>Type of Client</th>
+                      <th>Agency/Organization</th>
+                      <th>Description of the Project</th>
+                      <th>Item Detail</th>
+                      <th>Quantity</th>
+                      <th>Subtotal Cost</th>
+                      <th>Total</th>
+                      <th>Payment</th>
+                      <th>Status</th>
+                      <th class="sticky-action">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+              <div class="table-footer" id="walkInOrdersFooter">
+                <div class="table-footer-meta">Page 1 of 1</div>
+                <div class="table-pagination">
+                  <button class="page-btn" type="button" disabled>
+                    <i class="fa-solid fa-chevron-left"></i>
+                  </button>
+                  <input class="page-number" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to walk-in orders page" />
+                  <button class="page-btn" type="button" disabled>
+                    <i class="fa-solid fa-chevron-right"></i>
+                  </button>
+                </div>
+              </div>
+            </article>
+            </section>
           </div>
         </section>
       </main>
@@ -1623,9 +1649,147 @@
       </div>
     </div>
 
+    <!-- ---- MARK WALK-IN AS DONE MODAL ---- -->
+    <div
+      class="modal-overlay"
+      id="modalCompleteWalkInOrder"
+      data-backdrop-close="false"
+    >
+      <div class="modal-card modal-confirm">
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 4px;
+          "
+        >
+          <div
+            style="
+              width: 42px;
+              height: 42px;
+              border-radius: 10px;
+              background: linear-gradient(135deg, #7f1d1d, #dc2626);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+            "
+          >
+            <i
+              class="fa-solid fa-circle-check"
+              style="color: #fff; font-size: 1.1rem"
+            ></i>
+          </div>
+          <h3 class="modal-title" style="margin-bottom: 0">
+            Mark Walk-in Order as Done
+          </h3>
+        </div>
+        <hr class="confirm-separator" />
+        <p class="confirm-text">
+          You are about to mark walk-in order
+          <strong id="completeWalkInTargetLabel">this walk-in order</strong> as
+          completed.
+        </p>
+        <p class="field-hint">
+          The status will be updated to <strong>Completed</strong>, which also
+          unlocks the Archive action for this row.
+        </p>
+        <hr class="confirm-separator" />
+        <div class="modal-actions">
+          <button
+            class="btn-admin btn-secondary"
+            id="btnCancelCompleteWalkIn"
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            class="btn-admin"
+            id="btnConfirmCompleteWalkIn"
+            type="button"
+            style="
+              background: linear-gradient(135deg, #7f1d1d, #dc2626);
+              border-color: #dc2626;
+            "
+          >
+            <i class="fa-solid fa-circle-check"></i> Mark as Done
+          </button>
+        </div>
+      </div>
+    </div>
+    <!-- ---- ARCHIVE WALK-IN ORDER MODAL ---- -->
+    <div
+      class="modal-overlay"
+      id="modalArchiveWalkInOrder"
+      data-backdrop-close="false"
+    >
+      <div class="modal-card modal-confirm">
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 4px;
+          "
+        >
+          <div
+            style="
+              width: 42px;
+              height: 42px;
+              border-radius: 10px;
+              background: linear-gradient(135deg, #7f1d1d, #dc2626);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+            "
+          >
+            <i
+              class="fa-solid fa-box-archive"
+              style="color: #fff; font-size: 1.1rem"
+            ></i>
+          </div>
+          <h3 class="modal-title" style="margin-bottom: 0">
+            Archive Walk-in Order
+          </h3>
+        </div>
+        <hr class="confirm-separator" />
+        <p class="confirm-text">
+          You are about to archive walk-in order
+          <strong id="walkInArchiveTargetLabel"></strong>.
+        </p>
+        <p class="field-hint">
+          The record will be moved to the Archives page. You can restore it from
+          there if needed, and it keeps counting toward your sales reports.
+        </p>
+        <hr class="confirm-separator" />
+        <div class="modal-actions">
+          <button
+            class="btn-admin btn-secondary"
+            id="btnCancelArchiveWalkIn"
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            class="btn-admin"
+            id="btnConfirmArchiveWalkIn"
+            type="button"
+            style="
+              background: linear-gradient(135deg, #7f1d1d, #dc2626);
+              border-color: #dc2626;
+            "
+          >
+            <i class="fa-solid fa-box-archive"></i> Archive Order
+          </button>
+        </div>
+      </div>
+    </div>
+
     <script src="session-helper.js"></script>
     <script src="admin-common.js?v=6.1"></script>
-    <script src="orders.js?v=6.0"></script>
+    <script src="orders.js?v=6.1"></script>
     <script src="admin-table-resize.js?v=1.2" defer></script>
   </body>
 </html>

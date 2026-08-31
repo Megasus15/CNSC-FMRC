@@ -95,6 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
     rating: { all: [], page: 1, controller: null },
     promotion: { all: [], page: 1, controller: null },
     announcement: { all: [], page: 1, controller: null },
+    walkin: { all: [], page: 1, controller: null },
   };
   let searchQuery = "";
   const inventoryVariantPages = new Map();
@@ -245,6 +246,32 @@ document.addEventListener("DOMContentLoaded", () => {
       tableLabel: "Announcement Archived Items",
       emptyMessage: "No archived announcements found.",
       searchFields: ["title", "message", "placement", "status"],
+    },
+    walkin: {
+      payloadKey: "walkins",
+      tableId: "walkinArchiveTable",
+      tbodyId: "walkinArchiveTbody",
+      footerId: "walkinArchiveFooter",
+      metaId: "walkinArchiveMeta",
+      pageId: "walkinCurrentPage",
+      prevId: "walkinPrevBtn",
+      nextId: "walkinNextBtn",
+      countId: "tabCountWalkin",
+      colCount: 16,
+      tableLabel: "Walk-in Customers Archived Items",
+      emptyMessage: "No archived walk-in orders found.",
+      searchFields: [
+        "order_no",
+        "customer_name",
+        "address",
+        "contact_number",
+        "client_type",
+        "agency_organization",
+        "project_description",
+        "item_detail",
+        "payment",
+        "status",
+      ],
     },
   };
 
@@ -485,6 +512,30 @@ document.addEventListener("DOMContentLoaded", () => {
         <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.created_at)}</td>
         <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
         <td class="action-icons sticky-action">${restoreButton(module, row, customer)}${deleteButton(module, row, customer)}</td>
+      </tr>`;
+    }
+
+    if (module === "walkin") {
+      // Same column order as the walk-in table on the Orders page, plus the
+      // archive stamp. `status` is free text there, so statusPill() decides the
+      // colour from the word itself.
+      return `<tr>
+        ${rowCheckbox(module, row, row.order_no)}
+        <td style="font-weight:700;color:#800000;">${esc(row.order_no)}</td>
+        <td style="font-weight:600;">${esc(row.customer_name)}</td>
+        <td style="color:#64748b;font-size:0.8rem;min-width:180px;white-space:normal;">${esc(row.address)}</td>
+        <td>${esc(row.contact_number)}</td>
+        <td>${esc(row.client_type)}</td>
+        <td>${esc(row.agency_organization)}</td>
+        <td style="min-width:200px;white-space:normal;">${esc(row.project_description)}</td>
+        <td style="min-width:180px;white-space:normal;">${esc(row.item_detail)}</td>
+        <td>${esc(row.unit)}</td>
+        <td>${esc(row.subtotal_cost_label)}</td>
+        <td style="font-weight:700;">${esc(row.total_label)}</td>
+        <td>${esc(row.payment)}</td>
+        <td>${statusPill(row.status)}</td>
+        <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.archived_at, true)}</td>
+        <td class="action-icons sticky-action">${restoreButton(module, row, row.order_no)}${deleteButton(module, row, row.order_no)}</td>
       </tr>`;
     }
 

@@ -26,6 +26,8 @@ class WalkInOrder extends Model
         'payment_method',
         'total',
         'status',
+        'is_archived',
+        'archived_at',
         'created_by_user_id',
     ];
 
@@ -33,6 +35,8 @@ class WalkInOrder extends Model
         'order_date' => 'datetime',
         'subtotal_cost' => 'decimal:2',
         'total' => 'decimal:2',
+        'is_archived' => 'boolean',
+        'archived_at' => 'datetime',
     ];
 
     public function createdBy()
