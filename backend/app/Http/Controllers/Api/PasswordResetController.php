@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Support\Branding;
+use App\Support\EmailTemplate;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -466,21 +466,20 @@ class PasswordResetController extends Controller
     }
 
     /**
-     * Professional, beautiful HTML email template with large 6-digit OTP code.
+     * Password-reset OTP email. The header, body copy, footer note and header
+     * colour come from the admin-editable `password_reset_otp` template; the
+     * OTP box, the lockout warning and the instruction line are code-owned so
+     * an edit can never send an OTP email without the OTP in it.
      */
     private function buildOtpEmailHtml(User $user, string $otpCode, int $sendCount, int $tier, ?Carbon $lockedUntil): string
     {
-        $name = e($user->name ?? 'Valued Customer');
-        $appName = Branding::NAME;
-        $institution = Branding::INSTITUTION;
-        $year = now()->year;
-        $accent = '#800000';
-        $formattedOtp = implode(' ', str_split($otpCode));
+        $formattedOtp = e(implode(' ', str_split($otpCode)));
 
         $lockoutWarningHtml = '';
         if ($sendCount >= self::MAX_SEND_LIMIT && $lockedUntil) {
-            $durationReadable = $this->formatDurationReadable($this->getTierLockoutMinutes($tier));
+            $durationReadable = e($this->formatDurationReadable($this->getTierLockoutMinutes($tier)));
             $lockoutWarningHtml = <<<HTML
+
             <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:12px 16px;margin:20px 0 10px;text-align:left;">
                 <p style="margin:0;font-size:13px;color:#92400e;line-height:1.5;">
                     ⚠️ <strong>Notice:</strong> You have reached your 5/5 OTP request limit for this cycle. If you require another code later, a <strong>{$durationReadable}</strong> security cooldown will apply.
@@ -489,61 +488,21 @@ class PasswordResetController extends Controller
 HTML;
         }
 
-        return <<<HTML
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#f4f6f9;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:32px 16px;">
-<tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:600px;width:100%;">
-
-<!-- Header -->
-<tr><td style="background:{$accent};padding:30px 32px;text-align:center;">
-    <h1 style="color:#ffffff;font-size:22px;margin:0;letter-spacing:0.04em;font-weight:800;text-transform:uppercase;">{$appName}</h1>
-    <p style="color:#fecaca;font-size:13px;margin:6px 0 0;font-weight:500;">Fabrication and Manufacturing Research Center</p>
-</td></tr>
-
-<!-- Body -->
-<tr><td style="padding:36px 36px 28px;">
-    <h2 style="color:#111827;font-size:20px;font-weight:700;margin:0 0 12px;">Password Reset Verification Code</h2>
-    <p style="color:#4b5563;font-size:15px;line-height:1.6;margin:0 0 20px;">
-        Hello <strong>{$name}</strong>,<br>
-        We received a request to reset the password for your customer account. Use the 6-digit OTP code below to verify your request:
-    </p>
-
-    <!-- OTP Code Box -->
-    <div style="background:#fdf2f2;border:2px dashed #dc2626;border-radius:12px;padding:24px 16px;text-align:center;margin:24px 0;">
-        <span style="display:block;font-size:12px;font-weight:700;color:#991b1b;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px;">YOUR 6-DIGIT OTP CODE</span>
-        <span style="font-family:'Courier New',Courier,monospace;font-size:36px;font-weight:800;color:#800000;letter-spacing:8px;display:inline-block;padding:4px 12px;background:#ffffff;border-radius:8px;border:1px solid #fecaca;">{$formattedOtp}</span>
-        <span style="display:block;font-size:13px;color:#6b7280;margin-top:12px;">Valid for <strong>15 minutes</strong></span>
-    </div>
-
-    {$lockoutWarningHtml}
-
-    <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:16px 0 0;">
-        Enter this code in the password reset form along with your new password to complete the update.
-    </p>
-
-    <hr style="border:none;border-top:1px solid #f3f4f6;margin:28px 0 20px;">
-
-    <p style="color:#9ca3af;font-size:12px;line-height:1.5;margin:0;">
-        🔒 If you did not request a password reset, please ignore this email. Your password will remain unchanged. Never share your OTP with anyone.
-    </p>
-</td></tr>
-
-<!-- Footer -->
-<tr><td style="background:#f9fafb;padding:20px 32px;text-align:center;border-top:1px solid #f3f4f6;">
-    <p style="color:#9ca3af;font-size:12px;margin:0;">
-        &copy; {$year} {$appName} • {$institution}. All rights reserved.
-    </p>
-</td></tr>
-
-</table>
-</td></tr>
-</table>
-</body>
-</html>
+        $extra = <<<HTML
+<!-- OTP Code Box -->
+            <div style="background:#fdf2f2;border:2px dashed #dc2626;border-radius:12px;padding:24px 16px;text-align:center;margin:0 0 24px;">
+                <span style="display:block;font-size:12px;font-weight:700;color:#991b1b;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px;">YOUR 6-DIGIT OTP CODE</span>
+                <span style="font-family:'Courier New',Courier,monospace;font-size:36px;font-weight:800;color:#800000;letter-spacing:8px;display:inline-block;padding:4px 12px;background:#ffffff;border-radius:8px;border:1px solid #fecaca;">{$formattedOtp}</span>
+                <span style="display:block;font-size:13px;color:#6b7280;margin-top:12px;">Valid for <strong>15 minutes</strong></span>
+            </div>{$lockoutWarningHtml}
+            <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 20px;">
+                Enter this code in the password reset form along with your new password to complete the update.
+            </p>
 HTML;
+
+        return EmailTemplate::render('password_reset_otp', [
+            'customer_name' => $user->name ?? 'Valued Customer',
+            'otp_code'      => $formattedOtp,
+        ], $extra);
     }
 }

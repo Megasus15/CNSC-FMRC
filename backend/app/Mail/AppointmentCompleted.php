@@ -4,7 +4,7 @@ namespace App\Mail;
 
 use App\Models\Appointment;
 use App\Models\SiteSetting;
-use App\Support\Branding;
+use App\Support\EmailTemplate;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
@@ -114,8 +114,11 @@ class AppointmentCompleted extends Mailable
 
     /**
      * Build the HTML email body for the completed-visit thank-you note.
-     * Same 600px shell, maroon header and footer as AppointmentConfirmation so
-     * the two messages read as one family.
+     *
+     * The header, body copy, footer note and header colour come from the
+     * admin-editable `appointment_completed` template. The visit summary, the
+     * "come back" invitation and the Reach Us Anytime table are code-owned so
+     * the client never loses the reference number or a way to contact us.
      */
     private function buildHtml(): string
     {
@@ -135,12 +138,8 @@ class AppointmentCompleted extends Mailable
         $date    = e(optional($appointment->appointment_date)->format('F j, Y') ?? 'N/A');
         $time    = e($appointment->appointment_time ?? 'N/A');
         $purpose = e($appointment->purpose ?? 'N/A');
-        $name    = e($clientName);
-        $hello   = e($firstName);
 
-        $appName = Branding::NAME;
-        $year    = now()->year;
-        $accent  = '#800000';
+        $accent  = EmailTemplate::color(EmailTemplate::resolve('appointment_completed')['header_color']);
         $success = '#0f7b52';
 
         $siteUrl  = e($office['site_url']);
@@ -155,129 +154,96 @@ class AppointmentCompleted extends Mailable
             : $location;
 
         $facebookRow = $office['facebook'] !== '' ? "
-        <tr>
-          <td style=\"padding:8px 20px 14px;\">
-            <span style=\"color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;\">Facebook</span><br>
-            <a href=\"" . e($office['facebook_url']) . "\" style=\"color:{$accent};font-size:14px;font-weight:600;text-decoration:none;\">" . e($office['facebook']) . "</a>
-          </td>
-        </tr>" : '';
+              <tr>
+                <td style=\"padding:8px 20px 14px;\">
+                  <span style=\"color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;\">Facebook</span><br>
+                  <a href=\"" . e($office['facebook_url']) . "\" style=\"color:{$accent};font-size:14px;font-weight:600;text-decoration:none;\">" . e($office['facebook']) . "</a>
+                </td>
+              </tr>" : '';
 
-        return <<<HTML
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#f4f6f9;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:32px 16px;">
-<tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-
-<!-- Header -->
-<tr><td style="background:{$accent};padding:28px 32px;text-align:center;">
-  <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.3px;">{$appName}</h1>
-  <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">Thank You for Your Visit</p>
-</td></tr>
-
-<!-- Body -->
-<tr><td style="padding:32px;">
-  <h2 style="margin:0 0 8px;color:#1f2937;font-size:18px;font-weight:700;">Thank You for Visiting Us, {$hello}!</h2>
-  <p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.7;">
-    Hi {$name},<br><br>
-    It was a genuine pleasure to welcome you to the <strong>Fabrication and Manufacturing Research Center</strong>. Your appointment is now complete, and we hope our team, our facilities and our service made your visit worthwhile.<br><br>
-    Maraming salamat for trusting us with your project &mdash; clients like you are the very reason this laboratory exists.
-  </p>
-
-  <!-- Visit Summary Card -->
-  <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;">
-    <tr>
-      <td style="padding:14px 20px;border-bottom:1px solid #f1f4f8;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Reference Number</span><br>
-        <span style="color:{$accent};font-size:18px;font-weight:800;">{$refNo}</span>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:10px 20px;border-bottom:1px solid #f1f4f8;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Visit Schedule</span><br>
-        <span style="color:#111827;font-size:15px;font-weight:700;">{$date} &mdash; {$time}</span>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:10px 20px;border-bottom:1px solid #f1f4f8;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Purpose of Visit</span><br>
-        <span style="color:#374151;font-size:14px;font-weight:600;">{$purpose}</span>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:12px 20px;">
-        <span style="display:inline-block;background:{$success};color:#fff;padding:5px 16px;border-radius:999px;font-size:12px;font-weight:700;">Status: Completed</span>
-      </td>
-    </tr>
-  </table>
-  <!-- Invitation to come back -->
-  <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#fff8f6;border:1px solid #f0d9d4;border-radius:10px;">
-    <tr>
-      <td style="padding:20px;text-align:center;">
-        <h3 style="margin:0 0 6px;color:{$accent};font-size:16px;font-weight:800;">You Are Always Welcome Back</h3>
-        <p style="margin:0 0 16px;color:#4b5563;font-size:13.5px;line-height:1.7;">
-          Have another idea, prototype or project in mind? Booking is open anytime &mdash; pick a schedule that fits you and our team will be glad to accommodate you again.
-        </p>
-        <a href="{$siteUrl}" style="display:inline-block;background:{$accent};color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:999px;">Set Another Appointment</a>
-        <p style="margin:12px 0 0;color:#9ca3af;font-size:11.5px;">
-          Or open <a href="{$siteUrl}" style="color:{$accent};text-decoration:none;font-weight:600;">{$siteUrl}</a> in your browser.
-        </p>
-      </td>
-    </tr>
-  </table>
-
-  <!-- Contact Information -->
-  <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;">
-    <tr>
-      <td style="padding:14px 20px 8px;">
-        <span style="color:{$accent};font-size:13px;font-weight:800;letter-spacing:.02em;">Reach Us Anytime</span>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:6px 20px;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Office Hours</span><br>
-        <span style="color:#374151;font-size:14px;font-weight:600;">{$hours}</span>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:8px 20px;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Location</span><br>
-        <span style="color:#374151;font-size:14px;font-weight:600;">{$locationValue}</span>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:8px 20px;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Email</span><br>
-        <a href="mailto:{$mailTo}" style="color:{$accent};font-size:14px;font-weight:600;text-decoration:none;">{$mailTo}</a>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:8px 20px;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Phone</span><br>
-        <a href="tel:{$telHref}" style="color:{$accent};font-size:14px;font-weight:600;text-decoration:none;">{$phone}</a>
-      </td>
-    </tr>{$facebookRow}
-  </table>
-  <p style="color:#6b7280;font-size:13px;line-height:1.6;margin:0;">
-    Your feedback helps us serve the next client better, so please tell us how we did through any of the channels above. Until your next visit &mdash; keep creating, and we will keep the machines ready for you.
-  </p>
-</td></tr>
-
-<!-- Footer -->
-<tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 32px;text-align:center;">
-  <p style="margin:0;color:#9ca3af;font-size:12px;">
-    &copy; {$year} {$appName}. All rights reserved.<br>
-    This is an automated notification — please do not reply to this email.
-  </p>
-</td></tr>
-
-</table>
-</td></tr>
-</table>
-</body>
-</html>
+        $extra = <<<HTML
+<!-- Visit Summary Card -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;">
+              <tr>
+                <td style="padding:14px 20px;border-bottom:1px solid #f1f4f8;">
+                  <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Reference Number</span><br>
+                  <span style="color:{$accent};font-size:18px;font-weight:800;">{$refNo}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:10px 20px;border-bottom:1px solid #f1f4f8;">
+                  <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Visit Schedule</span><br>
+                  <span style="color:#111827;font-size:15px;font-weight:700;">{$date} &mdash; {$time}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:10px 20px;border-bottom:1px solid #f1f4f8;">
+                  <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Purpose of Visit</span><br>
+                  <span style="color:#374151;font-size:14px;font-weight:600;">{$purpose}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:12px 20px;">
+                  <span style="display:inline-block;background:{$success};color:#fff;padding:5px 16px;border-radius:999px;font-size:12px;font-weight:700;">Status: Completed</span>
+                </td>
+              </tr>
+            </table>
+            <!-- Invitation to come back -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#fff8f6;border:1px solid #f0d9d4;border-radius:10px;">
+              <tr>
+                <td style="padding:20px;text-align:center;">
+                  <h3 style="margin:0 0 6px;color:{$accent};font-size:16px;font-weight:800;">You Are Always Welcome Back</h3>
+                  <p style="margin:0 0 16px;color:#4b5563;font-size:13.5px;line-height:1.7;">
+                    Have another idea, prototype or project in mind? Booking is open anytime &mdash; pick a schedule that fits you and our team will be glad to accommodate you again.
+                  </p>
+                  <a href="{$siteUrl}" style="display:inline-block;background:{$accent};color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;padding:12px 28px;border-radius:999px;">Set Another Appointment</a>
+                  <p style="margin:12px 0 0;color:#9ca3af;font-size:11.5px;">
+                    Or open <a href="{$siteUrl}" style="color:{$accent};text-decoration:none;font-weight:600;">{$siteUrl}</a> in your browser.
+                  </p>
+                </td>
+              </tr>
+            </table>
+            <!-- Contact Information -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;">
+              <tr>
+                <td style="padding:14px 20px 8px;">
+                  <span style="color:{$accent};font-size:13px;font-weight:800;letter-spacing:.02em;">Reach Us Anytime</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:6px 20px;">
+                  <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Office Hours</span><br>
+                  <span style="color:#374151;font-size:14px;font-weight:600;">{$hours}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:8px 20px;">
+                  <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Location</span><br>
+                  <span style="color:#374151;font-size:14px;font-weight:600;">{$locationValue}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:8px 20px;">
+                  <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Email</span><br>
+                  <a href="mailto:{$mailTo}" style="color:{$accent};font-size:14px;font-weight:600;text-decoration:none;">{$mailTo}</a>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:8px 20px;">
+                  <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Phone</span><br>
+                  <a href="tel:{$telHref}" style="color:{$accent};font-size:14px;font-weight:600;text-decoration:none;">{$phone}</a>
+                </td>
+              </tr>{$facebookRow}
+            </table>
 HTML;
+
+        return EmailTemplate::render('appointment_completed', [
+            'client_name'  => $clientName,
+            'first_name'   => $firstName,
+            'reference_no' => (string) ($appointment->reference_no ?? 'N/A'),
+            'date'         => (string) (optional($appointment->appointment_date)->format('F j, Y') ?? 'N/A'),
+            'time'         => (string) ($appointment->appointment_time ?? 'N/A'),
+            'purpose'      => (string) ($appointment->purpose ?? 'N/A'),
+        ], $extra);
     }
 }

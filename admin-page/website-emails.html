@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#800000" />
+    <link rel="icon" href="../images/favicon.ico?v=3" sizes="any" />
+    <link rel="apple-touch-icon" href="../images/apple-touch-icon.png?v=3" />
+    <title>Email Templates | UCN-FMRC Admin</title>
+    <link rel="stylesheet" href="dashboard.css?v=6.2" />
+    <link rel="stylesheet" href="admin-modules.css?v=6.2" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <style>
+      .wm-section {
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 22px 24px;
+      }
+      .wm-section-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 18px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #f0f0f0;
+      }
+      .wm-section-header h3 {
+        font-size: 1rem;
+        color: var(--primary-color);
+        margin: 0;
+      }
+      .wm-section-header i {
+        color: var(--primary-color);
+      }
+      .wm-form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .wm-form-grid .full {
+        grid-column: 1/-1;
+      }
+      .field-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .field-stack label {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #111827;
+      }
+      .wm-input,
+      .wm-textarea {
+        border: 1px solid #d8dde3;
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 0.82rem;
+        color: #333;
+        width: 100%;
+        background: #fff;
+        font-family: inherit;
+      }
+      .wm-textarea {
+        min-height: 70px;
+        resize: vertical;
+      }
+      .et-layout {
+        display: grid;
+        grid-template-columns: 292px minmax(0, 1fr);
+        gap: 18px;
+        align-items: start;
+      }
+      .et-editor-pane {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        min-width: 0;
+      }
+      .et-list {
+        margin-top: 12px;
+        max-height: 62vh;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .et-group-label {
+        font-size: 0.66rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #9ca3af;
+        padding: 12px 4px 4px;
+      }
+      .et-item {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        width: 100%;
+        text-align: left;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 9px 11px;
+        font-size: 0.79rem;
+        font-weight: 600;
+        color: #374151;
+        cursor: pointer;
+        font-family: inherit;
+        transition: background 0.15s;
+      }
+      .et-item:hover {
+        background: #f3f4f6;
+      }
+      .et-item:active {
+        background: #e5e7eb;
+      }
+      .et-item.active,
+      .et-item.active:hover {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        color: #fff;
+      }
+      .et-item.active:active {
+        background: #5c0000;
+      }
+      .et-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #d1d5db;
+        flex: 0 0 auto;
+      }
+      .et-item.edited .et-dot {
+        background: #15803d;
+      }
+      .et-item.active .et-dot {
+        background: #fff;
+      }
+      .et-locked {
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 0.76rem;
+        color: #78350f;
+        line-height: 1.6;
+        margin: 0 0 16px;
+      }
+      .et-tokens {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .et-token {
+        background: #f3f4f6;
+        border: 1px solid #e5e7eb;
+        border-radius: 999px;
+        padding: 4px 11px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #4b5563;
+        cursor: pointer;
+        font-family: inherit;
+        transition: background 0.15s;
+      }
+      .et-token:hover {
+        background: #e5e7eb;
+      }
+      .et-token:active {
+        background: #d1d5db;
+      }
+      .et-color-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .et-color-row input[type="color"] {
+        width: 46px;
+        height: 36px;
+        padding: 2px;
+        border: 1px solid #d8dde3;
+        border-radius: 8px;
+        background: #fff;
+        cursor: pointer;
+        flex: 0 0 auto;
+      }
+      .et-swatches {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: 2px;
+      }
+      .et-swatch {
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        border: 1px solid rgba(0, 0, 0, 0.14);
+        cursor: pointer;
+        padding: 0;
+      }
+      .et-hint {
+        font-size: 0.76rem;
+        color: #6b7280;
+        margin: 0;
+        line-height: 1.6;
+      }
+      .et-preview-frame {
+        width: 100%;
+        height: 540px;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        background: #f4f4f6;
+        display: block;
+      }
+      .et-status {
+        font-size: 0.78rem;
+        color: #6b7280;
+        margin: 0;
+      }
+      .et-status.is-error {
+        color: #b91c1c;
+        font-weight: 600;
+      }
+      .et-save-bar {
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 16px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        position: sticky;
+        bottom: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      }
+      .et-save-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .et-group-chip {
+        margin-left: auto;
+        background: #f3f4f6;
+        border-radius: 999px;
+        padding: 3px 11px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: #6b7280;
+      }
+      .et-count {
+        font-size: 0.72rem;
+        color: #9ca3af;
+        font-weight: 700;
+      }
+      @media (max-width: 980px) {
+        .et-layout {
+          grid-template-columns: 1fr;
+        }
+        .et-list {
+          max-height: 320px;
+        }
+        .wm-form-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+    <link rel="stylesheet" href="admin-responsive.css?v=2.5" />
+  </head>
+  <body>
+    <div class="dashboard-container">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" />
+          <h2>UCN-FMRC</h2>
+        </div>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html" class="nav-link"
+            ><i class="fa-solid fa-house"></i> Dashboard</a
+          >
+          <a href="inventory.html" class="nav-link"
+            ><i class="fa-solid fa-box"></i> Inventory</a
+          >
+          <a href="products.html" class="nav-link"
+            ><i class="fa-solid fa-tags"></i> Products</a
+          >
+          <a href="promotions.html" class="nav-link" title="Promotions &amp; Announcements"
+            ><i class="fa-solid fa-bullhorn"></i> Promotions</a
+          >
+          <a href="appointments.html" class="nav-link"
+            ><i class="fa-regular fa-calendar-check"></i> Appointment</a
+          >
+          <a href="accounts.html" class="nav-link"
+            ><i class="fa-solid fa-users"></i> User Management</a
+          >
+          <a href="reports.html" class="nav-link"
+            ><i class="fa-solid fa-chart-line"></i> Reports</a
+          >
+          <a href="orders.html" class="nav-link"
+            ><i class="fa-solid fa-box-open"></i> Orders</a
+          >
+          <a href="customer-inquiries.html" class="nav-link"><i class="fa-regular fa-envelope-open"></i> Customer Inquiries</a>
+          <a href="ratings.html" class="nav-link"><i class="fa-solid fa-star"></i> Ratings &amp; Feedback</a>
+          <div class="nav-item has-dropdown open">
+            <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn">
+              <div class="dropdown-title">
+                <i class="fa-solid fa-screwdriver-wrench"></i> Website
+                Management
+              </div>
+              <i class="fa-solid fa-chevron-down arrow"></i>
+            </a>
+            <div class="dropdown-menu">
+              <a href="website-home.html" class="sub-link">Home</a>
+              <a href="website-services.html" class="sub-link">Services</a>
+              <a href="website-contact.html" class="sub-link">Contact</a>
+              <a href="website-footer.html" class="sub-link">Footer</a>
+              <a href="website-emails.html" class="sub-link active">Email Templates</a>
+              <a href="website-maintenance.html" class="sub-link">Maintenance</a>
+            </div>
+          </div>
+          <a href="archives.html" class="nav-link"
+            ><i class="fa-solid fa-box-archive"></i> Archives</a
+          >
+          <a href="my-account.html" class="nav-link"
+            ><i class="fa-regular fa-id-card"></i> My Account</a
+          >
+        </nav>
+        <div class="sidebar-footer">
+          <button class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
+        </div>
+      </aside>
+      <main class="main-content">
+        <header class="top-header">
+          <div class="header-left"><h1>Email Templates</h1></div>
+          <div class="header-right">
+            <div class="notifications" id="notifBell">
+              <i class="fa-regular fa-bell"></i
+              ><span class="badge" id="notifBadge" style="display: none"></span>
+            </div>
+            <div class="user-profile">
+              <div class="user-info"><span class="role">Admin</span></div>
+              <span
+                class="profile-icon profile-initial"
+                data-email="admin@cnsc.edu.ph"
+              ></span>
+              <div class="profile-popup" id="profilePopup">
+                <div class="popup-header">
+                  <div class="popup-profile-row">
+                    <span
+                      class="popup-profile-icon profile-initial"
+                      data-email="admin@cnsc.edu.ph"
+                    ></span>
+                    <div class="popup-profile-meta">
+                      <p class="popup-identity">admin@cnsc.edu.ph</p>
+                      <span class="popup-role">Admin</span>
+                    </div>
+                  </div>
+                </div>
+                <a href="my-account.html" class="profile-popup-link"
+                  ><i class="fa-regular fa-id-card"></i> My Account</a
+                >
+                <hr />
+                <button class="logout-btn popup-logout">
+                  <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+        <section class="module-content">
+          <div class="page-toolbar">
+            <div class="toolbar-title">
+              <h2>Email Notification Templates</h2>
+              <p>
+                Edit the wording and header colour of every email the system
+                sends to customers and staff. Untouched templates keep their
+                original wording.
+              </p>
+            </div>
+            <div class="toolbar-actions">
+              <button
+                class="btn-admin btn-secondary"
+                onclick="window.location.reload()"
+              >
+                <i class="fa-solid fa-rotate-right"></i> Refresh
+              </button>
+            </div>
+          </div>
+
+          <div class="et-layout">
+            <!-- NOTIFICATION LIST -->
+            <div class="wm-section">
+              <div class="wm-section-header">
+                <i class="fa-regular fa-envelope"></i>
+                <h3>Notifications</h3>
+                <span class="et-count" id="emailTemplateCount"></span>
+              </div>
+              <div class="field-stack">
+                <label for="emailTemplateSearch">Find a notification</label>
+                <input
+                  type="search"
+                  class="wm-input"
+                  id="emailTemplateSearch"
+                  placeholder="Search by name..."
+                  autocomplete="off"
+                />
+              </div>
+              <div class="et-list" id="emailTemplateList">
+                <p class="et-hint">Loading notifications...</p>
+              </div>
+            </div>
+            <!-- EDITOR + PREVIEW -->
+            <div class="et-editor-pane">
+              <div class="wm-section">
+                <div class="wm-section-header">
+                  <i class="fa-solid fa-pen-to-square"></i>
+                  <h3 id="emailTemplateTitle">Select a notification</h3>
+                  <span
+                    class="et-group-chip"
+                    id="emailTemplateGroup"
+                    style="display: none"
+                  ></span>
+                </div>
+                <p class="et-hint" id="emailTemplateHint">
+                  Choose a notification on the left to edit its header, message
+                  and colour.
+                </p>
+                <div id="emailTemplateForm" style="display: none">
+                  <p class="et-locked">
+                    <strong>What you can edit:</strong> the header, the message
+                    and the closing note. Order details, codes, buttons and the
+                    copyright line are added automatically and follow the header
+                    colour you pick here.
+                  </p>
+                  <div class="field-stack" style="margin-bottom: 16px">
+                    <label>Details you can insert</label>
+                    <div class="et-tokens" id="emailTemplateTokens"></div>
+                    <span class="et-hint"
+                      >Click one to drop it into the field you were typing in.
+                      It is replaced with the real value when the email is
+                      sent.</span
+                    >
+                  </div>
+                  <div class="wm-form-grid">
+                    <div class="field-stack">
+                      <label for="emailTplHeaderTitle">Header Title</label>
+                      <input
+                        type="text"
+                        class="wm-input"
+                        id="emailTplHeaderTitle"
+                        maxlength="120"
+                        placeholder="UCN Fabrication and Manufacturing Research Center"
+                      />
+                    </div>
+                    <div class="field-stack">
+                      <label for="emailTplHeaderSubtitle"
+                        >Header Subtitle
+                        <span style="font-weight: 500; color: #9ca3af"
+                          >(optional)</span
+                        ></label
+                      >
+                      <input
+                        type="text"
+                        class="wm-input"
+                        id="emailTplHeaderSubtitle"
+                        maxlength="160"
+                        placeholder="Fabrication &amp; Manufacturing Research Center"
+                      />
+                    </div>
+                    <div class="field-stack full">
+                      <label for="emailTplHeaderColor">Header Colour</label>
+                      <div class="et-color-row">
+                        <input
+                          type="color"
+                          id="emailTplHeaderColor"
+                          value="#800000"
+                          aria-label="Header colour picker"
+                        />
+                        <input
+                          type="text"
+                          class="wm-input"
+                          id="emailTplHeaderColorText"
+                          maxlength="7"
+                          spellcheck="false"
+                          placeholder="#800000"
+                        />
+                      </div>
+                      <div class="et-swatches" id="emailTplColorSwatches">
+                        <button
+                          type="button"
+                          class="et-swatch"
+                          data-color="#800000"
+                          style="background: #800000"
+                          title="#800000"
+                        ></button>
+                        <button
+                          type="button"
+                          class="et-swatch"
+                          data-color="#8f1111"
+                          style="background: #8f1111"
+                          title="#8f1111"
+                        ></button>
+                        <button
+                          type="button"
+                          class="et-swatch"
+                          data-color="#b71c1c"
+                          style="background: #b71c1c"
+                          title="#b71c1c"
+                        ></button>
+                        <button
+                          type="button"
+                          class="et-swatch"
+                          data-color="#dc2626"
+                          style="background: #dc2626"
+                          title="#dc2626"
+                        ></button>
+                        <button
+                          type="button"
+                          class="et-swatch"
+                          data-color="#b45309"
+                          style="background: #b45309"
+                          title="#b45309"
+                        ></button>
+                        <button
+                          type="button"
+                          class="et-swatch"
+                          data-color="#059669"
+                          style="background: #059669"
+                          title="#059669"
+                        ></button>
+                        <button
+                          type="button"
+                          class="et-swatch"
+                          data-color="#2e7d32"
+                          style="background: #2e7d32"
+                          title="#2e7d32"
+                        ></button>
+                        <button
+                          type="button"
+                          class="et-swatch"
+                          data-color="#0a5fd6"
+                          style="background: #0a5fd6"
+                          title="#0a5fd6"
+                        ></button>
+                        <button
+                          type="button"
+                          class="et-swatch"
+                          data-color="#1d4ed8"
+                          style="background: #1d4ed8"
+                          title="#1d4ed8"
+                        ></button>
+                        <button
+                          type="button"
+                          class="et-swatch"
+                          data-color="#4b5563"
+                          style="background: #4b5563"
+                          title="#4b5563"
+                        ></button>
+                      </div>
+                    </div>
+                    <div class="field-stack full">
+                      <label for="emailTplBodyHeading">Message Heading</label>
+                      <input
+                        type="text"
+                        class="wm-input"
+                        id="emailTplBodyHeading"
+                        maxlength="160"
+                        placeholder="Your Order Has Been Received"
+                      />
+                    </div>
+                    <div class="field-stack full">
+                      <label for="emailTplBodyText">Message</label>
+                      <textarea
+                        class="wm-textarea"
+                        id="emailTplBodyText"
+                        rows="8"
+                        maxlength="4000"
+                        style="min-height: 160px"
+                        placeholder="Hi {customer_name}, ..."
+                      ></textarea>
+                    </div>
+                    <div class="field-stack full">
+                      <label for="emailTplFooterNote"
+                        >Closing Note
+                        <span style="font-weight: 500; color: #9ca3af"
+                          >(optional)</span
+                        ></label
+                      >
+                      <textarea
+                        class="wm-textarea"
+                        id="emailTplFooterNote"
+                        rows="3"
+                        maxlength="1000"
+                        placeholder="You can track your order status by logging into your account at any time."
+                      ></textarea>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="wm-section">
+                <div class="wm-section-header">
+                  <i class="fa-regular fa-eye"></i>
+                  <h3>Live Preview</h3>
+                  <span class="et-count" id="emailTemplatePreviewState"></span>
+                </div>
+                <iframe
+                  id="emailTemplatePreview"
+                  class="et-preview-frame"
+                  title="Email preview"
+                  sandbox=""
+                ></iframe>
+                <p class="et-hint" style="margin-top: 10px">
+                  Sample names, numbers and codes are shown so you can see the
+                  finished layout. Real values are filled in on send.
+                </p>
+              </div>
+
+              <div class="wm-save-bar et-save-bar" data-dock-save-bar>
+                <p class="et-status" id="emailTemplateStatus">
+                  Select a notification to begin.
+                </p>
+                <div class="et-save-actions">
+                  <button
+                    class="btn-admin btn-secondary"
+                    id="emailTemplateResetBtn"
+                    disabled
+                  >
+                    <i class="fa-solid fa-rotate-left"></i> Restore Default
+                  </button>
+                  <button class="btn-admin" id="emailTemplateSaveBtn" disabled>
+                    <i class="fa-solid fa-floppy-disk"></i> Save Template
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="session-helper.js"></script>
+    <script src="admin-common.js?v=6.3"></script>
+    <script src="website-emails.js?v=6.2"></script>
+    <script src="admin-table-resize.js?v=1.2" defer></script>
+  </body>
+</html>

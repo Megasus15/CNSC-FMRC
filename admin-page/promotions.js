@@ -450,8 +450,13 @@ document.addEventListener("DOMContentLoaded", () => {
       const appliesToDetail = p.scope === "all_products"
         ? "all products in our store"
         : getAdminProductNamesText(p.product_ids);
+      // The customer pop-up leads with the themed icon, so the preview does too.
+      const decor =
+        typeof window.getGlobalFMRCPromoDecor === "function"
+          ? window.getGlobalFMRCPromoDecor()
+          : { emojiLeft: "🎉" };
       list.push({
-        title: `🎉 ${p.title} (${p.discount_percent}% OFF)`,
+        title: `${decor.emojiLeft ? `${decor.emojiLeft} ` : ""}${p.title} (${p.discount_percent}% OFF)`,
         message: `Special Product Promotion: Enjoy ${p.discount_percent}% OFF on ${appliesToDetail}!\n\nLimited-time campaign. Don't miss out on these savings!`,
         cta_label: "Shop Sale Items",
         cta_url: "/products-page/product.html",
@@ -499,8 +504,16 @@ document.addEventListener("DOMContentLoaded", () => {
         ? "all products in our store"
         : getAdminProductNamesText(selectedIds);
 
+      // Same leading icon the customer will see, so the draft is not previewing
+      // a party popper the theme replaced.
+      const decor =
+        typeof window.getGlobalFMRCPromoDecor === "function"
+          ? window.getGlobalFMRCPromoDecor()
+          : { emojiLeft: "🎉" };
+      const lead = decor.emojiLeft ? `${decor.emojiLeft} ` : "";
+
       currentItem = {
-        title: `🎉 ${pTitle} (${pDiscount}% OFF)`,
+        title: `${lead}${pTitle} (${pDiscount}% OFF)`,
         message: `Special Product Promotion: Enjoy ${pDiscount}% OFF on ${appliesToDetail}!\n\nLimited-time campaign. Don't miss out on these savings!`,
         cta_label: "Shop Sale Items",
         cta_url: "/products-page/product.html",
@@ -566,7 +579,103 @@ document.addEventListener("DOMContentLoaded", () => {
   const getThemeFormSnapshot = () => ({
     primary: getPromotionValue("themePrimaryColor"),
     secondary: getPromotionValue("themeSecondaryColor"),
+    emojiLeft: getPromotionValue("themeEmojiLeft"),
+    emojiRight: getPromotionValue("themeEmojiRight"),
+    eyebrow: getPromotionValue("themeEyebrowLabel"),
   });
+
+  /* ==========================================================================
+     SHARED ANNOUNCEMENT / PROMOTION THEME
+     --------------------------------------------------------------------------
+     The two colours already painted the announcement pop-up. They now also
+     paint the promotion card in the product page header, together with its two
+     side icons and the small label above its title. Saving writes the five
+     values to site_settings, which is what actually reaches customers —
+     setGlobalFMRCTheme only caches them for this browser's live preview.
+     ========================================================================== */
+
+  const THEME_KEYS = Object.freeze({
+    primary: "announcement_theme_primary",
+    secondary: "announcement_theme_secondary",
+    emojiLeft: "promo_spotlight_emoji_left",
+    emojiRight: "promo_spotlight_emoji_right",
+    eyebrow: "promo_spotlight_eyebrow",
+  });
+
+  const THEME_FALLBACK = Object.freeze({
+    primary: "#c0392b",
+    secondary: "#800000",
+    emojiLeft: "🎉",
+    emojiRight: "🎉",
+    eyebrow: "LIMITED-TIME PROMOTION",
+  });
+
+  /** What the five inputs currently hold, clamped the same way the site clamps it. */
+  const readThemeInputs = () => {
+    // Count code points, not UTF-16 units: one emoji is a single glyph but two
+    // units, so a plain slice could cut it in half.
+    const clamp = (value, limit) =>
+      Array.from(String(value ?? "").trim()).slice(0, limit).join("");
+    return {
+      primary: $("themePrimaryColor")?.value || THEME_FALLBACK.primary,
+      secondary: $("themeSecondaryColor")?.value || THEME_FALLBACK.secondary,
+      emojiLeft: clamp($("themeEmojiLeft")?.value, 4),
+      emojiRight: clamp($("themeEmojiRight")?.value, 4),
+      eyebrow: clamp($("themeEyebrowLabel")?.value, 48),
+    };
+  };
+
+  const themeDecorOf = (theme) => ({
+    emojiLeft: theme.emojiLeft,
+    emojiRight: theme.emojiRight,
+    eyebrow: theme.eyebrow,
+  });
+
+  /** Repaint the promotion-card strip inside the theme modal. */
+  const renderThemePromoPreview = () => {
+    const card = $("themePromoCardPreview");
+    if (!card) return;
+    const theme = readThemeInputs();
+    card.style.setProperty("--announcement-accent-primary", theme.primary);
+    card.style.setProperty("--announcement-accent-secondary", theme.secondary);
+
+    const setEmoji = (id, value) => {
+      const el = $(id);
+      if (!el) return;
+      el.textContent = value;
+      el.style.display = value === "" ? "none" : "";
+    };
+    setEmoji("themePreviewEmojiLeft", theme.emojiLeft);
+    setEmoji("themePreviewEmojiRight", theme.emojiRight);
+
+    if ($("themePreviewEyebrowText"))
+      $("themePreviewEyebrowText").textContent = theme.eyebrow;
+    // Clearing the label hides its flame icon too, instead of leaving one adrift.
+    if ($("themePreviewEyebrow"))
+      $("themePreviewEyebrow").style.display =
+        theme.eyebrow === "" ? "none" : "inline-flex";
+    if ($("themePreviewTitle")) {
+      const lead = theme.emojiLeft ? `${theme.emojiLeft} ` : "";
+      $("themePreviewTitle").textContent = `${lead}Special Product Promotion`;
+    }
+  };
+
+  /** Push the working values into the browser cache, then repaint both previews. */
+  const applyThemeDraft = () => {
+    const theme = readThemeInputs();
+    if (typeof window.setGlobalFMRCTheme === "function") {
+      window.setGlobalFMRCTheme(
+        theme.primary,
+        theme.secondary,
+        themeDecorOf(theme),
+      );
+    }
+    renderThemePromoPreview();
+    // The saved-promotion cards carry the themed icon in their title, so rebuild
+    // the list before repainting.
+    updatePreviewItems();
+    renderLivePreview();
+  };
 
   const closePromotionForm = () => {
     closeModal("modalAddPromotion");
@@ -579,12 +688,18 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const closeThemeForm = (baseline) => {
+    // Cancelling puts the browser cache back where it was, so an abandoned edit
+    // does not leave the live preview on colours nobody saved.
     if (
       baseline?.primary &&
       baseline?.secondary &&
       typeof window.setGlobalFMRCTheme === "function"
     ) {
-      window.setGlobalFMRCTheme(baseline.primary, baseline.secondary);
+      window.setGlobalFMRCTheme(
+        baseline.primary,
+        baseline.secondary,
+        themeDecorOf(baseline),
+      );
     }
     closeModal("modalCustomizeTheme");
     renderLivePreview();
@@ -717,10 +832,42 @@ document.addEventListener("DOMContentLoaded", () => {
     openModal("modalAddAnnouncement");
   });
 
-  $("btnOpenCustomizeModal")?.addEventListener("click", () => {
-    const theme = typeof window.getGlobalFMRCTheme === "function" ? window.getGlobalFMRCTheme() : { primary: "#c0392b", secondary: "#800000" };
+  $("btnOpenCustomizeModal")?.addEventListener("click", async () => {
+    // Seed from the saved-for-everyone copy first so two admins never see two
+    // different "current" themes; the browser cache is the offline fallback.
+    const cached =
+      typeof window.getGlobalFMRCTheme === "function"
+        ? window.getGlobalFMRCTheme()
+        : THEME_FALLBACK;
+    const theme = {
+      primary: cached.primary || THEME_FALLBACK.primary,
+      secondary: cached.secondary || THEME_FALLBACK.secondary,
+      emojiLeft: cached.emojiLeft ?? THEME_FALLBACK.emojiLeft,
+      emojiRight: cached.emojiRight ?? THEME_FALLBACK.emojiRight,
+      eyebrow: cached.eyebrow ?? THEME_FALLBACK.eyebrow,
+    };
+    try {
+      const res = await fetch(`${API}/site-settings`, {
+        headers: { Accept: "application/json" },
+      });
+      if (res.ok) {
+        const saved = (await res.json())?.data || {};
+        Object.keys(THEME_KEYS).forEach((field) => {
+          const value = saved[THEME_KEYS[field]];
+          if (typeof value === "string") theme[field] = value;
+        });
+      }
+    } catch {
+      /* offline — the cached copy above is already loaded */
+    }
+
     if ($("themePrimaryColor")) $("themePrimaryColor").value = theme.primary;
-    if ($("themeSecondaryColor")) $("themeSecondaryColor").value = theme.secondary;
+    if ($("themeSecondaryColor"))
+      $("themeSecondaryColor").value = theme.secondary;
+    if ($("themeEmojiLeft")) $("themeEmojiLeft").value = theme.emojiLeft;
+    if ($("themeEmojiRight")) $("themeEmojiRight").value = theme.emojiRight;
+    if ($("themeEyebrowLabel")) $("themeEyebrowLabel").value = theme.eyebrow;
+    renderThemePromoPreview();
     themeDiscardGuard?.capture();
     openModal("modalCustomizeTheme");
   });
@@ -748,36 +895,81 @@ document.addEventListener("DOMContentLoaded", () => {
       if ($("themePrimaryColor")) $("themePrimaryColor").value = p;
       if ($("themeSecondaryColor")) $("themeSecondaryColor").value = s;
 
-      if (typeof window.setGlobalFMRCTheme === "function") {
-        window.setGlobalFMRCTheme(p, s);
-      }
-      renderLivePreview();
+      applyThemeDraft();
     });
   });
 
-  [$("themePrimaryColor"), $("themeSecondaryColor")].forEach((input) => {
-    input?.addEventListener("input", () => {
-      const p = $("themePrimaryColor")?.value || "#c0392b";
-      const s = $("themeSecondaryColor")?.value || "#800000";
-      if (typeof window.setGlobalFMRCTheme === "function") {
-        window.setGlobalFMRCTheme(p, s);
-      }
-      renderLivePreview();
-    });
+  [
+    $("themePrimaryColor"),
+    $("themeSecondaryColor"),
+    $("themeEmojiLeft"),
+    $("themeEmojiRight"),
+    $("themeEyebrowLabel"),
+  ].forEach((input) => {
+    input?.addEventListener("input", applyThemeDraft);
   });
 
-  $("btnSaveThemeModal")?.addEventListener("click", () => {
-    const p = $("themePrimaryColor")?.value || "#c0392b";
-    const s = $("themeSecondaryColor")?.value || "#800000";
+  $("btnSaveThemeModal")?.addEventListener("click", async () => {
+    const button = $("btnSaveThemeModal");
+    const theme = readThemeInputs();
+    // Cache it locally so this browser's preview updates the moment we save,
+    // then persist it — the saved copy is the one every customer reads.
     if (typeof window.setGlobalFMRCTheme === "function") {
-      window.setGlobalFMRCTheme(p, s);
+      window.setGlobalFMRCTheme(
+        theme.primary,
+        theme.secondary,
+        themeDecorOf(theme),
+      );
     }
+
+    const original = button ? button.innerHTML : "";
+    if (button) {
+      button.disabled = true;
+      button.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Saving…`;
+    }
+
+    let res = null;
+    try {
+      res = await fetch(`${API}/admin/site-settings`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({
+          [THEME_KEYS.primary]: theme.primary,
+          [THEME_KEYS.secondary]: theme.secondary,
+          [THEME_KEYS.emojiLeft]: theme.emojiLeft,
+          [THEME_KEYS.emojiRight]: theme.emojiRight,
+          [THEME_KEYS.eyebrow]: theme.eyebrow,
+        }),
+      });
+    } catch {
+      res = null;
+    }
+
+    if (button) {
+      button.disabled = false;
+      button.innerHTML = original;
+    }
+
+    if (!res || !res.ok) {
+      if (typeof window.showAdminPopup === "function") {
+        window.showAdminPopup(
+          res && res.status === 403
+            ? "Your account is not allowed to change the theme. Ask an administrator to save it for you."
+            : "The theme could not be saved. Check your connection and try again.",
+          { title: "Not Saved" },
+        );
+      }
+      renderLivePreview();
+      return;
+    }
+
     closeModal("modalCustomizeTheme");
     themeDiscardGuard?.clear();
     if (typeof window.showAdminPopup === "function") {
-      window.showAdminPopup("Announcement modal theme saved and applied globally across customer website!", {
-        title: "Theme Applied ✓",
-      });
+      window.showAdminPopup(
+        "Theme saved. The announcement pop-up and the product page promotion card now use it on the customer website.",
+        { title: "Theme Applied ✓" },
+      );
     }
     renderLivePreview();
   });

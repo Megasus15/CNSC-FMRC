@@ -65,29 +65,163 @@
       isWithinCampaignWindow(item),
     );
 
-  window.getGlobalFMRCTheme = () => {
+  /* ==========================================================================
+     SHARED ANNOUNCEMENT / PROMOTION THEME
+     --------------------------------------------------------------------------
+     One theme paints the announcement pop-up and the promotion card in the
+     product page header. It is edited on the admin/staff Promotions page and
+     saved to site_settings, so every customer sees it — localStorage is only a
+     same-browser cache and the editor's own instant preview.
+
+     Resolution order: what main.js published from /site-settings → what this
+     script fetched itself → this browser's cache → the shipped defaults.
+     ========================================================================== */
+
+  const THEME_STORAGE_KEY = "fmrc_global_announcement_theme";
+
+  const THEME_DEFAULTS = Object.freeze({
+    primary: "#c0392b",
+    secondary: "#800000",
+    emojiLeft: "🎉",
+    emojiRight: "🎉",
+    eyebrow: "LIMITED-TIME PROMOTION",
+  });
+
+  // Clamp by code point, not by length: one emoji is a single glyph but two
+  // UTF-16 units, so slicing the string could cut it in half.
+  const safeEmoji = (value, fallback) =>
+    typeof value === "string"
+      ? [...value.trim()].slice(0, 4).join("")
+      : fallback;
+
+  const safeLabel = (value, fallback, limit = 48) =>
+    typeof value === "string" ? value.trim().slice(0, limit) : fallback;
+
+  // Filled by load() on customer pages that main.js does not publish for.
+  let serverTheme = null;
+
+  const storedTheme = () => {
     try {
-      const stored = localStorage.getItem("fmrc_global_announcement_theme");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed && parsed.primary && parsed.secondary) return parsed;
-      }
+      const parsed = JSON.parse(
+        localStorage.getItem(THEME_STORAGE_KEY) || "null",
+      );
+      return parsed && typeof parsed === "object" ? parsed : null;
     } catch {
-      /* ignore storage errors */
+      return null;
     }
-    return { primary: "#c0392b", secondary: "#800000" };
   };
 
-  window.setGlobalFMRCTheme = (primary, secondary) => {
+  /**
+   * A blank emoji or label survives — an admin who clears it wants it gone. Only
+   * a value that was never saved falls through to the next source, so a site
+   * that has never opened the theme editor looks exactly as it shipped.
+   */
+  const resolveTheme = () => {
+    const published = window.FMRC_PROMO_THEME;
+    const source =
+      (published && typeof published === "object" ? published : null) ||
+      serverTheme ||
+      storedTheme() ||
+      {};
+
+    return {
+      primary: safeColor(source.primary, THEME_DEFAULTS.primary),
+      secondary: safeColor(source.secondary, THEME_DEFAULTS.secondary),
+      emojiLeft: safeEmoji(source.emojiLeft, THEME_DEFAULTS.emojiLeft),
+      emojiRight: safeEmoji(source.emojiRight, THEME_DEFAULTS.emojiRight),
+      eyebrow: safeLabel(source.eyebrow, THEME_DEFAULTS.eyebrow),
+      // True only once a colour has actually been saved. main.js publishes the
+      // flag because it fills the defaults in itself; the other two sources
+      // carry a colour only when one was stored.
+      explicit:
+        typeof source.explicit === "boolean"
+          ? source.explicit
+          : typeof source.primary === "string" ||
+            typeof source.secondary === "string",
+    };
+  };
+
+  /**
+   * Keep only the keys the server actually stores, so a site with no theme row
+   * yet leaves the browser cache and the defaults in charge instead of being
+   * shadowed by an object full of undefined.
+   */
+  const readServerTheme = (settings) => {
+    const map = {
+      primary: "announcement_theme_primary",
+      secondary: "announcement_theme_secondary",
+      emojiLeft: "promo_spotlight_emoji_left",
+      emojiRight: "promo_spotlight_emoji_right",
+      eyebrow: "promo_spotlight_eyebrow",
+    };
+    const theme = {};
+    Object.keys(map).forEach((field) => {
+      const value = settings?.[map[field]];
+      if (typeof value === "string") theme[field] = value;
+    });
+    return Object.keys(theme).length > 0 ? theme : null;
+  };
+
+  window.getGlobalFMRCTheme = () => resolveTheme();
+
+  /**
+   * Paint one announcement surface from a resolved theme. `--announcement-band`
+   * is only written when a colour was really saved, so an untouched site keeps
+   * the shared dialog band instead of being pulled onto the promotion palette.
+   */
+  const applyModalTheme = (el, theme) => {
+    if (!el?.style) return;
+    el.style.setProperty("--announcement-accent-primary", theme.primary);
+    el.style.setProperty("--announcement-accent-secondary", theme.secondary);
+    if (theme.explicit) {
+      el.style.setProperty(
+        "--announcement-band",
+        `linear-gradient(135deg, ${theme.primary}, ${theme.secondary})`,
+      );
+    } else {
+      el.style.removeProperty("--announcement-band");
+    }
+  };
+
+  /**
+   * The three promotion-card decorations, resolved from the same source as the
+   * colours so the pop-up and the card can never drift apart.
+   */
+  window.getGlobalFMRCPromoDecor = () => {
+    const theme = resolveTheme();
+    return {
+      emojiLeft: theme.emojiLeft,
+      emojiRight: theme.emojiRight,
+      eyebrow: theme.eyebrow,
+    };
+  };
+
+  /**
+   * Cache the theme in this browser. The admin/staff Promotions page calls this
+   * for the instant preview while editing; the saved-for-everyone copy is the
+   * one written to site_settings. `decor` is optional, so the preset colour
+   * cards keep working with two arguments.
+   */
+  window.setGlobalFMRCTheme = (primary, secondary, decor) => {
+    const current = storedTheme() || {};
     const theme = {
-      primary: safeColor(primary, "#c0392b"),
-      secondary: safeColor(secondary, "#800000"),
+      primary: safeColor(primary, THEME_DEFAULTS.primary),
+      secondary: safeColor(secondary, THEME_DEFAULTS.secondary),
+      emojiLeft: safeEmoji(
+        decor?.emojiLeft ?? current.emojiLeft,
+        THEME_DEFAULTS.emojiLeft,
+      ),
+      emojiRight: safeEmoji(
+        decor?.emojiRight ?? current.emojiRight,
+        THEME_DEFAULTS.emojiRight,
+      ),
+      eyebrow: safeLabel(
+        decor?.eyebrow ?? current.eyebrow,
+        THEME_DEFAULTS.eyebrow,
+      ),
     };
     try {
-      localStorage.setItem(
-        "fmrc_global_announcement_theme",
-        JSON.stringify(theme),
-      );
+      localStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(theme));
     } catch {
       /* ignore */
     }
@@ -255,16 +389,8 @@
     if (item) activeIndex = announcements.indexOf(item);
 
     const theme = window.getGlobalFMRCTheme();
-    const primaryAccent = safeColor(theme.primary, "#c0392b");
-    const secondaryAccent = safeColor(theme.secondary, "#800000");
 
-    if (modal.style) {
-      modal.style.setProperty("--announcement-accent-primary", primaryAccent);
-      modal.style.setProperty(
-        "--announcement-accent-secondary",
-        secondaryAccent,
-      );
-    }
+    applyModalTheme(modal, theme);
     if (titleEl) titleEl.textContent = item?.title || "Announcements";
     if (messageEl) {
       messageEl.textContent =
@@ -503,6 +629,18 @@
           padding: 26px 28px 20px;
           background: linear-gradient(135deg, var(--announcement-accent-primary, #c0392b), var(--announcement-accent-secondary, #800000));
           color: #ffffff;
+        }
+
+        /* The pop-up on the customer pages also wears the unified dialog skin,
+           whose band rule in main.css (":is(.ux-dlg, ...) .ux-dlg__card
+           .ux-dlg__head") is (1,2,0) and outranks the (0,1,0) rule above no
+           matter how late this sheet is appended. So a saved theme reached this
+           card's custom properties but never its paint. This selector matches
+           at (1,4,0) and reads --announcement-band, which the script sets only
+           once a colour has actually been saved: an untouched site keeps the
+           shared maroon band every other dialog uses. */
+        #announcementModal.ux-dlg .ux-dlg__card .announcement-modal__hero.ux-dlg__head {
+          background: var(--announcement-band, var(--ux-dlg-band, linear-gradient(135deg, #3d0808 0%, #5f0d0d 52%, #851313 100%)));
         }
         
         .announcement-modal__label {
@@ -991,8 +1129,21 @@
     const activePromo = rawPromotions.length > 0 ? rawPromotions[0] : null;
 
     if (activePromo) {
+      const theme = resolveTheme();
       spotlight.style.display = "block";
       spotlight.classList.add("is-visible");
+      // The card's gradient reads these two variables, so it carries the same
+      // colours the admin picked for the announcement pop-up.
+      spotlight.style.setProperty(
+        "--announcement-accent-primary",
+        theme.primary,
+      );
+      spotlight.style.setProperty(
+        "--announcement-accent-secondary",
+        theme.secondary,
+      );
+      applySpotlightDecor(theme);
+
       const headline = document.getElementById("promotionSpotlightTitle");
       const copy = document.getElementById("promotionSpotlightMessage");
 
@@ -1001,7 +1152,10 @@
           ? "all products in our store"
           : getProductNamesString(activePromo.product_ids);
 
-      if (headline) headline.innerHTML = `🎉 ${esc(activePromo.title)}`;
+      if (headline) {
+        const lead = theme.emojiLeft ? `${esc(theme.emojiLeft)} ` : "";
+        headline.innerHTML = `${lead}${esc(activePromo.title)}`;
+      }
       if (copy)
         copy.textContent = `Special Product Promotion: Enjoy ${activePromo.discount_percent}% OFF on ${appliesToDetail}! Limited-time offer.`;
 
@@ -1018,6 +1172,36 @@
     } else {
       spotlight.style.display = "none";
     }
+  };
+
+  /**
+   * The two side emojis and the small label above the title. Each element has an
+   * inline style already, so visibility is set through style.display — the
+   * `hidden` attribute would lose to the element's own inline display.
+   */
+  const applySpotlightDecor = (theme) => {
+    const setEmoji = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = value;
+      el.style.display = value === "" ? "none" : "";
+    };
+    setEmoji("promotionSpotlightEmojiLeft", theme.emojiLeft);
+    setEmoji("promotionSpotlightEmojiRight", theme.emojiRight);
+
+    const eyebrowText = document.getElementById("promotionSpotlightEyebrowText");
+    if (eyebrowText) eyebrowText.textContent = theme.eyebrow;
+    const eyebrow = document.getElementById("promotionSpotlightEyebrow");
+    // Clearing the label hides its icon and pill too, rather than leaving a
+    // stray flame floating above the headline.
+    if (eyebrow)
+      eyebrow.style.display = theme.eyebrow === "" ? "none" : "inline-flex";
+  };
+
+  /** Recolour an already-open pop-up without re-running its render. */
+  const repaintOpenModalTheme = () => {
+    if (!modal) return;
+    applyModalTheme(modal, resolveTheme());
   };
 
   const updateBadges = (count) => {
@@ -1073,7 +1257,7 @@
 
   const load = async () => {
     try {
-      const [annRes, promRes, prodRes] = await Promise.all([
+      const [annRes, promRes, prodRes, setRes] = await Promise.all([
         fetch(`${API_BASE_URL}/announcements`, {
           headers: { Accept: "application/json" },
         }).catch(() => null),
@@ -1083,6 +1267,15 @@
         fetch(`${API_BASE_URL}/products`, {
           headers: { Accept: "application/json" },
         }).catch(() => null),
+        // The shared theme normally arrives from main.js, which already polls
+        // /site-settings with an ETag on every customer page. This one is a
+        // fallback for a page that has no main.js, so the endpoint is never
+        // polled twice.
+        window.FMRC_PROMO_THEME
+          ? Promise.resolve(null)
+          : fetch(`${API_BASE_URL}/site-settings`, {
+              headers: { Accept: "application/json" },
+            }).catch(() => null),
       ]);
 
       isLoading = false;
@@ -1090,6 +1283,12 @@
       const annPayload = annRes && annRes.ok ? await annRes.json() : null;
       const promPayload = promRes && promRes.ok ? await promRes.json() : null;
       const prodPayload = prodRes && prodRes.ok ? await prodRes.json() : null;
+      if (setRes && setRes.ok) {
+        const setPayload = await setRes.json().catch(() => null);
+        const fetchedTheme = readServerTheme(setPayload?.data);
+        if (fetchedTheme) serverTheme = fetchedTheme;
+      }
+      const theme = resolveTheme();
 
       if (Array.isArray(prodPayload?.data)) {
         productsCatalog = prodPayload.data;
@@ -1112,14 +1311,14 @@
             : getProductNamesString(p.product_ids);
         return {
           id: `promo_${p.id}`,
-          title: `🎉 ${p.title} (${p.discount_percent}% OFF)`,
+          title: `${theme.emojiLeft ? `${theme.emojiLeft} ` : ""}${p.title} (${p.discount_percent}% OFF)`,
           message: `Special Product Promotion: Enjoy ${p.discount_percent}% OFF on ${appliesToDetail}!\n\nLimited-time campaign. Don't miss out on these savings!`,
           cta_label: "Shop Sale Items",
           cta_url: isProductsPage
             ? "#productCatalogGrid"
             : "/products-page/product.html",
-          accent_color: "#c0392b",
-          secondary_color: "#800000",
+          accent_color: theme.primary,
+          secondary_color: theme.secondary,
           placement: "both",
           is_enabled: true,
           is_live: true,
@@ -1210,6 +1409,14 @@
 
   document.addEventListener("visibilitychange", () => {
     if (!isAdminOrStaff && !document.hidden) void load();
+  });
+
+  // main.js re-reads /site-settings every 20 s and announces a changed theme, so
+  // an admin's save reaches a page that is already open without a reload.
+  document.addEventListener("fmrc:promotion-theme", () => {
+    if (isAdminOrStaff) return;
+    if (isProductsPage) applyProductSpotlight();
+    repaintOpenModalTheme();
   });
 
   // Keep the bell badge in sync when the customer reads an announcement in

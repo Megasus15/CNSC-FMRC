@@ -105,6 +105,14 @@ class OrderNotifier
      *
      * `$statusOverride` replaces the "Status" row for return emails, where the
      * order's own customer_stage ("Completed") is not the interesting fact.
+     *
+     * `$templateKey` is the EmailTemplate slug whose admin-editable header, body
+     * and footer wrap the order summary chip. The chip itself stays code-owned:
+     * an admin must not be able to delete the order number out of an order
+     * email. Without a slug the caller's own $headline/$bodyText are shelled
+     * as-is, so an unconverted caller still sends a correct email.
+     *
+     * @param  array<string, mixed>  $tokens  Extra {token} values for the template.
      */
     public static function buildEmailHtml(
         Order $order,
@@ -113,48 +121,62 @@ class OrderNotifier
         string $statusColor = '#800000',
         ?string $statusOverride = null,
         ?string $amountOverride = null,
+        ?string $templateKey = null,
+        array $tokens = [],
     ): string {
-        $orderNo   = htmlspecialchars($order->order_no ?? "ORD-{$order->id}", ENT_QUOTES);
-        $headline  = htmlspecialchars($headline, ENT_QUOTES);
-        $bodyText  = nl2br(htmlspecialchars($bodyText, ENT_QUOTES));
-        $total     = $amountOverride !== null
-            ? htmlspecialchars($amountOverride, ENT_QUOTES)
-            : '₱ ' . number_format((float) $order->total, 2, '.', ',');
-        $stage     = $statusOverride ?? (self::STAGE_LABELS[$order->customer_stage] ?? 'Processing');
-        $stageHtml = htmlspecialchars($stage, ENT_QUOTES);
+        $orderNo = (string) ($order->order_no ?? "ORD-{$order->id}");
+        $total = $amountOverride ?? ('₱ ' . number_format((float) $order->total, 2, '.', ','));
+        $stage = $statusOverride ?? (self::STAGE_LABELS[$order->customer_stage] ?? 'Processing');
         $amountLabel = $amountOverride !== null ? 'Refund Amount' : 'Total Amount';
 
-        // Branding constants rather than literals: the header and the footer used to
-        // spell the name twice and the footer year was frozen at 2025.
-        $appName     = Branding::NAME;
-        $institution = Branding::INSTITUTION;
-        $year        = date('Y');
+        if ($templateKey !== null && EmailTemplate::has($templateKey)) {
+            // The four tokens every order email shares are derived here so most
+            // call sites only have to pass their slug.
+            $tokens += [
+                'customer_name' => (string) ($order->customer_name ?: 'Customer'),
+                'order_number' => $orderNo,
+                'amount' => $total,
+                'status' => $stage,
+            ];
+            $parts = EmailTemplate::resolve($templateKey, $tokens);
+        } else {
+            $parts = [
+                'header_title' => Branding::NAME,
+                'header_subtitle' => 'Fabrication & Manufacturing Research Center',
+                'header_color' => $statusColor,
+                'body_heading' => $headline,
+                'body_text' => $bodyText,
+                'footer_note' => 'You can track your order status by logging into your account at any time.',
+            ];
+        }
+
+        // A saved header colour wins over the caller's, so the chip's Status row
+        // keeps matching the header band.
+        $parts['header_color'] = EmailTemplate::color($parts['header_color'] ?? '', $statusColor);
+
+        return EmailTemplate::shell(
+            $parts,
+            self::summaryChip($orderNo, $stage, $amountLabel, $total, $parts['header_color']),
+        );
+    }
+
+    /**
+     * The order/refund summary chip: code-owned, never editable, always present.
+     */
+    private static function summaryChip(
+        string $orderNo,
+        string $stage,
+        string $amountLabel,
+        string $total,
+        string $color,
+    ): string {
+        $orderNo = htmlspecialchars($orderNo, ENT_QUOTES);
+        $stageHtml = htmlspecialchars($stage, ENT_QUOTES);
+        $amountLabel = htmlspecialchars($amountLabel, ENT_QUOTES);
+        $total = htmlspecialchars($total, ENT_QUOTES);
 
         return <<<HTML
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>{$headline}</title>
-</head>
-<body style="margin:0;padding:0;background:#f4f4f6;font-family:'Segoe UI',Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f6;padding:30px 0;">
-    <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.09);max-width:600px;">
-        <!-- Header -->
-        <tr>
-          <td style="background:{$statusColor};padding:28px 36px;text-align:center;">
-            <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;letter-spacing:.3px;">{$appName}</h1>
-            <p style="margin:6px 0 0;color:rgba(255,255,255,.85);font-size:13px;">Fabrication &amp; Manufacturing Research Center</p>
-          </td>
-        </tr>
-        <!-- Body -->
-        <tr>
-          <td style="padding:32px 36px;">
-            <h2 style="margin:0 0 12px;color:#1a202c;font-size:18px;">{$headline}</h2>
-            <p style="margin:0 0 20px;color:#4a5568;font-size:14px;line-height:1.7;">{$bodyText}</p>
-            <!-- Order summary chip -->
+<!-- Order summary chip -->
             <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fb;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:24px;">
               <tr>
                 <td style="padding:18px 22px;">
@@ -165,7 +187,7 @@ class OrderNotifier
                     </tr>
                     <tr>
                       <td style="font-size:13px;color:#718096;padding-bottom:8px;">Status</td>
-                      <td align="right" style="font-size:13px;font-weight:700;color:{$statusColor};padding-bottom:8px;">{$stageHtml}</td>
+                      <td align="right" style="font-size:13px;font-weight:700;color:{$color};padding-bottom:8px;">{$stageHtml}</td>
                     </tr>
                     <tr>
                       <td style="font-size:13px;color:#718096;">{$amountLabel}</td>
@@ -175,20 +197,6 @@ class OrderNotifier
                 </td>
               </tr>
             </table>
-            <p style="margin:0;color:#718096;font-size:12px;">You can track your order status by logging into your account at any time.</p>
-          </td>
-        </tr>
-        <!-- Footer -->
-        <tr>
-          <td style="background:#f8f9fb;border-top:1px solid #e2e8f0;padding:18px 36px;text-align:center;">
-            <p style="margin:0;color:#a0aec0;font-size:11px;">&copy; {$year} {$appName} &middot; {$institution}</p>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>
 HTML;
     }
 }

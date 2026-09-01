@@ -20,9 +20,9 @@ class AdminPortalConsistencyTest extends TestCase
         return array_map(static fn (string $file): array => [$file], $files);
     }
 
-    public function test_portal_has_the_expected_32_admin_and_staff_pages(): void
+    public function test_portal_has_the_expected_34_admin_and_staff_pages(): void
     {
-        $this->assertCount(32, self::portalHtmlProvider());
+        $this->assertCount(34, self::portalHtmlProvider());
     }
 
     #[DataProvider('portalHtmlProvider')]
@@ -73,6 +73,7 @@ class AdminPortalConsistencyTest extends TestCase
             'promotions.js',
             'ratings.js',
             'reports.js',
+            'website-emails.js',
         ];
 
         foreach ($affected as $script) {
@@ -271,6 +272,149 @@ class AdminPortalConsistencyTest extends TestCase
 
         // No hardcoded institution line may remain in the rendered letterhead.
         $this->assertStringNotContainsString('<strong>UNIVERSITY OF CAMARINES NORTE</strong>', $reportsJs);
+    }
+
+    public function test_every_gmail_notification_is_editable_from_both_portals(): void
+    {
+        $root = dirname(__DIR__, 3);
+        $editorJs = (string) file_get_contents($root.'/admin-page/website-emails.js');
+
+        foreach (['admin-page', 'staff-page'] as $portal) {
+            $html = (string) file_get_contents($root.'/'.$portal.'/website-emails.html');
+
+            // The list, the six editable parts, the token chips, the rendered
+            // preview and both write buttons -- a portal missing any one of them
+            // cannot edit a notification end to end.
+            foreach ([
+                'id="emailTemplateList"',
+                'id="emailTemplateSearch"',
+                'id="emailTemplateTokens"',
+                'id="emailTplHeaderTitle"',
+                'id="emailTplHeaderSubtitle"',
+                'id="emailTplHeaderColor"',
+                'id="emailTplHeaderColorText"',
+                'id="emailTplBodyHeading"',
+                'id="emailTplBodyText"',
+                'id="emailTplFooterNote"',
+                'id="emailTemplatePreview"',
+                'id="emailTemplateSaveBtn"',
+                'id="emailTemplateResetBtn"',
+            ] as $needle) {
+                $this->assertStringContainsString($needle, $html, "{$portal}: {$needle}");
+            }
+
+            // Both portals reach the editor from Website Management, and the
+            // preview iframe stays sandboxed because it renders stored copy.
+            $this->assertStringContainsString('website-emails.html" class="sub-link', $html, $portal);
+            $this->assertStringContainsString('sandbox=""', $html, $portal);
+        }
+
+        // Overrides live under the site_settings prefix, are read through the
+        // role-guarded registry endpoint, and are written by the same bulk upsert
+        // every other setting uses.
+        $this->assertStringContainsString('email_tpl_', $editorJs);
+        $this->assertStringContainsString('/admin/email-templates', $editorJs);
+        $this->assertStringContainsString('/admin/email-templates/preview', $editorJs);
+        $this->assertStringContainsString('/admin/site-settings', $editorJs);
+
+        // The page holds no copy of its own: labels, groups, tokens and default
+        // wording all arrive from the PHP registry, so a template added in PHP
+        // shows up with no front-end change and can never drift out of sync.
+        foreach ([
+            'Your Order Has Been Received',
+            'Fabrication & Manufacturing Research Center',
+            'Returns &amp; Refunds',
+            'Returns & Refunds',
+        ] as $copy) {
+            $this->assertStringNotContainsString($copy, $editorJs, $copy);
+        }
+        $this->assertSame(
+            27,
+            count(\App\Support\EmailTemplate::TEMPLATES),
+            'Every Gmail notification must be registered as an editable template.',
+        );
+        foreach (\App\Support\EmailTemplate::TEMPLATES as $slug => $meta) {
+            $this->assertContains($meta['group'], \App\Support\EmailTemplate::GROUPS, $slug);
+            $this->assertNotSame('', trim((string) ($meta['label'] ?? '')), $slug);
+        }
+    }
+
+    public function test_the_promotion_card_shares_one_saved_theme_with_the_announcement_popup(): void
+    {
+        $root = dirname(__DIR__, 3);
+        $promotionsJs = (string) file_get_contents($root.'/admin-page/promotions.js');
+        $announcementsJs = (string) file_get_contents($root.'/home-page/customer-announcements.js');
+        $productHtml = (string) file_get_contents($root.'/products-page/product.html');
+
+        // Both portals edit the colours and the promotion-card decorations from
+        // the one modal, so a staff member is never left with half the controls.
+        foreach (['admin-page', 'staff-page'] as $portal) {
+            $html = (string) file_get_contents($root.'/'.$portal.'/promotions.html');
+
+            foreach ([
+                'id="themePrimaryColor"',
+                'id="themeSecondaryColor"',
+                'id="themeEmojiLeft"',
+                'id="themeEmojiRight"',
+                'id="themeEyebrowLabel"',
+                'id="themePromoCardPreview"',
+            ] as $needle) {
+                $this->assertStringContainsString($needle, $html, "{$portal}: {$needle}");
+            }
+        }
+
+        // Saving persists the theme instead of only caching it in the admin's own
+        // browser -- that gap is why no customer ever received a saved theme.
+        $this->assertStringContainsString('/admin/site-settings', $promotionsJs);
+        foreach ([
+            'announcement_theme_primary',
+            'announcement_theme_secondary',
+            'promo_spotlight_emoji_left',
+            'promo_spotlight_emoji_right',
+            'promo_spotlight_eyebrow',
+        ] as $key) {
+            $this->assertStringContainsString($key, $promotionsJs, $key);
+            $this->assertStringContainsString($key, $announcementsJs, $key);
+        }
+
+        // The card's gradient reads these two variables. Without this the card
+        // stayed on its stylesheet fallback no matter what was saved.
+        $this->assertStringContainsString('--announcement-accent-primary', $announcementsJs);
+        $this->assertStringContainsString('--announcement-accent-secondary', $announcementsJs);
+
+        // The pop-up wears the shared ux-dlg skin, whose band rule outranks the
+        // plain .announcement-modal__hero one, so the theme reached the card's
+        // custom properties but never its paint. This id-scoped rule fixes that,
+        // and --announcement-band is only written once a colour is really saved
+        // so an untouched site keeps the band every other dialog uses.
+        $this->assertStringContainsString(
+            '#announcementModal.ux-dlg .ux-dlg__card .announcement-modal__hero.ux-dlg__head',
+            $announcementsJs,
+        );
+        $this->assertStringContainsString('--announcement-band', $announcementsJs);
+        $this->assertStringContainsString('var(--ux-dlg-band', $announcementsJs);
+        $this->assertStringContainsString(
+            '--ux-dlg-band:',
+            (string) file_get_contents($root.'/home-page/main.css'),
+            'The band fallback has to resolve to something, or an unthemed pop-up goes transparent.',
+        );
+
+        // main.js fills the theme defaults in itself before publishing, so it is
+        // the only source that can say whether a colour was really saved.
+        $mainJs = (string) file_get_contents($root.'/home-page/main.js');
+        $this->assertStringContainsString('publishPromotionTheme', $mainJs);
+        $this->assertStringContainsString('explicit:', $mainJs);
+        $this->assertStringContainsString('source.explicit', $announcementsJs);
+
+        // The decorations are addressable instead of hardcoded in the markup.
+        foreach ([
+            'id="promotionSpotlightEmojiLeft"',
+            'id="promotionSpotlightEmojiRight"',
+            'id="promotionSpotlightEyebrow"',
+            'id="promotionSpotlightEyebrowText"',
+        ] as $needle) {
+            $this->assertStringContainsString($needle, $productHtml, $needle);
+        }
     }
 
     public function test_ten_row_contract_has_no_obsolete_page_sizes(): void

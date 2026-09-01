@@ -300,6 +300,12 @@ class OrderReturnController extends Controller
                 '#8f1111',
                 $return->statusLabel(),
                 $this->formatMoney($requestedAmount),
+                templateKey: 'return_request_received',
+                tokens: [
+                    'return_no' => (string) $return->return_no,
+                    'reason' => $return->reasonLabel(),
+                    'resolution' => $return->resolutionLabel(),
+                ],
             ),
         );
 
@@ -586,6 +592,12 @@ class OrderReturnController extends Controller
                     . 'If you believe this was a mistake you may file a new request while the return window is still open.',
             $approving ? '#8f1111' : '#b71c1c',
             $approving ? $this->formatMoney((float) $approvedAmount) : null,
+            templateKey: $approving ? 'return_approved' : 'return_declined',
+            tokens: [
+                'note' => $approving
+                    ? ($note ?: 'Please send the item back using any trusted courier, then mark it as shipped in My Orders → Returns so we can track it.')
+                    : $note,
+            ],
         );
 
         $orderReturn->load(['order.items', 'items', 'events', 'customer:id,name,email', 'handler:id,name,role']);
@@ -632,6 +644,10 @@ class OrderReturnController extends Controller
             'We received your returned item',
             "The item for return {$orderReturn->return_no} has arrived and passed inspection.\n\n"
                 . ($note ?: 'Your refund is next — we will notify you the moment it is released.'),
+            templateKey: 'return_item_received',
+            tokens: [
+                'note' => $note ?: 'Your refund is next — we will notify you the moment it is released.',
+            ],
         );
 
         $orderReturn->load(['order.items', 'items', 'events', 'customer:id,name,email', 'handler:id,name,role']);
@@ -739,6 +755,17 @@ class OrderReturnController extends Controller
                     . ($note ? "\n\n{$note}" : "\n\nYou will get another update once the money is out."),
             $releasing ? '#2e7d32' : '#8f1111',
             $this->formatMoney($amount),
+            templateKey: $releasing ? 'refund_released' : 'refund_processing',
+            tokens: [
+                'method' => $methodLabel,
+                'reference' => (string) $reference,
+                'reference_line' => $reference ? "\nReference: {$reference}" : '',
+                'note_line' => $note
+                    ? "\n\n{$note}"
+                    : ($releasing
+                        ? "\n\nPlease allow a short while for it to reflect on your side."
+                        : "\n\nYou will get another update once the money is out."),
+            ],
         );
 
         $orderReturn->load(['order.items', 'order.payment', 'items', 'events', 'customer:id,name,email', 'handler:id,name,role']);
@@ -1013,19 +1040,31 @@ class OrderReturnController extends Controller
         return ReturnPresenter::event($event);
     }
 
-    /** Email the customer a return status update using the shared order template. */
+    /**
+     * Email the customer a return status update using the shared order template.
+     *
+     * `$templateKey` names the EmailTemplate slug an admin edits from Website
+     * Management -> Email Templates; the return number token is filled in here
+     * so callers only pass what is specific to their own copy.
+     *
+     * @param  array<string, mixed>  $tokens
+     */
     private function emailStatusUpdate(
         OrderReturn $orderReturn,
         string $headline,
         string $body,
         string $color = '#8f1111',
         ?string $amountOverride = null,
+        ?string $templateKey = null,
+        array $tokens = [],
     ): void {
         $order = $orderReturn->order ?? $orderReturn->order()->first();
 
         if (!$order) {
             return;
         }
+
+        $tokens += ['return_no' => (string) ($orderReturn->return_no ?: "RTN-{$orderReturn->id}")];
 
         OrderNotifier::emailCustomer(
             $order,
@@ -1037,6 +1076,8 @@ class OrderReturnController extends Controller
                 $color,
                 $orderReturn->statusLabel(),
                 $amountOverride,
+                $templateKey,
+                $tokens,
             ),
         );
     }

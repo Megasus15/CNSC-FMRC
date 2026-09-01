@@ -1867,9 +1867,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const inpFullName = document.getElementById("inpFullName");
   const inpPhone = document.getElementById("inpPhone");
   const inpAddress = document.getElementById("inpAddress");
-  const inpBarangay = document.getElementById("inpBarangay");
-  const inpCity = document.getElementById("inpCity");
-  const inpProvince = document.getElementById("inpProvince");
   const inpPostal = document.getElementById("inpPostal");
   const inpDetails = document.getElementById("inpDetails");
   const inpDept = document.getElementById("inpDept");
@@ -1877,9 +1874,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const addInpFullName = document.getElementById("addInpFullName");
   const addInpPhone = document.getElementById("addInpPhone");
   const addInpAddress = document.getElementById("addInpAddress");
-  const addInpBarangay = document.getElementById("addInpBarangay");
-  const addInpCity = document.getElementById("addInpCity");
-  const addInpProvince = document.getElementById("addInpProvince");
   const addInpPostal = document.getElementById("addInpPostal");
   const addInpDetails = document.getElementById("addInpDetails");
   const addInpDept = document.getElementById("addInpDept");
@@ -2025,12 +2019,14 @@ document.addEventListener("DOMContentLoaded", () => {
         name: "addInpFullName",
         phone: "addInpPhone",
         address: "addInpAddress",
+        region: "addInpRegion",
         barangay: "addInpBarangay",
         city: "addInpCity",
         province: "addInpProvince",
         postal: "addInpPostal",
         details: "addInpDetails",
         dept: "addInpDept",
+        roleOther: "addInpRoleOther",
       };
     }
 
@@ -2038,12 +2034,14 @@ document.addEventListener("DOMContentLoaded", () => {
       name: "inpFullName",
       phone: "inpPhone",
       address: "inpAddress",
+      region: "inpRegion",
       barangay: "inpBarangay",
       city: "inpCity",
       province: "inpProvince",
       postal: "inpPostal",
       details: "inpDetails",
       dept: "inpDept",
+      roleOther: "inpRoleOther",
     };
   };
 
@@ -2081,6 +2079,423 @@ document.addEventListener("DOMContentLoaded", () => {
   const clearCheckoutFormErrors = (mode) => {
     const ids = getAddressFieldIds(mode);
     Object.values(ids).forEach((fieldId) => clearCheckoutFieldError(fieldId));
+  };
+
+  // ─── "Others" customer type in the Add / Edit Details forms ───────────────────
+  // Same contract as appointment step 2: the radio grid stays the source of the
+  // choice, and picking "Others" reveals one free-text box whose value is stored
+  // as `Others: <text>` in the very same customer_type field. No new API field.
+
+  const getRoleOtherIds = (mode) =>
+    mode === "add"
+      ? { field: "addInpRoleOtherField", input: "addInpRoleOther" }
+      : { field: "inpRoleOtherField", input: "inpRoleOther" };
+
+  const getRoleRadioName = (mode) =>
+    mode === "add" ? "addUserRole" : "userRole";
+
+  const isOtherCustomerType = (mode) =>
+    getSelectedRole(getRoleRadioName(mode)) === "Others";
+
+  /** Reveal the box only while Others is picked, and never keep a stale value. */
+  const syncRoleOtherField = (mode) => {
+    const { field, input } = getRoleOtherIds(mode);
+    const wrapper = document.getElementById(field);
+    const box = document.getElementById(input);
+    if (!(wrapper instanceof HTMLElement) || !(box instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const showOther = isOtherCustomerType(mode);
+    wrapper.style.display = showOther ? "" : "none";
+    if (!showOther) {
+      box.value = "";
+      clearCheckoutFieldError(input);
+    }
+  };
+
+  /**
+   * Fill the radio grid from a stored customer_type. A saved
+   * "Others: Local cooperative" checks Others and puts the remainder in the box,
+   * so what the customer typed once is what they see next time.
+   */
+  const applyCustomerTypeToForm = (mode, value) => {
+    const raw = String(value || "").trim();
+    const otherMatch = raw.match(/^Others\s*:\s*(.*)$/i);
+    const box = document.getElementById(getRoleOtherIds(mode).input);
+
+    if (otherMatch || /^others$/i.test(raw)) {
+      setRoleByRadioName(getRoleRadioName(mode), "Others");
+      if (box instanceof HTMLInputElement) {
+        box.value = String(otherMatch?.[1] || "").trim();
+      }
+    } else {
+      setRoleByRadioName(getRoleRadioName(mode), raw || "Student");
+      if (box instanceof HTMLInputElement) box.value = "";
+    }
+
+    syncRoleOtherField(mode);
+  };
+
+  /** The value saved to customer_type — `Others: <text>` when Others is picked. */
+  const getCustomerTypeValue = (mode) => {
+    const selected = getSelectedRole(getRoleRadioName(mode));
+    if (selected !== "Others") return selected;
+
+    const other = String(
+      document.getElementById(getRoleOtherIds(mode).input)?.value || "",
+    ).trim();
+    return other ? `Others: ${other}` : "Others";
+  };
+
+  ["add", "edit"].forEach((mode) => {
+    document
+      .querySelectorAll(`input[name="${getRoleRadioName(mode)}"]`)
+      .forEach((radio) => {
+        radio.addEventListener("change", () => syncRoleOtherField(mode));
+      });
+
+    const otherInputId = getRoleOtherIds(mode).input;
+    document
+      .getElementById(otherInputId)
+      ?.addEventListener("input", () =>
+        clearCheckoutFieldError(otherInputId),
+      );
+  });
+
+  // ─── PSGC address dropdowns for the Add / Edit Details forms ──────────────────
+  // The same Region → Province → Municipality → Barangay chain as appointment
+  // step 2, reusing its psgcGet()/setLoading() network layer further down this
+  // file. One deliberate difference: each option's value is the place NAME and
+  // the PSGC code rides in dataset.code, so validateAddressForm(),
+  // normalizeAddressEntry() and the order payload keep reading plain names
+  // exactly as they do today. Nothing about the saved shape changes.
+
+  /**
+   * Municipality → postal code. PSGC publishes no ZIPs, so this is curated:
+   * every Camarines Norte municipality (the centre's own province) plus the
+   * Bicol capitals. Keyed by province so a "San Vicente" elsewhere in the
+   * country can never inherit Camarines Norte's code. A municipality that is
+   * not listed simply leaves the field for the customer to type.
+   */
+  const PH_POSTAL_CODES = Object.freeze({
+    "camarines norte": {
+      daet: "4600",
+      mercedes: "4601",
+      talisay: "4602",
+      "san vicente": "4603",
+      "san lorenzo ruiz": "4604",
+      labo: "4605",
+      vinzons: "4606",
+      capalonga: "4607",
+      basud: "4608",
+      "jose panganiban": "4610",
+      paracale: "4611",
+      "santa elena": "4612",
+    },
+    "camarines sur": { naga: "4400", pili: "4418", iriga: "4431" },
+    albay: { legazpi: "4500", ligao: "4504", tabaco: "4511" },
+    sorsogon: { sorsogon: "4700" },
+    masbate: { masbate: "5400" },
+    catanduanes: { virac: "4800" },
+  });
+
+  /** Compare place names loosely: "City of Naga", "Naga City" and "Naga" match. */
+  const normalizePlaceKey = (value) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/\(.*?\)/g, " ")
+      .replace(/^city of\s+/, "")
+      .replace(/\s+city$/, "")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const lookupPostalCode = (province, city) =>
+    PH_POSTAL_CODES[normalizePlaceKey(province)]?.[normalizePlaceKey(city)] ||
+    "";
+
+  /** Fill a place select with { code, name } items — value is the name. */
+  const fillPlaceSelect = (el, items, placeholder, keepDisabled = false) => {
+    if (!(el instanceof HTMLSelectElement)) return;
+
+    el.innerHTML = `<option value="" selected disabled hidden>${placeholder}</option>`;
+    if (!Array.isArray(items) || items.length === 0) {
+      el.disabled = true;
+      return;
+    }
+
+    items.forEach(({ code, name }) => {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.dataset.code = code;
+      opt.textContent = name;
+      el.appendChild(opt);
+    });
+    el.disabled = keepDisabled;
+  };
+
+  /**
+   * Select a saved place by name. When PSGC has no such option — a different
+   * spelling, a renamed barangay, or the API being down — the name is added as
+   * an option instead, because silently blanking a customer's saved province is
+   * how a parcel goes to the wrong town.
+   */
+  const setPlaceSelect = (el, name) => {
+    if (!(el instanceof HTMLSelectElement)) return false;
+
+    const wanted = String(name || "").trim();
+    if (!wanted) return false;
+
+    const match = Array.from(el.options).find(
+      (opt) => opt.value && normalizePlaceKey(opt.value) === normalizePlaceKey(wanted),
+    );
+
+    if (match) {
+      el.value = match.value;
+      el.disabled = false;
+      return true;
+    }
+
+    const opt = document.createElement("option");
+    opt.value = wanted;
+    opt.textContent = wanted;
+    el.appendChild(opt);
+    el.value = wanted;
+    el.disabled = false;
+    return false;
+  };
+
+  /** The PSGC code behind the currently selected option, if it came from PSGC. */
+  const selectedPlaceCode = (el) =>
+    el instanceof HTMLSelectElement
+      ? String(el.selectedOptions?.[0]?.dataset?.code || "")
+      : "";
+
+  /** Bicol. Tried first when resolving a saved province — most orders are local. */
+  const BICOL_REGION_CODE = "0500000000";
+
+  /**
+   * Build the four-select cascade for one form mode ("add" or "edit").
+   * Returns { hydrate } — everything else is wired internally, once.
+   */
+  const createPlaceCascade = (mode) => {
+    const ids = getAddressFieldIds(mode);
+    const el = (key) => document.getElementById(ids[key]);
+    const postalHintId = mode === "add" ? "addInpPostalHint" : "inpPostalHint";
+
+    // Guards a slow hydrate from filling the form after the customer has already
+    // opened a different address.
+    let hydrateToken = 0;
+
+    const showPostalHint = (show) => {
+      const hint = document.getElementById(postalHintId);
+      if (hint instanceof HTMLElement) hint.style.display = show ? "" : "none";
+    };
+
+    /** Prefill the postal code from the picked municipality, still editable. */
+    const fillPostalFromCity = () => {
+      const postal = el("postal");
+      if (!(postal instanceof HTMLInputElement)) return;
+
+      const zip = lookupPostalCode(el("province")?.value, el("city")?.value);
+      if (!zip) {
+        showPostalHint(false);
+        return;
+      }
+
+      postal.value = zip;
+      clearCheckoutFieldError(ids.postal);
+      showPostalHint(true);
+    };
+
+    /** Blank every select below the one that just changed. */
+    const resetBelow = (from) => {
+      if (from === "region") {
+        fillPlaceSelect(el("province"), [], "Select Province", true);
+      }
+      if (from === "region" || from === "province") {
+        fillPlaceSelect(el("city"), [], "Select Municipality", true);
+      }
+      fillPlaceSelect(el("barangay"), [], "Select Barangay", true);
+    };
+
+    const loadRegions = async () => {
+      const region = el("region");
+      if (!(region instanceof HTMLSelectElement)) return [];
+
+      setLoading(region, "Region");
+      const regions = await psgcGet(`${PSGC_BASE}/regions`);
+      fillPlaceSelect(region, regions, "Select Region", false);
+      return regions;
+    };
+
+    const loadProvinces = async (regionCode) => {
+      setLoading(el("province"), "Province");
+      const provinces = await psgcGet(
+        `${PSGC_BASE}/regions/${regionCode}/provinces`,
+      );
+      fillPlaceSelect(el("province"), provinces, "Select Province", false);
+      return provinces;
+    };
+
+    const loadCities = async (provinceCode) => {
+      setLoading(el("city"), "Municipality");
+      const cities = await psgcGet(
+        `${PSGC_BASE}/provinces/${provinceCode}/cities-municipalities`,
+      );
+      fillPlaceSelect(el("city"), cities, "Select Municipality", false);
+      return cities;
+    };
+
+    const loadBarangays = async (cityCode) => {
+      setLoading(el("barangay"), "Barangay");
+      const barangays = await psgcGet(
+        `${PSGC_BASE}/cities-municipalities/${cityCode}/barangays`,
+      );
+      fillPlaceSelect(el("barangay"), barangays, "Select Barangay", false);
+      return barangays;
+    };
+
+    /**
+     * Find which region owns a saved province name. Bicol is tried on its own
+     * first because almost every order is local — that is one request instead of
+     * a scan; only an out-of-region address pays for the rest, and psgcGet caches
+     * every answer for the session.
+     */
+    const findProvinceLocation = async (regions, provinceName) => {
+      const wanted = normalizePlaceKey(provinceName);
+      if (!wanted || !Array.isArray(regions) || regions.length === 0) return null;
+
+      const match = (provinces, region) => {
+        const hit = (provinces || []).find(
+          (p) => normalizePlaceKey(p.name) === wanted,
+        );
+        return hit ? { region, province: hit, provinces } : null;
+      };
+
+      const bicol = regions.find((r) => r.code === BICOL_REGION_CODE);
+      if (bicol) {
+        const found = match(
+          await psgcGet(`${PSGC_BASE}/regions/${bicol.code}/provinces`),
+          bicol,
+        );
+        if (found) return found;
+      }
+
+      const others = regions.filter((r) => r.code !== BICOL_REGION_CODE);
+      const lists = await Promise.all(
+        others.map((r) => psgcGet(`${PSGC_BASE}/regions/${r.code}/provinces`)),
+      );
+
+      for (let i = 0; i < others.length; i += 1) {
+        const found = match(lists[i], others[i]);
+        if (found) return found;
+      }
+      return null;
+    };
+
+    /**
+     * Re-select a saved address across the four dropdowns. Runs in the background
+     * while the modal is already open, so nothing waits on the network.
+     */
+    const hydrate = async (source) => {
+      const token = (hydrateToken += 1);
+      const stale = () => token !== hydrateToken;
+
+      const wantedProvince = String(source?.province || "").trim();
+      const wantedCity = String(
+        source?.city_municipality || source?.city || "",
+      ).trim();
+      const wantedBarangay = String(source?.barangay || "").trim();
+
+      const regions = await loadRegions();
+      if (stale()) return;
+      resetBelow("region");
+      showPostalHint(false);
+
+      if (!wantedProvince && !wantedCity && !wantedBarangay) return;
+
+      const located = await findProvinceLocation(regions, wantedProvince);
+      if (stale()) return;
+
+      // PSGC could not place the province: keep every saved name as-is so the
+      // customer never loses an address to a third-party lookup.
+      if (!located) {
+        setPlaceSelect(el("province"), wantedProvince);
+        setPlaceSelect(el("city"), wantedCity);
+        setPlaceSelect(el("barangay"), wantedBarangay);
+        return;
+      }
+
+      setPlaceSelect(el("region"), located.region.name);
+      fillPlaceSelect(el("province"), located.provinces, "Select Province", false);
+      setPlaceSelect(el("province"), located.province.name);
+
+      const cities = await loadCities(located.province.code);
+      if (stale()) return;
+
+      const cityHit = cities.find(
+        (c) => normalizePlaceKey(c.name) === normalizePlaceKey(wantedCity),
+      );
+      if (!cityHit) {
+        setPlaceSelect(el("city"), wantedCity);
+        setPlaceSelect(el("barangay"), wantedBarangay);
+        return;
+      }
+
+      setPlaceSelect(el("city"), cityHit.name);
+      await loadBarangays(cityHit.code);
+      if (stale()) return;
+      setPlaceSelect(el("barangay"), wantedBarangay);
+    };
+
+    el("region")?.addEventListener("change", async () => {
+      hydrateToken += 1;
+      clearCheckoutFieldError(ids.region);
+      resetBelow("region");
+      showPostalHint(false);
+
+      const code = selectedPlaceCode(el("region"));
+      if (code) await loadProvinces(code);
+    });
+
+    el("province")?.addEventListener("change", async () => {
+      hydrateToken += 1;
+      clearCheckoutFieldError(ids.province);
+      resetBelow("province");
+      showPostalHint(false);
+
+      const code = selectedPlaceCode(el("province"));
+      if (code) await loadCities(code);
+    });
+
+    el("city")?.addEventListener("change", async () => {
+      hydrateToken += 1;
+      clearCheckoutFieldError(ids.city);
+      resetBelow("city");
+      fillPostalFromCity();
+
+      const code = selectedPlaceCode(el("city"));
+      if (code) await loadBarangays(code);
+    });
+
+    el("barangay")?.addEventListener("change", () =>
+      clearCheckoutFieldError(ids.barangay),
+    );
+
+    el("postal")?.addEventListener("input", () => showPostalHint(false));
+
+    return { hydrate };
+  };
+
+  // One cascade per form, built on first use so the page pays nothing until a
+  // customer actually opens an address form.
+  const placeCascades = {};
+  const getPlaceCascade = (mode) => {
+    const key = mode === "add" ? "add" : "edit";
+    if (!placeCascades[key]) placeCascades[key] = createPlaceCascade(key);
+    return placeCascades[key];
   };
 
   const ensureSingleDefaultAddress = () => {
@@ -2852,9 +3267,20 @@ document.addEventListener("DOMContentLoaded", () => {
     };
   };
 
-  const applyAddressToForm = (mode, addressEntry) => {
+  /**
+   * Fill one address form from a saved entry.
+   *
+   * `hydratePlaces` is off for the page-load priming pass: the PSGC chain costs
+   * real requests and its helpers are declared further down this file, so it is
+   * only ever run from a modal-open path — every one of which calls this again.
+   */
+  const applyAddressToForm = (mode, addressEntry, { hydratePlaces = true } = {}) => {
     const source = splitLegacyAddressLine(addressEntry || {});
     const isAddMode = mode === "add";
+
+    // The four place selects fill themselves in the background — the modal opens
+    // straight away and the chain lands a moment later.
+    if (hydratePlaces) void getPlaceCascade(mode).hydrate(source);
 
     if (isAddMode) {
       if (addInpFullName) {
@@ -2863,10 +3289,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (addInpPhone) addInpPhone.value = source.phone_number || "";
       if (addInpAddress) addInpAddress.value = source.address_line || "";
-      if (addInpBarangay) addInpBarangay.value = source.barangay || "";
-      if (addInpCity)
-        addInpCity.value = source.city_municipality || source.city || "";
-      if (addInpProvince) addInpProvince.value = source.province || "";
       if (addInpPostal) addInpPostal.value = source.postal_code || "";
       if (addInpDetails) addInpDetails.value = source.address_details || "";
       if (addInpDept) addInpDept.value = source.department || "";
@@ -2874,7 +3296,7 @@ document.addEventListener("DOMContentLoaded", () => {
         addInpSetDefault.checked =
           customerAddressBook.length === 0 || Boolean(source.is_default);
       }
-      setRoleByRadioName("addUserRole", source.customer_type || "Student");
+      applyCustomerTypeToForm("add", source.customer_type || "Student");
       return;
     }
 
@@ -2882,14 +3304,11 @@ document.addEventListener("DOMContentLoaded", () => {
       inpFullName.value = source.name || customerSession.userInfo?.name || "";
     if (inpPhone) inpPhone.value = source.phone_number || "";
     if (inpAddress) inpAddress.value = source.address_line || "";
-    if (inpBarangay) inpBarangay.value = source.barangay || "";
-    if (inpCity) inpCity.value = source.city_municipality || source.city || "";
-    if (inpProvince) inpProvince.value = source.province || "";
     if (inpPostal) inpPostal.value = source.postal_code || "";
     if (inpDetails) inpDetails.value = source.address_details || "";
     if (inpDept) inpDept.value = source.department || "";
     if (inpSetDefault) inpSetDefault.checked = Boolean(source.is_default);
-    setRoleByRadioName("userRole", source.customer_type || "Student");
+    applyCustomerTypeToForm("edit", source.customer_type || "Student");
   };
 
   const validateAddressForm = (mode) => {
@@ -2907,15 +3326,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const name = String(nameInput?.value || "").trim();
     const phone = normalizePhoneDigits(phoneInput?.value || "");
     const addressLine = readField("address");
+    const region = readField("region");
     const barangay = readField("barangay");
     const city = readField("city");
     const province = readField("province");
     const postalCode = readField("postal").replace(/\D/g, "").slice(0, 4);
     const addressDetails = readField("details");
     const department = readField("dept");
-    const customerType = getSelectedRole(
-      isAddMode ? "addUserRole" : "userRole",
-    );
+    const customerType = getCustomerTypeValue(mode);
     const setDefault = isAddMode
       ? Boolean(addInpSetDefault?.checked)
       : Boolean(inpSetDefault?.checked);
@@ -2930,11 +3348,17 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     let firstInvalidInput = null;
+    let firstInvalidField = null;
 
     const registerError = (fieldId, message) => {
       setCheckoutFieldError(fieldId, message);
-      if (!firstInvalidInput) {
-        firstInvalidInput = document.getElementById(fieldId);
+      const field = document.getElementById(fieldId);
+      if (!firstInvalidField) firstInvalidField = field;
+      // A place select below an unpicked one is still disabled, and a disabled
+      // control cannot take focus — so the first *focusable* invalid field wins
+      // the focus while the first invalid field still decides the scroll target.
+      if (!firstInvalidInput && field instanceof HTMLElement && !field.disabled) {
+        firstInvalidInput = field;
       }
     };
 
@@ -2960,16 +3384,28 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     }
 
+    // The region select is only enforced once it actually holds options: if PSGC
+    // is unreachable the chain stays empty, and a customer must still be able to
+    // save an address the modal hydrated from their saved record.
+    const regionSelect = document.getElementById(ids.region);
+    const hasRegionOptions =
+      regionSelect instanceof HTMLSelectElement &&
+      Array.from(regionSelect.options).some((opt) => opt.value);
+
+    if (!region && hasRegionOptions) {
+      registerError(ids.region, "Please select your region.");
+    }
+
     if (!barangay) {
-      registerError(ids.barangay, "Please enter your barangay.");
+      registerError(ids.barangay, "Please select your barangay.");
     }
 
     if (!city) {
-      registerError(ids.city, "Please enter your city or municipality.");
+      registerError(ids.city, "Please select your city or municipality.");
     }
 
     if (!province) {
-      registerError(ids.province, "Please enter your province.");
+      registerError(ids.province, "Please select your province.");
     }
 
     if (!postalCode) {
@@ -2992,8 +3428,30 @@ document.addEventListener("DOMContentLoaded", () => {
       registerError(ids.dept, "Please enter your department or organization.");
     }
 
-    if (firstInvalidInput instanceof HTMLElement) {
-      firstInvalidInput.focus();
+    // Same rules the appointment form applies to its own Others box, so one
+    // customer filling both forms is judged by one standard. The 100-character
+    // cap is the input's maxlength: the value is saved as `Others: <text>` and
+    // the prefix eats 8 of the server's 120.
+    if (isOtherCustomerType(mode)) {
+      const otherType = readField("roleOther");
+      if (!otherType) {
+        registerError(ids.roleOther, "Please specify your type of client.");
+      } else if (otherType.length > 100) {
+        registerError(
+          ids.roleOther,
+          "Type of client must not exceed 100 characters.",
+        );
+      } else if (!/^[A-Za-z0-9 .,'()\/&-]+$/.test(otherType)) {
+        registerError(
+          ids.roleOther,
+          "Type of client is invalid. Use letters, numbers and basic punctuation only.",
+        );
+      }
+    }
+
+    if (firstInvalidField instanceof HTMLElement) {
+      firstInvalidField.scrollIntoView({ block: "center", behavior: "smooth" });
+      if (firstInvalidInput instanceof HTMLElement) firstInvalidInput.focus();
       return null;
     }
 
@@ -3028,13 +3486,20 @@ document.addEventListener("DOMContentLoaded", () => {
       pushFieldError(ids.name, errors.name?.[0]);
       pushFieldError(ids.phone, errors.phone_number?.[0]);
       pushFieldError(ids.address, errors.address_line?.[0]);
+      pushFieldError(ids.region, errors.region?.[0]);
       pushFieldError(ids.barangay, errors.barangay?.[0]);
       pushFieldError(ids.city, errors.city_municipality?.[0]);
       pushFieldError(ids.province, errors.province?.[0]);
       pushFieldError(ids.postal, errors.postal_code?.[0]);
       pushFieldError(ids.details, errors.address_details?.[0]);
       pushFieldError(ids.dept, errors.department?.[0]);
-      pushFieldError(ids.dept, errors.customer_type?.[0]);
+      // A customer_type complaint belongs on the Others box whenever that box is
+      // what produced the value; otherwise it stays on the department field, as
+      // the radio grid itself has no error slot of its own.
+      pushFieldError(
+        isOtherCustomerType(mode) ? ids.roleOther : ids.dept,
+        errors.customer_type?.[0],
+      );
     }
 
     if (!didSetFieldError && fallbackMessage) {
@@ -3162,10 +3627,12 @@ document.addEventListener("DOMContentLoaded", () => {
     applyAddressToForm(
       "edit",
       getSelectedCheckoutAddress() || customerCheckoutProfile,
+      { hydratePlaces: false },
     );
     applyAddressToForm(
       "add",
       getSelectedCheckoutAddress() || customerCheckoutProfile,
+      { hydratePlaces: false },
     );
 
     if (!customerAddressBook.length) {
@@ -3310,10 +3777,12 @@ document.addEventListener("DOMContentLoaded", () => {
     applyAddressToForm(
       "edit",
       getSelectedCheckoutAddress() || customerCheckoutProfile,
+      { hydratePlaces: false },
     );
     applyAddressToForm(
       "add",
       getSelectedCheckoutAddress() || customerCheckoutProfile,
+      { hydratePlaces: false },
     );
 
     const syncResult = await syncProfileFromAddress(
@@ -3389,13 +3858,17 @@ document.addEventListener("DOMContentLoaded", () => {
       ensureSingleDefaultAddress();
       renderAddressList();
       renderCheckoutAddress();
+      // Priming only: re-running the PSGC chain here could land while the
+      // customer is already picking their own municipality in an open modal.
       applyAddressToForm(
         "edit",
         getSelectedCheckoutAddress() || customerCheckoutProfile,
+        { hydratePlaces: false },
       );
       applyAddressToForm(
         "add",
         getSelectedCheckoutAddress() || customerCheckoutProfile,
+        { hydratePlaces: false },
       );
     } catch {
       // Keep UI usable with local/session fallback values.
@@ -3561,10 +4034,12 @@ document.addEventListener("DOMContentLoaded", () => {
   applyAddressToForm(
     "edit",
     getSelectedCheckoutAddress() || customerCheckoutProfile,
+    { hydratePlaces: false },
   );
   applyAddressToForm(
     "add",
     getSelectedCheckoutAddress() || customerCheckoutProfile,
+    { hydratePlaces: false },
   );
   if (!isGuestUser) {
     void fetchCustomerCheckoutProfile();
@@ -13431,6 +13906,9 @@ const openReturnRequestModal = (() => {
     // different IIFE, so the values are published on window and announced
     // instead of being written into the DOM here.
     publishGcashSettings(s);
+    // Announcement / promotion theme — same reason: customer-announcements.js
+    // owns the pop-up and the product-page promotion card from its own IIFE.
+    publishPromotionTheme(s);
   }
 
   /**
@@ -13456,6 +13934,58 @@ const openReturnRequestModal = (() => {
     }
     document.dispatchEvent(
       new CustomEvent("fmrc:gcash-settings", { detail: next }),
+    );
+  }
+
+  /**
+   * One theme drives both the announcement pop-up and the promotion card in the
+   * product page header, so the admin sets the colours once. Blank is a real
+   * choice for the two emojis and the label — an admin who clears them wants
+   * them gone — while a setting that was never saved falls back to the wording
+   * the pages ship with, leaving an untouched site looking exactly as before.
+   */
+  function publishPromotionTheme(s) {
+    var hex = function (value, fallback) {
+      return /^#[0-9a-fA-F]{3,8}$/.test(String(value || ""))
+        ? String(value)
+        : fallback;
+    };
+    // Clamp by code point, not by length: one emoji is a single glyph but two
+    // UTF-16 units, so slicing a string would cut it in half.
+    var clamp = function (value, fallback, limit) {
+      if (typeof value !== "string") return fallback;
+      return Array.from(value.trim()).slice(0, limit).join("");
+    };
+    var next = {
+      primary: hex(s.announcement_theme_primary, "#c0392b"),
+      secondary: hex(s.announcement_theme_secondary, "#800000"),
+      emojiLeft: clamp(s.promo_spotlight_emoji_left, "🎉", 4),
+      emojiRight: clamp(s.promo_spotlight_emoji_right, "🎉", 4),
+      eyebrow: clamp(s.promo_spotlight_eyebrow, "LIMITED-TIME PROMOTION", 48),
+      // Whether a colour was really saved, as opposed to defaulted above. The
+      // announcement pop-up wears the shared `ux-dlg` maroon band until an
+      // admin picks a theme, so it needs to tell the two apart.
+      explicit:
+        /^#[0-9a-fA-F]{3,8}$/.test(String(s.announcement_theme_primary || "")) ||
+        /^#[0-9a-fA-F]{3,8}$/.test(
+          String(s.announcement_theme_secondary || ""),
+        ),
+    };
+    var previous = window.FMRC_PROMO_THEME;
+    window.FMRC_PROMO_THEME = next;
+    if (
+      previous &&
+      previous.primary === next.primary &&
+      previous.secondary === next.secondary &&
+      previous.explicit === next.explicit &&
+      previous.emojiLeft === next.emojiLeft &&
+      previous.emojiRight === next.emojiRight &&
+      previous.eyebrow === next.eyebrow
+    ) {
+      return;
+    }
+    document.dispatchEvent(
+      new CustomEvent("fmrc:promotion-theme", { detail: next }),
     );
   }
 

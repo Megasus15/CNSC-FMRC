@@ -250,6 +250,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // Admin: Site Settings
     Route::put('/admin/site-settings', [SiteSettingController::class, 'bulkUpdate']);
 
+    // Admin/Staff: Gmail notification templates. Reads only -- saving an edited
+    // template goes through PUT /admin/site-settings like every other setting,
+    // under the "email_tpl_{slug}" keys the public /site-settings hides.
+    Route::get('/admin/email-templates', [SiteSettingController::class, 'emailTemplates']);
+    Route::post('/admin/email-templates/preview', [SiteSettingController::class, 'previewEmailTemplate']);
+
     // Admin: Maintenance Mode. The controller checks for role === 'admin', which
     // is stricter than the site-settings route above (admin OR staff) on
     // purpose: taking the customer site offline is not a staff action.

@@ -1435,6 +1435,8 @@ document.addEventListener("DOMContentLoaded", () => {
     "website-services.html",
     "website-contact.html",
     "website-footer.html",
+    "website-emails.html",
+    "website-maintenance.html",
   ];
   const isWebsiteMgmtPage = WEBSITE_MGMT_ROUTES.some((route) =>
     window.location.pathname.toLowerCase().endsWith(`/${route}`),

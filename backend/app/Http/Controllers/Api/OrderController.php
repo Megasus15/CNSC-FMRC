@@ -563,7 +563,8 @@ class OrderController extends Controller
                 $createdOrder,
                 'Your Order Has Been Received',
                 "Hi {$customerName},\n\nThank you for placing your order with UCN-FMRC. We have received your order and it is currently under review. You will be notified once it has been processed.\n\nPlease keep your order number for your reference.",
-                '#800000'
+                '#800000',
+                templateKey: 'order_received'
             );
             $this->sendCustomerOrderEmail($createdOrder, "Order Received – {$orderNoLabel}", $emailHtml);
 
@@ -1320,7 +1321,18 @@ class OrderController extends Controller
                     .'You can place a new order any time.'
                 : "Hi {$order->customer_name},\n\nWe received your request to cancel order {$orderNoLabel}.\n\nReason: {$reasonLabel}\n\nFMRC has already confirmed your payment for this order, so staff review the request before closing it - that is also how the refund gets arranged. You will be notified as soon as they decide."
                     .($refundDue ? "\n\nOnce it is approved, staff send the {$amountLabel} back to the GCash number you paid from." : ''),
-            $immediate ? '#b45309' : '#0a5fd6'
+            $immediate ? '#b45309' : '#0a5fd6',
+            templateKey: $immediate ? 'order_cancelled_immediately' : 'order_cancellation_requested',
+            tokens: [
+                'reason' => $reasonLabel,
+                'refund_note' => $immediate
+                    ? ($refundDue
+                        ? "If you already sent the {$amountLabel} through GCash, FMRC will check the account and return it to you. Staff will contact you once it has been sent back."
+                        : 'No payment was collected, so there is nothing to refund.')
+                    : ($refundDue
+                        ? "\n\nOnce it is approved, staff send the {$amountLabel} back to the GCash number you paid from."
+                        : ''),
+            ]
         );
         $this->sendCustomerOrderEmail(
             $order,
@@ -1484,7 +1496,16 @@ class OrderController extends Controller
                     .($note !== '' ? "Note from FMRC: {$note}\n\n" : '')
                     .'You can place a new order any time.'
                 : "Hi {$order->customer_name},\n\nFMRC could not cancel order {$orderNoLabel}.\n\nReason from FMRC: {$note}\n\nYour order continues as normal. If you have questions, please reply to this email or message FMRC directly.",
-            $approve ? '#b45309' : '#dc2626'
+            $approve ? '#b45309' : '#dc2626',
+            templateKey: $approve ? 'order_cancellation_approved' : 'order_cancellation_declined',
+            tokens: [
+                'reason' => $reasonLabel,
+                'note' => $note,
+                'refund_note' => $refundDue
+                    ? "Your GCash payment of {$amountLabel} will be sent back to the number you paid from. Staff process refunds by hand, so please allow a few working days."
+                    : 'No payment was collected for this order, so there is nothing to refund.',
+                'staff_note' => $note !== '' ? "Note from FMRC: {$note}\n\n" : '',
+            ]
         );
         $this->sendCustomerOrderEmail(
             $order,
@@ -1703,7 +1724,8 @@ class OrderController extends Controller
                     $order,
                     'Your Order Has Been Approved',
                     "Hi {$order->customer_name},\n\nGreat news! Your order {$orderNoLabel} has been approved and is now being processed. We will update you again once your order is ready for shipping or pickup.",
-                    '#059669'
+                    '#059669',
+                    templateKey: 'order_approved'
                 );
                 $this->sendCustomerOrderEmail($order, "Order Approved – {$orderNoLabel}", $emailHtml);
             }
@@ -1770,7 +1792,9 @@ class OrderController extends Controller
                     $order,
                     'Your Order Could Not Be Processed',
                     "Hi {$order->customer_name},\n\nUnfortunately, your order {$orderNoLabel} could not be processed at this time.\n\nReason: No reason provided\n\nIf you have questions, please contact us directly or place a new order. We apologize for any inconvenience.",
-                    '#dc2626'
+                    '#dc2626',
+                    templateKey: 'order_rejected',
+                    tokens: ['reason' => 'No reason provided']
                 );
                 $this->sendCustomerOrderEmail($order, "Order Update – {$orderNoLabel}", $emailHtml);
             }
@@ -1838,7 +1862,8 @@ class OrderController extends Controller
             $order,
             'Your Order Has Been Approved',
             "Hi {$order->customer_name},\n\nGreat news! Your order {$orderNoLabel} has been approved and is now being processed. We will update you again once your order is ready for shipping or pickup.",
-            '#059669'
+            '#059669',
+            templateKey: 'order_approved'
         );
         $this->sendCustomerOrderEmail($order, "Order Approved – {$orderNoLabel}", $emailHtml);
 
@@ -1910,7 +1935,9 @@ class OrderController extends Controller
             $order,
             'Your Order Could Not Be Processed',
             "Hi {$order->customer_name},\n\nUnfortunately, your order {$orderNoLabel} could not be processed at this time.\n\nReason: {$reason}\n\nIf you have questions, please contact us directly or place a new order. We apologize for any inconvenience.",
-            '#dc2626'
+            '#dc2626',
+            templateKey: 'order_rejected',
+            tokens: ['reason' => $reason]
         );
         $this->sendCustomerOrderEmail($order, "Order Update – {$orderNoLabel}", $emailHtml);
 
@@ -1966,7 +1993,8 @@ class OrderController extends Controller
             $order,
             'Your Order Is Complete!',
             "Hi {$order->customer_name},\n\nYour order {$orderNoLabel} has been marked as completed. Thank you for choosing UCN-FMRC!\n\nWe hope to serve you again. If you have any feedback, feel free to reach out to us.",
-            '#800000'
+            '#800000',
+            templateKey: 'order_completed'
         );
         $this->sendCustomerOrderEmail($order, "Order Completed – {$orderNoLabel}", $emailHtml);
 
@@ -2272,7 +2300,13 @@ class OrderController extends Controller
             "Order Update: {$stageLabel}",
             "Hi {$order->customer_name},\n\nYour order {$orderNoLabel} has a new status update.\n\nUpdate: {$title}\n" .
                 (!empty($validated['description']) ? "Details: {$validated['description']}" : ''),
-            '#1d4ed8'
+            '#1d4ed8',
+            templateKey: 'order_tracking_update',
+            tokens: [
+                'stage' => $stageLabel,
+                'update_title' => $title,
+                'details' => !empty($validated['description']) ? "Details: {$validated['description']}" : '',
+            ]
         );
         $this->sendCustomerOrderEmail($order, "Order Update – {$orderNoLabel}", $emailHtml);
 
@@ -2390,7 +2424,8 @@ class OrderController extends Controller
                 $order,
                 'Payment Confirmed',
                 "Hi {$order->customer_name},\n\nYour payment for order {$orderNoLabel} has been confirmed. Your order is now being prepared for shipping or pickup.\n\nThank you for your purchase!",
-                '#059669'
+                '#059669',
+                templateKey: 'payment_confirmed'
             );
             $this->sendCustomerOrderEmail($order, "Payment Confirmed – {$orderNoLabel}", $emailHtml);
         }
@@ -2486,10 +2521,29 @@ class OrderController extends Controller
 
     /**
      * Build the styled HTML email body for order status notifications.
+     *
+     * `$templateKey` names the EmailTemplate slug an admin edits from Website
+     * Management -> Email Templates; `$tokens` supplies the per-slug {token}
+     * values on top of the four every order email already gets.
+     *
+     * @param  array<string, mixed>  $tokens
      */
-    private function buildOrderEmailHtml(Order $order, string $headline, string $bodyText, string $statusColor = '#800000'): string
-    {
-        return OrderNotifier::buildEmailHtml($order, $headline, $bodyText, $statusColor);
+    private function buildOrderEmailHtml(
+        Order $order,
+        string $headline,
+        string $bodyText,
+        string $statusColor = '#800000',
+        ?string $templateKey = null,
+        array $tokens = [],
+    ): string {
+        return OrderNotifier::buildEmailHtml(
+            $order,
+            $headline,
+            $bodyText,
+            $statusColor,
+            templateKey: $templateKey,
+            tokens: $tokens,
+        );
     }
 
     private function dispatchAfterResponse(callable $callback): void

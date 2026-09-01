@@ -20,7 +20,7 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
-    <link rel="stylesheet" href="../home-page/main.css?v=6.8" />
+    <link rel="stylesheet" href="../home-page/main.css?v=6.9" />
     <style>
       @keyframes shimmer {
         0% {
@@ -286,13 +286,13 @@
     <!-- Announcement Limited-Time Offer Banner Header (Positioned below Search/Filters card and above Product Cards) -->
     <section class="promotion-spotlight-wrap" id="promotionSpotlight" style="display:none; margin: 20px auto 10px; max-width: 1200px; padding: 0 20px;">
       <div class="promotion-spotlight-card" style="position: relative; overflow: hidden; border-radius: 16px; background: linear-gradient(135deg, var(--announcement-accent-primary, #c0392b), var(--announcement-accent-secondary, #800000)); color: #fff; padding: 18px 26px; display: flex; align-items: center; justify-content: space-between; gap: 16px; box-shadow: 0 10px 30px rgba(128, 0, 0, 0.22); cursor: pointer; transition: filter 0.2s ease;">
-        <div class="spotlight-celebration-icon left" style="font-size: 1.85rem; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.3)); user-select: none; flex-shrink: 0;">
+        <div class="spotlight-celebration-icon left" id="promotionSpotlightEmojiLeft" style="font-size: 1.85rem; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.3)); user-select: none; flex-shrink: 0;">
           🎉
         </div>
         <div style="flex: 1; text-align: center;">
-          <div style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.95; margin-bottom: 4px;">
+          <div id="promotionSpotlightEyebrow" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.95; margin-bottom: 4px;">
             <i class="fa-solid fa-fire" style="color: #fbbf24;"></i>
-            <span>LIMITED-TIME PROMOTION</span>
+            <span id="promotionSpotlightEyebrowText">LIMITED-TIME PROMOTION</span>
           </div>
           <h3 id="promotionSpotlightTitle" style="margin: 0; font-size: 1.25rem; font-weight: 800; color: #fff; line-height: 1.3;">
             🎉 Special Product Promotion
@@ -301,7 +301,7 @@
             Enjoy exclusive discounts on selected campus products.
           </p>
         </div>
-        <div class="spotlight-celebration-icon right" style="font-size: 1.85rem; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.3)); user-select: none; flex-shrink: 0;">
+        <div class="spotlight-celebration-icon right" id="promotionSpotlightEmojiRight" style="font-size: 1.85rem; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.3)); user-select: none; flex-shrink: 0;">
           🎉
         </div>
       </div>
@@ -976,52 +976,58 @@
 
             <div class="form-row-2">
               <div class="form-group">
-                <label>Barangay <span class="req-mark">*</span></label>
-                <input
-                  type="text"
-                  id="inpBarangay"
-                  class="c-input"
-                  placeholder="e.g. Barangay II"
-                  required
-                />
+                <label>Region <span class="req-mark">*</span></label>
+                <select id="inpRegion" class="c-input" required>
+                  <option value="" selected disabled hidden>
+                    Select Region
+                  </option>
+                </select>
               </div>
 
               <div class="form-group">
-                <label>City / Municipality <span class="req-mark">*</span></label>
-                <input
-                  type="text"
-                  id="inpCity"
-                  class="c-input"
-                  placeholder="e.g. Daet"
-                  required
-                />
+                <label>Province <span class="req-mark">*</span></label>
+                <select id="inpProvince" class="c-input" required disabled>
+                  <option value="" selected disabled hidden>
+                    Select Province
+                  </option>
+                </select>
               </div>
             </div>
 
             <div class="form-row-2">
               <div class="form-group">
-                <label>Province <span class="req-mark">*</span></label>
-                <input
-                  type="text"
-                  id="inpProvince"
-                  class="c-input"
-                  placeholder="e.g. Camarines Norte"
-                  required
-                />
+                <label>City / Municipality <span class="req-mark">*</span></label>
+                <select id="inpCity" class="c-input" required disabled>
+                  <option value="" selected disabled hidden>
+                    Select Municipality
+                  </option>
+                </select>
               </div>
 
               <div class="form-group">
-                <label>Postal code <span class="req-mark">*</span></label>
-                <input
-                  type="text"
-                  id="inpPostal"
-                  class="c-input"
-                  inputmode="numeric"
-                  maxlength="4"
-                  placeholder="4600"
-                  required
-                />
+                <label>Barangay <span class="req-mark">*</span></label>
+                <select id="inpBarangay" class="c-input" required disabled>
+                  <option value="" selected disabled hidden>
+                    Select Barangay
+                  </option>
+                </select>
               </div>
+            </div>
+
+            <div class="form-group">
+              <label>Postal code <span class="req-mark">*</span></label>
+              <input
+                type="text"
+                id="inpPostal"
+                class="c-input"
+                inputmode="numeric"
+                maxlength="4"
+                placeholder="4600"
+                required
+              />
+              <small class="c-field-hint" id="inpPostalHint" style="display: none"
+                >Auto-filled from your municipality — you can change it.</small
+              >
             </div>
 
             <div class="form-group">
@@ -1099,6 +1105,17 @@
               </div>
             </div>
 
+            <div class="form-group" id="inpRoleOtherField" style="display: none">
+              <label>Please specify <span class="req-mark">*</span></label>
+              <input
+                type="text"
+                id="inpRoleOther"
+                class="c-input"
+                maxlength="100"
+                placeholder="e.g. Local cooperative"
+              />
+            </div>
+
             <div class="form-group c-switch-group">
               <div class="switch-text">
                 <strong>Set as default</strong>
@@ -1159,14 +1176,6 @@
         </div>
 
         <div class="shop-modal-body">
-          <div class="edit-info-guide">
-            <img src="" id="guideProductImgAdd" alt="Ordering" />
-            <div class="guide-text">
-              <span>Ordering for:</span>
-              <strong id="guideProductTitleAdd">Product Title</strong>
-            </div>
-          </div>
-
           <div class="checkout-form">
             <div class="form-group">
               <label>Name</label>
@@ -1194,52 +1203,61 @@
 
             <div class="form-row-2">
               <div class="form-group">
-                <label>Barangay <span class="req-mark">*</span></label>
-                <input
-                  type="text"
-                  id="addInpBarangay"
-                  class="c-input"
-                  placeholder="e.g. Barangay II"
-                  required
-                />
+                <label>Region <span class="req-mark">*</span></label>
+                <select id="addInpRegion" class="c-input" required>
+                  <option value="" selected disabled hidden>
+                    Select Region
+                  </option>
+                </select>
               </div>
 
               <div class="form-group">
-                <label>City / Municipality <span class="req-mark">*</span></label>
-                <input
-                  type="text"
-                  id="addInpCity"
-                  class="c-input"
-                  placeholder="e.g. Daet"
-                  required
-                />
+                <label>Province <span class="req-mark">*</span></label>
+                <select id="addInpProvince" class="c-input" required disabled>
+                  <option value="" selected disabled hidden>
+                    Select Province
+                  </option>
+                </select>
               </div>
             </div>
 
             <div class="form-row-2">
               <div class="form-group">
-                <label>Province <span class="req-mark">*</span></label>
-                <input
-                  type="text"
-                  id="addInpProvince"
-                  class="c-input"
-                  placeholder="e.g. Camarines Norte"
-                  required
-                />
+                <label>City / Municipality <span class="req-mark">*</span></label>
+                <select id="addInpCity" class="c-input" required disabled>
+                  <option value="" selected disabled hidden>
+                    Select Municipality
+                  </option>
+                </select>
               </div>
 
               <div class="form-group">
-                <label>Postal code <span class="req-mark">*</span></label>
-                <input
-                  type="text"
-                  id="addInpPostal"
-                  class="c-input"
-                  inputmode="numeric"
-                  maxlength="4"
-                  placeholder="4600"
-                  required
-                />
+                <label>Barangay <span class="req-mark">*</span></label>
+                <select id="addInpBarangay" class="c-input" required disabled>
+                  <option value="" selected disabled hidden>
+                    Select Barangay
+                  </option>
+                </select>
               </div>
+            </div>
+
+            <div class="form-group">
+              <label>Postal code <span class="req-mark">*</span></label>
+              <input
+                type="text"
+                id="addInpPostal"
+                class="c-input"
+                inputmode="numeric"
+                maxlength="4"
+                placeholder="4600"
+                required
+              />
+              <small
+                class="c-field-hint"
+                id="addInpPostalHint"
+                style="display: none"
+                >Auto-filled from your municipality — you can change it.</small
+              >
             </div>
 
             <div class="form-group">
@@ -1317,6 +1335,21 @@
                   >Others</label
                 >
               </div>
+            </div>
+
+            <div
+              class="form-group"
+              id="addInpRoleOtherField"
+              style="display: none"
+            >
+              <label>Please specify <span class="req-mark">*</span></label>
+              <input
+                type="text"
+                id="addInpRoleOther"
+                class="c-input"
+                maxlength="100"
+                placeholder="e.g. Local cooperative"
+              />
             </div>
 
             <div class="form-group c-switch-group">
@@ -1727,9 +1760,9 @@
 
     <!-- Order success modal above replaces the previous inline card. -->
 
-    <script src="../home-page/customer-announcements.js?v=5.5"></script>
+    <script src="../home-page/customer-announcements.js?v=5.6"></script>
     <script src="../home-page/maintenance-gate.js?v=1.1"></script>
-    <script src="../home-page/main.js?v=7.2"></script>
-    <script src="products.js?v=5.8"></script>
+    <script src="../home-page/main.js?v=7.4"></script>
+    <script src="products.js?v=5.9"></script>
   </body>
 </html>

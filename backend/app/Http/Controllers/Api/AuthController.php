@@ -7,7 +7,7 @@ use App\Mail\AdminEmailChangeCommitted;
 use App\Mail\AdminEmailChangeOtp;
 use App\Models\MaintenanceSetting;
 use App\Models\User;
-use App\Support\Branding;
+use App\Support\EmailTemplate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -43,6 +43,24 @@ class AuthController extends Controller
         'Association',
         'Others',
     ];
+
+    /**
+     * A customer type is either one of the fixed choices or the free-text
+     * "Others: <detail>" shape the Add/Edit Details form and the appointment
+     * form both already produce. `users.customer_type` is varchar(120) and the
+     * "Others: " prefix eats 8, so the detail is capped at 110 and limited to
+     * the same characters the forms accept.
+     */
+    private function isAllowedCustomerType(mixed $value): bool
+    {
+        $type = trim((string) $value);
+
+        if ($type === '' || in_array($type, self::ALLOWED_CUSTOMER_TYPES, true)) {
+            return true;
+        }
+
+        return (bool) preg_match('/^Others:\s*[A-Za-z0-9 .,\'()\/&-]{1,110}$/u', $type);
+    }
 
     private function supportsGooglePasswordState(): bool
     {
@@ -648,7 +666,16 @@ class AuthController extends Controller
             'province' => 'nullable|string|max:120',
             'postal_code' => 'nullable|digits:4',
             'department' => 'nullable|string|max:120',
-            'customer_type' => 'nullable|string|max:120|in:' . implode(',', self::ALLOWED_CUSTOMER_TYPES),
+            'customer_type' => [
+                'nullable',
+                'string',
+                'max:120',
+                function (string $attribute, mixed $value, callable $fail): void {
+                    if (!$this->isAllowedCustomerType($value)) {
+                        $fail('Please choose a valid type of client.');
+                    }
+                },
+            ],
         ], [
             'postal_code.digits' => 'A Philippine postal code is exactly 4 digits (Daet is 4600).',
         ]);
@@ -1119,76 +1146,43 @@ class AuthController extends Controller
 
     private function buildWelcomeEmailHtml(User $user): string
     {
-        $name    = e($user->name ?? 'Valued Customer');
-        $email   = e($user->email);
-        $appName = Branding::NAME;
-        $year    = now()->year;
-        $accent  = '#800000';
+        $name = e($user->name ?? 'Valued Customer');
+        $email = e($user->email);
 
-        return <<<HTML
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#f4f6f9;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:32px 16px;">
-<tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-
-<!-- Header -->
-<tr><td style="background:{$accent};padding:28px 32px;text-align:center;">
-    <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.3px;">UCN-FMRC</h1>
-    <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">Customer Portal &middot; Fabrication &amp; Manufacturing Research Center</p>
-</td></tr>
-
-<!-- Body -->
-<tr><td style="padding:32px;">
-    <h2 style="margin:0 0 12px;color:#1f2937;font-size:20px;font-weight:700;">Welcome to the UCN-FMRC Customer Portal, {$name}!</h2>
-    <p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.7;">
-        We're pleased to have you on the platform. Your account has been created for the <strong>University of Camarines Norte &mdash; Fabrication and Manufacturing Research Center (UCN-FMRC)</strong>, and you can now access appointments, orders, and updates.
-    </p>
-
-  <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;">
-    <tr>
-      <td style="padding:14px 20px;border-bottom:1px solid #f1f4f8;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Account Name</span><br>
-        <span style="color:#111827;font-size:15px;font-weight:700;">{$name}</span>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:14px 20px;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Email</span><br>
-        <span style="color:#111827;font-size:15px;font-weight:700;">{$email}</span>
-      </td>
-    </tr>
-  </table>
-
-  <p style="margin:0 0 10px;color:#374151;font-size:14px;line-height:1.7;">With your new account, you can:</p>
-  <ul style="margin:0 0 20px;padding-left:20px;color:#374151;font-size:14px;line-height:2;">
-    <li>Browse and order fabrication products</li>
-    <li>Schedule appointments with the FMRC team</li>
-    <li>Track your orders in real-time</li>
-    <li>Manage your profile and preferences</li>
-  </ul>
-
-  <p style="color:#6b7280;font-size:13px;line-height:1.6;margin:0;">
-    If you did not create this account, please disregard this email or contact us immediately.
-  </p>
-</td></tr>
-
-<!-- Footer -->
-<tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 32px;text-align:center;">
-  <p style="margin:0;color:#9ca3af;font-size:12px;">
-    &copy; {$year} {$appName}. All rights reserved.<br>
-    This is an automated notification &mdash; please do not reply to this email.
-  </p>
-</td></tr>
-
-</table>
-</td></tr>
-</table>
-</body>
-</html>
+        // Code-owned: the account card and the capability list stay put whatever
+        // an admin writes in the editable header, body and footer.
+        $extra = <<<HTML
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;">
+              <tr>
+                <td style="padding:14px 20px;border-bottom:1px solid #f1f4f8;">
+                  <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Account Name</span><br>
+                  <span style="color:#111827;font-size:15px;font-weight:700;">{$name}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:14px 20px;">
+                  <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Email</span><br>
+                  <span style="color:#111827;font-size:15px;font-weight:700;">{$email}</span>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:0 0 10px;color:#374151;font-size:14px;line-height:1.7;">With your new account, you can:</p>
+            <ul style="margin:0 0 20px;padding-left:20px;color:#374151;font-size:14px;line-height:2;">
+              <li>Browse and order fabrication products</li>
+              <li>Schedule appointments with the FMRC team</li>
+              <li>Track your orders in real-time</li>
+              <li>Manage your profile and preferences</li>
+            </ul>
 HTML;
+
+        return EmailTemplate::render(
+            'account_welcome',
+            [
+                'customer_name' => $user->name ?? 'Valued Customer',
+                'email' => (string) $user->email,
+            ],
+            $extra,
+        );
     }
 
     private function buildAdminCreatedAccountEmailHtml(User $user, string $plainPassword): string
@@ -1198,97 +1192,60 @@ HTML;
         $username = e($user->username ?? $email);
         $role     = ucfirst(strtolower($user->role ?? 'customer'));
         $password = e($plainPassword);
-        $appName  = Branding::NAME;
-        $year   = now()->year;
-        $accent = '#800000';
 
         $portalNote = $role === 'Staff'
             ? 'As a <strong>Staff</strong> member, you have access to the administrative dashboard for managing orders, appointments, inventory, and more.'
             : 'As a <strong>Customer</strong>, you can browse products, place orders, schedule appointments, and track your requests through the portal.';
 
-        return <<<HTML
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#f4f6f9;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:32px 16px;">
-<tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
-
-<!-- Header -->
-<tr><td style="background:{$accent};padding:28px 32px;text-align:center;">
-    <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.3px;">UCN-FMRC</h1>
-    <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:13px;">Fabrication &amp; Manufacturing Research Center &mdash; Account Notification</p>
-</td></tr>
-
-<!-- Body -->
-<tr><td style="padding:32px;">
-    <h2 style="margin:0 0 8px;color:#1f2937;font-size:20px;font-weight:700;">Your Account Has Been Created, {$name}!</h2>
-    <p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.7;">
-        An authorized administrator has created a new <strong>{$role}</strong> account for you on the
-        <strong>University of Camarines Norte &mdash; Fabrication and Manufacturing Research Center (UCN-FMRC)</strong> platform.
-        You may use the credentials below to access the system.
-    </p>
-
-  <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;">
-    <tr>
-      <td style="padding:14px 20px;border-bottom:1px solid #f1f4f8;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Full Name</span><br>
-        <span style="color:#111827;font-size:15px;font-weight:700;">{$name}</span>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:14px 20px;border-bottom:1px solid #f1f4f8;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Username</span><br>
-        <span style="color:#111827;font-size:15px;font-weight:700;">{$username}</span>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:14px 20px;border-bottom:1px solid #f1f4f8;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Email Address</span><br>
-        <span style="color:#111827;font-size:15px;font-weight:700;">{$email}</span>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:14px 20px;border-bottom:1px solid #f1f4f8;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Temporary Password</span><br>
-        <span style="color:#800000;font-size:15px;font-weight:700;letter-spacing:0.04em;">{$password}</span>
-      </td>
-    </tr>
-    <tr>
-      <td style="padding:14px 20px;">
-        <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Account Role</span><br>
-        <span style="color:#111827;font-size:15px;font-weight:700;">{$role}</span>
-      </td>
-    </tr>
-  </table>
-
-  <p style="margin:0 0 16px;color:#374151;font-size:14px;line-height:1.7;">{$portalNote}</p>
-
-  <p style="margin:0 0 20px;padding:12px 16px;background:#fef3c7;border-left:4px solid #d97706;border-radius:6px;color:#92400e;font-size:13px;line-height:1.6;">
-    <strong>Security Notice:</strong> For your protection, please change your password immediately after your first login. Do not share your credentials with anyone.
-  </p>
-
-  <p style="color:#6b7280;font-size:13px;line-height:1.6;margin:0;">
-    If you believe this account was created in error, or if you did not authorize this action,
-    please contact the UCN-FMRC administration team immediately.
-  </p>
-</td></tr>
-
-<!-- Footer -->
-<tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 32px;text-align:center;">
-  <p style="margin:0;color:#9ca3af;font-size:12px;">
-    &copy; {$year} {$appName}. All rights reserved.<br>
-    This is an automated system notification &mdash; please do not reply to this email.
-  </p>
-</td></tr>
-
-</table>
-</td></tr>
-</table>
-</body>
-</html>
+        // Code-owned: the credential card, the portal note and the security
+        // notice stay put whatever an admin writes in the editable parts. A
+        // credentials email that lost its password would be worthless.
+        $extra = <<<HTML
+<table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;">
+              <tr>
+                <td style="padding:14px 20px;border-bottom:1px solid #f1f4f8;">
+                  <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Full Name</span><br>
+                  <span style="color:#111827;font-size:15px;font-weight:700;">{$name}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:14px 20px;border-bottom:1px solid #f1f4f8;">
+                  <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Username</span><br>
+                  <span style="color:#111827;font-size:15px;font-weight:700;">{$username}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:14px 20px;border-bottom:1px solid #f1f4f8;">
+                  <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Email Address</span><br>
+                  <span style="color:#111827;font-size:15px;font-weight:700;">{$email}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:14px 20px;border-bottom:1px solid #f1f4f8;">
+                  <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Temporary Password</span><br>
+                  <span style="color:#800000;font-size:15px;font-weight:700;letter-spacing:0.04em;">{$password}</span>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:14px 20px;">
+                  <span style="color:#6b7280;font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;">Account Role</span><br>
+                  <span style="color:#111827;font-size:15px;font-weight:700;">{$role}</span>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:0 0 16px;color:#374151;font-size:14px;line-height:1.7;">{$portalNote}</p>
+            <p style="margin:0 0 20px;padding:12px 16px;background:#fef3c7;border-left:4px solid #d97706;border-radius:6px;color:#92400e;font-size:13px;line-height:1.6;">
+              <strong>Security Notice:</strong> For your protection, please change your password immediately after your first login. Do not share your credentials with anyone.
+            </p>
 HTML;
+
+        return EmailTemplate::render('account_created_by_admin', [
+            'customer_name' => $user->name ?? 'Valued User',
+            'username'      => $user->username ?? ($user->email ?? ''),
+            'email'         => (string) ($user->email ?? ''),
+            'password'      => $plainPassword,
+            'role'          => $role,
+        ], $extra);
     }
 
     private function dispatchAfterResponse(callable $callback): void

@@ -802,13 +802,15 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // ── Clickable image previews inside the modals ───────────────────────────────
-  // View Info modal, Order summary modal (single + cart rows) and Shopping cart
-  // modal thumbnails all open the same fullscreen preview as the product cards.
+  // View Info modal, Order summary modal (single + cart rows), Shopping cart
+  // modal thumbnails and the Edit Details guide image all open the same
+  // fullscreen preview as the product cards.
   const MODAL_PREVIEW_IMAGE_SELECTOR = [
     "#productInfoModal .modal-img-holder img",
     "#checkoutSingleProductCard img",
     "#checkoutCartItemsList .checkout-cart-item img",
     "#cartItemsContainer .cart-item-card .cart-item-img img",
+    "#editInfoModal .edit-info-guide img",
   ].join(", ");
 
   const resolveModalPreviewTitle = (img) => {
@@ -818,6 +820,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (img.closest("#checkoutSingleProductCard")) {
       return (
         document.getElementById("checkoutProductTitle")?.textContent?.trim() ||
+        "Product Image"
+      );
+    }
+    if (img.closest("#editInfoModal")) {
+      return (
+        document.getElementById("guideProductTitle")?.textContent?.trim() ||
         "Product Image"
       );
     }
