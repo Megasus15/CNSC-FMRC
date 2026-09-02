@@ -897,8 +897,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Period dropdown listener
   const topSellingPeriod = document.getElementById("topSellingPeriod");
+
+  /* One selector drives all three sales cards. It used to drive only Top
+     Selling, so a "This Day" bar chart sat beside a Sales by Category donut and
+     a Product Performance table that were both showing every sale ever made —
+     which is how last year's figures stayed on screen no matter what was
+     picked. */
+  const currentPeriod = () => topSellingPeriod?.value || "month";
+
   topSellingPeriod?.addEventListener("change", () => {
-    void loadTopSelling(topSellingPeriod.value);
+    void loadTopSelling(currentPeriod());
+    void loadSalesByCategory();
+    void loadProductPerformance();
   });
 
   // ── 2. Sales by Category (doughnut, from API) ──
@@ -917,7 +927,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const res = await fetch(
-        `${API_BASE_URL}/admin/product-analytics/sales-by-category`,
+        `${API_BASE_URL}/admin/product-analytics/sales-by-category?period=${currentPeriod()}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1167,7 +1177,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const res = await fetch(
-        `${API_BASE_URL}/admin/product-analytics/product-performance`,
+        `${API_BASE_URL}/admin/product-analytics/product-performance?period=${currentPeriod()}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1429,7 +1439,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (showLoading) renderAnalyticsSkeletons();
 
     // Trigger each widget independently so fast ones appear 1-by-1 immediately
-    void loadTopSelling(topSellingPeriod?.value || "month");
+    void loadTopSelling(currentPeriod());
     void loadSalesByCategory();
     void loadProductPerformance();
     void loadYearlySalesTrend(

@@ -336,7 +336,11 @@ class Order extends Model
      * GCash and never pay.
      *
      * Both the dashboard Total Revenue card and the sales report call this, so the
-     * two cannot drift apart.
+     * two recognise GCash money at the same moment. They differ on one thing only,
+     * and each adds it at its own call site: the dashboard also requires
+     * `is_archived = false`, because it reports the active books, while a printed
+     * sales report has to show everything that happened in the period and instead
+     * flags each archived line.
      */
     public function scopeGcashAdvanceRevenue(Builder $query): Builder
     {

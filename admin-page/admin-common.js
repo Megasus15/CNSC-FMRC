@@ -1261,6 +1261,177 @@ if (document.body) {
   }
 })();
 
+/* ==========================================================================
+   Empty-table hygiene — one class, four nodes
+   --------------------------------------------------------------------------
+   A table with nothing in it kept every piece of furniture it needs when full:
+   the `min-width` floors (820-1960px) are row-count-independent, so the wrapper
+   still scrolled sideways past columns with nothing under them, and the footer
+   still offered "Page 1 of 1".
+
+   There is no shared "this table is empty" flag to read. About ten page modules
+   each write their own empty row, and the generic enhancer further down bails on
+   any table carrying an id. What they *do* all share is the markup: every one of
+   them renders `<div class="table-empty-state">` inside that row. So that div is
+   the signal, and no page module needs to change.
+
+   `is-table-empty` then lands on four nodes — the table, its scroll host, the
+   scroll hint above it and the footer below — and the stylesheets do the rest on
+   specificity alone. Skeleton rows count as content on purpose, so the footer
+   does not blink out and back on every load.
+   ========================================================================== */
+(() => {
+  "use strict";
+
+  const EMPTY_CLASS = "is-table-empty";
+  const HOSTS = ".table-wrapper, .analytics-table-wrapper";
+  const HINT = ".table-scroll-hint";
+  const FOOTER = ".table-footer, .inv-cat-footer";
+  const SKELETON = ".admin-table-skeleton-row, .inv-skeleton-row, .skeleton-row";
+  const TABLES = [
+    "table.admin-table",
+    "table.enhanced-table",
+    "table.inventory-table",
+    "table.accounts-table",
+    "table.inv-table",
+    "table.inv-variant-table",
+    "table.analytics-perf-table",
+  ].join(", ");
+
+  const observers = new Map();
+  let sweepPending = false;
+
+  /* requestAnimationFrame is paused in a hidden tab, and a back-office page
+     left open behind another tab is the normal case here — so race it against a
+     timer and take whichever lands first. Either way the class arrives on the
+     same tick as the rows rather than a frame later. */
+  const soon = (fn) => {
+    let done = false;
+    const once = () => {
+      if (done) return;
+      done = true;
+      fn();
+    };
+    if (typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(once);
+    }
+    window.setTimeout(once, 0);
+  };
+
+  const isContentRow = (row) => {
+    /* Skeleton rows count as content deliberately. While a table is still loading
+       nobody knows yet whether it will end up empty, and collapsing the width, the
+       footer and the hint only to hand them straight back a moment later is a
+       visible jump on every single page load. Held furniture is the quiet option. */
+    if (row.matches(SKELETON)) return true;
+    if (row.classList.contains("table-empty-row")) return false;
+    /* archives.js renders its empty row without `.table-empty-row`, so the one
+       marker that travels with all ten modules is the inner div. */
+    if (row.querySelector(".table-empty-state")) return false;
+    return true;
+  };
+
+  /* The hint and the footer are siblings of the scroll host rather than children
+     of anything shared, so walk outward from it — and stop at the next table's
+     territory instead of reaching across into it. */
+  const sibling = (from, selector, back) => {
+    let node = from;
+    while (node) {
+      node = back ? node.previousElementSibling : node.nextElementSibling;
+      if (!node) return null;
+      if (node.matches(selector)) return node;
+      if (node.matches(`table, ${HOSTS}`)) return null;
+    }
+    return null;
+  };
+
+  const sync = (table) => {
+    if (!table || !table.tBodies || !table.tBodies.length) return false;
+    const empty = !Array.from(table.tBodies).some((tbody) =>
+      Array.from(tbody.rows).some(isContentRow),
+    );
+    const host = table.closest(HOSTS);
+    const anchor = host || table;
+    [
+      table,
+      host,
+      sibling(anchor, HINT, true),
+      sibling(anchor, FOOTER, false),
+    ].forEach((node) => {
+      /* Checked before writing, not just toggled: `classList` re-serialises the
+         attribute even when the token list does not change, and that counts as a
+         mutation. admin-table-resize.js watches class attributes to notice a
+         revealed table, so a steady state has to produce no writes at all or the
+         two modules would keep waking each other up. */
+      if (!node || node.classList.contains(EMPTY_CLASS) === empty) return;
+      node.classList.toggle(EMPTY_CLASS, empty);
+    });
+    return empty;
+  };
+  const watch = (table) => {
+    if (typeof MutationObserver !== "function") return;
+    Array.from(table.tBodies).forEach((tbody) => {
+      if (observers.has(tbody)) return;
+      const observer = new MutationObserver(() => {
+        if (!tbody.isConnected) {
+          observer.disconnect();
+          observers.delete(tbody);
+          return;
+        }
+        sync(table);
+      });
+      observer.observe(tbody, { childList: true });
+      observers.set(tbody, observer);
+    });
+  };
+
+  const syncAll = () => {
+    /* Inventory replaces its category cards wholesale, so prune the observers
+       that left with them before adding any more. */
+    observers.forEach((observer, tbody) => {
+      if (tbody.isConnected) return;
+      observer.disconnect();
+      observers.delete(tbody);
+    });
+    document.querySelectorAll(TABLES).forEach((table) => {
+      watch(table);
+      sync(table);
+    });
+  };
+
+  const scheduleSweep = () => {
+    if (sweepPending) return;
+    sweepPending = true;
+    soon(() => {
+      sweepPending = false;
+      syncAll();
+    });
+  };
+
+  /* One document watcher, for discovery only: inventory rebuilds its category
+     cards and the modals bring their own tables, so the set of tables is not
+     fixed at boot. Only `childList` is watched and this module writes nothing
+     but classes, so it can never re-enter on its own work. */
+  const boot = () => {
+    if (!document.body) return;
+    if (typeof MutationObserver === "function") {
+      new MutationObserver(scheduleSweep).observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+    }
+    syncAll();
+  };
+
+  window.AdminTableEmptyState = { sync, syncAll, schedule: scheduleSweep };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", boot);
+  } else {
+    boot();
+  }
+})();
+
 document.addEventListener("DOMContentLoaded", () => {
   const MOBILE_BREAKPOINT = 1024;
   const SIDEBAR_PREF_KEY = "adminSidebarMobileState";

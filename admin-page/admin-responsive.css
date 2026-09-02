@@ -994,6 +994,97 @@
 }
 
 /* ==========================================================================
+   2.12b An empty table keeps no floor — the phone half of the same rule
+   admin-common.js puts `is-table-empty` on a table whose tbody holds nothing but
+   its own empty row, and admin-modules.css releases the desktop floors from it.
+   The phone floors are a separate population and have to be answered here: the
+   table-level ones in 2.4/2.6/2.8 are bare `#id` = (1,0,0), and the per-column
+   ones in 2.2/2.6/2.11/2.12 run from (0,1,1) up to (1,1,1).
+
+   `:is()` takes its most specific argument, so the id list below is (1,0,0) and
+   these rules land at (1,1,0) and (1,1,1) — over the table floors outright, and
+   over the 112px identity pins on a tie that this block wins by sitting after
+   them. There is nothing to protect: no row means no content that could be
+   squeezed, and every column header is the whole of what has to stay visible.
+
+   Media-gated like every other block in this sheet; the desktop half lives in
+   admin-modules.css next to `.table-empty-state`.
+   ========================================================================== */
+@media (max-width: 720px),
+  (orientation: landscape) and (max-height: 520px) and (max-width: 1024px) {
+  :is(
+      #appointmentsTable,
+      #appointmentArchiveTable,
+      #incomingOrdersTable,
+      #ordersDirectoryTable,
+      #rejectedOrdersTable,
+      #orderArchiveTable,
+      #paymentsHistoryTable,
+      #returnsRefundsTable,
+      #returnArchiveTable,
+      #walkInOrdersTable,
+      #walkinArchiveTable,
+      #productTable,
+      #productPerformanceTable,
+      #accountsTable,
+      #requestsTable,
+      #inquiriesTable,
+      #ratingsTable,
+      #ratingArchiveTable,
+      #promotionTable,
+      #promotionArchiveTable,
+      #announcementTable,
+      #announcementArchiveTable,
+      #inventoryArchiveTable
+    ).is-table-empty {
+    min-width: 0;
+    width: 100%;
+  }
+
+  :is(
+      #appointmentsTable,
+      #appointmentArchiveTable,
+      #incomingOrdersTable,
+      #ordersDirectoryTable,
+      #rejectedOrdersTable,
+      #orderArchiveTable,
+      #paymentsHistoryTable,
+      #returnsRefundsTable,
+      #returnArchiveTable,
+      #walkInOrdersTable,
+      #walkinArchiveTable,
+      #productTable,
+      #productPerformanceTable,
+      #accountsTable,
+      #requestsTable,
+      #inquiriesTable,
+      #ratingsTable,
+      #ratingArchiveTable,
+      #promotionTable,
+      #promotionArchiveTable,
+      #announcementTable,
+      #announcementArchiveTable,
+      #inventoryArchiveTable
+    ).is-table-empty
+    :is(th, td) {
+    min-width: 0;
+  }
+
+  /* Inventory's category tables are class-only: `.inv-category-card .inv-table`
+     is (0,2,0) at table level and (0,3,1) per column, so both need one more
+     class rather than an id to clear. */
+  .inv-category-card .inv-table.is-table-empty {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .inv-category-card .inv-table.is-table-empty :is(th, td),
+  .inv-variant-table.is-table-empty :is(th, td) {
+    min-width: 0;
+  }
+}
+
+/* ==========================================================================
    2.13 In-table status pills — 12px text floor
    Measured in the pane at 390: `.status-pill` computed 11.2px, `.role-tag`
    10.88px, `.archive-badge` 11.52px, `.remarks-pill` / `.perf-status` /
@@ -1044,52 +1135,18 @@
 
 /* ==========================================================================
    2.15 Orders tables — the four whose Action column was never sticky
-   The baseline only pins `.sticky-action` for `#appointmentsTable`
-   (admin-modules.css:253), `.inventory-table` (:297), `.enhanced-table` (:305),
-   `.accounts-table` (:1312), `#walkInOrdersTable` (:1536) and
-   `#returnsRefundsTable` (:1563). Four tables carry the `admin-table` class and
-   nothing else -- orders.html:182, :240, :346, :486 -- so their Action column
-   has never been pinned. On a desktop that is invisible: the table fits.
-   At 320 it is a functional miss. Measured on staff-page/orders.html before
-   this rule, with the Action header as the probe: table 280px inside a 254px
-   wrapper, Action right edge at 313px, i.e. 26px of the button cluster clipped
-   until the user scrolls the card -- while the identity column stayed pinned,
-   so the row you were acting on was visible but its buttons were not. That is
-   the one thing step 2's acceptance criterion names outright.
-   Deliberately scoped to those four ids and not to `.admin-table` at large:
-   every other table already has the behaviour from a rule that also sets the
-   colours, and a blanket rule would silently repaint tables this pass has not
-   measured. `#reportDataTable` is excluded on purpose -- reports.js:996 emits
-   data columns only, there is no action cell to pin.
-   Divider, background and z-index copied from the `.enhanced-table` idiom
-   (:305-322) so the four match their siblings exactly: 20 for the body cell,
-   30 in the head. (Those used to be described as clear of the 5/6 the pinned
-   identity column took in 2.11 — 10.6a deleted that column, so the numbers are
-   now simply the shared idiom.) Column width itself comes from 2.3's 96px rule.
-
-   Band condition widened to the phone union in Step 9: these four tables scroll
-   in landscape too, so the Action column has to stay reachable there.
+   SUPERSEDED. This block pinned `.sticky-action` for #incomingOrdersTable,
+   #ordersDirectoryTable, #rejectedOrdersTable and #paymentsHistoryTable inside
+   the phone union only. That was the wrong band: those four are the tables that
+   overflow *hardest* on a wide screen, so Action still scrolled out of reach on
+   the desktop the back office is actually run from.
+   The pin is now a baseline in admin-modules.css, immediately after
+   `.admin-table td` -- `.admin-table .sticky-action` plus the tbody z-index bump,
+   the same idiom and the same colours this block used, applying at every width
+   to every portal table. The per-table rules that follow it there keep their own
+   widths. `#reportDataTable` and `#productPerformanceTable` are still exempt:
+   neither emits an action cell, so the selector never matches them.
    -------------------------------------------------------------------------- */
-@media (max-width: 720px),
-  (orientation: landscape) and (max-height: 520px) and (max-width: 1024px) {
-  :is(
-      #incomingOrdersTable, #ordersDirectoryTable,
-      #rejectedOrdersTable, #paymentsHistoryTable
-    ) .sticky-action {
-    position: sticky;
-    right: 0;
-    background-color: #fff;
-    z-index: 20;
-    box-shadow: -1px 0 0 #eef1f4;
-  }
-
-  :is(
-      #incomingOrdersTable, #ordersDirectoryTable,
-      #rejectedOrdersTable, #paymentsHistoryTable
-    ) tbody .sticky-action {
-    z-index: 30;
-  }
-}
 
 /* ==========================================================================
    2.16 Loading skeleton bars — clamp the desktop placeholder widths

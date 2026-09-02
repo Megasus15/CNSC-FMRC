@@ -10,8 +10,8 @@
     <link rel="icon" href="../images/favicon.ico?v=3" sizes="any" />
     <link rel="apple-touch-icon" href="../images/apple-touch-icon.png?v=3" />
     <title>Orders | UCN-FMRC Admin</title>
-    <link rel="stylesheet" href="dashboard.css?v=6.2" />
-    <link rel="stylesheet" href="admin-modules.css?v=6.2" />
+    <link rel="stylesheet" href="dashboard.css?v=6.3" />
+    <link rel="stylesheet" href="admin-modules.css?v=6.3" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -24,7 +24,7 @@
         opacity: 1;
       }
     </style>
-    <link rel="stylesheet" href="admin-responsive.css?v=2.5" />
+    <link rel="stylesheet" href="admin-responsive.css?v=2.6" />
   </head>
   <body>
     <div class="dashboard-container">
@@ -615,7 +615,32 @@
               <label>Payment Reference</label
               ><input id="modalOrderReference" class="input-field" readonly />
             </div>
+            <div class="field-stack">
+              <label>Quantity</label
+              ><input id="modalOrderQty" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label>Total</label
+              ><input id="modalOrderTotal" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label>Status</label
+              ><input id="modalOrderStatus" class="input-field" readonly />
+            </div>
+            <div class="field-stack full">
+              <label>Notes</label
+              ><textarea
+                id="modalOrderNotes"
+                class="textarea-field"
+                readonly
+              ></textarea>
+            </div>
             <!--
+              Payment Verification and Cancellation sit last on purpose: everything
+              above is the order as it stands, and these two are the decisions taken
+              on it. Reading top to bottom now matches the order of the real job --
+              check the details, then act.
+
               GCash arrives on the manual rail: the customer types the reference
               number their own GCash app printed, and nothing confirms it until
               a human matches it in the FMRC GCash account. Until then the order
@@ -678,8 +703,9 @@
               </div>
               <p class="field-hint" id="modalPaymentVerifyHint"></p>
               <!--
-                Only shown once a refund is actually owed. The reference is the
-                GCash transaction number of the money staff sent BACK, which is
+                Revealed as soon as "Record refund sent" is earned, so the button
+                can never ask for a reference the operator cannot see. The number
+                is the GCash transaction ID of the money staff sent BACK, which is
                 the only proof the customer was made whole.
               -->
               <div class="payment-refund-field" id="modalRefundRefWrap" hidden>
@@ -693,8 +719,20 @@
                   autocomplete="off"
                 />
               </div>
+              <!--
+                All three stay on screen at every stage and are enabled in the
+                order the real job runs: receive the money, then either put the
+                order back to unpaid or send the money back. A step that is not
+                this order's next step is disabled with a title saying why, so the
+                sequence is visible instead of guessed at.
+              -->
               <div class="payment-verify-actions">
-                <button class="btn-admin" id="btnMarkPaymentPaid" type="button">
+                <button
+                  class="btn-admin"
+                  id="btnMarkPaymentPaid"
+                  type="button"
+                  disabled
+                >
                   <i class="fa-solid fa-circle-check"></i> Mark payment as
                   received
                 </button>
@@ -702,6 +740,7 @@
                   class="btn-admin btn-secondary"
                   id="btnMarkPaymentPending"
                   type="button"
+                  disabled
                 >
                   Set back to unpaid
                 </button>
@@ -709,7 +748,7 @@
                   class="btn-admin btn-secondary"
                   id="btnRecordRefund"
                   type="button"
-                  hidden
+                  disabled
                 >
                   <i class="fa-solid fa-rotate-left"></i> Record refund sent
                 </button>
@@ -755,26 +794,6 @@
                   </button>
                 </div>
               </div>
-            </div>
-            <div class="field-stack">
-              <label>Quantity</label
-              ><input id="modalOrderQty" class="input-field" readonly />
-            </div>
-            <div class="field-stack">
-              <label>Total</label
-              ><input id="modalOrderTotal" class="input-field" readonly />
-            </div>
-            <div class="field-stack">
-              <label>Status</label
-              ><input id="modalOrderStatus" class="input-field" readonly />
-            </div>
-            <div class="field-stack full">
-              <label>Notes</label
-              ><textarea
-                id="modalOrderNotes"
-                class="textarea-field"
-                readonly
-              ></textarea>
             </div>
           </div>
         </div>
@@ -1047,6 +1066,14 @@
           </div>
         </div>
         <div class="modal-footer-fixed">
+          <span
+            class="field-hint gcash-settings-loading"
+            id="gcashSettingsLoading"
+            hidden
+          >
+            <i class="fa-solid fa-spinner fa-spin"></i> Loading current
+            details&hellip;
+          </span>
           <button
             class="btn-admin btn-secondary"
             id="btnCancelGcashSettings"
@@ -1789,8 +1816,8 @@
     </div>
 
     <script src="session-helper.js"></script>
-    <script src="admin-common.js?v=6.3"></script>
-    <script src="orders.js?v=6.2"></script>
-    <script src="admin-table-resize.js?v=1.2" defer></script>
+    <script src="admin-common.js?v=6.4"></script>
+    <script src="orders.js?v=6.3"></script>
+    <script src="admin-table-resize.js?v=1.3" defer></script>
   </body>
 </html>

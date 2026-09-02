@@ -2087,7 +2087,11 @@ body.admin-media-viewer-open {
 }
 
 .btn-admin:active {
-  transform: scale(0.97);
+  background-color: #4a0000;
+  border-color: #4a0000;
+  color: #fff;
+  box-shadow: none;
+  transform: none;
 }
 
 .btn-secondary {
@@ -2112,6 +2116,43 @@ body.admin-media-viewer-open {
   background-color: #5f0000;
   border-color: #5f0000;
   color: #fff;
+  box-shadow: none;
+  transform: none;
+}
+
+.btn-admin.btn-secondary:active {
+  background-color: #4a0000;
+  border-color: #4a0000;
+  color: #fff;
+}
+
+/* The three rules below mirror admin-modules.css. They have to live here too:
+   the two dashboard pages are the only portal pages that do not load that sheet,
+   so a button there would otherwise still press with a scale and a disabled one
+   would still look clickable. */
+.btn-admin[hidden] {
+  display: none;
+}
+
+.btn-admin:disabled,
+.btn-admin[disabled] {
+  background-color: #eceff2;
+  border-color: #dde2e8;
+  color: #99a2ac;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.btn-admin:disabled:hover,
+.btn-admin:disabled:active,
+.btn-admin[disabled]:hover,
+.btn-admin.btn-secondary:disabled:hover,
+.btn-admin.btn-secondary:disabled:active,
+.btn-admin.btn-secondary[disabled]:hover {
+  background-color: #eceff2;
+  border-color: #dde2e8;
+  color: #99a2ac;
   box-shadow: none;
   transform: none;
 }

@@ -9994,16 +9994,18 @@ body.sidebar-open {
   font-size: 0.82rem;
   font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 8px 20px rgba(13, 110, 231, 0.26);
-  transition: all 0.2s ease;
+  /* No drop shadow. A coloured glow around this one button read as a highlight
+     ring the rest of the card never uses, and it followed the button through
+     every state. Depth comes from the gradient alone; the feedback comes from
+     the fill getting darker, the same as every other button on the site. */
+  transition: background 0.2s ease;
   margin-top: 8px;
 }
 .customer-order-pay-btn:hover {
   background: linear-gradient(135deg, #084ead 0%, #0a5fd6 100%);
-  box-shadow: 0 12px 26px rgba(13, 110, 231, 0.34);
 }
 .customer-order-pay-btn:active {
-  transform: scale(0.97);
+  background: linear-gradient(135deg, #063d8c 0%, #084ead 100%);
 }
 .customer-order-pay-btn:disabled {
   opacity: 0.55;
@@ -10013,10 +10015,12 @@ body.sidebar-open {
    button next to "overdue" reads as a dead end. */
 .customer-order-pay-btn.is-overdue {
   background: linear-gradient(135deg, #b45309 0%, #d97706 100%);
-  box-shadow: 0 8px 20px rgba(180, 83, 9, 0.26);
 }
 .customer-order-pay-btn.is-overdue:hover {
   background: linear-gradient(135deg, #92400e 0%, #b45309 100%);
+}
+.customer-order-pay-btn.is-overdue:active {
+  background: linear-gradient(135deg, #78350f 0%, #92400e 100%);
 }
 /* Claim submitted, staff not finished. Still clickable so a mistyped reference
    can be corrected, but it must not look like an outstanding task. */
@@ -10024,12 +10028,13 @@ body.sidebar-open {
   background: #f4f6fa;
   color: #4a5464;
   border: 1px solid rgba(74, 84, 100, 0.22);
-  box-shadow: none;
   font-weight: 700;
 }
 .customer-order-pay-btn.is-review:hover {
   background: #e9edf4;
-  box-shadow: none;
+}
+.customer-order-pay-btn.is-review:active {
+  background: #dde3ed;
 }
 
 /* ===== Order Received Button ===== */
@@ -12135,6 +12140,12 @@ body.sidebar-open {
   display: none;
 }
 
+/* The dashed box is styled here, but the control inside it is drawn by the
+   browser, so it arrived as a grey "Choose File" that matched nothing else on
+   the site. Both pseudo-elements are needed: Firefox and current Chromium
+   understand ::file-selector-button, older WebKit only knows its own prefixed
+   name, and neither engine accepts a selector list containing the other's — so
+   the two blocks are duplicated on purpose rather than comma-joined. */
 .cgc-file-input {
   width: 100%;
   font-family: "Montserrat", sans-serif;
@@ -12145,6 +12156,58 @@ body.sidebar-open {
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.9);
   cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.cgc-file-input:hover {
+  border-color: #b01c1c;
+  background: #ffffff;
+}
+
+.cgc-file-input::file-selector-button {
+  margin-right: 10px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #b01c1c 0%, #8b0000 100%);
+  color: #ffffff;
+  font-family: "Montserrat", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.cgc-file-input::file-selector-button:hover {
+  background: linear-gradient(135deg, #8b0000 0%, #6d0000 100%);
+}
+
+.cgc-file-input::file-selector-button:active {
+  background: linear-gradient(135deg, #6d0000 0%, #530000 100%);
+}
+
+.cgc-file-input::-webkit-file-upload-button {
+  margin-right: 10px;
+  padding: 7px 14px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #b01c1c 0%, #8b0000 100%);
+  color: #ffffff;
+  font-family: "Montserrat", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.cgc-file-input::-webkit-file-upload-button:hover {
+  background: linear-gradient(135deg, #8b0000 0%, #6d0000 100%);
+}
+
+.cgc-file-input::-webkit-file-upload-button:active {
+  background: linear-gradient(135deg, #6d0000 0%, #530000 100%);
 }
 
 .cgc-file-name {

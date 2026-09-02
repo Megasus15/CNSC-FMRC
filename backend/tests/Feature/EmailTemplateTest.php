@@ -3,14 +3,17 @@
 namespace Tests\Feature;
 
 use App\Models\SiteSetting;
+use App\Models\User;
 use App\Support\Branding;
 use App\Support\EmailTemplate;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 /**
- * Contract for the admin/staff Gmail notification editor.
+ * Contract for the admin-only Gmail notification editor.
  *
  * Every one of the 27 notifications now renders through one shared shell, with the
  * six editable parts merged over compiled-in defaults. Two properties matter more
@@ -150,7 +153,7 @@ class EmailTemplateTest extends TestCase
         $html = EmailTemplate::render('order_received');
 
         $this->assertStringContainsString('Line one<br />' . "\n" . 'Line two', $html);
-        // Editable prose is escaped: a staff-editable field must never become
+        // Editable prose is escaped: an admin-editable field must never become
         // stored XSS in a customer's inbox.
         $this->assertStringNotContainsString('<script>', $html);
         $this->assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $html);
@@ -326,5 +329,66 @@ class EmailTemplateTest extends TestCase
         // Nothing was written.
         $this->assertNull(SiteSetting::get(EmailTemplate::KEY_PREFIX . 'order_received'));
         $this->assertStringContainsString('Your Order Has Been Received', EmailTemplate::preview('order_received'));
+    }
+
+    /** Create a back-office actor with the given role. */
+    private function actor(string $role): User
+    {
+        return User::factory()->create([
+            'name' => ucfirst($role),
+            'username' => $role . '_tpl',
+            'email' => $role . '.tpl@cnsc.edu.ph',
+            'role' => $role,
+            'password' => Hash::make('Passw0rd!2026'),
+        ]);
+    }
+
+    public function test_only_an_admin_can_read_or_preview_the_notification_registry(): void
+    {
+        Sanctum::actingAs($this->actor('staff'));
+        $this->getJson('/api/admin/email-templates')->assertStatus(403);
+        $this->postJson('/api/admin/email-templates/preview', ['slug' => 'order_received'])
+            ->assertStatus(403);
+
+        Sanctum::actingAs($this->actor('admin'));
+        $this->getJson('/api/admin/email-templates')
+            ->assertOk()
+            ->assertJsonPath('data.key_prefix', EmailTemplate::KEY_PREFIX);
+        $this->postJson('/api/admin/email-templates/preview', ['slug' => 'order_received'])
+            ->assertOk()
+            ->assertJsonPath('data.slug', 'order_received');
+    }
+
+    public function test_a_staff_token_cannot_rewrite_a_template_through_the_bulk_settings_route(): void
+    {
+        $key = EmailTemplate::KEY_PREFIX . 'order_received';
+
+        // Deleting the staff editor page is not the gate -- this route is, because
+        // it accepts any key. Staff keep ordinary page content; the notification
+        // wording is admin-only.
+        Sanctum::actingAs($this->actor('staff'));
+        $this->putJson('/api/admin/site-settings', [
+            $key => json_encode(['body_heading' => 'Rewritten by staff']),
+        ])->assertStatus(403);
+        $this->assertNull(SiteSetting::get($key));
+
+        // A refused template key must not take the rest of the payload with it:
+        // the write is rejected before anything is saved.
+        $this->putJson('/api/admin/site-settings', [
+            'hero_title' => 'Staff edited the hero',
+            $key => json_encode(['body_heading' => 'Rewritten by staff']),
+        ])->assertStatus(403);
+        $this->assertNull(SiteSetting::get('hero_title'));
+
+        // Ordinary settings from that same staff token still save.
+        $this->putJson('/api/admin/site-settings', ['hero_title' => 'Staff edited the hero'])
+            ->assertOk();
+        $this->assertSame('Staff edited the hero', SiteSetting::get('hero_title'));
+
+        Sanctum::actingAs($this->actor('admin'));
+        $this->putJson('/api/admin/site-settings', [
+            $key => json_encode(['body_heading' => 'Rewritten by admin']),
+        ])->assertOk();
+        $this->assertStringContainsString('Rewritten by admin', EmailTemplate::render('order_received'));
     }
 }

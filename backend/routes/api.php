@@ -250,9 +250,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // Admin: Site Settings
     Route::put('/admin/site-settings', [SiteSettingController::class, 'bulkUpdate']);
 
-    // Admin/Staff: Gmail notification templates. Reads only -- saving an edited
+    // Admin only: Gmail notification templates. Reads only -- saving an edited
     // template goes through PUT /admin/site-settings like every other setting,
-    // under the "email_tpl_{slug}" keys the public /site-settings hides.
+    // under the "email_tpl_{slug}" keys the public /site-settings hides. Both
+    // controller actions check for role === 'admin', and bulkUpdate() rejects
+    // "email_tpl_" keys from a staff token, so the wording that goes out under
+    // the lab's name is admin-only however it is reached.
     Route::get('/admin/email-templates', [SiteSettingController::class, 'emailTemplates']);
     Route::post('/admin/email-templates/preview', [SiteSettingController::class, 'previewEmailTemplate']);
 

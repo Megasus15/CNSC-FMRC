@@ -54,6 +54,13 @@
   const ACTION_MAX = 260;
 
   const READY_CLASS = "atr-ready";
+  const HANDLE_CLASS = "atr-handle";
+  /* Written by admin-common.js the moment a tbody holds nothing but its own
+     empty row. Every width this module sets is inline, so an empty table left
+     frozen would hand the horizontal scroll straight back to a grid that has
+     nothing in it — and a drag handle on a column with no data under it is a
+     control over nothing. */
+  const EMPTY_CLASS = "is-table-empty";
   const STORE_PREFIX = "fmrc.colw.";
   const SIG_DEBOUNCE = 120;
   const SCAN_DEBOUNCE = 250;
@@ -67,6 +74,7 @@
   let media = null;
   let domObserver = null;
   let scanTimer = null;
+  let revealPending = false;
   let drag = null;
   let printing = false;
 
@@ -276,7 +284,19 @@
   const addHandles = (state) => {
     state.cells.forEach((cell, i) => {
       if (state.kinds[i] === "data") addHandle(state, cell, i, "right");
-      if (i > 0 && state.kinds[i - 1] === "data") addHandle(state, cell, i - 1, "left");
+      /* The left handle is the previous column's right edge seen from this side,
+         so it is deliberately redundant -- both edges of every data column are
+         grabbable. It is skipped inside the Action cell: Action is pinned to the
+         right of the card, so a strip there rides along with the pin instead of
+         staying on the real boundary, and the column it would have driven already
+         carries its own right handle. */
+      if (
+        i > 0 &&
+        state.kinds[i - 1] === "data" &&
+        state.kinds[i] !== "action"
+      ) {
+        addHandle(state, cell, i - 1, "left");
+      }
     });
   };
 
@@ -416,6 +436,13 @@
           unfreeze(state.table);
           return;
         }
+        /* The rows just went away. Hand the table back to the browser so the
+           empty-state rules can collapse it; `scan()` re-freezes it as soon as
+           real rows return. */
+        if (state.table.classList.contains(EMPTY_CLASS)) {
+          unfreeze(state.table);
+          return;
+        }
         const cells = visibleCells(state.table);
         const sig = cells ? signature(cells) : "";
         /* Identity, not just shape: reports.js rebuilds `#reportDataTable`'s
@@ -501,10 +528,23 @@
     states.delete(table);
   }
 
+  /* Every table not already frozen is retried on every pass, so a table that
+     could not be measured earlier — `visibleCells()` returns null for a
+     `display: none` one, and archives boots six of its seven sections hidden —
+     needs no separate bookkeeping. It only ever needed a scan to be *scheduled*
+     once it appeared, which is what the reveal tick below is for. */
   const scan = () => {
     if (printing) return;
     const tables = document.querySelectorAll(TABLES);
     tables.forEach((table, i) => {
+      /* An empty table is left on the browser's auto layout, and one that was
+         frozen while it still had rows is released here — the inline widths
+         would otherwise re-create the very overflow the empty-state rules exist
+         to remove, and sum back up to a table wider than its card. */
+      if (table.classList.contains(EMPTY_CLASS)) {
+        if (states.has(table)) unfreeze(table);
+        return;
+      }
       if (states.has(table)) return;
       try {
         freeze(table, i);
@@ -519,22 +559,109 @@
     });
   };
 
+  /* Every write this module makes lands on a <table>, on one of its cells, or on
+     a handle inside a header cell: `applyWidths()` sets inline styles on the
+     table and its <th>s, `freeze()`/`unfreeze()` toggle `atr-ready` on the table,
+     `addHandles()` inserts the handles, and a drag toggles classes on them. Now
+     that the document watcher listens for attributes, those writes would come
+     straight back as mutations and the module would keep rescanning its own work.
+
+     Ignoring them here costs nothing that matters. The one class toggle on a
+     <table> that this module does care about — the two bulk-select modes showing
+     or hiding the checkbox column — is already watched per-table by `observe()`,
+     which is the code that knows how to compare signatures. And a table crossing
+     the empty boundary always does so because rows arrived or left, which is a
+     childList record on its <tbody> and passes straight through. */
+  const isOwnWrite = (record) => {
+    const node = record.target;
+    if (!node || node.nodeType !== 1) return false;
+    if (node.classList.contains(HANDLE_CLASS)) return true;
+    if (node.closest(`.${HANDLE_CLASS}`)) return true;
+    return !!node.closest("table") && !!node.matches("table, th, td, col, colgroup");
+  };
+
+  /* A revealed table has to become draggable on the frame it appears, not a
+     quarter-second later, so a batch that only *showed* something skips the
+     debounce. rAF alone will not do: it is paused in a hidden tab, and a
+     back-office page parked behind another tab is the normal case — so race it
+     against a timer and take whichever lands first. */
+  const scheduleReveal = () => {
+    if (revealPending) return;
+    revealPending = true;
+    let done = false;
+    const run = () => {
+      if (done) return;
+      done = true;
+      revealPending = false;
+      if (scanTimer) {
+        clearTimeout(scanTimer);
+        scanTimer = null;
+      }
+      /* Ask for the empty flags first. A tab that opens onto an empty table must
+         already be marked empty by the time `scan()` decides whether to freeze
+         inline widths onto it. */
+      window.AdminTableEmptyState?.syncAll();
+      scan();
+    };
+    if (typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(run);
+    }
+    window.setTimeout(run, 0);
+  };
+
+  const scheduleScan = () => {
+    if (revealPending) return;
+    if (scanTimer) clearTimeout(scanTimer);
+    scanTimer = setTimeout(() => {
+      scanTimer = null;
+      scan();
+    }, SCAN_DEBOUNCE);
+  };
+
   /* One document-level watcher so the module never has to care about load order
      relative to the renderers, or about tables that only exist once a modal has
-     been opened. */
+     been opened.
+
+     Attributes are watched as well as children because a whole family of panels
+     is revealed by nothing but a class: archives switches its seven sections with
+     `classList.toggle("active", …)` (archives.js:814), the orders tabs do the
+     same, and so do the inventory category accordions. A childList-only observer
+     cannot see any of that, which is why the archive columns only became
+     draggable once some unrelated mutation happened to trigger a rescan — and why
+     a page refresh "fixed" it: `loadArchives()` rewrites every <tbody> after
+     boot, and that part the observer could see. */
   const watchDocument = () => {
     if (domObserver || typeof MutationObserver !== "function") return;
-    domObserver = new MutationObserver(() => {
-      if (scanTimer) clearTimeout(scanTimer);
-      scanTimer = setTimeout(() => {
-        scanTimer = null;
-        scan();
-      }, SCAN_DEBOUNCE);
+    domObserver = new MutationObserver((records) => {
+      /* Nothing to discover mid-drag, and `atr-dragging` on <body> is this
+         module's own flag (startDrag) — the one write it makes outside a table.
+         The matching removal in onPointerUp lands after `drag` is cleared, so it
+         still costs one reveal tick; that tick finds every table already frozen
+         and returns, which is cheaper than diffing class attributes to catch it. */
+      if (drag) return;
+      let reveal = false;
+      let structural = false;
+      for (let i = 0; i < records.length; i += 1) {
+        if (isOwnWrite(records[i])) continue;
+        if (records[i].type === "attributes") reveal = true;
+        else structural = true;
+      }
+      if (reveal) scheduleReveal();
+      else if (structural) scheduleScan();
     });
-    domObserver.observe(document.body, { childList: true, subtree: true });
+    domObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class", "style", "hidden"],
+    });
   };
 
   const init = () => {
+    /* Deferred, so this runs before DOMContentLoaded and therefore before the
+       empty-state module's own boot. Ask it for the flags first, or the first
+       scan freezes inline widths onto tables that are still empty. */
+    window.AdminTableEmptyState?.syncAll();
     watchDocument();
     scan();
   };
@@ -548,6 +675,7 @@
       clearTimeout(scanTimer);
       scanTimer = null;
     }
+    revealPending = false;
     Array.from(states.keys()).forEach(unfreeze);
   };
 

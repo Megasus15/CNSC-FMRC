@@ -14,9 +14,15 @@ use Tests\TestCase;
  *
  * Two behaviours here are deliberate and easy to break by accident, so they get
  * their own assertions: permanently deleting an archived walk-in must NOT put
- * product stock back (the goods already left the building), and an archived
- * walk-in must keep counting toward revenue - archiving is list hygiene, not a
- * reversal of the sale.
+ * product stock back (the goods already left the building), and archiving one
+ * must take it back out of dashboard revenue.
+ *
+ * That second rule is the reverse of what this file asserted until 2026-09-02.
+ * Revenue was a lifetime figure that consulted no archive flag, so the dashboard
+ * total could only ever climb and archiving was purely list hygiene. Archive is
+ * the only non-destructive way out of the live tables, so it is also the only
+ * lever an operator has over the total - see RevenueAndSalesAnalyticsTest for the
+ * order-side half of the same contract. Restoring puts the money back.
  */
 class WalkInOrderArchiveTest extends TestCase
 {
@@ -160,23 +166,34 @@ class WalkInOrderArchiveTest extends TestCase
         $this->assertSame(8, (int) $product->refresh()->stock);
     }
 
-    public function test_archived_walk_in_still_counts_toward_dashboard_revenue(): void
+    public function test_archiving_a_walk_in_takes_it_back_out_of_dashboard_revenue(): void
     {
         $this->actingAsAdmin();
         $walkIn = $this->makeWalkIn(['status' => 'Completed', 'total' => 750]);
 
-        $before = (float) $this->getJson('/api/admin/dashboard/summary')
-            ->assertOk()
-            ->json('data.counts.total_revenue');
+        $before = $this->reportedRevenue();
+        $this->assertGreaterThanOrEqual(750.0, $before);
 
         $this->patchJson("/api/admin/walkin-orders/{$walkIn->id}/archive")->assertOk();
 
-        $after = (float) $this->getJson('/api/admin/dashboard/summary')
+        // Archiving is the operator's one lever on the total, so the money has to
+        // actually leave it - not merely leave the list it was showing in.
+        $this->assertSame($before - 750.0, $this->reportedRevenue());
+
+        $this->patchJson('/api/admin/archives/restore-bulk', [
+            'module' => 'walkin',
+            'ids' => [$walkIn->id],
+        ])->assertOk();
+
+        // And restoring is a real undo: the sale was never reversed, only hidden.
+        $this->assertSame($before, $this->reportedRevenue());
+    }
+
+    private function reportedRevenue(): float
+    {
+        return (float) $this->getJson('/api/admin/dashboard/summary')
             ->assertOk()
             ->json('data.counts.total_revenue');
-
-        $this->assertSame($before, $after);
-        $this->assertGreaterThanOrEqual(750.0, $after);
     }
 
     public function test_customers_cannot_complete_or_archive_walk_in_orders(): void

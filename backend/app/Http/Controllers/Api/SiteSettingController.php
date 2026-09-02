@@ -74,6 +74,20 @@ class SiteSettingController extends Controller
         // Accept any key-value pairs from the request body
         $input = $request->all();
 
+        // The Gmail notification copy is admin-only (see denyUnlessAdmin below),
+        // and this endpoint is the back door into it: without this check a staff
+        // token could rewrite all 27 notifications through the generic settings
+        // route even with the editor page removed from their portal.
+        if ($role !== 'admin') {
+            foreach ($input as $key => $value) {
+                if (is_string($key) && str_starts_with($key, EmailTemplate::KEY_PREFIX)) {
+                    return response()->json([
+                        'message' => 'Forbidden. Admin access is required to change email templates.',
+                    ], 403);
+                }
+            }
+        }
+
         foreach ($input as $key => $value) {
             if (is_string($key) && $key !== '') {
                 SiteSetting::set($key, $value);
@@ -84,7 +98,7 @@ class SiteSettingController extends Controller
     }
 
     /**
-     * Admin/Staff: the whole Gmail notification registry — every slug with its
+     * Admin only: the whole Gmail notification registry — every slug with its
      * group, label, tokens, compiled-in defaults and saved override.
      *
      * Sending the defaults down is what keeps the editor page free of a second,
@@ -92,7 +106,7 @@ class SiteSettingController extends Controller
      */
     public function emailTemplates(Request $request): JsonResponse
     {
-        if ($denied = $this->denyUnlessBackOffice($request)) {
+        if ($denied = $this->denyUnlessAdmin($request)) {
             return $denied;
         }
 
@@ -108,7 +122,7 @@ class SiteSettingController extends Controller
     }
 
     /**
-     * Admin/Staff: render one notification with sample content.
+     * Admin only: render one notification with sample content.
      *
      * The preview runs through the same EmailTemplate::render() a real send
      * uses, so what the editor shows in its iframe is what the recipient gets.
@@ -116,7 +130,7 @@ class SiteSettingController extends Controller
      */
     public function previewEmailTemplate(Request $request): JsonResponse
     {
-        if ($denied = $this->denyUnlessBackOffice($request)) {
+        if ($denied = $this->denyUnlessAdmin($request)) {
             return $denied;
         }
 
@@ -152,18 +166,20 @@ class SiteSettingController extends Controller
     }
 
     /**
-     * The email-template endpoints are read-only, but they expose internal copy
-     * and a renderer, so they carry the same admin-or-staff rule bulkUpdate()
-     * applies above rather than trusting auth:sanctum alone.
+     * The email-template endpoints are read-only, but the notification wording
+     * goes out under the lab's name to every customer, so editing it is an
+     * admin-only responsibility — the same rule Maintenance Mode uses, one step
+     * stricter than the admin-or-staff gate bulkUpdate() applies to ordinary
+     * page content above.
      */
-    private function denyUnlessBackOffice(Request $request): ?JsonResponse
+    private function denyUnlessAdmin(Request $request): ?JsonResponse
     {
         $actor = $request->user();
         $role = strtolower((string) ($actor->role ?? ''));
 
-        if (! $actor || ! in_array($role, ['admin', 'staff'], true)) {
+        if (! $actor || $role !== 'admin') {
             return response()->json([
-                'message' => 'Forbidden. Admin or staff access is required.',
+                'message' => 'Forbidden. Admin access is required to change email templates.',
             ], 403);
         }
 

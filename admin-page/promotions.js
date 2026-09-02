@@ -846,30 +846,48 @@ document.addEventListener("DOMContentLoaded", () => {
       emojiRight: cached.emojiRight ?? THEME_FALLBACK.emojiRight,
       eyebrow: cached.eyebrow ?? THEME_FALLBACK.eyebrow,
     };
+
+    // Paint and open on the click. Awaiting /site-settings first made the button
+    // look dead for the length of the round trip; the cached theme is already
+    // correct for everything but a change made in another tab.
+    const seedThemeForm = () => {
+      if ($("themePrimaryColor")) $("themePrimaryColor").value = theme.primary;
+      if ($("themeSecondaryColor"))
+        $("themeSecondaryColor").value = theme.secondary;
+      if ($("themeEmojiLeft")) $("themeEmojiLeft").value = theme.emojiLeft;
+      if ($("themeEmojiRight")) $("themeEmojiRight").value = theme.emojiRight;
+      if ($("themeEyebrowLabel")) $("themeEyebrowLabel").value = theme.eyebrow;
+      renderThemePromoPreview();
+      // Re-baselining the discard guard after every seed matters: without it the
+      // late refresh below reads as an unsaved user edit and closing the modal
+      // raises a false "discard your changes?" prompt.
+      themeDiscardGuard?.capture();
+    };
+
+    seedThemeForm();
+    openModal("modalCustomizeTheme");
+
     try {
       const res = await fetch(`${API}/site-settings`, {
         headers: { Accept: "application/json" },
       });
       if (res.ok) {
         const saved = (await res.json())?.data || {};
+        let changed = false;
         Object.keys(THEME_KEYS).forEach((field) => {
           const value = saved[THEME_KEYS[field]];
-          if (typeof value === "string") theme[field] = value;
+          if (typeof value === "string" && value !== theme[field]) {
+            theme[field] = value;
+            changed = true;
+          }
         });
+        // Only re-seed when the server actually disagrees, so an admin who
+        // started typing in the first moments does not lose the keystroke.
+        if (changed) seedThemeForm();
       }
     } catch {
-      /* offline — the cached copy above is already loaded */
+      /* offline — the cached copy already on screen stands */
     }
-
-    if ($("themePrimaryColor")) $("themePrimaryColor").value = theme.primary;
-    if ($("themeSecondaryColor"))
-      $("themeSecondaryColor").value = theme.secondary;
-    if ($("themeEmojiLeft")) $("themeEmojiLeft").value = theme.emojiLeft;
-    if ($("themeEmojiRight")) $("themeEmojiRight").value = theme.emojiRight;
-    if ($("themeEyebrowLabel")) $("themeEyebrowLabel").value = theme.eyebrow;
-    renderThemePromoPreview();
-    themeDiscardGuard?.capture();
-    openModal("modalCustomizeTheme");
   });
 
   $("btnCancelThemeModal")?.addEventListener("click", () => {

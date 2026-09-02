@@ -20,9 +20,9 @@ class AdminPortalConsistencyTest extends TestCase
         return array_map(static fn (string $file): array => [$file], $files);
     }
 
-    public function test_portal_has_the_expected_34_admin_and_staff_pages(): void
+    public function test_portal_has_the_expected_33_admin_and_staff_pages(): void
     {
-        $this->assertCount(34, self::portalHtmlProvider());
+        $this->assertCount(33, self::portalHtmlProvider());
     }
 
     #[DataProvider('portalHtmlProvider')]
@@ -274,39 +274,48 @@ class AdminPortalConsistencyTest extends TestCase
         $this->assertStringNotContainsString('<strong>UNIVERSITY OF CAMARINES NORTE</strong>', $reportsJs);
     }
 
-    public function test_every_gmail_notification_is_editable_from_both_portals(): void
+    public function test_every_gmail_notification_is_editable_from_the_admin_portal_only(): void
     {
         $root = dirname(__DIR__, 3);
         $editorJs = (string) file_get_contents($root.'/admin-page/website-emails.js');
+        $html = (string) file_get_contents($root.'/admin-page/website-emails.html');
 
-        foreach (['admin-page', 'staff-page'] as $portal) {
-            $html = (string) file_get_contents($root.'/'.$portal.'/website-emails.html');
+        // The list, the six editable parts, the token chips, the rendered
+        // preview and both write buttons -- a portal missing any one of them
+        // cannot edit a notification end to end.
+        foreach ([
+            'id="emailTemplateList"',
+            'id="emailTemplateSearch"',
+            'id="emailTemplateTokens"',
+            'id="emailTplHeaderTitle"',
+            'id="emailTplHeaderSubtitle"',
+            'id="emailTplHeaderColor"',
+            'id="emailTplHeaderColorText"',
+            'id="emailTplBodyHeading"',
+            'id="emailTplBodyText"',
+            'id="emailTplFooterNote"',
+            'id="emailTemplatePreview"',
+            'id="emailTemplateSaveBtn"',
+            'id="emailTemplateResetBtn"',
+        ] as $needle) {
+            $this->assertStringContainsString($needle, $html, "admin-page: {$needle}");
+        }
 
-            // The list, the six editable parts, the token chips, the rendered
-            // preview and both write buttons -- a portal missing any one of them
-            // cannot edit a notification end to end.
-            foreach ([
-                'id="emailTemplateList"',
-                'id="emailTemplateSearch"',
-                'id="emailTemplateTokens"',
-                'id="emailTplHeaderTitle"',
-                'id="emailTplHeaderSubtitle"',
-                'id="emailTplHeaderColor"',
-                'id="emailTplHeaderColorText"',
-                'id="emailTplBodyHeading"',
-                'id="emailTplBodyText"',
-                'id="emailTplFooterNote"',
-                'id="emailTemplatePreview"',
-                'id="emailTemplateSaveBtn"',
-                'id="emailTemplateResetBtn"',
-            ] as $needle) {
-                $this->assertStringContainsString($needle, $html, "{$portal}: {$needle}");
-            }
+        // The admin reaches the editor from Website Management, and the preview
+        // iframe stays sandboxed because it renders stored copy.
+        $this->assertStringContainsString('website-emails.html" class="sub-link', $html);
+        $this->assertStringContainsString('sandbox=""', $html);
 
-            // Both portals reach the editor from Website Management, and the
-            // preview iframe stays sandboxed because it renders stored copy.
-            $this->assertStringContainsString('website-emails.html" class="sub-link', $html, $portal);
-            $this->assertStringContainsString('sandbox=""', $html, $portal);
+        // Notification wording goes out under the lab's name, so it is admin-only
+        // the same way Maintenance Mode is: no staff page, no staff sidebar entry,
+        // and an admin-only guard on both endpoints (see EmailTemplateTest).
+        $this->assertFileDoesNotExist($root.'/staff-page/website-emails.html');
+        foreach (glob($root.'/staff-page/*.html') ?: [] as $staffPage) {
+            $this->assertStringNotContainsString(
+                'website-emails.html',
+                (string) file_get_contents($staffPage),
+                basename($staffPage).' still links the admin-only email editor.',
+            );
         }
 
         // Overrides live under the site_settings prefix, are read through the

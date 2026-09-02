@@ -63,7 +63,11 @@
 }
 
 .btn-admin:active {
-  transform: scale(0.97);
+  background-color: #4a0000;
+  border-color: #4a0000;
+  color: #fff;
+  box-shadow: none;
+  transform: none;
 }
 
 .btn-secondary {
@@ -88,6 +92,49 @@
   background-color: #5f0000;
   border-color: #5f0000;
   color: #fff;
+  box-shadow: none;
+  transform: none;
+}
+
+.btn-admin.btn-secondary:active {
+  background-color: #4a0000;
+  border-color: #4a0000;
+  color: #fff;
+}
+
+/* `.btn-admin` declares `display: inline-flex`, and an author declaration beats
+   the browser's own `[hidden] { display: none }` however specific that is -- so
+   without this rule every `hidden` the modules set on a button was a no-op while
+   the sibling wrappers around it really did disappear. That mismatch is what put
+   a "Reference Required" error next to an invisible reference field. */
+.btn-admin[hidden] {
+  display: none;
+}
+
+/* Disabled means "not this order's next step", not "broken". Greyed, no movement,
+   and the pointer says so; the title the module sets names what has to happen
+   first, so a step the operator has not earned yet explains itself. */
+.btn-admin:disabled,
+.btn-admin[disabled] {
+  background-color: #eceff2;
+  border-color: #dde2e8;
+  color: #99a2ac;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Hold the greyed fill through hover and press: the variant rules above are more
+   specific than a bare `:disabled`, so each needs answering by name. */
+.btn-admin:disabled:hover,
+.btn-admin:disabled:active,
+.btn-admin[disabled]:hover,
+.btn-admin.btn-secondary:disabled:hover,
+.btn-admin.btn-secondary:disabled:active,
+.btn-admin.btn-secondary[disabled]:hover {
+  background-color: #eceff2;
+  border-color: #dde2e8;
+  color: #99a2ac;
   box-shadow: none;
   transform: none;
 }
@@ -237,6 +284,34 @@
 
 .admin-table td {
   color: #4a4a4a;
+}
+
+/* ─── Action column: frozen to the right edge of every portal table ─────────
+   The per-table pins below (#appointmentsTable, .inventory-table,
+   .enhanced-table, .accounts-table, #walkInOrdersTable, #returnsRefundsTable)
+   came first and each set its own width; this baseline is what covers the rest
+   -- the six orders tables, archives, ratings, inquiries and promotions -- so
+   Action can never scroll out of reach on a wide table.
+
+   Deliberately declared BEFORE those rules: at equal specificity the later one
+   wins, so every existing pin keeps its own width and shadow untouched, and the
+   id'd ones outrank this at (1,1,0) regardless of order. Action cells hold
+   between one and four icon buttons, so no width is set here -- a single global
+   number would either clip the four or waste space on the one.
+
+   Not resizable, by contract: admin-table-resize.js classifies
+   .sticky-action/.action-icons as kind "action" and only ever issues a drag
+   handle for kind "data". */
+.admin-table .sticky-action {
+  position: sticky;
+  right: 0;
+  background-color: #fff;
+  z-index: 20;
+  box-shadow: -1px 0 0 #eef1f4;
+}
+
+.admin-table tbody .sticky-action {
+  z-index: 30;
 }
 
 .inventory-table {
@@ -1129,6 +1204,14 @@ input.page-number:focus,
 .field-hint--warn {
   color: #9a3412;
   font-weight: 600;
+}
+
+/* The GCash details modal opens on the click and fills a beat later; this note
+   sits at the left of the footer while the saved values (including the inline
+   base64 QR) are still on the wire and Save Details is held disabled. */
+.gcash-settings-loading {
+  margin-right: auto;
+  align-self: center;
 }
 
 /* GCash collection details: QR preview beside its upload/remove buttons. */
@@ -2278,6 +2361,100 @@ input.page-number:focus,
 .table-empty-state i {
   color: #8f99a8;
   font-size: 1rem;
+}
+
+/* ─── An empty table drops the furniture it no longer needs ─────────────────
+   admin-common.js puts `is-table-empty` on four nodes the moment a tbody holds
+   nothing but its own empty row: the table, its scroll host, the scroll hint
+   above it and the footer below. Everything here wins on specificity rather
+   than on load order, because two portal pages inject a <style> after
+   admin-responsive.css and products.html injects one between the two sheets —
+   so source position cannot be trusted, and no rule here shouts `!important`.
+
+   Skeleton rows count as content, so this never fires mid-load.
+   -------------------------------------------------------------------------- */
+
+/* (0,2,0) over `.table-wrapper { overflow-x: auto }` at :213 and over
+   products.html's own `.analytics-table-wrapper` block. */
+.table-wrapper.is-table-empty,
+.analytics-table-wrapper.is-table-empty {
+  overflow-x: hidden;
+}
+
+/* "Page 1 of 1" over no rows is furniture, not information. (0,2,0) also clears
+   the landscape band's `.table-scroll-hint--mobile { display: inline-flex }`
+   (admin-responsive.css:3954), which is only (0,1,0). */
+.table-footer.is-table-empty,
+.inv-cat-footer.is-table-empty,
+.table-scroll-hint.is-table-empty {
+  display: none;
+}
+
+/* Release every width floor so the header row fits its card instead of forcing
+   a scroll across columns with nothing under them. The id'd tables are named
+   individually: `.admin-table.is-table-empty` is only (0,2,0) and would lose to
+   a bare `#appointmentsTable` at (1,0,0). `width` is reset too — four of these
+   declare `width: max-content`, under which `min-width` is ignored.
+
+   The last two ids are not floors from this sheet at all: ratings.html and
+   customer-inquiries.html each set their own in a page-level <style> that loads
+   after both external sheets, so nothing here could answer them on position.
+   Naming the id makes it (1,1,0) against their (1,0,0) and settles it on
+   specificity, which is the only thing that survives a page-level block.
+   `#reportDataTable` is named for the same reason with a different cause: its
+   own floor at :3706 sits later in this very file. */
+.admin-table.is-table-empty,
+.inventory-table.is-table-empty,
+.enhanced-table.is-table-empty,
+.accounts-table.is-table-empty,
+.analytics-perf-table.is-table-empty,
+.inv-variant-table.is-table-empty,
+#appointmentsTable.is-table-empty,
+#productTable.is-table-empty,
+#incomingOrdersTable.is-table-empty,
+#walkInOrdersTable.is-table-empty,
+#returnsRefundsTable.is-table-empty,
+#reportDataTable.is-table-empty,
+#ratingsTable.is-table-empty,
+#inquiriesTable.is-table-empty {
+  min-width: 0;
+  width: 100%;
+}
+
+/* The last piece of the 820-1960px width is `white-space: nowrap` on every cell
+   (:271). Letting the header labels wrap is what makes "every column visible
+   without scrolling" true for the 14-column tables. (0,2,1) beats that (0,1,1)
+   rule; the per-cell floors in the phone band are answered in
+   admin-responsive.css §2.12b, which is the only place they exist. */
+.admin-table.is-table-empty :is(th, td),
+.analytics-perf-table.is-table-empty :is(th, td),
+.inv-variant-table.is-table-empty :is(th, td) {
+  white-space: normal;
+  min-width: 0;
+}
+
+/* Action stays pinned — it is a real column with a real header — but its own
+   width pins come off with the rest so it cannot re-open the overflow. The ids
+   ride inside `:is()`, which takes its most specific argument: (1,2,0) here,
+   which is what it takes to outrank `#appointmentsTable .sticky-action` at
+   (1,1,0) and the phone band's 96px contract at the same (1,1,0). */
+:is(
+    .admin-table,
+    .inventory-table,
+    .enhanced-table,
+    .accounts-table,
+    #appointmentsTable,
+    #productTable,
+    #incomingOrdersTable,
+    #walkInOrdersTable,
+    #returnsRefundsTable,
+    #ratingsTable,
+    #inquiriesTable
+  ).is-table-empty
+  .sticky-action {
+  min-width: 0;
+  max-width: none;
+  width: auto;
 }
 
 .admin-global-tooltip {

@@ -350,6 +350,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "btnCancelGcashSettings",
   );
   const btnSaveGcashSettings = document.getElementById("btnSaveGcashSettings");
+  const gcashSettingsLoading = document.getElementById("gcashSettingsLoading");
 
   const state = {
     incoming: [],
@@ -1135,8 +1136,11 @@ document.addEventListener("DOMContentLoaded", () => {
         modalPaymentVerifyHint.textContent =
           "This order is cancelled. Nothing is owed, so no payment should be confirmed against it.";
       } else if (status === "paid") {
+        // Both remaining steps are live at this point, so the hint names both -
+        // otherwise an enabled "Record refund sent" on an order nobody cancelled
+        // reads as a stray button.
         modalPaymentVerifyHint.textContent =
-          "This payment is already marked as received. Only set it back to unpaid if it was confirmed by mistake.";
+          "This payment is received. Set it back to unpaid if it was confirmed by mistake, or record a refund here if any of it was sent back.";
       } else if (isGcash) {
         modalPaymentVerifyHint.textContent = reference
           ? `Search reference ${reference} in the FMRC GCash app. Confirm only if the amount and time match — this releases the order to the shipping queue.`
@@ -1147,18 +1151,65 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // A cancelled order must never be confirmed as paid - the API refuses it
-    // anyway, so offering the button would only produce an error popup.
-    if (btnMarkPaymentPaid) {
-      btnMarkPaymentPaid.hidden =
-        status === "paid" || status === "refunded" || isCancelled;
-    }
-    if (btnMarkPaymentPending) {
-      btnMarkPaymentPending.hidden = status !== "paid" || isCancelled;
-    }
-    if (btnRecordRefund) btnRecordRefund.hidden = !refundDue;
-    if (modalRefundRefWrap) modalRefundRefWrap.hidden = !refundDue;
-    if (modalRefundReference && !refundDue) modalRefundReference.value = "";
+    // ── The three buttons: one process, in order ──
+    // All three stay on screen at every stage. Hiding them made the control look
+    // like it had different shapes on different orders; worse, `.btn-admin`
+    // declares `display: inline-flex`, so the `hidden` set here never actually
+    // hid them while the refund *field* beside them really did vanish -- which is
+    // how "Reference Required" came to point at nothing.
+    //
+    // What gates them now is `disabled`, in the order the real job runs: receive
+    // the money first, then either put the order back to unpaid or send the money
+    // back. Every disabled button carries a title saying what has to happen
+    // first, so a greyed step reads as "not yet", not "broken".
+    const gate = (button, enabled, why) => {
+      if (!button) return;
+      button.disabled = !enabled;
+      if (enabled) button.removeAttribute("title");
+      else button.title = why;
+    };
+
+    // A cancelled order can never be confirmed as paid - the API refuses it
+    // (422), so the button stays greyed rather than producing an error popup.
+    gate(
+      btnMarkPaymentPaid,
+      status === "pending" && !isCancelled,
+      status === "paid"
+        ? "Already received. Set it back to unpaid first if this was a mistake."
+        : status === "refunded"
+          ? "This payment was refunded, so there is nothing left to receive."
+          : "This order is cancelled, so no payment can be confirmed against it.",
+    );
+
+    // Reversing only makes sense once something was confirmed.
+    gate(
+      btnMarkPaymentPending,
+      status === "paid",
+      status === "refunded"
+        ? "This payment was refunded. Reversing it would leave the refund unexplained."
+        : "Nothing has been received yet, so there is nothing to set back.",
+    );
+
+    // What can be sent back is what actually arrived, so this button unlocks with
+    // the same event that unlocks the one above it: the payment being received.
+    // Requiring a cancellation as well would have left the third step greyed on a
+    // paid order forever, which is not the process -- a duplicate transfer or a
+    // goodwill refund is still money FMRC sends back and still has to be on file.
+    // `refundDue` is the server saying a refund is *owed*, which the hint above
+    // states; it is not what makes the record-keeping possible.
+    gate(
+      btnRecordRefund,
+      status === "paid",
+      status === "refunded"
+        ? "This refund is already on file."
+        : "Nothing has been received yet, so there is nothing to send back.",
+    );
+
+    // The field is revealed exactly when the button that needs it is live, so the
+    // reference can never be demanded from a form that does not show one.
+    const refundEnabled = Boolean(btnRecordRefund && !btnRecordRefund.disabled);
+    if (modalRefundRefWrap) modalRefundRefWrap.hidden = !refundEnabled;
+    if (modalRefundReference && !refundEnabled) modalRefundReference.value = "";
   };
 
   btnCopyPaymentRef?.addEventListener("click", async () => {
@@ -1191,6 +1242,11 @@ document.addEventListener("DOMContentLoaded", () => {
         "Enter the GCash reference number of the refund you sent, so the customer can be shown proof it went out.",
         { title: "Reference Required" },
       );
+      // The field is on screen whenever this button is live, so focusing it now
+      // actually lands somewhere. It used to sit inside a `display: none`
+      // wrapper, which is what made this message look like it was asking for
+      // something that did not exist.
+      modalRefundRefWrap?.removeAttribute("hidden");
       modalRefundReference?.focus();
       return;
     }
@@ -1218,7 +1274,17 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     if (!proceed) return;
 
+    // Hold all three while the request is out, remembering which were live: the
+    // repaint below owns the enabled set from here on, and blanket re-enabling in
+    // a `finally` used to undo it -- leaving "Mark payment as received" clickable
+    // on an order that had just been marked paid.
     const buttons = [btnMarkPaymentPaid, btnMarkPaymentPending, btnRecordRefund];
+    const wasEnabled = buttons.map((button) => Boolean(button && !button.disabled));
+    const restoreButtons = () => {
+      buttons.forEach((button, i) => {
+        if (button) button.disabled = !wasEnabled[i];
+      });
+    };
     buttons.forEach((button) => {
       if (button) button.disabled = true;
     });
@@ -1246,6 +1312,10 @@ document.addEventListener("DOMContentLoaded", () => {
         renderAll();
         renderPaymentVerification(updated);
         renderCancellationPanel(updated);
+      } else {
+        // No copy came back, so there is nothing to re-gate from; put the control
+        // back the way it was rather than leave three dead buttons.
+        restoreButtons();
       }
 
       notifyOrdersRealtimeUpdate({
@@ -1261,12 +1331,10 @@ document.addEventListener("DOMContentLoaded", () => {
         { title: "Success" },
       );
     } catch (error) {
+      // The order did not change, so the previous step is still the right one.
+      restoreButtons();
       showPopup(error.message || "Unable to update the payment status.", {
         title: "Update Failed",
-      });
-    } finally {
-      buttons.forEach((button) => {
-        if (button) button.disabled = false;
       });
     }
   };
@@ -1502,11 +1570,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const openGcashSettingsModal = async () => {
     if (!modalGcashSettings) return;
-    if (btnOpenGcashSettings) btnOpenGcashSettings.disabled = true;
-    const loaded = await loadGcashSettings();
-    if (btnOpenGcashSettings) btnOpenGcashSettings.disabled = false;
-    if (!loaded) return;
+
+    // Open on the click. This response carries the inline base64 QR, so awaiting
+    // it before revealing the modal made the button look dead for as long as the
+    // image took to arrive.
     modalGcashSettings.classList.add("show");
+
+    // Saving blank fields over the live GCash number is the one thing that must
+    // not happen while the current values are still on the wire.
+    if (gcashSettingsLoading) gcashSettingsLoading.hidden = false;
+    if (btnSaveGcashSettings) btnSaveGcashSettings.disabled = true;
+
+    const loaded = await loadGcashSettings();
+
+    if (gcashSettingsLoading) gcashSettingsLoading.hidden = true;
+    if (btnSaveGcashSettings) btnSaveGcashSettings.disabled = false;
+
+    // loadGcashSettings() has already shown the error; close again rather than
+    // leave an empty form that Save would push over the real details.
+    if (!loaded) modalGcashSettings.classList.remove("show");
   };
 
   const saveGcashSettings = async () => {
