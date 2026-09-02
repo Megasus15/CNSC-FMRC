@@ -281,8 +281,8 @@
      .analytics-perf-table 520                products.html:534 (inline)
    ========================================================================== */
 /* Step 9 widened this band's condition from `(max-width: 720px)` to the sheet's
-   standing phone union (the same comma'd list §3.6's landscape twin at :3428
-   already uses). Reason: a rotated iPhone is 852-932px wide, so every table
+   standing phone union (the same comma'd list §3.6's landscape twin already
+   uses). Reason: a rotated iPhone is 852-932px wide, so every table
    mechanic in 2.1-2.6 — released `nowrap`, the 40px action buttons and the
    per-table floors — used to switch off the moment the phone turned sideways.
    `max-height: 520px` + `max-width: 1024px` keeps every laptop out.
@@ -737,10 +737,48 @@
     font-size: 1rem;
   }
 
+  /* An empty table keeps every column width it has with rows in it — 2.4/2.6's
+     table floors, 2.12's 64px per cell — and scrolls sideways like any other,
+     because the desktop release in admin-modules.css is gated at 1025px and never
+     reaches this band. What that costs is the message. The empty row is a single
+     `colspan` cell as wide as the table, and this box is `width: 100%` with its
+     content centred, so inside a 920px table in a ~340px scrollport it would sit
+     ~460px in — off screen, leaving the reader a blank card.
+
+     Pinning it to the scrollport's left edge answers that at any scroll offset.
+     `width: fit-content` is what makes the pin possible: a box already spanning
+     its whole cell has no slack to shift. Going block-level also takes it out of
+     `.table-empty-row td { text-align: center }`, so it starts flush left and is
+     already fully visible before the first swipe. Where `position: sticky` is
+     unsupported the declaration drops and the message is a static left-aligned
+     box — the same outcome. Desktop keeps the centred full-width message: this
+     band stops at 1024px.
+
+     The width cap is the other half of the pin, and it is not decorative. Half
+     these messages are a sentence, not a label — customer-inquiries.js:251 emits
+     "Unable to load customer inquiries. Please try again.", archives.js the
+     43-character "No archived return or refund records found." — and
+     `fit-content` resolves the whole sentence onto one line: measured 397px
+     inside a 255px scrollport at 320px wide, so the tail hung off the right and
+     no amount of sticky could pull it back. Sticky cannot rescue a box wider
+     than the port it is pinned in. CSS has no way to read a scrollport's width
+     (a container query would mean `contain: layout` on `.table-wrapper`, which
+     would newly clip and re-anchor every absolutely positioned menu inside a
+     table cell — far too much to pay for a message), so the cap is a length:
+     16em is 210px at this band's 0.82rem, and the narrowest scrollport in the
+     back office is 240px (a 255px card at 320px wide, less 15px when the taller
+     empty box brings out the wrapper's vertical scrollbar). `em` rather than
+     `ch` so the arithmetic holds whether or not Poppins loads. Short messages
+     never reach it — "No records found." is 172px on one line. */
   .table-empty-state {
     min-height: 150px;
     padding: 18px 14px;
     text-align: center;
+    position: sticky;
+    left: 0;
+    display: flex;
+    width: fit-content;
+    max-width: min(100%, 16em);
   }
 
   /* ---- 2.8 Products analytics panel --------------------------------------
@@ -994,95 +1032,26 @@
 }
 
 /* ==========================================================================
-   2.12b An empty table keeps no floor — the phone half of the same rule
-   admin-common.js puts `is-table-empty` on a table whose tbody holds nothing but
-   its own empty row, and admin-modules.css releases the desktop floors from it.
-   The phone floors are a separate population and have to be answered here: the
-   table-level ones in 2.4/2.6/2.8 are bare `#id` = (1,0,0), and the per-column
-   ones in 2.2/2.6/2.11/2.12 run from (0,1,1) up to (1,1,1).
+   2.12b (retired 2026-09-02)
+   This block released the phone-band width floors from a table carrying
+   `is-table-empty` — the 23 table ids in 2.4/2.6 down to `min-width: 0;
+   width: 100%`, and every cell in them down to `min-width: 0`, cancelling 2.12's
+   64px. It was the phone half of admin-modules.css's desktop release, added when
+   the request was "an empty table should not scroll and should not show a pager".
 
-   `:is()` takes its most specific argument, so the id list below is (1,0,0) and
-   these rules land at (1,1,0) and (1,1,1) — over the table floors outright, and
-   over the 112px identity pins on a tie that this block wins by sitting after
-   them. There is nothing to protect: no row means no content that could be
-   squeezed, and every column header is the whole of what has to stay visible.
+   On a real phone it was the bug. Fourteen headers released into a ~340px card
+   get ~24px each, and 2.2's `overflow-wrap: anywhere` then breaks every label to
+   its min-content width — one character per line, "A/P/-/N/o". An empty table now
+   keeps exactly the column widths it has with rows in it and scrolls sideways the
+   same way, which is both what the columns need and one less special case:
+   2.4/2.6's floors, 2.12's 64px per cell and 2.3's 96px Action contract all stand
+   on their own, and `.table-wrapper { overflow-x: auto }` supplies the scroll only
+   where they do not fit. The desktop release is unchanged, now gated at
+   `min-width: 1025px` in admin-modules.css; the footer still goes at every width.
 
-   Media-gated like every other block in this sheet; the desktop half lives in
-   admin-modules.css next to `.table-empty-state`.
+   2.7 pins `.table-empty-state` to the left of the scrollport so the message
+   stays readable in a table that is now wider than the card.
    ========================================================================== */
-@media (max-width: 720px),
-  (orientation: landscape) and (max-height: 520px) and (max-width: 1024px) {
-  :is(
-      #appointmentsTable,
-      #appointmentArchiveTable,
-      #incomingOrdersTable,
-      #ordersDirectoryTable,
-      #rejectedOrdersTable,
-      #orderArchiveTable,
-      #paymentsHistoryTable,
-      #returnsRefundsTable,
-      #returnArchiveTable,
-      #walkInOrdersTable,
-      #walkinArchiveTable,
-      #productTable,
-      #productPerformanceTable,
-      #accountsTable,
-      #requestsTable,
-      #inquiriesTable,
-      #ratingsTable,
-      #ratingArchiveTable,
-      #promotionTable,
-      #promotionArchiveTable,
-      #announcementTable,
-      #announcementArchiveTable,
-      #inventoryArchiveTable
-    ).is-table-empty {
-    min-width: 0;
-    width: 100%;
-  }
-
-  :is(
-      #appointmentsTable,
-      #appointmentArchiveTable,
-      #incomingOrdersTable,
-      #ordersDirectoryTable,
-      #rejectedOrdersTable,
-      #orderArchiveTable,
-      #paymentsHistoryTable,
-      #returnsRefundsTable,
-      #returnArchiveTable,
-      #walkInOrdersTable,
-      #walkinArchiveTable,
-      #productTable,
-      #productPerformanceTable,
-      #accountsTable,
-      #requestsTable,
-      #inquiriesTable,
-      #ratingsTable,
-      #ratingArchiveTable,
-      #promotionTable,
-      #promotionArchiveTable,
-      #announcementTable,
-      #announcementArchiveTable,
-      #inventoryArchiveTable
-    ).is-table-empty
-    :is(th, td) {
-    min-width: 0;
-  }
-
-  /* Inventory's category tables are class-only: `.inv-category-card .inv-table`
-     is (0,2,0) at table level and (0,3,1) per column, so both need one more
-     class rather than an id to clear. */
-  .inv-category-card .inv-table.is-table-empty {
-    min-width: 0;
-    width: 100%;
-  }
-
-  .inv-category-card .inv-table.is-table-empty :is(th, td),
-  .inv-variant-table.is-table-empty :is(th, td) {
-    min-width: 0;
-  }
-}
 
 /* ==========================================================================
    2.13 In-table status pills — 12px text floor
@@ -3569,7 +3538,7 @@
 
    The split is not arbitrary. The four landscape-only rows are already fixed for
    portrait by 2.7 (`.page-number` at :763), 2.x (`.admin-table` cells) and 3.2
-   (`.ratings-input`/`.inquiry-input` at :1570); 7.1 lifted only the font-size arm
+   (`.ratings-input`/`.inquiry-input`); 7.1 lifted only the font-size arm
    of 3.2 into landscape, not its 40px arm, so the control heights fell back to
    their desktop values there. The three both-orientation rows were never fixed
    anywhere -- they are pre-existing gaps in every band, surfaced only now that the

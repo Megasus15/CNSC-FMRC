@@ -2196,11 +2196,23 @@ body.admin-media-viewer-open {
   border-color: var(--primary-color);
 }
 
+/* The figure is one line, always. `.card-info` is `flex: 1; min-width: 0` beside
+   a fixed 48px icon box, so a long value used to wrap — "₱" on its own line above
+   "1,004,650.00". `nowrap` is also what makes the value measurable: a wrapped h3
+   reports its widest LINE, not its text, so dashboard.js could not tell whether it
+   overflowed. It measures `scrollWidth` against `clientWidth` and shrinks the font
+   to fit, down to a 13px floor; the ellipsis is the graceful end for a figure too
+   long even at 13px, and the visible cue that it was cut rather than mis-rendered.
+   Only the two dashboards carry `.card-info`, so nothing else on the 33 pages that
+   link this sheet is affected. */
 .card-info h3 {
   font-size: 1.6rem;
   font-weight: 700;
   color: var(--primary-color);
   margin-bottom: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .card-info p {

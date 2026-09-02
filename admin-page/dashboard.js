@@ -597,6 +597,96 @@ document.addEventListener("DOMContentLoaded", () => {
     return `₱${number.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
+  /* ── Stat figures shrink themselves to fit ──────────────────────────────────
+     `.card-info h3` is a fixed size in dashboard.css — 25.6px, 16.8px at <=720 —
+     inside `.card-info { flex: 1; min-width: 0 }` beside a fixed 48px icon box.
+     `₱ 1,004,650.00` does not fit that on any dashboard, and the h3 is now
+     `white-space: nowrap`, so instead of breaking the peso sign onto its own line
+     it would clip to an ellipsis. The size has to come down to meet the text.
+
+     CSS alone cannot do it. `clamp()` and viewport units react to how wide the
+     CONTAINER is, never to how many characters are in it, so the one card that
+     overflows and the six counts that never will would shrink together.
+     Measurement is the only thing that is genuinely automatic, and `scrollWidth`
+     vs `clientWidth` is the browser's own answer to "does this text fit" — which
+     is only meaningful because of the nowrap: a wrapped h3 reports its widest
+     LINE, and a line fits by definition.
+
+     Read-then-write, once per node: nothing here reads a layout property after
+     setting a style except the correction loop, whose whole purpose is to
+     re-measure. `.card-info`'s width comes from `flex: 1` over `flex-basis: 0`,
+     so it does not depend on the h3's content — shrinking the text never widens
+     the box that was just measured.
+     -------------------------------------------------------------------------- */
+  const STAT_FIT_MIN_PX = 13; // still legible on a 320px phone
+  const statFitWidths = new WeakMap(); // h3 -> inline width it was last fitted at
+
+  const fitStatValue = (node) => {
+    if (!node || !node.isConnected) return;
+    // The shimmer is a fixed 52-60px box. It always fits, and fitting it would
+    // pin a size chosen for the wrong content.
+    if (node.querySelector(".card-value-loading")) return;
+    if (!node.textContent.trim()) return;
+
+    // Drop whatever this function set last time, so the measurement starts from
+    // the stylesheet size for the CURRENT breakpoint (1.6rem, or 1.05rem <=720).
+    node.style.fontSize = "";
+
+    const available = node.clientWidth;
+    if (!available) return; // hidden card: nothing to measure against
+    if (node.scrollWidth <= available) return; // fits as authored, leave the sheet alone
+
+    const base = parseFloat(window.getComputedStyle(node).fontSize) || 16;
+    let size = Math.max(STAT_FIT_MIN_PX, (base * available) / node.scrollWidth);
+    node.style.fontSize = `${size.toFixed(2)}px`;
+
+    // The ratio is a close first guess, not an exact one — glyph advance widths
+    // do not scale perfectly linearly once hinting and sub-pixel rounding are in
+    // play. A few half-pixel steps close the gap; the ellipsis is the floor for a
+    // figure too long even at 13px.
+    for (let i = 0; i < 4; i += 1) {
+      if (size <= STAT_FIT_MIN_PX || node.scrollWidth <= node.clientWidth) break;
+      size = Math.max(STAT_FIT_MIN_PX, size - 0.5);
+      node.style.fontSize = `${size.toFixed(2)}px`;
+    }
+  };
+
+  const fitStatValues = () => {
+    document
+      .querySelectorAll(".summary-cards .card-info h3")
+      .forEach(fitStatValue);
+  };
+
+  /* Every card, not just revenue: the counts never overflow today, so in practice
+     nothing but the peso figure moves — but a five-digit count on a 320px phone
+     behaves the same way without anyone having to come back here.
+
+     The observer covers what a one-shot fit cannot: window resize, orientation
+     change, the sidebar collapsing, and the 4 -> 2 -> 1 column changes in the
+     `.summary-cards` grid, where the grid's own width does not change but each
+     card's does. It has to be guarded, though — shrinking the font changes the
+     h3's HEIGHT, `.card-info` is the observed box, and a height-only callback
+     that refits would wake itself forever. Only an inline-size change is news. */
+  const observeStatCards = () => {
+    if (typeof ResizeObserver !== "function") return;
+
+    const observer = new ResizeObserver((entries) => {
+      entries.forEach((entry) => {
+        const value = entry.target.querySelector("h3");
+        if (!value) return;
+
+        const width = Math.round(entry.contentRect.width);
+        if (statFitWidths.get(value) === width) return;
+        statFitWidths.set(value, width);
+        fitStatValue(value);
+      });
+    });
+
+    document
+      .querySelectorAll(".summary-cards .card-info")
+      .forEach((card) => observer.observe(card));
+  };
+
   const appointmentStatusClass = (status) => {
     const normalized = String(status || "").toLowerCase();
     if (normalized.includes("completed")) return "priority-low";
@@ -646,6 +736,12 @@ document.addEventListener("DOMContentLoaded", () => {
       dashboardRevenueAmount.textContent = formatCurrency(total_revenue);
     if (dashboardInventoryCount && total_inventory_items !== undefined)
       dashboardInventoryCount.textContent = formatCount(total_inventory_items);
+
+    // The single funnel every card value goes through — the summary endpoint, its
+    // degraded path and the four legacy count endpoints all land here — so the
+    // refit happens in the same task as the write and the card paints already
+    // fitted, with no flash of the oversized figure.
+    fitStatValues();
   };
 
   const renderRecentAppointments = (appointments) => {
@@ -1709,6 +1805,13 @@ document.addEventListener("DOMContentLoaded", () => {
     unsubscribeAdminLiveData?.();
     dashboardOrdersChannel?.close();
   });
+
+  observeStatCards();
+
+  // A webfont swapping in changes the text width under a size that was already
+  // chosen, so re-measure once the fonts settle. Optional-chained: this is a
+  // progressive enhancement, not a dependency.
+  document.fonts?.ready.then(fitStatValues);
 
   void syncDashboardData({ force: true, source: "manual" }).finally(() => {
     void refreshDashboardLiveCounts();

@@ -56,11 +56,25 @@
   const READY_CLASS = "atr-ready";
   const HANDLE_CLASS = "atr-handle";
   /* Written by admin-common.js the moment a tbody holds nothing but its own
-     empty row. Every width this module sets is inline, so an empty table left
-     frozen would hand the horizontal scroll straight back to a grid that has
-     nothing in it — and a drag handle on a column with no data under it is a
-     control over nothing. */
+     empty row. It means "let go" only where the empty-state rules actually
+     collapse the table, and that is the desktop band alone: admin-modules.css
+     gates its width release (`min-width: 0; width: 100%` on the table,
+     `overflow-x: hidden` on the wrapper) behind RELEASE_QUERY. Above that edge
+     an empty table has no columns left to own and no scrollport to scroll in, so
+     a frozen inline width would hand the horizontal scroll straight back to a
+     grid with nothing in it, and a drag handle would be a control over nothing.
+     Below it an empty table keeps its floors and scrolls exactly like the
+     populated one — so it stays frozen, and keeps the very widths it was
+     measured at while its skeleton rows were still up. That is what makes an
+     empty table's columns identical to the same table with rows in it. */
   const EMPTY_CLASS = "is-table-empty";
+  /* The same boundary, character for character, as the gate in
+     admin-modules.css's empty-table block — both of them the codebase's one
+     desktop edge (admin-common.js MOBILE_BREAKPOINT = 1024), so the sheet and
+     this module cannot drift apart. Deliberately NOT the PHONE_QUERY above:
+     that one picks the drag profile a finger wants, and between 721px and
+     1024px the two answers differ. */
+  const RELEASE_QUERY = "(min-width: 1025px)";
   const STORE_PREFIX = "fmrc.colw.";
   const SIG_DEBOUNCE = 120;
   const SCAN_DEBOUNCE = 250;
@@ -72,6 +86,7 @@
 
   let LIM = PROFILES.desktop;
   let media = null;
+  let releaseMedia = null;
   let domObserver = null;
   let scanTimer = null;
   let revealPending = false;
@@ -80,6 +95,14 @@
 
   const clampWidth = (px) =>
     !isFinite(px) ? LIM.min : Math.max(LIM.min, Math.min(LIM.max, Math.round(px)));
+
+  /* Is the empty-state width release in force? Without matchMedia the answer is
+     the desktop one — the same default PROFILES falls back to. */
+  const emptyReleased = () => (releaseMedia ? releaseMedia.matches : true);
+
+  /* An empty table is handed back to the browser only where the sheet collapses
+     it; below that edge it keeps its columns. See EMPTY_CLASS. */
+  const releaseEmpty = (table) => emptyReleased() && table.classList.contains(EMPTY_CLASS);
 
   /* `getClientRects()` is the only reliable "is this cell in the layout" test
      here: both bulk mechanisms hide their checkbox column with `display: none`
@@ -436,10 +459,12 @@
           unfreeze(state.table);
           return;
         }
-        /* The rows just went away. Hand the table back to the browser so the
-           empty-state rules can collapse it; `scan()` re-freezes it as soon as
-           real rows return. */
-        if (state.table.classList.contains(EMPTY_CLASS)) {
+        /* The rows just went away. On a desktop, hand the table back to the
+           browser so the empty-state rules can collapse it; `scan()` re-freezes
+           it as soon as real rows return. Below the release edge the widths stay
+           exactly as they are — the empty table then wears the columns it was
+           measured at while it still had rows, which is the whole point. */
+        if (releaseEmpty(state.table)) {
           unfreeze(state.table);
           return;
         }
@@ -537,11 +562,13 @@
     if (printing) return;
     const tables = document.querySelectorAll(TABLES);
     tables.forEach((table, i) => {
-      /* An empty table is left on the browser's auto layout, and one that was
-         frozen while it still had rows is released here — the inline widths
-         would otherwise re-create the very overflow the empty-state rules exist
-         to remove, and sum back up to a table wider than its card. */
-      if (table.classList.contains(EMPTY_CLASS)) {
+      /* Above the release edge an empty table is left on the browser's auto
+         layout, and one that was frozen while it still had rows is released here
+         — the inline widths would otherwise re-create the very overflow the
+         empty-state rules exist to remove, and sum back up to a table wider than
+         its card. Below it the empty table is frozen like any other, so its
+         columns match the populated table's and the wrapper scrolls. */
+      if (releaseEmpty(table)) {
         if (states.has(table)) unfreeze(table);
         return;
       }
@@ -659,8 +686,9 @@
 
   const init = () => {
     /* Deferred, so this runs before DOMContentLoaded and therefore before the
-       empty-state module's own boot. Ask it for the flags first, or the first
-       scan freezes inline widths onto tables that are still empty. */
+       empty-state module's own boot. Ask it for the flags first, or above the
+       release edge the first scan freezes inline widths onto tables that are
+       still empty. */
     window.AdminTableEmptyState?.syncAll();
     watchDocument();
     scan();
@@ -689,9 +717,13 @@
     LIM = media && media.matches ? PROFILES.phone : PROFILES.desktop;
   };
 
-  /* Crossing the band boundary — rotating a tablet, dragging a desktop window
-     narrow — re-measures instead of carrying the old band's widths over, because
-     the two profiles clamp to different ceilings. */
+  /* Crossing either boundary re-measures rather than carrying the old answer
+     over: the PHONE_QUERY edge because the two profiles clamp to different
+     ceilings (rotating a tablet, dragging a desktop window narrow), and the
+     RELEASE_QUERY edge because an empty table owns its columns on one side of it
+     and not on the other — dragging a window across 1025px with an empty table
+     on screen has to freeze or release it there and then, and no tbody mutation
+     is coming to do it for us. */
   const onMediaChange = () => {
     applyProfile();
     refresh();
@@ -714,12 +746,18 @@
     init();
   };
 
+  const watchQuery = (query) => {
+    const mq = window.matchMedia(query);
+    if (mq.addEventListener) mq.addEventListener("change", onMediaChange);
+    else if (mq.addListener) mq.addListener(onMediaChange);
+    return mq;
+  };
+
   const boot = () => {
     if (!document.body) return;
     if (window.matchMedia) {
-      media = window.matchMedia(PHONE_QUERY);
-      if (media.addEventListener) media.addEventListener("change", onMediaChange);
-      else if (media.addListener) media.addListener(onMediaChange);
+      media = watchQuery(PHONE_QUERY);
+      releaseMedia = watchQuery(RELEASE_QUERY);
     }
     applyProfile();
     window.addEventListener("beforeprint", onBeforePrint);

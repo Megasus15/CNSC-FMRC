@@ -2372,89 +2372,111 @@ input.page-number:focus,
    so source position cannot be trusted, and no rule here shouts `!important`.
 
    Skeleton rows count as content, so this never fires mid-load.
+
+   Two halves, and only one of them applies at every width:
+
+   * The footer goes always. "Page 1 of 1" over no rows is furniture.
+   * The width floors come off from 1025px up only. Below that an empty table
+     keeps the same column widths it has with rows in it and scrolls sideways
+     like any other: releasing the floors there left 14 headers sharing a ~340px
+     card, ~24px each, and stacked every one of them a letter per line. 1025px is
+     this codebase's own desktop boundary — admin-common.js sets
+     MOBILE_BREAKPOINT = 1024 and every table band in admin-responsive.css tops
+     out at `max-width: 1024px` — so the two sheets cannot drift apart.
    -------------------------------------------------------------------------- */
 
-/* (0,2,0) over `.table-wrapper { overflow-x: auto }` at :213 and over
-   products.html's own `.analytics-table-wrapper` block. */
-.table-wrapper.is-table-empty,
-.analytics-table-wrapper.is-table-empty {
-  overflow-x: hidden;
-}
-
-/* "Page 1 of 1" over no rows is furniture, not information. (0,2,0) also clears
-   the landscape band's `.table-scroll-hint--mobile { display: inline-flex }`
-   (admin-responsive.css:3954), which is only (0,1,0). */
+/* "Page 1 of 1" over no rows is furniture, not information. */
 .table-footer.is-table-empty,
-.inv-cat-footer.is-table-empty,
-.table-scroll-hint.is-table-empty {
+.inv-cat-footer.is-table-empty {
   display: none;
 }
 
-/* Release every width floor so the header row fits its card instead of forcing
-   a scroll across columns with nothing under them. The id'd tables are named
-   individually: `.admin-table.is-table-empty` is only (0,2,0) and would lose to
-   a bare `#appointmentsTable` at (1,0,0). `width` is reset too — four of these
-   declare `width: max-content`, under which `min-width` is ignored.
+@media (min-width: 1025px) {
+  /* (0,2,0) over `.table-wrapper { overflow-x: auto }` at :213 and over
+     products.html's own `.analytics-table-wrapper` block. */
+  .table-wrapper.is-table-empty,
+  .analytics-table-wrapper.is-table-empty {
+    overflow-x: hidden;
+  }
 
-   The last two ids are not floors from this sheet at all: ratings.html and
-   customer-inquiries.html each set their own in a page-level <style> that loads
-   after both external sheets, so nothing here could answer them on position.
-   Naming the id makes it (1,1,0) against their (1,0,0) and settles it on
-   specificity, which is the only thing that survives a page-level block.
-   `#reportDataTable` is named for the same reason with a different cause: its
-   own floor at :3706 sits later in this very file. */
-.admin-table.is-table-empty,
-.inventory-table.is-table-empty,
-.enhanced-table.is-table-empty,
-.accounts-table.is-table-empty,
-.analytics-perf-table.is-table-empty,
-.inv-variant-table.is-table-empty,
-#appointmentsTable.is-table-empty,
-#productTable.is-table-empty,
-#incomingOrdersTable.is-table-empty,
-#walkInOrdersTable.is-table-empty,
-#returnsRefundsTable.is-table-empty,
-#reportDataTable.is-table-empty,
-#ratingsTable.is-table-empty,
-#inquiriesTable.is-table-empty {
-  min-width: 0;
-  width: 100%;
-}
+  /* The scroll hint goes only where the release makes it a lie: from 1025px up
+     an empty table fits its card, so nothing scrolls. Below this band it stays
+     on screen and stays true — the table under it really does scroll now.
+     (0,2,0) also clears §9.4b's landscape
+     `.table-scroll-hint--mobile { display: inline-flex }` at (0,1,0), though
+     that band lives inside 1024px and no longer meets this rule at all. */
+  .table-scroll-hint.is-table-empty {
+    display: none;
+  }
 
-/* The last piece of the 820-1960px width is `white-space: nowrap` on every cell
-   (:271). Letting the header labels wrap is what makes "every column visible
-   without scrolling" true for the 14-column tables. (0,2,1) beats that (0,1,1)
-   rule; the per-cell floors in the phone band are answered in
-   admin-responsive.css §2.12b, which is the only place they exist. */
-.admin-table.is-table-empty :is(th, td),
-.analytics-perf-table.is-table-empty :is(th, td),
-.inv-variant-table.is-table-empty :is(th, td) {
-  white-space: normal;
-  min-width: 0;
-}
+  /* Release every width floor so the header row fits its card instead of forcing
+     a scroll across columns with nothing under them. The id'd tables are named
+     individually: `.admin-table.is-table-empty` is only (0,2,0) and would lose to
+     a bare `#appointmentsTable` at (1,0,0). `width` is reset too — four of these
+     declare `width: max-content`, under which `min-width` is ignored.
 
-/* Action stays pinned — it is a real column with a real header — but its own
-   width pins come off with the rest so it cannot re-open the overflow. The ids
-   ride inside `:is()`, which takes its most specific argument: (1,2,0) here,
-   which is what it takes to outrank `#appointmentsTable .sticky-action` at
-   (1,1,0) and the phone band's 96px contract at the same (1,1,0). */
-:is(
-    .admin-table,
-    .inventory-table,
-    .enhanced-table,
-    .accounts-table,
-    #appointmentsTable,
-    #productTable,
-    #incomingOrdersTable,
-    #walkInOrdersTable,
-    #returnsRefundsTable,
-    #ratingsTable,
-    #inquiriesTable
-  ).is-table-empty
-  .sticky-action {
-  min-width: 0;
-  max-width: none;
-  width: auto;
+     The last two ids are not floors from this sheet at all: ratings.html and
+     customer-inquiries.html each set their own in a page-level <style> that loads
+     after both external sheets, so nothing here could answer them on position.
+     Naming the id makes it (1,1,0) against their (1,0,0) and settles it on
+     specificity, which is the only thing that survives a page-level block.
+     `#reportDataTable` is named for the same reason with a different cause: its
+     own 920px floor sits later in this very file. */
+  .admin-table.is-table-empty,
+  .inventory-table.is-table-empty,
+  .enhanced-table.is-table-empty,
+  .accounts-table.is-table-empty,
+  .analytics-perf-table.is-table-empty,
+  .inv-variant-table.is-table-empty,
+  #appointmentsTable.is-table-empty,
+  #productTable.is-table-empty,
+  #incomingOrdersTable.is-table-empty,
+  #walkInOrdersTable.is-table-empty,
+  #returnsRefundsTable.is-table-empty,
+  #reportDataTable.is-table-empty,
+  #ratingsTable.is-table-empty,
+  #inquiriesTable.is-table-empty {
+    min-width: 0;
+    width: 100%;
+  }
+
+  /* The last piece of the 820-1960px width is `white-space: nowrap` on every cell
+     (:271). Letting the header labels wrap is what makes "every column visible
+     without scrolling" true for the 14-column tables. (0,2,1) beats that (0,1,1)
+     rule. The phone band's own 64px per-cell floor needs no answer here — it
+     applies below this band, where the columns are meant to keep their width. */
+  .admin-table.is-table-empty :is(th, td),
+  .analytics-perf-table.is-table-empty :is(th, td),
+  .inv-variant-table.is-table-empty :is(th, td) {
+    white-space: normal;
+    min-width: 0;
+  }
+
+  /* Action stays pinned — it is a real column with a real header — but its own
+     width pins come off with the rest so it cannot re-open the overflow. The ids
+     ride inside `:is()`, which takes its most specific argument: (1,2,0) here,
+     which is what it takes to outrank `#appointmentsTable .sticky-action` at
+     (1,1,0). The phone band's 96px contract sits at the same (1,1,0) but is now
+     out of reach in the other direction, which is the point — below 1025px Action
+     keeps its 96px and stays frozen. */
+  :is(
+      .admin-table,
+      .inventory-table,
+      .enhanced-table,
+      .accounts-table,
+      #appointmentsTable,
+      #productTable,
+      #incomingOrdersTable,
+      #walkInOrdersTable,
+      #returnsRefundsTable,
+      #ratingsTable,
+      #inquiriesTable
+    ).is-table-empty
+    .sticky-action {
+    min-width: 0;
+    max-width: none;
+    width: auto;
+  }
 }
 
 .admin-global-tooltip {
