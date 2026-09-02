@@ -1,3 +1,23 @@
+-- #####################################################################
+--  DO NOT RUN THIS FILE. SUPERSEDED 2026-09-02.
+--
+--  It was run on production and stopped at its first statement with
+--  "#1054 - Unknown column 'role' in 'SELECT'". Nothing was changed:
+--  phpMyAdmin aborts at the first failing statement, so neither the
+--  ALTER nor the `migrations` INSERT below was ever reached.
+--
+--  It failed because it assumed `users`.`role` exists. On that database
+--  the column is absent, which means the schema was not built by running
+--  the migrations in order -- so other columns are missing too. Run these
+--  three instead, in this order:
+--
+--    1. 2026_09_02_diagnose_schema_drift.sql   (read-only, changes nothing)
+--    2. 2026_09_02_repair_schema_drift.sql     (adds every missing column)
+--    3. 2026_09_02_restore_users_role.sql      (only if step 1 or 2 says
+--                                               `role` is MISSING)
+--
+--  Kept only as a record of the original diagnosis, below.
+-- #####################################################################
 -- =====================================================================
 --  FMRC production - let `users`.`role` hold 'staff' - 2026-09-02
 -- =====================================================================
