@@ -780,6 +780,94 @@ document.addEventListener("DOMContentLoaded", () => {
       .join("");
   };
 
+  // ── Degraded-data notice ───────────────────────────────────────────────────
+  // This page used to fail in silence. When /admin/dashboard/summary threw, the
+  // catch in syncDashboardData() dropped the error and the legacy fallback then
+  // filled four of the seven cards — so Total Revenue, Total Inventory Items,
+  // all four analytics cards and Recent Customer Inquiries kept shimmering as
+  // placeholders forever with nothing on screen to say why. Anything that
+  // degrades now says so in one line, and offers a Retry.
+  //
+  // Built here rather than in dashboard.html so the admin and staff copies of
+  // the page cannot drift apart.
+  const DASHBOARD_SECTION_LABELS = {
+    "counts.appointments": "Total Appointments",
+    "counts.accounts": "Total Accounts",
+    "counts.orders": "Total Orders",
+    "counts.products": "Total Products",
+    "counts.customer_inquiries": "Recent Customer Inquiries",
+    "counts.total_inventory_items": "Total Inventory Items",
+    "revenue.completed_orders": "Total Revenue",
+    "revenue.gcash_advance": "Total Revenue",
+    "revenue.walkins": "Total Revenue",
+    "revenue.refunds": "Total Revenue",
+    "analytics.top_selling": "Top Selling Products",
+    "analytics.sales_by_category": "Sales by Category",
+    "analytics.top_performance": "Product Performance",
+    "analytics.yearly_trend": "Yearly Sales Trend",
+    "recent.appointments": "Recent Appointments",
+    "recent.orders": "Recent Orders",
+    "recent.customer_inquiries": "Recent Customer Inquiries",
+  };
+
+  let dashboardNoticeEl = null;
+
+  const ensureDashboardNotice = () => {
+    if (dashboardNoticeEl?.isConnected) return dashboardNoticeEl;
+
+    const anchor = document.querySelector(".dashboard-content .summary-cards");
+    if (!anchor?.parentNode) return null;
+
+    dashboardNoticeEl = document.createElement("div");
+    dashboardNoticeEl.className = "dashboard-data-notice";
+    dashboardNoticeEl.id = "dashboardDataNotice";
+    dashboardNoticeEl.setAttribute("role", "status");
+    dashboardNoticeEl.hidden = true;
+    dashboardNoticeEl.innerHTML = `
+        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+        <div class="dashboard-data-notice-copy">
+          <strong class="dashboard-data-notice-title"></strong>
+          <span class="dashboard-data-notice-text"></span>
+        </div>
+        <button type="button" class="btn-admin btn-secondary dashboard-data-notice-retry">
+          <i class="fa-solid fa-arrows-rotate"></i> Retry
+        </button>`;
+    anchor.parentNode.insertBefore(dashboardNoticeEl, anchor);
+    dashboardNoticeEl
+      .querySelector(".dashboard-data-notice-retry")
+      ?.addEventListener("click", () => {
+        void syncDashboardData({ force: true, source: "manual" });
+      });
+
+    return dashboardNoticeEl;
+  };
+
+  const showDashboardNotice = (title, text) => {
+    const notice = ensureDashboardNotice();
+    if (!notice) return;
+    notice.querySelector(".dashboard-data-notice-title").textContent = title;
+    notice.querySelector(".dashboard-data-notice-text").textContent = text;
+    notice.hidden = false;
+  };
+
+  const hideDashboardNotice = () => {
+    if (dashboardNoticeEl) dashboardNoticeEl.hidden = true;
+  };
+
+  // "Total Revenue, Sales by Category and 1 more" — four revenue terms share one
+  // card, so the keys are de-duplicated by label before being counted.
+  const describeUnavailableSections = (sections) => {
+    const labels = [];
+    (Array.isArray(sections) ? sections : []).forEach((key) => {
+      const label = DASHBOARD_SECTION_LABELS[key] || null;
+      if (label && !labels.includes(label)) labels.push(label);
+    });
+    if (!labels.length) return "";
+    if (labels.length === 1) return labels[0];
+    if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+    return `${labels.slice(0, 2).join(", ")} and ${labels.length - 2} more`;
+  };
+
   const renderDashboardLoading = () => {
     const loaderHTML = `
         <li class="recent-item" style="pointer-events:none; padding:12px 16px; border-bottom:1px solid #f3f4f6; display:flex; align-items:center;">
@@ -836,6 +924,123 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           </li>
         `;
+    }
+  };
+
+  /**
+   * A driver error is a diagnostic, not dashboard copy.
+   *
+   * A failed query arrives as the raw PDO string - "SQLSTATE[42S02]: Base table
+   * or view not found: 1146 Table '..._db.inventory_items' doesn't exist" - which
+   * would be printed straight onto the page. The admin needs one plain sentence;
+   * the table name belongs in the console here and in laravel.log on the server,
+   * where safely() already writes it.
+   */
+  const plainDashboardReason = (message) => {
+    const raw = String(message || "").trim();
+    if (!raw) return "The server could not build the dashboard summary.";
+
+    if (/SQLSTATE|Base table or view not found|doesn't exist|SQL:/i.test(raw)) {
+      console.warn("[dashboard] summary failed:", raw);
+      return "The server could not read one of the dashboard tables.";
+    }
+
+    return raw;
+  };
+
+  /**
+   * One wording for "this server cannot read that table", used by both paths.
+   *
+   * The whole summary can fail (renderDashboardSummaryUnavailable) or a single
+   * section can (markDegradedDashboardRegions). Either way the region must not
+   * fall back to its ordinary "no records yet" copy: that tells the admin the
+   * business has no data when the truth is the figure could not be read, and it
+   * would contradict the notice sitting directly above the cards.
+   */
+  const analyticsUnavailableMarkup = (icon) =>
+    `<div class="aov-empty"><i class="fa-solid ${icon}"></i> Not available right now</div>`;
+
+  const feedUnavailableMarkup = (title, hint) => `
+          <li class="recent-empty">
+            <div class="recent-info">
+              <strong>${escapeHtml(title)}</strong>
+              <span>${escapeHtml(hint)}</span>
+            </div>
+          </li>
+        `;
+
+  const DASHBOARD_ANALYTICS_REGIONS = () => [
+    ["analytics.top_selling", aovTopSelling, "fa-chart-bar"],
+    ["analytics.sales_by_category", aovSalesByCategory, "fa-chart-pie"],
+    ["analytics.top_performance", aovProductPerformance, "fa-ranking-star"],
+    ["analytics.yearly_trend", aovYearlySalesTrend, "fa-chart-line"],
+  ];
+
+  /**
+   * The summary endpoint failed but the legacy count endpoints answered.
+   *
+   * Only /admin/dashboard/summary carries revenue, inventory, the analytics
+   * cards and the inquiries feed, so those five regions have no fallback source.
+   * They are given a resolved state — a dash, or one line of plain copy — rather
+   * than being left shimmering as though data were still on its way.
+   */
+  const renderDashboardSummaryUnavailable = (message) => {
+    setCountCards({ total_revenue: null, total_inventory_items: "--" });
+
+    DASHBOARD_ANALYTICS_REGIONS().forEach(([, el, icon]) => {
+      if (el) el.innerHTML = analyticsUnavailableMarkup(icon);
+    });
+
+    if (dashboardRecentInquiries) {
+      dashboardRecentInquiries.innerHTML = feedUnavailableMarkup(
+        "Customer inquiries are not available right now.",
+        "Open the Customer Inquiries page to read them.",
+      );
+    }
+
+    showDashboardNotice(
+      "Some dashboard data could not be loaded.",
+      `${message} Total Revenue, Total Inventory Items, Product Analytics and Recent Customer Inquiries are affected. The other cards are live.`,
+    );
+  };
+
+  /**
+   * The summary answered, but named individual sections it could not read.
+   *
+   * Those sections arrive as their empty value, so the renderers above have
+   * already written "no records yet" into them. Replace just those regions, and
+   * only those, so one missing table costs one card and says so.
+   */
+  const markDegradedDashboardRegions = (degraded) => {
+    if (!degraded?.size) return;
+
+    DASHBOARD_ANALYTICS_REGIONS().forEach(([key, el, icon]) => {
+      if (el && degraded.has(key)) el.innerHTML = analyticsUnavailableMarkup(icon);
+    });
+
+    if (dashboardRecentAppointments && degraded.has("recent.appointments")) {
+      dashboardRecentAppointments.innerHTML = feedUnavailableMarkup(
+        "Appointments are not available right now.",
+        "Open the Appointments page to review them.",
+      );
+    }
+
+    if (dashboardRecentOrders && degraded.has("recent.orders")) {
+      dashboardRecentOrders.innerHTML = feedUnavailableMarkup(
+        "Orders are not available right now.",
+        "Open the Orders page to review them.",
+      );
+    }
+
+    if (
+      dashboardRecentInquiries &&
+      (degraded.has("recent.customer_inquiries") ||
+        degraded.has("counts.customer_inquiries"))
+    ) {
+      dashboardRecentInquiries.innerHTML = feedUnavailableMarkup(
+        "Customer inquiries are not available right now.",
+        "Open the Customer Inquiries page to read them.",
+      );
     }
   };
 
@@ -1096,17 +1301,43 @@ document.addEventListener("DOMContentLoaded", () => {
       ? summary.recent_customer_inquiries
       : [];
 
+    // The server names any figure it could not read (a Hostinger deploy copies
+    // files and never runs migrations, so it can sit a table behind the code).
+    // An empty list is the normal case and clears the notice.
+    const availability = summary?.availability || {};
+    const unavailableSections = Array.isArray(
+      availability?.sections?.unavailable,
+    )
+      ? availability.sections.unavailable
+      : [];
+    const degraded = new Set(unavailableSections);
+
+    // A count that could not be read arrives as 0, and 0 is a lie a back office
+    // would act on — it reads as "no inventory" rather than "not counted". Show
+    // a dash instead. Revenue is one card summing four terms, so any one of them
+    // failing makes the total untrustworthy: an unsubtracted refund would
+    // overstate money taken, which is the one figure that must never be guessed.
+    const dash = (key, value) => (degraded.has(key) ? "--" : value);
+    const revenueDegraded = [
+      "revenue.completed_orders",
+      "revenue.gcash_advance",
+      "revenue.walkins",
+      "revenue.refunds",
+    ].some((key) => degraded.has(key));
+
     setCountCards({
-      appointments: counts?.appointments,
-      accounts: counts?.accounts,
-      orders: counts?.orders,
-      products: counts?.products,
+      appointments: dash("counts.appointments", counts?.appointments),
+      accounts: dash("counts.accounts", counts?.accounts),
+      orders: dash("counts.orders", counts?.orders),
+      products: dash("counts.products", counts?.products),
       total_archives: counts?.total_archives,
-      total_revenue: counts?.total_revenue,
-      total_inventory_items: counts?.total_inventory_items,
+      total_revenue: revenueDegraded ? null : counts?.total_revenue,
+      total_inventory_items: dash(
+        "counts.total_inventory_items",
+        counts?.total_inventory_items,
+      ),
     });
 
-    const availability = summary?.availability || {};
     const archiveAvailability = availability?.archives || {};
     const allArchiveModulesAvailable = [
       "inventory",
@@ -1125,12 +1356,26 @@ document.addEventListener("DOMContentLoaded", () => {
     dashboardLastLiveCountsAt = Date.now();
     dashboardHasGoodSummary = true;
 
+    if (unavailableSections.length) {
+      const affected = describeUnavailableSections(unavailableSections);
+      showDashboardNotice(
+        "Some dashboard figures are unavailable on this server.",
+        `${affected} could not be read on this server, so ${unavailableSections.length === 1 ? "that figure is" : "those figures are"} shown as unavailable. Everything else on this page is live.`,
+      );
+    } else {
+      hideDashboardNotice();
+    }
+
     renderRecentAppointments(appointments);
     renderRecentOrders(orders, []);
     renderRecentCustomerInquiries(inquiries);
 
     // Render analytics overview
     renderAnalyticsOverview(summary?.analytics_summary || null);
+
+    // Last, so it overwrites the "no records yet" copy the renderers above just
+    // wrote into any section the server could not read.
+    markDegradedDashboardRegions(degraded);
   };
 
   const syncDashboardDataLegacy = async () => {
@@ -1200,6 +1445,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       let usedSummaryEndpoint = false;
+      let summaryFailure = null;
       const syncSignal = dashboardSyncController?.signal;
 
       try {
@@ -1214,10 +1460,23 @@ document.addEventListener("DOMContentLoaded", () => {
         if (summaryError?.code === "AUTH") {
           throw summaryError;
         }
+        // Held, not dropped. The legacy fallback below cannot fill revenue,
+        // inventory, the analytics cards or the inquiries feed, so the reason
+        // has to survive long enough to be shown next to the cards it cost.
+        summaryFailure = summaryError;
       }
 
       if (!usedSummaryEndpoint) {
         await syncDashboardDataLegacy();
+
+        if (summaryFailure?.code === "CANCELLED") {
+          return;
+        }
+        renderDashboardSummaryUnavailable(
+          summaryFailure?.code === "TIMEOUT"
+            ? "The server took too long to answer."
+            : plainDashboardReason(summaryFailure?.message),
+        );
       }
     } catch (error) {
       if (error?.code === "CANCELLED") {
@@ -1244,9 +1503,10 @@ document.addEventListener("DOMContentLoaded", () => {
           total_revenue: null,
           total_inventory_items: null,
         });
-        renderDashboardSyncError(
-          error?.message || "Please check your network and backend server.",
-        );
+        const reason =
+          error?.message || "Please check your network and backend server.";
+        renderDashboardSyncError(reason);
+        showDashboardNotice("The dashboard could not be loaded.", reason);
       }
     } finally {
       if (requestId === dashboardSyncRequestId) {

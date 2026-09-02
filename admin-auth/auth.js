@@ -467,29 +467,48 @@ document.addEventListener("DOMContentLoaded", () => {
         const data = await response.json();
 
         if (response.ok) {
-          // Store token under role-specific keys so admin & staff sessions don't collide.
-          const userRole = (data.user.role || "").toLowerCase();
-          if (userRole === "staff") {
-            localStorage.setItem("staff_auth_token", data.access_token);
-            localStorage.setItem("staff_user_info", JSON.stringify(data.user));
-          } else {
-            localStorage.setItem("admin_auth_token", data.access_token);
-            localStorage.setItem("admin_user_info", JSON.stringify(data.user));
-          }
-          // Remove any legacy keys to prevent conflicts
+          // One normalised role decides everything below. Reading it twice --
+          // lowercased to choose the storage keys, raw to choose the redirect --
+          // is what used to strand a signed-in user on this page: a role the
+          // database did not spell in lowercase stored a token and then failed
+          // both redirect tests, so the only thing on screen was "Unauthorized
+          // access" even though the password was right.
+          const userRole = (data.user?.role || "").toLowerCase();
+
+          // Legacy keys go first. They are shared by both roles, so a stale one
+          // outranks whatever this sign-in is about to write.
           localStorage.removeItem("auth_token");
           localStorage.removeItem("user_info");
 
-          showStatus("Login successful. Opening dashboard...");
+          if (userRole === "admin" || userRole === "staff") {
+            // Role-specific keys so admin and staff sessions never collide.
+            const isStaff = userRole === "staff";
+            localStorage.setItem(
+              isStaff ? "staff_auth_token" : "admin_auth_token",
+              data.access_token,
+            );
+            localStorage.setItem(
+              isStaff ? "staff_user_info" : "admin_user_info",
+              JSON.stringify(data.user),
+            );
 
-          if (data.user.role === "admin") {
-            window.location.href = "../admin-page/dashboard.html";
-          } else if (data.user.role === "staff") {
-            window.location.href = "../staff-page/dashboard.html";
+            showStatus("Login successful. Opening dashboard...");
+            window.location.href = isStaff
+              ? "../staff-page/dashboard.html"
+              : "../admin-page/dashboard.html";
           } else {
+            // The credentials were valid, so the API answered 200 and minted a
+            // token -- this is a customer on the wrong sign-in page. None of it
+            // may be kept here: writing the token to admin_auth_token, which
+            // this branch used to do, leaves a customer's token exactly where
+            // the back office looks for the admin's.
+            localStorage.removeItem("admin_auth_token");
+            localStorage.removeItem("admin_user_info");
+            localStorage.removeItem("staff_auth_token");
+            localStorage.removeItem("staff_user_info");
             setFieldError(
               "loginUser",
-              "Unauthorized access. This portal is for Admin and Staff only.",
+              "This portal is for admin and staff only. Customers sign in from the main website.",
             );
           }
         } else if (response.status === 422 && data.errors) {

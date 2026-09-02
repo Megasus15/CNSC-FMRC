@@ -2962,3 +2962,69 @@ body.admin-media-viewer-open {
 .module-content {
   animation: adminFadeInReveal 0.5s ease forwards;
 }
+
+/* ── Degraded-data notice ───────────────────────────────────────────────────
+   Shown above the summary cards when a figure on this page could not be read:
+   the dashboard used to leave those cards shimmering forever and say nothing.
+   dashboard.js builds the element, so the admin and staff pages cannot drift.
+
+   The [hidden] rule is not optional. `display: flex` here is an author
+   declaration and would beat the user-agent's `[hidden] { display: none }`,
+   which is exactly how a hidden element stays on screen. */
+.dashboard-data-notice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0 0 20px;
+  padding: 14px 18px;
+  border: 1px solid #f3d9a4;
+  border-left: 4px solid #d98a04;
+  border-radius: 14px;
+  background-color: #fffbf2;
+}
+
+.dashboard-data-notice[hidden] {
+  display: none;
+}
+
+.dashboard-data-notice > i {
+  flex: 0 0 auto;
+  font-size: 18px;
+  color: #b26a00;
+}
+
+.dashboard-data-notice-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.dashboard-data-notice-title {
+  color: #7c4a03;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.dashboard-data-notice-text {
+  color: #6b5636;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.dashboard-data-notice-retry {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+  .dashboard-data-notice {
+    flex-wrap: wrap;
+  }
+
+  .dashboard-data-notice-retry {
+    width: 100%;
+    justify-content: center;
+  }
+}
