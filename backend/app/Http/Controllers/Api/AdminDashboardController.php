@@ -14,6 +14,7 @@ use App\Models\ReportGeneration;
 use App\Models\User;
 use App\Models\WalkInOrder;
 use App\Support\AdminArchiveRecords;
+use App\Support\CategorySalesBuckets;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,6 +23,21 @@ use Illuminate\Support\Str;
 
 class AdminDashboardController extends Controller
 {
+    /**
+     * The driver's own message for each section that degraded, keyed by section.
+     *
+     * summary() sits behind ensureAdmin(), so handing these back to the caller
+     * does not widen who can read them — and it is the only route the cause has.
+     * Production runs LOG_LEVEL=error, which sits above the Log::warning in
+     * safely(), so a degraded card leaves nothing at all in laravel.log: the
+     * page says "Not available right now" and the server says nothing. Working
+     * out why one card was failing cost three rounds of hand-run SQL for want of
+     * this one string.
+     *
+     * @var array<string, string>
+     */
+    private array $sectionReasons = [];
+
     private function ensureAdmin(Request $request): ?JsonResponse
     {
         $actor = $request->user();
@@ -64,6 +80,11 @@ class AdminDashboardController extends Controller
                 $unavailable[] = $section;
             }
 
+            $this->sectionReasons[$section] = Str::limit(
+                trim(preg_replace('/\s+/', ' ', $exception->getMessage()) ?? ''),
+                300
+            );
+
             Log::warning(sprintf(
                 'Dashboard section [%s] is unavailable on this server: %s',
                 $section,
@@ -84,6 +105,7 @@ class AdminDashboardController extends Controller
         // Every block below runs through safely(), so one unreadable table
         // degrades one card instead of blanking the whole dashboard.
         $unavailable = [];
+        $this->sectionReasons = [];
 
         $appointmentsCount = $this->safely('counts.appointments', fn () => Appointment::query()->count(), 0, $unavailable);
         $accountsCount = $this->safely('counts.accounts', fn () => User::query()->count(), 0, $unavailable);
@@ -166,39 +188,41 @@ class AdminDashboardController extends Controller
             ]), collect(), $unavailable);
 
         // Sales by category (all time, top 3)
-        // NULLIF folds the empty-string category into the same bucket as a
-        // deleted product, which otherwise formed its own blank slice. The label
-        // matches ProductAnalyticsController so the two cards read the same.
         //
-        // The GROUP BY names the expression, not the `category` alias: MySQL
-        // resolves the alias but SQLite resolves the source column first, so
-        // grouping by the alias split NULL and '' back into two buckets that both
-        // render under the one label.
-        $categoryExpression = "COALESCE(NULLIF(products.category, ''), 'Deleted / Uncategorized')";
-        $salesByCategory = $this->safely('analytics.sales_by_category', fn () => OrderItem::query()
-            ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->leftJoin('products', 'order_items.product_id', '=', 'products.id')
-            ->where('orders.lifecycle_status', 'completed')
-            ->where('orders.is_archived', false)
-            ->select(
-                DB::raw($categoryExpression . ' as category'),
-                DB::raw('SUM(order_items.quantity) as total_sold'),
-                DB::raw('SUM(order_items.line_total) as total_revenue')
-            )
-            ->groupBy(DB::raw($categoryExpression))
-            ->orderByDesc('total_revenue')
-            ->limit(3)
-            ->get()
-            ->map(fn ($item) => [
-                'category' => $item->category,
-                'total_sold' => (int) $item->total_sold,
-                'total_revenue' => (float) $item->total_revenue,
-            ]), collect(), $unavailable);
+        // Two plain queries and a PHP fold, not one grouped SQL expression. The
+        // previous version grouped by
+        //   COALESCE(NULLIF(products.category, ''), 'Deleted / Uncategorized')
+        // and threw on the Hostinger server while the identically shaped
+        // top_performance query below it succeeded — same tables, same joins,
+        // same filters, differing only in that one expression. safely() turned
+        // that into "Not available right now" on both dashboards and
+        // LOG_LEVEL=error kept the driver's message out of laravel.log, so the
+        // card sat unreadable with nothing to diagnose it by.
+        //
+        // The pair below cannot fail that way. The aggregate touches only
+        // order_items and orders and groups on a plain integer column; the
+        // category lookup is a bare column read with no join, expression or
+        // literal. See App\Support\CategorySalesBuckets for the fold itself and
+        // for what happens if `products` cannot be read at all.
+        $salesByCategory = $this->safely('analytics.sales_by_category', fn () => CategorySalesBuckets::fold(
+            DB::table('order_items')
+                ->join('orders', 'order_items.order_id', '=', 'orders.id')
+                ->where('orders.lifecycle_status', 'completed')
+                ->where('orders.is_archived', false)
+                ->groupBy('order_items.product_id')
+                ->select(
+                    'order_items.product_id',
+                    DB::raw('SUM(order_items.quantity) as total_sold'),
+                    DB::raw('SUM(order_items.line_total) as total_revenue')
+                )
+                ->get()
+        )->take(3)->values(), collect(), $unavailable);
 
         // Top 3 performing products (all time)
+        // No products join: every column this reads is an order_items snapshot,
+        // so joining products only added a table that could fail.
         $topPerformance = $this->safely('analytics.top_performance', fn () => OrderItem::query()
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->leftJoin('products', 'order_items.product_id', '=', 'products.id')
             ->where('orders.lifecycle_status', 'completed')
             ->where('orders.is_archived', false)
             ->select(
@@ -346,11 +370,15 @@ class AdminDashboardController extends Controller
                 // `archives` and `report_generations` keep their existing shape.
                 // `sections` is additive: an empty list means every figure on the
                 // page was read successfully, and a non-empty one names exactly
-                // which cards are standing on fallback values.
+                // which cards are standing on fallback values. `reasons` carries
+                // the driver's message for each of those, so the cause is legible
+                // from the response itself instead of only from a log line that
+                // LOG_LEVEL=error discards.
                 'availability' => $liveCounts['availability'] + [
                     'sections' => [
                         'complete' => $unavailable === [],
                         'unavailable' => array_values($unavailable),
+                        'reasons' => $this->sectionReasons,
                     ],
                 ],
                 'generated_at' => now('Asia/Manila')->toIso8601String(),

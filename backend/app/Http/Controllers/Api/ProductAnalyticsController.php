@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\WalkInOrder;
+use App\Support\CategorySalesBuckets;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -30,27 +31,15 @@ class ProductAnalyticsController extends Controller
     private const ORDER_SALE_DATE = 'COALESCE(orders.completed_at, orders.created_at)';
 
     /**
-     * Shown when order_items points at a product that has since been deleted,
-     * or at one whose category was cleared. The money is real — order_items
-     * keeps its own product_name and line_total snapshot — only the category is
-     * gone, and the label says so instead of implying the sale is untracked.
-     */
-    private const CATEGORY_FALLBACK_LABEL = 'Deleted / Uncategorized';
-
-    /**
-     * The category and code expressions, written once and used in both the SELECT
-     * list and the GROUP BY.
+     * The code shown for a sale whose product row is gone.
      *
-     * Grouping by the *alias* is not portable. MySQL resolves `GROUP BY category`
-     * to the output alias, but SQLite resolves it against the source columns
-     * first — so it silently grouped by the raw `products.category`, splitting a
-     * NULL category (deleted product) from an empty-string one into two buckets
-     * that both render as the same label. Naming the expression means both
-     * engines fold them together, which is the whole point of the COALESCE.
+     * Its category counterpart lives in CategorySalesBuckets::FALLBACK_LABEL, as
+     * does the reason both are resolved in PHP now rather than by a COALESCE in
+     * the SQL: the grouped expression this pair used to build threw on the
+     * production server while the same query grouped on an order_items column
+     * did not.
      */
-    private const CATEGORY_EXPRESSION = "COALESCE(NULLIF(products.category, ''), '" . self::CATEGORY_FALLBACK_LABEL . "')";
-
-    private const PRODUCT_CODE_EXPRESSION = "COALESCE(products.code, 'N/A')";
+    private const PRODUCT_CODE_FALLBACK = 'N/A';
 
     /**
      * The window every sales card reports on.
@@ -151,28 +140,26 @@ class ProductAnalyticsController extends Controller
 
         [$startDate, $endDate] = $this->resolvePeriodRange($request);
 
-        // Get category from products joined with order_items
-        $categoryData = OrderItem::query()
-            ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->leftJoin('products', 'order_items.product_id', '=', 'products.id')
-            ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES)
-            ->where('orders.is_archived', false)
-            ->whereBetween(DB::raw(self::ORDER_SALE_DATE), [$startDate, $endDate])
-            ->select(
-                DB::raw(self::CATEGORY_EXPRESSION . ' as category'),
-                DB::raw('SUM(order_items.quantity) as total_sold'),
-                DB::raw('SUM(order_items.line_total) as total_revenue')
-            )
-            ->groupBy(DB::raw(self::CATEGORY_EXPRESSION))
-            ->orderByDesc('total_revenue')
-            ->get();
+        // Totals per product first, then folded into categories in PHP. Nothing
+        // in this query names a products column, so it cannot fail on a server
+        // where the grouped COALESCE it replaced did.
+        $categoryData = CategorySalesBuckets::fold(
+            DB::table('order_items')
+                ->join('orders', 'order_items.order_id', '=', 'orders.id')
+                ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES)
+                ->where('orders.is_archived', false)
+                ->whereBetween(DB::raw(self::ORDER_SALE_DATE), [$startDate, $endDate])
+                ->groupBy('order_items.product_id')
+                ->select(
+                    'order_items.product_id',
+                    DB::raw('SUM(order_items.quantity) as total_sold'),
+                    DB::raw('SUM(order_items.line_total) as total_revenue')
+                )
+                ->get()
+        );
 
         return response()->json([
-            'data' => $categoryData->map(fn($item) => [
-                'category' => $item->category,
-                'total_sold' => (int) $item->total_sold,
-                'total_revenue' => (float) $item->total_revenue,
-            ]),
+            'data' => $categoryData->values(),
         ]);
     }
 
@@ -187,31 +174,58 @@ class ProductAnalyticsController extends Controller
 
         [$startDate, $endDate] = $this->resolvePeriodRange($request);
 
-        $performanceData = OrderItem::query()
+        // Grouped on the order_items snapshot, then labelled from `products` in a
+        // second read, for the same reason as salesByCategory() — the pair of
+        // COALESCE expressions this replaced sat in both the SELECT list and the
+        // GROUP BY. Rows sharing a code, name and category still merge; that now
+        // happens in PHP, where a NULL code and a blank one fold together instead
+        // of splitting into two rows both labelled "N/A".
+        $rows = DB::table('order_items')
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
-            ->leftJoin('products', 'order_items.product_id', '=', 'products.id')
             ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES)
             ->where('orders.is_archived', false)
             ->whereBetween(DB::raw(self::ORDER_SALE_DATE), [$startDate, $endDate])
+            ->groupBy('order_items.product_id', 'order_items.product_name')
             ->select(
-                DB::raw(self::PRODUCT_CODE_EXPRESSION . ' as product_code'),
+                'order_items.product_id',
                 'order_items.product_name',
-                DB::raw(self::CATEGORY_EXPRESSION . ' as category'),
                 DB::raw('SUM(order_items.quantity) as total_sold'),
                 DB::raw('SUM(order_items.line_total) as total_revenue')
             )
-            ->groupBy(
-                DB::raw(self::PRODUCT_CODE_EXPRESSION),
-                'order_items.product_name',
-                DB::raw(self::CATEGORY_EXPRESSION)
-            )
-            ->orderByDesc('total_sold')
-            ->limit(20)
             ->get();
 
+        $meta = CategorySalesBuckets::meta($rows->pluck('product_id')->all());
+        $merged = [];
+
+        foreach ($rows as $row) {
+            $code = trim((string) ($meta[$row->product_id]->code ?? ''));
+            $code = $code !== '' ? $code : self::PRODUCT_CODE_FALLBACK;
+
+            $category = trim((string) ($meta[$row->product_id]->category ?? ''));
+            $category = $category !== '' ? $category : CategorySalesBuckets::FALLBACK_LABEL;
+
+            $name = (string) $row->product_name;
+            $key = $code."\0".$name."\0".$category;
+
+            if (! isset($merged[$key])) {
+                $merged[$key] = [
+                    'product_code' => $code,
+                    'product_name' => $name,
+                    'category' => $category,
+                    'total_sold' => 0,
+                    'total_revenue' => 0.0,
+                ];
+            }
+
+            $merged[$key]['total_sold'] += (int) $row->total_sold;
+            $merged[$key]['total_revenue'] += (float) $row->total_revenue;
+        }
+
+        $performanceData = collect($merged)->sortByDesc('total_sold')->take(20)->values();
+
         return response()->json([
-            'data' => $performanceData->map(function ($item) {
-                $sold = (int) $item->total_sold;
+            'data' => $performanceData->map(function (array $item) {
+                $sold = (int) $item['total_sold'];
                 $status = 'Low';
                 $statusClass = 'low';
                 if ($sold >= 100) {
@@ -222,12 +236,7 @@ class ProductAnalyticsController extends Controller
                     $statusClass = 'high';
                 }
 
-                return [
-                    'product_code' => $item->product_code,
-                    'product_name' => $item->product_name,
-                    'category' => $item->category,
-                    'total_sold' => $sold,
-                    'total_revenue' => (float) $item->total_revenue,
+                return $item + [
                     'status' => $status,
                     'status_class' => $statusClass,
                 ];
