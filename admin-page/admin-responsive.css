@@ -1360,16 +1360,16 @@
      (268px inner box at 320 after 3.1's 12px and the toolbar's own 14px, so two
      tracks plus the 8px gap need a floor <= 130px), 3-up at ~560 and 4-up at 720
      — inventory's four buttons land on one row.
-     The trade is explicit: "Manage Discounts" and the appointments primary now
-     wrap to a second line, which the 170px floor was chosen to avoid. Centred
-     2-line wrapping inside a grid that equalises row heights reads as aligned;
-     a lone full-width button above a 2-up strip does not. */
+     Step 9 traded a wrapped label for that alignment: `white-space: normal` let
+     "Manage Discounts" and the appointments primary run to a second centred
+     line. STEP 12 retires the trade — the label now shrinks to fit its own
+     track instead of wrapping — so this is `nowrap`, and 12.1 owns the fitter. */
   .toolbar-actions > button,
   .toolbar-actions > a,
   .toolbar-actions > .btn-admin {
     justify-content: center;
     min-height: 40px;
-    white-space: normal;
+    white-space: nowrap;
     text-align: center;
     line-height: 1.2;
   }
@@ -1430,8 +1430,10 @@
     min-width: 0;
   }
 
-  .ratings-filters,
-  .inquiry-filters {
+  /* `.inquiry-filters` used to stack here too. It holds exactly two controls, so
+     12.4 pairs them on one line instead; leaving it in this list would give the
+     strip two owners in the same sheet. */
+  .ratings-filters {
     grid-template-columns: 1fr;
     gap: 8px;
   }
@@ -4232,9 +4234,9 @@
    in ~93px each is what step 6 already proved impossible on the customer side.
    Do not lower `.ratings-input`'s font-size to make it fit.
 
-   One rule serves both roles; no HTML is edited. `.inquiry-filters` is
-   deliberately left at 1fr — customer-inquiries has four controls, not three,
-   and was not part of this complaint.
+   One rule serves both roles; no HTML is edited. Customer-inquiries has the same
+   complaint and only two controls, so 12.4 gives it the same 2-track grid in
+   this band rather than the 1fr stack 3.3 used to hand it.
    ========================================================================== */
 @media (max-width: 900px) {
   .ratings-filters {
@@ -4272,12 +4274,12 @@
    The answer is the same specificity, (0,2,0), inside the phone band — the page
    `<style>` sits at :19-334 and the link at :335, so this file wins on order.
 
-     row 1   Refresh | Preview Services Page
+     row 1   Refresh | Preview Services
      row 2   Add Service, stretched across both tracks
 
-   3.2 already gives the children `white-space: normal`, `text-align: center`,
-   `line-height: 1.2`, `justify-content: center` and `min-height: 40px`, so
-   "Preview Services Page" wraps to two centred lines and the grid equalises the
+   3.2 gives the children `text-align: center`, `line-height: 1.2`,
+   `justify-content: center` and `min-height: 40px`, and 12.1 shrinks the label
+   to its own track, so every label reads on one line and the grid equalises the
    pair's height instead of leaving a tall button beside a short one. The
    orphan-stretch arm is the same language 3.2 uses for promotions.
    ========================================================================== */
@@ -4828,4 +4830,236 @@
 }
 /* ===== end of 11.3 ===== */
 /* ===== end of STEP 11 ===== */
+
+/* ==========================================================================
+   STEP 12 — Action strips read on one line
+   Four reported clusters, one shared cause each:
+
+   (a) reports' "Preview / Print" + "Export CSV" (admin-modules.css:4814-4817
+       gives `.report-table-actions .btn-admin` `width: 100%`, so the flex row
+       at :3718 becomes a one-per-row stack),
+   (b) email templates' "Restore Default" + "Save Template" (:5450-5460 stacks
+       every `.wm-save-bar .btn-admin` at <=620 — correct for the five
+       single-button save bars, wrong for this pair),
+   (c) customer inquiries' status select + search box (1fr from both
+       customer-inquiries.html:213-216 and 3.3),
+   (d) "Preview Contact Page" — a label wider than a 128px track, which step 9
+       chose to wrap (3.2's `white-space: normal`, now `nowrap`).
+
+   So: an explicit 2-track grid per stacked pair, and one CSS-only label fitter
+   shared by all three button strips.
+   ========================================================================== */
+
+/* ==========================================================================
+   12.1 The label fitter — container query units, no JS measuring
+   In the phone band `.btn-admin` is 0.82rem/600 with `padding: 8px 10px` and a
+   1px border (3.2:1389-1392). Measured at 320px: the 2-up track is 129.2px, so
+   the content box is 108px and the icon plus its 5px gap leaves ~93.6px of label
+   space — while the widest label in either portal needs 99px even at 10.76px.
+   That deficit is exactly why step 9 reached for `white-space: normal`.
+
+   `container-type: inline-size` on the *button* plus `clamp(10px, 9cqw,
+   0.82rem)` on its label span and icon closes it, because `cqw` then resolves
+   against the button's own content box — i.e. the grid track:
+
+     - both buttons in a row share a track width, so they compute the SAME
+       font-size and a pair can never read as mismatched (the flaw that ruled out
+       a per-label JS fitter);
+     - it holds at every track count. `auto-fit, minmax(128px, 1fr)` drops back
+       to ~128px tracks immediately after each 2->3->4-up transition (container
+       400px and 536px), so a coefficient anchored to the *strip* would over-size
+       the text at ~452px and ~588px viewports;
+     - 9cqw of the widened 111.6px content box is ~10px at 320px and the clamp
+       caps at 0.82rem from ~385px up, so only the narrowest phones shrink.
+
+   Why 9cqw and not 10, and why this rule also trims its own padding: character
+   count is the wrong proxy for width. "Manage Calendar" (15 chars) measures 99px
+   where "Preview Services" (16) measures 91px, so the widest label is not the
+   longest one, and at 10cqw it ellipsised by 6px at both 320 and 360. Only the
+   label and the icon scale with the font — the gap and the padding+border do not
+   — so on a 108px content box the fit solves to F <= 10.2px, i.e. <= 9.46cqw,
+   leaving barely 2% of slack. Returning 5px by trimming this strip's own side
+   padding to 8px and the icon gap to 4px buys that back: 9cqw then computes
+   ~10.04px at 320px with ~6% of slack, so a platform whose font fallback runs a
+   few percent wide still cannot push the label into the ellipsis. The trim is
+   invisible — every button here fills a full grid track, and its text is centred
+   in a ~129px box either way.
+
+   `min-width: 0; overflow: hidden; text-overflow: ellipsis` is a floor, not the
+   mechanism: an unforeseen 25-char label truncates instead of overflowing. Every
+   label that ships today fits in full, verified at 320/360/375/390/430 and in
+   932x430 landscape.
+
+   Band note — `container-type` may only go on a button whose width the layout
+   decides. It implies `contain: inline-size`, which drops the element's
+   intrinsic contribution to padding + border, so a shrink-to-fit button carrying
+   it would collapse to ~22px and clip its own label. Inside <=720 that is safe
+   for both strips here: 3.2:1348 gives every `.toolbar-actions` child
+   `width: 100%`, and 12.2 does the same for `.report-table-actions` (10.4's
+   `.services-toolbar` and 10.5's `.archives-page-toolbar` are the only
+   page-level `.toolbar-actions` overrides and both are already explicit grids
+   with `width: 100%` children). `.et-save-actions` is different — its buttons
+   are auto-width until admin-modules.css:5450 stacks the bar — so its arm sits
+   in 12.3 at <=620, matching that grid. Above 620 the pair already shares a line.
+
+   The clamp needs a box around the text. Reports' two buttons already ship
+   `<span>` labels; the other ~60 are bare text nodes, so
+   `decorateActionLabels()` (admin-common.js) wraps them at DOMContentLoaded with
+   the same helper the sidebar links use. The hook is `> span`, not a class, so
+   reports' pre-existing spans match too. `.mt-live-pill` is a `<span>` child of
+   `.toolbar-actions` itself rather than of a button, so the `button`/`a` scoping
+   below leaves it alone.
+   ========================================================================== */
+@media (max-width: 720px) {
+  .toolbar-actions > button,
+  .toolbar-actions > a,
+  .toolbar-actions > .btn-admin,
+  .report-table-actions .btn-admin {
+    container-type: inline-size;
+    white-space: nowrap;
+    padding-left: 8px;
+    padding-right: 8px;
+    column-gap: 4px;
+  }
+
+  .toolbar-actions > button:not(.icon-only-btn) > span,
+  .toolbar-actions > button:not(.icon-only-btn) > i,
+  .toolbar-actions > a:not(.icon-only-btn) > span,
+  .toolbar-actions > a:not(.icon-only-btn) > i,
+  .report-table-actions .btn-admin > span,
+  .report-table-actions .btn-admin > i {
+    font-size: clamp(10px, 9cqw, 0.82rem);
+  }
+
+  .toolbar-actions > button > span,
+  .toolbar-actions > a > span,
+  .report-table-actions .btn-admin > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+/* ===== end of 12.1 ===== */
+
+/* ==========================================================================
+   12.2 Reports — "Preview / Print" beside "Export CSV"
+   `.report-table-actions` is a `flex-wrap` row (admin-modules.css:3718) that the
+   module's own phone band turns into a stack by giving each button
+   `width: 100%` (:4814-4817). Restate the strip as the same explicit 2-track
+   grid 10.4 and 10.5 already use: the buttons keep their full width, but it is
+   now the width of a track. At (0,2,0) this ties the module rule and wins on
+   order — reports.html links admin-modules.css at :14 and this sheet at :19.
+
+   `.reports-toolbar-actions` needs no grid of its own: it is also a
+   `.toolbar-actions` (reports.html:136), so 3.2 already pairs "Edit Letterhead"
+   with "Refresh" and 12.1 is what puts the 15-char label on one line.
+   ========================================================================== */
+@media (max-width: 720px) {
+  .report-table-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    justify-content: stretch;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .report-table-actions > * {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .report-table-actions > *:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+/* ===== end of 12.2 ===== */
+
+/* ==========================================================================
+   12.3 Email templates — "Restore Default" beside "Save Template"
+   admin-modules.css:5450-5460 stacks the save bar and gives every
+   `.wm-save-bar .btn-admin` `width: 100%` at <=620. That is right for the five
+   single-button save bars, so the rule is left alone; instead the pair's own
+   wrapper `.et-save-actions` (website-emails.html:247) becomes a 2-track grid,
+   after which each button's inherited `width: 100%` fills one track rather than
+   the whole bar. No button override is needed. At (0,1,0) in the later sheet
+   (website-emails.html links admin-modules.css at :14, this file at :278) it
+   beats the page's own `.et-save-actions` flex rule.
+
+   Docking is unaffected: `syncDockedSaveBars()` (admin-common.js) pins the
+   *bar's* width from its slot rect, so the tracks resolve identically docked or
+   inline. Admin-only — `staff-page/website-emails.html` does not exist.
+
+   The 12.1 fitter arm lives here rather than in that block because these buttons
+   are auto-width above 620, and `container-type` on a shrink-to-fit button would
+   collapse it (see 12.1's band note). Above 620 the pair already shares a line.
+   ========================================================================== */
+@media (max-width: 620px) {
+  .et-save-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .et-save-actions > * {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .et-save-actions .btn-admin {
+    container-type: inline-size;
+    white-space: nowrap;
+    padding-left: 8px;
+    padding-right: 8px;
+    column-gap: 4px;
+  }
+
+  .et-save-actions .btn-admin > span,
+  .et-save-actions .btn-admin > i {
+    font-size: clamp(10px, 9cqw, 0.82rem);
+  }
+
+  .et-save-actions .btn-admin > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+/* ===== end of 12.3 ===== */
+
+/* ==========================================================================
+   12.4 Customer inquiries — the status select and the search box share a line
+   `.inquiry-filters` (customer-inquiries.html:398-414) holds exactly TWO
+   controls, `#inquiryStatusFilter` and `#inquirySearchInput`, so 3.3's 1fr stack
+   — and the page's own `@media (max-width: 900px)` copy of it at :213-216 — cost
+   a whole row for nothing. At 320px each track is ~130px and the longest option,
+   "All Status", measures ~124px including the arrow at the 16px iOS no-zoom floor
+   3.5 puts on `.inquiry-input`, so both read in full. This mirrors 10.3 and sits
+   in the same <=900 band so it also out-orders the page rule (the page `<style>`
+   closes at :221, the link is :222).
+
+   `.inquiry-filters` was dropped from 3.3's list at the same time, so the strip
+   has exactly one owner in this sheet. The long placeholder is deliberately left
+   as it is: "Search a, b, or c..." is the house phrasing on every search field in
+   the back office (accounts, appointments, orders, ratings), and 10.3 shipped a
+   longer one — shortening only this page would trade one inconsistency for
+   another.
+   ========================================================================== */
+@media (max-width: 900px) {
+  .inquiry-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .inquiry-filters > * {
+    min-width: 0;
+    width: 100%;
+  }
+}
+/* ===== end of 12.4 ===== */
+/* ===== end of STEP 12 ===== */
+
 

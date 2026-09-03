@@ -36,6 +36,11 @@ document.addEventListener("DOMContentLoaded", () => {
       (char) =>
         ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[char],
     );
+  /* One shape for every "no rows" / "load failed" row, so
+     AdminTableEmptyState (admin-common.js) recognises it and hides the pager. */
+  const emptyRow = (columns, message, options) =>
+    window.AdminTableEmptyState?.row(columns, message, options) ??
+    `<tr class="table-empty-row"><td colspan="${columns}"><div class="table-empty-state"><i class="${options?.icon || "fa-regular fa-folder-open"}"></i><span>${esc(message)}</span></div></td></tr>`;
   const localDate = (value) => {
     if (!value) return "";
 
@@ -222,7 +227,10 @@ document.addEventListener("DOMContentLoaded", () => {
     );
 
     if (!total) {
-      tbody.innerHTML = `<tr><td colspan="8" class="campaign-empty" style="text-align:center;padding:24px;color:#798395;">No promotions yet. Click "+ Add Promotion" to create one.</td></tr>`;
+      tbody.innerHTML = emptyRow(
+        8,
+        'No promotions yet. Click "+ Add Promotion" to create one.',
+      );
     } else {
       tbody.innerHTML = pageItems
         .map((promotion, index) => {
@@ -289,7 +297,10 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     if (!total) {
-      tbody.innerHTML = `<tr><td colspan="7" class="campaign-empty" style="text-align:center;padding:24px;color:#798395;">No announcements yet. Click "+ Add Announcement" to publish one.</td></tr>`;
+      tbody.innerHTML = emptyRow(
+        7,
+        'No announcements yet. Click "+ Add Announcement" to publish one.',
+      );
     } else {
       tbody.innerHTML = pageItems
         .map((announcement, index) => {

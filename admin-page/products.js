@@ -178,6 +178,12 @@ document.addEventListener("DOMContentLoaded", () => {
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
 
+  /* One shape for every "no rows" / "load failed" row, so
+     AdminTableEmptyState (admin-common.js) recognises it and hides the pager. */
+  const emptyRow = (columns, message, options) =>
+    window.AdminTableEmptyState?.row(columns, message, options) ??
+    `<tr class="table-empty-row"><td colspan="${columns}"><div class="table-empty-state"><i class="${options?.icon || "fa-regular fa-folder-open"}"></i><span>${escHtml(message)}</span></div></td></tr>`;
+
   const formatPrice = (v) =>
     `₱${Number(v || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -1481,7 +1487,11 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) {
       console.error("Load products error:", err);
       if (showLoading && tableBody) {
-        tableBody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:#991b1b;">Could not load products. Ensure Laravel server is running.</td></tr>`;
+        tableBody.innerHTML = emptyRow(
+          11,
+          "Could not load products. Ensure Laravel server is running.",
+          { icon: "fa-solid fa-triangle-exclamation", tone: "error" },
+        );
       }
       if (showLoading && tableMeta) tableMeta.textContent = "Failed to load.";
     }

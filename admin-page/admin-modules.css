@@ -1252,10 +1252,16 @@ input.page-number:focus,
 .gcash-qr-admin-actions .btn-admin {
   flex: 0 0 auto;
 }
-/* The regulatory note has to read as a caution, not as another hint. */
+/* The regulatory note has to read as a caution, not as another hint — as a wash
+   rather than a ruled edge, matching `.mt-alert` on the Maintenance page, the
+   only other "regulatory caution" surface in the back office. The colour has to
+   move with the background: this note is a `.field-hint` (#7b828b, :880), which
+   is ~3.7:1 on #fffbeb and so under AA, while #713f12 on it is ~9.5:1. */
 .gcash-setting-warning {
-  border-left: 3px solid #e0a80d;
-  padding-left: 10px;
+  background: #fffbeb;
+  color: #713f12;
+  border-radius: 10px;
+  padding: 10px 12px;
 }
 
 .accounts-layout-grid {

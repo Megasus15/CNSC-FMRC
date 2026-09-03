@@ -4,8 +4,10 @@ if (document.body) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  const MOBILE_BREAKPOINT = 1024;
-  const SIDEBAR_PREF_KEY = "adminSidebarMobileState";
+  /* The mobile sidebar state machine lives in admin-common.js only. This file
+     used to carry a second copy of it without the 720px drawer guard, and
+     because admin-common.js loads first, that copy's resize handler ran last
+     and re-opened the drawer from a remembered preference. */
   const DASHBOARD_REQUEST_TIMEOUT_MS = 15000;
   /* #dashboardRefreshBtn deliberately has NO handler here. It reloads the page
      from `onclick="window.location.reload()"` in dashboard.html, the same as
@@ -54,16 +56,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const API_BASE_URL = resolveApiBaseUrl();
 
-  const body = document.body;
-  const sidebar = document.querySelector(".sidebar");
-  const sidebarHeader = document.querySelector(".sidebar-header");
-  const sidebarNav = document.querySelector(".sidebar-nav");
-  const indicatorThumb = document.querySelector(
-    ".sidebar-scroll-indicator .indicator-thumb",
-  );
-
-  let sidebarToggleBtn = null;
-  let sidebarBackdrop = null;
   let dashboardOrdersChannel = null;
   let dashboardSyncInProgress = false;
   let dashboardSyncController = null;
@@ -87,225 +79,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     return dashboardOrdersChannel;
   };
-
-  const isMobileSidebarMode = () => window.innerWidth <= MOBILE_BREAKPOINT;
-
-  const saveSidebarState = (isOpen) => {
-    try {
-      localStorage.setItem(SIDEBAR_PREF_KEY, isOpen ? "open" : "closed");
-    } catch {
-      // Ignore storage failures in private/incognito modes.
-    }
-  };
-
-  const getSavedSidebarState = () => {
-    try {
-      return localStorage.getItem(SIDEBAR_PREF_KEY) === "open";
-    } catch {
-      return false;
-    }
-  };
-
-  const closeMobileSidebar = () => {
-    body.classList.remove("admin-sidebar-open");
-    if (sidebarToggleBtn)
-      sidebarToggleBtn.setAttribute("aria-expanded", "false");
-    saveSidebarState(false);
-  };
-
-  const openMobileSidebar = () => {
-    if (!isMobileSidebarMode()) return;
-    body.classList.add("admin-sidebar-open");
-    if (sidebarToggleBtn)
-      sidebarToggleBtn.setAttribute("aria-expanded", "true");
-    saveSidebarState(true);
-  };
-
-  const toggleMobileSidebar = () => {
-    if (!isMobileSidebarMode()) return;
-    if (body.classList.contains("admin-sidebar-open")) {
-      closeMobileSidebar();
-    } else {
-      openMobileSidebar();
-    }
-  };
-
-  const ensureMobileSidebarChrome = () => {
-    if (!sidebar || !sidebarHeader) return;
-
-    sidebarToggleBtn = sidebarHeader.querySelector(".admin-sidebar-toggle");
-    if (!sidebarToggleBtn) {
-      sidebarToggleBtn = document.createElement("button");
-      sidebarToggleBtn.type = "button";
-      sidebarToggleBtn.className = "admin-sidebar-toggle";
-      sidebarToggleBtn.setAttribute("aria-label", "Toggle sidebar navigation");
-      sidebarToggleBtn.setAttribute("aria-expanded", "false");
-      sidebarToggleBtn.innerHTML = "<span></span><span></span><span></span>";
-      sidebarHeader.appendChild(sidebarToggleBtn);
-    }
-
-    sidebarBackdrop = document.querySelector(".admin-sidebar-backdrop");
-    if (!sidebarBackdrop) {
-      sidebarBackdrop = document.createElement("div");
-      sidebarBackdrop.className = "admin-sidebar-backdrop";
-      body.appendChild(sidebarBackdrop);
-    }
-
-    if (!sidebarToggleBtn.dataset.bound) {
-      sidebarToggleBtn.addEventListener("click", toggleMobileSidebar);
-      sidebarToggleBtn.dataset.bound = "1";
-    }
-
-    if (!sidebarBackdrop.dataset.bound) {
-      sidebarBackdrop.addEventListener("click", closeMobileSidebar);
-      sidebarBackdrop.dataset.bound = "1";
-    }
-  };
-
-  const wrapTextAsNavLabel = (container) => {
-    if (!container || container.querySelector(".nav-label")) return;
-
-    const textNodes = Array.from(container.childNodes).filter(
-      (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
-    );
-
-    if (!textNodes.length) return;
-
-    const labelText = textNodes
-      .map((node) => node.textContent.trim())
-      .join(" ");
-    textNodes.forEach((node) => node.remove());
-
-    const label = document.createElement("span");
-    label.className = "nav-label";
-    label.textContent = labelText;
-    container.appendChild(label);
-  };
-
-  const decorateSidebarLabels = () => {
-    sidebarNav?.querySelectorAll(".nav-link").forEach((link) => {
-      const dropdownTitle = link.querySelector(".dropdown-title");
-      if (dropdownTitle) {
-        wrapTextAsNavLabel(dropdownTitle);
-      } else {
-        wrapTextAsNavLabel(link);
-      }
-    });
-
-    sidebarNav?.querySelectorAll(".sub-link").forEach((link) => {
-      wrapTextAsNavLabel(link);
-    });
-
-    const logoutBtn = document.querySelector(".sidebar-footer .logout-btn");
-    if (logoutBtn) {
-      wrapTextAsNavLabel(logoutBtn);
-    }
-  };
-
-  const syncSidebarMode = () => {
-    if (isMobileSidebarMode()) {
-      if (getSavedSidebarState()) {
-        body.classList.add("admin-sidebar-open");
-        if (sidebarToggleBtn)
-          sidebarToggleBtn.setAttribute("aria-expanded", "true");
-      } else {
-        body.classList.remove("admin-sidebar-open");
-        if (sidebarToggleBtn)
-          sidebarToggleBtn.setAttribute("aria-expanded", "false");
-      }
-    } else {
-      body.classList.remove("admin-sidebar-open");
-      if (sidebarToggleBtn)
-        sidebarToggleBtn.setAttribute("aria-expanded", "false");
-    }
-    updateSidebarScrollIndicator();
-  };
-
-  const updateSidebarScrollIndicator = () => {
-    if (!sidebar || !sidebarNav || !indicatorThumb) return;
-
-    const maxScroll = sidebarNav.scrollHeight - sidebarNav.clientHeight;
-    const isScrollable = maxScroll > 1;
-
-    sidebar.classList.toggle("has-scroll-indicator", isScrollable);
-
-    if (!isScrollable) {
-      indicatorThumb.style.height = "100%";
-      indicatorThumb.style.transform = "translateY(0)";
-      return;
-    }
-
-    const thumbHeight = Math.max(
-      (sidebarNav.clientHeight / sidebarNav.scrollHeight) * 100,
-      16,
-    );
-    const travel = 100 - thumbHeight;
-    const thumbTop = (sidebarNav.scrollTop / maxScroll) * travel;
-
-    indicatorThumb.style.height = `${thumbHeight}%`;
-    indicatorThumb.style.transform = `translateY(${thumbTop}%)`;
-  };
-
-  // Note: Dropdown logic is handled by admin-common.js with direct event listener on #adminControlBtn
-  // Do not add duplicate listeners here to avoid conflicts
-
-  sidebarNav?.addEventListener("scroll", updateSidebarScrollIndicator);
-  window.addEventListener("resize", syncSidebarMode);
-
-  const ensureMyAccountEntry = () => {
-    if (!sidebarNav) return;
-
-    let accountLink = sidebarNav.querySelector('a[href="my-account.html"]');
-    if (!accountLink) {
-      const archivesLink = sidebarNav.querySelector('a[href="archives.html"]');
-      accountLink = document.createElement("a");
-      accountLink.href = "my-account.html";
-      accountLink.className = "nav-link";
-      accountLink.innerHTML =
-        '<i class="fa-regular fa-id-card"></i> My Account';
-      if (archivesLink) {
-        archivesLink.insertAdjacentElement("afterend", accountLink);
-      } else {
-        sidebarNav.appendChild(accountLink);
-      }
-    }
-
-    if (window.location.pathname.toLowerCase().endsWith("/my-account.html")) {
-      accountLink.classList.add("active");
-    }
-
-    const popup = document.getElementById("profilePopup");
-    if (popup && !popup.querySelector('a[href="my-account.html"]')) {
-      const popupLink = document.createElement("a");
-      popupLink.href = "my-account.html";
-      popupLink.className = "profile-popup-link";
-      popupLink.innerHTML = '<i class="fa-regular fa-id-card"></i> My Account';
-      const divider = popup.querySelector("hr");
-      if (divider) {
-        popup.insertBefore(popupLink, divider);
-      } else {
-        popup.appendChild(popupLink);
-      }
-    }
-  };
-
-  ensureMyAccountEntry();
-  decorateSidebarLabels();
-  ensureMobileSidebarChrome();
-  updateSidebarScrollIndicator();
-
-  // Remove the no-transitions class once the browser has painted the initial state
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      body.classList.remove("no-transitions");
-    });
-  });
-
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && body.classList.contains("admin-sidebar-open")) {
-      closeMobileSidebar();
-    }
-  });
 
   // 2. Dashboard quick-link card navigation
   const normalizeText = (value) =>
@@ -1816,6 +1589,4 @@ document.addEventListener("DOMContentLoaded", () => {
   void syncDashboardData({ force: true, source: "manual" }).finally(() => {
     void refreshDashboardLiveCounts();
   });
-
-  syncSidebarMode();
 });

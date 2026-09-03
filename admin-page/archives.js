@@ -45,6 +45,12 @@ document.addEventListener("DOMContentLoaded", () => {
       .replace(/\"/g, "&quot;")
       .replace(/'/g, "&#39;");
 
+  /* One shape for every "no rows" / "load failed" row, so
+     AdminTableEmptyState (admin-common.js) recognises it and hides the pager. */
+  const emptyRow = (columns, message, options) =>
+    window.AdminTableEmptyState?.row(columns, message, options) ??
+    `<tr class="table-empty-row"><td colspan="${columns}"><div class="table-empty-state"><i class="${options?.icon || "fa-regular fa-folder-open"}"></i><span>${esc(message)}</span></div></td></tr>`;
+
   const fmtDate = (value, withTime = false) => {
     if (!value) return "—";
     const date = new Date(value);
@@ -561,7 +567,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (config.tbody) {
       config.tbody.innerHTML = scoped.length
         ? scoped.map((row, index) => renderRow(module, row, index)).join("")
-        : `<tr><td colspan="${config.colCount}"><div class="table-empty-state"><i class="fa-regular fa-folder-open"></i><span>${esc(config.emptyMessage)}</span></div></td></tr>`;
+        : emptyRow(config.colCount, config.emptyMessage);
       window.AdminPageNumberInput?.upgrade(config.tbody);
     }
 
@@ -763,7 +769,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const setError = (message) => {
     Object.values(moduleConfig).forEach((config) => {
       if (!config.tbody) return;
-      config.tbody.innerHTML = `<tr><td colspan="${config.colCount}"><div class="table-empty-state"><i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i><span style="color:#ef4444;">${esc(message)}</span></div></td></tr>`;
+      config.tbody.innerHTML = emptyRow(config.colCount, message, {
+        icon: "fa-solid fa-triangle-exclamation",
+        tone: "error",
+      });
     });
   };
 

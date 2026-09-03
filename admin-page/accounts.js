@@ -264,6 +264,17 @@ document.addEventListener("DOMContentLoaded", () => {
       .replace(/\"/g, "&quot;")
       .replace(/'/g, "&#039;");
 
+  /* One shape for every "no rows" / "load failed" row, so
+     AdminTableEmptyState (admin-common.js) recognises it and hides the pager. */
+  const emptyRow = (columns, message, options) =>
+    window.AdminTableEmptyState?.row(columns, message, options) ??
+    `<tr class="table-empty-row"><td colspan="${columns}"><div class="table-empty-state"><i class="${options?.icon || "fa-regular fa-folder-open"}"></i><span>${escapeHtml(message)}</span></div></td></tr>`;
+
+  const ERROR_ROW_TONE = {
+    icon: "fa-solid fa-triangle-exclamation",
+    tone: "error",
+  };
+
   const getFilteredUsers = () => {
     const role = String(roleFilter?.value || "all").toLowerCase();
     const query = String(searchInput?.value || "")
@@ -294,8 +305,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const paged = users.slice(start, start + state.pageSize);
 
     if (!paged.length) {
-      tableBody.innerHTML =
-        "<tr><td colspan='8' style='text-align:center;'>No user accounts found for this filter.</td></tr>";
+      tableBody.innerHTML = emptyRow(
+        8,
+        "No user accounts found for this filter.",
+      );
     } else {
       tableBody.innerHTML = paged
         .map((user, idx) => {
@@ -463,8 +476,11 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       console.error("Failed to load accounts:", error);
       if (tableBody) {
-        tableBody.innerHTML =
-          "<tr><td colspan='8' style='text-align:center;color:#991b1b;'>Could not load account data. Please refresh the page.</td></tr>";
+        tableBody.innerHTML = emptyRow(
+          8,
+          "Could not load account data. Please refresh the page.",
+          ERROR_ROW_TONE,
+        );
       }
       if (tableMeta) tableMeta.textContent = "Account data is temporarily unavailable.";
     }
@@ -544,9 +560,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const paged = rows.slice(start, start + state.pageSize);
 
     if (!state.requestsInstalled) {
-      requestsTableBody.innerHTML = `<tr><td colspan="${REQUEST_COLUMNS}" style="text-align:center;">Account requests are not enabled on this server yet. Run the database install script, then reload this page.</td></tr>`;
+      requestsTableBody.innerHTML = emptyRow(
+        REQUEST_COLUMNS,
+        "Account requests are not enabled on this server yet. Run the database install script, then reload this page.",
+        { icon: "fa-solid fa-circle-info" },
+      );
     } else if (!paged.length) {
-      requestsTableBody.innerHTML = `<tr><td colspan="${REQUEST_COLUMNS}" style="text-align:center;">No staff account requests are waiting for a decision.</td></tr>`;
+      requestsTableBody.innerHTML = emptyRow(
+        REQUEST_COLUMNS,
+        "No staff account requests are waiting for a decision.",
+      );
     } else {
       requestsTableBody.innerHTML = paged
         .map((row, idx) =>
@@ -622,7 +645,11 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       console.error("Failed to load account requests:", error);
       if (requestsTableBody) {
-        requestsTableBody.innerHTML = `<tr><td colspan="${REQUEST_COLUMNS}" style="text-align:center;color:#991b1b;">Could not load account requests. Please refresh the page.</td></tr>`;
+        requestsTableBody.innerHTML = emptyRow(
+          REQUEST_COLUMNS,
+          "Could not load account requests. Please refresh the page.",
+          ERROR_ROW_TONE,
+        );
       }
       if (requestsTableMeta) {
         requestsTableMeta.textContent =

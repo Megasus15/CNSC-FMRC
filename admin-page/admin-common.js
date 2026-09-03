@@ -1269,11 +1269,13 @@ if (document.body) {
    still scrolled sideways past columns with nothing under them, and the footer
    still offered "Page 1 of 1".
 
-   There is no shared "this table is empty" flag to read. About ten page modules
-   each write their own empty row, and the generic enhancer further down bails on
-   any table carrying an id. What they *do* all share is the markup: every one of
-   them renders `<div class="table-empty-state">` inside that row. So that div is
-   the signal, and no page module needs to change.
+   There is no shared "this table is empty" flag to read. About twenty page
+   modules each write their own empty row, and the generic enhancer further down
+   bails on any table carrying an id. What most of them share is the markup:
+   `<div class="table-empty-state">` inside that row. So that div is the primary
+   signal, `AdminTableEmptyState.row()` below is the one builder that emits it,
+   and a lone full-width cell without a skeleton inside it is the structural net
+   for any renderer that emits neither marker.
 
    `is-table-empty` then lands on four nodes — the table, its scroll host, the
    scroll hint above it and the footer below — and the stylesheets do the rest on
@@ -1328,7 +1330,44 @@ if (document.body) {
     /* archives.js renders its empty row without `.table-empty-row`, so the one
        marker that travels with all ten modules is the inner div. */
     if (row.querySelector(".table-empty-state")) return false;
+    /* Structural net, so a renderer that forgets both markers cannot leave a
+       pager under an empty table: a lone full-width cell is furniture, never
+       data. No renderer or page in either portal emits a single-colspan-cell
+       *content* row. The exemption is by skeleton content rather than by row
+       class because archives.html ships four static loading placeholders shaped
+       exactly like an empty row and carrying no skeleton row class — a bare
+       "lone colspan means empty" rule would blink their footers out on load. */
+    const cells = row.cells;
+    if (cells.length === 1 && cells[0].colSpan > 1) {
+      return Boolean(cells[0].querySelector('[class*="skeleton"]'));
+    }
     return true;
+  };
+
+  /* One shared builder for every "no rows" and "load failed" row in the back
+     office, so the markers above always travel with the message and each table
+     shows the same styled block instead of a bare grey sentence. */
+  const escapeText = (value) =>
+    String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+  const emptyRow = (columns, message, options = {}) => {
+    const span = Math.max(1, Number(columns) || 1);
+    const icon = options.icon || "fa-regular fa-folder-open";
+    const tone = options.tone === "error" ? ' style="color:#ef4444;"' : "";
+    return `
+      <tr class="table-empty-row">
+        <td colspan="${span}">
+          <div class="table-empty-state">
+            <i class="${escapeText(icon)}"${tone}></i>
+            <span${tone}>${escapeText(message)}</span>
+          </div>
+        </td>
+      </tr>`;
   };
 
   /* The hint and the footer are siblings of the scroll host rather than children
@@ -1423,7 +1462,12 @@ if (document.body) {
     syncAll();
   };
 
-  window.AdminTableEmptyState = { sync, syncAll, schedule: scheduleSweep };
+  window.AdminTableEmptyState = {
+    sync,
+    syncAll,
+    schedule: scheduleSweep,
+    row: emptyRow,
+  };
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", boot);
@@ -1499,7 +1543,10 @@ document.addEventListener("DOMContentLoaded", () => {
     body.classList.add("admin-sidebar-open");
     if (sidebarToggleBtn)
       sidebarToggleBtn.setAttribute("aria-expanded", "true");
-    saveSidebarState(true);
+    // The phone drawer is runtime-only state: persisting it would re-open the
+    // off-canvas sheet over the content on the next page load. Only the tablet
+    // rail remembers being open.
+    if (!isDrawerSidebarMode()) saveSidebarState(true);
   };
 
   const toggleMobileSidebar = () => {
@@ -1543,8 +1590,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  const wrapTextAsNavLabel = (container) => {
-    if (!container || container.querySelector(".nav-label")) return;
+  const wrapTextAsNavLabel = (container, className = "nav-label") => {
+    if (!container || container.querySelector(`.${className}`)) return;
 
     const textNodes = Array.from(container.childNodes).filter(
       (node) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim(),
@@ -1558,7 +1605,7 @@ document.addEventListener("DOMContentLoaded", () => {
     textNodes.forEach((node) => node.remove());
 
     const label = document.createElement("span");
-    label.className = "nav-label";
+    label.className = className;
     label.textContent = labelText;
     container.appendChild(label);
   };
@@ -1583,6 +1630,40 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  /* admin-responsive.css STEP 12.1 shrinks an action label to fit its own grid
+     track with `clamp(10px, 9cqw, 0.82rem)`, and a font-size needs an element to
+     land on. Reports' two buttons already ship `<span>` labels; the other ~60
+     action buttons in the back office are bare text nodes, so wrap them here
+     with the same helper the sidebar links use instead of editing 33 pages.
+     A text node in a flex container is already an anonymous flex item, so this is
+     layout-neutral on desktop — reports' buttons are the proof. None of the three
+     strips is built by JS, so one pass at DOMContentLoaded is enough.
+
+     The selector mirrors 12.1's `container-type` set exactly — every direct
+     button/anchor child of `.toolbar-actions`, not only `.btn-admin`. Scoping it
+     to `.btn-admin` skipped `<a class="btn-manage-discounts">`
+     (admin-page/products.html:906), which 12.1 still put `nowrap` on: with no
+     span to clamp, "Manage Discounts" kept 13.12px and overflowed its 129px
+     track by 5px at 320. `wrapTextAsNavLabel` no-ops on a container with no text
+     node, so icon-only buttons in the strip are left untouched.
+
+     `root` exists for staff-page/products-loader.js, which injects admin's whole
+     products section long after DOMContentLoaded — the one strip in either portal
+     that is not in its page's own HTML. It re-runs this the same way it already
+     re-runs `AdminPageNumberInput.upgrade` and `AdminTableSkeleton.show`. The
+     pass is idempotent, so calling it again costs one `querySelectorAll`. */
+  const ACTION_LABEL_SELECTOR =
+    ".toolbar-actions > button, .toolbar-actions > a, .toolbar-actions > .btn-admin, .report-table-actions .btn-admin, .et-save-actions .btn-admin";
+
+  const decorateActionLabels = (root = document) => {
+    root?.querySelectorAll?.(ACTION_LABEL_SELECTOR)?.forEach((btn) => {
+      if (btn.querySelector("span")) return; // reports already ships one
+      wrapTextAsNavLabel(btn, "btn-label");
+    });
+  };
+
+  window.AdminActionLabels = { decorate: decorateActionLabels };
+
   const syncSidebarMode = () => {
     if (isMobileSidebarMode()) {
       if (getSavedSidebarState() && !isDrawerSidebarMode()) {
@@ -1593,6 +1674,10 @@ document.addEventListener("DOMContentLoaded", () => {
         body.classList.remove("admin-sidebar-open");
         if (sidebarToggleBtn)
           sidebarToggleBtn.setAttribute("aria-expanded", "false");
+        // Heal devices that stored "open" before the drawer stopped persisting,
+        // so the drawer cannot reappear on the next load either.
+        if (isDrawerSidebarMode() && getSavedSidebarState())
+          saveSidebarState(false);
       }
     } else {
       body.classList.remove("admin-sidebar-open");
@@ -1726,6 +1811,7 @@ document.addEventListener("DOMContentLoaded", () => {
   ensureCustomerInquiriesEntry();
   sanitizeRemovedPageLinks();
   decorateSidebarLabels();
+  decorateActionLabels();
   ensureMobileSidebarChrome();
 
   // Remove the no-transitions class once the browser has painted the initial state

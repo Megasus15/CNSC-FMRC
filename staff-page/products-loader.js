@@ -57,6 +57,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     moduleHost.innerHTML = adminSection.innerHTML;
     window.AdminPageNumberInput?.upgrade(moduleHost);
+    // The toolbar arrives here, after admin-common.js's DOMContentLoaded pass, so
+    // its action labels need wrapping again or admin-responsive.css STEP 12 has
+    // no element to shrink and "Manage Discounts" overflows its track on a phone.
+    window.AdminActionLabels?.decorate(moduleHost);
 
     window.AdminTableSkeleton?.show(
       document.getElementById("productTableBody"),
