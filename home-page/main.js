@@ -586,8 +586,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // holds `.about-video-modal` (position: fixed), and a transformed ancestor
   // would make the full-screen video modal size to the column instead of the
   // viewport.
+  // `.scroll-indicator` is deliberately not in this list: its own `bounce`
+  // animation owns `transform` forever, so the reveal lift could never be seen
+  // on it, and registering it only meant two systems writing the same property
+  // and a `will-change` that the settle handler could never usefully release.
   const revealTargets = document.querySelectorAll(
-    ".hero-content-left, .hero-content-right, .scroll-indicator, .about-content-left, .about-video-holder, .vision-content-left, .vision-content-right, .mission-content-left, .mission-content-right, #services-preview .section-title, #services-preview .carousel-wrapper, #services-preview .view-all-container, .products-toolbar, .services-carousel-section .carousel-wrapper, .shop-section .shop-card, .contact-info-card, .contact-form-card",
+    ".hero-content-left, .hero-content-right, .about-content-left, .about-video-holder, .vision-content-left, .vision-content-right, .mission-content-left, .mission-content-right, #services-preview .section-title, #services-preview .carousel-wrapper, #services-preview .view-all-container, .products-toolbar, .services-carousel-section .carousel-wrapper, .shop-section .shop-card, .contact-info-card, .contact-form-card",
   );
 
   revealTargets.forEach((element) => element.classList.add("reveal-on-scroll"));
@@ -681,15 +685,25 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
+    // Both elements point at the same 1080p file, so leaving the preview
+    // running behind the modal made the phone decode the clip twice at once.
+    // The preview only resumes if it was actually playing when the modal opened.
+    let previewWasPlaying = false;
+
     const closeAboutVideoModal = () => {
       aboutVideoModal.classList.remove("show-video-modal");
       aboutFullVideo.pause();
       document.body.style.overflow = "";
+      if (previewWasPlaying) {
+        aboutPreviewVideo.play().catch(() => {});
+      }
     };
 
     aboutVideoHolder.addEventListener("click", () => {
+      previewWasPlaying = !aboutPreviewVideo.paused;
       aboutVideoModal.classList.add("show-video-modal");
       aboutFullVideo.currentTime = aboutPreviewVideo.currentTime || 0;
+      aboutPreviewVideo.pause();
       aboutFullVideo.play().catch(() => {});
       document.body.style.overflow = "hidden";
     });
@@ -1014,6 +1028,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const startAutoPlay = () => {
         autoPlayInterval = setInterval(moveNext, 5000);
+        // `applyServices` replaces this track's children and calls
+        // `initCarousel` on it, which arms a second, 6s timer — but this 5s one
+        // was a closure-local with no handle reachable from there, so both ran
+        // for the rest of the visit and the offers advanced on two beats.
+        // Parking the handle on the element lets `initCarousel` clear it.
+        track._fmrcPlaceholderTimer = autoPlayInterval;
       };
 
       const resetAutoPlay = () => {
@@ -6236,9 +6256,42 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  // html2canvas is 199KB and its only caller is this one button, inside step 5
+  // of the appointment modal. It used to be a synchronous <script> in the head
+  // of the landing page, so every visitor downloaded and compiled it before
+  // first paint whether they booked anything or not. Fetch it on first use
+  // instead; the guard below already handled "not loaded" gracefully.
+  const HTML2CANVAS_SRC =
+    "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";
+  let html2canvasPromise = null;
+  const loadHtml2Canvas = () => {
+    if (typeof window.html2canvas === "function") return Promise.resolve();
+    if (html2canvasPromise) return html2canvasPromise;
+    html2canvasPromise = new Promise((resolve, reject) => {
+      const tag = document.createElement("script");
+      tag.src = HTML2CANVAS_SRC;
+      tag.crossOrigin = "anonymous";
+      tag.referrerPolicy = "no-referrer";
+      tag.onload = () => resolve();
+      tag.onerror = () => {
+        // Let a flaky network be retried on the next click.
+        html2canvasPromise = null;
+        reject(new Error("html2canvas failed to load"));
+      };
+      document.head.appendChild(tag);
+    });
+    return html2canvasPromise;
+  };
+
   const downloadAppointmentReceipt = async () => {
     const receipt = document.getElementById("officialReceiptCard");
     const referenceNo = submittedAppointment?.reference_no || "PENDING";
+
+    try {
+      await loadHtml2Canvas();
+    } catch {
+      /* handled by the guard below */
+    }
 
     if (!receipt || typeof window.html2canvas !== "function") {
       showSlotMessage(
@@ -14871,6 +14924,14 @@ const openReturnRequestModal = (() => {
   }
 
   function initCarousel(track) {
+    // The placeholder carousel that ships in main.html arms its own 5s autoplay
+    // before the services API answers. `applyServices` then rebuilds this
+    // track's children and calls us, so without this the old timer keeps
+    // firing against the new cards alongside our 6s one.
+    if (track._fmrcPlaceholderTimer) {
+      clearInterval(track._fmrcPlaceholderTimer);
+      track._fmrcPlaceholderTimer = null;
+    }
     var items = Array.from(track.querySelectorAll(".carousel-item"));
     var prevEl = document.querySelector(".prev-btn");
     var nextEl = document.querySelector(".next-btn");
@@ -14903,19 +14964,45 @@ const openReturnRequestModal = (() => {
       cur = (cur - 1 + items.length) % items.length;
       upd();
     }
+
+    // Autoplay used to be `setInterval(nxt, AUTOPLAY_MS)` with the only pause
+    // bound to `mouseenter` — an event a touch device never fires. So on a
+    // phone this rewrote `className` on every item and restarted five 0.6s
+    // transitions every six seconds for the whole visit, including while the
+    // tab was in the background or the section was nowhere near the screen.
+    // `autoTick` is the interval callback everywhere now: it keeps the timer
+    // running (so the beat is unchanged when the visitor comes back) but skips
+    // the DOM work nobody can see. Same `document.hidden` idiom as the 20s
+    // settings poll further up this file.
+    var onScreen = true;
+    function autoTick() {
+      if (document.hidden || !onScreen) return;
+      nxt();
+    }
+    function arm() {
+      clearInterval(timer);
+      timer = setInterval(autoTick, AUTOPLAY_MS);
+    }
+    if ("IntersectionObserver" in window) {
+      new IntersectionObserver(
+        function (entries) {
+          onScreen = entries[entries.length - 1].isIntersecting;
+        },
+        { threshold: 0 },
+      ).observe(wrapper);
+    }
+
     var nn = nextEl.cloneNode(true),
       np = prevEl.cloneNode(true);
     nextEl.parentNode.replaceChild(nn, nextEl);
     prevEl.parentNode.replaceChild(np, prevEl);
     nn.addEventListener("click", function () {
       nxt();
-      clearInterval(timer);
-      timer = setInterval(nxt, AUTOPLAY_MS);
+      arm();
     });
     np.addEventListener("click", function () {
       prv();
-      clearInterval(timer);
-      timer = setInterval(nxt, AUTOPLAY_MS);
+      arm();
     });
     items.forEach(function (it) {
       it.addEventListener("click", function (e) {
@@ -14944,7 +15031,7 @@ const openReturnRequestModal = (() => {
       clearInterval(timer);
     });
     wrapper.addEventListener("mouseleave", function () {
-      timer = setInterval(nxt, AUTOPLAY_MS);
+      arm();
     });
 
     // Swipe. The original bindings near the top of this file belong to the
@@ -14970,8 +15057,7 @@ const openReturnRequestModal = (() => {
     }
 
     function restartAutoPlay() {
-      clearInterval(timer);
-      timer = setInterval(nxt, AUTOPLAY_MS);
+      arm();
     }
 
     function gestureEnd(x, y) {
@@ -15028,7 +15114,7 @@ const openReturnRequestModal = (() => {
     setupStackedEntrance(wrapper);
 
     upd();
-    timer = setInterval(nxt, AUTOPLAY_MS);
+    arm();
   }
 
   // Stacked entrance for What We Offer. `.is-stacked` pins every carousel item to

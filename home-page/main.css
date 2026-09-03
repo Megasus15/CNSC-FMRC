@@ -1356,10 +1356,13 @@ body {
   position: absolute;
   width: 320px; /* Fixed width for uniformity */
   height: 450px;
+  /* `z-index` is deliberately not in this list. Stacking order is an integer
+     with no visible intermediate state, so interpolating it bought nothing and
+     made every 6s advance re-sort paint order for the whole track. The state
+     classes still swap `z-index` — instantly, which is what was wanted. */
   transition:
     transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1),
-    opacity 0.6s ease,
-    z-index 0.6s ease;
+    opacity 0.6s ease;
   opacity: 0;
   z-index: 1;
   pointer-events: none; /* Prevents clicking hidden cards */
@@ -6201,18 +6204,15 @@ input:checked + .toggle-slider:before {
   background: linear-gradient(180deg, #fff 0%, #fff7f7 100%);
 }
 
-.about-content-left,
-.vision-content-left,
-.vision-content-right,
-.mission-content-left,
-.mission-content-right,
-.services-container,
-.footer-col,
-.footer-bottom,
-.hero-content-left,
-.hero-content-right {
-  will-change: transform, opacity;
-}
+/* `will-change: transform, opacity` used to be declared here on ten selectors.
+   It was removed: seven of them are scroll-reveal targets that already receive
+   it from `.reveal-on-scroll` and — crucially — have it *released* again by
+   `.reveal-on-scroll.reveal-settled { will-change: auto }` once the reveal has
+   played. The other three (`.services-container`, `.footer-col`,
+   `.footer-bottom`) are not reveal targets at all, so they never animate and
+   this rule was pinning six permanent compositor layers per page for the whole
+   visit. `will-change` has no visual effect, so nothing here is a design
+   change. */
 
 .about-content-right {
   justify-content: center;
@@ -6238,7 +6238,17 @@ input:checked + .toggle-slider:before {
   height: 100%;
   object-fit: cover;
   display: block;
-  filter: saturate(1.04) contrast(1.05);
+}
+
+/* Desktop only. A CSS `filter` on a <video> disqualifies it from Android's
+   zero-copy hardware overlay path: every decoded 1080p frame has to be uploaded
+   as a GL texture and run through a shader instead. That is a lot of per-frame
+   GPU work to buy a 4% saturation / 5% contrast nudge, so phones get the clip
+   unfiltered and hardware-composited. */
+@media (min-width: 901px) {
+  .about-preview-video {
+    filter: saturate(1.04) contrast(1.05);
+  }
 }
 
 .about-video-control {
@@ -19260,5 +19270,121 @@ textarea:focus-visible {
 
 #googlePwdFloatingCard .google-pwd-card .ux-dlg__btn i {
   font-size: 11px;
+}
+
+/* ===========================================================================
+   CUSTOMER SITE — PHONE / SMALL-TABLET SCROLL PERFORMANCE PASS (<=900px)
+   ---------------------------------------------------------------------------
+   A 120Hz phone was rendering the customer pages at 40-50 fps. The frame
+   budget on that panel is 8.3ms, not 16.7ms, so effects that merely look
+   expensive at 60Hz miss the deadline outright. Measured causes, all of them
+   per-frame GPU/paint cost rather than script cost:
+
+     * `.site-header` is sticky, translucent and `backdrop-filter: blur(16px)`
+       across the full viewport width. Page content changes behind it on every
+       scroll frame, so the GPU re-samples the backdrop, re-runs a ~42
+       device-px kernel over ~214k device px, blends, then re-rasterises a 36px
+       shadow — 120 times a second. This is the single largest cost on the site.
+     * fifteen more live `backdrop-filter` surfaces in the default scroll path,
+       two of which repeat per card (`.service-card`, `.shop-card`), so a full
+       products grid puts a dozen simultaneous 16px blurs on screen.
+     * `.carousel-track { perspective: 1000px }` promoting every carousel item
+       to its own layer for the whole visit, for depth no phone state renders.
+     * the service skeletons animating `background-position`, which is not
+       compositable, on six boxes while the main thread is at its busiest.
+
+   Desktop keeps the frosted-glass design untouched: everything below is inside
+   the media query.
+
+   Note on the fills. For every surface except the two named further down, the
+   backdrop is a *static* section gradient — nothing moves behind it — and
+   blurring a smooth gradient returns the same gradient, so dropping the blur
+   is a visual no-op and the existing translucent fills are left exactly as
+   they are. Only the two surfaces whose backdrop genuinely changes get a
+   tuned substitute:
+     * `.site-header` — sticky, so real content scrolls under it. It becomes
+       opaque white, which is what the 0.9 alpha already resolved to at rest
+       and also lets the browser skip painting everything behind it.
+     * `.service-image-preview-label` — sits over a photograph, where the blur
+       was doing real work for legibility, so its alpha goes 0.64 -> 0.78.
+
+   `.customer-rate-prompt-popup` is a third surface with a genuinely moving
+   backdrop — it is `position: fixed`, so the page really does scroll behind it
+   — but its own fill is a 0.98/0.95 white gradient, which hides the blur almost
+   entirely. It is in the list below and needs no substitute.
+
+   Several of these selectors are declared in groups, and the whole group has to
+   be named here or the blur simply survives on the siblings:
+   `.about-container` and `.vision-container` share their rule with
+   `.mission-container` (:13045), and `.contact-info-card` shares its rule with
+   `.contact-form-card` (:6404).
+
+   Deliberately NOT using `will-change` here — it would pin permanent
+   compositing layers on elements that never animate, which is the very
+   problem the `main.css` reveal system releases on settle.
+   ========================================================================= */
+@media (max-width: 900px) {
+  .site-header,
+  .hero-graphic,
+  .about-container,
+  .vision-container,
+  .mission-container,
+  .features-card,
+  .services-top-bar,
+  .services-grid .service-card,
+  .products-toolbar,
+  .shop-card,
+  .contact-info-card,
+  .contact-form-card,
+  .btn-appointment,
+  .hero-sdg-btn,
+  .service-image-preview-label,
+  .customer-rate-prompt-popup {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  /* Opaque, and a hairline instead of a 36px blur radius re-rasterised across
+     the whole viewport width every frame. At 0.08 alpha that shadow was not
+     visible; the hairline keeps the separation from the page. */
+  .site-header {
+    background: #ffffff;
+    box-shadow:
+      0 1px 0 rgba(176, 28, 28, 0.1),
+      0 2px 6px rgba(58, 18, 18, 0.06);
+  }
+
+  /* Over a photo the blur was carrying the legibility, so return it as alpha. */
+  .service-image-preview-label {
+    background: rgba(41, 14, 11, 0.78);
+  }
+
+  /* The badge gradient is already 0.96/0.92 white, so the blur behind it was
+     ~96% hidden. Two shadow layers instead of three while we are here. */
+  .hero-sdg-btn {
+    box-shadow:
+      0 8px 18px rgba(35, 8, 8, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  }
+
+  /* Glass CTA on the hero: the hero backdrop is a smooth gradient, so the
+     12px blur contributed nothing. A hair more alpha keeps the same weight. */
+  .btn-appointment {
+    background: rgba(255, 255, 255, 0.12);
+  }
+
+  /* No phone item state uses depth — `.carousel-item` is translateX + scale +
+     opacity only — so the 3D context was promoting every item to its own
+     layer for the whole visit and rendering no perspective at all. */
+  .carousel-track {
+    perspective: none;
+  }
+
+  /* `background-position` is not compositable: six of these repainted on every
+     frame precisely while the services fetch was still in flight. */
+  .service-skeleton-img,
+  .service-skeleton-line {
+    animation: none;
+  }
 }
 

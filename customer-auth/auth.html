@@ -12,8 +12,12 @@
     <title>UCN-FMRC Customer Login</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- One Montserrat request for the whole site: every page asks for this
+         exact string so navigating between them is a cache hit instead of a
+         fresh render-blocking round trip. Montserrat is a variable font, so the
+         extra weights cost no additional bytes. -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="auth.css?v=5.8" />
@@ -59,6 +63,8 @@
                   src="/images/CNSC logo.png"
                   alt="CNSC Logo"
                   class="brand-logo"
+                  decoding="async"
+                  fetchpriority="high"
                   onerror="this.style.display = 'none'"
                 />
                 <img
@@ -66,6 +72,8 @@
                   src="/images/FMRC Logo.png"
                   alt="FMRC Logo"
                   class="brand-logo"
+                  decoding="async"
+                  fetchpriority="high"
                   onerror="this.style.display = 'none'"
                 />
               </div>

@@ -583,16 +583,22 @@
           color: #1e293b;
         }
 
+        /* box-shadow used to be interpolated here alongside opacity and the
+           translate. It is not a compositable property, and a keyframe set that
+           touches even one non-compositable property cannot be promoted at all
+           — so this pill woke the main thread for a style recalc, paint and
+           raster on every single vsync, forever, and because the translate kept
+           moving the sampled region its backdrop blur could never be cached.
+           Opacity + transform only: same pulse, now entirely on the compositor.
+           The static shadow on the rule above keeps the depth. */
         @keyframes fmrcGlassPulse {
           0%, 100% {
             opacity: 0.92;
             transform: translateY(0);
-            box-shadow: 0 10px 28px rgba(128, 0, 0, 0.18);
           }
           50% {
             opacity: 1;
             transform: translateY(5px);
-            box-shadow: 0 16px 40px rgba(128, 0, 0, 0.28);
           }
         }
         
@@ -751,6 +757,26 @@
         }
         .announcement-modal__button--secondary:active {
           transform: scale(0.96);
+        }
+
+        /* PHONE / SMALL-TABLET SCROLL PERFORMANCE (<=900px).
+           This pill is rendered inside .site-header, which is position: sticky
+           at these widths — and a backdrop-filtered element nested inside
+           another backdrop-filtered sticky element is the most expensive
+           construct the site can produce: the content behind both changes on
+           every scroll frame, so neither blur can ever be cached and the GPU
+           re-samples and re-blurs twice per frame. At a 120Hz refresh rate that
+           is a 8.3ms budget, not 16.7ms, and it is missed outright.
+           The header itself is now an opaque white at these widths (see the
+           matching pass at the end of home-page/main.css), so a 14px blur at
+           0.78 alpha over flat white was buying nothing visible in the first
+           place. Raising the fill to 0.96 keeps the frosted look. */
+        @media (max-width: 900px) {
+          .announcement-glass-tooltip {
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+          }
         }
 
         /* Runtime styles are appended after the shared stylesheets, so the

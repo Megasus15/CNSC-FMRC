@@ -64,7 +64,23 @@
 </IfModule>
 
 # ------------------------------------------------------------------------------
+# 6b. Brotli, where the host has it. Roughly 15-20% smaller than gzip on the two
+# large text assets (main.css and main.js), and a no-op on hosts without the
+# module thanks to the IfModule guard. mod_brotli takes precedence over
+# mod_deflate when both are enabled, so section 6 stays as the fallback.
+# ------------------------------------------------------------------------------
+<IfModule mod_brotli.c>
+    AddOutputFilterByType BROTLI_COMPRESS text/html text/plain text/xml text/css text/javascript application/javascript application/json image/svg+xml
+</IfModule>
+
+# ------------------------------------------------------------------------------
 # 7. Browser Caching for Instant Loading on Return Visits
+#
+# `text/javascript` is listed alongside `application/javascript` on purpose:
+# current Apache 2.4 mime.types labels .js as text/javascript, so on such a host
+# the application/* line alone gave main.js no freshness lifetime at all and the
+# browser revalidated it on every one of the four customer pages. Every linked
+# asset carries a hand-bumped ?v= query, so a long lifetime is safe.
 # ------------------------------------------------------------------------------
 <IfModule mod_expires.c>
     ExpiresActive On
@@ -73,6 +89,12 @@
     ExpiresByType image/gif "access plus 1 month"
     ExpiresByType image/png "access plus 1 month"
     ExpiresByType image/webp "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType image/vnd.microsoft.icon "access plus 1 month"
+    ExpiresByType image/x-icon "access plus 1 month"
     ExpiresByType text/css "access plus 1 month"
     ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType text/javascript "access plus 1 month"
+    ExpiresByType video/mp4 "access plus 1 month"
+    ExpiresByType font/woff2 "access plus 1 year"
 </IfModule>

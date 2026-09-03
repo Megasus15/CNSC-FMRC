@@ -13,18 +13,26 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-    />
+    <!-- Font Awesome was the one head origin with no preconnect, so the
+         critical path paid a full DNS + TCP + TLS handshake before the first
+         icon byte. Two hints on purpose, the same pattern as Google Fonts
+         above: the plain one warms the socket the render-blocking stylesheet
+         uses, the crossorigin one warms the anonymous socket the woff2 needs
+         (fonts are always fetched with CORS, and Chrome will not reuse the
+         other pool for them) — otherwise the header bell pays a second
+         handshake right at first paint. -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
 
-    <link rel="stylesheet" href="main.css?v=7.0" />
-    <link rel="stylesheet" href="responsive.css?v=7.1" />
-
+    <!-- The two hero scripts sit above the stylesheet links deliberately.
+         Chrome will not execute a classic script while a parser-inserted
+         stylesheet that precedes it is still pending, so from their old spot
+         below the CSS these 5.9 KB were serialised behind 573 KB of local CSS
+         plus two cross-origin sheets. Neither reads computed style, and the
+         preload scanner still discovers every stylesheet below at once, so
+         nothing downstream is delayed by the move.
+         Neither may get `defer`: the inline call further down this page runs at
+         parse time and needs window.FMRC_HERO_TITLE already defined. -->
     <!-- Renders the hero headline from site settings. Loaded here, ahead of the
          hero markup, so the inline call below it can paint before first paint. -->
     <script src="hero-title.js"></script>
@@ -32,6 +40,30 @@
          hero_bg_gradient id into the same declaration the admin swatch shows;
          without it a gradient choice silently falls back to the stylesheet. -->
     <script src="hero-gradients.js"></script>
+
+    <!-- One Montserrat request for the whole site. Every customer page asks for
+         this exact string so navigating between them is a cache hit instead of
+         a fresh render-blocking round trip; Montserrat is a variable font, so
+         the extra weights cost no additional bytes. -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <!-- No `crossorigin` on the preload: the stylesheet below is fetched in
+         no-cors mode, and a mismatched preload would be a second download
+         rather than a warm cache hit. -->
+    <link
+      rel="preload"
+      as="style"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+
+    <link rel="stylesheet" href="main.css?v=7.1" />
+    <link rel="stylesheet" href="responsive.css?v=7.1" />
   </head>
   <body>
     <header class="site-header">
@@ -41,6 +73,8 @@
           alt="CNSC Logo"
           class="header-emblem"
           id="navLogoEl"
+          decoding="async"
+          fetchpriority="high"
         />
         <h1 class="logo-text">
           <span class="logo-title">
@@ -156,6 +190,7 @@
             alt="FMRC Geometric Logo"
             class="hero-graphic"
             id="heroLogoEl"
+            decoding="async"
           />
         </div>
       </div>
@@ -239,9 +274,17 @@
                 &times;
               </button>
               <div class="about-video-modal-box">
+                <!-- Both <video> elements point at the same 31.5 MB clip. This
+                     one had no `preload` at all, so the attribute is pinned to
+                     `metadata` rather than left to the UA default: the modal is
+                     display:none until the holder is clicked, and the moov atom
+                     is at the front of the file (faststart), so this is one
+                     small range request that the preview above has already
+                     warmed in the HTTP cache. -->
                 <video
                   class="about-full-video"
                   id="aboutFullVideo"
+                  preload="metadata"
                   controls
                   playsinline
                 >
@@ -282,7 +325,13 @@
               aria-busy="true"
             >
               <div class="vm-deck__card">
-                <img alt="FMRC Vision" class="vision-img" id="visionImgEl" />
+                <img
+                  alt="FMRC Vision"
+                  class="vision-img"
+                  id="visionImgEl"
+                  loading="lazy"
+                  decoding="async"
+                />
               </div>
             </div>
             <p class="vm-deck__hint" id="visionDeckHint">
@@ -331,6 +380,8 @@
                     alt="FMRC Mission"
                     class="mission-img"
                     id="missionImgEl"
+                    loading="lazy"
+                    decoding="async"
                   />
                 </div>
               </div>
@@ -1251,10 +1302,16 @@
                   padding-left: 20px;
                 "
               >
+                <!-- No `src` on purpose. This placeholder QR used to be
+                     hardcoded to api.qrserver.com and was therefore fetched at
+                     parse time — a fourth cross-origin connection opened during
+                     the critical path, from inside a display:none modal step,
+                     for an image main.js overwrites with the real appointment
+                     URL the moment a receipt is actually generated. -->
                 <img
                   id="receiptQrImage"
-                  src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=FMRC-Appointment"
                   alt="QR Code"
+                  decoding="async"
                   style="
                     width: 100%;
                     height: auto;
@@ -1460,12 +1517,16 @@
               alt="CNSC Logo"
               class="footer-logo"
               id="footerLogoPrimaryEl"
+              loading="lazy"
+              decoding="async"
             />
             <img
               src="/images/FMRC Logo.png"
               alt="FMRC Logo"
               class="footer-logo"
               id="footerLogoSecondaryEl"
+              loading="lazy"
+              decoding="async"
             />
             <h3 class="footer-brand" id="footerBrandNameEl">UCN- FMRC</h3>
           </div>
@@ -1620,21 +1681,32 @@
         >
           &times;
         </button>
-        <img id="serviceLightboxImage" src="" alt="Service large preview" />
+        <img
+          id="serviceLightboxImage"
+          src=""
+          alt="Service large preview"
+          decoding="async"
+        />
         <p id="serviceLightboxCaption" class="lightbox-caption"></p>
       </div>
     </div>
 
-    <script
-      src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"
-      crossorigin="anonymous"
-      referrerpolicy="no-referrer"
-    ></script>
+    <!-- html2canvas (199 KB) used to load synchronously here for a single
+         button inside step 5 of a modal that most visitors never open. main.js
+         now injects it on demand from the receipt handler, behind the
+         `typeof window.html2canvas !== "function"` guard it already had. -->
     <script src="turnstile.js?v=1.2"></script>
     <!-- Maintenance Mode gate: must run before main.js so the cached snapshot is
-         applied before anything that should be hidden can be painted. -->
+         applied before anything that should be hidden can be painted. This one
+         stays synchronous for that reason — everything below it is deferred. -->
     <script src="maintenance-gate.js?v=1.1"></script>
-    <script src="main.js?v=7.4"></script>
-    <script src="customer-announcements.js?v=5.6"></script>
+    <!-- Deferred as a set, never individually: `defer` only preserves relative
+         order among deferred scripts, so leaving any one of these synchronous
+         would run it ahead of the others. customer-announcements.js reads
+         window.APP_API_BASE_URL, which main.js sets. Both wrap their work in a
+         DOMContentLoaded handler, and deferred scripts run before that event
+         fires, so listener registration order is unchanged. -->
+    <script defer src="main.js?v=7.5"></script>
+    <script defer src="customer-announcements.js?v=5.7"></script>
   </body>
 </html>

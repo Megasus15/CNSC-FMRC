@@ -12,15 +12,34 @@
     <title>Products - UCN FMRC</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Font Awesome was the one head origin with no preconnect. Two hints on
+         purpose, the same pattern as Google Fonts above: the plain one warms the
+         socket the render-blocking stylesheet uses, the crossorigin one warms
+         the anonymous socket the woff2 needs (fonts are always fetched with
+         CORS, and Chrome will not reuse the other pool for them). -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+    <!-- One Montserrat request for the whole site: every customer page asks for
+         this exact string so navigating between them is a cache hit instead of a
+         fresh render-blocking round trip. Montserrat is a variable font, so the
+         extra weights cost no additional bytes. -->
     <link
-      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;700;800;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap"
       rel="stylesheet"
+    />
+    <!-- No `crossorigin` on the preload: the stylesheet below is fetched in
+         no-cors mode, and a mismatched preload would be a second download
+         rather than a warm cache hit. -->
+    <link
+      rel="preload"
+      as="style"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
-    <link rel="stylesheet" href="../home-page/main.css?v=7.0" />
+    <link rel="stylesheet" href="../home-page/main.css?v=7.1" />
     <style>
       @keyframes shimmer {
         0% {
@@ -157,6 +176,8 @@
           alt="CNSC Logo"
           class="header-emblem"
           id="navLogoEl"
+          decoding="async"
+          fetchpriority="high"
         />
         <h1 class="logo-text">
           <span class="logo-title">
@@ -368,7 +389,12 @@
 
         <div class="modal-scroll-area">
           <div class="modal-img-holder">
-            <img src="" alt="Product Preview" id="productInfoImage" />
+            <img
+              src=""
+              alt="Product Preview"
+              id="productInfoImage"
+              decoding="async"
+            />
           </div>
 
           <p class="modal-desc" id="productInfoSummary"></p>
@@ -446,7 +472,12 @@
     <div class="modal-overlay" id="imageLightboxModal" style="z-index: 21020;">
       <div class="lightbox-box">
         <button class="lightbox-close-btn" id="closeLightboxBtn" aria-label="Close image preview">&times;</button>
-        <img id="lightboxImage" src="" alt="Product Large Preview" />
+        <img
+          id="lightboxImage"
+          src=""
+          alt="Product Large Preview"
+          decoding="async"
+        />
         <video id="lightboxVideo" controls preload="metadata" playsinline hidden></video>
         <!-- Shown instead of a broken-image icon when the file cannot be fetched. -->
         <div id="lightboxError" class="lightbox-error" role="alert" hidden>
@@ -582,7 +613,12 @@
             <h3 class="checkout-section-title">Your Orders</h3>
             <!-- Single product card (Buy Now / single-item checkout) -->
             <div class="checkout-product-card" id="checkoutSingleProductCard">
-              <img src="" alt="Product" id="checkoutProductImg" />
+              <img
+                src=""
+                alt="Product"
+                id="checkoutProductImg"
+                decoding="async"
+              />
               <div class="checkout-product-details">
                 <h4 id="checkoutProductTitle">Product Title</h4>
                 <div class="product-price-row">
@@ -694,6 +730,7 @@
                   id="gcashQrImage"
                   class="gcash-qr-image"
                   alt="FMRC GCash QR code"
+                  decoding="async"
                 />
                 <a
                   id="gcashQrDownload"
@@ -942,7 +979,7 @@
 
         <div class="shop-modal-body">
           <div class="edit-info-guide">
-            <img src="" id="guideProductImg" alt="Ordering" />
+            <img src="" id="guideProductImg" alt="Ordering" decoding="async" />
             <div class="guide-text">
               <span>Ordering for:</span>
               <strong id="guideProductTitle">Product Title</strong>
@@ -1569,12 +1606,16 @@
               alt="CNSC Logo"
               class="footer-logo"
               id="footerLogoPrimaryEl"
+              loading="lazy"
+              decoding="async"
             />
             <img
               src="/images/FMRC Logo.png"
               alt="FMRC Logo"
               class="footer-logo"
               id="footerLogoSecondaryEl"
+              loading="lazy"
+              decoding="async"
             />
             <h3 class="footer-brand">UCN- FMRC</h3>
           </div>
@@ -1760,9 +1801,17 @@
 
     <!-- Order success modal above replaces the previous inline card. -->
 
-    <script src="../home-page/customer-announcements.js?v=5.6"></script>
+    <!-- Maintenance Mode gate stays synchronous: it must apply the cached
+         snapshot before anything that should be hidden can be painted. -->
     <script src="../home-page/maintenance-gate.js?v=1.1"></script>
-    <script src="../home-page/main.js?v=7.4"></script>
-    <script src="products.js?v=5.9"></script>
+    <!-- Deferred as a set, never individually: `defer` only preserves relative
+         order among deferred scripts, so leaving any one of these synchronous
+         would run it ahead of the others. All three wrap their work in a
+         DOMContentLoaded handler and deferred scripts run before that event
+         fires, so listener registration order is unchanged — the announcement
+         bell still initialises ahead of main.js exactly as it does today. -->
+    <script defer src="../home-page/customer-announcements.js?v=5.7"></script>
+    <script defer src="../home-page/main.js?v=7.5"></script>
+    <script defer src="products.js?v=5.9"></script>
   </body>
 </html>
