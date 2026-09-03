@@ -1,0 +1,510 @@
+/* ==========================================================================
+   fmrc-loader.css — the UCN-FMRC signature loader
+   FMRC-MARK v1
+
+   The mark is customer-auth/auth.css:1173's static `.portal-mark` brought to
+   life: the same tilted cream-to-gold tile, the same dashed blueprint frame,
+   the same corner engineering grid, the same FMRC wordmark. A visitor who sees
+   this while a page boots and then lands on the login screen is looking at one
+   object, not two components that happen to share a colour.
+
+   Everything animated here is `transform` or `opacity` only, so it composites
+   and costs a phone nothing: no `background-position`, no `box-shadow`
+   keyframes, no animated `filter`, no `backdrop-filter`, and no `will-change`
+   anywhere — Chrome promotes a running transform animation by itself, and
+   pinning layers on transient elements is the mistake main.css:19322 records.
+
+   Nothing in this file measures or predicts how long a wait will be. Every
+   animation loops `infinite` for exactly as long as the work runs. The only
+   finite durations are fade-outs, and each one starts after the work it
+   covered has already finished.
+
+   Every class is prefixed `fmrc-load-`, so no rule in main.css,
+   responsive.css or auth.css can reach into it and there is no specificity
+   contest to lose.
+   ========================================================================== */
+
+/* --- Keyframes ---------------------------------------------------------- */
+
+/* Twin of main.css's `fmrcSkeletonSweep`, re-declared under its own name
+   because customer-auth/auth.html never loads main.css. Reads as a scanner
+   pass over the tile. */
+@keyframes fmrcLoadSweep {
+  0% {
+    transform: translate3d(-105%, 0, 0);
+  }
+  100% {
+    transform: translate3d(105%, 0, 0);
+  }
+}
+
+/* The blueprint frame measures rather than spins. A rounded square rotated a
+   full turn would clip against the tile's own corners, so the motion is a
+   low-amplitude scale instead. */
+@keyframes fmrcLoadFrame {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.72;
+  }
+  50% {
+    transform: scale(1.035);
+    opacity: 1;
+  }
+}
+
+/* A print head rising through the engineering grid — the one motion on the
+   mark that is unmistakably a fabrication lab. Travel is the grid's own
+   height, derived from the single tile variable. */
+@keyframes fmrcLoadLayer {
+  0% {
+    transform: translate3d(0, 0, 0);
+    opacity: 0;
+  }
+  14% {
+    opacity: 1;
+  }
+  86% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(0, calc(var(--fmrc-tile) * -0.34), 0);
+    opacity: 0;
+  }
+}
+
+/* Indeterminate rail. `transform-origin: left` means scaleX shortens the bar
+   from its left edge while translate3d carries it across its own track. */
+@keyframes fmrcLoadRail {
+  0% {
+    transform: translate3d(-100%, 0, 0) scaleX(0.35);
+  }
+  50% {
+    transform: translate3d(20%, 0, 0) scaleX(0.62);
+  }
+  100% {
+    transform: translate3d(100%, 0, 0) scaleX(0.35);
+  }
+}
+
+/* Mount entrance. Runs once when the loader appears; it is not a wait. */
+@keyframes fmrcLoadRise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* The only motion left when the visitor asks for reduced motion. */
+@keyframes fmrcLoadCalm {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* --- The table ----------------------------------------------------------- */
+
+/* One inner component, used unchanged by the boot curtain, the action curtain
+   and index.html. Only the field behind it ever changes.
+
+   The white square is the loader's table: a solid white slab, ruled every 24px
+   like the paper on a real drafting bench, with the mark set on top of it.
+   Solid white, but not a full flat block — the ruling is what keeps it reading
+   as a work surface instead of a plain box.
+
+   It is also what makes the two curtains one object. Before the table existed
+   the copy had to be cream on the action curtain's dark scrim and maroon on the
+   boot curtain's light field, so the same loader was two slightly different
+   components depending on where it appeared; now every colour inside it is the
+   same everywhere and the veil-specific overrides that used to sit further down
+   this file are gone.
+
+   Square by construction rather than by luck: `width` and `min-height` are the
+   same expression, so the slab is exactly square for every flow whose copy is
+   one caption — the boot curtain, the splash, sign in, sign up, send message.
+   The two flows that also set a hint line (an appointment and an order) carry
+   four lines of copy instead of one, so their table grows to about 252×288 and
+   reads as a portrait card. It can only ever grow in height, never in width:
+   `76vw` keeps it clear of the viewport edges at any size, with the curtains'
+   own 24px of padding outside that. */
+.fmrc-load-core {
+  /* One number drives the entire mark. Same clamp as the auth page's own arm
+     for `.portal-mark` (auth.css:1761), so the loader's mark and the login
+     screen's mark are the same size at every width. */
+  --fmrc-tile: clamp(62px, 14vw, 96px);
+  box-sizing: border-box;
+  width: min(252px, 76vw);
+  min-height: min(252px, 76vw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  /* Wider than the mark's own rhythm would suggest, on purpose: the copy has to
+     spread across the table rather than huddle in the middle of it, or the slab
+     reads as mostly empty paper. */
+  gap: calc(var(--fmrc-tile) * 0.24);
+  padding: clamp(18px, 4.6vw, 26px);
+  text-align: center;
+  font-family: "Montserrat", "Segoe UI", system-ui, -apple-system, sans-serif;
+  border-radius: 18px;
+  /* White underneath, ruling on top: two 1px maroon lines on a 24px pitch,
+     centred both ways so the slab is symmetrical whatever its height. Drawn
+     with gradients rather than an image so it costs no request, and nothing
+     here moves — `background-position` is not compositable and this file
+     animates none. */
+  background:
+    linear-gradient(90deg, rgba(158, 20, 20, 0.08) 1px, rgba(158, 20, 20, 0) 1px),
+    linear-gradient(rgba(158, 20, 20, 0.08) 1px, rgba(158, 20, 20, 0) 1px),
+    #ffffff;
+  background-size: 24px 24px;
+  background-position: center center;
+  box-shadow:
+    inset 0 0 0 1px rgba(158, 20, 20, 0.08),
+    0 26px 60px rgba(15, 23, 42, 0.22),
+    0 2px 6px rgba(15, 23, 42, 0.08);
+  animation: fmrcLoadRise 0.34s ease-out both;
+}
+
+/* --- The mark ------------------------------------------------------------ */
+
+/* Geometry copied from `.portal-mark` (auth.css:1173) and expressed against
+   --fmrc-tile so it holds at every width: 30/96 radius, -2deg tilt. */
+.fmrc-load-mark {
+  position: relative;
+  width: var(--fmrc-tile);
+  height: var(--fmrc-tile);
+  flex: none;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: calc(var(--fmrc-tile) * 0.3125);
+  background: linear-gradient(135deg, #fffdf2 0%, #fff6bf 45%, #ffffff 100%);
+  /* Standing on the white table now, not floating on a dark scrim, so the
+     shadow it used to need to read there (0 24px 48px black at .25) would only
+     smudge the paper underneath it. The hairline ring is what draws the tile's
+     own edge, since cream on white has almost no contrast of its own; the lift
+     below it is short, warm and soft. */
+  box-shadow:
+    0 0 0 1px rgba(158, 20, 20, 0.12),
+    0 12px 24px rgba(139, 0, 0, 0.14);
+  transform: rotate(-2deg);
+}
+
+.fmrc-load-mark::before,
+.fmrc-load-mark::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+/* The scanner pass, kept warm so it glosses the gold tile instead of washing
+   the wordmark out. Paints under the children, above the fill. */
+.fmrc-load-mark::before {
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    rgba(241, 237, 18, 0) 24%,
+    rgba(255, 255, 255, 0.5) 47%,
+    rgba(241, 237, 18, 0.34) 60%,
+    rgba(241, 237, 18, 0) 78%
+  );
+  animation: fmrcLoadSweep 1.4s linear infinite;
+}
+
+/* Same geometry as `.portal-mark::before` (auth.css:1181): inset 10/96, radius
+   22/96, 1px dashed maroon at 28%. Paints above the children so the frame is
+   never crossed by the sweep. */
+.fmrc-load-mark::after {
+  inset: calc(var(--fmrc-tile) * 0.1042);
+  border: 1px dashed rgba(158, 20, 20, 0.28);
+  border-radius: calc(var(--fmrc-tile) * 0.2292);
+  animation: fmrcLoadFrame 2.6s ease-in-out infinite;
+}
+
+/* Same geometry as `.portal-mark::after` (auth.css:1188), but as a real element
+   rather than a pseudo, because the rising layer line needs something to be
+   clipped inside. `background-size: 25%` keeps it four cells square at every
+   tile size instead of a fixed 8px that would drift on a phone. */
+.fmrc-load-grid {
+  position: absolute;
+  right: calc(var(--fmrc-tile) * 0.1354);
+  bottom: calc(var(--fmrc-tile) * 0.1354);
+  width: calc(var(--fmrc-tile) * 0.3333);
+  height: calc(var(--fmrc-tile) * 0.3333);
+  overflow: hidden;
+  border-radius: calc(var(--fmrc-tile) * 0.1146);
+  background:
+    linear-gradient(90deg, rgba(158, 20, 20, 0.2) 1px, rgba(158, 20, 20, 0) 1px),
+    linear-gradient(rgba(158, 20, 20, 0.2) 1px, rgba(158, 20, 20, 0) 1px);
+  background-size: 25% 25%;
+}
+
+.fmrc-load-grid::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    rgba(241, 237, 18, 0),
+    rgba(241, 237, 18, 0.95) 50%,
+    rgba(241, 237, 18, 0)
+  );
+  animation: fmrcLoadLayer 1.9s ease-in-out infinite;
+}
+
+/* Static, exactly as on the login page: 16/96, weight 800, .12em, #7f1111. */
+.fmrc-load-word {
+  position: relative;
+  z-index: 1;
+  color: #7f1111;
+  font-size: calc(var(--fmrc-tile) * 0.1667);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1;
+}
+
+/* --- Caption, hint and rail ---------------------------------------------- */
+
+.fmrc-load-caption {
+  margin: 0;
+  max-width: 26ch;
+  color: #5f0d0d;
+  font-size: clamp(13px, 1.6vw, 15px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.35;
+}
+
+/* Only the two long waits set this — see fmrc-loader.js. Empty means gone, so
+   the layout does not reserve space for a line that is not there. */
+.fmrc-load-hint {
+  margin: calc(var(--fmrc-tile) * -0.08) 0 0;
+  max-width: 34ch;
+  color: #8a6a55;
+  font-size: clamp(11px, 1.3vw, 12.5px);
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.fmrc-load-hint:empty {
+  display: none;
+}
+
+.fmrc-load-rail {
+  position: relative;
+  width: clamp(96px, 26vw, 132px);
+  height: 2px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: rgba(158, 20, 20, 0.14);
+}
+
+.fmrc-load-rail > span {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #b01c1c, #8b0000 55%, #f1ed12);
+  animation: fmrcLoadRail 1.5s ease-in-out infinite;
+}
+
+/* --- The boot curtain ---------------------------------------------------- */
+
+/* Gated on `html.fmrc-booting`, a class only the inline <head> script adds, so
+   a visitor with scripting off never receives a curtain and can never be
+   stranded behind one. The lift is pure CSS: the same inline script removes the
+   class on DOMContentLoaded and the fade below runs afterwards — it is a
+   reaction to the wait ending, not a guess at how long the wait would be.
+
+   The default field is the one products, services and contact pages paint
+   (main.css:2022 and its twins). main.html and auth.html each set
+   --fmrc-boot-field to their own, so the curtain always fades into the exact
+   colour the page underneath settled on and there is no step. */
+.fmrc-load-boot {
+  position: fixed;
+  inset: 0;
+  z-index: 200001;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  overscroll-behavior: contain;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.28s ease,
+    visibility 0s linear 0.28s;
+  background: var(
+    --fmrc-boot-field,
+    radial-gradient(
+        circle at 8% 10%,
+        rgba(241, 237, 18, 0.18),
+        transparent 22rem
+      ),
+    radial-gradient(circle at 90% 18%, rgba(158, 20, 20, 0.12), transparent 24rem),
+    linear-gradient(135deg, #fffaf0 0%, #f5f7f2 46%, #fffdf8 100%)
+  );
+}
+
+html.fmrc-booting .fmrc-load-boot {
+  opacity: 1;
+  visibility: visible;
+  transition: none;
+}
+
+/* --- The action curtain -------------------------------------------------- */
+
+/* Sits above every dialog on the site. Today's verified ceiling is 100000
+   (`.ux-dlg--standalone`, main.css:17257), then 99999 for the rating popup and
+   for `.maint-dlg`. The scrim value is --ux-dlg-scrim, the same one already
+   behind every dialog, so an in-page action reads as "a dialog is working"
+   rather than as a second visual language.
+
+   The white table inside carries the loader here exactly as it does on the boot
+   curtain: same slab, same ruling, same copy colours. This block therefore sets
+   the scrim and nothing else — there are no `.fmrc-load-veil .fmrc-load-*`
+   colour overrides in this file at all, which is the whole reason one inner
+   component can serve a dark field and a light one without being touched. */
+.fmrc-load-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 200000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  overscroll-behavior: contain;
+  background: rgba(15, 23, 42, 0.55);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.18s ease,
+    visibility 0s linear 0.18s;
+}
+
+.fmrc-load-veil.is-on {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 0.18s ease;
+}
+
+/* --- Short viewport ------------------------------------------------------- */
+
+/* A phone held sideways, or a desktop window dragged down to a strip. Only the
+   vertical rhythm tightens; --fmrc-tile keeps its own clamp, so the mark never
+   changes proportion. No phone-width arm exists or is needed: --fmrc-tile and
+   every type size in this file already clamp on vw. */
+@media (max-height: 460px) and (orientation: landscape) {
+  .fmrc-load-core {
+    --fmrc-tile: clamp(52px, 11vh, 72px);
+    gap: calc(var(--fmrc-tile) * 0.16);
+    /* Still square, but measured off the short axis instead of the long one: at
+       460px tall the table is 232px and clears the curtain's 12px of padding
+       with room to spare, and it keeps shrinking with the viewport from there. */
+    width: min(232px, 58vh);
+    min-height: min(232px, 58vh);
+    padding: clamp(14px, 3.2vh, 22px);
+  }
+
+  .fmrc-load-hint {
+    display: none;
+  }
+
+  .fmrc-load-boot,
+  .fmrc-load-veil {
+    padding: 12px;
+  }
+}
+
+/* --- Reduced motion ------------------------------------------------------- */
+
+/* Last in the file, so it wins on source order against every rule above at the
+   same specificity and no `!important` is needed anywhere.
+
+   A visitor who asks for reduced motion still has to be told the site is
+   working, so the caption breathes — one slow opacity fade, the gentlest cue
+   available — and everything that travels, sweeps or scales stops. The rail
+   keeps its bar visible at rest rather than vanishing, so the shape of the
+   loader is unchanged; only the motion is. */
+@media (prefers-reduced-motion: reduce) {
+  .fmrc-load-core {
+    animation: none;
+  }
+
+  .fmrc-load-mark::before {
+    animation: none;
+    transform: none;
+    opacity: 0.4;
+  }
+
+  .fmrc-load-mark::after {
+    animation: none;
+    transform: none;
+    opacity: 1;
+  }
+
+  .fmrc-load-grid::after {
+    animation: none;
+    opacity: 1;
+  }
+
+  .fmrc-load-rail > span {
+    animation: none;
+    transform: translate3d(0, 0, 0) scaleX(0.35);
+  }
+
+  .fmrc-load-caption {
+    animation: fmrcLoadCalm 2.4s ease-in-out infinite;
+  }
+
+  /* With `transition: none` below there is no transitionend, so the inline boot
+     script never gets its cue to take the faded curtain out of the document.
+     Stopping the one loop that is still running here does the same job. There is
+     no pop to worry about, because under reduced motion there is no fade to
+     interrupt. */
+  html:not(.fmrc-booting) .fmrc-load-boot .fmrc-load-caption {
+    animation: none;
+  }
+
+  /* `.fmrc-load-veil.is-on` is named explicitly because it re-declares
+     `transition` at (0,2,0) — a media query adds no specificity, so listing
+     only `.fmrc-load-veil` here would leave the fade-in running. */
+  .fmrc-load-boot,
+  .fmrc-load-veil,
+  .fmrc-load-veil.is-on {
+    transition: none;
+  }
+}
+
+/* The action curtain, unlike the boot curtain, is never taken out of the
+   document when it lowers: every submit on the page reuses the same node, so it
+   stays built and only fades. Left alone that would leave four infinite loops —
+   five under reduced motion, counting the caption — animating an element nobody
+   can see, for the rest of the page's life. Parking them on `:not(.is-on)` costs
+   nothing and the browser starts them from their first frame again the next time
+   a curtain goes up, so a second submit looks exactly like the first.
+
+   Deliberately the last rules in the file, and deliberately outside the
+   reduced-motion arm above: at (0,3,0) and (0,3,1) they outrank both the loop
+   declarations at the top of this file and the `fmrcLoadCalm` re-declaration
+   inside that arm, so this one block covers every combination. */
+.fmrc-load-veil:not(.is-on) .fmrc-load-core,
+.fmrc-load-veil:not(.is-on) .fmrc-load-caption,
+.fmrc-load-veil:not(.is-on) .fmrc-load-mark::before,
+.fmrc-load-veil:not(.is-on) .fmrc-load-mark::after,
+.fmrc-load-veil:not(.is-on) .fmrc-load-grid::after,
+.fmrc-load-veil:not(.is-on) .fmrc-load-rail > span {
+  animation: none;
+}

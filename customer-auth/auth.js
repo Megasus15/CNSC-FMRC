@@ -144,16 +144,20 @@ document.addEventListener("DOMContentLoaded", () => {
     if (authCaption) authCaption.textContent = caption;
   };
 
-  const toggleLoader = (show) => {
-    let loader = document.getElementById("global-loader");
-    if (!loader) {
-      loader = document.createElement("div");
-      loader.id = "global-loader";
-      loader.className = "global-loader-overlay";
-      loader.innerHTML = '<div class="laravel-spinner"></div>';
-      document.body.appendChild(loader);
-    }
-    loader.classList.toggle("active", show);
+  /* Was a white scrim with a rotating ring; now it raises the site-wide
+     UCN-FMRC curtain, whose mark is the same tile as the `.portal-mark` beside
+     this form. The name and the `(true)` / `(false)` calling convention are kept
+     exactly as they were so every call site below is untouched apart from the
+     one line of wording each now passes.
+
+     `caption` is optional: an older call that passes nothing still gets a
+     curtain, just a generically worded one. Written with `?.` so a page where
+     fmrc-loader.js failed to arrive silently keeps today's behaviour — the
+     submit button is disabled either way — instead of throwing inside a
+     request. */
+  const toggleLoader = (show, caption) => {
+    if (show) window.FMRCLoader?.show(caption || "Just a moment");
+    else window.FMRCLoader?.hide();
   };
 
   const showStatus = (message) => {
@@ -557,7 +561,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      toggleLoader(true);
+      toggleLoader(true, "Creating your account");
       try {
         const response = await fetch(`${API_BASE_URL}/register`, {
           method: "POST",
@@ -656,7 +660,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      toggleLoader(true);
+      toggleLoader(true, "Signing you in");
       try {
         const response = await fetch(`${API_BASE_URL}/customer/login`, {
           method: "POST",
@@ -938,7 +942,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      toggleLoader(true);
+      toggleLoader(true, "Sending your code");
       try {
         const response = await fetch(`${API_BASE_URL}/forgot-password/send-otp`, {
           method: "POST",
@@ -1001,7 +1005,7 @@ document.addEventListener("DOMContentLoaded", () => {
   btnResendOtp?.addEventListener("click", async () => {
     if (!currentOtpEmail) return;
     btnResendOtp.disabled = true;
-    toggleLoader(true);
+    toggleLoader(true, "Sending a new code");
 
     try {
       const response = await fetch(`${API_BASE_URL}/forgot-password/resend-otp`, {
@@ -1076,7 +1080,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (hasError) return;
 
-      toggleLoader(true);
+      toggleLoader(true, "Updating your password");
       try {
         const response = await fetch(`${API_BASE_URL}/forgot-password/verify-otp`, {
           method: "POST",
@@ -1131,7 +1135,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let googleTokenClient = null;
 
   const processGoogleAuthPayload = async (payload) => {
-    toggleLoader(true);
+    toggleLoader(true, "Signing you in");
     hideStatus();
     try {
       const res = await fetch(`${API_BASE_URL}/auth/google`, {

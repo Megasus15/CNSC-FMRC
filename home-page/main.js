@@ -4214,6 +4214,16 @@ document.addEventListener("DOMContentLoaded", () => {
       this.disabled = true;
       this.innerText = "Processing...";
 
+      /* The hint earns its place here: the server sends the confirmation email
+         inside this request, which is why the timeout below is 25s and not 15s.
+         The curtain also covers the checkout modal taking itself apart on the
+         success path, so the last thing the visitor sees is the mark, not a
+         form dismantling itself. */
+      window.FMRCLoader?.show(
+        "Placing your order",
+        "This can take a moment. Please keep this tab open.",
+      );
+
       try {
         const token = getCustomerToken() || customerSession.token || "";
         if (!token) {
@@ -4435,8 +4445,17 @@ document.addEventListener("DOMContentLoaded", () => {
           orderId: data?.data?.id || null,
         });
 
+        /* Last thing on the success path: the order is placed, the cart is
+           saved, the modal is closed and the grid reload is already in flight,
+           so the curtain lifts onto a page that is finished changing. */
+        window.FMRCLoader?.hide();
+
         return; // success path done; finally block still runs but is harmless
       } catch (error) {
+        /* Before the popup, never after: the curtain sits above every dialog on
+           the page, so a popup awaited underneath it could never be clicked.
+           Exactly one of these two hides runs on any given attempt. */
+        window.FMRCLoader?.hide();
         await showCustomerPopup(
           error?.message || "Unable to place order. Please try again.",
           {
@@ -7098,6 +7117,17 @@ document.addEventListener("DOMContentLoaded", () => {
     if (backBtn) backBtn.disabled = true;
     if (closeBtn) closeBtn.disabled = true;
 
+    /* The same curtain the site raises while it boots, now over the submit. The
+       hint line is here and not on the shorter flows because this request sends
+       the confirmation email before it answers, so it is the one wait long
+       enough that a visitor might otherwise think the tab had stalled. Written
+       with `?.` so a page where fmrc-loader.js failed to arrive keeps exactly
+       today's behaviour — the buttons above are already locked either way. */
+    window.FMRCLoader?.show(
+      "Submitting your appointment",
+      "This can take a moment. Please keep this tab open.",
+    );
+
     const restoreButtons = () => {
       if (btn) {
         btn.disabled = false;
@@ -7152,6 +7182,17 @@ document.addEventListener("DOMContentLoaded", () => {
         title: "Submission Error",
         allowBackdropClose: false,
       });
+    } finally {
+      /* Hide, and nothing else. `restoreButtons()` must never be called here:
+         on the success path the confirm button is deliberately left disabled,
+         and re-enabling it would make a second appointment submittable for the
+         same booking. The two failure paths above already restore it themselves.
+
+         Because this runs after the `try` has finished, Step 5 is already
+         painted underneath the curtain by the time the curtain fades — the
+         visitor never sees Step 4 flash back. The curtain lasts exactly as long
+         as the request does; there is no duration chosen here. */
+      window.FMRCLoader?.hide();
     }
     return false;
   });
@@ -7235,6 +7276,10 @@ document.addEventListener("DOMContentLoaded", () => {
         submitBtn.textContent = "Sending...";
       }
 
+      /* No hint line here: this request only writes a row and answers, so it is
+         short enough that a second sentence would be noise. */
+      window.FMRCLoader?.show("Sending your message");
+
       try {
         const authToken =
           customerSession.token || localStorage.getItem("customer_token") || "";
@@ -7260,6 +7305,12 @@ document.addEventListener("DOMContentLoaded", () => {
           );
         }
 
+        /* Down as soon as the server has answered — the wait the curtain
+           describes is over, and the popup below is awaited, so it has to be
+           clickable. The curtain is the topmost layer on the page by design, so
+           anything awaited underneath it could never be dismissed. */
+        window.FMRCLoader?.hide();
+
         contactMessageForm.reset();
         await showCustomerPopup(
           data?.message ||
@@ -7270,6 +7321,10 @@ document.addEventListener("DOMContentLoaded", () => {
           },
         );
       } catch (error) {
+        /* The other end of the same rule: a failed or timed-out request has
+           finished waiting too, and this popup is awaited as well. Exactly one
+           of these two hides runs on any given attempt. */
+        window.FMRCLoader?.hide();
         await showCustomerPopup(
           error?.message || "Unable to send your message. Please try again.",
           {
@@ -7293,21 +7348,15 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!userProfileBtn) return;
   userProfileBtn.removeAttribute("title");
 
-  const ensureLoader = () => {
-    let loader = document.getElementById("global-loader");
-    if (!loader) {
-      loader = document.createElement("div");
-      loader.id = "global-loader";
-      loader.className = "global-loader-overlay";
-      loader.innerHTML = '<div class="laravel-spinner"></div>';
-      document.body.appendChild(loader);
-    }
-    return loader;
-  };
-
-  const setLoader = (active) => {
-    ensureLoader().classList.toggle("active", active);
-  };
+  /* `ensureLoader()` and `setLoader()` used to live here: they built
+     `#global-loader` with a `.laravel-spinner` inside it — the white scrim with
+     a rotating ring, the second and last copy of the loader this round
+     replaces. Both call sites now raise the shared UCN-FMRC curtain through
+     `window.FMRCLoader`, so nothing on a customer page builds that node any
+     more. The matching rules in main.css (`.global-loader-overlay`,
+     `.laravel-spinner`) are left where they are on purpose: they are now
+     unreachable, and editing a 573 KB render-blocking stylesheet to delete dead
+     rules would force every visitor to re-download it for no visible gain. */
 
   const ensureStatusModal = () => {
     let modal = document.getElementById("userStatusModal");
@@ -7739,7 +7788,11 @@ document.addEventListener("DOMContentLoaded", () => {
             submitBtn.disabled = false;
             submitBtn.textContent = originalBtnText;
           }
-          setLoader(false);
+          /* A `setLoader(false)` used to sit here, hiding a scrim this flow
+             never raised — its only effect was to build the old spinner node.
+             The button lock above and the message box below are what report
+             this particular wait; it answers inside the profile modal, so a
+             full-screen curtain would hide the very panel the answer lands in. */
         }
       };
     }
@@ -13699,7 +13752,10 @@ const openReturnRequestModal = (() => {
     hideDropdown(dropdown);
     showLogoutConfirmModal(async () => {
       hideStatus();
-      setLoader(true);
+      /* The customer portal's last white-scrim spinner used to be raised here.
+         It is the same curtain as the rest of the site now, so signing out
+         looks like signing in. */
+      window.FMRCLoader?.show("Signing you out");
       try {
         await fetch(`${API_BASE_URL}/logout`, {
           method: "POST",
@@ -13713,7 +13769,11 @@ const openReturnRequestModal = (() => {
       } finally {
         localStorage.removeItem("customer_token");
         localStorage.removeItem("customer_info");
-        setLoader(false);
+        /* Deliberately no hide here. The sign-in page raises this same curtain
+           while it boots, so leaving it up hands the wait straight over instead
+           of flashing a logged-out copy of this page for a frame or two. If the
+           visitor comes Back later the browser restores this page from the
+           bfcache, and fmrc-loader.js clears the curtain on `pageshow`. */
         showStatus("Logged out successfully.");
         window.location.href = "../customer-auth/auth.html";
       }

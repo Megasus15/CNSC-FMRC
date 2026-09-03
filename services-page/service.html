@@ -41,8 +41,72 @@
     />
     <link rel="stylesheet" href="../home-page/main.css?v=7.2" />
     <link rel="stylesheet" href="../home-page/responsive.css?v=7.1" />
+
+    <!-- The signature loader. One sheet shared by every customer page, so the
+         curtain that covers this page while it boots and the curtain that covers
+         a submit later are the same object, not two things that happen to share
+         a colour. It is a plain <link> and not inlined: a stylesheet in <head>
+         blocks first paint wherever in the head it sits, and this page's first
+         paint is already gated on main.css above it, so these rules are
+         guaranteed present the first time anything paints. -->
+    <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=1.0" />
+    <script>
+      /* Raises the boot curtain before the body paints, then lowers it the
+         moment the DOM is ready. Inline and in <head> on purpose: the class has
+         to be on <html> before the first frame, and whatever owns the lift must
+         always be present — so a page whose loader files fail to arrive can
+         never be left behind a curtain with nothing left to remove it. There is
+         no timer here; the curtain lasts exactly as long as the page takes. */
+      (function () {
+        var h = document.documentElement;
+        h.classList.add("fmrc-booting");
+        function lift() {
+          h.classList.remove("fmrc-booting");
+          var boot = document.querySelector(".fmrc-load-boot");
+          if (!boot) return;
+          /* Taking the faded node out of the document stops four infinite
+             animations from running, invisibly, for the life of the page. */
+          boot.addEventListener("transitionend", function (e) {
+            if (e.target === boot) boot.remove();
+          });
+          /* Reading the curtain's opacity here both starts the fade and reports
+             whether there is one: a visitor who asked for reduced motion gets
+             `transition: none`, so no transitionend is ever coming and the node
+             has to go now. Deliberately not wrapped in requestAnimationFrame —
+             rAF never fires in a background tab, which would leave a tab opened
+             in the background curtained until the moment it is looked at. */
+          if (parseFloat(getComputedStyle(boot).opacity) === 0) boot.remove();
+        }
+        if (document.readyState === "loading")
+          document.addEventListener("DOMContentLoaded", lift, { once: true });
+        else lift();
+        /* A successful login navigates away with a curtain up, and a later Back
+           can restore a page frozen exactly as it was without re-running a line
+           of script. `persisted` is the browser saying it just did that. */
+        window.addEventListener("pageshow", function (e) {
+          if (e.persisted) h.classList.remove("fmrc-booting");
+        });
+      })();
+    </script>
   </head>
   <body class="services-page-body">
+    <!-- The boot curtain. Static markup, so it can paint on the very first
+         frame; hidden by default in CSS and shown only while html.fmrc-booting
+         is set, which the script above is the only thing that adds. A visitor
+         with scripting off therefore never receives a curtain and can never be
+         stranded behind one. No --fmrc-boot-field here: this page paints the
+         field fmrc-loader.css already defaults to (main.css:838). -->
+    <div class="fmrc-load-boot" role="status" aria-live="polite">
+      <div class="fmrc-load-core">
+        <div class="fmrc-load-mark" aria-hidden="true">
+          <span class="fmrc-load-word">FMRC</span>
+          <span class="fmrc-load-grid"></span>
+        </div>
+        <p class="fmrc-load-caption">Preparing your workspace</p>
+        <div class="fmrc-load-rail" aria-hidden="true"><span></span></div>
+      </div>
+    </div>
+
     <header class="site-header">
       <a href="/home-page/main.html" class="logo-container">
         <img
@@ -390,7 +454,12 @@
          would run it ahead of the others. All three wrap their work in a
          DOMContentLoaded handler and deferred scripts run before that event
          fires, so listener registration order is unchanged. -->
-    <script defer src="../home-page/main.js?v=7.6"></script>
+    <!-- First of the set, so window.FMRCLoader exists before any handler
+         main.js or services.js registers can fire. Every call site is written
+         `window.FMRCLoader?.…`, so if this one request ever fails the affected
+         flow falls back to the plain disabled button it had before. -->
+    <script defer src="../home-page/fmrc-loader.js?v=1.0"></script>
+    <script defer src="../home-page/main.js?v=7.7"></script>
     <script defer src="services.js?v=5.7"></script>
     <script defer src="../home-page/customer-announcements.js?v=5.7"></script>
   </body>

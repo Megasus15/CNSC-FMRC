@@ -2,14 +2,271 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <!-- Unchanged, and deliberately so: `0` is what makes this splash's visible
+         length equal to real network time. The browser starts fetching
+         home-page/main immediately and keeps this document on screen until that
+         one is ready to paint. Nothing here waits, counts or predicts. -->
     <meta http-equiv="refresh" content="0; url=home-page/main">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Same value main.html:11 sets, so the phone's address bar does not
+         change colour across the handoff. -->
+    <meta name="theme-color" content="#8b0000" />
     <link rel="icon" href="/images/favicon.ico?v=3" sizes="any" />
     <link rel="apple-touch-icon" href="/images/apple-touch-icon.png?v=3" />
     <title>UCN FabManLab - CNSC Fabrication and Manufacturing Resource Center</title>
     <meta name="description" content="CNSC Fabrication and Manufacturing Resource Center - Products, Services, and More">
+    <!-- All CSS inline, on purpose. This document's only job is to paint on the
+         first packet, so it makes zero subrequests: no stylesheet, no webfont,
+         no image. Every rule below is the same geometry as
+         home-page/fmrc-loader.css, kept in step by hand — the mark a visitor
+         sees here is the mark they see on every other page. -->
+    <style>
+      /* FMRC-MARK v1 */
+      *, *::before, *::after { box-sizing: border-box; }
+
+      html, body { height: 100%; }
+
+      /* Field A — the exact background home-page/main.html paints
+         (main.css:12773), so this page fades into that one with no step. */
+      body {
+        margin: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background:
+          radial-gradient(circle at 9% 0%, rgba(241, 237, 18, 0.12), transparent 23rem),
+          radial-gradient(circle at 92% 12%, rgba(176, 28, 28, 0.09), transparent 22rem),
+          #fffdf9;
+        /* No webfont request, so this is the stack the wordmark actually gets.
+           Montserrat is listed first for the rare visitor who has it locally. */
+        font-family: "Montserrat", "Segoe UI", system-ui, -apple-system, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      @keyframes fmrcLoadSweep {
+        0%   { transform: translate3d(-105%, 0, 0); }
+        100% { transform: translate3d(105%, 0, 0); }
+      }
+
+      @keyframes fmrcLoadFrame {
+        0%, 100% { transform: scale(1); opacity: 0.72; }
+        50%      { transform: scale(1.035); opacity: 1; }
+      }
+
+      @keyframes fmrcLoadLayer {
+        0%   { transform: translate3d(0, 0, 0); opacity: 0; }
+        14%  { opacity: 1; }
+        86%  { opacity: 1; }
+        100% { transform: translate3d(0, calc(var(--fmrc-tile) * -0.34), 0); opacity: 0; }
+      }
+
+      @keyframes fmrcLoadRail {
+        0%   { transform: translate3d(-100%, 0, 0) scaleX(0.35); }
+        50%  { transform: translate3d(20%, 0, 0) scaleX(0.62); }
+        100% { transform: translate3d(100%, 0, 0) scaleX(0.35); }
+      }
+
+      @keyframes fmrcLoadCalm {
+        0%, 100% { opacity: 0.55; }
+        50%      { opacity: 1; }
+      }
+
+      /* The loader's table: solid white, ruled every 24px, square by
+         construction. Byte-for-byte the same slab as `.fmrc-load-core` in
+         home-page/fmrc-loader.css, so the splash here, the boot curtain on
+         every page and the action curtain over every submit are one object.
+         Any change to it has to be made in both places.
+
+         No entrance animation on this page, unlike the shared sheet's
+         `fmrcLoadRise`: on a fast connection this document lives for a couple
+         of hundred milliseconds, and a mark caught halfway through a fade-in
+         reads as a flicker. Here the mark is simply already there. */
+      .fmrc-load-core {
+        --fmrc-tile: clamp(62px, 14vw, 96px);
+        box-sizing: border-box;
+        width: min(252px, 76vw);
+        min-height: min(252px, 76vw);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: calc(var(--fmrc-tile) * 0.24);
+        padding: clamp(18px, 4.6vw, 26px);
+        text-align: center;
+        border-radius: 18px;
+        background:
+          linear-gradient(90deg, rgba(158, 20, 20, 0.08) 1px, rgba(158, 20, 20, 0) 1px),
+          linear-gradient(rgba(158, 20, 20, 0.08) 1px, rgba(158, 20, 20, 0) 1px),
+          #ffffff;
+        background-size: 24px 24px;
+        background-position: center center;
+        box-shadow:
+          inset 0 0 0 1px rgba(158, 20, 20, 0.08),
+          0 26px 60px rgba(15, 23, 42, 0.22),
+          0 2px 6px rgba(15, 23, 42, 0.08);
+      }
+
+      .fmrc-load-mark {
+        position: relative;
+        width: var(--fmrc-tile);
+        height: var(--fmrc-tile);
+        flex: none;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        border-radius: calc(var(--fmrc-tile) * 0.3125);
+        background: linear-gradient(135deg, #fffdf2 0%, #fff6bf 45%, #ffffff 100%);
+        /* Ring first, then a short warm lift: the tile stands on white paper
+           here, so a heavy dark shadow would only smudge it. */
+        box-shadow:
+          0 0 0 1px rgba(158, 20, 20, 0.12),
+          0 12px 24px rgba(139, 0, 0, 0.14);
+        transform: rotate(-2deg);
+      }
+
+      .fmrc-load-mark::before,
+      .fmrc-load-mark::after { content: ""; position: absolute; pointer-events: none; }
+
+      .fmrc-load-mark::before {
+        inset: 0;
+        background: linear-gradient(
+          100deg,
+          rgba(241, 237, 18, 0) 24%,
+          rgba(255, 255, 255, 0.5) 47%,
+          rgba(241, 237, 18, 0.34) 60%,
+          rgba(241, 237, 18, 0) 78%
+        );
+        animation: fmrcLoadSweep 1.4s linear infinite;
+      }
+
+      .fmrc-load-mark::after {
+        inset: calc(var(--fmrc-tile) * 0.1042);
+        border: 1px dashed rgba(158, 20, 20, 0.28);
+        border-radius: calc(var(--fmrc-tile) * 0.2292);
+        animation: fmrcLoadFrame 2.6s ease-in-out infinite;
+      }
+
+      .fmrc-load-grid {
+        position: absolute;
+        right: calc(var(--fmrc-tile) * 0.1354);
+        bottom: calc(var(--fmrc-tile) * 0.1354);
+        width: calc(var(--fmrc-tile) * 0.3333);
+        height: calc(var(--fmrc-tile) * 0.3333);
+        overflow: hidden;
+        border-radius: calc(var(--fmrc-tile) * 0.1146);
+        background:
+          linear-gradient(90deg, rgba(158, 20, 20, 0.2) 1px, rgba(158, 20, 20, 0) 1px),
+          linear-gradient(rgba(158, 20, 20, 0.2) 1px, rgba(158, 20, 20, 0) 1px);
+        background-size: 25% 25%;
+      }
+
+      .fmrc-load-grid::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 2px;
+        background: linear-gradient(
+          90deg,
+          rgba(241, 237, 18, 0),
+          rgba(241, 237, 18, 0.95) 50%,
+          rgba(241, 237, 18, 0)
+        );
+        animation: fmrcLoadLayer 1.9s ease-in-out infinite;
+      }
+
+      .fmrc-load-word {
+        position: relative;
+        z-index: 1;
+        color: #7f1111;
+        font-size: calc(var(--fmrc-tile) * 0.1667);
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        line-height: 1;
+      }
+
+      .fmrc-load-caption {
+        margin: 0;
+        max-width: 26ch;
+        color: #5f0d0d;
+        font-size: clamp(13px, 1.6vw, 15px);
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        line-height: 1.35;
+      }
+
+      .fmrc-load-rail {
+        position: relative;
+        width: clamp(96px, 26vw, 132px);
+        height: 2px;
+        overflow: hidden;
+        border-radius: 2px;
+        background: rgba(158, 20, 20, 0.14);
+      }
+
+      .fmrc-load-rail > span {
+        position: absolute;
+        inset: 0;
+        transform-origin: left center;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #b01c1c, #8b0000 55%, #f1ed12);
+        animation: fmrcLoadRail 1.5s ease-in-out infinite;
+      }
+
+      /* The manual way forward, kept from the page this replaces. It matters
+         for the one visitor whose browser or extension refuses meta refresh:
+         without it they would watch this splash forever. Muted, because for
+         everyone else it is a line they never need to read. */
+      .fmrc-load-manual {
+        margin: calc(var(--fmrc-tile) * 0.1) 0 0;
+        color: #8a6a55;
+        font-size: clamp(11px, 1.3vw, 12.5px);
+        font-weight: 500;
+        line-height: 1.45;
+      }
+
+      .fmrc-load-manual a {
+        color: #8b0000;
+        font-weight: 700;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+
+      /* Darker on hover and on press, never a lift — the site's button rule,
+         applied to the one link on this page. */
+      .fmrc-load-manual a:hover { color: #6d0000; }
+      .fmrc-load-manual a:active { color: #560000; }
+
+      @media (max-height: 460px) and (orientation: landscape) {
+        .fmrc-load-core {
+          --fmrc-tile: clamp(52px, 11vh, 72px);
+          gap: calc(var(--fmrc-tile) * 0.16);
+          width: min(232px, 58vh);
+          min-height: min(232px, 58vh);
+          padding: clamp(14px, 3.2vh, 22px);
+        }
+      }
+
+      /* Last, so it wins on source order with no !important anywhere. */
+      @media (prefers-reduced-motion: reduce) {
+        .fmrc-load-mark::before { animation: none; transform: none; opacity: 0.4; }
+        .fmrc-load-mark::after { animation: none; transform: none; opacity: 1; }
+        .fmrc-load-grid::after { animation: none; opacity: 1; }
+        .fmrc-load-rail > span { animation: none; transform: translate3d(0, 0, 0) scaleX(0.35); }
+        .fmrc-load-caption { animation: fmrcLoadCalm 2.4s ease-in-out infinite; }
+      }
+    </style>
 </head>
 <body>
-    <p>Redirecting to <a href="home-page/main">UCN FabManLab</a>...</p>
+    <main class="fmrc-load-core" role="status" aria-live="polite">
+      <div class="fmrc-load-mark" aria-hidden="true">
+        <span class="fmrc-load-word">FMRC</span>
+        <span class="fmrc-load-grid"></span>
+      </div>
+      <p class="fmrc-load-caption">Preparing your workspace</p>
+      <div class="fmrc-load-rail" aria-hidden="true"><span></span></div>
+      <p class="fmrc-load-manual">Not moving? <a href="home-page/main">Continue to UCN FabManLab</a></p>
+    </main>
 </body>
 </html>
