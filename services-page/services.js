@@ -53,10 +53,21 @@ document.addEventListener("DOMContentLoaded", () => {
     return category.replace(/[^a-z0-9]+/g, "-") || "other";
   };
 
-  // Render Skeleton Loading
+  // Render Skeleton Loading. The shimmer itself is a compositable `transform`
+  // sweep on a `::after`, defined once in home-page/main.css and shared with the
+  // products grid, so nothing about it is set here.
   const renderSkeleton = () => {
     if (!servicesGrid) return;
-    servicesGrid.innerHTML = Array.from({ length: 8 })
+    // Four cards on a phone, eight on desktop. Measured at 393x873 the grid is
+    // two columns, so eight cards is four rows and the bottom two sit below the
+    // fold; four fill the visible area exactly and halve the animated boxes from
+    // 56 to 28 on the device with the least GPU memory to spare.
+    const cardCount =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(max-width: 900px)").matches
+        ? 4
+        : 8;
+    servicesGrid.innerHTML = Array.from({ length: cardCount })
       .map(
         () => `
       <article class="service-card service-skeleton-card" aria-hidden="true">

@@ -1196,48 +1196,107 @@ body {
   outline-offset: 3px;
 }
 
-/* --- Services skeleton loading cards (rendered by services-page/services.js) --- */
-@keyframes serviceSkeletonShimmer {
-  0% {
-    background-position: 200% 0;
+/* --- Skeleton loading cards, shared by the services and products grids ------
+   Rendered by `services-page/services.js` and `products-page/products.js`.
+
+   The sweep animates `transform` on an absolutely positioned `::after` over a
+   flat base fill, NOT `background-position` on the box itself. Only the first
+   of those runs on the compositor: a `background-position` shimmer costs a
+   style recalc plus a full repaint of every box on every frame, and those
+   frames land precisely while the grid is still fetching its data. The services
+   grid renders 56 of these boxes at once (8 cards x 7 elements — counted in the
+   browser, not from the template), which is why that page felt slower than the
+   products page: not a different technique, the products grid simply animated
+   12. `services.js` now also renders 4 skeleton cards instead of 8 below 900px,
+   taking that 56 down to 28, because the grid is two columns there and the
+   bottom two rows fell below the fold anyway.
+
+   The highlight also crosses each box continuously here, instead of sliding out
+   of view for the back half of the cycle the way the 200%-wide background did,
+   so it reads smoother as well as costing less.
+
+   Deliberately no `will-change`: Chrome auto-promotes a running transform
+   animation on its own, and pinning a compositing layer onto an element that is
+   about to be replaced by real content is the exact mistake documented in the
+   phone-performance block at the end of this file. */
+@keyframes fmrcSkeletonSweep {
+  from {
+    transform: translate3d(-100%, 0, 0);
   }
-  100% {
-    background-position: -200% 0;
+  to {
+    transform: translate3d(100%, 0, 0);
   }
 }
 
-.services-grid .service-skeleton-card {
+.services-grid .service-skeleton-card,
+.shop-grid .product-skeleton-card {
   pointer-events: none;
 }
 
+/* Flat fill = the old gradient's own endpoint colour, so a box at rest looks
+   identical. `overflow: hidden` clips the sweep to the rounded pills. */
 .service-skeleton-img,
-.service-skeleton-line {
-  background: linear-gradient(
-    90deg,
-    rgba(246, 240, 232, 0.92) 25%,
-    rgba(225, 213, 201, 0.95) 50%,
-    rgba(246, 240, 232, 0.92) 75%
-  );
-  background-size: 200% 100%;
-  animation: serviceSkeletonShimmer 1.4s linear infinite;
+.service-skeleton-line,
+.product-skeleton-img,
+.product-skeleton-line {
+  position: relative;
+  overflow: hidden;
+  background: rgba(246, 240, 232, 0.92);
 }
 
+/* Explicit rgba(..., 0) at both ends rather than `transparent`: `transparent`
+   is transparent *black*, which some engines interpolate through and leave a
+   grey cast across the middle of the sweep. */
+.service-skeleton-img::after,
+.service-skeleton-line::after,
+.product-skeleton-img::after,
+.product-skeleton-line::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(225, 213, 201, 0) 0%,
+    rgba(225, 213, 201, 0.95) 50%,
+    rgba(225, 213, 201, 0) 100%
+  );
+  animation: fmrcSkeletonSweep 1.4s linear infinite;
+}
+
+/* `aspect-ratio` stays on the per-page rules and never on the grouped selector
+   above, because `responsive.css` re-declares `.services-page-body
+   .service-skeleton-img { aspect-ratio: 4 / 3 }` and loads after this file. */
 .service-skeleton-img {
   width: 100%;
   aspect-ratio: 16 / 10;
   border-bottom: 1px solid rgba(105, 52, 42, 0.08);
 }
 
-.service-skeleton-line {
+/* Its own box, deliberately not a second class on `.product-img-wrapper`: that
+   wrapper sets `background-color: #ffffff` at the same specificity but later in
+   this file, so it would win and paint the skeleton white. */
+.product-skeleton-img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-bottom: 1px solid rgba(105, 52, 42, 0.08);
+}
+
+.service-skeleton-line,
+.product-skeleton-line {
   display: block;
   height: 14px;
   border-radius: 7px;
 }
 
+/* `animation: none` on the boxes themselves would now silence nothing, and
+   `animation: none` on the `::after` would freeze the highlight mid-box as a
+   permanent bright band. Drop the sweep entirely and keep the flat fill. */
 @media (prefers-reduced-motion: reduce) {
-  .service-skeleton-img,
-  .service-skeleton-line {
-    animation: none;
+  .service-skeleton-img::after,
+  .service-skeleton-line::after,
+  .product-skeleton-img::after,
+  .product-skeleton-line::after {
+    display: none;
   }
 }
 
@@ -19291,7 +19350,10 @@ textarea:focus-visible {
      * `.carousel-track { perspective: 1000px }` promoting every carousel item
        to its own layer for the whole visit, for depth no phone state renders.
      * the service skeletons animating `background-position`, which is not
-       compositable, on six boxes while the main thread is at its busiest.
+       compositable, across 56 boxes (8 cards x 7 elements) while the main
+       thread is at its busiest. That one is now fixed at source rather than
+       silenced here: the shimmer became a compositable `transform` sweep on a
+       `::after`, so the animation is back on phones as well.
 
    Desktop keeps the frosted-glass design untouched: everything below is inside
    the media query.
@@ -19379,12 +19441,98 @@ textarea:focus-visible {
   .carousel-track {
     perspective: none;
   }
+}
 
-  /* `background-position` is not compositable: six of these repainted on every
-     frame precisely while the services fetch was still in flight. */
-  .service-skeleton-img,
-  .service-skeleton-line {
-    animation: none;
+/* ===========================================================================
+   CUSTOMER SITE — PHONE GESTURE COST: VISION / MISSION DECK (<=900px)
+   ---------------------------------------------------------------------------
+   Follow-up to the scroll pass above. Dragging a photo aside in "Our Vision"
+   still stuttered on the 120Hz phone, and only sometimes — which is two
+   separate problems: a fixed per-frame cost at the two *ends* of the gesture,
+   and a one-off cost the first time each photo is actually shown.
+
+   The drag itself was already correct: `.vm-deck__card.is-dragging` kills the
+   transition and the move handler writes nothing but a compositable
+   `transform`. What was expensive sat on either side of it:
+
+     * `.is-vanishing` animates `filter: blur(6px)` for 460ms on the largest
+       element in the section (up to 550x344 CSS px, ~910x569 device px at this
+       DPR) while that same element is translating up to 4x the drag distance,
+       rotating, and scaling to 0.7. A blur is a separable multi-tap kernel, and
+       an *animated* radius means no frame's raster can be reused — while the
+       layer's raster scale is changing every frame too. This is the single
+       largest cost in the gesture, and it lands on the frames right after the
+       finger lifts, which is where a stutter is most visible.
+     * the press fires a burst on the gesture's very first frame: three
+       simultaneous `transform` + `filter: brightness()` transitions plus a
+       `box-shadow: 0 18px 44px` that is neither compositable nor in the
+       transition list, so it is a one-frame full repaint of the biggest element
+       plus a ~62px growth of its layer bounds. Exactly where the drag felt like
+       it "caught". Dropping `.is-peeking` on release repaints it a second time.
+     * `will-change: transform, opacity` is unconditional on every card. Ten
+       photos per deck across two decks is 20 permanently pinned compositor
+       layers on the device with the least GPU memory, and the cards parked at
+       `data-slot="hidden"` are `opacity: 0` and cannot move, so those pins buy
+       nothing whatsoever.
+
+   Desktop is untouched — everything is inside the media queries — and the
+   per-slot `brightness()` *values* are left alone at every width, so a deck at
+   rest renders identically. Only the easing of those values is dropped, so the
+   depth shading snaps in one frame instead of tweening for 420ms.
+
+   The two transition-list rewrites are gated on `prefers-reduced-motion:
+   no-preference` on purpose: the reduce arm earlier in this file sets both of
+   these rules to a plain 0.2s opacity fade at the same specificity, and a
+   later-but-equal rule would silently take that away from phone users who asked
+   for less motion. `filter: none` is safe to state unconditionally because the
+   reduce arm asks for exactly that.
+
+   `responsive.css` loads after this file but declares only `aspect-ratio` and
+   `transform` on the deck — never `transition`, `filter`, `box-shadow` or
+   `will-change` — so nothing below can be undone downstream.
+
+   The JS half of this fix is in `home-page/main.js`: cloned deck images now
+   carry `decoding="async"` and are decoded up front instead of having their
+   first base64 decode land mid-throw, and a touch drag damps its vertical
+   component so a diagonal swipe cannot move the card with the finger *and*
+   with the page's own permitted `pan-y` scroll.
+   ========================================================================= */
+@media (max-width: 900px) {
+  /* Fly away and fade, but do not blur. Same call the `prefers-reduced-motion`
+     arm above already makes on this very rule. */
+  .vm-deck__card.is-vanishing {
+    filter: none;
+  }
+
+  /* Same press affordance, ~60% less repainted area and layer-bounds growth. */
+  .vm-deck--vision.has-stack.is-peeking .vm-deck__card[data-slot="0"] {
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+  }
+
+  /* A hidden card is `opacity: 0` and cannot move, so pinning a layer for it is
+     pure GPU memory. Takes the two decks from 20 pinned layers down to 6. The
+     compositor promotes a card the moment it is actually given a transition. */
+  .vm-deck.has-stack .vm-deck__card[data-slot="hidden"] {
+    will-change: auto;
+  }
+}
+
+@media (max-width: 900px) and (prefers-reduced-motion: no-preference) {
+  /* `filter` out of the vanish transition list, so the throw is transform +
+     opacity only. Both remaining properties are compositable. */
+  .vm-deck__card.is-vanishing {
+    transition:
+      transform 0.46s cubic-bezier(0.2, 0.7, 0.3, 1),
+      opacity 0.46s ease-in;
+  }
+
+  /* `filter` out of the base transition list. The per-slot `brightness()`
+     values are untouched, so the stack looks the same at rest — the depth
+     shading just arrives in one frame instead of easing for 420ms. */
+  .vm-deck.has-stack .vm-deck__card {
+    transition:
+      transform 0.42s cubic-bezier(0.22, 0.61, 0.36, 1),
+      opacity 0.42s ease;
   }
 }
 

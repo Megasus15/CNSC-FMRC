@@ -1034,16 +1034,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ── Fetch products from API ──────────────────────────────────────────────────
   const loadProducts = async () => {
-    // Show loading skeleton
+    // Show loading skeleton. The shimmer itself lives in home-page/main.css as a
+    // compositable `transform` sweep on a `::after`, shared with the services
+    // grid — which is why these are plain classes now: a pseudo-element cannot
+    // be created from an inline `style` attribute.
     if (productGrid) {
       productGrid.innerHTML = Array.from({ length: 4 })
         .map(
           () => `
-        <div class="shop-card" style="pointer-events:none;">
-          <div class="product-img-wrapper" style="background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;"></div>
+        <div class="shop-card product-skeleton-card" aria-hidden="true">
+          <div class="product-skeleton-img"></div>
           <div class="product-info">
-            <div style="height:14px;border-radius:6px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;margin-bottom:8px;"></div>
-            <div style="height:10px;border-radius:6px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:60%;"></div>
+            <span class="product-skeleton-line" style="margin-bottom:8px;"></span>
+            <span class="product-skeleton-line" style="height:10px;width:60%;"></span>
           </div>
         </div>`,
         )

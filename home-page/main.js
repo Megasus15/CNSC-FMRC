@@ -14639,6 +14639,10 @@ const openReturnRequestModal = (() => {
       if (cls) img.className = cls;
       img.setAttribute("alt", alt);
       img.setAttribute("draggable", "false");
+      // Matches the markup's own first card. Without it a clone's decode runs on
+      // the main thread, and the gallery photos are full-resolution admin
+      // uploads carried as base64.
+      img.setAttribute("decoding", "async");
       img.src = images[i];
       card.appendChild(img);
       deck.appendChild(card);
@@ -14648,6 +14652,32 @@ const openReturnRequestModal = (() => {
     deck.classList.add("has-stack");
     initVmDeck(deck, kind === "mission" ? "shuffle" : "drag");
     vmIndexSlots(deck);
+    vmWarmDeckImages(deck);
+  }
+
+  /* Cards from slot 3 down sit at `opacity: 0`, and a browser does not raster a
+     fully transparent layer — so a clone's first real decode happened when a
+     throw promoted it into view, on the frames that can least afford it. That is
+     the "sometimes" in the stutter: it costs tens of milliseconds once per
+     photo, against an 8.3ms budget, and never again afterwards.
+
+     `decode()` does that work off the critical path regardless of CSS
+     visibility. Sequentially, not `Promise.all`, so ten large uploads cannot
+     spike together; failures are ignored because a warm-up that did not happen
+     is only the old behaviour. */
+  function vmWarmDeckImages(deck) {
+    var imgs = deck.querySelectorAll(".vm-deck__card img");
+    if (!imgs.length) return;
+    var i = 0;
+    (function next() {
+      if (i >= imgs.length) return;
+      var img = imgs[i++];
+      if (!img || typeof img.decode !== "function") {
+        next();
+        return;
+      }
+      img.decode().then(next, next);
+    })();
   }
 
   function initVmDeck(deck, mode) {
@@ -14781,7 +14811,14 @@ const openReturnRequestModal = (() => {
     deck.addEventListener("pointermove", function (e) {
       if (!active) return;
       dx = e.clientX - startX;
-      dy = e.clientY - startY;
+      // Vertical travel is damped on touch only. The deck is `touch-action:
+      // pan-y` on purpose, so a diagonal swipe can start the page's own scroll —
+      // and once it has, the move events are no longer cancelable and the
+      // `preventDefault()` below is a no-op, so the card was travelling with the
+      // finger *and* with the page. `dy` carries no meaning in a gesture whose
+      // own hint reads "drag a photo aside"; keeping a third of it preserves the
+      // feel without letting the card double-move. Mouse and pen are unchanged.
+      dy = (e.clientY - startY) * (e.pointerType === "touch" ? 0.35 : 1);
       if (!claimed) {
         // Nothing is claimed until the pointer has clearly gone sideways, so a
         // finger that came down to scroll the page keeps scrolling the page.
