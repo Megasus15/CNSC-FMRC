@@ -206,8 +206,8 @@
   }
 
   .file-upload-wrapper.has-error {
-    border-color: #d32f2f;
-    box-shadow: 0 0 0 3px rgba(211, 47, 47, 0.14);
+    border-color: #b01c1c;
+    box-shadow: 0 0 0 3px rgba(176, 28, 28, 0.14);
     background-color: #fffafa;
   }
 
@@ -230,7 +230,7 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     padding: 12px;
-    border: 1px solid #f3c2bf;
+    border: 1px solid #e8c4c1;
     border-radius: var(--ux-dlg-radius, 8px);
     background: #fff6f5;
     box-shadow: 0 14px 34px rgba(75, 12, 12, 0.18);
@@ -246,7 +246,7 @@
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: #b3261e;
+    background: #b01c1c;
     color: #fff;
     font-size: 13px;
     font-weight: 800;
@@ -285,7 +285,7 @@
     padding: 3px 0;
     border: 0;
     background: none;
-    color: #b3261e;
+    color: #b01c1c;
     font-family: inherit;
     font-size: 12.5px;
     font-weight: 700;
@@ -418,8 +418,8 @@
     width: 100%;
   }
 
-  #officialReceiptCard .ticket-body + div {
-    padding: 12px 14px !important;
+  #officialReceiptCard .ticket-note {
+    padding: 12px 14px;
   }
 
   #receiptQrImage {
@@ -1140,13 +1140,13 @@
     word-break: break-word;
   }
 
-  #officialReceiptCard .ticket-body > div:last-child {
+  #officialReceiptCard .ticket-qr {
     max-width: 100%;
   }
 
-  #officialReceiptCard > div:last-child {
-    padding: 9px !important;
-    font-size: 10px !important;
+  #officialReceiptCard .ticket-note {
+    padding: 9px;
+    font-size: 10px;
     overflow-wrap: anywhere;
   }
 

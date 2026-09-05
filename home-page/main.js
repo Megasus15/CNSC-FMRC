@@ -6082,22 +6082,18 @@ document.addEventListener("DOMContentLoaded", () => {
     document
       .querySelectorAll(".apt-content-section")
       .forEach((sec) => sec.classList.remove("active"));
+    // The rail is painted entirely by CSS (main.css §8.2). This used to write
+    // six inline styles per step, which beat the stylesheet and made the gold
+    // "you are here" state unreachable — and because the old test was
+    // `index < stepNumber`, the current step and every finished step painted
+    // identically, so the rail could not tell you where you were. Three
+    // classes, no inline styles: `.active` keeps its old meaning (this step and
+    // everything before it), `.is-done` is strictly behind you, `.is-current`
+    // is exactly where you are.
     document.querySelectorAll(".apt-step").forEach((step, index) => {
-      const icon = step.querySelector(".apt-icon");
-      if (index < stepNumber) {
-        step.classList.add("active");
-        if (icon) {
-          icon.style.background = "#4caf50";
-          icon.style.color = "#fff";
-          icon.style.borderColor = "#fff";
-        }
-      } else {
-        step.classList.remove("active");
-        if (icon) {
-          icon.style.background = "#fff";
-          icon.style.color = "#8b0000";
-        }
-      }
+      step.classList.toggle("active", index < stepNumber);
+      step.classList.toggle("is-done", index < stepNumber - 1);
+      step.classList.toggle("is-current", index === stepNumber - 1);
     });
 
     const targetSection = document.getElementById(`aptStep${stepNumber}`);
@@ -6136,7 +6132,7 @@ document.addEventListener("DOMContentLoaded", () => {
       aptAvailabilitySignature = getAvailabilitySignature();
       showSlotMessage(
         "Reminder: You can select only 1 time slot for this appointment.",
-        "#9a6a00",
+        "#77610d",
       );
     }
 
@@ -6395,11 +6391,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (slotCounter) {
       slotCounter.style.display = "block";
       slotCounter.innerText = "Allowed: 1 time slot for this appointment";
-      slotCounter.style.color = "#555";
+      slotCounter.style.color = "#6d7480";
     }
     showSlotMessage(
       "Reminder: You can select only 1 time slot for this appointment.",
-      "#9a6a00",
+      "#77610d",
     );
     renderCalendar(currentMonth, currentYear);
     renderTimeSlots(dateKey);
@@ -6636,7 +6632,7 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
           showSlotMessage(
             "Reminder: You can select only 1 time slot for this appointment.",
-            "#9a6a00",
+            "#77610d",
           );
         }
         renderTimeSlots(dateKey);

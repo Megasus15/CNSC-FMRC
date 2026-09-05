@@ -62,8 +62,8 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
 
-    <link rel="stylesheet" href="main.css?v=7.2" />
-    <link rel="stylesheet" href="responsive.css?v=7.1" />
+    <link rel="stylesheet" href="main.css?v=7.3" />
+    <link rel="stylesheet" href="responsive.css?v=7.2" />
 
     <!-- The signature loader. One sheet shared by every customer page, so the
          curtain that covers this page while it boots and the curtain that covers
@@ -720,7 +720,7 @@
                     At University of Camarines Norte, we value your privacy. In
                     compliance with RA 10173, we collect:
                   </p>
-                  <ol class="apt-reminder-list" style="margin-top: 10px">
+                  <ol class="apt-reminder-list">
                     <li>Email & Contact Details</li>
                     <li>Client Type & Department</li>
                     <li>Service Request & Schedule</li>
@@ -732,14 +732,7 @@
                 <div class="apt-reminder-content">
                   <h4>Appointment Policy</h4>
                   <p>To ensure organized service:</p>
-                  <ul
-                    class="apt-reminder-list"
-                    style="
-                      margin-top: 10px;
-                      list-style: disc;
-                      margin-left: 15px;
-                    "
-                  >
+                  <ul class="apt-reminder-list apt-reminder-list--disc">
                     <li>All clients are required to book online.</li>
                     <li>Walk-ins may not be accommodated immediately.</li>
                     <li>Please arrive on time for your scheduled slot.</li>
@@ -910,32 +903,19 @@
                   <option value="Inquiries">Inquiries</option>
                 </select>
 
-                <div class="file-upload-wrapper" style="margin-top: 10px">
+                <div class="file-upload-wrapper file-upload-field">
                   <div class="file-upload-icon">+</div>
                   <span class="file-upload-text" id="aptFileLabel"
                     >Click to Attach Design File (Optional)</span
                   >
-                  <small
-                    id="aptFileName"
-                    style="
-                      font-size: 11px;
-                      color: #7a7a7a;
-                      margin-top: 4px;
-                      text-align: center;
-                    "
+                  <small id="aptFileName" class="file-upload-name"
                     >No file selected</small
                   >
                   <input
                     type="file"
                     id="aptFile"
+                    class="file-upload-input"
                     accept="image/*,.pdf,.doc,.docx"
-                    style="
-                      position: absolute;
-                      width: 100%;
-                      height: 100%;
-                      opacity: 0;
-                      cursor: pointer;
-                    "
                   />
                 </div>
               </div>
@@ -1063,23 +1043,8 @@
                   class="date-note-card"
                   aria-live="polite"
                 ></div>
-                <div
-                  class="slot-counter-wrapper"
-                  style="
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 10px;
-                  "
-                >
-                  <span
-                    id="slotCounter"
-                    style="
-                      font-size: 13px;
-                      font-weight: 600;
-                      color: #555;
-                      display: none;
-                    "
+                <div class="slot-counter-wrapper">
+                  <span id="slotCounter" style="display: none"
                     >Allowed: 1 time slot for this appointment</span
                   >
                 </div>
@@ -1087,16 +1052,7 @@
                   <p class="time-placeholder">Please pick a date first.</p>
                   <!-- JS generated slots -->
                 </div>
-                <p
-                  id="maxLimitMsg"
-                  style="
-                    color: #b01c1c;
-                    font-size: 12px;
-                    margin-top: 10px;
-                    display: none;
-                    font-weight: bold;
-                  "
-                >
+                <p id="maxLimitMsg" style="display: none">
                   This time is disabled because another user already booked this
                   date and time.
                 </p>
@@ -1125,34 +1081,10 @@
           <div class="ticket-container">
             <div class="ticket-header">
               <div>
-                <span
-                  style="
-                    display: block;
-                    font-size: 11px;
-                    opacity: 0.8;
-                    letter-spacing: 1px;
-                  "
-                  >PREVIEW APPOINTMENT</span
-                >
-                <h3
-                  id="revTicketNo"
-                  style="margin: 5px 0 0; font-size: 24px; font-weight: 800"
-                >
-                  Ticket #PENDING
-                </h3>
+                <span class="ticket-eyebrow">Preview Appointment</span>
+                <h3 class="ticket-no" id="revTicketNo">Ticket #PENDING</h3>
               </div>
-              <div style="text-align: right">
-                <span
-                  style="
-                    font-size: 12px;
-                    font-weight: 600;
-                    background: rgba(255, 255, 255, 0.2);
-                    padding: 4px 10px;
-                    border-radius: 4px;
-                  "
-                  >DRAFT</span
-                >
-              </div>
+              <span class="ticket-chip ticket-chip--draft">Draft</span>
             </div>
 
             <div class="ticket-body">
@@ -1191,12 +1123,8 @@
 
               <div class="ticket-row">
                 <div class="ticket-column">
-                  <div class="t-label">SCHEDULED DATE & TIME</div>
-                  <div
-                    class="t-value highlight"
-                    id="revSched"
-                    style="font-size: 18px"
-                  >
+                  <div class="t-label">SCHEDULED DATE &amp; TIME</div>
+                  <div class="t-value t-value--lead" id="revSched">
                     March 13, 2026 @ 9:00 AM
                   </div>
                 </div>
@@ -1205,11 +1133,7 @@
               <div class="ticket-row">
                 <div class="ticket-column">
                   <div class="t-label">ADDITIONAL NOTES</div>
-                  <div
-                    class="t-value"
-                    id="revDesc"
-                    style="font-style: italic; color: #666"
-                  >
+                  <div class="t-value t-value--note" id="revDesc">
                     Meeting with head...
                   </div>
                 </div>
@@ -1236,7 +1160,7 @@
             data-theme="auto"
             aria-label="Security check"
           ></div>
-          <div class="apt-footer-actions" style="margin-top: 20px">
+          <div class="apt-footer-actions">
             <button
               type="button"
               class="apt-btn apt-btn-back"
@@ -1260,50 +1184,15 @@
           <div class="ticket-container" id="officialReceiptCard">
             <div class="ticket-header">
               <div>
-                <span
-                  style="
-                    display: block;
-                    font-size: 11px;
-                    opacity: 0.8;
-                    letter-spacing: 1px;
-                  "
-                  >OFFICIAL RECEIPT</span
-                >
-                <h3
-                  id="comTicketNo"
-                  style="margin: 5px 0 0; font-size: 24px; font-weight: 800"
-                >
-                  Ticket #PENDING
-                </h3>
+                <span class="ticket-eyebrow">Official Receipt</span>
+                <h3 class="ticket-no" id="comTicketNo">Ticket #PENDING</h3>
               </div>
-              <div style="text-align: right">
-                <span
-                  style="
-                    font-size: 12px;
-                    font-weight: 600;
-                    background: #4caf50;
-                    color: #fff;
-                    padding: 4px 10px;
-                    border-radius: 4px;
-                  "
-                  >CONFIRMED</span
-                >
-              </div>
+              <span class="ticket-chip ticket-chip--issued">Confirmed</span>
             </div>
 
-            <div
-              class="ticket-body"
-              style="display: flex; gap: 20px; align-items: stretch"
-            >
+            <div class="ticket-body ticket-body--split">
               <!-- Left Side Details -->
-              <div
-                style="
-                  flex: 1;
-                  display: grid;
-                  grid-template-columns: 1fr 1fr;
-                  gap: 14px;
-                "
-              >
+              <div class="ticket-grid">
                 <div class="ticket-row">
                   <div class="ticket-column">
                     <div class="t-label">FULL NAME</div>
@@ -1328,11 +1217,7 @@
                 <div class="ticket-row">
                   <div class="ticket-column">
                     <div class="t-label">SCHEDULE</div>
-                    <div
-                      class="t-value highlight"
-                      id="comSched"
-                      style="font-size: 16px; color: #333"
-                    >
+                    <div class="t-value t-value--lead" id="comSched">
                       March 13, 2026 @ 9:00 AM
                     </div>
                   </div>
@@ -1362,7 +1247,7 @@
                 <div class="ticket-row">
                   <div class="ticket-column">
                     <div class="t-label">NOTES</div>
-                    <div class="t-value" id="comDesc">N/A</div>
+                    <div class="t-value t-value--note" id="comDesc">N/A</div>
                   </div>
                 </div>
 
@@ -1375,17 +1260,7 @@
               </div>
 
               <!-- Right Side QR -->
-              <div
-                style="
-                  width: 150px;
-                  display: flex;
-                  flex-direction: column;
-                  align-items: center;
-                  justify-content: center;
-                  border-left: 1px dashed #ccc;
-                  padding-left: 20px;
-                "
-              >
+              <div class="ticket-qr">
                 <!-- No `src` on purpose. This placeholder QR used to be
                      hardcoded to api.qrserver.com and was therefore fetched at
                      parse time — a fourth cross-origin connection opened during
@@ -1394,64 +1269,39 @@
                      URL the moment a receipt is actually generated. -->
                 <img
                   id="receiptQrImage"
+                  class="ticket-qr__img"
                   alt="QR Code"
                   decoding="async"
-                  style="
-                    width: 100%;
-                    height: auto;
-                    display: block;
-                    mix-blend-mode: multiply;
-                  "
                 />
-                <span
-                  style="
-                    font-size: 10px;
-                    color: #666;
-                    margin-top: 5px;
-                    text-align: center;
-                  "
+                <span class="ticket-qr__caption"
                   >Scan to verify appointment</span
                 >
                 <a
                   id="receiptQrLink"
+                  class="ticket-qr__link"
                   href="#"
                   target="_blank"
                   rel="noopener"
-                  style="
-                    font-size: 10px;
-                    margin-top: 8px;
-                    color: #8b0000;
-                    text-align: center;
-                  "
                   >Open verification page</a
                 >
               </div>
             </div>
 
             <!-- Footer Reminder -->
-            <div
-              style="
-                background: #f9f9f9;
-                padding: 15px 25px;
-                border-top: 1px dashed #ddd;
-                font-size: 12px;
-                color: #444;
-                line-height: 1.6;
-              "
-            >
+            <div class="ticket-note">
               <strong>Important:</strong> Please screenshot or note your
               Reference Number before closing this window. Present it at the
               FMRC office for fast verification of your online appointment.
             </div>
           </div>
 
-          <div class="apt-footer-actions" style="margin-top: 20px">
+          <div class="apt-footer-actions">
             <button
               type="button"
               class="apt-btn apt-btn-outline"
               id="btnGenerateReport"
             >
-              <span style="margin-right: 5px">&#128196;</span> Download Receipt
+              Download Receipt
             </button>
             <!-- Final Finish triggers Success Modal/Home -->
             <button
@@ -1796,7 +1646,7 @@
          ever fails the affected flow silently falls back to the plain disabled
          button it had before. -->
     <script defer src="fmrc-loader.js?v=1.0"></script>
-    <script defer src="main.js?v=7.7"></script>
+    <script defer src="main.js?v=7.8"></script>
     <script defer src="customer-announcements.js?v=5.7"></script>
   </body>
 </html>

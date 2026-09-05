@@ -4504,16 +4504,20 @@ input:checked + .toggle-slider:before {
   left: 0;
   width: 100%;
   height: 100%;
+  /* The stage stays maroon — it is what tells you this is a formal transaction
+     rather than another card on the home page. Both glows are pulled back
+     (0.22 -> 0.14, 0.30 -> 0.18, tighter radii) so the field reads as a calm
+     room and the white cards on top of it carry the contrast. */
   background:
     radial-gradient(
       circle at 85% 15%,
-      rgba(241, 237, 18, 0.22),
-      transparent 22rem
+      rgba(241, 237, 18, 0.14),
+      transparent 19rem
     ),
     radial-gradient(
       circle at 15% 85%,
-      rgba(158, 20, 20, 0.3),
-      transparent 24rem
+      rgba(158, 20, 20, 0.18),
+      transparent 21rem
     ),
     linear-gradient(135deg, #3d0808 0%, #5f0d0d 45%, #851313 100%);
   z-index: 20000;
@@ -4550,19 +4554,29 @@ input:checked + .toggle-slider:before {
   align-items: center;
   margin-top: 10px;
   margin-bottom: 30px;
+  /* One hairline instead of 30px of empty space doing the same job: it separates
+     the title from the step rail without adding another box. */
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
 }
 .apt-main-title {
   font-family: "Montserrat", sans-serif;
   font-size: clamp(26px, 4vw, 38px);
-  font-weight: 900;
+  /* 900 + a -0.03em squeeze + a black text-shadow was three effects competing on
+     one line of type. 800 with an open letterspace and no shadow is the same
+     word, read faster. */
+  font-weight: 800;
   color: #ffffff;
   text-align: center;
   flex-grow: 1;
-  letter-spacing: -0.03em;
-  text-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+  letter-spacing: 0.01em;
 }
 .apt-back-btn {
-  background: rgba(255, 255, 255, 0.12);
+  /* Flat, not glass. The <=900px perf arm near the end of this file used to strip
+     `backdrop-filter` from this button, so the blur only ever rendered on desktop
+     and the two viewports disagreed. This is the colour the blur was faking; the
+     arm no longer names this button at all. */
+  background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.22);
   color: #ffffff;
   cursor: pointer;
@@ -4572,8 +4586,11 @@ input:checked + .toggle-slider:before {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(10px);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.16s ease;
 }
 .apt-back-btn:hover {
   background: #f1ed12;
@@ -4594,15 +4611,18 @@ input:checked + .toggle-slider:before {
   position: relative;
   background: rgba(0, 0, 0, 0.15);
   padding: 16px 24px;
-  border-radius: 999px;
+  /* 8px, not a 999px pill. A full-width strip with pill ends reads as a giant
+     chip; a rectangle with the same corner as every card in the flow reads as
+     part of the page. This is the whole radius-collapse in one line. */
+  border-radius: var(--apt-radius);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(12px);
 }
 .apt-line {
   flex-grow: 1;
   height: 3px;
   background: rgba(255, 255, 255, 0.2);
   margin-top: 25px;
+  transition: background-color 0.24s ease;
 }
 .apt-step {
   display: flex;
@@ -4629,26 +4649,29 @@ input:checked + .toggle-slider:before {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.6);
   display: flex;
   justify-content: center;
   align-items: center;
-  border: 2px solid rgba(255, 255, 255, 0.22);
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  /* Named properties and a plain ease: the old `all` + overshoot curve made the
+     circle spring past its size every time the step changed, which is exactly
+     the jitter the rail is meant not to have. */
+  transition:
+    background-color 0.24s ease,
+    border-color 0.24s ease,
+    color 0.24s ease,
+    box-shadow 0.24s ease;
   font-size: 18px;
 }
 .apt-step.active .step-label {
   color: #f1ed12;
   opacity: 1;
 }
-.apt-step.active .apt-icon {
-  background: #f1ed12;
-  color: #2d2a12;
-  border-color: #f1ed12;
-  box-shadow: 0 0 30px rgba(241, 237, 18, 0.5);
-  transform: scale(1.1);
-}
+/* The three real rail states live in the §8 block at the end of this file
+   (`.is-done` / `.is-current` / neither). This older `.active` rule stays only
+   for the label colour above; the circle it used to paint is handled there. */
 
 /* Content Sections */
 .apt-content-section {
@@ -4672,19 +4695,16 @@ input:checked + .toggle-slider:before {
 }
 
 .apt-card {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.95),
-    rgba(255, 248, 238, 0.88)
-  );
-  border: 1px solid rgba(105, 52, 42, 0.16);
-  border-radius: var(--ux-card-radius);
+  /* Solid white paper, not a two-stop translucent gradient behind a 16px blur.
+     The blur never survived below 900px anyway (the perf arm strips it), so the
+     card looked like two different things on two devices. White is what the
+     gradient was approximating, and it is the same paper the success dialog that
+     ends this flow is printed on. */
+  background: #ffffff;
+  border: 1px solid var(--apt-line-warm);
+  border-radius: var(--apt-radius);
   padding: 32px;
-  box-shadow:
-    0 25px 60px rgba(45, 12, 12, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 22px 54px rgba(27, 4, 4, 0.28);
   margin-bottom: 24px;
 }
 .apt-reminders-grid {
@@ -4696,7 +4716,7 @@ input:checked + .toggle-slider:before {
 .apt-reminders-grid .apt-card {
   margin-bottom: 0;
   font-size: 15px;
-  color: #333;
+  color: var(--apt-body);
   line-height: 1.5;
 }
 
@@ -4715,48 +4735,60 @@ input:checked + .toggle-slider:before {
   padding: 16px 42px;
   font-size: 15px;
   font-weight: 800;
+  /* Pills stay: 999px is the site's button shape everywhere (`.ux-dlg__btn`
+     included). The radius collapse in this pass is about surfaces — cards,
+     panels, cells, chips — not about buttons. */
   border-radius: 999px;
   cursor: pointer;
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.2);
-  transition: all 0.22s ease;
+  /* Warm depth rather than neutral black, so the shadow belongs to the maroon
+     stage it falls on. */
+  box-shadow: 0 10px 22px rgba(27, 4, 4, 0.22);
+  /* Named properties, not `all`: the <=900px perf arm no longer has to rewrite
+     this declaration, and nothing unexpected (width, padding, radius) can ever
+     animate here. */
+  transition:
+    background-color 0.22s ease,
+    background 0.22s ease,
+    border-color 0.22s ease,
+    color 0.22s ease,
+    box-shadow 0.22s ease,
+    transform 0.16s ease;
 }
 
 .apt-btn:active {
   transform: scale(0.97);
 }
 
-/* Proceed Button (Yellow/Gold Gradient) */
-.apt-btn-blue,
-.apt-btn-solid,
-.apt-btn-green {
+/* Proceed Button (Yellow/Gold Gradient).
+   `-blue` is historical — this button has been gold for as long as the flow has
+   had this palette. The name is load-bearing in main.html and both nested
+   dialogs, so it stays; only the paint is described here. The dead `-solid` and
+   `-green` aliases have been dropped from these two lists. */
+.apt-btn-blue {
   background: linear-gradient(135deg, #f1ed12 0%, #e0dc0b 64%, #c6bf0a 100%);
   color: #2d2a12;
   border: none;
   box-shadow: 0 14px 28px rgba(196, 177, 20, 0.3);
 }
 
-.apt-btn-blue:hover,
-.apt-btn-solid:hover,
-.apt-btn-green:hover {
+.apt-btn-blue:hover {
   background: linear-gradient(135deg, #d8d20d 0%, #c4be09 64%, #b0aa07 100%);
   color: #2d2a12;
   box-shadow: 0 18px 34px rgba(196, 177, 20, 0.4);
   transform: none;
 }
 
-/* Back/Cancel Button (Glass Outline) */
+/* Back/Cancel Button (Glass Outline) — flat, for the same reason as
+   `.apt-back-btn` above: the blur only ever rendered above 900px. */
 .apt-btn-back,
-.apt-btn-outline,
-.apt-btn-outline-brown {
-  background: rgba(255, 255, 255, 0.12);
+.apt-btn-outline {
+  background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
   border: 1.5px solid rgba(255, 255, 255, 0.5);
-  backdrop-filter: blur(12px);
 }
 
 .apt-btn-back:hover,
-.apt-btn-outline:hover,
-.apt-btn-outline-brown:hover {
+.apt-btn-outline:hover {
   background: #ffffff;
   border-color: #ffffff;
   color: #5f0d0d;
@@ -4788,143 +4820,18 @@ input:checked + .toggle-slider:before {
   gap: 8px;
   position: relative;
 }
-.apt-input-group label {
-  font-size: 14px;
-  color: #333;
-  font-weight: 600;
-}
-.apt-upload-btn {
-  background: #4caf50;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
-  font-weight: bold;
-  cursor: pointer;
-}
+/* `.apt-input-group label` was declared twice in this file — 14px/#333/600 here
+   and 13px/#444/700 in the enhanced-steps layer below, which won. One
+   declaration now, in the enhanced-steps layer, so the field labels have a
+   single source of truth.
 
-/* Calendar Layout */
-.calendar-layout {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 30px;
-  margin-top: 20px;
-}
-.calendar-grid-box {
-  border: 2px solid #e0b0ff;
-  border-radius: var(--ux-card-radius);
-  padding: 20px;
-}
-.cal-row {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  text-align: center;
-  margin-bottom: 15px;
-}
-.cal-days span {
-  font-weight: 800;
-  color: #333;
-  margin-bottom: 10px;
-}
-.cal-date {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 50px;
-  position: relative;
-}
-.cal-date span {
-  font-size: 18px;
-  font-weight: 600;
-  color: #333;
-  z-index: 2;
-}
-.cal-date.red span {
-  color: #b01c1c;
-}
-.cal-date.gray span {
-  color: #aaa;
-}
-.cal-date.unavailable::before {
-  content: "";
-  position: absolute;
-  width: 35px;
-  height: 35px;
-  background: #e0e0e0;
-  border-radius: 50%;
-  z-index: 1;
-}
-.dots {
-  display: flex;
-  gap: 3px;
-  margin-top: 4px;
-}
-.dots i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-.dots i.b {
-  background: #333;
-}
-.dots i.w {
-  background: #fff;
-  border: 1px solid #ccc;
-}
-.dots i.border {
-  border: 1px solid #ccc;
-}
-.unavail-circle {
-  width: 16px;
-  height: 16px;
-  background: #e0e0e0;
-  border-radius: 50%;
-}
-.leg-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 10px;
-}
-
-/* Review Cards */
-.apt-review-card,
-.apt-complete-card {
-  background: #fff5f5;
-  border: 1px solid #ecc;
-  border-radius: 12px;
-}
-.review-apt-no {
-  text-align: center;
-  color: #b01c1c;
-  font-weight: 800;
-  font-size: 18px;
-}
-.review-grid {
-  display: grid;
-  grid-template-columns: 150px 1fr;
-  gap: 10px;
-  max-width: 600px;
-  margin: 20px auto 0;
-}
-.r-label {
-  font-weight: 700;
-  color: #333;
-}
-.r-value {
-  color: #555;
-}
-.apt-complete-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #fff;
-  border: none;
-}
+   The legacy `.apt-upload-btn` (a #4caf50 green pill), the whole first-generation
+   `.calendar-layout` / `.calendar-grid-box` / `.cal-row` / `.cal-date` / `.dots`
+   calendar, its duplicate `.leg-item`, and the `.apt-review-card` /
+   `.apt-complete-card` / `.review-grid` / `.r-label` / `.r-value` review cards
+   were all deleted here: none of those class names appears in main.html or
+   main.js any more. That removed the last `#4caf50` and the only `#e0b0ff` in
+   the stylesheet. */
 
 /* Nested Modals */
 .apt-nested-modal {
@@ -4992,16 +4899,13 @@ input:checked + .toggle-slider:before {
   gap: 15px;
   margin-top: 30px;
 }
-.apt-btn-outline-brown {
-  background: #c6a27a;
-  color: #fff;
-}
 
+/* `.apt-btn-outline-brown`, `.calendar-layout`, `.apt-complete-card` and
+   `.complete-right` were the last four references to the deleted
+   first-generation flow; none of them appears in any page or script. */
 @media (max-width: 768px) {
   .apt-reminders-grid,
-  .apt-form-grid,
-  .calendar-layout,
-  .apt-complete-card {
+  .apt-form-grid {
     grid-template-columns: 1fr;
     flex-direction: column;
   }
@@ -5011,10 +4915,6 @@ input:checked + .toggle-slider:before {
   }
   .apt-progress-wrapper span {
     display: none;
-  }
-  .complete-right {
-    margin-top: 30px;
-    text-align: center;
   }
 }
 
@@ -5205,26 +5105,29 @@ input:checked + .toggle-slider:before {
   flex-wrap: wrap;
 }
 
+/* Solid white on a cream hairline, and no shadow at all. These two are panels
+   *inside* `.apt-card`, which is itself a shadowed card standing on the maroon
+   stage — a shadow here made it three layers of depth for one screen, which is
+   what "busy" actually looks like. The hairline is enough to say "separate
+   surface". Their radius is owned by the fluid layer further down. */
 .apt-calendar-left {
   flex: 2;
   min-width: 300px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(105, 52, 42, 0.12);
+  background: #ffffff;
+  border: 1px solid var(--apt-line);
   border-radius: 20px;
   padding: 24px;
-  box-shadow: 0 10px 25px rgba(61, 35, 28, 0.05);
 }
 
 .apt-time-right {
   flex: 1;
   min-width: 250px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(105, 52, 42, 0.12);
+  background: #ffffff;
+  border: 1px solid var(--apt-line);
   border-radius: 20px;
   padding: 24px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 10px 25px rgba(61, 35, 28, 0.05);
 }
 
 /* Calendar Navigation */
@@ -5252,13 +5155,11 @@ input:checked + .toggle-slider:before {
   cursor: pointer;
   font-weight: bold;
   color: #851313;
-  transition: all 0.2s ease;
-}
-
-.cal-navigation button:hover {
-  background: #851313;
-  color: #ffffff;
-  border-color: #851313;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 /* Calendar Grid */
@@ -5272,7 +5173,7 @@ input:checked + .toggle-slider:before {
 .cal-days-header span {
   font-size: 12px;
   font-weight: 800;
-  color: #6d7480;
+  color: var(--apt-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -5284,6 +5185,10 @@ input:checked + .toggle-slider:before {
   margin-bottom: 20px;
 }
 
+/* Transparent, not near-white. A month of 30 filled tiles on a white panel is
+   30 competing rectangles; with the fill dropped, only the days that have
+   something to say (a slot, a note, being picked) carry any colour, and the rest
+   reads as ruled paper. The border is what keeps the grid legible. */
 .cal-day-cell {
   height: 50px;
   display: flex;
@@ -5293,62 +5198,43 @@ input:checked + .toggle-slider:before {
   border-radius: 12px;
   font-size: 15px;
   font-weight: 700;
-  color: #222833;
+  color: var(--apt-body);
   cursor: pointer;
-  transition: all 0.2s ease;
-  border: 1px solid rgba(105, 52, 42, 0.08);
+  border: 1px solid var(--apt-line-warm);
   overflow: hidden;
-  background-color: rgba(255, 255, 255, 0.95);
+  background-color: transparent;
 }
 
-.cal-day-cell:hover:not(.disabled) {
-  background-color: rgba(158, 20, 20, 0.08);
-  border-color: rgba(158, 20, 20, 0.25);
-  color: #851313;
-}
+/* Hover for cells, slots and nav buttons is owned by the shared interaction
+   layer further down this file (search "SHARED BUTTON INTERACTIONS") — it fills
+   maroon and lightens the glyph, which is the site's darker-only hover. The
+   duplicate hover rules that used to sit here were dead. */
 
+/* Flat maroon, matching the selected time slot exactly. These two used to be
+   different reds — a gradient here, #b01c1c there — so the date you picked and
+   the slot you picked did not look like the same decision.
+   The `!important`s are pre-existing and load-bearing: the hover rule in the
+   interaction layer is more specific than this one. */
 .cal-day-cell.selected {
-  background: linear-gradient(135deg, #5f0d0d 0%, #9e1414 100%) !important;
+  background: var(--apt-head) !important;
   color: #fff !important;
   border-color: transparent !important;
-  box-shadow: 0 8px 20px rgba(128, 24, 18, 0.3);
+  box-shadow: none;
 }
 
-.cal-day-cell.disabled {
-  color: #aaa;
-  background-color: rgba(0, 0, 0, 0.03);
+/* One disabled treatment, derived from --apt-body at low alpha so no new
+   neutral enters the file. Replaces #aaa on black-at-3%/6%. */
+.cal-day-cell.disabled,
+.cal-day-cell.unavailable {
+  color: rgba(75, 85, 99, 0.45);
+  background-color: rgba(75, 85, 99, 0.05);
   cursor: not-allowed;
   border-color: transparent;
 }
 
-.cal-day-cell.unavailable {
-  background-color: rgba(0, 0, 0, 0.06);
-  color: #aaa;
-  cursor: not-allowed;
-}
-
-/* Indicators (Circles at the bottom) */
-.cal-day-indicator {
-  position: absolute;
-  bottom: 4px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-.indicator-marker {
-  position: absolute;
-  bottom: 2px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 24px;
-  height: 6px;
-  border-radius: 3px;
-  display: none;
-}
-
-/* Custom Visuals for AM/PM selection on the date cell itself */
-/* We will use a pseudo-element on the cell for the 'Circle' described */
+/* The AM/PM/full dot on a day cell. `.cal-day-indicator` and
+   `.indicator-marker` used to live here as a second, unused indicator system —
+   both were absent from main.html and main.js and are gone. */
 .cal-day-cell::after {
   content: "";
   position: absolute;
@@ -5359,43 +5245,43 @@ input:checked + .toggle-slider:before {
   display: none;
 }
 
+/* The unfilled half is `--apt-line`, and the legend below now uses the same
+   value. It used to be #ddd here and #fff in the legend, so the key did not
+   match the thing it was explaining — the one bug in this block that a visitor
+   could actually be misled by. */
 .cal-day-cell.has-am::after {
   display: block;
-  background: linear-gradient(
-    to bottom,
-    #b01c1c 50%,
-    #ddd 50%
-  ); /* Top Half Shaded */
+  /* Top half shaded */
+  background: linear-gradient(to bottom, #b01c1c 50%, var(--apt-line) 50%);
   border: 1px solid #b01c1c;
 }
 
 .cal-day-cell.has-pm::after {
   display: block;
-  background: linear-gradient(
-    to bottom,
-    #ddd 50%,
-    #b01c1c 50%
-  ); /* Bottom Half Shaded */
+  /* Bottom half shaded */
+  background: linear-gradient(to bottom, var(--apt-line) 50%, #b01c1c 50%);
   border: 1px solid #b01c1c;
 }
 
 .cal-day-cell.has-full::after {
   display: block;
-  background: #b01c1c; /* Full Shaded */
+  background: #b01c1c;
 }
 
-/* Tooltip */
+/* Tooltip. Darkest maroon rather than #333: it is the only remaining place in
+   the flow where a floating black box appeared over warm paper. */
 .cal-day-cell[title]:hover::before {
   content: attr(title);
   position: absolute;
   bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
-  background: #333;
+  background: #3d0808;
   color: #fff;
   padding: 5px 10px;
-  border-radius: 4px;
+  border-radius: var(--apt-radius-sm);
   font-size: 11px;
+  font-weight: 600;
   white-space: nowrap;
   z-index: 10;
   pointer-events: none;
@@ -5409,15 +5295,20 @@ input:checked + .toggle-slider:before {
   margin-top: 15px;
 }
 
+/* The day's notice is literally the success card's note panel — `#fffbed` on
+   `#eadc9a` — so a caution here and a reference number there are the same kind
+   of object. The left rule is thinner and switches to the interactive red,
+   because 4px of #8b0000 read as an error banner for something that is usually
+   just an opening-hours note. */
 .date-note-card {
   display: none;
   margin: 6px 0 10px;
   padding: 10px 12px;
-  border: 1px solid #f0d4d4;
-  border-left: 4px solid #8b0000;
-  border-radius: var(--ux-card-radius);
-  background: #fff9f9;
-  color: #4b5563;
+  border: 1px solid var(--apt-panel-edge);
+  border-left: 3px solid #b01c1c;
+  border-radius: var(--apt-radius);
+  background: var(--apt-panel);
+  color: var(--apt-body);
   max-width: 100%;
   overflow-wrap: anywhere;
   word-break: break-word;
@@ -5426,7 +5317,7 @@ input:checked + .toggle-slider:before {
 .date-note-title {
   font-size: 0.8rem;
   font-weight: 700;
-  color: #8b0000;
+  color: var(--apt-head);
   margin-bottom: 6px;
 }
 
@@ -5441,60 +5332,56 @@ input:checked + .toggle-slider:before {
 
 .time-slot-btn {
   padding: 12px;
-  border: 1px solid #ddd;
-  border-radius: 8px;
+  border: 1px solid var(--apt-line);
+  border-radius: var(--apt-radius);
   background: #fff;
   cursor: pointer;
   text-align: left;
   font-size: 15px;
   font-weight: 700;
   font-family: "Montserrat", sans-serif;
-  color: #333;
-  transition: all 0.2s ease;
+  color: var(--apt-body);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
 }
 
-.time-slot-btn:hover {
-  border-color: #b01c1c;
-  color: #b01c1c;
-}
-
+/* Flat maroon, the same value as a selected day cell. */
 .time-slot-btn.selected {
-  background-color: #b01c1c;
+  background-color: var(--apt-head);
   color: #fff;
-  border-color: #b01c1c;
+  border-color: var(--apt-head);
 }
 
 .time-slot-btn.disabled {
-  background-color: #f5f5f5;
-  color: #aaa;
+  background-color: rgba(75, 85, 99, 0.05);
+  color: rgba(75, 85, 99, 0.45);
   cursor: not-allowed;
-  border-color: #eaeaea;
+  border-color: transparent;
 }
 
+/* A small cream AM/PM pill instead of loose 12px text. Keeps its class name —
+   main.js builds the element. The colour pair is `.success-reference span`. */
 .time-slot-label {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  opacity: 0.9;
+  flex: none;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--apt-panel);
+  color: var(--apt-gold-label);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1.2;
 }
 
-.apt-btn-qr {
-  background-color: #ffffff;
-  color: #8b0000;
-  border: 2px solid #8b0000;
-}
-
-.apt-btn-qr:hover {
-  background-color: #fff5f5;
-  color: #8b0000;
-  border-color: #8b0000;
-}
-
-.apt-btn-qr:active {
-  transform: scale(0.97);
+/* Inverted inside a selected or hovered slot, where the panel colour would
+   disappear into the maroon fill. */
+.time-slot-btn.selected .time-slot-label,
+.time-slot-btn:hover:not(.disabled) .time-slot-label {
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--apt-gold-soft);
 }
 
 /* Legend Styles */
@@ -5504,7 +5391,7 @@ input:checked + .toggle-slider:before {
   flex-wrap: wrap;
   margin-top: 15px;
   padding-top: 15px;
-  border-top: 1px solid #eaeaea;
+  border-top: 1px solid var(--apt-line);
 }
 
 .leg-item {
@@ -5512,22 +5399,23 @@ input:checked + .toggle-slider:before {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: #555;
+  color: var(--apt-muted);
 }
 
 .leg-circle {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  border: 1px solid #ccc;
+  border: 1px solid var(--apt-line);
 }
 
+/* These four now match the day-cell indicators they explain, value for value. */
 .leg-am {
-  background: linear-gradient(to bottom, #b01c1c 50%, #fff 50%);
+  background: linear-gradient(to bottom, #b01c1c 50%, var(--apt-line) 50%);
   border-color: #b01c1c;
 }
 .leg-pm {
-  background: linear-gradient(to bottom, #fff 50%, #b01c1c 50%);
+  background: linear-gradient(to bottom, var(--apt-line) 50%, #b01c1c 50%);
   border-color: #b01c1c;
 }
 .leg-full {
@@ -5537,7 +5425,7 @@ input:checked + .toggle-slider:before {
 .leg-unavailable {
   width: 12px;
   height: 12px;
-  background: #e0e0e0;
+  background: rgba(75, 85, 99, 0.14);
   border-radius: 4px;
 }
 
@@ -5546,65 +5434,98 @@ input:checked + .toggle-slider:before {
    ========================================= */
 
 /* --- Step 1: Reminders (Enhanced) --- */
+
+/* One cream hairline, not a 2px grey slab. `--apt-line` is the same #f0e8c8 the
+   success card rules its footer with, so a section head here and a section head
+   there are the same line. */
 .apt-card-header {
-  border-bottom: 2px solid #f0f0f0;
+  border-bottom: 1px solid var(--apt-line);
   padding-bottom: 15px;
   margin-bottom: 20px;
 }
 
+/* Maroon, not the brighter #b01c1c: #b01c1c is the site's *interactive* red
+   (focus rings, link hovers, the danger bubble). Headings are #5f0d0d, which is
+   what every dialog title on the site already uses.
+
+   No gold accent bar here, even though the flow could carry one — §8's
+   one-accent rule is what keeps this minimal. There is exactly one section head
+   in Step 1 and three more in Step 2; a gold marker on each would mean five
+   gold things on screen and the current step circle would stop meaning
+   "you are here". The icon and the weight do the work instead. */
 .apt-card-header h3 {
   font-family: "Montserrat", sans-serif;
   font-size: 20px;
-  color: #b01c1c;
+  color: var(--apt-head);
   font-weight: 700;
+  letter-spacing: 0.01em;
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
+/* Barely-there warm paper on a cream hairline. The old #fdfdfd on #eaeaea was
+   two cold greys doing the same job in a warm palette. */
 .apt-reminder-item {
   display: flex;
   gap: 15px;
-  background: #fdfdfd;
-  border: 1px solid #eaeaea;
+  background: #fffdf7;
+  border: 1px solid var(--apt-line);
   padding: 20px;
-  border-radius: var(--ux-card-radius);
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+  border-radius: var(--apt-radius);
+  /* Colour only. `transform` and `box-shadow` are gone from this list because
+     the hover below no longer touches either. */
+  transition: border-color 0.2s ease;
   height: 100%;
 }
 
+/* The lift is deleted, not softened. The standing rule on this site is "no
+   uplift hover, darker colour only", and the shared no-lift guard further down
+   this file only zeroes `transform` on `button`s — so this `div` was the one
+   surface still rising under the pointer. Now the edge simply warms. */
 .apt-reminder-item:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
-  border-color: #dcdcdc;
+  border-color: var(--apt-panel-edge);
 }
 
+/* A solid maroon numeral disc. Deliberately not gold: gold belongs to the
+   current step circle and the primary button, and nowhere else. */
 .apt-reminder-icon {
-  min-width: 45px;
-  height: 45px;
-  background-color: #fce8e8;
-  color: #b01c1c;
+  min-width: 40px;
+  height: 40px;
+  background-color: var(--apt-head);
+  color: var(--apt-strip);
   border-radius: 50%;
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 20px;
+  font-size: 17px;
+  font-weight: 800;
 }
 
 .apt-reminder-content h4 {
   font-size: 16px;
   font-weight: 700;
   margin-bottom: 10px;
-  color: #333;
+  color: var(--apt-head);
 }
 
 .apt-reminder-content p,
-.apt-reminder-content ol {
+.apt-reminder-content ol,
+.apt-reminder-content ul {
   font-size: 14px;
-  color: #555;
+  color: var(--apt-body);
   line-height: 1.6;
+}
+
+/* Was two inline styles on the <ol> and the <ul> in main.html. Same values,
+   now in the stylesheet where they can be maintained. */
+.apt-reminder-list {
+  margin-top: 10px;
+}
+
+.apt-reminder-list--disc {
+  list-style: disc;
+  margin-left: 15px;
 }
 
 .apt-reminder-list li {
@@ -5614,33 +5535,50 @@ input:checked + .toggle-slider:before {
 }
 
 /* --- Step 2: Form (Enhanced) --- */
+
+/* The single biggest change in the flow. These were three loud 16px maroon
+   headings stacked down the form, each one competing with the card's own title;
+   they are now quiet uppercase eyebrows — the same device the success card uses
+   for "REFERENCE NUMBER". The form reads as one object with three labelled
+   regions instead of three forms in a row. */
 .apt-form-header {
   grid-column: span 3;
   margin-bottom: 15px;
   margin-top: 10px;
-  border-bottom: 1px solid #eaeaea;
+  border-bottom: 1px solid var(--apt-line);
   padding-bottom: 10px;
 }
 
 .apt-form-header h4 {
   font-family: "Montserrat", sans-serif;
-  font-size: 16px;
-  font-weight: 700;
-  color: #b01c1c;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--apt-head);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.09em;
 }
 
+/* One label rule for the whole flow. There used to be two — 14px/#333/600 in
+   the base layer and 13px/#444/700 here — so the effective style depended on
+   which one a reader happened to find. The base one is deleted; this is it. */
 .apt-input-group label {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 700;
-  color: #444;
+  color: var(--apt-muted);
+  letter-spacing: 0.02em;
   margin-bottom: 6px;
   display: block;
 }
 
+/* Named properties instead of `all`. This rule is global (it lives in the
+   appointment section but `.c-input` is the site's input class), so the list
+   covers every property the focus and error states below actually change. */
 .c-input {
-  transition: all 0.3s ease;
+  transition:
+    border-color 0.3s ease,
+    background-color 0.3s ease,
+    box-shadow 0.3s ease,
+    color 0.3s ease;
 }
 
 .c-input:focus {
@@ -5649,9 +5587,12 @@ input:checked + .toggle-slider:before {
   background-color: #fff;
 }
 
+/* One red on the site. #d32f2f was a fourth off-palette colour that only ever
+   appeared when something went wrong — the worst possible moment to introduce a
+   hue the visitor has not seen anywhere else. */
 .apt-input-group.has-error .c-input {
-  border-color: #d32f2f;
-  box-shadow: 0 0 0 3px rgba(211, 47, 47, 0.14);
+  border-color: var(--apt-danger);
+  box-shadow: 0 0 0 3px rgba(176, 28, 28, 0.14);
   background-color: #fffafa;
 }
 
@@ -5661,20 +5602,22 @@ input:checked + .toggle-slider:before {
   top: 26px;
   transform: translateY(-100%);
   max-width: 290px;
-  background: #d32f2f;
+  background: var(--apt-danger);
   color: #fff;
   font-size: 12px;
   line-height: 1.35;
   font-weight: 600;
   padding: 8px 10px;
-  border-radius: 10px;
-  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.2);
+  border-radius: var(--apt-radius-sm);
+  box-shadow: 0 10px 18px rgba(27, 4, 4, 0.22);
   z-index: 20;
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.16s ease;
 }
 
+/* The arrow keeps its `::after` and the bubble keeps its class name — main.js
+   builds both, so neither can be renamed. */
 .apt-field-error-bubble::after {
   content: "";
   position: absolute;
@@ -5682,7 +5625,7 @@ input:checked + .toggle-slider:before {
   bottom: -7px;
   width: 14px;
   height: 14px;
-  background: #d32f2f;
+  background: var(--apt-danger);
   transform: rotate(45deg);
 }
 
@@ -5698,18 +5641,23 @@ input:checked + .toggle-slider:before {
 }
 
 /* File Upload Style */
+
+/* A thinner, warmer dash on warm paper. 2px dashed #ccc on #fafafa was the
+   loudest neutral in the flow and it framed an empty box. */
 .file-upload-wrapper {
   position: relative;
   width: 100%;
   height: 100px;
-  border: 2px dashed #ccc;
-  border-radius: var(--ux-card-radius);
+  border: 1.5px dashed rgba(158, 20, 20, 0.22);
+  border-radius: var(--apt-radius);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  background: #fafafa;
-  transition: all 0.2s ease;
+  background: #fffdf7;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease;
   cursor: pointer;
 }
 
@@ -5720,49 +5668,117 @@ input:checked + .toggle-slider:before {
 
 .file-upload-icon {
   font-size: 24px;
-  color: #888;
+  color: var(--apt-muted);
   margin-bottom: 5px;
 }
 
 .file-upload-text {
   font-size: 12px;
-  color: #666;
+  color: var(--apt-muted);
 }
 
-/* --- Step 4 & 5: Review & Ticket Style (Enhanced) --- */
+/* Was an inline `margin-top: 10px` on the wrapper in main.html. */
+.file-upload-field {
+  margin-top: 10px;
+}
+
+/* Was four inline properties on the <small>, including a #7a7a7a that existed
+   nowhere else in the file. */
+.file-upload-name {
+  font-size: 11px;
+  color: var(--apt-muted);
+  margin-top: 4px;
+  text-align: center;
+}
+
+/* Was five inline properties on the <input type="file">. The input covers the
+   whole dashed box so the entire panel is the hit target — that behaviour is
+   unchanged, it is only expressed in CSS now. */
+.file-upload-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* --- Step 4 & 5: one ticket, two states ---------------------------------- */
+
+/* Step 4 is the draft and Step 5 is the issued receipt, and they are the same
+   object: same card, same band head, same rows, same labels, same note strip.
+   Only the corner chip and Step 5's QR rail differ, so each state is one class
+   (`.ticket-chip--draft` / `--issued`, §8.5) instead of the ~15 inline styles
+   Step 5 used to carry. */
 .ticket-container {
-  background-color: #fff;
-  border-radius: var(--ux-card-radius);
-  overflow: hidden;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
-  border: 1px solid #eaeaea;
   position: relative;
   max-width: 800px;
   margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--apt-line);
+  border-radius: var(--apt-radius);
+  background-color: #ffffff;
+  /* Warm, not black: this card is what the success dialog opens on top of, and
+     that dialog's whole depth family is rgba(27, 4, 4, …). */
+  box-shadow: 0 22px 54px rgba(27, 4, 4, 0.18);
 }
 
-/* Ticket Top with 'Ripped' Effect Visual */
+/* The approved success-card band, byte for byte (main.css:6004) — including its
+   soft corner ring — because the dialog carrying that band fires the moment
+   this receipt is finished. Meeting the same head twice is what makes the two
+   read as one object instead of two screens that share a red. */
 .ticket-header {
-  background: linear-gradient(135deg, #b01c1c 0%, #8b0000 100%);
-  color: #fff;
-  padding: 24px 30px;
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  position: relative;
+  gap: 14px;
+  overflow: hidden;
+  padding: 24px 30px;
+  background: linear-gradient(135deg, #3d0808 0%, #5f0d0d 52%, #851313 100%);
+  color: #ffffff;
 }
 
-/* Dashed divider */
+.ticket-header::after {
+  position: absolute;
+  right: -45px;
+  bottom: -105px;
+  width: 220px;
+  height: 220px;
+  content: "";
+  border: 1px solid rgba(241, 237, 18, 0.26);
+  border-radius: 50%;
+  box-shadow: 0 0 0 26px rgba(241, 237, 18, 0.06);
+  pointer-events: none;
+}
+
+/* The ring is decorative and paints after the children, so the copy is lifted
+   over it rather than the ring being pushed behind the band's background. */
+.ticket-header > * {
+  position: relative;
+  z-index: 1;
+}
+
 .ticket-body {
   padding: 30px;
-  background: #fff; /* Zigzag pattern could go here */
+  background: #ffffff;
 }
 
-.ticket-row {
+/* Step 5 only: the details grid and the QR rail side by side. */
+.ticket-body--split {
   display: flex;
-  justify-content: space-between;
+  gap: 20px;
+  align-items: stretch;
+}
+
+/* Auto-fit rather than a fixed column count, so one rule serves Step 4's
+   two-up rows and Step 5's single-item rows with no row surgery, and collapses
+   on a phone without a media query. */
+.ticket-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
   margin-bottom: 20px;
-  border-bottom: 1px dashed #eaeaea;
+  border-bottom: 1px solid var(--apt-line);
   padding-bottom: 15px;
 }
 
@@ -5772,28 +5788,31 @@ input:checked + .toggle-slider:before {
   padding-bottom: 0;
 }
 
+/* Long emails and addresses shrink their track instead of blowing it out. */
 .ticket-column {
-  flex: 1;
+  min-width: 0;
 }
 
+/* The success card's own field label (main.css:6078): gold-brown, 800, wide. */
 .t-label {
-  font-size: 11px;
-  text-transform: uppercase;
-  color: #888;
-  font-weight: 700;
-  letter-spacing: 1px;
   margin-bottom: 5px;
+  color: var(--apt-gold-label);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  line-height: 1.3;
+  text-transform: uppercase;
 }
 
 .t-value {
-  font-size: 15px;
+  color: var(--apt-body);
+  font-size: 14.5px;
   font-weight: 600;
-  color: #333;
-  line-height: 1.4;
+  line-height: 1.6;
 }
 
 .t-value.highlight {
-  color: #b01c1c;
+  color: var(--apt-head);
   font-weight: 800;
 }
 
@@ -5919,9 +5938,7 @@ input:checked + .toggle-slider:before {
 }
 
 /* Main proceed and confirmation controls */
-.apt-btn-blue:hover,
-.apt-btn-solid:hover,
-.apt-btn-green:hover {
+.apt-btn-blue:hover {
   background: linear-gradient(135deg, #c9c20a 0%, #aaa406 64%, #898305 100%);
   color: #242207;
   box-shadow: 0 18px 34px rgba(137, 131, 5, 0.38);
@@ -5929,8 +5946,7 @@ input:checked + .toggle-slider:before {
 
 /* Back, receipt, and outline controls switch to a solid brand color. */
 .apt-btn-back:hover,
-.apt-btn-outline:hover,
-.apt-btn-outline-brown:hover {
+.apt-btn-outline:hover {
   background: #5f0d0d;
   border-color: #5f0d0d;
   color: #ffffff;
@@ -5940,13 +5956,6 @@ input:checked + .toggle-slider:before {
 .apt-btn-cancel:hover {
   background: linear-gradient(135deg, #350606 0%, #510a0a 100%);
   box-shadow: 0 18px 32px rgba(61, 8, 8, 0.32);
-}
-
-.apt-btn-qr:hover {
-  background: #5f0d0d;
-  color: #ffffff;
-  border-color: #5f0d0d;
-  box-shadow: 0 12px 24px rgba(95, 13, 13, 0.25);
 }
 
 /* Step 3 schedule controls */
@@ -15380,7 +15389,10 @@ textarea {
   gap: clamp(2px, 0.8vw, 10px);
   padding: clamp(10px, 1.8vw, 16px) clamp(8px, 2vw, 24px);
   margin-bottom: clamp(18px, 3vw, 35px);
-  border-radius: clamp(18px, 4vw, 999px);
+  /* Flat 8px at every width. This layer is top-level and therefore the winning
+     one for radii, so the pill has to die here — the base rule further up is
+     only readable, not effective. */
+  border-radius: var(--apt-radius);
 }
 
 .apt-step {
@@ -15433,10 +15445,12 @@ textarea {
 }
 
 .apt-reminder-icon {
-  min-width: clamp(34px, 8vw, 45px);
-  width: clamp(34px, 8vw, 45px);
-  height: clamp(34px, 8vw, 45px);
-  font-size: clamp(15px, 3.4vw, 20px);
+  /* 40px cap, down from 45. A numeral disc is a marker, not a button, and at
+     45px it was the same size as the rail's own step circles. */
+  min-width: clamp(32px, 7.4vw, 40px);
+  width: clamp(32px, 7.4vw, 40px);
+  height: clamp(32px, 7.4vw, 40px);
+  font-size: clamp(14px, 3vw, 17px);
 }
 
 .apt-reminder-content h4 {
@@ -15475,7 +15489,15 @@ textarea {
 }
 
 .apt-input-group label {
-  font-size: clamp(12.5px, 1.5vw, 14px);
+  font-size: clamp(11.5px, 1.4vw, 12.5px);
+}
+
+/* Declared in this layer because two older arms (≤900px and ≤768px) re-size
+   `.apt-form-header h4` at the same specificity and would otherwise put the
+   17px heading back on every tablet and phone. The eyebrow has to hold at every
+   width or Step 2 reads as three forms again below 900px. */
+.apt-form-header h4 {
+  font-size: clamp(11px, 1.4vw, 12.5px);
 }
 
 .c-input {
@@ -15485,6 +15507,10 @@ textarea {
 .apt-footer-actions {
   flex-wrap: wrap;
   gap: clamp(10px, 1.6vw, 15px);
+  /* Was an inline `margin-top: 20px` on Steps 4 and 5 only, so the button row
+     sat tight under the card on Steps 1-3 and loose on 4-5. One value, all five
+     steps. */
+  margin-top: clamp(14px, 2.2vw, 20px);
   padding-bottom: calc(clamp(8px, 2vw, 20px) + var(--ux-safe-b));
 }
 
@@ -15510,7 +15536,10 @@ textarea {
 .apt-calendar-left,
 .apt-time-right {
   padding: clamp(14px, 2.2vw, 24px);
-  border-radius: clamp(14px, 2.2vw, 20px);
+  /* Flat 8px, matching the card that contains them and the cells inside them.
+     This is the winning layer for radii, so the 20px in the calendar block
+     above is only documentation. */
+  border-radius: var(--apt-radius);
 }
 
 .cal-navigation button {
@@ -15527,7 +15556,9 @@ textarea {
   height: auto;
   aspect-ratio: 1;
   min-height: clamp(30px, 9.6vw, 54px);
-  border-radius: clamp(8px, 1.6vw, 12px);
+  /* Flat 8px. A month of 12px-rounded tiles reads as a grid of pills; the same
+     corner as every other surface in the flow reads as ruled paper. */
+  border-radius: var(--apt-radius);
   font-size: clamp(11px, 2.5vw, 16px);
 }
 
@@ -15555,8 +15586,18 @@ textarea {
 }
 
 /* Preview / receipt tickets */
+
+/* `width` and not just `max-width`. `.apt-content-section` is a column flexbox,
+   and the card's own `margin: 0 auto` (5716) suppresses the stretch a column
+   flex item would otherwise get — so without a stated width the ticket sizes to
+   fit-content. That was survivable while `.ticket-row` was a wrapping flexbox,
+   whose max-content is the sum of its columns; now that the row is an `auto-fit`
+   grid its max-content is one track wide, and the whole 800px card would collapse
+   to about 340px on a desktop. Stating the width removes the dependency on what
+   the rows happen to measure, and the 800px cap from 5715 comes back with it. */
 .ticket-container {
-  max-width: 100%;
+  width: 100%;
+  max-width: 800px;
 }
 
 .ticket-header {
@@ -15565,8 +15606,10 @@ textarea {
   padding: clamp(16px, 2.6vw, 24px) clamp(16px, 2.8vw, 30px);
 }
 
-.ticket-header h3 {
-  font-size: clamp(17px, 3.2vw, 24px) !important;
+/* The `!important` here existed only to beat an inline `font-size: 24px` on both
+   ticket headings. The inline is gone, so this is a plain declaration again. */
+.ticket-no {
+  font-size: clamp(17px, 3.2vw, 22px);
 }
 
 .ticket-body {
@@ -15575,19 +15618,14 @@ textarea {
 
 .ticket-row {
   gap: clamp(10px, 1.8vw, 20px);
-  flex-wrap: wrap;
-}
-
-.ticket-column {
-  min-width: min(100%, 160px);
 }
 
 .t-label {
-  font-size: clamp(10px, 1.2vw, 11px);
+  font-size: clamp(10px, 1.2vw, 10.5px);
 }
 
 .t-value {
-  font-size: clamp(13px, 1.6vw, 15px);
+  font-size: clamp(13px, 1.6vw, 14.5px);
 }
 
 .success-card {
@@ -15614,47 +15652,33 @@ textarea {
 
 /* ux-layer-E-end */
 
-/* Step 5 receipt: the QR column is inline-styled in HTML, so we
-   target its wrapper structurally to stack it under the details. */
+/* Step 5 receipt: below this width the QR stops being a rail beside the details
+   and becomes a footer under them.
+
+   Class-based now that neither of those divs is inline-styled, which is also
+   what let every `!important` in this block go: `.ticket-body--split` needed one
+   to beat an inline `display: flex`, and the QR column needed three to beat its
+   own inline width, border and padding. The details grid needs no arm at any
+   width — `.ticket-grid`'s auto-fit tracks (§8.5) drop from two columns to one
+   by themselves, which is what the deleted 440px arm used to force. */
 @media (max-width: 760px) {
-  #officialReceiptCard .ticket-body {
-    flex-direction: column !important;
-    gap: 16px !important;
+  .ticket-body--split {
+    flex-direction: column;
+    gap: 16px;
   }
 
-  #officialReceiptCard .ticket-body > div:last-child {
-    width: 100% !important;
+  #officialReceiptCard .ticket-qr {
+    width: 100%;
     max-width: 220px;
     margin: 0 auto;
-    border-left: 0 !important;
-    border-top: 1px dashed #ccc;
-    padding-left: 0 !important;
-    padding-top: 16px !important;
-  }
-
-  #officialReceiptCard .ticket-body > div:first-child {
-    grid-template-columns: 1fr 1fr !important;
-    gap: 12px !important;
+    padding-left: 0;
+    padding-top: 16px;
+    border-left: 0;
+    border-top: 1px solid var(--apt-line);
   }
 }
 
-@media (max-width: 440px) {
-  #officialReceiptCard .ticket-body > div:first-child {
-    grid-template-columns: 1fr !important;
-  }
-}
-
-/* Preview ticket (step 4) rows go single-column on narrow screens. */
-@media (max-width: 620px) {
-  .ticket-row {
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .ticket-column {
-    min-width: 0;
-  }
-}
+/* `.ticket-row` needs no narrow-screen arm either, for the same reason. */
 
 /* ---------------------------------------------------------------
    8. BREAKPOINTS
@@ -18528,20 +18552,23 @@ textarea:focus-visible {
      * `transition: all` on the controls, so any repaint is a candidate for a
        full-property interpolation.
 
-   Desktop keeps the frosted-glass design untouched: everything below is inside
-   the media query, and the substituted fills are tuned to land on the same
-   colours the blur produced over the dark maroon overlay.
+   This arm has since shrunk, and on purpose. The FMRC-minimalism pass (§8 at the
+   end of this file) removed all four appointment `backdrop-filter`s outright and
+   flattened `.apt-card` to solid white at every width, so six of the names this
+   group used to carry — `.apt-back-btn`, `.apt-progress-wrapper`, `.apt-card`,
+   `.apt-btn-back`, `.apt-btn-outline`, `.apt-btn-outline-brown` — had nothing
+   left to switch off, and the three "slightly stronger alpha" stand-ins that
+   compensated for the missing blur were making a phone render the flow in
+   different colours from a desktop. Both are gone. What remains below is only
+   what still differs on a phone by design.
+
+   The four modal surfaces still blur on purpose at desktop width, so they are
+   the only names left in the group.
 
    Deliberately NOT using `will-change` here — it would pin permanent
    compositing layers for the whole overlay and cost more memory than it saves.
    ========================================================================= */
 @media (max-width: 900px) {
-  .apt-back-btn,
-  .apt-progress-wrapper,
-  .apt-card,
-  .apt-btn-back,
-  .apt-btn-outline,
-  .apt-btn-outline-brown,
   .apt-nested-modal,
   #aptPrivacyModal.apt-nested-modal,
   #aptConfirmModal.apt-nested-modal,
@@ -18562,21 +18589,6 @@ textarea:focus-visible {
     );
   }
 
-  /* Slightly stronger alphas stand in for what the blur used to contribute. */
-  .apt-back-btn {
-    background: rgba(255, 255, 255, 0.16);
-  }
-
-  .apt-progress-wrapper {
-    background: rgba(0, 0, 0, 0.2);
-  }
-
-  .apt-btn-back,
-  .apt-btn-outline,
-  .apt-btn-outline-brown {
-    background: rgba(255, 255, 255, 0.16);
-  }
-
   .apt-nested-modal,
   #aptPrivacyModal.apt-nested-modal,
   #aptConfirmModal.apt-nested-modal,
@@ -18584,11 +18596,11 @@ textarea:focus-visible {
     background: rgba(0, 0, 0, 0.72);
   }
 
-  /* Opaque card: the two translucent stops resolved to roughly these colours
-     over the maroon backdrop anyway, and an opaque box also lets the browser
-     skip everything painted behind it. */
+  /* `.apt-card` is solid white at every width now, so the opaque phone-only
+     gradient that used to stand in for two translucent stops is gone. Only the
+     shadow stays overridden: the base card's `0 22px 54px` blur radius is real
+     paint cost on a phone, and this shorter one reads the same at arm's length. */
   .apt-card {
-    background: linear-gradient(135deg, #fffcf9 0%, #f4e9dd 100%);
     box-shadow:
       0 8px 20px rgba(45, 12, 12, 0.18),
       inset 0 1px 0 rgba(255, 255, 255, 0.9);
@@ -18600,8 +18612,12 @@ textarea:focus-visible {
     animation: aptFadeFlat 0.18s ease;
   }
 
-  /* Named property lists so a repaint cannot turn into an all-property
-     interpolation. Buttons are already tuned further up this file. */
+  /* `.apt-btn` names its properties at every width now (§8's pass replaced the
+     old `transition: all`), so this is no longer a fix — it is a deliberate
+     narrowing. The base list also transitions `background` and `box-shadow`;
+     interpolating `.apt-btn-blue`'s gold gradient and re-rasterising a shadow
+     are the two most expensive things a phone can be asked to do on a tap, and
+     letting both snap instead costs nothing anyone can see on a touch screen. */
   .apt-btn {
     transition:
       background-color 0.15s ease,
@@ -19534,5 +19550,355 @@ textarea:focus-visible {
       transform 0.42s cubic-bezier(0.22, 0.61, 0.36, 1),
       opacity 0.42s ease;
   }
+}
+
+/* =============================================================================
+   §8  APPOINTMENT — FMRC MINIMALISM
+   =============================================================================
+
+   The five-step appointment flow was the last surface on the customer site
+   still speaking the site's *first* visual language: nine unrelated greys, four
+   off-palette accents, and every radius from 4px to 999px on screen at once.
+
+   Everything below finishes it in the language the rest of the site already
+   speaks — the one the owner already approved on the success dialog that fires
+   the instant Step 5 submits (`.success-card`, and the `--ux-dlg-*` tokens at
+   the top of the dialog system). That card is a white slab with a gold hairline
+   edge, a maroon band head carrying a pale-gold eyebrow, a cream note panel and
+   a cream footer strip. Step 5 and the dialog that follows it now share those
+   exact values, so the handoff between them is invisible.
+
+   Because of that, this whole section introduces **no new colour and no new
+   font**. Every hex below is already somewhere else in this file.
+
+   The one rule that turns "a lot of nice colours" into minimalism:
+
+       ONE ACCENT, ONE PLACE.
+
+   Gold is allowed on exactly two things at any given moment — the *current*
+   step circle and the primary button. Everything else on screen is maroon,
+   cream or ink. Finished steps are maroon, not gold. Reminder numerals are
+   maroon, not gold. Selected days are maroon, not gold. That is the whole
+   trick, and it is why the eye always knows where it is.
+
+   This section is last in the file on purpose: it is the winning layer for the
+   states it introduces, so nothing here needs `!important` — and nothing here
+   has it. If a rule below ever seems to need one, the value belongs in the
+   block that owns it (the base appointment layer, the calendar layer, or the
+   top-level fluid layer that owns every size and radius) rather than here.
+   ============================================================================= */
+
+/* --- §8.1  The ladder ------------------------------------------------------ */
+
+/* Seventeen names, every one of them a value that already existed in the repo.
+   Declared on :root rather than on `#appointmentFlow` because three rules in
+   the base appointment layer (`.apt-progress-wrapper`, `.apt-card`, and the
+   reminder grid's copy colour) reference them from outside this section. Custom
+   properties do not care about source order, only about inheritance, so
+   declaring them here at the end of the file is correct. */
+:root {
+  /* Surfaces. 8px is `--ux-card-radius` and `--ux-dlg-radius`; 6px is
+     `--ux-dlg-radius-sm`. Buttons are exempt — the site's pill
+     (`.ux-dlg__btn`, `.apt-btn`) is a deliberate, separate shape. */
+  --apt-radius: 8px;
+  --apt-radius-sm: 6px;
+
+  /* Ink. Three levels, and only three: heading, body, muted. This replaces the
+     nine greys (#333 #444 #555 #666 #888 #aaa #ccc #ddd #eaeaea) and the two
+     rival slates the flow used to mix. */
+  --apt-head: #5f0d0d; /* = --ux-dlg-maroon */
+  --apt-body: #4b5563; /* = --ux-dlg-text  */
+  --apt-muted: #6d7480;
+
+  /* Lines. The cream hairline is the success card's footer rule; the warm one
+     is what separates a white card from the maroon stage behind it. */
+  --apt-line: #f0e8c8; /* = --ux-dlg-foot-line */
+  --apt-line-warm: rgba(158, 20, 20, 0.1);
+
+  /* Panels. Byte-for-byte `.success-reference` and `.success-card__footer`. */
+  --apt-panel: #fffbed;
+  --apt-panel-edge: #eadc9a;
+  --apt-strip: #fffdf4; /* = --ux-dlg-foot-bg */
+
+  /* Gold, and the four inks that are legible on or beside it. */
+  --apt-gold: #f1ed12;
+  --apt-gold-ink: #5f0d0d;
+  --apt-gold-soft: #fff8d2;
+  --apt-gold-eyebrow: #f5ef8e; /* = --ux-dlg-eyebrow */
+  --apt-gold-label: #77610d; /* = .success-reference span */
+
+  /* One red on the whole site. Replaces #d32f2f here and #b3261e in
+     responsive.css. */
+  --apt-danger: #b01c1c;
+}
+
+/* --- §8.2  The progress rail ---------------------------------------------- */
+
+/* Three states, and the difference between them is legible at a glance from
+   across a desk:
+
+       done      solid maroon disc, white check
+       current   gold disc, dark ink, one soft ring
+       upcoming  hairline outline on near-nothing, dimmed
+
+   Before this, `main.js` wrote `icon.style.background = "#4caf50"` onto every
+   circle at every step change. Inline styles beat stylesheets, so the gold
+   active state this file has carried since the beginning had literally never
+   rendered — and because the test was `index < stepNumber`, the step you were
+   *on* and every step you had *finished* painted identically. The rail could
+   not tell you where you were. The JS now toggles `.is-done` / `.is-current`
+   and writes no inline style at all, so the three rules below are the only
+   thing painting it.
+
+   No `scale()` anywhere. Growing the current circle is what made the strip
+   shudder as it scroll-snapped on a phone, and a rail that changes size is the
+   opposite of minimal. Colour alone carries the state. */
+
+/* Finished. Maroon, never gold — see the one-accent rule at the top of §8. */
+.apt-step.is-done .apt-icon {
+  background: var(--apt-head);
+  border-color: var(--apt-head);
+  color: #ffffff;
+  box-shadow: none;
+}
+
+/* The check replaces the step's own glyph rather than being added beside it, so
+   no markup in main.html changes and no icon has to be swapped by script. */
+.apt-step.is-done .apt-icon svg {
+  display: none;
+}
+
+.apt-step.is-done .apt-icon::after {
+  content: "✓";
+  font-size: 1.05em;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* Where you are. The only gold circle on screen, and — with the primary button
+   — one of only two gold things anywhere in the flow. The ring is a flat
+   4px spread rather than the 30px bloom this rule used to carry: a bloom on a
+   dark field reads as a glow effect, a ring reads as a marker. */
+.apt-step.is-current .apt-icon {
+  background: var(--apt-gold);
+  border-color: var(--apt-gold);
+  /* Dark olive-ink, already in the file as the badge ink family: gold needs a
+     near-black to stay legible, and pure black would look like a hole. */
+  color: #2d2a12;
+  box-shadow: 0 0 0 4px rgba(241, 237, 18, 0.18);
+}
+
+/* Not yet. Dimming the whole step — label, circle and caption together — is
+   what makes the finished/current pair read as "ahead of" the rest, without
+   adding a fourth colour to the strip. */
+.apt-step:not(.is-done):not(.is-current) {
+  opacity: 0.62;
+}
+
+/* The connector fills behind you as you go. Sibling order in the markup is
+   step → line → step, so the adjacent-sibling combinator is enough and no
+   `:has()` (or JS) is needed. */
+.apt-step.is-done + .apt-line {
+  background: var(--apt-head);
+}
+
+/* --- §8.3  Inputs, scoped ------------------------------------------------- */
+
+/* `.c-input` is shared with the contact form, the profile modal and checkout, so
+   its 18px base radius is not this task's to change — flattening it globally
+   would silently restyle three other pages. Scoped to the flow instead, which
+   is the only place the radius collapse has been agreed.
+   (The same one-liner can be promoted site-wide in the home-page round.)
+
+   `#222833` goes with it: it is the last of the cold neutrals, and inside this
+   flow every other piece of body copy is already `--apt-body`. */
+#appointmentFlow .c-input,
+.apt-nested-modal .c-input {
+  border-radius: var(--apt-radius);
+  color: var(--apt-body);
+}
+
+/* --- §8.4  Step 3 loose copy ---------------------------------------------- */
+
+/* Four inline properties off the wrapper and three off the counter. The
+   counter's `display:none` stays inline because main.js toggles it, and
+   `#maxLimitMsg`'s does too for the same reason — everything else that was
+   inline is here. */
+.slot-counter-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+#slotCounter {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--apt-muted);
+}
+
+/* main.js writes this element's colour inline on every call (`showSlotMessage`),
+   so a `color` here would never apply — the two call-site literals are the
+   palette values `#b01c1c` for a real conflict and `#77610d` for the reminder.
+   Everything else about the line is styled here. */
+#maxLimitMsg {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+  margin-top: 10px;
+}
+
+/* --- §8.5  The ticket head, the details grid, the QR rail, the note ------- */
+
+/* Every class below replaces an inline style. Step 5 carried about fifteen of
+   them, which is why it and Step 4 had drifted into two different objects: the
+   same heading was 24px in one and 24px-then-16px in the other, the same
+   schedule value was 18px maroon here and 16px near-black there, and the status
+   chip was translucent white in one place and #4caf50 in the other. */
+
+.ticket-eyebrow {
+  display: block;
+  color: var(--apt-gold-eyebrow);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.ticket-no {
+  margin: 5px 0 0;
+  color: #ffffff;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+/* Two states, one shape. Draft is quiet — a label on glass, because nothing has
+   happened yet. Issued is the gold badge on maroon ink, exactly the pairing the
+   success dialog's own badge uses (--ux-dlg-badge on --ux-dlg-badge-ink). That
+   retires #4caf50 from the customer site.
+
+   This does not break §8's one-accent rule: both live on the maroon band, where
+   pale gold and gold *are* the band's own accent family — the success dialog
+   sets a #f5ef8e eyebrow and an #f1ed12 badge on this very gradient. The band is
+   one place. */
+.ticket-chip {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ticket-chip--draft {
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--apt-gold-soft);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.24);
+}
+
+.ticket-chip--issued {
+  background: var(--apt-gold);
+  color: var(--apt-head);
+}
+
+/* Step 5's details, formerly an inline `grid-template-columns: 1fr 1fr` that
+   needed two media-query overrides to survive a phone. 190px is chosen so the
+   tracks fall to one column at roughly the same width the deleted 440px arm
+   used to force it. */
+.ticket-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  align-content: start;
+  gap: 14px;
+}
+
+/* Inside the grid, `gap` already does the job `.ticket-row`'s own margin does
+   for Step 4's stacked rows — keeping both put 34px between every field. */
+.ticket-grid > .ticket-row {
+  margin-bottom: 0;
+}
+
+.ticket-qr {
+  display: flex;
+  width: 150px;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-left: 20px;
+  border-left: 1px solid var(--apt-line);
+  text-align: center;
+}
+
+/* Keeps its missing `src` on purpose — see the comment on the element itself. */
+.ticket-qr__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  mix-blend-mode: multiply;
+}
+
+.ticket-qr__caption {
+  color: var(--apt-muted);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* The site's link rule: underlined, darker on hover and darker again on press,
+   never a lift. */
+.ticket-qr__link {
+  color: #8b0000;
+  font-size: 10px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.18s ease;
+}
+
+.ticket-qr__link:hover {
+  color: #6d0000;
+}
+
+.ticket-qr__link:active {
+  color: #560000;
+}
+
+/* Byte for byte the success card's footer strip (main.css:16796) — #fffdf4 on a
+   #f0e8c8 hairline. Step 5 ends on the same strip the dialog that follows it
+   opens on. */
+.ticket-note {
+  padding: 15px 25px;
+  border-top: 1px solid var(--apt-line);
+  background: var(--apt-strip);
+  color: var(--apt-body);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.ticket-note strong {
+  color: var(--apt-head);
+  font-weight: 800;
+}
+
+/* The one value on the ticket that is allowed to be bigger than its neighbours:
+   the schedule. Step 4 set it inline at 18px and Step 5 at 16px in near-black,
+   so the same field looked like two different fields. */
+.t-value--lead {
+  color: var(--apt-head);
+  font-size: clamp(15px, 2.2vw, 17px);
+  font-weight: 800;
+}
+
+/* Notes read as secondary, not as an aside — italic in a data grid is noise. */
+.t-value--note {
+  color: var(--apt-muted);
+  font-style: normal;
 }
 
