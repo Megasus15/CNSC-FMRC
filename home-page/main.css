@@ -20186,9 +20186,16 @@ textarea:focus-visible {
     padding-bottom: 12px;
   }
 
+  /* The rail is the one box that must not touch the card under it: it is a
+     translucent dark panel and the card is white paper, so at 10px the two read
+     as one stacked object. 18px is not a new number — it is what the rail
+     already leaves below itself at every width under 901px, so a phone and a PC
+     now show the same gap here. Measured with Step 1 open, the flow still asks
+     for no scrollbar at either laptop case this arm was tuned against: content
+     ends at 629px of 658 at 1366x658, and 669px of 700 at 903x700. */
   #appointmentFlow .apt-progress-wrapper {
     padding-block: 8px;
-    margin-bottom: 10px;
+    margin-bottom: 18px;
   }
 
   /* The card keeps a generous 24px of paper — every pixel above came out of the
@@ -20202,5 +20209,78 @@ textarea:focus-visible {
     margin-top: 12px;
     padding-bottom: 10px;
   }
+}
+
+/* --- §8.10  The stage reaches the real right edge --------------------------- */
+
+/* The owner's screenshot shows a pale band down the right of the whole screen.
+   It is not a card, a shadow or an overflow: it is the scrollbar gutter, and
+   nothing the page can paint was ever inside it.
+
+   Measured at an emulated 1907x950 with the flow open: the viewport is 1907,
+   but `html`'s box is 1892, `body` is 1892, and `.apt-overlay` — `position:
+   fixed; width: 100%` (main.css:4512) — resolves to 1892 as well, because
+   `html { scrollbar-gutter: stable }` (main.css:14) permanently reserves ~15px
+   and a fixed box is laid out in the initial containing block, which excludes
+   it. `elementFromPoint` returns null across x=1893..1906: no element paints
+   there at all, so what shows through is the canvas, which is body's
+   `#fffdf9`. On a display at 125% scaling — the owner's, dpr 1.25 — those 15
+   CSS px land as ~19 device px of cream beside a maroon stage.
+
+   `100vw` is not the fix, and this is the measurement that matters most:
+   with the gutter reserved, `100vw`, `100dvw`, `100svw` and `100lvw` all
+   resolve to 1892.2. Viewport units shrink with the gutter in Chrome, so every
+   one of them lands the overlay in exactly the same place it already is. A
+   pseudo-element bleed or a flat slab behind the strip is worse still — the
+   stage is a *gradient*, so any flat fill matches it at one scanline and reads
+   as a seam everywhere else, which is the correction the owner already made
+   once about the header.
+
+   So the gutter is released for the one overlay that covers the entire screen,
+   and `overflow: hidden` comes with it for two reasons. It is what guarantees
+   no scrollbar can render in the space just released — and it closes a real
+   bug: `body.style.overflow = "hidden"` never shortened body's box (still 4558
+   tall here), so the document behind an open modal stayed scrollable and its
+   scrollbar stayed draggable. Scoped with `:has()` to this overlay only,
+   because the reserved gutter is what stops the page reflowing 15px under the
+   site's translucent dialogs — the appointment stage is opaque and full-bleed,
+   so it is the only one that can afford to give the gutter back. */
+html:has(#appointmentFlow.show-modal) {
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+
+/* With the stage now ending at the true viewport edge, its own scrollbar ends
+   there too — and Chrome's default is a white track with a grey thumb, which
+   would put the same pale band back on Steps 2 and 3 the moment their content
+   is taller than the screen. This is the `.customer-rating-body` recipe
+   (main.css:10806-10836) in the stage's own palette: transparent track, one
+   translucent white thumb. `stable` keeps the gutter reserved *inside* the
+   overlay, where the maroon paints under it, so the card stack sits in exactly
+   the same place on a step that scrolls and a step that does not. */
+#appointmentFlow {
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+}
+
+#appointmentFlow::-webkit-scrollbar {
+  width: 7px;
+}
+
+#appointmentFlow::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#appointmentFlow::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.32);
+  background-clip: padding-box;
+}
+
+#appointmentFlow::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.52);
+  background-clip: padding-box;
 }
 
