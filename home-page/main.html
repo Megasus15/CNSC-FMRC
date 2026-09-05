@@ -1636,17 +1636,23 @@
     <script src="maintenance-gate.js?v=1.1"></script>
     <!-- Deferred as a set, never individually: `defer` only preserves relative
          order among deferred scripts, so leaving any one of these synchronous
-         would run it ahead of the others. customer-announcements.js reads
-         window.APP_API_BASE_URL, which main.js sets. Both wrap their work in a
+         would run it ahead of the others. Both wrap their work in a
          DOMContentLoaded handler, and deferred scripts run before that event
-         fires, so listener registration order is unchanged. -->
+         fires, so listener registration order is unchanged.
+         The order of these last two is not load-bearing: what
+         customer-announcements.js needs from main.js is
+         window.FMRC_SITE_CONTENT_OWNER (the flag that stops it fetching
+         /site-settings a second time), main.js sets that at parse time, and the
+         announcements file only reads it from its DOMContentLoaded handler —
+         after both bodies have run either way. Products loads the two in the
+         opposite order for that reason. -->
     <!-- First of the set, so window.FMRCLoader exists before any handler main.js
          registers can fire. Nothing on this page reads it at parse time, and
          every call site is written `window.FMRCLoader?.…`, so if this request
          ever fails the affected flow silently falls back to the plain disabled
          button it had before. -->
     <script defer src="fmrc-loader.js?v=1.0"></script>
-    <script defer src="main.js?v=8.0"></script>
-    <script defer src="customer-announcements.js?v=5.7"></script>
+    <script defer src="main.js?v=8.4"></script>
+    <script defer src="customer-announcements.js?v=5.8"></script>
   </body>
 </html>

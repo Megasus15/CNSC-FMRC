@@ -181,6 +181,11 @@ async function doSave() {
     });
     if (!res.ok) throw new Error();
     window.showAdminPopup("Footer settings saved!", { title: "Saved!" });
+    // The footer is on every customer page, so a saved change here has to reach
+    // open tabs the same way a Home or Contact save does. Without this the only
+    // thing that ever noticed was main.js's 20 s poll, which made an identical
+    // edit look instant on some panels and delayed on this one.
+    broadcastSiteUpdate();
     await loadSettings();
   } catch {
     window.showAdminPopup("Failed to save. Try again.", { title: "Error" });
@@ -191,5 +196,27 @@ async function doSave() {
         originalSaveButtonHtml ||
         '<i class="fa-solid fa-floppy-disk"></i> Save All Changes';
     }
+  }
+}
+
+/**
+ * Tell every open customer/admin tab that site content changed. Byte-identical
+ * to the copy in website-home.js:1719 on purpose — both signals matter, and the
+ * customer listener (main.js:14566) only reacts to these exact type strings.
+ */
+function broadcastSiteUpdate(type) {
+  try {
+    if ("BroadcastChannel" in window) {
+      const ch = new BroadcastChannel("fmrc-site-settings-realtime");
+      ch.postMessage({ type: type || "updated", at: Date.now() });
+      ch.close();
+    }
+  } catch {
+    /* BroadcastChannel unsupported — the storage signal below still fires. */
+  }
+  try {
+    localStorage.setItem("fmrc_site_content_updated_at", String(Date.now()));
+  } catch {
+    /* storage blocked — ETag polling still picks the change up */
   }
 }

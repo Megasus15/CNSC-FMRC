@@ -19,15 +19,50 @@
  * so a staff member who guesses this URL can read the page but never save.
  */
 
-const API = (() => {
-  const proto = window.location.protocol;
-  const host = window.location.hostname;
-  const port = window.location.port;
-  if (port === "8000") return `${proto}//${host}:${port}/api`;
-  if (host === "localhost" || host === "127.0.0.1")
-    return `${proto}//${host}:8000/api`;
-  return `${proto}//${host}/api`;
-})();
+/**
+ * The API base resolver every other admin script uses, byte for byte. This file
+ * and website-home.js were the last two carrying a shorter inline copy that had
+ * no override hook, no branch for `file://` or an empty hostname, and dropped
+ * whatever port a non-localhost host was served on — so the panel could point at
+ * an address nothing answers on and blame the backend for it.
+ */
+const resolveApiBaseUrl = () => {
+  const configured =
+    window.APP_API_BASE_URL ||
+    document
+      .querySelector('meta[name="api-base-url"]')
+      ?.getAttribute("content") ||
+    "";
+
+  if (configured.trim()) {
+    return configured.replace(/\/+$/, "");
+  }
+
+  const protocol = String(window.location.protocol || "").toLowerCase();
+  const hostname = String(window.location.hostname || "").toLowerCase();
+  const origin = String(window.location.origin || "");
+  const port = String(window.location.port || "");
+
+  if (!/^https?:$/.test(protocol) || !hostname) {
+    return "http://127.0.0.1:8000/api";
+  }
+
+  const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1";
+  const isPort8000 = port === "8000";
+  const isStandardWebPort = port === "" || port === "80" || port === "443";
+
+  if (isPort8000 || (!isLocalHost && isStandardWebPort)) {
+    return `${origin.replace(/\/+$/, "")}/api`;
+  }
+
+  if (isLocalHost) {
+    return `${protocol}//${hostname}:8000/api`;
+  }
+
+  return `${origin.replace(/\/+$/, "")}/api`;
+};
+
+const API = resolveApiBaseUrl();
 
 const token = () =>
   (window.AdminSession && window.AdminSession.getToken()) ||

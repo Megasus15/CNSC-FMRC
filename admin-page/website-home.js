@@ -1,21 +1,66 @@
 /* jshint esversion: 9 */
 "use strict";
 
-const API = (() => {
-  const proto = window.location.protocol;
-  const host = window.location.hostname;
-  const port = window.location.port;
-  if (port === "8000") return `${proto}//${host}:${port}/api`;
-  if (host === "localhost" || host === "127.0.0.1")
-    return `${proto}//${host}:8000/api`;
-  return `${proto}//${host}/api`;
-})();
+/**
+ * The API base resolver the other admin scripts share, byte for byte. This page
+ * used to carry a shorter inline version, and every difference was a way for the
+ * panel to point at an address nothing answers on:
+ *
+ *  - no `window.APP_API_BASE_URL` / `<meta name="api-base-url">` override, so a
+ *    deployment that serves the API from anywhere else could not be told;
+ *  - it dropped whatever port a non-localhost host was served on, so reaching
+ *    the panel over a LAN IP or any non-standard port built `http://host/api`;
+ *  - no branch for a non-http(s) protocol (`file://`) or an empty hostname.
+ *
+ * In each of those cases every load below failed with a message that blamed the
+ * backend, which was healthy the whole time.
+ */
+const resolveApiBaseUrl = () => {
+  const configured =
+    window.APP_API_BASE_URL ||
+    document
+      .querySelector('meta[name="api-base-url"]')
+      ?.getAttribute("content") ||
+    "";
+
+  if (configured.trim()) {
+    return configured.replace(/\/+$/, "");
+  }
+
+  const protocol = String(window.location.protocol || "").toLowerCase();
+  const hostname = String(window.location.hostname || "").toLowerCase();
+  const origin = String(window.location.origin || "");
+  const port = String(window.location.port || "");
+
+  if (!/^https?:$/.test(protocol) || !hostname) {
+    return "http://127.0.0.1:8000/api";
+  }
+
+  const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1";
+  const isPort8000 = port === "8000";
+  const isStandardWebPort = port === "" || port === "80" || port === "443";
+
+  if (isPort8000 || (!isLocalHost && isStandardWebPort)) {
+    return `${origin.replace(/\/+$/, "")}/api`;
+  }
+
+  if (isLocalHost) {
+    return `${protocol}//${hostname}:8000/api`;
+  }
+
+  return `${origin.replace(/\/+$/, "")}/api`;
+};
+
+const API = resolveApiBaseUrl();
 const token = () =>
   (window.AdminSession && window.AdminSession.getToken()) ||
   localStorage.getItem("auth_token");
 
 // ── State ───────────────────────────────────────────────────────────────────
 let currentSettings = {};
+// False until a snapshot has actually been read. Gates Save All Changes; see
+// setSettingsLoaded().
+let settingsLoaded = false;
 let servicesData = [];
 let svcImageData = null; // base64 for current service modal image
 let heroBgImageData = null;
@@ -128,21 +173,126 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 async function loadAllData() {
-  await Promise.all([loadSettings(), loadServices(), loadSdgs()]);
+  // Locked before the first request goes out, not just when one fails: a fetch
+  // that never settles would otherwise leave the button live over empty fields.
+  setSettingsLoaded(false);
+  // `allSettled`, not `all`. With `all`, one rejected loader skipped bindEvents()
+  // for the whole page — every control on the panel dead, and nothing saying so.
+  await Promise.allSettled([loadSettings(), loadServices(), loadSdgs()]);
 }
 
 // ── API: Load settings ────────────────────────────────────────────────────────
-async function loadSettings() {
+/**
+ * Reads the live snapshot. Throws with a sentence naming the actual failure,
+ * because the four ways this can go wrong used to be indistinguishable: the old
+ * version had no `res.ok` check and no `Accept` header, so an HTTP 500 whose body
+ * is Laravel's HTML error page, a 404 from a missing rewrite, an expired session
+ * and a genuinely offline server all printed "check your backend connection".
+ */
+async function fetchSiteSettings() {
+  let res;
   try {
-    const res = await fetch(`${API}/site-settings`);
-    const json = await res.json();
-    currentSettings = json.data || {};
-    populateForm();
+    res = await fetch(`${API}/site-settings`, {
+      headers: { Accept: "application/json" },
+    });
   } catch {
-    window.showAdminPopup(
-      "Failed to load site settings. Check your backend connection.",
+    throw new Error(
+      "The request never reached the server — it is offline, or this page is being blocked from calling it.",
     );
   }
+
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(
+        `The server refused the request (HTTP ${res.status}). Sign in again and reopen this page.`,
+      );
+    }
+    if (res.status === 404) {
+      throw new Error(
+        `The settings address returned HTTP 404, so ${API} is not where the API is answering.`,
+      );
+    }
+    throw new Error(`The server answered with HTTP ${res.status}.`);
+  }
+
+  let json;
+  try {
+    json = await res.json();
+  } catch {
+    throw new Error(
+      "The server replied with something other than JSON, which usually means it returned an error page.",
+    );
+  }
+
+  if (!json || typeof json.data !== "object" || json.data === null) {
+    throw new Error("The server's reply carried no settings.");
+  }
+  return json.data;
+}
+
+/**
+ * Never throws: three callers await this inside their own try/catch (the two
+ * save paths read the snapshot back afterwards), and a rejection there would
+ * report a successful save as a failed one. Returns whether the form is now
+ * holding live content.
+ */
+async function loadSettings(options) {
+  const silent = Boolean(options && options.silent);
+  try {
+    currentSettings = await fetchSiteSettings();
+    populateForm();
+    setSettingsLoaded(true);
+    return true;
+  } catch (error) {
+    setSettingsLoaded(false);
+    if (!silent) showSettingsLoadFailure(error);
+    return false;
+  }
+}
+
+/**
+ * Save All Changes publishes eleven text fields and four media keys in a single
+ * PUT. Until the snapshot has been read those fields are empty, so one click
+ * would blank the customer Home page — hero title, About, Vision and Mission
+ * copy — with no warning and no undo. The button therefore stays locked until a
+ * load succeeds, which is the rule the Maintenance Mode panel already follows.
+ */
+function setSettingsLoaded(loaded) {
+  settingsLoaded = Boolean(loaded);
+  const btn = document.getElementById("btnSaveAllHome");
+  if (!btn) return;
+  btn.disabled = !settingsLoaded;
+  btn.title = settingsLoaded
+    ? ""
+    : "Locked until the live Home page content has loaded.";
+}
+
+/** One dialog, with the retry in it, so a blip does not cost a page reload. */
+function showSettingsLoadFailure(error) {
+  const reason =
+    (error && error.message) || "The request could not be completed.";
+  window.showAdminConfirmPopup(
+    `${reason}\n\nThe live Home page content could not be read from ${API}, so these fields are empty and Save All Changes is locked until it loads.`,
+    {
+      title: "Home Content Not Loaded",
+      confirmText: "Retry",
+      cancelText: "Close",
+      keepOpenWhilePending: true,
+      loadingText: "Retrying...",
+      // Silent, so a failed retry leaves this dialog open with its button live
+      // again instead of stacking a second copy of itself on top.
+      onConfirm: async () => {
+        const ok = await loadSettings({ silent: true });
+        if (!ok) throw new Error("Retry failed");
+      },
+      onSuccess: () => {
+        window.showAdminPopup("Home page content loaded.", {
+          title: "Loaded",
+          type: "success",
+        });
+      },
+    },
+  );
 }
 
 function populateForm() {
@@ -211,7 +361,13 @@ function setVal(id, val) {
 // ── API: Load services ────────────────────────────────────────────────────────
 async function loadServices() {
   try {
-    const res = await fetch(`${API}/services`);
+    // Same two additions as the settings loader above: ask for JSON, and treat a
+    // non-2xx as the failure it is instead of feeding an HTML error page to
+    // res.json() and reporting whatever that throws.
+    const res = await fetch(`${API}/services`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     servicesData = json.data || [];
     renderServiceCards();
@@ -640,6 +796,17 @@ async function saveLogoSetting(conf, value, successMsg) {
 }
 
 async function doSaveAll() {
+  // Backstop. The button is already disabled in this state, so a click cannot
+  // normally get here — but this payload is built from the form unconditionally,
+  // and publishing it unread is a one-click wipe of the live Home page copy.
+  if (!settingsLoaded) {
+    window.showAdminPopup(
+      "The live Home page content has not loaded, so saving now would publish empty fields over it. Load the content first, then save.",
+      { title: "Cannot Save Yet" },
+    );
+    return;
+  }
+
   const saveButton = document.getElementById("btnSaveAllHome");
   const originalSaveButtonHtml = saveButton?.innerHTML || "";
   if (saveButton) {
@@ -693,7 +860,9 @@ async function doSaveAll() {
     );
   } finally {
     if (saveButton) {
-      saveButton.disabled = false;
+      // Not a flat `false`: if the read-back above failed, the form is no longer
+      // known to hold live content, and the lock has to survive this handler.
+      saveButton.disabled = !settingsLoaded;
       saveButton.innerHTML =
         originalSaveButtonHtml ||
         '<i class="fa-solid fa-floppy-disk"></i> Save All Changes';
@@ -1773,6 +1942,16 @@ function removeGalleryImage(kind, index) {
  */
 async function saveGallery(kind, list, successMsg) {
   const conf = GALLERIES[kind];
+  // The deck is published as one whole array read from the snapshot. If the
+  // snapshot never arrived that array is empty, so saving would drop every photo
+  // already on the live site.
+  if (!settingsLoaded) {
+    window.showAdminPopup(
+      `The live ${conf.label} photos have not loaded, so saving now would remove them. Load the content first, then try again.`,
+      { title: "Cannot Save Yet" },
+    );
+    return;
+  }
   if (gallerySaving[kind]) {
     window.showAdminPopup(
       `The ${conf.label} gallery is still saving your last change. Please try again in a moment.`,

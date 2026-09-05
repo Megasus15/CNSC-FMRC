@@ -1293,11 +1293,17 @@
         fetch(`${API_BASE_URL}/products`, {
           headers: { Accept: "application/json" },
         }).catch(() => null),
-        // The shared theme normally arrives from main.js, which already polls
-        // /site-settings with an ETag on every customer page. This one is a
-        // fallback for a page that has no main.js, so the endpoint is never
-        // polled twice.
-        window.FMRC_PROMO_THEME
+        // The shared theme arrives from main.js, which already reads
+        // /site-settings on load and re-reads it every 20 s, then publishes
+        // window.FMRC_PROMO_THEME and fires `fmrc:promotion-theme` — which the
+        // listener at the bottom of this file repaints from. So this request is
+        // only a fallback for a page that ships without main.js.
+        //
+        // It is gated on the ownership flag main.js sets at parse time, not on
+        // the published theme: the theme only exists after main.js's own response
+        // lands, so on a cold load this fallback always fired and every customer
+        // page read the heaviest payload on the site twice.
+        window.FMRC_SITE_CONTENT_OWNER || window.FMRC_PROMO_THEME
           ? Promise.resolve(null)
           : fetch(`${API_BASE_URL}/site-settings`, {
               headers: { Accept: "application/json" },

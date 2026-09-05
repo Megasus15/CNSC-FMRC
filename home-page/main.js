@@ -98,6 +98,23 @@ const resolveApiBaseUrl = () => {
 
 const API_BASE_URL = resolveApiBaseUrl();
 
+/**
+ * "This page's site content is mine." Set here, at parse time, because the only
+ * other reader — customer-announcements.js — has to know before it builds its
+ * own request batch, which it does from a DOMContentLoaded handler. Both files
+ * are deferred on all four customer pages, in either order, so a top-level flag
+ * is the one thing guaranteed to be visible in time.
+ *
+ * Why it exists: that file used to fall back to its own /site-settings request
+ * whenever window.FMRC_PROMO_THEME was not published *yet* — which, on a cold
+ * load, is always, because this file only publishes it after its own response
+ * arrives. So every customer page fetched the same payload twice, and that
+ * payload is the heaviest read on the site (it carries the base64 logos). One of
+ * the two was pure waste on a queue that the page's other requests were already
+ * waiting in.
+ */
+window.FMRC_SITE_CONTENT_OWNER = true;
+
 const emitCustomerOrdersUpdated = (detail = {}) => {
   const payload = {
     source: "customer-portal",
@@ -13933,22 +13950,44 @@ const openReturnRequestModal = (() => {
   }
 
   let _settingsSnapshot = "";
+  let _servicesSnapshot = "";
 
   async function loadSiteContent() {
     try {
-      const [, svRes] = await Promise.all([
-        reloadSettings(),
-        document.body.classList.contains("services-page-body")
-          ? Promise.resolve(null)
-          : fetch(_API + "/services"),
-        loadSdgs(),
-      ]);
-      if (svRes?.ok) {
-        const { data } = await svRes.json();
-        applyServices(data || []);
-      }
+      await Promise.all([reloadSettings(), reloadServices(), loadSdgs()]);
     } catch {
       /* silent fallback */
+    }
+  }
+
+  /**
+   * Re-read /services and repaint the home page's offer carousel. Split out of
+   * loadSiteContent() so the realtime tick can call it too: before this the
+   * realtime path re-read settings and badges but never services, so a service
+   * saved or deleted in Website Management → Services stayed on an open customer
+   * tab until someone reloaded it by hand — even though the delete dialog there
+   * says the service is "removed from both Services and Home pages".
+   *
+   * The body comparison is not an optimisation, it is what makes this safe to
+   * put on a 20 s timer: applyServices() replaces the whole track with
+   * `innerHTML` and re-runs initCarousel(), so repainting an unchanged list
+   * would snap a visitor back to the first slide every 20 s and re-arm the
+   * autoplay interval. Unchanged payload, no DOM work, no listeners rebuilt.
+   *
+   * The Services page fetches and renders its own grid, so it is skipped here
+   * exactly as it was on boot.
+   */
+  async function reloadServices() {
+    if (document.body.classList.contains("services-page-body")) return;
+    try {
+      const res = await fetch(_API + "/services");
+      if (!res.ok) return;
+      const text = await res.text();
+      if (text === _servicesSnapshot) return;
+      _servicesSnapshot = text;
+      applyServices(JSON.parse(text).data || []);
+    } catch {
+      /* offline — keep what is already on screen */
     }
   }
 
@@ -14518,13 +14557,46 @@ const openReturnRequestModal = (() => {
     _sdgRefreshAt = now;
     void loadSdgs();
     void reloadSettings();
+    // Services rides the same tick: the offer carousel on this page is built
+    // from /services, so a save in Website Management → Services has to land
+    // here too. reloadServices() no-ops on an unchanged payload, so this costs
+    // one small conditional GET and never rebuilds the carousel needlessly.
+    void reloadServices();
     // Maintenance Mode rides this pipeline instead of adding one of its own:
     // same channel, same storage stamp, same tick. The /api/maintenance ETag
     // makes the extra request a 304 whenever nothing has changed.
     void window.FMRC_MAINTENANCE?.refresh();
   }
 
+  let _revisitRefreshAt = 0;
+
+  /**
+   * The "visitor came back to this tab" trigger. Same work as the function
+   * above, on a longer floor: an OS window switch raises `focus` *and*
+   * `visibilitychange`, and some browsers fire visibilitychange for their own
+   * chrome, so the raw events arrive in bursts — each one otherwise re-reading
+   * the whole settings snapshot, which is the largest payload on the site.
+   *
+   * A save is deliberately left on the 400 ms floor: the channel message and
+   * the storage stamp still call refreshSiteContentRealtime() directly, so an
+   * edit made in Website Management still appears here immediately. This floor
+   * only throttles "make sure nothing changed while I was away", where five
+   * seconds is imperceptible.
+   */
+  function refreshSiteContentOnRevisit() {
+    const now = Date.now();
+    if (now - _revisitRefreshAt < 5000) return;
+    _revisitRefreshAt = now;
+    refreshSiteContentRealtime();
+  }
+
   function initSdgRealtime() {
+    // The boot read counts as the first refresh. Without this, the very first
+    // focus/visibilitychange after load — which browsers routinely raise while
+    // the page is still settling — sails through the floor below and re-reads a
+    // snapshot that is milliseconds old.
+    _revisitRefreshAt = Date.now();
+
     // Badge clicks are home-page only — the rows exist nowhere else.
     const rows = document.getElementById("heroSdgRows");
     if (rows) {
@@ -14563,13 +14635,14 @@ const openReturnRequestModal = (() => {
       if (!document.hidden) {
         void loadSdgs();
         void reloadSettings();
+        void reloadServices();
         void window.FMRC_MAINTENANCE?.refresh();
       }
     }, 20000);
     document.addEventListener("visibilitychange", function () {
-      if (!document.hidden) refreshSiteContentRealtime();
+      if (!document.hidden) refreshSiteContentOnRevisit();
     });
-    window.addEventListener("focus", refreshSiteContentRealtime);
+    window.addEventListener("focus", refreshSiteContentOnRevisit);
   }
 
 

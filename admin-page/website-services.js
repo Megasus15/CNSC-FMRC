@@ -326,6 +326,10 @@ async function doSave(id) {
     serviceDiscardGuard?.clear();
     closeModal();
     window.showAdminPopup("Service saved successfully!", { title: "Saved!" });
+    // The home page's offer carousel is built from this list, so an open
+    // customer tab has to hear the change the same way a Home or Contact save
+    // announces itself. main.js re-reads /services on this signal.
+    broadcastSiteUpdate();
     await loadServices();
   } catch {
     window.showAdminPopup("Failed to save. Try again.", { title: "Error" });
@@ -356,6 +360,9 @@ function doDelete(id, name) {
           });
           if (!res.ok) throw new Error();
           window.showAdminPopup("Service deleted.", { title: "Deleted" });
+          // Same reason as the save path: this dialog promises the service is
+          // gone from the Home page too, so say so on the realtime channel.
+          broadcastSiteUpdate();
           await loadServices();
         } catch {
           window.showAdminPopup("Failed to delete.", { title: "Error" });
@@ -407,4 +414,26 @@ function getChips(areaId) {
   return Array.from(
     document.getElementById(areaId).querySelectorAll(".chip-tag-item"),
   ).map((c) => c.dataset.value);
+}
+
+/**
+ * Tell every open customer/admin tab that site content changed. Byte-identical
+ * to the copy in website-home.js:1719 on purpose — both signals matter, and the
+ * customer listener (main.js:14566) only reacts to these exact type strings.
+ */
+function broadcastSiteUpdate(type) {
+  try {
+    if ("BroadcastChannel" in window) {
+      const ch = new BroadcastChannel("fmrc-site-settings-realtime");
+      ch.postMessage({ type: type || "updated", at: Date.now() });
+      ch.close();
+    }
+  } catch {
+    /* BroadcastChannel unsupported — the storage signal below still fires. */
+  }
+  try {
+    localStorage.setItem("fmrc_site_content_updated_at", String(Date.now()));
+  } catch {
+    /* storage blocked — ETag polling still picks the change up */
+  }
 }
