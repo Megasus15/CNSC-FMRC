@@ -6754,12 +6754,32 @@ input:checked + .toggle-slider:before {
    Qualifying it takes the variant to (0,3,0) for the resting state only, and
    the `transform: none` of `.show-reveal` still applies once the class lands,
    regardless of source order. */
+/* The offset is a fraction of the page gutter because a fixed one does not fit a
+   phone. Measured at a 394px viewport, an un-revealed Mission block rests 37.7px
+   clear of the right edge — the section's `--ux-gutter` (16.5px at 4.2vw) plus the
+   container's own 20px — so the old flat 56px pushed it 18.3px *past* the
+   viewport, and Vision pushed the same distance past the left. A transform does
+   not change layout but it does add visual overflow, which is why the home page
+   could be panned sideways to an empty strip until a block had been revealed:
+   exactly the "sometimes" in the owner's report, since the overflow disappears
+   the moment `.show-reveal` lands.
+
+   `--ux-gutter` is the right basis rather than a vw of my own, because the gutter
+   *is* what produces the slack: every one of these blocks sits inside a section
+   padded by exactly that token, so 0.6 of it can never reach the edge no matter
+   how the token is redefined later. That matters at the 280px band, where
+   responsive.css:450 drops the gutter to 7px and `.vision-container` carries no
+   padding at all — slack there is 7.8px, and a 3.6vw rule would still have
+   overflowed by 6.2px while 0.6 of the gutter lands at 4.2px. Resolved widths:
+   4.2px at 280, 9.9px at 394, 22.7px at 900, 34.4px at 1366, 43.2px at 1714 and
+   up. `.reveal-from-bottom` keeps its flat 64px: vertical overflow costs nothing
+   on a page that already scrolls that way. */
 .reveal-on-scroll.reveal-from-left:not(.show-reveal) {
-  transform: translate3d(-56px, 0, 0);
+  transform: translate3d(calc(-0.6 * var(--ux-gutter)), 0, 0);
 }
 
 .reveal-on-scroll.reveal-from-right:not(.show-reveal) {
-  transform: translate3d(56px, 0, 0);
+  transform: translate3d(calc(0.6 * var(--ux-gutter)), 0, 0);
 }
 
 .reveal-on-scroll.reveal-from-bottom:not(.show-reveal) {
@@ -15367,10 +15387,13 @@ textarea {
   -webkit-overflow-scrolling: touch;
 }
 
-/* The inline padding is the same pair of values the sticky header bar bleeds out
-   to (§8.6), read from the same two tokens so they cannot drift. The safe-area
-   insets used to be crossed here — `--ux-safe-l` sat in the shorthand's right
-   slot — which put a notch's left inset on the right edge in landscape. */
+/* The inline padding reads from the `--apt-pad-*` pair declared in §8.6, so the
+   gutter and the safe-area inset resolve in one place — including at <=280px,
+   where responsive.css redefines `--ux-gutter` to 7px and both sides follow at
+   once. The safe-area insets used to be crossed here — `--ux-safe-l` sat in the
+   shorthand's right slot — which put a notch's left inset on the right edge in
+   landscape. §8.9 trims the block padding above 900px; the fluid inline values
+   are correct at every width and are left alone. */
 .apt-container {
   padding: clamp(14px, 2.6vw, 30px) var(--apt-pad-r) clamp(24px, 3vw, 30px)
     var(--apt-pad-l);
@@ -15393,7 +15416,12 @@ textarea {
 }
 
 .apt-main-title {
-  font-size: clamp(17px, 3.6vw, 38px);
+  /* Both ends moved. The old 17px floor was the mobile complaint — at 393px the
+     page title rendered smaller than its own body copy. The old 38px ceiling was
+     half of the PC scroll: a 38px title carries a 47px line box, and trimming it
+     to 30px is the single largest saving available above the fold. 5vw reaches
+     the 30px ceiling at 600px, so tablets and up read one consistent size. */
+  font-size: clamp(20px, 5vw, 30px);
 }
 
 .apt-progress-wrapper {
@@ -19915,36 +19943,46 @@ textarea:focus-visible {
 
 /* --- §8.6  The header bar -------------------------------------------------- */
 
-/* Solid, not a fade. The sticky header used to carry a three-stop gradient whose
-   bottom 22% was fully transparent (responsive.css:114), so card text scrolled
-   up *into* the title — and above 900px it carried no fill at all, which meant
-   the two viewports disagreed about what the header even was. One flat fill,
-   declared once, at every width.
+/* The title sits ON the stage, not on a bar of its own.
 
-   #3d0808 is the stage gradient's own first stop (main.css:4522, and the flat
-   phone gradient at 18583), so the bar reads as the top of the stage rather than
-   as a new surface. §8 still introduces no new colour.
+   Two earlier attempts were both wrong for the same reason — they gave the header
+   a fill. responsive.css:114 gave it a three-stop gradient whose bottom 22% was
+   fully transparent, so card text scrolled up *into* the title; replacing that
+   with one flat #3d0808 fixed the fade but drew a hard-edged dark rectangle
+   across a stage that is a 135deg gradient (main.css:4522) — flat and dark on the
+   left, #851313 and light on the right, so the band matched the field it sat on
+   in exactly one place and read as a separate slab everywhere else.
 
-   The two padding tokens live here so the bar and the container it bleeds out of
-   cannot drift apart: `.apt-container` in the fluid layer consumes the same two
-   values, and at <=280px `--ux-gutter` becomes 7px for both at once. */
+   No fill at all is the only thing that blends at every pixel of a gradient: the
+   background *is* the background. That also makes the fade structurally
+   impossible rather than merely overridden — with no fill there is nothing for
+   content to show through, so the header no longer needs to be sticky to hide it
+   (responsive.css no longer sets `position: sticky`), and static at every width
+   means the two viewports finally agree. The 1px rgba(255,255,255,.14) bottom
+   border already on main.css:4560 is the only separator, and a hairline over a
+   gradient blends where a filled box cannot.
+
+   Dropping the fill also retires the bleed: with nothing to paint there is
+   nothing to bleed, so the negative-margin pair is gone too. The two padding
+   tokens stay — `.apt-container` in the fluid layer is their only consumer now,
+   and at <=280px `--ux-gutter` becomes 7px for both at once.
+
+   `--apt-dot` is the step circle's diameter and `--apt-rail-top` the offset that
+   puts `.apt-line` through its centre; both are re-declared per band in §8.9. */
 #appointmentFlow {
-  --apt-bar: #3d0808;
   --apt-pad-l: max(var(--ux-gutter), var(--ux-safe-l));
   --apt-pad-r: max(var(--ux-gutter), var(--ux-safe-r));
+  --apt-dot: clamp(32px, 9vw, 48px);
+  /* Measured, not guessed: the "STEP n" line box is 12.8px at its 11px clamp
+     ceiling, and the gap is the same `clamp(4px, 0.8vw, 8px)` the fluid layer
+     puts on `.apt-step`, restated here so the offset tracks it exactly instead of
+     drifting at the band's floor. Only the >=901px arm consumes it. */
+  --apt-lbl: calc(12.8px + clamp(4px, 0.8vw, 8px));
+  --apt-rail-top: calc(var(--apt-dot) / 2 - 1.5px);
 }
 
-/* Full-bleed by negative inline margin plus equal positive padding — never a
-   100vw child, never a translated pseudo-element. Those are the two patterns
-   that manufacture the right-side overflow band this same round closes off.
-   The 1px rgba(255,255,255,.14) bottom border the header already carries
-   (main.css:4560) is the bar's edge: no shadow, no blur, no gradient.
-   `padding-inline` rather than `padding` so responsive.css's `padding-block: 6px`
-   survives — `.apt-error-alert`'s 78px offset is calibrated to that height. */
-.apt-header-top {
-  background: var(--apt-bar);
-  margin-inline: calc(-1 * var(--apt-pad-l)) calc(-1 * var(--apt-pad-r));
-  padding-inline: var(--apt-pad-l) var(--apt-pad-r);
+#appointmentFlow .apt-header-top {
+  background: none;
 }
 
 /* --- §8.7  Footer actions on one row -------------------------------------- */
@@ -19993,6 +20031,20 @@ textarea:focus-visible {
   }
 }
 
+/* Every footer pair sits side by side, so both halves have to be the same height,
+   and before this rule none of them were. `#appointmentFlow .apt-btn-back` takes a
+   2px border (main.css:13963) while `.apt-btn-blue` takes 1px (13928) and
+   `.apt-btn-outline` — Step 5's "Download Receipt" — takes 1px too, which measured
+   47.2px against 45.6px: a 1.6px step between two touching buttons. Matching the
+   width is the fix that changes nothing else, because each border keeps the colour
+   it already had. Scoped inside `#appointmentFlow` (1,1,0 — the same weight as
+   13928, won on source order), so `#aptPrivacyModal`, `#aptConfirmModal` and
+   `#successAppointmentModal`, which all live outside the overlay, are untouched. */
+#appointmentFlow .apt-btn-blue,
+#appointmentFlow .apt-btn-outline {
+  border-width: 2px;
+}
+
 /* --- §8.8  Locked buttons look locked -------------------------------------- */
 
 /* No disabled styling for `.apt-btn` existed anywhere in the file, so while the
@@ -20003,5 +20055,152 @@ textarea:focus-visible {
 #appointmentFlow .apt-btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+/* --- §8.9  One rail at every width, and a flow that fits a laptop ---------- */
+
+/* Three defects lived in the step rail, and all three came from the same cause:
+   its geometry was hand-tuned five separate times (main.css 7227/7735/7772,
+   responsive.css 395/442, the fluid layer 15433) with no shared measurement, so
+   no two bands agreed.
+
+   1. The connector missed the circle it connects. `.apt-line` was offset with a
+      literal `margin-top` per band while the circle's diameter was clamped
+      fluidly, so the two could only line up at the one width each literal was
+      typed at. Measured: -19.5px at 1536px, +2.5px at 768px, +5.8px at 393px.
+   2. The captions were unreadable on a phone — 7.86px at 393px, tuned down until
+      "Appointment" fit one line, which is the wrong thing to optimise. And
+      between 641px and 768px `.apt-progress-wrapper span` (main.css:4923) hid
+      them outright, so a tablet showed five unlabelled circles.
+   3. "STEP n" was visible from 769px to 900px and hidden below 768px purely
+      because one selector had a `:last-child` and the other did not.
+
+   The fix is to declare the geometry once and derive from it. `--apt-dot` is the
+   circle's diameter, `--apt-rail-top` the offset that puts the 3px line through
+   its centre, and `--apt-lbl` the height the "STEP n" line adds above the circle
+   when it is shown (an 11px uppercase line box measures 14px, plus the step's
+   8px column gap). One `.apt-icon` rule and one `.apt-line` rule read those
+   tokens, so re-pointing a band is a token change, not a re-tune. */
+
+#appointmentFlow .apt-icon {
+  width: var(--apt-dot);
+  height: var(--apt-dot);
+}
+
+#appointmentFlow .apt-line {
+  margin-top: var(--apt-rail-top);
+}
+
+/* The caption is the only thing naming a step below 901px, so it is never
+   hidden. This is the rule that ends the 641-768px blackout. */
+#appointmentFlow .apt-step span:last-child {
+  display: block;
+}
+
+/* Two states, both written down. Below 901px the caption carries the step and
+   "STEP n" would only repeat the number already inside the circle. */
+@media (max-width: 900px) {
+  #appointmentFlow .apt-step .step-label {
+    display: none;
+  }
+}
+
+/* Phones: legibility first, one line second.
+
+   Five captions side by side at 393px leave ~52px per step. "Appointment" needs
+   ~72px at 10px and ~52px only at 7.4px — so no font size a person can read on a
+   phone fits it on one line, and the band had been solving that by shrinking the
+   type to 7.86px. Two readable lines beat one unreadable one, so the caption
+   floor goes up to 9px and the four long words get a soft hyphen in main.html:
+   they break as "Appoint-/ment" rather than wherever `overflow-wrap: anywhere`
+   happens to land.
+
+   The connectors grow with the same trade. At `clamp(4px, 1.6vw, 10px)` they
+   were 6.3px hairlines that read as dashes; `3vw` gives 11.8px at 393px and
+   still leaves the steps ~3.6px of slack over the widest wrapped fragment
+   ("Complet-", ~49px at 10.2px). */
+@media (max-width: 640px) {
+  #appointmentFlow {
+    --apt-dot: clamp(36px, 10.4vw, 44px);
+  }
+
+  #appointmentFlow .apt-line {
+    flex: 0 0 clamp(8px, 3vw, 16px);
+    min-width: 8px;
+  }
+
+  #appointmentFlow .apt-step span:last-child {
+    font-size: clamp(9px, 2.6vw, 11px);
+    line-height: 1.15;
+  }
+}
+
+/* Below 340px the strip becomes a swipeable rail (main.css:16041), so the steps
+   take a fixed basis again (responsive.css:432) and the connector has to stop
+   flexing with the viewport or it eats the scroll width. */
+@media (max-width: 340px) {
+  #appointmentFlow .apt-line {
+    flex: 0 0 12px;
+    min-width: 12px;
+  }
+}
+
+/* 280px and under is the site's ultra-narrow band; responsive.css sizes the
+   circle to 30px there, which is now a token value like every other. */
+@media (max-width: 280px) {
+  #appointmentFlow {
+    --apt-dot: 30px;
+  }
+}
+
+/* Laptops: make Step 1 fit the screen it opens on.
+
+   The owner's complaint is that the flow scrolls on a PC. It does, and only just:
+   at 1536x748 — a 1080p Windows laptop at the default 125% scaling, which is the
+   single most common desktop viewport there is — the five stacked boxes needed
+   ~810px against 748px of `min-height: 100vh`. Nothing was oversized on its own;
+   the flow was simply spaced for a 950px-tall monitor and never re-checked
+   against a shorter one, so every gap was ~30px and six of them together were
+   the overflow.
+
+   Each value below is the same element's spacing taken down one step, not a
+   redesign: the flow reads the same, it just stops asking for a scrollbar to
+   show a single step. Steps with genuinely tall content (Step 2's form, Step 3's
+   calendar) still scroll, which is correct — that is content, not chrome.
+
+   `--apt-rail-top` gains `--apt-lbl` here because this is the only band where
+   "STEP n" sits above the circle and pushes it down. */
+@media (min-width: 901px) {
+  #appointmentFlow {
+    --apt-dot: 44px;
+    --apt-rail-top: calc(var(--apt-lbl) + var(--apt-dot) / 2 - 1.5px);
+  }
+
+  #appointmentFlow .apt-container {
+    padding-block: 14px 16px;
+  }
+
+  #appointmentFlow .apt-header-top {
+    margin-top: 0;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+  }
+
+  #appointmentFlow .apt-progress-wrapper {
+    padding-block: 8px;
+    margin-bottom: 10px;
+  }
+
+  /* The card keeps a generous 24px of paper — every pixel above came out of the
+     gaps between boxes, not out of the box a person is reading. */
+  #appointmentFlow .apt-card {
+    padding: 24px;
+    margin-bottom: 14px;
+  }
+
+  #appointmentFlow .apt-footer-actions {
+    margin-top: 12px;
+    padding-bottom: 10px;
+  }
 }
 

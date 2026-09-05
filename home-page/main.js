@@ -6683,7 +6683,31 @@ document.addEventListener("DOMContentLoaded", () => {
     if (aptFileInput) aptFileInput.value = "";
     if (aptFileName) aptFileName.textContent = "No file selected";
     setText("successReferenceNo", "PENDING");
-    updateQrDetails("PENDING", "");
+
+    /* The receipt QR goes back to the state main.html:1270 ships it in — no `src`
+       at all. This used to call updateQrDetails("PENDING", ""), which built an
+       api.qrserver.com URL and assigned it, so every open and every close fired a
+       third-party image request for a placeholder nobody can scan. Removing the
+       attribute is the same visual result without the connection; the real
+       receipt path at 6086 is untouched and still fills both nodes in. */
+    const qrImage = document.getElementById("receiptQrImage");
+    if (qrImage) qrImage.removeAttribute("src");
+    const qrLink = document.getElementById("receiptQrLink");
+    if (qrLink) qrLink.href = "#";
+
+    /* Step 3 is the other half of "all the datas input by the customer are still
+       in there": clearing selectedDateKey alone leaves the heading reading the old
+       date, the slot counter visible and the time column still listing that day's
+       buttons. `renderTimeSlots(null)` is the supported teardown — it prints the
+       "pick a date first" placeholder and hides #userDateEventsDisplay — and the
+       month is walked back to the current one so a reopen never starts in a month
+       the customer had browsed to. */
+    if (selectedDateDisplay) selectedDateDisplay.innerText = "Select a Date";
+    if (slotCounter) slotCounter.style.display = "none";
+    currentMonth = todayOnly.getMonth();
+    currentYear = todayOnly.getFullYear();
+    renderCalendar(currentMonth, currentYear);
+    renderTimeSlots(null);
 
     // The eight free-text controls, by id, so the list survives markup edits.
     [
@@ -7037,15 +7061,19 @@ document.addEventListener("DOMContentLoaded", () => {
       document.body.style.overflow = "hidden";
       focusAppointmentControl(closeAppointmentBtn);
 
+      /* Only the reset is guarded, and the guard now reports. Previously the whole
+         block sat inside a silent `catch {}`: a throw anywhere in the reset also
+         skipped switchAptStep(1) and startAptPolling(), so the overlay opened on
+         whatever step it was last left on with no availability polling and nothing
+         in the console to say why. The calendar and slot column are rendered by
+         resetAppointmentFlowState() itself now, and again by the hydrate below. */
       try {
         resetAppointmentFlowState();
-        renderCalendar(currentMonth, currentYear);
-        renderTimeSlots(null);
-        switchAptStep(1);
-        startAptPolling();
-      } catch {
-        // Keep modal open so the user can still proceed if a non-critical UI section fails.
+      } catch (error) {
+        console.error("Appointment flow reset failed on open:", error);
       }
+      switchAptStep(1);
+      startAptPolling();
 
       // Open immediately, then hydrate availability in the background.
       void (async () => {
