@@ -1800,7 +1800,12 @@ document.addEventListener("DOMContentLoaded", () => {
   if (closeCheckoutBtn) {
     closeCheckoutBtn.addEventListener("click", () => {
       checkoutModal.classList.remove("show-modal");
-      document.body.style.overflow = "auto";
+      /* "" and not "auto": an inline overflow: auto on <body> outranks the
+         stylesheet's overflow-x: clip, and because <html> has no overflow of its
+         own it is body's value that propagates to the viewport — so this one line
+         used to re-enable sideways panning site-wide until the next navigation.
+         Every other close handler in this file already restores "". */
+      document.body.style.overflow = "";
       currentCheckoutMode = "single";
       currentCheckoutItems = [];
       setCheckoutQtyLock(false);
@@ -5416,6 +5421,11 @@ document.addEventListener("DOMContentLoaded", () => {
   const slotCounter = document.getElementById("slotCounter");
   const limitMsg = document.getElementById("maxLimitMsg");
 
+  /* The Step 4 primary button's resting label. Three places have to agree on it —
+     the markup (main.html:1178), the submit handler's restoreButtons(), and the
+     flow reset that releases the lock on re-entry — so it is written once. */
+  const APT_SUBMIT_LABEL = "Confirm & Submit";
+
   let appointmentSubmitted = false;
   let submittedAppointment = null;
   let selectedDateKey = null;
@@ -6643,6 +6653,17 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
+  /* Every route back into the flow funnels through here — opening it, closing it
+     with the back arrow, and finishing at Step 5 — which makes it the one place a
+     reopen can be made to look like a first open.
+
+     It used to clear exactly one of the sixteen controls (the file input), so a
+     customer who finished an appointment and tapped "Set an Appointment" again
+     found every name, phone, email, address and description still filled in. And
+     because the submit handler's restoreButtons() closure is only reached when the
+     submit *fails*, #btnGoToStep5 stayed disabled reading "Submitting…" for the
+     life of the page, which turned Step 4 into a dead end. Both halves are
+     released below. */
   const resetAppointmentFlowState = () => {
     Object.keys(appointmentSelections).forEach(
       (key) => delete appointmentSelections[key],
@@ -6652,11 +6673,59 @@ document.addEventListener("DOMContentLoaded", () => {
     submittedAppointment = null;
     appointmentSubmitted = false;
     uploadedAppointmentFile = null;
-    window.FMRC_TURNSTILE?.reset("appointmentTurnstile");
+    /* Isolated: a widget that failed to load must not throw here and leave the
+       form half-cleared. */
+    try {
+      window.FMRC_TURNSTILE?.reset("appointmentTurnstile");
+    } catch {
+      // Non-critical — the widget re-renders itself on the next open.
+    }
     if (aptFileInput) aptFileInput.value = "";
     if (aptFileName) aptFileName.textContent = "No file selected";
     setText("successReferenceNo", "PENDING");
     updateQrDetails("PENDING", "");
+
+    // The eight free-text controls, by id, so the list survives markup edits.
+    [
+      "aptLName",
+      "aptFName",
+      "aptMI",
+      "aptPhone",
+      "aptEmail",
+      "aptRoleOther",
+      "aptIntlAddress",
+      "aptDesc",
+    ].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.value = "";
+    });
+    /* The two plain selects go back to their placeholder option — index 0 in each
+       is the disabled/hidden "Select …" — and the country back to its default. */
+    const roleSelect = document.getElementById("aptRole");
+    if (roleSelect) roleSelect.selectedIndex = 0;
+    const purposeSelect = document.getElementById("aptPurpose");
+    if (purposeSelect) purposeSelect.selectedIndex = 0;
+    if (aptCountry) aptCountry.value = "Philippines";
+
+    /* Never .value = "" or innerHTML = "" the four PSGC selects: fillSelect()
+       owns their options and resetPhSelects() is the supported reset. Its
+       loadRegions() is a cache hit after the first open (psgcGet memoises in
+       _psgcCache), so this costs no extra network. */
+    resetPhSelects();
+    syncAptRoleOtherField(); // re-hides #aptRoleOtherField
+    updateAddressMode(); // re-syncs the PH vs international address panes
+    clearAllFieldErrors(); // drops stale has-error groups, aria-invalid, alerts
+
+    /* Release the submit lock. Nothing else re-enables these two — on success the
+       handler restores only the close button, and restoreButtons() lives inside
+       the handler as a closure, so it is unreachable from here. */
+    const submitBtn = document.getElementById("btnGoToStep5");
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = APT_SUBMIT_LABEL;
+    }
+    const backToCalendarBtn = document.getElementById("btnCancelTo3");
+    if (backToCalendarBtn) backToCalendarBtn.disabled = false;
   };
 
   // â”€â”€â”€ PSGC Live Address Dropdowns â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -7011,15 +7080,40 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  /* One teardown for both ways out of the flow — the header's back arrow and Step
+     5's "Back to Home". They had drifted: only the second stripped the overlay's
+     leftover inline display/visibility/opacity and #aptStep5's inline display, so
+     closing from the header could leave state behind for the next open to fight.
+     Idempotent, so a double fire is harmless. */
+  const closeAppointmentOverlay = () => {
+    successModal?.classList.remove("active");
+    appointmentOverlay?.classList.remove("show-modal");
+
+    // Safeguard: strip any inline styles left over from previous bug fixes.
+    if (appointmentOverlay) {
+      appointmentOverlay.style.display = "";
+      appointmentOverlay.style.visibility = "";
+      appointmentOverlay.style.opacity = "";
+    }
+    const step5 = document.getElementById("aptStep5");
+    if (step5) step5.style.display = "";
+
+    document.body.style.overflow = "";
+    /* Clearing the last inline property leaves style="" behind, and an empty style
+       attribute is still an attribute. Removing it means the resting page after a
+       close is identical to a fresh load, whichever route closed the flow. */
+    if (!document.body.getAttribute("style")) {
+      document.body.removeAttribute("style");
+    }
+
+    resetAppointmentFlowState();
+    switchAptStep(1);
+    stopAptPolling();
+    focusAppointmentControl(appointmentBtn);
+  };
+
   if (closeAppointmentBtn) {
-    closeAppointmentBtn.addEventListener("click", () => {
-      appointmentOverlay.classList.remove("show-modal");
-      document.body.style.overflow = "";
-      resetAppointmentFlowState();
-      switchAptStep(1);
-      stopAptPolling();
-      focusAppointmentControl(appointmentBtn);
-    });
+    closeAppointmentBtn.addEventListener("click", closeAppointmentOverlay);
   }
 
   prevBtn?.addEventListener("click", () => {
@@ -7127,7 +7221,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const restoreButtons = () => {
       if (btn) {
         btn.disabled = false;
-        btn.textContent = "Confirm \u0026 Submit";
+        btn.textContent = APT_SUBMIT_LABEL;
       }
       if (backBtn) backBtn.disabled = false;
       if (closeBtn) closeBtn.disabled = false;
@@ -7203,25 +7297,8 @@ document.addEventListener("DOMContentLoaded", () => {
     focusAppointmentControl(document.getElementById("btnSuccessHome"));
   });
 
-  bindClick("btnSuccessHome", () => {
-    successModal?.classList.remove("active");
-    appointmentOverlay?.classList.remove("show-modal");
-
-    // Safeguard: Strip any inline styles left over from previous bug fixes
-    if (appointmentOverlay) {
-      appointmentOverlay.style.display = "";
-      appointmentOverlay.style.visibility = "";
-      appointmentOverlay.style.opacity = "";
-    }
-    const step5 = document.getElementById("aptStep5");
-    if (step5) step5.style.display = "";
-
-    document.body.style.overflow = "";
-    resetAppointmentFlowState();
-    switchAptStep(1);
-    stopAptPolling();
-    focusAppointmentControl(appointmentBtn);
-  });
+  // Step 5 "Back to Home" and the header's back arrow share one teardown.
+  bindClick("btnSuccessHome", closeAppointmentOverlay);
 
   const contactMessageForm = document.getElementById("contactMessageForm");
   if (contactMessageForm) {

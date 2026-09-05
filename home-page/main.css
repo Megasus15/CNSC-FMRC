@@ -19,9 +19,16 @@ body {
   background-color: #fff;
   /* clip is the same clipping as hidden, minus the scrollable-overflow region, so
      nothing can be scrolled sideways programmatically either. hidden is kept first
-     as the fallback for browsers without clip. */
-  overflow-x: hidden;
-  overflow-x: clip;
+     as the fallback for browsers without clip.
+     Both are marked !important because the only thing that can defeat them is an
+     inline style, and no author layer outranks one: main.js writes
+     body.style.overflow at ~39 sites, and a single one of them restoring "auto"
+     re-enabled horizontal panning site-wide until the next navigation. The Y axis
+     is unaffected — every dialog's body.style.overflow = "hidden" still resolves
+     to X: clip, Y: hidden and still propagates to the viewport, so every modal
+     scroll-lock behaves exactly as before. */
+  overflow-x: hidden !important;
+  overflow-x: clip !important;
   display: flex;
   flex-direction: column;
 }
@@ -15360,9 +15367,13 @@ textarea {
   -webkit-overflow-scrolling: touch;
 }
 
+/* The inline padding is the same pair of values the sticky header bar bleeds out
+   to (§8.6), read from the same two tokens so they cannot drift. The safe-area
+   insets used to be crossed here — `--ux-safe-l` sat in the shorthand's right
+   slot — which put a notch's left inset on the right edge in landscape. */
 .apt-container {
-  padding: clamp(14px, 2.6vw, 30px) max(var(--ux-gutter), var(--ux-safe-l))
-    clamp(24px, 3vw, 30px) max(var(--ux-gutter), var(--ux-safe-r));
+  padding: clamp(14px, 2.6vw, 30px) var(--apt-pad-r) clamp(24px, 3vw, 30px)
+    var(--apt-pad-l);
 }
 
 .apt-header-top {
@@ -19900,5 +19911,97 @@ textarea:focus-visible {
 .t-value--note {
   color: var(--apt-muted);
   font-style: normal;
+}
+
+/* --- §8.6  The header bar -------------------------------------------------- */
+
+/* Solid, not a fade. The sticky header used to carry a three-stop gradient whose
+   bottom 22% was fully transparent (responsive.css:114), so card text scrolled
+   up *into* the title — and above 900px it carried no fill at all, which meant
+   the two viewports disagreed about what the header even was. One flat fill,
+   declared once, at every width.
+
+   #3d0808 is the stage gradient's own first stop (main.css:4522, and the flat
+   phone gradient at 18583), so the bar reads as the top of the stage rather than
+   as a new surface. §8 still introduces no new colour.
+
+   The two padding tokens live here so the bar and the container it bleeds out of
+   cannot drift apart: `.apt-container` in the fluid layer consumes the same two
+   values, and at <=280px `--ux-gutter` becomes 7px for both at once. */
+#appointmentFlow {
+  --apt-bar: #3d0808;
+  --apt-pad-l: max(var(--ux-gutter), var(--ux-safe-l));
+  --apt-pad-r: max(var(--ux-gutter), var(--ux-safe-r));
+}
+
+/* Full-bleed by negative inline margin plus equal positive padding — never a
+   100vw child, never a translated pseudo-element. Those are the two patterns
+   that manufacture the right-side overflow band this same round closes off.
+   The 1px rgba(255,255,255,.14) bottom border the header already carries
+   (main.css:4560) is the bar's edge: no shadow, no blur, no gradient.
+   `padding-inline` rather than `padding` so responsive.css's `padding-block: 6px`
+   survives — `.apt-error-alert`'s 78px offset is calibrated to that height. */
+.apt-header-top {
+  background: var(--apt-bar);
+  margin-inline: calc(-1 * var(--apt-pad-l)) calc(-1 * var(--apt-pad-r));
+  padding-inline: var(--apt-pad-l) var(--apt-pad-r);
+}
+
+/* --- §8.7  Footer actions on one row -------------------------------------- */
+
+/* The owner sees "2 lines per button" on a phone: that is the *pair* stacking,
+   not a label wrapping. Two rules stack it — main.css:7267 (<=900px) and
+   main.css:15840 (<=640px), both `column-reverse` + `.apt-btn { width: 100% }`.
+   §8 is the last layer in the file, so a plain rule wins both ties on source
+   order and no `!important` is needed anywhere here.
+
+   341px is the floor because 360px Androids and every modern iPhone
+   (375/390/393/402/414/430) must sit on one row, while <=340px is this site's
+   established very-small band. At 375px the widest row (Step 5, "Download
+   Receipt" + "Finish Transaction") measured 340.4px against 343.5px of content
+   width before this block — it fit by 3px, i.e. by luck. The type and padding
+   trim below takes it to ~309px, which is headroom.
+
+   Scoped to `.apt-footer-actions .apt-btn` on purpose: the five `.apt-btn`s
+   *outside* the footer (main.html:1352 and the nested-dialog buttons at
+   1390/1397/1429/1436) keep their full-width stacking. `padding-inline` is a
+   longhand, so it overrides only the inline sides of the fluid layer's `padding`
+   shorthand at 15519 — the block padding and `min-height: var(--ux-tap)` (the
+   44px tap target) survive intact. */
+@media (min-width: 341px) and (max-width: 900px) {
+  .apt-footer-actions {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .apt-footer-actions .apt-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+    white-space: nowrap;
+    padding-inline: clamp(10px, 3.2vw, 18px);
+    font-size: clamp(12px, 3.4vw, 13px);
+  }
+}
+
+/* Below the floor, labels may wrap again — at 280px and under, responsive.css:589
+   turns the row into a grid and a nowrap label would be the thing that overflows. */
+@media (max-width: 340px) {
+  .apt-footer-actions .apt-btn {
+    white-space: normal;
+  }
+}
+
+/* --- §8.8  Locked buttons look locked -------------------------------------- */
+
+/* No disabled styling for `.apt-btn` existed anywhere in the file, so while the
+   submit was in flight the button still read as a live gold CTA that simply
+   ignored taps. `.apt-overlay button:not(:disabled)` (main.css:5904) already
+   withholds the hover and press states; this supplies the only thing missing,
+   which is the resting appearance. */
+#appointmentFlow .apt-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 

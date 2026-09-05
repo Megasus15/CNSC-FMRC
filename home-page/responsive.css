@@ -105,18 +105,17 @@
     min-width: 0;
   }
 
+  /* The fill lives in main.css §8.6 now: one solid #3d0808 bar at every width,
+     bled out to the container edge. The gradient that used to sit here faded to
+     fully transparent over its bottom 22%, so card text scrolled up through the
+     title. `padding-block` stays at 6px — `.apt-error-alert`'s top offset below
+     is calibrated to the height it produces. */
   .apt-header-top {
     position: sticky;
     top: 0;
     z-index: 20;
     margin-top: 0;
     padding-block: 6px;
-    background: linear-gradient(
-      180deg,
-      rgba(61, 8, 8, 0.98) 0%,
-      rgba(61, 8, 8, 0.9) 78%,
-      rgba(61, 8, 8, 0) 100%
-    );
   }
 }
 
