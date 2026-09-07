@@ -62,8 +62,8 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
 
-    <link rel="stylesheet" href="main.css?v=8.9" />
-    <link rel="stylesheet" href="responsive.css?v=8.3" />
+    <link rel="stylesheet" href="main.css?v=9.0" />
+    <link rel="stylesheet" href="responsive.css?v=8.4" />
 
     <!-- The signature loader. One sheet shared by every customer page, so the
          curtain that covers this page while it boots and the curtain that covers
@@ -74,40 +74,70 @@
          guaranteed present the first time anything paints. -->
     <link rel="stylesheet" href="fmrc-loader.css?v=1.4" />
     <script>
-      /* Raises the boot curtain before the body paints, then lowers it the
-         moment the DOM is ready. Inline and in <head> on purpose: the class has
-         to be on <html> before the first frame, and whatever owns the lift must
-         always be present — so a page whose loader files fail to arrive can
-         never be left behind a curtain with nothing left to remove it. There is
-         no timer here; the curtain lasts exactly as long as the page takes. */
+      /* Keep the first home visit in this tab behind the signature loader for
+         1.5 seconds, then reveal it once the DOM is ready. Later visits keep
+         the normal DOM-ready handoff. The timer stays inline so cleanup does
+         not depend on the external loader script arriving. */
       (function () {
         var h = document.documentElement;
+        var startedAt = performance.now();
+        var firstVisitKey = "fmrc_home_intro_seen";
+        var firstVisit = true;
+        var liftTimer;
+        var lifted = false;
+        try {
+          firstVisit = sessionStorage.getItem(firstVisitKey) !== "1";
+        } catch (_) {}
         h.classList.add("fmrc-booting");
         function lift() {
+          if (lifted) return;
+          lifted = true;
+          clearTimeout(liftTimer);
           h.classList.remove("fmrc-booting");
+          try {
+            sessionStorage.setItem(firstVisitKey, "1");
+          } catch (_) {}
           var boot = document.querySelector(".fmrc-load-boot");
           if (!boot) return;
           /* Taking the faded node out of the document stops four infinite
-             animations from running, invisibly, for the life of the page. */
+             animations. The timeout also cleans up if a transition is
+             interrupted or its event never arrives. */
+          var cleanupTimer;
+          function removeBoot() {
+            clearTimeout(cleanupTimer);
+            boot.remove();
+          }
           boot.addEventListener("transitionend", function (e) {
-            if (e.target === boot) boot.remove();
+            if (e.target === boot && e.propertyName === "opacity") removeBoot();
           });
+          cleanupTimer = setTimeout(removeBoot, 400);
           /* Reading the curtain's opacity here both starts the fade and reports
              whether there is one: a visitor who asked for reduced motion gets
              `transition: none`, so no transitionend is ever coming and the node
              has to go now. Deliberately not wrapped in requestAnimationFrame —
              rAF never fires in a background tab, which would leave a tab opened
              in the background curtained until the moment it is looked at. */
-          if (parseFloat(getComputedStyle(boot).opacity) === 0) boot.remove();
+          if (parseFloat(getComputedStyle(boot).opacity) === 0) removeBoot();
+        }
+        function onReady() {
+          var remaining = firstVisit ? 1500 - (performance.now() - startedAt) : 0;
+          if (remaining > 0) liftTimer = setTimeout(lift, remaining);
+          else lift();
         }
         if (document.readyState === "loading")
-          document.addEventListener("DOMContentLoaded", lift, { once: true });
-        else lift();
+          document.addEventListener("DOMContentLoaded", onReady, { once: true });
+        else onReady();
         /* A successful login navigates away with a curtain up, and a later Back
            can restore a page frozen exactly as it was without re-running a line
            of script. `persisted` is the browser saying it just did that. */
         window.addEventListener("pageshow", function (e) {
-          if (e.persisted) h.classList.remove("fmrc-booting");
+          if (e.persisted) {
+            clearTimeout(liftTimer);
+            h.classList.remove("fmrc-booting");
+            var boot = document.querySelector(".fmrc-load-boot");
+            if (boot) boot.remove();
+            lifted = true;
+          }
         });
       })();
     </script>
@@ -572,9 +602,9 @@
     >
       <div class="apt-container">
         <div class="apt-header-top">
-          <button
-            type="button"
-            class="apt-back-btn"
+          <a
+            href="#home"
+            class="apt-home-link"
             id="closeAppointmentBtn"
             title="Back to Homepage"
             aria-label="Close appointment form and return to homepage"
@@ -589,15 +619,16 @@
               stroke-width="2"
               stroke-linecap="round"
               stroke-linejoin="round"
+              aria-hidden="true"
             >
               <line x1="19" y1="12" x2="5" y2="12"></line>
               <polyline points="12 19 5 12 12 5"></polyline>
             </svg>
-          </button>
+            <span>Back to Home Page</span>
+          </a>
           <h2 class="apt-main-title" id="appointmentFlowTitle">
             Set an Appointment
           </h2>
-          <div class="apt-header-spacer" aria-hidden="true"></div>
         </div>
 
         <div class="apt-progress-wrapper">
@@ -617,7 +648,7 @@
                 <line x1="12" y1="16" x2="12.01" y2="16"></line>
               </svg>
             </div>
-            <span>Remind&shy;ers</span>
+            <span>Reminder</span>
           </div>
           <div class="apt-line"></div>
           <div class="apt-step" id="stepIndicator2">
@@ -635,7 +666,7 @@
                 <circle cx="12" cy="7" r="4"></circle>
               </svg>
             </div>
-            <span>Infor&shy;mation</span>
+            <span>Information</span>
           </div>
           <div class="apt-line"></div>
           <div class="apt-step" id="stepIndicator3">
@@ -655,7 +686,7 @@
                 <line x1="3" y1="10" x2="21" y2="10"></line>
               </svg>
             </div>
-            <span>Appoint&shy;ment</span>
+            <span>Appointment</span>
           </div>
           <div class="apt-line"></div>
           <div class="apt-step" id="stepIndicator4">
@@ -695,7 +726,7 @@
                 <polyline points="22 4 12 14.01 9 11.01"></polyline>
               </svg>
             </div>
-            <span>Complet&shy;ed</span>
+            <span>Completed</span>
           </div>
         </div>
 
@@ -1354,14 +1385,14 @@
           </p>
         </div>
         <div class="success-card__footer">
-          <button
-            type="button"
-            class="apt-btn apt-btn-blue"
-            id="btnSuccessHome"
-          >
-            <i class="fa-solid fa-house" aria-hidden="true"></i>
-            Return to Homepage
-          </button>
+          <a href="#home" class="apt-home-link" id="btnSuccessHome">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" aria-hidden="true">
+              <path d="M19 12H5m7 7-7-7 7-7"></path>
+            </svg>
+            <span>Back to Home Page</span>
+          </a>
         </div>
       </div>
     </div>
@@ -1442,6 +1473,47 @@
             type="button"
             class="apt-btn apt-btn-blue ux-dlg__btn ux-dlg__btn--primary"
             id="acceptConfirmBtn"
+          >
+            Proceed
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="apt-nested-modal ux-dlg"
+      id="aptLeaveConfirmModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="aptLeaveConfirmTitle"
+    >
+      <div class="apt-nested-box apt-confirm-box ux-dlg__card">
+        <div class="ux-dlg__head">
+          <div class="nested-icon brown-icon ux-dlg__badge" aria-hidden="true">
+            <i class="fa-solid fa-circle-question"></i>
+          </div>
+          <p class="ux-dlg__eyebrow">Confirmation</p>
+          <h3 id="aptLeaveConfirmTitle" class="ux-dlg__title">
+            Leave Appointment Form?
+          </h3>
+        </div>
+        <div class="ux-dlg__body">
+          <p class="ux-dlg__text">
+            Are you sure you want to return to the home page? Any unsaved information will be discarded.
+          </p>
+        </div>
+        <div class="nested-actions ux-dlg__foot is-confirm">
+          <button
+            type="button"
+            class="apt-btn apt-btn-cancel ux-dlg__btn ux-dlg__btn--ghost"
+            id="cancelLeaveAptBtn"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="apt-btn apt-btn-blue ux-dlg__btn ux-dlg__btn--primary"
+            id="acceptLeaveAptBtn"
           >
             Proceed
           </button>
@@ -1659,7 +1731,7 @@
          ever fails the affected flow silently falls back to the plain disabled
          button it had before. -->
     <script defer src="fmrc-loader.js?v=1.0"></script>
-    <script defer src="main.js?v=8.7"></script>
+    <script defer src="main.js?v=8.8"></script>
     <script defer src="customer-announcements.js?v=6.2"></script>
   </body>
 </html>

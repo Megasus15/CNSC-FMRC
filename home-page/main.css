@@ -14170,6 +14170,7 @@ body {
 #appointmentFlow button:not(:disabled),
 #aptPrivacyModal button:not(:disabled),
 #aptConfirmModal button:not(:disabled),
+#aptLeaveConfirmModal button:not(:disabled),
 #orderSuccessModal button:not(:disabled),
 #successAppointmentModal button:not(:disabled) {
   -webkit-tap-highlight-color: transparent;
@@ -14183,6 +14184,7 @@ body {
 #appointmentFlow .apt-btn,
 #aptPrivacyModal .apt-btn,
 #aptConfirmModal .apt-btn,
+#aptLeaveConfirmModal .apt-btn,
 #orderSuccessModal .apt-btn,
 #successAppointmentModal .apt-btn,
 #appointmentFlow button:not(:disabled):hover,
@@ -14193,6 +14195,7 @@ body {
 #appointmentFlow button:not(:disabled):active,
 #aptPrivacyModal button:not(:disabled):active,
 #aptConfirmModal button:not(:disabled):active,
+#aptLeaveConfirmModal button:not(:disabled):active,
 #orderSuccessModal button:not(:disabled):active,
 #successAppointmentModal button:not(:disabled):active {
   box-shadow: none;
@@ -14201,6 +14204,7 @@ body {
 #appointmentFlow button:not(:disabled):hover,
 #aptPrivacyModal button:not(:disabled):hover,
 #aptConfirmModal button:not(:disabled):hover,
+#aptLeaveConfirmModal button:not(:disabled):hover,
 #orderSuccessModal button:not(:disabled):hover,
 #successAppointmentModal button:not(:disabled):hover {
   transform: none;
@@ -14209,6 +14213,7 @@ body {
 #appointmentFlow button:not(:disabled):active,
 #aptPrivacyModal button:not(:disabled):active,
 #aptConfirmModal button:not(:disabled):active,
+#aptLeaveConfirmModal button:not(:disabled):active,
 #orderSuccessModal button:not(:disabled):active,
 #successAppointmentModal button:not(:disabled):active {
   transform: scale(0.97);
@@ -14217,6 +14222,7 @@ body {
 #appointmentFlow .apt-btn-blue,
 #aptPrivacyModal .apt-btn-blue,
 #aptConfirmModal .apt-btn-blue,
+#aptLeaveConfirmModal .apt-btn-blue,
 #orderSuccessModal .apt-btn-blue,
 #successAppointmentModal .apt-btn-blue {
   background: #eef224; /* solid flat yellow — no gradient */
@@ -14228,6 +14234,7 @@ body {
 #appointmentFlow .apt-btn-blue:hover,
 #aptPrivacyModal .apt-btn-blue:hover,
 #aptConfirmModal .apt-btn-blue:hover,
+#aptLeaveConfirmModal .apt-btn-blue:hover,
 #orderSuccessModal .apt-btn-blue:hover,
 #successAppointmentModal .apt-btn-blue:hover {
   background: #c8cc00; /* darker yellow — no gradient */
@@ -14239,6 +14246,7 @@ body {
 #appointmentFlow .apt-btn-blue:active,
 #aptPrivacyModal .apt-btn-blue:active,
 #aptConfirmModal .apt-btn-blue:active,
+#aptLeaveConfirmModal .apt-btn-blue:active,
 #orderSuccessModal .apt-btn-blue:active,
 #successAppointmentModal .apt-btn-blue:active {
   background: #b0b400; /* even darker yellow on press */
@@ -14286,21 +14294,24 @@ body {
 }
 
 #aptPrivacyModal .apt-btn-cancel,
-#aptConfirmModal .apt-btn-cancel {
+#aptConfirmModal .apt-btn-cancel,
+#aptLeaveConfirmModal .apt-btn-cancel {
   background: var(--customer-wine);
   background-image: none;
   border: 1px solid var(--customer-wine);
 }
 
 #aptPrivacyModal .apt-btn-cancel:hover,
-#aptConfirmModal .apt-btn-cancel:hover {
+#aptConfirmModal .apt-btn-cancel:hover,
+#aptLeaveConfirmModal .apt-btn-cancel:hover {
   background: #3d0808;
   background-image: none;
   border-color: #3d0808;
 }
 
 #aptPrivacyModal .apt-btn-cancel:active,
-#aptConfirmModal .apt-btn-cancel:active {
+#aptConfirmModal .apt-btn-cancel:active,
+#aptLeaveConfirmModal .apt-btn-cancel:active {
   background: #2c0505;
   background-image: none;
   border-color: #2c0505;
@@ -16937,7 +16948,8 @@ textarea:focus-visible {
 
 /* A confirmation popup should feel deliberate and centered, with clear
    hierarchy and controls that remain comfortable on small screens. */
-#aptConfirmModal {
+#aptConfirmModal,
+#aptLeaveConfirmModal {
   padding: max(16px, env(safe-area-inset-top))
     max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom))
     max(16px, env(safe-area-inset-left));
@@ -16946,7 +16958,8 @@ textarea:focus-visible {
   -webkit-backdrop-filter: blur(6px);
 }
 
-#aptConfirmModal .apt-nested-box {
+#aptConfirmModal .apt-nested-box,
+#aptLeaveConfirmModal .apt-nested-box {
   width: min(100%, 440px);
   max-width: 440px;
   padding: 32px clamp(22px, 5vw, 36px) 30px;
@@ -16958,7 +16971,8 @@ textarea:focus-visible {
   text-align: center;
 }
 
-#aptConfirmModal .nested-icon {
+#aptConfirmModal .nested-icon,
+#aptLeaveConfirmModal .nested-icon {
   position: static;
   width: 62px;
   height: 62px;
@@ -16971,14 +16985,16 @@ textarea:focus-visible {
   box-shadow: 0 10px 22px rgba(139, 131, 5, 0.2);
 }
 
-#aptConfirmModal .apt-nested-box h3 {
+#aptConfirmModal .apt-nested-box h3,
+#aptLeaveConfirmModal .apt-nested-box h3 {
   margin: 0 0 10px;
   color: var(--customer-wine);
   font-size: clamp(20px, 4vw, 24px);
   line-height: 1.2;
 }
 
-#aptConfirmModal .apt-nested-box p {
+#aptConfirmModal .apt-nested-box p,
+#aptLeaveConfirmModal .apt-nested-box p {
   max-width: 30ch;
   margin: 0 auto;
   color: #5c6470;
@@ -16987,13 +17003,15 @@ textarea:focus-visible {
   text-align: center;
 }
 
-#aptConfirmModal .nested-actions {
+#aptConfirmModal .nested-actions,
+#aptLeaveConfirmModal .nested-actions {
   justify-content: center;
   gap: 12px;
   margin-top: 25px;
 }
 
-#aptConfirmModal .nested-actions .apt-btn {
+#aptConfirmModal .nested-actions .apt-btn,
+#aptLeaveConfirmModal .nested-actions .apt-btn {
   min-width: 132px;
 }
 
@@ -17107,12 +17125,14 @@ textarea:focus-visible {
     padding: 14px;
   }
 
-  #aptConfirmModal .nested-actions {
+  #aptConfirmModal .nested-actions,
+  #aptLeaveConfirmModal .nested-actions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  #aptConfirmModal .nested-actions .apt-btn {
+  #aptConfirmModal .nested-actions .apt-btn,
+  #aptLeaveConfirmModal .nested-actions .apt-btn {
     min-width: 0;
     width: 100%;
   }
@@ -17552,7 +17572,8 @@ textarea:focus-visible {
 .customer-rating-discard-overlay,
 .customer-orders-overlay,
 #aptPrivacyModal.apt-nested-modal,
-#aptConfirmModal.apt-nested-modal {
+#aptConfirmModal.apt-nested-modal,
+#aptLeaveConfirmModal.apt-nested-modal {
   background: var(--ux-dlg-scrim);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -17571,7 +17592,8 @@ textarea:focus-visible {
 .customer-orders-overlay,
 .ux-dlg--standalone,
 #aptPrivacyModal.apt-nested-modal,
-#aptConfirmModal.apt-nested-modal {
+#aptConfirmModal.apt-nested-modal,
+#aptLeaveConfirmModal.apt-nested-modal {
   padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right))
     max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
 }
@@ -21102,8 +21124,8 @@ body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card .u
     color 0.18s ease, transform 0.1s ease;
 }
 
-:is(#appointmentFlow, #aptPrivacyModal, #aptConfirmModal, #orderSuccessModal, #successAppointmentModal) .apt-btn-blue:not(:disabled),
-:is(#btnGoToPrivacy, #aptNextBtn, #aptNextBtnStep3, #aptSubmitBtn, #aptFinishBtn, #acceptPrivacyBtn, #acceptConfirmBtn, #btnSuccessHome):not(:disabled),
+:is(#appointmentFlow, #aptPrivacyModal, #aptConfirmModal, #aptLeaveConfirmModal, #orderSuccessModal, #successAppointmentModal) .apt-btn-blue:not(:disabled),
+:is(#btnGoToPrivacy, #aptNextBtn, #aptNextBtnStep3, #aptSubmitBtn, #aptFinishBtn, #acceptPrivacyBtn, #acceptConfirmBtn, #acceptLeaveAptBtn):not(:disabled),
 .apt-btn-blue:not(:disabled) {
   background: #eef224;
   border-color: #eef224;
@@ -21141,8 +21163,8 @@ body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card .u
   box-shadow: none;
 }
 
-:is(#appointmentFlow, #aptPrivacyModal, #aptConfirmModal, #orderSuccessModal, #successAppointmentModal) .apt-btn-blue:hover:not(:disabled),
-:is(#btnGoToPrivacy, #aptNextBtn, #aptNextBtnStep3, #aptSubmitBtn, #aptFinishBtn, #acceptPrivacyBtn, #acceptConfirmBtn, #btnSuccessHome):hover:not(:disabled),
+:is(#appointmentFlow, #aptPrivacyModal, #aptConfirmModal, #aptLeaveConfirmModal, #orderSuccessModal, #successAppointmentModal) .apt-btn-blue:hover:not(:disabled),
+:is(#btnGoToPrivacy, #aptNextBtn, #aptNextBtnStep3, #aptSubmitBtn, #aptFinishBtn, #acceptPrivacyBtn, #acceptConfirmBtn, #acceptLeaveAptBtn):hover:not(:disabled),
 :is(.apt-btn-blue):hover:not(:disabled) {
   background: #c8cc00 !important;
   border-color: #c8cc00 !important;
@@ -21158,8 +21180,8 @@ body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card .u
   box-shadow: none;
 }
 
-:is(#appointmentFlow, #aptPrivacyModal, #aptConfirmModal, #orderSuccessModal, #successAppointmentModal) .apt-btn-blue:active:not(:disabled),
-:is(#btnGoToPrivacy, #aptNextBtn, #aptNextBtnStep3, #aptSubmitBtn, #aptFinishBtn, #acceptPrivacyBtn, #acceptConfirmBtn, #btnSuccessHome):active:not(:disabled),
+:is(#appointmentFlow, #aptPrivacyModal, #aptConfirmModal, #aptLeaveConfirmModal, #orderSuccessModal, #successAppointmentModal) .apt-btn-blue:active:not(:disabled),
+:is(#btnGoToPrivacy, #aptNextBtn, #aptNextBtnStep3, #aptSubmitBtn, #aptFinishBtn, #acceptPrivacyBtn, #acceptConfirmBtn, #acceptLeaveAptBtn):active:not(:disabled),
 .btn-browse:active:not(:disabled),
 .apt-btn-blue:active:not(:disabled) {
   background: #b0b400 !important;
@@ -21178,6 +21200,24 @@ body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card .u
 }
 
 :is(.view-all-btn, .guest-auth-login, .guest-access-btn.login, .ux-dlg__btn--primary:not(.apt-btn-blue)):active:not(:disabled) {
+  background: var(--customer-wine-active);
+  border-color: var(--customer-wine-active);
+  transform: scale(0.97);
+  box-shadow: none;
+}
+
+/* These modal actions must override the shared primary resting fill above. */
+#announcementModal.ux-dlg .ux-dlg__card #announcementModalClose:is(:hover, :focus-visible):not(:disabled),
+#guestAccessModal.ux-dlg .ux-dlg__card .guest-access-btn.login:is(:hover, :focus-visible):not(:disabled) {
+  background: var(--customer-wine-hover);
+  border-color: var(--customer-wine-hover);
+  color: var(--customer-paper-sink);
+  transform: none;
+  box-shadow: none;
+}
+
+#announcementModal.ux-dlg .ux-dlg__card #announcementModalClose:active:not(:disabled),
+#guestAccessModal.ux-dlg .ux-dlg__card .guest-access-btn.login:active:not(:disabled) {
   background: var(--customer-wine-active);
   border-color: var(--customer-wine-active);
   transform: scale(0.97);

@@ -4,7 +4,7 @@
  * This file is loaded after the established page styles (and after the
  * Products page's inline styles) so the normal desktop layout remains intact.
  * Rules are limited to compact/tablet viewports, short screens, and very wide
- * displays that need a capped reading measure.
+ * displays that need a capped reading measure, plus shared navigation links.
  */
 
 .brand-name-short {
@@ -14,6 +14,76 @@
 .apt-header-spacer {
   width: 32px;
   flex: 0 0 32px;
+}
+
+/* Appointment return navigation uses the same arrow-and-text link on the
+   maroon stage and the completion dialog's light footer. */
+#appointmentFlow .apt-header-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: start;
+  gap: 6px;
+}
+
+#appointmentFlow .apt-main-title {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+}
+
+:is(#appointmentFlow, #successAppointmentModal) .apt-home-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 9px;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--customer-wine);
+  font: 600 15px / 1.4 "Montserrat", sans-serif;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: none;
+  transform: none;
+  transition: color 0.18s ease;
+}
+
+#appointmentFlow .apt-home-link {
+  color: var(--customer-paper-sink);
+}
+
+:is(#appointmentFlow, #successAppointmentModal) .apt-home-link svg {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+}
+
+:is(#appointmentFlow, #successAppointmentModal) .apt-home-link:is(:hover, :focus-visible) span {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+#appointmentFlow .apt-home-link:is(:hover, :focus-visible) {
+  color: var(--apt-gold-soft);
+}
+
+#successAppointmentModal .apt-home-link:is(:hover, :focus-visible) {
+  color: var(--customer-wine-hover);
+}
+
+:is(#appointmentFlow, #successAppointmentModal) .apt-home-link:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
+}
+
+#appointmentFlow .apt-home-link[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: wait;
+  pointer-events: none;
 }
 
 /* "No services found" placeholder. Same presentation the services grid used
@@ -4317,5 +4387,193 @@
 
   #productInfoModal #productInfoAddToCart {
     padding: 0;
+  }
+}
+
+/* Appointment Steps 1-5: size each caption to its complete word; only the
+   connector gaps expand. This keeps every label on one line on phone screens. */
+#appointmentFlow .apt-step span:last-child {
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+}
+
+#appointmentFlow :is(.apt-input-group, .apt-reminder-content, .ticket-grid, .ticket-column, .ticket-header > div) {
+  min-width: 0;
+}
+
+#appointmentFlow :is(.c-input, .file-upload-wrapper) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+#appointmentFlow :is(.file-upload-text, .file-upload-name, .ticket-no, .t-value) {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  #appointmentFlow {
+    --apt-dot: clamp(34px, 9.5vw, 42px);
+    --apt-pad-l: max(12px, env(safe-area-inset-left, 0px));
+    --apt-pad-r: max(12px, env(safe-area-inset-right, 0px));
+    height: 100dvh;
+  }
+
+  #appointmentFlow .apt-container {
+    min-height: calc(100dvh - var(--ux-safe-t) - var(--ux-safe-b));
+    padding: 10px var(--apt-pad-r) 16px var(--apt-pad-l);
+  }
+
+  #appointmentFlow .apt-header-top {
+    margin: 0 0 14px;
+    padding: 0 0 14px;
+    gap: 4px;
+  }
+
+  #appointmentFlow .apt-main-title {
+    font-size: clamp(20px, 5.5vw, 26px);
+    line-height: 1.3;
+  }
+
+  #appointmentFlow .apt-progress-wrapper {
+    display: grid;
+    grid-template-columns: max-content minmax(2px, 1fr) max-content minmax(2px, 1fr) max-content minmax(2px, 1fr) max-content minmax(2px, 1fr) max-content;
+    align-items: start;
+    justify-content: stretch;
+    gap: 0;
+    width: 100%;
+    padding: 12px 6px;
+    margin-bottom: 16px;
+    /* Retain a contained fallback for screens smaller than modern phones and
+       enlarged text, without ever clipping or breaking a step name. */
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: none;
+  }
+
+  #appointmentFlow .apt-step {
+    width: auto;
+    min-width: max-content;
+    gap: 7px;
+  }
+
+  #appointmentFlow .apt-step span:last-child {
+    font-size: clamp(10px, 2.65vw, 12px);
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+  }
+
+  #appointmentFlow .apt-line {
+    width: auto;
+    min-width: 0;
+    margin-inline: 2px;
+  }
+
+  #appointmentFlow .apt-card {
+    margin-bottom: 0;
+  }
+
+  #appointmentFlow .apt-reminder-item {
+    padding: 12px;
+    gap: 10px;
+  }
+
+  #appointmentFlow .apt-form-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 16px;
+  }
+
+  #appointmentFlow .c-input {
+    width: 100%;
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  #appointmentFlow .file-upload-wrapper {
+    height: auto;
+    min-height: 100px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  #appointmentFlow :is(.apt-calendar-left, .apt-time-right) {
+    min-width: 0;
+    padding: 12px 8px;
+  }
+
+  #appointmentFlow .cal-navigation {
+    gap: 6px;
+  }
+
+  #appointmentFlow .cal-navigation button {
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+  }
+
+  #appointmentFlow #calMonthYear {
+    min-width: 0;
+    font-size: clamp(14px, 4vw, 18px);
+    line-height: 1.3;
+    text-align: center;
+  }
+
+  #appointmentFlow :is(.cal-days-header, .cal-days-grid) {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 3px;
+  }
+
+  #appointmentFlow .cal-day-cell {
+    min-height: 40px;
+    aspect-ratio: auto;
+    padding-inline: 0;
+    font-size: 12px;
+  }
+
+  #appointmentFlow .cal-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+
+  #appointmentFlow .slot-counter-wrapper {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  #appointmentFlow .time-slot-btn {
+    min-height: 44px;
+  }
+
+  #appointmentFlow :is(.ticket-container, .ticket-body, .ticket-grid) {
+    width: 100%;
+    min-width: 0;
+  }
+
+  #appointmentFlow :is(.ticket-row, .ticket-grid) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #appointmentFlow .apt-footer-actions .apt-btn {
+    min-height: 44px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 360px) {
+  #appointmentFlow {
+    --apt-pad-l: max(10px, env(safe-area-inset-left, 0px));
+    --apt-pad-r: max(10px, env(safe-area-inset-right, 0px));
+  }
+
+  #appointmentFlow .apt-progress-wrapper {
+    padding-inline: 4px;
+  }
+
+  #appointmentFlow .apt-step span:last-child {
+    letter-spacing: -0.035em;
   }
 }

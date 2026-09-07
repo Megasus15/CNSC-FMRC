@@ -55,9 +55,11 @@ body {
 .auth-shell {
   position: relative;
   width: 100%;
-  max-width: 560px;
+  max-width: min(1060px, 100%);
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: flex-start;
+  margin: auto;
 }
 
 .auth-card {
@@ -82,51 +84,72 @@ body {
 }
 
 .auth-back-link {
-  position: fixed;
-  top: 22px;
-  left: 22px;
+  position: relative;
+  top: auto !important;
+  left: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  align-self: flex-start;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  text-decoration: none;
-  color: var(--customer-paper);
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  border: none;
-  border-radius: 8px;
-  background: var(--primary);
-  min-height: 42px;
-  padding: 10px 18px;
-  font-family: "Montserrat", sans-serif;
+  justify-content: flex-start;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 14px 0;
+  padding: 4px 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--customer-wine) !important;
+  font: 600 15px / 1.4 "Montserrat", sans-serif;
+  text-decoration: none !important;
+  cursor: pointer;
+  box-shadow: none !important;
+  transform: none !important;
+  transition: none !important;
   white-space: nowrap;
-  transition:
-    background-color 0.2s ease,
-    transform 0.1s ease;
-  z-index: 10;
+  z-index: 2;
 }
 
-.back-arrow {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  font-weight: 800;
-  line-height: 1;
-  color: var(--customer-paper);
-  transition: transform 0.2s ease;
+.auth-back-link svg {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  color: inherit;
+  transform: none !important;
+  transition: none !important;
 }
 
-.auth-back-link:hover {
-  background: var(--primary-hover);
+.auth-back-link .back-text {
+  text-decoration: none !important;
+  transition: none !important;
 }
 
-.auth-back-link:hover .back-arrow {
-  transform: translateX(-3px);
+.auth-back-link:is(:hover, :focus-visible) .back-text {
+  text-decoration: underline !important;
+  text-underline-offset: 4px;
+  text-decoration-thickness: 1.5px;
 }
 
+.auth-back-link:hover,
+.auth-back-link:focus-visible,
 .auth-back-link:active {
-  transform: scale(0.96);
+  color: var(--customer-wine) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.auth-back-link:hover svg,
+.auth-back-link:active svg {
+  transform: none !important;
+  transition: none !important;
+}
+
+.auth-back-link:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
 }
 
 
@@ -933,19 +956,7 @@ body {
     max-width: 440px;
   }
 
-  .auth-back-link {
-    top: 14px;
-    left: 14px;
-    right: auto;
-  }
-
-  .auth-back-link .back-arrow {
-    font-size: 18px;
-  }
-
-  .auth-back-link:active {
-    transform: scale(0.94);
-  }
+  /* back link stays in-flow above the card with no animations */
 
 
   .auth-card {
@@ -1005,34 +1016,21 @@ body::after {
 }
 
 .auth-shell {
-  max-width: 1120px;
+  width: 100%;
+  max-width: min(1060px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
+/* Back to Home Page link: clean transparent link button */
 .auth-back-link {
-  top: 24px;
-  left: 24px;
-  min-height: 44px;
-  padding: 10px 18px;
-  border: 1px solid rgba(107, 32, 43, 0.13);
-  border-radius: 999px;
-  background: rgba(253, 250, 246, 0.82);
-  color: var(--customer-wine);
-  box-shadow: 0 18px 38px rgba(71, 28, 20, 0.12);
-  backdrop-filter: blur(16px);
-}
-
-.auth-back-link:hover {
-  background: var(--customer-paper);
-  color: var(--customer-wine-hover);
-  transform: translateY(-1px);
-}
-
-.auth-back-link:active {
-  transform: scale(0.96);
-}
-
-.back-arrow {
-  color: currentColor;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .auth-card {
@@ -1509,7 +1507,7 @@ body::after {
 @media (max-width: 920px) {
   .auth-page {
     align-items: flex-start;
-    padding: 90px 16px 30px;
+    padding: 30px 16px 30px;
   }
 
   .auth-shell {
@@ -1705,19 +1703,23 @@ svg {
    at the top edge and can be scrolled to instead of having its head cut off. */
 .auth-shell {
   width: 100%;
-  max-width: min(1120px, 100%);
+  max-width: min(1060px, 100%);
   min-width: 0;
   margin-block: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
-/* Back link: always reachable, never overlapping the card content. */
+/* Back link sits directly above card aligned to its left edge */
 .auth-back-link {
-  top: max(14px, var(--ux-safe-t));
-  left: max(14px, var(--ux-safe-l));
-  min-height: var(--ux-tap);
-  max-width: calc(100vw - 28px);
-  padding: 10px clamp(12px, 3vw, 18px);
-  font-size: clamp(12px, 1.4vw, 14px);
+  position: relative;
+  top: auto !important;
+  left: auto !important;
+  margin: 0 0 14px 0;
+  padding: 4px 0;
+  font-size: clamp(13px, 1.4vw, 15px);
+  transform: none !important;
 }
 
 .auth-card {
@@ -2026,12 +2028,12 @@ svg {
   }
 
   .auth-back-link {
-    padding: 8px 10px;
-    font-size: 11px;
+    padding: 4px 0;
+    font-size: 13px;
   }
 
   .auth-back-link .back-text {
-    display: none;
+    display: inline;
   }
 
   .auth-side-panel {
@@ -2073,9 +2075,8 @@ svg {
   }
 
   .auth-back-link {
-    top: max(8px, var(--ux-safe-t));
-    left: max(8px, var(--ux-safe-l));
-    padding: 6px 9px;
+    margin: 0 0 10px 0;
+    padding: 4px 0;
   }
 
   .auth-card {

@@ -5426,6 +5426,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeAppointmentBtn = document.getElementById("closeAppointmentBtn");
   const privacyModal = document.getElementById("aptPrivacyModal");
   const confirmModal = document.getElementById("aptConfirmModal");
+  const leaveConfirmModal = document.getElementById("aptLeaveConfirmModal");
   const successModal = document.getElementById("successAppointmentModal");
   const aptFileInput = document.getElementById("aptFile");
   const aptFileName = document.getElementById("aptFileName");
@@ -7126,12 +7127,77 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  const hasAppointmentFormInput = () => {
+    // 1. Text / Textarea inputs
+    const textIds = [
+      "aptLName",
+      "aptFName",
+      "aptMI",
+      "aptPhone",
+      "aptEmail",
+      "aptRoleOther",
+      "aptIntlAddress",
+      "aptDesc",
+    ];
+    for (const id of textIds) {
+      if (document.getElementById(id)?.value?.trim()) return true;
+    }
+
+    // 2. Select dropdowns
+    const roleSelect = document.getElementById("aptRole");
+    if (roleSelect && roleSelect.selectedIndex > 0) return true;
+
+    const purposeSelect = document.getElementById("aptPurpose");
+    if (purposeSelect && purposeSelect.selectedIndex > 0) return true;
+
+    const countrySelect = document.getElementById("aptCountry");
+    if (countrySelect && countrySelect.value && countrySelect.value !== "Philippines") {
+      return true;
+    }
+
+    const phAddressIds = ["aptRegion", "aptProvince", "aptMunicipality", "aptAddress"];
+    for (const id of phAddressIds) {
+      if (document.getElementById(id)?.value?.trim()) return true;
+    }
+
+    // 3. File upload
+    if (aptFileInput?.files?.length > 0 || uploadedAppointmentFile) return true;
+
+    // 4. Schedule selection
+    if (selectedDateKey) return true;
+    if (
+      appointmentSelections &&
+      Object.keys(appointmentSelections).some(
+        (k) => appointmentSelections[k]?.length > 0,
+      )
+    ) {
+      return true;
+    }
+
+    // 5. Steps 3, 4, or 5 active
+    const step3 = document.getElementById("aptStep3");
+    const step4 = document.getElementById("aptStep4");
+    const step5 = document.getElementById("aptStep5");
+    if (
+      step3?.classList.contains("active") ||
+      step4?.classList.contains("active") ||
+      step5?.classList.contains("active")
+    ) {
+      return true;
+    }
+
+    return false;
+  };
+
   /* One teardown for both ways out of the flow — the header's back arrow and Step
      5's "Back to Home". They had drifted: only the second stripped the overlay's
      leftover inline display/visibility/opacity and #aptStep5's inline display, so
      closing from the header could leave state behind for the next open to fight.
      Idempotent, so a double fire is harmless. */
-  const closeAppointmentOverlay = () => {
+  const closeAppointmentOverlay = (event) => {
+    event?.preventDefault();
+    if (closeAppointmentBtn?.getAttribute("aria-disabled") === "true") return;
+    leaveConfirmModal?.classList.remove("show-modal");
     successModal?.classList.remove("active");
     appointmentOverlay?.classList.remove("show-modal");
 
@@ -7159,7 +7225,18 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   if (closeAppointmentBtn) {
-    closeAppointmentBtn.addEventListener("click", closeAppointmentOverlay);
+    closeAppointmentBtn.addEventListener("click", (event) => {
+      event.preventDefault();
+      if (closeAppointmentBtn.getAttribute("aria-disabled") === "true") return;
+
+      if (hasAppointmentFormInput()) {
+        leaveConfirmModal?.classList.add("show-modal");
+        focusAppointmentControl(document.getElementById("cancelLeaveAptBtn"));
+        return;
+      }
+
+      closeAppointmentOverlay(event);
+    });
   }
 
   prevBtn?.addEventListener("click", () => {
@@ -7226,6 +7303,24 @@ document.addEventListener("DOMContentLoaded", () => {
     switchAptStep(4);
   });
 
+  bindClick("cancelLeaveAptBtn", () => {
+    leaveConfirmModal?.classList.remove("show-modal");
+    focusAppointmentControl(closeAppointmentBtn);
+  });
+  bindClick("acceptLeaveAptBtn", () => {
+    leaveConfirmModal?.classList.remove("show-modal");
+    closeAppointmentOverlay();
+  });
+
+  if (leaveConfirmModal) {
+    leaveConfirmModal.addEventListener("click", (e) => {
+      if (e.target === leaveConfirmModal) {
+        leaveConfirmModal.classList.remove("show-modal");
+        focusAppointmentControl(closeAppointmentBtn);
+      }
+    });
+  }
+
   bindClick("btnCancelTo3", () => switchAptStep(3));
 
   // Step 4: "Confirm & Submit" â€” actually submits the appointment to backend
@@ -7251,7 +7346,7 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.textContent = "Submitting\u2026";
     }
     if (backBtn) backBtn.disabled = true;
-    if (closeBtn) closeBtn.disabled = true;
+    if (closeBtn) closeBtn.setAttribute("aria-disabled", "true");
 
     /* The same curtain the site raises while it boots, now over the submit. The
        hint line is here and not on the shorter flows because this request sends
@@ -7270,7 +7365,7 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.textContent = APT_SUBMIT_LABEL;
       }
       if (backBtn) backBtn.disabled = false;
-      if (closeBtn) closeBtn.disabled = false;
+      if (closeBtn) closeBtn.removeAttribute("aria-disabled");
     };
 
     try {
@@ -7290,7 +7385,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
       // Success â€” restore close button then transition to Step 5
-      if (closeBtn) closeBtn.disabled = false;
+      if (closeBtn) closeBtn.removeAttribute("aria-disabled");
 
       // Explicitly ensure overlay remains visible using class
       if (
