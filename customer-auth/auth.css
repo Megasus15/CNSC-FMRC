@@ -1565,13 +1565,12 @@ body::after {
 
 @media (max-width: 480px) {
   .auth-page {
-    padding: 78px 12px 18px;
+    padding: 24px 12px 18px;
   }
 
   .auth-back-link {
-    top: 14px;
-    left: 14px;
-    max-width: calc(100% - 28px);
+    margin: 0 0 12px 0;
+    max-width: 100%;
   }
 
   .auth-card {
