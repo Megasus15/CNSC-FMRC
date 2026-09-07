@@ -205,8 +205,8 @@
   }
 
   .file-upload-wrapper.has-error {
-    border-color: #b01c1c;
-    box-shadow: 0 0 0 3px rgba(176, 28, 28, 0.14);
+    border-color: var(--customer-danger);
+    box-shadow: 0 0 0 3px rgba(191, 27, 27, 0.14);
     background-color: #fffafa;
   }
 
@@ -245,8 +245,8 @@
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: #b01c1c;
-    color: #fff;
+    background: var(--customer-danger);
+    color: #f7f2ec;
     font-size: 13px;
     font-weight: 800;
     line-height: 20px;
@@ -260,7 +260,7 @@
 
   .apt-error-title {
     margin: 0 0 6px;
-    color: #7f1d1d;
+    color: var(--customer-danger);
     font-size: 11.5px;
     font-weight: 800;
     letter-spacing: 0.04em;
@@ -284,7 +284,7 @@
     padding: 3px 0;
     border: 0;
     background: none;
-    color: #b01c1c;
+    color: var(--customer-danger);
     font-family: inherit;
     font-size: 12.5px;
     font-weight: 700;
@@ -302,7 +302,7 @@
     border: 0;
     border-radius: 50%;
     background: none;
-    color: #7f1d1d;
+    color: var(--customer-danger);
     font-size: 19px;
     line-height: 1;
     cursor: pointer;
@@ -480,6 +480,32 @@
     width: 100%;
     justify-content: space-evenly;
     gap: 3px;
+    /* The containing block for both profile dropdowns at this width. Without it
+       they anchor `right: 6px` on `.user-profile`, which `space-evenly` above
+       parks 65px in from the row's right edge — so a 264px card measured 60px of
+       its own left side off the left of the screen. This row spans the header's
+       full content width, so the same `right: 6px` now lands where it reads, and
+       `top: 44px` still resolves just under the 34px-tall row. Safe for the bell:
+       `.announcement-bell-wrapper` is already `position: relative` and owns its
+       own badge, and the panel it opens is a `position: fixed` dialog.
+
+       `!important` because main.css's own ≤900px arm ships
+       `.header-right-actions { position: static !important }` (main.css:7120) to
+       undo the `position: absolute; top: 20px; right: 5%` of its ≤768px arm — a
+       flagged (0,1,0) declaration that a plain (0,2,0) selector cannot outrank.
+       Scoped to ≤280px, so the ≤900px neutralisation it overrides still holds
+       everywhere that rule was actually written for. */
+    position: relative !important;
+  }
+
+  /* …and the host has to stop being the containing block, or the row above is
+     just a positioned ancestor the popup never reaches: `.user-profile` is
+     `position: relative` in main.css, which makes it the *nearest* one. Static
+     here hands both dropdowns to the row. The popup is the only absolutely
+     positioned child of this host — the badge belongs to the bell, which keeps
+     its own `relative` wrapper — so nothing else moves. */
+  .site-header .header-right-actions .user-profile {
+    position: static;
   }
 
   .site-header .header-emblem {
@@ -510,7 +536,7 @@
     display: grid;
     grid-template-columns: 1fr;
     padding: 3px;
-    border-radius: 11px;
+    border-radius: var(--apt-radius, 8px);
   }
 
   .header-right-actions .guest-sign-in-mark {
@@ -853,10 +879,13 @@
     min-height: 34px;
   }
 
+  /* Radius is not restated here any more: the home-page round took the desktop
+     dropdown to `var(--apt-radius)`, so an 8px literal in this arm would just be
+     a second place to change the same number. Padding still has work to do —
+     desktop is 14px. */
   .profile-popup,
   .guest-profile-popup {
     padding: 10px;
-    border-radius: var(--ux-dlg-radius, 8px);
   }
 
   .profile-popup-link,
@@ -1293,7 +1322,12 @@
     min-height: 42px;
     flex: 0 0 auto;
     padding: 10px 12px;
-    border-radius: 12px;
+    /* Same 8px the desktop rule paints. The two hero CTAs used to drop to a 12px
+       rectangle once they stacked into the two-column grid above, which made the
+       same two controls read as a different kind of control on a phone. This
+       entry exists only to hold them at the site's one button radius; nothing
+       about the grid needs a different corner. */
+    border-radius: var(--apt-radius, 8px);
     font-size: 12px;
     line-height: 1.15;
     white-space: normal;
@@ -1350,7 +1384,7 @@
     height: 40px;
     min-height: 40px;
     padding: 0;
-    border-radius: 12px;
+    border-radius: var(--apt-radius, 8px);
   }
 
   .header-right-actions .guest-sign-in-mark {
@@ -1467,9 +1501,11 @@
     align-items: center;
   }
 
-  /* The View control reads as a real button on touch: a full-width pill with
-     the word "View" plus the arrow, which also signals that the card opens
-     details. */
+  /* The View control reads as a real button on touch: full width, the word
+     "View" plus the arrow, which also signals that the card opens details.
+     Radius is the site's one button corner — this was 10px, which is close
+     enough to 8px to look like a mistake rather than a decision once the
+     service modal that opens above it carries 8px on its own footer buttons. */
   .services-grid .details-btn {
     display: flex;
     align-items: center;
@@ -1480,19 +1516,19 @@
     height: 36px;
     min-height: 36px;
     padding: 0 10px;
-    border: 1px solid rgba(133, 19, 19, 0.16);
-    border-radius: 10px;
-    background: rgba(133, 19, 19, 0.07);
+    border: 1px solid rgba(107, 32, 43, 0.16);
+    border-radius: var(--apt-radius, 8px);
+    background: rgba(107, 32, 43, 0.07);
     font-size: clamp(10.5px, 3vw, 12.5px);
     font-weight: 800;
     letter-spacing: 0.2px;
   }
 
-  /* The control is a bordered pill here, so the desktop underline bar would cut
-     across it. The hover and focus variants are listed too: the desktop rule
-     that reveals the bar is `:hover::after`, one class more specific than a
-     bare `::after`, so a sticky hover on a touch screen would otherwise draw a
-     2px bar across the pill. */
+  /* The control is a bordered button here, so the desktop underline bar would
+     cut across it. The hover and focus variants are listed too: the desktop
+     rule that reveals the bar is `:hover::after`, one class more specific than
+     a bare `::after`, so a sticky hover on a touch screen would otherwise draw
+     a 2px bar across the button. */
   .services-grid .details-btn::after,
   .services-grid .details-btn:hover::after,
   .services-grid .details-btn:focus-visible::after {
@@ -1629,7 +1665,7 @@
     padding: 0 8px;
     gap: 6px;
     border-width: 1px;
-    border-radius: 10px;
+    border-radius: var(--apt-radius, 8px);
     /* Both `!important`s answer main.css's <=340px band, which pins the font to
        11px and re-enables wrapping; three classes here still out-rank it. */
     font-size: clamp(10px, 2.9vw, 12px) !important;
@@ -2101,7 +2137,7 @@
     height: 32px;
   }
 
-  /* The services pill keeps its full-width label; only its height shrinks. */
+  /* The services button keeps its full-width label; only its height shrinks. */
   .services-grid .details-btn {
     padding: 0 8px;
     font-size: 10px;
@@ -2267,7 +2303,7 @@
     font-weight: 800;
     line-height: 1;
     letter-spacing: 0.05em;
-    color: #b01c1c;
+    color: var(--customer-wine);
     white-space: nowrap;
   }
 
@@ -2877,7 +2913,7 @@
   .contact-form-actions .consent-label input[type="checkbox"] {
     width: 20px;
     height: 20px;
-    accent-color: #9e1414;
+    accent-color: var(--customer-wine);
   }
 
   .contact-form-actions .consent-label {
@@ -2885,14 +2921,15 @@
   }
 
   /* The submit label was drawn at the bottom of its clamp (13.5px) on every
-     phone while the dialog pills next to it sit at 14.5px. Same size, same
-     51px pill height, so the page's one primary action matches the dialogs. */
+     phone while the dialog buttons next to it sit at 14.5px. Same size, same
+     height, same 8px corner, so the page's one primary action matches the
+     dialogs. */
   .contact-form-actions .contact-submit-btn {
     min-height: 50px;
     padding: 14px 20px;
     font-size: 14.5px;
     letter-spacing: 0.2px;
-    border-radius: 14px;
+    border-radius: var(--apt-radius, 8px);
   }
 
   /* ---- §3 My Account details card ---------------------------------------
@@ -2910,7 +2947,9 @@
     gap: 3px;
     align-items: start;
     padding: 11px 13px;
-    border-radius: 12px;
+    /* Follows the desktop row, which the home-page round took from 14px to
+       `--apt-radius-sm`. */
+    border-radius: var(--apt-radius-sm);
   }
 
   #customerProfileModal .customer-card .detail-label {
@@ -2981,7 +3020,7 @@
     margin-right: 11px;
     border-width: 1.5px;
     font-size: 15.5px;
-    box-shadow: 0 5px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 5px 12px rgba(45, 12, 12, 0.2);
   }
 
   :is(#customerProfileModal, #customerPasswordModal, #customerOrdersModal, #customerSystemPopup, #guestAccessModal, #announcementModal) .ux-dlg__card .ux-dlg__eyebrow {
@@ -3073,9 +3112,10 @@
   #customerPasswordModal #changePasswordForm .password-wrapper input {
     min-height: 46px;
     padding-right: 50px;
-    /* STEP 8: matches the portal field radius. This rule is (2,3,1) and would
-       otherwise undo it on every phone. */
-    border-radius: 18px;
+    /* This rule is (2,3,1), so it has to restate the radius or it would undo it
+       on every phone. Followed the field look from 18px down to
+       `--apt-radius` in the home-page round; the two must move together. */
+    border-radius: var(--apt-radius);
   }
 
   #customerPasswordModal #changePasswordForm .toggle-pass {
@@ -3084,7 +3124,7 @@
     place-items: center;
     width: 40px;
     height: 40px;
-    border-radius: 10px;
+    border-radius: var(--apt-radius-sm);
   }
 
   #customerPasswordModal #changePasswordForm .customer-field {
@@ -3784,49 +3824,64 @@
    `!important`.
    ------------------------------------------------------------------------- */
 
-/* My Account → profile modal. main.css:9721 `.customer-field input` (0,1,1) was
-   a cool #d1dae8 hairline at radius 10. Padding and min-height are left alone —
-   only the edge was wrong. */
+/* The two entries below are the Set / Change Password fields, and they are the
+   only ones in §1a that the home-page minimalism round moves. `.customer-field`
+   appears in exactly two places in the whole site — the Google "Create
+   Password" card and the Change Password modal (main.js:7650 and :7691) — both
+   of which open out of My Account, which the owner named. So retargeting them
+   cannot touch the contact form, checkout or the address phone field; those
+   keep the portal look documented in the §1 banner until their own round.
+
+   They were the last customer-dialog controls still wearing it: an 18px radius,
+   a translucent `rgba(255,254,250,.86)` fill, an inset white top line and an
+   `0 8px 18px` bloom, growing to `0 14px 28px` on focus. main.css:9935 and
+   :10064 were already rewritten to the minimalism recipe this round, but this
+   file loads after it and these selectors are equal or heavier, so the old look
+   kept winning inside the modal. Rather than delete the block — main.css:9721
+   and :9848 shipped cold blue-grey hairlines, which is what §1 was written to
+   fix, and a future edit there must not be able to bring them back — the
+   declarations are restated on the new values.
+
+   Focus is a 3px ring and nothing else. The `0 14px 28px` bloom is the same
+   "lift" the owner ruled out for buttons; a field that swells when tabbed into
+   is the same gesture in another place. */
 .customer-field input {
-  background: rgba(255, 254, 250, 0.86);
-  border: 1px solid rgba(92, 43, 38, 0.14);
-  border-radius: 18px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 8px 18px rgba(72, 27, 22, 0.04);
-  transition: all 0.2s ease;
+  background: var(--customer-paper);
+  border: 1px solid var(--apt-line);
+  border-radius: var(--apt-radius);
+  box-shadow: none;
+  /* `border-color`, `background-color` and `box-shadow` by name, not `all`: a
+     bare `all` here would also animate the focus ring's spread, and on a text
+     control that reads as a wobble rather than a state change. */
+  transition: border-color 0.2s ease, background-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .customer-field input:focus {
   outline: none;
-  border-color: rgba(127, 17, 17, 0.64);
-  background: #ffffff;
-  box-shadow:
-    0 0 0 4px rgba(158, 20, 20, 0.08),
-    0 14px 28px rgba(72, 27, 22, 0.09);
+  border-color: var(--apt-danger);
+  background: var(--customer-paper);
+  box-shadow: 0 0 0 3px rgba(176, 28, 28, 0.12);
 }
 
-/* Set / Change Password modal. main.css:9848 `.password-wrapper input` (0,1,1)
-   was #d1d5db at radius 8; `.customer-field` in front of it lands on (0,2,1).
-   48px of right padding clears the toggle (28px wide at `right: 12px`). */
+/* 48px of right padding still clears the toggle (28px wide at `right: 12px`);
+   the extra 4px over main.css:10064's 44px is kept because this modal's inputs
+   are taller than the ones that rule was written for. */
 .customer-field .password-wrapper input {
-  padding: 12px 48px 12px 18px;
-  background: rgba(255, 254, 250, 0.86);
-  border: 1px solid rgba(92, 43, 38, 0.14);
-  border-radius: 18px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 8px 18px rgba(72, 27, 22, 0.04);
-  transition: all 0.2s ease;
+  padding: 12px 48px 12px 14px;
+  background: var(--customer-paper);
+  border: 1px solid var(--apt-line);
+  border-radius: var(--apt-radius);
+  box-shadow: none;
+  transition: border-color 0.2s ease, background-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .customer-field .password-wrapper input:focus {
   outline: none;
-  border-color: rgba(127, 17, 17, 0.64);
-  background: #ffffff;
-  box-shadow:
-    0 0 0 4px rgba(158, 20, 20, 0.08),
-    0 14px 28px rgba(72, 27, 22, 0.09);
+  border-color: var(--apt-danger);
+  background: var(--customer-paper);
+  box-shadow: 0 0 0 3px rgba(176, 28, 28, 0.12);
 }
 
 /* Checkout / address phone field. main.css:4088 was #d9d9d9 at radius 8 with no
@@ -3835,25 +3890,26 @@
    on the group. `border-color` (not `border-right-color`) on the prefix because
    the ≤280 band at line 1000 swaps that divider to a `border-bottom`. */
 .phone-input-group {
-  background: rgba(255, 254, 250, 0.86);
-  border: 1px solid rgba(92, 43, 38, 0.14);
-  border-radius: 18px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 8px 18px rgba(72, 27, 22, 0.04);
-  transition: all 0.2s ease;
+  background: var(--customer-paper);
+  border: 1px solid var(--apt-line);
+  border-radius: var(--apt-radius);
+  box-shadow: none;
+  transition: border-color 0.2s ease, background-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
+/* Same focus contract as the fields above it: one 3px ring, no bloom, no radius
+   of its own. The 18px radius and the `0 14px 28px` lift this rule used to carry
+   were the only two places in the profile forms still speaking the old
+   language. */
 .phone-input-group:focus-within {
-  border-color: rgba(127, 17, 17, 0.64);
-  background: #ffffff;
-  box-shadow:
-    0 0 0 4px rgba(158, 20, 20, 0.08),
-    0 14px 28px rgba(72, 27, 22, 0.09);
+  border-color: var(--apt-danger);
+  background: var(--customer-paper);
+  box-shadow: 0 0 0 3px rgba(176, 28, 28, 0.12);
 }
 
 .phone-prefix {
-  border-color: rgba(92, 43, 38, 0.14);
+  border-color: var(--apt-line);
 }
 
 /* The inner field must not paint its own surface or halo: the group is
@@ -3868,24 +3924,24 @@
    return-request rows. All had an off-token edge and no focus state. The radius
    is left as authored: 18px on a 32px stepper reads as a pill, not a field. */
 .qty-selector {
-  border-color: rgba(92, 43, 38, 0.14);
+  border-color: rgba(107, 32, 43, 0.14);
 }
 
 .qty-selector:focus-within {
-  border-color: rgba(127, 17, 17, 0.64);
+  border-color: rgba(107, 32, 43, 0.64);
   box-shadow: 0 0 0 3px rgba(158, 20, 20, 0.08);
 }
 
 .qty-selector input {
-  border-color: rgba(92, 43, 38, 0.12);
+  border-color: rgba(107, 32, 43, 0.12);
 }
 
 .customer-return-qty {
-  border-color: rgba(92, 43, 38, 0.14);
+  border-color: rgba(107, 32, 43, 0.14);
 }
 
 .customer-return-qty:focus-within {
-  border-color: rgba(127, 17, 17, 0.64);
+  border-color: rgba(107, 32, 43, 0.64);
   box-shadow: 0 0 0 3px rgba(158, 20, 20, 0.08);
 }
 
@@ -3895,7 +3951,7 @@
 .customer-return-input,
 .customer-return-select {
   background: rgba(255, 254, 250, 0.86);
-  border: 1px solid rgba(92, 43, 38, 0.14);
+  border: 1px solid rgba(107, 32, 43, 0.14);
   border-radius: 18px;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.9),
@@ -3904,8 +3960,8 @@
 
 .customer-return-input:focus,
 .customer-return-select:focus {
-  border-color: rgba(127, 17, 17, 0.64);
-  background: #ffffff;
+  border-color: rgba(107, 32, 43, 0.64);
+  background: var(--customer-paper);
   box-shadow:
     0 0 0 4px rgba(158, 20, 20, 0.08),
     0 14px 28px rgba(72, 27, 22, 0.09);
@@ -3918,7 +3974,7 @@
 .customer-return-input.has-error:focus,
 .customer-return-select.has-error,
 .customer-return-select.has-error:focus {
-  border-color: #b71c1c;
+  border-color: var(--customer-danger);
   box-shadow: 0 0 0 3px rgba(183, 28, 28, 0.12);
 }
 
@@ -3929,14 +3985,14 @@
    card language on purpose. */
 .file-upload-wrapper,
 .cgc-file-input {
-  border: 1px dashed rgba(133, 19, 19, 0.34);
+  border: 1px dashed rgba(107, 32, 43, 0.34);
   background: #fffafa;
 }
 
 .file-upload-wrapper:focus-within,
 .cgc-file-input:focus-within,
 .customer-rating-upload:focus-within {
-  border-color: #851313;
+  border-color: var(--customer-wine);
   background: #fff0f0;
   box-shadow: 0 0 0 3px rgba(133, 19, 19, 0.12);
 }
@@ -3946,7 +4002,7 @@
    one on `.customer-return-resolution-option input` (main.css:11685), which is
    white-on-maroon and must not flip. */
 :where(input[type="checkbox"], input[type="radio"]) {
-  accent-color: #9e1414;
+  accent-color: var(--customer-wine);
 }
 
 /* ---------------------------------------------------------------------------
@@ -4109,5 +4165,157 @@
 
   .vm-deck--mission.has-stack .vm-deck__card.is-lifting {
     transform: none;
+  }
+}
+
+/* Product button consistency: rectangular actions across cards, details,
+   reviews and checkout. Header controls and quantity/review media controls
+   retain their existing treatment. Compact controls keep the same corner. */
+.products-page-body .product-actions .action-btn,
+#productInfoModal .modal-actions .modal-btn,
+.products-page-body .shop-modal-box .btn-place-order,
+.products-page-body .shop-modal-body :is(.gcash-copy-btn, .gcash-open-app-btn, .edit-address-btn, .delete-address-inline),
+#customerReviewsModal :is(.customer-review-filter, .customer-reviews-load-more),
+.products-page-body #orderSuccessModal .success-card__footer .apt-btn {
+  box-sizing: border-box;
+  min-height: 44px;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: var(--apt-radius, 8px);
+  padding: 10px 16px;
+  font-family: "Montserrat", sans-serif;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  box-shadow: none;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .1s ease;
+}
+
+.products-page-body .product-actions .action-btn {
+  min-height: 40px;
+  height: 40px;
+  padding: 0 8px;
+}
+
+.products-page-body .product-actions .btn-add-cart {
+  width: 40px;
+  padding: 0;
+}
+
+#productInfoModal .modal-actions .modal-btn {
+  min-height: 44px;
+  height: 44px;
+  padding-block: 0;
+}
+
+#productInfoModal #productInfoAddToCart {
+  width: 44px;
+  padding: 0;
+}
+
+.products-page-body .shop-modal-body :is(.gcash-copy-btn, .edit-address-btn, .delete-address-inline),
+#customerReviewsModal .customer-review-filter {
+  min-height: 36px;
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
+.products-page-body .product-actions :is(.btn-view-info, .btn-add-cart),
+#productInfoModal .modal-actions :is(.outline-btn, .reviews-btn),
+.products-page-body .shop-modal-box .delete-btn,
+.products-page-body .shop-modal-body :is(.gcash-copy-btn, .edit-address-btn, .delete-address-inline),
+#customerReviewsModal .customer-review-filter {
+  background: var(--customer-paper);
+  border-color: var(--customer-wine);
+  color: var(--customer-wine);
+}
+
+.products-page-body .product-actions .btn-buy-now,
+#productInfoModal .modal-actions .solid-btn,
+.products-page-body .shop-modal-box .btn-place-order:not(.delete-btn),
+#customerReviewsModal :is(.customer-review-filter.active, .customer-reviews-load-more) {
+  background: var(--customer-wine);
+  border-color: var(--customer-wine);
+  color: var(--customer-paper-sink);
+}
+
+.products-page-body .product-actions .action-btn:hover:not(:disabled),
+#productInfoModal .modal-actions .modal-btn:hover:not(:disabled),
+.products-page-body .shop-modal-box .btn-place-order:hover:not(:disabled),
+.products-page-body .shop-modal-body :is(.gcash-copy-btn, .edit-address-btn, .delete-address-inline):hover:not(:disabled),
+#customerReviewsModal :is(.customer-review-filter, .customer-reviews-load-more):hover:not(:disabled) {
+  background: var(--customer-wine);
+  border-color: var(--customer-wine);
+  color: var(--customer-paper-sink);
+  box-shadow: none;
+  transform: none;
+}
+
+.products-page-body .product-actions .btn-buy-now:hover:not(:disabled),
+#productInfoModal .modal-actions .solid-btn:hover:not(:disabled),
+.products-page-body .shop-modal-box .btn-place-order:not(.delete-btn):hover:not(:disabled),
+#customerReviewsModal :is(.customer-review-filter.active, .customer-reviews-load-more):hover:not(:disabled) {
+  background: var(--customer-wine-hover);
+  border-color: var(--customer-wine-hover);
+}
+
+/* The three legacy delete handlers use id-level !important hover paint. */
+.products-page-body :is(#cartDeleteBtn, #deleteSelectedAddressBtn, #deleteAllAddressBtn):hover:not(:disabled) {
+  background: var(--customer-wine) !important;
+  border-color: var(--customer-wine) !important;
+  color: var(--customer-paper-sink) !important;
+}
+
+.products-page-body .product-actions .action-btn:focus-visible,
+#productInfoModal .modal-actions .modal-btn:focus-visible,
+.products-page-body .shop-modal-box .btn-place-order:focus-visible,
+.products-page-body .shop-modal-body :is(.gcash-copy-btn, .gcash-open-app-btn, .edit-address-btn, .delete-address-inline):focus-visible,
+#customerReviewsModal :is(.customer-review-filter, .customer-reviews-load-more):focus-visible {
+  outline: 2px solid var(--customer-wine);
+  outline-offset: 3px;
+  box-shadow: none;
+}
+
+.products-page-body .product-actions .action-btn:active:not(:disabled),
+#productInfoModal .modal-actions .modal-btn:active:not(:disabled),
+.products-page-body .shop-modal-box .btn-place-order:active:not(:disabled),
+.products-page-body .shop-modal-body :is(.gcash-copy-btn, .gcash-open-app-btn, .edit-address-btn, .delete-address-inline):active:not(:disabled),
+#customerReviewsModal :is(.customer-review-filter, .customer-reviews-load-more):active:not(:disabled) {
+  box-shadow: none;
+  transform: scale(.98);
+}
+
+.products-page-body .product-actions .action-btn:is(:disabled, .disabled),
+#productInfoModal .modal-actions .modal-btn:is(:disabled, .disabled),
+.products-page-body .shop-modal-box .btn-place-order:disabled,
+.products-page-body .shop-modal-body :is(.gcash-copy-btn, .gcash-open-app-btn, .edit-address-btn, .delete-address-inline):disabled,
+#customerReviewsModal :is(.customer-review-filter, .customer-reviews-load-more):disabled {
+  background: var(--customer-paper-sink);
+  border-color: #d8cbc8;
+  color: #756b70;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+@media (max-width: 720px) {
+  .products-page-body .product-actions .action-btn {
+    min-height: 36px;
+    height: 36px;
+    padding-inline: 8px;
+  }
+
+  .products-page-body .product-actions .btn-add-cart {
+    width: 36px;
+    padding: 0;
+  }
+
+  #productInfoModal .modal-actions .modal-btn {
+    padding-inline: 10px;
+  }
+
+  #productInfoModal #productInfoAddToCart {
+    padding: 0;
   }
 }

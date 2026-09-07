@@ -270,6 +270,15 @@ const showCustomerPopup = (message, options = {}) =>
     }
   });
 
+// Navbar and My Orders badges share the same compact display at high counts.
+const formatNavbarCount = (value) => {
+  const numericValue = Number.parseInt(String(value ?? "0"), 10);
+  const count = Number.isFinite(numericValue)
+    ? Math.max(0, numericValue)
+    : 0;
+  return count > 99 ? "99+" : String(count);
+};
+
 document.addEventListener("DOMContentLoaded", () => {
   let navLinks = document.querySelectorAll(".nav-link");
   const sections = document.querySelectorAll("main, section");
@@ -4891,14 +4900,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Update Cart Totals and Counters
-  const formatNavbarCount = (value) => {
-    const numericValue = Number.parseInt(String(value ?? "0"), 10);
-    const count = Number.isFinite(numericValue)
-      ? Math.max(0, numericValue)
-      : 0;
-    return count > 99 ? "99+" : String(count);
-  };
-
   function updateCartTotals() {
     const items = cartItemsContainer?.querySelectorAll(".cart-item-card") || [];
     let total = 0;
@@ -8277,14 +8278,14 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
 
           <div class="customer-orders-tabs" id="customerOrdersTabs">
-            <button type="button" class="customer-orders-tab active" data-tab="all">All <span class="customer-orders-tab-count">0</span></button>
-            <button type="button" class="customer-orders-tab" data-tab="to_pay">To Pay <span class="customer-orders-tab-count">0</span></button>
-            <button type="button" class="customer-orders-tab" data-tab="to_ship">To Ship <span class="customer-orders-tab-count">0</span></button>
-            <button type="button" class="customer-orders-tab" data-tab="to_receive">To Receive <span class="customer-orders-tab-count">0</span></button>
-            <button type="button" class="customer-orders-tab" data-tab="completed">Completed <span class="customer-orders-tab-count">0</span></button>
-            <button type="button" class="customer-orders-tab" data-tab="to_rate">To Rate <span class="customer-orders-tab-count">0</span></button>
-            <button type="button" class="customer-orders-tab" data-tab="returns">Returns <span class="customer-orders-tab-count">0</span></button>
-            <button type="button" class="customer-orders-tab" data-tab="cancelled">Cancelled <span class="customer-orders-tab-count">0</span></button>
+            <button type="button" class="customer-orders-tab active" data-tab="all"><span class="customer-orders-tab-label">All</span><span class="customer-orders-tab-count" aria-hidden="true">0</span></button>
+            <button type="button" class="customer-orders-tab" data-tab="to_pay"><span class="customer-orders-tab-label">To Pay</span><span class="customer-orders-tab-count" aria-hidden="true">0</span></button>
+            <button type="button" class="customer-orders-tab" data-tab="to_ship"><span class="customer-orders-tab-label">To Ship</span><span class="customer-orders-tab-count" aria-hidden="true">0</span></button>
+            <button type="button" class="customer-orders-tab" data-tab="to_receive"><span class="customer-orders-tab-label">To Receive</span><span class="customer-orders-tab-count" aria-hidden="true">0</span></button>
+            <button type="button" class="customer-orders-tab" data-tab="completed"><span class="customer-orders-tab-label">Completed</span><span class="customer-orders-tab-count" aria-hidden="true">0</span></button>
+            <button type="button" class="customer-orders-tab" data-tab="to_rate"><span class="customer-orders-tab-label">To Rate</span><span class="customer-orders-tab-count" aria-hidden="true">0</span></button>
+            <button type="button" class="customer-orders-tab" data-tab="returns"><span class="customer-orders-tab-label">Returns</span><span class="customer-orders-tab-count" aria-hidden="true">0</span></button>
+            <button type="button" class="customer-orders-tab" data-tab="cancelled"><span class="customer-orders-tab-label">Cancelled</span><span class="customer-orders-tab-count" aria-hidden="true">0</span></button>
           </div>
 
           <div class="customer-orders-viewport" id="customerOrdersViewport">
@@ -8319,8 +8320,7 @@ document.addEventListener("DOMContentLoaded", () => {
       );
       const track = overlay.querySelector("#customerOrdersTrack");
       const viewport = overlay.querySelector("#customerOrdersViewport");
-      // The chip strip is one scrolling line now, so the active chip has to be
-      // scrolled into view whenever the panel changes by swipe.
+      // Small screens keep a scrolling strip; desktop displays all eight tabs.
       const tabStrip = overlay.querySelector("#customerOrdersTabs");
       const closeBtn = overlay.querySelector("#closeCustomerOrdersModal");
       const detailModal = overlay.querySelector("#customerOrderDetailModal");
@@ -8397,6 +8397,22 @@ document.addEventListener("DOMContentLoaded", () => {
         const label = syncStatus.querySelector("span:last-child");
         if (label) label.textContent = message;
       };
+
+      const setOrderTabCount = (tab, value) => {
+        const count = Math.max(0, Number.parseInt(String(value ?? "0"), 10) || 0);
+        const countEl = tab.querySelector(".customer-orders-tab-count");
+        if (countEl) {
+          countEl.textContent = formatNavbarCount(count);
+          countEl.classList.toggle("is-empty", count === 0);
+        }
+        const label = tab.querySelector(".customer-orders-tab-label")?.textContent || "Orders";
+        const unit = tab.dataset.tab === "returns" ? "return request" : "order";
+        const description = `${label}, ${count} ${unit}${count === 1 ? "" : "s"}`;
+        tab.setAttribute("aria-label", description);
+        tab.setAttribute("title", description);
+      };
+
+      tabs.forEach((tab) => setOrderTabCount(tab, 0));
 
       const resolveCustomerOrderImageUrl = (endpoint) => {
         const value = String(endpoint || "").trim();
@@ -8614,10 +8630,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         setSyncStatus("offline", "Session expired - please log in again");
-        tabs.forEach((tab) => {
-          const countEl = tab.querySelector(".customer-orders-tab-count");
-          if (countEl) countEl.textContent = "0";
-        });
+        tabs.forEach((tab) => setOrderTabCount(tab, 0));
 
         const expiredHtml = `
           <div class="customer-orders-empty">
@@ -8985,6 +8998,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         tabs.forEach((tab, tabIndex) => {
           tab.classList.toggle("active", tabIndex === nextIndex);
+          tab.setAttribute("aria-pressed", String(tabIndex === nextIndex));
         });
 
         if (track) {
@@ -8994,13 +9008,13 @@ document.addEventListener("DOMContentLoaded", () => {
           track.style.transform = `translateX(-${nextIndex * 100}%)`;
         }
 
-        // With eight chips on one scrolling line the active chip can sit off
-        // screen after a swipe. Only scroll when the strip actually overflows,
-        // otherwise `scrollIntoView` nudges the page itself.
+        // Keep a swiped-to phone tab visible. Desktop tabs already fit the
+        // drawer, so never nudge the page or its strip at laptop/PC widths.
         const activeTab = tabs[nextIndex];
         if (
           activeTab &&
           tabStrip &&
+          window.matchMedia("(max-width: 768px)").matches &&
           tabStrip.scrollWidth > tabStrip.clientWidth + 1
         ) {
           activeTab.scrollIntoView({
@@ -11087,10 +11101,7 @@ document.addEventListener("DOMContentLoaded", () => {
           panels.forEach((panel) => {
             panel.innerHTML = renderLoadingState();
           });
-          tabs.forEach((tab) => {
-            const countEl = tab.querySelector(".customer-orders-tab-count");
-            if (countEl) countEl.textContent = "0";
-          });
+          tabs.forEach((tab) => setOrderTabCount(tab, 0));
           return;
         }
 
@@ -11263,8 +11274,7 @@ document.addEventListener("DOMContentLoaded", () => {
               (row) => String(row?.status_group || "open") === "open",
             ).length;
           }
-          const countEl = tab.querySelector(".customer-orders-tab-count");
-          if (countEl) countEl.textContent = String(count);
+          setOrderTabCount(tab, count);
         });
 
         hydrateCustomerOrderImages(overlay);
@@ -12038,10 +12048,7 @@ document.addEventListener("DOMContentLoaded", () => {
               "Showing saved orders - reconnecting...",
             );
           } else {
-            tabs.forEach((tab) => {
-              const countEl = tab.querySelector(".customer-orders-tab-count");
-              if (countEl) countEl.textContent = "0";
-            });
+            tabs.forEach((tab) => setOrderTabCount(tab, 0));
 
             panels.forEach((panel) => {
               panel.innerHTML = `

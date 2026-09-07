@@ -8,7 +8,7 @@
     />
     <link rel="icon" href="/images/favicon.ico?v=3" sizes="any" />
     <link rel="apple-touch-icon" href="/images/apple-touch-icon.png?v=3" />
-    <meta name="theme-color" content="#8b0000" />
+    <meta name="theme-color" content="#6b202b" />
     <title>UCN - FMRC Landing Page</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -35,11 +35,11 @@
          parse time and needs window.FMRC_HERO_TITLE already defined. -->
     <!-- Renders the hero headline from site settings. Loaded here, ahead of the
          hero markup, so the inline call below it can paint before first paint. -->
-    <script src="hero-title.js"></script>
+    <script src="hero-title.js?v=1.0"></script>
     <!-- Hero background gradient presets. main.js needs this to turn a saved
          hero_bg_gradient id into the same declaration the admin swatch shows;
          without it a gradient choice silently falls back to the stylesheet. -->
-    <script src="hero-gradients.js"></script>
+    <script src="hero-gradients.js?v=1.1"></script>
 
     <!-- One Montserrat request for the whole site. Every customer page asks for
          this exact string so navigating between them is a cache hit instead of
@@ -62,8 +62,8 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
 
-    <link rel="stylesheet" href="main.css?v=7.6" />
-    <link rel="stylesheet" href="responsive.css?v=7.4" />
+    <link rel="stylesheet" href="main.css?v=8.8" />
+    <link rel="stylesheet" href="responsive.css?v=8.3" />
 
     <!-- The signature loader. One sheet shared by every customer page, so the
          curtain that covers this page while it boots and the curtain that covers
@@ -72,7 +72,7 @@
          blocks first paint wherever in the head it sits, and this page's first
          paint is already gated on main.css above it, so these rules are
          guaranteed present the first time anything paints. -->
-    <link rel="stylesheet" href="fmrc-loader.css?v=1.0" />
+    <link rel="stylesheet" href="fmrc-loader.css?v=1.4" />
     <script>
       /* Raises the boot curtain before the body paints, then lowers it the
          moment the DOM is ready. Inline and in <head> on purpose: the class has
@@ -203,10 +203,10 @@
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
-            <circle cx="20" cy="20" r="20" fill="#C0392B" />
+            <circle cx="20" cy="20" r="20" fill="var(--customer-wine)" />
             <path
               d="M20 20C23.3137 20 26 17.3137 26 14C26 10.6863 23.3137 8 20 8C16.6863 8 14 10.6863 14 14C14 17.3137 16.6863 20 20 20ZM20 23C15.5817 23 6.66669 25.2386 6.66669 29.6667V32H33.3334V29.6667C33.3334 25.2386 24.4183 23 20 23Z"
-              fill="white"
+              fill="var(--customer-paper-sink)"
             />
           </svg>
         </div>
@@ -1633,7 +1633,7 @@
     <!-- Maintenance Mode gate: must run before main.js so the cached snapshot is
          applied before anything that should be hidden can be painted. This one
          stays synchronous for that reason — everything below it is deferred. -->
-    <script src="maintenance-gate.js?v=1.1"></script>
+    <script src="maintenance-gate.js?v=1.5"></script>
     <!-- Deferred as a set, never individually: `defer` only preserves relative
          order among deferred scripts, so leaving any one of these synchronous
          would run it ahead of the others. Both wrap their work in a
@@ -1652,7 +1652,7 @@
          ever fails the affected flow silently falls back to the plain disabled
          button it had before. -->
     <script defer src="fmrc-loader.js?v=1.0"></script>
-    <script defer src="main.js?v=8.4"></script>
-    <script defer src="customer-announcements.js?v=5.8"></script>
+    <script defer src="main.js?v=8.6"></script>
+    <script defer src="customer-announcements.js?v=6.2"></script>
   </body>
 </html>

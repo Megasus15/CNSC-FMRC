@@ -466,7 +466,7 @@
           margin-right: 4px;
           border: 1px solid #ead9d9;
           border-radius: 50%;
-          background: #ffffff;
+          background: #fdfaf6;
           color: #870b14;
           cursor: pointer;
           font-size: 1.15rem;
@@ -474,7 +474,7 @@
           transition: background-color 0.2s ease, border-color 0.2s ease;
         }
         .announcement-bell:hover {
-          background: #fff4f4;
+          background: #fffbed;
           border-color: #c0392b;
           transform: none;
         }
@@ -496,16 +496,16 @@
           min-height: 22px !important;
           max-height: 22px !important;
           padding: 0 !important;
-          border: 2px solid #ffffff !important;
+          border: 2px solid #fdfaf6 !important;
           border-radius: 50% !important;
-          background: linear-gradient(135deg, #ef4444, #991b1b) !important;
-          color: #ffffff !important;
+          background: var(--customer-wine, #6b202b) !important;
+          color: #f7f2ec !important;
           font-family: "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
           font-weight: 800 !important;
           line-height: 1 !important;
           text-align: center !important;
           white-space: nowrap !important;
-          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
+          box-shadow: 0 2px 6px rgba(58, 18, 18, 0.28);
           pointer-events: none;
           user-select: none;
           font-size: 8px;
@@ -526,13 +526,11 @@
           width: max-content;
           max-width: 280px;
           padding: 10px 14px;
-          border-radius: 16px;
-          background: rgba(255, 255, 255, 0.78);
-          backdrop-filter: blur(14px);
-          -webkit-backdrop-filter: blur(14px);
-          border: 1px solid rgba(255, 255, 255, 0.95);
-          box-shadow: 0 12px 35px rgba(128, 0, 0, 0.2), 0 2px 10px rgba(0, 0, 0, 0.08);
-          color: #1e293b;
+          border-radius: 8px;
+          background: #fdfaf6;
+          border: 1px solid #eadc9a;
+          box-shadow: 0 12px 35px rgba(128, 0, 0, 0.2), 0 2px 10px rgba(58, 18, 18, 0.08);
+          color: #4b5563;
           pointer-events: auto;
           animation: fmrcGlassPulse 3s infinite ease-in-out;
           transition: opacity 0.25s ease, transform 0.25s ease;
@@ -546,7 +544,7 @@
           height: 0;
           border-left: 7px solid transparent;
           border-right: 7px solid transparent;
-          border-bottom: 8px solid rgba(255, 255, 255, 0.95);
+          border-bottom: 8px solid #fdfaf6;
         }
         .announcement-glass-tooltip__content {
           display: flex;
@@ -624,8 +622,11 @@
           width: min(520px, 92vw);
           overflow: hidden;
           border-radius: var(--ux-dlg-radius, 8px);
-          background: #ffffff;
-          box-shadow: 0 25px 65px rgba(0, 0, 0, 0.35);
+          /* Warm paper, not #ffffff: the customer pages have no solid white
+             surface any more, and this card sits over the same scrim as every
+             other dialog. */
+          background: #fdfaf6;
+          box-shadow: 0 25px 65px rgba(45, 12, 12, 0.32);
           animation: fmrcAnnouncementIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
           position: relative;
         }
@@ -634,7 +635,7 @@
           position: relative;
           padding: 26px 28px 20px;
           background: linear-gradient(135deg, var(--announcement-accent-primary, #c0392b), var(--announcement-accent-secondary, #800000));
-          color: #ffffff;
+          color: #f7f2ec;
         }
 
         /* The pop-up on the customer pages also wears the unified dialog skin,
@@ -656,24 +657,24 @@
           letter-spacing: 0.14em;
           text-transform: uppercase;
           opacity: 0.92;
-          color: #ffffff;
+          color: #f7f2ec;
         }
-        
+
         .announcement-modal__title {
           margin: 0;
           font-size: 1.45rem;
           font-weight: 700;
           line-height: 1.25;
-          color: #ffffff;
+          color: #f7f2ec;
         }
-        
+
         .announcement-modal__close-x {
           position: absolute;
           top: 16px;
           right: 18px;
-          background: rgba(255, 255, 255, 0.22);
+          background: rgba(247, 242, 236, 0.22);
           border: none;
-          color: #ffffff;
+          color: #f7f2ec;
           width: 32px;
           height: 32px;
           border-radius: 50%;
@@ -686,21 +687,21 @@
           line-height: 1;
         }
         .announcement-modal__close-x:hover {
-          background: rgba(255, 255, 255, 0.4);
+          background: rgba(247, 242, 236, 0.4);
         }
         .announcement-modal__close-x:active {
           transform: scale(0.94);
         }
-        
+
         .announcement-modal__body {
           padding: 24px 28px;
           position: relative;
-          background: #ffffff;
+          background: #fdfaf6;
         }
-        
+
         .announcement-modal__message {
           margin: 0 0 20px;
-          color: #374151;
+          color: #4b5563;
           font-size: 0.96rem;
           line-height: 1.65;
           white-space: pre-line;
@@ -716,17 +717,28 @@
         
         .announcement-modal__counter {
           font-size: 0.78rem;
-          color: #6b7280;
+          color: #6d7480;
           font-weight: 600;
         }
-        
+
+        /* Full pill, flat fill, darker-on-hover — the one button recipe the
+           customer pages use, taken from the hero CTAs and the appointment
+           step-1 pill. These rules only reach the legacy template that renders
+           without the ux-dlg__btn hooks; the live dialog's buttons carry both
+           class families and main.css's (1,2,0) shell rules win there. Keeping
+           the two in step means the fallback can never look like a third
+           button language.
+
+           No backticks anywhere in this stylesheet: it is a JS template
+           literal, so one backtick in a CSS comment ends the string and the
+           rest of the file stops parsing. */
         .announcement-modal__button {
           display: inline-flex;
           align-items: center;
           justify-content: center;
           gap: 8px;
           padding: 10px 18px;
-          border-radius: 10px;
+          border-radius: var(--ux-dlg-radius, 8px);
           border: none;
           font-size: 0.88rem;
           font-weight: 700;
@@ -734,50 +746,43 @@
           text-decoration: none;
           transition: background-color 0.2s ease, filter 0.2s ease, transform 0.08s ease;
         }
-        
+
         .announcement-modal__button--primary {
-          background: var(--announcement-accent-secondary, #800000);
-          color: #ffffff;
+          background: var(--announcement-accent-secondary, #5f0d0d);
+          color: #f7f2ec;
         }
-        /* Dynamic darkening on hover for WHICHEVER preset gradient color is active */
+        /* Dynamic darkening on hover for WHICHEVER preset color is active */
         .announcement-modal__button--primary:hover {
           filter: brightness(0.84);
         }
         .announcement-modal__button--primary:active {
           transform: scale(0.96);
         }
-        
+
         .announcement-modal__button--secondary {
-          background: #f1f5f9;
-          color: #374151;
-          border: 1px solid #e2e8f0;
+          background: #fffbed;
+          color: var(--customer-wine, #6b202b);
+          border: 1px solid #eadc9a;
         }
         .announcement-modal__button--secondary:hover {
-          background: #e2e8f0;
+          background: #f6edcf;
         }
         .announcement-modal__button--secondary:active {
           transform: scale(0.96);
         }
 
-        /* PHONE / SMALL-TABLET SCROLL PERFORMANCE (<=900px).
-           This pill is rendered inside .site-header, which is position: sticky
-           at these widths — and a backdrop-filtered element nested inside
-           another backdrop-filtered sticky element is the most expensive
-           construct the site can produce: the content behind both changes on
-           every scroll frame, so neither blur can ever be cached and the GPU
-           re-samples and re-blurs twice per frame. At a 120Hz refresh rate that
-           is a 8.3ms budget, not 16.7ms, and it is missed outright.
-           The header itself is now an opaque white at these widths (see the
-           matching pass at the end of home-page/main.css), so a 14px blur at
-           0.78 alpha over flat white was buying nothing visible in the first
-           place. Raising the fill to 0.96 keeps the frosted look. */
-        @media (max-width: 900px) {
-          .announcement-glass-tooltip {
-            background: rgba(255, 255, 255, 0.96);
-            backdrop-filter: none;
-            -webkit-backdrop-filter: none;
-          }
-        }
+        /* The ≤900px arm this comment used to describe is gone: the tooltip's
+           own blur went with the minimalism round, so there is no longer a
+           backdrop-filtered pill nested inside the (also formerly blurred)
+           sticky header for a phone arm to switch off. What the note recorded is
+           still worth keeping, because it is why neither blur is coming back:
+           a backdrop-filtered element inside a backdrop-filtered sticky parent
+           is the most expensive construct this site can produce — the content
+           behind both changes every scroll frame, so neither blur can be cached
+           and the GPU re-samples and re-blurs twice per frame. At 120Hz that is
+           an 8.3ms budget, not 16.7ms, and it was missed outright. The pill is
+           flat warm paper at every width now, which costs nothing to composite
+           and reads the same on a phone as on a desktop. */
 
         /* Runtime styles are appended after the shared stylesheets, so the
            responsive safeguards live here as well. This keeps announcement
@@ -903,9 +908,19 @@
           }
         }
         
+        /* Transform only — "opacity" is deliberately NOT animated here.
+           "animation-fill-mode" is "none", so while this animation is *active*
+           its first frame is what paints, and a timeline that is frozen or
+           throttled (a background tab, a page under paint-holding) sits on
+           frame 0 indefinitely. With "opacity: 0" in that frame the scrim came
+           up fully while the card stayed invisible — a dialog that is open,
+           interactive and impossible to see. The overlay above already fades
+           0 → 1 on ".is-visible", so the fade was duplicated anyway; dropping
+           it from here means the worst a stalled timeline can do is leave the
+           card 18px low and 4% small, still fully legible. */
         @keyframes fmrcAnnouncementIn {
-          from { opacity: 0; transform: translateY(18px) scale(0.96); }
-          to { opacity: 1; transform: translateY(0) scale(1); }
+          from { transform: translateY(18px) scale(0.96); }
+          to { transform: translateY(0) scale(1); }
         }
       `;
       document.head.appendChild(style);
@@ -1125,7 +1140,7 @@
     tip.innerHTML = `
       <div class="announcement-glass-tooltip__arrow"></div>
       <div class="announcement-glass-tooltip__content">
-        <span style="font-size:1.15rem; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.15));">✨</span>
+        <span style="font-size:1.15rem; filter:drop-shadow(0 2px 4px rgba(58,18,18,0.15));">✨</span>
         <div class="announcement-glass-tooltip__text">
           <strong>New Announcement!</strong>
           <span>Click to view live campus promos &amp; updates</span>
@@ -1389,7 +1404,23 @@
 
       if (modal && !modal.hidden) {
         if (!announcements.length) {
-          closeModal();
+          /* Only close a dialog that was showing a real item which has since
+             gone away — an announcement that expires mid-read should not be
+             left on screen. `previousOpenItemId` is exactly that test: it is
+             null when the open dialog was the "no active announcements right
+             now" state, which is what the customer sees after tapping the bell
+             on a site with nothing published.
+
+             Without this guard that empty state could not be read at all. Three
+             things call `load()` — the 30s poll at :1279, `visibilitychange`,
+             and the boot load — and every one of them found `!modal.hidden` and
+             `announcements.length === 0` true and closed the dialog the
+             customer had just opened. The bell → focus-the-tab → click order is
+             the common one, so the boot/refocus load was usually still in
+             flight when the dialog appeared and shut it within the same tick:
+             the reported "the announcement doesn't open". It did open. It was
+             being closed again immediately. */
+          if (previousOpenItemId) closeModal();
         } else {
           const nextIndex = previousOpenItemId
             ? announcements.findIndex((item) => item.id === previousOpenItemId)

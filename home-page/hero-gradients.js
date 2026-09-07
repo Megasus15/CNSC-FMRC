@@ -17,11 +17,11 @@
 
   var SHEEN_HERO =
     "radial-gradient(circle at 78% 18%, rgba(241, 237, 18, 0.28), transparent 14rem), " +
-    "radial-gradient(circle at 14% 20%, rgba(255, 255, 255, 0.18), transparent 18rem)";
+    "radial-gradient(circle at 14% 20%, rgba(247, 242, 236, 0.18), transparent 18rem)";
 
   var SHEEN_SWATCH =
     "radial-gradient(circle at 78% 18%, rgba(241, 237, 18, 0.3), transparent 52%), " +
-    "radial-gradient(circle at 14% 20%, rgba(255, 255, 255, 0.2), transparent 58%)";
+    "radial-gradient(circle at 14% 20%, rgba(247, 242, 236, 0.2), transparent 58%)";
 
   var PRESETS = [
     {

@@ -163,7 +163,10 @@
   background:
     linear-gradient(90deg, rgba(158, 20, 20, 0.08) 1px, rgba(158, 20, 20, 0) 1px),
     linear-gradient(rgba(158, 20, 20, 0.08) 1px, rgba(158, 20, 20, 0) 1px),
-    #ffffff;
+    /* The paper colour, not white - this slab is the first surface the visitor
+       sees, so it has to hand off to the page's own field without a flash. The
+       literal is --customer-paper; the token is not used because this sheet has
+       to stand up even if main.css has not parsed yet. */ #fdfaf6;
   background-size: 24px 24px;
   background-position: center center;
   box-shadow:
@@ -186,7 +189,7 @@
   place-items: center;
   overflow: hidden;
   border-radius: calc(var(--fmrc-tile) * 0.3125);
-  background: linear-gradient(135deg, #fffdf2 0%, #fff6bf 45%, #ffffff 100%);
+  background: linear-gradient(135deg, #fffdf2 0%, #fff6bf 45%, #fffdf8 100%);
   /* Standing on the white table now, not floating on a dark scrim, so the
      shadow it used to need to read there (0 24px 48px black at .25) would only
      smudge the paper underneath it. The hairline ring is what draws the tile's
@@ -212,7 +215,7 @@
   background: linear-gradient(
     100deg,
     rgba(241, 237, 18, 0) 24%,
-    rgba(255, 255, 255, 0.5) 47%,
+    rgba(255, 253, 242, 0.5) 47%,
     rgba(241, 237, 18, 0.34) 60%,
     rgba(241, 237, 18, 0) 78%
   );
@@ -279,7 +282,7 @@
 .fmrc-load-caption {
   margin: 0;
   max-width: 26ch;
-  color: #5f0d0d;
+  color: var(--customer-wine, #6b202b);
   font-size: clamp(13px, 1.6vw, 15px);
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -307,7 +310,7 @@
   height: 2px;
   overflow: hidden;
   border-radius: 2px;
-  background: rgba(158, 20, 20, 0.14);
+  background: rgba(107, 32, 43, 0.14);
 }
 
 .fmrc-load-rail > span {
@@ -315,7 +318,7 @@
   inset: 0;
   transform-origin: left center;
   border-radius: inherit;
-  background: linear-gradient(90deg, #b01c1c, #8b0000 55%, #f1ed12);
+  background: linear-gradient(90deg, var(--customer-wine, #6b202b), var(--customer-wine-hover, #511721) 55%, #f1ed12);
   animation: fmrcLoadRail 1.5s ease-in-out infinite;
 }
 
@@ -353,7 +356,7 @@
         transparent 22rem
       ),
     radial-gradient(circle at 90% 18%, rgba(158, 20, 20, 0.12), transparent 24rem),
-    linear-gradient(135deg, #fffaf0 0%, #f5f7f2 46%, #fffdf8 100%)
+    linear-gradient(135deg, #fffaf0 0%, #f7f2ec 46%, #fffdf8 100%)
   );
 }
 
@@ -384,7 +387,7 @@ html.fmrc-booting .fmrc-load-boot {
   place-items: center;
   padding: 24px;
   overscroll-behavior: contain;
-  background: rgba(15, 23, 42, 0.55);
+  background: var(--ux-dlg-scrim, rgba(15, 23, 42, 0.55));
   opacity: 0;
   visibility: hidden;
   pointer-events: none;

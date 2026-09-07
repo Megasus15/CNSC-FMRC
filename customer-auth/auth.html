@@ -8,7 +8,7 @@
     />
     <link rel="icon" href="/images/favicon.ico?v=3" sizes="any" />
     <link rel="apple-touch-icon" href="/images/apple-touch-icon.png?v=3" />
-    <meta name="theme-color" content="#8b0000" />
+    <meta name="theme-color" content="#6b202b" />
     <title>UCN-FMRC Customer Login</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -20,14 +20,14 @@
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="auth.css?v=5.9" />
+    <link rel="stylesheet" href="auth.css?v=6.2" />
 
     <!-- The signature loader, the same sheet the five customer pages link. This
          page used to carry its own spinner overlay; that block is gone from
          auth.css now, so the curtain a visitor sees while signing in is the same
          object as the curtain on every other page — and its mark is the same
          mark as the `.portal-mark` tile further down this very page. -->
-    <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=1.0" />
+    <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=1.4" />
     <script>
       /* Raises the boot curtain before the body paints, then lowers it the
          moment the DOM is ready. Inline and in <head> on purpose: the class has
@@ -90,10 +90,10 @@
           ),
           radial-gradient(
             circle at 90% 18%,
-            rgba(158, 20, 20, 0.13),
+            rgba(107, 32, 43, 0.13),
             transparent 20rem
           ),
-          linear-gradient(135deg, #fffaf0 0%, #f5f7f2 46%, #fffdf8 100%);
+          linear-gradient(135deg, var(--customer-paper) 0%, var(--customer-paper-sink) 46%, var(--customer-paper) 100%);
       "
     >
       <div class="fmrc-load-core">
@@ -828,7 +828,7 @@
     <script src="../home-page/portal-brand.js?v=1.0"></script>
     <!-- Maintenance Mode gate: disables sign-up / sign-in with the admin's own
          wording while those scopes are active. The 503 is still the authority. -->
-    <script src="../home-page/maintenance-gate.js?v=1.1"></script>
+    <script src="../home-page/maintenance-gate.js?v=1.5"></script>
     <!-- Synchronous, and ahead of auth.js, because this page's tail scripts are
          all synchronous: `defer` here would run it after them and after
          DOMContentLoaded, which is later than auth.js's first handler could

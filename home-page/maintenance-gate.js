@@ -182,12 +182,12 @@
       ".maint-panel--page{min-height:62vh;}",
       ".maint-panel--inline{padding:40px 20px;background:transparent;}",
       ".maint-panel__card{width:100%;max-width:560px;box-sizing:border-box;text-align:center;",
-      "background:#fff;border:1px solid #f0dcd2;border-radius:18px;padding:34px 28px;",
+      "background:var(--customer-paper,#fff);border:1px solid #f0dcd2;border-radius:18px;padding:34px 28px;",
       "box-shadow:0 12px 30px rgba(95,13,13,0.08);font-family:'Montserrat',sans-serif;}",
       ".maint-panel__icon{width:58px;height:58px;margin:0 auto 16px;border-radius:50%;",
       "display:flex;align-items:center;justify-content:center;background:#fdf1e3;color:#b45309;}",
       ".maint-panel__icon svg{width:28px;height:28px;}",
-      ".maint-panel__title{margin:0 0 10px;font-size:1.32rem;font-weight:800;color:#5f0d0d;",
+      ".maint-panel__title{margin:0 0 10px;font-size:1.32rem;font-weight:800;color:var(--customer-wine,#5f0d0d);",
       "letter-spacing:0.2px;}",
       ".maint-panel__text{margin:0;font-size:0.98rem;line-height:1.6;color:#4b3a34;}",
       ".maint-panel__note{margin:14px 0 0;font-size:0.82rem;color:#8a7a74;}",
@@ -209,25 +209,30 @@
    * The four customer pages borrow main.js's own dialog. The auth pages do not
    * load main.js and their sheets do not style .ux-dlg, so the fallback card
    * below carries its own look — deliberately the same maroon language.
+   *
+   * Radii and neutrals track the customer site by hand here because this string
+   * cannot see main.css's tokens: 8px is `--ux-dlg-radius` (the card corner the
+   * whole site's buttons now repeat), #fdfaf6 / #f7f2ec are the paper ladder,
+   * and the shadow is warm-tinted rather than neutral black.
    */
   function fallbackDialogCss() {
     return [
       ".maint-dlg{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;",
-      "justify-content:center;padding:18px;background:rgba(28,12,12,0.55);",
+      "justify-content:center;padding:18px;background:var(--ux-dlg-scrim,rgba(15,23,42,0.55));",
       "font-family:'Montserrat',sans-serif;}",
-      ".maint-dlg__card{width:100%;max-width:400px;box-sizing:border-box;background:#fff;",
-      "border-radius:16px;padding:26px 22px;text-align:center;",
-      "box-shadow:0 18px 44px rgba(0,0,0,0.28);}",
+      ".maint-dlg__card{width:100%;max-width:400px;box-sizing:border-box;background:#fdfaf6;",
+      "border-radius:8px;padding:26px 22px;text-align:center;",
+      "box-shadow:0 18px 44px rgba(45,12,12,0.28);}",
       ".maint-dlg__icon{width:52px;height:52px;margin:0 auto 14px;border-radius:50%;",
       "display:flex;align-items:center;justify-content:center;background:#fdf1e3;color:#b45309;}",
       ".maint-dlg__icon svg{width:26px;height:26px;}",
-      ".maint-dlg__title{margin:0 0 8px;font-size:1.12rem;font-weight:800;color:#5f0d0d;}",
+      ".maint-dlg__title{margin:0 0 8px;font-size:1.12rem;font-weight:800;color:var(--customer-wine,#5f0d0d);}",
       ".maint-dlg__text{margin:0 0 20px;font-size:0.92rem;line-height:1.55;color:#4b3a34;}",
-      ".maint-dlg__btn{width:100%;min-height:44px;border:0;border-radius:10px;cursor:pointer;",
-      "background:#5f0d0d;color:#fff;font-family:inherit;font-size:0.95rem;font-weight:700;",
+      ".maint-dlg__btn{width:100%;min-height:44px;border:0;border-radius:8px;cursor:pointer;",
+      "background:var(--customer-wine,#5f0d0d);color:#f7f2ec;font-family:inherit;font-size:0.95rem;font-weight:700;",
       "transform:none;transition:background-color .18s ease;}",
-      ".maint-dlg__btn:hover{background:#4a0808;transform:none;}",
-      ".maint-dlg__btn:active{background:#3d0606;transform:scale(0.97);}",
+      ".maint-dlg__btn:hover{background:var(--customer-wine-hover,#4a0808);transform:none;}",
+      ".maint-dlg__btn:active{background:var(--customer-wine-hover,#3d0606);transform:scale(0.97);}",
     ].join("");
   }
 
