@@ -3339,9 +3339,9 @@ input:checked + .toggle-slider:before {
 .apt-btn-blue:hover,
 .apt-btn-solid:hover,
 .apt-btn-green:hover {
-  background-color: #d3d700;
-  border-color: #d3d700;
-  color: #8b0000;
+  background-color: #c8cc00;
+  border-color: #c8cc00;
+  color: #3d0808;
 }
 
 /* Back/Cancel Button (Transparent with White Outline) */
