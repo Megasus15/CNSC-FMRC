@@ -81,18 +81,92 @@
     return find(id) || find(DEFAULT_ID) || PRESETS[0];
   }
 
+  var CACHE_KEY = "fmrc_hero_bg";
+
+  /** Full background stack for .hero-section from preset id. */
+  function css(id) {
+    return SHEEN_HERO + ", " + resolve(id).base;
+  }
+
+  /** Same look, scaled for a small preview tile. */
+  function swatch(id) {
+    return SHEEN_SWATCH + ", " + resolve(id).base;
+  }
+
+  /**
+   * Translates site settings { hero_bg_type, hero_bg_gradient, hero_bg_color,
+   * hero_bg_image } into a CSS background value matching realtime styles.
+   */
+  function resolveCss(settings) {
+    if (!settings) return css(DEFAULT_ID);
+    var type = settings.hero_bg_type || settings.type || "";
+    if (type === "gradient") {
+      return css(settings.hero_bg_gradient || settings.gradient || DEFAULT_ID);
+    }
+    if (type === "color" && (settings.hero_bg_color || settings.color)) {
+      return settings.hero_bg_color || settings.color;
+    }
+    if (type === "image" && (settings.hero_bg_image || settings.image)) {
+      var img = settings.hero_bg_image || settings.image;
+      return "url('" + img + "') center center / cover no-repeat";
+    }
+    return css(DEFAULT_ID);
+  }
+
+  function read() {
+    try {
+      var raw = localStorage.getItem(CACHE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function write(settings) {
+    try {
+      if (!settings) {
+        localStorage.removeItem(CACHE_KEY);
+        return;
+      }
+      var payload = {
+        hero_bg_type: settings.hero_bg_type || "",
+        hero_bg_gradient: settings.hero_bg_gradient || "",
+        hero_bg_color: settings.hero_bg_color || "",
+        hero_bg_image: settings.hero_bg_image || "",
+      };
+      localStorage.setItem(CACHE_KEY, JSON.stringify(payload));
+    } catch (e) {
+      /* quota or private mode */
+    }
+  }
+
+  function paint(el, settings) {
+    if (!el) return;
+    el.style.background = resolveCss(settings);
+  }
+
+  /**
+   * Pre-paints hero background from cached realtime settings or default preset.
+   * Runs before first frame to prevent white background flash on mobile.
+   */
+  function paintCached(el) {
+    if (!el) return;
+    var cached = read();
+    paint(el, cached || { hero_bg_type: "gradient", hero_bg_gradient: DEFAULT_ID });
+  }
+
   window.FMRC_HERO_GRADIENTS = {
     DEFAULT_ID: DEFAULT_ID,
+    CACHE_KEY: CACHE_KEY,
     presets: PRESETS.slice(),
     find: find,
     resolve: resolve,
-    /** Full background stack for .hero-section. */
-    css: function (id) {
-      return SHEEN_HERO + ", " + resolve(id).base;
-    },
-    /** Same look, scaled for a small preview tile. */
-    swatch: function (id) {
-      return SHEEN_SWATCH + ", " + resolve(id).base;
-    },
+    css: css,
+    swatch: swatch,
+    resolveCss: resolveCss,
+    read: read,
+    write: write,
+    paint: paint,
+    paintCached: paintCached,
   };
 })();

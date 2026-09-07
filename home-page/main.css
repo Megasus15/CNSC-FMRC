@@ -283,7 +283,7 @@ body {
     rgba(247, 242, 236, 0.02) 45%,
       transparent 46%
     ),
-    linear-gradient(145deg, var(--customer-wine) 0%, var(--customer-wine-light) 40%, var(--customer-wine) 100%);
+    linear-gradient(145deg, var(--customer-wine, #6b202b) 0%, var(--customer-wine-light, #b01c1c) 40%, var(--customer-wine, #6b202b) 100%);
 }
 
 .hero-container {
@@ -6265,7 +6265,7 @@ input:checked + .toggle-slider:before {
     rgba(247, 242, 236, 0.26) 0%,
       transparent 42%
     ),
-    linear-gradient(145deg, var(--customer-wine) 0%, var(--customer-wine-light) 44%, var(--customer-wine-light) 100%);
+    linear-gradient(145deg, var(--customer-wine, #6b202b) 0%, var(--customer-wine-light, #b01c1c) 44%, var(--customer-wine-light, #b01c1c) 100%);
 }
 
 .hero-section::after {
@@ -12950,6 +12950,7 @@ body.sidebar-open {
   --customer-wine: #6b202b;
   --customer-wine-hover: #511721;
   --customer-wine-active: #45141c;
+  --customer-wine-light: #b01c1c;
   --customer-wine-soft: #f5e8e9;
   --customer-danger: #bf1b1b;
   --customer-danger-soft: rgba(191, 27, 27, 0.14);
@@ -13129,7 +13130,7 @@ body {
       rgba(247, 242, 236, 0.18),
       transparent 18rem
     ),
-    linear-gradient(130deg, var(--customer-wine-hover) 0%, var(--customer-wine) 42%, var(--customer-wine-light) 100%);
+    linear-gradient(130deg, var(--customer-wine-hover, #4f0909) 0%, var(--customer-wine, #8b0000) 42%, var(--customer-wine-light, #c33425) 100%);
 }
 
 /* The hero's own background is written inline by `applyHeroBackground()` from

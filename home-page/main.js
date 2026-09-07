@@ -14257,11 +14257,16 @@ const openReturnRequestModal = (() => {
   function applyHeroBackground(s) {
     const heroSec = document.querySelector(".hero-section");
     if (!heroSec) return;
+    const G = window.FMRC_HERO_GRADIENTS;
+    if (G && G.write) {
+      G.write(s);
+    }
+    if (G && G.paint) {
+      G.paint(heroSec, s);
+      return;
+    }
     const type = s.hero_bg_type || "";
     if (type === "gradient") {
-      // hero-gradients.js is the one source both this page and the admin
-      // swatches read, so a preset cannot render differently in the two.
-      const G = window.FMRC_HERO_GRADIENTS;
       heroSec.style.background = G ? G.css(s.hero_bg_gradient) : "";
       return;
     }
@@ -14274,8 +14279,6 @@ const openReturnRequestModal = (() => {
         "url('" + s.hero_bg_image + "') center center / cover no-repeat";
       return;
     }
-    // Nothing chosen (or the chosen mode has no value yet) — hand the hero back
-    // to the gradient in the stylesheet.
     heroSec.style.background = "";
   }
 

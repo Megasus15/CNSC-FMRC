@@ -39,7 +39,7 @@
     <!-- Hero background gradient presets. main.js needs this to turn a saved
          hero_bg_gradient id into the same declaration the admin swatch shows;
          without it a gradient choice silently falls back to the stylesheet. -->
-    <script src="hero-gradients.js?v=1.1"></script>
+    <script src="hero-gradients.js?v=1.2"></script>
 
     <!-- One Montserrat request for the whole site. Every customer page asks for
          this exact string so navigating between them is a cache hit instead of
@@ -62,7 +62,7 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
 
-    <link rel="stylesheet" href="main.css?v=8.8" />
+    <link rel="stylesheet" href="main.css?v=8.9" />
     <link rel="stylesheet" href="responsive.css?v=8.3" />
 
     <!-- The signature loader. One sheet shared by every customer page, so the
@@ -234,6 +234,13 @@
     </div>
 
     <main class="hero-section" id="home">
+      <script>
+        // Paint the hero background before first frame from cache or default preset,
+        // so the background matches realtime from the very start with no white flash.
+        window.FMRC_HERO_GRADIENTS &&
+          window.FMRC_HERO_GRADIENTS.paintCached &&
+          window.FMRC_HERO_GRADIENTS.paintCached(document.getElementById("home"));
+      </script>
       <div class="hero-container">
         <div class="hero-content-left">
           <!-- Wording comes from site_settings.hero_title (Website Management →
@@ -1652,7 +1659,7 @@
          ever fails the affected flow silently falls back to the plain disabled
          button it had before. -->
     <script defer src="fmrc-loader.js?v=1.0"></script>
-    <script defer src="main.js?v=8.6"></script>
+    <script defer src="main.js?v=8.7"></script>
     <script defer src="customer-announcements.js?v=6.2"></script>
   </body>
 </html>
