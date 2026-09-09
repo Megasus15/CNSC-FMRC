@@ -3014,6 +3014,9 @@ class OrderController extends Controller
         $dueAt = $order->payment_due_at;
         $isOverdue = $awaitingPayment && $dueAt !== null && $dueAt->isPast();
 
+        $ref = (string) ($payment?->reference ?? $order->payment_reference ?? '');
+        $isLinkedGcash = $isGcash && ($isConfirmed || str_starts_with($ref, 'GCASH-') || !empty($order->customer?->gcash_phone));
+
         return [
             'payment_due_at' => $this->formatPhilippineIso($dueAt),
             'payment_due_label' => $this->formatPhilippineLabel($dueAt),
@@ -3024,6 +3027,7 @@ class OrderController extends Controller
             'payment_amount_label' => $this->formatMoney((float) ($payment?->amount ?? $order->total)),
             'payment_proof_url' => $payment?->proofUrl(),
             'payment_reference_supplied' => $hasClaim,
+            'is_linked_gcash' => $isLinkedGcash,
             'awaiting_customer_payment' => $awaitingPayment,
             'payment_under_review' => $underReview,
             'payment_is_confirmed' => $isConfirmed,

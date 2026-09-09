@@ -1623,11 +1623,29 @@ input.page-number:focus,
   color: #b71c1c;
 }
 
-/* Cancelled is closed, not failed - a customer calling off an order is not the
-   same event as FMRC rejecting one, so it gets its own neutral pill. */
 .status-grey {
   background-color: #eef0f4;
   color: #5b6472;
+}
+
+.table-pay-cell {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+}
+
+.table-pay-sub {
+  font-size: 0.7rem;
+  color: #64748b;
+  font-weight: 500;
+  line-height: 1.15;
+}
+
+.table-pay-cell .status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* Row-level flags that ride alongside the status pill: a cancellation waiting

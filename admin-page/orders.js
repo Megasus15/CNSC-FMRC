@@ -999,10 +999,20 @@ document.addEventListener("DOMContentLoaded", () => {
           .join("\n") ||
         "-",
     );
-    setInput("modalOrderPayment", order.payment_method || "N/A");
+    const isPaid = String(order.payment_status || "pending").toLowerCase() === "paid";
+    const isGcash = String(order.payment_method || "").toLowerCase() === "gcash";
+    let paymentDisplay = order.payment_method || "N/A";
+    if (isGcash) {
+      paymentDisplay = isPaid ? "GCash (Paid — Auto-Verified)" : "GCash (Pending Payment)";
+    } else if (paymentDisplay.toLowerCase().includes("delivery") || paymentDisplay === "COD") {
+      paymentDisplay = "Cash on Delivery (COD)";
+    } else if (paymentDisplay.toLowerCase().includes("pickup") || paymentDisplay === "COP") {
+      paymentDisplay = "Cash on Pickup (COP)";
+    }
+    setInput("modalOrderPayment", paymentDisplay);
     setInput(
       "modalOrderReference",
-      order.payment_reference || "Pending reference",
+      order.payment_reference || (isPaid ? "Auto-Verified" : "Pending reference"),
     );
     setInput("modalOrderQty", formatQuantity(order.quantity));
     setInput(
@@ -1051,13 +1061,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const status = String(order?.payment_status || "pending").toLowerCase();
     const method = String(order?.payment_method || "").trim();
     const rawReference = String(order?.payment_reference || "").trim();
-    // Every order is seeded with a placeholder like "Awaiting GCash reference",
-    // so a reference is only real once it is all digits - the same test the API
-    // uses to decide whether the customer has actually claimed a payment.
-    const reference = /^\d+$/.test(rawReference) ? rawReference : "";
+    // Allow alphanumeric references like "GCASH-5945-ABC123" while ignoring empty placeholders
+    const isPlaceholder = !rawReference || /awaiting|pending|not supplied/i.test(rawReference);
+    const reference = !isPlaceholder ? rawReference : "";
     const isGcash = method.toLowerCase() === "gcash";
     const isCancelled = order?.is_cancelled === true;
     const refundDue = order?.cancel_refund_due === true;
+    const proofUrl = resolveMediaUrl(order?.payment_proof_url);
+    const isLinkedOrAuto = isGcash && (rawReference.startsWith("GCASH-") || Boolean(order?.is_linked_gcash) || (status === "paid" && !proofUrl));
 
     // A refunded payment is settled: there is nothing left to confirm. It still
     // shows here so the reference of the money sent back stays readable.
@@ -1068,6 +1079,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!showBlock) return;
 
+    const blockTitleLabel = modalPaymentVerifyBlock.querySelector("label");
+    if (blockTitleLabel) {
+      blockTitleLabel.textContent = isLinkedOrAuto && status === "paid"
+        ? "Payment Details — Auto-Verified via Linked GCash"
+        : "Payment Verification";
+    }
+
     // ── The claim, laid out for matching ──
     // Only GCash has a claim to match; cash changes hands at the counter.
     if (modalPaymentClaim) {
@@ -1075,8 +1093,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (modalPaymentClaimRef) {
-      modalPaymentClaimRef.textContent = reference || "Not supplied yet";
-      modalPaymentClaimRef.classList.toggle("is-empty", !reference);
+      modalPaymentClaimRef.textContent = reference || (isLinkedOrAuto ? "Auto-Verified (Linked GCash)" : "Not supplied yet");
+      modalPaymentClaimRef.classList.toggle("is-empty", !reference && !isLinkedOrAuto);
     }
     if (btnCopyPaymentRef) btnCopyPaymentRef.hidden = !reference;
 
@@ -1086,12 +1104,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (modalPaymentClaimSubmitted) {
       modalPaymentClaimSubmitted.textContent =
+        order?.payment_confirmed_label ||
         order?.payment_submitted_label ||
         (reference ? "Date not recorded" : "Nothing submitted yet");
     }
     if (modalPaymentClaimDeadlineRow) {
-      // The deadline only matters while FMRC is still waiting: nothing cancels
-      // automatically, so showing it after payment would just be noise.
+      // The deadline only matters while FMRC is still waiting
       modalPaymentClaimDeadlineRow.hidden =
         status === "paid" || status === "refunded" || !order?.payment_due_label;
     }
@@ -1105,16 +1123,23 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     }
 
-    const proofUrl = resolveMediaUrl(order?.payment_proof_url);
-    if (modalPaymentProofLink) {
-      modalPaymentProofLink.hidden = !proofUrl;
-      if (proofUrl) modalPaymentProofLink.href = proofUrl;
-    }
-    if (modalPaymentProofImg && proofUrl) {
-      modalPaymentProofImg.src = proofUrl;
-    }
-    if (modalPaymentProofEmpty) {
-      modalPaymentProofEmpty.hidden = Boolean(proofUrl);
+    // Proof screenshot: Hide completely for linked/automated GCash orders where no manual receipt is used
+    if (modalPaymentProofWrap) {
+      if (isLinkedOrAuto && !proofUrl) {
+        modalPaymentProofWrap.hidden = true;
+      } else {
+        modalPaymentProofWrap.hidden = false;
+        if (modalPaymentProofLink) {
+          modalPaymentProofLink.hidden = !proofUrl;
+          if (proofUrl) modalPaymentProofLink.href = proofUrl;
+        }
+        if (modalPaymentProofImg && proofUrl) {
+          modalPaymentProofImg.src = proofUrl;
+        }
+        if (modalPaymentProofEmpty) {
+          modalPaymentProofEmpty.hidden = Boolean(proofUrl);
+        }
+      }
     }
 
     // ── The hint, and the buttons it describes ──
@@ -1124,10 +1149,6 @@ document.addEventListener("DOMContentLoaded", () => {
           ? `Refunded${order.payment_refunded_label ? ` on ${order.payment_refunded_label}` : ""} — GCash ref. ${order.payment_refund_reference}. Nothing further is owed on this order.`
           : "This payment is recorded as refunded. Nothing further is owed on this order.";
       } else if (refundDue) {
-        // `cancel_refund_due` is also raised when the customer typed a reference
-        // nobody verified, so the money may never have arrived. Telling staff to
-        // "send it back" in that case invites paying out on a claim that was
-        // never checked - the wording has to send them to the app first.
         modalPaymentVerifyHint.textContent =
           status === "paid"
             ? `This order was cancelled after the money arrived, so FMRC owes ${order?.payment_amount_label || formatMoney(order?.total_amount)} back. Send it through GCash, then record the reference here so the refund is on file.`
@@ -1135,10 +1156,10 @@ document.addEventListener("DOMContentLoaded", () => {
       } else if (isCancelled) {
         modalPaymentVerifyHint.textContent =
           "This order is cancelled. Nothing is owed, so no payment should be confirmed against it.";
+      } else if (isLinkedOrAuto && status === "paid") {
+        modalPaymentVerifyHint.innerHTML =
+          '<span style="color:#15803d; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><i class="fa-solid fa-circle-check"></i> Paid automatically via customer\'s linked GCash account. Payment is confirmed and secured — no manual reference checking is needed. You may proceed to prepare and ship the order.</span>';
       } else if (status === "paid") {
-        // Both remaining steps are live at this point, so the hint names both -
-        // otherwise an enabled "Record refund sent" on an order nobody cancelled
-        // reads as a stray button.
         modalPaymentVerifyHint.textContent =
           "This payment is received. Set it back to unpaid if it was confirmed by mistake, or record a refund here if any of it was sent back.";
       } else if (isGcash) {
@@ -1151,65 +1172,62 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // ── The three buttons: one process, in order ──
-    // All three stay on screen at every stage. Hiding them made the control look
-    // like it had different shapes on different orders; worse, `.btn-admin`
-    // declares `display: inline-flex`, so the `hidden` set here never actually
-    // hid them while the refund *field* beside them really did vanish -- which is
-    // how "Reference Required" came to point at nothing.
-    //
-    // What gates them now is `disabled`, in the order the real job runs: receive
-    // the money first, then either put the order back to unpaid or send the money
-    // back. Every disabled button carries a title saying what has to happen
-    // first, so a greyed step reads as "not yet", not "broken".
-    const gate = (button, enabled, why) => {
-      if (!button) return;
-      button.disabled = !enabled;
-      if (enabled) button.removeAttribute("title");
-      else button.title = why;
-    };
+    // ── The action buttons ──
+    if (isLinkedOrAuto && status === "paid") {
+      if (btnMarkPaymentPaid) btnMarkPaymentPaid.style.display = "none";
+      if (btnMarkPaymentPending) btnMarkPaymentPending.style.display = "none";
+      if (btnRecordRefund) {
+        if (isCancelled && refundDue) {
+          btnRecordRefund.style.display = "inline-flex";
+          btnRecordRefund.disabled = false;
+          if (modalRefundRefWrap) modalRefundRefWrap.hidden = false;
+        } else {
+          btnRecordRefund.style.display = "none";
+          if (modalRefundRefWrap) modalRefundRefWrap.hidden = true;
+        }
+      }
+    } else {
+      if (btnMarkPaymentPaid) btnMarkPaymentPaid.style.display = "inline-flex";
+      if (btnMarkPaymentPending) btnMarkPaymentPending.style.display = "inline-flex";
+      if (btnRecordRefund) btnRecordRefund.style.display = "inline-flex";
 
-    // A cancelled order can never be confirmed as paid - the API refuses it
-    // (422), so the button stays greyed rather than producing an error popup.
-    gate(
-      btnMarkPaymentPaid,
-      status === "pending" && !isCancelled,
-      status === "paid"
-        ? "Already received. Set it back to unpaid first if this was a mistake."
-        : status === "refunded"
-          ? "This payment was refunded, so there is nothing left to receive."
-          : "This order is cancelled, so no payment can be confirmed against it.",
-    );
+      const gate = (button, enabled, why) => {
+        if (!button) return;
+        button.disabled = !enabled;
+        if (enabled) button.removeAttribute("title");
+        else button.title = why;
+      };
 
-    // Reversing only makes sense once something was confirmed.
-    gate(
-      btnMarkPaymentPending,
-      status === "paid",
-      status === "refunded"
-        ? "This payment was refunded. Reversing it would leave the refund unexplained."
-        : "Nothing has been received yet, so there is nothing to set back.",
-    );
+      gate(
+        btnMarkPaymentPaid,
+        status === "pending" && !isCancelled,
+        status === "paid"
+          ? "Already received. Set it back to unpaid first if this was a mistake."
+          : status === "refunded"
+            ? "This payment was refunded, so there is nothing left to receive."
+            : "This order is cancelled, so no payment can be confirmed against it.",
+      );
 
-    // What can be sent back is what actually arrived, so this button unlocks with
-    // the same event that unlocks the one above it: the payment being received.
-    // Requiring a cancellation as well would have left the third step greyed on a
-    // paid order forever, which is not the process -- a duplicate transfer or a
-    // goodwill refund is still money FMRC sends back and still has to be on file.
-    // `refundDue` is the server saying a refund is *owed*, which the hint above
-    // states; it is not what makes the record-keeping possible.
-    gate(
-      btnRecordRefund,
-      status === "paid",
-      status === "refunded"
-        ? "This refund is already on file."
-        : "Nothing has been received yet, so there is nothing to send back.",
-    );
+      gate(
+        btnMarkPaymentPending,
+        status === "paid",
+        status === "refunded"
+          ? "This payment was refunded. Reversing it would leave the refund unexplained."
+          : "Nothing has been received yet, so there is nothing to set back.",
+      );
 
-    // The field is revealed exactly when the button that needs it is live, so the
-    // reference can never be demanded from a form that does not show one.
-    const refundEnabled = Boolean(btnRecordRefund && !btnRecordRefund.disabled);
-    if (modalRefundRefWrap) modalRefundRefWrap.hidden = !refundEnabled;
-    if (modalRefundReference && !refundEnabled) modalRefundReference.value = "";
+      gate(
+        btnRecordRefund,
+        status === "paid",
+        status === "refunded"
+          ? "This refund is already on file."
+          : "Nothing has been received yet, so there is nothing to send back.",
+      );
+
+      const refundEnabled = Boolean(btnRecordRefund && !btnRecordRefund.disabled);
+      if (modalRefundRefWrap) modalRefundRefWrap.hidden = !refundEnabled;
+      if (modalRefundReference && !refundEnabled) modalRefundReference.value = "";
+    }
   };
 
   btnCopyPaymentRef?.addEventListener("click", async () => {
@@ -1759,6 +1777,59 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
+  const renderPaymentMethodCell = (order) => {
+    const method = String(order?.payment_method || "").trim();
+    const status = String(order?.payment_status || "pending").toLowerCase();
+    const isPaid = status === "paid";
+    const ref = String(order?.payment_reference || "").trim();
+    const isLinked = ref.startsWith("GCASH-") || Boolean(order?.is_linked_gcash);
+
+    if (method.toLowerCase() === "gcash") {
+      if (isPaid) {
+        return `
+          <div class="table-pay-cell">
+            <span class="status-pill status-green" title="Payment confirmed automatically via GCash">
+              <i class="fa-solid fa-circle-check"></i> GCash (Paid)
+            </span>
+            <small class="table-pay-sub">${isLinked ? "Auto-Verified" : "Verified"}</small>
+          </div>
+        `;
+      }
+      return `
+        <div class="table-pay-cell">
+          <span class="status-pill status-yellow" title="Awaiting payment or verification">
+            <i class="fa-regular fa-clock"></i> GCash (Unpaid)
+          </span>
+          <small class="table-pay-sub">Awaiting Ref</small>
+        </div>
+      `;
+    }
+
+    if (method.toLowerCase().includes("delivery") || method === "COD") {
+      return `
+        <div class="table-pay-cell">
+          <span class="status-pill status-blue">
+            <i class="fa-solid fa-truck"></i> COD
+          </span>
+          <small class="table-pay-sub">Pay on delivery</small>
+        </div>
+      `;
+    }
+
+    if (method.toLowerCase().includes("pickup") || method === "COP") {
+      return `
+        <div class="table-pay-cell">
+          <span class="status-pill status-blue">
+            <i class="fa-solid fa-store"></i> COP
+          </span>
+          <small class="table-pay-sub">Pay at counter</small>
+        </div>
+      `;
+    }
+
+    return `<span class="status-pill status-grey">${escapeHtml(method || "N/A")}</span>`;
+  };
+
   const renderIncomingTable = () => {
     state.incomingPage = renderPagedRows({
       rows: state.incoming,
@@ -1777,7 +1848,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td>${escapeHtml(order.customer_name || "Customer")}</td>
             <td class="order-items-cell">${renderOrderItemsInline(order)}</td>
             <td>${escapeHtml(formatQuantity(order.quantity))}</td>
-            <td>${escapeHtml(order.payment_method || "N/A")}</td>
+            <td>${renderPaymentMethodCell(order)}</td>
             <td>${escapeHtml(order.total_label || formatMoney(order.total_amount))}</td>
             <td>${escapeHtml(formatDateLabel(order.created_at))}</td>
             <td><span class="status-pill ${statusClass}">Incoming</span>${cancellationFlags(order)}</td>
@@ -1821,7 +1892,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td>${escapeHtml(order.product_name || "Custom Order")}</td>
             <td>${escapeHtml(formatDateShort(order.created_at))}</td>
             <td>${escapeHtml(order.customer_name || "Customer")}</td>
-            <td>${escapeHtml(order.payment_method || "N/A")}</td>
+            <td>${renderPaymentMethodCell(order)}</td>
             <td>${escapeHtml(order.total_label || formatMoney(order.total_amount))}</td>
             <td>${statusCell}${cancellationFlags(order)}</td>
             <td class="action-icons sticky-action">
@@ -1974,7 +2045,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td>${escapeHtml(order.product_name || "Custom Order")}</td>
             <td>${escapeHtml(formatDateShort(order.created_at))}</td>
             <td>${escapeHtml(order.customer_name || "Customer")}</td>
-            <td>${escapeHtml(order.payment_method || "N/A")}</td>
+            <td>${renderPaymentMethodCell(order)}</td>
             <td>${escapeHtml(order.total_label || formatMoney(order.total_amount))}</td>
             <td><span class="status-pill status-red">Rejected</span></td>
             <td class="action-icons sticky-action">
