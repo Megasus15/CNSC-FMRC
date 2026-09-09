@@ -40,6 +40,7 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
     <link rel="stylesheet" href="../home-page/main.css?v=9.0" />
+    <link rel="stylesheet" href="tiktok-payment.css?v=1.0" />
     <style>
       /* Empty state */
       .products-empty-state {
@@ -724,12 +725,64 @@
             </div>
 
             <div class="c-payment-method">
-              <label>How will you pay?</label>
-              <select class="payment-select">
-                <option>Choose Payment Method</option>
-                <option>Cash on Pickup</option>
-                <option>Cash on Delivery</option>
-                <option>GCash</option>
+              <label class="tiktok-pm-label">Payment method</label>
+              <div class="tiktok-payment-list" id="tiktokPaymentList">
+                <!-- Option 1: Cash on Pickup -->
+                <div class="tiktok-pm-item" data-method="Cash on Pickup" id="pmItemPickup" role="button" tabindex="0">
+                  <div class="tiktok-pm-left">
+                    <div class="tiktok-pm-icon tiktok-icon-pickup">
+                      <i class="fa-solid fa-store" aria-hidden="true"></i>
+                    </div>
+                    <div class="tiktok-pm-text">
+                      <span class="tiktok-pm-name">Cash on pickup</span>
+                      <span class="tiktok-pm-sub">Pay at FMRC counter</span>
+                    </div>
+                  </div>
+                  <div class="tiktok-pm-radio"></div>
+                </div>
+
+                <!-- Option 2: Cash on Delivery -->
+                <div class="tiktok-pm-item" data-method="Cash on Delivery" id="pmItemDelivery" role="button" tabindex="0">
+                  <div class="tiktok-pm-left">
+                    <div class="tiktok-pm-icon tiktok-icon-cod">
+                      <span class="cod-badge">COD</span>
+                    </div>
+                    <div class="tiktok-pm-text">
+                      <span class="tiktok-pm-name">Cash on delivery</span>
+                      <span class="tiktok-pm-sub">Pay when package arrives</span>
+                    </div>
+                  </div>
+                  <div class="tiktok-pm-radio"></div>
+                </div>
+
+                <!-- Option 3: GCash (TikTok Shop Style) -->
+                <div class="tiktok-pm-item" data-method="GCash" id="pmItemGcash" role="button" tabindex="0">
+                  <div class="tiktok-pm-left">
+                    <div class="tiktok-pm-icon tiktok-icon-gcash">
+                      <span class="gcash-logo-badge">G)</span>
+                    </div>
+                    <div class="tiktok-pm-text">
+                      <div class="tiktok-pm-title-row">
+                        <span class="tiktok-pm-name" id="tiktokGcashTitle">GCash</span>
+                        <span class="tiktok-gcash-status-badge" id="tiktokGcashBadge" style="display: none;">
+                          <i class="fa-solid fa-circle-check" aria-hidden="true"></i> Linked
+                        </span>
+                      </div>
+                      <span class="tiktok-pm-sub" id="tiktokGcashSub">
+                        <span id="tiktokGcashActionText" class="tiktok-link-action">+ Link GCash account <i class="fa-solid fa-chevron-right" style="font-size:0.7rem;" aria-hidden="true"></i></span>
+                      </span>
+                    </div>
+                  </div>
+                  <div class="tiktok-pm-radio"></div>
+                </div>
+              </div>
+
+              <!-- Hidden select to keep existing backend validation & scripts 100% backward compatible -->
+              <select class="payment-select" id="hiddenPaymentSelect" style="display: none;">
+                <option value="">Choose Payment Method</option>
+                <option value="Cash on Pickup">Cash on Pickup</option>
+                <option value="Cash on Delivery">Cash on Delivery</option>
+                <option value="GCash">GCash</option>
               </select>
             </div>
           </div>
@@ -1831,6 +1884,66 @@
 
     <!-- Order success modal above replaces the previous inline card. -->
 
+    <!-- Link GCash Account Modal (TikTok Shop Style) -->
+    <div class="link-gcash-modal-overlay" id="linkGcashModal" aria-hidden="true">
+      <div class="link-gcash-modal-box">
+        <div class="link-gcash-modal-header">
+          <div class="link-gcash-header-brand">
+            <span class="gcash-modal-icon">G)</span>
+            <span>Link GCash Account</span>
+          </div>
+          <button type="button" class="link-gcash-close-btn" id="closeLinkGcashBtn" aria-label="Close">
+            <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div class="link-gcash-modal-body">
+          <p class="link-gcash-desc">
+            Connect your GCash account to enable 1-click checkout on all current and future purchases.
+          </p>
+
+          <div class="link-gcash-step-1" id="linkGcashStep1">
+            <div class="link-gcash-input-wrap">
+              <span class="link-gcash-prefix">+63</span>
+              <input type="tel" class="link-gcash-input" id="linkGcashPhone" placeholder="9XX XXX XXXX" maxlength="11" autocomplete="tel" />
+            </div>
+            <p class="link-gcash-help">Enter your 11-digit GCash mobile number (e.g., 09171234567)</p>
+            <button type="button" class="link-gcash-primary-btn" id="btnSendGcashOtp">
+              Continue
+            </button>
+          </div>
+
+          <div class="link-gcash-step-2" id="linkGcashStep2" style="display: none;">
+            <p class="link-gcash-otp-msg">
+              Enter the 6-digit authentication code sent to <strong id="linkGcashDisplayPhone">0917****5945</strong>
+            </p>
+            <div class="link-gcash-otp-wrap">
+              <input type="text" class="link-gcash-otp-input" id="linkGcashOtp" placeholder="••••••" maxlength="6" inputmode="numeric" />
+            </div>
+            <p class="link-gcash-test-hint"><i class="fa-solid fa-circle-info"></i> Test Mode: You can enter <strong>123456</strong> as the code</p>
+            <button type="button" class="link-gcash-primary-btn" id="btnConfirmGcashLink">
+              Authorize & Link GCash
+            </button>
+            <button type="button" class="link-gcash-secondary-btn" id="btnBackToPhone">
+              Change Number
+            </button>
+          </div>
+
+          <div class="link-gcash-step-3" id="linkGcashStep3" style="display: none;">
+            <div class="link-gcash-success-icon">
+              <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+            </div>
+            <h4>GCash Account Linked!</h4>
+            <p class="link-gcash-success-sub" id="linkGcashSuccessSub">
+              Your GCash account is now connected for fast 1-click purchases.
+            </p>
+            <button type="button" class="link-gcash-primary-btn" id="btnFinishGcashLink">
+              Continue to Checkout
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Maintenance Mode gate stays synchronous: it must apply the cached
          snapshot before anything that should be hidden can be painted. -->
     <script src="../home-page/maintenance-gate.js?v=1.5"></script>
@@ -1846,7 +1959,7 @@
          flow falls back to the plain disabled button it had before. -->
     <script defer src="../home-page/fmrc-loader.js?v=1.0"></script>
     <script defer src="../home-page/customer-announcements.js?v=6.2"></script>
-    <script defer src="../home-page/main.js?v=8.9"></script>
-    <script defer src="products.js?v=6.1"></script>
+    <script defer src="../home-page/main.js?v=9.1"></script>
+    <script defer src="products.js?v=6.2"></script>
   </body>
 </html>

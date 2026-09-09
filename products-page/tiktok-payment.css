@@ -1,0 +1,425 @@
+/* ==========================================================================
+   TikTok Shop-Style Payment Method Selector & Linked GCash Account UI
+   ========================================================================== */
+.tiktok-pm-label {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+
+.tiktok-payment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.tiktok-pm-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.tiktok-pm-item:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  transform: translateY(-1px);
+}
+
+.tiktok-pm-item.selected {
+  border-color: #007DFE;
+  background: #f0f7ff;
+  box-shadow: 0 2px 8px rgba(0, 125, 254, 0.12);
+}
+
+.tiktok-pm-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tiktok-pm-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1rem;
+}
+
+.tiktok-icon-pickup {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.tiktok-icon-cod {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.cod-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  background: #10b981;
+  color: #ffffff;
+  padding: 3px 6px;
+  border-radius: 5px;
+  line-height: 1;
+}
+
+.tiktok-icon-gcash {
+  background: #007DFE;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 125, 254, 0.35);
+}
+
+.gcash-logo-badge {
+  font-weight: 900;
+  font-size: 1rem;
+  color: #ffffff;
+  letter-spacing: -1px;
+}
+
+.tiktok-pm-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tiktok-pm-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tiktok-pm-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.tiktok-gcash-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #0284c7;
+  background: #e0f2fe;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  line-height: 1.2;
+}
+
+.tiktok-pm-sub {
+  font-size: 0.8rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tiktok-link-action {
+  color: #007DFE;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+}
+
+.tiktok-change-link {
+  color: #64748b;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.76rem;
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.tiktok-change-link:hover {
+  color: #007DFE;
+}
+
+.tiktok-pm-radio {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid #cbd5e1;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.18s ease;
+}
+
+.tiktok-pm-item.selected .tiktok-pm-radio {
+  border-color: #007DFE;
+  background: #007DFE;
+}
+
+.tiktok-pm-item.selected .tiktok-pm-radio::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+/* Link GCash Modal Overlay */
+.link-gcash-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.22s ease, visibility 0.22s ease;
+  padding: 16px;
+}
+
+.link-gcash-modal-overlay.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+.link-gcash-modal-box {
+  background: #ffffff;
+  width: 100%;
+  max-width: 420px;
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+  transform: translateY(16px) scale(0.97);
+  transition: transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.link-gcash-modal-overlay.active .link-gcash-modal-box {
+  transform: translateY(0) scale(1);
+}
+
+.link-gcash-modal-header {
+  background: #007DFE;
+  color: #ffffff;
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.link-gcash-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.gcash-modal-icon {
+  width: 30px;
+  height: 30px;
+  background: #ffffff;
+  color: #007DFE;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 0.95rem;
+}
+
+.link-gcash-close-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  transition: background 0.15s ease;
+}
+
+.link-gcash-close-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.link-gcash-modal-body {
+  padding: 22px 20px 24px;
+}
+
+.link-gcash-desc {
+  font-size: 0.88rem;
+  color: #475569;
+  line-height: 1.45;
+  margin-bottom: 18px;
+}
+
+.link-gcash-input-wrap {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 4px 12px;
+  background: #ffffff;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.link-gcash-input-wrap:focus-within {
+  border-color: #007DFE;
+  box-shadow: 0 0 0 3px rgba(0, 125, 254, 0.15);
+}
+
+.link-gcash-prefix {
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 1rem;
+  padding-right: 8px;
+  border-right: 1.5px solid #e2e8f0;
+  user-select: none;
+}
+
+.link-gcash-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  padding: 10px 10px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #0f172a;
+  letter-spacing: 0.5px;
+}
+
+.link-gcash-help {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-top: 6px;
+  margin-bottom: 18px;
+}
+
+.link-gcash-otp-wrap {
+  margin: 14px 0 8px;
+}
+
+.link-gcash-otp-input {
+  width: 100%;
+  padding: 12px 14px;
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: 8px;
+  text-align: center;
+  border: 2px solid #cbd5e1;
+  border-radius: 12px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.link-gcash-otp-input:focus {
+  border-color: #007DFE;
+  box-shadow: 0 0 0 3px rgba(0, 125, 254, 0.15);
+}
+
+.link-gcash-otp-msg {
+  font-size: 0.88rem;
+  color: #334155;
+  margin-bottom: 4px;
+}
+
+.link-gcash-test-hint {
+  font-size: 0.78rem;
+  color: #0284c7;
+  background: #e0f2fe;
+  padding: 6px 10px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  display: inline-block;
+}
+
+.link-gcash-primary-btn {
+  width: 100%;
+  background: #007DFE;
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 13px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.12s ease;
+}
+
+.link-gcash-primary-btn:hover {
+  background: #0066cc;
+  transform: translateY(-1px);
+}
+
+.link-gcash-primary-btn:active {
+  transform: translateY(0);
+}
+
+.link-gcash-secondary-btn {
+  width: 100%;
+  background: transparent;
+  color: #64748b;
+  border: none;
+  padding: 9px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 6px;
+}
+
+.link-gcash-secondary-btn:hover {
+  color: #1e293b;
+}
+
+.link-gcash-step-3 {
+  text-align: center;
+  padding: 12px 0 6px;
+}
+
+.link-gcash-success-icon {
+  font-size: 3.2rem;
+  color: #10b981;
+  margin-bottom: 10px;
+}
+
+.link-gcash-step-3 h4 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 6px;
+}
+
+.link-gcash-success-sub {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 0 0 20px;
+}

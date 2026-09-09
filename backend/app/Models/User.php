@@ -13,7 +13,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'password', 'username', 'role', 'signed_with_google', 'has_custom_password'])]
+#[Fillable(['name', 'email', 'password', 'username', 'role', 'signed_with_google', 'has_custom_password', 'phone_number', 'address_line', 'address_details', 'department', 'customer_type', 'gcash_phone', 'gcash_linked_at'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -32,6 +32,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'signed_with_google' => 'boolean',
             'has_custom_password' => 'boolean',
+            'gcash_linked_at' => 'datetime',
         ];
     }
 

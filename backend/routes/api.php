@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\ArchiveController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CustomerMessageController;
+use App\Http\Controllers\Api\CustomerPaymentMethodController;
 use App\Http\Controllers\Api\HomeSdgController;
 use App\Http\Controllers\Api\InventoryItemController;
 use App\Http\Controllers\Api\MaintenanceController;
@@ -165,6 +166,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // The webhook usually arrives first, but this lets the frontend show
     // "Payment confirmed" immediately instead of waiting for the next poll.
     Route::get('/customer/orders/{order}/payment-status', [PayMongoWebhookController::class, 'checkPaymentStatus']);
+
+    // Customer: Linked GCash account (TikTok Shop style 1-click payment)
+    Route::get('/customer/gcash-account', [CustomerPaymentMethodController::class, 'getGcashAccount']);
+    Route::post('/customer/gcash-account/link', [CustomerPaymentMethodController::class, 'linkGcashAccount']);
+    Route::delete('/customer/gcash-account/unlink', [CustomerPaymentMethodController::class, 'unlinkGcashAccount']);
 
     // Customer: call off an order that has not been handed over yet. The server
     // decides whether this cancels outright (nothing paid, nothing prepared) or

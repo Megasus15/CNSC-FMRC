@@ -2839,6 +2839,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const renderGcashSection = () => {
     if (!gcashPaymentSection) return;
 
+    const linked = window.FMRC_GET_LINKED_GCASH?.();
+    if (linked && linked.linked) {
+      gcashPaymentSection.hidden = true;
+      clearCheckoutFieldError("gcashReferenceInput");
+      return;
+    }
+
     const isGcash = getCheckoutPaymentKey() === "GCash";
     gcashPaymentSection.hidden = !isGcash;
     if (!isGcash) {
@@ -2924,6 +2931,12 @@ document.addEventListener("DOMContentLoaded", () => {
    * reconcile, and GCash with nowhere to send the money.
    */
   const validateGcashPaymentStep = () => {
+    const linked = window.FMRC_GET_LINKED_GCASH?.();
+    if (linked && linked.linked) {
+      clearCheckoutFieldError("gcashReferenceInput");
+      return { ok: true, reference: "" };
+    }
+
     if (getGcashSettings().gateway === "paymongo") {
       clearCheckoutFieldError("gcashReferenceInput");
       return { ok: true, reference: "" };
@@ -4130,19 +4143,261 @@ document.addEventListener("DOMContentLoaded", () => {
   // pickup/delivery changes whether the address block is even relevant, so both
   // re-render the summary. The payment method also decides whether the GCash
   // step is on screen at all.
-  document
-    .querySelector("#checkoutModal .payment-select")
-    ?.addEventListener("change", () => {
-      renderCheckoutAddress();
-      renderGcashSection();
+  // ── TikTok Shop-Style Payment Method Selector & GCash Account Binding ──
+  const initTikTokPaymentMethods = () => {
+    const paymentList = document.getElementById("tiktokPaymentList");
+    if (!paymentList) return;
+
+    const hiddenSelect = document.querySelector("#checkoutModal .payment-select");
+    const pmItems = paymentList.querySelectorAll(".tiktok-pm-item");
+    const gcashTitle = document.getElementById("tiktokGcashTitle");
+    const gcashBadge = document.getElementById("tiktokGcashBadge");
+    const gcashSub = document.getElementById("tiktokGcashSub");
+
+    // Modal elements
+    const linkGcashModal = document.getElementById("linkGcashModal");
+    const closeLinkGcashBtn = document.getElementById("closeLinkGcashBtn");
+    const linkGcashPhone = document.getElementById("linkGcashPhone");
+    const btnSendGcashOtp = document.getElementById("btnSendGcashOtp");
+    const linkGcashStep1 = document.getElementById("linkGcashStep1");
+    const linkGcashStep2 = document.getElementById("linkGcashStep2");
+    const linkGcashStep3 = document.getElementById("linkGcashStep3");
+    const linkGcashDisplayPhone = document.getElementById("linkGcashDisplayPhone");
+    const linkGcashOtp = document.getElementById("linkGcashOtp");
+    const btnConfirmGcashLink = document.getElementById("btnConfirmGcashLink");
+    const btnBackToPhone = document.getElementById("btnBackToPhone");
+    const btnFinishGcashLink = document.getElementById("btnFinishGcashLink");
+    const linkGcashSuccessSub = document.getElementById("linkGcashSuccessSub");
+
+    let currentLinkedGcash = null;
+
+    // Load linked GCash status from local cache or API
+    const loadLinkedGcashStatus = async () => {
+      try {
+        const cached = localStorage.getItem("fmrc_customer_linked_gcash");
+        if (cached) {
+          currentLinkedGcash = JSON.parse(cached);
+          updateGcashUi(currentLinkedGcash);
+        }
+      } catch {
+        /* ignore */
+      }
+
+      const token = (() => {
+        try { return localStorage.getItem("customer_token"); } catch { return null; }
+      })();
+      if (!token) return;
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/customer/gcash-account`, {
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.linked) {
+            currentLinkedGcash = data;
+            try {
+              localStorage.setItem("fmrc_customer_linked_gcash", JSON.stringify(data));
+            } catch { /* ignore */ }
+            updateGcashUi(data);
+          } else {
+            currentLinkedGcash = null;
+            try {
+              localStorage.removeItem("fmrc_customer_linked_gcash");
+            } catch { /* ignore */ }
+            updateGcashUi(null);
+          }
+        }
+      } catch (err) {
+        console.warn("[FMRC] Could not fetch linked GCash account:", err);
+      }
+    };
+
+    const updateGcashUi = (info) => {
+      if (info && info.linked) {
+        if (gcashTitle) gcashTitle.textContent = info.masked_phone || "GCash (Linked)";
+        if (gcashBadge) gcashBadge.style.display = "inline-flex";
+        if (gcashSub) {
+          gcashSub.innerHTML = `<span>Saved GCash account</span> • <button type="button" class="tiktok-change-link" id="btnChangeGcash">Change</button>`;
+          const changeBtn = document.getElementById("btnChangeGcash");
+          changeBtn?.addEventListener("click", (e) => {
+            e.stopPropagation();
+            openLinkModal();
+          });
+        }
+      } else {
+        if (gcashTitle) gcashTitle.textContent = "GCash";
+        if (gcashBadge) gcashBadge.style.display = "none";
+        if (gcashSub) {
+          gcashSub.innerHTML = `<span class="tiktok-link-action">+ Link GCash account <i class="fa-solid fa-chevron-right" style="font-size:0.7rem;" aria-hidden="true"></i></span>`;
+        }
+      }
+    };
+
+    const selectMethod = (methodName, triggerChangeEvent = true) => {
+      pmItems.forEach((item) => {
+        const isMatch = item.dataset.method === methodName;
+        item.classList.toggle("selected", isMatch);
+      });
+      if (hiddenSelect && hiddenSelect.value !== methodName) {
+        hiddenSelect.value = methodName;
+        if (triggerChangeEvent) {
+          hiddenSelect.dispatchEvent(new Event("change"));
+        }
+      }
+    };
+
+    pmItems.forEach((item) => {
+      item.addEventListener("click", () => {
+        const method = item.dataset.method;
+        if (method === "GCash" && (!currentLinkedGcash || !currentLinkedGcash.linked)) {
+          openLinkModal();
+          return;
+        }
+        selectMethod(method);
+      });
     });
 
-  [fulfillPickupRadio, fulfillDeliveryRadio].forEach((radio) => {
-    radio?.addEventListener("change", () => {
-      renderCheckoutAddress();
-    });
-  });
+    // Modal controls
+    const openLinkModal = () => {
+      if (!linkGcashModal) return;
+      if (linkGcashPhone) linkGcashPhone.value = "";
+      if (linkGcashOtp) linkGcashOtp.value = "";
+      if (linkGcashStep1) linkGcashStep1.style.display = "block";
+      if (linkGcashStep2) linkGcashStep2.style.display = "none";
+      if (linkGcashStep3) linkGcashStep3.style.display = "none";
+      linkGcashModal.classList.add("active");
+      linkGcashModal.setAttribute("aria-hidden", "false");
+      setTimeout(() => linkGcashPhone?.focus(), 100);
+    };
 
+    const closeLinkModal = () => {
+      if (!linkGcashModal) return;
+      linkGcashModal.classList.remove("active");
+      linkGcashModal.setAttribute("aria-hidden", "true");
+    };
+
+    closeLinkGcashBtn?.addEventListener("click", closeLinkModal);
+    linkGcashModal?.addEventListener("click", (e) => {
+      if (e.target === linkGcashModal) closeLinkModal();
+    });
+
+    btnSendGcashOtp?.addEventListener("click", () => {
+      const raw = String(linkGcashPhone?.value || "").replace(/\D/g, "");
+      let cleaned = raw;
+      if (cleaned.startsWith("63") && cleaned.length === 12) cleaned = "0" + cleaned.slice(2);
+      if (cleaned.length === 10 && cleaned.startsWith("9")) cleaned = "0" + cleaned;
+
+      if (cleaned.length !== 11 || !cleaned.startsWith("09")) {
+        alert("Please enter a valid 11-digit GCash mobile number (e.g., 09171234567).");
+        linkGcashPhone?.focus();
+        return;
+      }
+
+      const masked = cleaned.slice(0, 4) + "****" + cleaned.slice(-4);
+      if (linkGcashDisplayPhone) linkGcashDisplayPhone.textContent = masked;
+      linkGcashStep1.style.display = "none";
+      linkGcashStep2.style.display = "block";
+      setTimeout(() => linkGcashOtp?.focus(), 100);
+    });
+
+    btnBackToPhone?.addEventListener("click", () => {
+      linkGcashStep2.style.display = "none";
+      linkGcashStep1.style.display = "block";
+      linkGcashPhone?.focus();
+    });
+
+    btnConfirmGcashLink?.addEventListener("click", async () => {
+      const otp = String(linkGcashOtp?.value || "").trim();
+      if (otp.length < 4) {
+        alert("Please enter the verification code.");
+        linkGcashOtp?.focus();
+        return;
+      }
+
+      const raw = String(linkGcashPhone?.value || "").replace(/\D/g, "");
+      const token = (() => {
+        try { return localStorage.getItem("customer_token"); } catch { return null; }
+      })();
+
+      btnConfirmGcashLink.disabled = true;
+      btnConfirmGcashLink.textContent = "Verifying...";
+
+      try {
+        if (token) {
+          const res = await fetch(`${API_BASE_URL}/customer/gcash-account/link`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ phone: raw, otp }),
+          });
+
+          const resData = await res.json();
+          if (!res.ok) {
+            alert(resData.message || "Could not link GCash account.");
+            btnConfirmGcashLink.disabled = false;
+            btnConfirmGcashLink.textContent = "Authorize & Link GCash";
+            return;
+          }
+
+          currentLinkedGcash = resData.data;
+        } else {
+          // Guest or fallback simulated link
+          let cleaned = raw;
+          if (cleaned.startsWith("63") && cleaned.length === 12) cleaned = "0" + cleaned.slice(2);
+          if (cleaned.length === 10 && cleaned.startsWith("9")) cleaned = "0" + cleaned;
+          currentLinkedGcash = {
+            linked: true,
+            phone: cleaned,
+            masked_phone: `GCash(****${cleaned.slice(-4)})`,
+          };
+        }
+
+        try {
+          localStorage.setItem("fmrc_customer_linked_gcash", JSON.stringify(currentLinkedGcash));
+        } catch { /* ignore */ }
+
+        updateGcashUi(currentLinkedGcash);
+        selectMethod("GCash");
+
+        if (linkGcashSuccessSub) {
+          linkGcashSuccessSub.textContent = `Your ${currentLinkedGcash.masked_phone} is now linked for fast checkout.`;
+        }
+
+        linkGcashStep2.style.display = "none";
+        linkGcashStep3.style.display = "block";
+      } catch (err) {
+        alert("Network error. Please try again.");
+      } finally {
+        btnConfirmGcashLink.disabled = false;
+        btnConfirmGcashLink.textContent = "Authorize & Link GCash";
+      }
+    });
+
+    btnFinishGcashLink?.addEventListener("click", () => {
+      closeLinkModal();
+      selectMethod("GCash");
+    });
+
+    // Check if GCash is currently selected in the hidden select on init
+    loadLinkedGcashStatus();
+    if (hiddenSelect?.value) {
+      selectMethod(hiddenSelect.value, false);
+    } else {
+      selectMethod("Cash on Delivery", false);
+    }
+
+    // Export helper to window
+    window.FMRC_GET_LINKED_GCASH = () => currentLinkedGcash;
+  };
+
+  initTikTokPaymentMethods();
   renderGcashSection();
 
   // Submit Order logic
@@ -4178,6 +4433,15 @@ document.addEventListener("DOMContentLoaded", () => {
       // one too; this only turns that 422 into a pointed message.
       let gcashReference = "";
       if (paymentKey === "GCash") {
+        const linked = window.FMRC_GET_LINKED_GCASH?.();
+        if (!linked || !linked.linked) {
+          await showCustomerPopup("Please link your GCash account first to proceed with GCash payment.", {
+            title: "Link GCash Account",
+          });
+          document.getElementById("pmItemGcash")?.click();
+          return;
+        }
+
         const gcashCheck = validateGcashPaymentStep();
         if (!gcashCheck.ok) {
           await showCustomerPopup(gcashCheck.message, {

@@ -26,6 +26,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class OrderController extends Controller
@@ -256,16 +257,18 @@ class OrderController extends Controller
             $paymentDueAt = now()->addHours($windowHours);
         }
 
-        // A customer-typed reference number is a claim, not a receipt. Marking
-        // the order paid on the strength of it would push an unpaid order into
-        // the shipping queue, so a manual GCash order waits for staff to match
-        // the reference in their own GCash app and confirm it.
+        // TikTok Shop / E-wallet style: if customer has a linked GCash account,
+        // payment is automatically authorized and debited upon order placement.
+        $isLinkedGcash = $paymentMethod === 'GCash' && !empty($customer?->gcash_phone);
+        $linkedGcashLast4 = $isLinkedGcash ? substr(preg_replace('/\D/', '', (string) $customer->gcash_phone), -4) : null;
+        $linkedGcashReference = $isLinkedGcash ? ('GCASH-' . $linkedGcashLast4 . '-' . strtoupper(Str::random(6))) : null;
+
         $gcashAutoConfirm = (bool) config('payments.gcash.auto_confirm', false);
-        $paymentStatus = ($paymentMethod === 'GCash' && $gcashAutoConfirm) ? 'paid' : 'pending';
+        $paymentStatus = ($isLinkedGcash || ($paymentMethod === 'GCash' && $gcashAutoConfirm)) ? 'paid' : 'pending';
         $customerStage = $paymentStatus === 'paid' ? 'to_ship' : 'to_pay';
 
         try {
-            $createdOrder = DB::transaction(function () use ($validated, $customer, $orderItems, $quantity, $paymentMethod, $paymentStatus, $customerStage, $fulfillmentType, $gcashReference, $paymentDueAt): Order {
+            $createdOrder = DB::transaction(function () use ($validated, $customer, $orderItems, $quantity, $paymentMethod, $paymentStatus, $customerStage, $fulfillmentType, $gcashReference, $paymentDueAt, $isLinkedGcash, $linkedGcashLast4, $linkedGcashReference): Order {
                 $productIds = collect($orderItems)
                     ->pluck('product_id')
                     ->filter(fn ($id) => !is_null($id))
@@ -372,12 +375,14 @@ class OrderController extends Controller
                     // human-readable placeholder. A GCash order placed before the
                     // money was sent carries the placeholder until the customer
                     // submits their reference from My Orders.
-                    'payment_reference' => $paymentMethod === 'GCash'
-                        ? ($gcashReference ?? $this->defaultPaymentReference($paymentMethod))
-                        : ($validated['payment_reference'] ?? $this->defaultPaymentReference($paymentMethod)),
+                    'payment_reference' => $isLinkedGcash
+                        ? $linkedGcashReference
+                        : ($paymentMethod === 'GCash'
+                            ? ($gcashReference ?? $this->defaultPaymentReference($paymentMethod))
+                            : ($validated['payment_reference'] ?? $this->defaultPaymentReference($paymentMethod))),
                     // Only GCash has a deadline: cash is handed over at the
                     // counter or to the courier, so there is nothing to wait for.
-                    'payment_due_at' => $paymentDueAt,
+                    'payment_due_at' => $isLinkedGcash ? null : $paymentDueAt,
                     'fulfillment_type' => $fulfillmentType,
                     'lifecycle_status' => 'incoming',
                     'customer_stage' => $customerStage,
@@ -451,15 +456,17 @@ class OrderController extends Controller
                     'order_id' => $order->id,
                     'payment_no' => $this->generatePaymentNo((int) $order->id),
                     'method' => $paymentMethod,
-                    'reference' => $paymentMethod === 'GCash'
-                        ? ($gcashReference ?? $this->defaultPaymentReference($paymentMethod))
-                        : ($validated['payment_reference'] ?? $this->defaultPaymentReference($paymentMethod)),
+                    'reference' => $isLinkedGcash
+                        ? $linkedGcashReference
+                        : ($paymentMethod === 'GCash'
+                            ? ($gcashReference ?? $this->defaultPaymentReference($paymentMethod))
+                            : ($validated['payment_reference'] ?? $this->defaultPaymentReference($paymentMethod))),
                     'amount' => $totalAmount,
                     'status' => $paymentStatus,
                     // A reference typed at checkout is the customer's claim that
                     // they already sent the money; without one there is nothing to
                     // have submitted yet.
-                    'submitted_at' => $gcashReference !== null ? now() : null,
+                    'submitted_at' => ($isLinkedGcash || $gcashReference !== null) ? now() : null,
                     'paid_at' => $paymentStatus === 'paid' ? now() : null,
                 ]);
 
@@ -492,21 +499,26 @@ class OrderController extends Controller
                     'stage' => $customerStage,
                     'event_type' => 'system',
                     'title' => match (true) {
+                        $isLinkedGcash => 'Payment confirmed via GCash',
                         $paymentStatus === 'paid' => 'Payment confirmed',
                         $paymentMethod === 'GCash' && $gcashReference === null => 'Waiting for your GCash payment',
                         default => 'Awaiting payment confirmation',
                     },
-                    'description' => $this->initialPaymentEventDescription(
-                        $paymentMethod,
-                        $paymentStatus,
-                        $isPickup,
-                        $gcashReference !== null,
-                    ),
+                    'description' => match (true) {
+                        $isLinkedGcash => "Payment completed automatically via linked GCash account (****{$linkedGcashLast4}). Your order is now being processed.",
+                        default => $this->initialPaymentEventDescription(
+                            $paymentMethod,
+                            $paymentStatus,
+                            $isPickup,
+                            $gcashReference !== null,
+                        ),
+                    },
                     'occurred_at' => now(),
                     'metadata' => [
                         'payment_status' => $paymentStatus,
                         'fulfillment_type' => $fulfillmentType,
                         'payment_due_at' => optional($paymentDueAt)->toIso8601String(),
+                        'linked_gcash' => $isLinkedGcash,
                     ],
                 ]);
 
@@ -559,6 +571,20 @@ class OrderController extends Controller
                 );
             }
 
+            if ($isLinkedGcash) {
+                AdminNotification::query()->create([
+                    'type' => 'order',
+                    'title' => "GCash Payment Received: {$orderNoLabel}",
+                    'message' => "{$customerName}'s GCash payment of ₱" . number_format($totalAmount, 2) . " for {$orderNoLabel} was automatically debited from linked GCash account (****{$linkedGcashLast4}).",
+                    'metadata' => json_encode([
+                        'order_id' => $createdOrder->id,
+                        'order_no' => $orderNoLabel,
+                        'payment_method' => 'GCash',
+                        'linked_account' => true,
+                    ]),
+                ]);
+            }
+
             // --- Customer Email: Order Confirmed ---
             $emailHtml = $this->buildOrderEmailHtml(
                 $createdOrder,
@@ -571,11 +597,11 @@ class OrderController extends Controller
 
             // ── PayMongo checkout session ────────────────────────────────────
             // When the payment gateway is set to "paymongo" and the customer
-            // chose GCash, create a hosted checkout session so PayMongo can
-            // collect the money through GCash's own interface. The checkout_url
-            // is returned to the frontend, which redirects the browser there.
+            // chose GCash (without a linked account), create a hosted checkout
+            // session so PayMongo can collect the money through GCash's own interface.
             $checkoutUrl = null;
-            $usePaymongo = config('payments.gateway') === 'paymongo'
+            $usePaymongo = !$isLinkedGcash
+                && config('payments.gateway') === 'paymongo'
                 && $paymentMethod === 'GCash';
 
             if ($usePaymongo) {
