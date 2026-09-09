@@ -2638,13 +2638,15 @@ document.addEventListener("DOMContentLoaded", () => {
     );
 
   /**
-   * Cash payments already answer "pickup or delivery": Cash on Pickup is paid
-   * at the FMRC counter, Cash on Delivery is paid to the courier at the door.
-   * GCash is prepaid and works either way, so it stays the customer's choice.
+   * Payment method decides pickup vs delivery:
+   * - Cash on Pickup is collected at the counter ("pickup").
+   * - Cash on Delivery is shipped via courier ("delivery").
+   * - GCash is prepaid and shipped via courier ("delivery").
    */
   const getLockedFulfillmentForPayment = (paymentKey) => {
     if (paymentKey === "COP") return "pickup";
     if (paymentKey === "COD") return "delivery";
+    if (paymentKey === "GCash") return "delivery";
     return null;
   };
 
@@ -2654,7 +2656,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (fulfillPickupRadio?.checked) return "pickup";
     if (fulfillDeliveryRadio?.checked) return "delivery";
-    return "";
+    return "delivery";
   };
 
   /**

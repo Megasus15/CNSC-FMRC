@@ -40,7 +40,7 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
     <link rel="stylesheet" href="../home-page/main.css?v=9.0" />
-    <link rel="stylesheet" href="tiktok-payment.css?v=1.0" />
+    <link rel="stylesheet" href="tiktok-payment.css?v=2.0" />
     <style>
       /* Empty state */
       .products-empty-state {
@@ -896,49 +896,6 @@
               id="gcashUnconfiguredNote"
               hidden
             ></p>
-          </div>
-
-          <!--
-            How the order reaches the customer. Cash payments already decide it
-            (Cash on Pickup is paid at the counter, Cash on Delivery is paid to
-            the courier), so for those the choice is locked and only explained.
-            GCash is prepaid and works either way, so it must be chosen.
-          -->
-          <div class="checkout-section" id="checkoutFulfillmentSection">
-            <h3 class="checkout-section-title">How will you get it?</h3>
-            <div class="c-fulfillment-options">
-              <label class="c-fulfillment-option" for="fulfillPickupRadio">
-                <input
-                  type="radio"
-                  name="fulfillmentType"
-                  value="pickup"
-                  id="fulfillPickupRadio"
-                />
-                <span class="c-fulfillment-copy">
-                  <strong>Pickup at FMRC</strong>
-                  <small
-                    >Collect it yourself at the FMRC Office, University of
-                    Camarines Norte, Daet. No delivery address needed.</small
-                  >
-                </span>
-              </label>
-              <label class="c-fulfillment-option" for="fulfillDeliveryRadio">
-                <input
-                  type="radio"
-                  name="fulfillmentType"
-                  value="delivery"
-                  id="fulfillDeliveryRadio"
-                />
-                <span class="c-fulfillment-copy">
-                  <strong>Courier delivery</strong>
-                  <small
-                    >Shipped by J&amp;T Express to the address above. Every
-                    address field is required.</small
-                  >
-                </span>
-              </label>
-            </div>
-            <p class="c-fulfillment-note" id="fulfillmentNote"></p>
           </div>
 
           <div class="c-terms-box">
@@ -1959,7 +1916,7 @@
          flow falls back to the plain disabled button it had before. -->
     <script defer src="../home-page/fmrc-loader.js?v=1.0"></script>
     <script defer src="../home-page/customer-announcements.js?v=6.2"></script>
-    <script defer src="../home-page/main.js?v=9.1"></script>
+    <script defer src="../home-page/main.js?v=9.2"></script>
     <script defer src="products.js?v=6.2"></script>
   </body>
 </html>

@@ -2676,7 +2676,7 @@ class OrderController extends Controller
         return match ($paymentMethod) {
             'COP' => Order::FULFILLMENT_PICKUP,
             'COD' => Order::FULFILLMENT_DELIVERY,
-            default => $requested,
+            default => $requested ?? Order::FULFILLMENT_DELIVERY,
         };
     }
 
