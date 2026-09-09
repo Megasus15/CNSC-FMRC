@@ -882,7 +882,7 @@ input.page-number:focus,
   color: #7b828b;
 }
 
-/* Confirm/undo pair under the payment reference in the order details modal. */
+/* Payment actions are separated by purpose inside the confirmation panel. */
 .payment-verify-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1053,82 +1053,6 @@ input.page-number:focus,
   color: #2f3742;
 }
 
-/* ── Cancellation request ────────────────────────────────────────────────────
-   Amber while a decision is owed, grey once the order is dead, plain once the
-   request was turned down - the colour alone tells staff whether this card is
-   still work. */
-.cancel-request {
-  display: grid;
-  gap: 6px;
-  padding: 12px;
-  border: 1px solid var(--border-color);
-  border-left: 4px solid #c9ced6;
-  border-radius: 10px;
-  background: #f8f9fb;
-}
-.cancel-request.is-pending {
-  border-left-color: #d99a1c;
-  background: #fff9ec;
-}
-.cancel-request.is-cancelled {
-  border-left-color: #8b939f;
-  background: #f2f4f7;
-}
-.cancel-request.is-declined {
-  border-left-color: #4f7fbf;
-  background: #f4f8fd;
-}
-
-.cancel-request-title {
-  margin: 0;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: #1f2630;
-}
-
-.cancel-request-reason {
-  margin: 0;
-  font-size: 0.76rem;
-  font-weight: 600;
-  color: #2f3742;
-}
-
-/* The customer's own words, kept visually apart from FMRC's summary of them. */
-.cancel-request-detail {
-  margin: 0;
-  padding: 7px 9px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px dashed var(--border-color);
-  font-size: 0.76rem;
-  font-style: italic;
-  color: #3d444d;
-  line-height: 1.5;
-}
-.cancel-request-detail[hidden] {
-  display: none;
-}
-
-.cancel-request-money {
-  margin: 0;
-  font-size: 0.74rem;
-  color: #5b6472;
-  line-height: 1.5;
-}
-
-.cancel-request-note-field {
-  display: grid;
-  gap: 4px;
-  margin-top: 4px;
-}
-.cancel-request-note-field[hidden] {
-  display: none;
-}
-.cancel-request-note-field label {
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: #2f3742;
-}
 
 @media (max-width: 560px) {
   .payment-claim {
@@ -1139,6 +1063,357 @@ input.page-number:focus,
   }
   .payment-claim-label {
     flex-basis: 100%;
+  }
+}
+
+/* Shared Admin/Staff payment confirmation. Keep payment and order decisions clear. */
+#modalPaymentVerifyBlock {
+  min-width: 0;
+  gap: 0;
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid #dcdfe5;
+  border-radius: 12px;
+  background: #fff;
+}
+
+#modalPaymentVerifyBlock[hidden],
+#modalPaymentVerifyBlock [hidden] {
+  display: none !important;
+}
+
+#modalPaymentVerifyBlock .payment-verification-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #e8dfe0;
+  background: #faf5f4;
+}
+
+#modalPaymentVerifyBlock .payment-verification-icon {
+  display: grid;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid #e8d7d6;
+  border-radius: 10px;
+  background: #fff;
+  color: var(--primary-color, #800000);
+  font-size: 1rem;
+}
+
+#modalPaymentVerifyBlock .payment-verification-heading {
+  flex: 1 1 210px;
+  min-width: 0;
+}
+
+#modalPaymentVerifyBlock .payment-verification-eyebrow {
+  margin: 0 0 3px;
+  color: #7b5353;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+#modalPaymentVerifyBlock h4 {
+  margin: 0;
+  color: #3a2729;
+  font-size: 0.96rem;
+  line-height: 1.35;
+}
+
+#modalPaymentVerifyBlock .payment-verification-status {
+  max-width: 100%;
+  padding: 6px 9px;
+  border: 1px solid #ead9aa;
+  border-radius: 6px;
+  background: #fff8e6;
+  color: #785718;
+  font-size: 0.69rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+#modalPaymentVerifyBlock[data-payment-state="paid"] .payment-verification-status,
+#modalPaymentVerifyBlock[data-payment-state="refunded"] .payment-verification-status {
+  border-color: #bcdaca;
+  background: #eef8f1;
+  color: #256242;
+}
+
+#modalPaymentVerifyBlock .payment-verification-state {
+  padding: 16px 18px 14px;
+}
+
+#modalPaymentVerifyBlock h5 {
+  margin: 0 0 5px;
+  color: #273342;
+  font-size: 0.83rem;
+  line-height: 1.4;
+}
+
+#modalPaymentVerifyBlock p {
+  overflow-wrap: anywhere;
+}
+
+#modalPaymentVerifyBlock .payment-verification-state p,
+#modalPaymentVerifyBlock .payment-verification-impact p,
+#modalPaymentVerifyBlock .payment-verification-alternative-body p,
+#modalPaymentVerifyBlock .payment-verification-refund > p {
+  margin: 0;
+  color: #5a6572;
+  font-size: 0.77rem;
+  line-height: 1.6;
+}
+
+#modalPaymentVerifyBlock .payment-claim {
+  grid-template-columns: minmax(0, 1fr) 146px;
+  gap: 18px;
+  margin: 0 18px 14px;
+  padding: 14px;
+  border-color: #e4e7ec;
+  border-radius: 8px;
+  background: #fafbfc;
+}
+
+#modalPaymentVerifyBlock[data-payment-method="cash"] .payment-claim,
+#modalPaymentVerifyBlock .payment-claim.payment-claim-no-proof {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#modalPaymentVerifyBlock .payment-verification-label {
+  margin-bottom: 5px;
+  color: #4e5b69;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+#modalPaymentVerifyBlock .payment-claim-facts {
+  gap: 10px;
+}
+
+#modalPaymentVerifyBlock .payment-claim-row {
+  gap: 5px 8px;
+  min-width: 0;
+  line-height: 1.45;
+}
+
+#modalPaymentVerifyBlock .payment-claim-label {
+  flex-basis: 125px;
+  color: #687583;
+  font-size: 0.71rem;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+#modalPaymentVerifyBlock .payment-claim-ref {
+  max-width: 100%;
+  min-width: 0;
+  font-size: 0.83rem;
+}
+
+#modalPaymentVerifyBlock .payment-claim-amount {
+  font-size: 1.1rem;
+  color: #283645;
+}
+
+#modalPaymentVerifyBlock .payment-claim-proof {
+  min-width: 0;
+  width: 100%;
+  gap: 6px;
+  justify-items: start;
+}
+
+#modalPaymentVerifyBlock .payment-claim-proof a {
+  max-width: 100%;
+  justify-items: start;
+  gap: 7px;
+}
+
+#modalPaymentVerifyBlock .payment-claim-proof img {
+  width: 144px;
+  max-width: 100%;
+  height: 160px;
+  object-fit: contain;
+  transform: none;
+  transition: none;
+}
+
+#modalPaymentVerifyBlock .payment-claim-proof-empty {
+  padding: 18px 10px;
+  border: 1px dashed #d9dee5;
+  border-radius: 7px;
+  color: #6d7885;
+  background: #fff;
+}
+
+#modalPaymentVerifyBlock .payment-verification-impact {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 0 18px 16px;
+  padding: 11px 12px;
+  border-left: 3px solid #92a8bf;
+  border-radius: 0 7px 7px 0;
+  background: #f2f6fa;
+}
+
+#modalPaymentVerifyBlock .payment-verification-impact > i {
+  margin-top: 3px;
+  color: #54718d;
+  font-size: 0.85rem;
+}
+
+#modalPaymentVerifyBlock .payment-verification-impact h5 {
+  margin-bottom: 3px;
+  font-size: 0.76rem;
+}
+
+#modalPaymentVerifyBlock .payment-verification-confirm,
+#modalPaymentVerifyBlock .payment-verification-refund {
+  padding: 16px 18px;
+  border-top: 1px solid #e5e8ed;
+  background: #fcfcfd;
+}
+
+#modalPaymentVerifyBlock .payment-verification-acknowledgement {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: #354252;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.55;
+  cursor: pointer;
+}
+
+#modalPaymentVerifyBlock .payment-verification-acknowledgement input {
+  flex: 0 0 17px;
+  width: 17px;
+  height: 17px;
+  margin: 2px 0 0;
+  accent-color: var(--primary-color, #800000);
+}
+
+#modalPaymentVerifyBlock .payment-verify-actions {
+  margin-top: 12px;
+}
+
+#modalPaymentVerifyBlock .payment-verify-actions .btn-admin {
+  min-height: 38px;
+  max-width: 100%;
+  height: auto;
+  white-space: normal;
+  line-height: 1.4;
+  text-align: center;
+}
+
+#modalPaymentVerifyBlock .payment-verify-actions .btn-admin:hover,
+#modalPaymentVerifyBlock .payment-claim-copy:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+#modalPaymentVerifyBlock .payment-verification-correction {
+  border-top: 1px solid #e5e8ed;
+}
+
+#modalPaymentVerifyBlock .payment-verification-correction summary {
+  padding: 14px 18px;
+  color: #586473;
+  font-size: 0.77rem;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+#modalPaymentVerifyBlock .payment-verification-correction summary > i {
+  margin: 0 5px;
+}
+
+#modalPaymentVerifyBlock .payment-verification-correction summary:hover {
+  background: #f7f8fa;
+  color: #354252;
+}
+
+#modalPaymentVerifyBlock .payment-verification-alternative-body {
+  padding: 0 18px 16px;
+}
+
+#modalPaymentVerifyBlock .payment-verification-refund h5 > i {
+  margin-right: 5px;
+  color: #8b681e;
+}
+
+#modalPaymentVerifyBlock .payment-refund-field,
+#modalPaymentVerifyBlock .payment-correction-field {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+#modalPaymentVerifyBlock .payment-refund-field label,
+#modalPaymentVerifyBlock .payment-correction-field label {
+  color: #465364;
+  font-size: 0.74rem;
+}
+
+#modalPaymentVerifyBlock .payment-required {
+  color: #7a6670;
+  font-weight: 400;
+}
+
+#modalPaymentVerifyBlock input:focus-visible,
+#modalPaymentVerifyBlock summary:focus-visible,
+#modalPaymentVerifyBlock button:focus-visible,
+#modalPaymentVerifyBlock a:focus-visible {
+  outline: 2px solid var(--primary-color, #800000);
+  outline-offset: 3px;
+}
+
+@media (max-width: 560px) {
+  #modalPaymentVerifyBlock .payment-verification-header,
+  #modalPaymentVerifyBlock .payment-verification-state,
+  #modalPaymentVerifyBlock .payment-verification-confirm,
+  #modalPaymentVerifyBlock .payment-verification-refund,
+  #modalPaymentVerifyBlock .payment-verification-correction summary {
+    padding: 13px;
+  }
+
+  #modalPaymentVerifyBlock .payment-verification-heading {
+    flex-basis: calc(100% - 48px);
+  }
+
+  #modalPaymentVerifyBlock .payment-verification-status {
+    margin-left: 48px;
+  }
+
+  #modalPaymentVerifyBlock .payment-claim {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    margin: 0 13px 13px;
+    padding: 12px;
+  }
+
+  #modalPaymentVerifyBlock .payment-claim-label {
+    flex-basis: 100%;
+  }
+
+  #modalPaymentVerifyBlock .payment-verification-impact {
+    margin: 0 13px 13px;
+  }
+
+  #modalPaymentVerifyBlock .payment-verification-alternative-body {
+    padding: 0 13px 13px;
+  }
+
+  #modalPaymentVerifyBlock .payment-verify-actions .btn-admin {
+    flex: 1 1 100%;
   }
 }
 
@@ -1648,31 +1923,6 @@ input.page-number:focus,
   gap: 4px;
 }
 
-/* Row-level flags that ride alongside the status pill: a cancellation waiting
-   on a decision, and money FMRC still owes back. */
-.row-flag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: 6px;
-  padding: 2px 7px;
-  border-radius: 999px;
-  font-size: 0.64rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-  vertical-align: middle;
-}
-.row-flag-cancel {
-  background-color: #fff4db;
-  color: #96590a;
-  border: 1px solid #f0d89c;
-}
-.row-flag-refund {
-  background-color: #fde8e8;
-  color: #a3260f;
-  border: 1px solid #f4c9c4;
-}
 
 .payment-status-select {
   min-width: 132px;
@@ -1841,60 +2091,6 @@ input.page-number:focus,
   font-size: 0.86rem;
 }
 
-/* ── Cancellation alert strip ────────────────────────────────────────────────
-   Sits under the Incoming Orders header. Cancellations have no tab of their
-   own, so this is the only place staff can see unread work without opening
-   orders one by one. */
-.cancellation-alert {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin: 0 0 12px;
-  padding: 10px 12px;
-  border: 1px solid #f0d89c;
-  border-left: 4px solid #d99a1c;
-  border-radius: 10px;
-  background: #fff9ec;
-}
-.cancellation-alert[hidden] {
-  display: none;
-}
-
-.cancellation-alert-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border-radius: 999px;
-  padding: 4px 11px;
-  font-size: 0.74rem;
-  font-weight: 600;
-  background: #fff;
-  border: 1px solid #f0d89c;
-  color: #96590a;
-}
-.cancellation-alert-chip strong {
-  font-size: 0.86rem;
-  font-weight: 800;
-}
-.cancellation-alert-chip.is-refund {
-  border-color: #f4c9c4;
-  color: #a3260f;
-}
-
-.cancellation-alert-hint {
-  flex: 1 1 220px;
-  min-width: 0;
-  font-size: 0.7rem;
-  line-height: 1.45;
-  color: #7a6534;
-}
-
-@media (max-width: 560px) {
-  .cancellation-alert-hint {
-    flex-basis: 100%;
-  }
-}
 .return-amount-caption {
   font-size: 0.68rem;
   font-weight: 600;

@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
 {
@@ -1052,9 +1053,9 @@ class OrderController extends Controller
             ], 422);
         }
 
-        if ($order->lifecycle_status === 'rejected') {
+        if (in_array($order->lifecycle_status, ['rejected', 'cancelled'], true)) {
             return response()->json([
-                'message' => 'This order was rejected. Do not send any payment for it - contact FMRC if you already did.',
+                'message' => 'This order was cancelled or rejected. Do not send any payment for it - contact FMRC if you already did.',
             ], 422);
         }
 
@@ -1064,6 +1065,14 @@ class OrderController extends Controller
             return response()->json([
                 'message' => 'This payment has already been confirmed. There is nothing left to submit.',
             ], 422);
+        }
+
+        if ($order->payment?->status === 'refunded' || $order->lifecycle_status === 'completed' || $order->customer_stage === 'completed') {
+            return response()->json(['message' => 'This payment is closed. No further payment reference can be submitted.'], 422);
+        }
+
+        if ($this->paymentIsAutomated($order)) {
+            return response()->json(['message' => 'This payment is managed by the payment provider. Manual reference submission is unavailable.'], 422);
         }
 
         $expectedDigits = (int) config('payments.gcash.reference_digits', 13);
@@ -1118,6 +1127,18 @@ class OrderController extends Controller
         $payment = $order->payment;
 
         DB::transaction(function () use ($order, &$payment, $reference, $proofPath) {
+            $fresh = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $payment = Payment::query()->where('order_id', $fresh->id)->lockForUpdate()->first();
+            $fresh->setRelation('payment', $payment);
+            if (in_array($fresh->lifecycle_status, ['cancelled', 'rejected', 'completed'], true)
+                || $fresh->customer_stage === 'completed'
+                || in_array($payment?->status, ['paid', 'refunded'], true)
+                || $this->paymentIsAutomated($fresh)) {
+                if ($proofPath !== null) {
+                    Storage::disk('public')->delete($proofPath);
+                }
+                throw ValidationException::withMessages(['payment_reference' => 'This order or payment changed. Refresh its details before submitting a reference.']);
+            }
             if (! $payment) {
                 // Older orders were created before a payments row was guaranteed.
                 $payment = Payment::query()->create([
@@ -1145,8 +1166,8 @@ class OrderController extends Controller
                 Storage::disk('public')->delete($previousProof);
             }
 
-            $order->payment_reference = $reference;
-            $order->save();
+            $fresh->payment_reference = $reference;
+            $fresh->save();
         });
 
         $amountLabel = '₱'.number_format((float) $order->total, 2, '.', ',');
@@ -1156,7 +1177,7 @@ class OrderController extends Controller
             'stage' => $order->customer_stage ?: 'to_pay',
             'event_type' => 'system',
             'title' => 'GCash reference submitted',
-            'description' => "We received reference {$reference} for {$amountLabel} and are matching it against the FMRC GCash account. Your order moves forward as soon as it is confirmed.",
+            'description' => "We received reference {$reference} for {$amountLabel} and are matching it against the FMRC GCash account. Payment confirmation and order approval are separate checks. Do not send the payment again while it is under review.",
             'occurred_at' => now(),
             'metadata' => [
                 'source' => 'customer_payment_submission',
@@ -2406,87 +2427,105 @@ class OrderController extends Controller
 
         $validated = $request->validate([
             'status' => 'required|in:paid,pending,refunded',
-            // Only meaningful with `refunded`: the reference GCash printed when
-            // staff sent the money back, so the return leg is auditable too.
-            'refund_reference' => 'nullable|string|max:64',
+            'expected_status' => 'nullable|in:paid,pending,refunded',
+            'confirmed_received' => 'required_if:status,paid|accepted_if:status,paid',
+            'correction_reason' => 'required_if:status,pending|nullable|string|max:500',
+            'refund_reference' => 'required_if:status,refunded|nullable|string|max:64',
         ]);
 
-        $payment = $order->payment;
-        if (!$payment) {
-            $payment = Payment::query()->create([
-                'order_id' => $order->id,
-                'payment_no' => $this->generatePaymentNo((int) $order->id),
-                'method' => $order->payment_method,
-                'reference' => $order->payment_reference,
-                'amount' => $order->total,
-                'status' => 'pending',
-                'paid_at' => null,
-            ]);
+        $nextStatus = $validated['status'];
+        $correctionReason = trim((string) ($validated['correction_reason'] ?? ''));
+        $refundReference = trim((string) ($validated['refund_reference'] ?? ''));
+        if ($nextStatus === 'pending' && $correctionReason === '') {
+            throw ValidationException::withMessages(['correction_reason' => 'Explain why this payment confirmation needs correction.']);
+        }
+        if ($nextStatus === 'refunded' && $refundReference === '') {
+            throw ValidationException::withMessages(['refund_reference' => 'Enter the reference or receipt number for the refund already sent.']);
         }
 
-        $nextStatus = strtolower($validated['status']);
-        if (!in_array($nextStatus, self::ALLOWED_PAYMENT_STATUSES, true)) {
-            return response()->json([
-                'message' => 'Invalid payment status.',
-            ], 422);
-        }
+        $result = DB::transaction(function () use ($order, $request, $validated, $nextStatus, $correctionReason, $refundReference): array|JsonResponse {
+            // Check the current row under the same lock as the write: two open
+            // Admin/Staff tabs must not confirm or refund the same money twice.
+            $fresh = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $payment = Payment::query()->where('order_id', $fresh->id)->lockForUpdate()->first();
+            $fresh->setRelation('payment', $payment);
+            $currentStatus = $payment?->status ?? 'pending';
+            if (isset($validated['expected_status']) && $validated['expected_status'] !== $currentStatus) {
+                return response()->json(['message' => 'This payment changed in another session. Review the latest details before continuing.'], 409);
+            }
+            $action = $this->buildPaymentActions($fresh)[$nextStatus];
+            if (! $action['allowed']) {
+                return response()->json(['message' => $action['reason']], 422);
+            }
 
-        // Confirming money on a cancelled order would push it back into the
-        // shipping queue and back into Total Revenue. Recording the refund is the
-        // only payment move a cancelled order still has.
-        if ($nextStatus === 'paid' && $order->isCancelled()) {
-            return response()->json([
-                'message' => 'This order was cancelled. If the customer did send the money, record it as refunded once you have returned it.',
-            ], 422);
-        }
-
-        $payment->status = $nextStatus;
-        // Never re-stamp an existing confirmation: `paid_at` is when the money
-        // was first matched, and reports read it.
-        $payment->paid_at = $nextStatus === 'paid'
-            ? ($payment->paid_at ?? now())
-            : $payment->paid_at;
-
-        if ($nextStatus === 'refunded') {
-            $payment->refunded_at = $payment->refunded_at ?? now();
-            $refundReference = trim((string) ($validated['refund_reference'] ?? ''));
-            if ($refundReference !== '') {
+            if (! $payment) {
+                $payment = new Payment([
+                    'order_id' => $fresh->id,
+                    'payment_no' => $this->generatePaymentNo((int) $fresh->id),
+                    'method' => $fresh->payment_method,
+                    'reference' => $fresh->payment_reference,
+                    'amount' => $fresh->total,
+                ]);
+            }
+            $payment->status = $nextStatus;
+            if ($nextStatus === 'paid') {
+                $payment->paid_at = now();
+                // Accepting the order is a separate decision. Only an already
+                // approved order moves into preparation after verification.
+                if ($fresh->lifecycle_status === 'pending' && $fresh->customer_stage === 'to_pay') {
+                    $fresh->customer_stage = 'to_ship';
+                }
+            } elseif ($nextStatus === 'pending') {
+                $payment->paid_at = null;
+                // Preserve the submitted reference/receipt for re-review, so the
+                // customer is not instructed to send the same payment again.
+                if ($payment->method === 'GCash') {
+                    $fresh->customer_stage = 'to_pay';
+                }
+            } else {
+                $payment->refunded_at = now();
                 $payment->refund_reference = $refundReference;
+                $fresh->cancel_refund_due = false;
             }
-        } elseif ($nextStatus === 'pending') {
-            // Setting a payment back to unpaid undoes the confirmation itself, so
-            // the timestamp that made it revenue has to go with it.
-            $payment->paid_at = null;
+            $payment->save();
+            $fresh->setRelation('payment', $payment);
+            $fresh->save();
+
+            $awaitingApproval = $nextStatus === 'paid' && $fresh->lifecycle_status === 'incoming';
+            $title = match ($nextStatus) {
+                'paid' => 'Payment confirmed',
+                'pending' => 'Payment confirmation reopened',
+                'refunded' => 'Refund sent',
+            };
+            $description = match ($nextStatus) {
+                'paid' => $awaitingApproval
+                    ? 'FMRC confirmed receipt of your payment. Your order is still awaiting approval. No further payment is needed.'
+                    : 'FMRC confirmed receipt of your payment. No further payment is needed.',
+                'pending' => 'FMRC reopened the payment check. Reason: '.$correctionReason
+                    .($payment->hasCustomerClaim() ? ' Your submitted reference is still on file for review. Do not send another payment while FMRC checks it.' : ' Contact FMRC to confirm what is owed before sending a payment.'),
+                'refunded' => 'FMRC recorded your refund as sent. Refund reference: '.$refundReference.'. Your order remains '.$fresh->lifecycle_status.'.',
+            };
+            $this->createTrackingEvent($fresh, [
+                'created_by_user_id' => $request->user()?->id,
+                'stage' => $fresh->customer_stage,
+                'event_type' => 'admin_update',
+                'title' => $title,
+                'description' => $description,
+                'occurred_at' => now(),
+                'metadata' => [
+                    'payment_status' => $nextStatus,
+                    'previous_payment_status' => $currentStatus,
+                    'correction_reason' => $nextStatus === 'pending' ? $correctionReason : null,
+                    'refund_reference' => $nextStatus === 'refunded' ? $refundReference : null,
+                ],
+            ]);
+
+            return [$fresh, $title, $description];
+        });
+        if ($result instanceof JsonResponse) {
+            return $result;
         }
-
-        $payment->save();
-
-        if ($nextStatus === 'paid' && $order->customer_stage === 'to_pay' && ! in_array($order->lifecycle_status, ['rejected', 'cancelled'], true)) {
-            $order->customer_stage = 'to_ship';
-            if ($order->lifecycle_status === 'incoming') {
-                $order->lifecycle_status = 'pending';
-                $order->approved_at = $order->approved_at ?? now();
-            }
-            $order->save();
-        }
-
-        // The refund that a cancellation left outstanding is now settled.
-        if ($nextStatus === 'refunded' && $order->cancel_refund_due) {
-            $order->cancel_refund_due = false;
-            $order->save();
-        }
-
-        $this->createTrackingEvent($order, [
-            'created_by_user_id' => $request->user()?->id,
-            'stage' => $order->customer_stage,
-            'event_type' => 'admin_update',
-            'title' => 'Payment status updated',
-            'description' => 'Payment status changed to ' . strtoupper($nextStatus) . '.',
-            'occurred_at' => now(),
-            'metadata' => [
-                'payment_status' => $nextStatus,
-            ],
-        ]);
+        [$order, $title, $description] = $result;
 
         $order->load(['items', 'payment', 'latestTrackingEvent']);
 
@@ -2499,20 +2538,19 @@ class OrderController extends Controller
             ['order_id' => $order->id, 'order_no' => $orderNoLabel, 'payment_status' => $nextStatus]
         );
 
-        // --- Customer Email: Payment Confirmed ---
-        if ($nextStatus === 'paid') {
-            $emailHtml = $this->buildOrderEmailHtml(
-                $order,
-                'Payment Confirmed',
-                "Hi {$order->customer_name},\n\nYour payment for order {$orderNoLabel} has been confirmed. Your order is now being prepared for shipping or pickup.\n\nThank you for your purchase!",
-                '#059669',
-                templateKey: 'payment_confirmed'
-            );
-            $this->sendCustomerOrderEmail($order, "Payment Confirmed – {$orderNoLabel}", $emailHtml);
-        }
+        $emailHtml = OrderNotifier::buildEmailHtml(
+            $order,
+            $title,
+            "Hi {$order->customer_name},\n\n{$description}",
+            $nextStatus === 'pending' ? '#b45309' : '#059669',
+            statusOverride: $nextStatus === 'paid' && $order->lifecycle_status === 'incoming' ? 'Awaiting approval' : $title,
+        );
+        $this->sendCustomerOrderEmail($order, "{$title} - {$orderNoLabel}", $emailHtml);
 
         return response()->json([
-            'message' => 'Payment status updated.',
+            'message' => $nextStatus === 'paid' && $order->lifecycle_status === 'incoming'
+                ? 'Payment confirmed. The order stays in Incoming Orders until you approve it.'
+                : $title.'.',
             'payment' => $this->transformPaymentRow($order),
             'order' => $this->transformOrderSummary($order),
         ]);
@@ -2942,6 +2980,8 @@ class OrderController extends Controller
             'status',
             'submitted_at',
             'proof_path',
+            'paymongo_checkout_id',
+            'paymongo_payment_id',
             'paid_at',
             'refunded_at',
             'refund_reference',
@@ -2986,6 +3026,53 @@ class OrderController extends Controller
         return $summaryItem;
     }
 
+    private function paymentIsAutomated(Order $order): bool
+    {
+        return filled($order->payment?->paymongo_checkout_id)
+            || filled($order->payment?->paymongo_payment_id);
+    }
+
+    /** Legal manual actions, shared by the write endpoint and every UI payload. */
+    private function buildPaymentActions(Order $order): array
+    {
+        $payment = $order->payment;
+        $status = $payment?->status ?? 'pending';
+        $closed = in_array($order->lifecycle_status, ['cancelled', 'rejected'], true);
+        $pastPreparation = $order->lifecycle_status === 'completed'
+            || in_array($order->customer_stage, ['to_receive', 'completed'], true)
+            || $order->picked_up_at !== null || $order->completed_at !== null;
+        $commonReason = match (true) {
+            (bool) $order->is_archived => 'Restore this archived order before changing its payment.',
+            $this->paymentIsAutomated($order) => 'This payment is managed by the payment provider. Manual payment changes are unavailable.',
+            $status === 'refunded' => 'The refund has already been recorded. This payment is closed.',
+            $order->hasPendingCancellation() => 'Review the pending cancellation request before changing this payment.',
+            default => null,
+        };
+        $paidReason = $commonReason ?? match (true) {
+            $closed => 'This order is cancelled or rejected. Record a refund only after returning any money received.',
+            $status === 'paid' => 'Payment receipt has already been confirmed.',
+            default => null,
+        };
+        $pendingReason = $commonReason ?? match (true) {
+            $status !== 'paid' => 'There is no payment confirmation to undo.',
+            $closed => 'This order is cancelled or rejected. Return any money received and record the refund.',
+            $pastPreparation => 'Payment confirmation cannot be undone after the order is ready, dispatched or completed. Use Returns & Refunds when a refund is needed.',
+            default => null,
+        };
+        $refundReason = $commonReason ?? match (true) {
+            ! $closed && $pastPreparation => 'Use Returns & Refunds for an order that is ready, dispatched or completed.',
+            ! $closed => 'Refunds here are only for cancelled or rejected orders. Resolve the order first.',
+            $status !== 'paid' && ! (($payment?->method ?? $order->payment_method) === 'GCash' && $payment?->hasCustomerClaim()) => 'No received payment or submitted GCash payment is recorded to refund.',
+            default => null,
+        };
+
+        return [
+            'paid' => ['allowed' => $paidReason === null, 'reason' => $paidReason],
+            'pending' => ['allowed' => $pendingReason === null, 'reason' => $pendingReason],
+            'refunded' => ['allowed' => $refundReason === null, 'reason' => $refundReason],
+        ];
+    }
+
     /**
      * Where this order stands on money, for both the customer's "Pay now" panel
      * and the staff verification queue.
@@ -3008,8 +3095,10 @@ class OrderController extends Controller
 
         // A rejected order must not invite payment, and a confirmed one has
         // nothing left to ask for.
-        $awaitingPayment = $isGcash && ! $isConfirmed && ! $isRejected && ! $hasClaim;
-        $underReview = $isGcash && ! $isConfirmed && ! $isRejected && $hasClaim;
+        $collectible = $isGcash && $status === 'pending' && ! $isRejected
+            && $order->lifecycle_status !== 'completed' && $order->customer_stage !== 'completed';
+        $awaitingPayment = $collectible && ! $hasClaim;
+        $underReview = $collectible && $hasClaim;
 
         $dueAt = $order->payment_due_at;
         $isOverdue = $awaitingPayment && $dueAt !== null && $dueAt->isPast();
@@ -3031,6 +3120,9 @@ class OrderController extends Controller
             'awaiting_customer_payment' => $awaitingPayment,
             'payment_under_review' => $underReview,
             'payment_is_confirmed' => $isConfirmed,
+            'payment_awaiting_approval' => $isConfirmed && $order->lifecycle_status === 'incoming',
+            'payment_is_automated' => $this->paymentIsAutomated($order),
+            'payment_actions' => $this->buildPaymentActions($order),
             'payment_is_overdue' => $isOverdue,
             // Refund side of the same row: set once staff have sent the money
             // back, which is the only thing that closes out a cancelled paid
@@ -3040,6 +3132,8 @@ class OrderController extends Controller
             'payment_refunded_label' => $this->formatPhilippineLabel($payment?->refunded_at),
             'payment_refund_reference' => $payment?->refund_reference,
             'payment_action_label' => match (true) {
+                $status === 'refunded' => 'Refund sent',
+                $isConfirmed && $order->lifecycle_status === 'incoming' => 'Payment confirmed - awaiting order approval',
                 $isConfirmed => 'Payment confirmed',
                 $underReview => 'Payment under review',
                 $awaitingPayment => 'Pay with GCash',
@@ -3584,7 +3678,9 @@ class OrderController extends Controller
             'lifecycle_status' => $order->lifecycle_status,
             'lifecycle_status_label' => self::LIFECYCLE_LABELS[$order->lifecycle_status] ?? 'Pending',
             'customer_stage' => $order->customer_stage,
-            'customer_stage_label' => $this->stageLabel($order, $order->customer_stage),
+            'customer_stage_label' => $order->lifecycle_status === 'incoming' && $payment?->status === 'paid'
+                ? 'Awaiting approval'
+                : $this->stageLabel($order, $order->customer_stage),
             'stage_labels' => $this->stageLabels($order),
             'notes' => $order->notes,
             'courier_name' => $order->courier_name,
@@ -4038,6 +4134,8 @@ class OrderController extends Controller
             'amount' => (float) ($payment?->amount ?? $order->total),
             'amount_label' => $this->formatMoney((float) ($payment?->amount ?? $order->total)),
             'status' => $payment?->status ?? 'pending',
+            'payment_is_automated' => $this->paymentIsAutomated($order),
+            'payment_actions' => $this->buildPaymentActions($order),
             // What the customer claims, kept separate from what staff confirmed:
             // `date_submitted` is when they said they sent it, `date_paid` is when
             // it was matched in the FMRC GCash account.

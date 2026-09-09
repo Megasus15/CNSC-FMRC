@@ -238,18 +238,18 @@ class GcashManualPaymentRailTest extends TestCase
 
         $this->patchJson("/api/admin/orders/{$order->id}/payment-status", [
             'status' => 'paid',
+            'confirmed_received' => true,
         ])->assertOk();
 
         $payment = $order->fresh()->payment;
         $this->assertSame('paid', $payment->status);
         $this->assertNotNull($payment->paid_at);
 
-        // Confirming the money is also what releases the job to the shipping
-        // queue - staff do not have to remember to move it separately.
+        // Receiving money and accepting the job are separate confirmations.
         $fresh = $order->fresh();
-        $this->assertSame('to_ship', $fresh->customer_stage);
-        $this->assertSame('pending', $fresh->lifecycle_status);
-        $this->assertNotNull($fresh->approved_at);
+        $this->assertSame('to_pay', $fresh->customer_stage);
+        $this->assertSame('incoming', $fresh->lifecycle_status);
+        $this->assertNull($fresh->approved_at);
 
         $this->assertSame(1000.0, $this->reportedRevenue());
     }
@@ -262,19 +262,19 @@ class GcashManualPaymentRailTest extends TestCase
         $admin = User::factory()->create(['role' => 'admin']);
         Sanctum::actingAs($admin);
 
-        $this->patchJson("/api/admin/orders/{$order->id}/payment-status", ['status' => 'paid'])
+        $this->patchJson("/api/admin/orders/{$order->id}/payment-status", ['status' => 'paid', 'confirmed_received' => true])
             ->assertOk();
         $confirmedAt = $order->fresh()->payment->paid_at;
         $this->assertSame(1000.0, $this->reportedRevenue());
 
-        // Confirming twice must not re-stamp the timestamp reports read.
-        $this->patchJson("/api/admin/orders/{$order->id}/payment-status", ['status' => 'paid'])
-            ->assertOk();
+        // A duplicate confirmation is refused without changing the timestamp.
+        $this->patchJson("/api/admin/orders/{$order->id}/payment-status", ['status' => 'paid', 'confirmed_received' => true])
+            ->assertStatus(422);
         $this->assertTrue($confirmedAt->equalTo($order->fresh()->payment->paid_at));
 
         // A confirmation made by mistake is undone by setting it back to unpaid,
         // and the timestamp that made it revenue has to go with it.
-        $this->patchJson("/api/admin/orders/{$order->id}/payment-status", ['status' => 'pending'])
+        $this->patchJson("/api/admin/orders/{$order->id}/payment-status", ['status' => 'pending', 'correction_reason' => 'The receipt was matched to the wrong order.'])
             ->assertOk();
 
         $this->assertNull($order->fresh()->payment->paid_at);

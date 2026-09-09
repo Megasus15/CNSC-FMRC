@@ -8390,6 +8390,75 @@ document.addEventListener("DOMContentLoaded", () => {
     return sent && typeof sent === "object" ? sent : ORDER_STAGE_LABELS;
   };
 
+  const isOrderPaymentConfirmed = (order) =>
+    order?.payment_is_confirmed === true ||
+    String(order?.payment_status || "").toLowerCase() === "paid";
+
+  const isOrderPaymentRefunded = (order) =>
+    order?.payment_is_refunded === true ||
+    String(order?.payment_status || "").toLowerCase() === "refunded";
+
+  const isOrderAwaitingApproval = (order) =>
+    isOrderPaymentConfirmed(order) &&
+    String(order?.lifecycle_status || "").toLowerCase() === "incoming";
+
+  const canSubmitOrderPayment = (order) =>
+    !isOrderPaymentConfirmed(order) &&
+    !isOrderPaymentRefunded(order) &&
+    !["cancelled", "rejected", "completed"].includes(
+      String(order?.lifecycle_status || "").toLowerCase(),
+    ) &&
+    String(order?.customer_stage || "").toLowerCase() !== "completed" &&
+    Boolean(order?.awaiting_customer_payment || order?.payment_under_review);
+
+  const resolveOrderPaymentNotice = (order) => {
+    if (isOrderPaymentRefunded(order)) {
+      return {
+        label: "Payment refunded",
+        note: `FMRC has recorded your refund${order?.payment_refunded_label ? ` on ${order.payment_refunded_label}` : ""}${order?.payment_refund_reference ? `. Reference: ${order.payment_refund_reference}` : ""}. No further payment is needed.`,
+      };
+    }
+    if (isOrderPaymentConfirmed(order)) {
+      return {
+        label: "Payment confirmed",
+        note: order?.cancel_refund_due
+          ? "FMRC still needs to return your payment. Your refund will appear here once staff record it."
+          : order?.cancel_pending
+            ? "FMRC has received your payment. Staff are reviewing your cancellation request. No further payment is needed."
+            : isOrderAwaitingApproval(order)
+              ? "FMRC has received your payment. Your order is awaiting staff approval before preparation begins. No further payment is needed."
+              : "FMRC has received your payment. No further payment is needed.",
+      };
+    }
+    if (order?.payment_under_review && canSubmitOrderPayment(order)) {
+      return {
+        label: "Payment under review",
+        note: "FMRC is checking the reference you submitted. Do not send another payment while it is being reviewed.",
+      };
+    }
+    if (["cancelled", "rejected"].includes(String(order?.lifecycle_status || "").toLowerCase())) {
+      return {
+        label: "Payment not confirmed",
+        note: order?.cancel_refund_due
+          ? "FMRC will check whether your payment arrived and return any money received."
+          : "This order is closed. Do not send a payment.",
+      };
+    }
+    if (String(order?.lifecycle_status || "").toLowerCase() === "completed" || order?.customer_stage === "completed") {
+      return {
+        label: "Payment not confirmed",
+        note: "This order is completed. Contact FMRC if its payment record needs to be checked.",
+      };
+    }
+    const isGcash = String(order?.payment_method || "").toLowerCase() === "gcash";
+    return {
+      label: isGcash ? "Awaiting payment" : "Awaiting payment collection",
+      note: isGcash
+        ? "Submit your GCash reference after sending payment so FMRC can verify it."
+        : "Staff will confirm the payment after it has been collected.",
+    };
+  };
+
   const ORDER_LIFECYCLE_LABELS = {
     incoming: "Incoming",
     pending: "Pending",
@@ -9510,10 +9579,19 @@ document.addEventListener("DOMContentLoaded", () => {
           };
         }
 
-        // A GCash order sitting in To Pay has three meaningfully different
-        // states, and "To Pay" describes only the first of them.
+        // Payment confirmation and order approval are separate. A customer
+        // whose money has been confirmed must not be told to pay again.
         if (stage === "to_pay") {
-          if (order?.payment_under_review) {
+          if (isOrderAwaitingApproval(order)) {
+            return { label: "Awaiting approval", className: "status-to-pay is-review" };
+          }
+          if (isOrderPaymentConfirmed(order)) {
+            return { label: "Payment confirmed", className: "status-to-pay" };
+          }
+          if (isOrderPaymentRefunded(order)) {
+            return { label: "Refunded", className: "status-cancelled" };
+          }
+          if (order?.payment_under_review && canSubmitOrderPayment(order)) {
             return { label: "Under Review", className: "status-to-pay is-review" };
           }
           if (order?.payment_is_overdue) {
@@ -10719,6 +10797,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const overlayEl = document.createElement("div");
           overlayEl.className =
             "customer-rating-overlay customer-gcash-overlay ux-dlg";
+          overlayEl.dataset.orderId = String(order?.id || "");
           overlayEl.innerHTML = `
             <div class="customer-rating-card customer-gcash-card ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="gcashPayTitle">
               <div class="customer-rating-head ux-dlg__head">
@@ -10731,7 +10810,7 @@ document.addEventListener("DOMContentLoaded", () => {
               </div>
               <div class="customer-rating-body customer-gcash-body">
                 <div class="cgc-amount">
-                  <span class="cgc-amount-label">Amount to send</span>
+                  <span class="cgc-amount-label">${underReview ? "Payment amount under review" : "Amount to send"}</span>
                   <div class="cgc-amount-row">
                     <strong class="cgc-amount-value">${escapeHtml(amountText)}</strong>
                     <button type="button" class="cgc-copy-btn" data-gcash-copy="${escapeHtml(String(Number(order?.total_amount || 0).toFixed(2)))}">Copy</button>
@@ -10741,7 +10820,7 @@ document.addEventListener("DOMContentLoaded", () => {
                   underReview
                     ? `<div class="cgc-review">
                         <p class="cgc-review-title"><i class="fa-regular fa-hourglass-half" aria-hidden="true"></i> FMRC is checking your payment</p>
-                        <p class="cgc-review-body">Reference <strong>${escapeHtml(claimedRef || "submitted")}</strong>${order?.payment_submitted_at ? ` &bull; sent ${escapeHtml(formatOrderDate(order.payment_submitted_at))}` : ""}. Your order moves to <strong>To Ship</strong> once staff confirm the money arrived. Wrong number? Submit the correct one below.</p>
+                        <p class="cgc-review-body">Reference <strong>${escapeHtml(claimedRef || "submitted")}</strong>${order?.payment_submitted_at ? ` &bull; sent ${escapeHtml(formatOrderDate(order.payment_submitted_at))}` : ""}. Staff will confirm your payment and approve your order before preparing it for ${order?.is_pickup ? "pickup" : "delivery"}. Do not pay again while it is being checked. Wrong reference? Submit the correct one below.</p>
                         ${order?.payment_proof_url ? `<a class="cgc-review-proof" href="${escapeHtml(order.payment_proof_url)}" target="_blank" rel="noopener">View the screenshot you sent</a>` : ""}
                       </div>`
                     : deadline
@@ -10749,9 +10828,11 @@ document.addEventListener("DOMContentLoaded", () => {
                       : ""
                 }
                 ${
-                  collectible
-                    ? renderGcashHowToPay(settings, amountText)
-                    : `<p class="cgc-unavailable">FMRC has not published its GCash number or QR code yet, so there is nowhere to send the payment. Please contact FMRC before paying.</p>`
+                  underReview
+                    ? ""
+                    : collectible
+                      ? renderGcashHowToPay(settings, amountText)
+                      : `<p class="cgc-unavailable">FMRC has not published its GCash number or QR code yet, so there is nowhere to send the payment. Please contact FMRC before paying.</p>`
                 }
                 <div class="cgc-field">
                   <label class="customer-rating-field-label" for="cgcReferenceInput">GCash reference number <span class="cgc-req">*</span></label>
@@ -10829,6 +10910,16 @@ document.addEventListener("DOMContentLoaded", () => {
           errorEl.hidden = !message;
           referenceInput?.classList.toggle("has-error", Boolean(message));
         };
+
+        // Staff may confirm or close the order while this panel is open. The
+        // normal order poll also closes stale payment instructions immediately.
+        overlayEl.addEventListener("fmrc:payment-state-updated", (event) => {
+          const latest = event.detail;
+          if (!latest || settled || busy || canSubmitOrderPayment(latest)) return;
+          finish(null);
+          const notice = resolveOrderPaymentNotice(latest);
+          void showCustomerPopup(notice.note, { title: notice.label });
+        });
 
         referenceInput?.addEventListener("input", () => {
           const digits = referenceInput.value
@@ -11037,18 +11128,26 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
-        if (order.payment_is_confirmed) {
+        if (isOrderPaymentConfirmed(order)) {
           await showCustomerPopup(
-            "FMRC has already confirmed this payment. Nothing more is needed from you.",
+            resolveOrderPaymentNotice(order).note,
             { title: "Payment confirmed" },
           );
           return;
         }
 
-        if (String(order.lifecycle_status || "") === "rejected") {
+        if (isOrderPaymentRefunded(order)) {
           await showCustomerPopup(
-            "This order was rejected, so there is nothing to pay. Contact FMRC if you already sent the money.",
-            { title: "Order rejected" },
+            resolveOrderPaymentNotice(order).note,
+            { title: "Payment refunded" },
+          );
+          return;
+        }
+
+        if (!canSubmitOrderPayment(order)) {
+          await showCustomerPopup(
+            "This order is not accepting payment submissions. Refresh your orders to see its current status, or contact FMRC if you already sent money.",
+            { title: "Payment unavailable" },
           );
           return;
         }
@@ -11073,7 +11172,7 @@ document.addEventListener("DOMContentLoaded", () => {
         void refreshOrders(false, true);
 
         await showCustomerPopup(
-          "Thank you! FMRC will match your reference number against their GCash account. Your order moves to To Ship once the payment is confirmed.",
+          `Thank you! FMRC will verify your reference against their GCash account. Once payment is confirmed and staff approve your order, it can be prepared for ${updated.is_pickup ? "pickup" : "delivery"}. Do not send another payment while your reference is being checked.`,
           { title: "Reference number received" },
         );
       };
@@ -11624,9 +11723,14 @@ document.addEventListener("DOMContentLoaded", () => {
               // GCash placed before the money was sent. `awaiting_customer_payment`
               // and `payment_under_review` are the server's own read of the
               // payment row, so the button never contradicts what staff see.
-              const payActionsHtml = order.awaiting_customer_payment
+              const acceptsPayment = canSubmitOrderPayment(order);
+              const paymentNotice = resolveOrderPaymentNotice(order);
+              const paymentNoticeHtml = isOrderPaymentConfirmed(order) || isOrderPaymentRefunded(order) || order.payment_under_review
+                ? `<p class="customer-order-meta"><strong>${escapeHtml(paymentNotice.label)}.</strong>${isOrderAwaitingApproval(order) || order.payment_under_review || isOrderPaymentRefunded(order) ? ` ${escapeHtml(paymentNotice.note)}` : ""}</p>`
+                : "";
+              const payActionsHtml = acceptsPayment && order.awaiting_customer_payment
                 ? `<button type="button" class="customer-order-pay-btn${order.payment_is_overdue ? " is-overdue" : ""}" data-order-pay="${escapeHtml(order.id)}"><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i> Pay Now</button>`
-                : order.payment_under_review
+                : acceptsPayment && order.payment_under_review
                   ? `<button type="button" class="customer-order-pay-btn is-review" data-order-pay="${escapeHtml(order.id)}"><i class="fa-regular fa-hourglass-half" aria-hidden="true"></i> Payment under review</button>`
                   : "";
 
@@ -11677,6 +11781,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <h4>${productName}</h4>
                     <p class="customer-order-meta">Order ${orderNo} &bull; ${quantityLabel}</p>
                     <p class="customer-order-meta">${paymentMethod} &bull; ${formatOrderDate(order.created_at)}</p>
+                    ${paymentNoticeHtml}
                     ${cancelBandHtml}
                   </div>
                   <div class="customer-order-side">
@@ -11770,15 +11875,27 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
               </div>`;
 
-        const safeStatus = escapeHtml(
-          ORDER_LIFECYCLE_LABELS[
-            String(detail.lifecycle_status || "").toLowerCase()
-          ] ||
-            ORDER_STAGE_LABELS[
-              String(detail.customer_stage || "").toLowerCase()
-            ] ||
-            "Pending",
-        );
+        const safeStatus = escapeHtml(resolveOrderStatusMeta(detail).label);
+        const paymentNotice = resolveOrderPaymentNotice(detail);
+        const paymentRows = [
+          ["Status", paymentNotice.label],
+          ["Method", detail.payment_method],
+          ["Amount", detail.payment_amount_label || detail.total_label || formatOrderCurrency(detail.total_amount)],
+          ["Reference", detail.payment_reference_supplied ? detail.payment_reference : null],
+          ["Confirmed", detail.payment_confirmed_label],
+          ["Refunded", detail.payment_refunded_label],
+          ["Refund reference", detail.payment_refund_reference],
+        ];
+        const paymentDetailHtml = `
+          <div class="customer-order-detail-fulfillment">
+            <h4>Payment status</h4>
+            <dl class="customer-order-fulfillment-grid">${paymentRows
+              .filter(([, value]) => String(value || "").trim())
+              .map(([label, value]) => `<div class="customer-order-fulfillment-row"><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(String(value))}</dd></div>`)
+              .join("")}</dl>
+            <p class="customer-order-logistics-note">${escapeHtml(paymentNotice.note)}</p>
+          </div>
+        `;
 
         // The same three-way band the card shows, restated here because the
         // detail modal is where a customer goes to find out what happened to a
@@ -11948,6 +12065,7 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
 
           ${cancelDetailHtml}
+          ${paymentDetailHtml}
 
           <div class="customer-order-detail-items">
             <h4>Items (${detailItems.length || 1})</h4>
@@ -12472,6 +12590,12 @@ document.addEventListener("DOMContentLoaded", () => {
               state.cancelReasonOptions,
             );
             renderOrders();
+            document.querySelectorAll(".customer-gcash-overlay[data-order-id]").forEach((panel) => {
+              const latest = state.orders.find((order) => String(order.id) === panel.dataset.orderId);
+              if (latest) {
+                panel.dispatchEvent(new CustomEvent("fmrc:payment-state-updated", { detail: latest }));
+              }
+            });
           } else if (result.etag) {
             state.etag = result.etag;
           }
