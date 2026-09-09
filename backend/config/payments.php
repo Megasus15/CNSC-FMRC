@@ -76,6 +76,7 @@ return [
         'secret_key' => env('PAYMONGO_SECRET_KEY'),
         'public_key' => env('PAYMONGO_PUBLIC_KEY'),
         'webhook_secret' => env('PAYMONGO_WEBHOOK_SECRET'),
+        'sandbox_simulator' => (bool) env('PAYMONGO_TEST_SIMULATOR', false),
 
         /*
          | Where GCash sends the customer back to after they approve or cancel

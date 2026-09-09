@@ -247,7 +247,10 @@ class PayMongoWebhookController extends Controller
                     ]);
 
                     if ($order->customer_stage === 'to_pay') {
-                        $order->update(['customer_stage' => 'to_ship']);
+                        $order->update([
+                            'customer_stage' => 'to_ship',
+                            'payment_reference' => $paymongoPaymentId ?? $payment->paymongo_checkout_id ?? $order->payment_reference,
+                        ]);
 
                         OrderTrackingEvent::query()->create([
                             'order_id' => $order->id,
@@ -260,8 +263,27 @@ class PayMongoWebhookController extends Controller
                             'metadata' => json_encode([
                                 'payment_status' => 'paid',
                                 'gateway' => 'paymongo',
+                                'paymongo_payment_id' => $paymongoPaymentId,
                             ]),
                         ]);
+
+                        // Ensure admin and staff receive the real-time notification
+                        $orderNo = $order->order_no ?? "ORD-{$order->id}";
+                        $customerName = $order->customer_name ?? 'A customer';
+                        $amount = number_format((float) $payment->amount, 2, '.', ',');
+
+                        AdminNotification::query()->firstOrCreate(
+                            ['type' => 'order', 'title' => "GCash Payment Verified: {$orderNo}"],
+                            [
+                                'message' => "{$customerName}'s GCash payment of ₱{$amount} for {$orderNo} "
+                                    . 'was automatically confirmed via PayMongo. No manual verification needed.',
+                                'metadata' => json_encode([
+                                    'order_id' => $order->id,
+                                    'order_no' => $orderNo,
+                                    'gateway' => 'paymongo',
+                                ]),
+                            ]
+                        );
                     }
                 });
 

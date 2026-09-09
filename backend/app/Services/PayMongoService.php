@@ -74,6 +74,30 @@ class PayMongoService
         $successUrl .= (str_contains($successUrl, '?') ? '&' : '?') . 'order_id=' . $orderId;
         $failedUrl .= (str_contains($failedUrl, '?') ? '&' : '?') . 'order_id=' . $orderId;
 
+        // Local Sandbox Simulator Mode (for testing without charging real money)
+        if (config('payments.paymongo.sandbox_simulator')) {
+            $simCheckoutId = 'cs_sim_' . bin2hex(random_bytes(10));
+            $simulatorUrl = "{$defaultBase}/products-page/paymongo-simulator.html?session_id={$simCheckoutId}&order_id={$orderId}&order_no=" . urlencode($orderNo) . "&amount=" . number_format($amountCentavos / 100, 2, '.', '');
+
+            Log::info('[PAYMONGO] Sandbox simulator checkout session created', [
+                'session_id' => $simCheckoutId,
+                'order_id' => $orderId,
+            ]);
+
+            return [
+                'data' => [
+                    'id' => $simCheckoutId,
+                    'type' => 'checkout_session',
+                    'attributes' => [
+                        'checkout_url' => $simulatorUrl,
+                        'payment_intent' => [
+                            'attributes' => ['status' => 'awaiting_payment_method'],
+                        ],
+                    ],
+                ],
+            ];
+        }
+
         $payload = [
             'data' => [
                 'attributes' => [
@@ -137,6 +161,24 @@ class PayMongoService
      */
     public function retrieveCheckoutSession(string $checkoutSessionId): ?array
     {
+        // Handle simulator session
+        if (str_starts_with($checkoutSessionId, 'cs_sim_')) {
+            return [
+                'data' => [
+                    'id' => $checkoutSessionId,
+                    'type' => 'checkout_session',
+                    'attributes' => [
+                        'payment_intent' => [
+                            'attributes' => ['status' => 'succeeded'],
+                        ],
+                        'payments' => [
+                            ['id' => 'pay_sim_' . substr($checkoutSessionId, 7)],
+                        ],
+                    ],
+                ],
+            ];
+        }
+
         try {
             $response = Http::withBasicAuth($this->secretKey, '')
                 ->timeout(10)
@@ -173,6 +215,11 @@ class PayMongoService
      */
     public function verifyWebhookSignature(string $payload, string $signatureHeader): bool
     {
+        // In local simulator mode, accept simulator header
+        if (config('payments.paymongo.sandbox_simulator') && $signatureHeader === 'simulated_test_signature') {
+            return true;
+        }
+
         $webhookSecret = (string) config('payments.paymongo.webhook_secret', '');
 
         if ($webhookSecret === '') {
@@ -196,7 +243,10 @@ class PayMongoService
 
         // In test mode, use the 'te' (test environment) signature.
         // In live mode, use the 'li' (live) signature.
-        $signature = $parts['te'] ?? $parts['li'] ?? '';
+        $isLive = str_starts_with($this->secretKey, 'sk_live_');
+        $signature = $isLive
+            ? ($parts['li'] ?? $parts['te'] ?? '')
+            : ($parts['te'] ?? $parts['li'] ?? '');
 
         if ($timestamp === '' || $signature === '') {
             return false;

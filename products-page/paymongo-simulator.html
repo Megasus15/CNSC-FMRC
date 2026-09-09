@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pay with GCash – PayMongo Sandbox Simulator | CNSC-FMRC</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root {
+      --gcash-blue: #007dfe;
+      --gcash-dark-blue: #0056b3;
+      --gcash-light-bg: #f4f8fc;
+      --text-dark: #1e293b;
+      --text-muted: #64748b;
+      --card-border: #e2e8f0;
+      --success-green: #10b981;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      background: var(--gcash-light-bg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      color: var(--text-dark);
+    }
+
+    .simulator-container {
+      width: 100%;
+      max-width: 440px;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 125, 254, 0.12), 0 2px 8px rgba(0, 0, 0, 0.04);
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+    }
+
+    .simulator-header {
+      background: linear-gradient(135deg, #007dfe 0%, #0056b3 100%);
+      color: #ffffff;
+      padding: 1.5rem;
+      text-align: center;
+      position: relative;
+    }
+
+    .sandbox-pill {
+      display: inline-block;
+      background: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      margin-bottom: 0.6rem;
+      backdrop-filter: blur(4px);
+    }
+
+    .gcash-logo-text {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+    }
+
+    .merchant-sub {
+      font-size: 0.85rem;
+      opacity: 0.9;
+      margin-top: 0.25rem;
+    }
+
+    .simulator-body {
+      padding: 1.5rem;
+    }
+
+    .amount-card {
+      background: #f8fafc;
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 1rem;
+      text-align: center;
+      margin-bottom: 1.25rem;
+    }
+
+    .amount-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .amount-value {
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: var(--gcash-blue);
+      margin-top: 0.2rem;
+    }
+
+    .order-reference {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-dark);
+      margin-bottom: 0.35rem;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 0.75rem 0.9rem;
+      font-size: 0.95rem;
+      border: 1.5px solid var(--card-border);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--text-dark);
+      outline: none;
+      transition: border-color 0.15s ease;
+    }
+
+    .form-input:focus {
+      border-color: var(--gcash-blue);
+    }
+
+    .btn-pay {
+      width: 100%;
+      background: var(--gcash-blue);
+      color: #ffffff;
+      border: none;
+      padding: 0.85rem;
+      font-size: 1rem;
+      font-weight: 700;
+      border-radius: 9999px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 1.2rem;
+      transition: background-color 0.15s ease, transform 0.05s ease;
+    }
+
+    .btn-pay:hover {
+      background: var(--gcash-dark-blue);
+    }
+
+    .btn-pay:active {
+      transform: scale(0.99);
+    }
+
+    .btn-cancel {
+      width: 100%;
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+      padding: 0.65rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 0.5rem;
+    }
+
+    .btn-cancel:hover {
+      color: #dc2626;
+    }
+
+    .secure-footer {
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+    }
+  </style>
+</head>
+<body>
+
+<div class="simulator-container">
+  <div class="simulator-header">
+    <div class="sandbox-pill"><i class="fa-solid fa-flask" aria-hidden="true"></i> Test Simulator Mode</div>
+    <div class="gcash-logo-text">
+      <i class="fa-solid fa-wallet" aria-hidden="true"></i> GCash
+    </div>
+    <div class="merchant-sub">CNSC-FMRC E-Store Checkout</div>
+  </div>
+
+  <div class="simulator-body">
+    <div class="amount-card">
+      <div class="amount-label">Amount Due</div>
+      <div class="amount-value" id="dispAmount">₱0.00</div>
+      <div class="order-reference" id="dispOrderNo">Order ORD-—</div>
+    </div>
+
+    <form id="simForm">
+      <div class="form-group">
+        <label class="form-label" for="simPhone">GCash Mobile Number</label>
+        <input type="text" id="simPhone" class="form-input" value="0917 123 4567" required readonly>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="simOtp">6-Digit One-Time PIN (MPIN / OTP)</label>
+        <input type="password" id="simOtp" class="form-input" value="123456" maxlength="6" required>
+        <small style="font-size:0.75rem; color:var(--text-muted); margin-top:0.25rem; display:block;">
+          <i class="fa-solid fa-circle-info" aria-hidden="true"></i> Test PIN is pre-filled. Click Authorize & Pay to complete.
+        </small>
+      </div>
+
+      <button type="submit" id="btnSubmit" class="btn-pay">
+        <i class="fa-solid fa-check-circle" aria-hidden="true"></i> Authorize & Pay <span id="btnPayAmount">₱0.00</span>
+      </button>
+
+      <button type="button" id="btnCancel" class="btn-cancel">
+        Cancel and return to store
+      </button>
+    </form>
+
+    <div class="secure-footer">
+      <i class="fa-solid fa-shield-halved" aria-hidden="true"></i> PayMongo Verified GCash Rail | FMRC Sandbox
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get('session_id') || ('cs_sim_' + Math.random().toString(36).substring(2, 10));
+    const orderId = params.get('order_id') || '';
+    const orderNo = decodeURIComponent(params.get('order_no') || 'ORD');
+    const amount = params.get('amount') || '0.00';
+
+    const dispAmount = document.getElementById('dispAmount');
+    const dispOrderNo = document.getElementById('dispOrderNo');
+    const btnPayAmount = document.getElementById('btnPayAmount');
+    const btnSubmit = document.getElementById('btnSubmit');
+    const btnCancel = document.getElementById('btnCancel');
+    const simForm = document.getElementById('simForm');
+
+    const formattedAmount = '₱' + Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    if (dispAmount) dispAmount.textContent = formattedAmount;
+    if (btnPayAmount) btnPayAmount.textContent = formattedAmount;
+    if (dispOrderNo) dispOrderNo.textContent = 'Order ' + orderNo;
+
+    const API_BASE = (() => {
+      const proto = window.location.protocol;
+      const host = window.location.hostname;
+      if (host === 'localhost' || host === '127.0.0.1') {
+        return 'http://127.0.0.1:8000/api';
+      }
+      return `${proto}//${window.location.host}/api`;
+    })();
+
+    simForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      btnSubmit.disabled = true;
+      btnSubmit.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Authorizing payment...';
+
+      const simPaymentId = 'pay_sim_' + Date.now();
+      const webhookPayload = {
+        data: {
+          id: 'evt_sim_' + Date.now(),
+          type: 'event',
+          attributes: {
+            type: 'checkout_session.payment.paid',
+            data: {
+              id: sessionId,
+              type: 'checkout_session',
+              attributes: {
+                payments: [{ id: simPaymentId }],
+                metadata: {
+                  order_id: Number(orderId),
+                  order_no: orderNo,
+                  payment_id: Number(orderId)
+                }
+              }
+            }
+          }
+        }
+      };
+
+      try {
+        // Send simulated webhook
+        await fetch(`${API_BASE}/webhooks/paymongo`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Paymongo-Signature': 'simulated_test_signature'
+          },
+          body: JSON.stringify(webhookPayload)
+        });
+      } catch (err) {
+        console.warn('Simulator webhook delivery error (fallback poll will confirm):', err);
+      }
+
+      // Redirect back to store success URL
+      window.location.href = `product.html?payment=success&order_id=${encodeURIComponent(orderId)}`;
+    });
+
+    btnCancel.addEventListener('click', function() {
+      window.location.href = `product.html?payment=failed&order_id=${encodeURIComponent(orderId)}`;
+    });
+  })();
+</script>
+
+</body>
+</html>
