@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\InventoryItemController;
 use App\Http\Controllers\Api\MaintenanceController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\PayMongoWebhookController;
 use App\Http\Controllers\Api\OrderReturnController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\ProductAnalyticsController;
@@ -130,6 +131,13 @@ Route::get('/site-sdgs', [HomeSdgController::class, 'index']);
 // place that knows which companies FMRC ships through.
 Route::get('/couriers', [OrderController::class, 'couriers']);
 
+// ─── PayMongo Webhook (public, no auth — called by PayMongo servers) ───────
+// PayMongo POSTs here after a GCash payment succeeds or fails. Security is
+// handled by HMAC signature verification inside the controller, not by
+// Sanctum, because PayMongo is the caller, not a logged-in customer.
+Route::post('/webhooks/paymongo', [PayMongoWebhookController::class, 'handleWebhook']);
+// ────────────────────────────────────────────────────────────────────────────
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/users', [AuthController::class, 'getUsers']);
     Route::post('/users', [AuthController::class, 'adminCreateUser']);
@@ -152,6 +160,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Customer: submit the GCash reference number for an order placed to be paid
     // later. Records a claim for staff to verify; it never marks the order paid.
     Route::post('/customer/orders/{order}/payment', [OrderController::class, 'customerSubmitPayment']);
+
+    // Customer: poll the payment status after returning from PayMongo's GCash page.
+    // The webhook usually arrives first, but this lets the frontend show
+    // "Payment confirmed" immediately instead of waiting for the next poll.
+    Route::get('/customer/orders/{order}/payment-status', [PayMongoWebhookController::class, 'checkPaymentStatus']);
 
     // Customer: call off an order that has not been handed over yet. The server
     // decides whether this cancels outright (nothing paid, nothing prepared) or

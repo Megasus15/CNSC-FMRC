@@ -21,6 +21,8 @@ class Payment extends Model
         'status',
         'submitted_at',
         'proof_path',
+        'paymongo_checkout_id',
+        'paymongo_payment_id',
         'paid_at',
         'refunded_at',
         'refund_reference',

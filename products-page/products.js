@@ -894,6 +894,142 @@ document.addEventListener("DOMContentLoaded", () => {
   // a real-time grid reload. This function is called at the END of every
   // loadProducts() run — both on success and on error — so the modal always
   // appears AFTER the page has fully refreshed, never during it.
+  //
+  // PayMongo addition: when the customer returns from GCash checkout, the URL
+  // has ?payment=success&order_id=123. We detect this, poll the backend for
+  // payment confirmation, and show an appropriate message.
+
+  // Handle PayMongo return (runs once on page load)
+  const handlePayMongoReturn = async () => {
+    const params = new URLSearchParams(window.location.search);
+    const paymentResult = params.get("payment");
+    const orderId = params.get("order_id");
+
+    if (!paymentResult) return; // Not a PayMongo return
+
+    // Clean the URL so a refresh does not re-trigger this
+    const cleanUrl = window.location.pathname;
+    window.history.replaceState({}, "", cleanUrl);
+
+    if (paymentResult === "success" && orderId) {
+      // Poll the backend to check if the webhook has already confirmed payment
+      try {
+        const token =
+          (() => {
+            try {
+              return localStorage.getItem("customer_token");
+            } catch {
+              return null;
+            }
+          })() || "";
+
+        if (token) {
+          const statusResponse = await fetch(
+            `${API_BASE_URL}/customer/orders/${orderId}/payment-status`,
+            {
+              headers: {
+                Accept: "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+            },
+          );
+
+          if (statusResponse.ok) {
+            const statusData = await statusResponse.json();
+            console.info(
+              `[FMRC] PayMongo payment status for order ${orderId}: ${statusData.status}`,
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("[FMRC] Could not poll payment status:", err);
+      }
+
+      // Show the success modal using the stored order info
+      let raw;
+      try {
+        raw = sessionStorage.getItem("fmrc_pending_order_success");
+      } catch {
+        /* ignore */
+      }
+
+      let orderNo = "";
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          orderNo = String(parsed?.orderNo || "");
+        } catch {
+          /* ignore */
+        }
+        try {
+          sessionStorage.removeItem("fmrc_pending_order_success");
+        } catch {
+          /* ignore */
+        }
+      }
+
+      const modal = document.getElementById("orderSuccessModal");
+      const numEl = document.getElementById("orderSuccessNumber");
+      const okBtn = document.getElementById("orderSuccessOkBtn");
+
+      if (modal && okBtn) {
+        if (numEl) numEl.textContent = orderNo || "—";
+        modal.classList.add("active");
+        modal.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+
+        const handleOk = () => {
+          okBtn.removeEventListener("click", handleOk);
+          modal.classList.remove("active");
+          modal.setAttribute("aria-hidden", "true");
+          document.body.style.overflow = "";
+        };
+        okBtn.addEventListener("click", handleOk);
+      } else {
+        console.info(
+          `[FMRC] GCash payment successful for order: ${orderNo || orderId}`,
+        );
+      }
+    } else if (paymentResult === "failed") {
+      // Payment was cancelled or failed at GCash
+      console.warn(`[FMRC] GCash payment failed/cancelled for order ${orderId}`);
+      try {
+        sessionStorage.removeItem("fmrc_pending_order_success");
+      } catch {
+        /* ignore */
+      }
+
+      // Show a failure message (the order still exists as "To Pay" for manual payment)
+      const failModal = document.getElementById("orderSuccessModal");
+      const failNumEl = document.getElementById("orderSuccessNumber");
+      const failOkBtn = document.getElementById("orderSuccessOkBtn");
+      const failTitle = failModal?.querySelector("h3, .order-success-title");
+
+      if (failModal && failOkBtn) {
+        if (failTitle) failTitle.textContent = "Payment Cancelled";
+        if (failNumEl)
+          failNumEl.textContent =
+            "Your order was placed but payment was not completed. You can still pay from My Orders.";
+        failModal.classList.add("active");
+        failModal.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+
+        const handleFailOk = () => {
+          failOkBtn.removeEventListener("click", handleFailOk);
+          failModal.classList.remove("active");
+          failModal.setAttribute("aria-hidden", "true");
+          document.body.style.overflow = "";
+          // Restore original title if changed
+          if (failTitle) failTitle.textContent = "Order Placed Successfully!";
+        };
+        failOkBtn.addEventListener("click", handleFailOk);
+      }
+    }
+  };
+
+  // Run the PayMongo return handler immediately
+  handlePayMongoReturn();
+
   const checkAndShowPendingOrderSuccess = () => {
     let raw;
     try {

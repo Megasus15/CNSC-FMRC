@@ -35,6 +35,9 @@ class SiteSettingController extends Controller
             $data[$row->key] = $row->value;
         }
 
+        // Inform the frontend checkout whether manual QR or automated PayMongo is live
+        $data['payment_gateway'] = config('payments.gateway', 'manual');
+
         $payload = ['data' => $data];
 
         $etag = '"' . hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) . '"';

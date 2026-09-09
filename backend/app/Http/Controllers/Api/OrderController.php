@@ -12,6 +12,7 @@ use App\Models\Payment;
 use App\Models\Product;
 use App\Models\ProductRating;
 use App\Models\Promotion;
+use App\Services\PayMongoService;
 use App\Support\OrderNotifier;
 use App\Support\ReturnPresenter;
 use DateTimeInterface;
@@ -446,7 +447,7 @@ class OrderController extends Controller
                     $product->save();
                 }
 
-                Payment::query()->create([
+                $paymentRecord = Payment::query()->create([
                     'order_id' => $order->id,
                     'payment_no' => $this->generatePaymentNo((int) $order->id),
                     'method' => $paymentMethod,
@@ -568,9 +569,63 @@ class OrderController extends Controller
             );
             $this->sendCustomerOrderEmail($createdOrder, "Order Received – {$orderNoLabel}", $emailHtml);
 
+            // ── PayMongo checkout session ────────────────────────────────────
+            // When the payment gateway is set to "paymongo" and the customer
+            // chose GCash, create a hosted checkout session so PayMongo can
+            // collect the money through GCash's own interface. The checkout_url
+            // is returned to the frontend, which redirects the browser there.
+            $checkoutUrl = null;
+            $usePaymongo = config('payments.gateway') === 'paymongo'
+                && $paymentMethod === 'GCash';
+
+            if ($usePaymongo) {
+                $payMongo = app(PayMongoService::class);
+
+                if ($payMongo->isConfigured()) {
+                    $orderNoLabel = $createdOrder->order_no ?? "ORD-{$createdOrder->id}";
+                    $amountCentavos = (int) round($totalAmount * 100);
+
+                    $session = $payMongo->createCheckoutSession(
+                        amountCentavos: $amountCentavos,
+                        description: "FMRC Order {$orderNoLabel}",
+                        orderNo: $orderNoLabel,
+                        orderId: (int) $createdOrder->id,
+                        paymentId: (int) $createdOrder->payment->id,
+                    );
+
+                    if ($session) {
+                        $checkoutId = $session['data']['id'] ?? null;
+                        $checkoutUrl = $session['data']['attributes']['checkout_url'] ?? null;
+
+                        // Store the checkout session ID so the webhook handler can
+                        // find this payment record when PayMongo calls back.
+                        if ($checkoutId) {
+                            $createdOrder->payment->update([
+                                'paymongo_checkout_id' => $checkoutId,
+                            ]);
+                        }
+                    } else {
+                        // PayMongo session creation failed — log it but do NOT
+                        // block the order. The customer falls back to the manual
+                        // GCash flow (enter reference number from My Orders).
+                        Log::warning('[ORDERS] PayMongo checkout session failed, falling back to manual GCash', [
+                            'order_id' => $createdOrder->id,
+                        ]);
+                    }
+                }
+            }
+
+            $responseData = $this->transformOrderDetail($createdOrder, false, true);
+
+            // Include the PayMongo checkout URL so the frontend knows to
+            // redirect the customer to GCash instead of showing "To Pay".
+            if ($checkoutUrl) {
+                $responseData['checkout_url'] = $checkoutUrl;
+            }
+
             return response()->json([
                 'message' => 'Order placed successfully.',
-                'data' => $this->transformOrderDetail($createdOrder, false, true),
+                'data' => $responseData,
             ], 201);
 
         } catch (\RuntimeException $e) {

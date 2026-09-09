@@ -2724,16 +2724,18 @@ document.addEventListener("DOMContentLoaded", () => {
       accountName: String(published?.accountName || "").trim(),
       accountNumber: String(published?.accountNumber || "").trim(),
       qrImage: String(published?.qrImage || "").trim(),
+      gateway: String(published?.gateway || "manual").trim(),
     };
   };
 
   /**
    * True when GCash can actually be paid: staff must have published a number to
-   * send to, or a QR to scan. Without either there is nowhere for the money to
-   * go, so the option is blocked rather than failing at submit.
+   * send to, or a QR to scan. When automated PayMongo gateway is active,
+   * collection is always ready.
    */
   const isGcashCollectionReady = () => {
     const settings = getGcashSettings();
+    if (settings.gateway === "paymongo") return true;
     return Boolean(settings.accountNumber || settings.qrImage);
   };
 
@@ -2857,6 +2859,29 @@ document.addEventListener("DOMContentLoaded", () => {
       gcashAccountNameEl.textContent = settings.accountName || "—";
     if (gcashAccountNumberEl)
       gcashAccountNumberEl.textContent = settings.accountNumber || "—";
+    const isPayMongo = settings.gateway === "paymongo";
+    const refGroup = gcashReferenceInput?.closest(".gcash-reference-group");
+    const accountCard = gcashAccountNameEl?.closest(".gcash-account-card");
+
+    if (isPayMongo) {
+      if (accountCard) accountCard.hidden = true;
+      if (gcashQrBlock) gcashQrBlock.hidden = true;
+      if (gcashMobileBlock) gcashMobileBlock.hidden = true;
+      if (gcashSteps) gcashSteps.hidden = true;
+      if (gcashPayLaterNote) gcashPayLaterNote.hidden = true;
+      if (refGroup) refGroup.hidden = true;
+      if (gcashReferenceInput) gcashReferenceInput.disabled = true;
+      if (gcashUnconfiguredNote) {
+        gcashUnconfiguredNote.textContent =
+          "⚡ Automated GCash Payment: When you click Place Order, you will be redirected to the secure GCash payment gateway to authorize payment. Your order will be confirmed immediately.";
+        gcashUnconfiguredNote.hidden = false;
+      }
+      return;
+    }
+
+    // Manual GCash rail
+    if (accountCard) accountCard.hidden = false;
+    if (refGroup) refGroup.hidden = false;
     if (gcashCopyNumberBtn)
       gcashCopyNumberBtn.hidden = !settings.accountNumber;
 
@@ -2899,6 +2924,11 @@ document.addEventListener("DOMContentLoaded", () => {
    * reconcile, and GCash with nowhere to send the money.
    */
   const validateGcashPaymentStep = () => {
+    if (getGcashSettings().gateway === "paymongo") {
+      clearCheckoutFieldError("gcashReferenceInput");
+      return { ok: true, reference: "" };
+    }
+
     if (!isGcashCollectionReady()) {
       return {
         ok: false,
@@ -4424,7 +4454,62 @@ document.addEventListener("DOMContentLoaded", () => {
             (orderNoRaw ? `#${orderNoRaw}` : ""),
         ).trim();
 
-        // â”€â”€ Step 1: Persist order-success info so products.js can show the
+        // -- PayMongo GCash redirect -----------------------------------------
+        // When the backend creates a PayMongo checkout session, it returns
+        // a checkout_url. Instead of showing the normal `To Pay'' flow, we
+        // redirect the customer to PayMongo's hosted GCash checkout page.
+        // After payment, PayMongo redirects them back to our success URL.
+        const checkoutUrl = data?.data?.checkout_url;
+        if (checkoutUrl) {
+          // Save the order info so the success page can display it
+          try {
+            sessionStorage.setItem(
+              "fmrc_pending_order_success",
+              JSON.stringify({
+                orderNo: orderNoDisplay || orderNoRaw || "",
+                ts: Date.now(),
+                gateway: "paymongo",
+                orderId: data?.data?.id || null,
+              }),
+            );
+          } catch {
+            /* ignore storage errors */
+          }
+
+          // Clear cart items before redirecting
+          if (useCartCheckout && cartItemsContainer) {
+            const checkedCartInputs = cartItemsContainer.querySelectorAll(
+              ".cart-item-check:checked",
+            );
+            checkedCartInputs.forEach((checkedInput) => {
+              checkedInput.closest(".cart-item-card")?.remove();
+            });
+            updateCartTotals();
+            await persistCartItems();
+          }
+
+          // Clean up the checkout state
+          currentCheckoutMode = "single";
+          currentCheckoutItems = [];
+          setCheckoutQtyLock(false);
+          if (gcashReferenceInput) gcashReferenceInput.value = "";
+          clearCheckoutFieldError("gcashReferenceInput");
+          if (gcashOpenAppHint) gcashOpenAppHint.textContent = "";
+          checkoutModal.classList.remove("show-modal");
+          document.body.style.overflow = "";
+          this.disabled = false;
+          this.innerText = originalText;
+          window.FMRCLoader?.hide();
+
+          // Redirect to PayMongo's GCash checkout page
+          console.info(
+            `[FMRC] Redirecting to PayMongo GCash checkout: ${checkoutUrl}`,
+          );
+          window.location.href = checkoutUrl;
+          return; // Stop here - browser is navigating away
+        }
+
+        // -- Step 1: Persist order-success info so products.js can show the
         //   success modal AFTER the product grid finishes reloading.
         //   This prevents the refresh cycle from dismissing the modal.
         try {
@@ -14276,6 +14361,7 @@ const openReturnRequestModal = (() => {
       accountName: String(s.gcash_account_name || "").trim(),
       accountNumber: String(s.gcash_account_number || "").trim(),
       qrImage: String(s.gcash_qr_image || "").trim(),
+      gateway: String(s.payment_gateway || "manual").trim(),
     };
     var previous = window.FMRC_GCASH_SETTINGS;
     window.FMRC_GCASH_SETTINGS = next;
@@ -14283,7 +14369,8 @@ const openReturnRequestModal = (() => {
       previous &&
       previous.accountName === next.accountName &&
       previous.accountNumber === next.accountNumber &&
-      previous.qrImage === next.qrImage
+      previous.qrImage === next.qrImage &&
+      previous.gateway === next.gateway
     ) {
       return;
     }
