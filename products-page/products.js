@@ -86,8 +86,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const notifyCustomer = async (message, options = {}) => {
-    if (typeof showCustomerPopup === "function") {
-      await showCustomerPopup(message, options);
+    const popupFn = window.showCustomerPopup || (typeof showCustomerPopup === "function" ? showCustomerPopup : null);
+    if (popupFn) {
+      await popupFn(message, options);
       return;
     }
     window.alert(message);

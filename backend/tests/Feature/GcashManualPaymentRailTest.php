@@ -256,8 +256,11 @@ class GcashManualPaymentRailTest extends TestCase
 
     public function test_unconfirming_a_payment_takes_the_money_back_out_of_revenue(): void
     {
-        $customer = User::factory()->create(['role' => 'customer']);
+        $customer = $this->actingAsCustomer();
         $order = $this->makeUnpaidGcashOrder($customer);
+        $this->postJson("/api/customer/orders/{$order->id}/payment", [
+            'payment_reference' => self::REFERENCE,
+        ])->assertOk();
 
         $admin = User::factory()->create(['role' => 'admin']);
         Sanctum::actingAs($admin);

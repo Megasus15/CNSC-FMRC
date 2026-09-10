@@ -114,6 +114,68 @@ class OrderPaymentVerificationTest extends TestCase
         $this->assertSame('paid', $order->fresh()->payment->status);
     }
 
+    public function test_a_customer_reference_change_requires_staff_to_review_the_new_evidence(): void
+    {
+        $order = $this->makeOrder();
+        $this->asStaff();
+        $snapshot = $this->getJson("/api/admin/orders/{$order->id}")->assertOk()->json('data');
+        $this->assertIsNumeric($snapshot['payment_amount']);
+
+        Sanctum::actingAs($order->customer);
+        $this->postJson("/api/customer/orders/{$order->id}/payment", ['payment_reference' => '9876543210987'])->assertOk();
+        $events = $order->trackingEvents()->count();
+
+        $this->asStaff();
+        $this->patchJson($this->endpoint($order), $this->action('paid') + [
+            'expected_status' => 'pending',
+            'expected_reference' => $snapshot['payment_reference'],
+            'expected_amount' => $snapshot['payment_amount'],
+        ])->assertStatus(409);
+        $this->assertSame('pending', $order->fresh()->payment->status);
+        $this->assertNull($order->fresh()->payment->paid_at);
+        $this->assertSame($events, $order->trackingEvents()->count());
+
+        $this->patchJson($this->endpoint($order), $this->action('paid') + [
+            'expected_status' => 'pending', 'expected_reference' => '9876543210987', 'expected_amount' => 1000,
+        ])->assertOk()->assertJsonPath('order.payment_is_confirmed', true);
+    }
+
+    public function test_a_changed_payment_amount_cannot_be_confirmed_from_an_old_review(): void
+    {
+        $order = $this->makeOrder();
+        $this->asStaff();
+        $snapshot = $this->getJson("/api/admin/orders/{$order->id}")->assertOk()->json('data');
+        $order->payment->update(['amount' => 1100.50]);
+
+        $this->patchJson($this->endpoint($order), $this->action('paid') + [
+            'expected_reference' => $snapshot['payment_reference'], 'expected_amount' => $snapshot['payment_amount'],
+        ])->assertStatus(409);
+        $this->assertSame('pending', $order->fresh()->payment->status);
+        $this->assertNull($order->fresh()->payment->paid_at);
+
+        $this->patchJson($this->endpoint($order), $this->action('paid') + [
+            'expected_reference' => $snapshot['payment_reference'], 'expected_amount' => '1100.50',
+        ])->assertOk()->assertJsonPath('order.payment_amount', 1100.5);
+    }
+
+    public function test_gcash_confirmation_waits_for_a_customer_claim_but_cash_does_not(): void
+    {
+        $this->asStaff();
+        foreach (['Awaiting GCash reference', 'GCASH-LEGACY'] as $reference) {
+            $order = $this->makeOrder(['payment_reference' => $reference]);
+            $this->getJson("/api/admin/orders/{$order->id}")
+                ->assertOk()->assertJsonPath('data.payment_actions.paid.allowed', false)
+                ->assertJsonPath('data.awaiting_customer_payment', true);
+            $this->patchJson($this->endpoint($order), $this->action('paid'))->assertUnprocessable();
+            $this->assertNull($order->fresh()->payment->paid_at);
+        }
+
+        $cash = $this->makeOrder(['payment_method' => 'COP', 'payment_reference' => 'Cash on pickup']);
+        $this->patchJson($this->endpoint($cash), $this->action('paid'))
+            ->assertOk()->assertJsonPath('order.payment_is_confirmed', true)
+            ->assertJsonPath('order.lifecycle_status', 'incoming');
+    }
+
     public function test_actual_receipt_must_be_acknowledged_before_confirming(): void
     {
         $order = $this->makeOrder();
@@ -174,7 +236,7 @@ class OrderPaymentVerificationTest extends TestCase
 
     public function test_an_unpaid_cancelled_order_without_a_customer_claim_has_nothing_to_refund(): void
     {
-        $order = $this->makeOrder(['lifecycle_status' => 'cancelled']);
+        $order = $this->makeOrder(['lifecycle_status' => 'cancelled', 'payment_reference' => 'Awaiting GCash reference']);
         $this->asStaff();
         $this->patchJson($this->endpoint($order), $this->action('refunded'))->assertUnprocessable();
         $this->assertNull($order->fresh()->payment->refunded_at);
@@ -185,13 +247,22 @@ class OrderPaymentVerificationTest extends TestCase
     public function test_real_provider_ids_disable_manual_changes_but_a_reference_prefix_does_not(): void
     {
         $this->asStaff();
-        $gateway = $this->makeOrder([], ['paymongo_checkout_id' => 'cs_123']);
-        $this->getJson("/api/admin/orders/{$gateway->id}")
-            ->assertOk()->assertJsonPath('data.payment_is_automated', true)->assertJsonPath('data.payment_actions.paid.allowed', false);
-        foreach (['paid', 'pending', 'refunded'] as $next) {
-            $this->patchJson($this->endpoint($gateway), $this->action($next))->assertUnprocessable();
+        foreach (['paymongo_checkout_id' => 'cs_123', 'paymongo_payment_id' => 'pay_123'] as $field => $id) {
+            $gateway = $this->makeOrder([], [$field => $id]);
+            $this->getJson("/api/admin/orders/{$gateway->id}")
+                ->assertOk()->assertJsonPath('data.payment_is_automated', true)->assertJsonPath('data.payment_actions.paid.allowed', false);
+            foreach (['paid', 'pending', 'refunded'] as $next) {
+                $this->patchJson($this->endpoint($gateway), $this->action($next))->assertUnprocessable();
+            }
+            Sanctum::actingAs($gateway->customer);
+            $this->getJson("/api/customer/orders/{$gateway->id}")
+                ->assertOk()->assertJsonPath('data.awaiting_customer_payment', false)
+                ->assertJsonPath('data.payment_under_review', false);
+            $this->postJson("/api/customer/orders/{$gateway->id}/payment", ['payment_reference' => '9876543210987'])
+                ->assertUnprocessable();
+            $this->asStaff();
         }
-        $manual = $this->makeOrder([], ['reference' => 'GCASH-LEGACY']);
+        $manual = $this->makeOrder([], ['reference' => 'GCASH-LEGACY', 'submitted_at' => now()]);
         $this->patchJson($this->endpoint($manual), $this->action('paid'))
             ->assertOk()->assertJsonPath('order.payment_is_automated', false);
     }
@@ -238,7 +309,7 @@ class OrderPaymentVerificationTest extends TestCase
             'order_no' => 'ORD-PAY-'.fake()->unique()->numerify('######'),
             'customer_id' => $customer->id, 'customer_name' => $customer->name, 'customer_contact' => $customer->email,
             'quantity' => 1, 'subtotal' => 1000, 'total' => 1000,
-            'payment_method' => 'GCash', 'payment_reference' => 'Awaiting GCash reference',
+            'payment_method' => 'GCash', 'payment_reference' => '1234567890123',
             'fulfillment_type' => 'pickup', 'lifecycle_status' => 'incoming', 'customer_stage' => 'to_pay',
         ], $attributes));
         Payment::create(array_merge([

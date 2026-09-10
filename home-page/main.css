@@ -8632,7 +8632,7 @@ body.sidebar-open {
 .admin-system-popup {
   position: fixed;
   inset: 0;
-  z-index: 30020;
+  z-index: 1000005;
   display: none;
   align-items: center;
   justify-content: center;

@@ -79,6 +79,28 @@
   background: #f0fdf4;
 }
 
+.tiktok-icon-gcash {
+  background: transparent;
+}
+
+#checkoutModal .checkout-gcash-icon {
+  display: block;
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
+#checkoutModal .cod-wordmark {
+  font-family: "Montserrat", sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.3px;
+  color: #15803d;
+}
+
+/* Legacy badge styles retained for older payment markup. */
 .cod-badge {
   font-family: "Montserrat", sans-serif;
   font-size: 0.72rem;
@@ -89,12 +111,6 @@
   padding: 4px 7px;
   border-radius: 6px;
   line-height: 1;
-}
-
-.tiktok-icon-gcash {
-  background: #007DFE;
-  color: #ffffff;
-  box-shadow: 0 2px 6px rgba(0, 125, 254, 0.25);
 }
 
 .gcash-logo-badge {
@@ -219,13 +235,13 @@
 .link-gcash-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.65);
+  background: var(--ux-dlg-scrim, rgba(15, 23, 42, 0.55));
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 999999;
+  z-index: 100000;
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.22s ease, visibility 0.22s ease;
@@ -238,100 +254,164 @@
 }
 
 .link-gcash-modal-box {
-  background: #ffffff;
-  width: 100%;
-  max-width: 420px;
-  border-radius: 20px;
-  box-shadow: 0 24px 48px rgba(35, 8, 8, 0.3);
+  background: var(--customer-paper, #ffffff);
+  width: min(100%, 460px);
+  max-width: min(100%, 460px);
+  border: 1px solid var(--ux-dlg-edge, rgba(241, 237, 18, 0.6));
+  border-radius: var(--ux-dlg-radius, 8px);
+  box-shadow: var(--ux-dlg-shadow, 0 30px 78px rgba(27, 4, 4, 0.5));
   overflow: hidden;
-  transform: scale(0.97);
-  transition: transform 0.22s cubic-bezier(0.34, 1.3, 0.64, 1);
+  transform: translateY(16px) scale(0.975);
+  transition: transform 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .link-gcash-modal-overlay.active .link-gcash-modal-box {
-  transform: scale(1);
+  transform: none;
 }
 
 .link-gcash-modal-header {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0;
+  padding: clamp(15px, 3.2vw, 19px) var(--ux-dlg-pad-x, 24px) 15px;
+  padding-right: max(64px, var(--ux-dlg-pad-x, 24px));
   background: var(--ux-dlg-band, linear-gradient(135deg, #3d0808 0%, #5f0d0d 52%, #851313 100%));
   color: #ffffff;
-  padding: 16px 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid rgba(241, 237, 18, 0.2);
+  border-bottom: none;
 }
 
-.link-gcash-header-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-family: "Montserrat", sans-serif;
-  font-size: 1rem;
-  font-weight: 700;
-  color: #ffffff;
-  letter-spacing: -0.01em;
+.link-gcash-modal-header::after {
+  content: "";
+  position: absolute;
+  right: -38px;
+  bottom: -105px;
+  width: 170px;
+  height: 170px;
+  border: 1px solid rgba(241, 237, 18, 0.26);
+  border-radius: 50%;
+  box-shadow: 0 0 0 26px rgba(241, 237, 18, 0.06);
+  pointer-events: none;
 }
 
-.gcash-modal-icon {
-  width: 30px;
-  height: 30px;
-  background: #007DFE;
-  color: #ffffff;
-  border-radius: 8px;
+.link-gcash-modal-header > * {
+  position: relative;
+  z-index: 1;
+}
+
+.link-gcash-modal-header > *:not(.link-gcash-close-btn, .ux-dlg__badge) {
+  grid-column: 2;
+}
+
+.link-gcash-modal-header .ux-dlg__badge {
+  grid-column: 1;
+  grid-row: 1 / span 99;
+  align-self: center;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 900;
-  font-size: 0.95rem;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  background: var(--ux-dlg-badge, #f1ed12);
+  border: 2px solid rgba(247, 242, 236, 0.45);
+  box-shadow: 0 8px 18px rgba(45, 12, 12, 0.26);
+  border-radius: 50%;
+  margin-right: 14px;
+  flex-shrink: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.link-gcash-modal-header .link-gcash-brand-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.link-gcash-modal-header .ux-dlg__eyebrow {
+  margin: 0 0 3px;
+  font-family: "Montserrat", "Poppins", sans-serif;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ux-dlg-eyebrow, #f5ef8e);
+  line-height: 1.3;
+}
+
+.link-gcash-modal-title {
+  margin: 0;
+  font-family: "Poppins", "Segoe UI", sans-serif;
+  font-size: clamp(17px, 3.6vw, 21px);
+  font-weight: 800;
+  color: var(--customer-paper-sink, #ffffff);
+  line-height: 1.25;
+  letter-spacing: 0.1px;
 }
 
 .link-gcash-close-btn {
-  border: 1px solid rgba(255, 255, 255, 0.32);
-  background: rgba(255, 255, 255, 0.14);
-  color: #ffffff;
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
   border-radius: 50%;
-  width: 32px;
-  height: 32px;
+  border: 1px solid rgba(247, 242, 236, 0.34);
+  background: rgba(247, 242, 236, 0.14);
+  color: var(--customer-paper-sink, #ffffff);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.95rem;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
 .link-gcash-close-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  border-color: rgba(255, 255, 255, 0.6);
+  background: rgba(247, 242, 236, 0.34);
+  border-color: rgba(247, 242, 236, 0.62);
+  color: #ffffff;
+}
+
+.link-gcash-close-btn:active {
+  transform: scale(0.94);
 }
 
 .link-gcash-modal-body {
-  padding: 22px 22px 24px;
+  padding: 24px var(--ux-dlg-pad-x, 24px) 24px;
+  background: var(--customer-paper, #ffffff);
   font-family: "Montserrat", sans-serif;
 }
 
 .link-gcash-desc {
-  font-size: 0.88rem;
-  color: #4b5563;
-  line-height: 1.5;
-  margin-bottom: 18px;
+  font-size: 14px;
+  color: var(--ux-dlg-text, #4b5563);
+  line-height: 1.6;
+  margin: 0 0 20px;
 }
 
 .link-gcash-input-wrap {
   display: flex;
   align-items: center;
   border: 1.5px solid rgba(107, 32, 43, 0.22);
-  border-radius: 12px;
-  padding: 4px 12px;
+  border-radius: var(--ux-dlg-radius, 8px);
+  padding: 4px 14px;
   background: #ffffff;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .link-gcash-input-wrap:focus-within {
   border-color: var(--customer-wine, #6b202b);
-  box-shadow: 0 0 0 3px rgba(107, 32, 43, 0.1);
+  box-shadow: 0 0 0 3px rgba(107, 32, 43, 0.12);
 }
 
 .link-gcash-prefix {
@@ -339,7 +419,7 @@
   font-weight: 700;
   color: #222833;
   font-size: 1rem;
-  padding-right: 10px;
+  padding-right: 12px;
   border-right: 1.5px solid #e5e7eb;
   user-select: none;
 }
@@ -348,7 +428,7 @@
   flex: 1;
   border: none;
   outline: none;
-  padding: 10px 10px;
+  padding: 11px 12px;
   font-size: 1.05rem;
   font-weight: 600;
   color: #222833;
@@ -357,10 +437,10 @@
 }
 
 .link-gcash-help {
-  font-size: 0.78rem;
-  color: #5c626e;
-  margin-top: 6px;
-  margin-bottom: 18px;
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 7px;
+  margin-bottom: 20px;
 }
 
 .link-gcash-otp-wrap {
@@ -375,7 +455,7 @@
   letter-spacing: 8px;
   text-align: center;
   border: 2px solid rgba(107, 32, 43, 0.22);
-  border-radius: 12px;
+  border-radius: var(--ux-dlg-radius, 8px);
   outline: none;
   box-sizing: border-box;
   font-family: "Montserrat", sans-serif;
@@ -384,7 +464,7 @@
 
 .link-gcash-otp-input:focus {
   border-color: var(--customer-wine, #6b202b);
-  box-shadow: 0 0 0 3px rgba(107, 32, 43, 0.1);
+  box-shadow: 0 0 0 3px rgba(107, 32, 43, 0.12);
 }
 
 .link-gcash-otp-msg {
@@ -399,52 +479,174 @@
   background: rgba(107, 32, 43, 0.08);
   border: 1px solid rgba(107, 32, 43, 0.15);
   padding: 7px 12px;
-  border-radius: 8px;
+  border-radius: var(--ux-dlg-radius-sm, 6px);
   margin-bottom: 16px;
   display: block;
   line-height: 1.4;
 }
 
-/* Primary Button: Maroon/Wine Brand Button - NO UPLIFT / TRANSLATE */
-.link-gcash-primary-btn {
+/* Container for Step 2 action buttons ensuring clean, compact gap */
+.link-gcash-actions {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  width: 100% !important;
+  margin-top: 14px !important;
+}
+
+.link-gcash-actions #btnBackToPhone,
+.link-gcash-actions .link-gcash-secondary-btn {
+  margin-top: 0 !important;
+}
+
+/* Base style for GCash dialog buttons: Zero outer shadows or glows */
+#linkGcashModal .ux-dlg__btn,
+#linkGcashModal .link-gcash-primary-btn,
+#linkGcashModal .link-gcash-secondary-btn,
+.ux-dlg .ux-dlg__card .link-gcash-primary-btn,
+#linkGcashModal .ux-dlg__card .link-gcash-primary-btn,
+.ux-dlg .ux-dlg__card .link-gcash-secondary-btn,
+#linkGcashModal .ux-dlg__card .link-gcash-secondary-btn,
+#btnSendGcashOtp,
+#btnConfirmGcashLink,
+#btnBackToPhone,
+#btnFinishGcashLink {
+  box-shadow: none !important;
+  filter: none !important;
+  outline: none !important;
+}
+
+/* Primary Action Buttons: Continue, Authorize & Link GCash, Continue to Checkout */
+.link-gcash-primary-btn,
+#linkGcashModal .link-gcash-primary-btn,
+.ux-dlg .ux-dlg__card .link-gcash-primary-btn,
+#linkGcashModal .ux-dlg__card .link-gcash-primary-btn,
+#btnSendGcashOtp,
+#btnConfirmGcashLink,
+#btnFinishGcashLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
-  background: var(--customer-wine, #6b202b);
-  color: #ffffff;
-  border: none;
-  border-radius: 12px;
-  padding: 13px;
-  font-size: 0.95rem;
-  font-weight: 700;
+  min-height: 48px;
+  padding: 13px 20px;
+  border: 0 !important;
+  border-radius: var(--ux-dlg-radius, 8px);
+  background: #6b202b !important;
+  background-color: #6b202b !important;
+  color: #ffffff !important;
+  font-family: "Montserrat", "Poppins", sans-serif;
+  font-size: 14.5px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
   cursor: pointer;
-  font-family: "Montserrat", sans-serif;
-  transition: background-color 0.18s ease;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+  transition: background-color 0.2s ease, background 0.2s ease !important;
   box-sizing: border-box;
 }
 
-.link-gcash-primary-btn:hover {
-  background: var(--customer-wine-hover, #511721);
+/* Simple darker hover animation ONLY inside the button - zero outside shadow */
+.link-gcash-primary-btn:hover:not(:disabled),
+#linkGcashModal .link-gcash-primary-btn:hover:not(:disabled),
+.ux-dlg .ux-dlg__card .link-gcash-primary-btn:hover:not(:disabled),
+#linkGcashModal .ux-dlg__card .link-gcash-primary-btn:hover:not(:disabled),
+#btnSendGcashOtp:hover:not(:disabled),
+#btnConfirmGcashLink:hover:not(:disabled),
+#btnFinishGcashLink:hover:not(:disabled) {
+  background: #461219 !important;
+  background-color: #461219 !important;
+  color: #ffffff !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
 }
 
-.link-gcash-primary-btn:active {
-  background: var(--customer-wine-active, #45141c);
+/* Active pressed state strictly inside the button */
+.link-gcash-primary-btn:active:not(:disabled),
+#linkGcashModal .link-gcash-primary-btn:active:not(:disabled),
+.ux-dlg .ux-dlg__card .link-gcash-primary-btn:active:not(:disabled),
+#linkGcashModal .ux-dlg__card .link-gcash-primary-btn:active:not(:disabled),
+#btnSendGcashOtp:active:not(:disabled),
+#btnConfirmGcashLink:active:not(:disabled),
+#btnFinishGcashLink:active:not(:disabled) {
+  background: #2e080d !important;
+  background-color: #2e080d !important;
+  color: #ffffff !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
 }
 
-.link-gcash-secondary-btn {
+.link-gcash-primary-btn:disabled,
+#btnSendGcashOtp:disabled,
+#btnConfirmGcashLink:disabled,
+#btnFinishGcashLink:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Secondary Button: Change Number */
+.link-gcash-secondary-btn,
+.ux-dlg .ux-dlg__card #btnBackToPhone,
+#linkGcashModal .ux-dlg__card #btnBackToPhone,
+.ux-dlg .ux-dlg__card .link-gcash-secondary-btn,
+#linkGcashModal .ux-dlg__card .link-gcash-secondary-btn,
+#linkGcashModal .link-gcash-secondary-btn,
+#btnBackToPhone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
-  background: transparent;
-  color: #5c626e;
-  border: none;
-  padding: 9px;
-  font-size: 0.84rem;
-  font-weight: 600;
+  min-height: 46px;
+  padding: 11px 18px;
+  margin-top: 8px;
+  border: 1.5px solid rgba(107, 32, 43, 0.32) !important;
+  border-radius: var(--ux-dlg-radius, 8px);
+  background: var(--customer-paper, #ffffff) !important;
+  background-color: var(--customer-paper, #ffffff) !important;
+  color: var(--customer-wine, #6b202b) !important;
+  font-family: "Montserrat", "Poppins", sans-serif;
+  font-size: 13.5px;
+  font-weight: 700;
   cursor: pointer;
-  margin-top: 6px;
-  font-family: "Montserrat", sans-serif;
-  transition: color 0.15s ease;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease !important;
 }
 
-.link-gcash-secondary-btn:hover {
-  color: #222833;
+.link-gcash-secondary-btn:hover,
+.ux-dlg .ux-dlg__card #btnBackToPhone:hover,
+#linkGcashModal .ux-dlg__card #btnBackToPhone:hover,
+.ux-dlg .ux-dlg__card .link-gcash-secondary-btn:hover,
+#linkGcashModal .ux-dlg__card .link-gcash-secondary-btn:hover,
+#btnBackToPhone:hover {
+  background: #fdf3f4 !important;
+  background-color: #fdf3f4 !important;
+  border-color: #6b202b !important;
+  color: #511721 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+}
+
+.link-gcash-secondary-btn:active,
+.ux-dlg .ux-dlg__card #btnBackToPhone:active,
+#linkGcashModal .ux-dlg__card #btnBackToPhone:active,
+.ux-dlg .ux-dlg__card .link-gcash-secondary-btn:active,
+#linkGcashModal .ux-dlg__card .link-gcash-secondary-btn:active,
+#btnBackToPhone:active {
+  background: #f8e4e6 !important;
+  background-color: #f8e4e6 !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .link-gcash-step-3 {
@@ -471,4 +673,10 @@
   color: #5c626e;
   margin: 0 0 20px;
   font-family: "Montserrat", sans-serif;
+}
+
+/* Ensure system error popup is always visible on top of Link GCash modal */
+#customerSystemPopup.ux-dlg,
+.admin-system-popup.ux-dlg {
+  z-index: 1000005 !important;
 }

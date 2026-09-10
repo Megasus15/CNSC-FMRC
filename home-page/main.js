@@ -186,6 +186,7 @@ const ensureCustomerSystemPopup = () => {
     <div class="admin-system-popup__backdrop ux-dlg__backdrop"></div>
     <div class="admin-system-popup__card ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="customerSystemPopupTitle">
       <div class="ux-dlg__head">
+        <button type="button" class="ux-dlg__close" id="customerSystemPopupClose" aria-label="Close message">&times;</button>
         <span class="ux-dlg__badge" id="customerSystemPopupBadge" aria-hidden="true"><i class="fa-solid fa-circle-info"></i></span>
         <p class="ux-dlg__eyebrow" id="customerSystemPopupEyebrow">Notice</p>
         <h3 id="customerSystemPopupTitle" class="admin-system-popup__title ux-dlg__title">System Message</h3>
@@ -236,6 +237,14 @@ const showCustomerPopup = (message, options = {}) =>
       resolve(Boolean(accepted));
     };
 
+    const closeBtn = popup.querySelector("#customerSystemPopupClose");
+    if (closeBtn) {
+      closeBtn.onclick = (ev) => {
+        ev?.stopPropagation();
+        closePopup(false);
+      };
+    }
+
     if (okBtn) {
       okBtn.textContent = options.okText || (isConfirm ? "Confirm" : "Okay");
       okBtn.onclick = (ev) => {
@@ -269,6 +278,8 @@ const showCustomerPopup = (message, options = {}) =>
       okBtn.focus();
     }
   });
+
+window.showCustomerPopup = showCustomerPopup;
 
 // Navbar and My Orders badges share the same compact display at high counts.
 const formatNavbarCount = (value) => {
@@ -4283,9 +4294,65 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     closeLinkGcashBtn?.addEventListener("click", closeLinkModal);
-    linkGcashModal?.addEventListener("click", (e) => {
-      if (e.target === linkGcashModal) closeLinkModal();
-    });
+    // Backdrop click is disabled to prevent accidental dismissal; user must click the X close button.
+
+    const notifyGcash = (message, title = "GCash Account") => {
+      if (typeof showCustomerPopup === "function") {
+        void showCustomerPopup(message, { title, eyebrow: "GCash Linking" });
+      } else {
+        alert(message);
+      }
+    };
+
+    const restrictToDigitsOnly = (inputEl) => {
+      if (!inputEl) return;
+      inputEl.addEventListener("keydown", (e) => {
+        if (
+          [
+            "Backspace",
+            "Delete",
+            "Tab",
+            "Escape",
+            "Enter",
+            "ArrowLeft",
+            "ArrowRight",
+            "ArrowUp",
+            "ArrowDown",
+            "Home",
+            "End",
+          ].includes(e.key) ||
+          e.ctrlKey ||
+          e.metaKey
+        ) {
+          return;
+        }
+        if (!/^[0-9]$/.test(e.key)) {
+          e.preventDefault();
+        }
+      });
+
+      inputEl.addEventListener("input", () => {
+        inputEl.value = inputEl.value.replace(/\D/g, "");
+      });
+
+      inputEl.addEventListener("paste", (e) => {
+        const text = (e.clipboardData || window.clipboardData)?.getData("text") || "";
+        if (/\D/.test(text)) {
+          e.preventDefault();
+          const clean = text.replace(/\D/g, "");
+          const start = inputEl.selectionStart || 0;
+          const end = inputEl.selectionEnd || 0;
+          const current = inputEl.value;
+          const max = inputEl.maxLength > 0 ? inputEl.maxLength : undefined;
+          const combined = (current.slice(0, start) + clean + current.slice(end)).slice(0, max);
+          inputEl.value = combined;
+          inputEl.dispatchEvent(new Event("input"));
+        }
+      });
+    };
+
+    restrictToDigitsOnly(linkGcashPhone);
+    restrictToDigitsOnly(linkGcashOtp);
 
     btnSendGcashOtp?.addEventListener("click", () => {
       const raw = String(linkGcashPhone?.value || "").replace(/\D/g, "");
@@ -4294,7 +4361,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (cleaned.length === 10 && cleaned.startsWith("9")) cleaned = "0" + cleaned;
 
       if (cleaned.length !== 11 || !cleaned.startsWith("09")) {
-        alert("Please enter a valid 11-digit GCash mobile number (e.g., 09171234567).");
+        notifyGcash(
+          "Please enter a valid 11-digit GCash mobile number (e.g., 09171234567).",
+          "Invalid Phone Number"
+        );
         linkGcashPhone?.focus();
         return;
       }
@@ -4315,7 +4385,7 @@ document.addEventListener("DOMContentLoaded", () => {
     btnConfirmGcashLink?.addEventListener("click", async () => {
       const otp = String(linkGcashOtp?.value || "").trim();
       if (otp.length < 4) {
-        alert("Please enter the verification code.");
+        notifyGcash("Please enter the 6-digit verification code.", "Verification Required");
         linkGcashOtp?.focus();
         return;
       }
@@ -4342,7 +4412,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           const resData = await res.json();
           if (!res.ok) {
-            alert(resData.message || "Could not link GCash account.");
+            notifyGcash(resData.message || "Could not link GCash account.", "Linking Failed");
             btnConfirmGcashLink.disabled = false;
             btnConfirmGcashLink.textContent = "Authorize & Link GCash";
             return;
@@ -4375,7 +4445,7 @@ document.addEventListener("DOMContentLoaded", () => {
         linkGcashStep2.style.display = "none";
         linkGcashStep3.style.display = "block";
       } catch (err) {
-        alert("Network error. Please try again.");
+        notifyGcash("Network error. Please try again.", "Connection Error");
       } finally {
         btnConfirmGcashLink.disabled = false;
         btnConfirmGcashLink.textContent = "Authorize & Link GCash";

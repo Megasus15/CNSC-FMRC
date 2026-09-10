@@ -53,6 +53,7 @@ function harness(initial = order()) {
     formatMoney: (amount) => `PHP ${Number(amount).toFixed(2)}`,
     resolveMediaUrl: (url) => url || '',
     window: { setTimeout }, navigator: {},
+    document: { getElementById: (id) => elements[id] || null },
     showPopup: (message, options) => popups.push({ message, options }),
     askConfirm: async () => true,
     notifyOrdersRealtimeUpdate() {},
@@ -221,4 +222,23 @@ test('cash confirmation uses collection wording and hides GCash proof', () => {
   assert.match(ui.modalPaymentAcknowledgementText.textContent, /collected the full PHP 250.00 in cash/);
   assert.equal(ui.modalPaymentProofWrap.hidden, true);
   assert.equal(ui.btnCopyPaymentRef.hidden, true);
+});
+
+test('changed reference invalidates an earlier acknowledgement before any request', async () => {
+  const { context, elements: ui, calls } = harness();
+  ui.modalPaymentAcknowledgement.checked = true;
+  context.state.ordersById.set('1', order({ payment_reference: '9876543210123' }));
+  await context.setPaymentStatus('paid');
+  assert.equal(calls.length, 0);
+  assert.equal(ui.modalPaymentAcknowledgement.checked, false);
+  assert.equal(ui.btnMarkPaymentPaid.disabled, true);
+  assert.equal(ui.modalPaymentClaimRef.textContent, '9876543210123');
+});
+
+test('unavailable provider/manual action displays its server reason', () => {
+  const blocked = order({ payment_is_automated: true, payment_actions: actions() });
+  blocked.payment_actions.paid.reason = 'This payment is managed by the payment provider.';
+  const { elements: ui } = harness(blocked);
+  assert.match(ui.modalPaymentVerifyHint.textContent, /managed by the payment provider/);
+  assert.equal(ui.modalPaymentConfirmWrap.hidden, true);
 });

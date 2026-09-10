@@ -1084,6 +1084,10 @@ document.addEventListener("DOMContentLoaded", () => {
       title = "This order is closed";
       hint = "No payment action is available for this cancelled or rejected order.";
     }
+    if (!canConfirm && !canCorrect && !canRefund && (status === "pending" || (isAutomated && status !== "refunded"))) {
+      title = isAutomated ? "Payment is handled by the payment provider" : "Payment confirmation is unavailable";
+      hint = order?.payment_actions?.paid?.reason || hint;
+    }
     if (!order?.payment_actions) {
       hint = "Payment actions are unavailable. Refresh this order before continuing.";
     }
@@ -1103,7 +1107,7 @@ document.addEventListener("DOMContentLoaded", () => {
               ? "The customer sees Payment confirmed — awaiting order approval. This order stays in Incoming Orders. Use Approve Order in that table to move it to Orders Directory."
               : "Confirming payment updates the customer’s payment status. This order stays in Incoming Orders until you choose Approve Order."
             : status === "paid"
-              ? `The customer sees a confirmed payment. ${order?.payment_actions?.pending?.reason || "Continue the existing order fulfillment process."}`
+              ? "The customer sees a confirmed payment. Continue the order’s delivery or pickup process from Orders Directory. Use Returns & Refunds for product returns."
               : isGcash
                 ? "Once confirmed, the customer’s order can continue to preparation for delivery or pickup. Its existing order approval is kept."
                 : "The customer sees the cash payment as received. The order’s delivery or pickup progress is kept.";
@@ -1113,8 +1117,12 @@ document.addEventListener("DOMContentLoaded", () => {
       modalPaymentClaim.hidden = false;
       modalPaymentClaim.classList.toggle("payment-claim-no-proof", !isGcash);
     }
+    const claimHeading = document.getElementById("modalPaymentClaimHeading");
+    const amountHeading = document.getElementById("modalPaymentClaimAmountLabel");
+    if (claimHeading) claimHeading.textContent = canRefund || status === "refunded" ? "Original payment details" : status === "paid" ? "Confirmed payment details" : "Payment details to check";
+    if (amountHeading) amountHeading.textContent = canConfirm ? "Amount to match" : "Payment amount";
     if (modalPaymentClaimRef) {
-      modalPaymentClaimRef.textContent = isGcash ? reference || "Not supplied yet" : "Collected in person";
+      modalPaymentClaimRef.textContent = isGcash ? reference || "Not supplied yet" : status === "pending" ? "Cash due on delivery or pickup" : "Collected in person";
       modalPaymentClaimRef.classList.toggle("is-empty", isGcash && !reference);
     }
     if (btnCopyPaymentRef) btnCopyPaymentRef.hidden = !isGcash || !reference;
@@ -1157,6 +1165,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (modalPaymentRefundHint) {
       modalPaymentRefundHint.textContent = `After returning the full ${amount} to the customer, enter the refund’s outgoing transaction reference. This records a completed refund; it does not send money. Use Returns & Refunds for product returns or partial refunds.`;
     }
+    const refundLabel = document.getElementById("modalRefundReferenceLabel");
+    if (refundLabel) refundLabel.textContent = isGcash ? "Outgoing GCash refund reference" : "Refund receipt / reference";
     if (modalPaymentAcknowledgement) modalPaymentAcknowledgement.disabled = paymentActionBusy;
     if (modalRefundReference) modalRefundReference.disabled = paymentActionBusy;
     if (modalPaymentCorrectionReason) modalPaymentCorrectionReason.disabled = paymentActionBusy;
@@ -1194,6 +1204,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const orderId = String(modalPaymentVerifyBlock?.dataset.orderId || "");
     const order = state.ordersById.get(orderId);
     if (!orderId || !order || paymentActionBusy) return;
+    // A live refresh may have changed the evidence since this box was checked.
+    renderPaymentVerification(order);
     if (!paymentActionAllowed(order, nextStatus)) {
       renderPaymentVerification(order);
       return;
@@ -1251,6 +1263,8 @@ document.addEventListener("DOMContentLoaded", () => {
         body: {
           status: nextStatus,
           expected_status: order.payment_status || "pending",
+          expected_reference: String(order.payment_reference || ""),
+          expected_amount: Number(order.payment_amount ?? order.total_amount),
           ...(nextStatus === "paid" ? { confirmed_received: true } : {}),
           ...(nextStatus === "pending" ? { correction_reason: correctionReason } : {}),
           ...(nextStatus === "refunded" ? { refund_reference: refundReference } : {}),

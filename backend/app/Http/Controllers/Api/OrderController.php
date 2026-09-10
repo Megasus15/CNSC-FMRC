@@ -2428,6 +2428,8 @@ class OrderController extends Controller
         $validated = $request->validate([
             'status' => 'required|in:paid,pending,refunded',
             'expected_status' => 'nullable|in:paid,pending,refunded',
+            'expected_reference' => 'sometimes|nullable|string|max:180',
+            'expected_amount' => 'sometimes|nullable|numeric|min:0',
             'confirmed_received' => 'required_if:status,paid|accepted_if:status,paid',
             'correction_reason' => 'required_if:status,pending|nullable|string|max:500',
             'refund_reference' => 'required_if:status,refunded|nullable|string|max:64',
@@ -2452,6 +2454,14 @@ class OrderController extends Controller
             $currentStatus = $payment?->status ?? 'pending';
             if (isset($validated['expected_status']) && $validated['expected_status'] !== $currentStatus) {
                 return response()->json(['message' => 'This payment changed in another session. Review the latest details before continuing.'], 409);
+            }
+            $currentReference = trim((string) ($payment?->reference ?? $fresh->payment_reference ?? ''));
+            $currentAmount = round((float) ($payment?->amount ?? $fresh->total), 2);
+            if ((array_key_exists('expected_reference', $validated)
+                    && trim((string) $validated['expected_reference']) !== $currentReference)
+                || (isset($validated['expected_amount'])
+                    && round((float) $validated['expected_amount'], 2) !== $currentAmount)) {
+                return response()->json(['message' => 'The payment reference or amount changed while you were reviewing it. Review the latest payment details before continuing.'], 409);
             }
             $action = $this->buildPaymentActions($fresh)[$nextStatus];
             if (! $action['allowed']) {
@@ -3051,6 +3061,7 @@ class OrderController extends Controller
         $paidReason = $commonReason ?? match (true) {
             $closed => 'This order is cancelled or rejected. Record a refund only after returning any money received.',
             $status === 'paid' => 'Payment receipt has already been confirmed.',
+            ($payment?->method ?? $order->payment_method) === 'GCash' && ! $payment?->hasCustomerClaim() => 'Wait for the customer to submit their GCash reference before confirming the payment.',
             default => null,
         };
         $pendingReason = $commonReason ?? match (true) {
@@ -3095,7 +3106,7 @@ class OrderController extends Controller
 
         // A rejected order must not invite payment, and a confirmed one has
         // nothing left to ask for.
-        $collectible = $isGcash && $status === 'pending' && ! $isRejected
+        $collectible = $isGcash && $status === 'pending' && ! $isRejected && ! $this->paymentIsAutomated($order)
             && $order->lifecycle_status !== 'completed' && $order->customer_stage !== 'completed';
         $awaitingPayment = $collectible && ! $hasClaim;
         $underReview = $collectible && $hasClaim;
@@ -3113,6 +3124,7 @@ class OrderController extends Controller
             'payment_submitted_label' => $this->formatPhilippineLabel($payment?->submitted_at),
             'payment_confirmed_at' => $this->formatPhilippineIso($payment?->paid_at),
             'payment_confirmed_label' => $this->formatPhilippineLabel($payment?->paid_at),
+            'payment_amount' => (float) ($payment?->amount ?? $order->total),
             'payment_amount_label' => $this->formatMoney((float) ($payment?->amount ?? $order->total)),
             'payment_proof_url' => $payment?->proofUrl(),
             'payment_reference_supplied' => $hasClaim,

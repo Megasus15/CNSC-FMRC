@@ -634,7 +634,7 @@
         .announcement-modal__hero {
           position: relative;
           padding: 26px 28px 20px;
-          background: linear-gradient(135deg, var(--announcement-accent-primary, #c0392b), var(--announcement-accent-secondary, #800000));
+          background: var(--announcement-band, linear-gradient(135deg, #3d0808 0%, #5f0d0d 52%, #851313 100%));
           color: #f7f2ec;
         }
 

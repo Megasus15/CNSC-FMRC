@@ -11,7 +11,7 @@
     <link rel="apple-touch-icon" href="../images/apple-touch-icon.png?v=3" />
     <title>Orders | UCN-FMRC Staff</title>
     <link rel="stylesheet" href="../admin-page/dashboard.css?v=6.5" />
-    <link rel="stylesheet" href="../admin-page/admin-modules.css?v=6.6" />
+    <link rel="stylesheet" href="../admin-page/admin-modules.css?v=20260910-payment-confirmation" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -630,7 +630,7 @@
               </div>
               <div class="payment-claim" id="modalPaymentClaim" hidden>
                 <div class="payment-claim-facts">
-                  <h5 class="payment-verification-label">Payment details to check</h5>
+                  <h5 class="payment-verification-label" id="modalPaymentClaimHeading">Payment details to check</h5>
                   <div class="payment-claim-row">
                     <span class="payment-claim-label">Payment reference</span>
                     <code
@@ -647,7 +647,7 @@
                     </button>
                   </div>
                   <div class="payment-claim-row">
-                    <span class="payment-claim-label">Amount to match</span>
+                    <span class="payment-claim-label" id="modalPaymentClaimAmountLabel">Amount to match</span>
                     <strong
                       class="payment-claim-amount"
                       id="modalPaymentClaimAmount"
@@ -723,7 +723,7 @@
                 <h5><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Record a refund already sent</h5>
                 <p id="modalPaymentRefundHint">Send the refund to the customer through GCash first, then save its transaction reference here. This button records the refund; it does not transfer money.</p>
                 <div class="payment-refund-field" id="modalRefundRefWrap" hidden>
-                  <label for="modalRefundReference">Outgoing GCash refund reference <span class="payment-required">(required)</span></label>
+                  <label for="modalRefundReference"><span id="modalRefundReferenceLabel">Outgoing GCash refund reference</span> <span class="payment-required">(required)</span></label>
                   <input
                     id="modalRefundReference"
                     class="input-field"
@@ -1754,7 +1754,7 @@
 
     <script src="../admin-page/session-helper.js"></script>
     <script src="../admin-page/admin-common.js?v=6.5"></script>
-    <script src="../admin-page/orders.js?v=6.4"></script>
+    <script src="../admin-page/orders.js?v=20260910-payment-confirmation"></script>
     <script src="../admin-page/admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>
