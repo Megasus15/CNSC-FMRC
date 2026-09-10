@@ -14582,6 +14582,26 @@ const openReturnRequestModal = (() => {
     const next = val && String(val).trim() ? val : fallback;
     if (next && el.getAttribute("src") !== next) el.src = next;
   }
+  /** The browser tab icon follows the same saved brand snapshot as the logos. */
+  function _favicon(val) {
+    const links = document.querySelectorAll('link[rel~="icon"]');
+    links.forEach(function (link) {
+      if (!link.dataset.fmrcDefaultHref) {
+        link.dataset.fmrcDefaultHref =
+          link.getAttribute("href") || "/images/favicon.ico?v=3";
+        link.dataset.fmrcDefaultType = link.getAttribute("type") || "";
+      }
+
+      const custom = typeof val === "string" && val.trim() ? val : "";
+      const next = custom || link.dataset.fmrcDefaultHref;
+      if (link.getAttribute("href") !== next) link.setAttribute("href", next);
+
+      if (custom) link.setAttribute("type", "image/png");
+      else if (link.dataset.fmrcDefaultType)
+        link.setAttribute("type", link.dataset.fmrcDefaultType);
+      else link.removeAttribute("type");
+    });
+  }
   function _esc(str) {
     const d = document.createElement("div");
     d.textContent = str || "";
@@ -14667,9 +14687,9 @@ const openReturnRequestModal = (() => {
       window.FMRC_HERO_TITLE.paint(heroTitleEl, s.hero_title);
       window.FMRC_HERO_TITLE.write(s.hero_title);
     }
-    // Brand logos — the navbar emblem and the two footer marks live on every
-    // customer page, the hero graphic only on the home page. Each falls back to
-    // the bundled artwork when its setting is blank.
+    // Brand logos and the browser tab icon — the navbar emblem and the two footer
+    // marks live on every customer page, the hero graphic only on the home page.
+    // Each falls back to the bundled artwork when its setting is blank.
     _logo("navLogoEl", s.nav_logo_image, "/images/CNSC logo.png");
     _logo("heroLogoEl", s.hero_logo_image, "/images/FMRC Logo.png");
     _logo(
@@ -14682,6 +14702,7 @@ const openReturnRequestModal = (() => {
       s.footer_logo_secondary_image,
       "/images/FMRC Logo.png",
     );
+    _favicon(s.favicon_image);
     // Hero background. One shorthand write per apply: the shorthand resets the
     // size/position/repeat longhands too, so switching type never leaves the
     // previous type's remnants behind. An unknown type clears the inline style

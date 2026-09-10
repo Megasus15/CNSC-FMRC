@@ -11,17 +11,18 @@
  *
  * There is no new backend for this. The images live in the existing flat
  * `site_settings` table under `portal_logo_primary_image` /
- * `portal_logo_secondary_image`, are written by the existing
+ * `portal_logo_secondary_image` and `favicon_image`, are written by the existing
  * PUT /api/admin/site-settings, and are read from the already-public
  * GET /api/site-settings.
  *
  * Paint order matters on a login page: a logo that pops in after a network
- * round-trip looks broken. So the last-known pair is written from localStorage
- * synchronously while the script parses, and the network answer only ever
- * corrects it.
+ * round-trip looks broken. So the last-known branding is written from
+ * localStorage synchronously while the script parses, and the network answer
+ * only ever corrects it.
  */
 (function () {
   var CACHE_KEY = "fmrc_portal_logos";
+  var FAVICON_KEY = "favicon_image";
   var CHANNEL = "fmrc-site-settings-realtime";
   var STAMP_KEY = "fmrc_site_content_updated_at";
 
@@ -42,6 +43,7 @@
 
   /** The bundled artwork each <img> shipped with, captured before anything is swapped. */
   var defaults = {};
+  var faviconDefault = null;
 
   function el(id) {
     return document.getElementById(id);
@@ -55,9 +57,35 @@
     });
   }
 
+  function captureFaviconDefault() {
+    if (faviconDefault) return;
+    var link = document.querySelector('link[rel~="icon"]');
+    if (!link) return;
+    faviconDefault = {
+      href: link.getAttribute("href") || "/images/favicon.ico?v=3",
+      type: link.getAttribute("type") || "",
+    };
+  }
+
+  function applyFavicon(value) {
+    var link = document.querySelector('link[rel~="icon"]');
+    if (!link) return;
+    captureFaviconDefault();
+    if (!faviconDefault) return;
+
+    var custom = typeof value === "string" && value.trim() ? value : "";
+    var next = custom || faviconDefault.href;
+    if (link.getAttribute("href") !== next) link.setAttribute("href", next);
+
+    if (custom) link.setAttribute("type", "image/png");
+    else if (faviconDefault.type) link.setAttribute("type", faviconDefault.type);
+    else link.removeAttribute("type");
+  }
+
   function apply(map) {
     if (!map) return;
     captureDefaults();
+    applyFavicon(map[FAVICON_KEY]);
 
     SLOTS.forEach(function (slot) {
       var img = el(slot.id);
@@ -129,6 +157,8 @@
           map[slot.key] =
             typeof data[slot.key] === "string" ? data[slot.key] : "";
         });
+        map[FAVICON_KEY] =
+          typeof data[FAVICON_KEY] === "string" ? data[FAVICON_KEY] : "";
         writeCache(map);
         apply(map);
       })

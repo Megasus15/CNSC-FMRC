@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="/images/favicon.ico?v=3" sizes="any" />
     <title>UCN - FMRC Landing Page</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -1222,6 +1223,6 @@
       </div>
     </footer>
 
-    <script src="{{ asset('frontend/home-page/main.js') }}"></script>
+    <script src="{{ asset('frontend/home-page/main.js') }}?v=9.4"></script>
   </body>
 </html>

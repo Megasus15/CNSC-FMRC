@@ -74,7 +74,7 @@ let aboutVideoData = null; // base64 or null for video upload
 let heroBgGradient = "";
 
 /**
- * Brand logos. All six save the moment a crop is applied — like SDG badges and
+ * Brand logos. Every slot saves the moment a crop is applied — like SDG badges and
  * service cards, and unlike the text fields that wait for Save All Changes —
  * because an upload is a finished action on its own.
  */
@@ -130,6 +130,14 @@ const BRAND_LOGOS = [
     shape: "circle",
     fallback: "/images/FMRC Logo.png",
     hint: "Second mark above the sign-in card on both login portals. Fixed circle.",
+  },
+  {
+    slot: "favicon",
+    key: "favicon_image",
+    label: "Browser Tab Icon",
+    shape: "square",
+    fallback: "/images/favicon.ico?v=3",
+    hint: "Small image shown in the browser tab and saved bookmarks. Square artwork works best.",
   },
 ];
 // Saved base64 per slot, or "" when the slot is on its bundled default.
@@ -311,6 +319,7 @@ function populateForm() {
     brandLogoData[conf.slot] = s[conf.key] || "";
   });
   renderBrandLogos();
+  applyBrowserIcon(s.favicon_image);
 
   if (s.hero_bg_image) {
     setImgPreview("heroBgImgPreview", "heroBgImgPlaceholder", s.hero_bg_image);
@@ -784,6 +793,7 @@ async function saveLogoSetting(conf, value, successMsg) {
     if (!res.ok) throw new Error("Save failed");
     brandLogoData[conf.slot] = value;
     renderBrandLogos();
+    if (conf.slot === "favicon") applyBrowserIcon(value);
     window.showAdminPopup(successMsg, { title: "Saved!" });
     broadcastSiteUpdate("updated");
     await loadSettings();
@@ -793,6 +803,26 @@ async function saveLogoSetting(conf, value, successMsg) {
       { title: "Error" },
     );
   }
+}
+
+/** Apply the saved favicon to the current Admin/Staff management tab as well. */
+function applyBrowserIcon(value) {
+  if (window.FMRC_FAVICON?.apply) {
+    window.FMRC_FAVICON.apply(value);
+    return;
+  }
+
+  const link = document.querySelector('link[rel~="icon"]');
+  if (!link) return;
+  if (!link.dataset.fmrcDefaultHref) {
+    link.dataset.fmrcDefaultHref = link.getAttribute("href") || "/images/favicon.ico?v=3";
+    link.dataset.fmrcDefaultType = link.getAttribute("type") || "";
+  }
+  const custom = typeof value === "string" && value.trim() ? value : "";
+  link.setAttribute("href", custom || link.dataset.fmrcDefaultHref);
+  if (custom) link.setAttribute("type", "image/png");
+  else if (link.dataset.fmrcDefaultType) link.setAttribute("type", link.dataset.fmrcDefaultType);
+  else link.removeAttribute("type");
 }
 
 async function doSaveAll() {

@@ -114,6 +114,8 @@ Route::get('/promotions/active', [PromotionController::class, 'active']);
 
 // Public: Site settings (read-only for customer pages)
 Route::get('/site-settings', [SiteSettingController::class, 'index']);
+// Public: lightweight browser icon snapshot for the Admin/Staff shell.
+Route::get('/site-favicon', [SiteSettingController::class, 'favicon']);
 
 // Public: Maintenance Mode snapshot. Read by every customer page before it
 // paints, and revalidated on the site-content tick that already exists, so it

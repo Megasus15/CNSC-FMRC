@@ -24,6 +24,7 @@ class SiteSettingSeeder extends Seeder
         SiteSetting::set('nav_logo_image', null);             // navbar emblem, every customer page (/images/CNSC logo.png)
         SiteSetting::set('footer_logo_primary_image', null);  // footer left logo (/images/CNSC logo.png)
         SiteSetting::set('footer_logo_secondary_image', null); // footer right logo (/images/FMRC Logo.png)
+        SiteSetting::set('favicon_image', null);              // browser tab icon (/images/favicon.ico?v=3)
 
         // Optional caption above the hero SDG badge strip. Blank hides the line.
         SiteSetting::set('home_sdg_heading', 'Supporting the UN Sustainable Development Goals');

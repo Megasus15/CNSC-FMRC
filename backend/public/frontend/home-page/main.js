@@ -7198,6 +7198,24 @@ const openRatingModal = (() => {
     const el = document.getElementById(id);
     if (el && val) el.src = val;
   }
+  function _favicon(val) {
+    document.querySelectorAll('link[rel~="icon"]').forEach(function (link) {
+      if (!link.dataset.fmrcDefaultHref) {
+        link.dataset.fmrcDefaultHref =
+          link.getAttribute("href") || "/images/favicon.ico?v=3";
+        link.dataset.fmrcDefaultType = link.getAttribute("type") || "";
+      }
+
+      const custom = typeof val === "string" && val.trim() ? val : "";
+      const next = custom || link.dataset.fmrcDefaultHref;
+      if (link.getAttribute("href") !== next) link.setAttribute("href", next);
+
+      if (custom) link.setAttribute("type", "image/png");
+      else if (link.dataset.fmrcDefaultType)
+        link.setAttribute("type", link.dataset.fmrcDefaultType);
+      else link.removeAttribute("type");
+    });
+  }
   function _esc(str) {
     const d = document.createElement("div");
     d.textContent = str || "";
@@ -7229,6 +7247,7 @@ const openRatingModal = (() => {
   }
 
   function applySettings(s) {
+    _favicon(s.favicon_image);
     // Hero title
     if (s.hero_title) {
       const el = document.getElementById("heroTitleEl");

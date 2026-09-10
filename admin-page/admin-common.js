@@ -3,6 +3,139 @@ if (document.body) {
   document.body.classList.add("no-transitions");
 }
 
+// Shared browser-tab branding for every Admin/Staff page. The dedicated endpoint
+// keeps this shell from downloading the full site-settings payload just to read
+// one small image value.
+(() => {
+  if (window.FMRC_FAVICON || typeof window.fetch !== "function") return;
+
+  const CACHE_KEY = "fmrc_site_favicon";
+  const CHANNEL_NAME = "fmrc-site-settings-realtime";
+  const STAMP_KEY = "fmrc_site_content_updated_at";
+  const resolveApiBaseUrl = () => {
+    const configured =
+      window.APP_API_BASE_URL ||
+      document
+        .querySelector('meta[name="api-base-url"]')
+        ?.getAttribute("content") ||
+      "";
+
+    if (configured.trim()) return configured.replace(/\/+$/, "");
+
+    const protocol = String(window.location.protocol || "").toLowerCase();
+    const hostname = String(window.location.hostname || "").toLowerCase();
+    const origin = String(window.location.origin || "");
+    const port = String(window.location.port || "");
+
+    if (!/^https?:$/.test(protocol) || !hostname) {
+      return "http://127.0.0.1:8000/api";
+    }
+
+    const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1";
+    const isPort8000 = port === "8000";
+    const isStandardWebPort = port === "" || port === "80" || port === "443";
+
+    if (isPort8000 || (!isLocalHost && isStandardWebPort)) {
+      return `${origin.replace(/\/+$/, "")}/api`;
+    }
+    if (isLocalHost) return `${protocol}//${hostname}:8000/api`;
+    return `${origin.replace(/\/+$/, "")}/api`;
+  };
+
+  const API = resolveApiBaseUrl();
+  const defaults = new WeakMap();
+
+  const captureDefault = (link) => {
+    if (!defaults.has(link)) {
+      defaults.set(link, {
+        href: link.getAttribute("href") || "/images/favicon.ico?v=3",
+        type: link.getAttribute("type") || "",
+      });
+    }
+    return defaults.get(link);
+  };
+
+  const apply = (rawValue, { cache = true } = {}) => {
+    const value = typeof rawValue === "string" && rawValue.trim() ? rawValue : "";
+    document.querySelectorAll('link[rel~="icon"]').forEach((link) => {
+      const original = captureDefault(link);
+      const next = value || original.href;
+      if (link.getAttribute("href") !== next) link.setAttribute("href", next);
+
+      if (value) link.setAttribute("type", "image/png");
+      else if (original.type) link.setAttribute("type", original.type);
+      else link.removeAttribute("type");
+    });
+
+    if (cache) {
+      try {
+        localStorage.setItem(CACHE_KEY, value);
+      } catch {
+        // The network refresh remains the source of truth if storage is full.
+      }
+    }
+  };
+
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached !== null) apply(cached, { cache: false });
+  } catch {
+    // Continue with the bundled favicon while storage is unavailable.
+  }
+
+  let inFlight = null;
+  const refresh = () => {
+    if (inFlight) return inFlight;
+    inFlight = window
+      .fetch(`${API}/site-favicon`, {
+        headers: { Accept: "application/json" },
+      })
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      })
+      .then((json) => {
+        const value =
+          typeof json?.data?.favicon_image === "string"
+            ? json.data.favicon_image
+            : "";
+        apply(value);
+      })
+      .catch(() => {
+        // Offline or an older backend: keep the cached/bundled icon.
+      })
+      .finally(() => {
+        inFlight = null;
+      });
+    return inFlight;
+  };
+
+  void refresh();
+
+  try {
+    if (typeof window.BroadcastChannel === "function") {
+      const channel = new window.BroadcastChannel(CHANNEL_NAME);
+      channel.addEventListener("message", () => void refresh());
+    }
+  } catch {
+    // Storage and focus listeners below remain available.
+  }
+
+  window.addEventListener("storage", (event) => {
+    if (!event) return;
+    if (event.key === CACHE_KEY && event.newValue !== null) {
+      apply(event.newValue, { cache: false });
+    }
+    if (event.key === STAMP_KEY) void refresh();
+  });
+  window.addEventListener("focus", () => void refresh());
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) void refresh();
+  });
+
+  window.FMRC_FAVICON = { apply, refresh };
+})();
+
 // Inventory is the reference implementation for table pagination: the
 // current page is an editable numeric input that accepts both a changed value
 // and Enter, then clamps it to the available page range.  Keep that control

@@ -54,6 +54,35 @@ class SiteSettingController extends Controller
     }
 
     /**
+     * Public: the browser tab icon only.
+     *
+     * Admin/Staff pages do not otherwise need the full site-settings payload,
+     * which can contain several base64 images. Keeping this small lets the
+     * shared portal shell follow the saved favicon without downloading all
+     * customer-page artwork.
+     */
+    public function favicon(Request $request): Response|JsonResponse
+    {
+        $payload = [
+            'data' => [
+                'favicon_image' => SiteSetting::get('favicon_image'),
+            ],
+        ];
+
+        $etag = '"' . hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) . '"';
+        $headers = [
+            'Cache-Control' => 'public, no-cache, must-revalidate',
+            'ETag' => $etag,
+        ];
+
+        if (trim((string) $request->header('If-None-Match')) === $etag) {
+            return response('', 304, $headers);
+        }
+
+        return response()->json($payload)->withHeaders($headers);
+    }
+
+    /**
      * Admin: Bulk upsert site settings.
      * Expects JSON body: { "hero_title": "...", "about_text": "...", ... }
      */
