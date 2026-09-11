@@ -1,6 +1,6 @@
 /* ==========================================================================
    fmrc-loader.js — the UCN-FMRC action curtain
-   FMRC-MARK v1
+   FMRC-MARK v2 — the approved 3D hero-logo medallion
 
    One object, three methods:
 
@@ -41,6 +41,31 @@
 
   var DEFAULT_CAPTION = "Working on it";
 
+  function part(className, parent, tagName) {
+    var node = document.createElement(tagName || "span");
+    if (className) node.className = className;
+    if (parent) parent.appendChild(node);
+    return node;
+  }
+
+  /* Mirrors the static boot markup, which can render without this script.
+     The shared stylesheet owns the artwork, scale, material and all motion. */
+  function createMark() {
+    var mark = part("fmrc-load-mark", null, "div");
+    mark.setAttribute("aria-hidden", "true");
+    part("fmrc-load-shadow", mark);
+    var floating = part("fmrc-load-float", mark);
+    var assembly = part("fmrc-load-assembly", floating);
+    part("", part("fmrc-load-satellite", assembly));
+    part("fmrc-load-orbit-track", part("fmrc-load-orbit", assembly));
+    for (var layer = -7; layer <= 7; layer += 1) {
+      part("fmrc-load-edge", assembly).style.setProperty("--layer", String(layer));
+    }
+    var face = part("fmrc-load-face", assembly);
+    part("fmrc-load-logo", part("fmrc-load-logo-bed", face));
+    return mark;
+  }
+
   /* Builds the curtain the first time something asks for it — the same lazy
      convention as ensureCustomerSystemPopup() in main.js. A page where nobody
      ever submits anything never gets an extra node.
@@ -61,18 +86,13 @@
     var core = document.createElement("div");
     core.className = "fmrc-load-core";
 
-    /* The mark is decoration: it says what the caption already says, so a
-       screen reader is told once instead of twice. */
-    var mark = document.createElement("div");
-    mark.className = "fmrc-load-mark";
-    mark.setAttribute("aria-hidden", "true");
-
-    var word = document.createElement("span");
-    word.className = "fmrc-load-word";
-    word.textContent = "FMRC";
-
-    var grid = document.createElement("span");
-    grid.className = "fmrc-load-grid";
+    core.appendChild(createMark());
+    var brand = part("fmrc-load-brand", core, "p");
+    brand.textContent = "UCN–FMRC";
+    var name = part("fmrc-load-name", core, "p");
+    name.appendChild(document.createTextNode("Fabrication & Manufacturing"));
+    name.appendChild(document.createElement("br"));
+    name.appendChild(document.createTextNode("Research Center"));
 
     captionEl = document.createElement("p");
     captionEl.className = "fmrc-load-caption";
@@ -85,9 +105,6 @@
     rail.setAttribute("aria-hidden", "true");
     rail.appendChild(document.createElement("span"));
 
-    mark.appendChild(word);
-    mark.appendChild(grid);
-    core.appendChild(mark);
     core.appendChild(captionEl);
     core.appendChild(hintEl);
     core.appendChild(rail);

@@ -1,363 +1,265 @@
-/* ==========================================================================
-   fmrc-loader.css — the UCN-FMRC signature loader
-   FMRC-MARK v1
+/* UCN-FMRC signature loader v2 — approved 3D hero-logo medallion.
+   Shared by customer pages, customer authentication and the redirect splash.
+   Request lifetime remains controlled by each caller. Only transforms and
+   opacity animate; reduced motion keeps the logo and status still. */
 
-   The mark is customer-auth/auth.css:1173's static `.portal-mark` brought to
-   life: the same tilted cream-to-gold tile, the same dashed blueprint frame,
-   the same corner engineering grid, the same FMRC wordmark. A visitor who sees
-   this while a page boots and then lands on the login screen is looking at one
-   object, not two components that happen to share a colour.
-
-   Everything animated here is `transform` or `opacity` only, so it composites
-   and costs a phone nothing: no `background-position`, no `box-shadow`
-   keyframes, no animated `filter`, no `backdrop-filter`, and no `will-change`
-   anywhere — Chrome promotes a running transform animation by itself, and
-   pinning layers on transient elements is the mistake main.css:19322 records.
-
-   Nothing in this file measures or predicts how long a wait will be. Every
-   animation loops `infinite` for exactly as long as the work runs. The only
-   finite durations are fade-outs, and each one starts after the work it
-   covered has already finished.
-
-   Every class is prefixed `fmrc-load-`, so no rule in main.css,
-   responsive.css or auth.css can reach into it and there is no specificity
-   contest to lose.
-   ========================================================================== */
-
-/* --- Keyframes ---------------------------------------------------------- */
-
-/* Twin of main.css's `fmrcSkeletonSweep`, re-declared under its own name
-   because customer-auth/auth.html never loads main.css. Reads as a scanner
-   pass over the tile. */
-@keyframes fmrcLoadSweep {
-  0% {
-    transform: translate3d(-105%, 0, 0);
-  }
-  100% {
-    transform: translate3d(105%, 0, 0);
-  }
-}
-
-/* The blueprint frame measures rather than spins. A rounded square rotated a
-   full turn would clip against the tile's own corners, so the motion is a
-   low-amplitude scale instead. */
-@keyframes fmrcLoadFrame {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 0.72;
-  }
-  50% {
-    transform: scale(1.035);
-    opacity: 1;
-  }
-}
-
-/* A print head rising through the engineering grid — the one motion on the
-   mark that is unmistakably a fabrication lab. Travel is the grid's own
-   height, derived from the single tile variable. */
-@keyframes fmrcLoadLayer {
-  0% {
-    transform: translate3d(0, 0, 0);
-    opacity: 0;
-  }
-  14% {
-    opacity: 1;
-  }
-  86% {
-    opacity: 1;
-  }
-  100% {
-    transform: translate3d(0, calc(var(--fmrc-tile) * -0.34), 0);
-    opacity: 0;
-  }
-}
-
-/* Indeterminate rail. `transform-origin: left` means scaleX shortens the bar
-   from its left edge while translate3d carries it across its own track. */
-@keyframes fmrcLoadRail {
-  0% {
-    transform: translate3d(-100%, 0, 0) scaleX(0.35);
-  }
-  50% {
-    transform: translate3d(20%, 0, 0) scaleX(0.62);
-  }
-  100% {
-    transform: translate3d(100%, 0, 0) scaleX(0.35);
-  }
-}
-
-/* Mount entrance. Runs once when the loader appears; it is not a wait. */
-@keyframes fmrcLoadRise {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 8px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-/* The only motion left when the visitor asks for reduced motion. */
-@keyframes fmrcLoadCalm {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-/* --- The table ----------------------------------------------------------- */
-
-/* One inner component, used unchanged by the boot curtain, the action curtain
-   and index.html. Only the field behind it ever changes.
-
-   The white square is the loader's table: a solid white slab, ruled every 24px
-   like the paper on a real drafting bench, with the mark set on top of it.
-   Solid white, but not a full flat block — the ruling is what keeps it reading
-   as a work surface instead of a plain box.
-
-   It is also what makes the two curtains one object. Before the table existed
-   the copy had to be cream on the action curtain's dark scrim and maroon on the
-   boot curtain's light field, so the same loader was two slightly different
-   components depending on where it appeared; now every colour inside it is the
-   same everywhere and the veil-specific overrides that used to sit further down
-   this file are gone.
-
-   Square by construction rather than by luck: `width` and `min-height` are the
-   same expression, so the slab is exactly square for every flow whose copy is
-   one caption — the boot curtain, the splash, sign in, sign up, send message.
-   The two flows that also set a hint line (an appointment and an order) carry
-   four lines of copy instead of one, so their table grows to about 252×288 and
-   reads as a portrait card. It can only ever grow in height, never in width:
-   `76vw` keeps it clear of the viewport edges at any size, with the curtains'
-   own 24px of padding outside that. */
 .fmrc-load-core {
-  /* One number drives the entire mark. Same clamp as the auth page's own arm
-     for `.portal-mark` (auth.css:1761), so the loader's mark and the login
-     screen's mark are the same size at every width. */
-  --fmrc-tile: clamp(62px, 14vw, 96px);
+  --fmrc-seal-size: clamp(112px, 27vw, 154px);
+  --fmrc-depth: calc(var(--fmrc-seal-size) / 154);
+  --fmrc-cycle: 4.8s;
+  --fmrc-tilt: 24deg;
   box-sizing: border-box;
-  width: min(252px, 76vw);
-  min-height: min(252px, 76vw);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  /* Wider than the mark's own rhythm would suggest, on purpose: the copy has to
-     spread across the table rather than huddle in the middle of it, or the slab
-     reads as mostly empty paper. */
-  gap: calc(var(--fmrc-tile) * 0.24);
-  padding: clamp(18px, 4.6vw, 26px);
+  width: min(360px, 100%);
+  padding: 24px 20px 30px;
+  color: #382c2a;
+  font-family: "Montserrat", "Segoe UI", system-ui, sans-serif;
   text-align: center;
-  font-family: "Montserrat", "Segoe UI", system-ui, -apple-system, sans-serif;
-  border-radius: 18px;
-  /* White underneath, ruling on top: two 1px maroon lines on a 24px pitch,
-     centred both ways so the slab is symmetrical whatever its height. Drawn
-     with gradients rather than an image so it costs no request, and nothing
-     here moves — `background-position` is not compositable and this file
-     animates none. */
-  background:
-    linear-gradient(90deg, rgba(158, 20, 20, 0.08) 1px, rgba(158, 20, 20, 0) 1px),
-    linear-gradient(rgba(158, 20, 20, 0.08) 1px, rgba(158, 20, 20, 0) 1px),
-    /* The paper colour, not white - this slab is the first surface the visitor
-       sees, so it has to hand off to the page's own field without a flash. The
-       literal is --customer-paper; the token is not used because this sheet has
-       to stand up even if main.css has not parsed yet. */ #fdfaf6;
-  background-size: 24px 24px;
-  background-position: center center;
-  box-shadow:
-    inset 0 0 0 1px rgba(158, 20, 20, 0.08),
-    0 26px 60px rgba(15, 23, 42, 0.22),
-    0 2px 6px rgba(15, 23, 42, 0.08);
-  animation: fmrcLoadRise 0.34s ease-out both;
 }
 
-/* --- The mark ------------------------------------------------------------ */
+.fmrc-load-core *,
+.fmrc-load-core *::before,
+.fmrc-load-core *::after,
+.fmrc-load-inline,
+.fmrc-load-inline::before,
+.fmrc-load-inline::after { box-sizing: border-box; }
 
-/* Geometry copied from `.portal-mark` (auth.css:1173) and expressed against
-   --fmrc-tile so it holds at every width: 30/96 radius, -2deg tilt. */
+/* All medallion dimensions, including depth, scale with the face size. */
 .fmrc-load-mark {
   position: relative;
-  width: var(--fmrc-tile);
-  height: var(--fmrc-tile);
   flex: none;
+  width: calc(var(--fmrc-seal-size) * 280 / 154);
+  height: calc(var(--fmrc-seal-size) * 270 / 154);
+  perspective: 850px;
+}
+
+.fmrc-load-shadow {
+  position: absolute;
+  left: 25%;
+  bottom: 9.26%;
+  width: 50%;
+  height: 7.04%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, #66452d36, #66452d12 46%, #66452d00 73%);
+  animation: fmrcLoadShadow var(--fmrc-cycle) ease-in-out infinite;
+}
+
+.fmrc-load-float {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  animation: fmrcLoadFloat var(--fmrc-cycle) ease-in-out infinite;
+}
+
+.fmrc-load-assembly {
+  position: absolute;
+  top: 14.444%;
+  left: 22.5%;
+  width: var(--fmrc-seal-size);
+  height: var(--fmrc-seal-size);
+  transform-style: preserve-3d;
+  transform: rotateX(12deg) rotateY(-24deg) rotateZ(-5deg);
+  animation: fmrcLoadTilt var(--fmrc-cycle) ease-in-out infinite;
+}
+
+.fmrc-load-edge,
+.fmrc-load-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.fmrc-load-edge {
+  transform: translateZ(calc(var(--layer) * var(--fmrc-depth)));
+  background: linear-gradient(130deg, #eed6a0 2%, #c7a366 24%, #86612e 48%, #d6b97d 72%, #72502c);
+  border: 1px solid #9e773d;
+}
+
+.fmrc-load-face {
   display: grid;
   place-items: center;
+  padding: 3.896%;
+  transform: translateZ(calc(8 * var(--fmrc-depth)));
+  backface-visibility: hidden;
   overflow: hidden;
-  border-radius: calc(var(--fmrc-tile) * 0.3125);
-  background: linear-gradient(135deg, #fffdf2 0%, #fff6bf 45%, #fffdf8 100%);
-  /* Standing on the white table now, not floating on a dark scrim, so the
-     shadow it used to need to read there (0 24px 48px black at .25) would only
-     smudge the paper underneath it. The hairline ring is what draws the tile's
-     own edge, since cream on white has almost no contrast of its own; the lift
-     below it is short, warm and soft. */
-  box-shadow:
-    0 0 0 1px rgba(158, 20, 20, 0.12),
-    0 12px 24px rgba(139, 0, 0, 0.14);
-  transform: rotate(-2deg);
+  background: linear-gradient(140deg, #fbebc5, #c59b53 27%, #8b602d 52%, #e5cc93 77%, #ae803e);
+  box-shadow: inset 0 0 0 1px #f9e5b4;
 }
 
-.fmrc-load-mark::before,
-.fmrc-load-mark::after {
+.fmrc-load-face::after {
   content: "";
   position: absolute;
+  inset: -25%;
   pointer-events: none;
+  background: linear-gradient(110deg, #fff7e900 31%, #fff7e914 42%, #fff7e970 49%, #fff7e914 55%, #fff7e900 66%);
+  transform: translateX(-110%);
+  animation: fmrcLoadLight var(--fmrc-cycle) ease-in-out infinite;
 }
 
-/* The scanner pass, kept warm so it glosses the gold tile instead of washing
-   the wordmark out. Paints under the children, above the fill. */
-.fmrc-load-mark::before {
-  inset: 0;
-  background: linear-gradient(
-    100deg,
-    rgba(241, 237, 18, 0) 24%,
-    rgba(255, 253, 242, 0.5) 47%,
-    rgba(241, 237, 18, 0.34) 60%,
-    rgba(241, 237, 18, 0) 78%
-  );
-  animation: fmrcLoadSweep 1.4s linear infinite;
+.fmrc-load-logo-bed {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 2.817%;
+  border-radius: 50%;
+  background: #fdfaf6;
+  box-shadow: inset 0 0 0 1px #79533338;
 }
 
-/* Same geometry as `.portal-mark::before` (auth.css:1181): inset 10/96, radius
-   22/96, 1px dashed maroon at 28%. Paints above the children so the frame is
-   never crossed by the sweep. */
-.fmrc-load-mark::after {
-  inset: calc(var(--fmrc-tile) * 0.1042);
-  border: 1px dashed rgba(158, 20, 20, 0.28);
-  border-radius: calc(var(--fmrc-tile) * 0.2292);
-  animation: fmrcLoadFrame 2.6s ease-in-out infinite;
+.fmrc-load-logo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: url("../images/FMRC%20Logo.png") center / contain no-repeat;
 }
 
-/* Same geometry as `.portal-mark::after` (auth.css:1188), but as a real element
-   rather than a pseudo, because the rising layer line needs something to be
-   clipped inside. `background-size: 25%` keeps it four cells square at every
-   tile size instead of a fixed 8px that would drift on a phone. */
-.fmrc-load-grid {
+.fmrc-load-orbit {
   position: absolute;
-  right: calc(var(--fmrc-tile) * 0.1354);
-  bottom: calc(var(--fmrc-tile) * 0.1354);
-  width: calc(var(--fmrc-tile) * 0.3333);
-  height: calc(var(--fmrc-tile) * 0.3333);
-  overflow: hidden;
-  border-radius: calc(var(--fmrc-tile) * 0.1146);
-  background:
-    linear-gradient(90deg, rgba(158, 20, 20, 0.2) 1px, rgba(158, 20, 20, 0) 1px),
-    linear-gradient(rgba(158, 20, 20, 0.2) 1px, rgba(158, 20, 20, 0) 1px);
-  background-size: 25% 25%;
+  inset: -16.234%;
+  border: 1px solid #b38b4930;
+  border-radius: 50%;
+  transform: translateZ(calc(3 * var(--fmrc-depth)));
+  transform-style: preserve-3d;
 }
 
-.fmrc-load-grid::after {
+.fmrc-load-orbit-track {
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  animation: fmrcLoadOrbit 2.6s linear infinite;
+}
+
+.fmrc-load-orbit-track::before {
   content: "";
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 2px;
-  background: linear-gradient(
-    90deg,
-    rgba(241, 237, 18, 0),
-    rgba(241, 237, 18, 0.95) 50%,
-    rgba(241, 237, 18, 0)
-  );
-  animation: fmrcLoadLayer 1.9s ease-in-out infinite;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(#b38b4900 175deg, #bc914946 228deg, #a87933 305deg, #e0bd7c 349deg, #b38b4900 350deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
 }
 
-/* Static, exactly as on the login page: 16/96, weight 800, .12em, #7f1111. */
-.fmrc-load-word {
-  position: relative;
-  z-index: 1;
-  color: #7f1111;
-  font-size: calc(var(--fmrc-tile) * 0.1667);
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  line-height: 1;
+.fmrc-load-orbit-track::after {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: calc(50% - 2.5px);
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #b28a44;
+  box-shadow: 0 0 9px #d5b36970;
 }
 
-/* --- Caption, hint and rail ---------------------------------------------- */
+.fmrc-load-satellite {
+  position: absolute;
+  inset: -28.571%;
+  border: 1px solid #6b202b16;
+  border-radius: 50%;
+  transform: rotateX(62deg) rotateY(-12deg) translateZ(calc(-4 * var(--fmrc-depth)));
+  transform-style: preserve-3d;
+}
+
+.fmrc-load-satellite > span {
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  animation: fmrcLoadOrbit 5.2s linear infinite reverse;
+}
+
+.fmrc-load-satellite > span::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #6b202b8c;
+}
+
+.fmrc-load-brand {
+  margin: 0;
+  padding-left: 0.17em;
+  color: #6b202b;
+  font-size: clamp(18px, 4.7vw, 21px);
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.17em;
+}
+
+.fmrc-load-name {
+  margin: 9px 0 0;
+  max-width: 290px;
+  color: #76665e;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.7;
+  letter-spacing: 0.04em;
+}
 
 .fmrc-load-caption {
-  margin: 0;
-  max-width: 26ch;
-  color: var(--customer-wine, #6b202b);
-  font-size: clamp(13px, 1.6vw, 15px);
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  line-height: 1.35;
-}
-
-/* Only the two long waits set this — see fmrc-loader.js. Empty means gone, so
-   the layout does not reserve space for a line that is not there. */
-.fmrc-load-hint {
-  margin: calc(var(--fmrc-tile) * -0.08) 0 0;
-  max-width: 34ch;
-  color: #8a6a55;
-  font-size: clamp(11px, 1.3vw, 12.5px);
+  margin: 28px 0 0;
+  max-width: 30ch;
+  color: #76665e;
+  font-size: 12px;
   font-weight: 500;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
-.fmrc-load-hint:empty {
-  display: none;
+.fmrc-load-hint {
+  margin: 8px 0 0;
+  max-width: 34ch;
+  color: #76665e;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
 }
+
+.fmrc-load-hint:empty { display: none; }
 
 .fmrc-load-rail {
   position: relative;
-  width: clamp(96px, 26vw, 132px);
+  width: 104px;
   height: 2px;
+  margin-top: 12px;
   overflow: hidden;
   border-radius: 2px;
-  background: rgba(107, 32, 43, 0.14);
+  background: #6b202b12;
 }
 
 .fmrc-load-rail > span {
   position: absolute;
   inset: 0;
-  transform-origin: left center;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--customer-wine, #6b202b), var(--customer-wine-hover, #511721) 55%, #f1ed12);
-  animation: fmrcLoadRail 1.5s ease-in-out infinite;
+  background: linear-gradient(90deg, #6b202b00, #6b202b 45%, #bd944c 70%, #bd944c00);
+  animation: fmrcLoadRail 2s cubic-bezier(.4, 0, .2, 1) infinite;
 }
 
-/* --- The boot curtain ---------------------------------------------------- */
-
-/* Gated on `html.fmrc-booting`, a class only the inline <head> script adds, so
-   a visitor with scripting off never receives a curtain and can never be
-   stranded behind one. The lift is pure CSS: the same inline script removes the
-   class on DOMContentLoaded and the fade below runs afterwards — it is a
-   reaction to the wait ending, not a guess at how long the wait would be.
-
-   The default field is the one products, services and contact pages paint
-   (main.css:2022 and its twins). main.html and auth.html each set
-   --fmrc-boot-field to their own, so the curtain always fades into the exact
-   colour the page underneath settled on and there is no step. */
-.fmrc-load-boot {
+/* Boot cleanup stays inline in each page, independent of the action script. */
+.fmrc-load-boot,
+.fmrc-load-veil {
   position: fixed;
   inset: 0;
-  z-index: 200001;
   display: grid;
   place-items: center;
   padding: 24px;
+  overflow-y: auto;
   overscroll-behavior: contain;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition:
-    opacity 0.28s ease,
-    visibility 0s linear 0.28s;
-  background: var(
-    --fmrc-boot-field,
-    radial-gradient(
-        circle at 8% 10%,
-        rgba(241, 237, 18, 0.18),
-        transparent 22rem
-      ),
-    radial-gradient(circle at 90% 18%, rgba(158, 20, 20, 0.12), transparent 24rem),
-    linear-gradient(135deg, #fffaf0 0%, #f7f2ec 46%, #fffdf8 100%)
-  );
+}
+
+.fmrc-load-boot {
+  z-index: 200001;
+  transition: opacity .28s ease, visibility 0s linear .28s;
+  background: var(--fmrc-boot-field, radial-gradient(ellipse at 50% 38%, #fffdf8, #fffdf800 56%), #fdfaf6);
 }
 
 html.fmrc-booting .fmrc-load-boot {
@@ -366,148 +268,126 @@ html.fmrc-booting .fmrc-load-boot {
   transition: none;
 }
 
-/* --- The action curtain -------------------------------------------------- */
-
-/* Sits above every dialog on the site. Today's verified ceiling is 100000
-   (`.ux-dlg--standalone`, main.css:17257), then 99999 for the rating popup and
-   for `.maint-dlg`. The scrim value is --ux-dlg-scrim, the same one already
-   behind every dialog, so an in-page action reads as "a dialog is working"
-   rather than as a second visual language.
-
-   The white table inside carries the loader here exactly as it does on the boot
-   curtain: same slab, same ruling, same copy colours. This block therefore sets
-   the scrim and nothing else — there are no `.fmrc-load-veil .fmrc-load-*`
-   colour overrides in this file at all, which is the whole reason one inner
-   component can serve a dark field and a light one without being touched. */
 .fmrc-load-veil {
-  position: fixed;
-  inset: 0;
   z-index: 200000;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  overscroll-behavior: contain;
-  background: var(--ux-dlg-scrim, rgba(15, 23, 42, 0.55));
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition:
-    opacity 0.18s ease,
-    visibility 0s linear 0.18s;
+  background: var(--ux-dlg-scrim, #2019188c);
+  transition: opacity .18s ease, visibility 0s linear .18s;
 }
 
 .fmrc-load-veil.is-on {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-  transition: opacity 0.18s ease;
+  transition: opacity .18s ease;
 }
 
-/* --- Short viewport ------------------------------------------------------- */
-
-/* A phone held sideways, or a desktop window dragged down to a strip. Only the
-   vertical rhythm tightens; --fmrc-tile keeps its own clamp, so the mark never
-   changes proportion. No phone-width arm exists or is needed: --fmrc-tile and
-   every type size in this file already clamp on vw. */
-@media (max-height: 460px) and (orientation: landscape) {
-  .fmrc-load-core {
-    --fmrc-tile: clamp(52px, 11vh, 72px);
-    gap: calc(var(--fmrc-tile) * 0.16);
-    /* Still square, but measured off the short axis instead of the long one: at
-       460px tall the table is 232px and clears the curtain's 12px of padding
-       with room to spare, and it keeps shrinking with the viewport from there. */
-    width: min(232px, 58vh);
-    min-height: min(232px, 58vh);
-    padding: clamp(14px, 3.2vh, 22px);
-  }
-
-  .fmrc-load-hint {
-    display: none;
-  }
-
-  .fmrc-load-boot,
-  .fmrc-load-veil {
-    padding: 12px;
-  }
+.fmrc-load-veil .fmrc-load-core {
+  border-radius: 18px;
+  background: radial-gradient(ellipse at 50% 38%, #fffdf8, #fffdf800 56%), #fdfaf6;
+  box-shadow: 0 24px 64px #382c2a29;
 }
 
-/* --- Reduced motion ------------------------------------------------------- */
+/* Small waits use the same artwork, gold orbit and tilting face, with fewer
+   layers so thumbnail grids do not animate dozens of full medallions. */
+.fmrc-load-inline {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 auto;
+  width: var(--fmrc-inline-size, 24px);
+  height: var(--fmrc-inline-size, 24px);
+  min-width: var(--fmrc-inline-size, 24px);
+  padding: 0;
+  border: 0;
+  vertical-align: middle;
+  line-height: 1;
+  perspective: 180px;
+}
 
-/* Last in the file, so it wins on source order against every rule above at the
-   same specificity and no `!important` is needed anywhere.
+.fmrc-load-inline--panel { --fmrc-inline-size: 52px; }
 
-   A visitor who asks for reduced motion still has to be told the site is
-   working, so the caption breathes — one slow opacity fade, the gentlest cue
-   available — and everything that travels, sweeps or scales stops. The rail
-   keeps its bar visible at rest rather than vanishing, so the shape of the
-   loader is unchanged; only the motion is. */
+.fmrc-load-inline::before {
+  content: "";
+  position: absolute;
+  inset: 16%;
+  border: 1px solid #c19c59;
+  border-radius: 50%;
+  background: url("../images/FMRC%20Logo.png") center / auto 88% no-repeat, #fdfaf6;
+  box-shadow: 1px 1px 0 #af894e, 2px 2px 0 #96713d;
+  transform: rotateX(12deg) rotateY(-24deg) rotateZ(-5deg);
+  animation: fmrcLoadCompact 4.8s ease-in-out infinite;
+}
+
+.fmrc-load-inline::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(#b38b4926 0deg 180deg, #bc914960 230deg, #a87933 305deg, #e0bd7c 349deg, #b38b4926 350deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 1.5px), #000 calc(100% - 1px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 1.5px), #000 calc(100% - 1px));
+  animation: fmrcLoadOrbit 2.6s linear infinite;
+}
+
+@keyframes fmrcLoadFloat {
+  0%, 100% { transform: translate3d(0, calc(4 * var(--fmrc-depth)), 0); }
+  50% { transform: translate3d(0, calc(-7 * var(--fmrc-depth)), 0); }
+}
+
+@keyframes fmrcLoadTilt {
+  0%, 100% { transform: rotateX(12deg) rotateY(calc(-1 * var(--fmrc-tilt))) rotateZ(-5deg); }
+  50% { transform: rotateX(18deg) rotateY(var(--fmrc-tilt)) rotateZ(5deg); }
+}
+
+@keyframes fmrcLoadCompact {
+  0%, 100% { transform: rotateX(12deg) rotateY(-24deg) rotateZ(-5deg); }
+  50% { transform: rotateX(18deg) rotateY(24deg) rotateZ(5deg); }
+}
+
+@keyframes fmrcLoadShadow {
+  0%, 100% { transform: scaleX(1); opacity: .85; }
+  50% { transform: scaleX(.77); opacity: .48; }
+}
+
+@keyframes fmrcLoadLight {
+  0%, 8% { transform: translateX(-110%); opacity: 0; }
+  18% { opacity: .7; }
+  48%, 100% { transform: translateX(110%); opacity: 0; }
+}
+
+@keyframes fmrcLoadOrbit { to { transform: rotateZ(360deg); } }
+@keyframes fmrcLoadRail {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+@media (max-height: 600px) {
+  .fmrc-load-core { --fmrc-seal-size: clamp(64px, 19vh, 110px); padding: 12px 18px 18px; }
+  .fmrc-load-caption { margin-top: 16px; }
+  .fmrc-load-boot, .fmrc-load-veil { padding: 12px; }
+}
+
+@media (max-height: 380px) {
+  .fmrc-load-core { --fmrc-seal-size: 54px; }
+  .fmrc-load-name { display: none; }
+  .fmrc-load-caption { margin-top: 12px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .fmrc-load-core {
-    animation: none;
-  }
-
-  .fmrc-load-mark::before {
-    animation: none;
-    transform: none;
-    opacity: 0.4;
-  }
-
-  .fmrc-load-mark::after {
-    animation: none;
-    transform: none;
-    opacity: 1;
-  }
-
-  .fmrc-load-grid::after {
-    animation: none;
-    opacity: 1;
-  }
-
-  .fmrc-load-rail > span {
-    animation: none;
-    transform: translate3d(0, 0, 0) scaleX(0.35);
-  }
-
-  .fmrc-load-caption {
-    animation: fmrcLoadCalm 2.4s ease-in-out infinite;
-  }
-
-  /* With `transition: none` below there is no transitionend, so the inline boot
-     script never gets its cue to take the faded curtain out of the document.
-     Stopping the one loop that is still running here does the same job. There is
-     no pop to worry about, because under reduced motion there is no fade to
-     interrupt. */
-  html:not(.fmrc-booting) .fmrc-load-boot .fmrc-load-caption {
-    animation: none;
-  }
-
-  /* `.fmrc-load-veil.is-on` is named explicitly because it re-declares
-     `transition` at (0,2,0) — a media query adds no specificity, so listing
-     only `.fmrc-load-veil` here would leave the fade-in running. */
-  .fmrc-load-boot,
-  .fmrc-load-veil,
-  .fmrc-load-veil.is-on {
-    transition: none;
-  }
+  .fmrc-load-core *,
+  .fmrc-load-core *::before,
+  .fmrc-load-core *::after,
+  .fmrc-load-inline::before,
+  .fmrc-load-inline::after { animation: none; }
+  .fmrc-load-assembly { transform: rotateX(8deg) rotateY(-12deg); }
+  .fmrc-load-rail > span { transform: scaleX(.4); }
+  .fmrc-load-boot, .fmrc-load-veil, .fmrc-load-veil.is-on { transition: none; }
 }
 
-/* The action curtain, unlike the boot curtain, is never taken out of the
-   document when it lowers: every submit on the page reuses the same node, so it
-   stays built and only fades. Left alone that would leave four infinite loops —
-   five under reduced motion, counting the caption — animating an element nobody
-   can see, for the rest of the page's life. Parking them on `:not(.is-on)` costs
-   nothing and the browser starts them from their first frame again the next time
-   a curtain goes up, so a second submit looks exactly like the first.
-
-   Deliberately the last rules in the file, and deliberately outside the
-   reduced-motion arm above: at (0,3,0) and (0,3,1) they outrank both the loop
-   declarations at the top of this file and the `fmrcLoadCalm` re-declaration
-   inside that arm, so this one block covers every combination. */
-.fmrc-load-veil:not(.is-on) .fmrc-load-core,
-.fmrc-load-veil:not(.is-on) .fmrc-load-caption,
-.fmrc-load-veil:not(.is-on) .fmrc-load-mark::before,
-.fmrc-load-veil:not(.is-on) .fmrc-load-mark::after,
-.fmrc-load-veil:not(.is-on) .fmrc-load-grid::after,
-.fmrc-load-veil:not(.is-on) .fmrc-load-rail > span {
-  animation: none;
-}
+/* Reusable overlays stop every descendant loop while hidden. Boot nodes are
+   also removed by their page's cleanup handler after the fade. */
+.fmrc-load-veil:not(.is-on) .fmrc-load-core *,
+.fmrc-load-veil:not(.is-on) .fmrc-load-core *::before,
+.fmrc-load-veil:not(.is-on) .fmrc-load-core *::after,
+html:not(.fmrc-booting) .fmrc-load-boot .fmrc-load-core *,
+html:not(.fmrc-booting) .fmrc-load-boot .fmrc-load-core *::before,
+html:not(.fmrc-booting) .fmrc-load-boot .fmrc-load-core *::after { animation: none; }

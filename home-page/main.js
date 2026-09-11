@@ -715,6 +715,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     aboutVideoToggle.addEventListener("click", (event) => {
       event.stopPropagation();
+      if (aboutVideoHolder.classList.contains("is-loading") || aboutVideoHolder.classList.contains("is-empty")) return;
+      if (!document.getElementById("aboutVideoSrc")?.getAttribute("src")) return;
       if (aboutPreviewVideo.paused) {
         aboutPreviewVideo.play().catch(() => {});
       } else {
@@ -722,8 +724,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    // Both elements point at the same 1080p file, so leaving the preview
-    // running behind the modal made the phone decode the clip twice at once.
+    // Both elements point at the same configured file, so leaving the preview
+    // running behind the modal would make the phone decode the clip twice at once.
     // The preview only resumes if it was actually playing when the modal opened.
     let previewWasPlaying = false;
 
@@ -737,6 +739,8 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     aboutVideoHolder.addEventListener("click", () => {
+      if (aboutVideoHolder.classList.contains("is-loading") || aboutVideoHolder.classList.contains("is-empty")) return;
+      if (!document.getElementById("aboutFullVideoSrc")?.getAttribute("src")) return;
       previewWasPlaying = !aboutPreviewVideo.paused;
       aboutVideoModal.classList.add("show-video-modal");
       aboutFullVideo.currentTime = aboutPreviewVideo.currentTime || 0;
@@ -7908,7 +7912,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.classList.add("is-loading");
-        submitBtn.textContent = "Sending...";
+        submitBtn.innerHTML = '<span class="fmrc-load-inline" aria-hidden="true"></span> Sending...';
       }
 
       /* No hint line here: this request only writes a row and answers, so it is
@@ -7983,15 +7987,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!userProfileBtn) return;
   userProfileBtn.removeAttribute("title");
 
-  /* `ensureLoader()` and `setLoader()` used to live here: they built
-     `#global-loader` with a `.laravel-spinner` inside it — the white scrim with
-     a rotating ring, the second and last copy of the loader this round
-     replaces. Both call sites now raise the shared UCN-FMRC curtain through
-     `window.FMRCLoader`, so nothing on a customer page builds that node any
-     more. The matching rules in main.css (`.global-loader-overlay`,
-     `.laravel-spinner`) are left where they are on purpose: they are now
-     unreachable, and editing a 573 KB render-blocking stylesheet to delete dead
-     rules would force every visitor to re-download it for no visible gain. */
+  /* Profile actions use the shared UCN-FMRC curtain through
+     `window.FMRCLoader`, the same loading animation as the customer pages. */
 
   const ensureStatusModal = () => {
     let modal = document.getElementById("userStatusModal");
@@ -8041,9 +8038,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const isPasswordSet = hasCustomerSetPassword(userInfo);
     const pwdBtnLabel = isPasswordSet ? "Change Password" : "Set Password";
-    const pwdBtnIcon = isPasswordSet
-      ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 6px;"><path d="M21 2l-2 2m-1.5 1.5L4 19l-2 2 2-2 13.5-13.5z"/><path d="M15 5l4 4"/></svg>'
-      : '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 6px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
 
     overlay.innerHTML = `
       <section class="customer-modal ux-dlg__card" role="dialog" aria-modal="true" aria-labelledby="customerModalTitle">
@@ -8058,7 +8052,6 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
         <div class="ux-dlg__foot">
           <button type="button" class="change-password-trigger-btn ux-dlg__btn ux-dlg__btn--primary" id="openChangePasswordBtn">
-            ${pwdBtnIcon}
             ${pwdBtnLabel}
           </button>
         </div>
@@ -8857,7 +8850,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <h2 class="customer-orders-title ux-dlg__title" id="customerOrdersTitle">My Orders</h2>
             <p class="customer-orders-subtitle">Track every order from payment to completion.</p>
             <p class="customer-orders-sync-status is-syncing" id="customerOrdersSyncStatus" aria-live="polite">
-              <span class="customer-orders-sync-dot" aria-hidden="true"></span>
+              <span class="customer-orders-sync-dot" aria-hidden="true"><span class="fmrc-load-inline" aria-hidden="true"></span></span>
               <span>Loading current orders...</span>
             </p>
           </div>
@@ -8979,7 +8972,7 @@ document.addEventListener("DOMContentLoaded", () => {
         syncStatus.classList.toggle("is-syncing", mode === "syncing");
         syncStatus.classList.toggle("is-live", mode === "live");
         syncStatus.classList.toggle("is-offline", mode === "offline");
-        const label = syncStatus.querySelector("span:last-child");
+        const label = syncStatus.querySelector(":scope > span:last-child");
         if (label) label.textContent = message;
       };
 
@@ -9312,7 +9305,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return `
           <button type="button" class="customer-order-image-trigger${className ? ` ${className}` : ""} ${imageState}" data-order-image-full-endpoint="${fullEndpoint}" data-order-image-title="${name}" aria-label="Expand image for ${name}" ${hasImage ? "" : 'aria-disabled="true" tabindex="-1"'}>
             <img src="${imageSrc}" ${endpoint ? `data-order-image-endpoint="${endpoint}"` : ""} alt="${name}" loading="lazy" />
-            <span class="customer-order-image-loading" aria-hidden="true"><i class="fa-solid fa-spinner fa-spin"></i></span>
+            <span class="customer-order-image-loading" aria-hidden="true"><span class="fmrc-load-inline" aria-hidden="true"></span></span>
             <span class="customer-order-image-expand" aria-hidden="true"><i class="fa-solid fa-expand"></i></span>
             <span class="customer-order-image-unavailable" aria-hidden="true"><i class="fa-regular fa-image"></i></span>
           </button>
@@ -9332,8 +9325,8 @@ document.addEventListener("DOMContentLoaded", () => {
             <button type="button" class="lightbox-close-btn" data-close-order-image aria-label="Close image preview">&times;</button>
             <div class="customer-order-lightbox-media">
               <div class="customer-order-lightbox-loading" role="status" aria-live="polite">
-                <i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i>
-                <span>Loading full image...</span>
+                <span class="fmrc-load-inline fmrc-load-inline--panel" aria-hidden="true"></span>
+                <span class="customer-order-lightbox-loading-label">Loading full image...</span>
               </div>
               <img class="customer-order-lightbox-image" alt="" />
             </div>
@@ -9385,7 +9378,7 @@ document.addEventListener("DOMContentLoaded", () => {
         );
         const caption = lightbox.querySelector(".lightbox-caption");
         const loadingLabel = lightbox.querySelector(
-          ".customer-order-lightbox-loading span",
+          ".customer-order-lightbox-loading-label",
         );
         const closeButton = lightbox.querySelector("[data-close-order-image]");
         const requestId = ++customerOrderImagePreviewRequestId;
@@ -9472,7 +9465,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const renderLoadingState = () => `
         <div class="customer-orders-empty">
-          <i class="fa-solid fa-spinner fa-spin"></i>
+          <span class="fmrc-load-inline fmrc-load-inline--panel" aria-hidden="true"></span>
           <p>Fetching your orders...</p>
         </div>
       `;
@@ -10666,7 +10659,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <div class="customer-rating-actions ux-dlg__foot is-confirm">
                 <button type="button" class="customer-rating-cancel-btn ux-dlg__btn ux-dlg__btn--ghost" data-return-form-close>Cancel</button>
                 <button type="button" class="btn-place-order customer-rating-submit-btn ux-dlg__btn ux-dlg__btn--primary" data-return-form-submit>
-                  <span class="customer-rating-submit-spinner" aria-hidden="true"></span>
+                  <span class="customer-rating-submit-spinner" aria-hidden="true"><span class="fmrc-load-inline" aria-hidden="true"></span></span>
                   <span>Mark as sent back</span>
                 </button>
               </div>
@@ -10919,7 +10912,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <div class="customer-rating-actions ux-dlg__foot is-confirm">
                 <button type="button" class="customer-rating-cancel-btn ux-dlg__btn ux-dlg__btn--ghost" data-gcash-close>Close</button>
                 <button type="button" class="btn-place-order customer-rating-submit-btn ux-dlg__btn ux-dlg__btn--primary" data-gcash-submit>
-                  <span class="customer-rating-submit-spinner" aria-hidden="true"></span>
+                  <span class="customer-rating-submit-spinner" aria-hidden="true"><span class="fmrc-load-inline" aria-hidden="true"></span></span>
                   <span data-gcash-submit-label>${underReview ? "Update my reference" : "I've sent the payment"}</span>
                 </button>
               </div>
@@ -11356,7 +11349,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <div class="customer-rating-actions ux-dlg__foot is-confirm">
                 <button type="button" class="customer-rating-cancel-btn ux-dlg__btn ux-dlg__btn--ghost" data-cancel-close>Keep my order</button>
                 <button type="button" class="btn-place-order customer-rating-submit-btn ux-dlg__btn ux-dlg__btn--primary" data-cancel-submit>
-                  <span class="customer-rating-submit-spinner" aria-hidden="true"></span>
+                  <span class="customer-rating-submit-spinner" aria-hidden="true"><span class="fmrc-load-inline" aria-hidden="true"></span></span>
                   <span data-cancel-submit-label>${immediate ? "Cancel order" : "Send request"}</span>
                 </button>
               </div>
@@ -12461,7 +12454,7 @@ document.addEventListener("DOMContentLoaded", () => {
           detailTitle.textContent = "Return Details";
           detailContent.innerHTML = `
             <div class="customer-orders-empty">
-              <i class="fa-solid fa-spinner fa-spin"></i>
+              <span class="fmrc-load-inline fmrc-load-inline--panel" aria-hidden="true"></span>
               <p>Preparing return details...</p>
             </div>
           `;
@@ -12537,7 +12530,7 @@ document.addEventListener("DOMContentLoaded", () => {
         detailTitle.textContent = "Order Details";
         detailContent.innerHTML = `
           <div class="customer-orders-empty">
-            <i class="fa-solid fa-spinner fa-spin"></i>
+            <span class="fmrc-load-inline fmrc-load-inline--panel" aria-hidden="true"></span>
             <p>Preparing order details...</p>
           </div>
         `;
@@ -13113,7 +13106,7 @@ const openRatingModal = (() => {
         <div class="customer-rating-actions ux-dlg__foot is-confirm">
           <button type="button" class="customer-rating-cancel-btn ux-dlg__btn ux-dlg__btn--ghost" id="cancelRatingBtn">Cancel</button>
           <button type="button" class="btn-place-order customer-rating-submit-btn ux-dlg__btn ux-dlg__btn--primary" id="submitRatingBtn">
-            <span class="customer-rating-submit-spinner" aria-hidden="true"></span>
+            <span class="customer-rating-submit-spinner" aria-hidden="true"><span class="fmrc-load-inline" aria-hidden="true"></span></span>
             <span data-rating-submit-label>Submit reviews</span>
           </button>
         </div>
@@ -13219,7 +13212,7 @@ const openRatingModal = (() => {
       } else if (itemsLoading) {
         itemsContainer.innerHTML = `
           <div class="customer-rating-loading" role="status" aria-live="polite">
-            <span class="customer-rating-loading-mark" aria-hidden="true"></span>
+            <span class="customer-rating-loading-mark" aria-hidden="true"><span class="fmrc-load-inline" aria-hidden="true"></span></span>
             <span class="customer-rating-loading-copy">
               <strong>Preparing your review form</strong>
               <span>Loading products in this order...</span>
@@ -13583,7 +13576,7 @@ const openReturnRequestModal = (() => {
         <div class="customer-rating-actions ux-dlg__foot is-confirm">
           <button type="button" class="customer-rating-cancel-btn ux-dlg__btn ux-dlg__btn--ghost" data-return-request-close>Cancel</button>
           <button type="button" class="btn-place-order customer-rating-submit-btn ux-dlg__btn ux-dlg__btn--primary" data-return-request-submit>
-            <span class="customer-rating-submit-spinner" aria-hidden="true"></span>
+            <span class="customer-rating-submit-spinner" aria-hidden="true"><span class="fmrc-load-inline" aria-hidden="true"></span></span>
             <span data-return-submit-label>Submit request</span>
           </button>
         </div>
@@ -13660,7 +13653,7 @@ const openReturnRequestModal = (() => {
     if (returnLoading || !returnDraft) {
       return `
         <div class="customer-rating-loading" role="status" aria-live="polite">
-          <span class="customer-rating-loading-mark" aria-hidden="true"></span>
+          <span class="customer-rating-loading-mark" aria-hidden="true"><span class="fmrc-load-inline" aria-hidden="true"></span></span>
           <span class="customer-rating-loading-copy">
             <strong>Preparing your return form</strong>
             <span>Checking the return window for this order...</span>
@@ -14677,6 +14670,88 @@ const openReturnRequestModal = (() => {
     }
   }
 
+  let aboutVideoLoadingTimer = null;
+
+  function settleAboutVideo(empty) {
+    clearTimeout(aboutVideoLoadingTimer);
+    aboutVideoLoadingTimer = null;
+    const holder = document.getElementById("aboutVideoHolder");
+    if (!holder) return;
+    holder.classList.remove("is-loading");
+    holder.classList.toggle("is-empty", empty);
+    holder.removeAttribute("aria-busy");
+  }
+
+  function beginAboutVideoLoading() {
+    const holder = document.getElementById("aboutVideoHolder");
+    if (!holder) return;
+    holder.classList.add("is-loading");
+    holder.classList.remove("is-empty");
+    holder.setAttribute("aria-busy", "true");
+    clearTimeout(aboutVideoLoadingTimer);
+    // Match Mission/Vision: retain the placeholder if settings or media fail,
+    // rather than leaving its loading animation running indefinitely.
+    aboutVideoLoadingTimer = setTimeout(() => settleAboutVideo(true), 8000);
+  }
+
+  function initAboutVideoPlaceholder() {
+    const player = document.getElementById("aboutPreviewVideo");
+    const source = document.getElementById("aboutVideoSrc");
+    if (!player || !source) return;
+    player.addEventListener("loadedmetadata", () => {
+      if (source.getAttribute("src") && player.readyState >= 1 && !player.error) {
+        settleAboutVideo(false);
+      }
+    });
+    player.addEventListener("error", () => settleAboutVideo(true));
+    source.addEventListener("error", () => settleAboutVideo(true));
+    beginAboutVideoLoading();
+    if (source.getAttribute("src") && player.readyState >= 1 && !player.error) {
+      settleAboutVideo(false);
+    }
+  }
+
+  function applyAboutVideo(value) {
+    const holder = document.getElementById("aboutVideoHolder");
+    if (!holder) return;
+
+    let url = typeof value === "string" ? value.trim() : "";
+    if (url) {
+      // Older site-setting snapshots contain the bundled demo. Retire that
+      // fallback too, while continuing to show videos uploaded in the Admin.
+      try {
+        const path = decodeURIComponent(new URL(url, window.location.href).pathname);
+        if (path.toLowerCase() === "/images/product showcase.mp4") url = "";
+      } catch {
+        // Leave configured media URLs to the browser's media loader.
+      }
+    }
+
+    const previewSource = document.getElementById("aboutVideoSrc");
+    const changed = (previewSource?.getAttribute("src") || "") !== url;
+    if (!url) {
+      settleAboutVideo(true);
+      const modal = document.getElementById("aboutVideoModal");
+      if (modal?.classList.contains("show-video-modal")) {
+        modal.classList.remove("show-video-modal");
+        document.body.style.overflow = "";
+      }
+    } else if (changed) {
+      beginAboutVideoLoading();
+    }
+
+    ["aboutVideoSrc", "aboutFullVideoSrc"].forEach(function (id) {
+      const source = document.getElementById(id);
+      if (!source || (source.getAttribute("src") || "") === url) return;
+      const player = source.parentElement;
+      player?.pause();
+      if (url) source.setAttribute("src", url);
+      else source.removeAttribute("src");
+      // Unchanged settings never restart a video that is already playing.
+      player?.load();
+    });
+  }
+
   function applySettings(s) {
     // Hero title. The markup ships empty, so this is the only place the wording
     // comes from; hero-title.js also keeps the snapshot the next load paints
@@ -14714,19 +14789,7 @@ const openReturnRequestModal = (() => {
     _txt("aboutHeadingEl", s.about_heading);
     _html("aboutText1El", s.about_text_1);
     _html("aboutText2El", s.about_text_2);
-    if (s.about_video_url) {
-      ["aboutVideoSrc", "aboutFullVideoSrc"].forEach(function (id) {
-        const src = document.getElementById(id);
-        // Only reload when the URL actually changed, so a realtime re-apply
-        // cannot restart a video the visitor is already watching.
-        if (src && src.getAttribute("src") !== s.about_video_url) {
-          src.src = s.about_video_url;
-          src.parentElement &&
-            src.parentElement.load &&
-            src.parentElement.load();
-        }
-      });
-    }
+    applyAboutVideo(s.about_video_url);
     // Vision / Mission
     _txt("visionHeadingEl", s.vision_heading);
     _txt("visionTextEl", s.vision_text);
@@ -15451,6 +15514,13 @@ const openReturnRequestModal = (() => {
     if (!deck) return;
     var img = deck.querySelector(".vm-deck__card img");
     if (!img) return;
+    if (!deck.querySelector(".vm-deck__loading")) {
+      var loader = document.createElement("span");
+      loader.className = "vm-deck__loading";
+      loader.setAttribute("aria-hidden", "true");
+      loader.innerHTML = '<span class="fmrc-load-inline fmrc-load-inline--panel" aria-hidden="true"></span>';
+      deck.appendChild(loader);
+    }
     // `load` fires again for every later src, so a realtime photo swap re-shows
     // the placeholder for exactly as long as the new image takes to decode.
     img.addEventListener("load", function () {
@@ -16136,6 +16206,7 @@ const openReturnRequestModal = (() => {
   function bootSiteContent() {
     // Wired before the fetch so the `load` listener is in place by the time
     // applySettings writes the first src.
+    initAboutVideoPlaceholder();
     initVmPhotoPlaceholder("vision");
     initVmPhotoPlaceholder("mission");
     loadSiteContent();

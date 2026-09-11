@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pay with GCash – PayMongo Sandbox Simulator | CNSC-FMRC</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=2.0">
   <style>
     :root {
       --gcash-blue: #007dfe;
@@ -277,7 +278,7 @@
     simForm.addEventListener('submit', async function(e) {
       e.preventDefault();
       btnSubmit.disabled = true;
-      btnSubmit.innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Authorizing payment...';
+      btnSubmit.innerHTML = '<span class="fmrc-load-inline" aria-hidden="true"></span> Authorizing payment...';
 
       const simPaymentId = 'pay_sim_' + Date.now();
       const webhookPayload = {

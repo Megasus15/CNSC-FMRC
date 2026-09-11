@@ -1219,34 +1219,12 @@ body {
 
 /* --- Skeleton loading cards, shared by the services and products grids ------
    Rendered by `services-page/services.js` and `products-page/products.js`.
+   Keep the original card skeletons. The shimmer moves with a transform rather
+   than animating the background, and stops for reduced-motion preferences. */
 
-   The sweep animates `transform` on an absolutely positioned `::after` over a
-   flat base fill, NOT `background-position` on the box itself. Only the first
-   of those runs on the compositor: a `background-position` shimmer costs a
-   style recalc plus a full repaint of every box on every frame, and those
-   frames land precisely while the grid is still fetching its data. The services
-   grid renders 56 of these boxes at once (8 cards x 7 elements — counted in the
-   browser, not from the template), which is why that page felt slower than the
-   products page: not a different technique, the products grid simply animated
-   12. `services.js` now also renders 4 skeleton cards instead of 8 below 900px,
-   taking that 56 down to 28, because the grid is two columns there and the
-   bottom two rows fell below the fold anyway.
-
-   The highlight also crosses each box continuously here, instead of sliding out
-   of view for the back half of the cycle the way the 200%-wide background did,
-   so it reads smoother as well as costing less.
-
-   Deliberately no `will-change`: Chrome auto-promotes a running transform
-   animation on its own, and pinning a compositing layer onto an element that is
-   about to be replaced by real content is the exact mistake documented in the
-   phone-performance block at the end of this file. */
 @keyframes fmrcSkeletonSweep {
-  from {
-    transform: translate3d(-100%, 0, 0);
-  }
-  to {
-    transform: translate3d(100%, 0, 0);
-  }
+  from { transform: translate3d(-100%, 0, 0); }
+  to { transform: translate3d(100%, 0, 0); }
 }
 
 .services-grid .service-skeleton-card,
@@ -1254,8 +1232,7 @@ body {
   pointer-events: none;
 }
 
-/* Flat fill = the old gradient's own endpoint colour, so a box at rest looks
-   identical. `overflow: hidden` clips the sweep to the rounded pills. */
+/* Keep the existing warm placeholder fill and rounded clipping. */
 .service-skeleton-img,
 .service-skeleton-line,
 .product-skeleton-img,
@@ -1265,9 +1242,6 @@ body {
   background: rgba(246, 240, 232, 0.92);
 }
 
-/* Explicit rgba(..., 0) at both ends rather than `transparent`: `transparent`
-   is transparent *black*, which some engines interpolate through and leave a
-   grey cast across the middle of the sweep. */
 .service-skeleton-img::after,
 .service-skeleton-line::after,
 .product-skeleton-img::after,
@@ -1309,9 +1283,6 @@ body {
   border-radius: 7px;
 }
 
-/* `animation: none` on the boxes themselves would now silence nothing, and
-   `animation: none` on the `::after` would freeze the highlight mid-box as a
-   permanent bright band. Drop the sweep entirely and keep the flat fill. */
 @media (prefers-reduced-motion: reduce) {
   .service-skeleton-img::after,
   .service-skeleton-line::after,
@@ -6590,7 +6561,6 @@ input:checked + .toggle-slider:before {
 .contact-links-list li:hover {
   background: var(--customer-paper);
   border-color: rgba(107, 32, 43, 0.25);
-  transform: translateY(-2px);
   box-shadow: 0 12px 28px rgba(128, 24, 18, 0.08);
 }
 
@@ -6717,17 +6687,10 @@ input:checked + .toggle-slider:before {
   pointer-events: none;
 }
 
-.contact-submit-btn.is-loading::before {
-  content: "";
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(247, 242, 236, 0.55);
-  border-top-color: var(--customer-paper-sink, #f7f2ec);
-  border-radius: 50%;
-  display: inline-block;
+.contact-submit-btn > .fmrc-load-inline {
+  --fmrc-inline-size: 18px;
   vertical-align: middle;
   margin-right: 8px;
-  animation: spinner 0.8s linear infinite;
 }
 
 .vision-section {
@@ -8467,15 +8430,6 @@ body.sidebar-open {
   font-size: 0.9rem;
 }
 
-.customer-reviews-spinner {
-  width: 22px;
-  height: 22px;
-  border: 2px solid rgba(107, 32, 43, 0.18);
-  border-top-color: var(--customer-wine);
-  border-radius: 50%;
-  animation: spinner 0.8s linear infinite;
-}
-
 @media (max-width: 680px) {
   .reviews-btn {
     flex: 1 1 100%;
@@ -10096,21 +10050,6 @@ body.sidebar-open {
   pointer-events: auto;
 }
 
-.laravel-spinner {
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  border: 4px solid #e5e7eb;
-  border-top-color: var(--customer-wine);
-  animation: spinner 0.8s linear infinite;
-}
-
-@keyframes spinner {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .status-modal {
   position: fixed;
   inset: 0;
@@ -10863,14 +10802,11 @@ body.sidebar-open {
 }
 
 .customer-rating-submit-spinner {
+  --fmrc-inline-size: 15px;
   display: none;
   width: 15px;
   height: 15px;
   flex: 0 0 15px;
-  border: 2px solid rgba(247, 242, 236, 0.42);
-  border-top-color: var(--customer-paper-sink);
-  border-radius: 50%;
-  animation: spinner 0.8s linear infinite;
 }
 
 .customer-rating-submit-btn.is-loading .customer-rating-submit-spinner {
@@ -10985,30 +10921,13 @@ body.sidebar-open {
 }
 
 .customer-rating-loading-mark {
+  --fmrc-inline-size: 48px;
   position: relative;
   width: 48px;
   height: 48px;
   display: grid;
   place-items: center;
   flex: 0 0 48px;
-}
-
-.customer-rating-loading-mark::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: 3px solid rgba(107, 32, 43, 0.13);
-  border-top-color: var(--customer-wine);
-  border-radius: 50%;
-  animation: spinner 0.72s linear infinite;
-}
-
-.customer-rating-loading-mark::after {
-  content: "\2605";
-  color: #e5a411;
-  font-size: 1rem;
-  line-height: 1;
-  text-shadow: 0 2px 8px rgba(229, 164, 17, 0.28);
 }
 
 .customer-rating-loading-copy {
@@ -11375,12 +11294,6 @@ body.sidebar-open {
   .customer-rating-empty {
     min-height: 190px;
     padding: 18px 14px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .customer-rating-loading-mark::before {
-    animation-duration: 1.4s;
   }
 }
 
@@ -16633,8 +16546,17 @@ textarea:focus-visible {
 }
 
 .customer-orders-sync-status.is-syncing .customer-orders-sync-dot {
-  background: #d4cf0e;
-  animation: customer-orders-sync-pulse 1.15s ease-in-out infinite;
+  width: 18px;
+  height: 18px;
+  background: none;
+}
+
+.customer-orders-sync-dot > .fmrc-load-inline {
+  --fmrc-inline-size: 18px;
+}
+
+.customer-orders-sync-status:not(.is-syncing) .customer-orders-sync-dot > .fmrc-load-inline {
+  display: none;
 }
 
 .customer-orders-sync-status.is-live {
@@ -16652,19 +16574,6 @@ textarea:focus-visible {
 
 .customer-orders-sync-status.is-offline .customer-orders-sync-dot {
   background: #d97706;
-}
-
-@keyframes customer-orders-sync-pulse {
-  0%,
-  100% {
-    opacity: 0.45;
-    transform: scale(0.82);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1);
-  }
 }
 
 .customer-orders-close {
@@ -16821,6 +16730,10 @@ textarea:focus-visible {
   opacity: 1;
 }
 
+.customer-order-image-trigger:not(.is-loading) .customer-order-image-loading {
+  display: none;
+}
+
 .customer-order-image-expand {
   right: 5px;
   bottom: 5px;
@@ -16907,15 +16820,12 @@ textarea:focus-visible {
   pointer-events: none;
 }
 
-.customer-order-image-lightbox.has-error .customer-order-lightbox-loading i {
+.customer-order-image-lightbox.is-ready .customer-order-lightbox-loading > .fmrc-load-inline,
+.customer-order-image-lightbox.has-error .customer-order-lightbox-loading > .fmrc-load-inline {
   display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .customer-rating-submit-spinner {
-    animation-duration: 1.5s;
-  }
-
   .customer-order-image-trigger img {
     transition: opacity 0.18s ease;
   }
@@ -18214,8 +18124,8 @@ textarea:focus-visible {
   .ux-dlg__head
   .customer-orders-sync-status.is-syncing
   .customer-orders-sync-dot {
-  background: #8ceaa8;
-  box-shadow: 0 0 0 3px rgba(87, 224, 127, 0.18);
+  background: none;
+  box-shadow: none;
 }
 
 #customerOrdersModal.ux-dlg .ux-dlg__head .customer-orders-sync-status.is-offline {
@@ -19101,9 +19011,8 @@ textarea:focus-visible {
    coded /images/pic1.jpg used to flash on every load until
    /api/site-settings answered. `.is-empty` is the settled twin — a site with no
    photo configured (or an API that never answers) lands there rather than
-   holding a placeholder forever. Both paint the same flat grey as the
-   "WHAT WE OFFER" placeholder card in main.html, deliberately static: this is a
-   sub-second state and a shimmer on a 480px blob reads as a glitch.
+   holding a placeholder forever. Both retain the neutral card surface; the
+   shared logo appears only while the image is loading.
 
    The state lives on the deck, never on the card: vmResetToFirstCard() rewrites
    `card.className` wholesale, so a class on the card would not survive a
@@ -19121,6 +19030,37 @@ textarea:focus-visible {
   pointer-events: none;
   background: #f3f4f6;
   border: 1px solid rgba(107, 32, 43, 0.15);
+}
+
+/* Keep the About video card in place while its configured video loads, or
+   when no video is configured, using the same surface as Mission and Vision. */
+.about-video-holder.is-loading,
+.about-video-holder.is-empty {
+  background: #f3f4f6;
+  border: 1px solid rgba(107, 32, 43, 0.15);
+  cursor: default;
+}
+
+.about-video-holder.is-loading > .about-preview-video,
+.about-video-holder.is-empty > .about-preview-video,
+.about-video-holder.is-loading > .about-video-control,
+.about-video-holder.is-empty > .about-video-control {
+  display: none;
+}
+
+.vm-deck__loading,
+.about-video-loading {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  place-items: center;
+  pointer-events: none;
+}
+
+.vm-deck.is-loading > .vm-deck__loading,
+.about-video-holder.is-loading > .about-video-loading {
+  display: grid;
 }
 
 /* Vision has no wrapper to take its height from — `.vision-img` was the element
@@ -19719,11 +19659,8 @@ textarea:focus-visible {
        products grid puts a dozen simultaneous 16px blurs on screen.
      * `.carousel-track { perspective: 1000px }` promoting every carousel item
        to its own layer for the whole visit, for depth no phone state renders.
-     * the service skeletons animating `background-position`, which is not
-       compositable, across 56 boxes (8 cards x 7 elements) while the main
-       thread is at its busiest. That one is now fixed at source rather than
-       silenced here: the shimmer became a compositable `transform` sweep on a
-       `::after`, so the animation is back on phones as well.
+     * service skeletons formerly animating background-position. Their shimmer
+       now uses transform, with fewer placeholder cards rendered on phones.
 
    Desktop keeps the frosted-glass design untouched: everything below is inside
    the media query. (No longer true of the header — §9 made that one opaque at

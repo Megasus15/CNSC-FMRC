@@ -8,6 +8,7 @@
     />
     <link rel="icon" href="/images/favicon.ico?v=3" sizes="any" />
     <link rel="apple-touch-icon" href="/images/apple-touch-icon.png?v=3" />
+    <link rel="preload" as="image" href="../images/FMRC%20Logo.png" />
     <meta name="theme-color" content="#6b202b" />
     <title>UCN - FMRC Landing Page</title>
 
@@ -62,7 +63,7 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
 
-    <link rel="stylesheet" href="main.css?v=9.0" />
+    <link rel="stylesheet" href="main.css?v=9.3" />
     <link rel="stylesheet" href="responsive.css?v=8.4" />
 
     <!-- The signature loader. One sheet shared by every customer page, so the
@@ -72,7 +73,7 @@
          blocks first paint wherever in the head it sits, and this page's first
          paint is already gated on main.css above it, so these rules are
          guaranteed present the first time anything paints. -->
-    <link rel="stylesheet" href="fmrc-loader.css?v=1.4" />
+    <link rel="stylesheet" href="fmrc-loader.css?v=2.0" />
     <script>
       /* Keep the first home visit in this tab behind the signature loader for
          1.5 seconds, then reveal it once the DOM is ready. Later visits keep
@@ -172,10 +173,33 @@
     >
       <div class="fmrc-load-core">
         <div class="fmrc-load-mark" aria-hidden="true">
-          <span class="fmrc-load-word">FMRC</span>
-          <span class="fmrc-load-grid"></span>
+          <span class="fmrc-load-shadow"></span>
+          <span class="fmrc-load-float">
+            <span class="fmrc-load-assembly">
+              <span class="fmrc-load-satellite"><span></span></span>
+              <span class="fmrc-load-orbit"><span class="fmrc-load-orbit-track"></span></span>
+              <span class="fmrc-load-edge" style="--layer:-7"></span>
+              <span class="fmrc-load-edge" style="--layer:-6"></span>
+              <span class="fmrc-load-edge" style="--layer:-5"></span>
+              <span class="fmrc-load-edge" style="--layer:-4"></span>
+              <span class="fmrc-load-edge" style="--layer:-3"></span>
+              <span class="fmrc-load-edge" style="--layer:-2"></span>
+              <span class="fmrc-load-edge" style="--layer:-1"></span>
+              <span class="fmrc-load-edge" style="--layer:0"></span>
+              <span class="fmrc-load-edge" style="--layer:1"></span>
+              <span class="fmrc-load-edge" style="--layer:2"></span>
+              <span class="fmrc-load-edge" style="--layer:3"></span>
+              <span class="fmrc-load-edge" style="--layer:4"></span>
+              <span class="fmrc-load-edge" style="--layer:5"></span>
+              <span class="fmrc-load-edge" style="--layer:6"></span>
+              <span class="fmrc-load-edge" style="--layer:7"></span>
+              <span class="fmrc-load-face"><span class="fmrc-load-logo-bed"><span class="fmrc-load-logo"></span></span></span>
+            </span>
+          </span>
         </div>
-        <p class="fmrc-load-caption">Preparing your workspace</p>
+        <p class="fmrc-load-brand">UCN&ndash;FMRC</p>
+        <p class="fmrc-load-name">Fabrication &amp; Manufacturing<br>Research Center</p>
+        <p class="fmrc-load-caption">Preparing your experience</p>
         <div class="fmrc-load-rail" aria-hidden="true"><span></span></div>
       </div>
     </div>
@@ -359,12 +383,16 @@
             </p>
           </div>
 
-          <div class="about-content-right">
+          <div class="about-content-right" id="aboutVideoColumn">
             <div
-              class="about-video-holder"
+              class="about-video-holder is-loading"
               id="aboutVideoHolder"
               aria-label="About video holder"
+              aria-busy="true"
             >
+              <span class="about-video-loading" aria-hidden="true">
+                <span class="fmrc-load-inline fmrc-load-inline--panel" aria-hidden="true"></span>
+              </span>
               <video
                 class="about-preview-video"
                 id="aboutPreviewVideo"
@@ -373,7 +401,6 @@
                 playsinline
               >
                 <source
-                  src="/images/Product showcase.mp4"
                   type="video/mp4"
                   id="aboutVideoSrc"
                 />
@@ -395,13 +422,8 @@
                 &times;
               </button>
               <div class="about-video-modal-box">
-                <!-- Both <video> elements point at the same 31.5 MB clip. This
-                     one had no `preload` at all, so the attribute is pinned to
-                     `metadata` rather than left to the UA default: the modal is
-                     display:none until the holder is clicked, and the moov atom
-                     is at the front of the file (faststart), so this is one
-                     small range request that the preview above has already
-                     warmed in the HTTP cache. -->
+                <!-- Both players receive the configured About video from
+                     site settings. No bundled clip loads before that request. -->
                 <video
                   class="about-full-video"
                   id="aboutFullVideo"
@@ -410,7 +432,6 @@
                   playsinline
                 >
                   <source
-                    src="/images/Product showcase.mp4"
                     type="video/mp4"
                     id="aboutFullVideoSrc"
                   />
@@ -1730,8 +1751,8 @@
          every call site is written `window.FMRCLoader?.…`, so if this request
          ever fails the affected flow silently falls back to the plain disabled
          button it had before. -->
-    <script defer src="fmrc-loader.js?v=1.0"></script>
-    <script defer src="main.js?v=9.4"></script>
+    <script defer src="fmrc-loader.js?v=2.0"></script>
+    <script defer src="main.js?v=9.7"></script>
     <script defer src="customer-announcements.js?v=6.2"></script>
   </body>
 </html>

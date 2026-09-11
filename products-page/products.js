@@ -196,7 +196,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const renderReviewRows = () => {
     if (!customerReviewsList) return;
     if (reviewState.loading && !reviewState.reviews.length) {
-      customerReviewsList.innerHTML = `<div class="customer-reviews-loading"><span class="customer-reviews-spinner"></span> Loading reviews...</div>`;
+      customerReviewsList.innerHTML = `<div class="customer-reviews-loading"><span class="customer-reviews-spinner fmrc-load-inline" aria-hidden="true"></span> Loading reviews...</div>`;
       return;
     }
 
@@ -1171,10 +1171,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ── Fetch products from API ──────────────────────────────────────────────────
   const loadProducts = async () => {
-    // Show loading skeleton. The shimmer itself lives in home-page/main.css as a
-    // compositable `transform` sweep on a `::after`, shared with the services
-    // grid — which is why these are plain classes now: a pseudo-element cannot
-    // be created from an inline `style` attribute.
+    // Preserve the product card layout with the shared skeleton shimmer.
     if (productGrid) {
       productGrid.innerHTML = Array.from({ length: 4 })
         .map(

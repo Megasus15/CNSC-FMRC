@@ -8,6 +8,7 @@
     />
     <link rel="icon" href="/images/favicon.ico?v=3" sizes="any" />
     <link rel="apple-touch-icon" href="/images/apple-touch-icon.png?v=3" />
+    <link rel="preload" as="image" href="../images/FMRC%20Logo.png" />
     <meta name="theme-color" content="#6b202b" />
     <title>UCN-FMRC Customer Login</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -22,12 +23,9 @@
     />
     <link rel="stylesheet" href="auth.css?v=7.0" />
 
-    <!-- The signature loader, the same sheet the five customer pages link. This
-         page used to carry its own spinner overlay; that block is gone from
-         auth.css now, so the curtain a visitor sees while signing in is the same
-         object as the curtain on every other page — and its mark is the same
-         mark as the `.portal-mark` tile further down this very page. -->
-    <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=1.4" />
+    <!-- The shared customer loader uses the homepage hero logo for both
+         initial loading and authentication actions. -->
+    <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=2.0" />
     <script>
       /* Raises the boot curtain before the body paints, then lowers it the
          moment the DOM is ready. Inline and in <head> on purpose: the class has
@@ -98,10 +96,33 @@
     >
       <div class="fmrc-load-core">
         <div class="fmrc-load-mark" aria-hidden="true">
-          <span class="fmrc-load-word">FMRC</span>
-          <span class="fmrc-load-grid"></span>
+          <span class="fmrc-load-shadow"></span>
+          <span class="fmrc-load-float">
+            <span class="fmrc-load-assembly">
+              <span class="fmrc-load-satellite"><span></span></span>
+              <span class="fmrc-load-orbit"><span class="fmrc-load-orbit-track"></span></span>
+              <span class="fmrc-load-edge" style="--layer:-7"></span>
+              <span class="fmrc-load-edge" style="--layer:-6"></span>
+              <span class="fmrc-load-edge" style="--layer:-5"></span>
+              <span class="fmrc-load-edge" style="--layer:-4"></span>
+              <span class="fmrc-load-edge" style="--layer:-3"></span>
+              <span class="fmrc-load-edge" style="--layer:-2"></span>
+              <span class="fmrc-load-edge" style="--layer:-1"></span>
+              <span class="fmrc-load-edge" style="--layer:0"></span>
+              <span class="fmrc-load-edge" style="--layer:1"></span>
+              <span class="fmrc-load-edge" style="--layer:2"></span>
+              <span class="fmrc-load-edge" style="--layer:3"></span>
+              <span class="fmrc-load-edge" style="--layer:4"></span>
+              <span class="fmrc-load-edge" style="--layer:5"></span>
+              <span class="fmrc-load-edge" style="--layer:6"></span>
+              <span class="fmrc-load-edge" style="--layer:7"></span>
+              <span class="fmrc-load-face"><span class="fmrc-load-logo-bed"><span class="fmrc-load-logo"></span></span></span>
+            </span>
+          </span>
         </div>
-        <p class="fmrc-load-caption">Preparing your workspace</p>
+        <p class="fmrc-load-brand">UCN&ndash;FMRC</p>
+        <p class="fmrc-load-name">Fabrication &amp; Manufacturing<br>Research Center</p>
+        <p class="fmrc-load-caption">Preparing your experience</p>
         <div class="fmrc-load-rail" aria-hidden="true"><span></span></div>
       </div>
     </div>
@@ -849,7 +870,7 @@
          DOMContentLoaded, which is later than auth.js's first handler could
          fire. auth.js calls it as `window.FMRCLoader?.…`, so a failed request
          costs the curtain, never the sign-in. -->
-    <script src="../home-page/fmrc-loader.js?v=1.0"></script>
+    <script src="../home-page/fmrc-loader.js?v=2.0"></script>
     <script src="auth.js?v=5.6"></script>
   </body>
 </html>
