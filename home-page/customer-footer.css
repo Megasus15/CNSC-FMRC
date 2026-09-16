@@ -6,10 +6,11 @@
 
 .site-footer {
   position: relative !important;
-  width: 100%;
-  max-width: 100%;
+  width: 100% !important;
+  max-width: 100vw !important;
   min-width: 0;
   overflow: hidden !important;
+  overflow-x: hidden !important;
   margin-top: auto !important;
   font-family: "Montserrat", sans-serif !important;
   color: var(--customer-paper-sink, #f7f2ec) !important;
@@ -594,10 +595,13 @@
 
 @media (max-width: 430px) {
   .site-footer {
+    width: 100% !important;
+    max-width: 100vw !important;
     padding-top: 36px !important;
     padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)) !important;
     padding-left: max(16px, env(safe-area-inset-left)) !important;
     padding-right: max(16px, env(safe-area-inset-right)) !important;
+    box-sizing: border-box !important;
   }
 
   .site-footer .footer-logo-row {
@@ -652,7 +656,11 @@
    related items instead of adding another full row for every contact detail. */
 @media (max-width: 480px) {
   .site-footer {
+    width: 100% !important;
+    max-width: 100vw !important;
     padding: 28px max(16px, env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left)) !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
   }
 
   .site-footer .footer-container {
