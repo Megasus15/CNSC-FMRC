@@ -166,7 +166,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const imageMarkup = image
         ? `<button class="service-image-trigger" type="button" aria-label="Open full-size preview of ${titleAttr}" title="Open image preview" data-image-src="${imageAttr}" data-image-title="${titleAttr}">
              <img src="${imageAttr}" alt="${titleAttr} preview" loading="lazy" decoding="async" />
-             <span class="service-image-preview-label" aria-hidden="true"><i class="fa-solid fa-expand"></i></span>
+             <span class="service-image-preview-label" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" /></svg></span>
            </button>`
         : `<div class="service-image-placeholder"><span class="service-image-placeholder__content"><i class="fa-regular fa-image" aria-hidden="true"></i><span data-editorial-copy="editorial_services_image_placeholder">Image coming soon</span></span></div>`;
 

@@ -237,6 +237,15 @@
   }
 }
 
+/* Keep each field label close to its input at every viewport width. */
+.contact-page-body .contact-form-grid > .contact-field-group {
+  gap: 6px;
+}
+
+.contact-page-body .contact-form-grid > .contact-field-group > label {
+  margin: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .contact-page-body .contact-input,
   .contact-page-body .contact-submit-btn {

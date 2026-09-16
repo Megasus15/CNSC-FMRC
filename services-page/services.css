@@ -340,8 +340,12 @@
 }
 
 .services-page-body .service-image-preview-label {
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  line-height: 1;
+  letter-spacing: 0;
   right: 12px;
   bottom: 12px;
   width: 32px;
@@ -356,8 +360,12 @@
   -webkit-backdrop-filter: none;
 }
 
-.services-page-body .service-image-preview-label i {
-  font-size: 12px;
+.services-page-body .service-image-preview-label > svg {
+  display: block;
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  margin: 0;
 }
 
 .services-page-body .service-image-trigger:is(:hover, :focus-visible) .service-image-preview-label {

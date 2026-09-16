@@ -106,6 +106,12 @@
     width: 100%;
   }
 
+  /* Home is a two-card preview on phones, including while it is loading.
+     The full catalogue remains available through View all services. */
+  .home-editorial-page #homeServicesGrid > .service-card:nth-child(n + 3) {
+    display: none;
+  }
+
   .home-editorial-page .editorial-services-grid .card-content {
     padding: 16px 12px 12px !important;
   }

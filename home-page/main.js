@@ -15093,7 +15093,7 @@ const openReturnRequestModal = (() => {
       const imageMarkup = image
         ? `<button class="service-image-trigger" type="button" aria-label="Open full-size preview of ${_attr(title)}" title="Open image preview" data-image-src="${_attr(image)}" data-image-title="${_attr(title)}">
              <img src="${_attr(image)}" alt="${_attr(title)} preview" loading="lazy" decoding="async" />
-             <span class="service-image-preview-label" aria-hidden="true"><i class="fa-solid fa-expand"></i></span>
+             <span class="service-image-preview-label" aria-hidden="true"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" /></svg></span>
            </button>`
         : homeServicePlaceholder();
       const modalItems = (value) => _attr(JSON.stringify(Array.isArray(value) ? value : []));
