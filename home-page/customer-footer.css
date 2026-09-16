@@ -6,6 +6,9 @@
 
 .site-footer {
   position: relative !important;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow: hidden !important;
   margin-top: auto !important;
   font-family: "Montserrat", sans-serif !important;
@@ -45,6 +48,12 @@
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.85fr) !important;
   gap: clamp(36px, 5.5vw, 68px) !important;
   align-items: start !important;
+}
+
+.site-footer .footer-container > *,
+.site-footer .footer-matrix-col,
+.site-footer .footer-bottom-grid > * {
+  min-width: 0;
 }
 
 /* --------------------------------------------------------------------------
@@ -104,6 +113,7 @@
   flex-direction: column;
   justify-content: center;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .site-footer .footer-brand {
@@ -150,6 +160,80 @@
   font-weight: 600;
   letter-spacing: 0.02em;
   line-height: 1.45;
+}
+
+/* A quiet place for the supplied registration artwork. Keep its original
+   proportions and colors; the full-size link preserves the readable QR code. */
+.site-footer .footer-privacy-registration {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  margin-top: 24px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(247, 242, 236, .16);
+}
+
+.site-footer .footer-privacy-seal {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid rgba(247, 242, 236, .4);
+  border-radius: 8px;
+  background: var(--customer-paper, #fdfaf6);
+}
+
+.site-footer .footer-privacy-seal img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.site-footer .footer-privacy-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.site-footer .footer-privacy-kicker {
+  margin: 0 0 7px;
+  color: rgba(247, 242, 236, .7);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.site-footer .footer-privacy-title {
+  margin: 0 0 5px;
+  color: var(--customer-paper, #fdfaf6);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.site-footer .footer-privacy-issuer {
+  margin: 0;
+  color: rgba(247, 242, 236, .75);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.site-footer .footer-privacy-link {
+  min-height: 32px;
+  margin-top: 6px;
+}
+
+.site-footer .footer-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* --------------------------------------------------------------------------
@@ -280,6 +364,8 @@
 /* Quick Links Menu: simple clean underline on hover */
 .site-footer .footer-menu a {
   display: inline-flex !important;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   align-items: center !important;
   color: rgba(247, 242, 236, 0.82) !important;
   font-size: 13px !important;
@@ -298,8 +384,10 @@
 }
 
 /* Public Links Menu: link text underlines, arrow icon has NO underline and NO hover effect */
-.site-footer .footer-public-menu a {
+.site-footer .footer-public-menu a,
+.site-footer .footer-privacy-link {
   display: inline-flex !important;
+  max-width: 100%;
   align-items: center !important;
   gap: 6px !important;
   color: rgba(247, 242, 236, 0.85) !important;
@@ -311,18 +399,23 @@
   transform: none !important;
 }
 
-.site-footer .footer-public-menu a:hover {
+.site-footer .footer-public-menu a:hover,
+.site-footer .footer-privacy-link:hover {
   color: #ffffff !important;
   text-decoration: none !important;
   transform: none !important;
 }
 
 /* ONLY the link text gets underlined */
-.site-footer .footer-public-menu a .footer-link-text {
+.site-footer .footer-public-menu a .footer-link-text,
+.site-footer .footer-privacy-link .footer-link-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
   text-decoration: none !important;
 }
 
-.site-footer .footer-public-menu a:hover .footer-link-text {
+.site-footer .footer-public-menu a:hover .footer-link-text,
+.site-footer .footer-privacy-link:hover .footer-link-text {
   text-decoration: underline !important;
   text-underline-offset: 3px !important;
 }
@@ -330,6 +423,7 @@
 /* Static external arrow icon: exactly like reference, zero hover animation, no underline */
 .site-footer .footer-link-arrow {
   display: inline-block !important;
+  flex: 0 0 11px;
   width: 11px !important;
   height: 11px !important;
   min-width: 11px !important;
@@ -342,7 +436,8 @@
   vertical-align: middle !important;
 }
 
-.site-footer .footer-public-menu a:hover .footer-link-arrow {
+.site-footer .footer-public-menu a:hover .footer-link-arrow,
+.site-footer .footer-privacy-link:hover .footer-link-arrow {
   color: rgba(247, 242, 236, 0.8) !important;
   text-decoration: none !important;
   transform: none !important;
@@ -354,6 +449,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  overflow-wrap: anywhere;
 }
 
 .site-footer .footer-hours-days {
@@ -422,7 +518,7 @@
    -------------------------------------------------------------------------- */
 @media (max-width: 960px) {
   .site-footer .footer-container {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: minmax(0, 1fr) !important;
     gap: 34px !important;
   }
 
@@ -432,7 +528,7 @@
   }
 
   .site-footer .footer-contact-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 16px;
   }
 
@@ -461,7 +557,7 @@
   }
 
   .site-footer .footer-contact-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 14px;
   }
 
@@ -540,6 +636,7 @@
   .site-footer .footer-link,
   .site-footer .footer-menu a,
   .site-footer .footer-public-menu a,
+  .site-footer .footer-privacy-link,
   .site-footer .footer-hours-days,
   .site-footer .footer-hours-time {
     font-size: 12px !important;
@@ -548,6 +645,107 @@
   .site-footer .footer-bottom-copy,
   .site-footer .footer-bottom-dev {
     font-size: 11px !important;
+  }
+}
+
+/* Phone content stays inside safe-area gutters; use the available width for
+   related items instead of adding another full row for every contact detail. */
+@media (max-width: 480px) {
+  .site-footer {
+    padding: 28px max(16px, env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left)) !important;
+  }
+
+  .site-footer .footer-container {
+    gap: 24px !important;
+  }
+
+  .site-footer .footer-logo-row {
+    display: grid !important;
+    grid-template-columns: 40px 40px minmax(0, 1fr);
+    gap: 8px !important;
+    margin-bottom: 0 !important;
+  }
+
+  .site-footer .footer-logo-disc {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+  }
+
+  .site-footer .footer-brand-titles {
+    margin-top: 0 !important;
+  }
+
+  .site-footer .footer-brand {
+    font-size: 16px !important;
+  }
+
+  .site-footer .footer-subbrand {
+    font-size: 11px !important;
+  }
+
+  .site-footer .footer-desc {
+    margin-bottom: 10px !important;
+    font-size: 12px !important;
+  }
+
+  .site-footer .footer-campus-tag {
+    font-size: 11px;
+  }
+
+  .site-footer .footer-privacy-registration {
+    grid-template-columns: 80px minmax(0, 1fr);
+    gap: 14px;
+    margin-top: 16px;
+    padding-top: 16px;
+  }
+
+  .site-footer .footer-privacy-title {
+    font-size: 14px;
+  }
+
+  .site-footer .footer-contact-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .site-footer .footer-kicker {
+    margin-bottom: 10px;
+    font-size: 10px;
+  }
+
+  .site-footer .footer-tier-divider {
+    margin: 18px 0;
+  }
+
+  .site-footer .footer-matrix {
+    gap: 16px 14px !important;
+  }
+
+  .site-footer .footer-matrix-col:nth-child(3) {
+    margin-top: 0 !important;
+    padding-top: 14px !important;
+  }
+
+  .site-footer .footer-menu,
+  .site-footer .footer-public-menu {
+    gap: 4px !important;
+  }
+
+  .site-footer .footer-menu li,
+  .site-footer .footer-public-menu li {
+    padding-bottom: 4px !important;
+  }
+
+  .site-footer .footer-bottom {
+    margin-top: 24px !important;
+    padding-top: 14px !important;
+  }
+
+  .site-footer .footer-bottom-grid > * {
+    max-width: 100%;
+    overflow-wrap: anywhere;
   }
 }
 
