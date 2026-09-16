@@ -508,6 +508,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <div class="shop-card" data-product-id="${p.id}">
         <div class="product-img-wrapper">${discountPercent > 0 ? `<span class="product-discount-badge">${discountPercent}% OFF</span>` : ""}${imgHtml}</div>
         <div class="product-info">
+          <span class="product-category-label">${escHtml(p.category || "FMRC PRODUCT")}</span>
           <h3 class="product-name">${escHtml(p.name)}</h3>
           <div class="product-code-row">
             <span class="code-label">PRODUCT CODE:</span>

@@ -1,0 +1,518 @@
+[
+  {
+    "width": 1440,
+    "scrollWidth": 1425,
+    "dimensions": {
+      ".site-header": {
+        "x": 0,
+        "y": 0,
+        "width": 1425,
+        "height": 76,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgb(253, 250, 246)",
+        "boxShadow": "rgba(43, 43, 49, 0.024) 0px 2px 8px 0px"
+      },
+      ".logo-container": {
+        "x": 72.5,
+        "y": 13.5,
+        "width": 334.40625,
+        "height": 48,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".logo-text": {
+        "x": 132.5,
+        "y": 21,
+        "width": 274.40625,
+        "height": 32.984375,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".main-nav": {
+        "x": 574.578125,
+        "y": 15.5,
+        "width": 424.265625,
+        "height": 44,
+        "display": "block",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".header-right-actions": {
+        "x": 1166.5,
+        "y": 14.5,
+        "width": 186,
+        "height": 46,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".guest-sign-in-trigger": {
+        "x": 1224.5,
+        "y": 14.5,
+        "width": 128,
+        "height": 46,
+        "display": "grid",
+        "font": "Montserrat, sans-serif",
+        "background": "rgb(253, 250, 246)",
+        "boxShadow": "none"
+      },
+      ".user-profile": {
+        "x": 1224.5,
+        "y": 14.5,
+        "width": 128,
+        "height": 46,
+        "display": "block",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".announcement-bell": {
+        "x": 1166.5,
+        "y": 14.5,
+        "width": 46,
+        "height": 46,
+        "display": "grid",
+        "font": "Arial",
+        "background": "rgb(253, 250, 246)",
+        "boxShadow": "none"
+      }
+    }
+  },
+  {
+    "width": 1024,
+    "scrollWidth": 1009,
+    "dimensions": {
+      ".site-header": {
+        "x": 0,
+        "y": 0,
+        "width": 1009,
+        "height": 76,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgb(253, 250, 246)",
+        "boxShadow": "rgba(43, 43, 49, 0.024) 0px 2px 8px 0px"
+      },
+      ".logo-container": {
+        "x": 24,
+        "y": 17.5,
+        "width": 286.1875,
+        "height": 40,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".logo-text": {
+        "x": 74,
+        "y": 22.84375,
+        "width": 236.1875,
+        "height": 29.296875,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".main-nav": {
+        "x": 386.890625,
+        "y": 15.5,
+        "width": 355.421875,
+        "height": 44,
+        "display": "block",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".header-right-actions": {
+        "x": 819,
+        "y": 14.5,
+        "width": 166,
+        "height": 46,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".guest-sign-in-trigger": {
+        "x": 877,
+        "y": 14.5,
+        "width": 108,
+        "height": 46,
+        "display": "grid",
+        "font": "Montserrat, sans-serif",
+        "background": "rgb(253, 250, 246)",
+        "boxShadow": "none"
+      },
+      ".user-profile": {
+        "x": 877,
+        "y": 14.5,
+        "width": 108,
+        "height": 46,
+        "display": "block",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".announcement-bell": {
+        "x": 819,
+        "y": 14.5,
+        "width": 46,
+        "height": 46,
+        "display": "grid",
+        "font": "Arial",
+        "background": "rgb(253, 250, 246)",
+        "boxShadow": "none"
+      }
+    }
+  },
+  {
+    "width": 901,
+    "scrollWidth": 886,
+    "dimensions": {
+      ".site-header": {
+        "x": 0,
+        "y": 0,
+        "width": 886,
+        "height": 76,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgb(253, 250, 246)",
+        "boxShadow": "rgba(43, 43, 49, 0.024) 0px 2px 8px 0px"
+      },
+      ".logo-container": {
+        "x": 24,
+        "y": 10.703125,
+        "width": 280.359375,
+        "height": 53.59375,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".logo-text": {
+        "x": 74,
+        "y": 10.703125,
+        "width": 230.359375,
+        "height": 53.59375,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".main-nav": {
+        "x": 323.15625,
+        "y": 15.5,
+        "width": 355.421875,
+        "height": 44,
+        "display": "block",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".header-right-actions": {
+        "x": 697.375,
+        "y": 14.5,
+        "width": 164.625,
+        "height": 46,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".guest-sign-in-trigger": {
+        "x": 754,
+        "y": 14.5,
+        "width": 108,
+        "height": 46,
+        "display": "grid",
+        "font": "Montserrat, sans-serif",
+        "background": "rgb(253, 250, 246)",
+        "boxShadow": "none"
+      },
+      ".user-profile": {
+        "x": 754,
+        "y": 14.5,
+        "width": 108,
+        "height": 46,
+        "display": "block",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".announcement-bell": {
+        "x": 697.375,
+        "y": 14.5,
+        "width": 46,
+        "height": 46,
+        "display": "grid",
+        "font": "Arial",
+        "background": "rgb(253, 250, 246)",
+        "boxShadow": "none"
+      }
+    }
+  },
+  {
+    "width": 768,
+    "scrollWidth": 753,
+    "dimensions": {
+      ".site-header": {
+        "x": 0,
+        "y": 0,
+        "width": 753,
+        "height": 69,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgb(253, 250, 246)",
+        "boxShadow": "rgba(43, 43, 49, 0.024) 0px 2px 8px 0px"
+      },
+      ".logo-container": {
+        "x": 91.671875,
+        "y": 10,
+        "width": 466.625,
+        "height": 48,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".logo-text": {
+        "x": 147.671875,
+        "y": 24,
+        "width": 123.546875,
+        "height": 20,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".main-nav": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".header-right-actions": {
+        "x": 570.34375,
+        "y": 11,
+        "width": 151.03125,
+        "height": 46,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".guest-sign-in-trigger": {
+        "x": 625.375,
+        "y": 11,
+        "width": 96,
+        "height": 44,
+        "display": "grid",
+        "font": "Montserrat, sans-serif",
+        "background": "rgb(253, 250, 246)",
+        "boxShadow": "none"
+      },
+      ".user-profile": {
+        "x": 625.375,
+        "y": 11,
+        "width": 96,
+        "height": 46,
+        "display": "block",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".announcement-bell": {
+        "x": 570.34375,
+        "y": 11,
+        "width": 46,
+        "height": 46,
+        "display": "grid",
+        "font": "Arial",
+        "background": "rgb(253, 250, 246)",
+        "boxShadow": "none"
+      }
+    }
+  },
+  {
+    "width": 390,
+    "scrollWidth": 375,
+    "dimensions": {
+      ".site-header": {
+        "x": 0,
+        "y": 0,
+        "width": 375,
+        "height": 68,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgb(253, 250, 246)",
+        "boxShadow": "rgba(43, 43, 49, 0.024) 0px 2px 8px 0px"
+      },
+      ".logo-container": {
+        "x": 69.75,
+        "y": 19.5,
+        "width": 197.5,
+        "height": 28,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".logo-text": {
+        "x": 105.75,
+        "y": 26.1875,
+        "width": 90.3125,
+        "height": 14.625,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".main-nav": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".header-right-actions": {
+        "x": 275.25,
+        "y": 13.5,
+        "width": 84,
+        "height": 40,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".guest-sign-in-trigger": {
+        "x": 319.25,
+        "y": 13.5,
+        "width": 40,
+        "height": 40,
+        "display": "inline-grid",
+        "font": "Montserrat, sans-serif",
+        "background": "rgb(253, 250, 246)",
+        "boxShadow": "none"
+      },
+      ".user-profile": {
+        "x": 319.25,
+        "y": 13.5,
+        "width": 40,
+        "height": 40,
+        "display": "block",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".announcement-bell": {
+        "x": 275.25,
+        "y": 14.5,
+        "width": 38,
+        "height": 38,
+        "display": "grid",
+        "font": "Arial",
+        "background": "rgb(253, 250, 246)",
+        "boxShadow": "none"
+      }
+    }
+  },
+  {
+    "width": 320,
+    "scrollWidth": 305,
+    "dimensions": {
+      ".site-header": {
+        "x": 0,
+        "y": 0,
+        "width": 305,
+        "height": 68,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgb(253, 250, 246)",
+        "boxShadow": "rgba(43, 43, 49, 0.024) 0px 2px 8px 0px"
+      },
+      ".logo-container": {
+        "x": 54,
+        "y": 19.5,
+        "width": 159,
+        "height": 28,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".logo-text": {
+        "x": 90,
+        "y": 27.546875,
+        "width": 73.46875,
+        "height": 11.890625,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".main-nav": {
+        "x": 0,
+        "y": 0,
+        "width": 0,
+        "height": 0,
+        "display": "none",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".header-right-actions": {
+        "x": 219,
+        "y": 15.5,
+        "width": 76,
+        "height": 36,
+        "display": "flex",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".guest-sign-in-trigger": {
+        "x": 259,
+        "y": 15.5,
+        "width": 40,
+        "height": 40,
+        "display": "inline-grid",
+        "font": "Montserrat, sans-serif",
+        "background": "rgb(253, 250, 246)",
+        "boxShadow": "none"
+      },
+      ".user-profile": {
+        "x": 259,
+        "y": 15.5,
+        "width": 36,
+        "height": 36,
+        "display": "block",
+        "font": "Montserrat, sans-serif",
+        "background": "rgba(0, 0, 0, 0)",
+        "boxShadow": "none"
+      },
+      ".announcement-bell": {
+        "x": 219,
+        "y": 15.5,
+        "width": 36,
+        "height": 36,
+        "display": "grid",
+        "font": "Arial",
+        "background": "rgb(253, 250, 246)",
+        "boxShadow": "none"
+      }
+    }
+  }
+]

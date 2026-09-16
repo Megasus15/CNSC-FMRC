@@ -295,6 +295,22 @@
                     placeholder="UCN- FMRC"
                   />
                 </div>
+                <div class="field-stack">
+                  <label>Brand Subtitle</label>
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="footerBrandSubtitle" value="Fabrication &amp; Manufacturing Research Center" placeholder="Fabrication &amp; Manufacturing Research Center"
+                  />
+                </div>
+                <div class="field-stack full">
+                  <label>Campus Location Tag</label>
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="footerCampusTag" value="Main Campus &bull; Daet, Camarines Norte, Philippines, 4600" placeholder="Main Campus &bull; Daet, Camarines Norte, Philippines, 4600"
+                  />
+                </div>
                 <div class="field-stack full">
                   <label>Brand Description</label>
                   <textarea
@@ -415,20 +431,72 @@
               </div>
             </div>
 
+            <!-- PUBLIC LINKS -->
+            <div class="wm-section">
+              <div class="wm-section-header">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                <h3>Public University Links</h3>
+              </div>
+              <div class="wm-form-grid">
+                <div class="field-stack">
+                  <label>Public Link 1 Label</label>
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="footerPublicWebsiteLabel" value="Official UCN website" placeholder="Official UCN website"
+                  />
+                </div>
+                <div class="field-stack">
+                  <label>Public Link 1 URL</label>
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="footerPublicWebsiteUrl" value="https://ucn.edu.ph" placeholder="https://cnsc.edu.ph"
+                  />
+                </div>
+                <div class="field-stack">
+                  <label>Public Link 2 Label</label>
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="footerPublicUcnFbLabel" value="UCN official Facebook page" placeholder="UCN official Facebook page"
+                  />
+                </div>
+                <div class="field-stack">
+                  <label>Public Link 2 URL</label>
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="footerPublicUcnFbUrl" value="https://www.facebook.com/ucnofficial" placeholder="https://www.facebook.com/CamarinesNorteStateCollege"
+                  />
+                </div>
+              </div>
+            </div>
+
             <!-- COPYRIGHT -->
             <div class="wm-section">
               <div class="wm-section-header">
                 <i class="fa-regular fa-copyright"></i>
-                <h3>Copyright Text</h3>
+                <h3>Copyright &amp; Attribution</h3>
               </div>
-              <div class="field-stack">
-                <label>Copyright Line (bottom of footer)</label>
-                <input
-                  type="text"
-                  class="wm-input"
-                  id="footerCopyright"
-                  placeholder="© 2026 UCN Fabrication and Manufacturing Research Center. All rights reserved."
-                />
+              <div class="wm-form-grid">
+                <div class="field-stack">
+                  <label>Copyright Line (bottom of footer)</label>
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="footerCopyright"
+                    placeholder="© 2026 University of Camarines Norte. All rights reserved."
+                  />
+                </div>
+                <div class="field-stack">
+                  <label>Developer Attribution Line</label>
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="footerBottomDev" value="Developed for UCN – Fabrication and Manufacturing Research Center." placeholder="Developed for UCN – Fabrication and Manufacturing Research Center."
+                  />
+                </div>
               </div>
             </div>
 
@@ -451,7 +519,7 @@
     </div>
 
     <script src="../admin-page/session-helper.js"></script>
-    <script src="../admin-page/admin-common.js?v=6.6"></script>
+    <script src="../admin-page/admin-common.js?v=6.7"></script>
     <script src="../admin-page/website-footer.js?v=1.1"></script>
     <script src="../admin-page/admin-table-resize.js?v=1.4" defer></script>
   </body>

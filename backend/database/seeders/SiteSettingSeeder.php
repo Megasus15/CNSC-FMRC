@@ -28,6 +28,15 @@ class SiteSettingSeeder extends Seeder
 
         // Optional caption above the hero SDG badge strip. Blank hides the line.
         SiteSetting::set('home_sdg_heading', 'Supporting the UN Sustainable Development Goals');
+        // Service filter/Add Service labels are managed as one ordered list by
+        // the Admin and Staff Services editors. “All Categories” stays fixed in
+        // the customer filter for a consistent reset action.
+        SiteSetting::set('editorial_services_categories', json_encode([
+            'Prototyping',
+            'Manufacturing',
+            'Design & Labelling',
+            'Training & Workshops',
+        ]));
 
         // ── About Us Section ──────────────────────────────────────────────────────
         SiteSetting::set('about_heading', 'ABOUT US');
@@ -59,10 +68,12 @@ class SiteSettingSeeder extends Seeder
 
         // ── Footer Section ────────────────────────────────────────────────────────
         SiteSetting::set('footer_brand_name', 'UCN- FMRC');
+        SiteSetting::set('footer_brand_subtitle', 'Fabrication & Manufacturing Research Center');
         SiteSetting::set('footer_brand_desc', 'Fabrication and Manufacturing Research Center - Advancing innovation through technology and excellence in manufacturing.');
+        SiteSetting::set('footer_campus_tag', 'Main Campus • Daet, Camarines Norte, Philippines, 4600');
         SiteSetting::set('footer_quick_links', json_encode([
             ['label' => 'Home',     'url' => '/home-page/main.html'],
-            ['label' => 'About Us', 'url' => '/home-page/main.html#about'],
+            ['label' => 'About Us', 'url' => '/about-page/about.html'],
             ['label' => 'Services', 'url' => '/services-page/service.html'],
             ['label' => 'Products', 'url' => '/products-page/product.html'],
             ['label' => 'Contact',  'url' => '/contact-page/contact.html'],
@@ -75,7 +86,12 @@ class SiteSettingSeeder extends Seeder
         SiteSetting::set('footer_contact_phone', '0909-099-0000');
         SiteSetting::set('footer_contact_facebook', 'UCN FMRC');
         SiteSetting::set('footer_contact_facebook_url', 'https://www.facebook.com/share/18MJcUvJeM/');
+        SiteSetting::set('footer_public_website_label', 'Official UCN website');
+        SiteSetting::set('footer_public_website_url', 'https://ucn.edu.ph');
+        SiteSetting::set('footer_public_ucn_fb_label', 'UCN official Facebook page');
+        SiteSetting::set('footer_public_ucn_fb_url', 'https://www.facebook.com/ucnofficial');
         SiteSetting::set('footer_copyright', '© 2026 UCN Fabrication and Manufacturing Research Center. All rights reserved.');
+        SiteSetting::set('footer_bottom_dev', 'Developed for UCN – Fabrication and Manufacturing Research Center.');
 
         // ── Seed Default Services ─────────────────────────────────────────────────
         $services = [

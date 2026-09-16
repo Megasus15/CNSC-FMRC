@@ -1,0 +1,1672 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#800000" />
+    <link rel="icon" href="../images/favicon.ico?v=3" sizes="any" />
+    <link rel="apple-touch-icon" href="../images/apple-touch-icon.png?v=3" />
+    <title>About Us Page Management | UCN-FMRC Admin</title>
+    <link rel="stylesheet" href="dashboard.css?v=6.5" />
+    <link rel="stylesheet" href="admin-modules.css?v=6.5" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <style>
+      .wm-section[hidden] { display: none !important; }
+      .wm-editorial-group { padding: 18px 0; border-top: 1px solid var(--border-color); }
+      .wm-editorial-group summary { cursor: pointer; padding: 4px 0; font-size: .9rem; font-weight: 700; color: var(--primary-color); }
+      .wm-editorial-group summary:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 4px; }
+      .wm-editorial-group[open] summary { margin-bottom: 16px; }
+      .wm-editorial-group .field-stack { min-width: 0; }
+      .wm-character-count { display: block; font-variant-numeric: tabular-nums; }
+      @media (max-width: 600px) {
+        .wm-editorial-group .wm-form-grid { grid-template-columns: minmax(0, 1fr); }
+      }
+
+      .wm-section {
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 22px 24px;
+        margin-bottom: 0;
+      }
+      .wm-section-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 18px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #f0f0f0;
+      }
+      .wm-section-header h3 {
+        font-size: 1rem;
+        color: var(--primary-color);
+        margin: 0;
+      }
+      .wm-section-header i {
+        color: var(--primary-color);
+      }
+      .wm-form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .wm-form-grid .full {
+        grid-column: 1/-1;
+      }
+      .field-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .field-stack label {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #111827;
+      }
+      .wm-input,
+      .wm-textarea,
+      .wm-select {
+        border: 1px solid #d8dde3;
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 0.82rem;
+        color: #333;
+        width: 100%;
+        background: #fff;
+        font-family: inherit;
+      }
+      .wm-textarea {
+        min-height: 90px;
+        resize: vertical;
+      }
+      .wm-img-preview {
+        width: 100%;
+        max-height: 180px;
+        object-fit: contain;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        background: #f9fafb;
+        display: none;
+        margin-top: 8px;
+      }
+      .wm-img-preview.visible {
+        display: block;
+      }
+      .wm-img-placeholder {
+        width: 100%;
+        height: 120px;
+        border: 1.5px dashed #d1d5db;
+        border-radius: 8px;
+        background: #f9fafb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.82rem;
+        color: #9ca3af;
+        cursor: pointer;
+        transition:
+          border-color 0.18s,
+          background 0.18s;
+      }
+      .wm-img-placeholder:hover {
+        border-color: #a80f0f;
+        background: #fff5f5;
+      }
+      .wm-img-placeholder.hidden {
+        display: none;
+      }
+      .color-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .color-row input[type="color"] {
+        width: 44px;
+        height: 36px;
+        border: 1px solid #d8dde3;
+        border-radius: 8px;
+        padding: 2px;
+        cursor: pointer;
+      }
+      .section-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      /* Cards list */
+      .wm-cards-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 14px;
+      }
+      .wm-service-card {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .wm-service-card .card-img {
+        height: 130px;
+        background: #eee;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      .wm-service-card .card-img img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .wm-service-card .card-img .no-img {
+        font-size: 0.78rem;
+        color: #9ca3af;
+      }
+      .wm-service-card .card-body {
+        padding: 12px;
+        flex: 1;
+      }
+      .wm-service-card .card-cat {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--primary-color);
+        letter-spacing: 0.04em;
+      }
+      .wm-service-card .card-title {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #111827;
+        margin: 4px 0 4px;
+      }
+      .wm-service-card .card-desc {
+        font-size: 0.78rem;
+        color: #6b7280;
+      }
+      .wm-service-card .card-actions {
+        padding: 8px 12px;
+        border-top: 1px solid #f0f0f0;
+        display: flex;
+        gap: 8px;
+      }
+      .btn-edit-sm {
+        background: #fff;
+        border: 1px solid var(--primary-color);
+        color: var(--primary-color);
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-size: 0.74rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .btn-del-sm {
+        background: #fff5f5;
+        border: 1px solid #fca5a5;
+        color: #b91c1c;
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-size: 0.74rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .btn-edit-sm:hover {
+        background: var(--primary-color);
+        color: #fff;
+      }
+      .btn-del-sm:hover {
+        background: #b91c1c;
+        color: #fff;
+        border-color: #b91c1c;
+      }
+      /* Save bar */
+      .wm-save-bar {
+        background: #fff;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 16px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        position: sticky;
+        bottom: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      }
+      .wm-save-bar p {
+        font-size: 0.82rem;
+        color: #6b7280;
+        margin: 0;
+      }
+      /* Modal */
+      .wm-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(17, 24, 39, 0.5);
+        backdrop-filter: blur(3px);
+        z-index: 9000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+      }
+      .wm-modal-overlay.show {
+        display: flex;
+      }
+      .wm-modal-card {
+        background: #fff;
+        border-radius: 14px;
+        width: min(640px, 96%);
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+      }
+      .wm-modal-header {
+        padding: 18px 22px 14px;
+        border-bottom: 1px solid #e5e7eb;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .wm-modal-header h3 {
+        margin: 0;
+        font-size: 1rem;
+        color: var(--primary-color);
+      }
+      .wm-modal-body {
+        padding: 20px 22px;
+        overflow-y: auto;
+        flex: 1;
+      }
+      .wm-modal-footer {
+        padding: 14px 22px;
+        border-top: 1px solid #e5e7eb;
+        background: #fff;
+        flex-shrink: 0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      }
+      .btn-close-x {
+        background: none;
+        border: none;
+        font-size: 1.3rem;
+        cursor: pointer;
+        color: #6b7280;
+        line-height: 1;
+      }
+      /* Chip input */
+      .chip-input-area {
+        border: 1px solid #d8dde3;
+        border-radius: 8px;
+        padding: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        min-height: 42px;
+        cursor: text;
+      }
+      .chip-tag-item {
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-radius: 20px;
+        padding: 3px 8px 3px 10px;
+        font-size: 0.76rem;
+        color: #0369a1;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .chip-remove {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 0.9rem;
+        color: #0369a1;
+        padding: 0;
+        line-height: 1;
+      }
+      .chip-hidden-input {
+        border: none;
+        outline: none;
+        font-size: 0.8rem;
+        min-width: 120px;
+        flex: 1;
+      }
+      /* Skeleton */
+      .wm-skeleton {
+        background: linear-gradient(
+          90deg,
+          #f3f4f6 25%,
+          #e5e7eb 50%,
+          #f3f4f6 75%
+        );
+        background-size: 200% 100%;
+        animation: shimmer 1.4s infinite;
+        border-radius: 8px;
+      }
+      @keyframes shimmer {
+        0% {
+          background-position: 200% 0;
+        }
+        100% {
+          background-position: -200% 0;
+        }
+      }
+      /* Crop modal */
+      .crop-circle-wrapper {
+        width: 220px;
+        height: 220px;
+        border-radius: 50%;
+        overflow: hidden;
+        border: 3px dashed #d1d5db;
+        margin: 0 auto 14px;
+        background: #111;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        cursor: grab;
+      }
+      .crop-circle-wrapper.grabbing {
+        cursor: grabbing;
+      }
+      .crop-circle-wrapper img {
+        position: absolute;
+        transform-origin: center;
+        user-select: none;
+      }
+      /* SDG crop uses a light checkerboard so transparent PNG corners read
+         correctly, unlike the dark plate used for photo backgrounds. */
+      .crop-circle-wrapper.is-transparent {
+        background: repeating-conic-gradient(#e5e7eb 0% 25%, #f9fafb 0% 50%)
+          50% / 16px 16px;
+      }
+      /* SDG slots */
+      .wm-sdg-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+      }
+      .wm-sdg-slot {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 12px 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        text-align: center;
+      }
+      .wm-sdg-slot.is-empty {
+        background: #fff;
+        border-style: dashed;
+        border-color: #d1d5db;
+      }
+      .wm-sdg-slot-index {
+        font-size: 0.64rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #9ca3af;
+      }
+      .wm-sdg-thumb {
+        width: 84px;
+        height: 84px;
+        border-radius: 50%;
+        overflow: hidden;
+        border: 2px solid #e5e7eb;
+        background: repeating-conic-gradient(#eef0f3 0% 25%, #fbfbfc 0% 50%)
+          50% / 12px 12px;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+      }
+      .wm-sdg-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .wm-sdg-add {
+        width: 84px;
+        height: 84px;
+        border-radius: 50%;
+        border: 1.5px dashed #d1d5db;
+        background: #f9fafb;
+        color: #9ca3af;
+        font-size: 1.4rem;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        transition:
+          border-color 0.18s,
+          background 0.18s,
+          color 0.18s,
+          transform 0.12s ease;
+      }
+      .wm-sdg-add:hover {
+        border-color: #a80f0f;
+        background: #fff5f5;
+        color: #a80f0f;
+      }
+      .wm-sdg-add:active {
+        transform: scale(0.97);
+      }
+      .wm-sdg-title {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #111827;
+        line-height: 1.25;
+        overflow-wrap: anywhere;
+      }
+      .wm-sdg-hidden-tag {
+        display: inline-block;
+        font-size: 0.62rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #92400e;
+        background: #fef3c7;
+        border: 1px solid #fde68a;
+        border-radius: 999px;
+        padding: 2px 8px;
+      }
+      .wm-sdg-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+        margin-top: auto;
+      }
+      .wm-sdg-actions .btn-edit-sm,
+      .wm-sdg-actions .btn-del-sm {
+        padding: 4px 8px;
+        font-size: 0.68rem;
+      }
+      .wm-sdg-actions .wm-sdg-move {
+        padding: 4px 7px;
+      }
+      .wm-sdg-actions button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .wm-sdg-actions button:active:not(:disabled) {
+        transform: scale(0.97);
+      }
+      /* Vision / Mission photo decks reuse the SDG slot card wholesale — only
+         the thumb changes shape, because these are photographs rather than
+         round badges. Held at a single class each so the two .wm-sdg-grid
+         media queries further down (also (0,1,0), and later in the file) still
+         win on narrow screens instead of leaving five columns on a phone. */
+      .wm-gal-grid {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+      .wm-gal-thumb,
+      .wm-gal-add {
+        border-radius: 10px;
+      }
+      .wm-gal-thumb.is-wide,
+      .wm-gal-add.is-wide {
+        width: 104px;
+        height: 65px;
+      }
+      .wm-gal-thumb.is-square,
+      .wm-gal-add.is-square {
+        width: 84px;
+        height: 84px;
+      }
+      /* The navbar emblem sits in a square holder on the live site, so its
+         editor frame is squared off too — same 220px box, rounded corners only. */
+      .crop-circle-wrapper.is-square {
+        border-radius: 18px;
+      }
+      /* Vision/Mission photo frames: the shape the customer page actually draws,
+         so what is framed here is what the visitor sees.
+
+         `content-box` is deliberate. Admin CSS is border-box, and the export
+         divides the output width by the frame's clientWidth to get one uniform
+         frame→canvas ratio — with content-box the content is exactly 320×200, so
+         that ratio is 1000/320 = 625/200 = 3.125 in both axes. Under border-box
+         the 3px dashed border would eat into it and the two axes would disagree.
+         Any change to these numbers must keep the frame's ratio equal to the
+         output's (GALLERIES in website-home.js). */
+      .crop-circle-wrapper.is-wide-frame {
+        box-sizing: content-box;
+        width: min(320px, 72vw);
+        height: auto;
+        aspect-ratio: 16 / 10;
+        border-radius: 12px;
+      }
+      /* Two fit buttons live at the left of the crop footer; grouping them means
+         hiding one never shifts the other. */
+      .wm-crop-fit-group {
+        margin-right: auto;
+        display: flex;
+        gap: 8px;
+      }
+      /* Brand logo slots — same card language as the SDG slots above. */
+      .wm-logo-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+      }
+      .wm-logo-slot {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 14px 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        text-align: center;
+      }
+      .wm-logo-name {
+        font-size: 0.64rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #9ca3af;
+      }
+      .wm-logo-thumb {
+        width: 92px;
+        height: 92px;
+        overflow: hidden;
+        border: 2px solid #e5e7eb;
+        background: repeating-conic-gradient(#eef0f3 0% 25%, #fbfbfc 0% 50%) 50% /
+          12px 12px;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+      }
+      .wm-logo-thumb.is-circle {
+        border-radius: 50%;
+      }
+      .wm-logo-thumb.is-square {
+        border-radius: 20%;
+      }
+      .wm-logo-thumb img {
+        width: 100%;
+        height: 100%;
+        /* `contain`, matching the live holders: the thumbnail has to show the
+           same fit the visitor gets, not a tighter crop. */
+        object-fit: contain;
+        display: block;
+      }
+      .wm-logo-tag {
+        font-size: 0.62rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #4b5563;
+        background: #f3f4f6;
+        border: 1px solid #e5e7eb;
+        border-radius: 999px;
+        padding: 2px 9px;
+      }
+      .wm-logo-tag.is-custom {
+        color: #7a0b0b;
+        background: #fff1f1;
+        border-color: #f6d0d0;
+      }
+      .wm-logo-hint {
+        font-size: 0.7rem;
+        color: #6b7280;
+        line-height: 1.4;
+        margin: 0;
+      }
+      .wm-logo-actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 6px;
+        margin-top: auto;
+      }
+      .wm-logo-actions .btn-edit-sm,
+      .wm-logo-actions .btn-del-sm {
+        padding: 4px 8px;
+        font-size: 0.68rem;
+      }
+      .wm-logo-actions button:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .wm-logo-actions button:active:not(:disabled) {
+        transform: scale(0.97);
+      }
+      /* Gradient presets */
+      .wm-grad-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .wm-grad-swatch {
+        position: relative;
+        border: 2px solid #e5e7eb;
+        background: #fff;
+        border-radius: 12px;
+        padding: 6px 6px 7px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        text-align: center;
+        transition:
+          border-color 0.18s,
+          box-shadow 0.18s,
+          transform 0.12s ease;
+      }
+      .wm-grad-swatch:hover {
+        border-color: #a80f0f;
+        box-shadow: 0 6px 16px rgba(122, 11, 11, 0.14);
+      }
+      .wm-grad-swatch:active {
+        transform: scale(0.98);
+      }
+      .wm-grad-swatch.is-selected {
+        border-color: #a80f0f;
+        box-shadow: 0 0 0 3px rgba(168, 15, 15, 0.16);
+      }
+      .wm-grad-chip {
+        display: block;
+        height: 46px;
+        border-radius: 8px;
+        border: 1px solid rgba(17, 24, 39, 0.08);
+      }
+      .wm-grad-label {
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: #374151;
+        letter-spacing: 0.02em;
+      }
+      .wm-grad-check {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #a80f0f;
+        color: #fff;
+        font-size: 0.6rem;
+        display: grid;
+        place-items: center;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+      }
+      @media (max-width: 1180px) {
+        .wm-sdg-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .wm-logo-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .wm-grad-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 520px) {
+        .wm-sdg-grid {
+          grid-template-columns: 1fr;
+        }
+        .wm-logo-grid {
+          grid-template-columns: 1fr;
+        }
+        .wm-grad-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+    </style>
+    <link rel="stylesheet" href="admin-responsive.css?v=2.8" />
+  </head>
+  <body data-config-page="about">
+    <div class="dashboard-container">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" />
+          <h2>UCN-FMRC</h2>
+        </div>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html" class="nav-link"
+            ><i class="fa-solid fa-house"></i> Dashboard</a
+          >
+          <a href="inventory.html" class="nav-link"
+            ><i class="fa-solid fa-box"></i> Inventory</a
+          >
+          <a href="products.html" class="nav-link"
+            ><i class="fa-solid fa-tags"></i> Products</a
+          >
+          <a
+            href="promotions.html"
+            class="nav-link"
+            title="Promotions &amp; Announcements"
+            ><i class="fa-solid fa-bullhorn"></i> Promotions</a
+          >
+          <a href="appointments.html" class="nav-link"
+            ><i class="fa-regular fa-calendar-check"></i> Appointment</a
+          >
+          <a href="accounts.html" class="nav-link"
+            ><i class="fa-solid fa-users"></i> User Management</a
+          >
+          <a href="reports.html" class="nav-link"
+            ><i class="fa-solid fa-chart-line"></i> Reports</a
+          >
+          <a href="orders.html" class="nav-link"
+            ><i class="fa-solid fa-box-open"></i> Orders</a
+          >
+          <a href="customer-inquiries.html" class="nav-link"
+            ><i class="fa-regular fa-envelope-open"></i> Customer Inquiries</a
+          >
+          <a href="ratings.html" class="nav-link"
+            ><i class="fa-solid fa-star"></i> Ratings &amp; Feedback</a
+          >
+          <div class="nav-item has-dropdown open">
+            <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn">
+              <div class="dropdown-title">
+                <i class="fa-solid fa-screwdriver-wrench"></i> Website
+                Management
+              </div>
+              <i class="fa-solid fa-chevron-down arrow"></i>
+            </a>
+            <div class="dropdown-menu">
+              <a href="website-home.html" class="sub-link">Home</a>
+              <a href="website-about.html" class="sub-link active">About Us</a>
+              <a href="website-services.html" class="sub-link">Services</a>
+              <a href="website-contact.html" class="sub-link">Contact</a>
+              <a href="website-footer.html" class="sub-link">Footer</a>
+              <a href="website-emails.html" class="sub-link">Email Templates</a>
+              <a href="website-maintenance.html" class="sub-link">Maintenance</a>
+            </div>
+          </div>
+          <a href="archives.html" class="nav-link"
+            ><i class="fa-solid fa-box-archive"></i> Archives</a
+          >
+          <a href="my-account.html" class="nav-link"
+            ><i class="fa-regular fa-id-card"></i> My Account</a
+          >
+        </nav>
+        <div class="sidebar-footer">
+          <button class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="top-header">
+          <div class="header-left"><h1>About Us Page Management</h1></div>
+          <div class="header-right">
+            <div class="notifications" id="notifBell">
+              <i class="fa-regular fa-bell"></i
+              ><span class="badge" id="notifBadge" style="display: none"></span>
+            </div>
+            <div class="user-profile">
+              <div class="user-info"><span class="role">Admin</span></div>
+              <span
+                class="profile-icon profile-initial"
+                data-email="admin@cnsc.edu.ph"
+              ></span>
+              <div class="profile-popup" id="profilePopup">
+                <div class="popup-header">
+                  <div class="popup-profile-row">
+                    <span
+                      class="popup-profile-icon profile-initial"
+                      data-email="admin@cnsc.edu.ph"
+                    ></span>
+                    <div class="popup-profile-meta">
+                      <p class="popup-identity">admin@cnsc.edu.ph</p>
+                      <span class="popup-role">Admin</span>
+                    </div>
+                  </div>
+                </div>
+                <a href="my-account.html" class="profile-popup-link"
+                  ><i class="fa-regular fa-id-card"></i> My Account</a
+                >
+                <hr />
+                <button class="logout-btn popup-logout">
+                  <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section class="module-content">
+          <div class="page-toolbar">
+            <div class="toolbar-title">
+              <h2>About Us Page Content</h2>
+              <p>
+                Edit content displayed on the customer-facing About Us page. Click
+                "Save All Changes" when done.
+              </p>
+            </div>
+            <div class="toolbar-actions">
+              <button
+                class="btn-admin btn-secondary"
+                type="button"
+                onclick="window.location.reload()"
+                title="Refresh Data"
+              >
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh
+              </button>
+              <a
+                href="/home-page/main.html"
+                target="_blank"
+                class="btn-admin btn-secondary"
+                ><i class="fa-solid fa-eye"></i> Preview Site</a
+              >
+            </div>
+          </div>
+
+          <div class="section-stack">
+            <!-- HERO SECTION -->
+            <div class="wm-section" data-config-section="home" hidden>
+              <div class="wm-section-header">
+                <i class="fa-solid fa-star"></i>
+                <h3>Hero Section</h3>
+              </div>
+              <div class="wm-form-grid">
+                <div class="field-stack full">
+                  <label>Hero Title (shown on homepage banner)</label>
+                  <textarea
+                    class="wm-textarea"
+                    id="heroTitle"
+                    rows="3"
+                    placeholder="FABRICATION &amp;\nMANUFACTURING\nRESEARCH CENTER" maxlength="120"
+                  ></textarea>
+                  <span class="field-hint"
+                    >Use line breaks to control how the title wraps on the
+                    banner.</span
+                  >
+                </div>
+                <div class="field-stack">
+                  <label>Background</label>
+                  <select class="wm-select" id="heroBgType">
+                    <option value="color">Solid Color</option>
+                    <option value="gradient">Gradient Preset</option>
+                    <option value="image">Image</option>
+                  </select>
+                  <div
+                    class="color-row"
+                    id="heroBgColorRow"
+                    style="margin-top: 8px"
+                  >
+                    <input type="color" id="heroBgColor" value="#8b1a1a" />
+                    <span class="field-hint">Pick a background color</span>
+                  </div>
+                  <div
+                    id="heroBgImageRow"
+                    style="margin-top: 8px; display: none"
+                  >
+                    <div
+                      class="wm-img-placeholder"
+                      id="heroBgImgPlaceholder"
+                      onclick="
+                        document.getElementById('heroBgImgInput').click()
+                      "
+                    >
+                      <span
+                        ><i
+                          class="fa-regular fa-image"
+                          style="margin-right: 6px"
+                        ></i
+                        >Click to upload background image</span
+                      >
+                    </div>
+                    <img
+                      id="heroBgImgPreview"
+                      class="wm-img-preview"
+                      alt="Hero Background Preview"
+                    />
+                    <button
+                      type="button"
+                      class="btn-del-sm"
+                      id="heroBgImgPreviewRemoveBtn"
+                      style="display: none; margin-top: 8px"
+                      onclick="clearImage('heroBg')"
+                    >
+                      <i class="fa-solid fa-xmark"></i> Remove
+                    </button>
+                    <input
+                      type="file"
+                      id="heroBgImgInput"
+                      accept="image/*"
+                      style="display: none"
+                    />
+                    <button
+                      class="btn-edit-sm"
+                      style="margin-top: 6px"
+                      id="heroBgCropBtn"
+                      onclick="openCropModal('heroBg')"
+                    >
+                      <i class="fa-solid fa-crop-simple"></i> Adjust Image
+                    </button>
+                  </div>
+                </div>
+                <!-- Gradient presets: full width so the swatches stay legible.
+                     Rendered by website-home.js from ../home-page/hero-gradients.js,
+                     the same module the customer hero reads. -->
+                <div
+                  class="field-stack full"
+                  id="heroBgGradientRow"
+                  style="display: none"
+                >
+                  <label>Ready-Made Gradient Presets</label>
+                  <div class="wm-grad-grid" id="heroGradientGrid"></div>
+                  <span class="field-hint"
+                    >Red and maroon shades only, so the banner always matches the
+                    brand. The selected preset applies with
+                    <strong>Save All Changes</strong>.</span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <!-- BRAND LOGOS -->
+            <div class="wm-section" data-config-section="home" hidden>
+              <div class="wm-section-header">
+                <i class="fa-regular fa-images"></i>
+                <h3>Brand Logos</h3>
+              </div>
+              <p class="field-hint" style="margin-bottom: 14px">
+                Every logo on the customer website, the browser tab icon, plus
+                the pair above the sign-in card on both login portals. Each one
+                uses a locked shape — squares for the navbar emblem and browser
+                icon, circles for the hero, footer and portal marks — so any
+                upload keeps the layout intact. Use
+                <strong>Adjust</strong> to pan, zoom and rotate the artwork inside
+                its holder. Logos save immediately, like SDG badges and service
+                cards.
+              </p>
+              <div class="wm-logo-grid" id="brandLogoGrid"></div>
+              <input
+                type="file"
+                id="brandLogoInput"
+                accept="image/*"
+                style="display: none"
+              />
+            </div>
+
+            <!-- SUSTAINABLE DEVELOPMENT GOALS -->
+            <div class="wm-section" data-config-section="home" hidden>
+              <div class="wm-section-header">
+                <i class="fa-solid fa-earth-asia"></i>
+                <h3>Sustainable Development Goals</h3>
+              </div>
+              <p class="field-hint" style="margin-bottom: 14px">
+                Up to 8 badges show under the hero buttons on the customer home
+                page — 4 on top, 4 below, filling from the left. Any shape is
+                accepted; use <strong>Adjust</strong> to fit it inside the
+                circle. SDG images and details save immediately, like Service
+                Cards. The caption below saves with Save All Changes.
+              </p>
+              <div class="wm-sdg-grid" id="homeSdgGrid">
+                <div
+                  style="
+                    grid-column: 1/-1;
+                    padding: 30px;
+                    text-align: center;
+                    color: #9ca3af;
+                  "
+                >
+                  <div
+                    class="wm-skeleton"
+                    style="height: 16px; width: 60%; margin: 0 auto 10px"
+                  ></div>
+                  <div
+                    class="wm-skeleton"
+                    style="height: 12px; width: 40%; margin: 0 auto"
+                  ></div>
+                </div>
+              </div>
+              <input
+                type="file"
+                id="homeSdgInput"
+                accept="image/*"
+                style="display: none"
+              />
+              <div class="wm-form-grid" style="margin-top: 16px">
+                <div class="field-stack full">
+                  <label>Caption below the badges (optional)</label>
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="homeSdgHeading"
+                    placeholder="Supporting the UN Sustainable Development Goals" maxlength="160"
+                  />
+                  <span class="field-hint"
+                    >Leave blank to hide the caption line entirely.</span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <!-- ABOUT US -->
+            <div class="wm-section" data-config-section="about">
+              <div class="wm-section-header">
+                <i class="fa-solid fa-circle-info"></i>
+                <h3>About Us Section</h3>
+              </div>
+              <div class="wm-form-grid">
+                <div class="field-stack">
+                  <label>Section Heading</label>
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="aboutHeading"
+                    value="ABOUT US" maxlength="80"
+                  />
+                </div>
+                <div class="field-stack full">
+                  <label>First Paragraph (supports &lt;strong&gt; tags)</label>
+                  <textarea
+                    class="wm-textarea"
+                    id="aboutText1"
+                    rows="3" maxlength="1000"
+                  ></textarea>
+                </div>
+                <div class="field-stack full">
+                  <label>Second Paragraph (supports &lt;strong&gt; tags)</label>
+                  <textarea
+                    class="wm-textarea"
+                    id="aboutText2"
+                    rows="3" maxlength="1000"
+                  ></textarea>
+                </div>
+                <div class="field-stack full">
+                  <label>Video</label>
+                  <div
+                    class="wm-img-placeholder"
+                    id="aboutVideoPlaceholder"
+                    onclick="document.getElementById('aboutVideoInput').click()"
+                    style="height: 90px"
+                  >
+                    <span
+                      ><i
+                        class="fa-regular fa-file-video"
+                        style="margin-right: 6px"
+                      ></i
+                      >Click to upload video file</span
+                    >
+                  </div>
+                  <video
+                    id="aboutVideoPreview"
+                    style="
+                      display: none;
+                      width: 100%;
+                      max-height: 200px;
+                      border-radius: 8px;
+                      border: 1px solid #e5e7eb;
+                      background: #000;
+                      margin-top: 8px;
+                    "
+                    controls
+                  ></video>
+                  <p
+                    id="aboutVideoFileName"
+                    style="
+                      display: none;
+                      font-size: 0.76rem;
+                      color: #6b7280;
+                      margin-top: 4px;
+                    "
+                  ></p>
+                  <button
+                    type="button"
+                    class="btn-del-sm"
+                    id="aboutVideoRemoveBtn"
+                    style="display: none; margin-top: 8px"
+                    onclick="clearVideoUpload()"
+                  >
+                    <i class="fa-solid fa-xmark"></i> Remove
+                  </button>
+                  <input
+                    type="file"
+                    id="aboutVideoInput"
+                    accept="video/*"
+                    style="display: none"
+                    onchange="handleVideoUpload(this)"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- VISION -->
+            <div class="wm-section" data-config-section="about">
+              <div class="wm-section-header">
+                <i class="fa-solid fa-eye"></i>
+                <h3>Vision Section</h3>
+              </div>
+              <div class="wm-form-grid">
+                <div class="field-stack">
+                  <label>Section Heading</label>
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="visionHeading"
+                    value="OUR VISION" maxlength="80"
+                  />
+                </div>
+                <div class="field-stack full">
+                  <label>Vision Text</label>
+                  <textarea
+                    class="wm-textarea"
+                    id="visionText"
+                    rows="3" maxlength="700"
+                  ></textarea>
+                </div>
+                <div class="field-stack">
+                  <label>Vision Image</label>
+                  <div
+                    class="wm-img-placeholder"
+                    id="visionImgPlaceholder"
+                    onclick="document.getElementById('visionImgInput').click()"
+                  >
+                    <span
+                      ><i
+                        class="fa-regular fa-image"
+                        style="margin-right: 6px"
+                      ></i
+                      >Click to upload image</span
+                    >
+                  </div>
+                  <img
+                    id="visionImgPreview"
+                    class="wm-img-preview"
+                    alt="Vision image"
+                  />
+                  <button
+                    type="button"
+                    class="btn-edit-sm"
+                    id="visionImgPreviewFitBtn"
+                    style="display: none; margin-top: 8px"
+                    onclick="adjustSingleFit('vision')"
+                  >
+                    <i class="fa-solid fa-crop-simple"></i> Adjust fit
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-del-sm"
+                    id="visionImgPreviewRemoveBtn"
+                    style="display: none; margin-top: 8px"
+                    onclick="clearImage('vision')"
+                  >
+                    <i class="fa-solid fa-xmark"></i> Remove
+                  </button>
+                  <input
+                    type="file"
+                    id="visionImgInput"
+                    accept="image/*"
+                    style="display: none"
+                  />
+                </div>
+                <div class="field-stack full">
+                  <label>Vision Photo Gallery (max 10)</label>
+                  <p class="field-hint" style="margin-bottom: 14px">
+                    Photos play in this order in a subtle, looping slideshow.
+                    Visitors can go forward, go back, or pause. Add at least two
+                    photos to enable the loop; a single gallery photo appears on
+                    its own, and an empty gallery uses the image above. Each upload
+                    opens a 16:10 fit window and saves when you apply it.
+                  </p>
+                  <div
+                    class="wm-sdg-grid wm-gal-grid"
+                    id="visionGalleryGrid"
+                  ></div>
+                  <p
+                    class="field-hint"
+                    id="visionGalleryMeter"
+                    style="margin-top: 12px"
+                  ></p>
+                  <input
+                    type="file"
+                    id="visionGalleryInput"
+                    accept="image/*"
+                    style="display: none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- MISSION -->
+            <div class="wm-section" data-config-section="about">
+              <div class="wm-section-header">
+                <i class="fa-solid fa-bullseye"></i>
+                <h3>Mission Section</h3>
+              </div>
+              <div class="wm-form-grid">
+                <div class="field-stack">
+                  <label>Section Heading</label>
+                  <input
+                    type="text"
+                    class="wm-input"
+                    id="missionHeading"
+                    value="OUR MISSION" maxlength="80"
+                  />
+                </div>
+                <div class="field-stack full">
+                  <label>Mission Text</label>
+                  <textarea
+                    class="wm-textarea"
+                    id="missionText"
+                    rows="3" maxlength="700"
+                  ></textarea>
+                </div>
+                <div class="field-stack">
+                  <label>Mission Image</label>
+                  <div
+                    class="wm-img-placeholder"
+                    id="missionImgPlaceholder"
+                    onclick="document.getElementById('missionImgInput').click()"
+                  >
+                    <span
+                      ><i
+                        class="fa-regular fa-image"
+                        style="margin-right: 6px"
+                      ></i
+                      >Click to upload image</span
+                    >
+                  </div>
+                  <img
+                    id="missionImgPreview"
+                    class="wm-img-preview"
+                    alt="Mission image"
+                  />
+                  <button
+                    type="button"
+                    class="btn-edit-sm"
+                    id="missionImgPreviewFitBtn"
+                    style="display: none; margin-top: 8px"
+                    onclick="adjustSingleFit('mission')"
+                  >
+                    <i class="fa-solid fa-crop-simple"></i> Adjust fit
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-del-sm"
+                    id="missionImgPreviewRemoveBtn"
+                    style="display: none; margin-top: 8px"
+                    onclick="clearImage('mission')"
+                  >
+                    <i class="fa-solid fa-xmark"></i> Remove
+                  </button>
+                  <input
+                    type="file"
+                    id="missionImgInput"
+                    accept="image/*"
+                    style="display: none"
+                  />
+                </div>
+                <div class="field-stack full">
+                  <label>Mission Photo Gallery (max 10)</label>
+                  <p class="field-hint" style="margin-bottom: 14px">
+                    Photos play in this order in a subtle, looping slideshow.
+                    Visitors can go forward, go back, or pause. Add at least two
+                    photos to enable the loop; a single gallery photo appears on
+                    its own, and an empty gallery uses the image above. Each upload
+                    opens a 16:10 fit window and saves when you apply it.
+                  </p>
+                  <div
+                    class="wm-sdg-grid wm-gal-grid"
+                    id="missionGalleryGrid"
+                  ></div>
+                  <p
+                    class="field-hint"
+                    id="missionGalleryMeter"
+                    style="margin-top: 12px"
+                  ></p>
+                  <input
+                    type="file"
+                    id="missionGalleryInput"
+                    accept="image/*"
+                    style="display: none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- WHAT WE OFFER -->
+            <div class="wm-section" data-config-section="home" hidden>
+              <div class="wm-section-header">
+                <i class="fa-solid fa-grid-2"></i>
+                <h3>What We Offer Section</h3>
+                <button
+                  class="btn-admin"
+                  style="margin-left: auto"
+                  id="btnAddService"
+                >
+                  <i class="fa-solid fa-plus" style="color: #fff"></i> Add
+                  Service Card
+                </button>
+              </div>
+              <p class="field-hint" style="margin-bottom: 14px">
+                These cards are shared with the Services page. Changes here
+                update both pages.
+              </p>
+              <div class="wm-cards-grid" id="homeServicesGrid">
+                <div
+                  style="
+                    grid-column: 1/-1;
+                    padding: 30px;
+                    text-align: center;
+                    color: #9ca3af;
+                  "
+                >
+                  <div
+                    class="wm-skeleton"
+                    style="height: 16px; width: 60%; margin: 0 auto 10px"
+                  ></div>
+                  <div
+                    class="wm-skeleton"
+                    style="height: 12px; width: 40%; margin: 0 auto"
+                  ></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- SAVE BAR -->
+            <div class="wm-section" id="editorialContentEditor">
+              <div class="wm-section-header">
+                <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
+                <h3>About Us Section Text</h3>
+              </div>
+              <p class="field-hint" style="margin-bottom: 18px">The page title, profile, video, Mission, and Vision use the controls above. Edit the supporting section text here. Changes save together with Save All Changes.</p>
+              <div id="editorialContentFields"><p class="field-hint">Loading section text controls&hellip;</p></div>
+            </div>
+
+            <div class="wm-save-bar" data-dock-save-bar>
+              <p>
+                <i
+                  class="fa-solid fa-circle-info"
+                  style="margin-right: 5px; color: var(--primary-color)"
+                ></i
+                >Changes only apply after clicking Save All Changes.
+              </p>
+              <button class="btn-admin" id="btnSaveAllHome">
+                <i class="fa-solid fa-floppy-disk"></i> Save All Changes
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- -- CROP MODAL (Logo / BG Image) -- -->
+    <div class="wm-modal-overlay" id="cropModal">
+      <div class="wm-modal-card" style="max-width: 480px">
+        <div class="wm-modal-header">
+          <h3 id="cropModalTitle">Adjust Image</h3>
+          <button class="btn-close-x" onclick="closeCropModal()">
+            &times;
+          </button>
+        </div>
+        <div class="wm-modal-body" style="text-align: center">
+          <p class="field-hint" style="margin-bottom: 12px" id="cropModalHint">
+            Drag the image to position it within the circle. Use the slider to
+            resize.
+          </p>
+          <div class="crop-circle-wrapper" id="cropCircle">
+            <img id="cropImg" alt="Crop preview" draggable="false" />
+          </div>
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              margin-top: 12px;
+            "
+          >
+            <label style="font-size: 0.8rem; font-weight: 600; min-width: 50px"
+              >Scale</label
+            >
+            <input
+              type="range"
+              id="cropScale"
+              min="50"
+              max="300"
+              value="100"
+              style="flex: 1"
+            />
+            <span
+              id="cropScaleVal"
+              style="font-size: 0.78rem; color: #6b7280; min-width: 40px"
+              >100%</span
+            >
+          </div>
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              gap: 10px;
+              margin-top: 8px;
+            "
+          >
+            <label style="font-size: 0.8rem; font-weight: 600; min-width: 50px"
+              >Rotate</label
+            >
+            <input
+              type="range"
+              id="cropRotate"
+              min="-180"
+              max="180"
+              value="0"
+              style="flex: 1"
+            />
+            <span
+              id="cropRotateVal"
+              style="font-size: 0.78rem; color: #6b7280; min-width: 40px"
+              >0�</span
+            >
+          </div>
+        </div>
+        <div class="wm-modal-footer">
+          <span class="wm-crop-fit-group">
+            <button class="btn-edit-sm" id="btnFitCrop" style="display: none">
+              <i class="fa-solid fa-compress"></i> Fit to circle
+            </button>
+            <button class="btn-edit-sm" id="btnFillCrop" style="display: none">
+              <i class="fa-solid fa-expand"></i> Fill frame
+            </button>
+          </span>
+          <button class="btn-admin btn-secondary" onclick="closeCropModal()">
+            Cancel
+          </button>
+          <button class="btn-admin" id="btnApplyCrop">
+            <i class="fa-solid fa-check"></i> Apply
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- -- SDG ADD/EDIT MODAL -- -->
+    <div class="wm-modal-overlay" id="sdgModal">
+      <div class="wm-modal-card" style="max-width: 560px">
+        <div class="wm-modal-header">
+          <h3 id="sdgModalTitle">Add SDG</h3>
+          <button class="btn-close-x" onclick="closeSdgModal()">&times;</button>
+        </div>
+        <div class="wm-modal-body">
+          <input type="hidden" id="sdgEditId" />
+          <div class="wm-form-grid">
+            <div class="field-stack full">
+              <label>Badge Image</label>
+              <div
+                class="wm-img-placeholder"
+                id="sdgImgPlaceholder"
+                onclick="document.getElementById('sdgModalImgInput').click()"
+              >
+                <span
+                  ><i class="fa-regular fa-image" style="margin-right: 6px"></i
+                  >Click to upload an SDG image</span
+                >
+              </div>
+              <img id="sdgImgPreview" class="wm-img-preview" alt="SDG image" />
+              <input
+                type="file"
+                id="sdgModalImgInput"
+                accept="image/*"
+                style="display: none"
+              />
+              <button
+                class="btn-edit-sm"
+                style="margin-top: 6px"
+                id="btnSdgModalCrop"
+                type="button"
+              >
+                <i class="fa-solid fa-crop-simple"></i> Fit in Circle
+              </button>
+              <span class="field-hint"
+                >Any shape works — Fit in Circle trims it to the round badge
+                used on the home page.</span
+              >
+            </div>
+            <div class="field-stack full">
+              <label>Title <span style="color: #dc2626">*</span></label>
+              <input
+                type="text"
+                class="wm-input"
+                id="sdgTitle"
+                placeholder="Goal 9: Industry, Innovation and Infrastructure" maxlength="160"
+              />
+            </div>
+            <div class="field-stack full">
+              <label>Description</label>
+              <textarea
+                class="wm-textarea"
+                id="sdgDescription"
+                rows="4"
+                maxlength="2000"
+                placeholder="How FMRC supports this goal. Shown when a customer clicks the badge."
+              ></textarea>
+            </div>
+            <div class="field-stack full">
+              <label
+                style="
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 8px;
+                  cursor: pointer;
+                "
+              >
+                <input type="checkbox" id="sdgIsVisible" checked />
+                Show this badge on the customer home page
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="wm-modal-footer">
+          <button class="btn-admin btn-secondary" onclick="closeSdgModal()">
+            Cancel
+          </button>
+          <button class="btn-admin" id="btnSaveSdg">
+            <i class="fa-solid fa-floppy-disk"></i> Save SDG
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- -- SERVICE ADD/EDIT MODAL -- -->
+    <div class="wm-modal-overlay" id="serviceModal">
+      <div class="wm-modal-card">
+        <div class="wm-modal-header">
+          <h3 id="serviceModalTitle">Add Service Card</h3>
+          <button class="btn-close-x" onclick="closeServiceModal()">
+            &times;
+          </button>
+        </div>
+        <div class="wm-modal-body">
+          <input type="hidden" id="serviceEditId" />
+          <div class="wm-form-grid">
+            <div class="field-stack full">
+              <label>Service Image</label>
+              <div
+                class="wm-img-placeholder"
+                id="svcImgPlaceholder"
+                onclick="document.getElementById('svcImgInput').click()"
+              >
+                <span
+                  ><i class="fa-regular fa-image" style="margin-right: 6px"></i
+                  >Click to upload image</span
+                >
+              </div>
+              <img
+                id="svcImgPreview"
+                class="wm-img-preview"
+                alt="Service image"
+              />
+              <button
+                type="button"
+                class="btn-del-sm"
+                id="svcImgPreviewRemoveBtn"
+                style="display: none; margin-top: 8px"
+                onclick="clearImage('svc')"
+              >
+                <i class="fa-solid fa-xmark"></i> Remove
+              </button>
+              <input
+                type="file"
+                id="svcImgInput"
+                accept="image/*"
+                style="display: none"
+              />
+            </div>
+            <div class="field-stack">
+              <label>Category <span style="color: #dc2626">*</span></label>
+              <select class="wm-select" id="svcCategory">
+                <option>Prototyping</option>
+                <option>Manufacturing</option>
+                <option>Design and Labelling</option>
+                <option>Training and Workshops</option>
+              </select>
+            </div>
+            <div class="field-stack">
+              <label>Title <span style="color: #dc2626">*</span></label>
+              <input
+                type="text"
+                class="wm-input"
+                id="svcTitle" maxlength="100"
+              />
+            </div>
+            <div class="field-stack full">
+              <label>Short Description (card text)</label>
+              <textarea class="wm-textarea" id="svcDesc" rows="2" maxlength="360"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="wm-modal-footer">
+          <button class="btn-admin btn-secondary" onclick="closeServiceModal()">
+            Cancel
+          </button>
+          <button class="btn-admin" id="btnSaveService">
+            <i class="fa-solid fa-floppy-disk"></i> Save Service
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="session-helper.js"></script>
+    <script src="admin-common.js?v=6.7"></script>
+    <!-- Shared with the customer hero, so a swatch here and the live banner can
+         never render a preset differently. Must load before website-home.js. -->
+    <script src="../home-page/hero-gradients.js"></script>
+    <script src="../home-page/page-content.js?v=1.2"></script>
+    <script src="website-home.js?v=1.8"></script>
+    <script src="admin-table-resize.js?v=1.4" defer></script>
+  </body>
+</html>

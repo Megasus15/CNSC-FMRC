@@ -1,0 +1,126 @@
+/* Shared button feedback for customer pages. It keeps each control's own
+   palette while giving hover and press states the same quick, in-place feel as
+   the Contact form action. Modal surfaces retain their own button recipes. */
+:is(
+  .home-editorial-page .btn-browse,
+  .home-editorial-page .btn-appointment,
+  .home-editorial-page .editorial-button,
+  .home-editorial-page .editorial-button-secondary,
+  .home-editorial-page .hero-sdg-btn,
+  .home-editorial-page .details-btn,
+  .home-editorial-page .about-video-control,
+  .home-editorial-page .editorial-gallery-controls button,
+  .about-editorial-page .editorial-button,
+  .about-editorial-page .editorial-button-secondary,
+  .about-editorial-page .hero-sdg-btn,
+  .about-editorial-page .details-btn,
+  .about-editorial-page .about-video-control,
+  .about-editorial-page .editorial-gallery-controls button,
+  .products-page-body .product-actions .action-btn,
+  .contact-page-body .contact-submit-btn,
+  .profile-popup #logoutBtn.popup-logout,
+  #laravelLogoutModal #confirmLogoutBtn
+):not(:disabled):not(.disabled):not([aria-disabled="true"]) {
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease,
+    filter 150ms ease,
+    transform 100ms ease;
+}
+
+:is(
+  .home-editorial-page .btn-browse,
+  .home-editorial-page .btn-appointment,
+  .home-editorial-page .editorial-button,
+  .home-editorial-page .editorial-button-secondary,
+  .home-editorial-page .hero-sdg-btn,
+  .home-editorial-page .details-btn,
+  .home-editorial-page .about-video-control,
+  .home-editorial-page .editorial-gallery-controls button,
+  .about-editorial-page .editorial-button,
+  .about-editorial-page .editorial-button-secondary,
+  .about-editorial-page .hero-sdg-btn,
+  .about-editorial-page .details-btn,
+  .about-editorial-page .about-video-control,
+  .about-editorial-page .editorial-gallery-controls button,
+  .products-page-body .product-actions .action-btn,
+  .contact-page-body .contact-submit-btn,
+  .profile-popup #logoutBtn.popup-logout,
+  #laravelLogoutModal #confirmLogoutBtn
+):hover:not(:disabled):not(.disabled):not([aria-disabled="true"]) {
+  filter: brightness(.94);
+}
+
+:is(
+  .home-editorial-page .btn-browse,
+  .home-editorial-page .btn-appointment,
+  .home-editorial-page .editorial-button,
+  .home-editorial-page .editorial-button-secondary,
+  .home-editorial-page .hero-sdg-btn,
+  .home-editorial-page .details-btn,
+  .home-editorial-page .about-video-control,
+  .home-editorial-page .editorial-gallery-controls button,
+  .about-editorial-page .editorial-button,
+  .about-editorial-page .editorial-button-secondary,
+  .about-editorial-page .hero-sdg-btn,
+  .about-editorial-page .details-btn,
+  .about-editorial-page .about-video-control,
+  .about-editorial-page .editorial-gallery-controls button,
+  .products-page-body .product-actions .action-btn,
+  .contact-page-body .contact-submit-btn,
+  .profile-popup #logoutBtn.popup-logout,
+  #laravelLogoutModal #confirmLogoutBtn
+):active:not(:disabled):not(.disabled):not([aria-disabled="true"]) {
+  filter: brightness(.9);
+  transform: scale(.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(
+    .home-editorial-page .btn-browse,
+    .home-editorial-page .btn-appointment,
+    .home-editorial-page .editorial-button,
+    .home-editorial-page .editorial-button-secondary,
+    .home-editorial-page .hero-sdg-btn,
+    .home-editorial-page .details-btn,
+    .home-editorial-page .about-video-control,
+    .home-editorial-page .editorial-gallery-controls button,
+    .about-editorial-page .editorial-button,
+    .about-editorial-page .editorial-button-secondary,
+    .about-editorial-page .hero-sdg-btn,
+    .about-editorial-page .details-btn,
+    .about-editorial-page .about-video-control,
+    .about-editorial-page .editorial-gallery-controls button,
+    .products-page-body .product-actions .action-btn,
+    .contact-page-body .contact-submit-btn,
+    .profile-popup #logoutBtn.popup-logout,
+    #laravelLogoutModal #confirmLogoutBtn
+  ) {
+    transition: none;
+  }
+
+  :is(
+    .home-editorial-page .btn-browse,
+    .home-editorial-page .btn-appointment,
+    .home-editorial-page .editorial-button,
+    .home-editorial-page .editorial-button-secondary,
+    .home-editorial-page .hero-sdg-btn,
+    .home-editorial-page .details-btn,
+    .home-editorial-page .about-video-control,
+    .home-editorial-page .editorial-gallery-controls button,
+    .about-editorial-page .editorial-button,
+    .about-editorial-page .editorial-button-secondary,
+    .about-editorial-page .hero-sdg-btn,
+    .about-editorial-page .details-btn,
+    .about-editorial-page .about-video-control,
+    .about-editorial-page .editorial-gallery-controls button,
+    .products-page-body .product-actions .action-btn,
+    .contact-page-body .contact-submit-btn,
+    .profile-popup #logoutBtn.popup-logout,
+    #laravelLogoutModal #confirmLogoutBtn
+  ):active:not(:disabled):not(.disabled):not([aria-disabled="true"]) {
+    transform: none;
+  }
+}

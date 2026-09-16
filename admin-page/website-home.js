@@ -52,6 +52,8 @@ const resolveApiBaseUrl = () => {
 };
 
 const API = resolveApiBaseUrl();
+const CONFIG_PAGE = document.body.dataset.configPage === "about" ? "about" : "home";
+const CONFIG_LABEL = CONFIG_PAGE === "about" ? "About Us" : "Home";
 const token = () =>
   (window.AdminSession && window.AdminSession.getToken()) ||
   localStorage.getItem("auth_token");
@@ -176,6 +178,10 @@ let vmCoverScale = 100; // the "Fill frame" scale worked out when it loaded
 
 // ── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", async () => {
+  window.FMRC_PAGE_CONTENT?.renderEditor(document.getElementById("editorialContentFields"), CONFIG_PAGE);
+  document.querySelectorAll("input[maxlength], textarea[maxlength]").forEach((input) => {
+    window.FMRC_PAGE_CONTENT?.bindCounter(input, input.maxLength);
+  });
   await loadAllData();
   bindEvents();
 });
@@ -186,7 +192,9 @@ async function loadAllData() {
   setSettingsLoaded(false);
   // `allSettled`, not `all`. With `all`, one rejected loader skipped bindEvents()
   // for the whole page — every control on the panel dead, and nothing saying so.
-  await Promise.allSettled([loadSettings(), loadServices(), loadSdgs()]);
+  await Promise.allSettled(CONFIG_PAGE === "about"
+    ? [loadSettings()]
+    : [loadSettings(), loadServices(), loadSdgs()]);
 }
 
 // ── API: Load settings ────────────────────────────────────────────────────────
@@ -267,12 +275,15 @@ async function loadSettings(options) {
  */
 function setSettingsLoaded(loaded) {
   settingsLoaded = Boolean(loaded);
+  document.querySelectorAll("[data-editorial-setting]").forEach((input) => {
+    input.disabled = !settingsLoaded;
+  });
   const btn = document.getElementById("btnSaveAllHome");
   if (!btn) return;
   btn.disabled = !settingsLoaded;
   btn.title = settingsLoaded
     ? ""
-    : "Locked until the live Home page content has loaded.";
+    : `Locked until the live ${CONFIG_LABEL} page content has loaded.`;
 }
 
 /** One dialog, with the retry in it, so a blip does not cost a page reload. */
@@ -280,9 +291,9 @@ function showSettingsLoadFailure(error) {
   const reason =
     (error && error.message) || "The request could not be completed.";
   window.showAdminConfirmPopup(
-    `${reason}\n\nThe live Home page content could not be read from ${API}, so these fields are empty and Save All Changes is locked until it loads.`,
+    `${reason}\n\nThe live ${CONFIG_LABEL} page content could not be read from ${API}, so Save All Changes is locked until it loads.`,
     {
-      title: "Home Content Not Loaded",
+      title: `${CONFIG_LABEL} Content Not Loaded`,
       confirmText: "Retry",
       cancelText: "Close",
       keepOpenWhilePending: true,
@@ -294,7 +305,7 @@ function showSettingsLoadFailure(error) {
         if (!ok) throw new Error("Retry failed");
       },
       onSuccess: () => {
-        window.showAdminPopup("Home page content loaded.", {
+        window.showAdminPopup(`${CONFIG_LABEL} page content loaded.`, {
           title: "Loaded",
           type: "success",
         });
@@ -305,6 +316,7 @@ function showSettingsLoadFailure(error) {
 
 function populateForm() {
   const s = currentSettings;
+  window.FMRC_PAGE_CONTENT?.populate(s);
   setText("heroTitle", s.hero_title || "");
   setVal("heroBgType", s.hero_bg_type || "color");
   toggleBgType(s.hero_bg_type || "color");
@@ -324,10 +336,16 @@ function populateForm() {
   if (s.hero_bg_image) {
     setImgPreview("heroBgImgPreview", "heroBgImgPlaceholder", s.hero_bg_image);
     heroBgImageData = s.hero_bg_image;
+  } else {
+    heroBgImageData = null;
+    resetImgPreview("heroBgImgPreview", "heroBgImgPlaceholder");
   }
   if (s.vision_image) {
     setImgPreview("visionImgPreview", "visionImgPlaceholder", s.vision_image);
     visionImageData = s.vision_image;
+  } else {
+    visionImageData = null;
+    resetImgPreview("visionImgPreview", "visionImgPlaceholder");
   }
   if (s.mission_image) {
     setImgPreview(
@@ -336,13 +354,16 @@ function populateForm() {
       s.mission_image,
     );
     missionImageData = s.mission_image;
+  } else {
+    missionImageData = null;
+    resetImgPreview("missionImgPreview", "missionImgPlaceholder");
   }
   // The decks that sit behind those two single images. Called from here rather
   // than from loadSettings() so every re-populate (including the one after a
   // gallery save) redraws the grids from the server's copy.
   loadGalleries();
 
-  setText("aboutHeading", s.about_heading || "ABOUT US");
+  setText("aboutHeading", savedText(s, "about_heading", "ABOUT US"));
   setText("homeSdgHeading", s.home_sdg_heading || "");
   setText("aboutText1", s.about_text_1 || "");
   setText("aboutText2", s.about_text_2 || "");
@@ -350,11 +371,48 @@ function populateForm() {
   if (s.about_video_url) {
     aboutVideoData = s.about_video_url;
     restoreVideoPreview(s.about_video_url);
+  } else {
+    clearVideoUpload();
   }
-  setText("visionHeading", s.vision_heading || "OUR VISION");
+  setText("visionHeading", savedText(s, "vision_heading", "OUR VISION"));
   setText("visionText", s.vision_text || "");
-  setText("missionHeading", s.mission_heading || "OUR MISSION");
+  setText("missionHeading", savedText(s, "mission_heading", "OUR MISSION"));
   setText("missionText", s.mission_text || "");
+  refreshTextCounters();
+}
+
+function savedText(settings, key, fallback = "") {
+  return Object.prototype.hasOwnProperty.call(settings, key)
+    ? String(settings[key] ?? "")
+    : fallback;
+}
+
+function refreshTextCounters(container = document) {
+  container.querySelectorAll("input[maxlength], textarea[maxlength]").forEach((input) => {
+    input._fmrcUpdateCounter?.();
+  });
+}
+
+function validateTextFields(container) {
+  const fields = container.querySelectorAll("input[maxlength], textarea[maxlength]");
+  for (const input of fields) {
+    if (input.disabled || input.closest("[hidden]")) continue;
+    input._fmrcUpdateCounter?.();
+    if (input.checkValidity()) continue;
+    const group = input.closest("details");
+    if (group) group.open = true;
+    input.reportValidity();
+    return false;
+  }
+  return true;
+}
+
+// About owns its organizational copy/media; Home owns its hero and introduction.
+// The shared scaffold keeps media handlers intact, but never saves hidden panels.
+function scopePageSettings(payload, page = CONFIG_PAGE) {
+  return Object.fromEntries(Object.entries(payload).filter(([key]) => page === "about"
+    ? /^(?:about|mission|vision)_/.test(key) || key.startsWith("editorial_about_")
+    : key.startsWith("hero_") || key === "home_sdg_heading" || key.startsWith("editorial_home_")));
 }
 
 function setText(id, val) {
@@ -400,18 +458,18 @@ function renderServiceCards() {
       <div class="card-img">
         ${
           s.image_data
-            ? `<img src="${s.image_data}" alt="${s.title}" />`
+            ? `<img src="${escHtml(s.image_data)}" alt="${escHtml(s.title)}" />`
             : `<span class="no-img"><i class="fa-regular fa-image"></i></span>`
         }
       </div>
       <div class="card-body">
-        <div class="card-cat">${s.category}</div>
-        <div class="card-title">${s.title}</div>
-        <div class="card-desc">${s.description || ""}</div>
+        <div class="card-cat">${escHtml(s.category)}</div>
+        <div class="card-title">${escHtml(s.title)}</div>
+        <div class="card-desc">${escHtml(s.description || "")}</div>
       </div>
       <div class="card-actions">
-        <button class="btn-edit-sm" onclick="openEditService(${s.id})"><i class="fa-regular fa-pen-to-square"></i> Edit</button>
-        <button class="btn-del-sm" onclick="deleteService(${s.id},'${escHtml(s.title)}')"><i class="fa-solid fa-trash"></i> Delete</button>
+        <button class="btn-edit-sm" data-home-service-action="edit" data-service-id="${escHtml(s.id)}"><i class="fa-regular fa-pen-to-square"></i> Edit</button>
+        <button class="btn-del-sm" data-home-service-action="delete" data-service-id="${escHtml(s.id)}"><i class="fa-solid fa-trash"></i> Delete</button>
       </div>
     </div>
   `,
@@ -420,14 +478,23 @@ function renderServiceCards() {
 }
 
 function escHtml(str) {
-  return (str || "").replace(/'/g, "\\'");
+  return String(str ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 // ── Save All ──────────────────────────────────────────────────────────────────
 function bindEvents() {
+  document.getElementById("homeServicesGrid").addEventListener("click", (event) => {
+    const action = event.target.closest("[data-home-service-action]");
+    if (!action) return;
+    const service = servicesData.find((entry) => String(entry.id) === action.dataset.serviceId);
+    if (!service) return;
+    if (action.dataset.homeServiceAction === "edit") openEditService(service.id);
+    else deleteService(service.id, service.title);
+  });
   document.getElementById("btnSaveAllHome").addEventListener("click", () => {
     window.showAdminConfirmPopup(
-      "Save all Home page changes to the live website?",
+      `Save all ${CONFIG_LABEL} page changes to the live website?`,
       {
         title: "Save All Changes",
         confirmText: "Save",
@@ -507,8 +574,7 @@ function bindEvents() {
     (b64) => {
       svcImageData = b64;
     },
-    true,
-  ); // requireSquare = true for service card images
+  ); // Existing and new artwork is displayed in a 16:10 customer image panel.
 
   // Gallery pickers. These bypass setupImgInput() on purpose: it stores the raw
   // FileReader result, and a gallery of ten untouched phone photos would be
@@ -831,11 +897,13 @@ async function doSaveAll() {
   // and publishing it unread is a one-click wipe of the live Home page copy.
   if (!settingsLoaded) {
     window.showAdminPopup(
-      "The live Home page content has not loaded, so saving now would publish empty fields over it. Load the content first, then save.",
+      `The live ${CONFIG_LABEL} page content has not loaded. Load the content first, then save.`,
       { title: "Cannot Save Yet" },
     );
     return;
   }
+
+  if (!validateTextFields(document.querySelector(".module-content"))) return;
 
   const saveButton = document.getElementById("btnSaveAllHome");
   const originalSaveButtonHtml = saveButton?.innerHTML || "";
@@ -845,7 +913,8 @@ async function doSaveAll() {
       '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
   }
 
-  const payload = {
+  const payload = scopePageSettings({
+    ...window.FMRC_PAGE_CONTENT?.collect(),
     hero_title: document.getElementById("heroTitle").value,
     hero_bg_type: document.getElementById("heroBgType").value,
     hero_bg_color: document.getElementById("heroBgColor").value,
@@ -865,7 +934,7 @@ async function doSaveAll() {
     mission_heading: document.getElementById("missionHeading").value,
     mission_text: document.getElementById("missionText").value,
     mission_image: missionImageData || "",
-  };
+  });
 
   try {
     const res = await fetch(`${API}/admin/site-settings`, {
@@ -877,15 +946,18 @@ async function doSaveAll() {
       },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error("Save failed");
-    window.showAdminPopup("Home page settings saved successfully!", {
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(Object.values(error.errors || {}).flat()[0] || error.message || "Failed to save. Check your connection and try again.");
+    }
+    window.showAdminPopup(`${CONFIG_LABEL} page settings saved successfully!`, {
       title: "Saved!",
     });
     broadcastSiteUpdate("updated");
     await loadSettings();
-  } catch {
+  } catch (error) {
     window.showAdminPopup(
-      "Failed to save. Check your connection and try again.",
+      error.message || "Failed to save. Check your connection and try again.",
       { title: "Error" },
     );
   } finally {
@@ -920,6 +992,7 @@ function openEditService(id) {
   document.getElementById("svcTitle").value = svc.title || "";
   document.getElementById("svcCategory").value = svc.category || "Prototyping";
   document.getElementById("svcDesc").value = svc.description || "";
+  refreshTextCounters(document.getElementById("serviceModal"));
 
   // Image
   if (svc.image_data) {
@@ -939,10 +1012,12 @@ function clearServiceModal() {
   document.getElementById("svcTitle").value = "";
   document.getElementById("svcCategory").value = "Prototyping";
   document.getElementById("svcDesc").value = "";
+  refreshTextCounters(document.getElementById("serviceModal"));
   resetImgPreview("svcImgPreview", "svcImgPlaceholder");
 }
 
 async function saveService() {
+  if (!validateTextFields(document.getElementById("serviceModal"))) return;
   const id = document.getElementById("serviceEditId").value;
   const title = document.getElementById("svcTitle").value.trim();
   const category = document.getElementById("svcCategory").value;
@@ -989,12 +1064,15 @@ async function doSaveService(method, id, payload) {
       },
       body: JSON.stringify(payload),
     });
-    if (!res.ok) throw new Error();
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({}));
+      throw new Error(Object.values(error.errors || {}).flat()[0] || error.message || "Failed to save service. Try again.");
+    }
     closeServiceModal();
     window.showAdminPopup("Service saved successfully!", { title: "Saved!" });
     await loadServices();
-  } catch {
-    window.showAdminPopup("Failed to save service. Try again.", {
+  } catch (error) {
+    window.showAdminPopup(error.message || "Failed to save service. Try again.", {
       title: "Error",
     });
   }
@@ -1029,57 +1107,19 @@ function deleteService(id, name) {
 }
 
 // ── Image helpers ─────────────────────────────────────────────────────────────
-function setupImgInput(
-  inputId,
-  previewId,
-  placeholderId,
-  callback,
-  requireSquare = false,
-) {
+function setupImgInput(inputId, previewId, placeholderId, callback) {
   const inputEl = document.getElementById(inputId);
-  if (!inputEl) return; // field not present on this page
+  if (!inputEl) return;
   inputEl.addEventListener("change", function () {
     const file = this.files[0];
     if (!file) return;
-
-    // For service card images, validate 1:1 aspect ratio
-    if (requireSquare) {
-      const img = new Image();
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        img.src = e.target.result;
-        img.onload = () => {
-          const width = img.naturalWidth || img.width;
-          const height = img.naturalHeight || img.height;
-          const aspectRatio = width / height;
-
-          // Check if aspect ratio is 1:1 (allow small tolerance)
-          if (Math.abs(aspectRatio - 1) > 0.01) {
-            window.showAdminPopup?.(
-              `Service card image must have a 1:1 aspect ratio (square). Current ratio: ${aspectRatio.toFixed(2)}:1\n\nImage dimensions: ${width} × ${height}px`,
-              { title: "Invalid Image Dimensions" },
-            );
-            this.value = "";
-            return;
-          }
-
-          // Valid aspect ratio, proceed
-          const b64 = e.target.result;
-          setImgPreview(previewId, placeholderId, b64);
-          callback(b64);
-        };
-      };
-      reader.readAsDataURL(file);
-    } else {
-      // No aspect ratio requirement
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const b64 = e.target.result;
-        setImgPreview(previewId, placeholderId, b64);
-        callback(b64);
-      };
-      reader.readAsDataURL(file);
-    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const image = event.target.result;
+      setImgPreview(previewId, placeholderId, image);
+      callback(image);
+    };
+    reader.readAsDataURL(file);
   });
 }
 
@@ -1318,11 +1358,9 @@ function openCropModal(target) {
 
   // The navbar emblem sits in a square holder on the live site, so its editor
   // shows a square too — the frame has to match what the visitor will see. Same
-  // rule for the two home-page decks: Vision is a 16:10 card, Mission is the
-  // organic blob, and the frame here is that exact silhouette.
+  // rule for the About galleries: both use the same 16:10 image panel.
   circle?.classList.toggle("is-square", !!conf && conf.shape === "square");
-  circle?.classList.toggle("is-wide-frame", !!vm && vm.kind === "vision");
-  circle?.classList.toggle("is-blob-frame", !!vm && vm.kind === "mission");
+  circle?.classList.toggle("is-wide-frame", !!vm);
 
   // Covering the frame is the start state, worked out from the photo's own size,
   // so it can only be measured once the browser has laid the image out.
@@ -1536,7 +1574,7 @@ function applyVmCropAndSave() {
     saveGallery(
       vm.kind,
       next,
-      vm.mode === "add" ? "Photo added to the deck." : "Photo replaced.",
+      vm.mode === "add" ? "Photo added to the gallery." : "Photo replaced.",
     );
   };
   tmpImg.src = cropImgNaturalSrc;
@@ -1791,10 +1829,7 @@ const GALLERIES = {
     grid: "visionGalleryGrid",
     input: "visionGalleryInput",
     meter: "visionGalleryMeter",
-    // 16:10 and 1:1 are the ratios `.vision-img` and the mission blob already
-    // use on the customer page, so the fit modal frames exactly what the deck
-    // will show. `shape` makes the editor thumb match too, so what is previewed
-    // here is what the visitor sees.
+    // Match the 16:10 customer panels in both the fitter and editor thumbnails.
     width: 1000,
     height: 625,
     shape: "is-wide",
@@ -1805,9 +1840,9 @@ const GALLERIES = {
     grid: "missionGalleryGrid",
     input: "missionGalleryInput",
     meter: "missionGalleryMeter",
-    width: 760,
-    height: 760,
-    shape: "is-square",
+    width: 1000,
+    height: 625,
+    shape: "is-wide",
   },
 };
 
@@ -1916,7 +1951,7 @@ function openGalleryUpload(kind, index) {
   const conf = GALLERIES[kind];
   if (index === null && galleryData[kind].length >= GALLERY_MAX) {
     window.showAdminPopup(
-      `The ${conf.label} deck holds at most ${GALLERY_MAX} photos. Remove one first.`,
+      `The ${conf.label} gallery holds at most ${GALLERY_MAX} photos. Remove one first.`,
       { title: "All slots used" },
     );
     return;
@@ -2138,6 +2173,7 @@ function openSdgModal(id, presetImage) {
   document.getElementById("sdgIsVisible").checked = sdg
     ? !!sdg.is_visible
     : true;
+  refreshTextCounters(modal);
 
   sdgImageData = presetImage || (sdg && sdg.image_data) || null;
   if (sdgImageData) {
@@ -2154,6 +2190,7 @@ function closeSdgModal() {
 }
 
 function saveSdg() {
+  if (!validateTextFields(document.getElementById("sdgModal"))) return;
   const id = document.getElementById("sdgEditId").value;
   const title = document.getElementById("sdgTitle").value.trim();
   if (!title) {

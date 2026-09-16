@@ -17,6 +17,17 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
     <style>
+      .wm-section[hidden] { display: none !important; }
+      .wm-editorial-group { padding: 18px 0; border-top: 1px solid var(--border-color); }
+      .wm-editorial-group summary { cursor: pointer; padding: 4px 0; font-size: .9rem; font-weight: 700; color: var(--primary-color); }
+      .wm-editorial-group summary:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 4px; }
+      .wm-editorial-group[open] summary { margin-bottom: 16px; }
+      .wm-editorial-group .field-stack { min-width: 0; }
+      .wm-character-count { display: block; font-variant-numeric: tabular-nums; }
+      @media (max-width: 600px) {
+        .wm-editorial-group .wm-form-grid { grid-template-columns: minmax(0, 1fr); }
+      }
+
       .wm-section {
         background: #fff;
         border: 1px solid var(--border-color);
@@ -543,11 +554,6 @@
         aspect-ratio: 16 / 10;
         border-radius: 12px;
       }
-      /* Preview-only mask: the exported JPEG stays a full square because the live
-         site cuts this silhouette in CSS. */
-      .crop-circle-wrapper.is-blob-frame {
-        border-radius: 50% 50% 40% 60% / 60% 40% 60% 40%;
-      }
       /* Two fit buttons live at the left of the crop footer; grouping them means
          hiding one never shifts the other. */
       .wm-crop-fit-group {
@@ -729,7 +735,7 @@
     </style>
     <link rel="stylesheet" href="admin-responsive.css?v=2.8" />
   </head>
-  <body>
+  <body data-config-page="home">
     <div class="dashboard-container">
       <aside class="sidebar">
         <div class="sidebar-header">
@@ -780,6 +786,7 @@
             </a>
             <div class="dropdown-menu">
               <a href="website-home.html" class="sub-link active">Home</a>
+              <a href="website-about.html" class="sub-link">About Us</a>
               <a href="website-services.html" class="sub-link">Services</a>
               <a href="website-contact.html" class="sub-link">Contact</a>
               <a href="website-footer.html" class="sub-link">Footer</a>
@@ -869,7 +876,7 @@
 
           <div class="section-stack">
             <!-- HERO SECTION -->
-            <div class="wm-section">
+            <div class="wm-section" data-config-section="home">
               <div class="wm-section-header">
                 <i class="fa-solid fa-star"></i>
                 <h3>Hero Section</h3>
@@ -881,7 +888,7 @@
                     class="wm-textarea"
                     id="heroTitle"
                     rows="3"
-                    placeholder="FABRICATION &amp;\nMANUFACTURING\nRESEARCH CENTER"
+                    placeholder="FABRICATION &amp;\nMANUFACTURING\nRESEARCH CENTER" maxlength="120"
                   ></textarea>
                   <span class="field-hint"
                     >Use line breaks to control how the title wraps on the
@@ -972,7 +979,7 @@
             </div>
 
             <!-- BRAND LOGOS -->
-            <div class="wm-section">
+            <div class="wm-section" data-config-section="home">
               <div class="wm-section-header">
                 <i class="fa-regular fa-images"></i>
                 <h3>Brand Logos</h3>
@@ -997,7 +1004,7 @@
             </div>
 
             <!-- SUSTAINABLE DEVELOPMENT GOALS -->
-            <div class="wm-section">
+            <div class="wm-section" data-config-section="home">
               <div class="wm-section-header">
                 <i class="fa-solid fa-earth-asia"></i>
                 <h3>Sustainable Development Goals</h3>
@@ -1041,8 +1048,7 @@
                     type="text"
                     class="wm-input"
                     id="homeSdgHeading"
-                    maxlength="120"
-                    placeholder="Supporting the UN Sustainable Development Goals"
+                    placeholder="Supporting the UN Sustainable Development Goals" maxlength="160"
                   />
                   <span class="field-hint"
                     >Leave blank to hide the caption line entirely.</span
@@ -1052,7 +1058,7 @@
             </div>
 
             <!-- ABOUT US -->
-            <div class="wm-section">
+            <div class="wm-section" data-config-section="about" hidden>
               <div class="wm-section-header">
                 <i class="fa-solid fa-circle-info"></i>
                 <h3>About Us Section</h3>
@@ -1064,7 +1070,7 @@
                     type="text"
                     class="wm-input"
                     id="aboutHeading"
-                    value="ABOUT US"
+                    value="ABOUT US" maxlength="80"
                   />
                 </div>
                 <div class="field-stack full">
@@ -1072,7 +1078,7 @@
                   <textarea
                     class="wm-textarea"
                     id="aboutText1"
-                    rows="3"
+                    rows="3" maxlength="1000"
                   ></textarea>
                 </div>
                 <div class="field-stack full">
@@ -1080,7 +1086,7 @@
                   <textarea
                     class="wm-textarea"
                     id="aboutText2"
-                    rows="3"
+                    rows="3" maxlength="1000"
                   ></textarea>
                 </div>
                 <div class="field-stack full">
@@ -1142,7 +1148,7 @@
             </div>
 
             <!-- VISION -->
-            <div class="wm-section">
+            <div class="wm-section" data-config-section="about" hidden>
               <div class="wm-section-header">
                 <i class="fa-solid fa-eye"></i>
                 <h3>Vision Section</h3>
@@ -1154,7 +1160,7 @@
                     type="text"
                     class="wm-input"
                     id="visionHeading"
-                    value="OUR VISION"
+                    value="OUR VISION" maxlength="80"
                   />
                 </div>
                 <div class="field-stack full">
@@ -1162,11 +1168,11 @@
                   <textarea
                     class="wm-textarea"
                     id="visionText"
-                    rows="3"
+                    rows="3" maxlength="700"
                   ></textarea>
                 </div>
                 <div class="field-stack">
-                  <label>Vision Image (left side)</label>
+                  <label>Vision Image</label>
                   <div
                     class="wm-img-placeholder"
                     id="visionImgPlaceholder"
@@ -1211,14 +1217,13 @@
                   />
                 </div>
                 <div class="field-stack full">
-                  <label>Vision Photo Deck (max 10)</label>
+                  <label>Vision Photo Gallery (max 10)</label>
                   <p class="field-hint" style="margin-bottom: 14px">
-                    Photo 1 is the card the visitor sees on top; the rest sit
-                    behind it and are dragged away one at a time, looping
-                    forever. Two or more photos turn the section into a deck —
-                    with one or none it stays the single image above. Every
-                    upload opens the fit window at 16:10 and saves as soon as you
-                    apply it, like SDG badges.
+                    Photos play in this order in a subtle, looping slideshow.
+                    Visitors can go forward, go back, or pause. Add at least two
+                    photos to enable the loop; a single gallery photo appears on
+                    its own, and an empty gallery uses the image above. Each upload
+                    opens a 16:10 fit window and saves when you apply it.
                   </p>
                   <div
                     class="wm-sdg-grid wm-gal-grid"
@@ -1240,7 +1245,7 @@
             </div>
 
             <!-- MISSION -->
-            <div class="wm-section">
+            <div class="wm-section" data-config-section="about" hidden>
               <div class="wm-section-header">
                 <i class="fa-solid fa-bullseye"></i>
                 <h3>Mission Section</h3>
@@ -1252,7 +1257,7 @@
                     type="text"
                     class="wm-input"
                     id="missionHeading"
-                    value="OUR MISSION"
+                    value="OUR MISSION" maxlength="80"
                   />
                 </div>
                 <div class="field-stack full">
@@ -1260,11 +1265,11 @@
                   <textarea
                     class="wm-textarea"
                     id="missionText"
-                    rows="3"
+                    rows="3" maxlength="700"
                   ></textarea>
                 </div>
                 <div class="field-stack">
-                  <label>Mission Image (right side)</label>
+                  <label>Mission Image</label>
                   <div
                     class="wm-img-placeholder"
                     id="missionImgPlaceholder"
@@ -1309,14 +1314,13 @@
                   />
                 </div>
                 <div class="field-stack full">
-                  <label>Mission Photo Deck (max 10)</label>
+                  <label>Mission Photo Gallery (max 10)</label>
                   <p class="field-hint" style="margin-bottom: 14px">
-                    Photo 1 is the card on top of the stack; clicking it sends
-                    it to the back like a shuffled deck, so the order below is
-                    the order visitors cycle through. Two or more photos turn
-                    the section into a deck — with one or none it stays the
-                    single image above. Every upload opens the fit window as a
-                    square and saves as soon as you apply it.
+                    Photos play in this order in a subtle, looping slideshow.
+                    Visitors can go forward, go back, or pause. Add at least two
+                    photos to enable the loop; a single gallery photo appears on
+                    its own, and an empty gallery uses the image above. Each upload
+                    opens a 16:10 fit window and saves when you apply it.
                   </p>
                   <div
                     class="wm-sdg-grid wm-gal-grid"
@@ -1338,7 +1342,7 @@
             </div>
 
             <!-- WHAT WE OFFER -->
-            <div class="wm-section">
+            <div class="wm-section" data-config-section="home">
               <div class="wm-section-header">
                 <i class="fa-solid fa-grid-2"></i>
                 <h3>What We Offer Section</h3>
@@ -1377,6 +1381,15 @@
             </div>
 
             <!-- SAVE BAR -->
+            <div class="wm-section" id="editorialContentEditor">
+              <div class="wm-section-header">
+                <i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>
+                <h3>Home Section Text</h3>
+              </div>
+              <p class="field-hint" style="margin-bottom: 18px">Edit the hero button labels, introduction, What We Offer headings, project steps, and invitation text here. Service cards are shared with Services.</p>
+              <div id="editorialContentFields"><p class="field-hint">Loading section text controls&hellip;</p></div>
+            </div>
+
             <div class="wm-save-bar" data-dock-save-bar>
               <p>
                 <i
@@ -1529,8 +1542,7 @@
                 type="text"
                 class="wm-input"
                 id="sdgTitle"
-                maxlength="160"
-                placeholder="Goal 9: Industry, Innovation and Infrastructure"
+                placeholder="Goal 9: Industry, Innovation and Infrastructure" maxlength="160"
               />
             </div>
             <div class="field-stack full">
@@ -1628,13 +1640,12 @@
               <input
                 type="text"
                 class="wm-input"
-                id="svcTitle"
-                maxlength="255"
+                id="svcTitle" maxlength="100"
               />
             </div>
             <div class="field-stack full">
               <label>Short Description (card text)</label>
-              <textarea class="wm-textarea" id="svcDesc" rows="2"></textarea>
+              <textarea class="wm-textarea" id="svcDesc" rows="2" maxlength="360"></textarea>
             </div>
           </div>
         </div>
@@ -1650,11 +1661,12 @@
     </div>
 
     <script src="session-helper.js"></script>
-    <script src="admin-common.js?v=6.6"></script>
+    <script src="admin-common.js?v=6.7"></script>
     <!-- Shared with the customer hero, so a swatch here and the live banner can
          never render a preset differently. Must load before website-home.js. -->
     <script src="../home-page/hero-gradients.js"></script>
-    <script src="website-home.js?v=1.6"></script>
+    <script src="../home-page/page-content.js?v=1.2"></script>
+    <script src="website-home.js?v=1.8"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>

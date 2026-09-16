@@ -51,6 +51,11 @@
          paint is already gated on main.css above it, so these rules are
          guaranteed present the first time anything paints. -->
     <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=2.0" />
+    <link rel="stylesheet" href="services.css?v=1.7" />
+    <link rel="stylesheet" href="../home-page/customer-navbar.css?v=1.2" />
+    <link rel="stylesheet" href="../home-page/customer-footer.css?v=1.0" />
+    <link rel="stylesheet" href="../home-page/customer-button-feedback.css?v=1.0" />
+    <link rel="stylesheet" href="../home-page/customer-mobile.css?v=1.4" />
     <script>
       /* Raises the boot curtain before the body paints, then lowers it the
          moment the DOM is ready. Inline and in <head> on purpose: the class has
@@ -104,28 +109,35 @@
           <span class="fmrc-load-float">
             <span class="fmrc-load-assembly">
               <span class="fmrc-load-satellite"><span></span></span>
-              <span class="fmrc-load-orbit"><span class="fmrc-load-orbit-track"></span></span>
-              <span class="fmrc-load-edge" style="--layer:-7"></span>
-              <span class="fmrc-load-edge" style="--layer:-6"></span>
-              <span class="fmrc-load-edge" style="--layer:-5"></span>
-              <span class="fmrc-load-edge" style="--layer:-4"></span>
-              <span class="fmrc-load-edge" style="--layer:-3"></span>
-              <span class="fmrc-load-edge" style="--layer:-2"></span>
-              <span class="fmrc-load-edge" style="--layer:-1"></span>
-              <span class="fmrc-load-edge" style="--layer:0"></span>
-              <span class="fmrc-load-edge" style="--layer:1"></span>
-              <span class="fmrc-load-edge" style="--layer:2"></span>
-              <span class="fmrc-load-edge" style="--layer:3"></span>
-              <span class="fmrc-load-edge" style="--layer:4"></span>
-              <span class="fmrc-load-edge" style="--layer:5"></span>
-              <span class="fmrc-load-edge" style="--layer:6"></span>
-              <span class="fmrc-load-edge" style="--layer:7"></span>
-              <span class="fmrc-load-face"><span class="fmrc-load-logo-bed"><span class="fmrc-load-logo"></span></span></span>
+              <span class="fmrc-load-orbit"
+                ><span class="fmrc-load-orbit-track"></span
+              ></span>
+              <span class="fmrc-load-edge" style="--layer: -7"></span>
+              <span class="fmrc-load-edge" style="--layer: -6"></span>
+              <span class="fmrc-load-edge" style="--layer: -5"></span>
+              <span class="fmrc-load-edge" style="--layer: -4"></span>
+              <span class="fmrc-load-edge" style="--layer: -3"></span>
+              <span class="fmrc-load-edge" style="--layer: -2"></span>
+              <span class="fmrc-load-edge" style="--layer: -1"></span>
+              <span class="fmrc-load-edge" style="--layer: 0"></span>
+              <span class="fmrc-load-edge" style="--layer: 1"></span>
+              <span class="fmrc-load-edge" style="--layer: 2"></span>
+              <span class="fmrc-load-edge" style="--layer: 3"></span>
+              <span class="fmrc-load-edge" style="--layer: 4"></span>
+              <span class="fmrc-load-edge" style="--layer: 5"></span>
+              <span class="fmrc-load-edge" style="--layer: 6"></span>
+              <span class="fmrc-load-edge" style="--layer: 7"></span>
+              <span class="fmrc-load-face"
+                ><span class="fmrc-load-logo-bed"
+                  ><span class="fmrc-load-logo"></span></span
+              ></span>
             </span>
           </span>
         </div>
         <p class="fmrc-load-brand">UCN&ndash;FMRC</p>
-        <p class="fmrc-load-name">Fabrication &amp; Manufacturing<br>Research Center</p>
+        <p class="fmrc-load-name">
+          Fabrication &amp; Manufacturing<br />Research Center
+        </p>
         <p class="fmrc-load-caption">Preparing your experience</p>
         <div class="fmrc-load-rail" aria-hidden="true"><span></span></div>
       </div>
@@ -158,7 +170,7 @@
         <ul>
           <li><a href="/home-page/main.html#home" class="nav-link">Home</a></li>
           <li>
-            <a href="/home-page/main.html#about" class="nav-link">About Us</a>
+            <a href="/about-page/about.html" class="nav-link">About Us</a>
           </li>
           <li>
             <a href="/services-page/service.html" class="nav-link active"
@@ -174,9 +186,19 @@
         </ul>
       </nav>
       <div class="header-right-actions">
-        <button class="announcement-bell" id="announcementBell" type="button" aria-label="Open announcements" title="Announcements">
+        <button
+          class="announcement-bell"
+          id="announcementBell"
+          type="button"
+          aria-label="Open announcements"
+          title="Announcements"
+        >
           <i class="fa-solid fa-bell" aria-hidden="true"></i>
-          <span class="announcement-bell__badge" id="announcementBellBadge" hidden></span>
+          <span
+            class="announcement-bell__badge"
+            id="announcementBellBadge"
+            hidden
+          ></span>
         </button>
         <div class="user-profile">
           <svg
@@ -196,54 +218,56 @@
       </div>
     </header>
 
-    <section class="products-toolbar">
-      <div class="toolbar-container">
-        <div class="toolbar-search">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#888"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <input
-            type="text"
-            placeholder="Search Services..."
-            class="search-input"
-          />
-        </div>
-
-        <div class="toolbar-actions">
-          <div class="category-dropdown-box">
-            <select class="category-select">
-              <option value="all">All Categories</option>
-              <option value="prototyping">Prototyping</option>
-              <option value="manufacturing">Manufacturing</option>
-              <option value="design">Design & Labelling</option>
-              <option value="training">Training & Workshops</option>
-            </select>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <section class="services-list-section">
       <div class="services-container">
         <div class="services-list-header">
           <h2>Our Services</h2>
           <p>
             Explore our complete set of fabrication and manufacturing services.
-            Preview a service image or open its full capabilities and recommended
-            applications.
+            Preview a service image or open its full capabilities and
+            recommended applications.
           </p>
         </div>
+
+        <section class="products-toolbar" aria-label="Filter services">
+          <div class="toolbar-container">
+            <div class="toolbar-search">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#888"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input
+                type="text"
+                placeholder="Search services..."
+                class="search-input"
+                aria-label="Search services"
+              />
+            </div>
+
+            <div class="toolbar-actions">
+              <div class="category-dropdown-box">
+                <select class="category-select" aria-label="Filter by service category">
+                  <option value="all">All Categories</option>
+                  <option value="prototyping">Prototyping</option>
+                  <option value="manufacturing">Manufacturing</option>
+                  <option value="design">Design & Labelling</option>
+                  <option value="training">Training & Workshops</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div class="services-grid" id="servicesGrid">
           <!-- Dynamic skeleton loading & service cards rendered by services.js -->
@@ -254,10 +278,16 @@
     <div class="modal-overlay ux-dlg" id="serviceModal">
       <div class="modal-box ux-dlg__card">
         <div class="modal-header ux-dlg__head">
-          <button class="close-modal-btn ux-dlg__close" id="closeModalBtn">&times;</button>
-          <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-screwdriver-wrench"></i></span>
+          <button class="close-modal-btn ux-dlg__close" id="closeModalBtn">
+            &times;
+          </button>
+          <span class="ux-dlg__badge" aria-hidden="true"
+            ><i class="fa-solid fa-screwdriver-wrench"></i
+          ></span>
           <p class="ux-dlg__eyebrow">Service details</p>
-          <h2 class="modal-title ux-dlg__title" id="modalTitle">Service Details</h2>
+          <h2 class="modal-title ux-dlg__title" id="modalTitle">
+            Service Details
+          </h2>
         </div>
 
         <div class="modal-divider"></div>
@@ -269,15 +299,12 @@
             aria-label="Open service image preview"
             title="Open image preview"
           >
-            <img
-              src=""
-              alt="Service Banner"
-              id="modalImage"
-              decoding="async"
-            />
+            <img src="" alt="Service Banner" id="modalImage" decoding="async" />
           </button>
 
-          <p class="modal-desc">Service details will load from the current service record.</p>
+          <p class="modal-desc">
+            Service details will load from the current service record.
+          </p>
 
           <h3 class="modal-subtitle">Key Features</h3>
           <div class="feature-chips"></div>
@@ -299,14 +326,20 @@
     </div>
 
     <!-- Service Image Lightbox — shared interaction and presentation with Products -->
-    <div class="modal-overlay" id="serviceImageLightboxModal" style="z-index: 21000;">
+    <div
+      class="modal-overlay"
+      id="serviceImageLightboxModal"
+      style="z-index: 21000"
+    >
       <div class="lightbox-box">
         <button
           class="lightbox-close-btn"
           id="closeServiceLightboxBtn"
           type="button"
           aria-label="Close image preview"
-        >&times;</button>
+        >
+          &times;
+        </button>
         <img
           id="serviceLightboxImage"
           src=""
@@ -319,154 +352,225 @@
 
     <footer class="site-footer">
       <div class="footer-container">
-        <div class="footer-col brand-col">
+        <!-- Brand Column -->
+        <div class="footer-brand-col">
           <div class="footer-logo-row">
-            <img
-              src="/images/CNSC logo.png"
-              alt="CNSC Logo"
-              class="footer-logo"
-              id="footerLogoPrimaryEl"
-              loading="lazy"
-              decoding="async"
-            />
-            <img
-              src="/images/FMRC Logo.png"
-              alt="FMRC Logo"
-              class="footer-logo"
-              id="footerLogoSecondaryEl"
-              loading="lazy"
-              decoding="async"
-            />
-            <h3 class="footer-brand" id="footerBrandNameEl">UCN- FMRC</h3>
+            <span class="footer-logo-disc">
+              <img
+                src="/images/CNSC logo.png"
+                alt="CNSC Logo"
+                class="footer-logo"
+                id="footerLogoPrimaryEl"
+                loading="lazy"
+                decoding="async"
+              />
+            </span>
+            <span class="footer-logo-disc">
+              <img
+                src="/images/FMRC Logo.png"
+                alt="FMRC Logo"
+                class="footer-logo"
+                id="footerLogoSecondaryEl"
+                loading="lazy"
+                decoding="async"
+              />
+            </span>
+            <div class="footer-brand-titles">
+              <h3 class="footer-brand" id="footerBrandNameEl">
+                University of Camarines Norte
+              </h3>
+              <p class="footer-subbrand" id="footerBrandSubtitleEl">
+                Fabrication &amp; Manufacturing Research Center
+              </p>
+            </div>
           </div>
+          <div class="footer-brand-divider" aria-hidden="true"></div>
           <p class="footer-desc" id="footerBrandDescEl">
             Fabrication and Manufacturing Research Center - Advancing innovation
-            through technology and excellence in manufacturing.
+            through technology, research, and excellence in digital fabrication.
           </p>
+          <div class="footer-campus-tag" id="footerCampusTagEl">
+            Main Campus &bull; Daet, Camarines Norte, Philippines, 4600
+          </div>
         </div>
-        <div class="footer-col">
-          <h4 class="footer-heading">Quick Links</h4>
-          <ul class="footer-menu" id="footerQuickLinksEl">
-            <li><a href="/home-page/main.html#home">Home</a></li>
-            <li><a href="/home-page/main.html#about">About Us</a></li>
-            <li><a href="/services-page/service.html">Services</a></li>
-            <li><a href="/products-page/product.html">Products</a></li>
-            <li><a href="/contact-page/contact.html">Contact</a></li>
-          </ul>
-        </div>
-        <div class="footer-col">
-          <h4 class="footer-heading">Business Hours</h4>
-          <p class="footer-text" id="footerHoursDaysEl">Monday - Friday</p>
-          <p class="footer-text" id="footerHoursTimeEl">7:00am - 6:00pm</p>
-        </div>
-        <div class="footer-col contact-col">
-          <h4 class="footer-heading">Contact Information</h4>
-          <ul class="contact-list">
-            <li>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="contact-icon"
-              >
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                <circle cx="12" cy="10" r="3"></circle>
-              </svg>
-              <a
-                href="https://www.google.com/maps/search/?api=1&query=Camarines+Norte+State+College,+Daet,+Philippines"
-                target="_blank"
-                class="footer-link"
-                >First Flr., Graduate School Building, University of Camarines Norte, Daet, Philippines</a
-              >
-            </li>
-            <li>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="contact-icon"
-              >
-                <path
-                  d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-                ></path>
-                <polyline points="22,6 12,13 2,6"></polyline>
-              </svg>
-              <a
-                href="mailto:fmrc@cnsc.edu.ph"
-                class="footer-link"
-                id="footerEmailLink"
-                >fmrc@cnsc.edu.ph</a
-              >
-            </li>
-            <li>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="contact-icon"
-              >
-                <path
-                  d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"
-                ></path>
-              </svg>
-              <a
-                href="tel:+639090990000"
-                class="footer-link"
-                id="footerPhoneLink"
-                >0909-099-0000</a
-              >
-            </li>
-            <li>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="contact-icon"
-              >
-                <path
-                  d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"
-                ></path>
-              </svg>
-              <a
-                href="https://www.facebook.com/share/18MJcUvJeM/"
-                target="_blank"
-                class="footer-link"
-                >UCN FMRC</a
-              >
-            </li>
-          </ul>
+
+        <!-- Information Column (Two Tiers) -->
+        <div class="footer-info-col">
+          <!-- Tier 1: Office & Facility Contact -->
+          <div class="footer-office-section">
+            <span class="footer-kicker">OFFICE &amp; FACILITY</span>
+            <div class="footer-contact-grid">
+              <div class="footer-contact-cell footer-contact-location">
+                <div class="footer-contact-meta">
+                  <span class="footer-contact-caption">Facility Location</span>
+                  <a
+                    href="https://www.google.com/maps/search/?api=1&query=Camarines+Norte+State+College,+Daet,+Philippines"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="footer-link"
+                    id="footerLocationLink"
+                    >First Flr., Graduate School Building, University of
+                    Camarines Norte, Daet, Philippines</a
+                  >
+                </div>
+              </div>
+              <div class="footer-contact-cell">
+                <div class="footer-contact-meta">
+                  <span class="footer-contact-caption">Official Email</span>
+                  <a
+                    href="mailto:fmrc@cnsc.edu.ph"
+                    class="footer-link"
+                    id="footerEmailLink"
+                    >fmrc@cnsc.edu.ph</a
+                  >
+                </div>
+              </div>
+              <div class="footer-contact-cell">
+                <div class="footer-contact-meta">
+                  <span class="footer-contact-caption">Direct Telephone</span>
+                  <a
+                    href="tel:+639090990000"
+                    class="footer-link"
+                    id="footerPhoneLink"
+                    >0909-099-0000</a
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tier Separator Divider -->
+          <div class="footer-tier-divider" aria-hidden="true"></div>
+
+          <!-- Tier 2: Three-Column Matrix -->
+          <div class="footer-matrix">
+            <!-- Col 1: Quick Links -->
+            <div class="footer-matrix-col">
+              <span class="footer-kicker">QUICK LINKS</span>
+              <ul class="footer-menu" id="footerQuickLinksEl">
+                <li><a href="/home-page/main.html#home">Home</a></li>
+                <li><a href="/about-page/about.html">About Us</a></li>
+                <li><a href="/services-page/service.html">Services</a></li>
+                <li><a href="/products-page/product.html">Products</a></li>
+                <li><a href="/contact-page/contact.html">Contact</a></li>
+              </ul>
+            </div>
+
+            <!-- Col 2: Business Hours (Clean Typography, No Card) -->
+            <div class="footer-matrix-col">
+              <span class="footer-kicker">BUSINESS HOURS</span>
+              <div class="footer-hours-info">
+                <p class="footer-hours-days" id="footerHoursDaysEl">
+                  Monday &ndash; Friday
+                </p>
+                <p class="footer-hours-time" id="footerHoursTimeEl">
+                  7:00am &ndash; 6:00pm
+                </p>
+              </div>
+            </div>
+
+            <!-- Col 3: Public Links (Clean Links, No Card) -->
+            <div class="footer-matrix-col">
+              <span class="footer-kicker">PUBLIC LINKS</span>
+              <ul class="footer-public-menu">
+                <li>
+                  <a
+                    href="https://ucn.edu.ph"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    id="footerPublicWebsiteLink"
+                  >
+                    <span class="footer-link-text" id="footerPublicWebsiteLabel"
+                      >Official UCN website</span
+                    >
+                    <svg
+                      class="footer-link-arrow"
+                      width="11"
+                      height="11"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <line x1="2" y1="10" x2="10" y2="2"></line>
+                      <polyline points="4 2 10 2 10 8"></polyline>
+                    </svg>
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://www.facebook.com/ucnofficial"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    id="footerPublicUcnFbLink"
+                  >
+                    <span class="footer-link-text" id="footerPublicUcnFbLabel"
+                      >UCN official Facebook page</span
+                    >
+                    <svg
+                      class="footer-link-arrow"
+                      width="11"
+                      height="11"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <line x1="2" y1="10" x2="10" y2="2"></line>
+                      <polyline points="4 2 10 2 10 8"></polyline>
+                    </svg>
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://www.facebook.com/share/18MJcUvJeM/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    id="footerFacebookLink"
+                  >
+                    <span class="footer-link-text" id="footerFacebookLabel"
+                      >FMRC official Facebook page</span
+                    >
+                    <svg
+                      class="footer-link-arrow"
+                      width="11"
+                      height="11"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      aria-hidden="true"
+                    >
+                      <line x1="2" y1="10" x2="10" y2="2"></line>
+                      <polyline points="4 2 10 2 10 8"></polyline>
+                    </svg>
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
+
+      <!-- Bottom Attribution Bar -->
       <div class="footer-bottom">
-        <div class="footer-line"></div>
-        <p>
-          © 2026 UCN Fabrication and Manufacturing Research Center. All rights
-          reserved.
-        </p>
+        <div class="footer-bottom-grid">
+          <p class="footer-bottom-copy" id="footerCopyrightEl">
+            &copy; 2026 University of Camarines Norte. All rights reserved.
+          </p>
+          <p class="footer-bottom-dev" id="footerBottomDevEl">
+            Developed for UCN &ndash; Fabrication and Manufacturing Research
+            Center.
+          </p>
+        </div>
       </div>
     </footer>
 

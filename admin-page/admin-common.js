@@ -1821,6 +1821,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const WEBSITE_MGMT_ROUTES = [
     "website-home.html",
+    "website-about.html",
     "website-services.html",
     "website-contact.html",
     "website-footer.html",
@@ -1828,8 +1829,21 @@ document.addEventListener("DOMContentLoaded", () => {
     "website-maintenance.html",
   ];
   const isWebsiteMgmtPage = WEBSITE_MGMT_ROUTES.some((route) =>
-    window.location.pathname.toLowerCase().endsWith(`/${route}`),
+    window.location.pathname.toLowerCase().replace(/\/$/, "").replace(/\.html$/, "")
+      .endsWith(`/${route.replace(/\.html$/, "")}`),
   );
+
+  // Both portals share this shell, including pages with older static menus.
+  // Insert the new destination once without duplicating a link shipped in HTML.
+  document.querySelectorAll('a.sub-link[href="website-home.html"]').forEach((homeLink) => {
+    if (homeLink.parentElement.querySelector('a[href="website-about.html"]')) return;
+    const aboutLink = document.createElement("a");
+    aboutLink.href = "website-about.html";
+    aboutLink.className = "sub-link";
+    aboutLink.textContent = "About Us";
+    if (/\/website-about(?:\.html)?\/?$/i.test(window.location.pathname)) aboutLink.classList.add("active");
+    homeLink.after(aboutLink);
+  });
 
   // Support both admin and staff control button IDs (adminControlBtn, staffControlBtn)
   const controlBtn =

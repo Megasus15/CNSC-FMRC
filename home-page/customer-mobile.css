@@ -1,0 +1,451 @@
+/* Modern iPhone portrait pass (320px–480px only).
+   This sheet is loaded last so the editorial pages win over the older shared
+   phone bands. Desktop, tablet and contact layouts remain outside this range. */
+@media screen and (min-width: 320px) and (max-width: 480px) {
+  body.home-editorial-page,
+  body.about-editorial-page,
+  body.services-page-body,
+  body.products-page-body {
+    overflow-x: hidden;
+  }
+
+  .home-editorial-page .hero-buttons .btn-browse,
+  .home-editorial-page .hero-buttons .btn-appointment {
+    min-width: 0;
+    padding-inline: 6px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  /* Keep compact actions readable without turning them into a vertical list. */
+  .editorial-content .editorial-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* CTA actions mirror the reference composition: one generous filled action
+     and one compact text link sharing the same row. */
+  .editorial-content .editorial-cta .editorial-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .editorial-content .editorial-actions .editorial-button {
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 44px;
+    padding: 10px 8px;
+    font-size: 11px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .editorial-content .editorial-actions .editorial-link {
+    flex: 0 1 auto;
+    min-width: 0;
+    min-height: 44px;
+    gap: 6px;
+    font-size: 11px;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  .editorial-content .editorial-cta .editorial-actions .editorial-button {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  .editorial-content .editorial-cta .editorial-actions .editorial-link {
+    width: auto;
+    justify-self: end;
+    padding-inline: 0;
+  }
+
+  .editorial-content .editorial-cta {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 280px;
+    gap: 16px;
+    padding: 22px 18px;
+  }
+
+  .editorial-content .editorial-cta > div:first-child {
+    min-height: 150px;
+  }
+
+  .editorial-content .editorial-cta .editorial-title {
+    margin-bottom: 9px;
+    font-size: 26px;
+    line-height: 1.12;
+  }
+
+  .editorial-content .editorial-cta .editorial-copy {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  /* Home / What We Offer: two compact editorial cards stay visible together. */
+  .home-editorial-page .editorial-content .editorial-services-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-auto-flow: row;
+    gap: 12px !important;
+    width: 100%;
+  }
+
+  .home-editorial-page .editorial-content .editorial-services-grid > .service-card {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .home-editorial-page .editorial-services-grid .card-content {
+    padding: 16px 12px 12px !important;
+  }
+
+  .home-editorial-page .editorial-services-grid .service-chip {
+    font-size: 8px;
+    line-height: 1.25;
+  }
+
+  .home-editorial-page .editorial-services-grid .card-title {
+    margin-bottom: 7px;
+    font-size: 15px;
+    line-height: 1.25;
+  }
+
+  .home-editorial-page .editorial-services-grid .card-desc {
+    min-height: 4.5em;
+    max-height: 4.5em;
+    margin-bottom: 7px;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  .home-editorial-page .editorial-services-grid .details-btn {
+    min-height: 34px;
+    font-size: 10px;
+  }
+
+  /* About: use the same contained reading measure as Contact. The two purpose
+     cards remain stacked, while each image deck keeps its swipeable 16:10 box. */
+  .about-editorial-page .editorial-content .editorial-section {
+    padding: 32px 16px 0;
+  }
+
+  .about-editorial-page .editorial-content .editorial-section:last-child {
+    padding-bottom: 48px;
+  }
+
+  .about-editorial-page .editorial-content .editorial-page-title {
+    margin-bottom: 14px;
+    font-size: clamp(34px, 10vw, 42px);
+    line-height: 1.08;
+  }
+
+  .about-editorial-page .editorial-content .editorial-page-header .editorial-container {
+    padding-bottom: 24px;
+  }
+
+  .about-editorial-page .editorial-content .editorial-about-profile {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+
+  .about-editorial-page .editorial-content .editorial-about-copy .editorial-title {
+    margin-bottom: 14px;
+    font-size: 28px;
+    line-height: 1.12;
+  }
+
+  .about-editorial-page .editorial-content .editorial-copy,
+  .about-editorial-page .editorial-content .editorial-about-copy .section-text,
+  .about-editorial-page .editorial-content .editorial-purpose-card .vm-text {
+    font-size: 13px;
+    line-height: 1.65;
+  }
+
+  .about-editorial-page .about-video-holder {
+    aspect-ratio: 16 / 10;
+    border-radius: 10px;
+  }
+
+  .about-editorial-page .editorial-content .editorial-section-heading {
+    align-items: flex-start;
+    gap: 8px;
+    padding-bottom: 18px;
+    margin-bottom: 18px;
+  }
+
+  .about-editorial-page .editorial-content .editorial-purpose-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .about-editorial-page .editorial-content .editorial-purpose-card {
+    padding: 20px 16px 14px;
+    border-radius: 10px;
+  }
+
+  .about-editorial-page .editorial-content .editorial-purpose-body {
+    min-width: 0;
+    padding-bottom: 18px;
+  }
+
+  .about-editorial-page .editorial-content .editorial-purpose-body h3 {
+    margin-bottom: 10px;
+    font-size: 22px;
+    line-height: 1.2;
+  }
+
+  .about-editorial-page .editorial-content .editorial-purpose-media {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .about-editorial-page .editorial-content .editorial-purpose-card .vm-deck {
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .about-editorial-page .editorial-content .editorial-purpose-card .vm-deck__card,
+  .about-editorial-page .editorial-content .editorial-purpose-card :is(.vision-img, .mission-img) {
+    border-radius: 8px;
+  }
+
+  .about-editorial-page .editorial-content .editorial-gallery-controls {
+    margin-top: 8px;
+  }
+
+  .about-editorial-page .editorial-content .editorial-audiences {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .about-editorial-page .editorial-content .editorial-audience-card {
+    padding: 16px 0 0;
+  }
+
+  .about-editorial-page .editorial-content .editorial-audience-card h3 {
+    font-size: 17px;
+    line-height: 1.35;
+  }
+
+  /* Services: search and category stay in one compact filter row. */
+  .services-page-body .services-list-section {
+    padding: 32px 16px 56px;
+  }
+
+  .services-page-body .services-list-header {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+  }
+
+  .services-page-body .services-list-header h2 {
+    margin-bottom: 12px;
+    font-size: clamp(32px, 10vw, 42px);
+    line-height: 1.08;
+  }
+
+  .services-page-body .services-list-header p {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .services-page-body .products-toolbar {
+    margin-bottom: 20px;
+  }
+
+  .services-page-body .products-toolbar .toolbar-container {
+    grid-template-columns: minmax(0, 1fr) minmax(112px, .78fr) !important;
+    gap: 8px;
+  }
+
+  .services-page-body .toolbar-search,
+  .services-page-body .category-dropdown-box {
+    min-height: 44px;
+    height: 44px;
+    padding-inline: 10px;
+  }
+
+  .services-page-body .toolbar-search .search-input,
+  .services-page-body .category-select {
+    font-size: 12px;
+  }
+
+  .services-page-body .services-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .services-page-body .services-grid .card-content {
+    padding: 16px 12px 12px !important;
+  }
+
+  .services-page-body .services-grid .card-title {
+    margin-bottom: 7px;
+    font-size: 15px;
+    line-height: 1.25;
+  }
+
+  .services-page-body .services-grid .card-desc {
+    min-height: 4.5em;
+    max-height: 4.5em;
+    margin-bottom: 7px;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  .services-page-body .services-grid .details-btn {
+    min-height: 34px;
+    font-size: 10px;
+  }
+
+  /* Products: a smaller two-row header and two dropdowns in one row. */
+  .products-page-body .products-page-intro {
+    padding: 28px 16px 18px;
+  }
+
+  .products-page-body .products-page-intro__container {
+    padding: 24px 16px 26px;
+    border-radius: 12px;
+  }
+
+  .products-page-body .products-page-intro__kicker {
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 10px;
+  }
+
+  .products-page-body .products-page-intro__kicker::before,
+  .products-page-body .products-page-intro__kicker::after {
+    width: 22px;
+  }
+
+  .products-page-body .products-page-intro__title {
+    font-size: clamp(26px, 8vw, 34px);
+    line-height: 1.08;
+  }
+
+  .products-page-body .products-toolbar {
+    padding: 16px 16px 20px;
+  }
+
+  .products-page-body .products-toolbar .toolbar-container {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 10px;
+  }
+
+  .products-page-body .toolbar-search,
+  .products-page-body .category-dropdown-box {
+    min-height: 44px;
+    height: 44px;
+  }
+
+  .products-page-body .toolbar-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .products-page-body .category-select {
+    min-width: 0;
+    font-size: 12px;
+  }
+
+  .products-page-body .shop-section {
+    padding: 0 16px 56px;
+  }
+
+  .products-page-body .shop-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .products-page-body .shop-card .product-info {
+    padding: 14px 12px 12px;
+  }
+
+  .products-page-body .product-category-label {
+    margin-bottom: 7px;
+    font-size: 8px;
+  }
+
+  .products-page-body .product-name {
+    min-height: 2.5em;
+    margin-bottom: 6px;
+    font-size: 15px;
+    line-height: 1.25;
+  }
+
+  .products-page-body .product-price {
+    margin-bottom: 8px;
+    font-size: 16px;
+  }
+
+  .products-page-body .product-actions {
+    display: grid !important;
+    grid-template-columns: 44px minmax(0, 1fr) !important;
+    grid-template-rows: auto auto;
+    gap: 4px;
+    width: 100%;
+    min-width: 0;
+    padding: 8px;
+    overflow: hidden;
+  }
+
+  .products-page-body .product-actions .action-btn {
+    width: 100% !important;
+    min-width: 0;
+    min-height: 36px;
+    height: 36px;
+    gap: 2px;
+    padding: 0 3px;
+    border-radius: 6px !important;
+    font-size: 10px !important;
+    white-space: nowrap !important;
+  }
+
+  .products-page-body .product-actions .btn-view-info {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .products-page-body .product-actions .action-btn > svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .products-page-body .product-actions .btn-add-cart {
+    width: 44px !important;
+    min-width: 44px;
+    grid-column: 1;
+    grid-row: 2;
+    padding: 0;
+    border-radius: 6px !important;
+  }
+
+  .products-page-body .product-actions .btn-buy-now {
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+  }
+
+  .products-page-body .product-actions .action-btn-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

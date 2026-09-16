@@ -1,0 +1,713 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <link rel="icon" href="/images/favicon.ico?v=3" sizes="any" />
+    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png?v=3" />
+    <link rel="preload" as="image" href="../images/FMRC%20Logo.png" />
+    <meta name="theme-color" content="#6b202b" />
+    <title>About Us - UCN FMRC</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Font Awesome was the one head origin with no preconnect. Two hints on
+         purpose, the same pattern as Google Fonts above: the plain one warms the
+         socket the render-blocking stylesheet uses, the crossorigin one warms
+         the anonymous socket the woff2 needs (fonts are always fetched with
+         CORS, and Chrome will not reuse the other pool for them). -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+    <!-- One Montserrat request for the whole site: every customer page asks for
+         this exact string so navigating between them is a cache hit instead of a
+         fresh render-blocking round trip. Montserrat is a variable font, so the
+         extra weights cost no additional bytes. -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <!-- No `crossorigin` on the preload: the stylesheet below is fetched in
+         no-cors mode, and a mismatched preload would be a second download
+         rather than a warm cache hit. -->
+    <link
+      rel="preload"
+      as="style"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="../home-page/main.css?v=9.3" />
+    <link rel="stylesheet" href="../home-page/responsive.css?v=8.4" />
+
+    <!-- The signature loader. One sheet shared by every customer page, so the
+         curtain that covers this page while it boots and the curtain that covers
+         a submit later are the same object, not two things that happen to share
+         a colour. It is a plain <link> and not inlined: a stylesheet in <head>
+         blocks first paint wherever in the head it sits, and this page's first
+         paint is already gated on main.css above it, so these rules are
+         guaranteed present the first time anything paints. -->
+    <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=2.0" />
+    <link rel="stylesheet" href="../home-page/customer-editorial.css?v=1.3" />
+    <link rel="stylesheet" href="../home-page/customer-navbar.css?v=1.2" />
+    <link rel="stylesheet" href="../home-page/customer-footer.css?v=1.0" />
+    <link rel="stylesheet" href="../home-page/customer-button-feedback.css?v=1.0" />
+    <link rel="stylesheet" href="../home-page/customer-mobile.css?v=1.4" />
+    <script>
+      /* Raises the boot curtain before the body paints, then lowers it the
+         moment the DOM is ready. Inline and in <head> on purpose: the class has
+         to be on <html> before the first frame, and whatever owns the lift must
+         always be present — so a page whose loader files fail to arrive can
+         never be left behind a curtain with nothing left to remove it. There is
+         no timer here; the curtain lasts exactly as long as the page takes. */
+      (function () {
+        var h = document.documentElement;
+        h.classList.add("fmrc-booting");
+        function lift() {
+          h.classList.remove("fmrc-booting");
+          var boot = document.querySelector(".fmrc-load-boot");
+          if (!boot) return;
+          /* Taking the faded node out of the document stops four infinite
+             animations from running, invisibly, for the life of the page. */
+          boot.addEventListener("transitionend", function (e) {
+            if (e.target === boot) boot.remove();
+          });
+          /* Reading the curtain's opacity here both starts the fade and reports
+             whether there is one: a visitor who asked for reduced motion gets
+             `transition: none`, so no transitionend is ever coming and the node
+             has to go now. Deliberately not wrapped in requestAnimationFrame —
+             rAF never fires in a background tab, which would leave a tab opened
+             in the background curtained until the moment it is looked at. */
+          if (parseFloat(getComputedStyle(boot).opacity) === 0) boot.remove();
+        }
+        if (document.readyState === "loading")
+          document.addEventListener("DOMContentLoaded", lift, { once: true });
+        else lift();
+        /* A successful login navigates away with a curtain up, and a later Back
+           can restore a page frozen exactly as it was without re-running a line
+           of script. `persisted` is the browser saying it just did that. */
+        window.addEventListener("pageshow", function (e) {
+          if (e.persisted) h.classList.remove("fmrc-booting");
+        });
+      })();
+    </script>
+  </head>
+  <body class="about-editorial-page">
+    <!-- The boot curtain. Static markup, so it can paint on the very first
+         frame; hidden by default in CSS and shown only while html.fmrc-booting
+         is set, which the script above is the only thing that adds. A visitor
+         with scripting off therefore never receives a curtain and can never be
+         stranded behind one. No --fmrc-boot-field here: this page paints the
+         field fmrc-loader.css already defaults to (main.css:838). -->
+    <div class="fmrc-load-boot" role="status" aria-live="polite">
+      <div class="fmrc-load-core">
+        <div class="fmrc-load-mark" aria-hidden="true">
+          <span class="fmrc-load-shadow"></span>
+          <span class="fmrc-load-float">
+            <span class="fmrc-load-assembly">
+              <span class="fmrc-load-satellite"><span></span></span>
+              <span class="fmrc-load-orbit"
+                ><span class="fmrc-load-orbit-track"></span
+              ></span>
+              <span class="fmrc-load-edge" style="--layer: -7"></span>
+              <span class="fmrc-load-edge" style="--layer: -6"></span>
+              <span class="fmrc-load-edge" style="--layer: -5"></span>
+              <span class="fmrc-load-edge" style="--layer: -4"></span>
+              <span class="fmrc-load-edge" style="--layer: -3"></span>
+              <span class="fmrc-load-edge" style="--layer: -2"></span>
+              <span class="fmrc-load-edge" style="--layer: -1"></span>
+              <span class="fmrc-load-edge" style="--layer: 0"></span>
+              <span class="fmrc-load-edge" style="--layer: 1"></span>
+              <span class="fmrc-load-edge" style="--layer: 2"></span>
+              <span class="fmrc-load-edge" style="--layer: 3"></span>
+              <span class="fmrc-load-edge" style="--layer: 4"></span>
+              <span class="fmrc-load-edge" style="--layer: 5"></span>
+              <span class="fmrc-load-edge" style="--layer: 6"></span>
+              <span class="fmrc-load-edge" style="--layer: 7"></span>
+              <span class="fmrc-load-face"
+                ><span class="fmrc-load-logo-bed"
+                  ><span class="fmrc-load-logo"></span></span
+              ></span>
+            </span>
+          </span>
+        </div>
+        <p class="fmrc-load-brand">UCN&ndash;FMRC</p>
+        <p class="fmrc-load-name">
+          Fabrication &amp; Manufacturing<br />Research Center
+        </p>
+        <p class="fmrc-load-caption">Preparing your experience</p>
+        <div class="fmrc-load-rail" aria-hidden="true"><span></span></div>
+      </div>
+    </div>
+
+    <header class="site-header">
+      <a href="/home-page/main.html" class="logo-container">
+        <img
+          src="/images/CNSC logo.png"
+          alt="CNSC Logo"
+          class="header-emblem"
+          id="navLogoEl"
+          decoding="async"
+          fetchpriority="high"
+        />
+        <h1 class="logo-text">
+          <span class="logo-title">
+            <span class="brand-name-full">UNIVERSITY OF CAMARINES NORTE</span>
+            <span class="brand-name-short">UCN</span>
+          </span>
+          <span class="logo-subtitle">
+            <span class="brand-name-full"
+              >FABRICATION AND MANUFACTURING RESEARCH CENTER</span
+            >
+            <span class="brand-name-short">FMRC</span>
+          </span>
+        </h1>
+      </a>
+      <nav class="main-nav">
+        <ul>
+          <li><a href="/home-page/main.html#home" class="nav-link">Home</a></li>
+          <li>
+            <a
+              href="/about-page/about.html"
+              class="nav-link active"
+              aria-current="page"
+              >About Us</a
+            >
+          </li>
+          <li>
+            <a href="/services-page/service.html" class="nav-link">Services</a>
+          </li>
+          <li>
+            <a href="/products-page/product.html" class="nav-link">Products</a>
+          </li>
+          <li>
+            <a href="/contact-page/contact.html" class="nav-link">Contact</a>
+          </li>
+        </ul>
+      </nav>
+      <div class="header-right-actions">
+        <button
+          class="announcement-bell"
+          id="announcementBell"
+          type="button"
+          aria-label="Open announcements"
+          title="Announcements"
+        >
+          <i class="fa-solid fa-bell" aria-hidden="true"></i>
+          <span
+            class="announcement-bell__badge"
+            id="announcementBellBadge"
+            hidden
+          ></span>
+        </button>
+        <div class="user-profile">
+          <svg
+            width="40"
+            height="40"
+            viewBox="0 0 40 40"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <circle cx="20" cy="20" r="20" fill="var(--customer-wine)" />
+            <path
+              d="M20 20C23.3137 20 26 17.3137 26 14C26 10.6863 23.3137 8 20 8C16.6863 8 14 10.6863 14 14C14 17.3137 16.6863 20 20 20ZM20 23C15.5817 23 6.66669 25.2386 6.66669 29.6667V32H33.3334V29.6667C33.3334 25.2386 24.4183 23 20 23Z"
+              fill="var(--customer-paper-sink)"
+            />
+          </svg>
+        </div>
+      </div>
+    </header>
+
+    <main class="editorial-content">
+      <section
+        class="editorial-section editorial-page-header"
+        aria-labelledby="aboutHeadingEl"
+      >
+        <div class="editorial-container">
+          <p
+            class="editorial-kicker"
+            data-editorial-copy="editorial_about_page_kicker"
+          >
+            THE CENTER &amp; ITS PURPOSE
+          </p>
+          <h2 class="editorial-page-title" id="aboutHeadingEl">About Us</h2>
+          <p
+            class="editorial-copy"
+            data-editorial-copy="editorial_about_page_copy"
+          >
+            Bringing creativity, technology, and opportunity together.
+          </p>
+        </div>
+      </section>
+
+      <section class="editorial-section" aria-labelledby="aboutProfileHeading">
+        <div class="editorial-container editorial-about-profile">
+          <div class="editorial-about-copy">
+            <p
+              class="editorial-kicker"
+              data-editorial-copy="editorial_about_profile_kicker"
+            >
+              UCN &middot; FABRICATION AND MANUFACTURING RESEARCH CENTER
+            </p>
+            <h2
+              class="editorial-title"
+              id="aboutProfileHeading"
+              data-editorial-copy="editorial_about_profile_title"
+            >
+              Where creativity meets technology.
+            </h2>
+            <p class="editorial-copy" id="aboutText1El">
+              The Fabrication and Manufacturing Research Center (FMRC) is
+              <strong
+                >a state-of-the-art shared service facility that bridges
+                creativity and technology.</strong
+              >
+              It empowers students, educators, researchers, and businesses to
+              transform innovative ideas into practical and functional outputs.
+            </p>
+            <p class="editorial-copy" id="aboutText2El">
+              FMRC serves as a Shared Service Facility of the
+              <strong>Department of Trade and Industry (DTI)</strong> and a
+              Common Service Facility of
+              <strong>University of Camarines Norte (UCN)</strong>. It supports
+              Micro, Small, and Medium Enterprises (MSMEs) by enhancing
+              creativity, design, and business innovation while increasing
+              productivity and efficiency.
+            </p>
+          </div>
+          <div class="about-content-right" id="aboutVideoColumn">
+            <div
+              class="about-video-holder is-loading"
+              id="aboutVideoHolder"
+              aria-label="About video holder"
+              aria-busy="true"
+            >
+              <span class="about-video-loading" aria-hidden="true">
+                <span
+                  class="fmrc-load-inline fmrc-load-inline--panel"
+                  aria-hidden="true"
+                ></span>
+              </span>
+              <video
+                class="about-preview-video"
+                id="aboutPreviewVideo"
+                preload="metadata"
+                muted
+                playsinline
+              >
+                <source type="video/mp4" id="aboutVideoSrc" />
+              </video>
+              <button
+                class="about-video-control is-paused"
+                id="aboutVideoToggle"
+                type="button"
+                aria-label="Play preview video"
+              ></button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="editorial-section" aria-labelledby="aboutPurposeHeading">
+        <div class="editorial-container">
+          <div class="editorial-section-heading">
+            <div>
+              <p
+                class="editorial-kicker"
+                data-editorial-copy="editorial_about_purpose_kicker"
+              >
+                WHAT GUIDES US
+              </p>
+              <h2
+                class="editorial-title"
+                id="aboutPurposeHeading"
+                data-editorial-copy="editorial_about_purpose_title"
+              >
+                Our purpose. Our direction.
+              </h2>
+              <p
+                class="editorial-copy"
+                data-editorial-copy="editorial_about_purpose_copy"
+              >
+                A shared commitment to creativity, innovation, and practical
+                possibilities.
+              </p>
+            </div>
+          </div>
+          <div class="editorial-purpose-grid">
+            <article
+              class="editorial-purpose-card"
+              aria-labelledby="missionHeadingEl"
+            >
+              <div class="editorial-purpose-body">
+                <h3 id="missionHeadingEl">OUR MISSION</h3>
+                <p class="editorial-copy" id="missionTextEl">
+                  UCN FMRC shall provide an avenue for creative thinking and
+                  artistic design/work among its clientele using advanced
+                  technology means.
+                </p>
+              </div>
+              <div class="editorial-purpose-media">
+                <div
+                  class="vm-deck vm-deck--mission is-loading"
+                  id="missionDeck"
+                  aria-busy="true"
+                >
+                  <div class="vm-deck__card">
+                    <img
+                      alt="FMRC Mission"
+                      class="mission-img"
+                      id="missionImgEl"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </div>
+                </div>
+              </div>
+            </article>
+            <article
+              class="editorial-purpose-card"
+              aria-labelledby="visionHeadingEl"
+            >
+              <div class="editorial-purpose-body">
+                <h3 id="visionHeadingEl">OUR VISION</h3>
+                <p class="editorial-copy" id="visionTextEl">
+                  UCN FMRC as a leading manufacturing and fabrication laboratory
+                  in the Bicol Region.
+                </p>
+              </div>
+              <div class="editorial-purpose-media">
+                <div
+                  class="vm-deck vm-deck--vision is-loading"
+                  id="visionDeck"
+                  aria-busy="true"
+                >
+                  <div class="vm-deck__card">
+                    <img
+                      alt="FMRC Vision"
+                      class="vision-img"
+                      id="visionImgEl"
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="editorial-section" aria-labelledby="aboutAudienceHeading">
+        <div class="editorial-container">
+          <div class="editorial-section-heading">
+            <div>
+              <p
+                class="editorial-kicker"
+                data-editorial-copy="editorial_about_audiences_kicker"
+              >
+                A SHARED SPACE FOR IDEAS
+              </p>
+              <h2
+                class="editorial-title"
+                id="aboutAudienceHeading"
+                data-editorial-copy="editorial_about_audiences_title"
+              >
+                Who We Support
+              </h2>
+              <p
+                class="editorial-copy"
+                data-editorial-copy="editorial_about_audiences_copy"
+              >
+                Connecting people with the tools to turn ideas into practical
+                outputs.
+              </p>
+            </div>
+          </div>
+          <div class="editorial-audiences">
+            <article class="editorial-audience-card">
+              <span class="editorial-audience-icon" aria-hidden="true"
+                ><i class="fa-solid fa-graduation-cap"></i
+              ></span>
+              <h3 data-editorial-copy="editorial_about_audience_1_title">
+                Students &amp; educators
+              </h3>
+              <p
+                class="editorial-copy"
+                data-editorial-copy="editorial_about_audience_1_copy"
+              >
+                A place to connect learning and creative thinking with hands-on
+                fabrication and design.
+              </p>
+            </article>
+            <article class="editorial-audience-card">
+              <span class="editorial-audience-icon" aria-hidden="true"
+                ><i class="fa-solid fa-lightbulb"></i
+              ></span>
+              <h3 data-editorial-copy="editorial_about_audience_2_title">
+                Researchers
+              </h3>
+              <p
+                class="editorial-copy"
+                data-editorial-copy="editorial_about_audience_2_copy"
+              >
+                Fabrication and manufacturing support for exploring ideas and
+                developing practical project outputs.
+              </p>
+            </article>
+            <article class="editorial-audience-card">
+              <span class="editorial-audience-icon" aria-hidden="true"
+                ><i class="fa-solid fa-store"></i
+              ></span>
+              <h3 data-editorial-copy="editorial_about_audience_3_title">
+                Businesses &amp; MSMEs
+              </h3>
+              <p
+                class="editorial-copy"
+                data-editorial-copy="editorial_about_audience_3_copy"
+              >
+                Shared facilities that support creativity, product design,
+                business innovation, and productivity.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="editorial-section" aria-labelledby="aboutExploreHeading">
+        <div class="editorial-container editorial-cta">
+          <div>
+            <p
+              class="editorial-kicker"
+              data-editorial-copy="editorial_about_cta_kicker"
+            >
+              TAKE A CLOSER LOOK
+            </p>
+            <h2
+              class="editorial-title"
+              id="aboutExploreHeading"
+              data-editorial-copy="editorial_about_cta_title"
+            >
+              Explore FMRC
+            </h2>
+            <p
+              class="editorial-copy"
+              data-editorial-copy="editorial_about_cta_copy"
+            >
+              Discover our services or talk with our team about your next
+              project.
+            </p>
+          </div>
+          <div class="editorial-actions">
+            <a href="/services-page/service.html" class="editorial-button"
+              ><span data-editorial-copy="editorial_about_cta_button"
+                >Explore services</span
+              >
+              <i class="fa-solid fa-arrow-right" aria-hidden="true"></i
+            ></a>
+            <a href="/contact-page/contact.html" class="editorial-link"
+              ><span data-editorial-copy="editorial_about_cta_contact"
+                >Contact us</span
+              >
+              <i class="fa-solid fa-arrow-right" aria-hidden="true"></i
+            ></a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div class="about-video-modal" id="aboutVideoModal">
+      <button
+        class="about-video-close"
+        id="aboutVideoClose"
+        aria-label="Close video"
+      >
+        &times;
+      </button>
+      <div class="about-video-modal-box">
+        <!-- Both players receive the configured About video from
+                     site settings. No bundled clip loads before that request. -->
+        <video
+          class="about-full-video"
+          id="aboutFullVideo"
+          preload="metadata"
+          controls
+          playsinline
+        >
+          <source type="video/mp4" id="aboutFullVideoSrc" />
+        </video>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <div class="footer-container">
+        <!-- Brand Column -->
+        <div class="footer-brand-col">
+          <div class="footer-logo-row">
+            <span class="footer-logo-disc">
+              <img
+                src="/images/CNSC logo.png"
+                alt="CNSC Logo"
+                class="footer-logo"
+                id="footerLogoPrimaryEl"
+                loading="lazy"
+                decoding="async"
+              />
+            </span>
+            <span class="footer-logo-disc">
+              <img
+                src="/images/FMRC Logo.png"
+                alt="FMRC Logo"
+                class="footer-logo"
+                id="footerLogoSecondaryEl"
+                loading="lazy"
+                decoding="async"
+              />
+            </span>
+            <div class="footer-brand-titles">
+              <h3 class="footer-brand" id="footerBrandNameEl">University of Camarines Norte</h3>
+              <p class="footer-subbrand" id="footerBrandSubtitleEl">Fabrication &amp; Manufacturing Research Center</p>
+            </div>
+          </div>
+          <div class="footer-brand-divider" aria-hidden="true"></div>
+          <p class="footer-desc" id="footerBrandDescEl">
+            Fabrication and Manufacturing Research Center - Advancing innovation
+            through technology, research, and excellence in digital fabrication.
+          </p>
+          <div class="footer-campus-tag" id="footerCampusTagEl">
+            Main Campus &bull; Daet, Camarines Norte, Philippines, 4600
+          </div>
+        </div>
+
+        <!-- Information Column (Two Tiers) -->
+        <div class="footer-info-col">
+          <!-- Tier 1: Office & Facility Contact -->
+          <div class="footer-office-section">
+            <span class="footer-kicker">OFFICE &amp; FACILITY</span>
+            <div class="footer-contact-grid">
+              <div class="footer-contact-cell footer-contact-location">
+                <div class="footer-contact-meta">
+                  <span class="footer-contact-caption">Facility Location</span>
+                  <a
+                    href="https://www.google.com/maps/search/?api=1&query=Camarines+Norte+State+College,+Daet,+Philippines"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="footer-link"
+                    id="footerLocationLink"
+                    >First Flr., Graduate School Building, University of Camarines Norte, Daet, Philippines</a
+                  >
+                </div>
+              </div>
+              <div class="footer-contact-cell">
+                <div class="footer-contact-meta">
+                  <span class="footer-contact-caption">Official Email</span>
+                  <a
+                    href="mailto:fmrc@cnsc.edu.ph"
+                    class="footer-link"
+                    id="footerEmailLink"
+                    >fmrc@cnsc.edu.ph</a
+                  >
+                </div>
+              </div>
+              <div class="footer-contact-cell">
+                <div class="footer-contact-meta">
+                  <span class="footer-contact-caption">Direct Telephone</span>
+                  <a
+                    href="tel:+639090990000"
+                    class="footer-link"
+                    id="footerPhoneLink"
+                    >0909-099-0000</a
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tier Separator Divider -->
+          <div class="footer-tier-divider" aria-hidden="true"></div>
+
+          <!-- Tier 2: Three-Column Matrix -->
+          <div class="footer-matrix">
+            <!-- Col 1: Quick Links -->
+            <div class="footer-matrix-col">
+              <span class="footer-kicker">QUICK LINKS</span>
+              <ul class="footer-menu" id="footerQuickLinksEl">
+                <li><a href="/home-page/main.html#home">Home</a></li>
+                <li><a href="/about-page/about.html">About Us</a></li>
+                <li><a href="/services-page/service.html">Services</a></li>
+                <li><a href="/products-page/product.html">Products</a></li>
+                <li><a href="/contact-page/contact.html">Contact</a></li>
+              </ul>
+            </div>
+
+            <!-- Col 2: Business Hours (Clean Typography, No Card) -->
+            <div class="footer-matrix-col">
+              <span class="footer-kicker">BUSINESS HOURS</span>
+              <div class="footer-hours-info">
+                <p class="footer-hours-days" id="footerHoursDaysEl">Monday &ndash; Friday</p>
+                <p class="footer-hours-time" id="footerHoursTimeEl">7:00am &ndash; 6:00pm</p>
+              </div>
+            </div>
+
+            <!-- Col 3: Public Links (Clean Links, No Card) -->
+            <div class="footer-matrix-col">
+              <span class="footer-kicker">PUBLIC LINKS</span>
+              <ul class="footer-public-menu">
+                <li>
+                  <a href="https://ucn.edu.ph" target="_blank" rel="noopener noreferrer" id="footerPublicWebsiteLink">
+                    <span class="footer-link-text" id="footerPublicWebsiteLabel">Official UCN website</span>
+                    <svg class="footer-link-arrow" width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="10" x2="10" y2="2"></line><polyline points="4 2 10 2 10 8"></polyline></svg>
+                  </a>
+                </li>
+                <li>
+                  <a href="https://www.facebook.com/ucnofficial" target="_blank" rel="noopener noreferrer" id="footerPublicUcnFbLink">
+                    <span class="footer-link-text" id="footerPublicUcnFbLabel">UCN official Facebook page</span>
+                    <svg class="footer-link-arrow" width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="10" x2="10" y2="2"></line><polyline points="4 2 10 2 10 8"></polyline></svg>
+                  </a>
+                </li>
+                <li>
+                  <a href="https://www.facebook.com/share/18MJcUvJeM/" target="_blank" rel="noopener noreferrer" id="footerFacebookLink">
+                    <span class="footer-link-text" id="footerFacebookLabel">FMRC official Facebook page</span>
+                    <svg class="footer-link-arrow" width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="10" x2="10" y2="2"></line><polyline points="4 2 10 2 10 8"></polyline></svg>
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Attribution Bar -->
+      <div class="footer-bottom">
+        <div class="footer-bottom-grid">
+          <p class="footer-bottom-copy" id="footerCopyrightEl">
+            &copy; 2026 University of Camarines Norte. All rights reserved.
+          </p>
+          <p class="footer-bottom-dev" id="footerBottomDevEl">
+            Developed for UCN &ndash; Fabrication and Manufacturing Research Center.
+          </p>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Maintenance Mode gate stays synchronous: it must apply the cached
+         snapshot before anything that should be hidden can be painted. -->
+    <script src="../home-page/maintenance-gate.js?v=1.5"></script>
+    <!-- Deferred as a set, never individually: `defer` only preserves relative
+         order among deferred scripts, so leaving any one of these synchronous
+         would run it ahead of the others. All three wrap their work in a
+         DOMContentLoaded handler and deferred scripts run before that event
+         fires, so listener registration order is unchanged. -->
+    <!-- First of the set, so window.FMRCLoader exists before any handler
+         main.js or services.js registers can fire. Every call site is written
+         `window.FMRCLoader?.…`, so if this one request ever fails the affected
+         flow falls back to the plain disabled button it had before. -->
+    <script defer src="../home-page/fmrc-loader.js?v=2.0"></script>
+    <script defer src="../home-page/page-content.js?v=1.2"></script>
+    <script defer src="../home-page/main.js?v=10.0"></script>
+    <script defer src="../home-page/customer-announcements.js?v=6.2"></script>
+  </body>
+</html>

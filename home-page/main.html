@@ -74,6 +74,11 @@
          paint is already gated on main.css above it, so these rules are
          guaranteed present the first time anything paints. -->
     <link rel="stylesheet" href="fmrc-loader.css?v=2.0" />
+    <link rel="stylesheet" href="customer-editorial.css?v=1.3" />
+    <link rel="stylesheet" href="customer-navbar.css?v=1.2" />
+    <link rel="stylesheet" href="customer-footer.css?v=1.0" />
+    <link rel="stylesheet" href="customer-button-feedback.css?v=1.0" />
+    <link rel="stylesheet" href="customer-mobile.css?v=1.4" />
     <script>
       /* Keep the first home visit in this tab behind the signature loader for
          1.5 seconds, then reveal it once the DOM is ready. Later visits keep
@@ -121,12 +126,16 @@
           if (parseFloat(getComputedStyle(boot).opacity) === 0) removeBoot();
         }
         function onReady() {
-          var remaining = firstVisit ? 1500 - (performance.now() - startedAt) : 0;
+          var remaining = firstVisit
+            ? 1500 - (performance.now() - startedAt)
+            : 0;
           if (remaining > 0) liftTimer = setTimeout(lift, remaining);
           else lift();
         }
         if (document.readyState === "loading")
-          document.addEventListener("DOMContentLoaded", onReady, { once: true });
+          document.addEventListener("DOMContentLoaded", onReady, {
+            once: true,
+          });
         else onReady();
         /* A successful login navigates away with a curtain up, and a later Back
            can restore a page frozen exactly as it was without re-running a line
@@ -143,7 +152,7 @@
       })();
     </script>
   </head>
-  <body>
+  <body class="home-editorial-page">
     <!-- The boot curtain. Static markup, so it can paint on the very first
          frame; hidden by default in CSS and shown only while html.fmrc-booting
          is set, which the script above is the only thing that adds. A visitor
@@ -158,7 +167,8 @@
       role="status"
       aria-live="polite"
       style="
-        --fmrc-boot-field: radial-gradient(
+        --fmrc-boot-field:
+          radial-gradient(
             circle at 9% 0%,
             rgba(241, 237, 18, 0.12),
             transparent 23rem
@@ -177,28 +187,35 @@
           <span class="fmrc-load-float">
             <span class="fmrc-load-assembly">
               <span class="fmrc-load-satellite"><span></span></span>
-              <span class="fmrc-load-orbit"><span class="fmrc-load-orbit-track"></span></span>
-              <span class="fmrc-load-edge" style="--layer:-7"></span>
-              <span class="fmrc-load-edge" style="--layer:-6"></span>
-              <span class="fmrc-load-edge" style="--layer:-5"></span>
-              <span class="fmrc-load-edge" style="--layer:-4"></span>
-              <span class="fmrc-load-edge" style="--layer:-3"></span>
-              <span class="fmrc-load-edge" style="--layer:-2"></span>
-              <span class="fmrc-load-edge" style="--layer:-1"></span>
-              <span class="fmrc-load-edge" style="--layer:0"></span>
-              <span class="fmrc-load-edge" style="--layer:1"></span>
-              <span class="fmrc-load-edge" style="--layer:2"></span>
-              <span class="fmrc-load-edge" style="--layer:3"></span>
-              <span class="fmrc-load-edge" style="--layer:4"></span>
-              <span class="fmrc-load-edge" style="--layer:5"></span>
-              <span class="fmrc-load-edge" style="--layer:6"></span>
-              <span class="fmrc-load-edge" style="--layer:7"></span>
-              <span class="fmrc-load-face"><span class="fmrc-load-logo-bed"><span class="fmrc-load-logo"></span></span></span>
+              <span class="fmrc-load-orbit"
+                ><span class="fmrc-load-orbit-track"></span
+              ></span>
+              <span class="fmrc-load-edge" style="--layer: -7"></span>
+              <span class="fmrc-load-edge" style="--layer: -6"></span>
+              <span class="fmrc-load-edge" style="--layer: -5"></span>
+              <span class="fmrc-load-edge" style="--layer: -4"></span>
+              <span class="fmrc-load-edge" style="--layer: -3"></span>
+              <span class="fmrc-load-edge" style="--layer: -2"></span>
+              <span class="fmrc-load-edge" style="--layer: -1"></span>
+              <span class="fmrc-load-edge" style="--layer: 0"></span>
+              <span class="fmrc-load-edge" style="--layer: 1"></span>
+              <span class="fmrc-load-edge" style="--layer: 2"></span>
+              <span class="fmrc-load-edge" style="--layer: 3"></span>
+              <span class="fmrc-load-edge" style="--layer: 4"></span>
+              <span class="fmrc-load-edge" style="--layer: 5"></span>
+              <span class="fmrc-load-edge" style="--layer: 6"></span>
+              <span class="fmrc-load-edge" style="--layer: 7"></span>
+              <span class="fmrc-load-face"
+                ><span class="fmrc-load-logo-bed"
+                  ><span class="fmrc-load-logo"></span></span
+              ></span>
             </span>
           </span>
         </div>
         <p class="fmrc-load-brand">UCN&ndash;FMRC</p>
-        <p class="fmrc-load-name">Fabrication &amp; Manufacturing<br>Research Center</p>
+        <p class="fmrc-load-name">
+          Fabrication &amp; Manufacturing<br />Research Center
+        </p>
         <p class="fmrc-load-caption">Preparing your experience</p>
         <div class="fmrc-load-rail" aria-hidden="true"><span></span></div>
       </div>
@@ -231,7 +248,9 @@
       <nav class="main-nav">
         <ul>
           <li><a href="main.html#home" class="nav-link active">Home</a></li>
-          <li><a href="#about" class="nav-link">About Us</a></li>
+          <li>
+            <a href="/about-page/about.html" class="nav-link">About Us</a>
+          </li>
           <li>
             <a href="/services-page/service.html" class="nav-link">Services</a>
           </li>
@@ -245,9 +264,19 @@
       </nav>
 
       <div class="header-right-actions">
-        <button class="announcement-bell" id="announcementBell" type="button" aria-label="Open announcements" title="Announcements">
+        <button
+          class="announcement-bell"
+          id="announcementBell"
+          type="button"
+          aria-label="Open announcements"
+          title="Announcements"
+        >
           <i class="fa-solid fa-bell" aria-hidden="true"></i>
-          <span class="announcement-bell__badge" id="announcementBellBadge" hidden></span>
+          <span
+            class="announcement-bell__badge"
+            id="announcementBellBadge"
+            hidden
+          ></span>
         </button>
         <div class="user-profile">
           <svg
@@ -267,22 +296,72 @@
       </div>
     </header>
 
-    <div class="announcement-modal ux-dlg" id="announcementModal" role="dialog" aria-modal="true" aria-labelledby="announcementModalTitle" aria-hidden="true" hidden>
+    <div
+      class="announcement-modal ux-dlg"
+      id="announcementModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="announcementModalTitle"
+      aria-hidden="true"
+      hidden
+    >
       <div class="announcement-modal__card ux-dlg__card">
         <div class="announcement-modal__hero ux-dlg__head">
-          <button type="button" class="announcement-modal__close-x ux-dlg__close" id="announcementModalCloseX" aria-label="Close announcement">&times;</button>
-          <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-bullhorn"></i></span>
-          <p class="announcement-modal__label ux-dlg__eyebrow">FMRC ANNOUNCEMENT</p>
-          <h2 class="announcement-modal__title ux-dlg__title" id="announcementModalTitle">Announcements</h2>
+          <button
+            type="button"
+            class="announcement-modal__close-x ux-dlg__close"
+            id="announcementModalCloseX"
+            aria-label="Close announcement"
+          >
+            &times;
+          </button>
+          <span class="ux-dlg__badge" aria-hidden="true"
+            ><i class="fa-solid fa-bullhorn"></i
+          ></span>
+          <p class="announcement-modal__label ux-dlg__eyebrow">
+            FMRC ANNOUNCEMENT
+          </p>
+          <h2
+            class="announcement-modal__title ux-dlg__title"
+            id="announcementModalTitle"
+          >
+            Announcements
+          </h2>
         </div>
         <div class="announcement-modal__body ux-dlg__body">
-          <p class="announcement-modal__message ux-dlg__text" id="announcementModalMessage">Loading announcements...</p>
+          <p
+            class="announcement-modal__message ux-dlg__text"
+            id="announcementModalMessage"
+          >
+            Loading announcements...
+          </p>
         </div>
         <div class="announcement-modal__actions ux-dlg__foot">
-          <span class="announcement-modal__counter" id="announcementModalCounter"></span>
-          <button type="button" class="announcement-modal__button announcement-modal__button--secondary ux-dlg__btn ux-dlg__btn--ghost" id="announcementModalNext" hidden>Next</button>
-          <a class="announcement-modal__button announcement-modal__button--primary ux-dlg__btn ux-dlg__btn--ghost" id="announcementModalCta" hidden>View Details</a>
-          <button type="button" class="announcement-modal__button announcement-modal__button--secondary ux-dlg__btn ux-dlg__btn--primary" id="announcementModalClose">Got it</button>
+          <span
+            class="announcement-modal__counter"
+            id="announcementModalCounter"
+          ></span>
+          <button
+            type="button"
+            class="announcement-modal__button announcement-modal__button--secondary ux-dlg__btn ux-dlg__btn--ghost"
+            id="announcementModalNext"
+            hidden
+          >
+            Next
+          </button>
+          <a
+            class="announcement-modal__button announcement-modal__button--primary ux-dlg__btn ux-dlg__btn--ghost"
+            id="announcementModalCta"
+            hidden
+            >View Details</a
+          >
+          <button
+            type="button"
+            class="announcement-modal__button announcement-modal__button--secondary ux-dlg__btn ux-dlg__btn--primary"
+            id="announcementModalClose"
+          >
+            Got it
+          </button>
         </div>
       </div>
     </div>
@@ -293,7 +372,9 @@
         // so the background matches realtime from the very start with no white flash.
         window.FMRC_HERO_GRADIENTS &&
           window.FMRC_HERO_GRADIENTS.paintCached &&
-          window.FMRC_HERO_GRADIENTS.paintCached(document.getElementById("home"));
+          window.FMRC_HERO_GRADIENTS.paintCached(
+            document.getElementById("home"),
+          );
       </script>
       <div class="hero-container">
         <div class="hero-content-left">
@@ -311,10 +392,18 @@
           </script>
 
           <div class="hero-buttons">
-            <a href="/products-page/product.html" class="btn-browse"
+            <a
+              href="/products-page/product.html"
+              class="btn-browse"
+              data-editorial-copy="editorial_home_hero_browse"
               >Browse Products</a
             >
-            <button class="btn-appointment">Appoint Now!</button>
+            <button
+              class="btn-appointment"
+              data-editorial-copy="editorial_home_hero_appointment"
+            >
+              Appoint Now!
+            </button>
           </div>
 
           <!-- Sustainable Development Goals — filled from /api/site-sdgs -->
@@ -341,7 +430,11 @@
       </div>
 
       <a href="#about" class="scroll-indicator">
-        <span class="scroll-text">Scroll Down</span>
+        <span
+          class="scroll-text"
+          data-editorial-copy="editorial_home_hero_scroll"
+          >Scroll Down</span
+        >
         <svg
           class="scroll-icon"
           width="24"
@@ -358,262 +451,299 @@
       </a>
     </main>
 
-    <section id="about" class="about-wrapper">
-      <div class="about-section">
-        <div class="about-container">
-          <div class="about-content-left">
-            <h2 class="section-title" id="aboutHeadingEl">ABOUT US</h2>
-            <p class="section-text" id="aboutText1El">
-              The Fabrication and Manufacturing Research Center (FMRC) is
-              <strong
-                >a state-of-the-art shared service facility that bridges
-                creativity and technology.</strong
-              >
-              It empowers students, educators, researchers, and businesses to
-              transform innovative ideas into practical and functional outputs.
-            </p>
-            <p class="section-text" id="aboutText2El">
-              FMRC serves as a Shared Service Facility of the
-              <strong>Department of Trade and Industry (DTI)</strong> and a
-              Common Service Facility of
-              <strong>University of Camarines Norte (UCN)</strong>. It supports
-              Micro, Small, and Medium Enterprises (MSMEs) by enhancing
-              creativity, design, and business innovation while increasing
-              productivity and efficiency.
-            </p>
-          </div>
-
-          <div class="about-content-right" id="aboutVideoColumn">
-            <div
-              class="about-video-holder is-loading"
-              id="aboutVideoHolder"
-              aria-label="About video holder"
-              aria-busy="true"
+    <div class="editorial-content">
+      <section
+        id="about"
+        class="editorial-section"
+        aria-labelledby="homeIntroHeading"
+      >
+        <div class="editorial-container editorial-intro">
+          <div>
+            <p
+              class="editorial-kicker"
+              data-editorial-copy="editorial_home_intro_kicker"
             >
-              <span class="about-video-loading" aria-hidden="true">
-                <span class="fmrc-load-inline fmrc-load-inline--panel" aria-hidden="true"></span>
-              </span>
-              <video
-                class="about-preview-video"
-                id="aboutPreviewVideo"
-                preload="metadata"
-                muted
-                playsinline
+              WELCOME TO UCN-FMRC
+            </p>
+            <h2
+              class="editorial-title"
+              id="homeIntroHeading"
+              data-editorial-copy="editorial_home_intro_title"
+            >
+              A place to bring ideas to life.
+            </h2>
+          </div>
+          <div>
+            <p
+              class="editorial-copy"
+              data-editorial-copy="editorial_home_intro_copy"
+            >
+              FMRC connects students, educators, researchers, and businesses
+              with fabrication and manufacturing services. Explore the support
+              available for your next prototype, research project, or business
+              idea.
+            </p>
+            <p
+              class="editorial-audience-line"
+              data-editorial-copy="editorial_home_intro_audience"
+            >
+              For students, educators, researchers &amp; businesses.
+            </p>
+            <a href="/about-page/about.html" class="editorial-link"
+              ><span data-editorial-copy="editorial_home_intro_link"
+                >About FMRC</span
               >
-                <source
-                  type="video/mp4"
-                  id="aboutVideoSrc"
-                />
-              </video>
-              <button
-                class="about-video-control is-paused"
-                id="aboutVideoToggle"
-                type="button"
-                aria-label="Play preview video"
-              ></button>
-            </div>
-
-            <div class="about-video-modal" id="aboutVideoModal">
-              <button
-                class="about-video-close"
-                id="aboutVideoClose"
-                aria-label="Close video"
-              >
-                &times;
-              </button>
-              <div class="about-video-modal-box">
-                <!-- Both players receive the configured About video from
-                     site settings. No bundled clip loads before that request. -->
-                <video
-                  class="about-full-video"
-                  id="aboutFullVideo"
-                  preload="metadata"
-                  controls
-                  playsinline
-                >
-                  <source
-                    type="video/mp4"
-                    id="aboutFullVideoSrc"
-                  />
-                </video>
-              </div>
-            </div>
+              <i class="fa-solid fa-arrow-right" aria-hidden="true"></i
+            ></a>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div class="vision-section">
-        <div class="vision-container">
-          <!-- reveal-from-left: both columns enter from the left edge together,
-               so the section slides in as one block rather than two halves. -->
-          <div class="vision-content-left reveal-from-left">
-            <!-- The deck is a plain wrapper until main.js finds more than one
-                 gallery image and adds `.has-stack`; with a single photo this
-                 renders exactly as it did before. The first card keeps the
-                 legacy id and class so `_src("visionImgEl", …)` and every
-                 existing sizing rule still find their target.
-
-                 The <img> ships with no `src`. The real photo lives in
-                 site_settings.vision_image and arrives with /api/site-settings,
-                 so a hardcoded one would flash a picture that is not this
-                 site's for as long as the fetch takes. `.is-loading` paints the
-                 grey placeholder card on the first frame instead; main.js drops
-                 it once the real image has decoded. The tag itself must stay —
-                 applyVmGallery() clones its class and alt for every extra
-                 gallery card. -->
-            <div
-              class="vm-deck vm-deck--vision is-loading"
-              id="visionDeck"
-              aria-busy="true"
-            >
-              <div class="vm-deck__card">
-                <img
-                  alt="FMRC Vision"
-                  class="vision-img"
-                  id="visionImgEl"
-                  loading="lazy"
-                  decoding="async"
-                />
-              </div>
-            </div>
-            <p class="vm-deck__hint" id="visionDeckHint">
-              <i class="fa-solid fa-hand-pointer"></i> Drag a photo aside to see
-              the next
-            </p>
-          </div>
-          <div class="vision-content-right reveal-from-left">
-            <h2 class="vm-title" id="visionHeadingEl">OUR VISION</h2>
-            <p class="vm-text" id="visionTextEl">
-              UCN FMRC as a leading manufacturing and fabrication laboratory in
-              the Bicol Region.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div class="mission-section">
-        <div class="mission-container">
-          <!-- reveal-from-right: the mirror of the Vision section above. -->
-          <div class="mission-content-left reveal-from-right">
-            <h2 class="vm-title" id="missionHeadingEl">OUR MISSION</h2>
-            <p class="vm-text" id="missionTextEl">
-              UCN FMRC shall provide an avenue for creative thinking and
-              artistic design/work among its clientele using advanced technology
-              means.
-            </p>
-          </div>
-          <div class="mission-content-right reveal-from-right">
-            <!-- The deck sits inside `.blob-wrapper`, which is now purely the
-                 480px square footprint: the two decorative blobs it used to draw
-                 behind the photo are gone, and the organic mask lives on the
-                 deck's own cards so the shuffle shadows follow that silhouette.
-
-                 As with Vision, the <img> ships src-less and the deck carries
-                 `.is-loading` so the first frame is a blob-shaped grey card
-                 rather than a hardcoded photo. -->
-            <div class="blob-wrapper">
-              <div
-                class="vm-deck vm-deck--mission is-loading"
-                id="missionDeck"
-                aria-busy="true"
+      <section
+        id="services-preview"
+        class="editorial-section"
+        aria-labelledby="homeServicesHeading"
+      >
+        <div class="editorial-container">
+          <div class="editorial-section-heading">
+            <div>
+              <p
+                class="editorial-kicker"
+                data-editorial-copy="editorial_home_services_kicker"
               >
-                <div class="vm-deck__card">
-                  <img
-                    alt="FMRC Mission"
-                    class="mission-img"
-                    id="missionImgEl"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </div>
-              </div>
+                OUR CAPABILITIES
+              </p>
+              <h2
+                class="editorial-title"
+                id="homeServicesHeading"
+                data-editorial-copy="editorial_home_services_title"
+              >
+                What We Offer
+              </h2>
+              <p
+                class="editorial-copy"
+                data-editorial-copy="editorial_home_services_copy"
+              >
+                Discover the tools and expertise for your next project.
+              </p>
             </div>
+            <a href="/services-page/service.html" class="editorial-link"
+              ><span data-editorial-copy="editorial_home_services_link"
+                >View all services</span
+              >
+              <i class="fa-solid fa-arrow-right" aria-hidden="true"></i
+            ></a>
           </div>
-        </div>
-      </div>
-    </section>
-
-    <section id="services-preview" class="services-preview-section">
-      <div class="services-container">
-        <h2
-          class="section-title reveal-from-bottom"
-          style="text-align: center; margin-bottom: 50px"
-        >
-          WHAT WE OFFER
-        </h2>
-
-        <!-- reveal-from-bottom + the `.is-stacked` class main.js adds before the
-             first paint: the cards arrive as one stack from below, then spread
-             left and right together once the section reaches the middle. -->
-        <div class="carousel-wrapper landscape-carousel reveal-from-bottom">
-          <button class="carousel-btn prev-btn" aria-label="Previous Service">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="3"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <polyline points="15 18 9 12 15 6"></polyline>
-            </svg>
-          </button>
-
-          <div class="carousel-track" id="whatWeOfferTrack">
-            <!-- Dynamically rendered from API -->
-            <div class="carousel-item">
-              <div class="service-card landscape-card">
-                <div class="card-img-holder" style="background: #f3f4f6"></div>
-                <div class="card-content">
-                  <h3
-                    class="card-title"
-                    style="
-                      background: #e5e7eb;
-                      height: 14px;
-                      border-radius: 4px;
-                    "
-                  ></h3>
-                  <p
-                    class="card-desc"
-                    style="
-                      background: #f3f4f6;
-                      height: 10px;
-                      border-radius: 4px;
-                      margin-top: 8px;
-                    "
-                  ></p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <button class="carousel-btn next-btn" aria-label="Next Service">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="3"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
-          </button>
-        </div>
-
-        <div class="view-all-container">
-          <a href="/services-page/service.html" class="view-all-btn"
-            >View All Services</a
+          <div
+            id="homeServicesGrid"
+            class="services-grid editorial-services-grid"
+            aria-busy="true"
           >
+            <article
+              class="service-card service-skeleton-card"
+              aria-hidden="true"
+            >
+              <div class="card-content">
+                <div class="service-card-heading">
+                  <span
+                    class="service-skeleton-line service-skeleton-category"
+                  ></span>
+                </div>
+                <span
+                  class="service-skeleton-line service-skeleton-title"
+                ></span>
+                <div class="service-skeleton-description">
+                  <span class="service-skeleton-line"></span>
+                  <span class="service-skeleton-line"></span>
+                  <span class="service-skeleton-line"></span>
+                </div>
+                <div class="service-card-footer">
+                  <span
+                    class="service-skeleton-line service-skeleton-action"
+                  ></span>
+                </div>
+              </div>
+              <div class="service-skeleton-img"></div>
+            </article>
+            <article
+              class="service-card service-skeleton-card"
+              aria-hidden="true"
+            >
+              <div class="card-content">
+                <div class="service-card-heading">
+                  <span
+                    class="service-skeleton-line service-skeleton-category"
+                  ></span>
+                </div>
+                <span
+                  class="service-skeleton-line service-skeleton-title"
+                ></span>
+                <div class="service-skeleton-description">
+                  <span class="service-skeleton-line"></span>
+                  <span class="service-skeleton-line"></span>
+                  <span class="service-skeleton-line"></span>
+                </div>
+                <div class="service-card-footer">
+                  <span
+                    class="service-skeleton-line service-skeleton-action"
+                  ></span>
+                </div>
+              </div>
+              <div class="service-skeleton-img"></div>
+            </article>
+            <article
+              class="service-card service-skeleton-card"
+              aria-hidden="true"
+            >
+              <div class="card-content">
+                <div class="service-card-heading">
+                  <span
+                    class="service-skeleton-line service-skeleton-category"
+                  ></span>
+                </div>
+                <span
+                  class="service-skeleton-line service-skeleton-title"
+                ></span>
+                <div class="service-skeleton-description">
+                  <span class="service-skeleton-line"></span>
+                  <span class="service-skeleton-line"></span>
+                  <span class="service-skeleton-line"></span>
+                </div>
+                <div class="service-card-footer">
+                  <span
+                    class="service-skeleton-line service-skeleton-action"
+                  ></span>
+                </div>
+              </div>
+              <div class="service-skeleton-img"></div>
+            </article>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      <section
+        id="get-started"
+        class="editorial-section"
+        aria-labelledby="homeGettingStartedHeading"
+      >
+        <div class="editorial-container">
+          <div class="editorial-section-heading">
+            <div>
+              <p
+                class="editorial-kicker"
+                data-editorial-copy="editorial_home_steps_kicker"
+              >
+                FROM IDEA TO NEXT STEP
+              </p>
+              <h2
+                class="editorial-title"
+                id="homeGettingStartedHeading"
+                data-editorial-copy="editorial_home_steps_title"
+              >
+                Start your project
+              </h2>
+              <p
+                class="editorial-copy"
+                data-editorial-copy="editorial_home_steps_copy"
+              >
+                A little preparation helps us understand what you need.
+              </p>
+            </div>
+          </div>
+          <div class="editorial-steps">
+            <article class="editorial-step">
+              <span class="editorial-step-number" aria-hidden="true">01</span>
+              <h3 data-editorial-copy="editorial_home_step_1_title">
+                Explore our services
+              </h3>
+              <p
+                class="editorial-copy"
+                data-editorial-copy="editorial_home_step_1_copy"
+              >
+                Find a service that fits your idea. Check its features,
+                supported materials, and typical uses.
+              </p>
+              <a href="/services-page/service.html" class="editorial-link"
+                ><span data-editorial-copy="editorial_home_step_1_link"
+                  >Explore services</span
+                >
+                <i class="fa-solid fa-arrow-right" aria-hidden="true"></i
+              ></a>
+            </article>
+            <article class="editorial-step">
+              <span class="editorial-step-number" aria-hidden="true">02</span>
+              <h3 data-editorial-copy="editorial_home_step_2_title">
+                Prepare your project details
+              </h3>
+              <p
+                class="editorial-copy"
+                data-editorial-copy="editorial_home_step_2_copy"
+              >
+                Have a short description of your project ready. You can also
+                attach a reference file when requesting an appointment.
+              </p>
+            </article>
+            <article class="editorial-step">
+              <span class="editorial-step-number" aria-hidden="true">03</span>
+              <h3 data-editorial-copy="editorial_home_step_3_title">
+                Request an appointment
+              </h3>
+              <p
+                class="editorial-copy"
+                data-editorial-copy="editorial_home_step_3_copy"
+              >
+                Sign in, choose an available date and time, and submit your
+                request for the FMRC team to review.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="editorial-section" aria-labelledby="homeProjectHeading">
+        <div class="editorial-container editorial-cta">
+          <div>
+            <p
+              class="editorial-kicker"
+              data-editorial-copy="editorial_home_cta_kicker"
+            >
+              LET'S GET STARTED
+            </p>
+            <h2
+              class="editorial-title"
+              id="homeProjectHeading"
+              data-editorial-copy="editorial_home_cta_title"
+            >
+              Have a project in mind?
+            </h2>
+            <p
+              class="editorial-copy"
+              data-editorial-copy="editorial_home_cta_copy"
+            >
+              Take the next step with FMRC. Request an appointment or get in
+              touch with our team.
+            </p>
+          </div>
+          <div class="editorial-actions">
+            <button
+              class="editorial-button editorial-appointment-trigger"
+              type="button"
+            >
+              <span data-editorial-copy="editorial_home_cta_button"
+                >Set an appointment</span
+              >
+              <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            </button>
+            <a href="/contact-page/contact.html" class="editorial-link"
+              ><span data-editorial-copy="editorial_home_cta_contact"
+                >Contact us</span
+              >
+              <i class="fa-solid fa-arrow-right" aria-hidden="true"></i
+            ></a>
+          </div>
+        </div>
+      </section>
+    </div>
     <div
       class="apt-overlay"
       id="appointmentFlow"
@@ -1395,7 +1525,10 @@
             Your appointment has been successfully booked. Keep the reference
             number below for verification at the FMRC office.
           </p>
-          <div class="success-reference" aria-label="Appointment reference number">
+          <div
+            class="success-reference"
+            aria-label="Appointment reference number"
+          >
             <span>Reference Number</span>
             <strong id="successReferenceNo">PENDING</strong>
           </div>
@@ -1407,9 +1540,17 @@
         </div>
         <div class="success-card__footer">
           <a href="#home" class="apt-home-link" id="btnSuccessHome">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" stroke-width="2" stroke-linecap="round"
-              stroke-linejoin="round" aria-hidden="true">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
               <path d="M19 12H5m7 7-7-7 7-7"></path>
             </svg>
             <span>Back to Home Page</span>
@@ -1431,7 +1572,9 @@
             <i class="fa-solid fa-shield-halved"></i>
           </div>
           <p class="ux-dlg__eyebrow">Before you continue</p>
-          <h3 id="aptPrivacyTitle" class="ux-dlg__title">DATA PRIVACY NOTICE</h3>
+          <h3 id="aptPrivacyTitle" class="ux-dlg__title">
+            DATA PRIVACY NOTICE
+          </h3>
         </div>
         <div class="ux-dlg__body">
           <p class="ux-dlg__text">
@@ -1520,7 +1663,8 @@
         </div>
         <div class="ux-dlg__body">
           <p class="ux-dlg__text">
-            Are you sure you want to return to the home page? Any unsaved information will be discarded.
+            Are you sure you want to return to the home page? Any unsaved
+            information will be discarded.
           </p>
         </div>
         <div class="nested-actions ux-dlg__foot is-confirm">
@@ -1544,160 +1688,152 @@
 
     <footer class="site-footer" id="contact">
       <div class="footer-container">
-        <div class="footer-col brand-col">
+        <!-- Brand Column -->
+        <div class="footer-brand-col">
           <div class="footer-logo-row">
-            <img
-              src="/images/CNSC logo.png"
-              alt="CNSC Logo"
-              class="footer-logo"
-              id="footerLogoPrimaryEl"
-              loading="lazy"
-              decoding="async"
-            />
-            <img
-              src="/images/FMRC Logo.png"
-              alt="FMRC Logo"
-              class="footer-logo"
-              id="footerLogoSecondaryEl"
-              loading="lazy"
-              decoding="async"
-            />
-            <h3 class="footer-brand" id="footerBrandNameEl">UCN- FMRC</h3>
+            <span class="footer-logo-disc">
+              <img
+                src="/images/CNSC logo.png"
+                alt="CNSC Logo"
+                class="footer-logo"
+                id="footerLogoPrimaryEl"
+                loading="lazy"
+                decoding="async"
+              />
+            </span>
+            <span class="footer-logo-disc">
+              <img
+                src="/images/FMRC Logo.png"
+                alt="FMRC Logo"
+                class="footer-logo"
+                id="footerLogoSecondaryEl"
+                loading="lazy"
+                decoding="async"
+              />
+            </span>
+            <div class="footer-brand-titles">
+              <h3 class="footer-brand" id="footerBrandNameEl">University of Camarines Norte</h3>
+              <p class="footer-subbrand" id="footerBrandSubtitleEl">Fabrication &amp; Manufacturing Research Center</p>
+            </div>
           </div>
+          <div class="footer-brand-divider" aria-hidden="true"></div>
           <p class="footer-desc" id="footerBrandDescEl">
             Fabrication and Manufacturing Research Center - Advancing innovation
-            through technology and excellence in manufacturing.
+            through technology, research, and excellence in digital fabrication.
           </p>
+          <div class="footer-campus-tag" id="footerCampusTagEl">
+            Main Campus &bull; Daet, Camarines Norte, Philippines, 4600
+          </div>
         </div>
 
-        <div class="footer-col">
-          <h4 class="footer-heading">Quick Links</h4>
-          <ul class="footer-menu" id="footerQuickLinksEl">
-            <li><a href="#home">Home</a></li>
-            <li><a href="#about">About Us</a></li>
-            <li><a href="/services-page/service.html">Services</a></li>
-            <li><a href="/products-page/product.html">Products</a></li>
-            <li><a href="/contact-page/contact.html">Contact</a></li>
-          </ul>
-        </div>
+        <!-- Information Column (Two Tiers) -->
+        <div class="footer-info-col">
+          <!-- Tier 1: Office & Facility Contact -->
+          <div class="footer-office-section">
+            <span class="footer-kicker">OFFICE &amp; FACILITY</span>
+            <div class="footer-contact-grid">
+              <div class="footer-contact-cell footer-contact-location">
+                <div class="footer-contact-meta">
+                  <span class="footer-contact-caption">Facility Location</span>
+                  <a
+                    href="https://www.google.com/maps/search/?api=1&query=Camarines+Norte+State+College,+Daet,+Philippines"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="footer-link"
+                    id="footerLocationLink"
+                    >First Flr., Graduate School Building, University of Camarines Norte, Daet, Philippines</a
+                  >
+                </div>
+              </div>
+              <div class="footer-contact-cell">
+                <div class="footer-contact-meta">
+                  <span class="footer-contact-caption">Official Email</span>
+                  <a
+                    href="mailto:fmrc@cnsc.edu.ph"
+                    class="footer-link"
+                    id="footerEmailLink"
+                    >fmrc@cnsc.edu.ph</a
+                  >
+                </div>
+              </div>
+              <div class="footer-contact-cell">
+                <div class="footer-contact-meta">
+                  <span class="footer-contact-caption">Direct Telephone</span>
+                  <a
+                    href="tel:+639090990000"
+                    class="footer-link"
+                    id="footerPhoneLink"
+                    >0909-099-0000</a
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
 
-        <div class="footer-col">
-          <h4 class="footer-heading">Business Hours</h4>
-          <p class="footer-text" id="footerHoursDaysEl">Monday - Friday</p>
-          <p class="footer-text" id="footerHoursTimeEl">7:00am - 6:00pm</p>
-        </div>
+          <!-- Tier Separator Divider -->
+          <div class="footer-tier-divider" aria-hidden="true"></div>
 
-        <div class="footer-col contact-col">
-          <h4 class="footer-heading">Contact Information</h4>
-          <ul class="contact-list">
-            <li>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="contact-icon"
-              >
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                <circle cx="12" cy="10" r="3"></circle>
-              </svg>
-              <a
-                href="https://www.google.com/maps/search/?api=1&query=Camarines+Norte+State+College,+Daet,+Philippines"
-                target="_blank"
-                class="footer-link"
-                id="footerLocationLink"
-                >First Flr., Graduate School Building, University of Camarines Norte, Daet, Philippines</a
-              >
-            </li>
-            <li>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="contact-icon"
-              >
-                <path
-                  d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
-                ></path>
-                <polyline points="22,6 12,13 2,6"></polyline>
-              </svg>
-              <a
-                href="mailto:fmrc@cnsc.edu.ph"
-                class="footer-link"
-                id="footerEmailLink"
-                >fmrc@cnsc.edu.ph</a
-              >
-            </li>
-            <li>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="contact-icon"
-              >
-                <path
-                  d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"
-                ></path>
-              </svg>
-              <a
-                href="tel:+639090990000"
-                class="footer-link"
-                id="footerPhoneLink"
-                >0909-099-0000</a
-              >
-            </li>
-            <li>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="contact-icon"
-              >
-                <path
-                  d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"
-                ></path>
-              </svg>
-              <a
-                href="https://www.facebook.com/share/18MJcUvJeM/"
-                target="_blank"
-                class="footer-link"
-                id="footerFacebookLink"
-                >UCN FMRC</a
-              >
-            </li>
-          </ul>
+          <!-- Tier 2: Three-Column Matrix -->
+          <div class="footer-matrix">
+            <!-- Col 1: Quick Links -->
+            <div class="footer-matrix-col">
+              <span class="footer-kicker">QUICK LINKS</span>
+              <ul class="footer-menu" id="footerQuickLinksEl">
+                <li><a href="/home-page/main.html#home">Home</a></li>
+                <li><a href="/about-page/about.html">About Us</a></li>
+                <li><a href="/services-page/service.html">Services</a></li>
+                <li><a href="/products-page/product.html">Products</a></li>
+                <li><a href="/contact-page/contact.html">Contact</a></li>
+              </ul>
+            </div>
+
+            <!-- Col 2: Business Hours (Clean Typography, No Card) -->
+            <div class="footer-matrix-col">
+              <span class="footer-kicker">BUSINESS HOURS</span>
+              <div class="footer-hours-info">
+                <p class="footer-hours-days" id="footerHoursDaysEl">Monday &ndash; Friday</p>
+                <p class="footer-hours-time" id="footerHoursTimeEl">7:00am &ndash; 6:00pm</p>
+              </div>
+            </div>
+
+            <!-- Col 3: Public Links (Clean Links, No Card) -->
+            <div class="footer-matrix-col">
+              <span class="footer-kicker">PUBLIC LINKS</span>
+              <ul class="footer-public-menu">
+                <li>
+                  <a href="https://ucn.edu.ph" target="_blank" rel="noopener noreferrer" id="footerPublicWebsiteLink">
+                    <span class="footer-link-text" id="footerPublicWebsiteLabel">Official UCN website</span>
+                    <svg class="footer-link-arrow" width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="10" x2="10" y2="2"></line><polyline points="4 2 10 2 10 8"></polyline></svg>
+                  </a>
+                </li>
+                <li>
+                  <a href="https://www.facebook.com/ucnofficial" target="_blank" rel="noopener noreferrer" id="footerPublicUcnFbLink">
+                    <span class="footer-link-text" id="footerPublicUcnFbLabel">UCN official Facebook page</span>
+                    <svg class="footer-link-arrow" width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="10" x2="10" y2="2"></line><polyline points="4 2 10 2 10 8"></polyline></svg>
+                  </a>
+                </li>
+                <li>
+                  <a href="https://www.facebook.com/share/18MJcUvJeM/" target="_blank" rel="noopener noreferrer" id="footerFacebookLink">
+                    <span class="footer-link-text" id="footerFacebookLabel">FMRC official Facebook page</span>
+                    <svg class="footer-link-arrow" width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="10" x2="10" y2="2"></line><polyline points="4 2 10 2 10 8"></polyline></svg>
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
 
+      <!-- Bottom Attribution Bar -->
       <div class="footer-bottom">
-        <div class="footer-line"></div>
-        <p id="footerCopyrightEl">
-          &copy; 2026 UCN Fabrication and Manufacturing Research Center. All
-          rights reserved.
-        </p>
+        <div class="footer-bottom-grid">
+          <p class="footer-bottom-copy" id="footerCopyrightEl">
+            &copy; 2026 University of Camarines Norte. All rights reserved.
+          </p>
+          <p class="footer-bottom-dev" id="footerBottomDevEl">
+            Developed for UCN &ndash; Fabrication and Manufacturing Research Center.
+          </p>
+        </div>
       </div>
     </footer>
 
@@ -1705,7 +1841,95 @@
          page so both surfaces open the same viewer: `openServiceImageLightbox()`
          and the delegated `.service-image-trigger` handler already live in the
          shared main.js scope and null-guard on this markup being absent. -->
-    <div class="modal-overlay" id="serviceImageLightboxModal" style="z-index: 21000;">
+    <div
+      class="modal-overlay ux-dlg"
+      id="serviceModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modalTitle"
+    >
+      <div class="modal-box ux-dlg__card">
+        <div class="modal-header ux-dlg__head">
+          <button
+            class="close-modal-btn ux-dlg__close"
+            id="closeModalBtn"
+            type="button"
+            aria-label="Close service details"
+          >
+            &times;
+          </button>
+          <span class="ux-dlg__badge" aria-hidden="true"
+            ><i class="fa-solid fa-screwdriver-wrench"></i
+          ></span>
+          <p
+            class="ux-dlg__eyebrow"
+            data-editorial-copy="editorial_services_details_kicker"
+          >
+            Service details
+          </p>
+          <h2 class="modal-title ux-dlg__title" id="modalTitle">
+            Service Details
+          </h2>
+        </div>
+
+        <div class="modal-divider"></div>
+
+        <div class="modal-scroll-area">
+          <button
+            class="modal-img-holder service-modal-image-trigger"
+            type="button"
+            aria-label="Open service image preview"
+            title="Open image preview"
+          >
+            <img src="" alt="Service Banner" id="modalImage" decoding="async" />
+          </button>
+
+          <p class="modal-desc">
+            Service details will load from the current service record.
+          </p>
+
+          <h3
+            class="modal-subtitle"
+            data-editorial-copy="editorial_services_features_heading"
+          >
+            Key Features
+          </h3>
+          <div class="feature-chips"></div>
+
+          <div class="modal-columns">
+            <div class="modal-col">
+              <h3
+                class="modal-subtitle"
+                data-editorial-copy="editorial_services_materials_heading"
+              >
+                Supported Materials
+              </h3>
+              <ul class="modal-list"></ul>
+            </div>
+            <div class="modal-col">
+              <h3
+                class="modal-subtitle"
+                data-editorial-copy="editorial_services_best_for_heading"
+              >
+                Best For
+              </h3>
+              <ul class="modal-list"></ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-divider"></div>
+      </div>
+    </div>
+
+    <div
+      class="modal-overlay"
+      id="serviceImageLightboxModal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Service image preview"
+      style="z-index: 21000"
+    >
       <div class="lightbox-box">
         <button
           class="lightbox-close-btn"
@@ -1752,7 +1976,9 @@
          ever fails the affected flow silently falls back to the plain disabled
          button it had before. -->
     <script defer src="fmrc-loader.js?v=2.0"></script>
-    <script defer src="main.js?v=9.7"></script>
+    <script defer src="page-content.js?v=1.2"></script>
+    <script defer src="main.js?v=10.0"></script>
+    <script defer src="service-dialogs.js?v=1.0"></script>
     <script defer src="customer-announcements.js?v=6.2"></script>
   </body>
 </html>

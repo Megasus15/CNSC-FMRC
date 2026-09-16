@@ -1,0 +1,245 @@
+/* Contact page editorial layer. Form behavior and all global dialogs remain
+   owned by main.css and contact.js; these rules only refine the page surface. */
+.contact-page-body {
+  background: var(--customer-paper-sink, #f7f2ec);
+  color: var(--customer-ink-strong, #2b2b31);
+}
+
+.contact-page-body .contact-page-header {
+  padding: 72px max(24px, env(safe-area-inset-right)) 0 max(24px, env(safe-area-inset-left));
+  background: var(--customer-paper-sink, #f7f2ec);
+}
+
+.contact-page-body .contact-page-header__container {
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-bottom: 32px;
+  border-bottom: 1px solid #afb3aa;
+}
+
+.contact-page-body .contact-page-kicker,
+.contact-page-body .contact-card-kicker {
+  margin: 0 0 16px;
+  color: var(--customer-wine, #6b202b);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  line-height: 1.5;
+  text-transform: uppercase;
+}
+
+.contact-page-body .contact-page-title {
+  max-width: 760px;
+  margin: 0 0 20px;
+  color: var(--customer-wine, #6b202b);
+  font: 800 clamp(42px, 5.2vw, 72px) / 1.06 "Montserrat", sans-serif;
+  letter-spacing: -.045em;
+  overflow-wrap: anywhere;
+}
+
+.contact-page-body .contact-page-lead {
+  max-width: 640px;
+  margin: 0;
+  color: #676169;
+  font: 500 15px / 1.8 "Montserrat", sans-serif;
+  overflow-wrap: anywhere;
+}
+
+.contact-page-body .contact-main-section {
+  padding: 48px max(24px, env(safe-area-inset-right)) 88px max(24px, env(safe-area-inset-left));
+  background: var(--customer-paper-sink, #f7f2ec);
+}
+
+.contact-page-body .contact-page-container {
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+}
+
+.contact-page-body .contact-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 24px;
+}
+
+.contact-page-body .contact-info-card,
+.contact-page-body .contact-form-card {
+  min-width: 0;
+  padding: 28px 28px 32px;
+  border: 1px solid #e7ded9;
+  border-radius: 12px;
+  background: var(--customer-paper, #fdfaf6);
+  box-shadow: 0 4px 16px rgba(54, 34, 38, .035);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.contact-page-body .contact-card-title,
+.contact-page-body .contact-subtitle {
+  margin: 0 0 12px;
+  color: var(--customer-ink-strong, #2b2b31);
+  font: 700 24px / 1.3 "Montserrat", sans-serif;
+  letter-spacing: -.025em;
+  overflow-wrap: anywhere;
+}
+
+.contact-page-body .contact-card-kicker {
+  margin-bottom: 10px;
+  font-size: 10px;
+}
+
+.contact-page-body .contact-lead {
+  margin: 0 0 24px;
+  color: #676169;
+  font: 500 14px / 1.75 "Montserrat", sans-serif;
+}
+
+.contact-page-body .contact-links-list {
+  gap: 0;
+}
+
+.contact-page-body .contact-links-list li {
+  align-items: flex-start;
+  gap: 14px;
+  padding: 18px 0;
+  border: 0;
+  border-top: 1px solid #efe6da;
+  border-radius: 0;
+  background: transparent;
+}
+
+.contact-page-body .contact-links-list li:last-child {
+  border-bottom: 1px solid #efe6da;
+}
+
+.contact-page-body .contact-link-icon {
+  display: grid;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid #e2cfd1;
+  border-radius: 8px;
+  background: var(--customer-wine-soft, #f5e8e9);
+  color: var(--customer-wine, #6b202b);
+}
+
+.contact-page-body .contact-link-text {
+  min-width: 0;
+  padding-top: 6px;
+  color: #4e4b53;
+  font: 600 13px / 1.6 "Montserrat", sans-serif;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.contact-page-body .contact-link-text:hover {
+  color: var(--customer-wine, #6b202b);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.contact-page-body .contact-form-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.contact-page-body .contact-form-grid {
+  gap: 20px;
+}
+
+.contact-page-body .contact-field-group label {
+  margin-bottom: 8px;
+  color: #4e4b53;
+  font: 700 12px / 1.5 "Montserrat", sans-serif;
+}
+
+.contact-page-body .contact-input {
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid #d8ccc7;
+  border-radius: 7px;
+  background: var(--customer-paper, #fdfaf6);
+  color: var(--customer-ink-strong, #2b2b31);
+  font: 500 14px / 1.5 "Montserrat", sans-serif;
+  transition: border-color 110ms ease, box-shadow 110ms ease;
+}
+
+.contact-page-body .contact-textarea {
+  min-height: 156px;
+  resize: vertical;
+}
+
+.contact-page-body .contact-input:focus {
+  border-color: var(--customer-wine, #6b202b);
+  box-shadow: 0 0 0 3px rgba(107, 32, 43, .1);
+  outline: 0;
+}
+
+.contact-page-body .consent-label {
+  color: #676169;
+  font: 500 12px / 1.6 "Montserrat", sans-serif;
+}
+
+.contact-page-body .contact-submit-btn {
+  min-height: 46px;
+  padding: 12px 20px;
+  border: 1px solid var(--customer-wine, #6b202b);
+  border-radius: 7px;
+  background: var(--customer-wine, #6b202b);
+  color: var(--customer-paper, #fdfaf6);
+  font: 700 13px / 1.4 "Montserrat", sans-serif;
+  transition: background-color 110ms ease, border-color 110ms ease;
+}
+
+.contact-page-body .contact-submit-btn:hover {
+  border-color: var(--customer-wine-hover, #511721);
+  background: var(--customer-wine-hover, #511721);
+  transform: none;
+}
+
+.contact-page-body :is(a, button, input, textarea, select):focus-visible {
+  outline: 2px solid var(--customer-wine, #6b202b);
+  outline-offset: 3px;
+}
+
+@media (max-width: 639px) {
+  .contact-page-body .contact-page-header {
+    padding-top: 52px;
+  }
+
+  .contact-page-body .contact-page-title {
+    font-size: clamp(38px, 12vw, 54px);
+  }
+
+  .contact-page-body .contact-main-section {
+    padding-top: 32px;
+    padding-bottom: 56px;
+  }
+
+  .contact-page-body .contact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .contact-page-body .contact-info-card,
+  .contact-page-body .contact-form-card {
+    padding: 24px 20px 26px;
+  }
+
+  .contact-page-body .contact-form-actions {
+    align-items: stretch !important;
+    flex-direction: column !important;
+  }
+
+  .contact-page-body .contact-submit-btn {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contact-page-body .contact-input,
+  .contact-page-body .contact-submit-btn {
+    transition: none;
+  }
+}

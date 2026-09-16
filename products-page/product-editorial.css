@@ -1,0 +1,452 @@
+/* Product page editorial layer. It follows the Services card rhythm while
+   leaving every product dialog, checkout surface, and review overlay intact. */
+.products-page-body {
+  background: var(--customer-paper-sink, #f7f2ec);
+  color: var(--customer-ink-strong, #2b2b31);
+}
+
+.products-page-body .products-page-intro {
+  padding: 56px max(24px, env(safe-area-inset-right)) 40px max(24px, env(safe-area-inset-left));
+  background: var(--customer-paper-sink, #f7f2ec);
+}
+
+.products-page-body .products-page-intro__container {
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  padding: 42px 32px 46px;
+  border: 1px solid #e7ded9;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(107, 32, 43, .07), transparent 55%),
+    var(--customer-paper, #fdfaf6);
+  box-shadow: 0 8px 24px rgba(54, 34, 38, .045);
+  text-align: center;
+}
+
+.products-page-body .products-page-intro__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 18px;
+  color: var(--customer-wine, #6b202b);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  line-height: 1.5;
+}
+
+.products-page-body .products-page-intro__kicker::before,
+.products-page-body .products-page-intro__kicker::after {
+  width: 34px;
+  height: 1px;
+  background: #cdb9b4;
+  content: "";
+}
+
+.products-page-body .products-page-intro__title {
+  max-width: 1140px;
+  margin: 0 auto;
+  color: var(--customer-wine, #6b202b);
+  font: 800 clamp(36px, 4.2vw, 56px) / 1.08 "Montserrat", sans-serif;
+  letter-spacing: -.05em;
+  overflow-wrap: anywhere;
+}
+
+.products-page-body .products-page-intro__copy {
+  display: none;
+}
+
+.products-page-body .products-toolbar {
+  margin: 0;
+  padding: 32px max(24px, env(safe-area-inset-right)) 32px max(24px, env(safe-area-inset-left));
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.products-page-body .products-toolbar .toolbar-container {
+  width: 100%;
+  max-width: 1200px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px 24px;
+}
+
+.products-page-body .toolbar-search,
+.products-page-body .category-dropdown-box {
+  border: 1px solid #d8ccc7;
+  border-radius: 8px;
+  background: var(--customer-paper, #fdfaf6);
+  box-shadow: none;
+  transition: border-color 110ms ease, background-color 110ms ease;
+}
+
+.products-page-body .toolbar-search {
+  width: 100%;
+  max-width: none;
+  min-height: 52px;
+  padding: 12px 16px;
+}
+
+.products-page-body .toolbar-search:focus-within,
+.products-page-body .category-dropdown-box:focus-within {
+  border-color: var(--customer-wine, #6b202b);
+  background: var(--customer-paper, #fdfaf6);
+  box-shadow: 0 0 0 3px rgba(107, 32, 43, .1);
+}
+
+.products-page-body .toolbar-search .search-input {
+  margin-left: 10px;
+  color: var(--customer-ink-strong, #2b2b31);
+  font: 500 14px / 1.4 "Montserrat", sans-serif;
+}
+
+.products-page-body .toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.products-page-body .category-dropdown-box {
+  min-height: 52px;
+  padding: 0 14px;
+}
+
+.products-page-body .category-select {
+  min-height: 50px;
+  padding-right: 26px;
+  color: var(--customer-ink-strong, #2b2b31);
+  font: 600 13px / 1.4 "Montserrat", sans-serif;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='m1 1.5 5 5 5-5' stroke='%236b202b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right center;
+  background-size: 12px 8px;
+  text-overflow: ellipsis;
+}
+
+.products-page-body .category-select:open {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='m1 6.5 5-5 5 5' stroke='%236b202b' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.products-page-body .shop-section {
+  padding: 0 max(24px, env(safe-area-inset-right)) 88px max(24px, env(safe-area-inset-left));
+}
+
+.products-page-body .shop-grid {
+  width: 100%;
+  max-width: 1200px;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 24px !important;
+}
+
+.products-page-body .shop-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: auto;
+  overflow: hidden;
+  border: 1px solid #e7ded9;
+  border-radius: 12px;
+  background: var(--customer-paper, #fdfaf6);
+  box-shadow: 0 4px 16px rgba(54, 34, 38, .035);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transform: none;
+  transition: border-color 110ms ease, box-shadow 110ms ease;
+}
+
+.products-page-body .shop-card:is(:hover, :focus-within) {
+  border-color: #bda3a7;
+  box-shadow: 0 4px 18px rgba(54, 34, 38, .065);
+  transform: none;
+}
+
+/* The card keeps the catalog image prominent, with the information directly
+   beneath it and the actions at the foot of the card. */
+.products-page-body .shop-card .product-info {
+  order: 2;
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
+  min-width: 0;
+  padding: 24px 24px 18px;
+  background: transparent;
+}
+
+.products-page-body .product-category-label {
+  display: block;
+  max-width: 100%;
+  margin: 0 0 12px;
+  color: var(--customer-wine, #6b202b);
+  font: 700 10px / 1.5 "Montserrat", sans-serif;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.products-page-body .product-name {
+  max-width: 100%;
+  margin: 0 0 10px;
+  color: var(--customer-ink-strong, #2b2b31);
+  font: 700 20px / 1.35 "Montserrat", sans-serif;
+  letter-spacing: -.025em;
+  overflow-wrap: anywhere;
+}
+
+.products-page-body .product-code-row {
+  margin: 0 0 14px;
+  color: #676169;
+  font: 500 12px / 1.5 "Montserrat", sans-serif;
+  overflow-wrap: anywhere;
+}
+
+.products-page-body .code-label {
+  color: var(--customer-wine, #6b202b);
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+.products-page-body .code-value {
+  color: #676169;
+  font-weight: 500;
+}
+
+.products-page-body .product-price {
+  margin: 0 0 14px;
+  color: var(--customer-wine, #6b202b);
+  font: 800 21px / 1.25 "Montserrat", sans-serif;
+  letter-spacing: -.02em;
+}
+
+.products-page-body .product-price-sale .sale-price {
+  color: var(--customer-wine, #6b202b);
+  font-size: inherit;
+}
+
+.products-page-body .product-price-sale .original-price {
+  color: #8b8082;
+  font-size: 12px;
+}
+
+.products-page-body .product-rating-row {
+  margin: 0 0 14px;
+}
+
+.products-page-body .product-stock-row {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid #efe6da;
+}
+
+.products-page-body .product-img-wrapper {
+  order: 1;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  border: 0;
+  border-bottom: 1px solid rgba(107, 32, 43, .08);
+  background: var(--customer-paper-edge, #efe6da);
+}
+
+.products-page-body .product-img-wrapper img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: none;
+  transition: none;
+}
+
+.products-page-body .product-discount-badge {
+  top: 12px;
+  left: 12px;
+  border-radius: 6px;
+  background: var(--customer-wine, #6b202b);
+  box-shadow: none;
+  font-size: 10px;
+}
+
+.products-page-body .product-actions {
+  order: 3;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 16px 24px 22px;
+  border: 0;
+  border-radius: 0;
+  background: var(--customer-paper, #fdfaf6);
+}
+
+.products-page-body .product-actions .action-btn {
+  min-height: 40px;
+  padding: 8px 7px;
+  border-radius: 6px;
+  font-size: 10px;
+  transition: color 110ms ease, border-color 110ms ease, background-color 110ms ease;
+}
+
+.products-page-body .product-actions .action-btn:hover:not(:disabled) {
+  transform: none;
+}
+
+.products-page-body .product-actions .btn-view-info,
+.products-page-body .product-actions .btn-add-cart {
+  border-color: #d8ccc7;
+  background: transparent;
+  color: var(--customer-wine, #6b202b);
+}
+
+.products-page-body .product-actions .btn-view-info:hover:not(:disabled),
+.products-page-body .product-actions .btn-add-cart:hover:not(:disabled) {
+  border-color: var(--customer-wine, #6b202b);
+  background: var(--customer-wine-soft, #f5e8e9);
+  color: var(--customer-wine, #6b202b);
+}
+
+.products-page-body .product-actions .btn-buy-now {
+  border-color: var(--customer-wine, #6b202b);
+  background: var(--customer-wine, #6b202b);
+  color: var(--customer-paper, #fdfaf6);
+}
+
+.products-page-body .product-actions .btn-buy-now:hover:not(:disabled) {
+  border-color: var(--customer-wine-hover, #511721);
+  background: var(--customer-wine-hover, #511721);
+}
+
+/* Keep the add-to-cart control rectangular like its neighboring card actions;
+   the cart glyph itself remains the accessible icon. */
+.products-page-body .product-actions .btn-add-cart {
+  border-radius: 6px !important;
+}
+
+.products-page-body .product-actions .btn-view-info { order: 1; }
+.products-page-body .product-actions .btn-add-cart { order: 2; }
+.products-page-body .product-actions .btn-buy-now { order: 3; }
+
+/* On desktop, keep View Info at its normal content width and use the free
+   space to push the Cart + Buy Now pair together on the right. The phone
+   layout is finalized by the modern iPhone band in customer-mobile.css. */
+@media (min-width: 721px) {
+  .products-page-body .product-actions {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    grid-template-columns: none;
+  }
+
+  .products-page-body .product-actions .action-btn {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+
+  .products-page-body .product-actions .btn-view-info {
+    width: auto !important;
+    max-width: 100%;
+    flex: 1 1 auto;
+  }
+
+  .products-page-body .product-actions .btn-add-cart {
+    margin-left: auto;
+    width: 44px !important;
+    min-width: 44px;
+    flex: 0 0 44px;
+  }
+
+  .products-page-body .product-actions .btn-buy-now {
+    width: auto !important;
+    min-width: 88px;
+    flex: 0 0 auto;
+  }
+}
+
+.products-page-body .products-empty-state {
+  grid-column: 1 / -1;
+  min-height: 260px;
+  padding: 40px 24px;
+  border: 1px solid #e7ded9;
+  border-radius: 12px;
+  background: var(--customer-paper, #fdfaf6);
+  color: #676169;
+}
+
+.products-page-body .products-empty-state h3 {
+  color: var(--customer-ink-strong, #2b2b31);
+  font-size: 18px;
+}
+
+.products-page-body .product-skeleton-card .product-skeleton-img {
+  order: 1;
+  aspect-ratio: 16 / 10;
+  height: auto;
+  border-bottom: 1px solid rgba(107, 32, 43, .08);
+}
+
+.products-page-body .product-skeleton-card .product-info {
+  order: 2;
+  min-height: 170px;
+}
+
+@media (max-width: 1099px) {
+  .products-page-body .shop-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 639px) {
+  .products-page-body .products-page-intro {
+    padding-top: 40px;
+    padding-bottom: 28px;
+  }
+
+  .products-page-body .products-page-intro__container {
+    padding: 30px 18px 34px;
+  }
+
+  .products-page-body .products-page-intro__title {
+    font-size: clamp(38px, 12vw, 54px);
+  }
+
+  .products-page-body .products-toolbar {
+    padding-top: 24px;
+    padding-bottom: 24px;
+  }
+
+  .products-page-body .products-toolbar .toolbar-container,
+  .products-page-body .shop-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .products-page-body .toolbar-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .products-page-body .category-dropdown-box,
+  .products-page-body .category-select {
+    width: 100%;
+  }
+
+  .products-page-body .shop-section {
+    padding-bottom: 56px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .products-page-body .toolbar-search,
+  .products-page-body .category-dropdown-box,
+  .products-page-body .shop-card,
+  .products-page-body .product-actions .action-btn {
+    transition: none;
+  }
+}

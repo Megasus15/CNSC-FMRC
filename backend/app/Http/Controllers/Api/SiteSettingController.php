@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\SiteSetting;
 use App\Support\EmailTemplate;
+use App\Support\WebsiteContentLimits;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -99,9 +100,9 @@ class SiteSettingController extends Controller
             ], 403);
         }
 
-        $request->validate([
-            '*' => 'nullable',
-        ]);
+        // Validate the entire payload before saving any settings so an overlong
+        // field produces a field-specific 422 without a partially saved page.
+        $request->validate(WebsiteContentLimits::settingsRules(), WebsiteContentLimits::messages());
 
         // Accept any key-value pairs from the request body
         $input = $request->all();

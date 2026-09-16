@@ -65,17 +65,24 @@ async function loadSettings() {
     const res = await fetch(`${API}/site-settings`);
     const json = await res.json();
     const s = json.data || {};
-    setVal("footerBrandName", s.footer_brand_name || "");
-    setVal("footerBrandDesc", s.footer_brand_desc || "");
-    setVal("footerHoursDays", s.footer_hours_days || "");
-    setVal("footerHoursTime", s.footer_hours_time || "");
-    setVal("footerContactLocation", s.footer_contact_location || "");
-    setVal("footerContactLocationUrl", s.footer_contact_location_url || "");
-    setVal("footerContactEmail", s.footer_contact_email || "");
-    setVal("footerContactPhone", s.footer_contact_phone || "");
-    setVal("footerContactFacebook", s.footer_contact_facebook || "");
-    setVal("footerContactFacebookUrl", s.footer_contact_facebook_url || "");
-    setVal("footerCopyright", s.footer_copyright || "");
+    setVal("footerBrandName", s.footer_brand_name || s.footerBrandName || "UCN-FMRC");
+    setVal("footerBrandSubtitle", s.footer_brand_subtitle || s.footerBrandSubtitle || "Fabrication & Manufacturing Research Center");
+    setVal("footerBrandDesc", s.footer_brand_desc || s.footerBrandDesc || "Fabrication and Manufacturing Research Center - Advancing innovation through technology and excellence in manufacturing.");
+    setVal("footerCampusTag", s.footer_campus_tag || s.footerCampusTag || "Main Campus • Daet, Camarines Norte, Philippines, 4600");
+    setVal("footerHoursDays", s.footer_hours_days || s.footerHoursDays || "Monday - Friday");
+    setVal("footerHoursTime", s.footer_hours_time || s.footerHoursTime || "7:00am - 6:00pm");
+    setVal("footerContactLocation", s.footer_contact_location || s.footerContactLocation || "First Flr., Graduate School Building, University of Camarines Norte, Daet, Philippines");
+    setVal("footerContactLocationUrl", s.footer_contact_location_url || s.footerContactLocationUrl || "https://www.google.com/maps/search/?api=1&query=Camarines+Norte+State+College,+Daet,+Philippines");
+    setVal("footerContactEmail", s.footer_contact_email || s.footerContactEmail || "fmrc@cnsc.edu.ph");
+    setVal("footerContactPhone", s.footer_contact_phone || s.footerContactPhone || "0909-099-0000");
+    setVal("footerContactFacebook", s.footer_contact_facebook || s.footerContactFacebook || "UCN FMRC");
+    setVal("footerContactFacebookUrl", s.footer_contact_facebook_url || s.footerContactFacebookUrl || "https://www.facebook.com/share/18MJcUvJeM/");
+    setVal("footerPublicWebsiteLabel", s.footer_public_website_label || s.footerPublicWebsiteLabel || "Official UCN website");
+    setVal("footerPublicWebsiteUrl", s.footer_public_website_url || s.footerPublicWebsiteUrl || "https://ucn.edu.ph");
+    setVal("footerPublicUcnFbLabel", s.footer_public_ucn_fb_label || s.footerPublicUcnFbLabel || "UCN official Facebook page");
+    setVal("footerPublicUcnFbUrl", s.footer_public_ucn_fb_url || s.footerPublicUcnFbUrl || "https://www.facebook.com/ucnofficial");
+    setVal("footerCopyright", s.footer_copyright || s.footerCopyright || "© 2026 UCN Fabrication and Manufacturing Research Center. All rights reserved.");
+    setVal("footerBottomDev", s.footer_bottom_dev || s.footerBottomDev || "Developed for UCN – Fabrication and Manufacturing Research Center.");
 
     try {
       quickLinks = JSON.parse(s.footer_quick_links || "[]");
@@ -149,25 +156,39 @@ async function doSave() {
   }
 
   const links = collectQuickLinks();
+  const getV = (id) => (document.getElementById(id)?.value || "").trim();
   const payload = {
-    footer_brand_name: document.getElementById("footerBrandName").value,
-    footer_brand_desc: document.getElementById("footerBrandDesc").value,
+    footer_brand_name: getV("footerBrandName"),
+    footer_brand_subtitle: getV("footerBrandSubtitle"),
+    footer_brand_desc: getV("footerBrandDesc"),
+    footer_campus_tag: getV("footerCampusTag"),
     footer_quick_links: JSON.stringify(links),
-    footer_hours_days: document.getElementById("footerHoursDays").value,
-    footer_hours_time: document.getElementById("footerHoursTime").value,
-    footer_contact_location: document.getElementById("footerContactLocation")
-      .value,
-    footer_contact_location_url: document.getElementById(
-      "footerContactLocationUrl",
-    ).value,
-    footer_contact_email: document.getElementById("footerContactEmail").value,
-    footer_contact_phone: document.getElementById("footerContactPhone").value,
-    footer_contact_facebook: document.getElementById("footerContactFacebook")
-      .value,
-    footer_contact_facebook_url: document.getElementById(
-      "footerContactFacebookUrl",
-    ).value,
-    footer_copyright: document.getElementById("footerCopyright").value,
+    footer_hours_days: getV("footerHoursDays"),
+    footer_hours_time: getV("footerHoursTime"),
+    footer_contact_location: getV("footerContactLocation"),
+    footer_contact_location_url: getV("footerContactLocationUrl"),
+    footer_contact_email: getV("footerContactEmail"),
+    footer_contact_phone: getV("footerContactPhone"),
+    footer_contact_facebook: getV("footerContactFacebook"),
+    footer_contact_facebook_url: getV("footerContactFacebookUrl"),
+    footer_public_website_label: getV("footerPublicWebsiteLabel"),
+    footer_public_website_url: getV("footerPublicWebsiteUrl"),
+    footer_public_ucn_fb_label: getV("footerPublicUcnFbLabel"),
+    footer_public_ucn_fb_url: getV("footerPublicUcnFbUrl"),
+    footer_copyright: getV("footerCopyright"),
+    footer_bottom_dev: getV("footerBottomDev"),
+    footerBrandName: getV("footerBrandName"),
+    footerBrandSubtitle: getV("footerBrandSubtitle"),
+    footerBrandDesc: getV("footerBrandDesc"),
+    footerCampusTag: getV("footerCampusTag"),
+    footerHoursDays: getV("footerHoursDays"),
+    footerHoursTime: getV("footerHoursTime"),
+    footerPublicWebsiteLabel: getV("footerPublicWebsiteLabel"),
+    footerPublicWebsiteUrl: getV("footerPublicWebsiteUrl"),
+    footerPublicUcnFbLabel: getV("footerPublicUcnFbLabel"),
+    footerPublicUcnFbUrl: getV("footerPublicUcnFbUrl"),
+    footerCopyright: getV("footerCopyright"),
+    footerBottomDev: getV("footerBottomDev"),
   };
   try {
     const res = await fetch(`${API}/admin/site-settings`, {

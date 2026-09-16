@@ -268,7 +268,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/admin/announcements/{announcement}', [AnnouncementController::class, 'update']);
     Route::delete('/admin/announcements/{announcement}', [AnnouncementController::class, 'destroy']);
 
-    // Admin: Site Settings
+    // Admin/Staff: editable customer page settings
     Route::put('/admin/site-settings', [SiteSettingController::class, 'bulkUpdate']);
 
     // Admin only: Gmail notification templates. Reads only -- saving an edited
@@ -285,7 +285,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // purpose: taking the customer site offline is not a staff action.
     Route::put('/admin/maintenance', [MaintenanceController::class, 'update']);
 
-    // Admin: Services CRUD
+    // Admin/Staff: Services CRUD
     Route::get('/admin/services', [ServiceController::class, 'adminIndex']);
     Route::post('/admin/services', [ServiceController::class, 'store']);
     Route::put('/admin/services/{service}', [ServiceController::class, 'update']);

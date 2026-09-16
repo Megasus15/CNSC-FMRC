@@ -1,0 +1,1179 @@
+{
+  "boundary": "Local static customer pages; all API responses are fixtures; synthetic customer account in isolated Chrome profile.",
+  "layouts": [
+    {
+      "route": "/home-page/main.html",
+      "auth": false,
+      "width": 1440,
+      "viewport": 1425,
+      "scrollWidth": 1425,
+      "header": {
+        "left": 0,
+        "right": 1425,
+        "top": 0,
+        "bottom": 76,
+        "width": 1425,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/home-page/main.html",
+      "auth": false,
+      "width": 1024,
+      "viewport": 1009,
+      "scrollWidth": 1009,
+      "header": {
+        "left": 0,
+        "right": 1009,
+        "top": 0,
+        "bottom": 76,
+        "width": 1009,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/home-page/main.html",
+      "auth": false,
+      "width": 901,
+      "viewport": 886,
+      "scrollWidth": 886,
+      "header": {
+        "left": 0,
+        "right": 886,
+        "top": 0,
+        "bottom": 76,
+        "width": 886,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/home-page/main.html",
+      "auth": false,
+      "width": 768,
+      "viewport": 753,
+      "scrollWidth": 753,
+      "header": {
+        "left": 0,
+        "right": 753,
+        "top": 0,
+        "bottom": 69,
+        "width": 753,
+        "height": 69
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/home-page/main.html",
+      "auth": false,
+      "width": 390,
+      "viewport": 375,
+      "scrollWidth": 375,
+      "header": {
+        "left": 0,
+        "right": 375,
+        "top": 0,
+        "bottom": 68,
+        "width": 375,
+        "height": 68
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/home-page/main.html",
+      "auth": false,
+      "width": 320,
+      "viewport": 305,
+      "scrollWidth": 305,
+      "header": {
+        "left": 0,
+        "right": 305,
+        "top": 0,
+        "bottom": 68,
+        "width": 305,
+        "height": 68
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/about-page/about.html",
+      "auth": false,
+      "width": 1440,
+      "viewport": 1425,
+      "scrollWidth": 1425,
+      "header": {
+        "left": 0,
+        "right": 1425,
+        "top": 0,
+        "bottom": 76,
+        "width": 1425,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/about-page/about.html",
+      "auth": false,
+      "width": 1024,
+      "viewport": 1009,
+      "scrollWidth": 1009,
+      "header": {
+        "left": 0,
+        "right": 1009,
+        "top": 0,
+        "bottom": 76,
+        "width": 1009,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/about-page/about.html",
+      "auth": false,
+      "width": 901,
+      "viewport": 886,
+      "scrollWidth": 886,
+      "header": {
+        "left": 0,
+        "right": 886,
+        "top": 0,
+        "bottom": 76,
+        "width": 886,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/about-page/about.html",
+      "auth": false,
+      "width": 768,
+      "viewport": 753,
+      "scrollWidth": 753,
+      "header": {
+        "left": 0,
+        "right": 753,
+        "top": 0,
+        "bottom": 69,
+        "width": 753,
+        "height": 69
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/about-page/about.html",
+      "auth": false,
+      "width": 390,
+      "viewport": 375,
+      "scrollWidth": 375,
+      "header": {
+        "left": 0,
+        "right": 375,
+        "top": 0,
+        "bottom": 68,
+        "width": 375,
+        "height": 68
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/about-page/about.html",
+      "auth": false,
+      "width": 320,
+      "viewport": 305,
+      "scrollWidth": 305,
+      "header": {
+        "left": 0,
+        "right": 305,
+        "top": 0,
+        "bottom": 68,
+        "width": 305,
+        "height": 68
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/services-page/service.html",
+      "auth": false,
+      "width": 1440,
+      "viewport": 1425,
+      "scrollWidth": 1425,
+      "header": {
+        "left": 0,
+        "right": 1425,
+        "top": 0,
+        "bottom": 76,
+        "width": 1425,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/services-page/service.html",
+      "auth": false,
+      "width": 1024,
+      "viewport": 1009,
+      "scrollWidth": 1009,
+      "header": {
+        "left": 0,
+        "right": 1009,
+        "top": 0,
+        "bottom": 76,
+        "width": 1009,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/services-page/service.html",
+      "auth": false,
+      "width": 901,
+      "viewport": 886,
+      "scrollWidth": 886,
+      "header": {
+        "left": 0,
+        "right": 886,
+        "top": 0,
+        "bottom": 76,
+        "width": 886,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/services-page/service.html",
+      "auth": false,
+      "width": 768,
+      "viewport": 753,
+      "scrollWidth": 753,
+      "header": {
+        "left": 0,
+        "right": 753,
+        "top": 0,
+        "bottom": 69,
+        "width": 753,
+        "height": 69
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/services-page/service.html",
+      "auth": false,
+      "width": 390,
+      "viewport": 375,
+      "scrollWidth": 375,
+      "header": {
+        "left": 0,
+        "right": 375,
+        "top": 0,
+        "bottom": 68,
+        "width": 375,
+        "height": 68
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/services-page/service.html",
+      "auth": false,
+      "width": 320,
+      "viewport": 305,
+      "scrollWidth": 305,
+      "header": {
+        "left": 0,
+        "right": 305,
+        "top": 0,
+        "bottom": 68,
+        "width": 305,
+        "height": 68
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/products-page/product.html",
+      "auth": false,
+      "width": 1440,
+      "viewport": 1425,
+      "scrollWidth": 1425,
+      "header": {
+        "left": 0,
+        "right": 1425,
+        "top": 0,
+        "bottom": 76,
+        "width": 1425,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/products-page/product.html",
+      "auth": false,
+      "width": 1024,
+      "viewport": 1009,
+      "scrollWidth": 1009,
+      "header": {
+        "left": 0,
+        "right": 1009,
+        "top": 0,
+        "bottom": 76,
+        "width": 1009,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/products-page/product.html",
+      "auth": false,
+      "width": 901,
+      "viewport": 886,
+      "scrollWidth": 886,
+      "header": {
+        "left": 0,
+        "right": 886,
+        "top": 0,
+        "bottom": 76,
+        "width": 886,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/products-page/product.html",
+      "auth": false,
+      "width": 768,
+      "viewport": 753,
+      "scrollWidth": 753,
+      "header": {
+        "left": 0,
+        "right": 753,
+        "top": 0,
+        "bottom": 69,
+        "width": 753,
+        "height": 69
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/products-page/product.html",
+      "auth": false,
+      "width": 390,
+      "viewport": 375,
+      "scrollWidth": 375,
+      "header": {
+        "left": 0,
+        "right": 375,
+        "top": 0,
+        "bottom": 68,
+        "width": 375,
+        "height": 68
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/products-page/product.html",
+      "auth": false,
+      "width": 320,
+      "viewport": 305,
+      "scrollWidth": 305,
+      "header": {
+        "left": 0,
+        "right": 305,
+        "top": 0,
+        "bottom": 68,
+        "width": 305,
+        "height": 68
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/contact-page/contact.html",
+      "auth": false,
+      "width": 1440,
+      "viewport": 1425,
+      "scrollWidth": 1425,
+      "header": {
+        "left": 0,
+        "right": 1425,
+        "top": 0,
+        "bottom": 76,
+        "width": 1425,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/contact-page/contact.html",
+      "auth": false,
+      "width": 1024,
+      "viewport": 1009,
+      "scrollWidth": 1009,
+      "header": {
+        "left": 0,
+        "right": 1009,
+        "top": 0,
+        "bottom": 76,
+        "width": 1009,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/contact-page/contact.html",
+      "auth": false,
+      "width": 901,
+      "viewport": 886,
+      "scrollWidth": 886,
+      "header": {
+        "left": 0,
+        "right": 886,
+        "top": 0,
+        "bottom": 76,
+        "width": 886,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/contact-page/contact.html",
+      "auth": false,
+      "width": 768,
+      "viewport": 753,
+      "scrollWidth": 753,
+      "header": {
+        "left": 0,
+        "right": 753,
+        "top": 0,
+        "bottom": 69,
+        "width": 753,
+        "height": 69
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/contact-page/contact.html",
+      "auth": false,
+      "width": 390,
+      "viewport": 375,
+      "scrollWidth": 375,
+      "header": {
+        "left": 0,
+        "right": 375,
+        "top": 0,
+        "bottom": 68,
+        "width": 375,
+        "height": 68
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/contact-page/contact.html",
+      "auth": false,
+      "width": 320,
+      "viewport": 305,
+      "scrollWidth": 305,
+      "header": {
+        "left": 0,
+        "right": 305,
+        "top": 0,
+        "bottom": 68,
+        "width": 305,
+        "height": 68
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/home-page/main.html",
+      "auth": true,
+      "width": 1440,
+      "viewport": 1425,
+      "scrollWidth": 1425,
+      "header": {
+        "left": 0,
+        "right": 1425,
+        "top": 0,
+        "bottom": 76,
+        "width": 1425,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/home-page/main.html",
+      "auth": true,
+      "width": 1024,
+      "viewport": 1009,
+      "scrollWidth": 1009,
+      "header": {
+        "left": 0,
+        "right": 1009,
+        "top": 0,
+        "bottom": 76,
+        "width": 1009,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/home-page/main.html",
+      "auth": true,
+      "width": 901,
+      "viewport": 886,
+      "scrollWidth": 886,
+      "header": {
+        "left": 0,
+        "right": 886,
+        "top": 0,
+        "bottom": 76,
+        "width": 886,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/home-page/main.html",
+      "auth": true,
+      "width": 768,
+      "viewport": 753,
+      "scrollWidth": 753,
+      "header": {
+        "left": 0,
+        "right": 753,
+        "top": 0,
+        "bottom": 69,
+        "width": 753,
+        "height": 69
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/home-page/main.html",
+      "auth": true,
+      "width": 390,
+      "viewport": 375,
+      "scrollWidth": 375,
+      "header": {
+        "left": 0,
+        "right": 375,
+        "top": 0,
+        "bottom": 68,
+        "width": 375,
+        "height": 68
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/home-page/main.html",
+      "auth": true,
+      "width": 320,
+      "viewport": 305,
+      "scrollWidth": 305,
+      "header": {
+        "left": 0,
+        "right": 305,
+        "top": 0,
+        "bottom": 68,
+        "width": 305,
+        "height": 68
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/about-page/about.html",
+      "auth": true,
+      "width": 1440,
+      "viewport": 1425,
+      "scrollWidth": 1425,
+      "header": {
+        "left": 0,
+        "right": 1425,
+        "top": 0,
+        "bottom": 76,
+        "width": 1425,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/about-page/about.html",
+      "auth": true,
+      "width": 1024,
+      "viewport": 1009,
+      "scrollWidth": 1009,
+      "header": {
+        "left": 0,
+        "right": 1009,
+        "top": 0,
+        "bottom": 76,
+        "width": 1009,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/about-page/about.html",
+      "auth": true,
+      "width": 901,
+      "viewport": 886,
+      "scrollWidth": 886,
+      "header": {
+        "left": 0,
+        "right": 886,
+        "top": 0,
+        "bottom": 76,
+        "width": 886,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/about-page/about.html",
+      "auth": true,
+      "width": 768,
+      "viewport": 753,
+      "scrollWidth": 753,
+      "header": {
+        "left": 0,
+        "right": 753,
+        "top": 0,
+        "bottom": 69,
+        "width": 753,
+        "height": 69
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/about-page/about.html",
+      "auth": true,
+      "width": 390,
+      "viewport": 375,
+      "scrollWidth": 375,
+      "header": {
+        "left": 0,
+        "right": 375,
+        "top": 0,
+        "bottom": 68,
+        "width": 375,
+        "height": 68
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/about-page/about.html",
+      "auth": true,
+      "width": 320,
+      "viewport": 305,
+      "scrollWidth": 305,
+      "header": {
+        "left": 0,
+        "right": 305,
+        "top": 0,
+        "bottom": 68,
+        "width": 305,
+        "height": 68
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/services-page/service.html",
+      "auth": true,
+      "width": 1440,
+      "viewport": 1425,
+      "scrollWidth": 1425,
+      "header": {
+        "left": 0,
+        "right": 1425,
+        "top": 0,
+        "bottom": 76,
+        "width": 1425,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/services-page/service.html",
+      "auth": true,
+      "width": 1024,
+      "viewport": 1009,
+      "scrollWidth": 1009,
+      "header": {
+        "left": 0,
+        "right": 1009,
+        "top": 0,
+        "bottom": 76,
+        "width": 1009,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/services-page/service.html",
+      "auth": true,
+      "width": 901,
+      "viewport": 886,
+      "scrollWidth": 886,
+      "header": {
+        "left": 0,
+        "right": 886,
+        "top": 0,
+        "bottom": 76,
+        "width": 886,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/services-page/service.html",
+      "auth": true,
+      "width": 768,
+      "viewport": 753,
+      "scrollWidth": 753,
+      "header": {
+        "left": 0,
+        "right": 753,
+        "top": 0,
+        "bottom": 69,
+        "width": 753,
+        "height": 69
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/services-page/service.html",
+      "auth": true,
+      "width": 390,
+      "viewport": 375,
+      "scrollWidth": 375,
+      "header": {
+        "left": 0,
+        "right": 375,
+        "top": 0,
+        "bottom": 68,
+        "width": 375,
+        "height": 68
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/services-page/service.html",
+      "auth": true,
+      "width": 320,
+      "viewport": 305,
+      "scrollWidth": 305,
+      "header": {
+        "left": 0,
+        "right": 305,
+        "top": 0,
+        "bottom": 68,
+        "width": 305,
+        "height": 68
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/products-page/product.html",
+      "auth": true,
+      "width": 1440,
+      "viewport": 1425,
+      "scrollWidth": 1425,
+      "header": {
+        "left": 0,
+        "right": 1425,
+        "top": 0,
+        "bottom": 76,
+        "width": 1425,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/products-page/product.html",
+      "auth": true,
+      "width": 1024,
+      "viewport": 1009,
+      "scrollWidth": 1009,
+      "header": {
+        "left": 0,
+        "right": 1009,
+        "top": 0,
+        "bottom": 76,
+        "width": 1009,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/products-page/product.html",
+      "auth": true,
+      "width": 901,
+      "viewport": 886,
+      "scrollWidth": 886,
+      "header": {
+        "left": 0,
+        "right": 886,
+        "top": 0,
+        "bottom": 76,
+        "width": 886,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/products-page/product.html",
+      "auth": true,
+      "width": 768,
+      "viewport": 753,
+      "scrollWidth": 753,
+      "header": {
+        "left": 0,
+        "right": 753,
+        "top": 0,
+        "bottom": 69,
+        "width": 753,
+        "height": 69
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/products-page/product.html",
+      "auth": true,
+      "width": 390,
+      "viewport": 375,
+      "scrollWidth": 375,
+      "header": {
+        "left": 0,
+        "right": 375,
+        "top": 0,
+        "bottom": 68,
+        "width": 375,
+        "height": 68
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/products-page/product.html",
+      "auth": true,
+      "width": 320,
+      "viewport": 305,
+      "scrollWidth": 305,
+      "header": {
+        "left": 0,
+        "right": 305,
+        "top": 0,
+        "bottom": 68,
+        "width": 305,
+        "height": 68
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/contact-page/contact.html",
+      "auth": true,
+      "width": 1440,
+      "viewport": 1425,
+      "scrollWidth": 1425,
+      "header": {
+        "left": 0,
+        "right": 1425,
+        "top": 0,
+        "bottom": 76,
+        "width": 1425,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/contact-page/contact.html",
+      "auth": true,
+      "width": 1024,
+      "viewport": 1009,
+      "scrollWidth": 1009,
+      "header": {
+        "left": 0,
+        "right": 1009,
+        "top": 0,
+        "bottom": 76,
+        "width": 1009,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/contact-page/contact.html",
+      "auth": true,
+      "width": 901,
+      "viewport": 886,
+      "scrollWidth": 886,
+      "header": {
+        "left": 0,
+        "right": 886,
+        "top": 0,
+        "bottom": 76,
+        "width": 886,
+        "height": 76
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/contact-page/contact.html",
+      "auth": true,
+      "width": 768,
+      "viewport": 753,
+      "scrollWidth": 753,
+      "header": {
+        "left": 0,
+        "right": 753,
+        "top": 0,
+        "bottom": 69,
+        "width": 753,
+        "height": 69
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/contact-page/contact.html",
+      "auth": true,
+      "width": 390,
+      "viewport": 375,
+      "scrollWidth": 375,
+      "header": {
+        "left": 0,
+        "right": 375,
+        "top": 0,
+        "bottom": 68,
+        "width": 375,
+        "height": 68
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    },
+    {
+      "route": "/contact-page/contact.html",
+      "auth": true,
+      "width": 320,
+      "viewport": 305,
+      "scrollWidth": 305,
+      "header": {
+        "left": 0,
+        "right": 305,
+        "top": 0,
+        "bottom": 68,
+        "width": 305,
+        "height": 68
+      },
+      "overlaps": [],
+      "signInTruncated": false,
+      "fontLoaded": true
+    }
+  ],
+  "protected": [
+    {
+      "label": "Guest dropdown",
+      "changes": []
+    },
+    {
+      "label": "Customer dropdown",
+      "changes": [
+        {
+          "id": "logoutBtn",
+          "index": 11,
+          "property": "box-shadow",
+          "before": "rgba(133, 19, 19, 0.32) 0px 12px 24px 0px",
+          "after": "none"
+        }
+      ]
+    },
+    {
+      "label": "Confirm Logout modal",
+      "changes": [
+        {
+          "id": "confirmLogoutBtn",
+          "index": 12,
+          "property": "box-shadow",
+          "before": "rgba(133, 19, 19, 0.32) 0px 12px 24px 0px",
+          "after": "none"
+        }
+      ]
+    },
+    {
+      "label": "Phone customer dropdown",
+      "changes": [
+        {
+          "id": "logoutBtn",
+          "index": 11,
+          "property": "box-shadow",
+          "before": "rgba(133, 19, 19, 0.32) 0px 12px 24px 0px",
+          "after": "none"
+        }
+      ]
+    },
+    {
+      "label": "Phone Confirm Logout modal",
+      "changes": [
+        {
+          "id": "confirmLogoutBtn",
+          "index": 12,
+          "property": "box-shadow",
+          "before": "rgba(133, 19, 19, 0.32) 0px 12px 24px 0px",
+          "after": "none"
+        }
+      ]
+    }
+  ],
+  "interactions": [
+    {
+      "name": "Guest dropdown Escape",
+      "pass": true
+    },
+    {
+      "name": "Mobile menu opens",
+      "pass": true
+    },
+    {
+      "name": "Mobile menu Escape",
+      "pass": true
+    },
+    {
+      "name": "Logout confirm opens",
+      "pass": true
+    },
+    {
+      "name": "Logout cancel preserves session",
+      "pass": true
+    },
+    {
+      "name": "Reduced motion navbar",
+      "matches": true,
+      "durations": "1e-06s",
+      "pass": true
+    },
+    {
+      "name": "Keyboard focus visible",
+      "target": "nav-link",
+      "visible": true,
+      "outline": "solid",
+      "width": "2px",
+      "pass": true
+    }
+  ],
+  "logoutShadows": {
+    "dropdown": "none",
+    "confirm": "none"
+  }
+}

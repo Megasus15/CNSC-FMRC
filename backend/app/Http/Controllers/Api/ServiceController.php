@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Service;
+use App\Support\WebsiteContentLimits;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,8 +26,12 @@ class ServiceController extends Controller
 
     // ─── Admin ───────────────────────────────────────────────────────────────────
 
-    public function adminIndex(): JsonResponse
+    public function adminIndex(Request $request): JsonResponse
     {
+        if ($denied = $this->denyUnlessEditor($request)) {
+            return $denied;
+        }
+
         return $this->index();
     }
 
@@ -64,20 +69,11 @@ class ServiceController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'title'             => 'required|string|max:255',
-            'category'          => 'required|string|max:100',
-            'description'       => 'nullable|string',
-            'image_data'        => 'nullable|string',
-            'modal_description' => 'nullable|string',
-            'modal_features'    => 'nullable|array',
-            'modal_features.*'  => 'string|max:200',
-            'modal_materials'   => 'nullable|array',
-            'modal_materials.*' => 'string|max:200',
-            'modal_best_for'    => 'nullable|array',
-            'modal_best_for.*'  => 'string|max:200',
-            'sort_order'        => 'integer|min:0',
-        ]);
+        if ($denied = $this->denyUnlessEditor($request)) {
+            return $denied;
+        }
+
+        $validated = $request->validate(WebsiteContentLimits::serviceRules(), WebsiteContentLimits::messages());
 
         $service = Service::create($validated);
 
@@ -89,20 +85,11 @@ class ServiceController extends Controller
 
     public function update(Request $request, Service $service): JsonResponse
     {
-        $validated = $request->validate([
-            'title'             => 'required|string|max:255',
-            'category'          => 'required|string|max:100',
-            'description'       => 'nullable|string',
-            'image_data'        => 'nullable|string',
-            'modal_description' => 'nullable|string',
-            'modal_features'    => 'nullable|array',
-            'modal_features.*'  => 'string|max:200',
-            'modal_materials'   => 'nullable|array',
-            'modal_materials.*' => 'string|max:200',
-            'modal_best_for'    => 'nullable|array',
-            'modal_best_for.*'  => 'string|max:200',
-            'sort_order'        => 'integer|min:0',
-        ]);
+        if ($denied = $this->denyUnlessEditor($request)) {
+            return $denied;
+        }
+
+        $validated = $request->validate(WebsiteContentLimits::serviceRules(partial: true), WebsiteContentLimits::messages());
 
         if (isset($validated['image_data'])) {
             $val = trim((string) $validated['image_data']);
@@ -125,14 +112,28 @@ class ServiceController extends Controller
         ]);
     }
 
-    public function destroy(Service $service): JsonResponse
+    public function destroy(Request $request, Service $service): JsonResponse
     {
+        if ($denied = $this->denyUnlessEditor($request)) {
+            return $denied;
+        }
+
         $service->delete();
 
         return response()->json(['message' => 'Service deleted successfully.']);
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+    private function denyUnlessEditor(Request $request): ?JsonResponse
+    {
+        $role = strtolower((string) ($request->user()?->role ?? ''));
+        if (!in_array($role, ['admin', 'staff'], true)) {
+            return response()->json(['message' => 'Forbidden. Admin or staff access is required.'], 403);
+        }
+
+        return null;
+    }
 
     private function imageResponse(Request $request, string $imageBytes, string $mimeType, ?\DateTimeInterface $updatedAt): Response
     {

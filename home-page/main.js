@@ -595,7 +595,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (entry.isIntersecting) {
         const id = entry.target.getAttribute("id");
         if (id) {
-          const navSectionId = id === "services-preview" ? "about" : id;
+          // About now has its own page. Every section below the Home hero
+          // still belongs to Home, including the retained #about deep link.
+          const navSectionId = document.body.classList.contains("home-editorial-page")
+            ? "home"
+            : id;
           const activeLinks = document.querySelectorAll(
             `.nav-link[href*="#${navSectionId}"]`,
           );
@@ -7496,6 +7500,16 @@ document.addEventListener("DOMContentLoaded", () => {
     aptPollTimer = null;
     aptAvailabilitySignature = "";
   };
+
+  // The editorial CTAs use the existing hero entry point so authentication,
+  // form reset, availability and submission behavior stay in one place.
+  document.querySelectorAll(".editorial-appointment-trigger").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      if (!appointmentBtn || !appointmentOverlay) return;
+      event.preventDefault();
+      appointmentBtn.click();
+    });
+  });
 
   if (appointmentBtn && appointmentOverlay) {
     appointmentBtn.addEventListener("click", () => {
@@ -14552,11 +14566,11 @@ const openReturnRequestModal = (() => {
 
   function _txt(id, val) {
     const el = document.getElementById(id);
-    if (el && val) el.textContent = val;
+    if (el && val !== undefined) el.textContent = val ?? "";
   }
   function _html(id, val) {
     const el = document.getElementById(id);
-    if (el && val) el.innerHTML = val;
+    if (el && val !== undefined) el.innerHTML = val ?? "";
   }
   function _src(id, val) {
     const el = document.getElementById(id);
@@ -14611,6 +14625,8 @@ const openReturnRequestModal = (() => {
 
   let _settingsSnapshot = "";
   let _servicesSnapshot = "";
+  let _homeServicesLoaded = false;
+  let _servicesLoading = false;
 
   async function loadSiteContent() {
     try {
@@ -14638,17 +14654,47 @@ const openReturnRequestModal = (() => {
    * exactly as it was on boot.
    */
   async function reloadServices() {
-    if (document.body.classList.contains("services-page-body")) return;
+    if (document.body.classList.contains("services-page-body") || _servicesLoading) return;
+    const homeGrid = document.getElementById("homeServicesGrid");
+    _servicesLoading = true;
     try {
       const res = await fetch(_API + "/services");
-      if (!res.ok) return;
+      if (!res.ok) throw new Error("Services request failed");
       const text = await res.text();
       if (text === _servicesSnapshot) return;
+      const payload = JSON.parse(text);
+      if (!Array.isArray(payload.data)) throw new Error("Invalid services response");
+      applyServices(payload.data);
       _servicesSnapshot = text;
-      applyServices(JSON.parse(text).data || []);
+      _homeServicesLoaded = true;
     } catch {
-      /* offline — keep what is already on screen */
+      // Keep previously loaded cards visible during a temporary refresh error.
+      // On the first failure, replace skeletons with a useful retry state.
+      if (homeGrid && !_homeServicesLoaded) {
+        homeGrid.setAttribute("aria-busy", "false");
+        homeGrid.innerHTML = '<div class="home-services-state" role="status"><p data-editorial-copy="editorial_home_services_error">We couldn\'t load our services right now.</p><button class="home-services-retry" type="button"><span data-editorial-copy="editorial_home_services_retry">Try again</span> <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button></div>';
+        window.FMRC_PAGE_CONTENT?.apply();
+      }
+    } finally {
+      _servicesLoading = false;
     }
+  }
+
+  function normalizeAboutLink(value) {
+    const href = String(value || "#");
+    try {
+      const url = new URL(href, window.location.href);
+      if (
+        url.origin === window.location.origin &&
+        /^\/home-page\/main(?:\.html)?\/?$/i.test(url.pathname) &&
+        url.hash.toLowerCase() === "#about"
+      ) {
+        return "/about-page/about.html" + url.search;
+      }
+    } catch {
+      // Keep a custom URL exactly as configured if it cannot be parsed.
+    }
+    return href;
   }
 
   /**
@@ -14753,6 +14799,7 @@ const openReturnRequestModal = (() => {
   }
 
   function applySettings(s) {
+    window.FMRC_PAGE_CONTENT?.apply(s);
     // Hero title. The markup ships empty, so this is the only place the wording
     // comes from; hero-title.js also keeps the snapshot the next load paints
     // from before its first frame. A blank setting clears both, so removing the
@@ -14809,11 +14856,14 @@ const openReturnRequestModal = (() => {
       if (!s[k + "_image"] && !hasGallery) vmPhotoSettle(k, "empty");
     });
     // Footer
-    _txt("footerBrandNameEl", s.footer_brand_name);
-    _txt("footerBrandDescEl", s.footer_brand_desc);
-    _txt("footerHoursDaysEl", s.footer_hours_days);
-    _txt("footerHoursTimeEl", s.footer_hours_time);
-    _txt("footerCopyrightEl", s.footer_copyright);
+    _txt("footerBrandNameEl", (s.footer_brand_name || s.footerBrandName || "").trim() || "University of Camarines Norte");
+    _txt("footerBrandSubtitleEl", (s.footer_brand_subtitle || s.footerBrandSubtitle || "").trim() || "Fabrication & Manufacturing Research Center");
+    _txt("footerBrandDescEl", (s.footer_brand_desc || s.footerBrandDesc || "").trim() || "Fabrication and Manufacturing Research Center - Advancing innovation through technology, research, and excellence in digital fabrication.");
+    _txt("footerCampusTagEl", (s.footer_campus_tag || s.footerCampusTag || "").trim() || "Main Campus • Daet, Camarines Norte, Philippines, 4600");
+    _txt("footerHoursDaysEl", (s.footer_hours_days || s.footerHoursDays || "").trim() || "Monday – Friday");
+    _txt("footerHoursTimeEl", (s.footer_hours_time || s.footerHoursTime || "").trim() || "7:00am – 6:00pm");
+    _txt("footerCopyrightEl", (s.footer_copyright || s.footerCopyright || "").trim() || "© 2026 University of Camarines Norte. All rights reserved.");
+    _txt("footerBottomDevEl", (s.footer_bottom_dev || s.footerBottomDev || "").trim() || "Developed for UCN – Fabrication and Manufacturing Research Center.");
     if (s.footer_quick_links) {
       try {
         var links = JSON.parse(s.footer_quick_links);
@@ -14823,7 +14873,7 @@ const openReturnRequestModal = (() => {
             .map(function (l) {
               return (
                 '<li><a href="' +
-                _attr(l.url || "#") +
+                _attr(normalizeAboutLink(l.url)) +
                 '">' +
                 _esc(l.label || "") +
                 "</a></li>"
@@ -14851,10 +14901,25 @@ const openReturnRequestModal = (() => {
     }
     var fFb = document.getElementById("footerFacebookLink");
     if (fFb) {
-      if (s.footer_contact_facebook)
-        fFb.textContent = s.footer_contact_facebook;
+      if (s.footer_contact_facebook) {
+        var fFbLbl = document.getElementById("footerFacebookLabel");
+        if (fFbLbl) fFbLbl.textContent = s.footer_contact_facebook;
+        else fFb.textContent = s.footer_contact_facebook;
+      }
       if (s.footer_contact_facebook_url)
         fFb.href = s.footer_contact_facebook_url;
+    }
+    var fPubWeb = document.getElementById("footerPublicWebsiteLink");
+    if (fPubWeb) {
+      if (s.footer_public_website_url) fPubWeb.href = s.footer_public_website_url;
+      var fPubWebLbl = document.getElementById("footerPublicWebsiteLabel");
+      if (fPubWebLbl && s.footer_public_website_label) fPubWebLbl.textContent = s.footer_public_website_label;
+    }
+    var fPubUcnFb = document.getElementById("footerPublicUcnFbLink");
+    if (fPubUcnFb) {
+      if (s.footer_public_ucn_fb_url) fPubUcnFb.href = s.footer_public_ucn_fb_url;
+      var fPubUcnFbLbl = document.getElementById("footerPublicUcnFbLabel");
+      if (fPubUcnFbLbl && s.footer_public_ucn_fb_label) fPubUcnFbLbl.textContent = s.footer_public_ucn_fb_label;
     }
     // Contact page
     _txt("contactTitleEl", s.contact_heading);
@@ -15008,10 +15073,52 @@ const openReturnRequestModal = (() => {
     heroSec.style.background = "";
   }
 
+  function homeServicePlaceholder() {
+    return '<div class="service-image-placeholder"><span class="service-image-placeholder__content"><i class="fa-regular fa-image" aria-hidden="true"></i><span data-editorial-copy="editorial_services_image_placeholder">Image coming soon</span></span></div>';
+  }
+
+  function applyHomeServices(services) {
+    const grid = document.getElementById("homeServicesGrid");
+    if (!grid) return;
+    grid.setAttribute("aria-busy", "false");
+    if (!services.length) {
+      grid.innerHTML = '<div class="home-services-state" role="status"><p data-editorial-copy="editorial_home_services_empty">Our services will be available here soon.</p><a href="/contact-page/contact.html"><span data-editorial-copy="editorial_home_cta_contact">Contact us</span> <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></div>';
+      window.FMRC_PAGE_CONTENT?.apply();
+      return;
+    }
+    grid.innerHTML = services.slice(0, 3).map(function (service) {
+      const title = String(service.title || "FMRC Service");
+      const category = String(service.category || "FMRC Service");
+      const image = String(service.image_data || "");
+      const imageMarkup = image
+        ? `<button class="service-image-trigger" type="button" aria-label="Open full-size preview of ${_attr(title)}" title="Open image preview" data-image-src="${_attr(image)}" data-image-title="${_attr(title)}">
+             <img src="${_attr(image)}" alt="${_attr(title)} preview" loading="lazy" decoding="async" />
+             <span class="service-image-preview-label" aria-hidden="true"><i class="fa-solid fa-expand"></i></span>
+           </button>`
+        : homeServicePlaceholder();
+      const modalItems = (value) => _attr(JSON.stringify(Array.isArray(value) ? value : []));
+      return `<article class="service-card" data-service-id="${_attr(service.id)}" data-category="${_attr(category)}">
+        <div class="card-content">
+          <div class="service-card-heading"><span class="service-chip">${_esc(category)}</span></div>
+          <h3 class="card-title">${_esc(title)}</h3>
+          <p class="card-desc">${_esc(service.description || "")}</p>
+          <div class="service-card-footer">
+            <button class="details-btn open-modal-btn" type="button" aria-label="Learn more about ${_attr(title)}" data-title="${_attr(title)}" data-desc="${_attr(service.modal_description || service.description || "")}" data-features="${modalItems(service.modal_features)}" data-materials="${modalItems(service.modal_materials)}" data-best-for="${modalItems(service.modal_best_for)}" data-img="${_attr(image)}">
+              <span class="details-btn-label" data-editorial-copy="editorial_services_learn_more">Learn more</span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+        ${imageMarkup}
+      </article>`;
+    }).join("");
+    window.FMRC_PAGE_CONTENT?.apply();
+  }
+
   function applyServices(services) {
+    applyHomeServices(services);
     // Home carousel
     var track = document.getElementById("whatWeOfferTrack");
-    if (track && services.length) {
+    if (track && services.length && !document.body.classList.contains("home-editorial-page")) {
       track.innerHTML = services
         .map(function (s) {
           return (
@@ -15486,7 +15593,7 @@ const openReturnRequestModal = (() => {
      See `.vision-section.vm-card-aloft` in main.css for the z-index chosen. */
   function vmAloft(deck, on) {
     if (!deck || !deck.closest) return;
-    var host = deck.closest(".vision-section, .mission-section");
+    var host = deck.closest(".vision-section, .mission-section, .editorial-purpose-card");
     if (host) host.classList.toggle("vm-card-aloft", !!on);
   }
 
@@ -15524,9 +15631,11 @@ const openReturnRequestModal = (() => {
     // `load` fires again for every later src, so a realtime photo swap re-shows
     // the placeholder for exactly as long as the new image takes to decode.
     img.addEventListener("load", function () {
+      if (deck.classList.contains("editorial-gallery") && img.parentElement.dataset.current === "false") return;
       vmPhotoSettle(kind, "");
     });
     img.addEventListener("error", function () {
+      if (deck.classList.contains("editorial-gallery") && img.parentElement.dataset.current === "false") return;
       vmPhotoSettle(kind, "empty");
     });
     // Already decoded before this ran (a warm cache beats the listener).
@@ -15566,6 +15675,10 @@ const openReturnRequestModal = (() => {
     var deck = vmDeckEl(kind);
     if (!deck) return;
     var images = vmParseGallery(raw);
+    if (document.body.classList.contains("about-editorial-page")) {
+      applyEditorialGallery(deck, kind, images);
+      return;
+    }
 
     // Never rebuild under the visitor's finger. Poll back shortly; the snapshot
     // below means the retry costs nothing once the gesture has finished.
@@ -15629,6 +15742,132 @@ const openReturnRequestModal = (() => {
     deck.classList.add("has-stack");
     initVmDeck(deck, kind === "mission" ? "shuffle" : "drag");
     vmIndexSlots(deck);
+    vmWarmDeckImages(deck);
+  }
+
+  // About's quiet crossfade reuses the same Admin/Staff gallery uploads.
+  // Autoplay pauses offscreen, during interaction, and for reduced motion.
+  function applyEditorialGallery(deck, kind, images) {
+    const first = deck.querySelector(".vm-deck__card");
+    const template = first?.querySelector("img");
+    if (!template) return;
+    if (images.length && template.getAttribute("src") !== images[0]) template.src = images[0];
+    const snapshot = JSON.stringify(images);
+    if (deck._editorialSnapshot === snapshot) return;
+    deck._editorialSnapshot = snapshot;
+    deck._editorialCleanup?.();
+    deck.parentElement.querySelector(".editorial-gallery-controls")?.remove();
+    vmResetToFirstCard(deck);
+    deck.classList.remove("has-stack", "is-peeking", "is-settling");
+    deck.classList.add("editorial-gallery");
+    deck.setAttribute("role", "region");
+    deck.setAttribute("aria-label", kind === "mission" ? "Mission photos" : "Vision photos");
+    deck.setAttribute("aria-roledescription", "slideshow");
+    first.dataset.current = "true";
+    first.setAttribute("aria-hidden", "false");
+    images.slice(1).forEach(function (src) {
+      const card = document.createElement("div");
+      card.className = "vm-deck__card";
+      const img = document.createElement("img");
+      img.className = template.className;
+      img.alt = template.alt;
+      img.decoding = "async";
+      img.src = src;
+      card.appendChild(img);
+      deck.appendChild(card);
+    });
+    const cards = Array.from(deck.querySelectorAll(".vm-deck__card"));
+    if (cards.length < 2) return;
+    const controller = new AbortController();
+    const options = { signal: controller.signal };
+    const controls = document.createElement("div");
+    controls.className = "editorial-gallery-controls";
+    controls.innerHTML = '<span class="editorial-gallery-dots" data-gallery-dots role="tablist" aria-label="Select ' + kind + ' photo"></span>';
+    deck.after(controls);
+    const dots = controls.querySelector("[data-gallery-dots]");
+    const dotButtons = cards.map(function (_card, index) {
+      const dot = document.createElement("button");
+      dot.type = "button";
+      dot.className = "editorial-gallery-dot";
+      dot.dataset.galleryDot = String(index);
+      dot.setAttribute("role", "tab");
+      dot.setAttribute("aria-label", "Show " + kind + " photo " + (index + 1));
+      dot.setAttribute("aria-selected", "false");
+      dot.setAttribute("tabindex", "-1");
+      dots?.appendChild(dot);
+      return dot;
+    });
+    const media = deck.parentElement;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    let current = Math.min(deck._editorialIndex || 0, cards.length - 1);
+    let visible = true;
+    let hovered = false;
+    let observer;
+    let timer;
+    function show(index) {
+      current = (index + cards.length) % cards.length;
+      deck._editorialIndex = current;
+      cards.forEach(function (card, i) {
+        card.dataset.current = String(i === current);
+        card.setAttribute("aria-hidden", String(i !== current));
+      });
+      const img = cards[current].querySelector("img");
+      // Only the visible slide controls the loading/error surface.
+      vmPhotoSettle(kind, img.complete && !img.naturalWidth ? "empty" : "");
+      dotButtons.forEach(function (dot, index) {
+        const active = index === current;
+        dot.classList.toggle("is-active", active);
+        dot.setAttribute("aria-selected", String(active));
+        dot.setAttribute("aria-current", String(active));
+        dot.setAttribute("tabindex", active ? "0" : "-1");
+      });
+    }
+    function arm() {
+      clearInterval(timer);
+      if (reduced.matches || deck._editorialPaused) return;
+      timer = setInterval(function () {
+        if (document.hidden || !visible || hovered || media.contains(document.activeElement) || document.body.classList.contains("modal-open-state")) return;
+        show(current + 1);
+      }, 5000);
+    }
+    dotButtons.forEach(function (dot, index) {
+      dot.addEventListener("click", function () { show(index); arm(); }, options);
+    });
+    let swipeStartX = 0;
+    let swipeStartY = 0;
+    let swiping = false;
+    deck.addEventListener("pointerdown", function (event) {
+      if (event.isPrimary === false) return;
+      swipeStartX = event.clientX;
+      swipeStartY = event.clientY;
+      swiping = true;
+      deck.setPointerCapture?.(event.pointerId);
+    }, options);
+    deck.addEventListener("pointerup", function (event) {
+      if (!swiping) return;
+      swiping = false;
+      const deltaX = event.clientX - swipeStartX;
+      const deltaY = event.clientY - swipeStartY;
+      if (Math.abs(deltaX) < 44 || Math.abs(deltaX) < Math.abs(deltaY) * 1.15) return;
+      show(current + (deltaX < 0 ? 1 : -1));
+      arm();
+    }, options);
+    deck.addEventListener("pointercancel", function () { swiping = false; }, options);
+    media.addEventListener("mouseenter", function () { hovered = true; }, options);
+    media.addEventListener("mouseleave", function () { hovered = false; }, options);
+    reduced.addEventListener("change", function () { arm(); }, options);
+    cards.forEach(function (card, index) {
+      const img = card.querySelector("img");
+      img.addEventListener("load", function () { if (index === current) vmPhotoSettle(kind, ""); }, options);
+      img.addEventListener("error", function () { if (index === current) vmPhotoSettle(kind, "empty"); }, options);
+    });
+    if ("IntersectionObserver" in window) {
+      observer = new IntersectionObserver(function (entries) { visible = entries[0].isIntersecting; });
+      observer.observe(deck);
+    }
+    deck._editorialCleanup = function () { clearInterval(timer); observer?.disconnect(); controller.abort(); };
+    show(current);
+    arm();
     vmWarmDeckImages(deck);
   }
 
@@ -15910,14 +16149,8 @@ const openReturnRequestModal = (() => {
           var top = deck.querySelector('.vm-deck__card[data-slot="0"]');
           if (top) top.focus();
         }
-        // The hand-back waits for the card promoted into the deepest slot to
-        // finish fading in (0.42s from here), so the two never overlap there.
+        // Return control after the slot transition completes.
         setTimeout(settle, 430);
-        // The lift travels further than it used to (-72px, clear of the card's
-        // own 48px padding), so the midpoint moved with it: 200ms matches the
-        // 0.19s transform transition on `.is-lifting`, and the tuck now starts
-        // from a card that has finished rising rather than interrupting one
-        // still on its way up. Total shuffle ~630ms — still a quick one.
       }, 200);
     }
 
@@ -16204,6 +16437,26 @@ const openReturnRequestModal = (() => {
   }
 
   function bootSiteContent() {
+    const homeServicesGrid = document.getElementById("homeServicesGrid");
+    homeServicesGrid?.addEventListener("click", function (event) {
+      const retry = event.target.closest(".home-services-retry");
+      if (!retry || _servicesLoading) return;
+      retry.disabled = true;
+      retry.textContent = "Loading services…";
+      homeServicesGrid.setAttribute("aria-busy", "true");
+      void reloadServices();
+    });
+    // Uploaded images can disappear independently of the API response. Keep
+    // the same neutral panel and remove the unavailable image from its modal.
+    homeServicesGrid?.addEventListener("error", function (event) {
+      if (event.target.tagName !== "IMG") return;
+      const trigger = event.target.closest(".service-image-trigger");
+      if (!trigger) return;
+      const details = trigger.closest(".service-card")?.querySelector(".open-modal-btn");
+      if (details) details.dataset.img = "";
+      trigger.outerHTML = homeServicePlaceholder();
+      window.FMRC_PAGE_CONTENT?.apply();
+    }, true);
     // Wired before the fetch so the `load` listener is in place by the time
     // applySettings writes the first src.
     initAboutVideoPlaceholder();

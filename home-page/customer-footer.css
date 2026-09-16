@@ -1,0 +1,558 @@
+/* ==========================================================================
+   CUSTOMER FOOTER STYLESHEET (customer-footer.css)
+   University of Camarines Norte - Fabrication & Manufacturing Research Center
+   Harmonized with customer-navbar.css, customer-editorial.css, and reference UI
+   ========================================================================== */
+
+.site-footer {
+  position: relative !important;
+  overflow: hidden !important;
+  margin-top: auto !important;
+  font-family: "Montserrat", sans-serif !important;
+  color: var(--customer-paper-sink, #f7f2ec) !important;
+  background-color: #4a1019 !important;
+  background-image:
+    radial-gradient(circle at 14% 0%, rgba(241, 237, 18, 0.08), transparent 24rem),
+    radial-gradient(circle at 86% 100%, rgba(176, 28, 28, 0.12), transparent 22rem),
+    linear-gradient(155deg, #370a10 0%, #4f121b 48%, #32070d 100%) !important;
+  border-top: 1px solid rgba(247, 242, 236, 0.12) !important;
+  padding: 56px max(24px, env(safe-area-inset-right)) calc(28px + env(safe-area-inset-bottom, 0px)) max(24px, env(safe-area-inset-left)) !important;
+  box-sizing: border-box !important;
+}
+
+/* Subtle architectural engineering grid pattern */
+.site-footer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(247, 242, 236, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(247, 242, 236, 0.035) 1px, transparent 1px);
+  background-size: 38px 38px;
+  pointer-events: none;
+  opacity: 0.65;
+}
+
+/* Two-Zone Layout Grid (Override legacy responsive.css) */
+.site-footer .footer-container {
+  position: relative !important;
+  z-index: 2 !important;
+  width: 100% !important;
+  max-width: 1240px !important;
+  margin: 0 auto !important;
+  display: grid !important;
+  grid-template-areas: none !important;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1.85fr) !important;
+  gap: clamp(36px, 5.5vw, 68px) !important;
+  align-items: start !important;
+}
+
+/* --------------------------------------------------------------------------
+   BRAND COLUMN (Left Side)
+   -------------------------------------------------------------------------- */
+.site-footer .footer-brand-col {
+  grid-area: auto !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.site-footer .footer-logo-row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 14px !important;
+  margin-bottom: 18px !important;
+}
+
+/* Center logos perfectly within disc holder */
+.site-footer .footer-logo-disc {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 52px !important;
+  height: 52px !important;
+  min-width: 52px !important;
+  min-height: 52px !important;
+  border-radius: 50% !important;
+  background: var(--customer-paper, #fdfaf6) !important;
+  border: 1px solid rgba(247, 242, 236, 0.35) !important;
+  padding: 5px !important;
+  box-sizing: border-box !important;
+  box-shadow: 0 4px 14px rgba(25, 5, 8, 0.35) !important;
+  flex-shrink: 0 !important;
+  overflow: hidden !important;
+}
+
+.site-footer .footer-logo {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  margin: 0 !important;
+  margin-right: 0 !important;
+  padding: 0 !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.site-footer .footer-brand-titles {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.site-footer .footer-brand {
+  margin: 0 0 3px !important;
+  color: #fdfaf6 !important;
+  font-family: inherit !important;
+  font-size: clamp(19px, 2.2vw, 24px) !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.025em !important;
+  line-height: 1.2 !important;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.site-footer .footer-subbrand {
+  margin: 0 !important;
+  color: rgba(247, 242, 236, 0.74) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  line-height: 1.4 !important;
+}
+
+.site-footer .footer-brand-divider {
+  width: 100%;
+  height: 1px;
+  background: rgba(247, 242, 236, 0.12);
+  margin: 18px 0;
+}
+
+.site-footer .footer-desc {
+  margin: 0 0 18px !important;
+  max-width: 440px;
+  color: rgba(247, 242, 236, 0.75) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.65 !important;
+}
+
+.site-footer .footer-campus-tag {
+  display: block;
+  color: rgba(247, 242, 236, 0.65);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.45;
+}
+
+/* --------------------------------------------------------------------------
+   INFORMATION MATRIX (Right Side: Two Tiers)
+   -------------------------------------------------------------------------- */
+.site-footer .footer-info-col {
+  grid-area: auto !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.site-footer .footer-kicker {
+  display: inline-block;
+  margin-bottom: 14px;
+  color: rgba(247, 242, 236, 0.9);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.site-footer .footer-kicker::after {
+  content: "";
+  display: block;
+  width: 26px;
+  height: 2.5px;
+  background: var(--customer-gold, #f1ed12);
+  margin-top: 5px;
+  border-radius: 1px;
+}
+
+/* Tier 1: Office & Facility contact bar */
+.site-footer .footer-office-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.site-footer .footer-contact-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 0.95fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.site-footer .footer-contact-cell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.site-footer .footer-contact-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.site-footer .footer-contact-caption {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(247, 242, 236, 0.5);
+  margin-bottom: 4px;
+}
+
+.site-footer .footer-link {
+  color: rgba(247, 242, 236, 0.88) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.5 !important;
+  text-decoration: none !important;
+  transition: color 140ms ease !important;
+  overflow-wrap: anywhere;
+}
+
+.site-footer .footer-link:hover {
+  color: #ffffff !important;
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+  transform: none !important;
+}
+
+/* Tier separator line */
+.site-footer .footer-tier-divider {
+  width: 100%;
+  height: 1px;
+  background: rgba(247, 242, 236, 0.12);
+  margin: 24px 0 22px;
+}
+
+/* Tier 2: Three-column matrix */
+.site-footer .footer-matrix {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(20px, 3vw, 36px);
+  align-items: start;
+}
+
+.site-footer .footer-matrix-col {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Quick Links Menu */
+.site-footer .footer-menu,
+.site-footer .footer-public-menu {
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+
+.site-footer .footer-menu li,
+.site-footer .footer-public-menu li {
+  padding-bottom: 7px !important;
+  border-bottom: 1px solid rgba(247, 242, 236, 0.09) !important;
+  margin: 0 !important;
+}
+
+.site-footer .footer-menu li:last-child,
+.site-footer .footer-public-menu li:last-child {
+  padding-bottom: 0 !important;
+  border-bottom: none !important;
+}
+
+/* Quick Links Menu: simple clean underline on hover */
+.site-footer .footer-menu a {
+  display: inline-flex !important;
+  align-items: center !important;
+  color: rgba(247, 242, 236, 0.82) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+  text-decoration: none !important;
+  transition: color 140ms ease !important;
+  transform: none !important;
+}
+
+.site-footer .footer-menu a:hover {
+  color: #ffffff !important;
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+  transform: none !important;
+}
+
+/* Public Links Menu: link text underlines, arrow icon has NO underline and NO hover effect */
+.site-footer .footer-public-menu a {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  color: rgba(247, 242, 236, 0.85) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  line-height: 1.4 !important;
+  text-decoration: none !important;
+  transition: color 140ms ease !important;
+  transform: none !important;
+}
+
+.site-footer .footer-public-menu a:hover {
+  color: #ffffff !important;
+  text-decoration: none !important;
+  transform: none !important;
+}
+
+/* ONLY the link text gets underlined */
+.site-footer .footer-public-menu a .footer-link-text {
+  text-decoration: none !important;
+}
+
+.site-footer .footer-public-menu a:hover .footer-link-text {
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+}
+
+/* Static external arrow icon: exactly like reference, zero hover animation, no underline */
+.site-footer .footer-link-arrow {
+  display: inline-block !important;
+  width: 11px !important;
+  height: 11px !important;
+  min-width: 11px !important;
+  min-height: 11px !important;
+  color: rgba(247, 242, 236, 0.8) !important;
+  text-decoration: none !important;
+  transform: none !important;
+  transition: none !important;
+  pointer-events: none !important;
+  vertical-align: middle !important;
+}
+
+.site-footer .footer-public-menu a:hover .footer-link-arrow {
+  color: rgba(247, 242, 236, 0.8) !important;
+  text-decoration: none !important;
+  transform: none !important;
+  transition: none !important;
+}
+
+/* Business Hours: Clean typography (No Card) */
+.site-footer .footer-hours-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.site-footer .footer-hours-days {
+  color: #fdfaf6 !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  margin: 0 !important;
+  line-height: 1.4 !important;
+}
+
+.site-footer .footer-hours-time {
+  color: rgba(247, 242, 236, 0.82) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  margin: 0 !important;
+  line-height: 1.4 !important;
+}
+
+/* --------------------------------------------------------------------------
+   BOTTOM ATTRIBUTION STRIP
+   -------------------------------------------------------------------------- */
+.site-footer .footer-bottom {
+  position: relative !important;
+  z-index: 2 !important;
+  width: 100% !important;
+  max-width: 1240px !important;
+  margin: 36px auto 0 !important;
+  padding-top: 20px !important;
+  border-top: 1px solid rgba(247, 242, 236, 0.12) !important;
+}
+
+.site-footer .footer-bottom-grid {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+
+.site-footer .footer-bottom-copy,
+.site-footer .footer-bottom-dev {
+  margin: 0 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1.5 !important;
+  color: rgba(247, 242, 236, 0.58) !important;
+}
+
+.site-footer .footer-bottom-copy {
+  color: rgba(247, 242, 236, 0.74) !important;
+  font-weight: 600 !important;
+}
+
+/* --------------------------------------------------------------------------
+   FOCUS VISIBILITY & ACCESSIBILITY
+   -------------------------------------------------------------------------- */
+.site-footer a:focus-visible,
+.site-footer button:focus-visible {
+  outline: 2px solid var(--customer-gold, #f1ed12);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* --------------------------------------------------------------------------
+   RESPONSIVE BREAKPOINTS (Optimized for Modern iPhones & Tablets)
+   -------------------------------------------------------------------------- */
+@media (max-width: 960px) {
+  .site-footer .footer-container {
+    grid-template-columns: 1fr !important;
+    gap: 34px !important;
+  }
+
+  .site-footer .footer-brand-divider {
+    display: block;
+    margin: 14px 0;
+  }
+
+  .site-footer .footer-contact-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .site-footer .footer-contact-location {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Modern iPhones: iPhone 12/13/14/15/16 (390px, 393px, 430px) & iPhone SE */
+@media (max-width: 680px) {
+  .site-footer {
+    padding-top: 40px !important;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-left: max(20px, env(safe-area-inset-left)) !important;
+    padding-right: max(20px, env(safe-area-inset-right)) !important;
+  }
+
+  .site-footer .footer-logo-row {
+    gap: 12px !important;
+  }
+
+  .site-footer .footer-brand-titles {
+    flex: 0 0 100% !important;
+    width: 100% !important;
+    margin-top: 4px !important;
+  }
+
+  .site-footer .footer-contact-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  /* Quick links and Business Hours side-by-side on mobile (Modern iPhones) */
+  .site-footer .footer-matrix {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) !important;
+    gap: 24px 18px !important;
+    align-items: start !important;
+  }
+
+  .site-footer .footer-matrix-col:nth-child(1) {
+    grid-column: 1 / 2 !important;
+  }
+
+  .site-footer .footer-matrix-col:nth-child(2) {
+    grid-column: 2 / 3 !important;
+  }
+
+  /* Public links spans across full width underneath */
+  .site-footer .footer-matrix-col:nth-child(3) {
+    grid-column: 1 / -1 !important;
+    margin-top: 6px !important;
+    padding-top: 18px !important;
+    border-top: 1px solid rgba(247, 242, 236, 0.08) !important;
+  }
+
+  .site-footer .footer-bottom-grid {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 430px) {
+  .site-footer {
+    padding-top: 36px !important;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-left: max(16px, env(safe-area-inset-left)) !important;
+    padding-right: max(16px, env(safe-area-inset-right)) !important;
+  }
+
+  .site-footer .footer-logo-row {
+    gap: 10px !important;
+    margin-bottom: 14px !important;
+  }
+
+  .site-footer .footer-logo-disc {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
+    min-height: 44px !important;
+    padding: 4px !important;
+  }
+
+  .site-footer .footer-brand {
+    font-size: 17px !important;
+    line-height: 1.2 !important;
+  }
+
+  .site-footer .footer-subbrand {
+    font-size: 11.5px !important;
+    line-height: 1.35 !important;
+  }
+
+  .site-footer .footer-desc {
+    font-size: 12px !important;
+    line-height: 1.55 !important;
+  }
+
+  .site-footer .footer-matrix {
+    grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr) !important;
+    gap: 20px 14px !important;
+  }
+
+  .site-footer .footer-link,
+  .site-footer .footer-menu a,
+  .site-footer .footer-public-menu a,
+  .site-footer .footer-hours-days,
+  .site-footer .footer-hours-time {
+    font-size: 12px !important;
+  }
+
+  .site-footer .footer-bottom-copy,
+  .site-footer .footer-bottom-dev {
+    font-size: 11px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-footer a {
+    transition: none !important;
+  }
+}

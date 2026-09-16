@@ -331,6 +331,33 @@
           justify-content: flex-start;
         }
       }
+      .service-page-copy-panel { margin-bottom: 24px; }
+      .service-page-copy-panel h2 { margin: 0 0 8px; color: var(--primary-color); font-size: 1.05rem; }
+      .service-page-copy-panel > .field-hint { display: block; margin-bottom: 20px; line-height: 1.6; }
+      #servicePageCopyFields { border: 0; padding: 0; margin: 0; min-width: 0; }
+      .service-page-copy-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+      .service-form-status { margin: 14px 0; font-size: .82rem; line-height: 1.5; }
+      .service-field-count { color: #667085; font-size: .73rem; line-height: 1.5; }
+      .service-field-count.is-invalid, .service-form-status.is-invalid { color: #a61c31; font-weight: 600; }
+      .service-category-panel { margin-bottom: 24px; }
+      .service-category-panel h2 { margin: 0 0 8px; color: var(--primary-color); font-size: 1.05rem; }
+      .service-category-list { display: grid; gap: 8px; margin: 14px 0; }
+      .service-category-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+      .service-category-row input { flex: 1 1 auto; min-width: 0; }
+      .service-category-row button { flex: 0 0 auto; }
+      .service-category-add { width: 100%; }
+      .service-category-add-field { min-width: 0; }
+      .service-category-input-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+      .service-category-input-row .btn-admin { white-space: nowrap; }
+      .service-category-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+      .wm-input[aria-invalid="true"], .wm-textarea[aria-invalid="true"] { border-color: #a61c31; }
+      .wm-service-card, .field-stack { min-width: 0; overflow-wrap: anywhere; }
+      #servicePageCopyFields .field-stack.full { grid-column: 1 / -1; }
+      @media (max-width: 640px) {
+        .wm-form-grid { grid-template-columns: minmax(0, 1fr); }
+        .service-category-input-row { grid-template-columns: minmax(0, 1fr); }
+        .service-category-input-row .btn-admin { justify-self: start; }
+      }
     </style>
     <link rel="stylesheet" href="admin-responsive.css?v=2.8" />
   </head>
@@ -472,6 +499,39 @@
             </div>
           </div>
 
+          <section class="panel service-page-copy-panel" aria-labelledby="servicePageCopyTitle">
+            <h2 id="servicePageCopyTitle">Services Page Content</h2>
+            <p class="field-hint">Edit the introduction, detail headings, and messages. Character limits keep the customer page balanced. Search wording and the fixed “All Categories” label stay consistent; category labels are managed below.</p>
+            <form id="servicePageCopyForm" novalidate>
+              <fieldset id="servicePageCopyFields" disabled class="wm-form-grid"></fieldset>
+              <p id="servicePageCopyStatus" class="service-form-status" role="status" aria-live="polite">Loading saved page content...</p>
+              <div class="service-page-copy-actions">
+                <button class="btn-admin btn-secondary" type="button" id="servicePageCopyRetry" hidden>Retry loading</button>
+                <button class="btn-admin" type="submit" id="servicePageCopySave" disabled><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save Changes</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="panel service-category-panel" aria-labelledby="serviceCategoryTitle">
+            <h2 id="serviceCategoryTitle">Service Categories</h2>
+            <p class="field-hint">Manage the category labels shown in the customer Services filter and Add Service form. “All Categories” remains the fixed filter option.</p>
+            <div id="serviceCategoryList" class="service-category-list" role="list" aria-live="polite"></div>
+            <div class="service-category-add">
+              <div class="field-stack service-category-add-field">
+                <label for="newServiceCategory">New category label</label>
+                <div class="service-category-input-row">
+                  <input id="newServiceCategory" class="wm-input" type="text" maxlength="60" placeholder="e.g. Materials Testing" />
+                  <button class="btn-admin btn-secondary" type="button" id="btnAddCategory"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add Category</button>
+                </div>
+                <small id="newServiceCategoryCount" class="service-field-count">0 / 60 characters</small>
+              </div>
+            </div>
+            <p id="serviceCategoryStatus" class="service-form-status" role="status" aria-live="polite">Loading categories...</p>
+            <div class="service-category-actions">
+              <button class="btn-admin" type="button" id="btnSaveCategories"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save Changes</button>
+            </div>
+          </section>
+
           <div class="panel">
             <div class="wm-cards-grid" id="servicesGrid">
               <div class="empty-state">
@@ -495,13 +555,13 @@
       <div class="wm-modal-card">
         <div class="wm-modal-header">
           <h3 id="serviceModalTitle">Add Service</h3>
-          <button class="btn-close-x" id="btnCloseServiceModal">&times;</button>
+          <button class="btn-close-x" id="btnCloseServiceModal" type="button" aria-label="Close service editor" title="Close service editor">&times;</button>
         </div>
         <div class="wm-modal-body">
           <input type="hidden" id="serviceEditId" />
           <div class="wm-form-grid">
             <div class="field-stack full">
-              <label>Service Image</label>
+              <label for="svcImgInput">Service Image</label>
               <div
                 class="wm-img-placeholder"
                 id="svcImgPlaceholder"
@@ -530,7 +590,7 @@
               />
             </div>
             <div class="field-stack">
-              <label>Category <span style="color: #dc2626">*</span></label>
+              <label for="svcCategory">Category <span style="color: #dc2626">*</span></label>
               <select class="wm-select" id="svcCategory">
                 <option>Prototyping</option>
                 <option>Manufacturing</option>
@@ -544,15 +604,15 @@
                 type="text"
                 class="wm-input"
                 id="svcTitle"
-                maxlength="255"
+                maxlength="100"
                 placeholder="e.g. 3D Printing"
               />
             </div>
             <div class="field-stack full">
-              <label>Short Description (shown on card)</label>
+              <label for="svcDesc">Short Description (shown on card)</label>
               <textarea
                 class="wm-textarea"
-                id="svcDesc"
+                id="svcDesc" maxlength="360"
                 rows="2"
                 placeholder="Brief description visible on the service card..."
               ></textarea>
@@ -579,46 +639,46 @@
               </p>
             </div>
             <div class="field-stack full">
-              <label>Modal Description</label>
+              <label for="svcModalDesc">Modal Description</label>
               <textarea
                 class="wm-textarea"
-                id="svcModalDesc"
+                id="svcModalDesc" maxlength="2500"
                 rows="3"
                 placeholder="Detailed description shown in the 'View service details' popup..."
               ></textarea>
             </div>
             <div class="field-stack full">
-              <label
+              <label for="svcFeaturesInput"
                 >Key Features
                 <span class="field-hint">(press Enter to add each)</span></label
               >
               <div class="chip-input-area" id="svcFeaturesArea">
                 <input
                   class="chip-hidden-input"
-                  id="svcFeaturesInput"
+                  id="svcFeaturesInput" maxlength="120"
                   placeholder="Type feature and press Enter�"
                 />
               </div>
             </div>
             <div class="field-stack">
-              <label
+              <label for="svcMaterials"
                 >Supported Materials
                 <span class="field-hint">(one per line)</span></label
               >
               <textarea
                 class="wm-textarea"
-                id="svcMaterials"
+                id="svcMaterials" maxlength="1451"
                 rows="4"
                 placeholder="Acrylic & Plastics&#10;Wood / MDF&#10;Leather"
               ></textarea>
             </div>
             <div class="field-stack">
-              <label
+              <label for="svcBestFor"
                 >Best For <span class="field-hint">(one per line)</span></label
               >
               <textarea
                 class="wm-textarea"
-                id="svcBestFor"
+                id="svcBestFor" maxlength="1451"
                 rows="4"
                 placeholder="Signage&#10;Keychains&#10;Prototypes"
               ></textarea>
@@ -626,10 +686,10 @@
           </div>
         </div>
         <div class="wm-modal-footer">
-          <button class="btn-admin btn-secondary" id="btnCancelService">
+          <button class="btn-admin btn-secondary" type="button" id="btnCancelService">
             Cancel
           </button>
-          <button class="btn-admin" id="btnSaveService">
+          <button class="btn-admin" type="button" id="btnSaveService">
             <i class="fa-solid fa-floppy-disk"></i> Save Service
           </button>
         </div>
@@ -637,8 +697,9 @@
     </div>
 
     <script src="session-helper.js"></script>
-    <script src="admin-common.js?v=6.6"></script>
-    <script src="website-services.js?v=1.1"></script>
+    <script src="admin-common.js?v=6.7"></script>
+    <script src="../home-page/page-content.js?v=1.2"></script>
+    <script src="website-services.js?v=1.3"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>
