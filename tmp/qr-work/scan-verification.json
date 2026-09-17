@@ -1,0 +1,189 @@
+{
+  "checks": 26,
+  "passed": 26,
+  "failed": [],
+  "results": [
+    {
+      "file": "fmrc-website-qr-hd.png",
+      "test": "PNG 3000x3000",
+      "decoder": "ZXing",
+      "decoded": "https://ucn-fabmanlab.com/",
+      "pass": true
+    },
+    {
+      "file": "fmrc-website-qr-hd.png",
+      "test": "PNG 1500x1500",
+      "decoder": "ZXing",
+      "decoded": "https://ucn-fabmanlab.com/",
+      "pass": true
+    },
+    {
+      "file": "fmrc-website-qr-hd.png",
+      "test": "PNG 900x900",
+      "decoder": "ZXing",
+      "decoded": "https://ucn-fabmanlab.com/",
+      "pass": true
+    },
+    {
+      "file": "fmrc-website-qr-hd.png",
+      "test": "PNG 600x600",
+      "decoder": "ZXing",
+      "decoded": "https://ucn-fabmanlab.com/",
+      "pass": true
+    },
+    {
+      "file": "fmrc-website-qr-hd.png",
+      "test": "PNG 450x450",
+      "decoder": "ZXing",
+      "decoded": "https://ucn-fabmanlab.com/",
+      "pass": true
+    },
+    {
+      "file": "fmrc-website-qr-hd.png",
+      "test": "PNG 300x300",
+      "decoder": "ZXing",
+      "decoded": "https://ucn-fabmanlab.com/",
+      "pass": true
+    },
+    {
+      "file": "fmrc-website-qr-hd.png",
+      "test": "grayscale 900",
+      "decoder": "ZXing",
+      "decoded": "https://ucn-fabmanlab.com/",
+      "pass": true
+    },
+    {
+      "file": "fmrc-website-qr-hd.png",
+      "test": "blur 900 radius 0.6",
+      "decoder": "ZXing",
+      "decoded": "https://ucn-fabmanlab.com/",
+      "pass": true
+    },
+    {
+      "file": "fmrc-website-qr-hd.png",
+      "test": "rotate 90 degrees 900",
+      "decoder": "ZXing",
+      "decoded": "https://ucn-fabmanlab.com/",
+      "pass": true
+    },
+    {
+      "file": "fmrc-website-qr-hd.png",
+      "test": "JPEG 900 quality75",
+      "decoder": "ZXing",
+      "decoded": "https://ucn-fabmanlab.com/",
+      "pass": true
+    },
+    {
+      "file": "fmrc-website-qr-hd.png",
+      "test": "PNG 1500x1500",
+      "decoder": "OpenCV",
+      "decoded": "https://ucn-fabmanlab.com/",
+      "pass": true
+    },
+    {
+      "file": "fmrc-website-qr-hd.png",
+      "test": "PNG 900x900",
+      "decoder": "OpenCV",
+      "decoded": "https://ucn-fabmanlab.com/",
+      "pass": true
+    },
+    {
+      "file": "fmrc-website-qr-hd.png",
+      "test": "PNG 600x600",
+      "decoder": "OpenCV",
+      "decoded": "https://ucn-fabmanlab.com/",
+      "pass": true
+    },
+    {
+      "file": "fmrc-admin-portal-qr-hd.png",
+      "test": "PNG 3000x3000",
+      "decoder": "ZXing",
+      "decoded": "https://ucn-fabmanlab.com/admin-auth/auth#signup",
+      "pass": true
+    },
+    {
+      "file": "fmrc-admin-portal-qr-hd.png",
+      "test": "PNG 1500x1500",
+      "decoder": "ZXing",
+      "decoded": "https://ucn-fabmanlab.com/admin-auth/auth#signup",
+      "pass": true
+    },
+    {
+      "file": "fmrc-admin-portal-qr-hd.png",
+      "test": "PNG 900x900",
+      "decoder": "ZXing",
+      "decoded": "https://ucn-fabmanlab.com/admin-auth/auth#signup",
+      "pass": true
+    },
+    {
+      "file": "fmrc-admin-portal-qr-hd.png",
+      "test": "PNG 600x600",
+      "decoder": "ZXing",
+      "decoded": "https://ucn-fabmanlab.com/admin-auth/auth#signup",
+      "pass": true
+    },
+    {
+      "file": "fmrc-admin-portal-qr-hd.png",
+      "test": "PNG 450x450",
+      "decoder": "ZXing",
+      "decoded": "https://ucn-fabmanlab.com/admin-auth/auth#signup",
+      "pass": true
+    },
+    {
+      "file": "fmrc-admin-portal-qr-hd.png",
+      "test": "PNG 300x300",
+      "decoder": "ZXing",
+      "decoded": "https://ucn-fabmanlab.com/admin-auth/auth#signup",
+      "pass": true
+    },
+    {
+      "file": "fmrc-admin-portal-qr-hd.png",
+      "test": "grayscale 900",
+      "decoder": "ZXing",
+      "decoded": "https://ucn-fabmanlab.com/admin-auth/auth#signup",
+      "pass": true
+    },
+    {
+      "file": "fmrc-admin-portal-qr-hd.png",
+      "test": "blur 900 radius 0.6",
+      "decoder": "ZXing",
+      "decoded": "https://ucn-fabmanlab.com/admin-auth/auth#signup",
+      "pass": true
+    },
+    {
+      "file": "fmrc-admin-portal-qr-hd.png",
+      "test": "rotate 90 degrees 900",
+      "decoder": "ZXing",
+      "decoded": "https://ucn-fabmanlab.com/admin-auth/auth#signup",
+      "pass": true
+    },
+    {
+      "file": "fmrc-admin-portal-qr-hd.png",
+      "test": "JPEG 900 quality75",
+      "decoder": "ZXing",
+      "decoded": "https://ucn-fabmanlab.com/admin-auth/auth#signup",
+      "pass": true
+    },
+    {
+      "file": "fmrc-admin-portal-qr-hd.png",
+      "test": "PNG 1500x1500",
+      "decoder": "OpenCV",
+      "decoded": "https://ucn-fabmanlab.com/admin-auth/auth#signup",
+      "pass": true
+    },
+    {
+      "file": "fmrc-admin-portal-qr-hd.png",
+      "test": "PNG 900x900",
+      "decoder": "OpenCV",
+      "decoded": "https://ucn-fabmanlab.com/admin-auth/auth#signup",
+      "pass": true
+    },
+    {
+      "file": "fmrc-admin-portal-qr-hd.png",
+      "test": "PNG 600x600",
+      "decoder": "OpenCV",
+      "decoded": "https://ucn-fabmanlab.com/admin-auth/auth#signup",
+      "pass": true
+    }
+  ]
+}

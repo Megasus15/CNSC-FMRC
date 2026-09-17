@@ -244,8 +244,12 @@
 /* Boot cleanup stays inline in each page, independent of the action script. */
 .fmrc-load-boot,
 .fmrc-load-veil {
+  box-sizing: border-box;
   position: fixed;
   inset: 0;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 24px;
@@ -285,6 +289,22 @@ html.fmrc-booting .fmrc-load-boot {
   border-radius: 18px;
   background: radial-gradient(ellipse at 50% 38%, #fffdf8, #fffdf800 56%), #fdfaf6;
   box-shadow: 0 24px 64px #382c2a29;
+}
+
+/* Admin/Staff page transitions use the same opaque boot presentation as the
+   Customer site. Keeping this scoped class here lets the shared loader remain
+   card-based for customer actions while the back-office navigation fully owns
+   the viewport and hides the previous dashboard underneath it. */
+html.fmrc-admin-portal .fmrc-load-veil {
+  background: var(
+    --fmrc-admin-transition-field,
+    radial-gradient(ellipse at 50% 38%, #fffdf8, #fffdf800 56%), #fdfaf6
+  );
+}
+
+html.fmrc-admin-portal .fmrc-load-veil .fmrc-load-core {
+  background: transparent;
+  box-shadow: none;
 }
 
 /* Small waits use the same artwork, gold orbit and tilting face, with fewer

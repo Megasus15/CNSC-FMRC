@@ -122,9 +122,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   void initTurnstileGate();
 
+  const AUTH_LOADER_TIMING = Object.freeze({ min: 500, max: 500, cap: 1300 });
+
   const toggleLoader = (show, caption) => {
     if (show) {
-      window.FMRCLoader?.show(caption || "Just a moment");
+      window.FMRCLoader?.show(
+        caption || "Just a moment",
+        "Please wait while your account request is completed.",
+        AUTH_LOADER_TIMING,
+      );
     } else {
       window.FMRCLoader?.hide();
     }

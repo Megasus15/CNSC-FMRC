@@ -1,0 +1,46 @@
+[
+  {
+    "title": "Website",
+    "subtitle": "Explore our services and products.",
+    "cta": "SCAN TO VISIT",
+    "url": "https://ucn-fabmanlab.com/",
+    "filename": "fmrc-website-qr-hd.png",
+    "version": 4,
+    "path": "C:\\Users\\T480\\Documents\\GitHub\\CNSC-FMRC\\output\\qr-codes\\fmrc-website-qr-hd.png",
+    "size": [
+      3000,
+      3000
+    ],
+    "error_correction": "H",
+    "mask": 6,
+    "qr_bounds": [
+      757.5,
+      917.5,
+      2242.5,
+      2402.5
+    ],
+    "quiet_zone_modules": 4.055555555555555
+  },
+  {
+    "title": "Admin Portal",
+    "subtitle": "Access the FMRC administration portal.",
+    "cta": "SCAN TO ACCESS",
+    "url": "https://ucn-fabmanlab.com/admin-auth/auth#signup",
+    "filename": "fmrc-admin-portal-qr-hd.png",
+    "version": 6,
+    "path": "C:\\Users\\T480\\Documents\\GitHub\\CNSC-FMRC\\output\\qr-codes\\fmrc-admin-portal-qr-hd.png",
+    "size": [
+      3000,
+      3000
+    ],
+    "error_correction": "H",
+    "mask": 2,
+    "qr_bounds": [
+      757.5,
+      917.5,
+      2242.5,
+      2402.5
+    ],
+    "quiet_zone_modules": 5.038720538720539
+  }
+]

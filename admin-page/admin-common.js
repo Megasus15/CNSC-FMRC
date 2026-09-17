@@ -3,6 +3,11 @@ if (document.body) {
   document.body.classList.add("no-transitions");
 }
 
+// Scope the Customer-style full-viewport transition presentation to the
+// back-office portals. The shared loader asset remains unchanged for the
+// Customer site and its action dialogs.
+document.documentElement.classList.add("fmrc-admin-portal");
+
 /* Admin and Staff share the Customer Portal's branded action curtain. Load the
    existing component once from the shared customer asset folder so every
    back-office page uses the same artwork, motion, captions and accessibility
@@ -16,11 +21,49 @@ if (document.body) {
     return new URL(`../home-page/${fileName}`, baseUrl).href;
   };
 
+  const PAGE_CAPTIONS = Object.freeze({
+    accounts: "Preparing account records…",
+    appointments: "Preparing appointment schedules…",
+    archives: "Preparing archive records…",
+    "customer-inquiries": "Preparing customer inquiries…",
+    dashboard: "Preparing the operations dashboard…",
+    inventory: "Preparing inventory records…",
+    "my-account": "Preparing your account settings…",
+    orders: "Preparing order records…",
+    products: "Preparing product management…",
+    promotions: "Preparing promotion records…",
+    ratings: "Preparing customer ratings…",
+    reports: "Preparing the official report pages…",
+    "website-about": "Preparing About page settings…",
+    "website-contact": "Preparing Contact page settings…",
+    "website-emails": "Preparing email settings…",
+    "website-footer": "Preparing footer settings…",
+    "website-home": "Preparing Home page settings…",
+    "website-maintenance": "Preparing maintenance settings…",
+    "website-payments": "Preparing payment settings…",
+    "website-services": "Preparing Services page settings…",
+  });
+  const PAGE_TIMING = Object.freeze({ min: 200, max: 200, cap: 1000 });
+  const ACTION_TIMING = Object.freeze({ min: 500, max: 500, cap: 1300 });
+
+  const currentPageKey = () => {
+    const fileName = String(window.location.pathname || "")
+      .split("/")
+      .pop()
+      ?.replace(/\.html?$/i, "");
+    return fileName || "dashboard";
+  };
+
+  const pageCaption = (caption) => {
+    const explicit = typeof caption === "string" ? caption.trim() : "";
+    return explicit || PAGE_CAPTIONS[currentPageKey()] || "Preparing page content…";
+  };
+
   const ensureBrandedLoader = () => {
     if (window.FMRCLoader) return Promise.resolve(window.FMRCLoader);
     if (loaderPromise) return loaderPromise;
 
-    const styleHref = resolveLoaderAsset("fmrc-loader.css?v=2.0");
+    const styleHref = resolveLoaderAsset("fmrc-loader.css?v=2.1");
     let styleReady = Promise.resolve();
     if (!document.querySelector('link[data-fmrc-admin-loader="styles"]')) {
       const style = document.createElement("link");
@@ -54,7 +97,7 @@ if (document.body) {
       }
 
       const script = document.createElement("script");
-      script.src = resolveLoaderAsset("fmrc-loader.js?v=2.0");
+      script.src = resolveLoaderAsset("fmrc-loader.js?v=2.1");
       script.dataset.fmrcAdminLoader = "script";
       script.addEventListener("load", finish, { once: true });
       script.addEventListener(
@@ -72,13 +115,29 @@ if (document.body) {
     return loaderPromise;
   };
 
-  const showBrandedLoader = async (caption) => {
-    try {
-      const loader = await ensureBrandedLoader();
-      loader.show(caption || "Just a moment");
-    } catch {
-      // A loader failure must never block a login/logout action.
+  const showBrandedLoader = (caption, hint, timing = ACTION_TIMING) => {
+    const render = (loader) => {
+      loader?.show?.(
+        pageCaption(caption),
+        hint || "Please wait while this workspace is prepared.",
+        timing,
+      );
+    };
+
+    // The shared asset is statically present on every Admin/Staff page, so a
+    // navigation click raises the fixed veil in this same event task before
+    // the browser starts loading the destination document. Keep the lazy path
+    // as a resilience fallback for cached/embedded pages.
+    if (window.FMRCLoader) {
+      render(window.FMRCLoader);
+      return Promise.resolve();
     }
+
+    return ensureBrandedLoader()
+      .then(render)
+      .catch(() => {
+        // A loader failure must never block a login/logout action.
+      });
   };
 
   const hideBrandedLoader = () => window.FMRCLoader?.hide();
@@ -87,10 +146,46 @@ if (document.body) {
     ensure: ensureBrandedLoader,
     show: showBrandedLoader,
     hide: hideBrandedLoader,
+    showPage: (caption, hint) => showBrandedLoader(caption, hint, PAGE_TIMING),
+    pageCaption,
+    timing: Object.freeze({ page: PAGE_TIMING, action: ACTION_TIMING }),
   };
 
   // Preload the shared action curtain before an operator needs it.
   void ensureBrandedLoader().catch(() => {});
+
+  // Raise the full-screen page curtain before an Admin/Staff document
+  // navigation starts. The destination page raises it again while its
+  // realtime requests settle, so both the click and the new document are
+  // covered without changing navigation semantics.
+  document.addEventListener("click", (event) => {
+    if (event.defaultPrevented || event.button !== 0) return;
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const target = event.target instanceof Element
+      ? event.target.closest("a[href]")
+      : null;
+    if (!(target instanceof HTMLAnchorElement)) return;
+    if (target.target && target.target !== "_self") return;
+    if (target.hasAttribute("download")) return;
+
+    let url;
+    try {
+      url = new URL(target.href, window.location.href);
+    } catch {
+      return;
+    }
+    if (url.origin !== window.location.origin) return;
+    if (!/\/(?:admin-page|staff-page)\/[^/]+\.html?$/i.test(url.pathname)) return;
+    if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+
+    const label = String(target.textContent || "")
+      .replace(/\s+/g, " ")
+      .trim();
+    void window.FMRCAdminLoader?.showPage?.(
+      label ? `Opening ${label}…` : "Opening the next page…",
+      "Please wait while the latest workspace data is loaded.",
+    );
+  }, true);
 })();
 
 // Shared browser-tab branding for every Admin/Staff page. The dedicated endpoint
@@ -1068,9 +1163,9 @@ if (document.body) {
     finish: finishTable,
   };
 
-  const INITIAL_MIN_VISIBLE_MS = 360;
-  const INITIAL_QUIET_MS = 400;
-  const INITIAL_FAILSAFE_MS = 6000;
+  const INITIAL_MIN_VISIBLE_MS = 200;
+  const INITIAL_QUIET_MS = 120;
+  const INITIAL_FAILSAFE_MS = 1000;
   const originalFetch = window.fetch;
   let initialSkeletonDismissed = false;
   let initialSkeletonStartedAt = 0;
@@ -1080,6 +1175,8 @@ if (document.body) {
   let hardStopTimer = 0;
   let quietTimer = 0;
   let hideTimer = 0;
+  let initialBrandedRequestToken = 0;
+  let initialBrandedShown = false;
   let obscuredRegions = [];
 
   const restoreObscuredRegions = () => {
@@ -1144,6 +1241,26 @@ if (document.body) {
       </div>`;
     main.appendChild(skeleton);
 
+    const requestToken = ++initialBrandedRequestToken;
+    const brandedLoaderPromise = window.FMRCAdminLoader?.ensure?.();
+    if (brandedLoaderPromise && typeof brandedLoaderPromise.then === "function") {
+      void brandedLoaderPromise.then((loader) => {
+        if (
+          initialSkeletonDismissed ||
+          requestToken !== initialBrandedRequestToken ||
+          !loader
+        ) {
+          return;
+        }
+        loader.show(
+          window.FMRCAdminLoader?.pageCaption?.(),
+          "Please wait while this workspace is prepared.",
+          window.FMRCAdminLoader?.timing?.page,
+        );
+        initialBrandedShown = true;
+      });
+    }
+
     hardStopTimer = window.setTimeout(
       () => hideInitial({ force: true }),
       INITIAL_FAILSAFE_MS,
@@ -1153,11 +1270,16 @@ if (document.body) {
   const finalizeInitialSkeleton = () => {
     if (initialSkeletonDismissed) return;
     initialSkeletonDismissed = true;
+    initialBrandedRequestToken += 1;
     initialTrackingOpen = false;
     window.clearTimeout(hardStopTimer);
     window.clearTimeout(quietTimer);
     window.clearTimeout(hideTimer);
     if (window.fetch === trackedFetch) window.fetch = originalFetch;
+    if (initialBrandedShown) {
+      initialBrandedShown = false;
+      window.FMRCAdminLoader?.hide?.();
+    }
 
     const main = document.querySelector(".main-content");
     const skeleton = main?.querySelector(".admin-global-page-skeleton");

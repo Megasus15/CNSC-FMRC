@@ -8,10 +8,12 @@
      FMRCLoader.hide()                       lower it
      FMRCLoader.during(work, caption, hint)  raise it, await work, always lower
 
-   `during` is the one to reach for. The curtain's lifetime is the promise's
-   lifetime and nothing else: there is no setTimeout, no setInterval and no
-   duration anywhere in this file. If the request takes 400 ms the curtain is up
-   for 400 ms; if it takes 40 s the curtain is up for 40 s.
+   Every curtain raise enforces a minimum display floor of 700–900 ms
+   (randomised so the timing never looks mechanical) so the page underneath
+   has time to settle before the visitor sees it. The floor is capped at
+   1 500 ms — if the actual work takes longer than 1.5 s the curtain lifts
+   immediately when the work finishes, never adding extra idle time on top
+   of an already-long wait.
 
    Calls nest. A flow that already raised the curtain and then calls a helper
    that raises it again keeps one curtain, and it only comes down when the
@@ -40,6 +42,33 @@
   var stack = []; /* one entry per live show(); the last entry is what shows */
 
   var DEFAULT_CAPTION = "Working on it";
+
+  /* Minimum-display-floor bookkeeping. Only the *outermost* show/hide pair
+     owns the timer — nested calls inherit the outer one's clock. */
+  var FLOOR_MIN = 700;
+  var FLOOR_MAX = 900;
+  var FLOOR_CAP = 1500;
+  var showStart = 0;      /* performance.now() recorded by the outermost show */
+  var floorMs   = 0;      /* random value between FLOOR_MIN and FLOOR_MAX     */
+  var floorCap  = FLOOR_CAP;
+  var hideTimer = 0;      /* id of a pending delayed-hide setTimeout           */
+
+  function randomFloor(min, max) {
+    return min + Math.floor(Math.random() * (max - min + 1));
+  }
+
+  function resolveTiming(options) {
+    if (!options || typeof options !== "object") {
+      return { min: FLOOR_MIN, max: FLOOR_MAX, cap: FLOOR_CAP };
+    }
+
+    var cap = Number.isFinite(options.cap) ? Math.max(0, options.cap) : FLOOR_CAP;
+    var min = Number.isFinite(options.min) ? Math.max(0, options.min) : FLOOR_MIN;
+    var max = Number.isFinite(options.max) ? Math.max(min, options.max) : FLOOR_MAX;
+    min = Math.min(min, cap);
+    max = Math.min(max, cap);
+    return { min: min, max: Math.max(min, max), cap: cap };
+  }
 
   function part(className, parent, tagName) {
     var node = document.createElement(tagName || "span");
@@ -128,30 +157,59 @@
   }
 
   /* Raise the curtain. `caption` is the one line the visitor reads; `hint` is
-     the optional second line, used only by the two genuinely long waits. */
-  function show(caption, hint) {
+     the optional second line, used only by the two genuinely long waits.
+     The outermost call starts the display-floor clock; nested calls leave it
+     alone so the floor is measured from the first raise. */
+  function show(caption, hint, options) {
     build();
+    /* Cancel any pending delayed hide from a previous cycle — a new show()
+       arriving before the delayed hide fires means the curtain stays up. */
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer = 0; }
     var text = typeof caption === "string" ? caption.trim() : "";
     stack.push({
       caption: text || DEFAULT_CAPTION,
       hint: typeof hint === "string" ? hint.trim() : ""
     });
+    /* Only the outermost call starts the clock. */
+    if (stack.length === 1) {
+      var timing = resolveTiming(options);
+      showStart = performance.now();
+      floorMs = randomFloor(timing.min, timing.max);
+      floorCap = timing.cap;
+    }
     render();
     veil.classList.add("is-on");
     /* Tells assistive tech the page is mid-update; cleared again in hide(). */
     document.documentElement.setAttribute("aria-busy", "true");
   }
 
+  /* The real DOM work of lowering the curtain: remove the class, clear
+     aria-busy, and reset the clock so the next show() gets a fresh floor. */
+  function dismiss() {
+    hideTimer = 0;
+    if (veil) veil.classList.remove("is-on");
+    document.documentElement.removeAttribute("aria-busy");
+  }
+
   /* Lower it — or, if an outer operation is still running, just hand the
-     curtain back to that operation's copy. */
+     curtain back to that operation's copy.
+
+     When the outermost call finishes and the stack empties, the floor is
+     checked: if the curtain has been up for less than `floorMs` the dismiss
+     is delayed by the remainder, but never more than `FLOOR_CAP` total. */
   function hide() {
     if (stack.length) stack.pop();
     if (stack.length) {
       render();
       return;
     }
-    if (veil) veil.classList.remove("is-on");
-    document.documentElement.removeAttribute("aria-busy");
+    var elapsed = performance.now() - showStart;
+    var remaining = Math.max(0, Math.min(floorMs - elapsed, floorCap - elapsed));
+    if (remaining > 0) {
+      hideTimer = setTimeout(dismiss, remaining);
+    } else {
+      dismiss();
+    }
   }
 
   /* show → run → always hide, whatever happens.
@@ -168,10 +226,21 @@
      evaluate to `undefined` and never run `work` at all, silently skipping the
      request it was wrapping. That is why every call site in this project uses
      the explicit `?.show(…)` / `?.hide()` pair instead. */
-  async function during(work, caption, hint) {
-    show(caption, hint);
+  async function during(work, caption, hint, options) {
+    show(caption, hint, options);
     try {
-      return await (typeof work === "function" ? work() : work);
+      var result = await (typeof work === "function" ? work() : work);
+      /* If the outermost call is about to empty the stack, honour the floor
+         inline so the caller's `await` does not resolve until the curtain
+         has actually come down. */
+      if (stack.length === 1) {
+        var elapsed = performance.now() - showStart;
+        var remaining = Math.max(0, Math.min(floorMs - elapsed, floorCap - elapsed));
+        if (remaining > 0) {
+          await new Promise(function (r) { setTimeout(r, remaining); });
+        }
+      }
+      return result;
     } finally {
       hide();
     }
@@ -190,6 +259,7 @@
      in the first place. */
   window.addEventListener("pageshow", function (event) {
     if (!event.persisted) return;
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer = 0; }
     stack.length = 0;
     if (veil) veil.classList.remove("is-on");
     document.documentElement.removeAttribute("aria-busy");

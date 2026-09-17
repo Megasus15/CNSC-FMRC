@@ -35,13 +35,7 @@
       localStorage.getItem("auth_token") ||
       "";
 
-    const setLoadingLocal = (active) => {
-      if (active) {
-        void window.FMRCAdminLoader?.show("Working on your account");
-      } else {
-        window.FMRCAdminLoader?.hide();
-      }
-    };
+    const setLoadingLocal = () => {};
 
     const showStatusLocal = (message) => {
       const authStatusModal = document.getElementById("authStatusModal");

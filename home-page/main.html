@@ -76,38 +76,29 @@
     <link rel="stylesheet" href="fmrc-loader.css?v=2.0" />
     <link rel="stylesheet" href="customer-editorial.css?v=1.5" />
     <link rel="stylesheet" href="customer-navbar.css?v=1.2" />
-    <link rel="stylesheet" href="customer-footer.css?v=1.5" />
+    <link rel="stylesheet" href="customer-footer.css?v=1.6" />
     <link rel="stylesheet" href="customer-button-feedback.css?v=1.0" />
     <link rel="stylesheet" href="customer-mobile.css?v=1.6" />
     <script>
-      /* Keep the first home visit in this tab behind the signature loader for
-         1.5 seconds, then reveal it once the DOM is ready. Later visits keep
-         the normal DOM-ready handoff. The timer stays inline so cleanup does
-         not depend on the external loader script arriving. */
+      /* Keeps the signature 3D loader on screen for a minimum of 700–900 ms
+         (randomised so repeated visits never look mechanical), capped at
+         1 500 ms. The curtain always lifts once the DOM is ready AND the
+         floor has elapsed, whichever comes second. */
       (function () {
         var h = document.documentElement;
         var startedAt = performance.now();
-        var firstVisitKey = "fmrc_home_intro_seen";
-        var firstVisit = true;
+        var FLOOR = 700 + Math.floor(Math.random() * 201);   /* 700–900 ms */
+        var CAP   = 1500;
         var liftTimer;
         var lifted = false;
-        try {
-          firstVisit = sessionStorage.getItem(firstVisitKey) !== "1";
-        } catch (_) {}
         h.classList.add("fmrc-booting");
         function lift() {
           if (lifted) return;
           lifted = true;
           clearTimeout(liftTimer);
           h.classList.remove("fmrc-booting");
-          try {
-            sessionStorage.setItem(firstVisitKey, "1");
-          } catch (_) {}
           var boot = document.querySelector(".fmrc-load-boot");
           if (!boot) return;
-          /* Taking the faded node out of the document stops four infinite
-             animations. The timeout also cleans up if a transition is
-             interrupted or its event never arrives. */
           var cleanupTimer;
           function removeBoot() {
             clearTimeout(cleanupTimer);
@@ -117,18 +108,11 @@
             if (e.target === boot && e.propertyName === "opacity") removeBoot();
           });
           cleanupTimer = setTimeout(removeBoot, 400);
-          /* Reading the curtain's opacity here both starts the fade and reports
-             whether there is one: a visitor who asked for reduced motion gets
-             `transition: none`, so no transitionend is ever coming and the node
-             has to go now. Deliberately not wrapped in requestAnimationFrame —
-             rAF never fires in a background tab, which would leave a tab opened
-             in the background curtained until the moment it is looked at. */
           if (parseFloat(getComputedStyle(boot).opacity) === 0) removeBoot();
         }
         function onReady() {
-          var remaining = firstVisit
-            ? 1500 - (performance.now() - startedAt)
-            : 0;
+          var elapsed = performance.now() - startedAt;
+          var remaining = Math.max(0, Math.min(FLOOR - elapsed, CAP - elapsed));
           if (remaining > 0) liftTimer = setTimeout(lift, remaining);
           else lift();
         }
@@ -137,9 +121,6 @@
             once: true,
           });
         else onReady();
-        /* A successful login navigates away with a curtain up, and a later Back
-           can restore a page frozen exactly as it was without re-running a line
-           of script. `persisted` is the browser saying it just did that. */
         window.addEventListener("pageshow", function (e) {
           if (e.persisted) {
             clearTimeout(liftTimer);
