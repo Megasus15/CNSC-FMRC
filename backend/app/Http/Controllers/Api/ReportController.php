@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class ReportController extends Controller
@@ -33,11 +34,11 @@ class ReportController extends Controller
     ];
 
     private const CATEGORY_CODES = [
-        'sales' => 'SALES',
-        'completed_orders' => 'COMPLETED',
-        'processing_orders' => 'PROCESSING',
-        'appointments' => 'APPOINTMENTS',
-        'inventory' => 'INVENTORY',
+        'sales' => 'SAL',
+        'completed_orders' => 'CMP',
+        'processing_orders' => 'PRC',
+        'appointments' => 'APT',
+        'inventory' => 'INV',
     ];
 
     private const PERIODS = ['monthly', 'quarterly', 'yearly'];
@@ -88,23 +89,31 @@ class ReportController extends Controller
 
             if (! $existing) {
                 $descriptor = $data['report'];
-                $existing = ReportGeneration::query()->firstOrCreate(
-                    ['generation_key' => $generationKey],
-                    [
-                        'generated_by_user_id' => $actor->id,
-                        'generated_by_name' => $descriptor['generated_by'],
-                        'generated_by_role' => $descriptor['generated_by_role'],
-                        'report_code' => $this->generationReportCode(
-                            $validated['category'],
-                            $generationKey,
-                        ),
-                        'category' => $validated['category'],
-                        'period' => $validated['period'],
-                        'year' => $validated['year'],
-                        'month' => $validated['month'],
-                        'quarter' => $validated['quarter'],
-                    ],
-                );
+                $existing = DB::transaction(function () use ($generationKey, $actor, $descriptor, $validated): ReportGeneration {
+                    $generation = ReportGeneration::query()->firstOrCreate(
+                        ['generation_key' => $generationKey],
+                        [
+                            'generated_by_user_id' => $actor->id,
+                            'generated_by_name' => $descriptor['generated_by'],
+                            'generated_by_role' => $descriptor['generated_by_role'],
+                            // A provisional unique value satisfies the existing
+                            // constraint until the database assigns the audit ID.
+                            'report_code' => 'PENDING-'.hash('sha256', $generationKey),
+                            'category' => $validated['category'],
+                            'period' => $validated['period'],
+                            'year' => $validated['year'],
+                            'month' => $validated['month'],
+                            'quarter' => $validated['quarter'],
+                        ],
+                    );
+
+                    if ($generation->wasRecentlyCreated) {
+                        $generation->report_code = $this->generationReportCode($generation);
+                        $generation->save();
+                    }
+
+                    return $generation;
+                });
 
                 // A concurrent request can win the unique-key insert between the
                 // initial lookup and firstOrCreate. Recheck ownership and filters
@@ -121,6 +130,11 @@ class ReportController extends Controller
                 ->toIso8601String();
             $data['report']['generated_by'] = $existing->generated_by_name;
             $data['report']['generated_by_role'] = $existing->generated_by_role;
+        } else {
+            // Without durable storage there is no audit sequence. Mark that
+            // distinction and keep retries stable even across a date boundary.
+            $data['report']['id'] = self::CATEGORY_CODES[$validated['category']]
+                .'-TEMP-'.strtoupper(substr(hash('sha256', $generationKey), 0, 16));
         }
 
         return $this->reportResponse($data);
@@ -220,9 +234,11 @@ class ReportController extends Controller
         ], 409);
     }
 
-    private function generationReportCode(string $category, string $generationKey): string
+    private function generationReportCode(ReportGeneration $generation): string
     {
-        return 'RPT-'.self::CATEGORY_CODES[$category].'-'.strtoupper(hash('sha256', $generationKey));
+        return self::CATEGORY_CODES[$generation->category]
+            .'-'.$generation->created_at->copy()->setTimezone(self::REPORT_TIME_ZONE)->format('Ymd')
+            .'-'.str_pad((string) $generation->id, 6, '0', STR_PAD_LEFT);
     }
 
     private function salesReport(array $period): array
@@ -906,7 +922,7 @@ class ReportController extends Controller
         $generatedByRole = strtolower(trim((string) ($user?->role ?? '')));
 
         return [
-            'id' => 'RPT-'.self::CATEGORY_CODES[$category].'-'.$generatedAt->format('Ymd-His-v'),
+            'id' => self::CATEGORY_CODES[$category].'-'.$generatedAt->format('Ymd').'-DRAFT',
             'title' => $titles[$category],
             'category' => $category,
             'period' => $period['period'],

@@ -5,11 +5,24 @@ This folder contains artwork extracted from the user-supplied
 Print / Save PDF flow. The source DOCX SHA-256 is
 `85FEC2832C1C3680F64AEC06FCE8E596EAC15BB20F8F6B69D980543FAEE7E962`.
 
-## Locked geometry and content
+## Current typography and geometry reference
 
-- Paper: US Letter portrait, 8.5 x 11 inches (`12240 x 15840` twips).
+The user-supplied `FMRC-INVENTORY-PROCESS.pdf` supersedes the older DOCX for
+typography and paper size. Its SHA-256 is
+`83D24AD70261200E41A6F2746BE0B1C2BAB0D87854F746D7A4C0FD27882F6986`.
+The first page was rendered and its text fonts and sizes were inspected.
+
+- Paper: A4 portrait (the source measures 595.4 x 841.8 points).
+- Fonts: ArialMT, Arial-BoldMT, and Arial-ItalicMT. Main text is 11pt;
+  Republic 10pt; university 14pt bold; former-name 10pt italic; address 8pt;
+  contacts 6pt; certification text 6.6pt with 5.6pt small print; document
+  control and page numbers 8pt.
+- The PDF uses locally installed Arial faces, checked before print/preview.
+  No proprietary font files are redistributed.
+
+## Retained content
+
 - Body margins: 1 inch.
-- Source header/footer distance: `708` twips (approximately 0.492 inch).
 - Preserve the Republic/University/former-name/address/web/email/social header,
   maroon divider, official certification footer, `CNSC-SP-QMS-05F5`,
   `Revision: 1`, and dynamic `Page N of M`.
@@ -20,8 +33,11 @@ Print / Save PDF flow. The source DOCX SHA-256 is
 - Endorsement/advisory bodies, recipients, dates, and signatures in the source
   DOCX and supplied screenshot are examples and are not report content.
 
-The reusable HTML document construction is in `../../reports.js`; physical
-page geometry and print rules are in `../../admin-modules.css`.
+The reusable HTML document construction is in `../../reports.js`; the base
+layout is in `../../admin-modules.css`, with the current A4 geometry and Arial
+typography in `../../report-document.css`. Header/footer text remains editable
+through Edit Letterhead. Each PDF page anchors those bands outside its measured
+body area. Reports retain Print / Save PDF and Export CSV.
 
 ## Extracted artwork checksums
 
@@ -41,7 +57,8 @@ page geometry and print rules are in `../../admin-modules.css`.
 
 ## Verification note
 
-The artwork files were individually decoded and visually inspected. This
-environment has no connected in-app browser, Word/LibreOffice renderer, or PDF
-page renderer, so final print-dialog/PDF pixel comparison remains an explicit
-deployment smoke check in `HOSTINGER_REPORTS_DEPLOYMENT.md`.
+The artwork files and supplied PDF were visually inspected. Final browser
+print output still requires a rendered smoke check; structural checks alone
+do not prove visual equivalence. Importing a PDF into Word invokes Word's
+conversion process and cannot guarantee the PDF layout. Word also dims inactive
+header/footer areas while editing the body; this is not document protection.

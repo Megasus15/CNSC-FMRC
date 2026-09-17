@@ -908,3 +908,47 @@
   .home-editorial-page #serviceModal .modal-columns { grid-template-columns: minmax(0, 1fr); }
   .home-editorial-page #serviceModal .modal-scroll-area { padding: 24px 20px; }
 }
+
+/* The About video uses the image preview's close badge at the media corner. */
+.about-editorial-page #aboutVideoModal {
+  --about-video-gutter: 28px;
+  padding:
+    calc(var(--about-video-gutter) + env(safe-area-inset-top, 0px))
+    calc(var(--about-video-gutter) + env(safe-area-inset-right, 0px))
+    calc(var(--about-video-gutter) + env(safe-area-inset-bottom, 0px))
+    calc(var(--about-video-gutter) + env(safe-area-inset-left, 0px));
+}
+
+.about-editorial-page #aboutVideoModal .about-video-modal-box {
+  position: relative;
+  width: min(1100px, 100%);
+  overflow: visible;
+}
+
+.about-editorial-page #aboutVideoModal .about-full-video {
+  max-height: min(82vh, calc(100dvh - var(--about-video-gutter) - var(--about-video-gutter) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));
+  border-radius: inherit;
+}
+
+.about-editorial-page #aboutVideoClose {
+  z-index: 1;
+  top: -14px;
+  right: -14px;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.about-editorial-page #aboutVideoClose:focus-visible {
+  outline: 2px solid var(--customer-paper, #fdfaf6);
+  outline-offset: 3px;
+}
+
+@media (max-width: 639px) {
+  .about-editorial-page #aboutVideoModal { --about-video-gutter: 22px; }
+  .about-editorial-page #aboutVideoClose { top: -12px; right: -12px; }
+}

@@ -538,7 +538,7 @@ class AdminPortalConsistencyTest extends TestCase
             'Print and Export CSV must each record the audited generation.',
         );
 
-        // Print geometry: an 11in page box that fragments across two sheets
+        // Print geometry: a page box that fragments across two sheets
         // drops its absolutely positioned footer band mid-sheet and carries the
         // next header onto the same sheet.
         $this->assertStringContainsString('break-inside: avoid;', $modulesCss);

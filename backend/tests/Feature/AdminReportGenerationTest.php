@@ -7,8 +7,10 @@ use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
+use RuntimeException;
 use Tests\TestCase;
 
 class AdminReportGenerationTest extends TestCase
@@ -153,8 +155,8 @@ class AdminReportGenerationTest extends TestCase
 
         $firstCode = (string) $first->json('data.report.id');
         $secondCode = (string) $second->json('data.report.id');
-        $this->assertMatchesRegularExpression('/^RPT-SALES-[A-F0-9]{64}$/', $firstCode);
-        $this->assertMatchesRegularExpression('/^RPT-SALES-[A-F0-9]{64}$/', $secondCode);
+        $this->assertMatchesRegularExpression('/^SAL-20260821-\d{6}$/', $firstCode);
+        $this->assertMatchesRegularExpression('/^SAL-20260821-\d{6}$/', $secondCode);
         $this->assertNotSame($firstCode, $secondCode);
         $this->assertSame(2, ReportGeneration::query()->distinct()->count('report_code'));
 
@@ -208,7 +210,7 @@ class AdminReportGenerationTest extends TestCase
             (string) $response->headers->get('Cache-Control'),
         );
         $this->assertMatchesRegularExpression(
-            '/^RPT-SALES-[A-F0-9]{64}$/',
+            '/^SAL-\d{8}-\d{6}$/',
             (string) $response->json('data.report.id'),
         );
 
@@ -244,12 +246,17 @@ class AdminReportGenerationTest extends TestCase
             $table->string('unrelated_column');
         });
 
-        $this->postJson(
+        $first = $this->postJson(
             '/api/admin/reports/generate',
             $this->payload('incompatible-schema-key'),
         )
             ->assertOk()
             ->assertJsonPath('data.report.category', 'sales');
+
+        $this->assertMatchesRegularExpression('/^SAL-TEMP-[A-F0-9]{16}$/', $first->json('data.report.id'));
+        Carbon::setTestNow(Carbon::now('Asia/Manila')->addDay());
+        $this->postJson('/api/admin/reports/generate', $this->payload('incompatible-schema-key'))
+            ->assertOk()->assertJsonPath('data.report.id', $first->json('data.report.id'));
 
         $this->assertFalse(ReportGeneration::schemaAvailable());
         $this->assertSame(
@@ -266,6 +273,100 @@ class AdminReportGenerationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.counts.generated_reports', 0)
             ->assertJsonPath('data.availability.report_generations', false);
+    }
+
+    public function test_all_categories_use_compact_codes_with_the_manila_generation_date_and_audit_sequence(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-16 16:30:00', 'UTC'));
+        $this->actingAsRole('staff');
+        $categories = [
+            'sales' => 'SAL',
+            'completed_orders' => 'CMP',
+            'processing_orders' => 'PRC',
+            'appointments' => 'APT',
+            'inventory' => 'INV',
+        ];
+
+        foreach ($categories as $category => $prefix) {
+            $payload = array_replace($this->payload('compact-'.$category), ['category' => $category]);
+            $this->getJson('/api/admin/reports?'.http_build_query($payload))
+                ->assertOk()->assertJsonPath('data.report.id', $prefix.'-20260917-DRAFT');
+            $this->assertDatabaseMissing('report_generations', ['generation_key' => $payload['generation_key']]);
+
+            $response = $this->postJson('/api/admin/reports/generate', $payload)->assertOk();
+            $audit = ReportGeneration::query()->where('generation_key', $payload['generation_key'])->firstOrFail();
+            $expected = $prefix.'-20260917-'.str_pad((string) $audit->id, 6, '0', STR_PAD_LEFT);
+            $response->assertJsonPath('data.report.id', $expected);
+            $this->assertSame($expected, $audit->report_code);
+            $this->assertSame(19, strlen($expected));
+        }
+
+        $this->assertSame(5, ReportGeneration::query()->distinct()->count('report_code'));
+    }
+
+    public function test_replaying_a_compact_report_after_midnight_preserves_original_identity_and_preparer(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-17 23:59:59', 'Asia/Manila'));
+        $actor = $this->actingAsRole('admin');
+        $first = $this->postJson('/api/admin/reports/generate', $this->payload('midnight-retry'))->assertOk();
+        Carbon::setTestNow(Carbon::parse('2026-09-18 00:00:01', 'Asia/Manila'));
+        $actor->name = 'Changed preparer name';
+
+        $this->postJson('/api/admin/reports/generate', $this->payload('midnight-retry'))
+            ->assertOk()
+            ->assertJsonPath('data.report.id', $first->json('data.report.id'))
+            ->assertJsonPath('data.report.generated_at', $first->json('data.report.generated_at'))
+            ->assertJsonPath('data.report.generated_by', $first->json('data.report.generated_by'));
+        $this->assertSame(1, ReportGeneration::query()->count());
+    }
+
+    public function test_replaying_a_historical_generation_keeps_its_stored_long_code(): void
+    {
+        $actor = $this->actingAsRole('admin');
+        $legacyCode = 'RPT-SALES-'.strtoupper(hash('sha256', 'historical-key'));
+        ReportGeneration::create([
+            'generation_key' => 'historical-key',
+            'generated_by_user_id' => $actor->id,
+            'generated_by_name' => 'Original preparer',
+            'generated_by_role' => 'admin',
+            'report_code' => $legacyCode,
+            'category' => 'sales',
+            'period' => 'monthly',
+            'year' => 2026,
+            'month' => 4,
+            'quarter' => null,
+        ]);
+
+        $this->postJson('/api/admin/reports/generate', $this->payload('historical-key'))
+            ->assertOk()
+            ->assertJsonPath('data.report.id', $legacyCode)
+            ->assertJsonPath('data.report.generated_by', 'Original preparer');
+        $this->assertDatabaseHas('report_generations', ['report_code' => $legacyCode]);
+        $this->assertSame(1, ReportGeneration::query()->count());
+    }
+
+    public function test_failure_to_finalize_compact_code_rolls_back_the_audit_insert_and_allows_retry(): void
+    {
+        $this->actingAsRole('admin');
+        $event = 'eloquent.updating: '.ReportGeneration::class;
+        Event::listen($event, function (): void {
+            throw new RuntimeException('Simulated report code write failure');
+        });
+        $this->withoutExceptionHandling();
+
+        try {
+            $this->postJson('/api/admin/reports/generate', $this->payload('rollback-key'));
+            $this->fail('Expected the code finalization write to fail.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame('Simulated report code write failure', $exception->getMessage());
+        } finally {
+            Event::forget($event);
+        }
+
+        $this->assertSame(0, ReportGeneration::query()->count());
+        $response = $this->postJson('/api/admin/reports/generate', $this->payload('rollback-key'))->assertOk();
+        $this->assertMatchesRegularExpression('/^SAL-\d{8}-\d{6}$/', $response->json('data.report.id'));
+        $this->assertSame(1, ReportGeneration::query()->count());
     }
 
     private function actingAsRole(string $role): User

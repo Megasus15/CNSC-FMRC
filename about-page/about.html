@@ -51,7 +51,7 @@
          paint is already gated on main.css above it, so these rules are
          guaranteed present the first time anything paints. -->
     <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=2.0" />
-    <link rel="stylesheet" href="../home-page/customer-editorial.css?v=1.5" />
+    <link rel="stylesheet" href="../home-page/customer-editorial.css?v=1.6-video-close" />
     <link rel="stylesheet" href="../home-page/customer-navbar.css?v=1.2" />
     <link rel="stylesheet" href="../home-page/customer-footer.css?v=1.5" />
     <link rel="stylesheet" href="../home-page/customer-button-feedback.css?v=1.0" />
@@ -520,14 +520,15 @@
     </main>
 
     <div class="about-video-modal" id="aboutVideoModal">
-      <button
-        class="about-video-close"
-        id="aboutVideoClose"
-        aria-label="Close video"
-      >
-        &times;
-      </button>
       <div class="about-video-modal-box">
+        <button
+          class="lightbox-close-btn"
+          id="aboutVideoClose"
+          type="button"
+          aria-label="Close video"
+        >
+          &times;
+        </button>
         <!-- Both players receive the configured About video from
                      site settings. No bundled clip loads before that request. -->
         <video

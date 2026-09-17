@@ -1,7 +1,7 @@
 # UCN-FMRC Reports Release - Hostinger Runbook
 
 This runbook deploys the Reports release: the editable official letterhead, the
-measured Letter-size print with one header and one footer band per sheet, the
+measured A4 print with one header and one footer band per sheet, compact report IDs, the
 data-only CSV export, the revenue corrections (approved GCash in, approved
 refunds out), the appointment and review media viewers, the customer `Others`
 client type, ten-row tables on every Admin/Staff page that now open with the
@@ -145,15 +145,22 @@ to confirm JSON responses; do not place access tokens in shared notes.
    reports.
 5. Confirm the preview locks the background page, only the preview body
    scrolls, and closing restores the original page position and focus.
-6. Save a Letter-size PDF with browser headers/footers disabled and 100% scale.
+6. Save an A4 PDF with browser headers/footers disabled and 100% scale.
    Inspect every page for the official UCN header/footer, FMRC unit block,
-   dynamic `Page N of M`, intact rows, and no more than ten detail records per
-   sheet. Every sheet must carry exactly one header band at the top and one
+   dynamic `Page N of M`, intact rows, and detail pagination that fills each
+   sheet without clipping. Every sheet must carry exactly one header band at the top and one
    footer band at the bottom: a footer printed halfway down a sheet, or the
    `FABRICATION AND MANUFACTURING RESEARCH CENTER` unit block and its
    `<email> / <phone>` contact line appearing near the bottom of the previous
-   sheet, means an `11in` page box was fragmented and the print CSS did not load
-   (check that `admin-modules.css?v=5.1` was fetched, not a cached copy).
+   sheet, means a page box was fragmented or the current print CSS did not load.
+   Confirm `report-document.css?v=1.0` and `reports.js?v=5.4` load in both
+   portals. Test empty and multi-page reports; verify Arial, repeated
+   header/footer, page numbers, and every detailed record. Header/footer text
+   must remain editable through Edit Letterhead. Opening a PDF in Word runs
+   PDF conversion, which can change layout. New generated
+   IDs use `SAL`, `CMP`, `PRC`, `APT`, or `INV`, followed by the Manila date
+   and the audit sequence, for example `SAL-20260917-000123`. Existing audit
+   IDs remain unchanged when a previous generation request is replayed.
 7. Export CSV and open the file in Excel. It must contain the data only: row 1 is
    the column labels of the on-screen detail table and every following row is one
    record, all rows the same width, with no letterhead, `REPORT METADATA`,

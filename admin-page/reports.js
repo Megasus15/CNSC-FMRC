@@ -1978,7 +1978,16 @@
         await Promise.race([
           Promise.all([
             ...Array.from(root?.querySelectorAll("img") || []).map(waitForImage),
-            document.fonts?.ready || Promise.resolve(),
+            document.fonts ? Promise.all([
+              document.fonts.load('11pt "UCN Report Arial"'),
+              document.fonts.load('bold 14pt "UCN Report Arial"'),
+              document.fonts.load('italic 10pt "UCN Report Arial"'),
+            ]).then((faces) => {
+              if (faces.some((loaded) => !loaded.length)) {
+                throw new Error("Arial is required for the official report. Open this report on a device with Arial installed.");
+              }
+              return document.fonts.ready;
+            }) : Promise.resolve(),
           ]),
           timeout,
         ]);
@@ -1995,8 +2004,8 @@
         Math.min(0.99, (body.clientHeight - 2) / body.scrollHeight),
       );
       page.style.setProperty("--report-page-scale", scale.toFixed(4));
-      page.style.setProperty("--report-page-body-width", `${(6.5 / scale).toFixed(4)}in`);
-      page.style.setProperty("--report-page-body-height", `${(7.74 / scale).toFixed(4)}in`);
+      page.style.setProperty("--report-page-body-width", `${(body.clientWidth / scale).toFixed(4)}px`);
+      page.style.setProperty("--report-page-body-height", `${(body.clientHeight / scale).toFixed(4)}px`);
       page.classList.add("is-scaled-to-fit");
     };
 
@@ -2015,7 +2024,7 @@
      * Row heights are read from `offsetTop`/`offsetHeight`, which are layout
      * pixels and so ignore the print-fit transform; the probe is measured
      * before `is-scaled-to-fit` is ever applied, and the sheet is a fixed
-     * 8.5in x 11in box in both the modal and the print layout, so one
+     * A4 box in both the modal and the print layout, so one
      * measurement is valid for both.
      *
      * The measured pass in `renderMeasuredPreview` still has the last word: a
