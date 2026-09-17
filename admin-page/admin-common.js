@@ -1915,6 +1915,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "website-services.html",
     "website-contact.html",
     "website-footer.html",
+    "website-payments.html",
     "website-emails.html",
     "website-maintenance.html",
   ];
@@ -1933,6 +1934,24 @@ document.addEventListener("DOMContentLoaded", () => {
     aboutLink.textContent = "About Us";
     if (/\/website-about(?:\.html)?\/?$/i.test(window.location.pathname)) aboutLink.classList.add("active");
     homeLink.after(aboutLink);
+  });
+
+  document.querySelectorAll('a.sub-link[href="website-home.html"]').forEach((homeLink) => {
+    const menu = homeLink.parentElement;
+    let paymentsLink = menu.querySelector('a[href="website-payments.html"]');
+    if (!paymentsLink) {
+      paymentsLink = document.createElement("a");
+      paymentsLink.href = "website-payments.html";
+      paymentsLink.className = "sub-link";
+      paymentsLink.textContent = "Payment Methods";
+      const footerLink = menu.querySelector('a[href="website-footer.html"]');
+      if (footerLink) footerLink.after(paymentsLink);
+      else menu.appendChild(paymentsLink);
+    }
+    if (/\/website-payments(?:\.html)?\/?$/i.test(window.location.pathname)) {
+      paymentsLink.classList.add("active");
+      paymentsLink.setAttribute("aria-current", "page");
+    }
   });
 
   // Support both admin and staff control button IDs (adminControlBtn, staffControlBtn)

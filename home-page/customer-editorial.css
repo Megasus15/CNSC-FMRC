@@ -116,6 +116,10 @@
   margin-bottom: 0;
 }
 
+.editorial-content [aria-labelledby="aboutAudienceHeading"] .editorial-section-heading {
+  border-bottom: 0;
+}
+
 .editorial-content .editorial-link {
   display: inline-flex;
   align-items: center;

@@ -72,13 +72,9 @@
   .editorial-content .editorial-cta {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    min-height: 280px;
+    min-height: 0;
     gap: 16px;
     padding: 22px 18px;
-  }
-
-  .editorial-content .editorial-cta > div:first-child {
-    min-height: 150px;
   }
 
   .editorial-content .editorial-cta .editorial-title {

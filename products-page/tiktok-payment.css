@@ -42,6 +42,48 @@
   background-color: #ffffff;
 }
 
+#checkoutModal .tiktok-pm-item[hidden],
+#checkoutModal .checkout-payment-notice[hidden],
+#checkoutModal #checkoutPaymentRetry[hidden] {
+  display: none;
+}
+
+#checkoutModal .tiktok-pm-item[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: wait;
+  pointer-events: none;
+}
+
+#checkoutModal .tiktok-pm-item:focus-visible {
+  outline: 2px solid var(--customer-wine, #6b202b);
+  outline-offset: 3px;
+}
+
+#checkoutModal .checkout-payment-notice {
+  margin: 12px 0 0;
+  padding: 14px 16px;
+  border: 1px solid rgba(107, 32, 43, 0.14);
+  border-radius: 12px;
+  background: #fdfaf6;
+  color: #545461;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+#checkoutModal .checkout-payment-notice p { margin: 0; }
+
+#checkoutModal #checkoutPaymentRetry {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--customer-wine, #6b202b);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 /* Selected State: Website Wine Color border + Soft Tint + Radio Dot */
 .tiktok-pm-item.selected {
   border-color: var(--customer-wine, #6b202b);

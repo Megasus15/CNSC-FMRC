@@ -4175,6 +4175,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const gcashBadge = document.getElementById("tiktokGcashBadge");
     const gcashSub = document.getElementById("tiktokGcashSub");
 
+    hiddenSelect?.addEventListener("change", () => {
+      renderCheckoutAddress();
+      renderGcashSection();
+    });
+
     // Modal elements
     const linkGcashModal = document.getElementById("linkGcashModal");
     const closeLinkGcashBtn = document.getElementById("closeLinkGcashBtn");
@@ -4259,9 +4264,11 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const selectMethod = (methodName, triggerChangeEvent = true) => {
+      if (window.FMRC_PAYMENT_METHODS && !window.FMRC_PAYMENT_METHODS.isEnabled(methodName)) return;
       pmItems.forEach((item) => {
         const isMatch = item.dataset.method === methodName;
         item.classList.toggle("selected", isMatch);
+        item.setAttribute("aria-pressed", String(isMatch));
       });
       if (hiddenSelect && hiddenSelect.value !== methodName) {
         hiddenSelect.value = methodName;
@@ -4274,17 +4281,25 @@ document.addEventListener("DOMContentLoaded", () => {
     pmItems.forEach((item) => {
       item.addEventListener("click", () => {
         const method = item.dataset.method;
+        if (item.getAttribute("aria-disabled") === "true") return;
+        if (window.FMRC_PAYMENT_METHODS && !window.FMRC_PAYMENT_METHODS.isEnabled(method)) return;
         if (method === "GCash" && (!currentLinkedGcash || !currentLinkedGcash.linked)) {
           openLinkModal();
           return;
         }
         selectMethod(method);
       });
+      item.addEventListener("keydown", (event) => {
+        if (event.target !== item || !["Enter", " "].includes(event.key)) return;
+        event.preventDefault();
+        item.click();
+      });
     });
 
     // Modal controls
     const openLinkModal = () => {
       if (!linkGcashModal) return;
+      if (window.FMRC_PAYMENT_METHODS && !window.FMRC_PAYMENT_METHODS.isEnabled("GCash")) return;
       if (linkGcashPhone) linkGcashPhone.value = "";
       if (linkGcashOtp) linkGcashOtp.value = "";
       if (linkGcashStep1) linkGcashStep1.style.display = "block";
@@ -4300,6 +4315,12 @@ document.addEventListener("DOMContentLoaded", () => {
       linkGcashModal.classList.remove("active");
       linkGcashModal.setAttribute("aria-hidden", "true");
     };
+
+    document.addEventListener("fmrc:payment-methods", () => {
+      if (!window.FMRC_PAYMENT_METHODS?.isEnabled("GCash")) closeLinkModal();
+      renderCheckoutAddress();
+      renderGcashSection();
+    });
 
     closeLinkGcashBtn?.addEventListener("click", closeLinkModal);
     // Backdrop click is disabled to prevent accidental dismissal; user must click the X close button.
@@ -4485,6 +4506,24 @@ document.addEventListener("DOMContentLoaded", () => {
   if (submitOrderBtn) {
     submitOrderBtn.addEventListener("click", async function (event) {
       event?.preventDefault();
+      if (this.disabled) return;
+      // Revalidate an open checkout before using its selection. The API also
+      // enforces availability if settings change after this request completes.
+      if (window.FMRC_PAYMENT_METHODS) {
+        const selected = document.getElementById("hiddenPaymentSelect")?.value;
+        window.FMRC_PAYMENT_METHODS.setSubmitting(true);
+        const refreshed = await window.FMRC_REFRESH_SITE_SETTINGS?.();
+        window.FMRC_PAYMENT_METHODS.setSubmitting(false);
+        if (!refreshed || !window.FMRC_PAYMENT_METHODS.isEnabled(selected)) {
+          await showCustomerPopup(
+            refreshed
+              ? "This payment method is no longer available. Please review the available methods."
+              : "We could not confirm the available payment methods. Please try again.",
+            { title: "Payment Methods" },
+          );
+          return;
+        }
+      }
       const terms = document.getElementById("orderTerms");
       if (terms && !terms.checked) {
         await showCustomerPopup(
@@ -4616,6 +4655,7 @@ document.addEventListener("DOMContentLoaded", () => {
         : parsedDisplayedTotal;
 
       const originalText = this.innerText;
+      window.FMRC_PAYMENT_METHODS?.setSubmitting(true);
       this.disabled = true;
       this.innerText = "Processing...";
 
@@ -4784,6 +4824,10 @@ document.addEventListener("DOMContentLoaded", () => {
           throw new Error("Session expired. Please sign in again.");
         }
         if (!response.ok) {
+          if (data.code === "payment_method_disabled") {
+            window.FMRC_PAYMENT_METHODS?.rejectMethod(paymentMethod);
+            await window.FMRC_REFRESH_SITE_SETTINGS?.();
+          }
           throw new Error(
             data.message || "Unable to place order at the moment.",
           );
@@ -4925,6 +4969,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } finally {
         this.disabled = false;
         this.innerText = originalText;
+        window.FMRC_PAYMENT_METHODS?.setSubmitting(false);
       }
     });
   }
@@ -14703,16 +14748,35 @@ const openReturnRequestModal = (() => {
    * unchanged snapshot costs a zero-byte 304 on the wire. Comparing the raw
    * body then skips the DOM work when nothing actually changed.
    */
-  async function reloadSettings() {
+  let settingsRequest = null;
+  function reloadSettings() {
+    if (settingsRequest) return settingsRequest;
+    settingsRequest = fetchSettings().finally(() => { settingsRequest = null; });
+    return settingsRequest;
+  }
+  window.FMRC_REFRESH_SITE_SETTINGS = reloadSettings;
+
+  async function fetchSettings() {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10000);
     try {
-      const res = await fetch(_API + "/site-settings");
-      if (!res.ok) return;
+      const res = await fetch(_API + "/site-settings", { signal: controller.signal });
+      if (!res.ok) throw new Error("Unable to load site settings.");
       const text = await res.text();
-      if (text === _settingsSnapshot) return;
+      if (text === _settingsSnapshot) return true;
+      const settings = JSON.parse(text).data;
+      if (!settings || typeof settings !== "object" || Array.isArray(settings)) {
+        throw new Error("Invalid site settings response.");
+      }
+      applySettings(settings);
       _settingsSnapshot = text;
-      applySettings(JSON.parse(text).data || {});
+      return true;
     } catch {
       /* offline — keep what is already on screen */
+      window.FMRC_PAYMENT_METHODS?.loadFailed();
+      return false;
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -14799,6 +14863,8 @@ const openReturnRequestModal = (() => {
   }
 
   function applySettings(s) {
+    window.FMRC_PAYMENT_METHODS?.applySettings(s);
+    document.dispatchEvent(new CustomEvent("fmrc:payment-methods"));
     window.FMRC_PAGE_CONTENT?.apply(s);
     // Hero title. The markup ships empty, so this is the only place the wording
     // comes from; hero-title.js also keeps the snapshot the next load paints

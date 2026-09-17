@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\SiteSetting;
 use App\Support\EmailTemplate;
+use App\Support\PaymentMethodAvailability;
 use App\Support\WebsiteContentLimits;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\DB;
 
 class SiteSettingController extends Controller
 {
@@ -35,6 +37,8 @@ class SiteSettingController extends Controller
 
             $data[$row->key] = $row->value;
         }
+
+        $data = array_replace($data, PaymentMethodAvailability::publicSettings($data));
 
         // Inform the frontend checkout whether manual QR or automated PayMongo is live
         $data['payment_gateway'] = config('payments.gateway', 'manual');
@@ -102,7 +106,10 @@ class SiteSettingController extends Controller
 
         // Validate the entire payload before saving any settings so an overlong
         // field produces a field-specific 422 without a partially saved page.
-        $request->validate(WebsiteContentLimits::settingsRules(), WebsiteContentLimits::messages());
+        $request->validate(
+            array_merge(WebsiteContentLimits::settingsRules(), PaymentMethodAvailability::rules()),
+            WebsiteContentLimits::messages(),
+        );
 
         // Accept any key-value pairs from the request body
         $input = $request->all();
@@ -121,11 +128,18 @@ class SiteSettingController extends Controller
             }
         }
 
-        foreach ($input as $key => $value) {
-            if (is_string($key) && $key !== '') {
-                SiteSetting::set($key, $value);
+        // Saving all payment switches is one operation: readers must never see
+        // a partially applied enable-all or disable-all change.
+        DB::transaction(function () use ($input): void {
+            foreach ($input as $key => $value) {
+                if (is_string($key) && $key !== '') {
+                    if (in_array($key, PaymentMethodAvailability::SETTING_KEYS, true)) {
+                        $value = PaymentMethodAvailability::canonicalValue($value);
+                    }
+                    SiteSetting::set($key, $value);
+                }
             }
-        }
+        });
 
         return response()->json(['message' => 'Site settings updated successfully.']);
     }

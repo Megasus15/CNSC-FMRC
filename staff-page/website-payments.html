@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#800000" />
+    <link rel="icon" href="../images/favicon.ico?v=3" sizes="any" />
+    <link rel="apple-touch-icon" href="../images/apple-touch-icon.png?v=3" />
+    <title>Payment Methods | UCN-FMRC Staff</title>
+    <link rel="stylesheet" href="../admin-page/dashboard.css?v=6.5" />
+    <link rel="stylesheet" href="../admin-page/admin-modules.css?v=6.5" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="../admin-page/admin-responsive.css?v=2.9" />
+    <link rel="stylesheet" href="../admin-page/website-payments.css?v=1.1" />
+  </head>
+  <body>
+    <div class="dashboard-container">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <img src="../images/FMRC Logo.png" alt="FMRC Logo" class="logo" />
+          <h2>UCN-FMRC</h2>
+        </div>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html" class="nav-link"
+            ><i class="fa-solid fa-house"></i> Dashboard</a
+          >
+          <a href="inventory.html" class="nav-link"
+            ><i class="fa-solid fa-box"></i> Inventory</a
+          >
+          <a href="products.html" class="nav-link"
+            ><i class="fa-solid fa-tags"></i> Products</a
+          >
+          <a href="promotions.html" class="nav-link" title="Promotions &amp; Announcements"
+            ><i class="fa-solid fa-bullhorn"></i> Promotions</a
+          >
+          <a href="appointments.html" class="nav-link"
+            ><i class="fa-regular fa-calendar-check"></i> Appointment</a
+          >
+          <a href="reports.html" class="nav-link"
+            ><i class="fa-solid fa-chart-line"></i> Reports</a
+          >
+          <a href="orders.html" class="nav-link"
+            ><i class="fa-solid fa-box-open"></i> Orders</a
+          >
+          <a href="customer-inquiries.html" class="nav-link"><i class="fa-regular fa-envelope-open"></i> Customer Inquiries</a>
+          <a href="ratings.html" class="nav-link"><i class="fa-solid fa-star"></i> Ratings &amp; Feedback</a>
+
+          <div class="nav-item has-dropdown open">
+            <a href="#" class="nav-link dropdown-toggle" id="staffControlBtn">
+              <div class="dropdown-title">
+                <i class="fa-solid fa-screwdriver-wrench"></i> Website
+                Management
+              </div>
+              <i class="fa-solid fa-chevron-down arrow"></i>
+            </a>
+            <div class="dropdown-menu">
+              <a href="website-home.html" class="sub-link">Home</a>
+              <a href="website-services.html" class="sub-link">Services</a>
+              <a href="website-contact.html" class="sub-link">Contact</a>
+              <a href="website-footer.html" class="sub-link">Footer</a>
+              <a href="website-payments.html" class="sub-link active" aria-current="page">Payment Methods</a>
+            </div>
+          </div>
+
+          <a href="archives.html" class="nav-link"
+            ><i class="fa-solid fa-box-archive"></i> Archives</a
+          >
+          <a href="my-account.html" class="nav-link"
+            ><i class="fa-regular fa-id-card"></i> My Account</a
+          >
+        </nav>
+        <div class="sidebar-footer">
+          <button class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="top-header">
+          <div class="header-left"><h1>Payment Methods</h1></div>
+          <div class="header-right">
+            <div class="notifications" id="notifBell">
+              <i class="fa-regular fa-bell"></i
+              ><span class="badge" id="notifBadge" style="display: none"></span>
+            </div>
+            <div class="user-profile">
+              <div class="user-info"><span class="role">Staff</span></div>
+              <span
+                class="profile-icon profile-initial"
+                data-email="staff@cnsc.edu.ph"
+              ></span>
+              <div class="profile-popup" id="profilePopup">
+                <div class="popup-header">
+                  <div class="popup-profile-row">
+                    <span
+                      class="popup-profile-icon profile-initial"
+                      data-email="staff@cnsc.edu.ph"
+                    ></span>
+                    <div class="popup-profile-meta">
+                      <p class="popup-identity">staff@cnsc.edu.ph</p>
+                      <span class="popup-role">Staff</span>
+                    </div>
+                  </div>
+                </div>
+                <a href="my-account.html" class="profile-popup-link"
+                  ><i class="fa-regular fa-id-card"></i> My Account</a
+                >
+                <hr />
+                <button class="logout-btn popup-logout">
+                  <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section class="module-content payment-settings-page" aria-labelledby="paymentPageTitle">
+          <div class="page-toolbar">
+            <div class="toolbar-title">
+              <h2 id="paymentPageTitle">Payment Methods</h2>
+              <p>Choose how customers can pay for orders on the Products page.</p>
+            </div>
+            <div class="toolbar-actions">
+              <button class="btn-admin btn-secondary" id="refreshPaymentSettings" type="button" onclick="window.location.reload()" title="Refresh Data">
+                <i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Refresh
+              </button>
+            </div>
+          </div>
+
+          <div class="payment-settings-card">
+            <form id="paymentSettingsForm" class="payment-settings-form" aria-busy="true">
+              <div class="payment-settings-heading">
+                <div>
+                  <h3>Available at checkout</h3>
+                  <p>Enable or disable each method, then save your changes.</p>
+                </div>
+                <p id="paymentSettingsSummary" role="status">Loading saved payment methods&hellip;</p>
+              </div>
+
+              <div id="paymentSettingsError" class="payment-settings-message is-error" role="alert" hidden>
+                <span id="paymentSettingsErrorText"></span>
+                <button type="button" id="retryPaymentSettings" class="btn-admin btn-secondary">Try again</button>
+              </div>
+              <div id="paymentSettingsUpdated" class="payment-settings-message" role="status" hidden>
+                <span>Saved settings changed in another session. Your unsaved selections are kept. Load the latest settings to discard your selections, or save to apply them.</span>
+                <button type="button" id="reloadPaymentSettings" class="btn-admin btn-secondary">Load latest settings</button>
+              </div>
+
+              <fieldset id="paymentSettingsFields" class="payment-settings-fieldset" aria-label="Customer payment methods" disabled>
+                <div class="payment-bulk-actions">
+                  <button type="button" id="enableAllPayments" class="btn-admin btn-secondary">Enable all</button>
+                  <button type="button" id="disableAllPayments" class="btn-admin btn-secondary">Disable all</button>
+                </div>
+                <div class="payment-method-list">
+                  <label class="payment-method-row" for="payment_cash_on_pickup_enabled">
+                    <span class="payment-method-icon" aria-hidden="true"><i class="fa-solid fa-store"></i></span>
+                    <span class="payment-method-copy">
+                      <span class="payment-method-name" id="pickupPaymentName">Cash on pickup</span>
+                      <span class="payment-method-description" id="pickupPaymentDescription">Customers pay at the FMRC counter when collecting their order.</span>
+                    </span>
+                    <span class="payment-switch-wrap">
+                      <input type="checkbox" role="switch" class="payment-switch" id="payment_cash_on_pickup_enabled" aria-labelledby="pickupPaymentName" aria-describedby="pickupPaymentDescription" />
+                      <span class="payment-switch-state" id="payment_cash_on_pickup_enabled_state" aria-hidden="true">Loading</span>
+                    </span>
+                  </label>
+                  <label class="payment-method-row" for="payment_cash_on_delivery_enabled">
+                    <span class="payment-method-icon" aria-hidden="true"><i class="fa-solid fa-truck"></i></span>
+                    <span class="payment-method-copy">
+                      <span class="payment-method-name" id="deliveryPaymentName">Cash on delivery</span>
+                      <span class="payment-method-description" id="deliveryPaymentDescription">Customers pay when their order arrives.</span>
+                    </span>
+                    <span class="payment-switch-wrap">
+                      <input type="checkbox" role="switch" class="payment-switch" id="payment_cash_on_delivery_enabled" aria-labelledby="deliveryPaymentName" aria-describedby="deliveryPaymentDescription" />
+                      <span class="payment-switch-state" id="payment_cash_on_delivery_enabled_state" aria-hidden="true">Loading</span>
+                    </span>
+                  </label>
+                  <label class="payment-method-row" for="payment_gcash_enabled">
+                    <span class="payment-method-icon" aria-hidden="true"><img src="../images/gcash-icon.png" alt="" /></span>
+                    <span class="payment-method-copy">
+                      <span class="payment-method-name" id="gcashPaymentName">GCash</span>
+                      <span class="payment-method-description" id="gcashPaymentDescription">Customers use their linked GCash account to pay online.</span>
+                    </span>
+                    <span class="payment-switch-wrap">
+                      <input type="checkbox" role="switch" class="payment-switch" id="payment_gcash_enabled" aria-labelledby="gcashPaymentName" aria-describedby="gcashPaymentDescription" />
+                      <span class="payment-switch-state" id="payment_gcash_enabled_state" aria-hidden="true">Loading</span>
+                    </span>
+                  </label>
+                </div>
+              </fieldset>
+
+              <div id="paymentSettingsNote" class="payment-settings-note">
+                <strong id="paymentSettingsNoteTitle">Availability applies to new product orders</strong>
+                <p>Disabled methods cannot be selected at checkout. Disabling all methods pauses new product orders. Existing orders and their payments stay unchanged.</p>
+              </div>
+              <div class="payment-save-bar">
+                <p id="paymentSaveStatus" role="status">Loading payment methods&hellip;</p>
+                <div class="payment-save-actions">
+                  <button type="button" class="btn-admin btn-secondary" id="discardPaymentSettings" disabled>Discard changes</button>
+                  <button type="submit" class="btn-admin" id="savePaymentSettings" disabled><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save changes</button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="../admin-page/session-helper.js"></script>
+    <script src="../admin-page/admin-common.js?v=6.9"></script>
+    <script src="../admin-page/website-payments.js?v=1.1"></script>
+  </body>
+</html>

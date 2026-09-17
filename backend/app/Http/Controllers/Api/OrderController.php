@@ -14,6 +14,7 @@ use App\Models\ProductRating;
 use App\Models\Promotion;
 use App\Services\PayMongoService;
 use App\Support\OrderNotifier;
+use App\Support\PaymentMethodAvailability;
 use App\Support\ReturnPresenter;
 use DateTimeInterface;
 use Illuminate\Http\JsonResponse;
@@ -169,6 +170,18 @@ class OrderController extends Controller
         if ($paymentMethod === null) {
             return response()->json([
                 'message' => 'Unsupported payment method. Allowed values are GCash, COP, and COD.',
+            ], 422);
+        }
+
+        // Enforce the current settings even when checkout was opened before an
+        // operator disabled a method. Existing orders keep their payment flow.
+        if (! PaymentMethodAvailability::isEnabled($paymentMethod)) {
+            $message = 'This payment method is currently unavailable. Please choose another available method.';
+
+            return response()->json([
+                'message' => $message,
+                'code' => 'payment_method_disabled',
+                'errors' => ['payment_method' => [$message]],
             ], 422);
         }
 
