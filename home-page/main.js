@@ -6723,7 +6723,7 @@ document.addEventListener("DOMContentLoaded", () => {
       window.FMRC_TURNSTILE?.reset("appointmentTurnstile");
       const message =
         error?.message ||
-        "Cannot connect to server. Please make sure Laravel is running.";
+        "Cannot connect to server. Please check your internet connection and try again.";
       showSlotMessage(message);
       return { ok: false, error: message };
     }
@@ -8424,7 +8424,7 @@ document.addEventListener("DOMContentLoaded", () => {
           msgBox.style.display = "block";
           msgBox.style.color = "#b91c1c";
           msgBox.textContent =
-            "Cannot connect to server. Ensure backend is running.";
+            "Cannot connect to server. Please check your internet connection and try again.";
         } finally {
           if (submitBtn) {
             submitBtn.disabled = false;
@@ -14858,7 +14858,6 @@ const openReturnRequestModal = (() => {
     // Footer
     _txt("footerBrandNameEl", (s.footer_brand_name || s.footerBrandName || "").trim() || "University of Camarines Norte");
     _txt("footerBrandSubtitleEl", (s.footer_brand_subtitle || s.footerBrandSubtitle || "").trim() || "Fabrication & Manufacturing Research Center");
-    _txt("footerBrandDescEl", (s.footer_brand_desc || s.footerBrandDesc || "").trim() || "Fabrication and Manufacturing Research Center - Advancing innovation through technology, research, and excellence in digital fabrication.");
     _txt("footerCampusTagEl", (s.footer_campus_tag || s.footerCampusTag || "").trim() || "Main Campus • Daet, Camarines Norte, Philippines, 4600");
     _txt("footerHoursDaysEl", (s.footer_hours_days || s.footerHoursDays || "").trim() || "Monday – Friday");
     _txt("footerHoursTimeEl", (s.footer_hours_time || s.footerHoursTime || "").trim() || "7:00am – 6:00pm");

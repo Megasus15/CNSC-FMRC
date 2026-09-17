@@ -111,22 +111,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  const ensureLoader = () => {
-    let loader = document.getElementById("global-loader");
-    if (!loader) {
-      loader = document.createElement("div");
-      loader.id = "global-loader";
-      loader.className = "global-loader-overlay";
-      loader.innerHTML = '<div class="laravel-spinner"></div>';
-      document.body.appendChild(loader);
-    }
-    return loader;
-  };
-
-  const setLoading = (active) => {
-    ensureLoader().classList.toggle("active", active);
-  };
-
   const ensureStatusModal = () => {
     let modal = document.getElementById("authStatusModal");
     if (!modal) {
@@ -232,7 +216,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const token =
       (window.AdminSession && window.AdminSession.getToken()) ||
       localStorage.getItem("auth_token");
-    setLoading(true);
+    await window.FMRCAdminLoader?.show("Signing you out");
     try {
       if (token) {
         await fetch(`${API_BASE_URL}/logout`, {
@@ -251,7 +235,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       localStorage.removeItem("auth_token");
       localStorage.removeItem("user_info");
-      setLoading(false);
+      window.FMRCAdminLoader?.hide();
       showStatus("Logged out successfully.");
       window.location.href = "../admin-auth/auth.html";
     }

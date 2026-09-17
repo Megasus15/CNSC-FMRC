@@ -414,7 +414,7 @@ async function load() {
   } catch {
     failLoad(
       "Could not reach the server.",
-      ` The request to <code>${esc(API)}/maintenance</code> did not complete, so the switches below are locked. Check that the backend is running, then click Refresh.`,
+      ` The request to <code>${esc(API)}/maintenance</code> did not complete, so the switches below are locked. Please check your internet connection and try again, then click Refresh.`,
     );
     return;
   }

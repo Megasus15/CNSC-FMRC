@@ -122,16 +122,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   void initTurnstileGate();
 
-  const toggleLoader = (show) => {
-    let loader = document.getElementById("global-loader");
-    if (!loader) {
-      loader = document.createElement("div");
-      loader.id = "global-loader";
-      loader.className = "global-loader-overlay";
-      loader.innerHTML = '<div class="laravel-spinner"></div>';
-      document.body.appendChild(loader);
+  const toggleLoader = (show, caption) => {
+    if (show) {
+      window.FMRCLoader?.show(caption || "Just a moment");
+    } else {
+      window.FMRCLoader?.hide();
     }
-    loader.classList.toggle("active", show);
   };
 
   const showStatus = (message) => {
@@ -445,7 +441,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      toggleLoader(true);
+      toggleLoader(true, "Signing you in");
       try {
         const payload = {
           login: user,
@@ -535,7 +531,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch {
         setFieldError(
           "loginUser",
-          "Cannot connect to server. Ensure Laravel is running (php artisan serve).",
+          "Cannot connect to server. Please check your internet connection and try again.",
         );
       } finally {
         // A token is single-use: clear it and re-lock so the next attempt has to
@@ -847,7 +843,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      toggleLoader(true);
+      toggleLoader(true, "Sending your code");
       try {
         const response = await fetch(`${API_BASE_URL}/forgot-password/send-otp`, {
           method: "POST",
@@ -909,7 +905,7 @@ document.addEventListener("DOMContentLoaded", () => {
   btnResendOtp?.addEventListener("click", async () => {
     if (!currentOtpEmail) return;
     btnResendOtp.disabled = true;
-    toggleLoader(true);
+    toggleLoader(true, "Sending a new code");
 
     try {
       const response = await fetch(`${API_BASE_URL}/forgot-password/resend-otp`, {
@@ -984,7 +980,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (hasError) return;
 
-      toggleLoader(true);
+      toggleLoader(true, "Updating your password");
       try {
         const response = await fetch(`${API_BASE_URL}/forgot-password/verify-otp`, {
           method: "POST",
@@ -1088,7 +1084,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (hasError) return;
-      toggleLoader(true);
+      toggleLoader(true, "Updating your password");
       if (btnRedeemRecovery) btnRedeemRecovery.disabled = true;
       try {
         const response = await fetch(
@@ -1415,7 +1411,7 @@ document.addEventListener("DOMContentLoaded", () => {
         );
         return;
       }
-      toggleLoader(true);
+      toggleLoader(true, "Creating your account");
       if (btnSubmitAccountRequest) btnSubmitAccountRequest.disabled = true;
 
       try {

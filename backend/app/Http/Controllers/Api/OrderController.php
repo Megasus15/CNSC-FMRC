@@ -2290,6 +2290,7 @@ class OrderController extends Controller
         $nextStage = $validated['stage'] ?? $order->customer_stage;
         $title = trim((string) ($validated['title'] ?? ''));
         $isPickup = $order->isPickup();
+        $courierFieldsApplicable = in_array($order->payment_method, ['COD', 'GCash'], true);
 
         // A cancelled order has no next stage. Advancing one would tell the
         // customer their cancelled order is out for delivery.
@@ -2317,12 +2318,19 @@ class OrderController extends Controller
                 };
         }
 
-        if (!empty($validated['courier_name'])) {
-            $order->courier_name = $validated['courier_name'];
-        }
+        if (! $courierFieldsApplicable) {
+            // COP has no courier leg. Clear legacy values as well, so a crafted
+            // request cannot attach delivery-only details to a pickup order.
+            $order->courier_name = null;
+            $order->courier_tracking_no = null;
+        } else {
+            if (!empty($validated['courier_name'])) {
+                $order->courier_name = $validated['courier_name'];
+            }
 
-        if (array_key_exists('courier_tracking_no', $validated)) {
-            $order->courier_tracking_no = $validated['courier_tracking_no'];
+            if (array_key_exists('courier_tracking_no', $validated)) {
+                $order->courier_tracking_no = $validated['courier_tracking_no'];
+            }
         }
 
         if (!empty($validated['location_name'])) {

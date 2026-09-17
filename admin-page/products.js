@@ -1489,7 +1489,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (showLoading && tableBody) {
         tableBody.innerHTML = emptyRow(
           11,
-          "Could not load products. Ensure Laravel server is running.",
+          "Could not load products. Please check your internet connection and try again.",
           { icon: "fa-solid fa-triangle-exclamation", tone: "error" },
         );
       }

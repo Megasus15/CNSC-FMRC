@@ -36,10 +36,11 @@
       "";
 
     const setLoadingLocal = (active) => {
-      const loader =
-        document.getElementById("global-loader") ||
-        document.querySelector(".global-loader-overlay");
-      if (loader) loader.classList.toggle("active", !!active);
+      if (active) {
+        void window.FMRCAdminLoader?.show("Working on your account");
+      } else {
+        window.FMRCAdminLoader?.hide();
+      }
     };
 
     const showStatusLocal = (message) => {

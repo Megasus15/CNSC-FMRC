@@ -67,7 +67,6 @@ async function loadSettings() {
     const s = json.data || {};
     setVal("footerBrandName", s.footer_brand_name || s.footerBrandName || "UCN-FMRC");
     setVal("footerBrandSubtitle", s.footer_brand_subtitle || s.footerBrandSubtitle || "Fabrication & Manufacturing Research Center");
-    setVal("footerBrandDesc", s.footer_brand_desc || s.footerBrandDesc || "Fabrication and Manufacturing Research Center - Advancing innovation through technology and excellence in manufacturing.");
     setVal("footerCampusTag", s.footer_campus_tag || s.footerCampusTag || "Main Campus • Daet, Camarines Norte, Philippines, 4600");
     setVal("footerHoursDays", s.footer_hours_days || s.footerHoursDays || "Monday - Friday");
     setVal("footerHoursTime", s.footer_hours_time || s.footerHoursTime || "7:00am - 6:00pm");
@@ -160,7 +159,6 @@ async function doSave() {
   const payload = {
     footer_brand_name: getV("footerBrandName"),
     footer_brand_subtitle: getV("footerBrandSubtitle"),
-    footer_brand_desc: getV("footerBrandDesc"),
     footer_campus_tag: getV("footerCampusTag"),
     footer_quick_links: JSON.stringify(links),
     footer_hours_days: getV("footerHoursDays"),
@@ -179,7 +177,6 @@ async function doSave() {
     footer_bottom_dev: getV("footerBottomDev"),
     footerBrandName: getV("footerBrandName"),
     footerBrandSubtitle: getV("footerBrandSubtitle"),
-    footerBrandDesc: getV("footerBrandDesc"),
     footerCampusTag: getV("footerCampusTag"),
     footerHoursDays: getV("footerHoursDays"),
     footerHoursTime: getV("footerHoursTime"),

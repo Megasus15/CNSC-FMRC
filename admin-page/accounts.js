@@ -966,7 +966,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       console.error("Failed to create account:", error);
       updateFormStatus(
-        "Unable to connect to server. Ensure Laravel is running.",
+        "Unable to connect to server. Please check your internet connection and try again.",
         true,
       );
     } finally {

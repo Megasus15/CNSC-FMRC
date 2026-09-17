@@ -243,6 +243,8 @@ document.addEventListener("DOMContentLoaded", () => {
     "trackingCourierOtherWrap",
   );
   const trackingCourierNo = document.getElementById("trackingCourierNo");
+  const trackingCourierField = trackingCourierSelect?.closest(".field-stack");
+  const trackingCourierNoField = trackingCourierNo?.closest(".field-stack");
   const trackingLocationName = document.getElementById("trackingLocationName");
   const trackingLatitude = document.getElementById("trackingLatitude");
   const trackingLongitude = document.getElementById("trackingLongitude");
@@ -2557,11 +2559,42 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   /**
-   * Keep the two courier fields honest about the chosen company: a name box only
-   * for "Other", and no waybill box for pickup, which never gets one.
+   * Courier details are meaningful only for COD and GCash orders. COP keeps
+   * the checkpoint controls, but never exposes or persists courier identity or
+   * waybill fields.
    */
-  const syncCourierFields = () => {
+  const normalizePaymentMethodKey = (value) =>
+    String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_-]+/g, "");
+
+  const areCourierFieldsApplicable = (order = trackingModalOrder) => {
+    const method = normalizePaymentMethodKey(
+      order?.payment_method || order?.payment?.method,
+    );
+    return method === "cod" || method === "gcash";
+  };
+
+  const syncCourierFields = (order = trackingModalOrder) => {
     if (!trackingCourierSelect) return;
+
+    const shouldShowCourierFields = areCourierFieldsApplicable(order);
+    if (trackingCourierField)
+      trackingCourierField.hidden = !shouldShowCourierFields;
+    if (trackingCourierNoField)
+      trackingCourierNoField.hidden = !shouldShowCourierFields;
+
+    if (!shouldShowCourierFields) {
+      if (trackingCourierOtherWrap) trackingCourierOtherWrap.hidden = true;
+      if (trackingCourierName) trackingCourierName.value = "";
+      if (trackingCourierNo) {
+        trackingCourierNo.value = "";
+        trackingCourierNo.disabled = true;
+        trackingCourierNo.placeholder = "Not used for Cash on Pickup";
+      }
+      return;
+    }
 
     const key = trackingCourierSelect.value;
     const isOther = key === COURIER_OTHER_KEY;
@@ -2991,10 +3024,9 @@ document.addEventListener("DOMContentLoaded", () => {
           ? savedCourierName
           : "";
     }
-    syncCourierFields();
-
     if (trackingCourierNo)
       trackingCourierNo.value = order.courier_tracking_no || "";
+    syncCourierFields(order);
     if (trackingLocationName)
       trackingLocationName.value = order.location_name || "";
     if (trackingLatitude)
@@ -3022,9 +3054,15 @@ document.addEventListener("DOMContentLoaded", () => {
     stage: String(trackingStage?.value || "").trim(),
     title: String(trackingEventTitle?.value || "").trim(),
     description: String(trackingEventDescription?.value || "").trim(),
-    courierKey: String(trackingCourierSelect?.value || "").trim(),
-    courierName: String(trackingCourierName?.value || "").trim(),
-    courierNo: String(trackingCourierNo?.value || "").trim(),
+    courierKey: areCourierFieldsApplicable(trackingModalOrder)
+      ? String(trackingCourierSelect?.value || "").trim()
+      : "",
+    courierName: areCourierFieldsApplicable(trackingModalOrder)
+      ? String(trackingCourierName?.value || "").trim()
+      : "",
+    courierNo: areCourierFieldsApplicable(trackingModalOrder)
+      ? String(trackingCourierNo?.value || "").trim()
+      : "",
     locationName: String(trackingLocationName?.value || "").trim(),
     latitude: String(trackingLatitude?.value || "").trim(),
     longitude: String(trackingLongitude?.value || "").trim(),
@@ -5019,8 +5057,15 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const courierName = getSelectedCourierName();
-    if (trackingCourierSelect?.value === COURIER_OTHER_KEY && !courierName) {
+    const courierFieldsApplicable = areCourierFieldsApplicable(
+      trackingModalOrder,
+    );
+    const courierName = courierFieldsApplicable ? getSelectedCourierName() : "";
+    if (
+      courierFieldsApplicable &&
+      trackingCourierSelect?.value === COURIER_OTHER_KEY &&
+      !courierName
+    ) {
       showPopup("Type the courier's name, or pick one from the list.", {
         title: "Courier Needed",
       });
@@ -5032,8 +5077,10 @@ document.addEventListener("DOMContentLoaded", () => {
       stage,
       title: trackingEventTitle?.value?.trim() || null,
       description: trackingEventDescription?.value?.trim() || null,
-      courier_name: courierName || null,
-      courier_tracking_no: trackingCourierNo?.value?.trim() || null,
+      courier_name: courierFieldsApplicable ? courierName || null : null,
+      courier_tracking_no: courierFieldsApplicable
+        ? trackingCourierNo?.value?.trim() || null
+        : null,
       location_name: trackingLocationName?.value?.trim() || null,
       latitude: latitude.value,
       longitude: longitude.value,

@@ -606,7 +606,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch {
         setFieldError(
           "signupName",
-          "Cannot connect to server. Ensure Laravel is running.",
+          "Cannot connect to server. Please check your internet connection and try again.",
         );
       } finally {
         window.FMRC_TURNSTILE?.reset("signupTurnstile");
@@ -725,7 +725,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch {
         setFieldError(
           "loginUser",
-          "Cannot connect to server. Ensure Laravel is running.",
+          "Cannot connect to server. Please check your internet connection and try again.",
         );
       } finally {
         window.FMRC_TURNSTILE?.reset("loginTurnstile");

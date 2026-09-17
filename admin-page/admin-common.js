@@ -3,6 +3,96 @@ if (document.body) {
   document.body.classList.add("no-transitions");
 }
 
+/* Admin and Staff share the Customer Portal's branded action curtain. Load the
+   existing component once from the shared customer asset folder so every
+   back-office page uses the same artwork, motion, captions and accessibility
+   state without duplicating the loader markup or changing page HTML. */
+(() => {
+  const commonScriptUrl = document.currentScript?.src || "";
+  let loaderPromise = null;
+
+  const resolveLoaderAsset = (fileName) => {
+    const baseUrl = commonScriptUrl || document.baseURI;
+    return new URL(`../home-page/${fileName}`, baseUrl).href;
+  };
+
+  const ensureBrandedLoader = () => {
+    if (window.FMRCLoader) return Promise.resolve(window.FMRCLoader);
+    if (loaderPromise) return loaderPromise;
+
+    const styleHref = resolveLoaderAsset("fmrc-loader.css?v=2.0");
+    let styleReady = Promise.resolve();
+    if (!document.querySelector('link[data-fmrc-admin-loader="styles"]')) {
+      const style = document.createElement("link");
+      style.rel = "stylesheet";
+      style.href = styleHref;
+      style.dataset.fmrcAdminLoader = "styles";
+      styleReady = new Promise((resolve) => {
+        const settle = () => resolve();
+        style.addEventListener("load", settle, { once: true });
+        style.addEventListener("error", settle, { once: true });
+      });
+      (document.head || document.documentElement).appendChild(style);
+    }
+
+    const scriptReady = new Promise((resolve, reject) => {
+      const finish = () => {
+        if (window.FMRCLoader) resolve(window.FMRCLoader);
+        else reject(new Error("The FMRC branded loader did not initialize."));
+      };
+      const existing = document.querySelector(
+        'script[data-fmrc-admin-loader="script"]',
+      );
+      if (existing) {
+        existing.addEventListener("load", finish, { once: true });
+        existing.addEventListener(
+          "error",
+          () => reject(new Error("The FMRC branded loader failed to load.")),
+          { once: true },
+        );
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src = resolveLoaderAsset("fmrc-loader.js?v=2.0");
+      script.dataset.fmrcAdminLoader = "script";
+      script.addEventListener("load", finish, { once: true });
+      script.addEventListener(
+        "error",
+        () => reject(new Error("The FMRC branded loader failed to load.")),
+        { once: true },
+      );
+      (document.head || document.documentElement).appendChild(script);
+    });
+
+    loaderPromise = Promise.all([scriptReady, styleReady]).then(
+      ([loader]) => loader,
+    );
+
+    return loaderPromise;
+  };
+
+  const showBrandedLoader = async (caption) => {
+    try {
+      const loader = await ensureBrandedLoader();
+      loader.show(caption || "Just a moment");
+    } catch {
+      // A loader failure must never block a login/logout action.
+    }
+  };
+
+  const hideBrandedLoader = () => window.FMRCLoader?.hide();
+
+  window.FMRCAdminLoader = {
+    ensure: ensureBrandedLoader,
+    show: showBrandedLoader,
+    hide: hideBrandedLoader,
+  };
+
+  // Preload the shared action curtain before an operator needs it.
+  void ensureBrandedLoader().catch(() => {});
+})();
+
 // Shared browser-tab branding for every Admin/Staff page. The dedicated endpoint
 // keeps this shell from downloading the full site-settings payload just to read
 // one small image value.
@@ -3011,22 +3101,6 @@ document.addEventListener("DOMContentLoaded", () => {
     window.openAllNotificationsPanel = openAllNotifPanel;
   }
 
-  const ensureLoader = () => {
-    let loader = document.getElementById("global-loader");
-    if (!loader) {
-      loader = document.createElement("div");
-      loader.id = "global-loader";
-      loader.className = "global-loader-overlay";
-      loader.innerHTML = '<div class="laravel-spinner"></div>';
-      document.body.appendChild(loader);
-    }
-    return loader;
-  };
-
-  const setLoading = (active) => {
-    ensureLoader().classList.toggle("active", active);
-  };
-
   const ensureStatusModal = () => {
     let modal = document.getElementById("authStatusModal");
     if (!modal) {
@@ -3132,7 +3206,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const token =
       (window.AdminSession && window.AdminSession.getToken()) ||
       localStorage.getItem("auth_token");
-    setLoading(true);
+    await window.FMRCAdminLoader?.show("Signing you out");
     try {
       if (token) {
         const proto = window.location.protocol;
@@ -3163,7 +3237,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // Also clear any legacy keys
       localStorage.removeItem("auth_token");
       localStorage.removeItem("user_info");
-      setLoading(false);
+      window.FMRCAdminLoader?.hide();
       showStatus("Logged out successfully.");
       window.location.href = "../admin-auth/auth.html";
     }

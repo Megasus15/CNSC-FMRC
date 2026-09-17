@@ -1751,7 +1751,17 @@ body {
 
 .details-btn:hover {
   color: var(--customer-wine-hover);
+  text-decoration: none;
+}
+
+.details-btn:hover .details-btn-label {
   text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.details-btn i {
+  display: inline-block;
+  text-decoration: none;
 }
 
 /* =========================================

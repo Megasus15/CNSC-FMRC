@@ -1086,7 +1086,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (err) {
       console.error("Load inventory error:", err);
       if (categoryTablesWrap) {
-        categoryTablesWrap.innerHTML = `<div class="panel" style="text-align:center;padding:40px;color:#991b1b;">Could not load inventory. Ensure Laravel server is running.</div>`;
+        categoryTablesWrap.innerHTML = `<div class="panel" style="text-align:center;padding:40px;color:#991b1b;">Could not load inventory. Please check your internet connection and try again.</div>`;
       }
     }
   };

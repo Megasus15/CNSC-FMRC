@@ -392,8 +392,17 @@
 
 .editorial-content .editorial-services-grid .details-btn:is(:hover, :focus-visible) {
   color: var(--customer-wine-hover);
+  text-decoration: none;
+}
+
+.editorial-content .editorial-services-grid .details-btn:is(:hover, :focus-visible) .details-btn-label {
   text-decoration: underline;
   text-underline-offset: 4px;
+}
+
+.editorial-content .editorial-services-grid .details-btn i {
+  display: inline-block;
+  text-decoration: none;
 }
 
 .editorial-content .service-image-trigger,

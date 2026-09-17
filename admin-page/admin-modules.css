@@ -3365,6 +3365,10 @@ input.page-number:focus,
   gap: 6px;
 }
 
+.field-stack[hidden] {
+  display: none !important;
+}
+
 .field-stack label {
   font-size: 0.74rem;
   color: #6b6f75;
@@ -5115,7 +5119,7 @@ html.report-modal-open-root {
   body.report-printing > .dashboard-container,
   body.report-printing > .admin-success-notification-stack,
   body.report-printing > .admin-system-popup,
-  body.report-printing > .global-loader-overlay,
+  body.report-printing > .fmrc-load-veil,
   body.report-printing > .status-modal {
     display: none !important;
   }
