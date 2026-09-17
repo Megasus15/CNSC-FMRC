@@ -35,6 +35,7 @@
   background-size: 38px 38px;
   pointer-events: none;
   opacity: 0.65;
+  display: none !important;
 }
 
 /* Two-Zone Layout Grid (Override legacy responsive.css) */
@@ -154,6 +155,9 @@
   font-weight: 600;
   letter-spacing: 0.02em;
   line-height: 1.45;
+  word-spacing: 0.08em;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 
 /* A quiet place for the supplied registration artwork. Keep its original
@@ -688,7 +692,10 @@
   }
 
   .site-footer .footer-campus-tag {
+    margin-top: 14px;
     font-size: 11px;
+    line-height: 1.55;
+    word-spacing: 0.14em;
   }
 
   .site-footer .footer-privacy-registration {
