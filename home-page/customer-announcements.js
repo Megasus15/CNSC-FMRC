@@ -68,8 +68,8 @@
   /* ==========================================================================
      SHARED ANNOUNCEMENT / PROMOTION THEME
      --------------------------------------------------------------------------
-     One theme paints the announcement pop-up and the promotion card in the
-     product page header. It is edited on the admin/staff Promotions page and
+     This theme paints the promotion card in the product page header. The
+     announcement dialog has its own fixed palette. The theme is edited on the admin/staff Promotions page and
      saved to site_settings, so every customer sees it — localStorage is only a
      same-browser cache and the editor's own instant preview.
 
@@ -165,27 +165,21 @@
   window.getGlobalFMRCTheme = () => resolveTheme();
 
   /**
-   * Paint one announcement surface from a resolved theme. `--announcement-band`
-   * is only written when a colour was really saved, so an untouched site keeps
-   * the shared dialog band instead of being pulled onto the promotion palette.
+   * Clear legacy announcement-theme overrides from an already-open dialog.
+   * Custom colors belong exclusively to the Product promotion card; the
+   * announcement dialog always keeps the shared maroon UX shell.
    */
-  const applyModalTheme = (el, theme) => {
+  const applyModalTheme = (el) => {
     if (!el?.style) return;
-    el.style.setProperty("--announcement-accent-primary", theme.primary);
-    el.style.setProperty("--announcement-accent-secondary", theme.secondary);
-    if (theme.explicit) {
-      el.style.setProperty(
-        "--announcement-band",
-        `linear-gradient(135deg, ${theme.primary}, ${theme.secondary})`,
-      );
-    } else {
-      el.style.removeProperty("--announcement-band");
-    }
+    el.style.removeProperty("--announcement-band");
+    el.style.removeProperty("--announcement-accent-primary");
+    el.style.removeProperty("--announcement-accent-secondary");
   };
 
   /**
    * The three promotion-card decorations, resolved from the same source as the
-   * colours so the pop-up and the card can never drift apart.
+   * colors so the Product promotion card and its editor preview can never drift
+   * apart.
    */
   window.getGlobalFMRCPromoDecor = () => {
     const theme = resolveTheme();
@@ -274,11 +268,13 @@
   let productsCatalog = [];
   let activeIndex = 0;
   let modal;
+  let badgeLabelEl;
   let titleEl;
   let messageEl;
   let ctaEl;
   let counterEl;
   let nextBtn;
+  let previousBtn;
   let isLoading = true;
   let campaignExpiryTimer = null;
   let campaignPollTimer = null;
@@ -370,6 +366,41 @@
       : `${productIds.length} selected product(s)`;
   };
 
+  // Both the live customer modal and the portal preview use this exact markup.
+  const createAnnouncementCardMarkup = (item, counterText, {
+    customer = false, navigation = false,
+  } = {}) => {
+    const id = (name) => customer ? ` id="announcementModal${name}"` : "";
+    const title = item?.title || "Announcements";
+    const message = item?.message || "There are no active announcements right now.";
+    const badge = item?.is_promotion ? "SPECIAL PROMOTION" : "FMRC ANNOUNCEMENT";
+    const hasCta = Boolean(item?.cta_label && item?.cta_url);
+    return `
+      <header class="fmrc-announcement__header">
+        <button type="button" class="fmrc-announcement__close" data-announcement-close${id("CloseX")} aria-label="Close announcement">&times;</button>
+        <span class="fmrc-announcement__badge" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h4l11-5v16l-11-5H4z"/><path d="M5 15l2 6h3l-2-6M8 9v6"/></svg></span>
+        <div class="fmrc-announcement__heading">
+          <p class="fmrc-announcement__eyebrow"${id("BadgeLabel")}>${badge}</p>
+          <h2 class="fmrc-announcement__title"${id("Title")}>${esc(title)}</h2>
+        </div>
+      </header>
+      <div class="fmrc-announcement__body">
+        <p class="fmrc-announcement__message"${id("Message")}>${esc(message)}</p>
+      </div>
+      <footer class="fmrc-announcement__footer">
+        <div class="fmrc-announcement__pager" role="group" aria-label="Announcement navigation">
+          <button type="button" class="fmrc-announcement__button fmrc-announcement__arrow" data-announcement-previous${id("Previous")} aria-label="Previous announcement" ${navigation ? "" : "disabled"}>&lsaquo;</button>
+          <span class="fmrc-announcement__counter"${id("Counter")} aria-live="polite" aria-atomic="true">${esc(counterText)}</span>
+          <button type="button" class="fmrc-announcement__button fmrc-announcement__arrow" data-announcement-next${id("Next")} aria-label="Next announcement" ${navigation ? "" : "disabled"}>&rsaquo;</button>
+        </div>
+        <div class="fmrc-announcement__actions">
+          <a class="fmrc-announcement__button fmrc-announcement__button--primary"${id("Cta")} data-announcement-cta ${hasCta ? `href="${esc(item.cta_url)}"` : "hidden"}>${esc(item?.cta_label || "View Details")}</a>
+          <button type="button" class="fmrc-announcement__button" data-announcement-close${id("Close")}>Got it</button>
+        </div>
+      </footer>
+    `;
+  };
+
   const showModal = (index = 0) => {
     if (!modal) return;
     markTooltipDismissed();
@@ -388,9 +419,12 @@
 
     if (item) activeIndex = announcements.indexOf(item);
 
-    const theme = window.getGlobalFMRCTheme();
-
-    applyModalTheme(modal, theme);
+    applyModalTheme(modal);
+    if (badgeLabelEl) {
+      badgeLabelEl.textContent = item?.is_promotion
+        ? "SPECIAL PROMOTION"
+        : "FMRC ANNOUNCEMENT";
+    }
     if (titleEl) titleEl.textContent = item?.title || "Announcements";
     if (messageEl) {
       messageEl.textContent =
@@ -401,10 +435,8 @@
     }
     if (counterEl) {
       counterEl.textContent = item
-        ? announcements.length > 1
-          ? `${activeIndex + 1} of ${announcements.length}`
-          : "Latest Announcement"
-        : "";
+        ? `${activeIndex + 1} of ${announcements.length}`
+        : "0 of 0";
     }
 
     if (ctaEl) {
@@ -420,11 +452,9 @@
       }
     }
 
-    if (nextBtn) {
-      const canShowNext = announcements.length > 1;
-      nextBtn.hidden = !canShowNext;
-      nextBtn.style.display = canShowNext ? "inline-flex" : "none";
-    }
+    [previousBtn, nextBtn].forEach((button) => {
+      if (button) button.disabled = announcements.length < 2;
+    });
 
     modal.hidden = false;
     modal.setAttribute("aria-hidden", "false");
@@ -618,296 +648,20 @@
         }
         .announcement-modal[hidden] { display: none !important; }
         
-        .announcement-modal__card {
-          width: min(520px, 92vw);
-          overflow: hidden;
-          border-radius: var(--ux-dlg-radius, 8px);
-          /* Warm paper, not #ffffff: the customer pages have no solid white
-             surface any more, and this card sits over the same scrim as every
-             other dialog. */
-          background: #fdfaf6;
-          box-shadow: 0 25px 65px rgba(45, 12, 12, 0.32);
-          animation: fmrcAnnouncementIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-          position: relative;
-        }
-        
-        .announcement-modal__hero {
-          position: relative;
-          padding: 26px 28px 20px;
-          background: var(--announcement-band, linear-gradient(135deg, #3d0808 0%, #5f0d0d 52%, #851313 100%));
-          color: #f7f2ec;
-        }
-
-        /* The pop-up on the customer pages also wears the unified dialog skin,
-           whose band rule in main.css (":is(.ux-dlg, ...) .ux-dlg__card
-           .ux-dlg__head") is (1,2,0) and outranks the (0,1,0) rule above no
-           matter how late this sheet is appended. So a saved theme reached this
-           card's custom properties but never its paint. This selector matches
-           at (1,4,0) and reads --announcement-band, which the script sets only
-           once a colour has actually been saved: an untouched site keeps the
-           shared maroon band every other dialog uses. */
-        #announcementModal.ux-dlg .ux-dlg__card .announcement-modal__hero.ux-dlg__head {
-          background: var(--announcement-band, var(--ux-dlg-band, linear-gradient(135deg, #3d0808 0%, #5f0d0d 52%, #851313 100%)));
-        }
-        
-        .announcement-modal__label {
-          margin: 0 0 6px;
-          font-size: 0.72rem;
-          font-weight: 800;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
-          opacity: 0.92;
-          color: #f7f2ec;
-        }
-
-        .announcement-modal__title {
-          margin: 0;
-          font-size: 1.45rem;
-          font-weight: 700;
-          line-height: 1.25;
-          color: #f7f2ec;
-        }
-
-        .announcement-modal__close-x {
-          position: absolute;
-          top: 16px;
-          right: 18px;
-          background: rgba(247, 242, 236, 0.22);
-          border: none;
-          color: #f7f2ec;
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          font-size: 1.2rem;
-          display: grid;
-          place-items: center;
-          cursor: pointer;
-          transition: background-color 0.2s ease, transform 0.08s ease;
-          z-index: 10;
-          line-height: 1;
-        }
-        .announcement-modal__close-x:hover {
-          background: rgba(247, 242, 236, 0.4);
-        }
-        .announcement-modal__close-x:active {
-          transform: scale(0.94);
-        }
-
-        .announcement-modal__body {
-          padding: 24px 28px;
-          position: relative;
-          background: #fdfaf6;
-        }
-
-        .announcement-modal__message {
-          margin: 0 0 20px;
-          color: #4b5563;
-          font-size: 0.96rem;
-          line-height: 1.65;
-          white-space: pre-line;
-        }
-        
-        .announcement-modal__actions {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          flex-wrap: wrap;
-        }
-        
-        .announcement-modal__counter {
-          font-size: 0.78rem;
-          color: #6d7480;
-          font-weight: 600;
-        }
-
-        /* Full pill, flat fill, darker-on-hover — the one button recipe the
-           customer pages use, taken from the hero CTAs and the appointment
-           step-1 pill. These rules only reach the legacy template that renders
-           without the ux-dlg__btn hooks; the live dialog's buttons carry both
-           class families and main.css's (1,2,0) shell rules win there. Keeping
-           the two in step means the fallback can never look like a third
-           button language.
-
-           No backticks anywhere in this stylesheet: it is a JS template
-           literal, so one backtick in a CSS comment ends the string and the
-           rest of the file stops parsing. */
-        .announcement-modal__button {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          padding: 10px 18px;
-          border-radius: var(--ux-dlg-radius, 8px);
-          border: none;
-          font-size: 0.88rem;
-          font-weight: 700;
-          cursor: pointer;
-          text-decoration: none;
-          transition: background-color 0.2s ease, filter 0.2s ease, transform 0.08s ease;
-        }
-
-        .announcement-modal__button--primary {
-          background: var(--announcement-accent-secondary, #5f0d0d);
-          color: #f7f2ec;
-        }
-        /* Dynamic darkening on hover for WHICHEVER preset color is active */
-        .announcement-modal__button--primary:hover {
-          filter: brightness(0.84);
-        }
-        .announcement-modal__button--primary:active {
-          transform: scale(0.96);
-        }
-
-        .announcement-modal__button--secondary {
-          background: #fffbed;
-          color: var(--customer-wine, #6b202b);
-          border: 1px solid #eadc9a;
-        }
-        .announcement-modal__button--secondary:hover {
-          background: #f6edcf;
-        }
-        .announcement-modal__button--secondary:active {
-          transform: scale(0.96);
-        }
-
-        /* The ≤900px arm this comment used to describe is gone: the tooltip's
-           own blur went with the minimalism round, so there is no longer a
-           backdrop-filtered pill nested inside the (also formerly blurred)
-           sticky header for a phone arm to switch off. What the note recorded is
-           still worth keeping, because it is why neither blur is coming back:
-           a backdrop-filtered element inside a backdrop-filtered sticky parent
-           is the most expensive construct this site can produce — the content
-           behind both changes every scroll frame, so neither blur can be cached
-           and the GPU re-samples and re-blurs twice per frame. At 120Hz that is
-           an 8.3ms budget, not 16.7ms, and it was missed outright. The pill is
-           flat warm paper at every width now, which costs nothing to composite
-           and reads the same on a phone as on a desktop. */
-
-        /* Runtime styles are appended after the shared stylesheets, so the
-           responsive safeguards live here as well. This keeps announcement
-           content and every action reachable on narrow and short screens. */
-        @media (max-width: 420px) {
-          .announcement-modal {
-            padding: max(8px, env(safe-area-inset-top, 0px))
-              max(8px, env(safe-area-inset-right, 0px))
-              max(8px, env(safe-area-inset-bottom, 0px))
-              max(8px, env(safe-area-inset-left, 0px));
-            overflow-y: auto;
-          }
-
-          .announcement-modal__card {
-            width: 100%;
-            max-width: 100%;
-            max-height: calc(100dvh - 16px);
-            overflow-y: auto;
-            border-radius: var(--ux-dlg-radius, 8px);
-          }
-
-          .announcement-modal__hero {
-            padding: 22px 50px 18px 20px;
-          }
-
-          .announcement-modal__body {
-            padding: 20px;
-          }
-
-          .announcement-modal__message {
-            overflow-wrap: anywhere;
-          }
-
-          .announcement-modal__actions,
-          .announcement-modal__actions > div {
-            display: grid !important;
-            grid-template-columns: 1fr;
-            width: 100%;
-            gap: 8px !important;
-          }
-
-          .announcement-modal__actions > div {
-            margin-left: 0 !important;
-          }
-
-          .announcement-modal__button {
-            width: 100%;
-            min-width: 0;
-            white-space: normal;
-            overflow-wrap: anywhere;
-          }
-        }
-
         @media (max-width: 280px) {
           .announcement-glass-tooltip {
             position: fixed;
             top: max(78px, calc(env(safe-area-inset-top, 0px) + 78px));
-            right: max(5px, env(safe-area-inset-right, 0px));
-            left: max(5px, env(safe-area-inset-left, 0px));
+            right: 5px;
+            left: 5px;
             width: auto;
             max-width: none;
             padding: 8px;
-            border-radius: 12px;
           }
-
-          .announcement-glass-tooltip__arrow {
-            display: none;
-          }
-
-          .announcement-glass-tooltip__content {
-            align-items: flex-start;
-            gap: 6px;
-          }
-
-          .announcement-modal {
-            padding: max(5px, env(safe-area-inset-top, 0px))
-              max(5px, env(safe-area-inset-right, 0px))
-              max(5px, env(safe-area-inset-bottom, 0px))
-              max(5px, env(safe-area-inset-left, 0px));
-          }
-
-          .announcement-modal__card {
-            max-height: calc(100dvh - 10px);
-            border-radius: var(--ux-dlg-radius, 8px);
-          }
-
-          .announcement-modal__hero,
-          .announcement-modal__body {
-            padding: 10px;
-          }
-
-          .announcement-modal__hero {
-            padding-right: 42px;
-          }
-
-          .announcement-modal__title {
-            font-size: clamp(0.82rem, 10vw, 1.1rem);
-            overflow-wrap: anywhere;
-          }
-
-          .announcement-modal__label,
-          .announcement-modal__counter {
-            font-size: 0.6rem;
-            overflow-wrap: anywhere;
-          }
-
-          .announcement-modal__message,
-          .announcement-modal__button {
-            font-size: clamp(0.62rem, 7.5vw, 0.78rem);
-          }
-
-          .announcement-modal__close-x {
-            top: 6px;
-            right: 6px;
-            width: 32px;
-            height: 32px;
-          }
+          .announcement-glass-tooltip__arrow { display: none; }
+          .announcement-glass-tooltip__content { align-items: flex-start; gap: 6px; }
         }
 
-        @media (max-height: 430px) {
-          .announcement-modal {
-            place-items: start center;
-          }
-        }
-        
         /* Transform only — "opacity" is deliberately NOT animated here.
            "animation-fill-mode" is "none", so while this animation is *active*
            its first frame is what paints, and a timeline that is frozen or
@@ -926,43 +680,17 @@
       document.head.appendChild(style);
     }
 
-    // Export preview card renderer for Admin/Staff dashboard live preview (EXACT 1:1 MATCH WITH CUSTOMER MODAL)
     window.renderFMRCAnnouncementPreviewCard = (
-      container,
-      item,
-      counterText = "",
+      container, item, counterText = "", { navigation = false, onPrevious, onNext } = {},
     ) => {
       if (!container) return;
-      const theme = window.getGlobalFMRCTheme();
-      const primary = safeColor(theme.primary, "#c0392b");
-      const secondary = safeColor(theme.secondary, "#800000");
-      const title = item?.title || "Announcements";
-      const message =
-        item?.message || "There are no active announcements right now.";
-      const ctaLabel = item?.cta_label || "";
-      const ctaUrl = item?.cta_url || "#";
-      const badgeText = item?.badge_text || "FMRC ANNOUNCEMENT";
-
-      container.style.setProperty("--announcement-accent-primary", primary);
-      container.style.setProperty("--announcement-accent-secondary", secondary);
-
-      container.innerHTML = `
-        <button type="button" class="announcement-modal__close-x" aria-label="Close preview" onclick="event.preventDefault()">&times;</button>
-        <div class="announcement-modal__hero">
-          <p class="announcement-modal__label">${esc(badgeText)}</p>
-          <h2 class="announcement-modal__title">${esc(title)}</h2>
-        </div>
-        <div class="announcement-modal__body">
-          <p class="announcement-modal__message">${esc(message)}</p>
-          <div class="announcement-modal__actions">
-            <span class="announcement-modal__counter">${esc(counterText || "")}</span>
-            <div style="display:flex; gap:8px; align-items:center; margin-left:auto;">
-              ${ctaLabel ? `<a href="${esc(ctaUrl)}" class="announcement-modal__button announcement-modal__button--primary" onclick="event.preventDefault()">${esc(ctaLabel)} <i class="fa-solid fa-arrow-right"></i></a>` : ""}
-              <button type="button" class="announcement-modal__button announcement-modal__button--secondary" onclick="event.preventDefault()">Got it</button>
-            </div>
-          </div>
-        </div>
-      `;
+      container.classList.remove("announcement-modal__card", "ux-dlg__card");
+      container.classList.add("fmrc-announcement-card");
+      applyModalTheme(container);
+      container.innerHTML = createAnnouncementCardMarkup(item, counterText, { navigation });
+      container.querySelector("[data-announcement-previous]")?.addEventListener("click", () => onPrevious?.());
+      container.querySelector("[data-announcement-next]")?.addEventListener("click", () => onNext?.());
+      container.querySelector("[data-announcement-cta]")?.addEventListener("click", (event) => event.preventDefault());
     };
 
     // 2. Ensure Bell Button & Wrapper exist ONLY on Customer Pages (NOT Admin/Staff)
@@ -1030,22 +758,8 @@
     if (!isAdminOrStaff) {
       modal = document.getElementById("announcementModal");
       const createModalInnerHtml = () => `
-        <div class="announcement-modal__card ux-dlg__card">
-          <div class="announcement-modal__hero ux-dlg__head">
-            <button type="button" class="announcement-modal__close-x ux-dlg__close" id="announcementModalCloseX" aria-label="Close announcement">&times;</button>
-            <span class="ux-dlg__badge" aria-hidden="true"><i class="fa-solid fa-bullhorn"></i></span>
-            <p class="announcement-modal__label ux-dlg__eyebrow" id="announcementModalBadgeLabel">FMRC ANNOUNCEMENT</p>
-            <h2 class="announcement-modal__title ux-dlg__title" id="announcementModalTitle">Announcements</h2>
-          </div>
-          <div class="announcement-modal__body ux-dlg__body">
-            <p class="announcement-modal__message ux-dlg__text" id="announcementModalMessage">Loading announcements...</p>
-          </div>
-          <div class="announcement-modal__actions ux-dlg__foot">
-            <span class="announcement-modal__counter" id="announcementModalCounter"></span>
-            <button type="button" class="announcement-modal__button announcement-modal__button--secondary ux-dlg__btn ux-dlg__btn--ghost" id="announcementModalNext" hidden>Next</button>
-            <a class="announcement-modal__button announcement-modal__button--primary ux-dlg__btn ux-dlg__btn--ghost" id="announcementModalCta" hidden>View Details</a>
-            <button type="button" class="announcement-modal__button announcement-modal__button--secondary ux-dlg__btn ux-dlg__btn--primary" id="announcementModalClose">Got it</button>
-          </div>
+        <div class="fmrc-announcement-card">
+          ${createAnnouncementCardMarkup({ message: "Loading announcements..." }, "0 of 0", { customer: true })}
         </div>
       `;
 
@@ -1063,13 +777,16 @@
       // The shared dialog shell is scoped to `.ux-dlg`, so guarantee the hook
       // even when the page shipped the markup before the unified redesign.
       modal.classList.add("ux-dlg");
+      modal.setAttribute("aria-labelledby", "announcementModalTitle");
 
       const requiredModalControls = [
         "#announcementModalCloseX",
         "#announcementModalClose",
         "#announcementModalNext",
+        "#announcementModalPrevious",
         "#announcementModalCta",
-        ".ux-dlg__foot",
+        ".fmrc-announcement__actions",
+        ".fmrc-announcement__footer",
       ];
       if (
         !requiredModalControls.every((selector) =>
@@ -1083,14 +800,14 @@
       modal.classList.remove("is-visible", "is-open");
 
       titleEl = modal.querySelector("#announcementModalTitle");
+      badgeLabelEl = modal.querySelector("#announcementModalBadgeLabel");
       messageEl = modal.querySelector("#announcementModalMessage");
       ctaEl = modal.querySelector("#announcementModalCta");
       counterEl = modal.querySelector("#announcementModalCounter");
       nextBtn = modal.querySelector("#announcementModalNext");
+      previousBtn = modal.querySelector("#announcementModalPrevious");
 
-      const closeElements = modal.querySelectorAll(
-        "#announcementModalClose, #announcementModalCloseX, #announcementModalAcknowledge, .announcement-modal__close, .announcement-modal__close-x",
-      );
+      const closeElements = modal.querySelectorAll("[data-announcement-close]");
       closeElements.forEach((el) => {
         el.addEventListener("click", (event) => {
           event.preventDefault();
@@ -1106,6 +823,12 @@
           showModal(activeIndex + 1);
         });
       }
+
+      previousBtn?.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        showModal(activeIndex - 1);
+      });
 
       // Announcements are a modal, so clicking the scrim must NOT dismiss them —
       // the customer has to use the in-card close X or the action buttons. Escape
@@ -1173,8 +896,8 @@
       const theme = resolveTheme();
       spotlight.style.display = "block";
       spotlight.classList.add("is-visible");
-      // The card's gradient reads these two variables, so it carries the same
-      // colours the admin picked for the announcement pop-up.
+      // The card's gradient reads these two variables, so it carries the
+      // promotion-card colors selected in Admin or Staff.
       spotlight.style.setProperty(
         "--announcement-accent-primary",
         theme.primary,
@@ -1242,7 +965,7 @@
   /** Recolour an already-open pop-up without re-running its render. */
   const repaintOpenModalTheme = () => {
     if (!modal) return;
-    applyModalTheme(modal, resolveTheme());
+    applyModalTheme(modal);
   };
 
   const updateBadges = (count) => {
@@ -1474,8 +1197,9 @@
     if (!isAdminOrStaff && !document.hidden) void load();
   });
 
-  // main.js re-reads /site-settings every 20 s and announces a changed theme, so
-  // an admin's save reaches a page that is already open without a reload.
+  // main.js re-reads /site-settings every 20 s and announces a changed
+  // promotion-card theme, so an admin's save reaches an open Products page
+  // without a reload.
   document.addEventListener("fmrc:promotion-theme", () => {
     if (isAdminOrStaff) return;
     if (isProductsPage) applyProductSpotlight();

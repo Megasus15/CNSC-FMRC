@@ -15,7 +15,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <link
@@ -208,6 +208,7 @@
     </style>
     <link rel="stylesheet" href="../admin-page/admin-responsive.css?v=2.9" />
     <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=2.1" />
+    <link rel="stylesheet" href="../home-page/announcement-card.css?v=1.0" />
   </head>
   <body>
     <div class="dashboard-container">
@@ -350,31 +351,18 @@
                 </p>
               </div>
               <div style="display:flex; align-items:center; gap:10px; margin-left:auto;">
-                <span id="livePreviewBadgeTag" style="font-size:0.72rem; font-weight:700; padding:4px 10px; border-radius:20px; background:#fef2f2; color:#991b1b; border:1px solid #fecaca;">
-                  <i class="fa-solid fa-circle-dot fa-beat" style="color:#ef4444; margin-right:4px;"></i> LIVE PREVIEW
+                <span id="livePreviewBadgeTag" style="font-size:0.72rem; font-weight:700; padding:4px 10px; border-radius:20px; background:#ecfdf5; color:#047857; border:1px solid #a7f3d0;">
+                  <i class="fa-solid fa-circle-dot fa-beat" style="color:#22c55e; margin-right:4px;"></i> LIVE PREVIEW
                 </span>
                 <button class="btn-admin" id="btnOpenCustomizeModal">
-                  <i class="fa-solid fa-palette"></i> Customize Theme
+                  <i class="fa-solid fa-palette"></i> Customize Promotion Card
                 </button>
               </div>
             </div>
 
-            <!-- Live Card Container -->
-            <div style="background: linear-gradient(135deg, #1e1b1e 0%, #2d1a24 100%); border-radius: 16px; padding: 34px 20px; display: flex; justify-content: center; align-items: center; min-height: 340px; box-shadow: inset 0 2px 12px rgba(0,0,0,0.5); position: relative; overflow: hidden;">
-              <div id="liveCustomerModalCard" class="announcement-modal__card" style="margin: 0; max-width: 480px; width: 100%; box-shadow: 0 25px 65px rgba(0,0,0,0.45);">
-                <!-- Injected dynamically by JS -->
-              </div>
-            </div>
-
-            <!-- Arrow Controls Placed Inside Right Below Preview Card -->
-            <div style="display:flex; justify-content:flex-end; align-items:center; gap:12px; margin-top: 16px;">
-              <button class="btn-admin btn-secondary" id="btnPrevPreview" style="padding:6px 14px; font-size:0.82rem;" title="Previous Announcement">
-                <i class="fa-solid fa-chevron-left"></i>
-              </button>
-              <span id="previewCounterText" style="font-size:0.85rem; font-weight:600; color:#374151;">1 of 1</span>
-              <button class="btn-admin btn-secondary" id="btnNextPreview" style="padding:6px 14px; font-size:0.82rem;" title="Next Announcement">
-                <i class="fa-solid fa-chevron-right"></i>
-              </button>
+            <!-- Same renderer and card stylesheet as the customer modal. -->
+            <div class="fmrc-announcement-preview-stage">
+              <div id="liveCustomerModalCard" class="fmrc-announcement-card"></div>
             </div>
           </section>
 
@@ -564,6 +552,7 @@
             <div
               id="specificProductsField"
               class="field-stack full scope-specific"
+              hidden
             >
               <label>Choose Products</label>
               <div id="promotionProductPicker" class="product-picker">
@@ -695,15 +684,15 @@
       <div class="modal-card product-modal" style="max-width: 600px;">
         <div class="modal-header-fixed">
           <h3 class="modal-title" style="margin:0;">
-            <i class="fa-solid fa-palette" style="margin-right: 8px; color:#800000;"></i>Customize Announcement &amp; Promotion Theme
+            <i class="fa-solid fa-palette" style="margin-right: 8px; color:#800000;"></i>Customize Promotion Card Theme
           </h3>
         </div>
         <div class="modal-body-scroll">
           <p style="font-size:0.84rem; color:#64748b; margin-top:0; margin-bottom:16px;">
-            One theme, two places: the announcement pop-up on every customer page and the promotion card at the top of the Products page. Pick a ready-made gradient or build your own.
+            These settings affect only the promotion card at the top of the Products page. The FMRC announcement modal keeps its standard maroon header and buttons.
           </p>
 
-          <label style="font-size:0.76rem; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.04em; display:block; margin-bottom:8px;">Ready-Made Gradient Presets</label>
+          <label style="font-size:0.76rem; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.04em; display:block; margin-bottom:8px;">Promotion Card Gradient Presets</label>
           <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap:10px; margin-bottom:20px;" id="themePresetsGrid">
             <div class="preset-theme-card active" data-primary="#c0392b" data-secondary="#800000" style="padding:10px; border:2px solid #800000; border-radius:10px; cursor:pointer; text-align:center; background:#fff;">
               <div style="height:28px; border-radius:6px; background:linear-gradient(135deg, #c0392b, #800000); margin-bottom:6px;"></div>
@@ -735,14 +724,14 @@
             </div>
           </div>
 
-          <label style="font-size:0.76rem; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.04em; display:block; margin-bottom:8px;">Custom Gradient Selection</label>
+          <label style="font-size:0.76rem; font-weight:700; color:#374151; text-transform:uppercase; letter-spacing:0.04em; display:block; margin-bottom:8px;">Custom Promotion Card Gradient</label>
           <div class="form-grid">
             <div class="field-stack">
-              <label for="themePrimaryColor">Upper-Right Accent Color</label>
+              <label for="themePrimaryColor">Promotion Card Start Color</label>
               <input class="input-field" id="themePrimaryColor" type="color" value="#c0392b" style="height:42px; padding:3px; cursor:pointer;" />
             </div>
             <div class="field-stack">
-              <label for="themeSecondaryColor">Bottom-Left Accent Color</label>
+              <label for="themeSecondaryColor">Promotion Card End Color</label>
               <input class="input-field" id="themeSecondaryColor" type="color" value="#800000" style="height:42px; padding:3px; cursor:pointer;" />
             </div>
           </div>
@@ -787,17 +776,17 @@
             Cancel
           </button>
           <button class="btn-admin" type="button" id="btnSaveThemeModal">
-            <i class="fa-solid fa-floppy-disk"></i> Apply &amp; Save Theme
+            <i class="fa-solid fa-floppy-disk"></i> Apply &amp; Save Promotion Theme
           </button>
         </div>
       </div>
     </div>
 
-    <script src="../home-page/customer-announcements.js?v=5.8"></script>
+    <script src="../home-page/customer-announcements.js?v=6.5"></script>
     <script src="../admin-page/session-helper.js"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="../admin-page/admin-common.js?v=7.0"></script>
-    <script src="../admin-page/promotions.js?v=5.4"></script>
+    <script src="../admin-page/promotions.js?v=5.6"></script>
     <script src="../admin-page/admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>

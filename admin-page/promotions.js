@@ -181,6 +181,20 @@ document.addEventListener("DOMContentLoaded", () => {
     ].map((box) => Number(box.value));
   }
 
+  /**
+   * The picker is semantically unavailable for an all-products campaign. Use
+   * the native `hidden` attribute as the source of truth so shared form-grid
+   * display rules can never reveal it accidentally.
+   */
+  function syncPromotionScopeField() {
+    const field = $("specificProductsField");
+    if (!field) return;
+    const isSpecific = $("promotionScope")?.value === "specific_products";
+    field.hidden = !isSpecific;
+    field.classList.toggle("show", isSpecific);
+    field.setAttribute("aria-hidden", String(!isSpecific));
+  }
+
   function renderProductPicker(selected = []) {
     if (!$("promotionProductPicker")) return;
     $("promotionProductPicker").innerHTML = products.length
@@ -471,7 +485,7 @@ document.addEventListener("DOMContentLoaded", () => {
         message: `Special Product Promotion: Enjoy ${p.discount_percent}% OFF on ${appliesToDetail}!\n\nLimited-time campaign. Don't miss out on these savings!`,
         cta_label: "Shop Sale Items",
         cta_url: "/products-page/product.html",
-        badge_text: "SPECIAL PROMOTION",
+        is_promotion: true,
       });
     });
 
@@ -528,7 +542,7 @@ document.addEventListener("DOMContentLoaded", () => {
         message: `Special Product Promotion: Enjoy ${pDiscount}% OFF on ${appliesToDetail}!\n\nLimited-time campaign. Don't miss out on these savings!`,
         cta_label: "Shop Sale Items",
         cta_url: "/products-page/product.html",
-        badge_text: "LIVE DRAFT PROMOTION",
+        is_promotion: true,
       };
       counterLabel = "Drafting Product Promotion";
     } else {
@@ -538,10 +552,19 @@ document.addEventListener("DOMContentLoaded", () => {
       counterLabel = `${previewIndex + 1} of ${previewItems.length}`;
     }
 
-    if ($("previewCounterText")) $("previewCounterText").textContent = counterLabel;
-
     if (typeof window.renderFMRCAnnouncementPreviewCard === "function") {
-      window.renderFMRCAnnouncementPreviewCard(cardContainer, currentItem, counterLabel);
+      const isDrafting = isAnnouncementModalOpen || isPromotionModalOpen;
+      window.renderFMRCAnnouncementPreviewCard(cardContainer, currentItem, isDrafting ? "Draft" : counterLabel, {
+        navigation: !isDrafting && previewItems.length > 1,
+        onPrevious: () => {
+          previewIndex = (previewIndex - 1 + previewItems.length) % previewItems.length;
+          renderLivePreview();
+        },
+        onNext: () => {
+          previewIndex = (previewIndex + 1) % previewItems.length;
+          renderLivePreview();
+        },
+      });
     }
   }
 
@@ -549,8 +572,9 @@ document.addEventListener("DOMContentLoaded", () => {
     $("promotionForm")?.reset();
     $("promotionId").value = "";
     $("promotionDiscount").value = 10;
+    if ($("promotionScope")) $("promotionScope").value = "all_products";
     $("promotionEnabled").checked = true;
-    $("specificProductsField")?.classList.remove("show");
+    syncPromotionScopeField();
     renderProductPicker();
     renderLivePreview();
   }
@@ -598,10 +622,10 @@ document.addEventListener("DOMContentLoaded", () => {
   /* ==========================================================================
      SHARED ANNOUNCEMENT / PROMOTION THEME
      --------------------------------------------------------------------------
-     The two colours already painted the announcement pop-up. They now also
-     paint the promotion card in the product page header, together with its two
-     side icons and the small label above its title. Saving writes the five
-     values to site_settings, which is what actually reaches customers —
+     The two colors and three decorations paint the promotion card in the
+     Product page header. The announcement modal keeps the shared maroon UX
+     shell. Saving writes the five values to site_settings, which is what
+     actually reaches customers —
      setGlobalFMRCTheme only caches them for this browser's live preview.
      ========================================================================== */
 
@@ -739,10 +763,7 @@ document.addEventListener("DOMContentLoaded", () => {
     $("promotionStart").value = localDate(item.starts_at);
     $("promotionEnd").value = localDate(item.ends_at);
     $("promotionEnabled").checked = item.is_enabled;
-    $("specificProductsField")?.classList.toggle(
-      "show",
-      item.scope === "specific_products",
-    );
+    syncPromotionScopeField();
     renderProductPicker(item.product_ids || []);
 
     if ($("promotionModalTitle")) {
@@ -1019,20 +1040,7 @@ document.addEventListener("DOMContentLoaded", () => {
     closeAnnouncementForm();
   });
 
-  // Live preview navigation arrow buttons (placed inside preview panel right below card)
-  $("btnPrevPreview")?.addEventListener("click", () => {
-    if (previewItems.length) {
-      previewIndex = (previewIndex - 1 + previewItems.length) % previewItems.length;
-      renderLivePreview();
-    }
-  });
-
-  $("btnNextPreview")?.addEventListener("click", () => {
-    if (previewItems.length) {
-      previewIndex = (previewIndex + 1) % previewItems.length;
-      renderLivePreview();
-    }
-  });
+  // Announcement navigation is inside the shared card footer.
 
   // Pagination Listeners
   $("promotionPrevPage")?.addEventListener("click", () => {
@@ -1084,10 +1092,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   $("promotionScope")?.addEventListener("change", () => {
-    $("specificProductsField")?.classList.toggle(
-      "show",
-      $("promotionScope").value === "specific_products",
-    );
+    syncPromotionScopeField();
     renderLivePreview();
   });
 

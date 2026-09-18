@@ -18362,10 +18362,8 @@ textarea:focus-visible {
 }
 
 /* -- Announcement dialog ---------------------------------------------------
-   Same shell as every other dialog. Its footer is the exception: it carries a
-   "1 of 3" counter plus up to three buttons, so it flexes instead of using the
-   default one/two-column grid. The runtime sheet in customer-announcements.js
-   still forces a stacked grid at <=420px, which is the wanted narrow layout. */
+   The overlay keeps the customer scrim. The card, footer navigation and actions
+   use announcement-card.css, shared with the Admin/Staff preview. */
 .announcement-modal.ux-dlg {
   padding: max(14px, env(safe-area-inset-top))
     max(14px, env(safe-area-inset-right))
@@ -18382,30 +18380,7 @@ textarea:focus-visible {
   backdrop-filter: blur(8px);
 }
 
-/* Scoped through the id so these clear the (1,2,0) shell defaults above. */
-#announcementModal.ux-dlg .ux-dlg__card .ux-dlg__foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-#announcementModal.ux-dlg .ux-dlg__card .ux-dlg__foot .ux-dlg__btn {
-  flex: 1 1 auto;
-  width: auto;
-}
-
-#announcementModal.ux-dlg .ux-dlg__card .announcement-modal__counter {
-  margin: 0 auto 0 0;
-  color: var(--ux-dlg-text);
-  font-family: "Montserrat", "Poppins", sans-serif;
-  font-size: clamp(10px, 3.2vw, 11.5px);
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  overflow-wrap: anywhere;
-}
+/* Announcement card contents are shared with Admin/Staff in announcement-card.css. */
 
 /* ---------------------------------------------------------------------------
    Follow-up pass: drawer, wide content cards, tighter account band, solid

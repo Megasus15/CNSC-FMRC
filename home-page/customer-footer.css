@@ -349,14 +349,13 @@
 .site-footer .footer-menu li,
 .site-footer .footer-public-menu li {
   padding-bottom: 7px !important;
-  border-bottom: 1px solid rgba(247, 242, 236, 0.09) !important;
+  border-bottom: 0 !important;
   margin: 0 !important;
 }
 
 .site-footer .footer-menu li:last-child,
 .site-footer .footer-public-menu li:last-child {
   padding-bottom: 0 !important;
-  border-bottom: none !important;
 }
 
 /* Quick Links Menu: simple clean underline on hover */

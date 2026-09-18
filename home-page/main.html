@@ -63,7 +63,7 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
 
-    <link rel="stylesheet" href="main.css?v=9.3" />
+    <link rel="stylesheet" href="main.css?v=9.5" />
     <link rel="stylesheet" href="responsive.css?v=8.4" />
 
     <!-- The signature loader. One sheet shared by every customer page, so the
@@ -74,9 +74,10 @@
          paint is already gated on main.css above it, so these rules are
          guaranteed present the first time anything paints. -->
     <link rel="stylesheet" href="fmrc-loader.css?v=2.0" />
-    <link rel="stylesheet" href="customer-editorial.css?v=1.5" />
+    <link rel="stylesheet" href="customer-editorial.css?v=1.6" />
     <link rel="stylesheet" href="customer-navbar.css?v=1.2" />
-    <link rel="stylesheet" href="customer-footer.css?v=1.7" />
+    <link rel="stylesheet" href="customer-footer.css?v=1.8" />
+    <link rel="stylesheet" href="announcement-card.css?v=1.0" />
     <link rel="stylesheet" href="customer-button-feedback.css?v=1.0" />
     <link rel="stylesheet" href="customer-mobile.css?v=1.6" />
     <script>
@@ -286,65 +287,7 @@
       aria-hidden="true"
       hidden
     >
-      <div class="announcement-modal__card ux-dlg__card">
-        <div class="announcement-modal__hero ux-dlg__head">
-          <button
-            type="button"
-            class="announcement-modal__close-x ux-dlg__close"
-            id="announcementModalCloseX"
-            aria-label="Close announcement"
-          >
-            &times;
-          </button>
-          <span class="ux-dlg__badge" aria-hidden="true"
-            ><i class="fa-solid fa-bullhorn"></i
-          ></span>
-          <p class="announcement-modal__label ux-dlg__eyebrow">
-            FMRC ANNOUNCEMENT
-          </p>
-          <h2
-            class="announcement-modal__title ux-dlg__title"
-            id="announcementModalTitle"
-          >
-            Announcements
-          </h2>
-        </div>
-        <div class="announcement-modal__body ux-dlg__body">
-          <p
-            class="announcement-modal__message ux-dlg__text"
-            id="announcementModalMessage"
-          >
-            Loading announcements...
-          </p>
-        </div>
-        <div class="announcement-modal__actions ux-dlg__foot">
-          <span
-            class="announcement-modal__counter"
-            id="announcementModalCounter"
-          ></span>
-          <button
-            type="button"
-            class="announcement-modal__button announcement-modal__button--secondary ux-dlg__btn ux-dlg__btn--ghost"
-            id="announcementModalNext"
-            hidden
-          >
-            Next
-          </button>
-          <a
-            class="announcement-modal__button announcement-modal__button--primary ux-dlg__btn ux-dlg__btn--ghost"
-            id="announcementModalCta"
-            hidden
-            >View Details</a
-          >
-          <button
-            type="button"
-            class="announcement-modal__button announcement-modal__button--secondary ux-dlg__btn ux-dlg__btn--primary"
-            id="announcementModalClose"
-          >
-            Got it
-          </button>
-        </div>
-      </div>
+      <!-- Contents come from the shared Customer/Admin/Staff card renderer. -->
     </div>
 
     <main class="hero-section" id="home">
@@ -681,7 +624,7 @@
         </div>
       </section>
 
-      <section class="editorial-section" aria-labelledby="homeProjectHeading">
+      <section class="editorial-section editorial-cta-section" aria-labelledby="homeProjectHeading">
         <div class="editorial-container editorial-cta">
           <div>
             <p
@@ -1987,8 +1930,8 @@
          button it had before. -->
     <script defer src="fmrc-loader.js?v=2.0"></script>
     <script defer src="page-content.js?v=1.2"></script>
-    <script defer src="main.js?v=10.2"></script>
+    <script defer src="main.js?v=10.3"></script>
     <script defer src="service-dialogs.js?v=1.0"></script>
-    <script defer src="customer-announcements.js?v=6.2"></script>
+    <script defer src="customer-announcements.js?v=6.5"></script>
   </body>
 </html>

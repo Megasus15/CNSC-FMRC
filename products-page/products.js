@@ -1174,7 +1174,9 @@ document.addEventListener("DOMContentLoaded", () => {
   const loadProducts = async () => {
     // Preserve the product card layout with the shared skeleton shimmer.
     if (productGrid) {
-      productGrid.innerHTML = Array.from({ length: 4 })
+      const viewportWidth = window.innerWidth || 1100;
+      const cardCount = viewportWidth >= 1100 ? 6 : 4;
+      productGrid.innerHTML = Array.from({ length: cardCount })
         .map(
           () => `
         <div class="shop-card product-skeleton-card" aria-hidden="true">

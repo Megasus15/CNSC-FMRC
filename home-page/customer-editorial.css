@@ -16,6 +16,13 @@
   padding-bottom: 80px;
 }
 
+/* Home and About finish with the same editorial CTA rhythm. Keeping the
+   spacing on a shared section hook makes the two cards match at every
+   breakpoint instead of relying on whichever section happens to precede them. */
+.editorial-content .editorial-cta-section {
+  padding-top: 64px;
+}
+
 .editorial-content .editorial-container {
   width: 100%;
   max-width: 1200px;
@@ -667,6 +674,14 @@
   will-change: auto;
 }
 .editorial-content .editorial-gallery .vm-deck__card[data-current="true"] { opacity: 1; }
+.editorial-content .editorial-purpose-card .editorial-gallery .vm-deck__card[data-current="true"] {
+  pointer-events: auto;
+  cursor: zoom-in;
+}
+.editorial-content .editorial-purpose-card .editorial-gallery .vm-deck__card:focus-visible {
+  outline: 2px solid var(--customer-wine);
+  outline-offset: -5px;
+}
 .editorial-content .editorial-gallery-controls {
   display: flex;
   align-items: center;
@@ -744,6 +759,7 @@
 
 @media (max-width: 767px) {
   .editorial-content .editorial-section { padding-top: 48px; }
+  .editorial-content .editorial-cta-section { padding-top: 48px; }
   .editorial-content .editorial-intro,
   .editorial-content .editorial-about-profile,
   .editorial-content .editorial-purpose-grid {
@@ -761,6 +777,7 @@
 
 @media (max-width: 639px) {
   .editorial-content .editorial-section { padding: 40px max(16px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left)); }
+  .editorial-content .editorial-cta-section { padding-top: 40px; }
   .editorial-content .editorial-section:last-child { padding-bottom: 56px; }
   .editorial-content .editorial-page-title { font-size: clamp(40px, 10.5vw, 56px); }
   .editorial-content .editorial-services-grid { grid-template-columns: minmax(0, 1fr) !important; }
@@ -898,7 +915,8 @@
 .home-editorial-page .services-grid .details-btn:focus-visible,
 .home-editorial-page #serviceModal .service-modal-image-trigger:focus-visible,
 .home-editorial-page #serviceModal .close-modal-btn:focus-visible,
-.home-editorial-page #serviceImageLightboxModal .lightbox-close-btn:focus-visible {
+.home-editorial-page #serviceImageLightboxModal .lightbox-close-btn:focus-visible,
+.about-editorial-page #serviceImageLightboxModal .lightbox-close-btn:focus-visible {
   outline: 2px solid var(--customer-wine);
   outline-offset: 3px;
 }

@@ -830,7 +830,28 @@ document.addEventListener("DOMContentLoaded", () => {
     if (event.target === serviceImageLightboxModal) closeServiceImageLightbox();
   });
 
+  const openAboutImageLightbox = (card) => {
+    if (!card) return false;
+    const image = card.querySelector("img");
+    const deck = card.closest(".vm-deck");
+    const kind = deck?.classList.contains("vm-deck--mission")
+      ? "Mission"
+      : "Vision";
+    const src = image?.currentSrc || image?.src || "";
+    if (!src) return false;
+    openServiceImageLightbox(src, `FMRC ${kind}`);
+    return true;
+  };
+
   document.body.addEventListener("click", function (e) {
+    const aboutCard = e.target.closest(
+      ".about-editorial-page .editorial-purpose-card .vm-deck.editorial-gallery .vm-deck__card",
+    );
+    if (aboutCard && aboutCard.dataset.current !== "false") {
+      openAboutImageLightbox(aboutCard);
+      return;
+    }
+
     const imageTrigger = e.target.closest(
       ".service-image-trigger, .service-modal-image-trigger",
     );
@@ -963,6 +984,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // The service detail modal is only dismissed from inside the card — clicking
     // the dark overlay deliberately does nothing.
+  });
+
+  document.body.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    const aboutCard = e.target.closest(
+      ".about-editorial-page .editorial-purpose-card .vm-deck.editorial-gallery .vm-deck__card",
+    );
+    if (!aboutCard || aboutCard.dataset.current === "false") return;
+    e.preventDefault();
+    openAboutImageLightbox(aboutCard);
   });
 
   document.addEventListener("keydown", (event) => {
@@ -15054,11 +15085,12 @@ const openReturnRequestModal = (() => {
   }
 
   /**
-   * One theme drives both the announcement pop-up and the promotion card in the
-   * product page header, so the admin sets the colours once. Blank is a real
-   * choice for the two emojis and the label — an admin who clears them wants
-   * them gone — while a setting that was never saved falls back to the wording
-   * the pages ship with, leaving an untouched site looking exactly as before.
+   * One saved theme drives the Product promotion card and its decorations.
+   * Blank is a real choice for the two emojis and the label — an admin who
+   * clears them wants them gone — while a setting that was never saved falls
+   * back to the wording the pages ship with, leaving an untouched site looking
+   * exactly as before. The announcement dialog itself always keeps the shared
+   * maroon UX shell.
    */
   function publishPromotionTheme(s) {
     var hex = function (value, fallback) {
@@ -15078,9 +15110,8 @@ const openReturnRequestModal = (() => {
       emojiLeft: clamp(s.promo_spotlight_emoji_left, "🎉", 4),
       emojiRight: clamp(s.promo_spotlight_emoji_right, "🎉", 4),
       eyebrow: clamp(s.promo_spotlight_eyebrow, "LIMITED-TIME PROMOTION", 48),
-      // Whether a colour was really saved, as opposed to defaulted above. The
-      // announcement pop-up wears the shared `ux-dlg` maroon band until an
-      // admin picks a theme, so it needs to tell the two apart.
+      // Whether a color was really saved, as opposed to defaulted above. This
+      // remains part of the published shape for browser-cache compatibility.
       explicit:
         /^#[0-9a-fA-F]{3,8}$/.test(String(s.announcement_theme_primary || "")) ||
         /^#[0-9a-fA-F]{3,8}$/.test(
@@ -15830,9 +15861,21 @@ const openReturnRequestModal = (() => {
     deck.setAttribute("aria-roledescription", "slideshow");
     first.dataset.current = "true";
     first.setAttribute("aria-hidden", "false");
+    first.setAttribute("role", "button");
+    first.setAttribute("tabindex", "0");
+    first.setAttribute(
+      "aria-label",
+      "Open FMRC " + (kind === "mission" ? "Mission" : "Vision") + " image preview",
+    );
     images.slice(1).forEach(function (src) {
       const card = document.createElement("div");
       card.className = "vm-deck__card";
+      card.setAttribute("role", "button");
+      card.setAttribute("tabindex", "-1");
+      card.setAttribute(
+        "aria-label",
+        "Open FMRC " + (kind === "mission" ? "Mission" : "Vision") + " image preview",
+      );
       const img = document.createElement("img");
       img.className = template.className;
       img.alt = template.alt;
@@ -15875,6 +15918,11 @@ const openReturnRequestModal = (() => {
       cards.forEach(function (card, i) {
         card.dataset.current = String(i === current);
         card.setAttribute("aria-hidden", String(i !== current));
+        card.setAttribute("tabindex", i === current ? "0" : "-1");
+        card.setAttribute(
+          "aria-label",
+          "Open FMRC " + (kind === "mission" ? "Mission" : "Vision") + " image preview",
+        );
       });
       const img = cards[current].querySelector("img");
       // Only the visible slide controls the loading/error surface.

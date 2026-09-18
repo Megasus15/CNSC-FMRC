@@ -40,7 +40,7 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
-    <link rel="stylesheet" href="../home-page/main.css?v=9.3" />
+    <link rel="stylesheet" href="../home-page/main.css?v=9.5" />
     <link rel="stylesheet" href="../home-page/responsive.css?v=8.4" />
 
     <!-- The signature loader. One sheet shared by every customer page, so the
@@ -51,9 +51,10 @@
          paint is already gated on main.css above it, so these rules are
          guaranteed present the first time anything paints. -->
     <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=2.0" />
-    <link rel="stylesheet" href="../home-page/customer-editorial.css?v=1.6-video-close" />
+    <link rel="stylesheet" href="../home-page/customer-editorial.css?v=1.7" />
     <link rel="stylesheet" href="../home-page/customer-navbar.css?v=1.2" />
-    <link rel="stylesheet" href="../home-page/customer-footer.css?v=1.7" />
+    <link rel="stylesheet" href="../home-page/customer-footer.css?v=1.8" />
+    <link rel="stylesheet" href="../home-page/announcement-card.css?v=1.0" />
     <link rel="stylesheet" href="../home-page/customer-button-feedback.css?v=1.0" />
     <link rel="stylesheet" href="../home-page/customer-mobile.css?v=1.6" />
     <script>
@@ -474,7 +475,7 @@
         </div>
       </section>
 
-      <section class="editorial-section" aria-labelledby="aboutExploreHeading">
+      <section class="editorial-section editorial-cta-section" aria-labelledby="aboutExploreHeading">
         <div class="editorial-container editorial-cta">
           <div>
             <p
@@ -537,6 +538,31 @@
         >
           <source type="video/mp4" id="aboutFullVideoSrc" />
         </video>
+      </div>
+    </div>
+
+    <!-- Mission and Vision image preview: the same lightbox used by Services. -->
+    <div
+      class="modal-overlay"
+      id="serviceImageLightboxModal"
+      style="z-index: 21000"
+    >
+      <div class="lightbox-box">
+        <button
+          class="lightbox-close-btn"
+          id="closeServiceLightboxBtn"
+          type="button"
+          aria-label="Close image preview"
+        >
+          &times;
+        </button>
+        <img
+          id="serviceLightboxImage"
+          src=""
+          alt="FMRC Mission or Vision large preview"
+          decoding="async"
+        />
+        <p id="serviceLightboxCaption" class="lightbox-caption"></p>
       </div>
     </div>
 
@@ -734,7 +760,7 @@
          flow falls back to the plain disabled button it had before. -->
     <script defer src="../home-page/fmrc-loader.js?v=2.0"></script>
     <script defer src="../home-page/page-content.js?v=1.2"></script>
-    <script defer src="../home-page/main.js?v=10.1"></script>
-    <script defer src="../home-page/customer-announcements.js?v=6.2"></script>
+    <script defer src="../home-page/main.js?v=10.3"></script>
+    <script defer src="../home-page/customer-announcements.js?v=6.5"></script>
   </body>
 </html>
