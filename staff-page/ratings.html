@@ -10,8 +10,8 @@
     <link rel="icon" href="../images/favicon.ico?v=3" sizes="any" />
     <link rel="apple-touch-icon" href="../images/apple-touch-icon.png?v=3" />
     <title>Ratings &amp; Feedback | UCN-FMRC Staff</title>
-    <link rel="stylesheet" href="../admin-page/dashboard.css?v=6.6" />
-    <link rel="stylesheet" href="../admin-page/admin-modules.css?v=6.6" />
+    <link rel="stylesheet" href="../admin-page/dashboard.css?v=6.7" />
+    <link rel="stylesheet" href="../admin-page/admin-modules.css?v=6.7" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
       .ratings-stats-grid {
@@ -21,7 +21,7 @@
         margin-bottom: 18px;
       }
       .ratings-stat-card {
-        background: #fff;
+        background: #fdfaf6;
         border: 1px solid var(--border-color);
         border-radius: 12px;
         padding: 14px 16px;
@@ -56,7 +56,7 @@
         border-radius: 10px;
         display: grid;
         place-items: center;
-        color: #fff;
+        color: #f7f2ec;
         font-size: 0.95rem;
       }
       .ratings-filters {
@@ -71,7 +71,7 @@
         padding: 0 12px;
         font-size: 0.82rem;
         color: #222;
-        background: #fff;
+        background: #fdfaf6;
       }
       #ratingsTable { min-width: 980px; }
       .star-display { display: inline-flex; gap: 2px; color: #f59e0b; font-size: 0.9rem; }
@@ -104,14 +104,14 @@
       .ratings-table-actions { display: flex; align-items: center; gap: 8px; }
       .ratings-table-actions .btn-compact {
         width: 29px; height: 29px; border-radius: 8px;
-        border: 1px solid #dbe2ea; background: #fff; color: #475569;
+        border: 1px solid #dbe2ea; background: #fdfaf6; color: #475569;
         cursor: pointer; display: grid; place-items: center; transition: all 0.2s ease;
       }
       .ratings-table-actions .btn-compact:hover {
-        color: #fff; border-color: var(--primary-color); background: var(--primary-color);
+        color: #f7f2ec; border-color: var(--primary-color); background: var(--primary-color);
       }
       .ratings-table-actions .btn-compact.archive-action:hover {
-        color: #fff; border-color: #b45309; background: #b45309;
+        color: #f7f2ec; border-color: #b45309; background: #b45309;
       }
       .ratings-table-actions .btn-compact:active { transform: scale(0.97); }
       .rating-detail-grid {
@@ -121,7 +121,7 @@
         margin-top: 8px;
       }
       .rating-detail-box {
-        border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; background: #fff;
+        border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; background: #fdfaf6;
       }
       .rating-detail-box h5 {
         margin: 0 0 5px; font-size: 0.66rem; color: #6b7280;
@@ -147,7 +147,7 @@
         flex: 0 0 auto;
         padding: 18px 18px 12px;
         border-bottom: 1px solid #e7ebf2;
-        background: #fff;
+        background: #fdfaf6;
       }
       .rating-detail-modal-header .modal-title { margin: 0; }
       .rating-detail-modal-body {
@@ -163,7 +163,7 @@
         margin: 0;
         padding: 12px 18px 16px;
         border-top: 1px solid #e7ebf2;
-        background: #fff;
+        background: #fdfaf6;
         display: flex;
         justify-content: flex-end;
         gap: 10px;
@@ -195,7 +195,7 @@
         .rating-detail-modal-card { max-height: calc(100dvh - 24px); }
       }
     </style>
-    <link rel="stylesheet" href="../admin-page/admin-responsive.css?v=2.9" />
+    <link rel="stylesheet" href="../admin-page/admin-responsive.css?v=3.0" />
     <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=2.1" />
   </head>
   <body>

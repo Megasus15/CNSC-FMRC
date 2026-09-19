@@ -51,7 +51,7 @@
          paint is already gated on main.css above it, so these rules are
          guaranteed present the first time anything paints. -->
     <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=2.0" />
-    <link rel="stylesheet" href="../home-page/customer-editorial.css?v=1.7" />
+    <link rel="stylesheet" href="../home-page/customer-editorial.css?v=1.9" />
     <link rel="stylesheet" href="../home-page/customer-navbar.css?v=1.2" />
     <link rel="stylesheet" href="../home-page/customer-footer.css?v=1.8" />
     <link rel="stylesheet" href="../home-page/announcement-card.css?v=1.0" />
@@ -354,15 +354,16 @@
                   id="missionDeck"
                   aria-busy="true"
                 >
-                  <div class="vm-deck__card">
+                  <button class="vm-deck__card" type="button" disabled>
                     <img
                       alt="FMRC Mission"
                       class="mission-img"
                       id="missionImgEl"
+                      draggable="false"
                       loading="lazy"
                       decoding="async"
                     />
-                  </div>
+                  </button>
                 </div>
               </div>
             </article>
@@ -383,15 +384,16 @@
                   id="visionDeck"
                   aria-busy="true"
                 >
-                  <div class="vm-deck__card">
+                  <button class="vm-deck__card" type="button" disabled>
                     <img
                       alt="FMRC Vision"
                       class="vision-img"
                       id="visionImgEl"
+                      draggable="false"
                       loading="lazy"
                       decoding="async"
                     />
-                  </div>
+                  </button>
                 </div>
               </div>
             </article>
@@ -504,8 +506,7 @@
               ><span data-editorial-copy="editorial_about_cta_button"
                 >Explore services</span
               >
-              <i class="fa-solid fa-arrow-right" aria-hidden="true"></i
-            ></a>
+            </a>
             <a href="/contact-page/contact.html" class="editorial-link"
               ><span data-editorial-copy="editorial_about_cta_contact"
                 >Contact us</span
@@ -545,6 +546,9 @@
     <div
       class="modal-overlay"
       id="serviceImageLightboxModal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Mission and Vision image preview"
       style="z-index: 21000"
     >
       <div class="lightbox-box">
@@ -760,7 +764,8 @@
          flow falls back to the plain disabled button it had before. -->
     <script defer src="../home-page/fmrc-loader.js?v=2.0"></script>
     <script defer src="../home-page/page-content.js?v=1.2"></script>
-    <script defer src="../home-page/main.js?v=10.3"></script>
+    <script defer src="../home-page/main.js?v=10.7"></script>
+    <script defer src="../home-page/service-dialogs.js?v=1.1"></script>
     <script defer src="../home-page/customer-announcements.js?v=6.5"></script>
   </body>
 </html>

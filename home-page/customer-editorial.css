@@ -632,6 +632,17 @@
   overflow: hidden;
 }
 
+.about-editorial-page .editorial-content .editorial-purpose-card button.vm-deck__card {
+  appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+}
+
 .editorial-content .editorial-purpose-card :is(.vision-img, .mission-img) {
   width: 100%;
   max-width: none;
@@ -657,11 +668,16 @@
   border-radius: 8px;
   background: var(--customer-paper-edge);
   isolation: isolate;
-  touch-action: pan-y;
+  touch-action: pan-y pinch-zoom;
   user-select: none;
   cursor: grab;
 }
 .editorial-content .editorial-purpose-card .editorial-gallery:active { cursor: grabbing; }
+.editorial-content .editorial-purpose-card .editorial-gallery img {
+  pointer-events: none;
+  -webkit-user-drag: none;
+  user-select: none;
+}
 .editorial-content .editorial-gallery .vm-deck__card {
   position: absolute;
   inset: 0;
@@ -682,62 +698,74 @@
   outline: 2px solid var(--customer-wine);
   outline-offset: -5px;
 }
+.editorial-content .editorial-purpose-card .editorial-gallery .vm-deck__card:disabled {
+  cursor: default;
+}
 .editorial-content .editorial-gallery-controls {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 0;
   margin-top: 10px;
-  flex-wrap: wrap;
+  width: 100%;
+  max-width: 100%;
+  min-height: 28px;
+  overflow: visible;
 }
 .editorial-content .editorial-gallery-controls button {
   display: grid;
   place-items: center;
-  flex: 0 0 44px;
-  width: 44px;
-  height: 44px;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 1px solid #e2d6d2;
   border-radius: 8px;
   background: transparent;
   color: var(--customer-wine);
   cursor: pointer;
-  transition: color 120ms ease, background-color 120ms ease;
+  transform: none;
+  transition: none;
 }
-.editorial-content .editorial-gallery-controls button:hover {
-  background: var(--customer-wine);
-  color: var(--customer-paper);
-}
-.editorial-content .editorial-gallery-controls button:disabled { opacity: 0.45; cursor: default; }
 .editorial-content .editorial-gallery-dots {
   display: flex;
+  flex: 0 1 100%;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-width: 68px;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
 }
 .editorial-content .editorial-gallery-dot {
-  flex: 0 0 8px !important;
-  width: 8px !important;
-  height: 8px !important;
-  min-height: 8px !important;
+  flex: 0 0 28px !important;
+  width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
   padding: 0 !important;
   border: 0 !important;
-  border-radius: 999px !important;
-  background: #d9c8c5 !important;
+  border-radius: 6px !important;
+  background: transparent !important;
   color: transparent !important;
   box-shadow: none !important;
-  transition: width 160ms ease, background-color 160ms ease !important;
+  transition: none !important;
 }
-.editorial-content .editorial-gallery-dot.is-active,
-.editorial-content .editorial-gallery-dot[aria-current="true"] {
-  flex-basis: 22px !important;
-  width: 22px !important;
-  background: var(--customer-wine) !important;
+.editorial-content .editorial-gallery-dot::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #d9c8c5;
+  transition: width 160ms ease, background-color 160ms ease;
+}
+.editorial-content .editorial-gallery-dot.is-active::before,
+.editorial-content .editorial-gallery-dot[aria-current="true"]::before {
+  width: 22px;
+  background: var(--customer-wine);
 }
 .editorial-content .editorial-gallery-dot:focus-visible {
   outline: 2px solid var(--customer-wine);
-  outline-offset: 4px;
+  outline-offset: 1px;
 }
 .editorial-content .editorial-gallery-controls .editorial-gallery-dots { min-width: 0; }
 
@@ -793,7 +821,8 @@
   .editorial-content * { scroll-behavior: auto; }
   .editorial-content :is(.editorial-button, .editorial-button-secondary, .service-card) { transition: none; }
   .editorial-content .editorial-gallery .vm-deck__card { transition: none; }
-  .editorial-content .editorial-gallery-dot { transition: none !important; }
+  .editorial-content .editorial-gallery-dot,
+  .editorial-content .editorial-gallery-dot::before { transition: none !important; }
 }
 
 /* Home service details use the same neutral presentation as Services. */

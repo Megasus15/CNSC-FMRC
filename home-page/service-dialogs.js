@@ -34,7 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // Capture runs before main.js moves focus to the preview's close button.
   document.addEventListener("click", (event) => {
     if (!(event.target instanceof Element)) return;
-    const imageTrigger = event.target.closest(".service-image-trigger, .service-modal-image-trigger");
+    const imageTrigger = event.target.closest(".service-image-trigger, .service-modal-image-trigger, .about-editorial-page .editorial-gallery .vm-deck__card[data-current=\"true\"]:not(:disabled)");
     const detailTrigger = event.target.closest(".service-card .open-modal-btn");
     const dialog = imageTrigger ? imageDialog : detailTrigger ? detailDialog : null;
     const layer = dialogLayers.find((candidate) => candidate.element === dialog);

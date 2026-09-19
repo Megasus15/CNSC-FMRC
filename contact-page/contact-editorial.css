@@ -237,17 +237,19 @@
   }
 }
 
-/* Keep each contact icon centered against its link block on phone widths.
-   The shared responsive layer pins the icon size for narrow screens; this
-   page-specific rule only corrects the row alignment and removes the text
-   offset that made the icon sit visibly high beside the label. */
+/* Align each contact icon to the FIRST line of its label on phone widths.
+   The shared responsive layer pins the icon size (20px) for narrow screens.
+   Centering against the whole row left the pin floating ~22px down beside the
+   middle of the 3-line address; flex-start puts the icon's centre 0.4px off
+   the first line — perfect for single-line rows (email/phone) too — while the
+   SVG stays centred inside its own box. */
 @media (max-width: 720px) {
   .contact-page-body .contact-links-list li {
-    align-items: center;
+    align-items: flex-start;
   }
 
   .contact-page-body .contact-links-list li .contact-link-icon {
-    align-self: center;
+    align-self: flex-start;
     align-items: center;
     justify-content: center;
   }

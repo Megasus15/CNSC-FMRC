@@ -834,10 +834,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!card) return false;
     const image = card.querySelector("img");
     const deck = card.closest(".vm-deck");
+    if (!deck || deck.classList.contains("is-loading") || deck.classList.contains("is-empty") || card.disabled) return false;
     const kind = deck?.classList.contains("vm-deck--mission")
       ? "Mission"
       : "Vision";
-    const src = image?.currentSrc || image?.src || "";
+    const src = image?.getAttribute("src") ? (image.currentSrc || image.src) : "";
     if (!src) return false;
     openServiceImageLightbox(src, `FMRC ${kind}`);
     return true;
@@ -984,16 +985,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // The service detail modal is only dismissed from inside the card — clicking
     // the dark overlay deliberately does nothing.
-  });
-
-  document.body.addEventListener("keydown", function (e) {
-    if (e.key !== "Enter" && e.key !== " ") return;
-    const aboutCard = e.target.closest(
-      ".about-editorial-page .editorial-purpose-card .vm-deck.editorial-gallery .vm-deck__card",
-    );
-    if (!aboutCard || aboutCard.dataset.current === "false") return;
-    e.preventDefault();
-    openAboutImageLightbox(aboutCard);
   });
 
   document.addEventListener("keydown", (event) => {
@@ -15708,6 +15699,8 @@ const openReturnRequestModal = (() => {
     if (!deck) return;
     deck.classList.remove("is-loading");
     deck.classList.toggle("is-empty", state === "empty");
+    const currentCard = deck.querySelector('.vm-deck__card[data-current="true"]');
+    if (currentCard?.tagName === "BUTTON") currentCard.disabled = state === "empty";
     // aria-busy is only meaningful while the deck is still waiting.
     deck.removeAttribute("aria-busy");
   }
@@ -15844,6 +15837,10 @@ const openReturnRequestModal = (() => {
   // About's quiet crossfade reuses the same Admin/Staff gallery uploads.
   // Autoplay pauses offscreen, during interaction, and for reduced motion.
   function applyEditorialGallery(deck, kind, images) {
+    if (deck._editorialInteracting) {
+      setTimeout(function () { applyEditorialGallery(deck, kind, images); }, 250);
+      return;
+    }
     const first = deck.querySelector(".vm-deck__card");
     const template = first?.querySelector("img");
     if (!template) return;
@@ -15861,16 +15858,15 @@ const openReturnRequestModal = (() => {
     deck.setAttribute("aria-roledescription", "slideshow");
     first.dataset.current = "true";
     first.setAttribute("aria-hidden", "false");
-    first.setAttribute("role", "button");
     first.setAttribute("tabindex", "0");
     first.setAttribute(
       "aria-label",
       "Open FMRC " + (kind === "mission" ? "Mission" : "Vision") + " image preview",
     );
     images.slice(1).forEach(function (src) {
-      const card = document.createElement("div");
+      const card = document.createElement("button");
+      card.type = "button";
       card.className = "vm-deck__card";
-      card.setAttribute("role", "button");
       card.setAttribute("tabindex", "-1");
       card.setAttribute(
         "aria-label",
@@ -15885,12 +15881,16 @@ const openReturnRequestModal = (() => {
       deck.appendChild(card);
     });
     const cards = Array.from(deck.querySelectorAll(".vm-deck__card"));
+    cards.forEach(function (card) {
+      card.querySelector("img").draggable = false;
+    });
+    first.disabled = !template.getAttribute("src") || !template.complete || !template.naturalWidth;
     if (cards.length < 2) return;
     const controller = new AbortController();
     const options = { signal: controller.signal };
     const controls = document.createElement("div");
     controls.className = "editorial-gallery-controls";
-    controls.innerHTML = '<span class="editorial-gallery-dots" data-gallery-dots role="tablist" aria-label="Select ' + kind + ' photo"></span>';
+    controls.innerHTML = '<span class="editorial-gallery-dots" data-gallery-dots role="group" aria-label="Select ' + kind + ' photo"></span>';
     deck.after(controls);
     const dots = controls.querySelector("[data-gallery-dots]");
     const dotButtons = cards.map(function (_card, index) {
@@ -15898,10 +15898,8 @@ const openReturnRequestModal = (() => {
       dot.type = "button";
       dot.className = "editorial-gallery-dot";
       dot.dataset.galleryDot = String(index);
-      dot.setAttribute("role", "tab");
       dot.setAttribute("aria-label", "Show " + kind + " photo " + (index + 1));
-      dot.setAttribute("aria-selected", "false");
-      dot.setAttribute("tabindex", "-1");
+      dot.setAttribute("aria-controls", deck.id);
       dots?.appendChild(dot);
       return dot;
     });
@@ -15912,6 +15910,20 @@ const openReturnRequestModal = (() => {
     let hovered = false;
     let observer;
     let timer;
+    let gesture = null;
+    let suppressClickUntil = 0;
+    function settleCurrent() {
+      const card = cards[current];
+      const img = card.querySelector("img");
+      if (img.getAttribute("src") && !img.complete) {
+        deck.classList.add("is-loading");
+        deck.classList.remove("is-empty");
+        deck.setAttribute("aria-busy", "true");
+        card.disabled = true;
+      } else {
+        vmPhotoSettle(kind, img.getAttribute("src") && img.naturalWidth ? "" : "empty");
+      }
+    }
     function show(index) {
       current = (index + cards.length) % cards.length;
       deck._editorialIndex = current;
@@ -15921,58 +15933,96 @@ const openReturnRequestModal = (() => {
         card.setAttribute("tabindex", i === current ? "0" : "-1");
         card.setAttribute(
           "aria-label",
-          "Open FMRC " + (kind === "mission" ? "Mission" : "Vision") + " image preview",
+          "Open FMRC " + (kind === "mission" ? "Mission" : "Vision") + " image " + (i + 1) + " of " + cards.length + " preview",
         );
       });
-      const img = cards[current].querySelector("img");
       // Only the visible slide controls the loading/error surface.
-      vmPhotoSettle(kind, img.complete && !img.naturalWidth ? "empty" : "");
+      settleCurrent();
       dotButtons.forEach(function (dot, index) {
         const active = index === current;
         dot.classList.toggle("is-active", active);
-        dot.setAttribute("aria-selected", String(active));
         dot.setAttribute("aria-current", String(active));
-        dot.setAttribute("tabindex", active ? "0" : "-1");
       });
     }
     function arm() {
       clearInterval(timer);
       if (reduced.matches || deck._editorialPaused) return;
       timer = setInterval(function () {
-        if (document.hidden || !visible || hovered || media.contains(document.activeElement) || document.body.classList.contains("modal-open-state")) return;
+        if (document.hidden || !visible || hovered || gesture || media.contains(document.activeElement) || document.body.classList.contains("modal-open-state")) return;
         show(current + 1);
       }, 5000);
     }
-    dotButtons.forEach(function (dot, index) {
-      dot.addEventListener("click", function () { show(index); arm(); }, options);
-    });
-    let swipeStartX = 0;
-    let swipeStartY = 0;
-    let swiping = false;
-    deck.addEventListener("pointerdown", function (event) {
-      if (event.isPrimary === false) return;
-      swipeStartX = event.clientX;
-      swipeStartY = event.clientY;
-      swiping = true;
-      deck.setPointerCapture?.(event.pointerId);
-    }, options);
-    deck.addEventListener("pointerup", function (event) {
-      if (!swiping) return;
-      swiping = false;
-      const deltaX = event.clientX - swipeStartX;
-      const deltaY = event.clientY - swipeStartY;
-      if (Math.abs(deltaX) < 44 || Math.abs(deltaX) < Math.abs(deltaY) * 1.15) return;
-      show(current + (deltaX < 0 ? 1 : -1));
+    function navigate(index) {
+      // Once the visitor chooses a photo, keep it in place for inspection.
+      deck._editorialPaused = true;
+      show(index);
       arm();
+    }
+    dotButtons.forEach(function (dot, index) {
+      dot.addEventListener("click", function () { navigate(index); }, options);
+    });
+    media.addEventListener("keydown", function (event) {
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      const onCard = !!event.target.closest(".vm-deck__card");
+      const onDot = !!event.target.closest(".editorial-gallery-dot");
+      navigate(event.key === "Home" ? 0 : event.key === "End" ? cards.length - 1 : current + (event.key === "ArrowLeft" ? -1 : 1));
+      if (onCard) (cards[current].disabled ? dotButtons[current] : cards[current]).focus({ preventScroll: true });
+      else if (onDot) dotButtons[current].focus({ preventScroll: true });
     }, options);
-    deck.addEventListener("pointercancel", function () { swiping = false; }, options);
+    deck.addEventListener("dragstart", function (event) { event.preventDefault(); }, options);
+    deck.addEventListener("click", function (event) {
+      // Block only the click synthesized by a completed drag. A new tap resets
+      // this guard, and keyboard-generated clicks are always allowed.
+      if (event.detail && performance.now() < suppressClickUntil) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    }, { ...options, capture: true });
+    deck.addEventListener("pointerdown", function (event) {
+      if (event.isPrimary === false || event.button !== 0 || gesture) return;
+      gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, axis: null };
+      deck._editorialInteracting = true;
+      suppressClickUntil = 0;
+      // Do not capture on press: that retargets ordinary card clicks to the
+      // container. Capture only after a horizontal drag has been established.
+    }, options);
+    window.addEventListener("pointermove", function (event) {
+      if (!gesture || gesture.id !== event.pointerId) return;
+      const dx = event.clientX - gesture.x;
+      const dy = event.clientY - gesture.y;
+      if (!gesture.axis && Math.max(Math.abs(dx), Math.abs(dy)) >= 8) {
+        gesture.axis = Math.abs(dx) > Math.abs(dy) * 1.15 ? "x" : "y";
+        if (gesture.axis === "x") deck.setPointerCapture?.(event.pointerId);
+      }
+      if (gesture.axis === "x" && event.cancelable) event.preventDefault();
+    }, options);
+    function finishGesture(event) {
+      if (!gesture || gesture.id !== event.pointerId) return;
+      const dx = event.clientX - gesture.x;
+      const dy = event.clientY - gesture.y;
+      const canceled = event.type === "pointercancel";
+      const horizontal = gesture.axis !== "y" && Math.abs(dx) > Math.abs(dy) * 1.15;
+      if (canceled || Math.max(Math.abs(dx), Math.abs(dy)) >= 8) suppressClickUntil = performance.now() + 600;
+      gesture = null;
+      deck._editorialInteracting = false;
+      if (deck.hasPointerCapture?.(event.pointerId)) deck.releasePointerCapture(event.pointerId);
+      if (!canceled && horizontal && Math.abs(dx) >= 44) navigate(current + (dx < 0 ? 1 : -1));
+    }
+    window.addEventListener("pointerup", finishGesture, options);
+    window.addEventListener("pointercancel", finishGesture, options);
+    window.addEventListener("blur", function () {
+      if (gesture && deck.hasPointerCapture?.(gesture.id)) deck.releasePointerCapture(gesture.id);
+      gesture = null;
+      deck._editorialInteracting = false;
+    }, options);
     media.addEventListener("mouseenter", function () { hovered = true; }, options);
     media.addEventListener("mouseleave", function () { hovered = false; }, options);
     reduced.addEventListener("change", function () { arm(); }, options);
     cards.forEach(function (card, index) {
       const img = card.querySelector("img");
-      img.addEventListener("load", function () { if (index === current) vmPhotoSettle(kind, ""); }, options);
-      img.addEventListener("error", function () { if (index === current) vmPhotoSettle(kind, "empty"); }, options);
+      img.addEventListener("load", function () { if (index === current) settleCurrent(); }, options);
+      img.addEventListener("error", function () { if (index === current) settleCurrent(); }, options);
     });
     if ("IntersectionObserver" in window) {
       observer = new IntersectionObserver(function (entries) { visible = entries[0].isIntersecting; });
