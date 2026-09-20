@@ -6174,6 +6174,11 @@ input:checked + .toggle-slider:before {
   justify-content: center;
   align-items: center;
   gap: 9px;
+  text-decoration: none;
+}
+
+.success-card__footer .apt-btn span {
+  text-decoration: none;
 }
 
 @media (max-width: 480px) {

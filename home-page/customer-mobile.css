@@ -27,13 +27,15 @@
     min-width: 0;
   }
 
-  /* CTA actions mirror the reference composition: one generous filled action
-     and one compact text link sharing the same row. */
+  /* CTA actions mirror the reference composition: one content-sized filled
+     action and one text link sharing the row with balanced whitespace, so the
+     button never stretches full-width and compresses "Contact us". */
   .editorial-content .editorial-cta .editorial-actions {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: auto auto;
+    justify-content: space-between;
     align-items: center;
-    gap: 10px;
+    gap: 12px 16px;
   }
 
   .editorial-content .editorial-actions .editorial-button {
@@ -59,14 +61,20 @@
   }
 
   .editorial-content .editorial-cta .editorial-actions .editorial-button {
-    width: 100%;
+    flex: 0 0 auto;
+    width: auto;
     min-height: 48px;
+    padding: 12px 18px;
+    font-size: 12.5px;
+    justify-self: start;
   }
 
   .editorial-content .editorial-cta .editorial-actions .editorial-link {
+    flex: 0 0 auto;
     width: auto;
     justify-self: end;
-    padding-inline: 0;
+    padding-inline: 2px;
+    white-space: nowrap;
   }
 
   .editorial-content .editorial-cta {
