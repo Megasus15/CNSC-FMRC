@@ -27,15 +27,15 @@
     min-width: 0;
   }
 
-  /* CTA actions mirror the reference composition: one content-sized filled
-     action and one text link sharing the row with balanced whitespace, so the
-     button never stretches full-width and compresses "Contact us". */
+  /* CTA actions form the card's bottom band: two equal halves that fill the
+     full width edge-to-edge with no dead gap in the middle — the filled action
+     on the left, the "Contact us" link balanced on the right. */
   .editorial-content .editorial-cta .editorial-actions {
     display: grid;
-    grid-template-columns: auto auto;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px 16px;
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+    gap: 0;
+    width: 100%;
   }
 
   .editorial-content .editorial-actions .editorial-button {
@@ -61,18 +61,18 @@
   }
 
   .editorial-content .editorial-cta .editorial-actions .editorial-button {
-    flex: 0 0 auto;
-    width: auto;
+    width: 100%;
+    justify-self: stretch;
     min-height: 48px;
-    padding: 12px 18px;
+    padding: 12px 14px;
     font-size: 12.5px;
-    justify-self: start;
   }
 
   .editorial-content .editorial-cta .editorial-actions .editorial-link {
-    flex: 0 0 auto;
-    width: auto;
-    justify-self: end;
+    width: 100%;
+    justify-self: stretch;
+    justify-content: center;
+    min-height: 48px;
     padding-inline: 2px;
     white-space: nowrap;
   }
