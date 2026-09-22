@@ -27,14 +27,12 @@
     min-width: 0;
   }
 
-  /* CTA actions form the card's bottom band: two equal halves that fill the
-     full width edge-to-edge with no dead gap in the middle — the filled action
-     on the left, the "Contact us" link balanced on the right. */
+  /* Both CTA actions fill the card's inner footer with equal, balanced targets. */
   .editorial-content .editorial-cta .editorial-actions {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: stretch;
-    gap: 0;
+    gap: 10px;
     width: 100%;
   }
 
@@ -60,21 +58,38 @@
     white-space: nowrap;
   }
 
-  .editorial-content .editorial-cta .editorial-actions .editorial-button {
-    width: 100%;
-    justify-self: stretch;
-    min-height: 48px;
-    padding: 12px 14px;
-    font-size: 12.5px;
-  }
-
+  .editorial-content .editorial-cta .editorial-actions .editorial-button,
   .editorial-content .editorial-cta .editorial-actions .editorial-link {
     width: 100%;
+    min-width: 0;
     justify-self: stretch;
     justify-content: center;
     min-height: 48px;
-    padding-inline: 2px;
-    white-space: nowrap;
+    padding: 12px 8px;
+    border: 1px solid var(--customer-wine);
+    border-radius: 8px;
+    font-size: 12.5px;
+    line-height: 1.35;
+    text-align: center;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .editorial-content .editorial-cta .editorial-actions .editorial-link {
+    background: transparent;
+  }
+
+  .editorial-content .editorial-cta .editorial-actions .editorial-link:hover {
+    background: var(--customer-paper-sink);
+  }
+
+  .editorial-content .editorial-cta .editorial-actions > :is(a, button) > span {
+    min-width: 0;
+  }
+
+  .editorial-content .editorial-cta .editorial-actions .editorial-link > i {
+    flex-shrink: 0;
   }
 
   .editorial-content .editorial-cta {
