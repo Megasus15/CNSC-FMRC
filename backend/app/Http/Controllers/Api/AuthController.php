@@ -198,13 +198,20 @@ class AuthController extends Controller
         // lives here. Admin and staff sign-in is never blocked. Checked after
         // the password so a 503 cannot be used to probe which accounts exist,
         // and before createToken() so a refused sign-in mints nothing.
+        if ($user->spectatorHasExpired()) {
+            return response()->json([
+                'message' => 'This temporary presentation account has expired.',
+                'code' => 'SPECTATOR_EXPIRED',
+            ], 403);
+        }
+
         if ($maintenance = $this->customerLoginMaintenanceResponse($user)) {
             return $maintenance;
         }
 
         // A successful password login proves this is a customer-usable password,
         // not the internal random password of a Google-only account.
-        if ($this->supportsGooglePasswordState() && !$user->has_custom_password) {
+        if (! $user->isSpectator() && $this->supportsGooglePasswordState() && !$user->has_custom_password) {
             $user->has_custom_password = true;
             $user->save();
         }
@@ -931,7 +938,9 @@ class AuthController extends Controller
         }
 
         if ($row->expires_at && Carbon::parse($row->expires_at)->isPast()) {
-            DB::table(self::EMAIL_CHANGE_TABLE)->where('id', $row->id)->delete();
+            if (! $request->attributes->get('spectator_mode', false)) {
+                DB::table(self::EMAIL_CHANGE_TABLE)->where('id', $row->id)->delete();
+            }
 
             return response()->json(['supported' => true, 'pending' => false]);
         }

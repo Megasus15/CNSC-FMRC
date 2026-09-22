@@ -33,7 +33,21 @@ class User extends Authenticatable
             'signed_with_google' => 'boolean',
             'has_custom_password' => 'boolean',
             'gcash_linked_at' => 'datetime',
+            'is_spectator' => 'boolean',
+            'spectator_expires_at' => 'datetime',
         ];
+    }
+
+    public function isSpectator(): bool
+    {
+        return (bool) $this->getAttribute('is_spectator');
+    }
+
+    public function spectatorHasExpired(): bool
+    {
+        // A spectator without an expiry is disabled, never an unlimited admin.
+        return $this->isSpectator()
+            && (! $this->spectator_expires_at || $this->spectator_expires_at->isPast());
     }
 
     public function orders(): HasMany

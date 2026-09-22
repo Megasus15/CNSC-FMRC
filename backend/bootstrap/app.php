@@ -12,7 +12,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->api(append: [\App\Http\Middleware\EnforceSpectatorMode::class]);
+        $middleware->web(append: [\App\Http\Middleware\EnforceSpectatorMode::class]);
+        $middleware->prependToPriorityList(
+            \Illuminate\Routing\Middleware\SubstituteBindings::class,
+            \App\Http\Middleware\EnforceSpectatorMode::class,
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

@@ -1096,7 +1096,7 @@
       );
       let response;
       let payload = {};
-      const isIntentionalGeneration = source === "generate";
+      const isIntentionalGeneration = source === "generate" && !window.AdminSession?.isSpectator?.();
       const requestUrl = isIntentionalGeneration
         ? `${API_BASE_URL}/admin/reports/generate`
         : `${API_BASE_URL}/admin/reports?${query.toString()}`;
@@ -1148,6 +1148,7 @@
     };
 
     const loadReport = async (params, source = "refresh") => {
+      if (source === "generate" && window.AdminSession?.isSpectator?.()) source = "refresh";
       if (state.isLoading) return false;
       state.isLoading = true;
       const hadGoodData = Boolean(state.reportData);
@@ -1252,6 +1253,7 @@
      * 30-second poll stay read-only.
      */
     const recordArtifactGeneration = async (options = {}) => {
+      if (window.AdminSession?.isSpectator?.()) return;
       const params = state.activeParams || readFilterParams();
       if (!state.reportData || !params) return;
       const filterKey = reportFilterKey(params);
@@ -2740,6 +2742,13 @@
     elements.month.addEventListener("change", updateSelectionSummary);
     elements.quarter.addEventListener("change", updateSelectionSummary);
 
+    const updateSpectatorReportLabel = () => {
+      if (!window.AdminSession?.isSpectator?.()) return;
+      elements.generate.innerHTML = '<i class="fa-regular fa-eye" aria-hidden="true"></i> View Report';
+      elements.generate.title = "View current report data without creating a report history entry";
+    };
+    updateSpectatorReportLabel();
+    window.addEventListener("admin:session-updated", updateSpectatorReportLabel);
     elements.generate.addEventListener("click", () => {
       const params = readFilterParams();
       params.generationKey = createGenerationKey();

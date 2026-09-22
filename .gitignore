@@ -56,3 +56,6 @@ _ide_helper.php
 *.tmp
 *.bak
 *.orig
+
+# Private manual deployment artifacts (includes a presentation password hash).
+/output/admin-spectator-release/

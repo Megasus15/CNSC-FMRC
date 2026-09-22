@@ -50,6 +50,13 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        if (Auth::user()?->spectatorHasExpired()) {
+            Auth::logout();
+            throw ValidationException::withMessages([
+                'email' => 'This temporary presentation account has expired.',
+            ]);
+        }
+
         RateLimiter::clear($this->throttleKey());
     }
 

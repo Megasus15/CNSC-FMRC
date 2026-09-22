@@ -356,9 +356,11 @@ class AppointmentController extends Controller
         ]);
     }
 
-    public function calendar(): JsonResponse
+    public function calendar(Request $request): JsonResponse
     {
-        $this->ensureDefaultSlots();
+        if (! $request->attributes->get('spectator_mode', false)) {
+            $this->ensureDefaultSlots();
+        }
 
         $slots = AppointmentTimeSlot::query()
             ->where('is_active', true)

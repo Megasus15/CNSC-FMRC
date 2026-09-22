@@ -524,8 +524,15 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const fetchCalendar = async () => {
+    const headers = { Accept: "application/json" };
+    // This public GET can seed calendar slots. Identify presentation reads so
+    // the server can skip that initialization for the spectator account.
+    if (window.AdminSession?.isSpectator?.()) {
+      const token = window.AdminSession.getToken();
+      if (token) headers.Authorization = `Bearer ${token}`;
+    }
     const response = await fetch(`${API_BASE_URL}/appointments/calendar`, {
-      headers: { Accept: "application/json" },
+      headers,
     });
     if (!response.ok) throw new Error("Failed to fetch calendar");
 

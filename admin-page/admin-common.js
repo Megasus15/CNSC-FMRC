@@ -782,6 +782,174 @@ document.documentElement.classList.add("fmrc-admin-portal");
   });
 })();
 
+// Presentation accounts use the same pages and live reads as Admin. This is a
+// UI convenience only; the API independently enforces the read-only boundary.
+(() => {
+  const MESSAGE = "Spectator mode is view only. Changes cannot be saved.";
+  const isActive = () => window.AdminSession?.isSpectator?.() === true;
+  const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+  const isBlockedRequest = (input, init = {}) => {
+    if (!isActive()) return false;
+    const method = String(init?.method || input?.method || "GET").toUpperCase();
+    if (!MUTATING_METHODS.has(method)) return false;
+    let url;
+    try {
+      url = new URL(typeof input === "string" || input instanceof URL
+        ? String(input) : input?.url, window.location.href);
+    } catch {
+      return false;
+    }
+    if (!url.pathname.includes("/api/")) return false;
+    const path = url.pathname.replace(/\/+$/, "");
+    return !(method === "POST" &&
+      (/\/api\/logout$/.test(path) || /\/api\/admin\/email-templates\/preview$/.test(path)));
+  };
+
+  // Wrap after AdminLiveData so refused writes do not label healthy live reads
+  // as a connection failure. Reject, rather than return success-shaped data:
+  // some older page actions do not check response.ok before announcing success.
+  const previousFetch = window.fetch;
+  if (typeof previousFetch === "function") {
+    window.fetch = function spectatorFetch(input, init) {
+      if (isBlockedRequest(input, init)) {
+        const error = new Error(MESSAGE);
+        error.status = 403;
+        error.code = "SPECTATOR_READ_ONLY";
+        return Promise.reject(error);
+      }
+      return previousFetch.call(this, input, init);
+    };
+  }
+
+  const FIELD_SELECTOR = 'input:not([type="hidden"]), select, textarea, [contenteditable="true"]';
+  const BUTTON_SELECTOR = 'button, input[type="submit"], input[type="button"], [role="button"]';
+  const READ_FIELDS = /search|filter|currentpage|pagenumber/i;
+  const READ_FIELD_IDS = new Set([
+    "topSellingPeriod", "yearlySalesTrendYear", "productPerformancePage",
+    "reportPeriodSelect", "reportYearSelect", "reportMonthSelect", "reportQuarterSelect",
+  ]);
+  const READ_BUTTON_IDS = new Set([
+    "reportGenerateBtn", "reportLetterheadBtn", "btnEditFromViewInv",
+    "btnOpenEditFromView", "btnEditWalkInFromView", "openWalkInOrderModalBtn",
+  ]);
+  const COMMIT_BUTTON_IDS = new Set([
+    "emailPendingVerifyBtn", "emailPendingCancelBtn", "recoveryGenerateBtn",
+    "recoveryConfirmSubmit", "btnToggleBlockDay", "btnClearDayBlocks",
+    "btnConfirmTimePicker", "btnApplyCrop", "enableAllPayments", "disableAllPayments",
+  ]);
+  const isReadField = (element) => element.matches('.page-number, [data-admin-page-number]') ||
+    READ_FIELD_IDS.has(element.id) || READ_FIELDS.test(element.id || "") ||
+    element.matches('.search-input, input[type="search"]');
+  const isCommitControl = (element) => {
+    if (COMMIT_BUTTON_IDS.has(element.id)) return true;
+    if (READ_BUTTON_IDS.has(element.id) || element.matches('[data-modal-open]') ||
+      /^btnOpen/.test(element.id || "")) return false;
+    const label = [element.textContent, element.getAttribute("aria-label"),
+      element.getAttribute("data-tooltip"), element.getAttribute("title")]
+      .filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+    if (/^(cancel|close|back|done|log\s*out|refresh|retry|view|preview|print|export|download|copy)\b/i.test(label)) return false;
+    if (element.matches('[type="submit"], .notif-read-btn, .notif-del-btn, .notif-mark-all-btn, .admin-event-remove')) return true;
+    if (/^(save|create|add|delete|remove|archive|restore|approve|reject|send|upload|apply|resolve|mark|confirm payment|undo payment|record|clear all|generate codes|enable all|disable all)\b/i.test(label)) return true;
+    // Covers icon-only and dynamically rendered action buttons.
+    return /(?:^|\s)(save|submit|delete|remove|approve|reject|restore|complete|upload|reply)(?:\s|$)/i.test(
+      String(element.id || "").replace(/([a-z])([A-Z])/g, "$1 $2"));
+  };
+  const markDisabled = (element) => {
+    if (element.dataset.spectatorReadonly !== "true") {
+      element.dataset.spectatorReadonly = "true";
+      element.setAttribute("aria-description", MESSAGE);
+    }
+    if ("disabled" in element && !element.disabled) element.disabled = true;
+    if (element.getAttribute("aria-disabled") !== "true") element.setAttribute("aria-disabled", "true");
+  };
+  let observer = null;
+  let noticeDismissed = false;
+  const noticeDismissedKey = "fmrc:spectator-notice-dismissed";
+  const isNoticeDismissed = () => {
+    if (noticeDismissed) return true;
+    try {
+      return sessionStorage.getItem(noticeDismissedKey) === "1";
+    } catch {
+      return false;
+    }
+  };
+  const dismissNotice = () => {
+    noticeDismissed = true;
+    try {
+      sessionStorage.setItem(noticeDismissedKey, "1");
+    } catch {
+      // Keep it dismissed on this page when browser storage is unavailable.
+    }
+    document.getElementById("adminSpectatorNotice")?.remove();
+  };
+  const apply = () => {
+    if (!isActive() || !document.body) return;
+    document.documentElement.classList.add("admin-spectator-mode");
+    if (!document.getElementById("adminSpectatorStyles")) {
+      const style = document.createElement("style");
+      style.id = "adminSpectatorStyles";
+      style.textContent = `
+        .admin-spectator-notice{position:fixed;top:88px;right:20px;z-index:10050;box-sizing:border-box;width:min(360px,calc(100vw - 32px));padding:16px;display:flex;align-items:flex-start;gap:12px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;color:#374151;box-shadow:0 8px 28px rgba(0,0,0,.12);font-size:13px;line-height:1.5}
+        .admin-spectator-notice__text{flex:1;min-width:0}
+        .admin-spectator-notice strong{display:block;margin-bottom:4px;color:#111827;font-size:14px}
+        .admin-spectator-notice__close{flex:0 0 32px;width:32px;height:32px;display:grid;place-items:center;padding:0;border:0;border-radius:6px;background:transparent;color:#6b7280;font-size:22px;line-height:1;cursor:pointer}
+        .admin-spectator-notice__close:hover{background:#f3f4f6;color:#111827}
+        .admin-spectator-notice__close:focus-visible{outline:2px solid #800000;outline-offset:2px}
+        @media(max-width:480px){.admin-spectator-notice{top:76px;right:16px}}
+        .admin-spectator-mode [data-spectator-readonly="true"]{cursor:not-allowed!important}
+        .admin-spectator-mode button[data-spectator-readonly="true"]{opacity:.5}
+      `;
+      document.head.appendChild(style);
+    }
+    if (!isNoticeDismissed() && !document.getElementById("adminSpectatorNotice")) {
+      const notice = document.createElement("div");
+      notice.id = "adminSpectatorNotice";
+      notice.className = "admin-spectator-notice";
+      notice.setAttribute("role", "region");
+      notice.setAttribute("aria-label", "Presentation access notification");
+      notice.innerHTML = '<div class="admin-spectator-notice__text" role="status"><strong>Spectator · View only</strong><span>Live data and page previews are available. Changes cannot be saved.</span></div><button type="button" class="admin-spectator-notice__close" aria-label="Close notification"><span aria-hidden="true">&times;</span></button>';
+      notice.querySelector(".admin-spectator-notice__close").addEventListener("click", dismissNotice);
+      document.body.appendChild(notice);
+    }
+    document.querySelectorAll(FIELD_SELECTOR).forEach((element) => {
+      if (isReadField(element)) return;
+      if (element.matches('[contenteditable="true"]')) {
+        element.contentEditable = "false";
+        element.setAttribute("aria-readonly", "true");
+      } else if (element.matches('textarea, input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]):not([type="color"]):not([type="button"]):not([type="submit"])')) {
+        if (!element.readOnly) element.readOnly = true;
+        if (element.getAttribute("aria-readonly") !== "true") element.setAttribute("aria-readonly", "true");
+      } else markDisabled(element);
+    });
+    document.querySelectorAll(BUTTON_SELECTOR).forEach((element) => {
+      if (isCommitControl(element)) markDisabled(element);
+    });
+    if (!observer) {
+      observer = new MutationObserver(apply);
+      observer.observe(document.body, { childList: true, subtree: true, characterData: true,
+        attributes: true, attributeFilter: ["disabled", "readonly", "contenteditable"] });
+    }
+  };
+  document.addEventListener("click", (event) => {
+    if (!isActive() || !(event.target instanceof Element)) return;
+    const control = event.target.closest(BUTTON_SELECTOR);
+    if (!control || !isCommitControl(control)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    window.showAdminPopup?.(MESSAGE, { title: "Spectator · View only" });
+  }, true);
+  document.addEventListener("submit", (event) => {
+    if (!isActive()) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    window.showAdminPopup?.(MESSAGE, { title: "Spectator · View only" });
+  }, true);
+  window.addEventListener("admin:session-updated", apply);
+  document.addEventListener("DOMContentLoaded", apply);
+  window.AdminSpectator = Object.freeze({ isActive, isBlockedRequest, apply });
+  apply();
+})();
+
 // One image/video viewer for every Admin and Staff page. Appointment file
 // attachments, review media and return evidence all used to be plain links
 // (or nothing at all), so an attachment either downloaded or silently did
@@ -2770,6 +2938,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Mark single as read — INSTANT UI + backend sync
     const markAsRead = async (id) => {
+      if (window.AdminSession?.isSpectator?.()) return;
       const token = getToken();
       if (!token) return;
       // Optimistic: update local data immediately
@@ -2805,6 +2974,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Mark all as read — INSTANT UI + backend sync
     const markAllRead = async () => {
+      if (window.AdminSession?.isSpectator?.()) return;
       const token = getToken();
       if (!token) return;
       // Optimistic
@@ -2839,6 +3009,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Delete notification — INSTANT UI + backend sync
     const deleteNotification = async (id) => {
+      if (window.AdminSession?.isSpectator?.()) return;
       const token = getToken();
       if (!token) return;
       // Optimistic: remove from local data immediately
@@ -2873,6 +3044,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const clearAllNotifications = async () => {
+      if (window.AdminSession?.isSpectator?.()) return;
       const token = getToken();
       if (!token) return;
       // Optimistic: wipe local data immediately

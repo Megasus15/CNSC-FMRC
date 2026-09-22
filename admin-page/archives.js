@@ -1187,6 +1187,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Run auto-delete silently on page load
   const runAutoDeleteOnLoad = async () => {
+    if (window.AdminSession?.isSpectator?.()) return;
     const token = getToken();
     if (!token) return;
     const days = getRetentionDays();

@@ -425,6 +425,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const markRead = async (id, silent = false) => {
+    if (window.AdminSession?.isSpectator?.()) return;
     try {
       await request(`/admin/customer-messages/${id}/read`, { method: "PATCH" });
       emitRealtimeUpdate({ action: "read", id });

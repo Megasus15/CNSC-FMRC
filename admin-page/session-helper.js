@@ -63,6 +63,13 @@
       }
     },
 
+    /** Presentation accounts keep the admin role, with separate read-only access. */
+    isSpectator() {
+      const info = this.getUserInfo();
+      const user = info?.data || info;
+      return user?.is_spectator === true || user?.is_spectator === 1;
+    },
+
     /** Store the user info object for the current portal role. */
     setUserInfo(info) {
       try {
@@ -70,6 +77,7 @@
       } catch {
         /* ignore */
       }
+      window.dispatchEvent(new CustomEvent("admin:session-updated"));
     },
 
     /** Clear all session data for the current portal role. */
