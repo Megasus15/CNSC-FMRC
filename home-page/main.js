@@ -349,7 +349,16 @@ document.addEventListener("DOMContentLoaded", () => {
       sidebarNav.appendChild(navListClone);
     }
 
-    mobileSidebar.append(sidebarHeader, sidebarNav);
+    const sidebarFooter = document.createElement("div");
+    sidebarFooter.className = "sidebar-footer-actions";
+    const sidebarAppointment = document.createElement("a");
+    sidebarAppointment.className = "sidebar-appointment-link";
+    sidebarAppointment.href = "/home-page/main.html?appointment=1";
+    sidebarAppointment.setAttribute("data-maint-gate", "page_appointment");
+    sidebarAppointment.innerHTML = '<i class="fa-regular fa-calendar-check" aria-hidden="true"></i><span>Appoint Now!</span>';
+    sidebarFooter.appendChild(sidebarAppointment);
+
+    mobileSidebar.append(sidebarHeader, sidebarNav, sidebarFooter);
     document.body.append(sidebarBackdrop, mobileSidebar);
 
     const openSidebar = () => {
@@ -380,6 +389,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     sidebarCloseBtn.addEventListener("click", closeSidebar);
     sidebarBackdrop.addEventListener("click", closeSidebar);
+    sidebarAppointment.addEventListener("click", (event) => {
+      closeSidebar();
+      // On Home, reuse the existing entry point without reloading the page.
+      const entry = document.querySelector(".btn-appointment");
+      if (entry && document.getElementById("appointmentFlow")) {
+        event.preventDefault();
+        entry.click();
+      }
+    });
 
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && mobileSidebar.classList.contains("open")) {
@@ -7611,6 +7629,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       })();
     });
+
+    // Other customer pages link straight to the same guarded appointment flow.
+    if (new URLSearchParams(window.location.search).get("appointment") === "1") {
+      window.setTimeout(() => appointmentBtn.click(), 0);
+    }
 
     // Guard: stop clicks that land on the overlay BACKDROP from bubbling to any
     // outer handler. The appointment flow should ONLY be dismissed via the
