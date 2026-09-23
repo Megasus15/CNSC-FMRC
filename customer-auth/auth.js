@@ -413,7 +413,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const showSignup = (event) => {
     if (event) event.preventDefault();
-    setHeroText("Create Your Pass", "Join the UCN-FMRC customer portal");
+    setHeroText("Create an Account", "Join the UCN-FMRC customer portal");
     signupForm.style.display = "";
     signupForm.classList.add("active");
     loginForm.style.display = "none";

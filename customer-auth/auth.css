@@ -1297,15 +1297,6 @@ body::after {
   margin-top: 10px;
 }
 
-.auth-caption::before {
-  content: "";
-  width: 30px;
-  height: 3px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--customer-wine), #f1ed12);
-  box-shadow: none;
-}
-
 .auth-form {
   width: 100%;
 }
@@ -2124,10 +2115,6 @@ svg {
     gap: 5px;
     font-size: 10.5px;
     line-height: 1.4;
-  }
-
-  .auth-caption::before {
-    width: 16px;
   }
 
   .input-wrapper {
