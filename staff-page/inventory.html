@@ -10,7 +10,7 @@
     <link rel="icon" href="../images/favicon.ico?v=3" sizes="any" />
     <link rel="apple-touch-icon" href="../images/apple-touch-icon.png?v=3" />
     <title>Inventory | UCN-FMRC Staff</title>
-    <link rel="stylesheet" href="../admin-page/dashboard.css?v=6.7" />
+    <link rel="stylesheet" href="../admin-page/dashboard.css?v=7.1" />
     <link rel="stylesheet" href="../admin-page/admin-modules.css?v=6.7" />
     <link
       rel="stylesheet"
@@ -695,10 +695,12 @@
       }
 
     </style>
-    <link rel="stylesheet" href="../admin-page/admin-responsive.css?v=3.0" />
+    <link rel="stylesheet" href="../admin-page/admin-responsive.css?v=3.1" />
+    <link rel="stylesheet" href="../admin-page/inventory-layout.css?v=1.0" />
     <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=2.1" />
+    <link rel="stylesheet" href="../admin-page/report-document.css?v=1.1" />
   </head>
-  <body>
+  <body data-report-document-host>
     <div class="dashboard-container">
       <aside class="sidebar">
         <div class="sidebar-header">
@@ -806,7 +808,7 @@
         </header>
 
         <section class="module-content">
-          <div class="page-toolbar">
+          <div class="page-toolbar inventory-page-toolbar">
             <div class="toolbar-title">
               <h2>Inventory Items</h2>
               <p>
@@ -828,6 +830,12 @@
                 title="Export All Inventory (Excel)"
               >
                 <i class="fa-solid fa-file-excel"></i> Export Excel
+              </button>
+              <button class="btn-admin btn-secondary" id="btnInventoryPdfAll" type="button">
+                <i class="fa-solid fa-file-pdf"></i> PDF Form
+              </button>
+              <button class="btn-admin btn-secondary" id="reportLetterheadBtn" type="button">
+                <i class="fa-solid fa-pen-to-square"></i> Edit Letterhead
               </button>
               <button
                 class="btn-admin btn-secondary"
@@ -1402,11 +1410,121 @@
       </div>
     </div>
 
+    <div
+      class="modal-overlay report-preview-overlay"
+      id="reportPreviewModal"
+      data-backdrop-close="false"
+      aria-hidden="true"
+    >
+      <section
+        class="modal-card report-preview-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reportPreviewTitle"
+      >
+        <div class="modal-header-fixed report-preview-header">
+          <div>
+            <span class="report-result-eyebrow">Report preview</span>
+            <h3 class="modal-title" id="reportPreviewTitle">Generated Report</h3>
+          </div>
+          <button
+            class="report-icon-button"
+            id="reportPreviewCloseIcon"
+            type="button"
+            aria-label="Close report preview"
+            title="Close report preview"
+          >
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div
+          class="modal-body-scroll report-preview-body"
+          id="reportPreviewContent"
+          tabindex="0"
+          aria-label="Official report pages"
+        ></div>
+        <div class="modal-footer-fixed report-preview-footer">
+          <p class="report-print-instruction">
+            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+            For PDF: choose A4, 100% scale, and turn off browser headers and footers.
+          </p>
+          <div class="report-preview-footer-actions">
+            <button class="btn-admin btn-secondary" id="reportPreviewCloseBtn" type="button">
+              Close
+            </button>
+            <button class="btn-admin" id="reportPrintBtn" type="button">
+              <i class="fa-solid fa-print"></i>
+              <span>Print / Save PDF</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div
+      class="modal-overlay report-letterhead-overlay"
+      id="reportLetterheadModal"
+      data-backdrop-close="false"
+      aria-hidden="true"
+    >
+      <section
+        class="modal-card report-letterhead-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reportLetterheadTitle"
+      >
+        <div class="modal-header-fixed report-letterhead-header">
+          <div>
+            <span class="report-result-eyebrow">Official template</span>
+            <h3 class="modal-title" id="reportLetterheadTitle">Edit Letterhead</h3>
+          </div>
+          <button
+            class="report-icon-button"
+            id="reportLetterheadCloseIcon"
+            type="button"
+            aria-label="Close letterhead editor"
+            title="Close letterhead editor"
+          >
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+        <div class="modal-body-scroll report-letterhead-body">
+          <p class="report-letterhead-note">
+            <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+            These lines appear in every generated PDF and Excel export for both
+            Admin and Staff. Leave a field blank to keep the official UCN wording.
+            Logos, seals, QR codes and page measurements are fixed so the
+            alignment of the printed page cannot break.
+          </p>
+          <div class="report-letterhead-fields" id="reportLetterheadFields"></div>
+          <p class="report-letterhead-error" id="reportLetterheadError" hidden></p>
+        </div>
+        <div class="modal-footer-fixed report-letterhead-footer">
+          <button class="btn-admin btn-secondary" id="reportLetterheadResetBtn" type="button">
+            <i class="fa-solid fa-rotate-left"></i>
+            <span>Restore official defaults</span>
+          </button>
+          <div class="report-letterhead-footer-actions">
+            <button class="btn-admin btn-secondary" id="reportLetterheadCancelBtn" type="button">
+              Cancel
+            </button>
+            <button class="btn-admin" id="reportLetterheadSaveBtn" type="button">
+              <i class="fa-solid fa-floppy-disk"></i>
+              <span>Save Letterhead</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+
     <script src="../admin-page/session-helper.js?v=2.2"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="../admin-page/admin-common.js?v=7.2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="../admin-page/inventory.js?v=5.6"></script>
+    <script src="../admin-page/assets/lib/exceljs-4.4.0.min.js"></script>
+    <script src="../admin-page/report-excel.js?v=1.0"></script>
+    <script src="../admin-page/reports.js?v=5.6"></script>
+    <script src="../admin-page/inventory-report.js?v=1.0"></script>
+    <script src="../admin-page/inventory.js?v=5.7"></script>
     <script src="../admin-page/admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>

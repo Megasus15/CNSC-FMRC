@@ -1,0 +1,229 @@
+/*
+ * analytics-toolbar.css — the one reporting-period control shared by the
+ * dashboard revenue hero and the product-analytics cards on both the admin and
+ * staff portals. Loaded directly (not via admin-modules.css) so the staff
+ * products loader, which clones module markup but not <link> tags, can pull it
+ * in by itself. Prominence here is by weight + fill, never a second hue: the
+ * active segment is maroon, the rest are quiet.
+ *
+ * Layout: the host is a single horizontal row holding a pill strip
+ * (.__segments) and — only when Custom is chosen — a From/To/Apply date panel
+ * (.__custom) inline to its RIGHT, on one row. On modern-iPhone widths the whole
+ * row scrolls horizontally instead of wrapping; the panel is a sibling of the
+ * strip (not inside its scroll box), so it is never clipped.
+ */
+
+.analytics-toolbar {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  font-family: "Poppins", sans-serif;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.analytics-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.analytics-toolbar__segments {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8f7f5;
+  flex: 0 0 auto;
+}
+
+.analytics-toolbar__btn {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 7px 14px;
+  border-radius: 8px;
+  background: transparent;
+  color: #6b7280;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    font-weight 0.15s ease;
+}
+.analytics-toolbar__btn:hover {
+  color: #800000;
+  background: #f0ebe6;
+}
+
+.analytics-toolbar__btn:focus-visible {
+  outline: 2px solid #800000;
+  outline-offset: 2px;
+}
+
+.analytics-toolbar__btn[aria-selected="true"] {
+  background: #800000;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(128, 0, 0, 0.25);
+}
+
+.analytics-toolbar__btn[aria-selected="true"]:hover {
+  background: #6b0000;
+  color: #fff;
+}
+
+/* Custom pill: a hair of separation from the presets, and a leading calendar
+   glyph so its purpose reads at a glance. */
+.analytics-toolbar__btn--custom {
+  margin-left: 4px;
+  position: relative;
+}
+.analytics-toolbar__btn--custom::before {
+  content: "\f133"; /* fa calendar */
+  font-family: "Font Awesome 6 Free";
+  font-weight: 900;
+  margin-right: 6px;
+  font-size: 11px;
+  opacity: 0.85;
+}
+
+.analytics-toolbar[aria-busy="true"] {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* From/To/Apply range panel — inline to the RIGHT of the strip, one row.
+   A sibling of .__segments (not inside its scroll box), so it is never clipped. */
+.analytics-toolbar__custom {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  flex: 0 0 auto;
+}
+.analytics-toolbar__custom[hidden] {
+  display: none;
+}
+
+.analytics-toolbar__field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+/* From/To read out to assistive tech but take no width, so the panel stays one
+   tight row: the native date fields and the "–" between them carry the meaning
+   visually. */
+.analytics-toolbar__field-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.analytics-toolbar__range-sep {
+  color: #9ca3af;
+  font-weight: 600;
+  padding: 0 1px;
+  user-select: none;
+}
+
+.analytics-toolbar__date {
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 7px 9px;
+  border: 1px solid #d8d5d0;
+  border-radius: 8px;
+  color: #1f2937;
+  background: #fff;
+  min-width: 0;
+}
+.analytics-toolbar__date:focus-visible {
+  outline: none;
+  border-color: #800000;
+  box-shadow: 0 0 0 2px rgba(128, 0, 0, 0.18);
+}
+
+.analytics-toolbar__custom.is-invalid .analytics-toolbar__date {
+  border-color: #dc2626;
+}
+
+.analytics-toolbar__apply {
+  appearance: none;
+  border: 0;
+  margin: 0;
+  padding: 8px 18px;
+  border-radius: 8px;
+  background: #800000;
+  color: #fff;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.1;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.analytics-toolbar__apply:hover {
+  background: #6b0000;
+}
+.analytics-toolbar__apply:focus-visible {
+  outline: 2px solid #800000;
+  outline-offset: 2px;
+}
+
+/* The toolbar is always a single non-wrapping row that scrolls horizontally
+   only when it overflows (base rule) — so it stays one clean row on desktop and
+   becomes swipe-scrollable on modern-iPhone widths. Here we tighten the pill
+   and Apply padding so more fits before scrolling kicks in, and — crucially —
+   shrink the From/To/Apply range panel so the WHOLE panel (both dates + Apply)
+   fits inside one modern-iPhone viewport at once. At full size the panel is
+   ~450px (wider than a 390px phone), which would force the user to swipe within
+   the panel just to reach Apply; tightened it measures ~349px, so once the panel
+   is scrolled into view every control is reachable without a second swipe. */
+@media (max-width: 520px) {
+  .analytics-toolbar {
+    width: 100%;
+  }
+  .analytics-toolbar__btn {
+    padding: 7px 11px;
+    font-size: 12px;
+  }
+  .analytics-toolbar__custom {
+    gap: 7px;
+    padding: 5px 8px;
+  }
+  .analytics-toolbar__date {
+    width: 116px;
+    padding: 7px 7px;
+    font-size: 12px;
+  }
+  .analytics-toolbar__apply {
+    padding: 8px 14px;
+  }
+}

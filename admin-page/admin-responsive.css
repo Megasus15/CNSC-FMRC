@@ -3908,6 +3908,38 @@
     width: 52px;
     height: 16px;
   }
+
+  /* Dashboard KPI cards specifically: keep the compact icon-LEFT row from the
+     desktop redesign instead of the tall icon-on-top tile that shared geometry
+     above gives every family — the centered stack was the "too much vertical
+     space" look on phones. `.card:not(.card-revenue-hero)` is (0,2,0), so it
+     beats the (0,1,0) :is() tile rules; being later in source seals it. */
+  .card:not(.card-revenue-hero) {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    text-align: left;
+    gap: 10px;
+    padding: 12px;
+  }
+  .card:not(.card-revenue-hero) .card-info {
+    width: auto;
+    text-align: left;
+  }
+  .card:not(.card-revenue-hero) .card-icon-box {
+    order: -1;
+  }
+
+  /* The revenue hero must never be squeezed into a half-width tile: span the
+     whole row and stack its parts, figure first. */
+  .summary-cards .card-revenue-hero {
+    grid-column: 1 / -1;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    text-align: left;
+    padding: 16px;
+  }
 }
 /* ===== end of 9.3 ===== */
 

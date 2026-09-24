@@ -274,6 +274,7 @@
     "completed_orders",
     "processing_orders",
     "inventory",
+    "product_inventory",
   ]);
   const CATEGORY_LABELS = {
     sales: "Overall Sales",
@@ -281,6 +282,7 @@
     processing_orders: "Processing Orders",
     appointments: "Appointments",
     inventory: "Inventory Stocks",
+    product_inventory: "Product Stocks",
   };
   const SERIES_COLORS = [
     "#800000",
@@ -433,7 +435,7 @@
 
   const statusClass = (value) => {
     const status = String(value || "").toLowerCase();
-    if (/(complete|completed|paid|done|good|available|approved|success)/.test(status)) {
+    if (/(complete|completed|paid|done|good|available|approved|success|in stock)/.test(status)) {
       return "status-green";
     }
     if (/(process|processing|progress|scheduled|active|confirmed)/.test(status)) {
@@ -533,6 +535,9 @@
         generated_at: report.generated_at || new Date().toISOString(),
         generated_by: asDisplayText(report.generated_by, "System user"),
         generated_by_role: asDisplayText(report.generated_by_role, ""),
+        scope: String(report.scope || ""),
+        scope_note: String(report.scope_note || ""),
+        snapshot_at: report.snapshot_at || "",
       },
       metrics,
       chart: {
@@ -551,6 +556,9 @@
         columns,
         rows,
       },
+      additional_tables: asArray(source.additional_tables).map((table) =>
+        normalizeReportPayload({ table }).table,
+      ),
     };
   };
 
@@ -589,6 +597,8 @@
     });
 
   const init = () => {
+    // Inventory uses the same document renderer without the Reports controls.
+    const documentOnly = document.body.hasAttribute("data-report-document-host");
     const elements = {
       categoryButtons: Array.from(
         document.querySelectorAll("[data-report-category]"),
@@ -624,6 +634,7 @@
       nextPage: document.getElementById("reportNextPage"),
       preview: document.getElementById("reportPreviewBtn"),
       csv: document.getElementById("reportExportCsvBtn"),
+      excel: document.getElementById("reportExportExcelBtn"),
       previewModal: document.getElementById("reportPreviewModal"),
       previewTitle: document.getElementById("reportPreviewTitle"),
       previewContent: document.getElementById("reportPreviewContent"),
@@ -640,13 +651,13 @@
       letterheadSave: document.getElementById("reportLetterheadSaveBtn"),
     };
 
-    if (
+    if (!documentOnly && (
       !elements.period ||
       !elements.year ||
       !elements.generate ||
       !elements.metrics ||
       !elements.tableBody
-    ) {
+    )) {
       return;
     }
 
@@ -672,6 +683,8 @@
       deferredFocusRestore: null,
       previewScrollLock: null,
       previewTouchStartedInside: false,
+      previewPreparing: false,
+      previewRenderPromise: null,
     };
 
     const getToken = () =>
@@ -701,18 +714,26 @@
 
     const syncActionButtons = () => {
       const isPending = (button) => button?.getAttribute("aria-busy") === "true";
+      const artifactPending = state.previewPreparing || Boolean(state.previewRenderPromise)
+        || [elements.preview, elements.print, elements.csv, elements.excel].some(isPending);
       if (elements.generate) {
-        elements.generate.disabled = state.isLoading || isPending(elements.generate);
+        elements.generate.disabled = state.isLoading || artifactPending || isPending(elements.generate);
       }
       if (elements.refresh) {
-        elements.refresh.disabled = state.isLoading || isPending(elements.refresh);
+        elements.refresh.disabled = state.isLoading || artifactPending || isPending(elements.refresh);
       }
       if (elements.preview) {
         elements.preview.disabled =
-          !state.reportData || isPending(elements.preview);
+          !state.reportData || state.isLoading || artifactPending;
       }
       if (elements.csv) {
-        elements.csv.disabled = !state.reportData || isPending(elements.csv);
+        elements.csv.disabled = !state.reportData || state.isLoading || artifactPending;
+      }
+      if (elements.excel) {
+        elements.excel.disabled = !state.reportData || state.isLoading || artifactPending;
+      }
+      if (elements.print) {
+        elements.print.disabled = !state.reportData || state.isLoading || artifactPending;
       }
     };
 
@@ -850,7 +871,13 @@
       const params = readFilterParams();
       const category = CATEGORY_LABELS[params.category] || "Report";
       const period = params.period.charAt(0).toUpperCase() + params.period.slice(1);
-      elements.selectionSummary.textContent = `${category} · ${period} · ${periodSelectionLabel(params)}`;
+      const snapshot = params.category === "product_inventory";
+      elements.selectionSummary.textContent = snapshot
+        ? `${category} · Current snapshot · All products, including blocked products`
+        : `${category} · ${period} · ${periodSelectionLabel(params)}`;
+      [elements.period, elements.year].forEach((control) => { control.disabled = snapshot; });
+      elements.month.disabled = snapshot || params.period !== "monthly";
+      elements.quarter.disabled = snapshot || params.period !== "quarterly";
     };
 
     const syncPeriodControls = () => {
@@ -1032,11 +1059,14 @@
         report.start_date && report.end_date
           ? `${formatDateValue(report.start_date)} – ${formatDateValue(report.end_date)}`
           : report.period_label;
-      elements.resultPeriod.textContent = `${report.period_label} · ${dateRange}`;
+      elements.resultPeriod.textContent = report.scope === "current_snapshot"
+        ? `Current snapshot · ${formatDateValue(report.snapshot_at || report.generated_at, true)}`
+        : `${report.period_label} · ${dateRange}`;
       elements.resultMeta.innerHTML = `
         <div><dt>Report ID</dt><dd>${escapeHtml(report.id)}</dd></div>
         <div><dt>Generated by</dt><dd>${escapeHtml(report.generated_by)}</dd></div>
-        <div><dt>Time zone</dt><dd>${escapeHtml(report.timezone)}</dd></div>`;
+        <div><dt>Time zone</dt><dd>${escapeHtml(report.timezone)}</dd></div>
+        ${report.scope_note ? `<div><dt>Scope</dt><dd>${escapeHtml(report.scope_note)}</dd></div>` : ""}`;
     };
 
     const renderReport = (options = {}) => {
@@ -1253,6 +1283,7 @@
      * 30-second poll stay read-only.
      */
     const recordArtifactGeneration = async (options = {}) => {
+      if (documentOnly) return;
       if (window.AdminSession?.isSpectator?.()) return;
       const params = state.activeParams || readFilterParams();
       if (!state.reportData || !params) return;
@@ -1666,12 +1697,16 @@
       </article>`;
 
     const reportCoverageLabel = (report) =>
-      report.start_date && report.end_date
+      report.scope === "current_snapshot"
+        ? `As of ${formatDateValue(report.snapshot_at || report.generated_at, true)}`
+        : report.start_date && report.end_date
         ? `${formatDateValue(report.start_date)} - ${formatDateValue(report.end_date)}`
         : report.period_label;
 
     const buildSummaryBody = (data) => {
       const report = data.report;
+      const isSnapshot = report.scope === "current_snapshot";
+      const periodLabel = isSnapshot ? "Current snapshot" : report.period_label;
       const metrics = data.metrics.length
         ? data.metrics
             .map(
@@ -1698,25 +1733,28 @@
         : `<li class="official-summary-empty">No breakdown data is available for this period.</li>`;
       const emptyDetails = data.table.rows.length
         ? ""
-        : `<div class="official-report-empty"><strong>No detailed records found</strong><span>The summary above reflects the selected period, but no detail transactions matched it.</span></div>`;
+        : `<div class="official-report-empty"><strong>No detailed records found</strong><span>${isSnapshot
+          ? "No current stock records are available for this snapshot."
+          : "The summary above reflects the selected period, but no detail transactions matched it."}</span></div>`;
 
       return `
         <main class="official-report-body official-report-summary-content">
           <div class="official-report-title-block">
             <span>OFFICIAL SYSTEM REPORT</span>
             <h1>${escapeHtml(report.title)}</h1>
-            <p>${escapeHtml(report.period_label)} &middot; ${escapeHtml(reportCoverageLabel(report))}</p>
+            <p>${escapeHtml(periodLabel)} &middot; ${escapeHtml(reportCoverageLabel(report))}</p>
           </div>
           <dl class="official-report-metadata">
             <div><dt>Report ID</dt><dd>${escapeHtml(report.id)}</dd></div>
             <div><dt>Category</dt><dd>${escapeHtml(CATEGORY_LABELS[report.category] || report.category || "System report")}</dd></div>
             <div><dt>Coverage</dt><dd>${escapeHtml(reportCoverageLabel(report))}</dd></div>
-            <div><dt>Reporting period</dt><dd>${escapeHtml(report.period_label)}</dd></div>
+            <div><dt>${isSnapshot ? "Report scope" : "Reporting period"}</dt><dd>${escapeHtml(periodLabel)}</dd></div>
             <div><dt>Prepared by</dt><dd>${escapeHtml(report.generated_by)}</dd></div>
             <div><dt>Role</dt><dd>${escapeHtml(getPreparedRole())}</dd></div>
             <div><dt>Generated</dt><dd>${escapeHtml(formatDateValue(report.generated_at, true))}</dd></div>
             <div><dt>Time zone</dt><dd>${escapeHtml(report.timezone || "Asia/Manila")}</dd></div>
           </dl>
+          ${report.scope_note ? `<p class="official-report-scope-note">${escapeHtml(report.scope_note)}</p>` : ""}
           <section class="official-summary-section">
             <h2>Summary Metrics</h2>
             <div class="official-summary-metrics">${metrics}</div>
@@ -1744,6 +1782,9 @@
      */
     const buildCertificationBlock = (data) => {
       const report = data.report;
+      const asOf = report.scope === "current_snapshot"
+        ? report.snapshot_at || report.generated_at
+        : report.generated_at;
       const signatories = [
         {
           role: "Prepared by",
@@ -1771,10 +1812,11 @@
         )
         .join("");
 
-      const recordCount = data.table.rows.length;
+      const recordCount = [data.table, ...asArray(data.additional_tables)]
+        .reduce((count, table) => count + table.rows.length, 0);
       return `
         <section class="official-report-certification" aria-label="Report certification">
-          <p class="official-certification-note">Certified true and correct based on the verified electronic records of the ${escapeHtml(state.letterhead.unitName)} as of ${escapeHtml(formatDateValue(report.generated_at, true))} (${escapeHtml(report.timezone || "Asia/Manila")}).</p>
+          <p class="official-certification-note">Certified true and correct based on the verified electronic records of the ${escapeHtml(state.letterhead.unitName)} as of ${escapeHtml(formatDateValue(asOf, true))} (${escapeHtml(report.timezone || "Asia/Manila")}).</p>
           <div class="official-certification-signatories">${signatories}</div>
           <p class="official-certification-control"><span>${escapeHtml(state.letterhead.documentCode)}</span><span>Revision: ${escapeHtml(state.letterhead.revision)}</span><span>Records included: ${recordCount}</span></p>
         </section>`;
@@ -1792,6 +1834,9 @@
 
     const buildDetailBody = (data, fragments) => {
       const table = data.table;
+      const coverage = data.report.scope === "current_snapshot"
+        ? `Current snapshot - ${reportCoverageLabel(data.report)}`
+        : data.report.period_label;
       const header = table.columns
         .map((column) => `<th scope="col">${escapeHtml(column.label)}</th>`)
         .join("");
@@ -1823,7 +1868,7 @@
             <p>${escapeHtml(data.report.id)}<br />Records ${firstRecordNumber}-${lastRecordNumber} of ${table.rows.length}${fragments.some((fragment) => fragment.continuation) ? " &middot; * continued" : ""}</p>
           </div>
           <table class="official-detail-table">
-            <caption>${escapeHtml(table.title)} - ${escapeHtml(data.report.period_label)}</caption>
+            <caption>${escapeHtml(table.title)} - ${escapeHtml(coverage)}</caption>
             <thead><tr><th class="official-row-number" scope="col">#</th>${header}</tr></thead>
             <tbody>${bodyRows}</tbody>
           </table>
@@ -2149,7 +2194,20 @@
         .forEach(scalePageBodyToFit);
     };
 
-    async function refreshPreviewSnapshot(preserveFocus = false) {
+    function refreshPreviewSnapshot(preserveFocus = false) {
+      // Site-setting refreshes, initial preview, and print must never replace
+      // the measured pages concurrently (especially for multi-table reports).
+      const previous = state.previewRenderPromise || Promise.resolve();
+      const pending = previous.catch(() => {}).then(() => renderPreviewSnapshot(preserveFocus));
+      state.previewRenderPromise = pending;
+      syncActionButtons();
+      return pending.finally(() => {
+        if (state.previewRenderPromise === pending) state.previewRenderPromise = null;
+        syncActionButtons();
+      });
+    }
+
+    async function renderPreviewSnapshot(preserveFocus = false) {
       if (!state.reportData || !elements.previewContent) return;
 
       const activeElement = document.activeElement;
@@ -2174,7 +2232,25 @@
         : "";
 
       elements.previewTitle.textContent = state.reportData.report.title;
-      await renderMeasuredPreview(state.reportData);
+      const data = state.reportData;
+      await renderMeasuredPreview(data);
+      if (data.additional_tables?.length) {
+        const pages = Array.from(elements.previewContent.querySelectorAll(".official-report-page"));
+        for (const table of data.additional_tables) {
+          if (!table.rows.length) continue;
+          await renderMeasuredPreview({ ...data, table });
+          pages.push(...elements.previewContent.querySelectorAll(".official-report-detail-page"));
+        }
+        const stack = document.createElement("div");
+        stack.className = "report-document-stack";
+        pages.forEach((page, index) => {
+          page.dataset.reportPage = String(index + 1);
+          page.setAttribute("aria-label", `Report page ${index + 1} of ${pages.length}`);
+          page.querySelector(".official-footer-page").textContent = `Page ${index + 1} of ${pages.length}`;
+          stack.appendChild(page);
+        });
+        elements.previewContent.replaceChildren(stack);
+      }
       elements.previewContent.scrollTop = previousScrollTop;
       elements.previewContent.scrollLeft = previousScrollLeft;
 
@@ -2328,6 +2404,7 @@
 
     const openPreview = async () => {
       if (!state.reportData || !elements.previewModal) return;
+      state.previewPreparing = true;
       state.deferredFocusRestore = null;
       state.previousFocus =
         document.activeElement instanceof HTMLElement
@@ -2355,6 +2432,7 @@
           "is-error",
         );
       } finally {
+        state.previewPreparing = false;
         setButtonPending(elements.preview, false);
         syncActionButtons();
         if (
@@ -2394,8 +2472,9 @@
     };
 
     const printReport = async () => {
-      if (!state.reportData) return;
+      if (!state.reportData || state.previewPreparing || state.previewRenderPromise) return;
       setButtonPending(elements.print, true, "Preparing...");
+      syncActionButtons();
       const previousTitle = document.title;
       let cleanedUp = false;
       let releaseWatchers = () => {};
@@ -2633,8 +2712,53 @@
       }
     };
 
+    const exportExcel = async () => {
+      if (!state.reportData) return;
+      setButtonPending(elements.excel, true, "Exporting...");
+      syncActionButtons();
+      try {
+        await recordArtifactGeneration();
+        await loadLetterhead(false);
+        if (!window.FMRCReportExcel) throw new Error("Excel export is unavailable. Refresh this page and try again.");
+        await window.FMRCReportExcel.download({
+          data: state.reportData,
+          letterhead: state.letterhead,
+          filename: `UCN-FMRC_${state.reportData.report.id}`,
+        });
+        window.showAdminSuccessNotification?.("Report Excel exported successfully.", { title: "Export Complete" });
+      } catch (error) {
+        window.showAdminPopup?.(error?.message || "Unable to export this report.", { title: "Export Failed" });
+      } finally {
+        setButtonPending(elements.excel, false);
+        syncActionButtons();
+      }
+    };
+
+    window.FMRCReportDocuments = Object.freeze({
+      preview: async (payload) => {
+        if (!documentOnly) return;
+        if (state.previewPreparing || state.previewRenderPromise) {
+          throw new Error("The current PDF is still being prepared. Please try again when it is ready.");
+        }
+        state.reportData = normalizeReportPayload(payload);
+        await openPreview();
+      },
+      exportExcel: async (payload, filename) => {
+        const data = normalizeReportPayload(payload);
+        const letterhead = await loadLetterhead(false);
+        if (!window.FMRCReportExcel) throw new Error("Excel export is unavailable. Refresh this page and try again.");
+        await window.FMRCReportExcel.download({
+          data, letterhead, filename,
+          tables: [data.table, ...data.additional_tables],
+        });
+      },
+    });
+
     const refreshActiveReport = (source) => {
       if (!state.activeParams || state.isLoading) return;
+      if (state.previewPreparing || state.previewRenderPromise) return;
+      if ([elements.preview, elements.print, elements.csv, elements.excel]
+        .some((button) => button?.getAttribute("aria-busy") === "true")) return;
       void loadReport({ ...state.activeParams }, source);
     };
 
@@ -2711,95 +2835,98 @@
       );
     };
 
-    const currentParts = getPhilippineDateParts();
-    const validReportYears = [];
-    for (let year = currentParts.year + 1; year >= 2000; year -= 1) {
-      validReportYears.push(year);
-    }
-    elements.year.innerHTML = validReportYears
-      .map((year) => `<option value="${year}">${year}</option>`)
-      .join("");
-    elements.year.value = String(currentParts.year);
-    elements.month.value = String(currentParts.month);
-    elements.quarter.value = String(Math.ceil(currentParts.month / 3));
+    if (!documentOnly) {
+      const currentParts = getPhilippineDateParts();
+      const validReportYears = [];
+      for (let year = currentParts.year + 1; year >= 2000; year -= 1) {
+        validReportYears.push(year);
+      }
+      elements.year.innerHTML = validReportYears
+        .map((year) => `<option value="${year}">${year}</option>`)
+        .join("");
+      elements.year.value = String(currentParts.year);
+      elements.month.value = String(currentParts.month);
+      elements.quarter.value = String(Math.ceil(currentParts.month / 3));
 
-    elements.categoryButtons.forEach((button) => {
-      button.addEventListener("click", () => {
-        const category = String(button.dataset.reportCategory || "");
-        if (!CATEGORY_LABELS[category]) return;
-        state.selectedCategory = category;
-        elements.categoryButtons.forEach((candidate) => {
-          const isActive = candidate === button;
-          candidate.classList.toggle("is-active", isActive);
-          candidate.setAttribute("aria-pressed", isActive ? "true" : "false");
+      elements.categoryButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const category = String(button.dataset.reportCategory || "");
+          if (!CATEGORY_LABELS[category]) return;
+          state.selectedCategory = category;
+          elements.categoryButtons.forEach((candidate) => {
+            const isActive = candidate === button;
+            candidate.classList.toggle("is-active", isActive);
+            candidate.setAttribute("aria-pressed", isActive ? "true" : "false");
+          });
+          updateSelectionSummary();
         });
-        updateSelectionSummary();
       });
-    });
 
-    elements.period.addEventListener("change", syncPeriodControls);
-    elements.year.addEventListener("change", updateSelectionSummary);
-    elements.month.addEventListener("change", updateSelectionSummary);
-    elements.quarter.addEventListener("change", updateSelectionSummary);
+      elements.period.addEventListener("change", syncPeriodControls);
+      elements.year.addEventListener("change", updateSelectionSummary);
+      elements.month.addEventListener("change", updateSelectionSummary);
+      elements.quarter.addEventListener("change", updateSelectionSummary);
 
-    const updateSpectatorReportLabel = () => {
-      if (!window.AdminSession?.isSpectator?.()) return;
-      elements.generate.innerHTML = '<i class="fa-regular fa-eye" aria-hidden="true"></i> View Report';
-      elements.generate.title = "View current report data without creating a report history entry";
-    };
-    updateSpectatorReportLabel();
-    window.addEventListener("admin:session-updated", updateSpectatorReportLabel);
-    elements.generate.addEventListener("click", () => {
-      const params = readFilterParams();
-      params.generationKey = createGenerationKey();
-      void loadReport(params, "generate");
-    });
-    elements.refresh.addEventListener("click", () => {
-      const params = state.activeParams || readFilterParams();
-      void loadReport({ ...params }, "refresh");
-    });
-    elements.prevPage.addEventListener("click", () => {
-      if (state.currentPage <= 1) return;
-      state.currentPage -= 1;
-      renderTablePage();
-    });
-    elements.nextPage.addEventListener("click", () => {
-      const rowCount = state.reportData?.table.rows.length || 0;
-      const totalPages = Math.max(1, Math.ceil(rowCount / REPORT_PAGE_SIZE));
-      if (state.currentPage >= totalPages) return;
-      state.currentPage += 1;
-      renderTablePage();
-    });
+      const updateSpectatorReportLabel = () => {
+        if (!window.AdminSession?.isSpectator?.()) return;
+        elements.generate.innerHTML = '<i class="fa-regular fa-eye" aria-hidden="true"></i> View Report';
+        elements.generate.title = "View current report data without creating a report history entry";
+      };
+      updateSpectatorReportLabel();
+      window.addEventListener("admin:session-updated", updateSpectatorReportLabel);
+      elements.generate.addEventListener("click", () => {
+        const params = readFilterParams();
+        params.generationKey = createGenerationKey();
+        void loadReport(params, "generate");
+      });
+      elements.refresh.addEventListener("click", () => {
+        const params = state.activeParams || readFilterParams();
+        void loadReport({ ...params }, "refresh");
+      });
+      elements.prevPage.addEventListener("click", () => {
+        if (state.currentPage <= 1) return;
+        state.currentPage -= 1;
+        renderTablePage();
+      });
+      elements.nextPage.addEventListener("click", () => {
+        const rowCount = state.reportData?.table.rows.length || 0;
+        const totalPages = Math.max(1, Math.ceil(rowCount / REPORT_PAGE_SIZE));
+        if (state.currentPage >= totalPages) return;
+        state.currentPage += 1;
+        renderTablePage();
+      });
 
-    if (window.AdminPageNumberInput?.bind) {
-      window.AdminPageNumberInput.bind(elements.pageNumber, {
-        getPage: () => state.currentPage,
-        getTotalPages: () =>
-          Math.max(
+      if (window.AdminPageNumberInput?.bind) {
+        window.AdminPageNumberInput.bind(elements.pageNumber, {
+          getPage: () => state.currentPage,
+          getTotalPages: () =>
+            Math.max(
+              1,
+              Math.ceil(
+                (state.reportData?.table.rows.length || 0) / REPORT_PAGE_SIZE,
+              ),
+            ),
+          onChange: (page) => {
+            state.currentPage = page;
+            renderTablePage();
+          },
+        });
+      } else {
+        elements.pageNumber.addEventListener("change", () => {
+          const totalPages = Math.max(
             1,
             Math.ceil(
               (state.reportData?.table.rows.length || 0) / REPORT_PAGE_SIZE,
             ),
-          ),
-        onChange: (page) => {
-          state.currentPage = page;
+          );
+          state.currentPage = Math.max(
+            1,
+            Math.min(Number.parseInt(elements.pageNumber.value, 10) || 1, totalPages),
+          );
           renderTablePage();
-        },
-      });
-    } else {
-      elements.pageNumber.addEventListener("change", () => {
-        const totalPages = Math.max(
-          1,
-          Math.ceil(
-            (state.reportData?.table.rows.length || 0) / REPORT_PAGE_SIZE,
-          ),
-        );
-        state.currentPage = Math.max(
-          1,
-          Math.min(Number.parseInt(elements.pageNumber.value, 10) || 1, totalPages),
-        );
-        renderTablePage();
-      });
+        });
+      }
+
     }
 
     const preventOutsidePreviewWheel = (event) => {
@@ -2842,6 +2969,7 @@
 
     elements.preview?.addEventListener("click", () => void openPreview());
     elements.csv?.addEventListener("click", () => void exportCsv());
+    elements.excel?.addEventListener("click", () => void exportExcel());
     elements.previewCloseIcon?.addEventListener("click", closePreview);
     elements.previewClose?.addEventListener("click", closePreview);
     elements.print?.addEventListener("click", () => void printReport());
@@ -2919,6 +3047,7 @@
       }
     });
 
+    if (documentOnly) return;
     syncPeriodControls();
     state.activeParams = readFilterParams();
     renderLoadingState();

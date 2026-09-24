@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\WalkInOrder;
+use App\Support\AnalyticsPeriod;
 use App\Support\CategorySalesBuckets;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -44,25 +45,40 @@ class ProductAnalyticsController extends Controller
     /**
      * The window every sales card reports on.
      *
-     * All three resolve it here so "This Day" means the same day on each of
-     * them. Before this existed only topSelling() filtered at all, which is why
-     * a lifetime Sales by Category donut could sit beside an empty daily Top
-     * Selling list and show last year's figures.
+     * All three resolve it through the one shared AnalyticsPeriod service, so
+     * "This Day" means the same day here as it does on the dashboard revenue
+     * hero. day/week/month/year land on real ranges; `all` yields a null pair,
+     * meaning "no date predicate" — the lifetime view. Before AnalyticsPeriod
+     * existed this handled only day/week/month (Year silently fell through to
+     * month, so the toolbar's Year button was dead), and only topSelling()
+     * filtered at all, which is why a lifetime Sales by Category donut could sit
+     * beside an empty daily Top Selling list.
      *
-     * @return array{0: Carbon, 1: Carbon}
+     * @return array{0: ?Carbon, 1: ?Carbon}
      */
     private function resolvePeriodRange(Request $request): array
     {
-        $now = Carbon::now('Asia/Manila');
+        $period = AnalyticsPeriod::resolve(
+            $request->query('period', 'month'),
+            $request->query('from'),
+            $request->query('to'),
+        );
 
-        return match ($request->query('period', 'month')) {
-            'day' => [$now->copy()->startOfDay(), $now->copy()->endOfDay()],
-            'week' => [
-                $now->copy()->startOfWeek(Carbon::SUNDAY),
-                $now->copy()->endOfWeek(Carbon::SATURDAY)->endOfDay(),
-            ],
-            default => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()->endOfDay()],
-        };
+        return [$period['start'], $period['end']];
+    }
+
+    /**
+     * Apply the resolved window to a query, or leave it unfiltered when the
+     * window is the lifetime `all` (null bounds). Works on both Eloquent and
+     * query-builder instances — both carry whereBetween and return $this.
+     */
+    private function scopeToPeriod(mixed $query, string $dateSql, ?Carbon $start, ?Carbon $end): mixed
+    {
+        if ($start && $end) {
+            $query->whereBetween(DB::raw($dateSql), [$start, $end]);
+        }
+
+        return $query;
     }
 
     /**
@@ -82,9 +98,9 @@ class ProductAnalyticsController extends Controller
         $onlineQuery = OrderItem::query()
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES)
-            ->where('orders.is_archived', false)
-            ->whereBetween(DB::raw(self::ORDER_SALE_DATE), [$startDate, $endDate])
-            ->select(
+            ->where('orders.is_archived', false);
+        $this->scopeToPeriod($onlineQuery, self::ORDER_SALE_DATE, $startDate, $endDate);
+        $onlineQuery->select(
                 'order_items.product_name as product_name',
                 DB::raw('SUM(order_items.quantity) as total_sold')
             )
@@ -93,9 +109,9 @@ class ProductAnalyticsController extends Controller
         // ── Source 2: Walk-in orders (from walk_in_orders) ──
         // Walk-in orders use order_item as product name and order_date for filtering.
         $walkInQuery = WalkInOrder::query()
-            ->where('is_archived', false)
-            ->whereBetween(DB::raw('COALESCE(order_date, created_at)'), [$startDate, $endDate])
-            ->select(
+            ->where('is_archived', false);
+        $this->scopeToPeriod($walkInQuery, 'COALESCE(order_date, created_at)', $startDate, $endDate);
+        $walkInQuery->select(
                 DB::raw("COALESCE(NULLIF(TRIM(item_detail), ''), NULLIF(TRIM(order_item), ''), 'Walk-in Item') as product_name"),
                 DB::raw('1 as total_sold')
             );
@@ -143,12 +159,14 @@ class ProductAnalyticsController extends Controller
         // Totals per product first, then folded into categories in PHP. Nothing
         // in this query names a products column, so it cannot fail on a server
         // where the grouped COALESCE it replaced did.
+        $categoryQuery = DB::table('order_items')
+            ->join('orders', 'order_items.order_id', '=', 'orders.id')
+            ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES)
+            ->where('orders.is_archived', false);
+        $this->scopeToPeriod($categoryQuery, self::ORDER_SALE_DATE, $startDate, $endDate);
+
         $categoryData = CategorySalesBuckets::fold(
-            DB::table('order_items')
-                ->join('orders', 'order_items.order_id', '=', 'orders.id')
-                ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES)
-                ->where('orders.is_archived', false)
-                ->whereBetween(DB::raw(self::ORDER_SALE_DATE), [$startDate, $endDate])
+            $categoryQuery
                 ->groupBy('order_items.product_id')
                 ->select(
                     'order_items.product_id',
@@ -183,8 +201,9 @@ class ProductAnalyticsController extends Controller
         $rows = DB::table('order_items')
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->whereIn('orders.lifecycle_status', self::COUNTED_ORDER_STATUSES)
-            ->where('orders.is_archived', false)
-            ->whereBetween(DB::raw(self::ORDER_SALE_DATE), [$startDate, $endDate])
+            ->where('orders.is_archived', false);
+        $this->scopeToPeriod($rows, self::ORDER_SALE_DATE, $startDate, $endDate);
+        $rows = $rows
             ->groupBy('order_items.product_id', 'order_items.product_name')
             ->select(
                 'order_items.product_id',
@@ -258,13 +277,21 @@ class ProductAnalyticsController extends Controller
             ? ['completed']
             : self::COUNTED_ORDER_STATUSES;
 
+        // $dateColumn is one of two vetted constants (see
+        // resolveYearlyTrendDateColumn), so interpolating it is safe. MONTH() is
+        // MySQL-only; the sqlite arm keeps the trend testable on the in-memory
+        // suite, matching AdminDashboardController::summary()'s yearly trend.
+        $monthExpression = DB::connection()->getDriverName() === 'sqlite'
+            ? "CAST(strftime('%m', {$dateColumn}) AS INTEGER)"
+            : "MONTH({$dateColumn})";
+
         $monthlyData = Order::query()
             ->whereIn('lifecycle_status', $countedStatuses)
             ->where('is_archived', false)
             ->whereYear($dateColumn, $year)
             ->whereNotNull($dateColumn)
             ->select(
-                DB::raw("MONTH({$dateColumn}) as month"),
+                DB::raw("{$monthExpression} as month"),
                 DB::raw('SUM(total) as total_sales'),
                 DB::raw('COUNT(*) as order_count')
             )

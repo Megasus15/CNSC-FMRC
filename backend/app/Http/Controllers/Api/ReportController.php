@@ -8,6 +8,7 @@ use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\Order;
 use App\Models\OrderReturn;
+use App\Models\Product;
 use App\Models\ReportGeneration;
 use App\Models\SiteSetting;
 use App\Models\WalkInOrder;
@@ -31,6 +32,7 @@ class ReportController extends Controller
         'processing_orders',
         'appointments',
         'inventory',
+        'product_inventory',
     ];
 
     private const CATEGORY_CODES = [
@@ -39,6 +41,7 @@ class ReportController extends Controller
         'processing_orders' => 'PRC',
         'appointments' => 'APT',
         'inventory' => 'INV',
+        'product_inventory' => 'PIN',
     ];
 
     private const PERIODS = ['monthly', 'quarterly', 'yearly'];
@@ -188,6 +191,7 @@ class ReportController extends Controller
             'processing_orders' => $this->processingOrdersReport($period),
             'appointments' => $this->appointmentsReport($period),
             'inventory' => $this->inventoryReport($period),
+            'product_inventory' => $this->productInventoryReport(),
         };
 
         return [
@@ -867,6 +871,90 @@ class ReportController extends Controller
         ];
     }
 
+    private function productInventoryReport(): array
+    {
+        // Match the Admin/Staff Products page: blocked products still hold stock.
+        // Products have one stock balance each, with no inventory-item variants.
+        $products = Product::query()
+            ->orderBy('category')
+            ->orderBy('name')
+            ->orderBy('id')
+            ->get(['id', 'category', 'code', 'name', 'stock', 'stock_status', 'is_blocked', 'price', 'updated_at']);
+
+        $rows = [];
+        $unitsByCategory = [];
+        $statusCounts = ['In Stock' => 0, 'Out of Stock' => 0];
+        $unitsOnHand = 0;
+        $stockValue = 0.0;
+
+        foreach ($products as $product) {
+            $category = trim((string) $product->category) ?: 'Uncategorized';
+            $stock = (int) $product->stock;
+            $price = (float) $product->price;
+            $value = round($stock * $price, 2);
+            // The Products page allows availability to be set independently of
+            // quantity; preserve that recorded status instead of inventing one.
+            $status = $product->stock_status === 'in_stock' ? 'In Stock' : 'Out of Stock';
+
+            $unitsOnHand += $stock;
+            $stockValue += $value;
+            $unitsByCategory[$category] = ($unitsByCategory[$category] ?? 0) + $stock;
+            $statusCounts[$status]++;
+            $rows[] = [
+                'product_id' => (int) $product->id,
+                'category' => $category,
+                'code' => $product->code,
+                'product_name' => $product->name,
+                'stock' => $stock,
+                'stock_status' => $status,
+                'visibility' => $product->is_blocked ? 'Blocked' : 'Visible',
+                'unit_price' => $price,
+                'stock_value' => $value,
+                'updated_at' => $this->formatReportTimestamp($product->updated_at),
+            ];
+        }
+
+        return [
+            'metrics' => [
+                $this->metric('total_products', 'Current Products', count($rows), 'integer'),
+                $this->metric('units_on_hand', 'Current Units on Hand', $unitsOnHand, 'integer'),
+                $this->metric('out_of_stock', 'Out-of-Stock Products', $statusCounts['Out of Stock'], 'integer'),
+                $this->metric('stock_value', 'Stock at Listed Price', round($stockValue, 2), 'currency'),
+            ],
+            'chart' => [
+                'title' => 'Current Product Units by Category',
+                'value_type' => 'integer',
+                'labels' => array_keys($unitsByCategory),
+                'series' => [
+                    ['name' => 'Units on Hand', 'values' => array_values($unitsByCategory)],
+                ],
+            ],
+            'breakdown' => [
+                'title' => 'Current Product Stock Status',
+                'value_type' => 'integer',
+                'items' => collect($statusCounts)
+                    ->map(fn (int $value, string $label) => compact('label', 'value'))
+                    ->values()
+                    ->all(),
+            ],
+            'table' => [
+                'title' => 'Overall Product Stock - Current Snapshot',
+                'columns' => [
+                    $this->column('category', 'Category'),
+                    $this->column('code', 'Product Code'),
+                    $this->column('product_name', 'Product'),
+                    $this->column('stock', 'Units on Hand', 'integer'),
+                    $this->column('stock_status', 'Stock Status', 'status'),
+                    $this->column('visibility', 'Visibility'),
+                    $this->column('unit_price', 'Listed Price', 'currency'),
+                    $this->column('stock_value', 'Stock at Listed Price', 'currency'),
+                    $this->column('updated_at', 'Last Updated', 'datetime'),
+                ],
+                'rows' => $rows,
+            ],
+        ];
+    }
+
     private function resolvePeriod(
         string $period,
         int $year,
@@ -913,6 +1001,7 @@ class ReportController extends Controller
             'processing_orders' => 'Processing Orders Report',
             'appointments' => 'Appointments Report',
             'inventory' => 'Current Stock Snapshot & Selected-Period Movements',
+            'product_inventory' => 'Overall Product Stock Report',
         ];
         $user = $request->user();
         $generatedBy = trim((string) ($user?->name ?? ''))
@@ -921,7 +1010,7 @@ class ReportController extends Controller
             ?: 'Admin/Staff';
         $generatedByRole = strtolower(trim((string) ($user?->role ?? '')));
 
-        return [
+        $descriptor = [
             'id' => self::CATEGORY_CODES[$category].'-'.$generatedAt->format('Ymd').'-DRAFT',
             'title' => $titles[$category],
             'category' => $category,
@@ -934,6 +1023,16 @@ class ReportController extends Controller
             'generated_by' => $generatedBy,
             'generated_by_role' => $generatedByRole !== '' ? $generatedByRole : 'admin/staff',
         ];
+
+        if ($category === 'product_inventory') {
+            $descriptor['scope'] = 'current_snapshot';
+            $descriptor['snapshot_at'] = $generatedAt->toIso8601String();
+            $descriptor['scope_note'] = 'Current stock from the Products page, including blocked products. '
+                .'This is a snapshot as of generation, independent of the selected reporting period. '
+                .'Stock values use listed selling prices, not sales or acquisition costs.';
+        }
+
+        return $descriptor;
     }
 
     private function applyFallbackTimestampRange(

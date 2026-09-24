@@ -813,7 +813,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const res = await fetch(
-        `${API_BASE_URL}/admin/product-analytics/top-selling?period=${period}`,
+        `${API_BASE_URL}/admin/product-analytics/top-selling?${currentPeriodQuery()}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -901,21 +901,53 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  // Period dropdown listener
-  const topSellingPeriod = document.getElementById("topSellingPeriod");
+  // ── Shared reporting-period toolbar (Today / Week / Month / Year / All) ──
+  /* Replaces the old 3-option <select>. One control drives all three sales
+     cards, so a period pick can never leave one card on a stale window — which
+     is how last year's figures used to stay on screen no matter what was
+     picked. It also unlocks the Year + All-time windows the <select> lacked.
+     The page owns its first load (updateSummaryCards below reads currentPeriod
+     after mount), so the toolbar fires onChange only on a real user change.
+     Mounting here — in the module body, not a DOMContentLoaded handler — means
+     the staff products loader, which injects this module at runtime, gets the
+     toolbar too. */
+  let productAnalyticsToolbarApi = null;
+  const currentPeriod = () =>
+    (productAnalyticsToolbarApi && productAnalyticsToolbarApi.getPeriod()) || "month";
+  // Querystring for the three analytics endpoints. A preset is period=key; a
+  // custom range adds &from&to (YYYY-MM-DD), resolved in Asia/Manila by
+  // App\Support\AnalyticsPeriod. Reads the live toolbar state so custom ranges
+  // survive realtime reloads too.
+  const currentPeriodQuery = () => {
+    const st =
+      (productAnalyticsToolbarApi && productAnalyticsToolbarApi.getState()) || {
+        period: "month",
+      };
+    const key = st.period || "month";
+    let q = `period=${encodeURIComponent(key)}`;
+    if (key === "custom" && st.from && st.to) {
+      q += `&from=${encodeURIComponent(st.from)}&to=${encodeURIComponent(st.to)}`;
+    }
+    return q;
+  };
 
-  /* One selector drives all three sales cards. It used to drive only Top
-     Selling, so a "This Day" bar chart sat beside a Sales by Category donut and
-     a Product Performance table that were both showing every sale ever made —
-     which is how last year's figures stayed on screen no matter what was
-     picked. */
-  const currentPeriod = () => topSellingPeriod?.value || "month";
-
-  topSellingPeriod?.addEventListener("change", () => {
+  const reloadProductAnalytics = () => {
     void loadTopSelling(currentPeriod());
     void loadSalesByCategory();
     void loadProductPerformance();
-  });
+  };
+
+  const mountProductAnalyticsToolbar = () => {
+    const host = document.getElementById("productAnalyticsToolbar");
+    if (!host || !window.AnalyticsToolbar) return;
+    productAnalyticsToolbarApi = window.AnalyticsToolbar.mount(host, {
+      storageKey: "fmrc_products_analytics_period",
+      initialPeriod: "month",
+      ariaLabel: "Select reporting period for product analytics",
+      onChange: () => reloadProductAnalytics(),
+    });
+  };
+  mountProductAnalyticsToolbar();
 
   // ── 2. Sales by Category (doughnut, from API) ──
   const loadSalesByCategory = async () => {
@@ -933,7 +965,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const res = await fetch(
-        `${API_BASE_URL}/admin/product-analytics/sales-by-category?period=${currentPeriod()}`,
+        `${API_BASE_URL}/admin/product-analytics/sales-by-category?${currentPeriodQuery()}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -1183,7 +1215,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     try {
       const res = await fetch(
-        `${API_BASE_URL}/admin/product-analytics/product-performance?period=${currentPeriod()}`,
+        `${API_BASE_URL}/admin/product-analytics/product-performance?${currentPeriodQuery()}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,

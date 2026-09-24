@@ -215,6 +215,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/admin/orders', [OrderController::class, 'adminIndex']);
     Route::get('/admin/dashboard/summary', [AdminDashboardController::class, 'summary']);
+    Route::get('/admin/dashboard/revenue', [AdminDashboardController::class, 'revenue']);
     Route::get('/admin/dashboard/live-counts', [AdminDashboardController::class, 'liveCounts']);
     Route::get('/admin/reports', [ReportController::class, 'index']);
     Route::post('/admin/reports/generate', [ReportController::class, 'generate']);

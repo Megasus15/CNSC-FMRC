@@ -14,7 +14,9 @@ use App\Models\ReportGeneration;
 use App\Models\User;
 use App\Models\WalkInOrder;
 use App\Support\AdminArchiveRecords;
+use App\Support\AnalyticsPeriod;
 use App\Support\CategorySalesBuckets;
+use App\Support\FinancialMetrics;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -384,6 +386,137 @@ class AdminDashboardController extends Controller
                 'generated_at' => now('Asia/Manila')->toIso8601String(),
             ],
         ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    }
+
+    /**
+     * Period-aware "incoming funds" for the dashboard revenue hero.
+     *
+     * Where counts.total_revenue in summary() is the lifetime figure (and stays
+     * that way — RevenueAndSalesAnalyticsTest pins it), this scopes the same
+     * four-term money contract to a window, hands back the previous equal-length
+     * window for the ▲/▼ delta, the breakdown behind the figure, and a per-bucket
+     * series for the sparkline. period=all reproduces the lifetime figure, so the
+     * toolbar's "All-time" view and the KPI card can never disagree.
+     */
+    public function revenue(Request $request): JsonResponse
+    {
+        if ($denied = $this->ensureAdmin($request)) {
+            return $denied;
+        }
+
+        $unavailable = [];
+        $this->sectionReasons = [];
+
+        $period = AnalyticsPeriod::resolve(
+            $request->query('period'),
+            $request->query('from'),
+            $request->query('to'),
+        );
+        $previous = AnalyticsPeriod::previous($period);
+
+        $current = $this->safely(
+            'revenue.current',
+            fn () => FinancialMetrics::collected($period['start'], $period['end']),
+            ['collected' => 0.0, 'breakdown' => ['online' => 0.0, 'gcash_advance' => 0.0, 'walkins' => 0.0, 'refunds' => 0.0]],
+            $unavailable,
+        );
+
+        $previousCollected = $previous === null ? null : $this->safely(
+            'revenue.previous',
+            fn () => FinancialMetrics::collected($previous['start'], $previous['end'])['collected'],
+            null,
+            $unavailable,
+        );
+
+        [$seriesFrom, $seriesTo, $granularity] = $this->seriesWindow($period);
+        $series = $this->safely(
+            'revenue.series',
+            fn () => FinancialMetrics::series($seriesFrom, $seriesTo, $granularity),
+            [],
+            $unavailable,
+        );
+
+        return response()->json([
+            'data' => [
+                'period' => [
+                    'key' => $period['key'],
+                    'label' => $period['label'],
+                    'from' => $period['start']?->toIso8601String(),
+                    'to' => $period['end']?->toIso8601String(),
+                    'collected' => round((float) $current['collected'], 2),
+                    'breakdown' => $current['breakdown'],
+                ],
+                'previous' => $previous === null ? null : [
+                    'label' => $previous['label'],
+                    'collected' => $previousCollected === null ? null : round((float) $previousCollected, 2),
+                ],
+                'change' => $this->revenueChange((float) $current['collected'], $previousCollected),
+                'series' => $series,
+                'availability' => [
+                    'unavailable' => array_values($unavailable),
+                    'reasons' => $this->sectionReasons,
+                ],
+                'generated_at' => now('Asia/Manila')->toIso8601String(),
+            ],
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    }
+
+    /**
+     * The window and bucket size for the hero sparkline.
+     *
+     * day/week/month trace their own days; year traces its twelve months. `all`
+     * has no natural start, so it shows a trailing 12-month trend rather than a
+     * point for every month on record.
+     *
+     * @param  array{key:string,label:string,start:?\Illuminate\Support\Carbon,end:?\Illuminate\Support\Carbon}  $period
+     * @return array{0:\Illuminate\Support\Carbon,1:\Illuminate\Support\Carbon,2:string}
+     */
+    private function seriesWindow(array $period): array
+    {
+        if ($period['key'] === 'all' || $period['start'] === null || $period['end'] === null) {
+            $now = now('Asia/Manila');
+
+            return [
+                $now->copy()->startOfMonth()->subMonthsNoOverflow(11),
+                $now->copy()->endOfMonth(),
+                'month',
+            ];
+        }
+
+        return [
+            $period['start'],
+            $period['end'],
+            $period['key'] === 'year' ? 'month' : 'day',
+        ];
+    }
+
+    /**
+     * The period-over-period delta the hero's ▲/▼ badge shows.
+     *
+     * A zero (or absent) baseline yields a peso amount and a direction but no
+     * percentage — a jump "from ₱0" is not a meaningful percent, and neither is
+     * the all-time view, which has no previous window at all.
+     *
+     * @return array{amount:?float,percent:?float,direction:string}
+     */
+    private function revenueChange(float $current, ?float $previous): array
+    {
+        if ($previous === null) {
+            return ['amount' => null, 'percent' => null, 'direction' => 'none'];
+        }
+
+        $amount = round($current - $previous, 2);
+        $direction = $amount > 0 ? 'up' : ($amount < 0 ? 'down' : 'flat');
+
+        if ($previous <= 0.0) {
+            return ['amount' => $amount, 'percent' => null, 'direction' => $direction];
+        }
+
+        return [
+            'amount' => $amount,
+            'percent' => round(($amount / $previous) * 100, 1),
+            'direction' => $direction,
+        ];
     }
 
     public function liveCounts(Request $request): JsonResponse

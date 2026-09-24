@@ -58,6 +58,7 @@
 .official-detail-table th { font-weight: 700; }
 
 .official-report-body { font-size: 11pt; }
+.official-report-scope-note { margin: 0 0 10pt; font-size: 9pt; line-height: 1.3; }
 .official-report-title-block p,
 .official-report-metadata dt { font-size: 8pt; }
 .official-report-metadata dd,

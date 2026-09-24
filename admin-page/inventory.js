@@ -801,7 +801,8 @@ document.addEventListener("DOMContentLoaded", () => {
             <td class="action-icons sticky-action">
               <button type="button" data-tooltip="View Item" data-inv-view="${item.id}"><i class="fa-regular fa-eye"></i></button>
               <button type="button" data-tooltip="Update Stocks" data-inv-deduct="${item.id}"><i class="fa-solid fa-square-minus"></i></button>
-              <button type="button" data-tooltip="Download Item Form" data-inv-download="${item.id}"><i class="fa-solid fa-file-arrow-down"></i></button>
+              <button type="button" data-tooltip="Export Item Excel" aria-label="Export item Excel" data-inv-download="${item.id}"><i class="fa-solid fa-file-arrow-down"></i></button>
+              <button type="button" data-tooltip="PDF Item Form" aria-label="Preview item PDF form" data-inv-pdf="${item.id}"><i class="fa-solid fa-file-pdf"></i></button>
               <button type="button" data-tooltip="Archive Item" data-inv-archive="${item.id}"><i class="fa-solid fa-box-archive"></i></button>
             </td>
           </tr>
@@ -893,10 +894,13 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="inv-category-icon"><i class="fa-solid ${icon}"></i></div>
           <span class="inv-category-title">Inventory of ${escHtml(category)}</span>
         </div>
-        <div class="inv-category-header-right" style="display:flex;align-items:center;gap:8px;">
+        <div class="inv-category-header-right" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <span class="inv-category-badge">${items.length} item${items.length !== 1 ? "s" : ""}</span>
           <button type="button" class="btn-admin btn-secondary" data-cat-export="${escHtml(category)}" title="Export this category to Excel">
             <i class="fa-solid fa-file-excel"></i> Export Excel
+          </button>
+          <button type="button" class="btn-admin btn-secondary" data-cat-pdf="${escHtml(category)}" title="Preview this category as PDF">
+            <i class="fa-solid fa-file-pdf"></i> PDF Form
           </button>
         </div>
       </div>
@@ -1116,423 +1120,75 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     if (res.status === 401 || res.status === 403) {
       setUnauthorized();
-      return [];
+      throw new Error("Your session cannot export inventory transactions. Sign in again.");
     }
     if (!res.ok) throw new Error("Failed to load inventory transactions");
     const payload = await res.json();
-    return Array.isArray(payload?.data) ? payload.data : [];
+    if (!Array.isArray(payload?.data)) throw new Error("Stock movements could not be loaded completely.");
+    return payload.data;
   };
 
-  const buildHorizontalExportRows = (items, transactions) => {
-    const nowDate = todayPH();
-
-    // Group items with their variants for hierarchical structure
-    const itemsWithVariants = items.map((item, idx) => ({
-      itemNumber: idx + 1,
-      ...item,
-      variants: Array.isArray(item.variants) ? item.variants : [],
-    }));
-
-    // Helper: Get symbol for variant by index
-    const getVariantSymbol = (vIdx) => {
-      const symbolMap = ["*", ">", "▸", "◆", "●"];
-      return symbolMap[vIdx % symbolMap.length];
-    };
-
-    // Build Stock In rows: initial on-hand values
-    const stockInRows = [];
-    itemsWithVariants.forEach((item) => {
-      stockInRows.push({
-        itemNumber: item.itemNumber,
-        variantSymbol: null,
-        date: nowDate,
-        item_name: item.item_name,
-        description: item.description || "—",
-        stock: Number(item.last_invent ?? item.on_hand ?? 0),
-      });
-      item.variants.forEach((variant, vIdx) => {
-        stockInRows.push({
-          itemNumber: item.itemNumber,
-          variantSymbol: getVariantSymbol(vIdx),
-          date: nowDate,
-          item_name: variant.name || "Variant",
-          description: variant.description || "—",
-          stock: Number(variant.initial_on_hand ?? variant.on_hand ?? 0),
-        });
-      });
+  const prepareInventoryReport = async ({ txFilter = {} }) => {
+    const [response, transactions] = await Promise.all([
+      fetch(`${API_BASE_URL}/admin/inventory`, {
+        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+        cache: "no-store",
+      }),
+      fetchTransactions(txFilter),
+    ]);
+    if (!response.ok) throw new Error("Could not refresh inventory for export. Please try again.");
+    const payload = await response.json();
+    if (!Array.isArray(payload?.data)) throw new Error("The inventory response is incomplete. Please refresh and try again.");
+    const items = payload.data.filter((item) => !item.is_archived &&
+      (!txFilter.item_id || Number(item.id) === Number(txFilter.item_id)) &&
+      (!txFilter.category || item.category === txFilter.category));
+    if (!items.length) throw new Error("No active inventory items are available in this selection.");
+    if (!window.FMRCInventoryReport || !window.FMRCReportDocuments) {
+      throw new Error("Report tools are unavailable. Refresh this page and try again.");
+    }
+    const userInfo = window.AdminSession?.getUserInfo?.() || {};
+    return window.FMRCInventoryReport.build({
+      items, transactions,
+      scope: txFilter.item_id ? items[0].item_name : (txFilter.category || "All inventory"),
+      user: userInfo.data || userInfo,
     });
-
-    // Build Balance Stock rows: current on-hand values
-    const balanceRows = [];
-    itemsWithVariants.forEach((item) => {
-      balanceRows.push({
-        itemNumber: item.itemNumber,
-        variantSymbol: null,
-        date: nowDate,
-        item_name: item.item_name,
-        description: item.description || "—",
-        stock: Number(item.on_hand ?? 0),
-      });
-      item.variants.forEach((variant, vIdx) => {
-        balanceRows.push({
-          itemNumber: item.itemNumber,
-          variantSymbol: getVariantSymbol(vIdx),
-          date: nowDate,
-          item_name: variant.name || "Variant",
-          description: variant.description || "—",
-          stock: Number(variant.on_hand ?? 0),
-        });
-      });
-    });
-
-    // Build Stock Out rows from transactions
-    const stockOutRows = [];
-    (transactions || []).forEach((tx) => {
-      const matchItem = itemsWithVariants.find(
-        (it) => it.id === tx.inventory_item_id,
-      );
-      let itemNumber = null;
-      let variantSymbol = null;
-      if (matchItem) {
-        itemNumber = matchItem.itemNumber;
-        if (tx.variant_id) {
-          const variantIdx = matchItem.variants.findIndex(
-            (v) => v.id === tx.variant_id,
-          );
-          if (variantIdx >= 0) {
-            variantSymbol = getVariantSymbol(variantIdx);
-          }
-        }
-      }
-      stockOutRows.push({
-        itemNumber: itemNumber,
-        variantSymbol: variantSymbol,
-        date: formatPHDate(tx.created_at),
-        item_name: tx.item_name || "—",
-        description: tx.description || "—",
-        stock: Number(tx.signed_amount ?? 0),
-        by: tx.name || "—",
-        purpose: tx.purpose || "—",
-        remarks: tx.remarks || "—",
-      });
-    });
-
-    return { stockInRows, stockOutRows, balanceRows };
   };
 
-  const createHorizontalWorkbook = ({
-    stockInRows,
-    stockOutRows,
-    balanceRows,
-    sheetName = "Inventory",
-    isPerItem = false,
-  }) => {
-    if (!window.XLSX) {
-      showPopup("Excel library failed to load. Please refresh this page.", {
-        title: "Export Error",
-      });
-      return null;
-    }
-
-    // Prepare column structure
-    const maxRows =
-      Math.max(stockInRows.length, stockOutRows.length, balanceRows.length, 1) +
-      5;
-    const aoa = Array.from({ length: maxRows }, () => Array(24).fill(""));
-
-    // Column indices for each section
-    const cols = {
-      stockIn: { start: 0, no: 0, date: 1, name: 2, desc: 3, stock: 4 },
-      stockOut: {
-        start: 6,
-        no: 6,
-        date: 7,
-        name: 8,
-        desc: 9,
-        stock: 10,
-        by: 11,
-        purpose: 12,
-        remarks: 13,
-      },
-      balance: { start: 14, no: 14, date: 15, name: 16, desc: 17, stock: 18 },
-    };
-
-    // Row indices
-    const blankRow = 0;
-    const titleRow = 1;
-    const headerRow = 2;
-    const dataStartRow = 3;
-
-    // Title row (centered across first 5 columns)
-    aoa[titleRow][0] = "INVENTORY EXPORT";
-
-    // Table name headers
-    aoa[headerRow][cols.stockIn.start] = "STOCK IN";
-    aoa[headerRow][cols.stockOut.start] = "STOCK OUT";
-    aoa[headerRow][cols.balance.start] = "BALANCE STOCK";
-
-    // Column headers
-    // Stock In
-    aoa[headerRow + 1][cols.stockIn.no] = "No.";
-    aoa[headerRow + 1][cols.stockIn.date] = "Date";
-    aoa[headerRow + 1][cols.stockIn.name] = "Item Name";
-    aoa[headerRow + 1][cols.stockIn.desc] = "Description";
-    aoa[headerRow + 1][cols.stockIn.stock] = "Stock";
-
-    // Stock Out - with extra columns for per-item exports
-    aoa[headerRow + 1][cols.stockOut.no] = "No.";
-    aoa[headerRow + 1][cols.stockOut.date] = "Date";
-    aoa[headerRow + 1][cols.stockOut.name] = "Item Name";
-    aoa[headerRow + 1][cols.stockOut.desc] = "Description";
-    aoa[headerRow + 1][cols.stockOut.stock] = "Stock";
-    if (isPerItem) {
-      aoa[headerRow + 1][cols.stockOut.by] = "By";
-      aoa[headerRow + 1][cols.stockOut.purpose] = "Purpose";
-      aoa[headerRow + 1][cols.stockOut.remarks] = "Remarks";
-    }
-
-    // Balance Stock
-    aoa[headerRow + 1][cols.balance.no] = "No.";
-    aoa[headerRow + 1][cols.balance.date] = "Date";
-    aoa[headerRow + 1][cols.balance.name] = "Item Name";
-    aoa[headerRow + 1][cols.balance.desc] = "Description";
-    aoa[headerRow + 1][cols.balance.stock] = "Stock";
-
-    // Fill data rows
-    const maxDataRows = Math.max(
-      stockInRows.length,
-      stockOutRows.length,
-      balanceRows.length,
-    );
-    for (let i = 0; i < maxDataRows; i++) {
-      const rowIdx = dataStartRow + i;
-
-      // Stock In data
-      if (i < stockInRows.length) {
-        const row = stockInRows[i];
-        const no = row.variantSymbol
-          ? row.variantSymbol
-          : String(row.itemNumber || "");
-        aoa[rowIdx][cols.stockIn.no] = no;
-        aoa[rowIdx][cols.stockIn.date] = row.date;
-        aoa[rowIdx][cols.stockIn.name] = row.variantSymbol
-          ? `  ${row.item_name}`
-          : row.item_name;
-        aoa[rowIdx][cols.stockIn.desc] = row.description;
-        aoa[rowIdx][cols.stockIn.stock] = row.stock;
-      }
-
-      // Stock Out data
-      if (i < stockOutRows.length) {
-        const row = stockOutRows[i];
-        const no = row.variantSymbol
-          ? row.variantSymbol
-          : String(row.itemNumber || "");
-        aoa[rowIdx][cols.stockOut.no] = no;
-        aoa[rowIdx][cols.stockOut.date] = row.date;
-        aoa[rowIdx][cols.stockOut.name] = row.variantSymbol
-          ? `  ${row.item_name}`
-          : row.item_name;
-        aoa[rowIdx][cols.stockOut.desc] = row.description;
-        aoa[rowIdx][cols.stockOut.stock] = row.stock;
-        if (isPerItem) {
-          aoa[rowIdx][cols.stockOut.by] = row.by || "—";
-          aoa[rowIdx][cols.stockOut.purpose] = row.purpose || "—";
-          aoa[rowIdx][cols.stockOut.remarks] = row.remarks || "—";
-        }
-      }
-
-      // Balance Stock data
-      if (i < balanceRows.length) {
-        const row = balanceRows[i];
-        const no = row.variantSymbol
-          ? row.variantSymbol
-          : String(row.itemNumber || "");
-        aoa[rowIdx][cols.balance.no] = no;
-        aoa[rowIdx][cols.balance.date] = row.date;
-        aoa[rowIdx][cols.balance.name] = row.variantSymbol
-          ? `  ${row.item_name}`
-          : row.item_name;
-        aoa[rowIdx][cols.balance.desc] = row.description;
-        aoa[rowIdx][cols.balance.stock] = row.stock;
-      }
-    }
-
-    // Create sheet
-    const ws = window.XLSX.utils.aoa_to_sheet(aoa);
-
-    // Set column widths
-    ws["!cols"] = [
-      { wch: 5 }, // Stock In: No.
-      { wch: 12 }, // Date
-      { wch: 24 }, // Item Name
-      { wch: 22 }, // Description
-      { wch: 10 }, // Stock
-      { wch: 2 }, // Gap
-      { wch: 5 }, // Stock Out: No.
-      { wch: 12 }, // Date
-      { wch: 24 }, // Item Name
-      { wch: 22 }, // Description
-      { wch: 10 }, // Stock
-      isPerItem ? { wch: 18 } : { wch: 2 }, // By / Gap
-      isPerItem ? { wch: 20 } : { wch: 2 }, // Purpose / Gap
-      isPerItem ? { wch: 20 } : { wch: 2 }, // Remarks / Gap
-      { wch: 5 }, // Balance: No.
-      { wch: 12 }, // Date
-      { wch: 24 }, // Item Name
-      { wch: 22 }, // Description
-      { wch: 10 }, // Stock
-    ];
-
-    // Set up merges for table name headers
-    ws["!merges"] = [
-      { s: { r: titleRow, c: 0 }, e: { r: titleRow, c: 4 } },
-      {
-        s: { r: headerRow, c: cols.stockIn.start },
-        e: { r: headerRow, c: cols.stockIn.stock },
-      },
-      {
-        s: { r: headerRow, c: cols.stockOut.start },
-        e: {
-          r: headerRow,
-          c: isPerItem ? cols.stockOut.remarks : cols.stockOut.stock,
-        },
-      },
-      {
-        s: { r: headerRow, c: cols.balance.start },
-        e: { r: headerRow, c: cols.balance.stock },
-      },
-    ];
-
-    // Apply styling
-    const range = window.XLSX.utils.decode_range(ws["!ref"]);
-    for (let R = range.s.r; R <= range.e.r; R++) {
-      for (let C = range.s.c; C < 19; C++) {
-        const cellRef = window.XLSX.utils.encode_cell({ r: R, c: C });
-        if (!ws[cellRef]) {
-          ws[cellRef] = { v: "", t: "s" };
-        }
-
-        const cellVal = ws[cellRef].v;
-        let style = {
-          border: {
-            top: { style: "thin", color: { rgb: "FF999999" } },
-            bottom: { style: "thin", color: { rgb: "FF999999" } },
-            left: { style: "thin", color: { rgb: "FF999999" } },
-            right: { style: "thin", color: { rgb: "FF999999" } },
-          },
-        };
-
-        // Main title row
-        if (R === titleRow && cellVal === "INVENTORY EXPORT") {
-          style.fill = { fgColor: { rgb: "FF4472C4" } };
-          style.font = { bold: true, sz: 14, color: { rgb: "FFFFFFFF" } };
-          style.alignment = { horizontal: "center", vertical: "center" };
-          style.border = {
-            top: { style: "medium", color: { rgb: "FF000000" } },
-            bottom: { style: "medium", color: { rgb: "FF000000" } },
-            left: { style: "medium", color: { rgb: "FF000000" } },
-            right: { style: "medium", color: { rgb: "FF000000" } },
-          };
-        }
-        // Table name headers (STOCK IN, STOCK OUT, BALANCE STOCK)
-        else if (
-          R === headerRow &&
-          (cellVal === "STOCK IN" ||
-            cellVal === "STOCK OUT" ||
-            cellVal === "BALANCE STOCK")
-        ) {
-          style.fill = { fgColor: { rgb: "FFD9E1F2" } };
-          style.font = { bold: true, sz: 11, color: { rgb: "FF000000" } };
-          style.alignment = { horizontal: "center", vertical: "center" };
-          style.border = {
-            top: { style: "thin", color: { rgb: "FF000000" } },
-            bottom: { style: "thin", color: { rgb: "FF000000" } },
-            left: { style: "thin", color: { rgb: "FF000000" } },
-            right: { style: "thin", color: { rgb: "FF000000" } },
-          };
-        }
-        // Column headers
-        else if (
-          R === headerRow + 1 &&
-          (cellVal === "No." ||
-            cellVal === "Date" ||
-            cellVal === "Item Name" ||
-            cellVal === "Description" ||
-            cellVal === "Stock" ||
-            cellVal === "By" ||
-            cellVal === "Purpose" ||
-            cellVal === "Remarks")
-        ) {
-          style.fill = { fgColor: { rgb: "FFE8E8E8" } };
-          style.font = { bold: true, sz: 10, color: { rgb: "FF000000" } };
-          style.alignment = { horizontal: "center", vertical: "center" };
-          style.border = {
-            top: { style: "thin", color: { rgb: "FF000000" } },
-            bottom: { style: "thin", color: { rgb: "FF000000" } },
-            left: { style: "thin", color: { rgb: "FF000000" } },
-            right: { style: "thin", color: { rgb: "FF000000" } },
-          };
-        }
-        // Data rows
-        else if (R >= dataStartRow && cellVal !== "") {
-          style.alignment = {
-            horizontal: typeof cellVal === "number" ? "right" : "left",
-            vertical: "center",
-            wrapText: true,
-          };
-          if (typeof cellVal === "number") {
-            style.numFmt = "0";
-          }
-        }
-
-        ws[cellRef].s = style;
-      }
-    }
-
-    const wb = window.XLSX.utils.book_new();
-    window.XLSX.utils.book_append_sheet(
-      wb,
-      ws,
-      sheetName.slice(0, 31) || "Inventory",
-    );
-    return wb;
+  const exportItemsToXlsx = async ({ filenameBase, txFilter = {} }) => {
+    const data = await prepareInventoryReport({ txFilter });
+    await window.FMRCReportDocuments.exportExcel(data, sanitizeFilename(filenameBase));
+    window.showAdminSuccessNotification?.("Inventory Excel exported successfully.", { title: "Export Complete" });
   };
 
-  const downloadWorkbook = (wb, filenameBase) => {
-    if (!wb || !window.XLSX) return;
-    window.XLSX.writeFile(wb, `${sanitizeFilename(filenameBase)}.xlsx`);
-  };
-
-  const exportItemsToXlsx = async ({ items, filenameBase, txFilter = {} }) => {
-    if (!Array.isArray(items) || !items.length) {
-      showPopup("No items available to export.", { title: "Export Notice" });
-      return;
+  const runInventoryExport = async (button, options = {}, pdf = false) => {
+    if (button?.disabled) return;
+    if (button) {
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
     }
-    const txRows = await fetchTransactions(txFilter);
-    const rows = buildHorizontalExportRows(items, txRows);
-    const isPerItem = items.length === 1;
-    const wb = createHorizontalWorkbook({
-      ...rows,
-      sheetName: "Inventory",
-      isPerItem,
-    });
-    downloadWorkbook(wb, filenameBase);
-  };
-
-  btnExportExcelAll?.addEventListener("click", async () => {
     try {
-      await exportItemsToXlsx({
-        items: allItems,
-        filenameBase: `inventory_all_${todayPH().replace(/\//g, "-")}`,
-      });
-    } catch (err) {
-      console.error("Export all error:", err);
-      showPopup("Failed to export all inventory items.", {
-        title: "Export Error",
-      });
+      if (pdf) {
+        const data = await prepareInventoryReport(options);
+        await window.FMRCReportDocuments.preview(data);
+      } else {
+        await exportItemsToXlsx(options);
+      }
+    } catch (error) {
+      showPopup(error?.message || "Unable to export this inventory selection.", { title: "Export Failed" });
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.removeAttribute("aria-busy");
+      }
     }
-  });
+  };
+
+  btnExportExcelAll?.addEventListener("click", () => void runInventoryExport(btnExportExcelAll, {
+    filenameBase: `inventory_all_${todayPH().replace(/\//g, "-")}`,
+  }));
+  document.getElementById("btnInventoryPdfAll")?.addEventListener("click", (event) =>
+    void runInventoryExport(event.currentTarget, {}, true),
+  );
 
   // ─── Form helpers ─────────────────────────────────────────────────────────────
   const resetForm = () => {
@@ -2438,40 +2094,26 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    // Per-item Excel download button
-    const dlBtn = target.closest("[data-inv-download]");
-    if (dlBtn) {
-      const id = Number(dlBtn.getAttribute("data-inv-download"));
-      const item = allItems.find((x) => x.id === id);
-      if (item) {
-        void exportItemsToXlsx({
-          items: [item],
-          filenameBase: `${item.item_name}_inventory_form_${todayPH().replace(/\//g, "-")}`,
-          txFilter: { item_id: item.id },
-        }).catch((err) => {
-          console.error("Per-item export error:", err);
-          showPopup("Failed to export this item.", { title: "Export Error" });
-        });
-      }
+    const itemExport = target.closest("[data-inv-download], [data-inv-pdf]");
+    if (itemExport) {
+      const pdf = itemExport.hasAttribute("data-inv-pdf");
+      const id = Number(itemExport.getAttribute(pdf ? "data-inv-pdf" : "data-inv-download"));
+      const item = allItems.find((entry) => Number(entry.id) === id);
+      if (item) void runInventoryExport(itemExport, {
+        filenameBase: `${item.item_name}_inventory_${todayPH().replace(/\//g, "-")}`,
+        txFilter: { item_id: id },
+      }, pdf);
       return;
     }
 
-    // Category-level Excel export button
-    const catExportBtn = target.closest("[data-cat-export]");
-    if (catExportBtn) {
-      const category = catExportBtn.getAttribute("data-cat-export") || "";
-      if (!category) return;
-      const categoryItems = allItems.filter(
-        (item) => item.category === category,
-      );
-      void exportItemsToXlsx({
-        items: categoryItems,
+    const categoryExport = target.closest("[data-cat-export], [data-cat-pdf]");
+    if (categoryExport) {
+      const pdf = categoryExport.hasAttribute("data-cat-pdf");
+      const category = categoryExport.getAttribute(pdf ? "data-cat-pdf" : "data-cat-export");
+      if (category) void runInventoryExport(categoryExport, {
         filenameBase: `inventory_${category}_${todayPH().replace(/\//g, "-")}`,
         txFilter: { category },
-      }).catch((err) => {
-        console.error("Category export error:", err);
-        showPopup("Failed to export this category.", { title: "Export Error" });
-      });
+      }, pdf);
       return;
     }
 

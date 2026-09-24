@@ -20,9 +20,12 @@ class AdminPortalConsistencyTest extends TestCase
         return array_map(static fn (string $file): array => [$file], $files);
     }
 
-    public function test_portal_has_the_expected_33_admin_and_staff_pages(): void
+    public function test_portal_has_the_expected_37_admin_and_staff_pages(): void
     {
-        $this->assertCount(33, self::portalHtmlProvider());
+        // 20 admin-page/*.html + 17 staff-page/*.html. Bump this when a portal
+        // page is genuinely added or removed — it is the guard that every new
+        // page inherits the shared-UI version pins the tests below enforce.
+        $this->assertCount(37, self::portalHtmlProvider());
     }
 
     #[DataProvider('portalHtmlProvider')]
@@ -533,9 +536,9 @@ class AdminPortalConsistencyTest extends TestCase
         // and the poll stay read-only.
         $this->assertStringContainsString('const recordArtifactGeneration', $reportsJs);
         $this->assertSame(
-            2,
+            3,
             preg_match_all('/await recordArtifactGeneration\(/', $reportsJs),
-            'Print and Export CSV must each record the audited generation.',
+            'Print, Export CSV and Export Excel must each record the audited generation.',
         );
 
         // Print geometry: a page box that fragments across two sheets

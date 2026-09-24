@@ -10,13 +10,17 @@
     <link rel="icon" href="../images/favicon.ico?v=3" sizes="any" />
     <link rel="apple-touch-icon" href="../images/apple-touch-icon.png?v=3" />
     <title>Admin Dashboard | UCN-FMRC</title>
-    <link rel="stylesheet" href="dashboard.css?v=6.7" />
+    <link rel="stylesheet" href="dashboard.css?v=7.1" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
-    <link rel="stylesheet" href="admin-responsive.css?v=3.0" />
+    <link rel="stylesheet" href="admin-responsive.css?v=3.1" />
     <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=2.1" />
+    <link rel="stylesheet" href="analytics-toolbar.css?v=1.4" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="analytics-toolbar.js?v=1.3"></script>
+    <script src="analytics-charts.js?v=1.0"></script>
   </head>
   <body>
     <div class="dashboard-container">
@@ -159,21 +163,50 @@
             </div>
           </div>
 
+          <div class="analytics-period-bar" id="dashboardAnalyticsPeriodBar">
+            <span class="analytics-period-bar__label">Showing figures for</span>
+            <div
+              id="dashboardAnalyticsToolbar"
+              class="analytics-period-bar__toolbar"
+            ></div>
+          </div>
+
           <div class="summary-cards">
-            <!-- Total Revenue -->
+            <!-- Total Revenue (period-aware hero) -->
             <a
-              class="card card-link"
+              class="card card-link card-revenue-hero"
               href="products.html"
               data-nav-label="Products"
             >
-              <div class="card-info">
+              <div class="card-info revenue-hero__info">
+                <div class="revenue-hero__head">
+                  <p class="revenue-hero__label">
+                    Total Revenue
+                    <span
+                      id="dashboardRevenuePeriod"
+                      class="revenue-hero__period"
+                      >This Month</span
+                    >
+                  </p>
+                  <span
+                    id="dashboardRevenueDelta"
+                    class="revenue-hero__delta revenue-hero__delta--none"
+                    title=""
+                  ></span>
+                </div>
                 <h3 id="dashboardRevenueAmount">
                   <span class="card-value-loading"></span>
                 </h3>
-                <p>Total Revenue</p>
+                <p
+                  id="dashboardRevenueBreakdown"
+                  class="revenue-hero__breakdown"
+                ></p>
               </div>
-              <div class="card-icon-box card-icon-maroon">
-                <i class="fa-solid fa-wallet"></i>
+              <div class="revenue-hero__spark">
+                <canvas
+                  id="dashboardRevenueSparkline"
+                  class="revenue-hero__spark-canvas"
+                ></canvas>
               </div>
             </a>
 
@@ -307,14 +340,17 @@
                     </div>
                     <div>
                       <h4>Top Selling</h4>
-                      <span>This month's best sellers</span>
+                      <span>Best-selling products</span>
                     </div>
                   </div>
-                  <div class="aov-body" id="aovTopSelling">
-                    <div class="aov-shimmer-list">
-                      <div class="aov-shimmer-row"></div>
-                      <div class="aov-shimmer-row"></div>
-                      <div class="aov-shimmer-row"></div>
+                  <div class="aov-body aov-body--chart" id="aovTopSelling">
+                    <canvas
+                      class="aov-canvas"
+                      id="aovTopSellingChart"
+                    ></canvas>
+                    <div class="aov-empty aov-empty--hidden" id="aovTopSellingEmpty">
+                      <i class="fa-solid fa-chart-column"></i> No sales in this
+                      period
                     </div>
                   </div>
                 </div>
@@ -330,11 +366,23 @@
                       <span>Revenue distribution</span>
                     </div>
                   </div>
-                  <div class="aov-body" id="aovSalesByCategory">
-                    <div class="aov-shimmer-list">
-                      <div class="aov-shimmer-row"></div>
-                      <div class="aov-shimmer-row"></div>
-                      <div class="aov-shimmer-row"></div>
+                  <div class="aov-body aov-body--donut" id="aovSalesByCategory">
+                    <div class="aov-donut-wrap">
+                      <canvas
+                        class="aov-canvas"
+                        id="aovSalesByCategoryChart"
+                      ></canvas>
+                    </div>
+                    <div
+                      class="aov-legend"
+                      id="aovSalesByCategoryLegend"
+                    ></div>
+                    <div
+                      class="aov-empty aov-empty--hidden"
+                      id="aovSalesByCategoryEmpty"
+                    >
+                      <i class="fa-solid fa-chart-pie"></i> No category sales in
+                      this period
                     </div>
                   </div>
                 </div>
@@ -351,10 +399,12 @@
                     </div>
                   </div>
                   <div class="aov-body" id="aovProductPerformance">
-                    <div class="aov-shimmer-list">
-                      <div class="aov-shimmer-row"></div>
-                      <div class="aov-shimmer-row"></div>
-                      <div class="aov-shimmer-row"></div>
+                    <div class="aov-list" id="aovProductPerformanceList">
+                      <div class="aov-shimmer-list">
+                        <div class="aov-shimmer-row"></div>
+                        <div class="aov-shimmer-row"></div>
+                        <div class="aov-shimmer-row"></div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -370,11 +420,17 @@
                       <span id="aovTrendYear">Monthly totals</span>
                     </div>
                   </div>
-                  <div class="aov-body" id="aovYearlySalesTrend">
-                    <div class="aov-shimmer-list">
-                      <div class="aov-shimmer-row"></div>
-                      <div class="aov-shimmer-row"></div>
-                      <div class="aov-shimmer-row"></div>
+                  <div class="aov-body aov-body--chart" id="aovYearlySalesTrend">
+                    <canvas
+                      class="aov-canvas"
+                      id="aovYearlySalesTrendChart"
+                    ></canvas>
+                    <div
+                      class="aov-empty aov-empty--hidden"
+                      id="aovYearlySalesTrendEmpty"
+                    >
+                      <i class="fa-solid fa-chart-line"></i> No sales data for
+                      this year
                     </div>
                   </div>
                 </div>
@@ -462,7 +518,7 @@
     <script src="session-helper.js?v=2.2"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="admin-common.js?v=7.2"></script>
-    <script src="dashboard.js?v=5.7"></script>
+    <script src="dashboard.js?v=5.9"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>

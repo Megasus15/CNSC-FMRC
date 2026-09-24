@@ -1,0 +1,74 @@
+/* Shared Inventory toolbar geometry for the Admin and Staff portals. */
+.inventory-page-toolbar {
+  column-gap: 20px;
+  row-gap: 14px;
+}
+
+.inventory-page-toolbar > .toolbar-title {
+  flex: 1 1 15rem;
+  min-width: 0;
+}
+
+.inventory-page-toolbar > .toolbar-title p {
+  max-width: 36rem;
+}
+
+.inventory-page-toolbar > .toolbar-actions {
+  flex: 2 1 34rem;
+  min-width: 0;
+  max-width: 50rem;
+  margin-left: auto;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.inventory-page-toolbar .toolbar-actions > .btn-admin {
+  min-height: 44px;
+  padding: 10px 12px;
+  white-space: normal;
+  line-height: 1.25;
+}
+
+@media (max-width: 720px) {
+  .inventory-page-toolbar > .toolbar-title {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
+  .inventory-page-toolbar > .toolbar-actions {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: min(100%, 28rem);
+    max-width: 100%;
+    align-self: flex-end;
+    align-items: stretch;
+  }
+
+  .inventory-page-toolbar .toolbar-actions > .btn-admin {
+    container-type: normal;
+    min-width: 0;
+    width: 100%;
+    padding: 10px 8px;
+    gap: 6px;
+    font-size: 0.78rem;
+    white-space: normal;
+  }
+
+  /* The shared shell wraps action text in spans. Keep full labels readable
+     instead of shrinking or clipping them inside the narrower phone tracks. */
+  .inventory-page-toolbar .toolbar-actions > .btn-admin > :is(span, i) {
+    font-size: inherit;
+  }
+
+  .inventory-page-toolbar .toolbar-actions > .btn-admin > span {
+    min-width: 0;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .inventory-page-toolbar .toolbar-actions > .btn-admin > i {
+    flex-shrink: 0;
+  }
+}
