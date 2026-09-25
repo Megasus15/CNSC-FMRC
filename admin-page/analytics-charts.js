@@ -179,25 +179,27 @@
     });
   }
 
-  /* A tiny axis-less line for the revenue hero — no grid, no points, no
-     animation, so it reads as a trend glyph beside the big figure, not a chart. */
+  /* Compact revenue trend with dates, peso values and exact point details. */
   function sparkline(ctx, cfg) {
     if (!ctx || !hasChart()) return null;
     const c = cfg || {};
     return new window.Chart(ctx, {
       type: "line",
       data: {
-        labels: (c.data || []).map((_, i) => i),
+        labels: c.labels || [],
         datasets: [
           {
+            label: "Revenue",
             data: c.data || [],
             borderColor: c.color || MAROON,
             backgroundColor: "rgba(128,0,0,0.10)",
             fill: true,
-            tension: 0.4,
+            tension: 0,
             borderWidth: 2,
-            pointRadius: 0,
-            pointHoverRadius: 0,
+            pointRadius: (c.data || []).length === 1 ? 3 : 0,
+            pointHoverRadius: 4,
+            pointHitRadius: 12,
+            pointBackgroundColor: c.color || MAROON,
           },
         ],
       },
@@ -205,8 +207,48 @@
         responsive: true,
         maintainAspectRatio: false,
         animation: false,
-        plugins: { legend: { display: false }, tooltip: { enabled: false } },
-        scales: { x: { display: false }, y: { display: false } },
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: Object.assign({}, TOOLTIP, {
+            displayColors: false,
+            callbacks: {
+              title: (items) => {
+                const item = items[0];
+                return item ? (c.tooltipLabels || [])[item.dataIndex] || item.label : "";
+              },
+              label: (item) => `Revenue: ${peso(item.parsed.y)}`,
+            },
+          }),
+        },
+        scales: {
+          x: {
+            offset: (c.data || []).length === 1,
+            border: { display: false },
+            grid: { display: false },
+            ticks: {
+              font: { family: FONT, size: 10 },
+              color: "#6b7280",
+              maxTicksLimit: 4,
+              maxRotation: 0,
+              autoSkip: true,
+            },
+          },
+          y: {
+            beginAtZero: true,
+            border: { display: false },
+            grid: { color: "rgba(107,114,128,0.12)", drawTicks: false },
+            ticks: {
+              font: { family: FONT, size: 10 },
+              color: "#6b7280",
+              maxTicksLimit: 3,
+              padding: 8,
+              callback: (value) => "₱" + Number(value).toLocaleString("en-PH", {
+                notation: "compact", maximumFractionDigits: 1,
+              }),
+            },
+          },
+        },
       },
     });
   }

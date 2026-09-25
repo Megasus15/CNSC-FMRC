@@ -1049,9 +1049,67 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // ── Revenue hero ─────────────────────────────────────────────
+  const revenueHero = dashboardRevenueAmount?.closest(".card-revenue-hero");
+  const revenueChart = document.getElementById("dashboardRevenueSparkline");
+  const revenueChartTitle = document.getElementById("dashboardRevenueChartTitle");
+  const revenueChartRange = document.getElementById("dashboardRevenueChartRange");
+  const revenueChartNote = document.getElementById("dashboardRevenueChartNote");
+  const revenueChartStatus = document.getElementById("dashboardRevenueChartStatus");
+  // A touch on the chart should reveal its tooltip without following the card link.
+  revenueChart?.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  // The initial placeholders are the shared template for every period reload.
+  const revenueLoadingMarkup = {
+    amount: dashboardRevenueAmount?.innerHTML || "",
+    delta: document.getElementById("dashboardRevenueDelta")?.innerHTML || "",
+    breakdown: document.getElementById("dashboardRevenueBreakdown")?.innerHTML || "",
+    range: revenueChartRange?.innerHTML || "",
+  };
+  const setRevenueChartStatus = (message = "") => {
+    if (revenueChartStatus) {
+      revenueChartStatus.textContent = message;
+      revenueChartStatus.hidden = !message;
+    }
+    if (revenueChart) revenueChart.hidden = !!message;
+    if (revenueChartNote) revenueChartNote.hidden = !!message;
+  };
+  const finishRevenueHeroLoading = () => {
+    revenueHero?.classList.remove("is-revenue-loading");
+    revenueHero?.setAttribute("aria-busy", "false");
+    revenueHero?.removeAttribute("aria-label");
+  };
   const setRevenueHeroLoading = () => {
-    if (dashboardRevenueAmount)
-      dashboardRevenueAmount.innerHTML = '<span class="card-value-loading"></span>';
+    revenueHero?.classList.add("is-revenue-loading");
+    revenueHero?.setAttribute("aria-busy", "true");
+    revenueHero?.setAttribute("aria-label", "Total Revenue, loading");
+    destroyDashboardChart("revenueSpark");
+    setRevenueChartStatus();
+    if (revenueChartTitle) revenueChartTitle.textContent = "Revenue trend";
+    if (revenueChartRange) revenueChartRange.innerHTML = revenueLoadingMarkup.range;
+    revenueChart?.setAttribute("aria-label", "Revenue trend loading");
+    if (dashboardRevenueAmount) {
+      dashboardRevenueAmount.style.fontSize = "";
+      dashboardRevenueAmount.innerHTML = revenueLoadingMarkup.amount;
+    }
+    const delta = document.getElementById("dashboardRevenueDelta");
+    if (delta) {
+      delta.className = "revenue-hero__delta revenue-hero__delta--loading";
+      delta.innerHTML = revenueLoadingMarkup.delta;
+      delta.title = "";
+    }
+    const breakdown = document.getElementById("dashboardRevenueBreakdown");
+    if (breakdown) breakdown.innerHTML = revenueLoadingMarkup.breakdown;
+  };
+
+  const setRevenueHeroError = () => {
+    destroyDashboardChart("revenueSpark");
+    finishRevenueHeroLoading();
+    if (revenueChartTitle) revenueChartTitle.textContent = "Revenue trend";
+    if (revenueChartRange) revenueChartRange.textContent = "";
+    setRevenueChartStatus("Revenue trend unavailable.");
+    if (dashboardRevenueAmount) dashboardRevenueAmount.textContent = "₱ --";
     const delta = document.getElementById("dashboardRevenueDelta");
     if (delta) {
       delta.className = "revenue-hero__delta revenue-hero__delta--none";
@@ -1059,26 +1117,25 @@ document.addEventListener("DOMContentLoaded", () => {
       delta.title = "";
     }
     const breakdown = document.getElementById("dashboardRevenueBreakdown");
-    if (breakdown) breakdown.textContent = "";
-  };
-
-  const setRevenueHeroError = () => {
-    if (dashboardRevenueAmount) dashboardRevenueAmount.textContent = "₱ --";
-    const breakdown = document.getElementById("dashboardRevenueBreakdown");
     if (breakdown) breakdown.textContent = "Revenue could not be loaded right now.";
     fitStatValues();
   };
 
   const renderRevenueHero = (d) => {
+    finishRevenueHeroLoading();
     const period = (d && d.period) || {};
-    const change = (d && d.change) || {};
-    const previous = (d && d.previous) || null;
+    const unavailableSections = Array.isArray(d?.availability?.unavailable)
+      ? d.availability.unavailable : [];
+    const currentUnavailable = unavailableSections.includes("revenue.current");
+    const change = currentUnavailable ? {} : (d && d.change) || {};
+    const previous = currentUnavailable ? null : (d && d.previous) || null;
 
     const periodEl = document.getElementById("dashboardRevenuePeriod");
     if (periodEl) periodEl.textContent = period.label || "This Month";
 
     if (dashboardRevenueAmount)
-      dashboardRevenueAmount.textContent = formatCurrency(Number(period.collected || 0));
+      dashboardRevenueAmount.textContent = currentUnavailable
+        ? "₱ --" : formatCurrency(Number(period.collected || 0));
     fitStatValues();
 
     const delta = document.getElementById("dashboardRevenueDelta");
@@ -1093,7 +1150,9 @@ document.addEventListener("DOMContentLoaded", () => {
             : `${arrow} ${formatCurrencyCompact(Math.abs(Number(change.amount || 0)))}`.trim();
       }
       delta.className = `revenue-hero__delta revenue-hero__delta--${dir}`;
-      delta.textContent = text;
+      delta.textContent = text && previous?.label
+        ? `${text} vs ${previous.label.toLowerCase()}`
+        : text;
       delta.title =
         previous && previous.label
           ? `vs ${previous.label}: ${formatCurrency(Number(previous.collected || 0))}`
@@ -1110,16 +1169,62 @@ document.addEventListener("DOMContentLoaded", () => {
       ].join("  ·  ");
       if (Number(b.refunds || 0) > 0)
         line += `  ·  −${formatCurrencyCompact(b.refunds || 0)} refunds`;
-      breakdown.textContent = line;
+      breakdown.textContent = currentUnavailable
+        ? "Revenue total could not be loaded right now." : line;
     }
 
     const series = Array.isArray(d && d.series) ? d.series : [];
+    const monthly = period.key === "year" || period.key === "all";
+    const chartTitle = monthly ? "Monthly revenue trend" : "Daily revenue trend";
+    if (revenueChartTitle) revenueChartTitle.textContent = chartTitle;
+    const formatDate = (value) => {
+      const date = new Date(value);
+      return value && Number.isFinite(date.getTime())
+        ? date.toLocaleDateString("en-PH", {
+          day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Manila",
+        })
+        : "";
+    };
+    const from = formatDate(period.from);
+    const to = formatDate(period.to);
+    if (revenueChartRange) {
+      const firstLabel = series[0]?.label || "";
+      const lastLabel = series[series.length - 1]?.label || "";
+      revenueChartRange.textContent = period.key === "all"
+        ? `Last 12 months${firstLabel && lastLabel ? ` · ${firstLabel} – ${lastLabel}` : ""}`
+        : from && to ? (from === to ? from : `${from} – ${to}`) : period.label || "";
+    }
+    // Daily API labels omit the year; keep full dates in point details, including
+    // custom ranges crossing New Year. Advance Manila calendar dates in UTC.
+    const firstDay = /^\d{4}-\d{2}-\d{2}/.exec(period.from || "")?.[0];
+    const firstDayTime = firstDay ? Date.parse(`${firstDay}T00:00:00Z`) : NaN;
+    const tooltipLabels = series.map((point, index) =>
+      !monthly && Number.isFinite(firstDayTime)
+        ? new Date(firstDayTime + index * 86400000).toLocaleDateString("en-PH", {
+          day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
+        })
+        : String(point.label || ""),
+    );
     destroyDashboardChart("revenueSpark");
     const spark = aovCanvasCtx("dashboardRevenueSparkline");
-    if (spark && series.length && window.AnalyticsCharts) {
+    const unavailable = unavailableSections.includes("revenue.series");
+    setRevenueChartStatus();
+    if (!unavailable && spark && series.length && window.AnalyticsCharts) {
       dashboardCharts.revenueSpark = window.AnalyticsCharts.sparkline(spark, {
         data: series.map((p) => Number(p.amount || 0)),
+        labels: series.map((p) => String(p.label || "")),
+        tooltipLabels,
       });
+    }
+    if (!dashboardCharts.revenueSpark) {
+      setRevenueChartStatus("Revenue trend unavailable.");
+    } else {
+      const peak = series.reduce((best, point, index) =>
+        Number(point.amount || 0) > Number(series[best].amount || 0) ? index : best, 0);
+      const description = Number(series[peak].amount || 0) > 0
+        ? `Highest plotted revenue: ${formatCurrency(Number(series[peak].amount))} on ${tooltipLabels[peak]}.`
+        : "All plotted values are zero.";
+      revenueChart?.setAttribute("aria-label", `${chartTitle}. ${description}`);
     }
   };
 

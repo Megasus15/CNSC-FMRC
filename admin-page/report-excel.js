@@ -209,6 +209,10 @@
     });
     summary.pageSetup.printArea = `A1:F${row + 2}`;
     summary.pageSetup.printTitlesRow = "1:6";
+    // Excel ignores manual page breaks in Fit To mode. This compact sheet fits
+    // A4 at 100%; keep the breaks that protect its certification block.
+    summary.pageSetup.fitToPage = false;
+    summary.pageSetup.scale = 100;
     // Explicit A4 breaks protect the entire certification/signature block.
     // At 90 character widths the sheet fits portrait A4 without needing a
     // height fit; the conservative point budget allows for printer rounding.

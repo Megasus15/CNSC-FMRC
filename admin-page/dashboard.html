@@ -20,7 +20,8 @@
     <link rel="stylesheet" href="analytics-toolbar.css?v=1.4" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <script src="analytics-toolbar.js?v=1.3"></script>
-    <script src="analytics-charts.js?v=1.0"></script>
+    <script src="analytics-charts.js?v=1.1"></script>
+    <link rel="stylesheet" href="dashboard-revenue.css?v=1.0" />
   </head>
   <body>
     <div class="dashboard-container">
@@ -174,7 +175,9 @@
           <div class="summary-cards">
             <!-- Total Revenue (period-aware hero) -->
             <a
-              class="card card-link card-revenue-hero"
+              class="card card-link card-revenue-hero is-revenue-loading"
+              aria-busy="true"
+              aria-label="Total Revenue, loading"
               href="products.html"
               data-nav-label="Products"
             >
@@ -190,24 +193,38 @@
                   </p>
                   <span
                     id="dashboardRevenueDelta"
-                    class="revenue-hero__delta revenue-hero__delta--none"
+                    class="revenue-hero__delta revenue-hero__delta--loading"
                     title=""
-                  ></span>
+                  ><span class="card-value-loading revenue-hero__loading-delta" aria-hidden="true"></span></span>
                 </div>
                 <h3 id="dashboardRevenueAmount">
-                  <span class="card-value-loading"></span>
+                  <span class="card-value-loading revenue-hero__loading-amount" aria-hidden="true"></span>
                 </h3>
                 <p
                   id="dashboardRevenueBreakdown"
                   class="revenue-hero__breakdown"
-                ></p>
+                ><span class="card-value-loading revenue-hero__loading-line" aria-hidden="true"></span><span class="card-value-loading revenue-hero__loading-line" aria-hidden="true"></span><span class="card-value-loading revenue-hero__loading-line" aria-hidden="true"></span></p>
+              </div>
+              <div class="revenue-hero__chart-heading">
+                <span id="dashboardRevenueChartTitle" class="revenue-hero__chart-title">Revenue trend</span>
+                <span id="dashboardRevenueChartRange" class="revenue-hero__chart-range"><span class="card-value-loading revenue-hero__loading-range" aria-hidden="true"></span></span>
               </div>
               <div class="revenue-hero__spark">
+                <svg class="revenue-hero__loading-chart" viewBox="0 0 400 100" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+                  <path class="revenue-hero__loading-grid" d="M0 1 H400 M0 50 H400 M0 99 H400" />
+                  <path class="revenue-hero__loading-area" d="M0 76 C40 76 45 52 85 57 S140 74 175 46 S225 62 270 33 S340 40 400 16 V100 H0 Z" />
+                  <path class="revenue-hero__loading-stroke" d="M0 76 C40 76 45 52 85 57 S140 74 175 46 S225 62 270 33 S340 40 400 16" />
+                </svg>
                 <canvas
                   id="dashboardRevenueSparkline"
                   class="revenue-hero__spark-canvas"
+                  role="img"
+                  aria-label="Revenue trend loading"
+                  aria-describedby="dashboardRevenueChartTitle dashboardRevenueChartRange dashboardRevenueChartNote"
                 ></canvas>
+                <p id="dashboardRevenueChartStatus" class="revenue-hero__chart-status" hidden></p>
               </div>
+              <p id="dashboardRevenueChartNote" class="revenue-hero__chart-note">PHP · Refunds deducted. GCash advances use order dates.</p>
             </a>
 
             <!-- Inventory -->
@@ -518,7 +535,7 @@
     <script src="session-helper.js?v=2.2"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="admin-common.js?v=7.2"></script>
-    <script src="dashboard.js?v=5.9"></script>
+    <script src="dashboard.js?v=6.1"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>

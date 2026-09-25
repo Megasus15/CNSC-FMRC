@@ -182,6 +182,10 @@ test("long summaries keep certification together and unconfigured signatory role
     if (row.getCell(1).value === "Prepared by") preparedRow = row.number;
   });
   assert.match(summaryXml, /<rowBreaks\b/);
+  // OOXML omits false/default attributes; reopening must retain normal scale.
+  assert.doesNotMatch(summaryXml, /fitToPage="(?:1|true)"/);
+  assert.equal(summary.pageSetup.fitToPage, false);
+  assert.equal(summary.pageSetup.scale, 100);
   const breaks = Array.from(summaryXml.matchAll(/<brk\b[^>]*\bid="(\d+)"/g), (match) => Number(match[1]));
   assert.ok(breaks.length > 0);
   assert.ok(breaks.every((pageBreak) => pageBreak < certificationRow), "no serialized break splits the certification or signatures");
