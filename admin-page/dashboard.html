@@ -20,8 +20,9 @@
     <link rel="stylesheet" href="analytics-toolbar.css?v=1.4" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <script src="analytics-toolbar.js?v=1.3"></script>
-    <script src="analytics-charts.js?v=1.1"></script>
+    <script src="analytics-charts.js?v=1.4"></script>
     <link rel="stylesheet" href="dashboard-revenue.css?v=1.0" />
+    <link rel="stylesheet" href="analytics-cards.css?v=1.2" />
   </head>
   <body>
     <div class="dashboard-container">
@@ -350,39 +351,46 @@
               </div>
               <div class="analytics-overview-grid" id="analyticsOverviewGrid">
                 <!-- Top Selling -->
-                <div class="analytics-overview-card">
+                <div class="analytics-overview-card is-analytics-loading" id="aovTopSellingCard" aria-busy="true">
                   <div class="aov-header">
                     <div class="aov-icon aov-icon-fire">
                       <i class="fa-solid fa-fire-flame-curved"></i>
                     </div>
-                    <div>
-                      <h4>Top Selling</h4>
-                      <span>Best-selling products</span>
+                    <div class="aov-header__copy">
+                      <h4>Top Selling Products</h4>
+                      <span id="aovTopSellingPeriod">This Month · units sold</span>
                     </div>
                   </div>
+                  <p class="analytics-card-caption">Completed online and walk-in sales</p>
                   <div class="aov-body aov-body--chart" id="aovTopSelling">
                     <canvas
                       class="aov-canvas"
                       id="aovTopSellingChart"
                     ></canvas>
-                    <div class="aov-empty aov-empty--hidden" id="aovTopSellingEmpty">
-                      <i class="fa-solid fa-chart-column"></i> No sales in this
-                      period
+                    <div class="aov-empty aov-empty--hidden" id="aovTopSellingEmpty" role="status">
+                      <i class="fa-solid fa-chart-column" aria-hidden="true"></i><span>No products sold this month.</span>
+                    </div>
+                    <div class="analytics-card-skeleton analytics-card-skeleton--bar" aria-hidden="true">
+                      <div class="analytics-card-skeleton__row"><span class="analytics-card-skeleton__label"></span><span class="analytics-card-skeleton__bar"></span></div>
+                      <div class="analytics-card-skeleton__row"><span class="analytics-card-skeleton__label"></span><span class="analytics-card-skeleton__bar"></span></div>
+                      <div class="analytics-card-skeleton__row"><span class="analytics-card-skeleton__label"></span><span class="analytics-card-skeleton__bar"></span></div>
+                      <div class="analytics-card-skeleton__row"><span class="analytics-card-skeleton__label"></span><span class="analytics-card-skeleton__bar"></span></div>
                     </div>
                   </div>
                 </div>
 
                 <!-- Sales by Category -->
-                <div class="analytics-overview-card">
+                <div class="analytics-overview-card is-analytics-loading" id="aovSalesByCategoryCard" aria-busy="true">
                   <div class="aov-header">
                     <div class="aov-icon aov-icon-category">
                       <i class="fa-solid fa-layer-group"></i>
                     </div>
-                    <div>
+                    <div class="aov-header__copy">
                       <h4>Sales by Category</h4>
-                      <span>Revenue distribution</span>
+                      <span id="aovSalesByCategoryPeriod">This Month · category sales</span>
                     </div>
                   </div>
+                  <p class="analytics-card-caption">Completed online orders · before returns</p>
                   <div class="aov-body aov-body--donut" id="aovSalesByCategory">
                     <div class="aov-donut-wrap">
                       <canvas
@@ -397,46 +405,58 @@
                     <div
                       class="aov-empty aov-empty--hidden"
                       id="aovSalesByCategoryEmpty"
+                      role="status"
                     >
-                      <i class="fa-solid fa-chart-pie"></i> No category sales in
-                      this period
+                      <i class="fa-solid fa-chart-pie" aria-hidden="true"></i><span>No online category sales this month.</span>
                     </div>
-                  </div>
-                </div>
-
-                <!-- Product Performance -->
-                <div class="analytics-overview-card">
-                  <div class="aov-header">
-                    <div class="aov-icon aov-icon-performance">
-                      <i class="fa-solid fa-ranking-star"></i>
-                    </div>
-                    <div>
-                      <h4>Product Performance</h4>
-                      <span>Top revenue generators</span>
-                    </div>
-                  </div>
-                  <div class="aov-body" id="aovProductPerformance">
-                    <div class="aov-list" id="aovProductPerformanceList">
-                      <div class="aov-shimmer-list">
-                        <div class="aov-shimmer-row"></div>
-                        <div class="aov-shimmer-row"></div>
-                        <div class="aov-shimmer-row"></div>
+                    <div class="analytics-card-skeleton analytics-card-skeleton--donut" aria-hidden="true">
+                      <span class="analytics-card-skeleton__ring"></span>
+                      <div class="analytics-card-skeleton__legend">
+                        <div class="analytics-card-skeleton__row"><span class="analytics-card-skeleton__dot"></span><span class="analytics-card-skeleton__label"></span><span class="analytics-card-skeleton__value"></span></div>
+                        <div class="analytics-card-skeleton__row"><span class="analytics-card-skeleton__dot"></span><span class="analytics-card-skeleton__label"></span><span class="analytics-card-skeleton__value"></span></div>
+                        <div class="analytics-card-skeleton__row"><span class="analytics-card-skeleton__dot"></span><span class="analytics-card-skeleton__label"></span><span class="analytics-card-skeleton__value"></span></div>
                       </div>
                     </div>
                   </div>
                 </div>
 
+                <!-- Product Performance -->
+                <div class="analytics-overview-card is-analytics-loading" id="aovProductPerformanceCard" aria-busy="true">
+                  <div class="aov-header">
+                    <div class="aov-icon aov-icon-performance">
+                      <i class="fa-solid fa-ranking-star"></i>
+                    </div>
+                    <div class="aov-header__copy">
+                      <h4>Product Performance</h4>
+                      <span id="aovProductPerformancePeriod">This Month · ranked by units</span>
+                    </div>
+                  </div>
+                  <p class="analytics-card-caption">Completed online orders · revenue before returns</p>
+                  <div class="aov-body aov-body--list" id="aovProductPerformance">
+                    <div class="aov-list" id="aovProductPerformanceList">
+                      <div class="aov-empty" role="status"><i class="fa-solid fa-ranking-star" aria-hidden="true"></i><span>No online product sales this month.</span></div>
+                    </div>
+                    <div class="analytics-card-skeleton analytics-card-skeleton--list" aria-hidden="true">
+                      <div class="analytics-card-skeleton__row"><span class="analytics-card-skeleton__rank"></span><span class="analytics-card-skeleton__label"></span><span class="analytics-card-skeleton__value"></span></div>
+                      <div class="analytics-card-skeleton__row"><span class="analytics-card-skeleton__rank"></span><span class="analytics-card-skeleton__label"></span><span class="analytics-card-skeleton__value"></span></div>
+                      <div class="analytics-card-skeleton__row"><span class="analytics-card-skeleton__rank"></span><span class="analytics-card-skeleton__label"></span><span class="analytics-card-skeleton__value"></span></div>
+                      <div class="analytics-card-skeleton__row"><span class="analytics-card-skeleton__rank"></span><span class="analytics-card-skeleton__label"></span><span class="analytics-card-skeleton__value"></span></div>
+                    </div>
+                  </div>
+                </div>
+
                 <!-- Yearly Sales Trend -->
-                <div class="analytics-overview-card">
+                <div class="analytics-overview-card is-analytics-loading" id="aovYearlySalesTrendCard" aria-busy="true">
                   <div class="aov-header">
                     <div class="aov-icon aov-icon-trend">
                       <i class="fa-solid fa-chart-line"></i>
                     </div>
-                    <div>
+                    <div class="aov-header__copy">
                       <h4>Yearly Sales Trend</h4>
-                      <span id="aovTrendYear">Monthly totals</span>
+                      <span id="aovTrendYear">Current calendar year · monthly sales</span>
                     </div>
                   </div>
+                  <p class="analytics-card-caption" id="aovYearlySalesTrendCaption">Completed online orders · by order month · before returns</p>
                   <div class="aov-body aov-body--chart" id="aovYearlySalesTrend">
                     <canvas
                       class="aov-canvas"
@@ -445,9 +465,17 @@
                     <div
                       class="aov-empty aov-empty--hidden"
                       id="aovYearlySalesTrendEmpty"
+                      role="status"
                     >
-                      <i class="fa-solid fa-chart-line"></i> No sales data for
-                      this year
+                      <i class="fa-solid fa-chart-line" aria-hidden="true"></i><span>No completed online sales this year.</span>
+                    </div>
+                    <div class="analytics-card-skeleton analytics-card-skeleton--line" aria-hidden="true">
+                      <svg class="analytics-card-skeleton__plot" viewBox="0 0 400 150" preserveAspectRatio="none" focusable="false">
+                        <path class="analytics-card-skeleton__grid" d="M0 20 H400 M0 75 H400 M0 130 H400" />
+                        <path class="analytics-card-skeleton__area" d="M0 120 L36 110 L73 95 L109 105 L145 78 L182 90 L218 56 L255 70 L291 48 L327 64 L364 34 L400 22 V150 H0 Z" />
+                        <path class="analytics-card-skeleton__stroke" d="M0 120 L36 110 L73 95 L109 105 L145 78 L182 90 L218 56 L255 70 L291 48 L327 64 L364 34 L400 22" />
+                      </svg>
+                      <div class="analytics-card-skeleton__axis"><span></span><span></span><span></span><span></span></div>
                     </div>
                   </div>
                 </div>
@@ -473,8 +501,7 @@
               <ul class="recent-list" id="dashboardRecentAppointments">
                 <li class="recent-loading">
                   <div class="recent-info">
-                    <strong>Loading appointments...</strong>
-                    <span>Please wait while dashboard syncs.</span>
+                    <strong>Recent appointments are loading.</strong>
                   </div>
                 </li>
               </ul>
@@ -497,8 +524,7 @@
               <ul class="recent-list" id="dashboardRecentOrders">
                 <li class="recent-loading">
                   <div class="recent-info">
-                    <strong>Loading orders...</strong>
-                    <span>Please wait while dashboard syncs.</span>
+                    <strong>Recent orders are loading.</strong>
                   </div>
                 </li>
               </ul>
@@ -521,8 +547,7 @@
               <ul class="recent-list" id="dashboardRecentInquiries">
                 <li class="recent-loading">
                   <div class="recent-info">
-                    <strong>Loading inquiries...</strong>
-                    <span>Please wait while dashboard syncs.</span>
+                    <strong>Recent inquiries are loading.</strong>
                   </div>
                 </li>
               </ul>
@@ -534,8 +559,8 @@
 
     <script src="session-helper.js?v=2.2"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
-    <script src="admin-common.js?v=7.2"></script>
-    <script src="dashboard.js?v=6.1"></script>
+    <script src="admin-common.js?v=7.3"></script>
+    <script src="dashboard.js?v=6.3"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>

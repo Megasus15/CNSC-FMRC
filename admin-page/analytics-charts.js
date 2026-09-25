@@ -38,6 +38,63 @@
     return out;
   };
 
+  // Canvas tooltips are clipped by the responsive analytics cards. Keep the
+  // category tooltip in the page layer, and remove it with its chart.
+  function categoryTooltip(total) {
+    let popup = null;
+    let title = null;
+    let detail = null;
+    const hide = () => { if (popup) popup.style.display = "none"; };
+
+    const ensurePopup = () => {
+      if (popup) return;
+      popup = document.createElement("div");
+      popup.setAttribute("role", "tooltip");
+      popup.style.cssText = "position:fixed;z-index:2147483647;display:none;pointer-events:none;box-sizing:border-box;max-width:min(280px,calc(100vw - 16px));padding:10px 12px;border-radius:8px;background:#1a1a2e;color:#fff;box-shadow:0 10px 28px rgba(18,18,32,.2);font:500 11px/1.45 Poppins,sans-serif;overflow-wrap:anywhere";
+      title = document.createElement("strong");
+      title.style.cssText = "display:block;font-size:12px;line-height:1.4";
+      detail = document.createElement("span");
+      detail.style.cssText = "display:block;margin-top:3px";
+      popup.append(title, detail);
+      document.body.appendChild(popup);
+      window.addEventListener("scroll", hide, true);
+      window.addEventListener("resize", hide);
+    };
+
+    return {
+      external({ chart, tooltip }) {
+        const point = tooltip?.dataPoints?.[0];
+        if (!tooltip?.opacity || !point) { hide(); return; }
+        ensurePopup();
+        const value = Number(point.parsed || 0);
+        const share = total > 0 ? (value / total) * 100 : 0;
+        title.textContent = point.label || "Uncategorized";
+        detail.textContent = `${peso(value)} · ${share.toFixed(1)}% of sales`;
+        popup.style.display = "block";
+
+        const rect = chart.canvas.getBoundingClientRect();
+        const anchorX = rect.left + tooltip.caretX * rect.width / chart.width;
+        const anchorY = rect.top + tooltip.caretY * rect.height / chart.height;
+        const width = popup.offsetWidth;
+        const height = popup.offsetHeight;
+        const left = Math.max(8, Math.min(anchorX + 12, window.innerWidth - width - 8));
+        let top = anchorY + 12;
+        if (top + height > window.innerHeight - 8) top = anchorY - height - 12;
+        popup.style.left = `${left}px`;
+        popup.style.top = `${Math.max(8, Math.min(top, window.innerHeight - height - 8))}px`;
+      },
+      cleanup: {
+        id: "categoryTooltipCleanup",
+        afterDestroy() {
+          window.removeEventListener("scroll", hide, true);
+          window.removeEventListener("resize", hide);
+          popup?.remove();
+          popup = null;
+        },
+      },
+    };
+  }
+
   function renderBar(ctx, cfg) {
     if (!ctx || !hasChart()) return null;
     const c = cfg || {};
@@ -79,7 +136,13 @@
           y: {
             beginAtZero: true,
             grid: { color: "#f3f4f6" },
-            ticks: { font: { family: FONT, size: 11 }, color: "#6b7280" },
+            ticks: {
+              font: { family: FONT, size: 11 }, color: "#6b7280",
+              callback: horizontal ? (value) => {
+                const label = String((c.labels || [])[Number(value)] || "");
+                return label.length > 18 ? `${label.slice(0, 17)}…` : label;
+              } : undefined,
+            },
           },
         },
       },
@@ -92,8 +155,10 @@
     const data = c.data || [];
     const total =
       c.total != null ? c.total : data.reduce((s, v) => s + Number(v || 0), 0);
+    const floatingTooltip = categoryTooltip(total);
     return new window.Chart(ctx, {
       type: "doughnut",
+      plugins: [floatingTooltip.cleanup],
       data: {
         labels: c.labels || [],
         datasets: [
@@ -102,7 +167,7 @@
             backgroundColor: colorsFor(data.length, c.colors),
             borderWidth: 2,
             borderColor: "#fff",
-            hoverOffset: 8,
+            hoverOffset: 0,
           },
         ],
       },
@@ -112,15 +177,7 @@
         cutout: c.cutout || "62%",
         plugins: {
           legend: { display: false },
-          tooltip: Object.assign({}, TOOLTIP, {
-            callbacks: {
-              label: (item) => {
-                const val = item.parsed || 0;
-                const share = total > 0 ? (val / total) * 100 : 0;
-                return `${item.label}: ${peso(val)} (${share.toFixed(1)}%)`;
-              },
-            },
-          }),
+          tooltip: { enabled: false, external: floatingTooltip.external },
         },
       },
     });
@@ -136,12 +193,12 @@
         labels: c.labels || [],
         datasets: [
           {
-            label: c.label || "Total",
+            label: c.label || "Sales before returns",
             data: c.data || [],
             borderColor: MAROON,
             backgroundColor: "rgba(128,0,0,0.08)",
             fill: c.area !== false,
-            tension: 0.4,
+            tension: 0,
             pointBackgroundColor: MAROON,
             pointBorderColor: "#fff",
             pointBorderWidth: 2,
@@ -153,24 +210,46 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: false,
+        interaction: { mode: "index", intersect: false },
         plugins: {
           legend: { display: false },
           tooltip: Object.assign({}, TOOLTIP, {
-            callbacks: currency ? { label: (item) => peso(item.parsed.y) } : {},
+            displayColors: false,
+            callbacks: {
+              title: (items) => {
+                const item = items[0];
+                return item ? (c.tooltipLabels || [])[item.dataIndex] || item.label : "";
+              },
+              label: (item) => currency
+                ? `${c.label || "Sales"}: ${peso(item.parsed.y)}`
+                : `${c.label || "Total"}: ${item.parsed.y}`,
+            },
           }),
         },
         scales: {
           x: {
+            border: { display: false },
             grid: { display: false },
-            ticks: { font: { family: FONT, size: 10 }, color: "#9ca3af" },
+            ticks: {
+              font: { family: FONT, size: 9 }, color: "#6b7280",
+              maxTicksLimit: 12, maxRotation: 0, minRotation: 0,
+              autoSkip: false, padding: 2,
+            },
           },
           y: {
-            grid: { color: "#f3f4f6" },
+            beginAtZero: true,
+            border: { display: false },
+            grid: { color: "rgba(107,114,128,0.12)", drawTicks: false },
             ticks: {
               font: { family: FONT, size: 10 },
               color: "#6b7280",
+              maxTicksLimit: 4,
+              padding: 8,
               callback: currency
-                ? (v) => "₱" + (v / 1000).toFixed(0) + "k"
+                ? (v) => "₱" + Number(v).toLocaleString("en-PH", {
+                  notation: "compact", maximumFractionDigits: 1,
+                })
                 : undefined,
             },
           },

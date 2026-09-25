@@ -223,7 +223,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     if (!filtered.length) {
-      addProductNameOptions.innerHTML = `<div class="custom-select-no-results">No products found. Try another search or add a new product.</div>`;
+      addProductNameOptions.innerHTML = `<div class="custom-select-no-results">${query ? "No matching products" : "No products in this category"}</div>`;
       return;
     }
 
@@ -620,12 +620,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const paged = source.slice(start, start + PAGE_SIZE);
 
     if (!paged.length) {
+      const emptyMessage = products.length
+        ? "No products match these filters."
+        : 'No products yet. Select "Add Product" to create one.';
       tableBody.innerHTML = `
         <tr class="table-empty-row">
           <td colspan="11">
             <div class="table-empty-state">
               <i class="fa-regular fa-folder-open"></i>
-              <span>No products found. Click "Add Product" to get started.</span>
+              <span>${emptyMessage}</span>
             </div>
           </td>
         </tr>`;
@@ -787,13 +790,114 @@ document.addEventListener("DOMContentLoaded", () => {
     "#94a3b8",
   ];
 
+  // The category card clips canvas content, so its hover details live above
+  // the card in a page-level tooltip. Destroying the chart removes the node.
+  const categoryTooltip = (total) => {
+    let popup = null;
+    let title = null;
+    let detail = null;
+    const hide = () => { if (popup) popup.style.display = "none"; };
+
+    const ensurePopup = () => {
+      if (popup) return;
+      popup = document.createElement("div");
+      popup.setAttribute("role", "tooltip");
+      popup.style.cssText = "position:fixed;z-index:2147483647;display:none;pointer-events:none;box-sizing:border-box;max-width:min(280px,calc(100vw - 16px));padding:10px 12px;border-radius:8px;background:#1a1a2e;color:#fff;box-shadow:0 10px 28px rgba(18,18,32,.2);font:500 11px/1.45 Poppins,sans-serif;overflow-wrap:anywhere";
+      title = document.createElement("strong");
+      title.style.cssText = "display:block;font-size:12px;line-height:1.4";
+      detail = document.createElement("span");
+      detail.style.cssText = "display:block;margin-top:3px";
+      popup.append(title, detail);
+      document.body.appendChild(popup);
+      window.addEventListener("scroll", hide, true);
+      window.addEventListener("resize", hide);
+    };
+
+    return {
+      external({ chart, tooltip }) {
+        const point = tooltip?.dataPoints?.[0];
+        if (!tooltip?.opacity || !point) { hide(); return; }
+        ensurePopup();
+        const value = Number(point.parsed || 0);
+        const share = total > 0 ? (value / total) * 100 : 0;
+        title.textContent = point.label || "Uncategorized";
+        detail.textContent = `${formatPrice(value)} · ${share.toFixed(1)}% of sales`;
+        popup.style.display = "block";
+
+        const rect = chart.canvas.getBoundingClientRect();
+        const anchorX = rect.left + tooltip.caretX * rect.width / chart.width;
+        const anchorY = rect.top + tooltip.caretY * rect.height / chart.height;
+        const width = popup.offsetWidth;
+        const height = popup.offsetHeight;
+        const left = Math.max(8, Math.min(anchorX + 12, window.innerWidth - width - 8));
+        let top = anchorY + 12;
+        if (top + height > window.innerHeight - 8) top = anchorY - height - 12;
+        popup.style.left = `${left}px`;
+        popup.style.top = `${Math.max(8, Math.min(top, window.innerHeight - height - 8))}px`;
+      },
+      cleanup: {
+        id: "categoryTooltipCleanup",
+        afterDestroy() {
+          window.removeEventListener("scroll", hide, true);
+          window.removeEventListener("resize", hide);
+          popup?.remove();
+          popup = null;
+        },
+      },
+    };
+  };
+
   // Yearly trend should mirror Orders page totals in real time.
   const YEARLY_TREND_DATE_BASIS = "created_at";
+
+  let productAnalyticsGen = 0;
+  let trendRequestGen = 0;
+  const analyticsCard = (id) => document.getElementById(id);
+  const setCardBusy = (id, busy, showSkeleton = false) => {
+    const card = analyticsCard(id);
+    if (!card) return;
+    card.setAttribute("aria-busy", busy ? "true" : "false");
+    card.classList.toggle("is-analytics-loading", busy && showSkeleton);
+    if (busy && showSkeleton) {
+      const empty = card.querySelector(".analytics-empty-state");
+      if (empty) empty.style.display = "none";
+    }
+  };
+  const setCardEmpty = (id, title) => {
+    const empty = analyticsCard(id)?.querySelector(".analytics-empty-state");
+    if (!empty) return;
+    const heading = empty.querySelector(".empty-title");
+    if (heading) heading.textContent = title;
+    empty.style.display = "flex";
+  };
+  const emptyPeriod = (state) => {
+    switch (state?.period) {
+      case "day": return "today";
+      case "week": return "this week";
+      case "year": return "this year";
+      case "all": return "yet";
+      case "custom": return "in selected dates";
+      default: return "this month";
+    }
+  };
+  const compactPeso = (value) =>
+    `₱${new Intl.NumberFormat("en-PH", { notation: "compact", maximumFractionDigits: 1 }).format(Number(value) || 0)}`;
+  const manilaYearMonth = () => {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Manila",
+      year: "numeric",
+      month: "numeric",
+    }).formatToParts(new Date());
+    return {
+      year: Number(parts.find((part) => part.type === "year")?.value),
+      month: Number(parts.find((part) => part.type === "month")?.value),
+    };
+  };
 
   // ── Populate year dropdown for Yearly Sales Trend ──
   const yearDropdown = document.getElementById("yearlySalesTrendYear");
   if (yearDropdown) {
-    const currentYear = new Date().getFullYear();
+    const currentYear = manilaYearMonth().year;
     yearDropdown.innerHTML = "";
     for (let y = currentYear; y >= currentYear - 5; y--) {
       const opt = document.createElement("option");
@@ -804,52 +908,59 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // ── 1. Top Selling Products (vertical bar, from API) ──
-  const loadTopSelling = async (period = "month") => {
+  // ── 1. Top Selling Products (horizontal bar, from API) ──
+  const loadTopSelling = async (gen, query, state) => {
     const topCtx = document.getElementById("topSellingChart");
     const emptyEl = document.getElementById("topSellingEmpty");
-    const topBody = document.getElementById("topSellingBody");
     if (!topCtx) return;
 
     try {
       const res = await fetch(
-        `${API_BASE_URL}/admin/product-analytics/top-selling?${currentPeriodQuery()}`,
+        `${API_BASE_URL}/admin/product-analytics/top-selling?${query}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
           },
+          cache: "no-store",
         },
       );
-      topBody?.querySelectorAll(".analytics-shimmer-loader").forEach((el) => el.remove());
+      if (gen !== productAnalyticsGen) return;
       if (res.status === 401 || res.status === 403) {
         setUnauthorized();
         return;
       }
+      if (!res.ok) throw new Error(`Top sellers request failed (${res.status})`);
       const payload = await res.json();
+      if (gen !== productAnalyticsGen) return;
       const data = Array.isArray(payload?.data) ? payload.data : [];
 
       if (chartTopSelling) chartTopSelling.destroy();
+      chartTopSelling = null;
+      setCardBusy("topSellingCard", false);
 
       if (!data.length) {
         topCtx.style.display = "none";
-        if (emptyEl) emptyEl.style.display = "flex";
+        setCardEmpty("topSellingCard", `No products sold ${emptyPeriod(state)}`);
         return;
       }
 
       topCtx.style.display = "";
       if (emptyEl) emptyEl.style.display = "none";
 
+      const fullNames = data.map((p) => String(p.name || "Unnamed product"));
+      topCtx.setAttribute("aria-label",
+        `Top selling products ${emptyPeriod(state)} by units sold. ${fullNames[0]} leads with ${Number(data[0].total_sold || 0).toLocaleString("en-PH")} units.`);
       chartTopSelling = new Chart(topCtx, {
         type: "bar",
         data: {
-          labels: data.map((p) =>
-            p.name?.length > 18 ? p.name.slice(0, 18) + "..." : p.name,
+          labels: fullNames.map((name) =>
+            name.length > 20 ? `${name.slice(0, 19)}…` : name,
           ),
           datasets: [
             {
-              label: "Qty Sold",
-              data: data.map((p) => p.total_sold),
+              label: "Units sold",
+              data: data.map((p) => Number(p.total_sold || 0)),
               backgroundColor: data.map(
                 (_, i) => CHART_PALETTE[i % CHART_PALETTE.length],
               ),
@@ -859,9 +970,10 @@ document.addEventListener("DOMContentLoaded", () => {
           ],
         },
         options: {
-          indexAxis: "x",
+          indexAxis: "y",
           responsive: true,
           maintainAspectRatio: false,
+          animation: false,
           plugins: {
             legend: { display: false },
             tooltip: {
@@ -870,71 +982,63 @@ document.addEventListener("DOMContentLoaded", () => {
               bodyFont: { family: "Poppins", size: 11 },
               padding: 10,
               cornerRadius: 8,
+              callbacks: {
+                title: (items) => fullNames[items[0]?.dataIndex] || "Product",
+                label: (item) => ` ${Number(item.parsed.x || 0).toLocaleString("en-PH")} units sold`,
+              },
             },
           },
           scales: {
             x: {
-              grid: { display: false },
+              beginAtZero: true,
+              grid: { color: "#f1ebe7" },
               ticks: {
                 font: { family: "Poppins", size: 10 },
-                color: "#374151",
-                maxRotation: 45,
-                minRotation: 0,
+                color: "#6b6260",
+                precision: 0,
               },
             },
             y: {
-              grid: { color: "#f3f4f6" },
+              grid: { display: false },
               ticks: {
-                font: { family: "Poppins", size: 11 },
-                color: "#6b7280",
-                beginAtZero: true,
+                font: { family: "Poppins", size: 10 },
+                color: "#514847",
               },
             },
           },
         },
       });
     } catch (err) {
+      if (gen !== productAnalyticsGen) return;
       console.error("Top selling load error:", err);
-      topBody?.querySelectorAll(".analytics-shimmer-loader").forEach((el) => el.remove());
+      if (chartTopSelling) chartTopSelling.destroy();
+      chartTopSelling = null;
+      setCardBusy("topSellingCard", false);
       topCtx.style.display = "none";
-      if (emptyEl) emptyEl.style.display = "flex";
+      setCardEmpty("topSellingCard", "Could not load top sellers");
     }
   };
 
   // ── Shared reporting-period toolbar (Today / Week / Month / Year / All) ──
-  /* Replaces the old 3-option <select>. One control drives all three sales
-     cards, so a period pick can never leave one card on a stale window — which
-     is how last year's figures used to stay on screen no matter what was
-     picked. It also unlocks the Year + All-time windows the <select> lacked.
-     The page owns its first load (updateSummaryCards below reads currentPeriod
-     after mount), so the toolbar fires onChange only on a real user change.
-     Mounting here — in the module body, not a DOMContentLoaded handler — means
-     the staff products loader, which injects this module at runtime, gets the
-     toolbar too. */
+  /* One period pick refreshes the three period-scoped sales cards and the
+     independent yearly chart. The first load starts immediately after mount.
+     Staff injects this shared module after its own DOMContentLoaded event. */
   let productAnalyticsToolbarApi = null;
-  const currentPeriod = () =>
-    (productAnalyticsToolbarApi && productAnalyticsToolbarApi.getPeriod()) || "month";
+  const currentPeriodState = () =>
+    (productAnalyticsToolbarApi && productAnalyticsToolbarApi.getState()) || {
+      period: "month",
+    };
   // Querystring for the three analytics endpoints. A preset is period=key; a
   // custom range adds &from&to (YYYY-MM-DD), resolved in Asia/Manila by
   // App\Support\AnalyticsPeriod. Reads the live toolbar state so custom ranges
   // survive realtime reloads too.
-  const currentPeriodQuery = () => {
-    const st =
-      (productAnalyticsToolbarApi && productAnalyticsToolbarApi.getState()) || {
-        period: "month",
-      };
+  const periodQuery = (st) => {
     const key = st.period || "month";
     let q = `period=${encodeURIComponent(key)}`;
     if (key === "custom" && st.from && st.to) {
       q += `&from=${encodeURIComponent(st.from)}&to=${encodeURIComponent(st.to)}`;
     }
     return q;
-  };
-
-  const reloadProductAnalytics = () => {
-    void loadTopSelling(currentPeriod());
-    void loadSalesByCategory();
-    void loadProductPerformance();
   };
 
   const mountProductAnalyticsToolbar = () => {
@@ -944,13 +1048,13 @@ document.addEventListener("DOMContentLoaded", () => {
       storageKey: "fmrc_products_analytics_period",
       initialPeriod: "month",
       ariaLabel: "Select reporting period for product analytics",
-      onChange: () => reloadProductAnalytics(),
+      onChange: () => void updateSummaryCards({ showLoading: true }),
     });
   };
   mountProductAnalyticsToolbar();
 
   // ── 2. Sales by Category (doughnut, from API) ──
-  const loadSalesByCategory = async () => {
+  const loadSalesByCategory = async (gen, query, state) => {
     const catCtx = document.getElementById("salesByCategoryChart");
     const emptyEl = document.getElementById("salesByCategoryEmpty");
     const layoutEl = document.getElementById("salesByCategoryLayout");
@@ -960,35 +1064,39 @@ document.addEventListener("DOMContentLoaded", () => {
       "salesCategoryCenterPercent",
     );
     const centerLabelEl = document.getElementById("salesCategoryCenterLabel");
-    const catBody = document.getElementById("salesByCategoryBody");
     if (!catCtx) return;
 
     try {
       const res = await fetch(
-        `${API_BASE_URL}/admin/product-analytics/sales-by-category?${currentPeriodQuery()}`,
+        `${API_BASE_URL}/admin/product-analytics/sales-by-category?${query}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
           },
+          cache: "no-store",
         },
       );
-      catBody?.querySelectorAll(".analytics-shimmer-loader").forEach((el) => el.remove());
+      if (gen !== productAnalyticsGen) return;
       if (res.status === 401 || res.status === 403) {
         setUnauthorized();
         return;
       }
+      if (!res.ok) throw new Error(`Category sales request failed (${res.status})`);
       const payload = await res.json();
+      if (gen !== productAnalyticsGen) return;
       const data = Array.isArray(payload?.data) ? payload.data : [];
 
       if (chartSalesByCategory) chartSalesByCategory.destroy();
+      chartSalesByCategory = null;
+      setCardBusy("salesByCategoryCard", false);
 
-      if (!data.length) {
+      if (!data.some((item) => Number(item.total_revenue || 0) > 0)) {
         catCtx.style.display = "none";
         if (layoutEl) layoutEl.style.display = "none";
         if (listEl) listEl.innerHTML = "";
         if (centerMetricEl) centerMetricEl.style.display = "none";
-        if (emptyEl) emptyEl.style.display = "flex";
+        setCardEmpty("salesByCategoryCard", `No online sales ${emptyPeriod(state)}`);
         return;
       }
 
@@ -1020,6 +1128,8 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       const topCategory = mapped[0] || null;
+      catCtx.setAttribute("aria-label",
+        `Completed online product sales by category ${emptyPeriod(state)}. ${topCategory?.category || "No category"} has the largest share at ${(topCategory?.percentage || 0).toFixed(1)}%.`);
       if (centerPercentEl) {
         centerPercentEl.textContent = `${(topCategory?.percentage || 0).toFixed(1)}%`;
       }
@@ -1048,8 +1158,10 @@ document.addEventListener("DOMContentLoaded", () => {
           .join("");
       }
 
+      const floatingTooltip = categoryTooltip(totalRevenue);
       chartSalesByCategory = new Chart(catCtx, {
         type: "doughnut",
+        plugins: [floatingTooltip.cleanup],
         data: {
           labels: mapped.map((d) => d.category),
           datasets: [
@@ -1058,46 +1170,37 @@ document.addEventListener("DOMContentLoaded", () => {
               backgroundColor: mapped.map((d) => d.color),
               borderWidth: 2,
               borderColor: "#fff",
-              hoverOffset: 8,
+              hoverOffset: 0,
             },
           ],
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          animation: false,
           cutout: "62%",
           plugins: {
             legend: { display: false },
-            tooltip: {
-              backgroundColor: "#1a1a2e",
-              titleFont: { family: "Poppins", size: 12 },
-              bodyFont: { family: "Poppins", size: 11 },
-              padding: 10,
-              cornerRadius: 8,
-              callbacks: {
-                label: (ctx) => {
-                  const val = ctx.parsed || 0;
-                  const share =
-                    totalRevenue > 0 ? (val / totalRevenue) * 100 : 0;
-                  return `${ctx.label}: ₱${val.toLocaleString("en-PH", { minimumFractionDigits: 2 })} (${share.toFixed(1)}%)`;
-                },
-              },
-            },
+            tooltip: { enabled: false, external: floatingTooltip.external },
           },
         },
       });
     } catch (err) {
+      if (gen !== productAnalyticsGen) return;
       console.error("Sales by category load error:", err);
-      catBody?.querySelectorAll(".analytics-shimmer-loader").forEach((el) => el.remove());
+      if (chartSalesByCategory) chartSalesByCategory.destroy();
+      chartSalesByCategory = null;
+      setCardBusy("salesByCategoryCard", false);
       catCtx.style.display = "none";
       if (layoutEl) layoutEl.style.display = "none";
       if (listEl) listEl.innerHTML = "";
       if (centerMetricEl) centerMetricEl.style.display = "none";
-      if (emptyEl) emptyEl.style.display = "flex";
+      setCardEmpty("salesByCategoryCard", "Could not load category sales");
     }
   };
 
   // ── 3. Product Performance Table (from API) ──
+  let performanceEmptyTitle = "No product sales this month";
   const renderProductPerformance = () => {
     const perfBody = document.getElementById("productPerformanceBody");
     const emptyEl = document.getElementById("productPerformanceEmpty");
@@ -1121,7 +1224,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!productPerformanceRows.length) {
       perfBody.innerHTML = "";
       if (tableEl) tableEl.style.display = "none";
-      if (emptyEl) emptyEl.style.display = "flex";
+      setCardEmpty("productPerformanceCard", performanceEmptyTitle);
       if (footer) footer.style.display = "none";
       return;
     }
@@ -1208,47 +1311,55 @@ document.addEventListener("DOMContentLoaded", () => {
       goToProductPerformancePage(event.target.value);
     });
 
-  const loadProductPerformance = async () => {
+  const loadProductPerformance = async (gen, query, state) => {
     const perfBody = document.getElementById("productPerformanceBody");
-    const perfWrapper = document.getElementById("productPerformanceTableWrapper");
     if (!perfBody) return;
 
     try {
       const res = await fetch(
-        `${API_BASE_URL}/admin/product-analytics/product-performance?${currentPeriodQuery()}`,
+        `${API_BASE_URL}/admin/product-analytics/product-performance?${query}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
             Accept: "application/json",
           },
+          cache: "no-store",
         },
       );
-      perfWrapper?.querySelectorAll(".analytics-shimmer-loader").forEach((el) => el.remove());
+      if (gen !== productAnalyticsGen) return;
       if (res.status === 401 || res.status === 403) {
         setUnauthorized();
         return;
       }
+      if (!res.ok) throw new Error(`Product performance request failed (${res.status})`);
       const payload = await res.json();
+      if (gen !== productAnalyticsGen) return;
       const data = Array.isArray(payload?.data) ? payload.data : [];
+      performanceEmptyTitle = `No product sales ${emptyPeriod(state)}`;
       productPerformanceRows = data;
+      productPerformancePage = 1;
+      setCardBusy("productPerformanceCard", false);
       renderProductPerformance();
     } catch (err) {
+      if (gen !== productAnalyticsGen) return;
       console.error("Product performance load error:", err);
-      perfWrapper?.querySelectorAll(".analytics-shimmer-loader").forEach((el) => el.remove());
+      performanceEmptyTitle = "Could not load product performance";
       productPerformanceRows = [];
       productPerformancePage = 1;
+      setCardBusy("productPerformanceCard", false);
       renderProductPerformance();
     }
   };
 
   // ── 4. Yearly Sales Trend (line chart, from API) ──
-  const loadYearlySalesTrend = async (year) => {
+  const loadYearlySalesTrend = async (year, gen, requestGen) => {
     const trendCtx = document.getElementById("yearlySalesTrendChart");
     const emptyEl = document.getElementById("yearlySalesTrendEmpty");
-    const trendBody = document.getElementById("yearlySalesTrendBody");
     if (!trendCtx) return;
 
-    const selectedYear = year || new Date().getFullYear();
+    const selectedYear = year || manilaYearMonth().year;
+    const caption = document.getElementById("yearlySalesTrendCaption");
+    if (caption) caption.textContent = `Completed online orders · before returns · Year ${selectedYear}`;
 
     try {
       const res = await fetch(
@@ -1261,20 +1372,29 @@ document.addEventListener("DOMContentLoaded", () => {
           cache: "no-store",
         },
       );
-      trendBody?.querySelectorAll(".analytics-shimmer-loader").forEach((el) => el.remove());
+      if (gen !== productAnalyticsGen || requestGen !== trendRequestGen) return;
       if (res.status === 401 || res.status === 403) {
         setUnauthorized();
         return;
       }
+      if (!res.ok) throw new Error(`Yearly sales request failed (${res.status})`);
       const payload = await res.json();
+      if (gen !== productAnalyticsGen || requestGen !== trendRequestGen) return;
       const monthsData = Array.isArray(payload?.data) ? payload.data : [];
-      const hasData = payload?.has_data ?? false;
+      const now = manilaYearMonth();
+      const visibleSales = monthsData.map((month, index) =>
+        selectedYear === now.year && index + 1 > now.month
+          ? null : Number(month.total_sales || 0),
+      );
+      const hasVisibleData = visibleSales.some((amount) => amount != null && amount > 0);
 
       if (chartYearlyTrend) chartYearlyTrend.destroy();
+      chartYearlyTrend = null;
+      setCardBusy("yearlySalesTrendCard", false);
 
-      if (!hasData) {
+      if (!hasVisibleData) {
         trendCtx.style.display = "none";
-        if (emptyEl) emptyEl.style.display = "flex";
+        setCardEmpty("yearlySalesTrendCard", `No completed online sales in ${selectedYear}`);
         return;
       }
 
@@ -1296,29 +1416,37 @@ document.addEventListener("DOMContentLoaded", () => {
         "Dec",
       ];
 
+      const highestMonth = visibleSales.reduce((best, value, index) =>
+        value != null && value > (visibleSales[best] ?? -1) ? index : best, 0);
+      if (caption) caption.textContent = `Completed online orders · before returns · Peak ${months[highestMonth]} ${compactPeso(visibleSales[highestMonth])} · Year ${selectedYear}`;
+      trendCtx.setAttribute("aria-label",
+        `Monthly completed online sales before returns in ${selectedYear}. Highest: ${months[highestMonth]}, ${formatPrice(visibleSales[highestMonth] || 0)}.`);
       chartYearlyTrend = new Chart(trendCtx, {
         type: "line",
         data: {
           labels: months,
           datasets: [
             {
-              label: "Total Sales (PHP)",
-              data: monthsData.map((m) => m.total_sales),
+              label: "Sales before returns",
+              data: visibleSales,
               borderColor: "#800000",
               backgroundColor: "rgba(128,0,0,0.08)",
               fill: true,
-              tension: 0.4,
+              tension: 0,
               pointBackgroundColor: "#800000",
               pointBorderColor: "#fff",
               pointBorderWidth: 2,
-              pointRadius: 4,
+              pointRadius: 3,
               pointHoverRadius: 6,
+              spanGaps: false,
             },
           ],
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
+          animation: false,
+          interaction: { mode: "index", intersect: false },
           plugins: {
             legend: { display: false },
             tooltip: {
@@ -1327,166 +1455,116 @@ document.addEventListener("DOMContentLoaded", () => {
               bodyFont: { family: "Poppins", size: 11 },
               padding: 10,
               cornerRadius: 8,
+              displayColors: false,
               callbacks: {
+                title: (items) => `${months[items[0]?.dataIndex] || "Month"} ${selectedYear}`,
                 label: (ctx) => {
-                  const val = ctx.parsed.y || 0;
-                  return (
-                    "₱" +
-                    val.toLocaleString("en-PH", { minimumFractionDigits: 2 })
-                  );
+                  return ` Completed online sales before returns: ${formatPrice(ctx.parsed.y || 0)}`;
                 },
               },
             },
           },
           scales: {
             x: {
+              border: { display: false },
               grid: { display: false },
               ticks: {
-                font: { family: "Poppins", size: 10 },
-                color: "#9ca3af",
+                font: { family: "Poppins", size: 9 },
+                color: "#6b7280",
+                maxTicksLimit: 12,
+                maxRotation: 0,
+                minRotation: 0,
+                autoSkip: false,
+                padding: 2,
               },
             },
             y: {
-              grid: { color: "#f3f4f6" },
+              beginAtZero: true,
+              border: { display: false },
+              grid: { color: "rgba(107,114,128,0.12)", drawTicks: false },
               ticks: {
                 font: { family: "Poppins", size: 10 },
                 color: "#6b7280",
-                callback: (value) => "₱" + (value / 1000).toFixed(0) + "k",
+                maxTicksLimit: 4,
+                padding: 8,
+                callback: (value) => compactPeso(value),
               },
             },
           },
         },
       });
     } catch (err) {
+      if (gen !== productAnalyticsGen || requestGen !== trendRequestGen) return;
       console.error("Yearly sales trend load error:", err);
-      trendBody?.querySelectorAll(".analytics-shimmer-loader").forEach((el) => el.remove());
+      if (chartYearlyTrend) chartYearlyTrend.destroy();
+      chartYearlyTrend = null;
+      setCardBusy("yearlySalesTrendCard", false);
       trendCtx.style.display = "none";
-      if (emptyEl) emptyEl.style.display = "flex";
+      setCardEmpty("yearlySalesTrendCard", `Could not load ${selectedYear} online sales`);
     }
   };
 
   // Year dropdown listener
   yearDropdown?.addEventListener("change", () => {
-    void loadYearlySalesTrend(Number(yearDropdown.value));
+    setCardBusy("yearlySalesTrendCard", true, true);
+    const trendCtx = document.getElementById("yearlySalesTrendChart");
+    if (trendCtx) trendCtx.style.display = "none";
+    void loadYearlySalesTrend(Number(yearDropdown.value), productAnalyticsGen, ++trendRequestGen);
   });
 
-  // ── Shimmer loading skeleton for analytics cards ──
+  // ── Shape-matched loading skeletons for analytics cards ──
   const renderAnalyticsSkeletons = () => {
-    const shimmerHTML = `
-      <div style="display:flex;flex-direction:column;gap:10px;padding:8px 0;">
-        <div style="height:16px;border-radius:6px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:85%;"></div>
-        <div style="height:16px;border-radius:6px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:70%;animation-delay:0.15s;"></div>
-        <div style="height:16px;border-radius:6px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:55%;animation-delay:0.3s;"></div>
-        <div style="height:16px;border-radius:6px;background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.4s infinite;width:40%;animation-delay:0.45s;"></div>
-      </div>
-    `;
+    ["topSellingCard", "salesByCategoryCard", "productPerformanceCard", "yearlySalesTrendCard"]
+      .forEach((id) => setCardBusy(id, true, true));
+    const topChart = document.getElementById("topSellingChart");
+    const categoryLayout = document.getElementById("salesByCategoryLayout");
+    const trendChart = document.getElementById("yearlySalesTrendChart");
+    if (topChart) topChart.style.display = "none";
+    if (categoryLayout) categoryLayout.style.display = "none";
+    if (trendChart) trendChart.style.display = "none";
 
-    // Top Selling - hide chart, show shimmer
-    const topCtx = document.getElementById("topSellingChart");
-    const topEmpty = document.getElementById("topSellingEmpty");
-    const topBody = document.getElementById("topSellingBody");
-    if (topCtx) topCtx.style.display = "none";
-    if (topEmpty) topEmpty.style.display = "none";
-    if (topBody) {
-      let shimmerEl = topBody.querySelector(".analytics-shimmer-loader");
-      if (!shimmerEl) {
-        shimmerEl = document.createElement("div");
-        shimmerEl.className = "analytics-shimmer-loader";
-        topBody.appendChild(shimmerEl);
-      }
-      shimmerEl.innerHTML = shimmerHTML;
-      shimmerEl.style.display = "";
-    }
-
-    // Sales by Category - hide chart & layout, show shimmer
-    const catCtx = document.getElementById("salesByCategoryChart");
-    const catLayout = document.getElementById("salesByCategoryLayout");
-    const catEmpty = document.getElementById("salesByCategoryEmpty");
-    const catBody = document.getElementById("salesByCategoryBody");
-    if (catCtx) catCtx.style.display = "none";
-    if (catLayout) catLayout.style.display = "none";
-    if (catEmpty) catEmpty.style.display = "none";
-    if (catBody) {
-      let shimmerEl = catBody.querySelector(".analytics-shimmer-loader");
-      if (!shimmerEl) {
-        shimmerEl = document.createElement("div");
-        shimmerEl.className = "analytics-shimmer-loader";
-        catBody.appendChild(shimmerEl);
-      }
-      shimmerEl.innerHTML = shimmerHTML;
-      shimmerEl.style.display = "";
-    }
-
-    // Yearly Sales Trend - hide chart, show shimmer
-    const trendCtx = document.getElementById("yearlySalesTrendChart");
-    const trendEmpty = document.getElementById("yearlySalesTrendEmpty");
-    const trendBody = document.getElementById("yearlySalesTrendBody");
-    if (trendCtx) trendCtx.style.display = "none";
-    if (trendEmpty) trendEmpty.style.display = "none";
-    if (trendBody) {
-      let shimmerEl = trendBody.querySelector(".analytics-shimmer-loader");
-      if (!shimmerEl) {
-        shimmerEl = document.createElement("div");
-        shimmerEl.className = "analytics-shimmer-loader";
-        trendBody.appendChild(shimmerEl);
-      }
-      shimmerEl.innerHTML = shimmerHTML;
-      shimmerEl.style.display = "";
-    }
-
-    // Product Performance - keep the real header and use Inventory-style rows.
-    const perfTable = document.getElementById("productPerformanceTable");
-    const perfBody = document.getElementById("productPerformanceBody");
-    const perfEmpty = document.getElementById("productPerformanceEmpty");
-    const perfWrapper = document.getElementById(
-      "productPerformanceTableWrapper",
-    );
-    const perfFooter = document.getElementById("productPerformanceFooter");
-    if (perfTable) perfTable.style.display = "";
-    if (perfEmpty) perfEmpty.style.display = "none";
-    if (perfFooter) perfFooter.style.display = "none";
-    perfWrapper
-      ?.querySelectorAll(".analytics-shimmer-loader")
-      .forEach((loader) => loader.remove());
-    if (perfBody) {
-      const usedSharedSkeleton = window.AdminTableSkeleton?.show(perfBody, {
-        rows: 3,
-        columns: 6,
-      });
-      if (!usedSharedSkeleton) {
-        const cells = Array.from(
-          { length: 6 },
-          () => '<td><span class="admin-table-skeleton-bar"></span></td>',
-        ).join("");
-        perfBody.innerHTML = `<tr class="admin-table-skeleton-row" aria-hidden="true">${cells}</tr>`.repeat(
-          3,
-        );
+    const table = document.getElementById("productPerformanceTable");
+    const body = document.getElementById("productPerformanceBody");
+    const footer = document.getElementById("productPerformanceFooter");
+    if (table) table.style.display = "";
+    if (footer) footer.style.display = "none";
+    if (body) {
+      const shared = window.AdminTableSkeleton?.show(body, { rows: 3, columns: 6 });
+      if (!shared) {
+        const cells = Array.from({ length: 6 },
+          () => '<td><span class="admin-table-skeleton-bar"></span></td>').join("");
+        body.innerHTML = `<tr class="admin-table-skeleton-row" aria-hidden="true">${cells}</tr>`.repeat(3);
       }
     }
   };
 
-  // ── Remove shimmer loaders after data loads ──
-  const clearAnalyticsShimmers = () => {
-    document.querySelectorAll(".analytics-shimmer-loader").forEach((el) => {
-      el.remove();
+  // Each card resolves as soon as its own current request finishes.
+  const updateSummaryCards = ({ showLoading = true } = {}) => {
+    const state = currentPeriodState();
+    const query = periodQuery(state);
+    const gen = ++productAnalyticsGen;
+    const trendGen = ++trendRequestGen;
+    if (showLoading) renderAnalyticsSkeletons();
+    else ["topSellingCard", "salesByCategoryCard", "productPerformanceCard", "yearlySalesTrendCard"]
+      .forEach((id) => setCardBusy(id, true));
+    productAnalyticsToolbarApi?.setBusy?.(true);
+
+    return Promise.allSettled([
+      loadTopSelling(gen, query, state),
+      loadSalesByCategory(gen, query, state),
+      loadProductPerformance(gen, query, state),
+      loadYearlySalesTrend(
+        yearDropdown ? Number(yearDropdown.value) : manilaYearMonth().year,
+        gen,
+        trendGen,
+      ),
+    ]).finally(() => {
+      if (gen === productAnalyticsGen) productAnalyticsToolbarApi?.setBusy?.(false);
     });
   };
 
-  // ── Combined function to load all analytics cards progressively 1-by-1 ──
-  const updateSummaryCards = ({ showLoading = true } = {}) => {
-    if (showLoading) renderAnalyticsSkeletons();
-
-    // Trigger each widget independently so fast ones appear 1-by-1 immediately
-    void loadTopSelling(currentPeriod());
-    void loadSalesByCategory();
-    void loadProductPerformance();
-    void loadYearlySalesTrend(
-      yearDropdown ? Number(yearDropdown.value) : new Date().getFullYear(),
-    );
-  };
-
   // ─── Load Products from API ───────────────────────────────────────────────────
-  const loadProducts = async ({ showLoading = true, resetPage = true } = {}) => {
+  const loadProducts = async ({ showLoading = true, resetPage = true, refreshAnalytics = true } = {}) => {
     if (showLoading) renderSkeletonRows();
     try {
       const res = await fetch(`${API_BASE_URL}/admin/products`, {
@@ -1515,7 +1593,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (modalAdd?.classList.contains("show")) {
         void loadAddProductOptions(addCategory?.value || "3D Print");
       }
-      updateSummaryCards({ showLoading });
+      if (refreshAnalytics) void updateSummaryCards({ showLoading: false });
     } catch (err) {
       console.error("Load products error:", err);
       if (showLoading && tableBody) {
@@ -2113,7 +2191,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // ─── Initialize ───────────────────────────────────────────────────────────────
 
   setupProductBulkSelection();
-  void loadProducts();
+  // Analytics starts immediately; the product list request cannot delay the period bar.
+  void updateSummaryCards();
+  void loadProducts({ refreshAnalytics: false });
 
   // ── Realtime updates ─────────────────────────────────────────────────────────
   // Debounce guard: prevent multiple rapid loadProducts() calls.

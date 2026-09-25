@@ -216,7 +216,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const token =
       (window.AdminSession && window.AdminSession.getToken()) ||
       localStorage.getItem("auth_token");
-    await window.FMRCAdminLoader?.show("Signing you out");
+    await window.FMRCAdminLoader?.show("Signing you out.");
     try {
       if (token) {
         await fetch(`${API_BASE_URL}/logout`, {
@@ -513,8 +513,8 @@ document.addEventListener("DOMContentLoaded", () => {
       dashboardRecentAppointments.innerHTML = `
           <li class="recent-empty">
             <div class="recent-info">
-              <strong>No appointment records yet.</strong>
-              <span>Recent appointments will appear once customers submit requests.</span>
+              <strong>No appointments yet.</strong>
+              <span>New customer appointments will appear here.</span>
             </div>
           </li>
         `;
@@ -561,8 +561,8 @@ document.addEventListener("DOMContentLoaded", () => {
       dashboardRecentOrders.innerHTML = `
           <li class="recent-empty">
             <div class="recent-info">
-              <strong>No order records yet.</strong>
-              <span>Recent orders will appear once customers place orders.</span>
+              <strong>No online orders yet.</strong>
+              <span>New customer orders will appear here.</span>
             </div>
           </li>
         `;
@@ -607,7 +607,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <li class="recent-empty">
             <div class="recent-info">
               <strong>No customer inquiries yet.</strong>
-              <span>Recent inquiries will appear once customers submit messages.</span>
+              <span>New customer messages will appear here.</span>
             </div>
           </li>
         `;
@@ -1039,13 +1039,113 @@ document.addEventListener("DOMContentLoaded", () => {
     return el && el.getContext ? el.getContext("2d") : null;
   };
 
+  const aovCards = [
+    ["aovTopSelling", "topSelling"],
+    ["aovSalesByCategory", "salesByCategory"],
+    ["aovProductPerformance", null],
+    ["aovYearlySalesTrend", "yearlyTrend"],
+  ];
+  const currentManilaYear = () => Number(new Intl.DateTimeFormat("en-PH", {
+    year: "numeric", timeZone: "Asia/Manila",
+  }).format(new Date()));
+  const yearlyTrendYear = (state) => {
+    const chosen = state?.period === "custom" ? Number(String(state.to || "").slice(0, 4)) : NaN;
+    return Number.isInteger(chosen) && chosen >= 2000 && chosen <= 2100
+      ? chosen : currentManilaYear();
+  };
+  const aovPeriodCopy = (state) => {
+    const period = typeof state === "object" ? state?.period : state;
+    const names = {
+      day: ["Today", "today"], week: ["This Week", "this week"],
+      month: ["This Month", "this month"], year: ["This Year", "this year"],
+      all: ["All Time", "to date"],
+    };
+    if (period === "custom" && /^\d{4}-\d{2}-\d{2}$/.test(state?.from || "") &&
+        /^\d{4}-\d{2}-\d{2}$/.test(state?.to || "")) {
+      const short = (date) => new Date(`${date}T00:00:00Z`).toLocaleDateString("en-PH", {
+        day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
+      });
+      const range = state.from === state.to ? short(state.from) : `${short(state.from)}–${short(state.to)}`;
+      return { heading: range, empty: `for ${range}` };
+    }
+    const [heading, empty] = names[period] || names.month;
+    return { heading, empty };
+  };
+  const setAovPeriod = (state) => {
+    const { heading } = aovPeriodCopy(state);
+    [
+      ["aovTopSellingPeriod", "units sold"],
+      ["aovSalesByCategoryPeriod", "category sales"],
+      ["aovProductPerformancePeriod", "ranked by units"],
+    ].forEach(([id, measure]) => {
+      const node = document.getElementById(id);
+      if (node) node.textContent = `${heading} · ${measure}`;
+    });
+    if (aovTrendYear) aovTrendYear.textContent = `${yearlyTrendYear(state)} calendar year · monthly sales`;
+  };
+  const aovEmptyMessages = (state) => {
+    const { empty } = aovPeriodCopy(state);
+    return {
+      aovTopSelling: `No products sold ${empty}.`,
+      aovSalesByCategory: `No online category sales ${empty}.`,
+      aovProductPerformance: `No online product sales ${empty}.`,
+      aovYearlySalesTrend: yearlyTrendYear(state) === currentManilaYear()
+        ? `No completed online sales so far in ${yearlyTrendYear(state)}.`
+        : `No completed online sales in ${yearlyTrendYear(state)}.`,
+    };
+  };
+  let aovCurrentEmptyMessages = aovEmptyMessages({ period: "month" });
+  const finishAovLoading = (baseId) => {
+    const card = document.getElementById(baseId + "Card");
+    card?.classList.remove("is-analytics-loading");
+    card?.setAttribute("aria-busy", "false");
+  };
+  const setAovLoading = (state) => {
+    aovCurrentEmptyMessages = aovEmptyMessages(state);
+    setAovPeriod(state);
+    aovCards.forEach(([baseId, chartKey]) => {
+      const card = document.getElementById(baseId + "Card");
+      card?.classList.add("is-analytics-loading");
+      card?.setAttribute("aria-busy", "true");
+      const canvas = document.getElementById(baseId + "Chart");
+      if (canvas) canvas.style.display = "none";
+      const empty = document.getElementById(baseId + "Empty");
+      empty?.classList.add("aov-empty--hidden");
+      if (chartKey) destroyDashboardChart(chartKey);
+    });
+    const legend = document.getElementById("aovSalesByCategoryLegend");
+    if (legend) legend.innerHTML = "";
+    const list = document.getElementById("aovProductPerformanceList");
+    if (list) list.innerHTML = "";
+    const trendCaption = document.getElementById("aovYearlySalesTrendCaption");
+    if (trendCaption) trendCaption.textContent = "Completed online orders · by order month · before returns";
+  };
   // Chart cards carry a sibling ".aov-empty" overlay (initially ".aov-empty--hidden",
   // whose display:none is !important, so the toggle is by class, not inline style).
-  const toggleAov = (baseId, hasData) => {
+  const toggleAov = (baseId, hasData, message) => {
     const canvas = document.getElementById(baseId + "Chart");
     const empty = document.getElementById(baseId + "Empty");
-    if (canvas) canvas.style.display = hasData ? "" : "none";
-    if (empty) empty.classList.toggle("aov-empty--hidden", hasData);
+    if (canvas) {
+      canvas.style.display = hasData ? "" : "none";
+      canvas.style.visibility = "";
+    }
+    if (empty) {
+      empty.classList.toggle("aov-empty--hidden", hasData);
+      const copy = empty.querySelector("span");
+      if (copy) copy.textContent = message || aovCurrentEmptyMessages[baseId] || "No sales for this period.";
+    }
+    finishAovLoading(baseId);
+  };
+  const prepareAovCanvas = (baseId) => {
+    const canvas = document.getElementById(baseId + "Chart");
+    if (canvas) {
+      canvas.style.display = "";
+      canvas.style.visibility = "hidden";
+    }
+    // Chart.js needs a laid-out container. The canvas stays invisible while
+    // this synchronous render finishes, then toggleAov reveals the chart.
+    finishAovLoading(baseId);
+    return aovCanvasCtx(baseId + "Chart");
   };
 
   // ── Revenue hero ─────────────────────────────────────────────
@@ -1258,54 +1358,52 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // ── Top selling → horizontal bar ─────────────────────────────
   const renderTopSellingChart = (rows) => {
-    const data = Array.isArray(rows) ? rows : [];
-    const hasData = data.length > 0;
-    toggleAov("aovTopSelling", hasData);
+    const data = (Array.isArray(rows) ? rows : []).filter((r) => Number(r.total_sold || 0) > 0);
     destroyDashboardChart("topSelling");
-    if (!hasData) return;
-    const ctx = aovCanvasCtx("aovTopSellingChart");
-    if (!ctx || !window.AnalyticsCharts) return;
-    dashboardCharts.topSelling = window.AnalyticsCharts.renderBar(ctx, {
-      labels: data.map((r) => r.name),
-      data: data.map((r) => Number(r.total_sold || 0)),
-      horizontal: true,
-      label: "Units sold",
-      tooltip: {
-        callbacks: {
-          label: (i) => ` ${Number(i.parsed.x || 0).toLocaleString("en-PH")} sold`,
+    const ctx = data.length && window.AnalyticsCharts
+      ? prepareAovCanvas("aovTopSelling") : null;
+    if (data.length && ctx && window.AnalyticsCharts) {
+      dashboardCharts.topSelling = window.AnalyticsCharts.renderBar(ctx, {
+        labels: data.map((r) => r.name),
+        data: data.map((r) => Number(r.total_sold || 0)),
+        horizontal: true,
+        label: "Units sold",
+        tooltip: {
+          callbacks: {
+            label: (i) => ` ${Number(i.parsed.x || 0).toLocaleString("en-PH")} sold`,
+          },
         },
-      },
-    });
+      });
+    }
+    toggleAov("aovTopSelling", !!dashboardCharts.topSelling,
+      data.length ? "Top-selling chart unavailable." : undefined);
   };
 
   // ── Sales by category → donut + custom legend ────────────────
   const renderSalesByCategoryChart = (rows) => {
-    const data = Array.isArray(rows) ? rows : [];
-    const hasData = data.some((r) => Number(r.total_revenue || 0) > 0);
+    const data = (Array.isArray(rows) ? rows : []).filter((r) => Number(r.total_revenue || 0) > 0);
     const legend = document.getElementById("aovSalesByCategoryLegend");
-    toggleAov("aovSalesByCategory", hasData);
     destroyDashboardChart("salesByCategory");
     if (legend) legend.innerHTML = "";
-    if (!hasData) return;
-    const ctx = aovCanvasCtx("aovSalesByCategoryChart");
-    if (!ctx || !window.AnalyticsCharts) return;
-    const palette = window.AnalyticsCharts.PALETTE;
-    dashboardCharts.salesByCategory = window.AnalyticsCharts.renderDonut(ctx, {
-      labels: data.map((r) => r.category),
-      data: data.map((r) => Number(r.total_revenue || 0)),
-    });
-    if (legend) {
-      legend.innerHTML = data
-        .map(
-          (r, i) => `
+    const ctx = data.length && window.AnalyticsCharts
+      ? prepareAovCanvas("aovSalesByCategory") : null;
+    if (data.length && ctx && window.AnalyticsCharts) {
+      dashboardCharts.salesByCategory = window.AnalyticsCharts.renderDonut(ctx, {
+        labels: data.map((r) => r.category),
+        data: data.map((r) => Number(r.total_revenue || 0)),
+      });
+    }
+    if (dashboardCharts.salesByCategory && legend) {
+      const palette = window.AnalyticsCharts.PALETTE;
+      legend.innerHTML = data.map((r, i) => `
           <div class="aov-legend__item">
             <span class="aov-legend__dot" style="background:${palette[i % palette.length]}"></span>
             <span class="aov-legend__name" title="${escapeHtml(r.category)}">${escapeHtml(r.category)}</span>
             <span class="aov-legend__value">${formatCurrencyCompact(r.total_revenue)}</span>
-          </div>`,
-        )
-        .join("");
+          </div>`).join("");
     }
+    toggleAov("aovSalesByCategory", !!dashboardCharts.salesByCategory,
+      data.length ? "Category sales chart unavailable." : undefined);
   };
 
   // ── Product performance → compact top-5 ranked list ──────────
@@ -1314,8 +1412,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!list) return;
     const data = (Array.isArray(rows) ? rows : []).slice(0, 5);
     if (!data.length) {
-      list.innerHTML =
-        '<div class="aov-empty"><i class="fa-solid fa-ranking-star"></i> No performance data in this period</div>';
+      list.innerHTML = `<div class="aov-empty" role="status"><i class="fa-solid fa-ranking-star" aria-hidden="true"></i><span>${escapeHtml(aovCurrentEmptyMessages.aovProductPerformance)}</span></div>`;
+      finishAovLoading("aovProductPerformance");
       return;
     }
     list.innerHTML = data
@@ -1323,47 +1421,85 @@ document.addEventListener("DOMContentLoaded", () => {
         (item, idx) => `
         <div class="aov-item">
           <div class="aov-item-left">
-            <span class="aov-rank ${idx < 3 ? `rank-${idx + 1}` : ""}">${idx + 1}</span>
+            <span class="aov-rank ${idx < 3 ? `rank-${idx + 1}` : ""}" title="${Number(item.total_sold || 0).toLocaleString("en-PH")} units sold">${idx + 1}</span>
             <span class="aov-name" title="${escapeHtml(item.product_name)}">${escapeHtml(item.product_name)}</span>
           </div>
-          <span class="aov-value">${formatCurrencyCompact(item.total_revenue)}</span>
+          <span class="aov-value" title="${formatCurrency(Number(item.total_revenue || 0))} before returns">${formatCurrencyCompact(item.total_revenue)}</span>
         </div>`,
       )
       .join("");
+    finishAovLoading("aovProductPerformance");
   };
 
   // ── Yearly trend → line ──────────────────────────────────────
   const renderYearlyTrendChart = (payload) => {
     const trend = Array.isArray(payload && payload.data) ? payload.data : [];
-    const year = (payload && payload.year) || new Date().getFullYear();
-    if (aovTrendYear) aovTrendYear.textContent = `${year} monthly totals`;
+    const year = Number(payload?.year) || currentManilaYear();
+    if (aovTrendYear) aovTrendYear.textContent = `${year} calendar year · monthly sales`;
     const totals = AOV_MONTHS.map((_, i) => Number(trend[i] ? trend[i].total_sales || 0 : 0));
-    const hasData = (payload && payload.has_data === true) || totals.some((v) => v > 0);
-    toggleAov("aovYearlySalesTrend", hasData);
+    const currentMonth = Number(new Intl.DateTimeFormat("en-PH", {
+      month: "numeric", timeZone: "Asia/Manila",
+    }).format(new Date()));
+    const plottedTotals = totals.map((amount, index) =>
+      year === currentManilaYear() && index + 1 > currentMonth ? null : amount);
+    const plottedValues = plottedTotals.map((amount) => amount == null ? 0 : amount);
+    const hasData = plottedValues.some((v) => v > 0);
     destroyDashboardChart("yearlyTrend");
-    if (!hasData) return;
-    const ctx = aovCanvasCtx("aovYearlySalesTrendChart");
-    if (!ctx || !window.AnalyticsCharts) return;
-    dashboardCharts.yearlyTrend = window.AnalyticsCharts.renderLine(ctx, {
-      labels: AOV_MONTHS,
-      data: totals,
-      label: "Sales",
-      currency: true,
-    });
+    const ctx = hasData && window.AnalyticsCharts
+      ? prepareAovCanvas("aovYearlySalesTrend") : null;
+    if (hasData && ctx && window.AnalyticsCharts) {
+      dashboardCharts.yearlyTrend = window.AnalyticsCharts.renderLine(ctx, {
+        labels: AOV_MONTHS,
+        tooltipLabels: AOV_MONTHS.map((month) => `${month} ${year}`),
+        data: plottedTotals,
+        label: "Sales before returns",
+        currency: true,
+      });
+    }
+    const chart = document.getElementById("aovYearlySalesTrendChart");
+    const caption = document.getElementById("aovYearlySalesTrendCaption");
+    if (chart && dashboardCharts.yearlyTrend) {
+      const peak = plottedValues.reduce((best, amount, index) => amount > plottedValues[best] ? index : best, 0);
+      chart.setAttribute("role", "img");
+      chart.setAttribute("aria-label", `Monthly sales before returns in ${year}. Highest month: ${AOV_MONTHS[peak]} ${year}, ${formatCurrency(plottedValues[peak])}.`);
+      if (caption) caption.textContent = `Completed online orders · by order month · before returns · Peak ${AOV_MONTHS[peak]} ${formatCurrencyCompact(plottedValues[peak])}`;
+    } else if (caption) {
+      caption.textContent = "Completed online orders · by order month · before returns";
+    }
+    toggleAov("aovYearlySalesTrend", !!dashboardCharts.yearlyTrend,
+      hasData ? "Yearly sales chart unavailable." : year === currentManilaYear()
+        ? `No completed online sales so far in ${year}.`
+        : `No completed online sales in ${year}.`);
+  };
+
+  const setAovFailure = (baseId) => {
+    const messages = {
+      aovTopSelling: "Top-selling products unavailable.",
+      aovSalesByCategory: "Category sales unavailable.",
+      aovProductPerformance: "Product performance unavailable.",
+      aovYearlySalesTrend: "Yearly sales unavailable.",
+    };
+    if (baseId === "aovProductPerformance") {
+      const list = document.getElementById("aovProductPerformanceList");
+      if (list) list.innerHTML = `<div class="aov-empty" role="status"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i><span>${messages[baseId]}</span></div>`;
+      finishAovLoading(baseId);
+    } else {
+      toggleAov(baseId, false, messages[baseId]);
+    }
   };
 
   // ── Orchestration ────────────────────────────────────────────
   const loadDashboardAnalytics = async (state, gen) => {
     const q = `?${periodQuery(state)}`;
-    const year = new Date().getFullYear();
+    const year = yearlyTrendYear(state);
     const jobs = [
-      [`top-selling${q}`, renderTopSellingChart],
-      [`sales-by-category${q}`, renderSalesByCategoryChart],
-      [`product-performance${q}`, renderPerformanceList],
-      [`yearly-sales-trend?year=${year}`, renderYearlyTrendChart],
+      [`top-selling${q}`, "aovTopSelling", renderTopSellingChart],
+      [`sales-by-category${q}`, "aovSalesByCategory", renderSalesByCategoryChart],
+      [`product-performance${q}`, "aovProductPerformance", renderPerformanceList],
+      [`yearly-sales-trend?year=${year}`, "aovYearlySalesTrend", renderYearlyTrendChart],
     ];
     await Promise.all(
-      jobs.map(async ([path, render]) => {
+      jobs.map(async ([path, baseId, render]) => {
         try {
           const payload = await requestDashboardJson(
             `/admin/product-analytics/${path}`,
@@ -1374,7 +1510,7 @@ document.addEventListener("DOMContentLoaded", () => {
           render(path.indexOf("yearly-sales-trend") === 0 ? payload : payload && payload.data);
         } catch (err) {
           if (gen !== dashboardAnalyticsGen || (err && err.code === "CANCELLED")) return;
-          // Leave the card's last-good frame on a transient failure rather than blanking it.
+          setAovFailure(baseId);
         }
       }),
     );
@@ -1388,10 +1524,14 @@ document.addEventListener("DOMContentLoaded", () => {
     dashboardAnalyticsGen += 1;
     const gen = dashboardAnalyticsGen;
     setRevenueHeroLoading();
+    setAovLoading(st);
+    dashboardAnalyticsToolbarApi?.setBusy?.(true);
     return Promise.all([
       loadDashboardRevenue(st, gen),
       loadDashboardAnalytics(st, gen),
-    ]);
+    ]).finally(() => {
+      if (gen === dashboardAnalyticsGen) dashboardAnalyticsToolbarApi?.setBusy?.(false);
+    });
   };
 
   // Debounced refresh for realtime events (order updates, tab refocus) so a
@@ -1417,15 +1557,7 @@ document.addEventListener("DOMContentLoaded", () => {
       initialPeriod: "month",
       ariaLabel: "Select reporting period for revenue and analytics",
       onChange: (state) => {
-        dashboardAnalyticsToolbarApi &&
-          dashboardAnalyticsToolbarApi.setBusy &&
-          dashboardAnalyticsToolbarApi.setBusy(true);
-        refreshDashboardAnalytics(state).finally(
-          () =>
-            dashboardAnalyticsToolbarApi &&
-            dashboardAnalyticsToolbarApi.setBusy &&
-            dashboardAnalyticsToolbarApi.setBusy(false),
-        );
+        refreshDashboardAnalytics(state);
       },
     });
     // The page owns its first load: mount never fires onChange.

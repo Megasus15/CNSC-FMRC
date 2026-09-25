@@ -127,8 +127,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const toggleLoader = (show, caption) => {
     if (show) {
       window.FMRCLoader?.show(
-        caption || "Just a moment",
-        "Please wait while your account request is completed.",
+        caption || "Your request is being processed.",
+        "",
         AUTH_LOADER_TIMING,
       );
     } else {
@@ -447,7 +447,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      toggleLoader(true, "Signing you in");
+      toggleLoader(true, "Signing you in.");
       try {
         const payload = {
           login: user,
@@ -849,7 +849,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      toggleLoader(true, "Sending your code");
+      toggleLoader(true, "Sending your verification code.");
       try {
         const response = await fetch(`${API_BASE_URL}/forgot-password/send-otp`, {
           method: "POST",
@@ -911,7 +911,7 @@ document.addEventListener("DOMContentLoaded", () => {
   btnResendOtp?.addEventListener("click", async () => {
     if (!currentOtpEmail) return;
     btnResendOtp.disabled = true;
-    toggleLoader(true, "Sending a new code");
+    toggleLoader(true, "Sending a new verification code.");
 
     try {
       const response = await fetch(`${API_BASE_URL}/forgot-password/resend-otp`, {
@@ -986,7 +986,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (hasError) return;
 
-      toggleLoader(true, "Updating your password");
+      toggleLoader(true, "Updating your password.");
       try {
         const response = await fetch(`${API_BASE_URL}/forgot-password/verify-otp`, {
           method: "POST",
@@ -1090,7 +1090,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (hasError) return;
-      toggleLoader(true, "Updating your password");
+      toggleLoader(true, "Updating your password.");
       if (btnRedeemRecovery) btnRedeemRecovery.disabled = true;
       try {
         const response = await fetch(
@@ -1417,7 +1417,7 @@ document.addEventListener("DOMContentLoaded", () => {
         );
         return;
       }
-      toggleLoader(true, "Creating your account");
+      toggleLoader(true, "Submitting your account request.");
       if (btnSubmitAccountRequest) btnSubmitAccountRequest.disabled = true;
 
       try {

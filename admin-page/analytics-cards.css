@@ -1,0 +1,462 @@
+/* Shared product analytics presentation for Admin and Staff dashboards and Products. */
+.analytics-overview-grid,
+.module-content .product-analytics-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.analytics-overview-grid > .analytics-overview-card,
+.product-analytics-grid > .analytics-card {
+  min-width: 0;
+  max-width: 100%;
+  background: #fffdfa;
+  border-color: #e9ded8;
+  overflow: hidden;
+}
+
+.analytics-overview-card .aov-header,
+.analytics-card .analytics-card-header {
+  min-width: 0;
+}
+
+.analytics-overview-card .aov-header > div:last-child,
+.analytics-card .analytics-card-header > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.analytics-overview-card .aov-icon {
+  background: #f5e9e5;
+  color: #800000;
+}
+
+.analytics-overview-card .aov-header h4,
+.analytics-card .analytics-card-title {
+  color: #312928;
+  line-height: 1.35;
+}
+
+.analytics-overview-card .analytics-card-caption,
+.analytics-card .analytics-card-caption,
+.analytics-overview-card .aov-meta {
+  display: block;
+  margin: 5px 0 0;
+  color: #6b6260;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.analytics-overview-card .aov-body,
+.analytics-card > .analytics-card-body {
+  min-width: 0;
+  max-width: 100%;
+  position: relative;
+}
+
+.analytics-overview-card .aov-body--chart,
+.analytics-card > .analytics-card-body:not(.analytics-card-body--table) {
+  overflow: hidden;
+}
+
+.analytics-overview-card .aov-canvas,
+.analytics-card-body canvas {
+  min-width: 0;
+  max-width: 100% !important;
+}
+
+.analytics-overview-card .aov-list,
+.analytics-overview-card .aov-item,
+.analytics-overview-card .aov-legend,
+.analytics-card .sales-category-layout,
+.analytics-card .sales-category-list {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.analytics-overview-card .aov-name {
+  max-width: none;
+  min-width: 0;
+}
+
+.analytics-overview-card .aov-item-left {
+  overflow: hidden;
+}
+
+.analytics-overview-card .aov-value {
+  margin-left: 8px;
+}
+
+.analytics-overview-card .aov-empty,
+.analytics-card .analytics-empty-state {
+  color: #6b6260;
+  overflow-wrap: anywhere;
+}
+
+/* The performance list needs the card's remaining height to center its empty state. */
+#aovProductPerformanceCard {
+  display: flex;
+  flex-direction: column;
+}
+
+#aovProductPerformanceCard .aov-body--list {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 180px;
+}
+
+#aovProductPerformanceCard .aov-list {
+  flex: 1 1 auto;
+}
+
+#aovProductPerformanceCard .aov-list > .aov-empty {
+  flex: 1 1 auto;
+  width: 100%;
+  text-align: center;
+}
+
+/* Sales by Category stays still on hover; the other cards keep their hover affordance. */
+#aovSalesByCategoryCard,
+#salesByCategoryCard {
+  transition: none;
+}
+
+#aovSalesByCategoryCard:hover,
+#salesByCategoryCard:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: #e9ded8;
+}
+
+.analytics-overview-card .aov-body--chart .aov-empty,
+.analytics-overview-card .aov-body--donut .aov-empty {
+  background: #fffdfa;
+}
+
+.analytics-card .analytics-table-wrapper {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.analytics-card .analytics-perf-table {
+  width: 100%;
+}
+
+.analytics-card .analytics-dropdown {
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+
+.analytics-card > .analytics-card-caption {
+  margin: 0;
+  padding: 0 20px 16px;
+}
+
+.analytics-card > .analytics-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  text-align: left;
+}
+
+.analytics-card-footer .analytics-card-caption {
+  margin: 0;
+}
+
+.analytics-card-footer .analytics-view-all {
+  margin-left: auto;
+}
+
+.is-analytics-loading :is(.aov-canvas, .analytics-card-body > canvas) {
+  visibility: hidden;
+}
+
+.is-analytics-loading :is(.aov-empty, .analytics-empty-state),
+.is-analytics-loading .aov-body--donut > :is(.aov-donut-wrap, .aov-legend),
+.is-analytics-loading .aov-list,
+.is-analytics-loading .sales-category-layout {
+  display: none !important;
+}
+
+/* Shape placeholders match the actual bars, donut, rows and line chart. */
+.analytics-card-skeleton {
+  display: none;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  pointer-events: none;
+}
+
+.is-analytics-loading .analytics-card-skeleton {
+  display: block;
+}
+
+.analytics-card-skeleton :is(
+  .analytics-card-skeleton__label,
+  .analytics-card-skeleton__bar,
+  .analytics-card-skeleton__dot,
+  .analytics-card-skeleton__value,
+  .analytics-card-skeleton__rank,
+  .analytics-card-skeleton__axis span
+) {
+  display: block;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #f1ede9 25%, #e7ded9 50%, #f1ede9 75%);
+  background-size: 200% 100%;
+  animation: analyticsCardShimmer 1.5s ease-in-out infinite;
+}
+
+.analytics-card-skeleton--bar {
+  padding: 12px 4px;
+}
+
+.analytics-card-skeleton__row,
+.analytics-card-skeleton__bar-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.analytics-card-skeleton__row:last-child,
+.analytics-card-skeleton__bar-row:last-child {
+  margin-bottom: 0;
+}
+
+.analytics-card-skeleton--bar .analytics-card-skeleton__label {
+  width: 26%;
+  height: 12px;
+  flex: 0 0 26%;
+}
+
+.analytics-card-skeleton--bar .analytics-card-skeleton__bar {
+  width: 62%;
+  height: 19px;
+}
+
+.analytics-card-skeleton--bar :is(.analytics-card-skeleton__row, .analytics-card-skeleton__bar-row):nth-child(2) .analytics-card-skeleton__bar { width: 51%; }
+.analytics-card-skeleton--bar :is(.analytics-card-skeleton__row, .analytics-card-skeleton__bar-row):nth-child(3) .analytics-card-skeleton__bar { width: 43%; }
+.analytics-card-skeleton--bar :is(.analytics-card-skeleton__row, .analytics-card-skeleton__bar-row):nth-child(4) .analytics-card-skeleton__bar { width: 34%; }
+.analytics-card-skeleton--bar :is(.analytics-card-skeleton__row, .analytics-card-skeleton__bar-row):nth-child(5) .analytics-card-skeleton__bar { width: 27%; }
+
+.is-analytics-loading .analytics-card-skeleton--donut {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-height: 165px;
+}
+
+.analytics-card-skeleton__ring {
+  box-sizing: border-box;
+  flex: 0 0 120px;
+  width: 120px;
+  height: 120px;
+  border: 17px solid #ebe5e1;
+  border-right-color: #f4efeb;
+  border-radius: 50%;
+  animation: analyticsCardPulse 1.5s ease-in-out infinite;
+}
+
+.analytics-card-skeleton__legend {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.analytics-card-skeleton__legend-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.analytics-card-skeleton__legend .analytics-card-skeleton__row {
+  margin: 12px 0;
+}
+
+.analytics-card-skeleton__legend-row .analytics-card-skeleton__dot,
+.analytics-card-skeleton__row .analytics-card-skeleton__dot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 10px;
+}
+
+.analytics-card-skeleton__legend :is(.analytics-card-skeleton__row, .analytics-card-skeleton__legend-row) .analytics-card-skeleton__label,
+.analytics-card-skeleton--list .analytics-card-skeleton__label,
+.analytics-card-skeleton--table .analytics-card-skeleton__label {
+  width: 44%;
+  height: 11px;
+  flex: 1 1 auto;
+}
+
+.analytics-card-skeleton__legend :is(.analytics-card-skeleton__row, .analytics-card-skeleton__legend-row) .analytics-card-skeleton__value,
+.analytics-card-skeleton--list .analytics-card-skeleton__value,
+.analytics-card-skeleton--table .analytics-card-skeleton__value {
+  width: 42px;
+  height: 11px;
+  flex: 0 0 42px;
+}
+
+.analytics-card-skeleton--list,
+.analytics-card-skeleton--table {
+  padding: 7px 0;
+}
+
+.analytics-card-skeleton--list .analytics-card-skeleton__row,
+.analytics-card-skeleton--table .analytics-card-skeleton__row {
+  min-height: 33px;
+  margin: 0;
+  border-bottom: 1px solid #f1ebe7;
+}
+
+.analytics-card-skeleton__rank {
+  width: 23px;
+  height: 23px;
+  flex: 0 0 23px;
+}
+
+.analytics-overview-card .analytics-card-skeleton__ring {
+  width: 148px;
+  height: 148px;
+  flex-basis: 148px;
+  border-width: 21px;
+}
+
+.product-analytics-grid .analytics-card-skeleton__ring {
+  width: 210px;
+  height: 210px;
+  flex-basis: 210px;
+  border-width: 29px;
+}
+
+.analytics-card-skeleton--line {
+  height: 100%;
+  min-height: 188px;
+  padding: 8px 4px 0;
+}
+
+.analytics-card-skeleton__plot,
+.analytics-card-skeleton__line-plot {
+  display: block;
+  width: 100%;
+  height: 158px;
+  animation: analyticsCardPulse 1.5s ease-in-out infinite;
+}
+
+.analytics-card-skeleton__area { fill: #f2eeeb; }
+.analytics-card-skeleton__grid {
+  fill: none;
+  stroke: #e7e0dc;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.analytics-card-skeleton__stroke {
+  fill: none;
+  stroke: #ded6d1;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.analytics-card-skeleton__axis {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 12px 0 22px;
+}
+
+.analytics-card-skeleton__axis span {
+  width: 38px;
+  max-width: 20%;
+  height: 9px;
+}
+
+@keyframes analyticsCardShimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@keyframes analyticsCardPulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@media (max-width: 992px) {
+  .analytics-overview-grid,
+  .module-content .product-analytics-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 520px) {
+  .analytics-overview-card,
+  .product-analytics-grid > .analytics-card {
+    min-width: 0;
+  }
+
+  .analytics-overview-card .aov-body--donut,
+  .is-analytics-loading .analytics-card-skeleton--donut {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .analytics-overview-card .aov-donut-wrap,
+  .analytics-card-skeleton__ring {
+    align-self: center;
+    flex-basis: auto;
+  }
+
+  .analytics-overview-card .analytics-card-skeleton__ring {
+    flex-basis: auto;
+    width: 136px;
+    height: 136px;
+  }
+
+  .product-analytics-grid .analytics-card-skeleton__ring {
+    flex-basis: auto;
+    width: 200px;
+    height: 200px;
+  }
+
+  .analytics-overview-card .aov-legend,
+  .analytics-card-skeleton__legend {
+    width: 100%;
+  }
+
+  .analytics-card .analytics-card-header {
+    flex-wrap: wrap;
+  }
+
+  .analytics-card .analytics-dropdown {
+    margin-left: auto;
+  }
+
+  .analytics-card > .analytics-card-caption {
+    padding: 0 14px 14px;
+  }
+
+  .analytics-card .sales-category-chart-wrap {
+    max-width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .analytics-card-skeleton :is(
+    .analytics-card-skeleton__label,
+    .analytics-card-skeleton__bar,
+    .analytics-card-skeleton__dot,
+    .analytics-card-skeleton__value,
+    .analytics-card-skeleton__rank,
+    .analytics-card-skeleton__axis span,
+    .analytics-card-skeleton__ring,
+    .analytics-card-skeleton__plot,
+    .analytics-card-skeleton__line-plot
+  ) { animation: none; }
+}

@@ -22,41 +22,41 @@ document.documentElement.classList.add("fmrc-admin-portal");
   };
 
   const PAGE_CAPTIONS = Object.freeze({
-    accounts: "Preparing account records…",
-    appointments: "Preparing appointment schedules…",
-    archives: "Preparing archive records…",
-    "customer-inquiries": "Preparing customer inquiries…",
-    dashboard: "Preparing the operations dashboard…",
-    inventory: "Preparing inventory records…",
-    "my-account": "Preparing your account settings…",
-    orders: "Preparing order records…",
-    products: "Preparing product management…",
-    promotions: "Preparing promotion records…",
-    ratings: "Preparing customer ratings…",
-    reports: "Preparing the official report pages…",
-    "website-about": "Preparing About page settings…",
-    "website-contact": "Preparing Contact page settings…",
-    "website-emails": "Preparing email settings…",
-    "website-footer": "Preparing footer settings…",
-    "website-home": "Preparing Home page settings…",
-    "website-maintenance": "Preparing maintenance settings…",
-    "website-payments": "Preparing payment settings…",
-    "website-services": "Preparing Services page settings…",
+    accounts: "Account records are loading.",
+    appointments: "Appointment schedules are loading.",
+    archives: "Archived records are loading.",
+    "customer-inquiries": "Customer inquiries are loading.",
+    dashboard: "The dashboard is loading.",
+    inventory: "Inventory records are loading.",
+    "my-account": "Your account settings are loading.",
+    orders: "Order records are loading.",
+    products: "Product records are loading.",
+    promotions: "Promotions are loading.",
+    ratings: "Customer ratings are loading.",
+    reports: "Reports are loading.",
+    "website-about": "About page settings are loading.",
+    "website-contact": "Contact page settings are loading.",
+    "website-emails": "Email settings are loading.",
+    "website-footer": "Footer settings are loading.",
+    "website-home": "Home page settings are loading.",
+    "website-maintenance": "Maintenance settings are loading.",
+    "website-payments": "Payment settings are loading.",
+    "website-services": "Services page settings are loading.",
   });
   const PAGE_TIMING = Object.freeze({ min: 200, max: 200, cap: 1000 });
   const ACTION_TIMING = Object.freeze({ min: 500, max: 500, cap: 1300 });
 
-  const currentPageKey = () => {
-    const fileName = String(window.location.pathname || "")
+  const pageKeyFromPath = (pathname) => {
+    const fileName = String(pathname || "")
       .split("/")
       .pop()
       ?.replace(/\.html?$/i, "");
     return fileName || "dashboard";
   };
 
-  const pageCaption = (caption) => {
+  const pageCaption = (caption, pathname = window.location.pathname) => {
     const explicit = typeof caption === "string" ? caption.trim() : "";
-    return explicit || PAGE_CAPTIONS[currentPageKey()] || "Preparing page content…";
+    return explicit || PAGE_CAPTIONS[pageKeyFromPath(pathname)] || "This page is loading.";
   };
 
   const ensureBrandedLoader = () => {
@@ -119,7 +119,7 @@ document.documentElement.classList.add("fmrc-admin-portal");
     const render = (loader) => {
       loader?.show?.(
         pageCaption(caption),
-        hint || "Please wait while this workspace is prepared.",
+        typeof hint === "string" ? hint.trim() : "",
         timing,
       );
     };
@@ -178,13 +178,7 @@ document.documentElement.classList.add("fmrc-admin-portal");
     if (!/\/(?:admin-page|staff-page)\/[^/]+\.html?$/i.test(url.pathname)) return;
     if (url.pathname === window.location.pathname && url.search === window.location.search) return;
 
-    const label = String(target.textContent || "")
-      .replace(/\s+/g, " ")
-      .trim();
-    void window.FMRCAdminLoader?.showPage?.(
-      label ? `Opening ${label}…` : "Opening the next page…",
-      "Please wait while the latest workspace data is loaded.",
-    );
+    void window.FMRCAdminLoader?.showPage?.(pageCaption("", url.pathname));
   }, true);
 })();
 
@@ -1422,7 +1416,7 @@ document.documentElement.classList.add("fmrc-admin-portal");
         }
         loader.show(
           window.FMRCAdminLoader?.pageCaption?.(),
-          "Please wait while this workspace is prepared.",
+          "",
           window.FMRCAdminLoader?.timing?.page,
         );
         initialBrandedShown = true;
@@ -3519,7 +3513,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const token =
       (window.AdminSession && window.AdminSession.getToken()) ||
       localStorage.getItem("auth_token");
-    await window.FMRCAdminLoader?.show("Signing you out");
+    await window.FMRCAdminLoader?.show("Signing you out.");
     try {
       if (token) {
         const proto = window.location.protocol;

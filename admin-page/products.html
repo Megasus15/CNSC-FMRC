@@ -783,6 +783,7 @@
     </style>
     <link rel="stylesheet" href="admin-responsive.css?v=3.1" />
     <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=2.1" />
+    <link rel="stylesheet" href="analytics-cards.css?v=1.2" />
   </head>
   <body>
     <div class="dashboard-container">
@@ -927,52 +928,61 @@
           <!-- Product Analytics Grid -->
           <div class="product-analytics-grid" id="productAnalyticsGrid">
             <div
-              class="analytics-card analytics-card-animate"
+              class="analytics-card analytics-card-animate is-analytics-loading"
+              id="topSellingCard"
+              aria-busy="true"
               style="animation-delay: 0.05s"
             >
               <div class="analytics-card-header">
                 <div>
                   <h3 class="analytics-card-title">Top Selling Products</h3>
-                  <p class="analytics-card-subtitle">By total quantity sold</p>
+                  <p class="analytics-card-subtitle">Units sold · online and walk-in</p>
                 </div>
               </div>
               <div class="analytics-card-body" id="topSellingBody">
-                <canvas id="topSellingChart" height="220"></canvas>
+                <canvas id="topSellingChart" height="220" style="display: none" role="img" aria-label="Top selling products by units sold"></canvas>
+                <div class="analytics-card-skeleton analytics-card-skeleton--bar" aria-hidden="true">
+                  <span class="analytics-card-skeleton__bar-row"><span class="analytics-card-skeleton__label"></span><span class="analytics-card-skeleton__bar"></span></span>
+                  <span class="analytics-card-skeleton__bar-row"><span class="analytics-card-skeleton__label"></span><span class="analytics-card-skeleton__bar"></span></span>
+                  <span class="analytics-card-skeleton__bar-row"><span class="analytics-card-skeleton__label"></span><span class="analytics-card-skeleton__bar"></span></span>
+                  <span class="analytics-card-skeleton__bar-row"><span class="analytics-card-skeleton__label"></span><span class="analytics-card-skeleton__bar"></span></span>
+                  <span class="analytics-card-skeleton__bar-row"><span class="analytics-card-skeleton__label"></span><span class="analytics-card-skeleton__bar"></span></span>
+                </div>
                 <div
                   class="analytics-empty-state"
                   id="topSellingEmpty"
                   style="display: none"
                 >
                   <i class="fa-solid fa-chart-bar"></i>
-                  <p class="empty-title">No Sales Data</p>
-                  <p class="empty-desc">
-                    No products have been sold in this period yet.
-                  </p>
+                  <p class="empty-title">No products sold this month</p>
                 </div>
               </div>
               <div class="analytics-card-footer">
+                <p class="analytics-card-caption">Product sales before returns</p>
                 <a href="#productTable" class="analytics-view-all"
                   >View All <i class="fa-solid fa-arrow-right"></i
                 ></a>
               </div>
             </div>
             <div
-              class="analytics-card analytics-card-animate"
+              class="analytics-card analytics-card-animate is-analytics-loading"
+              id="salesByCategoryCard"
+              aria-busy="true"
               style="animation-delay: 0.12s"
             >
               <div class="analytics-card-header">
                 <div>
                   <h3 class="analytics-card-title">Sales by Category</h3>
-                  <p class="analytics-card-subtitle">Share of total sales</p>
+                  <p class="analytics-card-subtitle">Completed online orders by value</p>
                 </div>
               </div>
               <div
                 class="analytics-card-body analytics-card-body--donut"
                 id="salesByCategoryBody"
               >
-                <div class="sales-category-layout" id="salesByCategoryLayout">
+                <div class="sales-category-layout" id="salesByCategoryLayout" style="display: none">
                   <div class="sales-category-chart-wrap">
-                    <canvas id="salesByCategoryChart" height="220"></canvas>
+                    <canvas id="salesByCategoryChart" height="220" role="img" aria-label="Share of completed online product sales by category"></canvas>
                     <div
                       class="sales-category-center"
                       id="salesCategoryCenterMetric"
@@ -983,28 +993,36 @@
                   </div>
                   <ul class="sales-category-list" id="salesByCategoryList"></ul>
                 </div>
+                <div class="analytics-card-skeleton analytics-card-skeleton--donut" aria-hidden="true">
+                  <span class="analytics-card-skeleton__ring"></span>
+                  <span class="analytics-card-skeleton__legend">
+                    <span class="analytics-card-skeleton__legend-row"><span class="analytics-card-skeleton__dot"></span><span class="analytics-card-skeleton__label"></span><span class="analytics-card-skeleton__value"></span></span>
+                    <span class="analytics-card-skeleton__legend-row"><span class="analytics-card-skeleton__dot"></span><span class="analytics-card-skeleton__label"></span><span class="analytics-card-skeleton__value"></span></span>
+                    <span class="analytics-card-skeleton__legend-row"><span class="analytics-card-skeleton__dot"></span><span class="analytics-card-skeleton__label"></span><span class="analytics-card-skeleton__value"></span></span>
+                  </span>
+                </div>
                 <div
                   class="analytics-empty-state"
                   id="salesByCategoryEmpty"
                   style="display: none"
                 >
                   <i class="fa-solid fa-chart-pie"></i>
-                  <p class="empty-title">No Category Data</p>
-                  <p class="empty-desc">
-                    No sales data available by category yet.
-                  </p>
+                  <p class="empty-title">No online sales this month</p>
                 </div>
               </div>
+              <p class="analytics-card-caption">Product sales before returns</p>
             </div>
             <div
-              class="analytics-card analytics-card-animate"
+              class="analytics-card analytics-card-animate is-analytics-loading"
+              id="productPerformanceCard"
+              aria-busy="true"
               style="animation-delay: 0.19s"
             >
               <div class="analytics-card-header">
                 <div>
                   <h3 class="analytics-card-title">Product Performance</h3>
                   <p class="analytics-card-subtitle">
-                    Detailed performance per product
+                    Completed online orders by product
                   </p>
                 </div>
               </div>
@@ -1014,7 +1032,7 @@
                   see all columns.
                 </div>
                 <div
-                  class="analytics-table-wrapper"
+                  class="analytics-table-wrapper analytics-card-skeleton--table"
                   id="productPerformanceTableWrapper"
                 >
                   <table
@@ -1031,7 +1049,11 @@
                         <th>Status</th>
                       </tr>
                     </thead>
-                    <tbody id="productPerformanceBody"></tbody>
+                    <tbody id="productPerformanceBody">
+                      <tr class="admin-table-skeleton-row" aria-hidden="true"><td><span class="admin-table-skeleton-bar"></span></td><td><span class="admin-table-skeleton-bar"></span></td><td><span class="admin-table-skeleton-bar"></span></td><td><span class="admin-table-skeleton-bar"></span></td><td><span class="admin-table-skeleton-bar"></span></td><td><span class="admin-table-skeleton-bar"></span></td></tr>
+                      <tr class="admin-table-skeleton-row" aria-hidden="true"><td><span class="admin-table-skeleton-bar"></span></td><td><span class="admin-table-skeleton-bar"></span></td><td><span class="admin-table-skeleton-bar"></span></td><td><span class="admin-table-skeleton-bar"></span></td><td><span class="admin-table-skeleton-bar"></span></td><td><span class="admin-table-skeleton-bar"></span></td></tr>
+                      <tr class="admin-table-skeleton-row" aria-hidden="true"><td><span class="admin-table-skeleton-bar"></span></td><td><span class="admin-table-skeleton-bar"></span></td><td><span class="admin-table-skeleton-bar"></span></td><td><span class="admin-table-skeleton-bar"></span></td><td><span class="admin-table-skeleton-bar"></span></td><td><span class="admin-table-skeleton-bar"></span></td></tr>
+                    </tbody>
                   </table>
                   <div
                     class="analytics-empty-state"
@@ -1039,10 +1061,7 @@
                     style="display: none"
                   >
                     <i class="fa-solid fa-table"></i>
-                    <p class="empty-title">No Performance Data</p>
-                    <p class="empty-desc">
-                      No product sales performance data available yet.
-                    </p>
+                    <p class="empty-title">No product sales this month</p>
                   </div>
                 </div>
                   <div
@@ -1088,16 +1107,19 @@
                     </div>
                   </div>
               </div>
+              <p class="analytics-card-caption">Product sales before returns</p>
             </div>
             <div
-              class="analytics-card analytics-card-animate"
+              class="analytics-card analytics-card-animate is-analytics-loading"
+              id="yearlySalesTrendCard"
+              aria-busy="true"
               style="animation-delay: 0.26s"
             >
               <div class="analytics-card-header">
                 <div>
                   <h3 class="analytics-card-title">Yearly Sales Trend</h3>
                   <p class="analytics-card-subtitle">
-                    Monthly total sales from orders
+                    Completed online orders by order date
                   </p>
                 </div>
                 <select
@@ -1106,17 +1128,24 @@
                 ></select>
               </div>
               <div class="analytics-card-body" id="yearlySalesTrendBody">
-                <canvas id="yearlySalesTrendChart" height="220"></canvas>
+                <canvas id="yearlySalesTrendChart" height="220" style="display: none" role="img" aria-label="Monthly completed online sales before returns"></canvas>
+                <div class="analytics-card-skeleton analytics-card-skeleton--line" aria-hidden="true">
+                  <svg class="analytics-card-skeleton__line-plot" viewBox="0 0 400 150" preserveAspectRatio="none" focusable="false" aria-hidden="true">
+                    <path class="analytics-card-skeleton__area" d="M0 135 C48 123 67 128 98 94 S166 117 198 79 S260 105 302 55 S359 72 400 29 L400 150 L0 150 Z"></path>
+                    <path class="analytics-card-skeleton__stroke" d="M0 135 C48 123 67 128 98 94 S166 117 198 79 S260 105 302 55 S359 72 400 29"></path>
+                  </svg>
+                  <span class="analytics-card-skeleton__axis"><span></span><span></span><span></span><span></span></span>
+                </div>
                 <div
                   class="analytics-empty-state"
                   id="yearlySalesTrendEmpty"
                   style="display: none"
                 >
                   <i class="fa-solid fa-chart-line"></i>
-                  <p class="empty-title">No Sales Data</p>
-                  <p class="empty-desc">No orders found for this year.</p>
+                  <p class="empty-title">No completed online sales this year</p>
                 </div>
               </div>
+              <p class="analytics-card-caption" id="yearlySalesTrendCaption">Completed order sales before returns · selected year</p>
             </div>
           </div>
 
@@ -1749,8 +1778,8 @@
 
     <script src="session-helper.js?v=2.2"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
-    <script src="admin-common.js?v=7.2"></script>
-    <script src="products.js?v=5.5"></script>
+    <script src="admin-common.js?v=7.3"></script>
+    <script src="products.js?v=5.8"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>
