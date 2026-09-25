@@ -21,7 +21,7 @@
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="auth.css?v=7.1" />
+    <link rel="stylesheet" href="auth.css?v=7.4" />
 
     <!-- The shared customer loader uses the homepage hero logo for both
          initial loading and authentication actions. -->
@@ -197,6 +197,10 @@
             </div>
 
             <form class="auth-form active" id="loginForm" novalidate>
+            <div class="auth-security-notice" id="loginLockoutNotice" role="status" hidden>
+              <strong>Sign-in temporarily paused</strong>
+              <p>Too many unsuccessful sign-in attempts. Try again in <time id="loginLockoutTime" aria-live="off"></time>.</p>
+            </div>
             <div class="input-wrapper">
               <label for="loginUser">Email or Username</label>
               <div class="input-icon-group">
@@ -868,6 +872,6 @@
          fire. auth.js calls it as `window.FMRCLoader?.…`, so a failed request
          costs the curtain, never the sign-in. -->
     <script src="../home-page/fmrc-loader.js?v=2.0"></script>
-    <script src="auth.js?v=5.6"></script>
+    <script src="auth.js?v=5.8"></script>
   </body>
 </html>

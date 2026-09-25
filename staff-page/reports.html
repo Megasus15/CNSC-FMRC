@@ -10,7 +10,7 @@
     <link rel="icon" href="../images/favicon.ico?v=3" sizes="any" />
     <link rel="apple-touch-icon" href="../images/apple-touch-icon.png?v=3" />
     <title>Reports | UCN-FMRC Staff</title>
-    <link rel="stylesheet" href="../admin-page/dashboard.css?v=7.1" />
+    <link rel="stylesheet" href="../admin-page/dashboard.css?v=7.2" />
     <link rel="stylesheet" href="../admin-page/admin-modules.css?v=6.7" />
     <link
       rel="stylesheet"
@@ -353,10 +353,6 @@
                   <i class="fa-regular fa-eye"></i>
                   <span>Preview / Print</span>
                 </button>
-                <button class="btn-admin btn-secondary" id="reportExportExcelBtn" type="button" disabled>
-                  <i class="fa-solid fa-file-excel"></i>
-                  <span>Export Excel</span>
-                </button>
                 <button
                   class="btn-admin btn-secondary"
                   id="reportExportCsvBtn"
@@ -497,7 +493,7 @@
         <div class="modal-body-scroll report-letterhead-body">
           <p class="report-letterhead-note">
             <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
-            These lines appear in every generated PDF and Excel export for both
+            These lines appear in every official report preview and PDF for both
             Admin and Staff. Leave a field blank to keep the official UCN wording.
             Logos, seals, QR codes and page measurements are fixed so the
             alignment of the printed page cannot break.
@@ -523,12 +519,11 @@
       </section>
     </div>
 
-    <script src="../admin-page/session-helper.js?v=2.2"></script>
+    <script src="../admin-page/session-helper.js?v=2.3"></script>
+    <script src="../admin-page/admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
-    <script src="../admin-page/admin-common.js?v=7.3"></script>
-    <script src="../admin-page/assets/lib/exceljs-4.4.0.min.js"></script>
-    <script src="../admin-page/report-excel.js?v=1.1"></script>
-    <script src="../admin-page/reports.js?v=5.7"></script>
+    <script src="../admin-page/admin-common.js?v=7.4"></script>
+    <script src="../admin-page/reports.js?v=5.8"></script>
     <script src="../admin-page/admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>

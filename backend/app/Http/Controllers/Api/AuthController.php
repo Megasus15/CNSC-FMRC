@@ -8,6 +8,7 @@ use App\Mail\AdminEmailChangeOtp;
 use App\Models\MaintenanceSetting;
 use App\Models\User;
 use App\Support\EmailTemplate;
+use App\Services\LoginLockoutService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -24,6 +25,10 @@ use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
+    // Match the normal bcrypt verification cost for an unknown identifier, so
+    // invalid credentials do not expose account existence through timing.
+    private const UNKNOWN_LOGIN_HASH = '$2y$12$RkBWRj1HMq40YaE05JCsWeRyVHieAiZ160WhQAkqseCyPt05BM54m';
+
     private ?bool $googlePasswordStateSupported = null;
 
     private ?bool $emailChangeVerificationSupported = null;
@@ -132,7 +137,7 @@ class AuthController extends Controller
             'role' => 'customer',
         ], false, true));
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $token = $this->issuePortalToken($user);
 
         // --- Welcome Email ---
         $emailDispatch = null;
@@ -177,16 +182,36 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'login' => 'required|string', // username or email
+            'login' => 'required|string|max:255', // username or email
             'password' => 'required|string',
         ]);
 
+        $lockouts = app(LoginLockoutService::class);
+        if ($limited = $lockouts->ipLimitResponse((string) $request->ip())) {
+            return $limited;
+        }
+
         // Support login by username OR email
-        $loginField = filter_var($request->login, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
+        $identifier = trim((string) $request->login);
+        $loginField = filter_var($identifier, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
+        if ($loginField === 'email') {
+            $identifier = strtolower($identifier);
+        }
 
-        $user = User::where($loginField, $request->login)->first();
+        $user = User::where($loginField, $identifier)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if ($active = $lockouts->activeLockout($user, $identifier, (string) $request->ip())) {
+            return $lockouts->lockedResponse($active);
+        }
+
+        $passwordMatches = $user
+            ? Hash::check($request->password, $user->password)
+            : Hash::check($request->password, self::UNKNOWN_LOGIN_HASH);
+        if (!$user || !$passwordMatches) {
+            if ($active = $lockouts->recordFailure($user, $identifier, (string) $request->ip())) {
+                return $lockouts->lockedResponse($active);
+            }
+
             return response()->json([
                 'message' => 'Invalid login credentials',
             ], 401);
@@ -209,14 +234,22 @@ class AuthController extends Controller
             return $maintenance;
         }
 
-        // A successful password login proves this is a customer-usable password,
-        // not the internal random password of a Google-only account.
-        if (! $user->isSpectator() && $this->supportsGooglePasswordState() && !$user->has_custom_password) {
-            $user->has_custom_password = true;
-            $user->save();
-        }
+        // Re-check while holding the account-state row lock, and keep it held
+        // until the token is minted so a parallel failure cannot cross the
+        // threshold between the last check and successful sign-in.
+        $token = $lockouts->mintOnSuccess($user, function () use ($user) {
+            // A successful password sign-in proves this is a usable password,
+            // not the internal random password of a Google-only account.
+            if (! $user->isSpectator() && $this->supportsGooglePasswordState() && !$user->has_custom_password) {
+                $user->has_custom_password = true;
+                $user->save();
+            }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+            return $this->issuePortalToken($user);
+        });
+        if (is_array($token)) {
+            return $lockouts->lockedResponse($token);
+        }
 
         $this->exposeGooglePasswordStateFallback($user);
 
@@ -239,6 +272,11 @@ class AuthController extends Controller
             return response()->json([
                 'message' => 'A valid Google token is required.',
             ], 422);
+        }
+
+        $lockouts = app(LoginLockoutService::class);
+        if ($limited = $lockouts->ipLimitResponse((string) $request->ip())) {
+            return $limited;
         }
 
         try {
@@ -306,6 +344,12 @@ class AuthController extends Controller
             $baseUsername = substr($baseUsername, 0, 15);
 
             $user = User::where('email', $email)->first();
+
+            // A verified Google identity cannot bypass an active password
+            // lockout, including one created through the other portal route.
+            if ($user && ($active = $lockouts->activeLockout($user, $email, (string) $request->ip()))) {
+                return $lockouts->lockedResponse($active);
+            }
 
             // Maintenance Mode (STEP 11): Google sign-UP is gated by
             // `customer_register`, Google sign-IN by `customer_login`. An email
@@ -386,7 +430,10 @@ class AuthController extends Controller
                 }
             }
 
-            $token = $user->createToken('auth_token')->plainTextToken;
+            $token = $lockouts->mintOnSuccess($user, fn () => $this->issuePortalToken($user));
+            if (is_array($token)) {
+                return $lockouts->lockedResponse($token);
+            }
             $this->exposeGooglePasswordStateFallback($user);
 
             return response()->json([
@@ -401,6 +448,27 @@ class AuthController extends Controller
                 'message' => 'Google sign-in failed. Please try again or use your password.',
             ], 500);
         }
+    }
+
+    public function loginLockoutStatus(Request $request): JsonResponse
+    {
+        $lockouts = app(LoginLockoutService::class);
+        if ($limited = $lockouts->statusIpLimitResponse((string) $request->ip())) {
+            return $limited;
+        }
+
+        $validated = $request->validate(['ticket' => 'nullable|string|max:128']);
+
+        return response()->json($lockouts->ticketStatus((string) ($validated['ticket'] ?? '')));
+    }
+
+    private function issuePortalToken(User $user): string
+    {
+        $role = strtolower((string) $user->role);
+
+        return in_array($role, ['admin', 'staff'], true)
+            ? $user->createToken('auth_token', ['*'], now()->addHours(6))->plainTextToken
+            : $user->createToken('auth_token')->plainTextToken;
     }
 
     /**

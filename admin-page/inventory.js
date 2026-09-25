@@ -63,7 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const searchInput = document.getElementById("inventorySearchInput");
   const categoryFilter = document.getElementById("inventoryCategoryFilter");
   const btnOpenAdd = document.getElementById("btnOpenAddItem");
-  const btnExportExcelAll = document.getElementById("btnExportExcelAll");
+  const btnExportCsvAll = document.getElementById("btnExportCsvAll");
 
   // Stock level rules modal
   const btnOpenStockRules = document.getElementById("btnOpenStockRules");
@@ -801,7 +801,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td class="action-icons sticky-action">
               <button type="button" data-tooltip="View Item" data-inv-view="${item.id}"><i class="fa-regular fa-eye"></i></button>
               <button type="button" data-tooltip="Update Stocks" data-inv-deduct="${item.id}"><i class="fa-solid fa-square-minus"></i></button>
-              <button type="button" data-tooltip="Export Item Excel" aria-label="Export item Excel" data-inv-download="${item.id}"><i class="fa-solid fa-file-arrow-down"></i></button>
+              <button type="button" data-tooltip="Export Item CSV" aria-label="Export item CSV" data-inv-download="${item.id}"><i class="fa-solid fa-file-csv"></i></button>
               <button type="button" data-tooltip="PDF Item Form" aria-label="Preview item PDF form" data-inv-pdf="${item.id}"><i class="fa-solid fa-file-pdf"></i></button>
               <button type="button" data-tooltip="Archive Item" data-inv-archive="${item.id}"><i class="fa-solid fa-box-archive"></i></button>
             </td>
@@ -896,8 +896,8 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
         <div class="inv-category-header-right" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
           <span class="inv-category-badge">${items.length} item${items.length !== 1 ? "s" : ""}</span>
-          <button type="button" class="btn-admin btn-secondary" data-cat-export="${escHtml(category)}" title="Export this category to Excel">
-            <i class="fa-solid fa-file-excel"></i> Export Excel
+          <button type="button" class="btn-admin btn-secondary" data-cat-export="${escHtml(category)}" title="Export this category as CSV">
+            <i class="fa-solid fa-file-csv"></i> Export CSV
           </button>
           <button type="button" class="btn-admin btn-secondary" data-cat-pdf="${escHtml(category)}" title="Preview this category as PDF">
             <i class="fa-solid fa-file-pdf"></i> PDF Form
@@ -1095,12 +1095,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  const formatPHDate = (isoDate) => {
-    const d = isoDate ? new Date(isoDate) : new Date();
-    return d.toLocaleDateString("en-PH", { timeZone: "Asia/Manila" });
+  const todayPH = () => {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit",
+    }).formatToParts(new Date()).map((part) => [part.type, part.value]));
+    return `${parts.year}-${parts.month}-${parts.day}`;
   };
-
-  const todayPH = () => formatPHDate();
 
   const sanitizeFilename = (name) =>
     String(name || "inventory")
@@ -1154,10 +1154,46 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  const exportItemsToXlsx = async ({ filenameBase, txFilter = {} }) => {
+  const flattenInventoryForCsv = (data) => {
+    const tables = [data.table, ...(data.additional_tables || [])].filter(Boolean);
+    const columnsByKey = new Map();
+    tables.forEach((table) => table.columns.forEach((column) => {
+      if (!columnsByKey.has(column.key)) columnsByKey.set(column.key, column);
+    }));
+    const preferredOrder = [
+      "category", "item", "description", "unit", "initial", "on_hand",
+      "status", "date", "movement", "quantity", "by", "purpose", "remarks",
+    ];
+    const orderedKeys = [
+      ...preferredOrder.filter((key) => columnsByKey.has(key)),
+      ...[...columnsByKey.keys()].filter((key) => !preferredOrder.includes(key)),
+    ];
+    return {
+      ...data,
+      table: {
+        title: "Inventory Records",
+        columns: [
+          { key: "record_type", label: "Record Type", type: "text" },
+          ...orderedKeys.map((key) => columnsByKey.get(key)),
+        ],
+        rows: tables.flatMap((table) => table.rows.map((row) => ({
+          record_type: table.title,
+          ...row,
+        }))),
+      },
+      additional_tables: [],
+    };
+  };
+
+  const exportItemsToCsv = async ({ filenameBase, txFilter = {} }) => {
     const data = await prepareInventoryReport({ txFilter });
-    await window.FMRCReportDocuments.exportExcel(data, sanitizeFilename(filenameBase));
-    window.showAdminSuccessNotification?.("Inventory Excel exported successfully.", { title: "Export Complete" });
+    if (typeof window.FMRCReportDocuments.exportCsv !== "function") {
+      throw new Error("CSV export is unavailable. Refresh this page and try again.");
+    }
+    await window.FMRCReportDocuments.exportCsv(
+      flattenInventoryForCsv(data), sanitizeFilename(filenameBase),
+    );
+    window.showAdminSuccessNotification?.("Inventory CSV exported successfully.", { title: "Export Complete" });
   };
 
   const runInventoryExport = async (button, options = {}, pdf = false) => {
@@ -1171,7 +1207,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const data = await prepareInventoryReport(options);
         await window.FMRCReportDocuments.preview(data);
       } else {
-        await exportItemsToXlsx(options);
+        await exportItemsToCsv(options);
       }
     } catch (error) {
       showPopup(error?.message || "Unable to export this inventory selection.", { title: "Export Failed" });
@@ -1183,8 +1219,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  btnExportExcelAll?.addEventListener("click", () => void runInventoryExport(btnExportExcelAll, {
-    filenameBase: `inventory_all_${todayPH().replace(/\//g, "-")}`,
+  btnExportCsvAll?.addEventListener("click", () => void runInventoryExport(btnExportCsvAll, {
+    filenameBase: `inventory_all_${todayPH()}`,
   }));
   document.getElementById("btnInventoryPdfAll")?.addEventListener("click", (event) =>
     void runInventoryExport(event.currentTarget, {}, true),
@@ -2100,7 +2136,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const id = Number(itemExport.getAttribute(pdf ? "data-inv-pdf" : "data-inv-download"));
       const item = allItems.find((entry) => Number(entry.id) === id);
       if (item) void runInventoryExport(itemExport, {
-        filenameBase: `${item.item_name}_inventory_${todayPH().replace(/\//g, "-")}`,
+        filenameBase: `${item.item_name}_inventory_${todayPH()}`,
         txFilter: { item_id: id },
       }, pdf);
       return;
@@ -2111,7 +2147,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const pdf = categoryExport.hasAttribute("data-cat-pdf");
       const category = categoryExport.getAttribute(pdf ? "data-cat-pdf" : "data-cat-export");
       if (category) void runInventoryExport(categoryExport, {
-        filenameBase: `inventory_${category}_${todayPH().replace(/\//g, "-")}`,
+        filenameBase: `inventory_${category}_${todayPH()}`,
         txFilter: { category },
       }, pdf);
       return;

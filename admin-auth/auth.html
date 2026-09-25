@@ -23,7 +23,7 @@
       crossorigin="anonymous"
       referrerpolicy="no-referrer"
     />
-    <link rel="stylesheet" href="auth.css?v=6.2" />
+    <link rel="stylesheet" href="auth.css?v=6.4" />
     <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=2.1" />
   </head>
   <body>
@@ -70,6 +70,11 @@
           </div>
 
           <form class="auth-form active" id="loginForm" novalidate>
+            <div class="auth-security-notice auth-security-notice--session" id="adminSessionNotice" role="status" hidden></div>
+            <div class="auth-security-notice" id="loginLockoutNotice" role="status" hidden>
+              <strong>Sign-in temporarily paused</strong>
+              <p>Too many unsuccessful sign-in attempts. Try again in <time id="loginLockoutTime" aria-live="off"></time>.</p>
+            </div>
             <div class="input-wrapper">
               <label for="loginUser">Email or Username</label>
               <div class="input-icon-group">
@@ -980,6 +985,6 @@
          Paints the last-known pair synchronously, then revalidates. -->
     <script src="../home-page/portal-brand.js?v=1.1"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
-    <script src="auth.js?v=5.9"></script>
+    <script src="auth.js?v=6.1"></script>
   </body>
 </html>

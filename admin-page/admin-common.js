@@ -796,7 +796,8 @@ document.documentElement.classList.add("fmrc-admin-portal");
     if (!url.pathname.includes("/api/")) return false;
     const path = url.pathname.replace(/\/+$/, "");
     return !(method === "POST" &&
-      (/\/api\/logout$/.test(path) || /\/api\/admin\/email-templates\/preview$/.test(path)));
+      (/\/api\/logout$/.test(path) || /\/api\/admin\/email-templates\/preview$/.test(path)
+        || /\/api\/admin\/session\/activity$/.test(path)));
   };
 
   // Wrap after AdminLiveData so refused writes do not label healthy live reads

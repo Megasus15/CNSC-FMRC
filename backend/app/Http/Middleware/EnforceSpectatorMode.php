@@ -43,6 +43,12 @@ class EnforceSpectatorMode
                 return $next($request);
             }
 
+            // Session activity only refreshes the current bearer token's idle
+            // deadline. It changes no business or presentation data.
+            if ($request->isMethod('POST') && $request->is('api/admin/session/activity')) {
+                return $next($request);
+            }
+
             // This handler renders HTML only; it neither sends nor saves mail.
             if ($request->isMethod('POST') && $request->is('api/admin/email-templates/preview')) {
                 return $next($request);

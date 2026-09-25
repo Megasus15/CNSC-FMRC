@@ -64,14 +64,15 @@ function harness(user = { role: 'admin', is_spectator: true }, portal = 'admin')
   return { window, document, requests, popups, storage, click };
 }
 
-test('spectator reads remain live; only logout and pure email preview POST pass through', async () => {
+test('spectator reads, logout, email preview and session activity pass through', async () => {
   const h = harness();
   for (const endpoint of ['/api/user', '/api/admin/orders', '/api/admin/reports?year=2026', '/api/admin/notifications']) {
     assert.equal((await h.window.fetch(endpoint)).ok, true);
   }
   await h.window.fetch('/api/logout', { method: 'POST' });
   await h.window.fetch('/api/admin/email-templates/preview', { method: 'POST' });
-  assert.equal(h.requests.length, 6);
+  await h.window.fetch('/api/admin/session/activity', { method: 'POST' });
+  assert.equal(h.requests.length, 7);
 });
 
 test('spectator mutations reject before a network call, including Request objects and overrides', async () => {

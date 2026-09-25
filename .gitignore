@@ -59,3 +59,7 @@ _ide_helper.php
 
 # Private manual deployment artifacts (includes a presentation password hash).
 /output/admin-spectator-release/
+/output/portal-security-release/
+
+# Local editor/agent settings.
+/.claude/settings.local.json

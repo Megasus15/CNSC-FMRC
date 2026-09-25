@@ -3300,3 +3300,116 @@ body.admin-media-viewer-open {
     justify-content: center;
   }
 }
+
+/* One inactivity warning for every Admin and Staff page. */
+body.admin-session-warning-open {
+  overflow: hidden;
+}
+
+.admin-session-warning {
+  position: fixed;
+  inset: 0;
+  z-index: 100050;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(34, 28, 31, 0.6);
+  backdrop-filter: blur(3px);
+}
+
+.admin-session-warning[hidden] {
+  display: none;
+}
+
+.admin-session-warning__dialog {
+  width: min(100%, 440px);
+  padding: clamp(24px, 5vw, 32px);
+  border: 1px solid #eadbd5;
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: 0 24px 70px rgba(38, 18, 24, 0.22);
+  color: var(--text-main);
+  text-align: center;
+}
+
+.admin-session-warning__icon {
+  display: inline-grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  margin-bottom: 16px;
+  border-radius: 15px;
+  background: #f7e9e6;
+  color: var(--primary-color);
+  font-size: 21px;
+}
+
+.admin-session-warning__dialog h2 {
+  margin: 0 0 10px;
+  color: var(--primary-color);
+  font-size: clamp(20px, 4.6vw, 24px);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.admin-session-warning__dialog p {
+  margin: 0;
+  color: #5f6065;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.admin-session-warning__remaining {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 22px !important;
+  padding: 13px 15px;
+  border: 1px solid #ebdfd9;
+  border-radius: 11px;
+  background: #faf5f0;
+  text-align: left;
+}
+
+.admin-session-warning__remaining strong {
+  color: var(--primary-color);
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.admin-session-warning__status {
+  min-height: 20px;
+  margin-top: 10px !important;
+  color: #9a421f !important;
+  font-size: 12px !important;
+}
+
+.admin-session-warning__stay {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 14px;
+  border: 1px solid var(--primary-color);
+  border-radius: 10px;
+  background: var(--primary-color);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.admin-session-warning__stay:hover:not(:disabled) {
+  background: #650000;
+}
+
+.admin-session-warning__stay:focus-visible {
+  outline: 3px solid #d6a83e;
+  outline-offset: 3px;
+}
+
+.admin-session-warning__stay:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}

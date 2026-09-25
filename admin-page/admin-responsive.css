@@ -4735,7 +4735,7 @@
 }
 /* ===== end of 11.1 ===== */
 /* ==========================================================================
-   11.2 Inventory — "Export Excel" stays on the right of its category card
+   11.2 Inventory — "Export CSV" stays on the right of its category card
    `.inv-category-header` is `flex-wrap: wrap; justify-content: space-between`
    (inventory.html:95) with two children: the icon+title group and the badge +
    Export group (inventory.js:896). Once the row is too narrow the second group

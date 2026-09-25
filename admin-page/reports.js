@@ -31,7 +31,7 @@
   });
   // Every editable text line of the official UCN letterhead, in editor order.
   // One list drives the defaults, the rendered header/footer, the Edit
-  // Letterhead modal and the CSV export, so the four can never drift apart.
+  // Letterhead modal, so the three can never drift apart.
   // `setting` is the site_settings key; blank stored values fall back to
   // `value`, which is the official template wording.
   const REPORT_LETTERHEAD_FIELDS = Object.freeze([
@@ -634,7 +634,6 @@
       nextPage: document.getElementById("reportNextPage"),
       preview: document.getElementById("reportPreviewBtn"),
       csv: document.getElementById("reportExportCsvBtn"),
-      excel: document.getElementById("reportExportExcelBtn"),
       previewModal: document.getElementById("reportPreviewModal"),
       previewTitle: document.getElementById("reportPreviewTitle"),
       previewContent: document.getElementById("reportPreviewContent"),
@@ -715,7 +714,7 @@
     const syncActionButtons = () => {
       const isPending = (button) => button?.getAttribute("aria-busy") === "true";
       const artifactPending = state.previewPreparing || Boolean(state.previewRenderPromise)
-        || [elements.preview, elements.print, elements.csv, elements.excel].some(isPending);
+        || [elements.preview, elements.print, elements.csv].some(isPending);
       if (elements.generate) {
         elements.generate.disabled = state.isLoading || artifactPending || isPending(elements.generate);
       }
@@ -728,9 +727,6 @@
       }
       if (elements.csv) {
         elements.csv.disabled = !state.reportData || state.isLoading || artifactPending;
-      }
-      if (elements.excel) {
-        elements.excel.disabled = !state.reportData || state.isLoading || artifactPending;
       }
       if (elements.print) {
         elements.print.disabled = !state.reportData || state.isLoading || artifactPending;
@@ -1623,7 +1619,7 @@
         window.showAdminPopup?.(
           clearAll
             ? "The official UCN letterhead has been restored."
-            : "Letterhead saved. Every new report and CSV will use it.",
+            : "Letterhead saved. Every new report PDF will use it.",
           { title: "Saved!" },
         );
         state.letterheadSaving = false;
@@ -2641,6 +2637,29 @@
       return csvCell(value, normalizedType);
     };
 
+    const downloadCsvTable = (table, filename) => {
+      const lines = [
+        table.columns.map((column) => csvCell(column.label)).join(","),
+        ...table.rows.map((row) =>
+          table.columns
+            .map((column) => csvDataCell(row[column.key], column.type))
+            .join(","),
+        ),
+      ];
+      const blob = new Blob([`\uFEFF${lines.join("\r\n")}`], {
+        type: "text/csv;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${filename}.csv`;
+      link.hidden = true;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+    };
+
     /**
      * Export the records only: one header row of column labels followed by one
      * row per record, every row carrying the same number of cells so the sheet
@@ -2658,19 +2677,6 @@
         // finished records leave the system.
         await recordArtifactGeneration();
         const report = state.reportData?.report || data.report;
-        const table = state.reportData?.table || data.table;
-        const lines = [
-          table.columns.map((column) => csvCell(column.label)).join(","),
-          ...table.rows.map((row) =>
-            table.columns
-              .map((column) => csvDataCell(row[column.key], column.type))
-              .join(","),
-          ),
-        ];
-        const csv = `\uFEFF${lines.join("\r\n")}`;
-        const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
         const fileDateParts = new Intl.DateTimeFormat("en-US", {
           timeZone: "Asia/Manila",
           year: "numeric",
@@ -2692,13 +2698,7 @@
           safeSegment(report.period || state.activeParams?.period, "Period"),
           fileDate,
         ].join("_");
-        link.href = url;
-        link.download = `${filename}.csv`;
-        link.hidden = true;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.setTimeout(() => URL.revokeObjectURL(url), 0);
+        downloadCsvTable(state.reportData?.table || data.table, filename);
         window.showAdminSuccessNotification?.("Report CSV exported successfully.", {
           title: "Export Complete",
         });
@@ -2712,28 +2712,6 @@
       }
     };
 
-    const exportExcel = async () => {
-      if (!state.reportData) return;
-      setButtonPending(elements.excel, true, "Exporting...");
-      syncActionButtons();
-      try {
-        await recordArtifactGeneration();
-        await loadLetterhead(false);
-        if (!window.FMRCReportExcel) throw new Error("Excel export is unavailable. Refresh this page and try again.");
-        await window.FMRCReportExcel.download({
-          data: state.reportData,
-          letterhead: state.letterhead,
-          filename: `UCN-FMRC_${state.reportData.report.id}`,
-        });
-        window.showAdminSuccessNotification?.("Report Excel exported successfully.", { title: "Export Complete" });
-      } catch (error) {
-        window.showAdminPopup?.(error?.message || "Unable to export this report.", { title: "Export Failed" });
-      } finally {
-        setButtonPending(elements.excel, false);
-        syncActionButtons();
-      }
-    };
-
     window.FMRCReportDocuments = Object.freeze({
       preview: async (payload) => {
         if (!documentOnly) return;
@@ -2743,21 +2721,16 @@
         state.reportData = normalizeReportPayload(payload);
         await openPreview();
       },
-      exportExcel: async (payload, filename) => {
+      exportCsv: async (payload, filename) => {
         const data = normalizeReportPayload(payload);
-        const letterhead = await loadLetterhead(false);
-        if (!window.FMRCReportExcel) throw new Error("Excel export is unavailable. Refresh this page and try again.");
-        await window.FMRCReportExcel.download({
-          data, letterhead, filename,
-          tables: [data.table, ...data.additional_tables],
-        });
+        downloadCsvTable(data.table, filename);
       },
     });
 
     const refreshActiveReport = (source) => {
       if (!state.activeParams || state.isLoading) return;
       if (state.previewPreparing || state.previewRenderPromise) return;
-      if ([elements.preview, elements.print, elements.csv, elements.excel]
+      if ([elements.preview, elements.print, elements.csv]
         .some((button) => button?.getAttribute("aria-busy") === "true")) return;
       void loadReport({ ...state.activeParams }, source);
     };
@@ -2969,7 +2942,6 @@
 
     elements.preview?.addEventListener("click", () => void openPreview());
     elements.csv?.addEventListener("click", () => void exportCsv());
-    elements.excel?.addEventListener("click", () => void exportExcel());
     elements.previewCloseIcon?.addEventListener("click", closePreview);
     elements.previewClose?.addEventListener("click", closePreview);
     elements.print?.addEventListener("click", () => void printReport());

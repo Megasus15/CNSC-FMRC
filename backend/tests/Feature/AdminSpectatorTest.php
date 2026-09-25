@@ -230,6 +230,19 @@ class AdminSpectatorTest extends TestCase
         $this->assertDatabaseCount('site_settings', 0);
     }
 
+    public function test_spectator_may_keep_the_same_session_active_from_the_warning(): void
+    {
+        $user = $this->spectator();
+        $this->bearer($user);
+        $start = now()->copy();
+
+        $this->travelTo($start->addHour());
+        $this->postJson('/api/admin/session/activity', ['interaction' => 'stay_signed_in'])
+            ->assertOk()
+            ->assertJsonPath('idle_warning_at', now()->addHour()->utc()->toIso8601String());
+        $this->assertDatabaseCount('site_settings', 0);
+    }
+
     public function test_reading_calendar_and_expired_email_change_does_not_seed_or_delete_data(): void
     {
         $user = $this->spectator();
@@ -300,7 +313,7 @@ class AdminSpectatorTest extends TestCase
         $this->travel(8)->days();
 
         $this->getJson('/api/admin/dashboard/live-counts')
-            ->assertForbidden()->assertJsonPath('code', 'SPECTATOR_EXPIRED');
+            ->assertUnauthorized()->assertJsonPath('code', 'SESSION_EXPIRED');
 
         $this->withoutToken();
         $this->app['auth']->forgetGuards();
@@ -311,10 +324,11 @@ class AdminSpectatorTest extends TestCase
         ])->assertForbidden()->assertJsonPath('code', 'SPECTATOR_EXPIRED');
         $this->assertSame($tokenCount, $user->tokens()->count());
 
-        // Ending a session remains possible after the presentation window ends.
+        // A six-hour session cannot be revived by a later logout request.
         $this->app['auth']->forgetGuards();
-        $this->withToken($token)->postJson('/api/logout')->assertOk();
-        $this->assertSame(0, $user->tokens()->count());
+        $this->withToken($token);
+        $this->getJson('/api/admin/dashboard/live-counts')
+            ->assertUnauthorized()->assertJsonPath('code', 'SESSION_EXPIRED');
     }
 
     public function test_logout_revokes_the_spectator_token(): void
@@ -377,8 +391,6 @@ class AdminSpectatorTest extends TestCase
         $ordinary = User::factory()->create(['role' => 'admin']);
         $passwordHash = $user->password;
         $ordinaryOriginal = $ordinary->fresh()->getRawOriginal();
-        $token = $user->createToken('presentation')->plainTextToken;
-
         $this->artisan('admin:spectator', ['--expires' => '2026-10-05'])->assertSuccessful();
 
         $this->assertSame($passwordHash, $user->fresh()->password);
@@ -387,10 +399,12 @@ class AdminSpectatorTest extends TestCase
         $this->assertSame($ordinaryOriginal, $ordinary->fresh()->getRawOriginal());
         $this->travelTo(\Illuminate\Support\Carbon::parse('2026-10-05 23:59:58', 'Asia/Manila')->utc());
         $this->assertFalse($user->fresh()->spectatorHasExpired(), 'Now: '.now()->toIso8601String().' Expiry: '.$user->fresh()->spectator_expires_at->toIso8601String());
+        $token = $user->createToken('presentation')->plainTextToken;
         $this->app['auth']->forgetGuards();
         $this->withToken($token)->getJson('/api/user')->assertOk();
         $this->travelTo(\Illuminate\Support\Carbon::parse('2026-10-06 00:00:00', 'Asia/Manila')->utc());
         $this->getJson('/api/user')->assertForbidden()->assertJsonPath('code', 'SPECTATOR_EXPIRED');
+        $this->postJson('/api/logout')->assertOk();
     }
 
     public function test_creation_honors_explicit_expiry_and_invalid_dates_leave_accounts_untouched(): void

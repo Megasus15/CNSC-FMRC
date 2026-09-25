@@ -23,6 +23,7 @@
   const TOKEN_KEY = isStaffPortal ? "staff_auth_token" : "admin_auth_token";
   const INFO_KEY = isStaffPortal ? "staff_user_info" : "admin_user_info";
   const ROLE = isStaffPortal ? "staff" : "admin";
+  const TIMING_KEY = `fmrc_${ROLE}_session_timing`;
 
   // ── Public API exposed as window.AdminSession ──
   const AdminSession = {
@@ -85,6 +86,7 @@
       try {
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(INFO_KEY);
+        localStorage.removeItem(TIMING_KEY);
       } catch {
         /* ignore */
       }
@@ -99,6 +101,7 @@
       const tk = rk === "staff" ? "staff_auth_token" : "admin_auth_token";
       const ik = rk === "staff" ? "staff_user_info" : "admin_user_info";
       try {
+        localStorage.removeItem(`fmrc_${rk}_session_timing`);
         localStorage.setItem(tk, token);
         localStorage.setItem(ik, JSON.stringify(userInfo));
       } catch {
@@ -114,6 +117,7 @@
       try {
         localStorage.removeItem(tk);
         localStorage.removeItem(ik);
+        localStorage.removeItem(`fmrc_${rk}_session_timing`);
       } catch {
         /* ignore */
       }

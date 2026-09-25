@@ -536,9 +536,9 @@ class AdminPortalConsistencyTest extends TestCase
         // and the poll stay read-only.
         $this->assertStringContainsString('const recordArtifactGeneration', $reportsJs);
         $this->assertSame(
-            3,
+            2,
             preg_match_all('/await recordArtifactGeneration\(/', $reportsJs),
-            'Print, Export CSV and Export Excel must each record the audited generation.',
+            'Print and Export CSV must each record the audited generation.',
         );
 
         // Print geometry: a page box that fragments across two sheets

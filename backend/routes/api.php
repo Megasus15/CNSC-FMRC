@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\Api\AdminRecoveryController;
+use App\Http\Controllers\Api\AdminSessionController;
 use App\Http\Controllers\Api\AnnouncementController;
 use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\ArchiveController;
@@ -57,6 +58,7 @@ Route::get('/security-config', function () {
 // Admin/Staff login. Correct credentials alone are not enough: the Turnstile
 // token has to be present and verified by Cloudflare as well.
 Route::post('/login', [AuthController::class, 'login'])->middleware(VerifyTurnstile::class);
+Route::post('/login-lockout/status', [AuthController::class, 'loginLockoutStatus']);
 
 // Customer authentication routes (protected by Turnstile CAPTCHA)
 Route::post('/customer/login', [AuthController::class, 'login'])->middleware(VerifyTurnstile::class);
@@ -142,6 +144,9 @@ Route::post('/webhooks/paymongo', [PayMongoWebhookController::class, 'handleWebh
 // ────────────────────────────────────────────────────────────────────────────
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/admin/session', [AdminSessionController::class, 'status']);
+    Route::post('/admin/session/activity', [AdminSessionController::class, 'activity']);
+
     Route::get('/users', [AuthController::class, 'getUsers']);
     Route::post('/users', [AuthController::class, 'adminCreateUser']);
     Route::delete('/users/delete-bulk', [AuthController::class, 'adminDeleteUsersBulk']);

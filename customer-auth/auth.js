@@ -21,6 +21,132 @@ document.addEventListener("DOMContentLoaded", () => {
   const authTitle = document.querySelector(".auth-title");
   const authCaption = document.querySelector(".auth-caption");
 
+  const LOGIN_LOCKOUT_STORAGE_KEY = "fmrc_customer_login_lockout";
+  const loginIdentityInput = document.getElementById("loginUser");
+  const loginLockoutNotice = document.getElementById("loginLockoutNotice");
+  const loginLockoutTitle = loginLockoutNotice?.querySelector("strong");
+  const loginLockoutDescription = loginLockoutNotice?.querySelector("p");
+  const loginLockoutTime = document.getElementById("loginLockoutTime");
+  let loginLockout = null;
+  let lockoutStatusPending = false;
+  let lockoutTimer = null;
+  let refreshLoginSubmit = () => {};
+
+  const normalizeLoginIdentity = (value) => (value || "").trim().toLowerCase();
+  const lockoutRemainingSeconds = () =>
+    loginLockout
+      ? Math.max(0, Math.ceil((loginLockout.until - (Date.now() + loginLockout.offset)) / 1000))
+      : 0;
+  const isCurrentLoginLocked = () => {
+    if (!loginLockout?.login || (!lockoutStatusPending && !lockoutRemainingSeconds())) return false;
+    const current = normalizeLoginIdentity(loginIdentityInput?.value);
+    return !current || current === loginLockout.login;
+  };
+  const formatLockoutTime = (seconds) => {
+    if (seconds >= 3600) {
+      return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m ${seconds % 60}s`;
+    }
+    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+  };
+  const renderLoginLockout = () => {
+    const seconds = lockoutRemainingSeconds();
+    if (loginLockout && !lockoutStatusPending && !seconds) {
+      clearLoginLockout();
+      return;
+    }
+    const current = normalizeLoginIdentity(loginIdentityInput?.value);
+    const showForIdentity = !loginLockout?.login || !current || current === loginLockout.login;
+    if (loginLockoutNotice) loginLockoutNotice.hidden = !loginLockout || !showForIdentity;
+    if (loginLockoutTitle) loginLockoutTitle.textContent = lockoutStatusPending
+      ? "Checking sign-in availability"
+      : "Sign-in temporarily paused";
+    if (loginLockoutDescription) loginLockoutDescription.hidden = lockoutStatusPending;
+    if (loginLockoutTime) loginLockoutTime.textContent = formatLockoutTime(seconds);
+    refreshLoginSubmit();
+  };
+  const clearLoginLockout = () => {
+    clearInterval(lockoutTimer);
+    lockoutTimer = null;
+    loginLockout = null;
+    lockoutStatusPending = false;
+    try { localStorage.removeItem(LOGIN_LOCKOUT_STORAGE_KEY); } catch { /* Storage may be unavailable. */ }
+    if (loginLockoutNotice) loginLockoutNotice.hidden = true;
+    refreshLoginSubmit();
+  };
+  const clearAuthenticatedLoginLockout = (user) => {
+    if (!loginLockout) return;
+    const accountLogins = [user?.email, user?.username].map(normalizeLoginIdentity);
+    if (!loginLockout.login || accountLogins.includes(loginLockout.login)) clearLoginLockout();
+  };
+  const setLoginLockout = (data, login) => {
+    const until = Date.parse(data?.locked_until);
+    const serverNow = Date.parse(data?.server_time);
+    if (!data?.ticket || !Number.isFinite(until) || !Number.isFinite(serverNow)) return false;
+    loginLockout = {
+      ticket: data.ticket,
+      login: normalizeLoginIdentity(login),
+      until,
+      offset: serverNow - Date.now(),
+    };
+    lockoutStatusPending = false;
+    try {
+      const saved = JSON.stringify({
+        ticket: loginLockout.ticket,
+        login: loginLockout.login,
+        locked_until: data.locked_until,
+      });
+      if (localStorage.getItem(LOGIN_LOCKOUT_STORAGE_KEY) !== saved) {
+        localStorage.setItem(LOGIN_LOCKOUT_STORAGE_KEY, saved);
+      }
+    } catch { /* The server still enforces the pause if storage is unavailable. */ }
+    clearInterval(lockoutTimer);
+    lockoutTimer = setInterval(renderLoginLockout, 1000);
+    renderLoginLockout();
+    return true;
+  };
+  const refreshLockoutStatus = async () => {
+    if (!loginLockout?.ticket) return;
+    const ticket = loginLockout.ticket;
+    lockoutStatusPending = true;
+    renderLoginLockout();
+    try {
+      const response = await fetch(`${API_BASE_URL}/login-lockout/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ ticket }),
+      });
+      if (!response.ok) throw new Error("Unable to check sign-in availability.");
+      const data = await response.json();
+      if (loginLockout?.ticket !== ticket) return;
+      if (data.locked) setLoginLockout({ ...data, ticket }, loginLockout.login);
+      else clearLoginLockout();
+    } catch {
+      if (loginLockout?.ticket === ticket) {
+        lockoutStatusPending = false;
+        renderLoginLockout();
+      }
+    }
+  };
+  const restoreLoginLockout = () => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(LOGIN_LOCKOUT_STORAGE_KEY) || "null");
+      const until = Date.parse(saved?.locked_until);
+      if (!saved?.ticket || !Number.isFinite(until)) {
+        clearLoginLockout();
+        return;
+      }
+      loginLockout = { ticket: saved.ticket, login: normalizeLoginIdentity(saved.login), until, offset: 0 };
+      void refreshLockoutStatus();
+    } catch { clearLoginLockout(); }
+  };
+  loginIdentityInput?.addEventListener("input", renderLoginLockout);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && loginLockout?.ticket) void refreshLockoutStatus();
+  });
+  window.addEventListener("storage", (event) => {
+    if (event.key === LOGIN_LOCKOUT_STORAGE_KEY) restoreLoginLockout();
+  });
+
   const getTurnstileToken = async (widgetId) => {
     if (typeof window.FMRC_TURNSTILE?.requireToken !== "function") return "";
     return window.FMRC_TURNSTILE.requireToken(widgetId);
@@ -46,6 +172,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const note = document.getElementById(noteId);
     const submitBtn = form?.querySelector('button[type="submit"]');
     let required = false;
+    let challengeLocked = false;
 
     const showNote = (message) => {
       if (!note) return;
@@ -53,10 +180,15 @@ document.addEventListener("DOMContentLoaded", () => {
       note.hidden = !message;
     };
 
-    const setSubmitLocked = (locked) => {
+    const syncSubmit = () => {
       if (!submitBtn) return;
-      submitBtn.disabled = locked;
-      submitBtn.setAttribute("aria-disabled", locked ? "true" : "false");
+      const disabled = challengeLocked || (form === loginForm && isCurrentLoginLocked());
+      submitBtn.disabled = disabled;
+      submitBtn.setAttribute("aria-disabled", disabled ? "true" : "false");
+    };
+    const setSubmitLocked = (locked) => {
+      challengeLocked = locked;
+      syncSubmit();
     };
 
     // Only re-lock while the challenge is actually in play — with Turnstile
@@ -125,7 +257,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     void init();
 
-    return { showNote, focusChallenge, relockAfterAttempt };
+    return { showNote, focusChallenge, relockAfterAttempt, syncSubmit };
   };
 
   const loginTurnstileGate = createTurnstileGate(
@@ -133,6 +265,8 @@ document.addEventListener("DOMContentLoaded", () => {
     "loginTurnstileNote",
     loginForm,
   );
+  refreshLoginSubmit = loginTurnstileGate.syncSubmit;
+  restoreLoginLockout();
   const signupTurnstileGate = createTurnstileGate(
     "signupTurnstile",
     "signupTurnstileNote",
@@ -634,6 +768,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const login = document.getElementById("loginUser").value.trim();
       const password = document.getElementById("loginPass").value;
 
+      if (isCurrentLoginLocked()) {
+        loginLockoutNotice?.scrollIntoView({ block: "center", behavior: "smooth" });
+        return;
+      }
+
       let hasError = false;
 
       if (!login) {
@@ -675,9 +814,10 @@ document.addEventListener("DOMContentLoaded", () => {
           }),
         });
 
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
 
         if (response.ok) {
+          clearAuthenticatedLoginLockout(data.user);
           if (data.user.role !== "customer") {
             setFieldError(
               "loginUser",
@@ -703,6 +843,17 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
+        if (response.status === 429 && data.code === "LOGIN_LOCKED") {
+          setLoginLockout(data, login);
+          clearFormErrors(loginForm);
+          return;
+        }
+
+        if (response.status === 429) {
+          showStatus(data.message || "Too many sign-in requests. Please try again shortly.");
+          return;
+        }
+
         if (response.status === 422 && data.errors) {
           // A rejected token is the widget's problem, not the username's.
           if (data.errors["cf-turnstile-response"]?.[0])
@@ -711,15 +862,14 @@ document.addEventListener("DOMContentLoaded", () => {
             setFieldError("loginUser", data.errors.login[0]);
           if (data.errors.password?.[0])
             setFieldError("loginPass", data.errors.password[0]);
-        } else if (
-          data.message &&
-          /invalid|incorrect|credentials/i.test(data.message)
-        ) {
-          setFieldError("loginPass", "Password is incorrect.");
+        } else if (response.status === 401) {
+          setFieldError("loginUser", "The email or username and password do not match.");
         } else {
           setFieldError(
             "loginUser",
-            data.message || "Unable to log in with the provided details.",
+            response.status >= 500
+              ? "Sign-in is temporarily unavailable. Please try again shortly."
+              : data.message || "Unable to log in with the provided details.",
           );
         }
       } catch {
@@ -1150,6 +1300,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const data = await res.json();
 
       if (res.ok) {
+        clearAuthenticatedLoginLockout(data.user);
         if (data.user && data.user.role !== "customer") {
           const isLogin = loginForm?.classList.contains("active");
           setFieldError(
@@ -1178,6 +1329,14 @@ document.addEventListener("DOMContentLoaded", () => {
       if (res.status === 503 && data.maintenance) {
         // Maintenance Mode: an outage notice does not belong under a field.
         showMaintenanceNotice(data.message);
+        return;
+      }
+
+      if (res.status === 429 && data.code === "LOGIN_LOCKED") {
+        showLogin();
+        // Google does not disclose its selected account to this form, so do not
+        // associate the returned ticket with a possibly stale typed identity.
+        setLoginLockout(data, "");
         return;
       }
 
