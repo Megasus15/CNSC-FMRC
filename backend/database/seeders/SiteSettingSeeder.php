@@ -16,15 +16,16 @@ class SiteSettingSeeder extends Seeder
         SiteSetting::set('hero_bg_color', '#8b1a1a');
         SiteSetting::set('hero_bg_gradient', 'maroon-ember'); // preset id from home-page/hero-gradients.js
         SiteSetting::set('hero_bg_image', null);
-        SiteSetting::set('hero_logo_image', null);           // base64 or null (falls back to /images/FMRC Logo.png)
+        SiteSetting::set('hero_logo_image', null);           // base64 or null (falls back to /images/FMRC Brand Logo.png)
 
         // ── Brand Logos ───────────────────────────────────────────────────────────
         // Uploaded from Website Management → Home. Each is base64 or null, and a
         // null falls back to the bundled artwork the customer pages ship with.
-        SiteSetting::set('nav_logo_image', null);             // navbar emblem, every customer page (/images/CNSC logo.png)
-        SiteSetting::set('footer_logo_primary_image', null);  // footer left logo (/images/CNSC logo.png)
-        SiteSetting::set('footer_logo_secondary_image', null); // footer right logo (/images/FMRC Logo.png)
-        SiteSetting::set('favicon_image', null);              // browser tab icon (/images/favicon.ico?v=3)
+        SiteSetting::set('nav_logo_image', null);             // navbar left logo, every customer page (/images/UCN Logo.png)
+        SiteSetting::set('nav_logo_secondary_image', null);   // navbar right logo, every customer page (/images/FMRC Brand Logo.png)
+        SiteSetting::set('footer_logo_primary_image', null);  // footer left logo (/images/UCN Logo.png)
+        SiteSetting::set('footer_logo_secondary_image', null); // footer right logo (/images/FMRC Brand Logo.png)
+        SiteSetting::set('favicon_image', null);              // browser tab icon (/images/FMRC Brand Logo.png)
 
         // Optional caption above the hero SDG badge strip. Blank hides the line.
         SiteSetting::set('home_sdg_heading', 'Supporting the UN Sustainable Development Goals');
