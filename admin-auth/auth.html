@@ -23,10 +23,35 @@
       crossorigin="anonymous"
       referrerpolicy="no-referrer"
     />
-    <link rel="stylesheet" href="auth.css?v=6.4" />
+    <link rel="stylesheet" href="auth.css?v=6.5" />
+    <link rel="stylesheet" href="../home-page/auth-notices.css?v=1.1" />
     <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=2.2" />
   </head>
   <body>
+    <div class="auth-notice-stack" id="authNoticeStack" aria-label="Sign-in notices">
+      <div class="auth-security-notice auth-security-notice--session" id="adminSessionNotice" role="status" hidden>
+        <div class="auth-security-notice-inner">
+          <svg class="auth-security-notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M12 7v5l3 2"></path>
+          </svg>
+          <p id="adminSessionMessage"></p>
+        </div>
+      </div>
+      <div class="auth-security-notice" id="loginLockoutNotice" role="status" hidden>
+        <div class="auth-security-notice-inner">
+          <svg class="auth-security-notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="5" y="10" width="14" height="11" rx="2"></rect>
+            <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"></path>
+            <circle cx="12" cy="18" r="0.5" fill="currentColor"></circle>
+          </svg>
+          <div class="auth-security-notice-copy">
+            <strong>Sign-in temporarily paused</strong>
+            <p>Too many unsuccessful sign-in attempts. Try again in <time id="loginLockoutTime" aria-live="off"></time>.</p>
+          </div>
+        </div>
+      </div>
+    </div>
     <main class="auth-page">
       <section class="auth-card" aria-label="Admin and staff authentication panel">
         <aside class="auth-side-panel" aria-hidden="true">
@@ -70,11 +95,6 @@
           </div>
 
           <form class="auth-form active" id="loginForm" novalidate>
-            <div class="auth-security-notice auth-security-notice--session" id="adminSessionNotice" role="status" hidden></div>
-            <div class="auth-security-notice" id="loginLockoutNotice" role="status" hidden>
-              <strong>Sign-in temporarily paused</strong>
-              <p>Too many unsuccessful sign-in attempts. Try again in <time id="loginLockoutTime" aria-live="off"></time>.</p>
-            </div>
             <div class="input-wrapper">
               <label for="loginUser">Email or Username</label>
               <div class="input-icon-group">
@@ -985,6 +1005,7 @@
          Paints the last-known pair synchronously, then revalidates. -->
     <script src="../home-page/portal-brand.js?v=1.2"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
-    <script src="auth.js?v=6.1"></script>
+    <script src="../home-page/auth-notices.js?v=1.0"></script>
+    <script src="auth.js?v=6.2"></script>
   </body>
 </html>

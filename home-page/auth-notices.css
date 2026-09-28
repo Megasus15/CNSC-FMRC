@@ -1,0 +1,121 @@
+/* Shared viewport notices for Customer and Admin/Staff authentication. */
+.auth-notice-stack {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 20010;
+  width: 100%;
+}
+
+.auth-security-notice {
+  width: 100%;
+  margin: 0;
+  padding: 12px max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px));
+  border: 0;
+  border-bottom: 1px solid #e6c9c4;
+  border-radius: 0;
+  background: #fff7f5;
+  color: #563033;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.auth-security-notice:first-child:not([hidden]),
+.auth-security-notice[hidden] + .auth-security-notice {
+  padding-top: calc(12px + env(safe-area-inset-top, 0px));
+}
+
+.auth-security-notice[hidden] {
+  display: none;
+}
+
+.auth-security-notice-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.auth-security-notice-icon {
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  color: #74151b;
+}
+
+.auth-security-notice-copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 2px 12px;
+  min-width: 0;
+}
+
+.auth-security-notice strong {
+  color: #74151b;
+  font-weight: 700;
+}
+
+.auth-security-notice p {
+  margin: 0;
+}
+
+.auth-security-notice time {
+  color: #74151b;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.auth-security-notice--session {
+  border-color: #d9e1eb;
+  background: #f6f8fb;
+  color: #324252;
+}
+
+.auth-security-notice--session .auth-security-notice-icon {
+  color: #324252;
+}
+
+body.has-auth-notices {
+  padding-top: var(--auth-notice-height);
+}
+
+body.has-auth-notices .auth-page {
+  min-height: calc(100vh - var(--auth-notice-height));
+  min-height: calc(100dvh - var(--auth-notice-height));
+}
+
+body.has-auth-notices .auth-error-alert {
+  top: calc(var(--auth-notice-height) + 12px);
+  max-height: min(42vh, 300px, calc(100dvh - var(--auth-notice-height) - 24px));
+}
+
+@media (max-width: 767px) {
+  .auth-security-notice {
+    font-size: 13px;
+  }
+
+  .auth-security-notice-inner {
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .auth-security-notice-icon {
+    margin-top: 2px;
+  }
+
+  .auth-security-notice-copy {
+    display: block;
+  }
+
+  .auth-security-notice strong {
+    display: block;
+    margin-bottom: 3px;
+  }
+}

@@ -21,7 +21,8 @@
       href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="auth.css?v=7.4" />
+    <link rel="stylesheet" href="auth.css?v=7.5" />
+    <link rel="stylesheet" href="../home-page/auth-notices.css?v=1.1" />
 
     <!-- The shared customer loader uses the homepage hero logo for both
          initial loading and authentication actions. -->
@@ -64,6 +65,21 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
+    <div class="auth-notice-stack" id="authNoticeStack" aria-label="Sign-in notices">
+      <div class="auth-security-notice" id="loginLockoutNotice" role="status" hidden>
+        <div class="auth-security-notice-inner">
+          <svg class="auth-security-notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="5" y="10" width="14" height="11" rx="2"></rect>
+            <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2"></path>
+            <circle cx="12" cy="18" r="0.5" fill="currentColor"></circle>
+          </svg>
+          <div class="auth-security-notice-copy">
+            <strong>Sign-in temporarily paused</strong>
+            <p>Too many unsuccessful sign-in attempts. Try again in <time id="loginLockoutTime" aria-live="off"></time>.</p>
+          </div>
+        </div>
+      </div>
+    </div>
     <!-- The boot curtain. Static markup, so it can paint on the very first
          frame; hidden by default in CSS and shown only while html.fmrc-booting
          is set, which the script above is the only thing that adds. A visitor
@@ -197,10 +213,6 @@
             </div>
 
             <form class="auth-form active" id="loginForm" novalidate>
-            <div class="auth-security-notice" id="loginLockoutNotice" role="status" hidden>
-              <strong>Sign-in temporarily paused</strong>
-              <p>Too many unsuccessful sign-in attempts. Try again in <time id="loginLockoutTime" aria-live="off"></time>.</p>
-            </div>
             <div class="input-wrapper">
               <label for="loginUser">Email or Username</label>
               <div class="input-icon-group">
@@ -872,6 +884,7 @@
          fire. auth.js calls it as `window.FMRCLoader?.…`, so a failed request
          costs the curtain, never the sign-in. -->
     <script src="../home-page/fmrc-loader.js?v=2.0"></script>
-    <script src="auth.js?v=5.8"></script>
+    <script src="../home-page/auth-notices.js?v=1.0"></script>
+    <script src="auth.js?v=5.9"></script>
   </body>
 </html>

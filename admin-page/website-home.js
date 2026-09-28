@@ -84,18 +84,10 @@ const BRAND_LOGOS = [
   {
     slot: "nav",
     key: "nav_logo_image",
-    label: "Navbar Logo — Left",
+    label: "UCN Navbar Logo",
     shape: "square",
     fallback: "/images/UCN Logo.png",
-    hint: "First mark in the header and mobile menu of every customer page. Fixed square.",
-  },
-  {
-    slot: "nav2",
-    key: "nav_logo_secondary_image",
-    label: "Navbar Logo — Right",
-    shape: "square",
-    fallback: "/images/FMRC Brand Logo.png",
-    hint: "Second mark in the header and mobile menu of every customer page. Fixed square.",
+    hint: "The UCN mark in the header and mobile menu of every customer page. Fixed square.",
   },
   {
     slot: "footer1",
@@ -153,7 +145,6 @@ const BRAND_LOGOS = [
 // Saved base64 per slot, or "" when the slot is on its bundled default.
 let brandLogoData = {
   nav: "",
-  nav2: "",
   hero: "",
   footer1: "",
   footer2: "",

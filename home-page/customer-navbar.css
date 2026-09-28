@@ -10,14 +10,13 @@
   gap: 12px;
 }
 
-/* The two independently editable marks travel as one lockup in the sticky
-   header and its cloned mobile drawer. A fixed square keeps uploads contained. */
+/* The UCN navbar mark also appears in the cloned mobile drawer.
+   A fixed square keeps uploads contained. */
 .site-header > .logo-container .header-logo-pair,
 .sidebar-logo-container .header-logo-pair {
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
-  gap: 5px;
 }
 
 .site-header > .logo-container .header-logo-pair .header-emblem,
@@ -282,9 +281,6 @@
 }
 
 @media (max-width: 600px) {
-  .site-header > .logo-container .header-logo-pair {
-    gap: 3px;
-  }
   .site-header > .logo-container .header-logo-pair .header-emblem {
     width: clamp(25px, 8vw, 32px);
     height: clamp(25px, 8vw, 32px);

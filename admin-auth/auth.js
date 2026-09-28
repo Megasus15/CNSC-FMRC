@@ -276,9 +276,10 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const adminSessionNotice = document.getElementById("adminSessionNotice");
+  const adminSessionMessage = document.getElementById("adminSessionMessage");
   const showSessionNotice = (message) => {
-    if (!adminSessionNotice || !message) return;
-    adminSessionNotice.textContent = message;
+    if (!adminSessionNotice || !adminSessionMessage || !message) return;
+    adminSessionMessage.textContent = message;
     adminSessionNotice.hidden = false;
   };
   try {
@@ -581,7 +582,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const pass = document.getElementById("loginPass").value;
 
       if (isCurrentLoginLocked()) {
-        loginLockoutNotice?.scrollIntoView({ block: "center", behavior: "smooth" });
+        renderLoginLockout();
         return;
       }
 

@@ -14944,12 +14944,6 @@ const openReturnRequestModal = (() => {
       "/images/UCN Logo.png",
       '[data-brand-logo="nav-primary"]',
     );
-    _logo(
-      "navLogoSecondaryEl",
-      s.nav_logo_secondary_image,
-      "/images/FMRC Brand Logo.png",
-      '[data-brand-logo="nav-secondary"]',
-    );
     _logo("heroLogoEl", s.hero_logo_image, "/images/FMRC Brand Logo.png");
     _logo(
       "footerLogoPrimaryEl",

@@ -56,7 +56,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     const current = normalizeLoginIdentity(loginIdentityInput?.value);
     const showForIdentity = !loginLockout?.login || !current || current === loginLockout.login;
-    if (loginLockoutNotice) loginLockoutNotice.hidden = !loginLockout || !showForIdentity;
+    if (loginLockoutNotice) loginLockoutNotice.hidden = !loginLockout || !showForIdentity || !loginForm?.classList.contains("active");
     if (loginLockoutTitle) loginLockoutTitle.textContent = lockoutStatusPending
       ? "Checking sign-in availability"
       : "Sign-in temporarily paused";
@@ -543,6 +543,7 @@ document.addEventListener("DOMContentLoaded", () => {
     signupForm.style.display = "none";
     signupForm.classList.remove("active");
     clearFormErrors(signupForm);
+    renderLoginLockout();
   };
 
   const showSignup = (event) => {
@@ -553,6 +554,7 @@ document.addEventListener("DOMContentLoaded", () => {
     loginForm.style.display = "none";
     loginForm.classList.remove("active");
     clearFormErrors(loginForm);
+    renderLoginLockout();
   };
 
   openSignupFromLogin?.addEventListener("click", showSignup);
@@ -769,7 +771,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const password = document.getElementById("loginPass").value;
 
       if (isCurrentLoginLocked()) {
-        loginLockoutNotice?.scrollIntoView({ block: "center", behavior: "smooth" });
+        renderLoginLockout();
         return;
       }
 
