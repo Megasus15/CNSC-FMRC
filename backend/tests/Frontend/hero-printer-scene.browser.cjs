@@ -1,0 +1,403 @@
+// Browser regression for the real Customer Home markup/CSS with fixture API data.
+// Run with: node --test backend/tests/Frontend/hero-printer-scene.browser.cjs
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
+const http = require('node:http');
+const { spawn } = require('node:child_process');
+
+const repo = path.resolve(__dirname, '../../..');
+const chrome = [
+  process.env.FMRC_CHROME,
+  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+].find((candidate) => candidate && fs.existsSync(candidate));
+const mime = {
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp',
+  '.woff2': 'font/woff2',
+};
+
+async function connect(url) {
+  const socket = new WebSocket(url);
+  await new Promise((resolve, reject) => {
+    socket.onopen = resolve;
+    socket.onerror = reject;
+  });
+  let nextId = 0;
+  const pending = new Map();
+  socket.onmessage = ({ data }) => {
+    const reply = JSON.parse(data);
+    const request = pending.get(reply.id);
+    if (!request) return;
+    pending.delete(reply.id);
+    reply.error ? request.reject(new Error(JSON.stringify(reply.error))) : request.resolve(reply.result);
+  };
+  return {
+    send(method, params = {}) {
+      return new Promise((resolve, reject) => {
+        const id = ++nextId;
+        pending.set(id, { resolve, reject });
+        socket.send(JSON.stringify({ id, method, params }));
+      });
+    },
+    close() { socket.close(); },
+  };
+}
+
+test('Customer Home 3D printer scene fits desktop and modern iPhones and applies saved settings',
+  { skip: !chrome, timeout: 90000 }, async () => {
+    let settings = {
+      hero_title: 'Ideas take shape here.',
+      hero_scene_accent: '#e6c46c', hero_scene_scale: 100, hero_scene_motion: 'on',
+    };
+    const server = http.createServer((request, response) => {
+      const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
+      if (pathname.startsWith('/api/')) {
+        const result = pathname.endsWith('/maintenance')
+          ? { installed: true, site_page: {}, data: { site_portal: { active: false } } }
+          : { data: pathname.endsWith('/site-settings') ? settings : [] };
+        response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        response.end(JSON.stringify(result));
+        return;
+      }
+      const absolute = path.resolve(repo, '.' + pathname);
+      if (!absolute.startsWith(repo + path.sep) || !fs.existsSync(absolute) || !fs.statSync(absolute).isFile()) {
+        response.writeHead(404);
+        response.end();
+        return;
+      }
+      response.writeHead(200, { 'Content-Type': mime[path.extname(absolute)] || 'application/octet-stream' });
+      fs.createReadStream(absolute).pipe(response);
+    });
+    const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'fmrc-home-printer-'));
+    const shots = process.env.FMRC_KEEP_SHOTS === '1'
+      ? fs.mkdtempSync(path.join(os.tmpdir(), 'fmrc-printer-shots-')) : null;
+    let browser;
+    let cdp;
+    try {
+      await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+      browser = spawn(chrome, [
+        '--headless=new', '--disable-gpu', '--no-sandbox', '--no-first-run',
+        '--no-default-browser-check', '--disable-background-networking',
+        '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank',
+      ], { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
+      const endpoint = await new Promise((resolve, reject) => {
+        let output = '';
+        const timer = setTimeout(() => reject(new Error('Chrome startup timeout: ' + output)), 15000);
+        browser.stderr.on('data', (chunk) => {
+          output += chunk;
+          const match = output.match(/DevTools listening on (ws:\/\/[^\s]+)/);
+          if (match) { clearTimeout(timer); resolve(match[1]); }
+        });
+        browser.once('error', reject);
+      });
+      const debugPort = new URL(endpoint).port;
+      const targets = await (await fetch(`http://127.0.0.1:${debugPort}/json/list`)).json();
+      cdp = await connect(targets.find((target) => target.type === 'page').webSocketDebuggerUrl);
+      await cdp.send('Page.enable');
+      await cdp.send('Runtime.enable');
+      await cdp.send('Page.addScriptToEvaluateOnNewDocument', {
+        source: `window.APP_API_BASE_URL = location.origin + '/api';
+          const nativeFetch = window.fetch.bind(window);
+          window.fetch = (input, init) => {
+            const url = new URL(typeof input === 'string' ? input : input.url, location.href);
+            return nativeFetch(url.pathname.startsWith('/api/')
+              ? location.origin + url.pathname + url.search : input, init);
+          };`,
+      });
+      await cdp.send('Network.enable');
+      await cdp.send('Network.setBlockedURLs', { urls: ['https://*'] });
+      const evaluate = async (expression) => {
+        const reply = await cdp.send('Runtime.evaluate', {
+          expression, returnByValue: true, awaitPromise: true,
+        });
+        if (reply.exceptionDetails) throw new Error(JSON.stringify(reply.exceptionDetails));
+        return reply.result.value;
+      };
+      const waitFor = async (expression) => {
+        for (let attempt = 0; attempt < 100; attempt++) {
+          if (await evaluate(expression)) return;
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        throw new Error(`Home did not reach: ${expression}`);
+      };
+
+      for (const [width, height] of [
+        [320, 568], [390, 844], [430, 932],
+        [667, 375], [844, 390], [932, 430], [1440, 900], [1920, 1080],
+      ]) {
+        await cdp.send('Emulation.setDeviceMetricsOverride', {
+          width, height, deviceScaleFactor: 1, mobile: width < 1000,
+        });
+        await cdp.send('Page.navigate', {
+          url: `http://127.0.0.1:${server.address().port}/home-page/main.html`,
+        });
+        await waitFor(`document.readyState === 'complete' &&
+          !document.querySelector('.fmrc-load-boot') &&
+          document.querySelector('img.hero-printer-art')?.naturalWidth > 0 &&
+          document.getElementById('heroPrinterScene')?.dataset.mechanism === 'ready' &&
+          document.getElementById('heroLogoEl')?.naturalWidth > 0 &&
+          document.getElementById('heroPrinterScene')?.style.getPropertyValue('--hero-scene-accent') === '#e6c46c' &&
+          document.getElementById('heroTitleEl')?.getAttribute('aria-busy') !== 'true'`);
+        const state = await evaluate(`(() => {
+          const scene = document.getElementById('heroPrinterScene');
+          const title = document.getElementById('heroTitleEl');
+          const art = scene.querySelector('.hero-printer-art');
+          const logo = document.getElementById('heroLogoEl');
+          const badge = scene.querySelector('.hero-printer-badge');
+          const mechanics = JSON.parse(scene.querySelector('#hp-mechanics').textContent);
+          const sr = scene.getBoundingClientRect(), tr = title.getBoundingClientRect();
+          const br = badge.getBoundingClientRect(), bs = getComputedStyle(badge);
+          const matrix = new DOMMatrix(bs.transform), unit = sr.width / 960;
+          const center = [(br.left + br.right) / 2, (br.top + br.bottom) / 2];
+          const toScene = ([x,y]) => [(x - sr.left) / unit, (y - sr.top) / unit];
+          const halfWidth = parseFloat(bs.width) / 2, halfHeight = parseFloat(bs.height) / 2;
+          const corners = [[-halfWidth,-halfHeight],[halfWidth,-halfHeight],
+            [halfWidth,halfHeight],[-halfWidth,halfHeight]].map(([x,y]) =>
+              toScene([center[0]+matrix.a*x+matrix.c*y, center[1]+matrix.b*x+matrix.d*y]));
+          return {
+            title: title.textContent.replace(/\\s+/g, ' ').trim(),
+            browse: document.querySelector('.btn-browse').textContent.trim(),
+            browseHref: document.querySelector('.btn-browse').getAttribute('href'),
+            appointment: document.querySelector('.btn-appointment').textContent.trim(),
+            art: art.naturalWidth, logo: logo.naturalWidth,
+            logoSrc: logo.getAttribute('src'), scrollWidth: document.documentElement.scrollWidth,
+            scene: {left:sr.left, right:sr.right, top:sr.top, bottom:sr.bottom, width:sr.width},
+            titleTop: tr.top, sceneTopStyle: getComputedStyle(scene).top,
+            accent: scene.style.getPropertyValue('--hero-scene-accent'),
+            scale: scene.style.getPropertyValue('--hero-scene-scale'), motion: scene.dataset.motion,
+            badge: {center:toScene(center), corners, matrix:[matrix.a,matrix.b,matrix.c,matrix.d],
+              localSize:[halfWidth * 2 / unit,halfHeight * 2 / unit],
+              expected:mechanics.logo, face:mechanics.logoFace},
+          };
+        })()`);
+        const size = `${width}x${height}`;
+        assert.equal(state.title.toLowerCase(), 'ideas take shape here.', `${size}: headline preserved`);
+        assert.equal(state.browse, 'Browse Products', `${size}: Browse CTA preserved`);
+        assert.equal(state.browseHref, '/products-page/product.html', `${size}: Browse destination preserved`);
+        assert.equal(state.appointment, 'Appoint Now!', `${size}: appointment CTA preserved`);
+        assert.ok(state.art > 0 && state.logo > 0, `${size}: printer artwork and logo load`);
+        assert.equal(state.logoSrc, '/images/FMRC Logo.png', `${size}: transparent FMRC mark`);
+        assert.ok(Math.hypot(state.badge.center[0] - state.badge.expected.x,
+          state.badge.center[1] - state.badge.expected.y) < 0.25,
+          `${size}: logo center follows the actual printed face`);
+        state.badge.matrix.forEach((value, index) => assert.ok(
+          Math.abs(value - state.badge.expected.matrix[index]) < 0.0001,
+          `${size}: logo uses the machine's full face projection`));
+        assert.ok(Math.abs(state.badge.localSize[0] - state.badge.expected.width) < 0.25 &&
+          Math.abs(state.badge.localSize[1] - state.badge.expected.height) < 0.25,
+          `${size}: logo uses the face's local dimensions before projection`);
+        for (const [x,y] of state.badge.corners) {
+          const sides = state.badge.face.map(([fx,fy], edge) => {
+            const [nx,ny] = state.badge.face[(edge + 1) % state.badge.face.length];
+            return (nx - fx) * (y - fy) - (ny - fy) * (x - fx);
+          });
+          assert.ok(sides.every(side => side >= -0.5) || sides.every(side => side <= 0.5),
+            `${size}: all four projected logo corners fit within its recessed print face`);
+        }
+        assert.ok(state.scene.width > 0, `${size}: scene is visible`);
+        assert.ok(state.scene.left >= -2 && state.scene.right <= width + 2, `${size}: scene fits horizontally`);
+        assert.ok(state.scrollWidth <= width + 1, `${size}: no horizontal overflow`);
+        if (width < 1000) {
+          assert.ok(state.scene.bottom <= state.titleTop + 2, `${size}: scene stays above headline`);
+        }
+        if (width === 1440) {
+          assert.ok(parseFloat(state.sceneTopStyle) > 0,
+            `${size}: only the artwork moves to clear an unbroken headline`);
+        }
+        assert.equal(state.accent, '#e6c46c');
+        assert.equal(state.scale, '1');
+        assert.equal(state.motion, 'on');
+        if (shots && [320, 390, 430, 1440, 1920].includes(width)) {
+          const originalTitle = settings.hero_title;
+          settings = { ...settings, hero_title:'ONLINE MARKET\nPLACE AND\nSERVICE SOLUTION' };
+          assert.equal(await evaluate('window.FMRC_REFRESH_SITE_SETTINGS()'), true);
+          await evaluate("window.scrollTo(0, 0)");
+          assert.equal(await evaluate(`document.elementFromPoint(innerWidth/2, innerHeight/2)?.closest('.fmrc-load-boot,.fmrc-load-veil') === null`),
+            true, 'integrated screenshot shows the page after its curtain lifts');
+          const headline = await evaluate(`(() => {
+            const title = document.getElementById('heroTitleEl');
+            // Measure glyph rows only: a whole-heading range also includes the
+            // last line's inline-block box, whose top differs from its text.
+            const walker = document.createTreeWalker(title, NodeFilter.SHOW_TEXT);
+            const rows = [];
+            for (let node; (node = walker.nextNode());) {
+              if (!node.textContent.trim()) continue;
+              const range = document.createRange();
+              range.selectNodeContents(node);
+              rows.push(...[...range.getClientRects()].filter(r => r.width > 1)
+                .map(r => Math.round(r.top)));
+            }
+            return {breaks:title.querySelectorAll('br').length, rows:[...new Set(rows)].length};
+          })()`);
+          assert.equal(headline.breaks, 2, `${size}: original three-line headline markup preserved`);
+          if (width >= 1440) assert.equal(headline.rows, 3, `${size}: headline remains visually three lines`);
+          const viewportShot = await cdp.send('Page.captureScreenshot', {
+            format:'png', captureBeyondViewport:false,
+          });
+          fs.writeFileSync(path.join(shots, `customer-viewport-${width}-${height}.png`), Buffer.from(viewportShot.data, 'base64'));
+          const layout = await cdp.send('Page.getLayoutMetrics');
+          const shot = await cdp.send('Page.captureScreenshot', {
+            format: 'png', captureBeyondViewport: true,
+            clip: {x:0, y:0, width:layout.cssContentSize.width, height:layout.cssContentSize.height, scale:1},
+          });
+          fs.writeFileSync(path.join(shots, `customer-${width}-${height}.png`), Buffer.from(shot.data, 'base64'));
+          settings = { ...settings, hero_title:originalTitle };
+          assert.equal(await evaluate('window.FMRC_REFRESH_SITE_SETTINGS()'), true);
+        }
+      }
+
+      settings = { ...settings, hero_title: 'ONLINE MARKET\nPLACE AND\nSERVICE SOLUTION' };
+      assert.equal(await evaluate('window.FMRC_REFRESH_SITE_SETTINGS()'), true);
+      const multiline = await evaluate(`(() => {
+        const title = document.getElementById('heroTitleEl');
+        const scene = document.getElementById('heroPrinterScene');
+        return {breaks: title.querySelectorAll('br').length,
+          finalLineWhiteSpace: getComputedStyle(title.querySelector('.hero-research-line')).whiteSpace,
+          sceneTop: getComputedStyle(scene).top};
+      })()`);
+      assert.deepEqual(multiline, {breaks: 2, finalLineWhiteSpace: 'nowrap', sceneTop: '0px'},
+        'configured headline line breaks remain unchanged while artwork aligns beside them');
+
+      await evaluate("document.getElementById('heroPrinterScene').scrollIntoView({block:'center'})");
+      // Measure the actual moving nozzle against the printed part's top face.
+      // The feed tube's end must stay connected to its moving inlet throughout
+      // a complete pass; checking only that animation exists would miss gaps.
+      const mechanismState = `(() => {
+        const scene = document.getElementById('heroPrinterScene');
+        const svg = scene.querySelector('.hero-printer-mechanism');
+        const mechanics = JSON.parse(svg.querySelector('#hp-mechanics').textContent);
+        const head = scene.querySelector('.hp-printhead');
+        const relativeMatrix = element => svg.getCTM().inverse().multiply(element.getCTM());
+        const matrix = relativeMatrix(head);
+        const gantry = relativeMatrix(scene.querySelector('.hp-gantry'));
+        const contact = head.querySelector('.hp-contact');
+        const nozzle = new DOMPoint(+contact.getAttribute('cx'), +contact.getAttribute('cy'))
+          .matrixTransform(relativeMatrix(contact));
+        const inlet = new DOMPoint(...mechanics.feed.end).matrixTransform(matrix);
+        const endpoints = [...scene.querySelectorAll('.hp-filament-flex')].map(tube => {
+          const end = tube.getPointAtLength(tube.getTotalLength());
+          const point = new DOMPoint(end.x, end.y).matrixTransform(relativeMatrix(tube));
+          return {x:point.x, y:point.y};
+        });
+        const trail = scene.querySelector('.hp-deposition-path');
+        const trailStyle = getComputedStyle(trail);
+        const pathLength = +trail.getAttribute('pathLength') || trail.getTotalLength();
+        const reveal = 1 - parseFloat(trailStyle.strokeDashoffset) / pathLength;
+        const end = trail.getPointAtLength(trail.getTotalLength() * Math.max(0, Math.min(1, reveal)));
+        const trailEnd = new DOMPoint(end.x, end.y).matrixTransform(relativeMatrix(trail));
+        return {x:matrix.e, y:matrix.f, nozzle:{x:nozzle.x,y:nozzle.y}, inlet:{x:inlet.x,y:inlet.y},
+          gantry:{x:gantry.e,y:gantry.f}, projection:mechanics.projection, plane:mechanics.partTop,
+          cycle:+scene.dataset.printCycle, progress:+scene.dataset.printProgress,
+          reveal, trailEnd:{x:trailEnd.x,y:trailEnd.y},
+          endpoints, fan:getComputedStyle(scene.querySelector('.hp-fan')).animationName};
+      })()`;
+      const samples = [];
+      let closeupCaptured = false;
+      for (let index = 0; index < 57; index++) {
+        const state = await evaluate(mechanismState);
+        samples.push(state);
+        // Validate the rendered nozzle in the physical top plane, independent
+        // of point ordering and without hardcoded coordinates from older art.
+        const sides = state.plane.map(([x, y], edge) => {
+          const [nx, ny] = state.plane[(edge + 1) % state.plane.length];
+          return (nx - x) * (state.nozzle.y - y) - (ny - y) * (state.nozzle.x - x);
+        });
+        const inside = sides.every(side => side >= -0.5) || sides.every(side => side <= 0.5);
+        assert.ok(inside, `nozzle stays on the active top layer: ${JSON.stringify(state.nozzle)}`);
+        assert.ok(state.endpoints.length > 0, 'the filament feed is visible');
+        for (const endpoint of state.endpoints) {
+          assert.ok(Math.hypot(endpoint.x - state.inlet.x, endpoint.y - state.inlet.y) < 0.1,
+            'feed tube remains connected to the moving inlet');
+        }
+        const [ax, ay] = state.projection.xAxis, [bx, by] = state.projection.yAxis;
+        const determinant = ax * by - bx * ay;
+        assert.ok(Math.abs(determinant) > 0.01, 'machine projection has two independent axes');
+        state.worldX = (by * state.x - bx * state.y) / determinant;
+        state.worldY = (ax * state.y - ay * state.x) / determinant;
+        assert.ok(Math.hypot(state.gantry.x - state.worldY * bx, state.gantry.y - state.worldY * by) < 0.15,
+          'gantry follows the carriage depth while the toolhead travels along its X rail');
+        assert.ok(state.reveal >= -0.01 && state.reveal <= 1.01, 'deposited layer visibility is bounded');
+        assert.ok(Math.hypot(state.trailEnd.x - state.nozzle.x, state.trailEnd.y - state.nozzle.y) < 1,
+          'visible deposited filament ends at the moving nozzle in projected space');
+        const previous = samples[index - 1];
+        if (previous && previous.cycle === state.cycle) {
+          assert.ok(state.reveal + 0.001 >= previous.reveal, 'printed filament stays deposited during the same layer');
+        }
+        if (shots && !closeupCaptured && state.progress > 0.25 && state.progress < 0.8) {
+          const bounds = await evaluate(`(() => {
+            const r = document.getElementById('heroPrinterScene').getBoundingClientRect();
+            return {x:r.left+scrollX,y:r.top+scrollY,width:r.width,height:r.height,scale:2};
+          })()`);
+          const shot = await cdp.send('Page.captureScreenshot', { format:'png', clip:bounds, captureBeyondViewport:true });
+          fs.writeFileSync(path.join(shots, 'printer-working-closeup.png'), Buffer.from(shot.data, 'base64'));
+          closeupCaptured = true;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+      assert.ok(Math.max(...samples.map(state => state.worldX)) - Math.min(...samples.map(state => state.worldX)) > 20,
+        'the print head performs a visible pass across the part');
+      assert.ok(Math.max(...samples.map(state => state.worldY)) - Math.min(...samples.map(state => state.worldY)) > 5,
+        'the gantry prints through the part depth as well as across its width');
+      assert.ok(new Set(samples.map(state => state.cycle)).size > 1, 'a complete layer cycle was checked');
+      assert.equal(samples[0].fan, 'fmrcPrinterFan', 'print-head cooling fan runs with printing');
+
+      settings = { ...settings,
+        hero_scene_accent: '#ab874d', hero_scene_scale: 115, hero_scene_motion: 'off',
+      };
+      assert.equal(await evaluate('window.FMRC_REFRESH_SITE_SETTINGS()'), true);
+      const customized = await evaluate(`(() => {
+        const scene = document.getElementById('heroPrinterScene');
+        return {accent: scene.style.getPropertyValue('--hero-scene-accent'),
+          scale: scene.style.getPropertyValue('--hero-scene-scale'),
+          motion: scene.dataset.motion, animation: getComputedStyle(scene).animationName};
+      })()`);
+      assert.deepEqual(customized, {
+        accent: '#ab874d', scale: '1.15', motion: 'off', animation: 'none',
+      }, 'published scene settings apply on refresh');
+      await waitFor("Number(document.getElementById('heroPrinterScene')?.dataset.printProgress) === 0");
+      const stopped = await evaluate(mechanismState);
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      assert.deepEqual(await evaluate(mechanismState), stopped,
+        'motion off holds the toolhead and gantry still and keeps the feed tube connected');
+      assert.equal(stopped.fan, 'none', 'motion off stops the fan');
+      if (shots) {
+        const bounds = await evaluate(`(() => {
+          const r = document.getElementById('heroPrinterScene').getBoundingClientRect();
+          return {x:r.left+scrollX,y:r.top+scrollY,width:r.width,height:r.height,scale:2};
+        })()`);
+        const shot = await cdp.send('Page.captureScreenshot', {format:'png', clip:bounds, captureBeyondViewport:true});
+        fs.writeFileSync(path.join(shots, 'printer-current.png'), Buffer.from(shot.data, 'base64'));
+      }
+
+      settings = { ...settings, hero_scene_motion: 'on' };
+      await cdp.send('Emulation.setEmulatedMedia', { features:[{name:'prefers-reduced-motion',value:'reduce'}] });
+      assert.equal(await evaluate('window.FMRC_REFRESH_SITE_SETTINGS()'), true);
+      await waitFor("Number(document.getElementById('heroPrinterScene')?.dataset.printProgress) === 0");
+      const reduced = await evaluate(mechanismState);
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      assert.deepEqual(await evaluate(mechanismState), reduced, 'reduced motion freezes the printing pass');
+      assert.equal(reduced.fan, 'none', 'reduced motion stops the fan');
+      await cdp.send('Emulation.setEmulatedMedia', { features:[] });
+      if (shots) console.log(`Screenshots: ${shots}`);
+    } finally {
+      cdp?.close();
+      if (browser) {
+        await new Promise((resolve) => {
+          if (browser.exitCode !== null) return resolve();
+          browser.once('exit', resolve);
+          browser.kill();
+          setTimeout(resolve, 2000).unref();
+        });
+      }
+      if (server.listening) await new Promise((resolve) => server.close(resolve));
+      const tempRoot = path.resolve(os.tmpdir());
+      if (path.resolve(profile).startsWith(tempRoot + path.sep)) {
+        fs.rmSync(profile, { recursive: true, force: true });
+      }
+    }
+  });

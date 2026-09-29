@@ -70,6 +70,46 @@ class WebsiteContentValidationTest extends TestCase
     }
 
     #[DataProvider('editorRoles')]
+    public function test_home_scene_settings_can_be_saved_by_both_editors_without_replacing_the_logo(string $role): void
+    {
+        $this->signIn($role);
+        SiteSetting::set('hero_logo_image', 'data:image/png;base64,existing-logo');
+        SiteSetting::set('hero_title', 'Existing headline');
+
+        $this->putJson('/api/admin/site-settings', [
+            'hero_scene_accent' => '#E6C46C',
+            'hero_scene_scale' => 115,
+            'hero_scene_motion' => 'off',
+        ])->assertOk();
+
+        $this->getJson('/api/site-settings')->assertOk()
+            ->assertJsonPath('data.hero_scene_accent', '#E6C46C')
+            ->assertJsonPath('data.hero_scene_scale', '115')
+            ->assertJsonPath('data.hero_scene_motion', 'off')
+            ->assertJsonPath('data.hero_logo_image', 'data:image/png;base64,existing-logo')
+            ->assertJsonPath('data.hero_title', 'Existing headline');
+    }
+
+    public function test_invalid_home_scene_setting_rejects_the_entire_editor_save(): void
+    {
+        $this->signIn('admin');
+        SiteSetting::set('hero_title', 'Keep this headline');
+
+        foreach ([
+            ['hero_scene_accent' => 'red'],
+            ['hero_scene_scale' => 87],
+            ['hero_scene_scale' => 120],
+            ['hero_scene_motion' => 'fast'],
+        ] as $invalid) {
+            $field = array_key_first($invalid);
+            $this->putJson('/api/admin/site-settings', $invalid + ['hero_title' => 'Must not publish'])
+                ->assertUnprocessable()->assertJsonValidationErrors($field);
+            $this->assertSame('Keep this headline', SiteSetting::get('hero_title'));
+            $this->assertNull(SiteSetting::get($field));
+        }
+    }
+
+    #[DataProvider('editorRoles')]
     public function test_each_editor_can_create_and_partially_update_a_service_at_the_boundaries(string $role): void
     {
         $this->signIn($role);

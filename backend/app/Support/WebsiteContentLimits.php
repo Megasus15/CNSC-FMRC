@@ -103,6 +103,12 @@ final class WebsiteContentLimits
             $rules[$key] = ['sometimes', 'nullable', 'string', 'max:'.$limit, self::browserLength($limit)];
         }
 
+        // The Home hero scene is CSS-driven. Keep stored values within the
+        // editor's exact controls before they reach the public page.
+        $rules['hero_scene_accent'] = ['sometimes', 'required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'];
+        $rules['hero_scene_scale'] = ['sometimes', 'required', 'integer', 'between:85,115', 'multiple_of:5'];
+        $rules['hero_scene_motion'] = ['sometimes', 'required', 'in:on,off'];
+
         return $rules;
     }
 

@@ -80,6 +80,7 @@
     <link rel="stylesheet" href="announcement-card.css?v=1.0" />
     <link rel="stylesheet" href="customer-button-feedback.css?v=1.0" />
     <link rel="stylesheet" href="customer-mobile.css?v=1.8" />
+    <link rel="stylesheet" href="hero-printer-scene.css?v=1.3" />
     <script>
       /* Keeps the signature 3D loader on screen for a minimum of 700–900 ms
          (randomised so repeated visits never look mechanical), capped at
@@ -346,13 +347,30 @@
         </div>
 
         <div class="hero-content-right">
-          <img
-            src="/images/FMRC Brand Logo.png"
-            alt="FMRC Geometric Logo"
-            class="hero-graphic"
-            id="heroLogoEl"
-            decoding="async"
-          />
+          <div
+            class="fmrc-hero-scene"
+            id="heroPrinterScene"
+            data-motion="on"
+            role="img"
+            aria-label="Angled 3D printer depositing layers on an FMRC branded piece"
+          >
+            <img
+              class="hero-printer-art"
+              src="assets/hero-printer-scene.svg?v=1.3"
+              alt=""
+              decoding="async"
+              fetchpriority="high"
+            />
+            <span class="hero-printer-badge" aria-hidden="true">
+              <img
+                class="hero-printer-logo"
+                src="/images/FMRC Logo.png"
+                alt=""
+                id="heroLogoEl"
+                decoding="async"
+              />
+            </span>
+          </div>
         </div>
       </div>
 
@@ -1917,7 +1935,8 @@
          button it had before. -->
     <script defer src="fmrc-loader.js?v=2.0"></script>
     <script defer src="page-content.js?v=1.2"></script>
-    <script defer src="main.js?v=11.6"></script>
+    <script defer src="hero-printer-scene.js?v=1.1"></script>
+    <script defer src="main.js?v=11.7"></script>
     <script defer src="service-dialogs.js?v=1.0"></script>
     <script defer src="customer-announcements.js?v=6.6"></script>
   </body>

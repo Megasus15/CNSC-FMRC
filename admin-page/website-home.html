@@ -134,6 +134,41 @@
         padding: 2px;
         cursor: pointer;
       }
+      .wm-scene-editor-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(250px, 1fr);
+        gap: 22px;
+        align-items: center;
+      }
+      .wm-scene-controls { display: grid; gap: 16px; min-width: 0; }
+      .wm-scene-color { display: flex; align-items: center; gap: 10px; }
+      .wm-scene-color input[type="color"] {
+        width: 52px;
+        height: 42px;
+        padding: 3px;
+        border: 1px solid #d8dde3;
+        border-radius: 8px;
+        background: #fdfaf6;
+        cursor: pointer;
+      }
+      .wm-scene-range { display: flex; align-items: center; gap: 12px; }
+      .wm-scene-range input { flex: 1; min-width: 0; accent-color: #761d2c; }
+      .wm-scene-range output { min-width: 3.5em; text-align: right; font-weight: 700; color: #761d2c; }
+      .wm-hero-scene-preview {
+        display: grid;
+        place-items: center;
+        min-width: 0;
+        min-height: 260px;
+        padding: 16px;
+        overflow: hidden;
+        border: 1px solid #e9d7cd;
+        border-radius: 12px;
+        background: radial-gradient(circle at 55% 38%, #6a3040, #3a1521 76%);
+      }
+      .wm-hero-scene-preview .fmrc-hero-scene { width: min(100%, 370px); }
+      @media (max-width: 800px) {
+        .wm-scene-editor-layout { grid-template-columns: minmax(0, 1fr); }
+      }
       .section-stack {
         display: flex;
         flex-direction: column;
@@ -734,6 +769,7 @@
       }
     </style>
     <link rel="stylesheet" href="admin-responsive.css?v=3.1" />
+    <link rel="stylesheet" href="../home-page/hero-printer-scene.css?v=1.3" />
     <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=2.2" />
   </head>
   <body data-config-page="home">
@@ -975,6 +1011,52 @@
                     brand. The selected preset applies with
                     <strong>Save All Changes</strong>.</span
                   >
+                </div>
+              </div>
+            </div>
+
+            <!-- Three-dimensional printer artwork, independent of title/background. -->
+            <div class="wm-section" data-config-section="home">
+              <div class="wm-section-header">
+                <i class="fa-solid fa-cubes-stacked" aria-hidden="true"></i>
+                <h3>3D Printer Scene</h3>
+              </div>
+              <p class="field-hint" style="margin-bottom: 18px">
+                Refine the artwork on the right side of the customer Home banner.
+                The FMRC mark uses the Hero Logo in Brand Logos below. Changes
+                appear in this preview before you save.
+              </p>
+              <div class="wm-scene-editor-layout">
+                <div class="wm-scene-controls">
+                  <div class="field-stack">
+                    <label for="heroSceneAccent">Highlight color</label>
+                    <div class="wm-scene-color">
+                      <input type="color" id="heroSceneAccent" value="#e6c46c" data-scene-setting />
+                      <span class="field-hint">Warm gold complements FMRC maroon.</span>
+                    </div>
+                  </div>
+                  <div class="field-stack">
+                    <label for="heroSceneScale">Artwork size</label>
+                    <div class="wm-scene-range">
+                      <input type="range" id="heroSceneScale" min="85" max="115" step="5" value="100" data-scene-setting />
+                      <output id="heroSceneScaleValue" for="heroSceneScale">100%</output>
+                    </div>
+                    <span class="field-hint">Fits within the banner on desktop and phones.</span>
+                  </div>
+                  <div class="field-stack">
+                    <label for="heroSceneMotion">Printing motion</label>
+                    <select class="wm-select" id="heroSceneMotion" data-scene-setting>
+                      <option value="on">Working printer</option>
+                      <option value="off">Still illustration</option>
+                    </select>
+                    <span class="field-hint">Reduced-motion preferences are always respected.</span>
+                  </div>
+                </div>
+                <div class="wm-hero-scene-preview" role="img" aria-label="Preview of the 3D printer artwork">
+                  <div class="fmrc-hero-scene" id="heroScenePreview" data-motion="on">
+                    <img class="hero-printer-art" src="../home-page/assets/hero-printer-scene.svg?v=1.3" alt="" />
+                    <span class="hero-printer-badge"><img class="hero-printer-logo" data-hero-scene-logo src="/images/FMRC Logo.png" alt="" /></span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1667,7 +1749,8 @@
          never render a preset differently. Must load before website-home.js. -->
     <script src="../home-page/hero-gradients.js"></script>
     <script src="../home-page/page-content.js?v=1.2"></script>
-    <script src="website-home.js?v=2.3"></script>
+    <script src="../home-page/hero-printer-scene.js?v=1.1"></script>
+    <script src="website-home.js?v=2.4"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>

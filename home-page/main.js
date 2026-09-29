@@ -14930,7 +14930,22 @@ const openReturnRequestModal = (() => {
       "/images/UCN Logo.png",
       '[data-brand-logo="nav-primary"]',
     );
-    _logo("heroLogoEl", s.hero_logo_image, "/images/FMRC Brand Logo.png");
+    _logo("heroLogoEl", s.hero_logo_image, "/images/FMRC Logo.png");
+    const printerScene = document.getElementById("heroPrinterScene");
+    if (printerScene) {
+      const sceneAccent = /^#[0-9a-f]{6}$/i.test(String(s.hero_scene_accent || ""))
+        ? s.hero_scene_accent
+        : "#e6c46c";
+      const sceneScale = Number(s.hero_scene_scale);
+      printerScene.style.setProperty("--hero-scene-accent", sceneAccent);
+      printerScene.style.setProperty(
+        "--hero-scene-scale",
+        Number.isInteger(sceneScale) && sceneScale >= 85 && sceneScale <= 115 && sceneScale % 5 === 0
+          ? String(sceneScale / 100)
+          : "1",
+      );
+      printerScene.dataset.motion = s.hero_scene_motion === "off" ? "off" : "on";
+    }
     _logo(
       "footerLogoPrimaryEl",
       s.footer_logo_primary_image,

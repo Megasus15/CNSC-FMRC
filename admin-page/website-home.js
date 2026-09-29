@@ -110,8 +110,8 @@ const BRAND_LOGOS = [
     key: "hero_logo_image",
     label: "Hero Logo",
     shape: "circle",
-    fallback: "/images/FMRC Brand Logo.png",
-    hint: "The large mark beside the home page banner title. Fixed circle.",
+    fallback: "/images/FMRC Logo.png",
+    hint: "The FMRC mark at the center of the 3D printer scene. Fixed circle.",
   },
   {
     slot: "favicon",
@@ -253,7 +253,7 @@ async function loadSettings(options) {
  */
 function setSettingsLoaded(loaded) {
   settingsLoaded = Boolean(loaded);
-  document.querySelectorAll("[data-editorial-setting]").forEach((input) => {
+  document.querySelectorAll("[data-editorial-setting], [data-scene-setting]").forEach((input) => {
     input.disabled = !settingsLoaded;
   });
   const btn = document.getElementById("btnSaveAllHome");
@@ -304,11 +304,20 @@ function populateForm() {
   heroBgGradient = s.hero_bg_gradient || (G ? G.DEFAULT_ID : "");
   renderHeroGradients();
 
+  const savedSceneScale = Number(s.hero_scene_scale);
+  setVal("heroSceneAccent", /^#[0-9a-fA-F]{6}$/.test(s.hero_scene_accent || "")
+    ? s.hero_scene_accent : "#e6c46c");
+  setVal("heroSceneScale", Number.isInteger(savedSceneScale) && savedSceneScale >= 85
+    && savedSceneScale <= 115 && savedSceneScale % 5 === 0
+    ? String(savedSceneScale) : "100");
+  setVal("heroSceneMotion", s.hero_scene_motion === "off" ? "off" : "on");
+
   // Brand logos: a blank setting means "on the bundled default".
   BRAND_LOGOS.forEach(function (conf) {
     brandLogoData[conf.slot] = s[conf.key] || "";
   });
   renderBrandLogos();
+  updateHeroScenePreview();
   applyBrowserIcon(s.favicon_image);
 
   if (s.hero_bg_image) {
@@ -403,6 +412,22 @@ function setVal(id, val) {
   if (el) el.value = val;
 }
 
+/** The editor uses the same artwork and CSS variables as the customer hero. */
+function updateHeroScenePreview() {
+  const preview = document.getElementById("heroScenePreview");
+  if (!preview) return;
+  const accent = document.getElementById("heroSceneAccent")?.value || "#e6c46c";
+  const scale = Number(document.getElementById("heroSceneScale")?.value) || 100;
+  const motion = document.getElementById("heroSceneMotion")?.value === "off" ? "off" : "on";
+  preview.style.setProperty("--hero-scene-accent", accent);
+  preview.style.setProperty("--hero-scene-scale", String(scale / 100));
+  preview.dataset.motion = motion;
+  const output = document.getElementById("heroSceneScaleValue");
+  if (output) output.textContent = `${scale}%`;
+  const logo = preview.querySelector("[data-hero-scene-logo]");
+  if (logo) logo.src = brandLogoData.hero || "/images/FMRC Logo.png";
+}
+
 // ── API: Load services ────────────────────────────────────────────────────────
 async function loadServices() {
   try {
@@ -483,6 +508,11 @@ function bindEvents() {
 
   document.getElementById("heroBgType").addEventListener("change", function () {
     toggleBgType(this.value);
+  });
+
+  ["heroSceneAccent", "heroSceneScale", "heroSceneMotion"].forEach((id) => {
+    document.getElementById(id)?.addEventListener("input", updateHeroScenePreview);
+    document.getElementById(id)?.addEventListener("change", updateHeroScenePreview);
   });
 
   // Gradient presets: one delegated listener, so re-rendering the swatches
@@ -837,6 +867,7 @@ async function saveLogoSetting(conf, value, successMsg) {
     if (!res.ok) throw new Error("Save failed");
     brandLogoData[conf.slot] = value;
     renderBrandLogos();
+    if (conf.slot === "hero") updateHeroScenePreview();
     if (conf.slot === "favicon") applyBrowserIcon(value);
     window.showAdminPopup(successMsg, { title: "Saved!" });
     broadcastSiteUpdate("updated");
@@ -898,6 +929,9 @@ async function doSaveAll() {
     hero_bg_color: document.getElementById("heroBgColor").value,
     hero_bg_gradient: heroBgGradient || "",
     hero_bg_image: heroBgImageData || "",
+    hero_scene_accent: document.getElementById("heroSceneAccent").value,
+    hero_scene_scale: Number(document.getElementById("heroSceneScale").value),
+    hero_scene_motion: document.getElementById("heroSceneMotion").value,
     // hero_logo_image is deliberately absent: the Brand Logos section saves it
     // the moment a crop is applied, so re-sending it here could only overwrite a
     // newer upload with whatever this form happened to load with.
