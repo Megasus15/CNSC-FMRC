@@ -14615,7 +14615,7 @@ const openReturnRequestModal = (() => {
       /* The customer portal's last white-scrim spinner used to be raised here.
          It is the same curtain as the rest of the site now, so signing out
          looks like signing in. */
-      window.FMRCLoader?.show("Signing you out");
+      window.FMRCLoader?.show("Signing you out", "", { fullscreen: true });
       try {
         await fetch(`${API_BASE_URL}/logout`, {
           method: "POST",

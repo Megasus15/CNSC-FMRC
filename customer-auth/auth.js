@@ -289,8 +289,8 @@ document.addEventListener("DOMContentLoaded", () => {
      fmrc-loader.js failed to arrive silently keeps today's behaviour — the
      submit button is disabled either way — instead of throwing inside a
      request. */
-  const toggleLoader = (show, caption) => {
-    if (show) window.FMRCLoader?.show(caption || "Just a moment");
+  const toggleLoader = (show, caption, fullscreen = false) => {
+    if (show) window.FMRCLoader?.show(caption || "Just a moment", "", { fullscreen });
     else window.FMRCLoader?.hide();
   };
 
@@ -801,7 +801,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      toggleLoader(true, "Signing you in");
+      toggleLoader(true, "Signing you in", true);
       try {
         const response = await fetch(`${API_BASE_URL}/customer/login`, {
           method: "POST",
@@ -1287,7 +1287,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let googleTokenClient = null;
 
   const processGoogleAuthPayload = async (payload) => {
-    toggleLoader(true, "Signing you in");
+    toggleLoader(true, "Signing you in", true);
     hideStatus();
     try {
       const res = await fetch(`${API_BASE_URL}/auth/google`, {

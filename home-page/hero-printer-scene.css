@@ -1,12 +1,14 @@
 /* A self-contained, transparent right-column scene. The SVG draws the printer;
    this layer keeps the editable FMRC mark, accent and motion in sync in the
-   customer hero and the Admin/Staff Home preview. */
+   customer hero and the Admin/Staff Home preview.
+   Enhanced: product build animations, pop-out effects, completion states. */
 .fmrc-hero-scene {
   --hero-scene-accent: #e6c46c;
   --hero-scene-scale: 1;
   position: relative;
   display: block;
   isolation: isolate;
+  contain: layout style paint;
   width: min(100%, 660px);
   aspect-ratio: 960 / 760;
   flex: 0 0 auto;
@@ -47,14 +49,15 @@
   z-index: 2;
   /* Static fallback matches the generated print face. The live SVG supplies
      these values from the very same projection used by the machine. */
-  left: var(--hero-logo-x, 49.245833%);
-  top: var(--hero-logo-y, 53.610526%);
-  width: var(--hero-logo-width, 8.125%);
-  height: var(--hero-logo-height, 10.263158%);
+  left: var(--hero-logo-x, 46.558333%);
+  top: var(--hero-logo-y, 56.373684%);
+  width: var(--hero-logo-width, 3.020833%);
+  height: var(--hero-logo-height, 3.815789%);
   display: grid;
   place-items: center;
   transform: translate(-50%, -50%) var(--hero-logo-perspective, matrix(.86, .4, 0, 1, 0, 0));
   pointer-events: none;
+  will-change: transform;
 }
 
 .hero-printer-logo {
@@ -91,13 +94,26 @@
 }
 
 .fmrc-hero-scene[data-motion="on"][data-print-state="complete"] .hp-fan,
-.fmrc-hero-scene[data-motion="on"][data-print-state="resetting"] .hp-fan {
+.fmrc-hero-scene[data-motion="on"][data-print-state="resetting"] .hp-fan,
+.fmrc-hero-scene[data-motion="on"][data-print-state="popout"] .hp-fan {
   animation-play-state: paused;
 }
 
+.fmrc-hero-scene[data-running="false"] .hp-fan {
+  animation-play-state: paused;
+}
+
+/* ── Monitor screen color transitions ──────────────────────────────── */
 .hp-screen-background, .hp-screen-header, .hp-screen-fill, .hp-screen-progress {
   transition: fill 240ms ease;
 }
+
+/* Printing state — warm amber progress */
+.fmrc-hero-scene[data-print-state="printing"] .hp-screen-fill {
+  fill: #e1be7d;
+}
+
+/* Complete state — turn green */
 .fmrc-hero-scene[data-print-state="complete"] .hp-monitor-progress .hp-screen-background {
   fill: #164b39;
 }
@@ -109,6 +125,33 @@
 }
 .fmrc-hero-scene[data-print-state="complete"] .hp-screen-progress {
   fill: #e4ffec;
+}
+
+/* Pop-out state — flash white-green */
+.fmrc-hero-scene[data-print-state="popout"] .hp-monitor-progress .hp-screen-background {
+  fill: #1a5a42;
+}
+.fmrc-hero-scene[data-print-state="popout"] .hp-monitor-progress .hp-screen-header {
+  fill: #2a7858;
+}
+.fmrc-hero-scene[data-print-state="popout"] .hp-screen-fill {
+  fill: #a0f0c0;
+}
+.fmrc-hero-scene[data-print-state="popout"] .hp-screen-progress {
+  fill: #d0ffe0;
+}
+
+/* Resetting state — dim */
+.fmrc-hero-scene[data-print-state="resetting"] .hp-monitor-progress .hp-screen-background {
+  fill: #1e1828;
+}
+.fmrc-hero-scene[data-print-state="resetting"] .hp-monitor-progress .hp-screen-header {
+  fill: #352030;
+}
+
+/* ── Product build animation group styling ─────────────────────────── */
+.hp-product-build {
+  pointer-events: none;
 }
 
 /* Only the visual column changes on desktop. The title, actions, SDGs and
@@ -186,4 +229,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   .fmrc-hero-scene[data-motion="on"] .hp-fan { animation: none; }
+  .hp-screen-background, .hp-screen-header, .hp-screen-fill, .hp-screen-progress { transition: none; }
 }

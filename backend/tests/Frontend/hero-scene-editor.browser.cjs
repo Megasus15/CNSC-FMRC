@@ -207,7 +207,7 @@ test('Admin and Staff Home scene previews and save payloads match at phone and d
               output:document.getElementById('heroSceneScaleValue').textContent};
           })()`);
           assert.deepEqual(changed, {accent:'#ab874d',scale:'1.15',motion:'off',output:'115%'});
-          await waitFor("Number(document.getElementById('heroScenePreview')?.dataset.printProgress) === 0");
+          await waitFor("Number(document.getElementById('heroScenePreview')?.dataset.printProgress) === 1");
           const stopped = await evaluate(headPosition);
           await new Promise((resolve) => setTimeout(resolve, 250));
           assert.deepEqual(await evaluate(headPosition), stopped, `${portal} ${width}: motion off freezes the preview`);

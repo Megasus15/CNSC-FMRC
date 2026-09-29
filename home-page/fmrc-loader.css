@@ -291,20 +291,26 @@ html.fmrc-booting .fmrc-load-boot {
   box-shadow: 0 24px 64px #382c2a29;
 }
 
-/* Admin/Staff page transitions use the same opaque boot presentation as the
-   Customer site. Keeping this scoped class here lets the shared loader remain
-   card-based for customer actions while the back-office navigation fully owns
-   the viewport and hides the previous dashboard underneath it. */
-html.fmrc-admin-portal .fmrc-load-veil {
+/* Authentication transitions explicitly request the same opaque presentation
+   as Admin/Staff navigation. Other customer actions keep their compact card. */
+html.fmrc-admin-portal .fmrc-load-veil,
+.fmrc-load-veil.is-fullscreen {
   background: var(
     --fmrc-admin-transition-field,
     radial-gradient(ellipse at 50% 38%, #fffdf8, #fffdf800 56%), #fdfaf6
   );
 }
 
-html.fmrc-admin-portal .fmrc-load-veil .fmrc-load-core {
+html.fmrc-admin-portal .fmrc-load-veil .fmrc-load-core,
+.fmrc-load-veil.is-fullscreen .fmrc-load-core {
   background: transparent;
   box-shadow: none;
+  border-radius: 0;
+}
+
+html:has(.fmrc-load-veil.is-on.is-fullscreen),
+html:has(.fmrc-load-veil.is-on.is-fullscreen) body {
+  overflow: hidden;
 }
 
 /* Small waits use the same artwork, gold orbit and tilting face, with fewer

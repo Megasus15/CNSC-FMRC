@@ -257,12 +257,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const AUTH_LOADER_TIMING = Object.freeze({ min: 500, max: 500, cap: 1300 });
 
-  const toggleLoader = (show, caption) => {
+  const toggleLoader = (show, caption, fullscreen = false) => {
     if (show) {
       window.FMRCLoader?.show(
         caption || "Your request is being processed.",
         "",
-        AUTH_LOADER_TIMING,
+        { ...AUTH_LOADER_TIMING, fullscreen },
       );
     } else {
       window.FMRCLoader?.hide();
@@ -627,7 +627,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      toggleLoader(true, "Signing you in.");
+      toggleLoader(true, "Signing you in.", true);
       try {
         const payload = {
           login: user,

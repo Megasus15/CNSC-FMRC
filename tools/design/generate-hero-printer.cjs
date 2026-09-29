@@ -107,14 +107,15 @@ parts.push(extrusion(335,0,51,15,15,304));
 for(const x of [39,311]){
  parts.push(box(x-10,19,55,20,19,23,'dark'));
  parts.push(screw(x,28,77,325));
- parts.push(box(x-8,20,100,16,16,17,'steel'));
- parts.push(box(x-10,22,88,20,47,13,'dark'));
 }
-parts.push(box(30,42,91,290,23,15,'dark'));
-parts.push(box(42,57,84,15,150,14,'dark'));
-parts.push(box(293,57,84,15,150,14,'dark'));
-// Back panel contains a faint grid and cable channel, rather than a solid wall.
-parts.push(poly([[20,16,60],[329,16,60],[329,16,339],[20,16,339]],'#c9aab4','opacity=".035"'));
+// Far enclosure panes sit behind the mechanism. The glass uses the same world
+// planes as the extrusions, with only a light tint and static reflected light.
+parts.push('<g class="hp-enclosure hp-enclosure-rear">');
+parts.push(poly([[19,15.8,58],[331,15.8,58],[331,15.8,337],[19,15.8,337]],'#926579','fill-opacity=".04" stroke="#dbc6cd" stroke-opacity=".14" stroke-width=".8"'));
+parts.push(poly([[15.8,18,58],[15.8,241,58],[15.8,241,337],[15.8,18,337]],'#886679','fill-opacity=".025" stroke="#dbc6cd" stroke-opacity=".1" stroke-width=".8"'));
+parts.push(poly([[35,15.7,122],[65,15.7,138],[153,15.7,328],[124,15.7,328]],'#fff1e1','opacity=".035"'));
+parts.push(line([25,15.6,332],[324,15.6,332],'#fff0e3',1,'opacity=".07"'));
+parts.push('</g>');
 parts.push(line([320,17,62],[320,17,322],'#a77382',2,'opacity=".25"'));
 
 // Rear and side top beams support the Y linear guide rails.
@@ -128,6 +129,14 @@ for(const x of [24,326]){
  for(const y of [31,224])parts.push(box(x-9,y,282,18,13,12));
 }
 // The build surface is a bonded flexible plate on a substantial heated platform.
+parts.push('<g class="hp-build-platform">');
+for(const x of [39,311]){
+ parts.push(box(x-8,20,100,16,16,17,'steel'));
+ parts.push(box(x-10,22,88,20,47,13,'dark'));
+}
+parts.push(box(30,42,91,290,23,15,'dark'));
+parts.push(box(42,57,84,15,150,14,'dark'));
+parts.push(box(293,57,84,15,150,14,'dark'));
 parts.push(box(28,30,98,294,203,13,'dark'));
 parts.push(box(28,30,111,294,203,3,'gold'));
 parts.push(poly([[34,36,114.6],[316,36,114.6],[316,227,114.6],[34,227,114.6]],'#382533'));
@@ -136,21 +145,22 @@ for(let y=50;y<225;y+=30)parts.push(line([35,y,115],[315,y,115],'#b98779',.8,'op
 for(const [x,y]of [[39,43],[309,43],[39,221],[309,221]])parts.push(bolt(x,y,115,1.8));
 parts.push(box(119,229,104,32,7,5,'steel'));
 
-// A dimensional FMRC emblem print: bonded brim, layered walls and exposed infill.
-const block={x:135,y:95,z:116,w:100,d:90,h:109};
-parts.push(poly([[134,94,115.5],[238,94,115.5],[255,196,115.5],[150,200,115.5],[130,183,115.5]],'#1d1120','opacity=".24"'));
+// A low branded build fixture, leaving room for functional products above it.
+const block={x:105,y:95,z:116,w:100,d:90,h:43};
+parts.push(poly([[104,94,115.5],[208,94,115.5],[225,196,115.5],[120,200,115.5],[100,183,115.5]],'#1d1120','opacity=".24"'));
 parts.push(box(block.x-4,block.y-4,115,block.w+8,block.d+8,1.8,'gold'));
 parts.push(box(block.x,block.y,block.z,block.w,block.d,block.h,'part'));
-for(let z=120;z<225;z+=4){
- parts.push(line([235,95,z],[235,185,z],'#937452',.8,'opacity=".42"'));
- parts.push(line([135,185,z],[235,185,z],'#c9b7a5',.65,'opacity=".45"'));
+for(let z=120;z<157;z+=4){
+ parts.push(line([205,95,z],[205,185,z],'#937452',.8,'opacity=".42"'));
+ parts.push(line([105,185,z],[205,185,z],'#c9b7a5',.65,'opacity=".45"'));
 }
 // Shallow recessed front face leaves an uninterrupted, physically aligned logo surface.
-parts.push(poly([[141,185.2,122],[229,185.2,122],[229,185.2,219],[141,185.2,219]],'#fffaf0'));
-parts.push(poly([[143,185.3,124],[227,185.3,124],[227,185.3,217],[143,185.3,217]],'none','stroke="#d9bd98" stroke-width=".85"'));
-parts.push(poly([[139,99,225.2],[231,99,225.2],[231,181,225.2],[139,181,225.2]],'#d5b88b','stroke="#fff0c9" stroke-width="1.5"'));
-for(let x=145;x<229;x+=10)parts.push(line([x,103,225.4],[x,177,225.4],'#9f805c',1.1,'opacity=".58"'));
-for(let y=106;y<176;y+=10)parts.push(line([143,y,225.5],[227,y,225.5],'#f3dfb9',1.1,'opacity=".85"'));
+parts.push(poly([[111,185.2,120],[199,185.2,120],[199,185.2,155],[111,185.2,155]],'#fffaf0'));
+parts.push(poly([[113,185.3,122],[197,185.3,122],[197,185.3,153],[113,185.3,153]],'none','stroke="#d9bd98" stroke-width=".85"'));
+parts.push(poly([[109,99,159],[201,99,159],[201,181,159],[109,181,159]],'#543645','stroke="#e8c99a" stroke-width="1.5"'));
+for(let x=115;x<199;x+=10)parts.push(line([x,103,159],[x,177,159],'#b69476',.7,'opacity=".22"'));
+for(let y=106;y<176;y+=10)parts.push(line([113,y,159],[197,y,159],'#b69476',.7,'opacity=".22"'));
+parts.push('<g class="hp-product-slot"></g></g>');
 
 // Material reel on a bracket mechanically attached to the back-right extrusion.
 parts.push(box(335,-10,326,12,14,87,'dark'));
@@ -217,6 +227,23 @@ const nozzle=P(head.x,head.y,225);
 parts.push(`<ellipse class="hp-contact" cx="${n(nozzle[0])}" cy="${n(nozzle[1])}" rx="2.7" ry="1.25" fill="#e8bc71"/>`);
 parts.push('</g>');
 
+// Clear side pane and front access door. These paint ahead of the mechanism,
+// behind the frame; low-opacity bands suggest glass without veiling the print.
+// No glass filters, blur or animation: reflections are lightweight polygons.
+parts.push('<g class="hp-enclosure hp-enclosure-near">');
+parts.push(poly([[349.5,18,54],[349.5,242,54],[349.5,242,337],[349.5,18,337]],'#704455','fill-opacity=".045" stroke="#d9c3c7" stroke-opacity=".2" stroke-width=".85"'));
+parts.push(poly([[349.6,27,91],[349.6,49,105],[349.6,121,329],[349.6,100,329]],'#fff0dc','opacity=".05"'));
+parts.push(poly([[349.6,204,67],[349.6,213,67],[349.6,234,168],[349.6,225,171]],'#fff0dc','opacity=".035"'));
+parts.push(line([349.7,23,332],[349.7,236,332],'#fff1e4',1.1,'opacity=".07"'));
+parts.push(poly([[18,259.5,54],[332,259.5,54],[332,259.5,337],[18,259.5,337]],'#976476','fill-opacity=".028" stroke="#dbc6c7" stroke-opacity=".2" stroke-width=".9"'));
+parts.push(poly([[26,259.6,157],[53,259.6,177],[103,259.6,329],[77,259.6,329]],'#fff0df','opacity=".048"'));
+parts.push(poly([[257,259.6,63],[267,259.6,63],[327,259.6,227],[327,259.6,256]],'#fff0df','opacity=".035"'));
+parts.push(line([24,259.7,332],[326,259.7,332],'#fff4e6',1.1,'opacity=".07"'));
+parts.push(line([22,259.7,61],[328,259.7,61],'#e6c8c5',.7,'opacity=".2"'));
+for(const y of [27,233])for(const z of [68,323])parts.push(bolt(349.9,y,z,1.35));
+for(const x of [25,325])for(const z of [64,329])parts.push(bolt(x,259.9,z,1.2));
+parts.push('</g>');
+
 // Front posts and top crossmember complete the exact same four-corner frame.
 parts.push(extrusion(0,245,51,15,15,290));
 parts.push(extrusion(335,245,51,15,15,290));
@@ -227,6 +254,18 @@ parts.push(line([19,260,348],[331,260,348],'#edd6b6',1,'opacity=".6"'));
 parts.push(poly([[15,246,339],[43,246,339],[15,246,310]],'#582335','stroke="#af7880" stroke-width=".7"'));
 parts.push(poly([[335,246,339],[307,246,339],[335,246,310]],'#582335','stroke="#af7880" stroke-width=".7"'));
 parts.push(bolt(23,246.2,332,1.5)+bolt(327,246.2,332,1.5));
+
+// Hinges bridge the left extrusion and door; the handle stands off the glass.
+parts.push('<g class="hp-enclosure-hardware">');
+for(const z of [99,282]){
+ parts.push(box(7,260.3,z,20,4.5,24,'dark'));
+ parts.push(box(13,264.8,z+1,5,3.5,22,'steel'));
+ parts.push(bolt(10,265,z+5,1.2)+bolt(24,265,z+19,1.2));
+}
+for(const z of [174,215])parts.push(box(302,259.8,z,11,11,6,'dark'));
+parts.push(box(305,269,174,6,5,47,'dark'));
+parts.push(line([311,274.2,180],[311,274.2,216],'#c7af97',1.15,'opacity=".75"'));
+parts.push('</g>');
 
 // A mounted control panel uses the front plane and attaches to the chassis.
 parts.push(box(266,255,58,52,17,57,'dark'));
@@ -251,15 +290,16 @@ function monitor(x,y,z,w,h,kind){
  <circle cx="9" cy="10" r="2.2" fill="#bdd8c4"/>
  <text x="16" y="13" fill="#f5e6cd" font-size="8" font-weight="700">${kind==='progress'?'FMRC / PRINT':'XY TOOLPATH'}</text>`;
  if(kind==='progress'){
-   s+=`<text x="10" y="34" fill="#bba9ac" font-size="7" letter-spacing=".8">CURRENT LAYER</text>
+   s+=`<text class="hp-screen-product-name" x="10" y="32" fill="#d8c8bf" font-size="7" letter-spacing=".3">BUILD QUEUE</text>
     <text class="hp-screen-progress" x="10" y="58" fill="#f1d59e" font-size="23" font-weight="700">0%</text>
-    <path d="M81 52l10-6 10 6-10 6zM81 57l10 6 10-6M81 62l10 6 10-6" fill="none" stroke="#d7b884" stroke-width="2" stroke-linejoin="round"/>
+    <g class="hp-screen-product"></g>
     <rect x="10" y="71" width="104" height="6" rx="3" fill="#57404c"/>
     <rect class="hp-screen-fill" x="10" y="71" width="0" height="6" rx="3" fill="#e1be7d"/>
-    <text class="hp-screen-phase" x="10" y="91" fill="#c4d4ca" font-size="8">PERIMETER</text>`;
+    <text class="hp-screen-phase" x="10" y="91" fill="#c4d4ca" font-size="7">PRINTING</text>
+    <text class="hp-screen-queue" x="113" y="91" text-anchor="end" fill="#f1d59e" font-size="7">1/5</text>`;
  }else{
    s+=`<path d="M10 28H75M10 40H75M10 52H75M22 24V58M42 24V58M62 24V58" stroke="#54424f" stroke-width=".6"/>
-    <path d="M13 55H72V27H13Z M20 55V30H28V52H36V30H44V52H52V30H60V52H68V30" fill="none" stroke="#b49369" stroke-width="1.25" stroke-linejoin="round"/>
+    <path class="hp-screen-toolpath" d="M13 55H72V27H13Z" fill="none" stroke="#b49369" stroke-width="1.25" stroke-linejoin="round"/>
     <circle class="hp-screen-cursor" cx="13" cy="55" r="3" fill="#f7db9d" stroke="#fff1d9" stroke-width=".8"/>
     <text x="10" y="65" fill="#bfaeb5" font-size="6.5" letter-spacing=".3">LAYER TRACE</text>`;
  }
@@ -280,17 +320,18 @@ parts.push(bolt(7,260.4,151,2.5));
 parts.push(line([4,259,143],[4,259,66],'#2a1a28',2.4));
 parts.push(monitor(-118,250,110,100,83,'trace'));
 
-const logoCenter=P(185,185.5,170.5);
+const logoCenter=P(155,185.5,137.5);
 const metadata={
- projection:axes,
+ projection:{...axes,origin},
+ build:{center:[155,140],baseZ:159,layerCount:24,nozzleZ:225,head:[146,170],park:[80,105]},
  nozzle:nozzle.map(n),
  feed:Object.fromEntries(Object.entries(feed).map(([k,v])=>[k,v.map(n)])),
  toolpath:contour,
- logo:{x:n(logoCenter[0]),y:n(logoCenter[1]),width:78,height:78,skewY:n(Math.atan2(axes.xAxis[1],axes.xAxis[0])*180/Math.PI),matrix:[...axes.xAxis,0,1,0,0]},
- logoFace:[[141,185.2,122],[229,185.2,122],[229,185.2,219],[141,185.2,219]].map(v=>project(v).map(n)),
- partTop:[[135,95,225],[235,95,225],[235,185,225],[135,185,225]].map(v=>project(v).map(n)),
- frameClearance:{topZ:341,headTopZ:313,partTopZ:225,headTravelX:[146,224],headTravelY:[107,170]},
- machine:{width:350,depth:260,top:355,bed:115,partTop:225},
+ logo:{x:n(logoCenter[0]),y:n(logoCenter[1]),width:29,height:29,skewY:n(Math.atan2(axes.xAxis[1],axes.xAxis[0])*180/Math.PI),matrix:[...axes.xAxis,0,1,0,0]},
+ logoFace:[[111,185.2,120],[199,185.2,120],[199,185.2,155],[111,185.2,155]].map(v=>project(v).map(n)),
+ partTop:[[105,95,225],[205,95,225],[205,185,225],[105,185,225]].map(v=>project(v).map(n)),
+ frameClearance:{topZ:341,headTopZ:313,partTopZ:225,headTravelX:[120,190],headTravelY:[105,175]},
+ machine:{width:350,depth:260,top:355,bed:115,partTop:159},
 };
 const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 760" fill="none" aria-hidden="true">\n<metadata id="hp-mechanics">${JSON.stringify(metadata)}</metadata>\n${parts.join('\n')}\n</svg>\n`;
 fs.writeFileSync(path.resolve(__dirname,'../../home-page/assets/hero-printer-scene.svg'),svg);

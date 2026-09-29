@@ -73,14 +73,14 @@
          blocks first paint wherever in the head it sits, and this page's first
          paint is already gated on main.css above it, so these rules are
          guaranteed present the first time anything paints. -->
-    <link rel="stylesheet" href="fmrc-loader.css?v=2.2" />
+    <link rel="stylesheet" href="fmrc-loader.css?v=2.3" />
     <link rel="stylesheet" href="customer-editorial.css?v=1.6" />
     <link rel="stylesheet" href="customer-navbar.css?v=1.6" />
     <link rel="stylesheet" href="customer-footer.css?v=1.8" />
     <link rel="stylesheet" href="announcement-card.css?v=1.0" />
     <link rel="stylesheet" href="customer-button-feedback.css?v=1.0" />
     <link rel="stylesheet" href="customer-mobile.css?v=1.8" />
-    <link rel="stylesheet" href="hero-printer-scene.css?v=1.5" />
+    <link rel="stylesheet" href="hero-printer-scene.css?v=1.7" />
     <script>
       /* Keeps the signature 3D loader on screen for a minimum of 700–900 ms
          (randomised so repeated visits never look mechanical), capped at
@@ -352,11 +352,11 @@
             id="heroPrinterScene"
             data-motion="on"
             role="img"
-            aria-label="Angled 3D printer depositing layers on an FMRC branded piece"
+            aria-label="Angled 3D printer building five product designs on an FMRC branded platform"
           >
             <img
               class="hero-printer-art"
-              src="assets/hero-printer-scene.svg?v=1.5"
+              src="assets/hero-printer-scene.svg?v=1.7"
               alt=""
               decoding="async"
               fetchpriority="high"
@@ -1933,10 +1933,10 @@
          every call site is written `window.FMRCLoader?.…`, so if this request
          ever fails the affected flow silently falls back to the plain disabled
          button it had before. -->
-    <script defer src="fmrc-loader.js?v=2.0"></script>
+    <script defer src="fmrc-loader.js?v=2.2"></script>
     <script defer src="page-content.js?v=1.2"></script>
-    <script defer src="hero-printer-scene.js?v=1.4"></script>
-    <script defer src="main.js?v=11.7"></script>
+    <script defer src="hero-printer-scene.js?v=1.6"></script>
+    <script defer src="main.js?v=11.8"></script>
     <script defer src="service-dialogs.js?v=1.0"></script>
     <script defer src="customer-announcements.js?v=6.6"></script>
   </body>

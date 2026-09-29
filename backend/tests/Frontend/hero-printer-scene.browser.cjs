@@ -107,7 +107,46 @@ test('Customer Home 3D printer scene fits desktop and modern iPhones and applies
             const url = new URL(typeof input === 'string' ? input : input.url, location.href);
             return nativeFetch(url.pathname.startsWith('/api/')
               ? location.origin + url.pathname + url.search : input, init);
-          };`,
+          };
+          // Keep normal RAF behavior for layout checks, then drive five complete
+          // builds deterministically without a production-only testing API.
+          (() => {
+            const request = window.requestAnimationFrame.bind(window);
+            const cancel = window.cancelAnimationFrame.bind(window);
+            const pending = new Map();
+            let controlled = false, time = 0, next = 0;
+            window.requestAnimationFrame = callback => {
+              const id = ++next, entry = { callback, native:0 };
+              pending.set(id, entry);
+              if (!controlled) entry.native = request(now => {
+                pending.delete(id);
+                callback(now);
+              });
+              return id;
+            };
+            window.cancelAnimationFrame = id => {
+              const entry = pending.get(id);
+              if (entry?.native) cancel(entry.native);
+              pending.delete(id);
+            };
+            window.__heroTestClock = {
+              start() {
+                controlled = true;
+                time = performance.now();
+                for (const entry of pending.values()) if (entry.native) cancel(entry.native);
+              },
+              advance(duration) {
+                for (let remaining = duration; remaining > 0;) {
+                  const step = Math.min(16, remaining);
+                  time += step;
+                  remaining -= step;
+                  const callbacks = [...pending.values()];
+                  pending.clear();
+                  for (const entry of callbacks) entry.callback(time);
+                }
+              }
+            };
+          })();`,
       });
       await cdp.send('Network.enable');
       await cdp.send('Network.setBlockedURLs', { urls: ['https://*'] });
@@ -172,7 +211,8 @@ test('Customer Home 3D printer scene fits desktop and modern iPhones and applies
             scale: scene.style.getPropertyValue('--hero-scene-scale'), motion: scene.dataset.motion,
             badge: {center:toScene(center), corners, matrix:[matrix.a,matrix.b,matrix.c,matrix.d],
               localSize:[halfWidth * 2 / unit,halfHeight * 2 / unit],
-              expected:mechanics.logo, face:mechanics.logoFace},
+              expected:{...mechanics.logo, y:mechanics.logo.y + Number(scene.dataset.bedOffset || 0)},
+              face:mechanics.logoFace.map(([x,y]) => [x,y + Number(scene.dataset.bedOffset || 0)])},
           };
         })()`);
         const size = `${width}x${height}`;
@@ -264,17 +304,20 @@ test('Customer Home 3D printer scene fits desktop and modern iPhones and applies
         'configured headline line breaks remain unchanged while artwork aligns beside them');
 
       await evaluate("document.getElementById('heroPrinterScene').scrollIntoView({block:'center'})");
-      // Measure the actual moving nozzle against the printed part's top face.
-      // The feed tube's end must stay connected to its moving inlet throughout
-      // a complete pass; checking only that animation exists would miss gaps.
+      await waitFor("document.getElementById('heroPrinterScene').dataset.running === 'true'");
+      // A test-controlled clock samples real rendered SVG geometry through all
+      // five products, completion, removal and return to the first design.
+      await evaluate("window.__heroTestClock.start(); document.getElementById('heroPrinterScene').dataset.motion = 'off'");
+      await evaluate("document.getElementById('heroPrinterScene').dataset.motion = 'on'");
       const mechanismState = `(() => {
         const scene = document.getElementById('heroPrinterScene');
         const svg = scene.querySelector('.hero-printer-mechanism');
         const mechanics = JSON.parse(svg.querySelector('#hp-mechanics').textContent);
-        const head = scene.querySelector('.hp-printhead');
         const relativeMatrix = element => svg.getCTM().inverse().multiply(element.getCTM());
+        const head = scene.querySelector('.hp-printhead');
         const matrix = relativeMatrix(head);
         const gantry = relativeMatrix(scene.querySelector('.hp-gantry'));
+        const platform = relativeMatrix(scene.querySelector('.hp-build-platform'));
         const contact = head.querySelector('.hp-contact');
         const nozzle = new DOMPoint(+contact.getAttribute('cx'), +contact.getAttribute('cy'))
           .matrixTransform(relativeMatrix(contact));
@@ -290,84 +333,195 @@ test('Customer Home 3D printer scene fits desktop and modern iPhones and applies
         const reveal = 1 - parseFloat(trailStyle.strokeDashoffset) / pathLength;
         const end = trail.getPointAtLength(trail.getTotalLength() * Math.max(0, Math.min(1, reveal)));
         const trailEnd = new DOMPoint(end.x, end.y).matrixTransform(relativeMatrix(trail));
+        const product = scene.querySelector('.hp-product-build');
+        const productStyle = getComputedStyle(product);
+        const miniature = scene.querySelector('.hp-screen-product');
+        const layers = [...product.querySelectorAll('.hp-product-layer')];
+        const miniBounds = miniature.getBBox();
+        const miniGeometry = [...miniature.querySelectorAll('path,polygon,polyline,ellipse,circle')]
+          .map(el => [el.tagName,el.getAttribute('d'),el.getAttribute('points'),el.getAttribute('rx'),el.getAttribute('ry')].join(':')).join('|');
+        let miniHash = 0;
+        for (let i=0; i<miniGeometry.length; i++) miniHash = ((miniHash << 5) - miniHash + miniGeometry.charCodeAt(i)) | 0;
         return {x:matrix.e, y:matrix.f, nozzle:{x:nozzle.x,y:nozzle.y}, inlet:{x:inlet.x,y:inlet.y},
-          gantry:{x:gantry.e,y:gantry.f}, projection:mechanics.projection, plane:mechanics.partTop,
+          gantry:{x:gantry.e,y:gantry.f}, platform:{x:platform.e,y:platform.f},
+          projection:mechanics.projection, build:mechanics.build,
           cycle:+scene.dataset.printCycle, progress:+scene.dataset.printProgress,
+          layer:+scene.dataset.buildLayer, buildHeight:+scene.dataset.buildHeight, bedOffset:+scene.dataset.bedOffset,
+          productId:scene.dataset.productId, productName:scene.dataset.productName,
+          mainId:product.dataset.productId, miniId:miniature.dataset.productId,
+          miniHash, miniSize:[miniBounds.width,miniBounds.height],
+          totalLayers:layers.length,
+          visibleLayers:layers.filter(el => getComputedStyle(el).display !== 'none' && +getComputedStyle(el).opacity > 0).length,
+          productTransform:product.getAttribute('transform'), productOpacity:productStyle.opacity,
+          productVisible:productStyle.display !== 'none' && productStyle.visibility !== 'hidden' && +productStyle.opacity > 0,
+          running:scene.dataset.running,
           phase:scene.dataset.printState, readout:scene.querySelector('.hp-screen-progress').textContent,
+          screenFill:getComputedStyle(scene.querySelector('.hp-monitor-progress .hp-screen-background')).fill,
           fanState:getComputedStyle(scene.querySelector('.hp-fan')).animationPlayState,
-          reveal, trailEnd:{x:trailEnd.x,y:trailEnd.y},
-          endpoints, fan:getComputedStyle(scene.querySelector('.hp-fan')).animationName};
+          reveal, trailVisible:trailStyle.display !== 'none' && +trailStyle.opacity > 0,
+          trailEnd:{x:trailEnd.x,y:trailEnd.y}, endpoints,
+          fan:getComputedStyle(scene.querySelector('.hp-fan')).animationName};
       })()`;
       const samples = [];
-      let closeupCaptured = false;
-      for (let index = 0; index < 75; index++) {
+      const captured = new Set();
+      const completionSamples = new Map();
+      let greenChecked = false;
+      for (let index = 0; index < 500; index++) {
+        await evaluate('window.__heroTestClock.advance(240)');
         const state = await evaluate(mechanismState);
         samples.push(state);
-        // Validate the rendered nozzle in the physical top plane, independent
-        // of point ordering and without hardcoded coordinates from older art.
-        const sides = state.plane.map(([x, y], edge) => {
-          const [nx, ny] = state.plane[(edge + 1) % state.plane.length];
-          return (nx - x) * (state.nozzle.y - y) - (ny - y) * (state.nozzle.x - x);
-        });
-        const inside = sides.every(side => side >= -0.5) || sides.every(side => side <= 0.5);
-        assert.ok(inside, `nozzle stays on the active top layer: ${JSON.stringify(state.nozzle)}`);
+        assert.equal(state.mainId, state.productId, 'built product matches the current job');
+        assert.equal(state.miniId, state.productId, 'monitor miniature matches the actual product');
+        assert.ok(state.miniSize.every(value => value > 0), 'the monitor contains a dimensional miniature');
+        assert.ok(state.totalLayers > 1, 'product has distinct deposited layers');
         assert.ok(state.endpoints.length > 0, 'the filament feed is visible');
         for (const endpoint of state.endpoints) {
           assert.ok(Math.hypot(endpoint.x - state.inlet.x, endpoint.y - state.inlet.y) < 0.1,
             'feed tube remains connected to the moving inlet');
         }
+        assert.ok(Math.abs(state.platform.y - state.bedOffset) < 0.1 && Math.abs(state.platform.x) < 0.1,
+          'heated platform follows its vertical drive without drifting sideways');
         const [ax, ay] = state.projection.xAxis, [bx, by] = state.projection.yAxis;
         const determinant = ax * by - bx * ay;
         assert.ok(Math.abs(determinant) > 0.01, 'machine projection has two independent axes');
         state.worldX = (by * state.x - bx * state.y) / determinant;
         state.worldY = (ax * state.y - ay * state.x) / determinant;
         assert.ok(Math.hypot(state.gantry.x - state.worldY * bx, state.gantry.y - state.worldY * by) < 0.15,
-          'gantry follows the carriage depth while the toolhead travels along its X rail');
-        assert.ok(state.reveal >= -0.01 && state.reveal <= 1.01, 'deposited layer visibility is bounded');
-        assert.ok(Math.hypot(state.trailEnd.x - state.nozzle.x, state.trailEnd.y - state.nozzle.y) < 1,
-          'visible deposited filament ends at the moving nozzle in projected space');
+          'gantry follows carriage depth while the toolhead travels along its X rail');
         const previous = samples[index - 1];
-        if (previous && previous.cycle === state.cycle && state.phase !== 'resetting') {
-          assert.ok(state.reveal + 0.001 >= previous.reveal, 'printed filament stays deposited during the same layer');
+        if (state.phase === 'printing' && state.progress > 0.01) {
+          assert.ok(state.trailVisible, 'the active product layer receives filament');
+          assert.ok(state.reveal >= -0.01 && state.reveal <= 1.01, 'active layer visibility is bounded');
+          assert.ok(Math.hypot(state.trailEnd.x - state.nozzle.x, state.trailEnd.y - state.nozzle.y) < 1,
+            'new filament ends at the actual moving nozzle');
+          // A fixed-height CoreXY nozzle meets the current top as its platform
+          // lowers. This detects a product growing through a stationary nozzle.
+          const tipZ = state.build.baseZ + state.buildHeight - state.bedOffset;
+          assert.ok(Math.abs(tipZ - state.build.nozzleZ) < 0.15, 'current product top stays at nozzle height');
+          if (previous?.phase === 'printing' && previous.cycle === state.cycle) {
+            assert.ok(state.buildHeight >= previous.buildHeight, 'product grows through deposited layers');
+            assert.ok(state.bedOffset >= previous.bedOffset, 'platform descends as the product grows');
+            if (state.layer === previous.layer) {
+              assert.ok(state.reveal + 0.002 >= previous.reveal, 'filament persists until its layer is complete');
+            }
+          }
+        } else if (state.phase !== 'printing') {
+          assert.equal(state.trailVisible, false, 'filament stops during completion and removal');
         }
-        if (shots && !closeupCaptured && state.progress > 0.25 && state.progress < 0.8) {
+        if (state.phase === 'complete') {
+          assert.equal(state.readout, '100%');
+          assert.equal(state.progress, 1);
+          assert.equal(state.fanState, 'paused');
+          assert.equal(state.visibleLayers, state.totalLayers, 'completion shows the whole product');
+          if (!greenChecked) {
+            // CSS color transitions use the browser clock, independent of RAF.
+            await new Promise(resolve => setTimeout(resolve, 350));
+            const filled = await evaluate(mechanismState);
+            const rgb = filled.screenFill.match(/[\d.]+/g).map(Number);
+            assert.ok(rgb[1] > rgb[0] && rgb[1] > rgb[2], 'completed screen is green');
+            greenChecked = true;
+          }
+          completionSamples.set(state.productId, (completionSamples.get(state.productId) || 0) + 1);
+          if (shots && completionSamples.get(state.productId) === 3) {
+            // Capture after the nozzle has parked; the complete product and
+            // green monitor are easier to inspect than a moving partial build.
+            await new Promise(resolve => setTimeout(resolve, 300));
+            const bounds = await evaluate(`(() => {
+              const r = document.getElementById('heroPrinterScene').getBoundingClientRect();
+              return {x:r.left+scrollX,y:r.top+scrollY,width:r.width,height:r.height,scale:2};
+            })()`);
+            const shot = await cdp.send('Page.captureScreenshot', {format:'png',clip:bounds,captureBeyondViewport:true});
+            fs.writeFileSync(path.join(shots, 'printer-' + state.productId + '-complete.png'), Buffer.from(shot.data, 'base64'));
+          }
+        }
+        if (shots && state.phase === 'printing' && state.progress > 0.7 && !captured.has(state.productId)) {
           const bounds = await evaluate(`(() => {
             const r = document.getElementById('heroPrinterScene').getBoundingClientRect();
             return {x:r.left+scrollX,y:r.top+scrollY,width:r.width,height:r.height,scale:2};
           })()`);
-          const shot = await cdp.send('Page.captureScreenshot', { format:'png', clip:bounds, captureBeyondViewport:true });
-          fs.writeFileSync(path.join(shots, 'printer-working-closeup.png'), Buffer.from(shot.data, 'base64'));
-          closeupCaptured = true;
+          const shot = await cdp.send('Page.captureScreenshot', {format:'png',clip:bounds,captureBeyondViewport:true});
+          fs.writeFileSync(path.join(shots, 'printer-' + state.productId + '.png'), Buffer.from(shot.data, 'base64'));
+          captured.add(state.productId);
         }
-        await new Promise((resolve) => setTimeout(resolve, 250));
+        if (state.cycle >= 5 && state.phase === 'printing' && state.progress > 0.03) break;
       }
-      assert.ok(Math.max(...samples.map(state => state.worldX)) - Math.min(...samples.map(state => state.worldX)) > 20,
-        'the print head performs a visible pass across the part');
-      assert.ok(Math.max(...samples.map(state => state.worldY)) - Math.min(...samples.map(state => state.worldY)) > 5,
-        'the gantry prints through the part depth as well as across its width');
-      assert.ok(new Set(samples.map(state => state.cycle)).size > 1, 'a complete layer cycle was checked');
-      const completed = samples.filter(state => state.phase === 'complete');
-      assert.ok(completed.length >= 2, 'completion visibly holds before restarting');
-      for (const state of completed) {
-        assert.equal(state.readout, '100%');
-        assert.equal(state.fanState, 'paused');
-        assert.equal(state.progress, 1);
-      }
-      const pausedPair = samples.findIndex((state, index) => index > 0 && state.phase === 'complete' && samples[index - 1].phase === 'complete');
-      assert.ok(pausedPair > 0);
-      assert.equal(samples[pausedPair].x, samples[pausedPair - 1].x);
-      assert.equal(samples[pausedPair].y, samples[pausedPair - 1].y);
-      const resetting = samples.filter(state => state.phase === 'resetting');
-      assert.ok(resetting.length >= 2, 'reset is visible between completion and printing');
-      assert.ok(resetting.some(state => state.progress > 0.1 && state.progress < 0.9), 'reset includes intermediate progress');
-      for (let index = 1; index < resetting.length; index++) {
-        if (resetting[index].cycle === resetting[index - 1].cycle) {
-          assert.ok(resetting[index].progress < resetting[index - 1].progress, 'progress drains during reset');
+      const productOrder = [...new Map(samples.map(state => [state.cycle,state.productId])).values()];
+      assert.deepEqual(productOrder.slice(0, 6), ['gear','vase','phone-stand','trophy','organizer','gear'],
+        'five different products print before the first one repeats');
+      assert.equal(new Set(samples.map(state => state.miniHash)).size, 5,
+        'screen previews contain five different geometries, not just different labels');
+      for (let cycle = 0; cycle < 5; cycle++) {
+        const build = samples.filter(state => state.cycle === cycle);
+        const completed = build.filter(state => state.phase === 'complete');
+        assert.ok(completed.length >= 2, 'each finished product remains visible for a short hold');
+        // Allow the initial clearance move; the final completion samples should
+        // hold the parked head before the completed product is removed.
+        const settled = completed.slice(-2);
+        assert.ok(Math.hypot(settled[0].x - settled[1].x, settled[0].y - settled[1].y) < 0.1,
+          'the parked head holds clear of the completed product');
+        const exit = build.filter(state => state.phase === 'popout');
+        assert.ok(exit.length >= 2 && new Set(exit.map(state => state.productTransform)).size > 1,
+          'finished product exits through intermediate 3D transforms');
+        assert.ok(exit.some(state => +state.productOpacity > 0 && +state.productOpacity < 1),
+          'removal fades smoothly instead of vanishing in one frame');
+        const reset = build.filter(state => state.phase === 'resetting');
+        assert.ok(reset.length >= 2 && reset.some(state => state.progress > 0.1 && state.progress < 0.9),
+          'reset includes a visible intermediate draining progress bar');
+        assert.ok(reset.every(state => !state.productVisible), 'pedestal clears before the next product starts');
+        for (let index = 1; index < reset.length; index++) {
+          assert.ok(reset[index].progress < reset[index - 1].progress, 'bar drains during reset');
         }
+        assert.ok(build.some(state => state.phase === 'printing' && state.progress < 0.1),
+          'each product begins with an initial build stage');
       }
-      assert.ok(samples.some((state, index) => index > 0 && samples[index - 1].phase === 'resetting' && state.phase === 'printing' && state.progress < 0.1),
-        'printing restarts from zero after the animated reset');
-      assert.equal(samples[0].fan, 'fmrcPrinterFan', 'print-head cooling fan runs with printing');
+      assert.equal(samples.find(state => state.phase === 'printing').fan, 'fmrcPrinterFan',
+        'print-head fan runs while printing');
+
+      // Suspension checks assert behavior, not machine-specific frame budgets.
+      const pose = state => ({x:state.x,y:state.y,platform:state.platform,cycle:state.cycle,
+        progress:state.progress,productId:state.productId,layer:state.layer});
+      const scrolling = await evaluate(`(() => {
+        window.dispatchEvent(new Event('scroll'));
+        const before = ${mechanismState};
+        window.__heroTestClock.advance(700);
+        return {before,after:${mechanismState}};
+      })()`);
+      assert.equal(scrolling.after.running, 'false', 'scrolling suspends the printer controller');
+      assert.equal(scrolling.after.fanState, 'paused', 'scrolling also suspends the fan');
+      assert.deepEqual(pose(scrolling.after), pose(scrolling.before),
+        'scrolling preserves the current product and exact mechanical pose');
+      await waitFor("document.getElementById('heroPrinterScene').dataset.running === 'true'");
+      const scrollResumed = await evaluate(`(() => {
+        const before = ${mechanismState};
+        window.__heroTestClock.advance(500);
+        return {before,after:${mechanismState}};
+      })()`);
+      assert.ok(scrollResumed.after.progress > scrollResumed.before.progress,
+        'printing resumes after scrolling settles');
+
+      await evaluate('window.scrollTo(0, document.documentElement.scrollHeight)');
+      await waitFor(`document.getElementById('heroPrinterScene').getBoundingClientRect().bottom < 0 &&
+        document.getElementById('heroPrinterScene').dataset.running === 'false'`);
+      await new Promise(resolve => setTimeout(resolve, 200));
+      const offscreen = await evaluate(`(() => {
+        const before = ${mechanismState};
+        window.__heroTestClock.advance(1000);
+        return {before,after:${mechanismState}};
+      })()`);
+      assert.equal(offscreen.after.running, 'false', 'offscreen printer stays suspended after scroll settles');
+      assert.equal(offscreen.after.fanState, 'paused', 'offscreen fan stays paused');
+      assert.deepEqual(pose(offscreen.after), pose(offscreen.before), 'offscreen product does not advance');
+      await evaluate("document.getElementById('heroPrinterScene').scrollIntoView({block:'center'})");
+      await waitFor("document.getElementById('heroPrinterScene').dataset.running === 'true'");
+      const visibleAgain = await evaluate(`(() => {
+        const before = ${mechanismState};
+        window.__heroTestClock.advance(500);
+        return {before,after:${mechanismState}};
+      })()`);
+      assert.ok(visibleAgain.after.progress > visibleAgain.before.progress,
+        'visible printer resumes its existing product');
+      assert.equal(visibleAgain.after.productId, offscreen.before.productId,
+        'visibility changes preserve the build queue');
 
       settings = { ...settings,
         hero_scene_accent: '#ab874d', hero_scene_scale: 115, hero_scene_motion: 'off',
@@ -382,12 +536,15 @@ test('Customer Home 3D printer scene fits desktop and modern iPhones and applies
       assert.deepEqual(customized, {
         accent: '#ab874d', scale: '1.15', motion: 'off', animation: 'none',
       }, 'published scene settings apply on refresh');
-      await waitFor("Number(document.getElementById('heroPrinterScene')?.dataset.printProgress) === 0");
+      await waitFor("Number(document.getElementById('heroPrinterScene')?.dataset.printProgress) === 1");
+      await new Promise((resolve) => setTimeout(resolve, 350));
       const stopped = await evaluate(mechanismState);
       await new Promise((resolve) => setTimeout(resolve, 350));
       assert.deepEqual(await evaluate(mechanismState), stopped,
         'motion off holds the toolhead and gantry still and keeps the feed tube connected');
       assert.equal(stopped.fan, 'none', 'motion off stops the fan');
+      assert.equal(stopped.productId, 'gear', 'motion off presents the first product');
+      assert.equal(stopped.visibleLayers, stopped.totalLayers, 'motion off retains a complete dimensional product');
       if (shots) {
         const bounds = await evaluate(`(() => {
           const r = document.getElementById('heroPrinterScene').getBoundingClientRect();
@@ -400,7 +557,7 @@ test('Customer Home 3D printer scene fits desktop and modern iPhones and applies
       settings = { ...settings, hero_scene_motion: 'on' };
       await cdp.send('Emulation.setEmulatedMedia', { features:[{name:'prefers-reduced-motion',value:'reduce'}] });
       assert.equal(await evaluate('window.FMRC_REFRESH_SITE_SETTINGS()'), true);
-      await waitFor("Number(document.getElementById('heroPrinterScene')?.dataset.printProgress) === 0");
+      await waitFor("Number(document.getElementById('heroPrinterScene')?.dataset.printProgress) === 1");
       const reduced = await evaluate(mechanismState);
       await new Promise((resolve) => setTimeout(resolve, 350));
       assert.deepEqual(await evaluate(mechanismState), reduced, 'reduced motion freezes the printing pass');

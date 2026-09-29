@@ -154,6 +154,7 @@
     if (!top || !captionEl) return;
     captionEl.textContent = top.caption;
     hintEl.textContent = top.hint;
+    veil.classList.toggle("is-fullscreen", stack.some(function (entry) { return entry.fullscreen; }));
   }
 
   /* Raise the curtain. `caption` is the one line the visitor reads; `hint` is
@@ -168,7 +169,8 @@
     var text = typeof caption === "string" ? caption.trim() : "";
     stack.push({
       caption: text || DEFAULT_CAPTION,
-      hint: typeof hint === "string" ? hint.trim() : ""
+      hint: typeof hint === "string" ? hint.trim() : "",
+      fullscreen: !!(options && options.fullscreen)
     });
     /* Only the outermost call starts the clock. */
     if (stack.length === 1) {
