@@ -42,6 +42,10 @@
       const gantry = svg.querySelector(".hp-gantry");
       const tubes = svg.querySelectorAll(".hp-filament-flex");
       const trail = svg.querySelector(".hp-deposition-path");
+      const progressReadout = svg.querySelector(".hp-screen-progress");
+      const progressFill = svg.querySelector(".hp-screen-fill");
+      const phaseReadout = svg.querySelector(".hp-screen-phase");
+      const traceCursor = svg.querySelector(".hp-screen-cursor");
       const mechanics = JSON.parse(svg.querySelector("#hp-mechanics")?.textContent || "null");
       const pair = (value) => Array.isArray(value) && value.length === 2 && value.every(Number.isFinite);
       if (!head || !gantry || !tubes.length || !trail || !mechanics ||
@@ -125,6 +129,19 @@
         scene.dataset.printProgress = progress.toFixed(5);
         scene.dataset.printX = point[0].toFixed(3);
         scene.dataset.printY = point[1].toFixed(3);
+        const percent = Math.floor(progress * 100);
+        if (progressReadout && progressReadout.textContent !== `${percent}%`) {
+          progressReadout.textContent = `${percent}%`;
+        }
+        if (progressFill) progressFill.setAttribute("width", (104 * progress).toFixed(2));
+        if (phaseReadout) {
+          const phase = distance <= 282 ? "PERIMETER" : "INFILL";
+          if (phaseReadout.textContent !== phase) phaseReadout.textContent = phase;
+        }
+        if (traceCursor) {
+          traceCursor.setAttribute("cx", (13 + point[0] / 78 * 59).toFixed(2));
+          traceCursor.setAttribute("cy", (55 + point[1] / 63 * 28).toFixed(2));
+        }
       };
       const active = () => scene.dataset.motion === "on" && !reducedMotion.matches &&
         !document.hidden && visible && scene.isConnected;

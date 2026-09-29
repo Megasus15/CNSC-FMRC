@@ -87,7 +87,7 @@ function satellite(x,y,kind,scale=1){
  }
  origin[0]=saved[0];origin[1]=saved[1]; return `<g class="hp-satellite" transform="translate(${x} ${y}) scale(${scale})">${s}</g>`;
 }
-parts.push(satellite(133,319,'cad',.90));
+parts.push(satellite(126,185,'cad',.82));
 parts.push(satellite(132,512,'layers',.92));
 parts.push(satellite(787,655,'toolpath',.95));
 parts.push(`<path d="M90 412l38 18 47-12M846 539l44 20 35-9M114 598l27 12" stroke="#e9c489" stroke-opacity=".23" stroke-width="1.2" fill="none" stroke-linecap="round"/><circle cx="152" cy="234" r="10" fill="url(#hp-sphere)"/><circle cx="911" cy="554" r="7" fill="url(#hp-sphere)"/><circle cx="196" cy="624" r="5" fill="url(#hp-sphere)"/>`);
@@ -237,6 +237,48 @@ parts.push(line([276,272.5,82],[305,272.5,82],'#162a2b',3.4));
 parts.push(line([276,272.6,82],[296,272.6,82],'#d7b776',3.4));
 parts.push(dot([306,272.5,96],2,'#bddacb'));
 parts.push(dot([301,273,72],2.2,'#ccb291'));
+
+// Two supported process monitors. Their casings, bracket arms and UI all use
+// the front-face projection; their readings describe the illustrative layer.
+function monitor(x,y,z,w,h,kind){
+ let s=box(x,y,z,w,12,h,'dark');
+ s+=line([x+3,y+12,z+h-3],[x+w-3,y+12,z+h-3],'#c5918b',1.3);
+ const corner=P(x+7,y+12.2,z+h-7);
+ const innerW=w-14,innerH=h-14;
+ s+=`<g class="hp-process-monitor" transform="matrix(${axes.xAxis[0]} ${axes.xAxis[1]} 0 1 ${pt(corner).replace(',',' ')})" font-family="Montserrat,Arial,sans-serif">
+ <rect width="${innerW}" height="${innerH}" rx="3" fill="#241b29" stroke="#98786f" stroke-width="1"/>
+ <path d="M3 3H${innerW-3}V18H3Z" fill="#442637"/>
+ <circle cx="9" cy="10" r="2.2" fill="#bdd8c4"/>
+ <text x="16" y="13" fill="#f5e6cd" font-size="8" font-weight="700">${kind==='progress'?'FMRC / PRINT':'XY TOOLPATH'}</text>`;
+ if(kind==='progress'){
+   s+=`<text x="10" y="34" fill="#bba9ac" font-size="7" letter-spacing=".8">CURRENT LAYER</text>
+    <text class="hp-screen-progress" x="10" y="58" fill="#f1d59e" font-size="23" font-weight="700">0%</text>
+    <path d="M81 52l10-6 10 6-10 6zM81 57l10 6 10-6M81 62l10 6 10-6" fill="none" stroke="#d7b884" stroke-width="2" stroke-linejoin="round"/>
+    <rect x="10" y="71" width="104" height="6" rx="3" fill="#57404c"/>
+    <rect class="hp-screen-fill" x="10" y="71" width="0" height="6" rx="3" fill="#e1be7d"/>
+    <text class="hp-screen-phase" x="10" y="91" fill="#c4d4ca" font-size="8">PERIMETER</text>`;
+ }else{
+   s+=`<path d="M10 28H75M10 40H75M10 52H75M22 24V58M42 24V58M62 24V58" stroke="#54424f" stroke-width=".6"/>
+    <path d="M13 55H72V27H13Z M20 55V30H28V52H36V30H44V52H52V30H60V52H68V30" fill="none" stroke="#b49369" stroke-width="1.25" stroke-linejoin="round"/>
+    <circle class="hp-screen-cursor" cx="13" cy="55" r="3" fill="#f7db9d" stroke="#fff1d9" stroke-width=".8"/>
+    <text x="10" y="65" fill="#bfaeb5" font-size="6.5" letter-spacing=".3">LAYER TRACE</text>`;
+ }
+ s+='</g>';
+ s+=bolt(x+3,y+12.4,z+3,1.1)+bolt(x+w-3,y+12.4,z+3,1.1);
+ return `<g class="hp-mounted-monitor">${s}</g>`;
+}
+// Main status monitor attaches outside the rear-right post, clear of the bed.
+parts.push(box(337,7,236,40,15,13,'body'));
+parts.push(box(360,11,223,12,15,38,'steel'));
+parts.push(bolt(347,22.3,242,2.5));
+parts.push(line([347,12,236],[347,12,68],'#2a1a28',3));
+parts.push(monitor(366,16,190,142,115,'progress'));
+// The smaller tracing monitor is clamped to the outside of the front-left post.
+parts.push(box(-25,247,145,38,13,12,'body'));
+parts.push(box(-27,246,133,10,15,36,'steel'));
+parts.push(bolt(7,260.4,151,2.5));
+parts.push(line([4,259,143],[4,259,66],'#2a1a28',2.4));
+parts.push(monitor(-118,250,110,100,83,'trace'));
 
 const logoCenter=P(185,185.5,170.5);
 const metadata={
