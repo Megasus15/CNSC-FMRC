@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\SiteSettingController;
 use App\Http\Controllers\Api\StaffAccountRequestController;
 use App\Http\Controllers\Api\WalkInOrderController;
 use App\Http\Controllers\CartItemController;
+use App\Http\Middleware\EnsureCustomerPortalOpen;
 use App\Http\Middleware\EnsureNotUnderMaintenance;
 use App\Http\Middleware\VerifyTurnstile;
 use Illuminate\Http\Request;
@@ -75,9 +76,9 @@ Route::post('/auth/google', [AuthController::class, 'googleLogin']);
 // Carries the same Turnstile guard as /login and /register -- it costs nothing
 // until Cloudflare keys are configured and then protects the admin's approval
 // queue for free. A second layer (5 accepted submissions per IP per hour) lives
-// in the controller. Deliberately NOT behind EnsureNotUnderMaintenance: all 11
+// in the controller. Deliberately NOT behind EnsureNotUnderMaintenance: all
 // maintenance scopes are customer-facing, and locking staff out of applying
-// during maintenance would be the opposite of useful.
+// during customer-site maintenance would be the opposite of useful.
 Route::post('/staff-account-requests', [StaffAccountRequestController::class, 'store'])
     ->middleware(VerifyTurnstile::class);
 
@@ -143,7 +144,7 @@ Route::get('/couriers', [OrderController::class, 'couriers']);
 Route::post('/webhooks/paymongo', [PayMongoWebhookController::class, 'handleWebhook']);
 // ────────────────────────────────────────────────────────────────────────────
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(function () {
     Route::get('/admin/session', [AdminSessionController::class, 'status']);
     Route::post('/admin/session/activity', [AdminSessionController::class, 'activity']);
 

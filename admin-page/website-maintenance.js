@@ -4,14 +4,15 @@
 /**
  * Maintenance Mode control panel (STEP 11, Part B) — ADMIN ONLY.
  *
- * 11 scopes: 2 account gates, 5 customer pages, 4 Home-page sections. Each has
+ * 13 scopes: the whole customer website, 2 account gates, 6 customer pages,
+ * and 4 Home-page sections. Each has
  * its own switch and its own message of at most 75 characters.
  *
  * Two deliberate choices:
  *
  *  - A switch marks the form dirty instead of publishing straight away, so you
  *    can line several scopes up and take them offline in one move.
- *  - The form stays inert until the first snapshot has been read. Publishing 11
+ *  - The form stays inert until the first snapshot has been read. Publishing all
  *    scopes from a state that never loaded could switch something off that you
  *    had switched on from another device.
  *
@@ -73,6 +74,14 @@ const MAX_LEN = 75;
 /** Keys and default wording mirror MaintenanceSetting::DEFAULTS exactly. */
 const SCOPES = [
   {
+    key: "site_portal",
+    group: "mtRowsWebsite",
+    icon: "fa-solid fa-globe",
+    label: "Customer Website",
+    hint: "Takes the public website at ucn-fabmanlab.com offline for guests and customers. Admin and Staff portals remain available.",
+    def: "The FMRC website is temporarily unavailable. Please check back soon.",
+  },
+  {
     key: "customer_register",
     group: "mtRowsAccess",
     icon: "fa-solid fa-user-plus",
@@ -93,8 +102,16 @@ const SCOPES = [
     group: "mtRowsPages",
     icon: "fa-solid fa-house",
     label: "Home Page",
-    hint: "Covers the banner, About Us, Mission, Vision, What We Offer and booking.",
+    hint: "Covers the Home page and its sections. The separate About Us page stays available.",
     def: "Our home page is briefly offline for maintenance. Please check back soon.",
+  },
+  {
+    key: "page_about",
+    group: "mtRowsPages",
+    icon: "fa-solid fa-circle-info",
+    label: "About Us Page",
+    hint: "Takes only the standalone About Us page offline. The Home page About section remains available.",
+    def: "The About Us page is under maintenance. Please check back shortly.",
   },
   {
     key: "page_services",
@@ -344,8 +361,8 @@ function paintSummary() {
     } else {
       bannerText.textContent =
         liveCount === 1
-          ? "One item is currently offline for customers."
-          : `${liveCount} items are currently offline for customers.`;
+          ? "One item is currently offline for visitors."
+          : `${liveCount} items are currently offline for visitors.`;
     }
   }
   paintSaveHint();
@@ -385,7 +402,7 @@ function markDirty() {
  *   - the request never completed -> the API is genuinely unreachable (Laravel
  *     not running, wrong host, offline).
  *
- * The controls stay locked in every case: publishing 11 scopes from a state that
+ * The controls stay locked in every case: publishing all scopes from a state that
  * never loaded could switch something off that was switched on elsewhere.
  */
 function failLoad(title, html) {
@@ -404,7 +421,7 @@ async function load() {
   let res;
   try {
     // `cache: "no-store"` on purpose. The endpoint ships an ETag for the
-    // customer gate's 20s revalidation, but the admin panel must never paint 11
+    // customer gate's 20s revalidation, but the admin panel must never paint
     // switches from a cached body — it is the screen you open to confirm what is
     // actually live right now.
     res = await fetch(`${API}/maintenance`, {
@@ -475,8 +492,8 @@ function requestSave() {
   const names = turningOn.map((cfg) => cfg.label).join(", ");
   const message =
     turningOn.length === 1
-      ? `${names} will go offline for customers straight away. Your message is what they will see.`
-      : `These will go offline for customers straight away: ${names}. Your messages are what they will see.`;
+      ? `${names} will go offline for visitors straight away. Your message is what they will see.`
+      : `These will go offline for visitors straight away: ${names}. Your messages are what they will see.`;
 
   if (typeof window.showAdminConfirmPopup === "function") {
     window.showAdminConfirmPopup(message, {

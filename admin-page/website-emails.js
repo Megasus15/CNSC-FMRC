@@ -56,8 +56,8 @@ const resolveApiBaseUrl = () => {
 
 const API = resolveApiBaseUrl();
 
-// Same channel reports.js uses for the letterhead, so an edit in one open tab
-// refreshes the other admin/staff tabs without a manual reload.
+// Same channel reports.js uses for the letterhead. Saves still notify live
+// consumers, while this editor only announces incoming changes until Refresh.
 const SITE_SETTINGS_REALTIME_CHANNEL = "fmrc-site-settings-realtime";
 
 const DEFAULT_KEY_PREFIX = "email_tpl_";
@@ -671,8 +671,8 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   });
 
-  // A save on the other portal (or a second tab) refreshes this one, but never
-  // over the top of wording the user is still typing.
+  // Incoming saves announce updates without fetching or replacing the current
+  // editor. Initial load, manual Refresh, and template actions own all reads.
   if (typeof window.BroadcastChannel === "function") {
     try {
       const channel = new window.BroadcastChannel(
@@ -680,13 +680,9 @@ document.addEventListener("DOMContentLoaded", () => {
       );
       channel.addEventListener("message", (event) => {
         if (event?.data?.type !== "updated") return;
-        if (isDirty()) {
-          setStatus(
-            "Another tab saved a template. Save or restore this one to see the update.",
-          );
-          return;
-        }
-        void loadTemplates({ keepActive: true });
+        setStatus(
+          "Website settings changed in another tab. Use Refresh to load the latest templates. Your current wording is kept here.",
+        );
       });
     } catch {
       /* best effort only */

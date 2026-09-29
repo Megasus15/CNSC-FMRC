@@ -313,7 +313,7 @@
         color: #92400e;
       }
       /* A third state rather than a recolour of `.is-on`, so the amber
-         "N of 9 under maintenance" pill is untouched. Painted by paintSummary()
+         count pill is untouched. Painted by paintSummary()
          on the same condition that prints "Everything online". */
       .mt-live-pill.is-live {
         background: #dcfce7;
@@ -467,9 +467,9 @@
             <div class="toolbar-title">
               <h2>Maintenance Mode</h2>
               <p>
-                Take parts of the customer website offline while you work.
-                Visitors keep the header and footer, so they can always navigate
-                away and still see your contact details.
+                Control availability for the public website, individual pages,
+                and customer access while you work. Page maintenance keeps the
+                header and footer visible.
               </p>
             </div>
             <div class="toolbar-actions">
@@ -507,10 +507,23 @@
                 <span id="mtBannerText"></span>
               </div>
             </div>
-            <!-- The 11 rows are rendered by website-maintenance.js from one
+            <!-- The maintenance rows are rendered by website-maintenance.js from one
                  SCOPES table, the same way the Brand Logos grid is built on the
                  Home screen: one template, so no row can drift from the others
                  and the scope keys can never disagree with the backend. -->
+            <div class="wm-section">
+              <div class="wm-section-header">
+                <i class="fa-solid fa-globe"></i>
+                <h3>Public Website</h3>
+              </div>
+              <p class="field-hint" style="margin: 12px 0 0">
+                Pause the entire public site at <strong>ucn-fabmanlab.com</strong>.
+                Guests and customers see your maintenance notice. Admin and
+                Staff portals stay available so your team can restore the site.
+              </p>
+              <div id="mtRowsWebsite"></div>
+            </div>
+
             <div class="wm-section">
               <div class="wm-section-header">
                 <i class="fa-solid fa-user-lock"></i>
@@ -529,9 +542,9 @@
                 <h3>Customer Pages</h3>
               </div>
               <p class="field-hint" style="margin: 12px 0 0">
-                The page content is replaced by your notice. The header, the
-                navigation and the footer stay visible. Turning the Home page off
-                covers all four Home sections below.
+                The selected page content is replaced by your notice. The header,
+                navigation, and footer stay visible. Home and About Us are
+                separate pages; turning Home off also covers its four sections.
               </p>
               <div id="mtRowsPages"></div>
             </div>
@@ -568,8 +581,8 @@
     <script src="session-helper.js?v=2.3"></script>
     <script src="admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
-    <script src="admin-common.js?v=7.6"></script>
-    <script src="website-maintenance.js?v=1.3"></script>
+    <script src="admin-common.js?v=7.7"></script>
+    <script src="website-maintenance.js?v=1.4"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>

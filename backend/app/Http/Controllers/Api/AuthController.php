@@ -352,7 +352,8 @@ class AuthController extends Controller
             }
 
             // Maintenance Mode (STEP 11): Google sign-UP is gated by
-            // `customer_register`, Google sign-IN by `customer_login`. An email
+            // `site_portal` and `customer_register`, Google sign-IN by
+            // `site_portal` and `customer_login`. An email
             // Google has never seen here is a new customer registration, so
             // both gates apply to it -- and the check sits BEFORE User::create()
             // below, so a blocked sign-up leaves no row and sends no welcome
@@ -360,7 +361,8 @@ class AuthController extends Controller
             // customerLoginMaintenanceResponse() only fires for role customer.
             $maintenance = $user
                 ? $this->customerLoginMaintenanceResponse($user)
-                : ($this->maintenanceResponse('customer_register')
+                : ($this->maintenanceResponse('site_portal')
+                    ?? $this->maintenanceResponse('customer_register')
                     ?? $this->maintenanceResponse('customer_login'));
 
             if ($maintenance) {
@@ -485,7 +487,8 @@ class AuthController extends Controller
             return null;
         }
 
-        return $this->maintenanceResponse('customer_login');
+        return $this->maintenanceResponse('site_portal')
+            ?? $this->maintenanceResponse('customer_login');
     }
 
     /**

@@ -8,12 +8,13 @@
     />
     <link rel="icon" type="image/png" href="/images/FMRC%20Brand%20Logo.png?v=1" />
     <link rel="apple-touch-icon" href="/images/FMRC%20Brand%20Logo.png?v=1" />
-    <meta name="theme-color" content="#5f0d0d" />
+    <link rel="preload" as="image" href="../images/auth-fabrication.jpg" />
+    <meta name="theme-color" content="#6b202b" />
     <title>UCN-FMRC Admin &amp; Staff Access</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap"
       rel="stylesheet"
     />
     <link
@@ -26,8 +27,9 @@
     <link rel="stylesheet" href="auth.css?v=6.5" />
     <link rel="stylesheet" href="../home-page/auth-notices.css?v=1.1" />
     <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=2.2" />
+    <link rel="stylesheet" href="../home-page/portal-auth.css?v=1.3" />
   </head>
-  <body>
+  <body class="fmrc-auth fmrc-auth--admin" data-portal="admin" data-portal-image-side="left">
     <div class="auth-notice-stack" id="authNoticeStack" aria-label="Sign-in notices">
       <div class="auth-security-notice auth-security-notice--session" id="adminSessionNotice" role="status" hidden>
         <div class="auth-security-notice-inner">
@@ -54,43 +56,45 @@
     </div>
     <main class="auth-page">
       <section class="auth-card" aria-label="Admin and staff authentication panel">
-        <aside class="auth-side-panel" aria-hidden="true">
-          <div class="auth-kicker">Admin • Staff Portal</div>
-
+        <aside class="auth-side-panel" data-portal-image aria-label="About UCN-FMRC">
+          <div class="auth-photo-heading" data-portal-university-name>University of Camarines Norte</div>
           <div class="side-title">
-            <div class="portal-mark"><span>FMRC</span></div>
-            <h2>Manage work clearly.</h2>
-            <p>
-              Manage requests, inventory, products, and daily work.
-            </p>
+            <div class="auth-kicker" data-portal-image-kicker>Coordinate. Deliver. Grow.</div>
+            <h2 data-portal-image-title>Good work starts<br>with a clear view.</h2>
+            <p data-portal-image-description>One workspace for the people, projects, and everyday work that keep FMRC moving.</p>
           </div>
-
-          <div class="side-features">
-            <span class="side-feature"><span class="feature-dot"></span>Dashboard</span>
-            <span class="side-feature"><span class="feature-dot"></span>Inventory</span>
-            <span class="side-feature"><span class="feature-dot"></span>Operations</span>
+          <div class="auth-photo-footer">
+            <span data-portal-center-name>Fabrication &amp; Manufacturing Research Center</span>
+            <span data-portal-brand-name>UCN &mdash; FMRC</span>
           </div>
         </aside>
 
         <div class="auth-form-panel">
-          <div class="auth-hero">
-            <div class="auth-brand">
-              <img
-                id="portalLogoPrimary"
-                src="/images/UCN Logo.png"
-                alt="UCN Logo"
-                class="brand-logo"
-                onerror="this.style.display = 'none'"
-              />
-              <img
-                id="portalLogoSecondary"
-                src="/images/FMRC Brand Logo.png"
-                alt="FMRC Logo"
-                class="brand-logo"
-                onerror="this.style.display = 'none'"
-              />
+          <div class="auth-brand">
+            <img
+              id="portalLogoPrimary"
+              data-portal-logo="primary"
+              src="/images/UCN Logo.png"
+              alt="UCN Logo"
+              class="brand-logo"
+              onerror="this.style.display = 'none'"
+            />
+            <span class="auth-brand-separator" aria-hidden="true"></span>
+            <img
+              id="portalLogoSecondary"
+              data-portal-logo="secondary"
+              src="/images/FMRC Brand Logo.png"
+              alt="FMRC Logo"
+              class="brand-logo"
+              onerror="this.style.display = 'none'"
+            />
+            <div class="auth-brand-copy">
+              <strong data-portal-brand-name>UCN&ndash;FMRC</strong>
+              <span data-portal-name>Admin / Staff Portal</span>
             </div>
-            <h1 class="auth-title">Welcome Back</h1>
+          </div>
+          <div class="auth-hero">
+            <h1 class="auth-title">Sign in to FMRC</h1>
             <p class="auth-caption">UCN-FMRC Admin / Staff Portal</p>
           </div>
 
@@ -112,6 +116,10 @@
                   id="loginUser"
                   type="text"
                   placeholder="Enter your email or username"
+                  autocomplete="username"
+                  autocapitalize="none"
+                  spellcheck="false"
+                  enterkeyhint="next"
                   required
                 />
               </div>
@@ -134,6 +142,8 @@
                   id="loginPass"
                   type="password"
                   placeholder="Enter your password"
+                  autocomplete="current-password"
+                  enterkeyhint="done"
                   required
                 />
                 <button
@@ -191,6 +201,15 @@
               >
             </div>
           </form>
+          <div class="auth-form-footer">
+            <a href="../home-page/main.html" class="auth-back-link">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M19 12H5m7 7-7-7 7-7"></path>
+              </svg>
+              <span class="back-text">Return to FMRC Home</span>
+            </a>
+            <span class="auth-footer-note">Authorized personnel only.</span>
+          </div>
         </div>
       </section>
     </main>
@@ -1001,9 +1020,9 @@
     </div>
 
     <script src="../home-page/turnstile.js?v=1.2"></script>
-    <!-- Admin-editable portal logos (Website Management -> Home -> Brand Logos).
-         Paints the last-known pair synchronously, then revalidates. -->
-    <script src="../home-page/portal-brand.js?v=1.2"></script>
+    <!-- Separate portal appearance, configured in Website Configuration -> Login Portals. -->
+    <script src="../home-page/portal-appearance.js?v=1.2"></script>
+    <script src="../home-page/portal-brand.js?v=2.1"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="../home-page/auth-notices.js?v=1.0"></script>
     <script src="auth.js?v=6.2"></script>

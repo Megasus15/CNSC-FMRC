@@ -41,6 +41,7 @@ document.documentElement.classList.add("fmrc-admin-portal");
     "website-home": "Home page settings are loading.",
     "website-maintenance": "Maintenance settings are loading.",
     "website-payments": "Payment settings are loading.",
+    "website-portals": "Login portal settings are loading.",
     "website-services": "Services page settings are loading.",
   });
   const PAGE_TIMING = Object.freeze({ min: 200, max: 200, cap: 1000 });
@@ -2201,6 +2202,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "website-contact.html",
     "website-footer.html",
     "website-payments.html",
+    "website-portals.html",
     "website-emails.html",
     "website-maintenance.html",
   ];
@@ -2219,6 +2221,23 @@ document.addEventListener("DOMContentLoaded", () => {
     aboutLink.textContent = "About Us";
     if (/\/website-about(?:\.html)?\/?$/i.test(window.location.pathname)) aboutLink.classList.add("active");
     homeLink.after(aboutLink);
+  });
+
+  document.querySelectorAll('a.sub-link[href="website-home.html"]').forEach((homeLink) => {
+    const menu = homeLink.parentElement;
+    let portalsLink = menu.querySelector('a[href="website-portals.html"]');
+    if (!portalsLink) {
+      portalsLink = document.createElement("a");
+      portalsLink.href = "website-portals.html";
+      portalsLink.className = "sub-link";
+      portalsLink.textContent = "Login Portals";
+      const aboutLink = menu.querySelector('a[href="website-about.html"]');
+      (aboutLink || homeLink).after(portalsLink);
+    }
+    if (/\/website-portals(?:\.html)?\/?$/i.test(window.location.pathname)) {
+      portalsLink.classList.add("active");
+      portalsLink.setAttribute("aria-current", "page");
+    }
   });
 
   document.querySelectorAll('a.sub-link[href="website-home.html"]').forEach((homeLink) => {

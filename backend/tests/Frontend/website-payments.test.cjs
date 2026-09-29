@@ -91,20 +91,47 @@ for (const role of ['admin', 'staff']) {
   });
 }
 
-test('background refresh preserves a dirty draft and Load latest intentionally replaces it', async () => {
+test('incoming updates announce changes without fetching; Load latest intentionally replaces a dirty draft', async () => {
   const h = await harness();
   await h.toggle(keys[0], false);
   h.state.settings = { [keys[1]]: '0' };
-  await h.channel.emit('message');
+  await h.channel.emit('message', { data: { type: 'updated' } });
   await settle();
   assert.equal(h.field(keys[0]).checked, false);
   assert.equal(h.field(keys[1]).checked, true);
   assert.equal(h.field('paymentSettingsUpdated').hidden, false);
+  assert.equal(h.requests.length, 1, 'incoming update does not reload content');
   await h.click('reloadPaymentSettings');
   assert.equal(h.field(keys[0]).checked, true);
   assert.equal(h.field(keys[1]).checked, false);
   assert.equal(h.field('savePaymentSettings').disabled, true);
   assert.equal(h.field('paymentSettingsUpdated').hidden, true);
+  assert.equal(h.requests.length, 2, 'explicit Load latest requests saved content');
+});
+
+test('returning to a Payment Methods tab keeps controls available and never fetches content', async () => {
+  const h = await harness();
+  await h.toggle(keys[0], false);
+  h.state.settings = { [keys[1]]: '0' };
+  await h.window.emit('focus');
+  h.document.hidden = false;
+  await h.document.emit('visibilitychange');
+  await settle();
+  assert.equal(h.requests.length, 1);
+  assert.equal(h.field('paymentSettingsFields').disabled, false);
+  assert.equal(h.field(keys[0]).checked, false, 'unsaved selection remains');
+  assert.equal(h.field(keys[1]).checked, true, 'server changes wait for a manual load');
+});
+
+test('storage updates show a notice without replacing clean selections or fetching', async () => {
+  const h = await harness();
+  h.state.settings = Object.fromEntries(keys.map((key) => [key, '0']));
+  await h.window.emit('storage', { key: 'fmrc_site_content_updated_at' });
+  await settle();
+  assert.equal(h.requests.length, 1);
+  keys.forEach((key) => assert.equal(h.field(key).checked, true));
+  assert.equal(h.field('paymentSettingsUpdated').hidden, false);
+  assert.equal(h.field('savePaymentSettings').disabled, true);
 });
 
 test('save failure retains selections, and discard returns to persisted settings', async () => {
@@ -133,7 +160,7 @@ test('initial fetch failure keeps editing disabled until Retry succeeds', async 
   assert.equal(h.field('paymentSettingsError').hidden, true);
 });
 
-test('save in flight blocks duplicate writes and keeps switches disabled during queued refresh', async () => {
+test('save in flight blocks duplicate writes; returning to the tab does not queue a content refresh', async () => {
   const h = await harness();
   await h.click('disableAllPayments');
   let release;
@@ -148,6 +175,7 @@ test('save in flight blocks duplicate writes and keeps switches disabled during 
   await settle();
   assert.equal(h.field('paymentSettingsFields').disabled, false);
   keys.forEach((key) => assert.equal(h.field(key).checked, false));
+  assert.equal(h.requests.filter((item) => item.options.method !== 'PUT').length, 1);
 });
 
 test('only missing settings default enabled; saved false values do not', async () => {

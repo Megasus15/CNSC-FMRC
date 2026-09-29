@@ -53,7 +53,7 @@ class MaintenanceController extends Controller
     }
 
     /**
-     * Admin only: write any subset of the 11 scopes in one transaction.
+     * Admin only: write any subset of the known scopes in one transaction.
      *
      * Body: { "scopes": { "<scope>": { "is_active": bool, "message": "..." }, ... } }
      */

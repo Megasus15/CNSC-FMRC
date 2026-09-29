@@ -33,22 +33,24 @@ class MaintenanceSetting extends Model
     private static ?bool $tableReady = null;
 
     /**
-     * The 11 scopes, in the order the admin UI lists them: two account gates,
-     * five customer pages, four home-page sections. Any key outside this map is
-     * rejected by the API.
+     * The scopes, in the order the admin UI lists them: the whole customer site,
+     * two account gates, six customer pages, and four Home-page sections.
+     * Any key outside this map is rejected by the API.
      */
     public const DEFAULTS = [
+        'site_portal' => 'The FMRC website is temporarily unavailable. Please check back soon.',
         'customer_register' => 'Account registration is temporarily closed for scheduled maintenance.',
-        'customer_login'    => 'Customer sign-in is temporarily unavailable while we perform maintenance.',
-        'page_home'         => 'Our home page is briefly offline for maintenance. Please check back soon.',
-        'page_services'     => 'The Services page is under maintenance. It will be back shortly.',
-        'page_products'     => 'The Products page is under maintenance. Orders will reopen shortly.',
-        'page_contact'      => 'Our contact form is under maintenance. Please reach us again later.',
-        'page_appointment'  => 'Appointment booking is paused for maintenance. Please try again later.',
-        'home_about'        => 'The About Us section is being updated. Please check back shortly.',
-        'home_mission'      => 'The Mission section is being updated. Please check back shortly.',
-        'home_vision'       => 'The Vision section is being updated. Please check back shortly.',
-        'home_offer'        => 'What We Offer is being updated. Please check back shortly.',
+        'customer_login' => 'Customer sign-in is temporarily unavailable while we perform maintenance.',
+        'page_home' => 'Our home page is briefly offline for maintenance. Please check back soon.',
+        'page_about' => 'The About Us page is under maintenance. Please check back shortly.',
+        'page_services' => 'The Services page is under maintenance. It will be back shortly.',
+        'page_products' => 'The Products page is under maintenance. Orders will reopen shortly.',
+        'page_contact' => 'Our contact form is under maintenance. Please reach us again later.',
+        'page_appointment' => 'Appointment booking is paused for maintenance. Please try again later.',
+        'home_about' => 'The About Us section is being updated. Please check back shortly.',
+        'home_mission' => 'The Mission section is being updated. Please check back shortly.',
+        'home_vision' => 'The Vision section is being updated. Please check back shortly.',
+        'home_offer' => 'What We Offer is being updated. Please check back shortly.',
     ];
 
     /** The whole scope list, for validation. */
@@ -108,7 +110,7 @@ class MaintenanceSetting extends Model
                 : $default;
 
             $out[$scope] = [
-                'active'  => (bool) ($row->is_active ?? false),
+                'active' => (bool) ($row->is_active ?? false),
                 'message' => $message,
             ];
         }
@@ -119,7 +121,7 @@ class MaintenanceSetting extends Model
     /** Is this scope currently under maintenance? Unknown scopes are never active. */
     public static function isActive(string $scope): bool
     {
-        if (!self::isKnownScope($scope) || !self::tableReady()) {
+        if (! self::isKnownScope($scope) || ! self::tableReady()) {
             return false;
         }
 
@@ -137,7 +139,7 @@ class MaintenanceSetting extends Model
     {
         $default = self::DEFAULTS[$scope] ?? 'This section is temporarily unavailable for maintenance.';
 
-        if (!self::tableReady()) {
+        if (! self::tableReady()) {
             return $default;
         }
 

@@ -667,7 +667,6 @@
       reportData: null,
       currentPage: 1,
       isLoading: false,
-      lastGoodSyncAt: 0,
       pollTimer: 0,
       realtimeTimer: 0,
       ordersChannel: null,
@@ -1178,6 +1177,9 @@
       if (state.isLoading) return false;
       state.isLoading = true;
       const hadGoodData = Boolean(state.reportData);
+      const preserveCurrentPage = hadGoodData &&
+        ["poll", "realtime"].includes(source) &&
+        reportFilterKey(state.activeParams || {}) === reportFilterKey(params);
       const initiatingButton =
         source === "generate"
           ? elements.generate
@@ -1215,8 +1217,7 @@
         }
         state.reportData = data;
         state.activeParams = copyReportFilters(params);
-        state.currentPage = 1;
-        state.lastGoodSyncAt = Date.now();
+        if (!preserveCurrentPage) state.currentPage = 1;
         window.AdminLiveData?.setAvailability?.("reports-data", true);
         hidePageMessage();
         renderReport();
@@ -2784,16 +2785,6 @@
           refreshActiveReport("poll");
         }
       }, REPORT_POLL_INTERVAL_MS);
-
-      document.addEventListener("visibilitychange", () => {
-        if (
-          document.visibilityState === "visible" &&
-          state.activeParams &&
-          Date.now() - state.lastGoodSyncAt >= REPORT_POLL_INTERVAL_MS
-        ) {
-          refreshActiveReport("visible");
-        }
-      });
 
       window.addEventListener(
         "beforeunload",

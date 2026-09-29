@@ -537,7 +537,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const showLogin = (event) => {
     if (event) event.preventDefault();
-    setHeroText("Welcome Back", "UCN-FMRC Customer Portal");
+    setHeroText("Sign in to FMRC", "UCN-FMRC Customer Portal");
     loginForm.style.display = "";
     loginForm.classList.add("active");
     signupForm.style.display = "none";

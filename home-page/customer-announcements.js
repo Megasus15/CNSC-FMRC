@@ -1134,12 +1134,10 @@
              now" state, which is what the customer sees after tapping the bell
              on a site with nothing published.
 
-             Without this guard that empty state could not be read at all. Three
-             things call `load()` — the 30s poll at :1279, `visibilitychange`,
-             and the boot load — and every one of them found `!modal.hidden` and
+             Without this guard that empty state could not be read at all. The
+             regular poll and boot load both found `!modal.hidden` and
              `announcements.length === 0` true and closed the dialog the
-             customer had just opened. The bell → focus-the-tab → click order is
-             the common one, so the boot/refocus load was usually still in
+             customer had just opened. The boot load could still be in
              flight when the dialog appeared and shut it within the same tick:
              the reported "the announcement doesn't open". It did open. It was
              being closed again immediately. */
@@ -1191,10 +1189,6 @@
     // but their page module already owns the data request. Avoid a second
     // polling/foreground-refresh system on those management pages.
     if (!isAdminOrStaff) void load();
-  });
-
-  document.addEventListener("visibilitychange", () => {
-    if (!isAdminOrStaff && !document.hidden) void load();
   });
 
   // main.js re-reads /site-settings every 20 s and announces a changed

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Models\SiteSetting;
 use App\Support\EmailTemplate;
 use App\Support\PaymentMethodAvailability;
+use App\Support\PortalAppearanceSettings;
 use App\Support\WebsiteContentLimits;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -104,15 +105,15 @@ class SiteSettingController extends Controller
             ], 403);
         }
 
+        $input = $request->all();
+        PortalAppearanceSettings::rejectUnsupportedKeys($input);
+
         // Validate the entire payload before saving any settings so an overlong
         // field produces a field-specific 422 without a partially saved page.
         $request->validate(
-            array_merge(WebsiteContentLimits::settingsRules(), PaymentMethodAvailability::rules()),
+            array_merge(WebsiteContentLimits::settingsRules(), PaymentMethodAvailability::rules(), PortalAppearanceSettings::rules()),
             WebsiteContentLimits::messages(),
         );
-
-        // Accept any key-value pairs from the request body
-        $input = $request->all();
 
         // The Gmail notification copy is admin-only (see denyUnlessAdmin below),
         // and this endpoint is the back door into it: without this check a staff

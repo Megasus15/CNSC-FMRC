@@ -32,14 +32,18 @@ class EnsureNotUnderMaintenance
             return $next($request);
         }
 
-        if (! MaintenanceSetting::isActive($scope)) {
+        // Page-level gates also honor the Admin's whole-customer-site switch.
+        // This covers guest registration and appointment submissions as well as
+        // customer requests that already have a dedicated page gate.
+        $blocked = MaintenanceSetting::isActive('site_portal') ? 'site_portal' : $scope;
+        if (! MaintenanceSetting::isActive($blocked)) {
             return $next($request);
         }
 
         return response()->json([
-            'message' => MaintenanceSetting::messageFor($scope),
+            'message' => MaintenanceSetting::messageFor($blocked),
             'maintenance' => true,
-            'scope' => $scope,
+            'scope' => $blocked,
         ], 503);
     }
 }

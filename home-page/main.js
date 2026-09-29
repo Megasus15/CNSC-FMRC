@@ -13090,20 +13090,6 @@ document.addEventListener("DOMContentLoaded", () => {
         void refreshOrders(false, true);
       });
 
-      document.addEventListener("visibilitychange", () => {
-        if (document.hidden || !overlay.classList.contains("show")) return;
-        const popup = document.getElementById("customerSystemPopup");
-        if (popup && popup.classList.contains("show")) return;
-        state.lastDetailRefreshAt = 0;
-        void refreshOrders(false, true);
-      });
-
-      window.addEventListener("focus", () => {
-        if (!overlay.classList.contains("show")) return;
-        state.lastDetailRefreshAt = 0;
-        void refreshOrders(false, true);
-      });
-
       customerOrdersController = {
         open: async (nextUserInfo) => {
           state.userInfo = nextUserInfo;
@@ -15541,35 +15527,7 @@ const openReturnRequestModal = (() => {
     void window.FMRC_MAINTENANCE?.refresh();
   }
 
-  let _revisitRefreshAt = 0;
-
-  /**
-   * The "visitor came back to this tab" trigger. Same work as the function
-   * above, on a longer floor: an OS window switch raises `focus` *and*
-   * `visibilitychange`, and some browsers fire visibilitychange for their own
-   * chrome, so the raw events arrive in bursts — each one otherwise re-reading
-   * the whole settings snapshot, which is the largest payload on the site.
-   *
-   * A save is deliberately left on the 400 ms floor: the channel message and
-   * the storage stamp still call refreshSiteContentRealtime() directly, so an
-   * edit made in Website Management still appears here immediately. This floor
-   * only throttles "make sure nothing changed while I was away", where five
-   * seconds is imperceptible.
-   */
-  function refreshSiteContentOnRevisit() {
-    const now = Date.now();
-    if (now - _revisitRefreshAt < 5000) return;
-    _revisitRefreshAt = now;
-    refreshSiteContentRealtime();
-  }
-
   function initSdgRealtime() {
-    // The boot read counts as the first refresh. Without this, the very first
-    // focus/visibilitychange after load — which browsers routinely raise while
-    // the page is still settling — sails through the floor below and re-reads a
-    // snapshot that is milliseconds old.
-    _revisitRefreshAt = Date.now();
-
     // Badge clicks are home-page only — the rows exist nowhere else.
     const rows = document.getElementById("heroSdgRows");
     if (rows) {
@@ -15612,10 +15570,6 @@ const openReturnRequestModal = (() => {
         void window.FMRC_MAINTENANCE?.refresh();
       }
     }, 20000);
-    document.addEventListener("visibilitychange", function () {
-      if (!document.hidden) refreshSiteContentOnRevisit();
-    });
-    window.addEventListener("focus", refreshSiteContentOnRevisit);
   }
 
 

@@ -4,7 +4,7 @@
 /**
  * Maintenance Mode — customer-side gate (STEP 11, Part B).
  *
- * The admin flips 11 scopes in Website Management -> Maintenance. This script is
+ * The admin flips maintenance scopes in Website Management -> Maintenance. This script is
  * what a visitor sees when one of them is on: the affected block is replaced by
  * an explanatory panel and a one-time dialog carries the admin's own wording.
  *
@@ -32,15 +32,20 @@
   var STAMP_KEY = "fmrc_site_content_updated_at";
   var STYLE_ID = "fmrcMaintenanceStyle";
   var HIDE_CLASS = "maint-hidden";
+  var RIBBON_ID = "fmrcMaintenanceRibbon";
 
   /** Mirrors MaintenanceSetting::DEFAULTS, so a cold cache still reads well. */
   var DEFAULTS = {
+    site_portal:
+      "The FMRC website is temporarily unavailable. Please check back soon.",
     customer_register:
       "Account registration is temporarily closed for scheduled maintenance.",
     customer_login:
       "Customer sign-in is temporarily unavailable while we perform maintenance.",
     page_home:
       "Our home page is briefly offline for maintenance. Please check back soon.",
+    page_about:
+      "The About Us page is under maintenance. Please check back shortly.",
     page_services:
       "The Services page is under maintenance. It will be back shortly.",
     page_products:
@@ -68,7 +73,10 @@
   /* ------------------------------------------------------------------ state */
 
   var snapshot = normalise(null);
-  var announced = false;
+  var announcedScope = null;
+  var dismissedScope = null;
+  var activePageScope = null;
+  var ribbonResizeObserver = null;
   var inFlight = false;
 
   function normalise(raw) {
@@ -120,6 +128,7 @@
     var path = (window.location.pathname || "").toLowerCase();
     if (path.indexOf("/customer-auth/") !== -1) return "customer-auth";
     if (path.indexOf("/admin-auth/") !== -1) return "admin-auth";
+    if (path.indexOf("/about-page/") !== -1) return "about";
     if (path.indexOf("service") !== -1) return "services";
     if (path.indexOf("product") !== -1) return "products";
     if (path.indexOf("contact") !== -1) return "contact";
@@ -139,9 +148,13 @@
    */
   var TARGETS = {
     home: {
+      site_portal: {
+        kind: "page",
+        hide: ["#home", ".editorial-content", "#appointmentFlow"],
+      },
       page_home: {
         kind: "page",
-        hide: ["#home", "#about", "#services-preview", "#appointmentFlow"],
+        hide: ["#home", ".editorial-content", "#appointmentFlow"],
       },
       home_about: { kind: "inline", hide: [".about-section"] },
       home_vision: { kind: "inline", hide: [".vision-section"] },
@@ -149,22 +162,37 @@
       home_offer: { kind: "inline", hide: ["#services-preview"] },
       page_appointment: { kind: "silent", hide: ["#appointmentFlow"] },
     },
+    about: {
+      site_portal: { kind: "page", hide: ["main.editorial-content"] },
+      page_about: { kind: "page", hide: ["main.editorial-content"] },
+    },
     services: {
+      site_portal: {
+        kind: "page",
+        hide: [".services-list-section"],
+      },
       page_services: {
         kind: "page",
-        hide: [".products-toolbar", ".services-list-section"],
+        hide: [".services-list-section"],
       },
     },
     products: {
+      site_portal: {
+        kind: "page",
+        hide: [".products-page-intro", ".products-toolbar", "#promotionSpotlight", ".shop-section"],
+      },
       page_products: {
         kind: "page",
-        hide: [".products-toolbar", "#promotionSpotlight", ".shop-section"],
+        hide: [".products-page-intro", ".products-toolbar", "#promotionSpotlight", ".shop-section"],
       },
     },
     contact: {
-      page_contact: { kind: "page", hide: ["main.contact-main-section"] },
+      site_portal: { kind: "page", hide: [".contact-page-header", "main.contact-main-section"] },
+      page_contact: { kind: "page", hide: [".contact-page-header", "main.contact-main-section"] },
     },
-    "customer-auth": {},
+    "customer-auth": {
+      site_portal: { kind: "page", hide: ["main.auth-page"] },
+    },
     "admin-auth": {},
   };
 
@@ -180,6 +208,7 @@
       ".maint-panel{width:100%;box-sizing:border-box;padding:48px 20px;display:flex;",
       "align-items:center;justify-content:center;background:#fdf8f5;}",
       ".maint-panel--page{min-height:62vh;}",
+      "body.fmrc-auth > .maint-panel--page{min-height:calc(100dvh - var(--maint-ribbon-height,0px));}",
       ".maint-panel--inline{padding:40px 20px;background:transparent;}",
       ".maint-panel__card{width:100%;max-width:560px;box-sizing:border-box;text-align:center;",
       "background:var(--customer-paper,#fff);border:1px solid #f0dcd2;border-radius:18px;padding:34px 28px;",
@@ -192,11 +221,37 @@
       ".maint-panel__text{margin:0;font-size:0.98rem;line-height:1.6;color:#4b3a34;}",
       ".maint-panel__note{margin:14px 0 0;font-size:0.82rem;color:#8a7a74;}",
       ".maint-gated{opacity:0.55;cursor:not-allowed;}",
+      "body.maint-ribbon-visible{padding-bottom:var(--maint-ribbon-height,72px);}",
+      ".maint-ribbon{position:fixed;inset:auto auto 0 0;z-index:20000;box-sizing:border-box;width:100vw;",
+      "max-height:min(40dvh,220px);overflow-y:auto;padding:12px max(16px,env(safe-area-inset-right)) ",
+      "calc(12px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));",
+      "border-top:1px solid #e6c9c4;background:#fff7f5;color:#563033;",
+      "box-shadow:0 -8px 25px rgba(45,12,12,.1);font-family:'Montserrat',sans-serif;}",
+      ".maint-ribbon__inner{display:flex;align-items:center;justify-content:center;gap:12px;",
+      "width:100%;max-width:1180px;margin:0 auto;text-align:center;}",
+      ".maint-ribbon__icon{flex:0 0 24px;width:24px;height:24px;color:#74151b;}",
+      ".maint-ribbon__copy{min-width:0;font-size:14px;line-height:1.5;overflow-wrap:anywhere;}",
+      ".maint-ribbon__copy strong{margin-right:10px;color:#74151b;font-weight:800;}",
+      ".maint-ribbon__copy span{color:#563033;}",
+      "#customerSystemPopup.maint-system-popup .admin-system-popup__card .ux-dlg__head{",
+      "display:flex;flex-direction:column;align-items:flex-start;padding:20px 24px 18px;text-align:left;}",
+      "#customerSystemPopup.maint-system-popup .admin-system-popup__card .ux-dlg__badge{",
+      "flex:0 0 54px;align-self:flex-start;width:54px;height:54px;margin:0 0 12px;}",
+      "#customerSystemPopup.maint-system-popup .admin-system-popup__card .ux-dlg__badge svg{width:27px;height:27px;}",
+      "#customerSystemPopup.maint-system-popup .admin-system-popup__card .ux-dlg__eyebrow,",
+      "#customerSystemPopup.maint-system-popup .admin-system-popup__card .ux-dlg__title{",
+      "width:100%;max-width:100%;text-align:left;}",
       "@media (max-width:560px){",
       ".maint-panel{padding:30px 14px;}.maint-panel--inline{padding:24px 14px;}",
       ".maint-panel__card{padding:24px 18px;border-radius:14px;}",
       ".maint-panel__title{font-size:1.1rem;}",
-      ".maint-panel__text{font-size:0.9rem;}}",
+      ".maint-panel__text{font-size:0.9rem;}",
+      ".maint-ribbon__copy{font-size:13px;}",
+      ".maint-ribbon__copy strong{display:block;margin:0 0 2px;}",
+      "#customerSystemPopup.maint-system-popup .admin-system-popup__card .ux-dlg__head{",
+      "padding:16px 18px 15px;}",
+      "#customerSystemPopup.maint-system-popup .admin-system-popup__card .ux-dlg__badge{",
+      "width:48px;height:48px;flex-basis:48px;margin-bottom:9px;}}",
     ].join("");
 
     var tag = document.createElement("style");
@@ -221,9 +276,9 @@
       "justify-content:center;padding:18px;background:var(--ux-dlg-scrim,rgba(15,23,42,0.55));",
       "font-family:'Montserrat',sans-serif;}",
       ".maint-dlg__card{width:100%;max-width:400px;box-sizing:border-box;background:#fdfaf6;",
-      "border-radius:8px;padding:26px 22px;text-align:center;",
+      "border-radius:8px;padding:26px 22px;text-align:left;",
       "box-shadow:0 18px 44px rgba(45,12,12,0.28);}",
-      ".maint-dlg__icon{width:52px;height:52px;margin:0 auto 14px;border-radius:50%;",
+      ".maint-dlg__icon{width:52px;height:52px;margin:0 0 14px;border-radius:50%;",
       "display:flex;align-items:center;justify-content:center;background:#fdf1e3;color:#b45309;}",
       ".maint-dlg__icon svg{width:26px;height:26px;}",
       ".maint-dlg__title{margin:0 0 8px;font-size:1.12rem;font-weight:800;color:var(--customer-wine,#5f0d0d);}",
@@ -236,12 +291,11 @@
     ].join("");
   }
 
-  var WARN_SVG =
+  var MAINT_SVG =
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
     'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-    '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>' +
-    '<line x1="12" y1="9" x2="12" y2="13"></line>' +
-    '<line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
+    '<path d="M14.7 6.3a4 4 0 0 0-5.1 5.1l-6.4 6.4a2 2 0 0 0 2.8 2.8l6.4-6.4a4 4 0 0 0 5.1-5.1l-2.8 2.8-2.7-2.7 2.7-2.9Z"></path>' +
+    '<path d="M16 3h4v4"></path><path d="m20 3-2.5 2.5"></path></svg>';
 
   /* ------------------------------------------------------------------ panels */
 
@@ -254,7 +308,7 @@
     panel.innerHTML =
       '<div class="maint-panel__card">' +
       '<div class="maint-panel__icon">' +
-      WARN_SVG +
+      MAINT_SVG +
       "</div>" +
       '<h2 class="maint-panel__title">Under Maintenance</h2>' +
       '<p class="maint-panel__text"></p>' +
@@ -267,6 +321,52 @@
   function setPanelText(panel, scope) {
     var textEl = panel.querySelector(".maint-panel__text");
     if (textEl) textEl.textContent = message(scope);
+  }
+
+  function syncRibbonHeight() {
+    var ribbon = document.getElementById(RIBBON_ID);
+    if (!document.body) return;
+    if (!ribbon) {
+      document.body.classList.remove("maint-ribbon-visible");
+      document.documentElement.style.removeProperty("--maint-ribbon-height");
+      return;
+    }
+    document.body.classList.add("maint-ribbon-visible");
+    document.documentElement.style.setProperty(
+      "--maint-ribbon-height",
+      Math.ceil(ribbon.getBoundingClientRect().height) + "px",
+    );
+  }
+
+  function hideRibbon() {
+    if (ribbonResizeObserver) ribbonResizeObserver.disconnect();
+    var ribbon = document.getElementById(RIBBON_ID);
+    if (ribbon && ribbon.parentNode) ribbon.parentNode.removeChild(ribbon);
+    syncRibbonHeight();
+  }
+
+  function showRibbon(scope) {
+    if (!document.body || activePageScope !== scope || !isActive(scope)) return;
+    var ribbon = document.getElementById(RIBBON_ID);
+    if (!ribbon) {
+      ribbon = document.createElement("aside");
+      ribbon.id = RIBBON_ID;
+      ribbon.className = "maint-ribbon";
+      ribbon.setAttribute("role", "status");
+      ribbon.setAttribute("aria-live", "polite");
+      ribbon.innerHTML =
+        '<div class="maint-ribbon__inner">' +
+        '<span class="maint-ribbon__icon">' + MAINT_SVG + "</span>" +
+        '<div class="maint-ribbon__copy"><strong>Under Maintenance</strong> ' +
+        '<span class="maint-ribbon__text"></span></div></div>';
+      document.body.appendChild(ribbon);
+      if (typeof ResizeObserver === "function") {
+        ribbonResizeObserver = new ResizeObserver(syncRibbonHeight);
+        ribbonResizeObserver.observe(ribbon);
+      }
+    }
+    ribbon.querySelector(".maint-ribbon__text").textContent = message(scope);
+    syncRibbonHeight();
   }
 
   function collect(selectors) {
@@ -326,10 +426,16 @@
     ensureStyles();
 
     var map = TARGETS[PAGE] || {};
-    var pageScope = null;
+    var pageScope = isActive("site_portal") && map.site_portal ? "site_portal" : null;
     Object.keys(map).forEach(function (scope) {
-      if (map[scope].kind === "page" && isActive(scope)) pageScope = scope;
+      if (!pageScope && map[scope].kind === "page" && isActive(scope)) pageScope = scope;
     });
+    activePageScope = pageScope;
+    if (dismissedScope !== pageScope) hideRibbon();
+    if (!pageScope) {
+      announcedScope = null;
+      dismissedScope = null;
+    }
 
     // A page-level outage supersedes its own sections: one panel, not five.
     // Resolved up front because the union below has to know the final answer.
@@ -361,15 +467,21 @@
 
     applyAuthGate();
     if (pageScope) announce(pageScope);
+    if (pageScope && dismissedScope === pageScope) showRibbon(pageScope);
   }
 
   /** The page-level dialog, once per load, and never before main.js has run. */
   function announce(scope) {
-    if (announced) return;
+    if (announcedScope === scope) return;
     if (document.readyState === "loading") return;
-    announced = true;
+    announcedScope = scope;
     window.setTimeout(function () {
-      notify(scope);
+      if (activePageScope !== scope || !isActive(scope)) return;
+      Promise.resolve(notify(scope)).then(function () {
+        if (activePageScope !== scope || !isActive(scope)) return;
+        dismissedScope = scope;
+        showRibbon(scope);
+      });
     }, 400);
   }
 
@@ -389,66 +501,82 @@
     var text = Object.prototype.hasOwnProperty.call(DEFAULTS, key)
       ? message(key)
       : key.trim();
-    if (!text) return;
+    if (!text) return Promise.resolve();
 
     try {
       if (typeof showCustomerPopup === "function") {
-        void showCustomerPopup(text, {
+        var done = showCustomerPopup(text, {
           title: "Under Maintenance",
           tone: "warning",
+          eyebrow: "Site maintenance",
           okText: "Okay",
         });
-        return;
+        var popup = document.getElementById("customerSystemPopup");
+        if (popup) {
+          popup.classList.add("maint-system-popup");
+          var badge = popup.querySelector("#customerSystemPopupBadge");
+          if (badge) badge.innerHTML = MAINT_SVG;
+        }
+        return Promise.resolve(done).then(function (result) {
+          if (popup) popup.classList.remove("maint-system-popup");
+          return result;
+        });
       }
     } catch (e) {
       // main.js not evaluated yet, or not on this page.
     }
-    fallbackDialog(text);
+    return fallbackDialog(text);
   }
 
   var openFallback = null;
+  var openFallbackPromise = null;
 
   function fallbackDialog(text) {
     ensureStyles();
-    if (!document.body) return;
+    if (!document.body) return Promise.resolve();
     if (openFallback && openFallback.parentNode) {
       var live = openFallback.querySelector(".maint-dlg__text");
       if (live) live.textContent = text;
-      return;
+      return openFallbackPromise;
     }
 
-    var overlay = document.createElement("div");
-    overlay.className = "maint-dlg";
-    overlay.setAttribute("role", "dialog");
-    overlay.setAttribute("aria-modal", "true");
-    overlay.innerHTML =
-      '<div class="maint-dlg__card">' +
-      '<div class="maint-dlg__icon">' +
-      WARN_SVG +
-      "</div>" +
-      '<h3 class="maint-dlg__title">Under Maintenance</h3>' +
-      '<p class="maint-dlg__text"></p>' +
-      '<button type="button" class="maint-dlg__btn">Okay</button>' +
-      "</div>";
-    overlay.querySelector(".maint-dlg__text").textContent = text;
+    openFallbackPromise = new Promise(function (resolve) {
+      var overlay = document.createElement("div");
+      overlay.className = "maint-dlg";
+      overlay.setAttribute("role", "dialog");
+      overlay.setAttribute("aria-modal", "true");
+      overlay.innerHTML =
+        '<div class="maint-dlg__card">' +
+        '<div class="maint-dlg__icon">' +
+        MAINT_SVG +
+        "</div>" +
+        '<h3 class="maint-dlg__title">Under Maintenance</h3>' +
+        '<p class="maint-dlg__text"></p>' +
+        '<button type="button" class="maint-dlg__btn">Okay</button>' +
+        "</div>";
+      overlay.querySelector(".maint-dlg__text").textContent = text;
 
-    function close() {
-      if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-      document.removeEventListener("keydown", onKey);
-      openFallback = null;
-    }
-    function onKey(ev) {
-      if (ev.key === "Escape") close();
-    }
+      function close() {
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        document.removeEventListener("keydown", onKey);
+        openFallback = null;
+        openFallbackPromise = null;
+        resolve();
+      }
+      function onKey(ev) {
+        if (ev.key === "Escape") close();
+      }
 
-    overlay.querySelector(".maint-dlg__btn").addEventListener("click", close);
-    overlay.addEventListener("click", function (ev) {
-      if (ev.target === overlay) close();
+      overlay.querySelector(".maint-dlg__btn").addEventListener("click", close);
+      overlay.addEventListener("click", function (ev) {
+        if (ev.target === overlay) close();
+      });
+      document.addEventListener("keydown", onKey);
+
+      document.body.appendChild(overlay);
+      openFallback = overlay;
     });
-    document.addEventListener("keydown", onKey);
-
-    document.body.appendChild(overlay);
-    openFallback = overlay;
+    return openFallbackPromise;
   }
 
   /* ------------------------------------------------------------ interception */
@@ -459,6 +587,8 @@
     if (!h || h === "#" || h.indexOf("javascript:") === 0) return null;
 
     var candidates = [];
+    if (h.indexOf("about.html") !== -1 || h.indexOf("about-page") !== -1)
+      candidates.push("page_about");
     if (h.indexOf("#about") !== -1) candidates.push("home_about");
     if (h.indexOf("service.html") !== -1 || h.indexOf("services-page") !== -1)
       candidates.push("page_services");
@@ -654,6 +784,8 @@
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden) void refresh();
   });
+
+  window.addEventListener("resize", syncRibbonHeight);
 
   window.FMRC_MAINTENANCE = {
     get snapshot() {

@@ -6765,20 +6765,6 @@ document.addEventListener("DOMContentLoaded", () => {
         void refreshOrders(false, true);
       });
 
-      document.addEventListener("visibilitychange", () => {
-        if (document.hidden || !overlay.classList.contains("show")) return;
-        const popup = document.getElementById("customerSystemPopup");
-        if (popup && popup.classList.contains("show")) return;
-        state.lastDetailRefreshAt = 0;
-        void refreshOrders(false, true);
-      });
-
-      window.addEventListener("focus", () => {
-        if (!overlay.classList.contains("show")) return;
-        state.lastDetailRefreshAt = 0;
-        void refreshOrders(false, true);
-      });
-
       customerOrdersController = {
         open: async (nextUserInfo) => {
           state.userInfo = nextUserInfo;

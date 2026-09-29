@@ -66,7 +66,6 @@ document.addEventListener("DOMContentLoaded", () => {
   let dashboardQueuedSyncTimer = null;
   let dashboardLiveCountsTimer = null;
   let dashboardLiveCountsController = null;
-  let dashboardLastLiveCountsAt = 0;
   let dashboardHasGoodSummary = false;
   let unsubscribeAdminLiveData = null;
 
@@ -1534,7 +1533,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  // Debounced refresh for realtime events (order updates, tab refocus) so a
+  // Debounced refresh for realtime data changes so a
   // burst of signals collapses into a single reload at the current period.
   let dashboardReloadTimer = null;
   const reloadDashboardAnalytics = () => {
@@ -1628,7 +1627,6 @@ document.addEventListener("DOMContentLoaded", () => {
       availability?.report_generations !== false && allArchiveModulesAvailable,
     );
 
-    dashboardLastLiveCountsAt = Date.now();
     dashboardHasGoodSummary = true;
 
     if (unavailableSections.length) {
@@ -1806,7 +1804,6 @@ document.addEventListener("DOMContentLoaded", () => {
     setCountCards({
       total_archives: data.total_archives,
     });
-    dashboardLastLiveCountsAt = Date.now();
 
     const availability = data?.availability || {};
     const archiveAvailability = availability?.archives || {};
@@ -1969,12 +1966,8 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    const age = Date.now() - dashboardLastLiveCountsAt;
-    if (!dashboardLastLiveCountsAt || age >= DASHBOARD_LIVE_POLL_MS) {
-      void refreshDashboardLiveCounts();
-    } else {
-      scheduleDashboardLiveCounts(DASHBOARD_LIVE_POLL_MS - age);
-    }
+    // Resume the normal quiet polling cadence without fetching on tab return.
+    scheduleDashboardLiveCounts();
   });
 
   window.addEventListener("beforeunload", () => {

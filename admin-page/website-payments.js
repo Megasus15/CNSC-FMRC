@@ -125,7 +125,7 @@
 
     const notifyCustomers = () => {
       try { channel?.postMessage({ type: "updated", source: "payment-methods" }); } catch { /* Storage also notifies open tabs. */ }
-      try { localStorage.setItem(STAMP, String(Date.now())); } catch { /* Refresh on focus still works. */ }
+      try { localStorage.setItem(STAMP, String(Date.now())); } catch { /* Open customer pages also check saved settings. */ }
     };
 
     form.addEventListener("submit", async (event) => {
@@ -186,15 +186,16 @@
       event.preventDefault();
       event.returnValue = "";
     });
-    window.addEventListener("focus", () => void load());
-    document.addEventListener("visibilitychange", () => { if (!document.hidden) void load(); });
-    window.addEventListener("storage", (event) => { if (event.key === STAMP) void load(); });
+    // Returning to the tab keeps the current controls and draft in place.
+    // Cross-tab saves show a notice; only an explicit action reads settings again.
+    const noticeExternalUpdate = () => { changedElsewhere.hidden = false; };
+    window.addEventListener("storage", (event) => { if (event.key === STAMP) noticeExternalUpdate(); });
     try {
       if (typeof window.BroadcastChannel === "function") {
         channel = new window.BroadcastChannel(CHANNEL);
-        channel.addEventListener("message", () => void load());
+        channel.addEventListener("message", (event) => { if (event?.data?.type === "updated") noticeExternalUpdate(); });
       }
-    } catch { /* The focus and storage fallbacks remain available. */ }
+    } catch { /* The storage notice and manual Refresh remain available. */ }
     void load();
   });
 })();

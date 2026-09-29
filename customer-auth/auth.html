@@ -9,6 +9,7 @@
     <link rel="icon" type="image/png" href="/images/FMRC%20Brand%20Logo.png?v=1" />
     <link rel="apple-touch-icon" href="/images/FMRC%20Brand%20Logo.png?v=1" />
     <link rel="preload" as="image" href="../images/FMRC%20Brand%20Logo.png" />
+    <link rel="preload" as="image" href="../images/auth-fabrication.jpg" />
     <meta name="theme-color" content="#6b202b" />
     <title>UCN-FMRC Customer Login</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -27,6 +28,7 @@
     <!-- The shared customer loader uses the homepage hero logo for both
          initial loading and authentication actions. -->
     <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=2.2" />
+    <link rel="stylesheet" href="../home-page/portal-auth.css?v=1.3" />
     <script>
       /* Keeps the signature 3D loader on screen for a minimum of 700–900 ms
          (randomised), capped at 1 500 ms. The curtain lifts once the DOM is
@@ -64,7 +66,7 @@
     </script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
-  <body>
+  <body class="fmrc-auth fmrc-auth--customer" data-portal="customer" data-portal-image-side="left">
     <div class="auth-notice-stack" id="authNoticeStack" aria-label="Sign-in notices">
       <div class="auth-security-notice" id="loginLockoutNotice" role="status" hidden>
         <div class="auth-security-notice-inner">
@@ -86,26 +88,13 @@
          with scripting off therefore never receives a curtain and can never be
          stranded behind one.
 
-         --fmrc-boot-field is this page's own background, copied from
-         auth.css:984, so the curtain fades into exactly the colour the page
-         underneath it settles on and the handoff has no step in it. -->
+         --fmrc-boot-field matches the shared portal background so the
+         curtain fades smoothly into the sign-in page. -->
     <div
       class="fmrc-load-boot"
       role="status"
       aria-live="polite"
-      style="
-        --fmrc-boot-field: radial-gradient(
-            circle at 8% 10%,
-            rgba(241, 237, 18, 0.2),
-            transparent 18rem
-          ),
-          radial-gradient(
-            circle at 90% 18%,
-            rgba(107, 32, 43, 0.13),
-            transparent 20rem
-          ),
-          linear-gradient(135deg, var(--customer-paper) 0%, var(--customer-paper-sink) 46%, var(--customer-paper) 100%);
-      "
+      style="--fmrc-boot-field: var(--customer-paper, #fdfaf6);"
     >
       <div class="fmrc-load-core">
         <div class="fmrc-load-mark" aria-hidden="true">
@@ -143,72 +132,50 @@
     <div id="googleHiddenBtnContainer" style="position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; pointer-events: none;" aria-hidden="true"></div>
     <main class="auth-page">
       <div class="auth-shell">
-        <a
-          href="../home-page/main.html"
-          class="auth-back-link"
-          title="Back to Homepage"
-          aria-label="Back to homepage"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <line x1="19" y1="12" x2="5" y2="12"></line>
-            <polyline points="12 19 5 12 12 5"></polyline>
-          </svg>
-          <span class="back-text">Back to Home Page</span>
-        </a>
-
-<section class="auth-card" aria-label="Customer authentication panel">
-          <aside class="auth-side-panel" aria-hidden="true">
-            <div class="auth-kicker">Customer Portal</div>
-
+        <section class="auth-card" aria-label="Customer authentication panel">
+          <aside class="auth-side-panel" data-portal-image aria-label="About UCN-FMRC">
+            <div class="auth-photo-heading" data-portal-university-name>University of Camarines Norte</div>
             <div class="side-title">
-              <div class="portal-mark"><span>FMRC</span></div>
-              <h2>Plan, order, and track.</h2>
-              <p>
-                Book services, browse products, and track your orders.
-              </p>
+              <div class="auth-kicker" data-portal-image-kicker>Create. Collaborate. Make.</div>
+              <h2 data-portal-image-title>Ideas take<br>shape here.</h2>
+              <p data-portal-image-description>From a first idea to a finished piece, connect with the people and tools that make it possible.</p>
             </div>
-
-            <div class="side-features">
-              <span class="side-feature"><span class="feature-dot"></span>Services</span>
-              <span class="side-feature"><span class="feature-dot"></span>Products</span>
-              <span class="side-feature"><span class="feature-dot"></span>Order tracking</span>
+            <div class="auth-photo-footer">
+              <span data-portal-center-name>Fabrication &amp; Manufacturing Research Center</span>
+              <span data-portal-brand-name>UCN &mdash; FMRC</span>
             </div>
           </aside>
 
           <div class="auth-form-panel">
-            <div class="auth-hero">
-              <div class="auth-brand">
-                <img
-                  id="portalLogoPrimary"
-                  src="/images/UCN Logo.png"
-                  alt="UCN Logo"
-                  class="brand-logo"
-                  decoding="async"
-                  fetchpriority="high"
-                  onerror="this.style.display = 'none'"
-                />
-                <img
-                  id="portalLogoSecondary"
-                  src="/images/FMRC Brand Logo.png"
-                  alt="FMRC Logo"
-                  class="brand-logo"
-                  decoding="async"
-                  fetchpriority="high"
-                  onerror="this.style.display = 'none'"
-                />
+            <div class="auth-brand">
+              <img
+                id="portalLogoPrimary"
+                data-portal-logo="primary"
+                src="/images/UCN Logo.png"
+                alt="UCN Logo"
+                class="brand-logo"
+                decoding="async"
+                fetchpriority="high"
+                onerror="this.style.display = 'none'"
+              />
+              <span class="auth-brand-separator" aria-hidden="true"></span>
+              <img
+                id="portalLogoSecondary"
+                data-portal-logo="secondary"
+                src="/images/FMRC Brand Logo.png"
+                alt="FMRC Logo"
+                class="brand-logo"
+                decoding="async"
+                fetchpriority="high"
+                onerror="this.style.display = 'none'"
+              />
+              <div class="auth-brand-copy">
+                <strong data-portal-brand-name>UCN&ndash;FMRC</strong>
+                <span data-portal-name>Customer Portal</span>
               </div>
-              <h1 class="auth-title">Welcome Back</h1>
+            </div>
+            <div class="auth-hero">
+              <h1 class="auth-title">Sign in to FMRC</h1>
               <p class="auth-caption">UCN-FMRC Customer Portal</p>
             </div>
 
@@ -308,7 +275,7 @@
                  stealing focus. -->
             <p id="loginTurnstileNote" class="turnstile-note" role="status" hidden></p>
 
-            <button class="auth-btn" type="submit">Log In</button>
+            <button class="auth-btn" type="submit">Sign in</button>
 
             <div class="auth-divider">OR</div>
 
@@ -341,6 +308,7 @@
             </button>
 
             <div class="switch-account-wrap">
+              <span>New to FMRC? </span>
               <a href="#" class="switch-account-link" id="openSignupFromLogin"
                 >Create an account</a
               >
@@ -576,6 +544,15 @@
               >
             </div>
             </form>
+            <div class="auth-form-footer">
+              <a href="../home-page/main.html" class="auth-back-link" aria-label="Return to FMRC Home">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M19 12H5m7 7-7-7 7-7"></path>
+                </svg>
+                <span class="back-text">Return to FMRC Home</span>
+              </a>
+              <span class="auth-footer-note">Made for ideas that matter.</span>
+            </div>
           </div>
         </section>
       </div>
@@ -872,12 +849,12 @@
     </div>
 
     <script src="../home-page/turnstile.js?v=1.2"></script>
-    <!-- Admin-editable portal logos (Website Management -> Home -> Brand Logos).
-         Paints the last-known pair synchronously, then revalidates. -->
-    <script src="../home-page/portal-brand.js?v=1.2"></script>
+    <!-- Separate portal appearance, configured in Website Configuration -> Login Portals. -->
+    <script src="../home-page/portal-appearance.js?v=1.2"></script>
+    <script src="../home-page/portal-brand.js?v=2.1"></script>
     <!-- Maintenance Mode gate: disables sign-up / sign-in with the admin's own
          wording while those scopes are active. The 503 is still the authority. -->
-    <script src="../home-page/maintenance-gate.js?v=1.5"></script>
+    <script src="../home-page/maintenance-gate.js?v=1.6"></script>
     <!-- Synchronous, and ahead of auth.js, because this page's tail scripts are
          all synchronous: `defer` here would run it after them and after
          DOMContentLoaded, which is later than auth.js's first handler could
@@ -885,6 +862,6 @@
          costs the curtain, never the sign-in. -->
     <script src="../home-page/fmrc-loader.js?v=2.0"></script>
     <script src="../home-page/auth-notices.js?v=1.0"></script>
-    <script src="auth.js?v=5.9"></script>
+    <script src="auth.js?v=6.0"></script>
   </body>
 </html>
