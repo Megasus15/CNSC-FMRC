@@ -90,6 +90,27 @@
   animation: fmrcPrinterFan 1.8s linear infinite;
 }
 
+.fmrc-hero-scene[data-motion="on"][data-print-state="complete"] .hp-fan,
+.fmrc-hero-scene[data-motion="on"][data-print-state="resetting"] .hp-fan {
+  animation-play-state: paused;
+}
+
+.hp-screen-background, .hp-screen-header, .hp-screen-fill, .hp-screen-progress {
+  transition: fill 240ms ease;
+}
+.fmrc-hero-scene[data-print-state="complete"] .hp-monitor-progress .hp-screen-background {
+  fill: #164b39;
+}
+.fmrc-hero-scene[data-print-state="complete"] .hp-monitor-progress .hp-screen-header {
+  fill: #24684c;
+}
+.fmrc-hero-scene[data-print-state="complete"] .hp-screen-fill {
+  fill: #80e3a5;
+}
+.fmrc-hero-scene[data-print-state="complete"] .hp-screen-progress {
+  fill: #e4ffec;
+}
+
 /* Only the visual column changes on desktop. The title, actions, SDGs and
    configurable hero background keep their existing implementation. */
 .hero-section .hero-content-right {

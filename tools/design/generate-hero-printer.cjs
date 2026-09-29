@@ -245,9 +245,9 @@ function monitor(x,y,z,w,h,kind){
  s+=line([x+3,y+12,z+h-3],[x+w-3,y+12,z+h-3],'#c5918b',1.3);
  const corner=P(x+7,y+12.2,z+h-7);
  const innerW=w-14,innerH=h-14;
- s+=`<g class="hp-process-monitor" transform="matrix(${axes.xAxis[0]} ${axes.xAxis[1]} 0 1 ${pt(corner).replace(',',' ')})" font-family="Montserrat,Arial,sans-serif">
- <rect width="${innerW}" height="${innerH}" rx="3" fill="#241b29" stroke="#98786f" stroke-width="1"/>
- <path d="M3 3H${innerW-3}V18H3Z" fill="#442637"/>
+ s+=`<g class="hp-process-monitor hp-monitor-${kind}" transform="matrix(${axes.xAxis[0]} ${axes.xAxis[1]} 0 1 ${pt(corner).replace(',',' ')})" font-family="Montserrat,Arial,sans-serif">
+ <rect class="hp-screen-background" width="${innerW}" height="${innerH}" rx="3" fill="#241b29" stroke="#98786f" stroke-width="1"/>
+ <path class="hp-screen-header" d="M3 3H${innerW-3}V18H3Z" fill="#442637"/>
  <circle cx="9" cy="10" r="2.2" fill="#bdd8c4"/>
  <text x="16" y="13" fill="#f5e6cd" font-size="8" font-weight="700">${kind==='progress'?'FMRC / PRINT':'XY TOOLPATH'}</text>`;
  if(kind==='progress'){

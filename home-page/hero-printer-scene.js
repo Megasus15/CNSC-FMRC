@@ -100,9 +100,19 @@
       let previous = 0;
       let visible = true;
       const duration = 12000;
+      const completionPause = 1800;
+      const resetDuration = 1600;
+      const cycleDuration = duration + completionPause + resetDuration;
       const paint = (time) => {
-        const cycle = Math.floor(time / duration);
-        const progress = (time % duration) / duration;
+        const cycle = Math.floor(time / cycleDuration);
+        const cycleTime = time % cycleDuration;
+        const resetting = cycleTime >= duration + completionPause;
+        const complete = cycleTime >= duration && !resetting;
+        const resetTime = Math.max(0, (cycleTime - duration - completionPause) / resetDuration);
+        // Smoothly rewind the shared path and displays, easing at both ends.
+        const resetEase = resetTime * resetTime * (3 - 2 * resetTime);
+        const progress = resetting ? 1 - resetEase : Math.min(1, cycleTime / duration);
+        scene.dataset.printState = resetting ? "resetting" : complete ? "complete" : "printing";
         const distance = progress * length;
         const segment = segments.find((item) => distance <= item.from + item.length) || segments[segments.length - 1];
         const fraction = Math.min(1, Math.max(0, (distance - segment.from) / segment.length));
@@ -135,7 +145,7 @@
         }
         if (progressFill) progressFill.setAttribute("width", (104 * progress).toFixed(2));
         if (phaseReadout) {
-          const phase = distance <= 282 ? "PERIMETER" : "INFILL";
+          const phase = resetting ? "RESETTING" : complete ? "COMPLETE" : distance <= 282 ? "PERIMETER" : "INFILL";
           if (phaseReadout.textContent !== phase) phaseReadout.textContent = phase;
         }
         if (traceCursor) {

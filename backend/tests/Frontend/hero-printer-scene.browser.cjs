@@ -293,12 +293,14 @@ test('Customer Home 3D printer scene fits desktop and modern iPhones and applies
         return {x:matrix.e, y:matrix.f, nozzle:{x:nozzle.x,y:nozzle.y}, inlet:{x:inlet.x,y:inlet.y},
           gantry:{x:gantry.e,y:gantry.f}, projection:mechanics.projection, plane:mechanics.partTop,
           cycle:+scene.dataset.printCycle, progress:+scene.dataset.printProgress,
+          phase:scene.dataset.printState, readout:scene.querySelector('.hp-screen-progress').textContent,
+          fanState:getComputedStyle(scene.querySelector('.hp-fan')).animationPlayState,
           reveal, trailEnd:{x:trailEnd.x,y:trailEnd.y},
           endpoints, fan:getComputedStyle(scene.querySelector('.hp-fan')).animationName};
       })()`;
       const samples = [];
       let closeupCaptured = false;
-      for (let index = 0; index < 57; index++) {
+      for (let index = 0; index < 75; index++) {
         const state = await evaluate(mechanismState);
         samples.push(state);
         // Validate the rendered nozzle in the physical top plane, independent
@@ -325,7 +327,7 @@ test('Customer Home 3D printer scene fits desktop and modern iPhones and applies
         assert.ok(Math.hypot(state.trailEnd.x - state.nozzle.x, state.trailEnd.y - state.nozzle.y) < 1,
           'visible deposited filament ends at the moving nozzle in projected space');
         const previous = samples[index - 1];
-        if (previous && previous.cycle === state.cycle) {
+        if (previous && previous.cycle === state.cycle && state.phase !== 'resetting') {
           assert.ok(state.reveal + 0.001 >= previous.reveal, 'printed filament stays deposited during the same layer');
         }
         if (shots && !closeupCaptured && state.progress > 0.25 && state.progress < 0.8) {
@@ -344,6 +346,27 @@ test('Customer Home 3D printer scene fits desktop and modern iPhones and applies
       assert.ok(Math.max(...samples.map(state => state.worldY)) - Math.min(...samples.map(state => state.worldY)) > 5,
         'the gantry prints through the part depth as well as across its width');
       assert.ok(new Set(samples.map(state => state.cycle)).size > 1, 'a complete layer cycle was checked');
+      const completed = samples.filter(state => state.phase === 'complete');
+      assert.ok(completed.length >= 2, 'completion visibly holds before restarting');
+      for (const state of completed) {
+        assert.equal(state.readout, '100%');
+        assert.equal(state.fanState, 'paused');
+        assert.equal(state.progress, 1);
+      }
+      const pausedPair = samples.findIndex((state, index) => index > 0 && state.phase === 'complete' && samples[index - 1].phase === 'complete');
+      assert.ok(pausedPair > 0);
+      assert.equal(samples[pausedPair].x, samples[pausedPair - 1].x);
+      assert.equal(samples[pausedPair].y, samples[pausedPair - 1].y);
+      const resetting = samples.filter(state => state.phase === 'resetting');
+      assert.ok(resetting.length >= 2, 'reset is visible between completion and printing');
+      assert.ok(resetting.some(state => state.progress > 0.1 && state.progress < 0.9), 'reset includes intermediate progress');
+      for (let index = 1; index < resetting.length; index++) {
+        if (resetting[index].cycle === resetting[index - 1].cycle) {
+          assert.ok(resetting[index].progress < resetting[index - 1].progress, 'progress drains during reset');
+        }
+      }
+      assert.ok(samples.some((state, index) => index > 0 && samples[index - 1].phase === 'resetting' && state.phase === 'printing' && state.progress < 0.1),
+        'printing restarts from zero after the animated reset');
       assert.equal(samples[0].fan, 'fmrcPrinterFan', 'print-head cooling fan runs with printing');
 
       settings = { ...settings,
