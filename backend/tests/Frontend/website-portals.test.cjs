@@ -136,6 +136,7 @@ test('initial load fetches once; returning to the tab leaves dirty controls and 
 
 test('cross-tab notices mark both portals without fetching, disabling controls, or replacing drafts', async () => {
   const h = await harness();
+  assert.equal(h.field('portalPreview').querySelector('.portal-preview-return').hidden, false, 'Customer preview retains its home link.');
   await h.input('brand_name', 'Customer draft');
   assert.equal(h.field('portalSettingsUpdated').hidden, true);
   const writesBefore = h.field('portalSettingsFields').disabledWrites.length;
@@ -150,8 +151,10 @@ test('cross-tab notices mark both portals without fetching, disabling controls, 
   assert.equal(h.field('portalSettingsFields').disabled, false);
   assert.equal(h.field('portalSettingsFields').disabledWrites.slice(writesBefore).includes(true), false);
   await h.selectPortal('admin');
+  assert.equal(h.field('portalPreview').querySelector('.portal-preview-return').hidden, true, 'Admin / Staff preview has no home link.');
   assert.equal(h.field('portalSettingsUpdated').hidden, false);
   await h.selectPortal('customer');
+  assert.equal(h.field('portalPreview').querySelector('.portal-preview-return').hidden, false);
   assert.equal(h.controls.get('brand_name').value, 'Customer draft');
 });
 
@@ -178,7 +181,7 @@ test('manual Refresh fetches the latest settings while retaining each dirty port
   assert.equal(h.field('savePortalSettings').disabled, false);
 });
 
-for (const role of ['admin', 'staff']) {
+for (const role of ['admin']) {
   test(`${role} saves only changed fields of the selected portal and preserves other drafts and remote copy`, async () => {
     const h = await harness({
       portal_customer_brand_name: 'Saved customer', portal_customer_image_description: 'Saved copy',
@@ -210,8 +213,8 @@ for (const role of ['admin', 'staff']) {
   });
 }
 
-test('docked save buttons remain associated with the appearance form on Admin and Staff pages', () => {
-  for (const portal of ['admin', 'staff']) {
+test('docked save button remains associated with the Admin appearance form', () => {
+  for (const portal of ['admin']) {
     const html = fs.readFileSync(path.join(repo, `${portal}-page/website-portals.html`), 'utf8');
     const button = html.match(/<button\b[^>]*\bid="savePortalSettings"[^>]*>/)?.[0];
     assert(button, `${portal} save button exists`);

@@ -117,7 +117,7 @@ test('legacy logos remain visible until each portal explicitly restores bundled 
 test('invalid layout values and nonnumeric opacity use the portal defaults', () => {
   const api = appearance();
   for (const portal of ['customer', 'admin']) {
-    for (const opacity of [null, '', 'opaque', '0x0', '0b0', -0.01, 0.91, NaN, Infinity, false, true, [], [0.2], {}]) {
+    for (const opacity of [null, '', 'opaque', '0x0', '0b0', -0.01, 1.01, NaN, Infinity, false, true, [], [0.2], {}]) {
       const config = api.read({
         [`portal_${portal}_image_side`]: 'middle',
         [`portal_${portal}_image_position`]: 'left',
@@ -127,10 +127,37 @@ test('invalid layout values and nonnumeric opacity use the portal defaults', () 
       assert.equal(config.image_position, api.defaults[portal].image_position);
       assert.equal(config.overlay_opacity, api.defaults[portal].overlay_opacity, `Invalid opacity ${JSON.stringify(opacity)}`);
     }
-    for (const opacity of [0, '0', 0.9, '0.9']) {
+    for (const opacity of [0, '0', 0.9, '0.9', 1, '1']) {
       assert.equal(api.read({ [`portal_${portal}_overlay_opacity`]: opacity }, portal).overlay_opacity, Number(opacity));
     }
   }
+});
+
+test('overlay intensity changes the visible center at 55, 75, and 100 percent for both images and portals', () => {
+  const api = appearance();
+  for (const portal of ['customer', 'admin']) {
+    for (const custom of [false, true]) {
+      const alpha = [];
+      for (const intensity of [0, 0.55, 0.75, 1]) {
+        const h = portalRoot();
+        const config = api.read({
+          [`portal_${portal}_overlay_opacity`]: intensity,
+          ...(custom ? { [`portal_${portal}_background_image`]: '/images/uploaded.jpg' } : {}),
+        }, portal);
+        api.apply(h.root, config);
+        const center = h.properties.get('--auth-image-overlay').match(/rgb\(69 21 31 \/ ([\d.]+)%\) 44%/);
+        assert(center, 'The maroon fade retains a clear center stop.');
+        alpha.push(Number(center[1]) / 100 * Number(h.properties.get('--auth-image-overlay-strength')));
+      }
+      assert.equal(alpha[0], 0, `${portal} ${custom ? 'uploaded' : 'bundled'} starts without an overlay`);
+      assert(Math.abs(alpha[1] - 0.24 * (custom ? 0.55 : 1)) < 0.00001, '55% retains the existing photograph treatment.');
+      assert(alpha[2] > alpha[1], '75% must visibly deepen the center beyond 55%.');
+      assert(alpha[3] > alpha[2], '100% must visibly deepen the center beyond 75%.');
+      assert.equal(alpha[3], 1, '100% provides the complete maroon overlay the administrator selected.');
+    }
+  }
+  const html = fs.readFileSync(path.join(repo, 'admin-page/website-portals.html'), 'utf8');
+  assert.match(html, /id="portalOverlay"[^>]*min="0"[^>]*max="1"/, 'The editor exposes the whole 0–100% range.');
 });
 
 test('cleared optional copy stays empty after null values return from the settings API', () => {

@@ -16,7 +16,7 @@ class PortalAppearanceSettingsTest extends TestCase
 
     public static function editorRoles(): array
     {
-        return [['admin'], ['staff']];
+        return [['admin']];
     }
 
     private function signIn(string $role): void
@@ -36,7 +36,7 @@ class PortalAppearanceSettingsTest extends TestCase
             'portal_customer_logo_secondary_image' => null,
             'portal_customer_image_side' => 'right',
             'portal_customer_image_position' => 'top',
-            'portal_customer_overlay_opacity' => 0.9,
+            'portal_customer_overlay_opacity' => 1,
         ];
         foreach (PortalAppearanceSettings::TEXT_LIMITS as $suffix => $limit) {
             $customer['portal_customer_'.$suffix] = str_repeat('x', $limit);
@@ -67,7 +67,7 @@ class PortalAppearanceSettingsTest extends TestCase
             'side is required when included' => ['image_side', null],
             'unsupported image crop' => ['image_position', 'left'],
             'negative opacity' => ['overlay_opacity', -0.01],
-            'opacity hides all artwork' => ['overlay_opacity', 0.91],
+            'opacity exceeds full intensity' => ['overlay_opacity', 1.01],
             'non-numeric opacity' => ['overlay_opacity', 'opaque'],
             'array image' => ['background_image', ['not-an-image']],
             'array logo' => ['logo_primary_image', ['not-an-image']],
@@ -80,6 +80,22 @@ class PortalAppearanceSettingsTest extends TestCase
             'image description too long' => ['image_description', str_repeat('x', 321)],
             'emoji matches browser maxlength' => ['portal_name', str_repeat("\u{1F600}", 41)],
         ];
+    }
+
+    public function test_both_portals_can_save_and_publicly_read_full_overlay_intensity(): void
+    {
+        $this->signIn('admin');
+        foreach ([0.55, 0.75, 1] as $intensity) {
+            $payload = [
+                'portal_customer_overlay_opacity' => $intensity,
+                'portal_admin_overlay_opacity' => $intensity,
+            ];
+            $this->putJson('/api/admin/site-settings', $payload)->assertOk();
+            $response = $this->getJson('/api/site-settings')->assertOk();
+            foreach ($payload as $key => $value) {
+                $response->assertJsonPath('data.'.$key, (string) $value);
+            }
+        }
     }
 
     #[DataProvider('invalidAppearance')]
@@ -100,7 +116,7 @@ class PortalAppearanceSettingsTest extends TestCase
 
     public function test_portal_namespaces_reject_auth_form_settings_even_when_empty(): void
     {
-        $this->signIn('staff');
+        $this->signIn('admin');
         $this->putJson('/api/admin/site-settings', [
             'portal_customer_login_button' => 'Enter',
             'portal_admin_password_label' => null,
@@ -114,7 +130,7 @@ class PortalAppearanceSettingsTest extends TestCase
 
     public function test_clearing_artwork_and_copy_preserves_other_portal_and_generic_settings(): void
     {
-        $this->signIn('staff');
+        $this->signIn('admin');
         SiteSetting::set('portal_customer_background_image', '/images/custom.png');
         SiteSetting::set('portal_admin_background_image', '/images/admin.png');
         SiteSetting::set('portal_customer_image_description', 'Custom description');
@@ -157,6 +173,34 @@ class PortalAppearanceSettingsTest extends TestCase
             ->assertForbidden();
         $this->assertNull(SiteSetting::get('portal_customer_brand_name'));
         $this->assertNull(SiteSetting::get('portal_admin_image_side'));
+    }
+
+    public static function staffRestrictedPortalSettings(): array
+    {
+        return [
+            ['portal_customer_brand_name', 'Unauthorized customer branding'],
+            ['portal_admin_image_side', 'right'],
+            ['portal_logo_primary_image', '/images/legacy.png'],
+            ['portal_logo_secondary_image', null],
+            ['portal_customer_login_button', 'Enter'],
+        ];
+    }
+
+    #[DataProvider('staffRestrictedPortalSettings')]
+    public function test_staff_cannot_write_portal_or_legacy_branding_and_mixed_requests_are_atomic(string $key, mixed $value): void
+    {
+        $this->signIn('staff');
+        SiteSetting::set('hero_title', 'Original hero');
+        $this->putJson('/api/admin/site-settings', [
+            $key => $value,
+            'hero_title' => 'Must not save',
+        ])->assertForbidden();
+        $this->assertDatabaseMissing('site_settings', ['key' => $key]);
+        $this->assertSame('Original hero', SiteSetting::get('hero_title'));
+
+        $this->putJson('/api/admin/site-settings', ['hero_title' => 'Staff can still edit content'])
+            ->assertOk();
+        $this->assertSame('Staff can still edit content', SiteSetting::get('hero_title'));
     }
 
     public function test_saved_portal_edits_invalidate_the_public_settings_etag(): void

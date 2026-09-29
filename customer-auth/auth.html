@@ -850,11 +850,11 @@
 
     <script src="../home-page/turnstile.js?v=1.2"></script>
     <!-- Separate portal appearance, configured in Website Configuration -> Login Portals. -->
-    <script src="../home-page/portal-appearance.js?v=1.2"></script>
+    <script src="../home-page/portal-appearance.js?v=1.3"></script>
     <script src="../home-page/portal-brand.js?v=2.1"></script>
     <!-- Maintenance Mode gate: disables sign-up / sign-in with the admin's own
          wording while those scopes are active. The 503 is still the authority. -->
-    <script src="../home-page/maintenance-gate.js?v=1.6"></script>
+    <script src="../home-page/maintenance-gate.js?v=2.3"></script>
     <!-- Synchronous, and ahead of auth.js, because this page's tail scripts are
          all synchronous: `defer` here would run it after them and after
          DOMContentLoaded, which is later than auth.js's first handler could

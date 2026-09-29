@@ -60,7 +60,7 @@ async function harness(settings = {}, role = 'admin', initialFailure = false) {
   return { field, window, document, state, requests, broadcasts, storage, channel, click, toggle, save };
 }
 
-for (const role of ['admin', 'staff']) {
+for (const role of ['admin']) {
   test(`${role} can save individual or all methods using the portal session, with no draft-only writes`, async () => {
     const h = await harness({}, role);
     keys.forEach((key) => assert.equal(h.field(key).checked, true));
@@ -150,7 +150,7 @@ test('save failure retains selections, and discard returns to persisted settings
 });
 
 test('initial fetch failure keeps editing disabled until Retry succeeds', async () => {
-  const h = await harness({}, 'staff', true);
+  const h = await harness({}, 'admin', true);
   assert.equal(h.field('paymentSettingsFields').disabled, true);
   assert.equal(h.field('savePaymentSettings').disabled, true);
   assert.equal(h.field('retryPaymentSettings').hidden, false);

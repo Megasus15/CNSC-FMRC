@@ -112,13 +112,12 @@ test('Website Configuration content editors have no tab-return reload listeners 
     assert.doesNotMatch(source, /(?:window|document)\.addEventListener\(\s*["'](?:focus|visibilitychange)["']/, `${name} reloads on tab return`);
   }
   for (const portal of ['admin-page', 'staff-page']) {
-    const names = portal === 'admin-page' ? [...scripts, 'about'] : ['home', 'about', 'services', 'contact', 'footer', 'payments'];
+    const names = portal === 'admin-page' ? [...scripts, 'about'] : ['home', 'about', 'services', 'contact', 'footer'];
     for (const name of names) {
       const html = fs.readFileSync(path.join(repo, `${portal}/website-${name}.html`), 'utf8');
       assert.match(html, /Refresh/, `${portal}/${name} has no manual refresh control`);
     }
   }
   assert.match(fs.readFileSync(path.join(repo, 'admin-page/website-payments.html'), 'utf8'), /website-payments\.js\?v=1\.2/);
-  assert.match(fs.readFileSync(path.join(repo, 'staff-page/website-payments.html'), 'utf8'), /website-payments\.js\?v=1\.2/);
   assert.match(fs.readFileSync(path.join(repo, 'admin-page/website-emails.html'), 'utf8'), /website-emails\.js\?v=6\.3/);
 });

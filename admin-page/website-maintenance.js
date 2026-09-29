@@ -6,7 +6,8 @@
  *
  * 13 scopes: the whole customer website, 2 account gates, 6 customer pages,
  * and 4 Home-page sections. Each has
- * its own switch and its own message of at most 75 characters.
+ * its own switch and concise message. The full website screen also has its own
+ * copy, theme and illustration, edited here before anything is published.
  *
  * Two deliberate choices:
  *
@@ -70,6 +71,19 @@ const token = () =>
   localStorage.getItem("auth_token");
 
 const MAX_LEN = 75;
+const SITE_MAX_LEN = 200;
+const PAGE_DEFAULTS = {
+  eyebrow: "A little work in progress",
+  headline: "We’ll be back",
+  headline_accent: "soon.",
+  supporting_line: "Thank you for your patience.",
+  image_url: "",
+  image_alt: "Technician maintaining a website server",
+  theme: "cream_maroon",
+};
+const PAGE_LIMITS = { eyebrow: 48, headline: 60, headline_accent: 30, supporting_line: 100, image_alt: 120 };
+const PAGE_THEMES = ["cream_maroon", "warm_maroon", "soft_gold"];
+const DEFAULT_IMAGE = "../home-page/maintenance-illustration.svg?v=2.1";
 
 /** Keys and default wording mirror MaintenanceSetting::DEFAULTS exactly. */
 const SCOPES = [
@@ -186,6 +200,12 @@ const form = {};
 const serverState = {};
 let loaded = false;
 let dirty = false;
+let pageForm = { ...PAGE_DEFAULTS };
+let pageInstalled = false;
+let pendingImage;
+let imageLoading = false;
+let imageRevision = 0;
+let saving = false;
 /**
  * null while things are fine, otherwise { title, html } describing why the
  * snapshot could not be read. Kept in state rather than written straight to the
@@ -214,6 +234,12 @@ function esc(value) {
 
 // ── Render ──────────────────────────────────────────────────────────────────
 function rowHtml(cfg) {
+  const max = cfg.key === "site_portal" ? SITE_MAX_LEN : MAX_LEN;
+  const messageField = cfg.key === "site_portal"
+    ? `<textarea class="wm-input" id="mtMsg_${cfg.key}" data-msg="${cfg.key}"
+                 maxlength="${max}" placeholder="${esc(cfg.def)}"></textarea>`
+    : `<input type="text" class="wm-input" id="mtMsg_${cfg.key}"
+                 data-msg="${cfg.key}" maxlength="${max}" placeholder="${esc(cfg.def)}" />`;
   return `
     <div class="mt-row" data-row="${cfg.key}">
       <div class="mt-row-main">
@@ -232,12 +258,10 @@ function rowHtml(cfg) {
         </label>
       </div>
       <div class="mt-row-msg">
-        <label for="mtMsg_${cfg.key}">Message shown to customers</label>
+        <label for="mtMsg_${cfg.key}">${cfg.key === "site_portal" ? "Maintenance message" : "Message shown to customers"}</label>
         <div class="mt-msg-field">
-          <input type="text" class="wm-input" id="mtMsg_${cfg.key}"
-                 data-msg="${cfg.key}" maxlength="${MAX_LEN}"
-                 placeholder="${esc(cfg.def)}" />
-          <span class="mt-counter" data-counter="${cfg.key}">0/${MAX_LEN}</span>
+          ${messageField}
+          <span class="mt-counter" data-counter="${cfg.key}">0/${max}</span>
         </div>
         <button type="button" class="mt-default-link" data-default="${cfg.key}">
           Use the default wording
@@ -277,6 +301,7 @@ function wireRow(cfg) {
       form[cfg.key].message = input.value;
       markDirty();
       paintCounter(cfg);
+      if (cfg.key === "site_portal") paintPagePreview();
     });
   }
   if (useDefault) {
@@ -285,6 +310,7 @@ function wireRow(cfg) {
       if (input) input.value = "";
       markDirty();
       paintCounter(cfg);
+      if (cfg.key === "site_portal") paintPagePreview();
     });
   }
 }
@@ -307,12 +333,157 @@ function paintCounter(cfg) {
   const counter = document.querySelector(`[data-counter="${cfg.key}"]`);
   if (!counter) return;
   const len = (form[cfg.key].message || "").length;
-  counter.textContent = `${len}/${MAX_LEN}`;
-  counter.classList.toggle("is-max", len >= MAX_LEN);
+  const max = cfg.key === "site_portal" ? SITE_MAX_LEN : MAX_LEN;
+  counter.textContent = `${len}/${max}`;
+  counter.classList.toggle("is-max", len >= max);
+}
+
+function safeImageUrl(value) {
+  return typeof value === "string" && /^\/storage\/maintenance\/site-page-[a-f0-9]{24}\.(png|jpg|webp)$/.test(value) ? value : "";
+}
+
+function applyPageSnapshot(snapshot) {
+  pageForm = { ...PAGE_DEFAULTS };
+  if (snapshot && typeof snapshot === "object") {
+    Object.keys(PAGE_LIMITS).forEach((field) => {
+      if (typeof snapshot[field] === "string") pageForm[field] = snapshot[field];
+    });
+    if (PAGE_THEMES.includes(snapshot.theme)) pageForm.theme = snapshot.theme;
+    pageForm.image_url = safeImageUrl(snapshot.image_url);
+  }
+  pendingImage = undefined;
+  imageRevision += 1;
+  imageLoading = false;
+  const file = document.getElementById("mtPageImage");
+  if (file) file.value = "";
+  setImageStatus(pageForm.image_url ? "Custom maintenance illustration" : "Default maintenance illustration");
+}
+
+function setImageStatus(message, error = false) {
+  const status = document.getElementById("mtPageImageStatus");
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle("is-error", error);
+}
+
+function paintPagePreview() {
+  Object.keys(PAGE_LIMITS).forEach((field) => {
+    const input = document.querySelector(`[data-page-field="${field}"]`);
+    if (input && input.value !== pageForm[field]) input.value = pageForm[field];
+    const counter = document.querySelector(`[data-page-counter="${field}"]`);
+    if (counter) {
+      counter.textContent = `${pageForm[field].length}/${PAGE_LIMITS[field]}`;
+      counter.classList.toggle("is-max", pageForm[field].length >= PAGE_LIMITS[field]);
+    }
+  });
+  const text = form.site_portal.message || "";
+  const preview = {
+    mtPreviewEyebrow: pageForm.eyebrow.trim(),
+    mtPreviewHeadline: pageForm.headline.trim() || PAGE_DEFAULTS.headline,
+    mtPreviewAccent: pageForm.headline_accent.trim(),
+    mtPreviewMessage: text.trim() || SCOPES[0].def,
+    mtPreviewSupport: pageForm.supporting_line.trim(),
+  };
+  Object.entries(preview).forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.textContent = value;
+      el.hidden = !value.trim();
+    }
+  });
+  document.getElementById("mtPagePreview")?.setAttribute("data-theme", pageForm.theme);
+  document.querySelectorAll('[name="mtPageTheme"]').forEach((input) => { input.checked = input.value === pageForm.theme; });
+  const image = document.getElementById("mtPreviewImage");
+  if (image) {
+    const source = typeof pendingImage === "string" && pendingImage ? pendingImage : pendingImage === null ? DEFAULT_IMAGE : pageForm.image_url || DEFAULT_IMAGE;
+    if (image.getAttribute("src") !== source) image.setAttribute("src", source);
+    image.alt = pageForm.image_alt;
+  }
+  const fields = document.getElementById("mtPageFields");
+  if (fields) fields.disabled = !loaded || !pageInstalled;
+  const notice = document.getElementById("mtPageMigrationNotice");
+  if (notice) notice.hidden = !loaded || pageInstalled;
+}
+
+async function choosePageImage(event) {
+  const file = event.target.files?.[0];
+  if (!file || !loaded || !pageInstalled) return;
+  const revision = ++imageRevision;
+  imageLoading = true;
+  setImageStatus("Checking image…");
+  try {
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) throw new Error("Choose a PNG, JPG, or WebP image.");
+    if (file.size > 1024 * 1024) throw new Error("Choose an image no larger than 1 MB.");
+    const data = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error("The image could not be read. Please try another file."));
+      reader.readAsDataURL(file);
+    });
+    const image = new Image();
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = () => reject(new Error("The image could not be opened. Please choose another file."));
+      image.src = data;
+    });
+    if (image.naturalWidth > 2400 || image.naturalHeight > 2400) throw new Error("Choose an image up to 2400 × 2400 pixels.");
+    if (revision !== imageRevision) return;
+    pendingImage = data;
+    setImageStatus(`${file.name} · Ready to save`);
+    markDirty();
+    paintPagePreview();
+  } catch (error) {
+    if (revision !== imageRevision) return;
+    event.target.value = "";
+    setImageStatus(error.message || "The image could not be opened.", true);
+  } finally {
+    if (revision === imageRevision) imageLoading = false;
+  }
+}
+
+function wirePageEditor() {
+  document.querySelectorAll("[data-page-field]").forEach((input) => {
+    input.addEventListener("input", () => {
+      pageForm[input.dataset.pageField] = input.value;
+      markDirty();
+      paintPagePreview();
+    });
+  });
+  document.querySelectorAll('[name="mtPageTheme"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      pageForm.theme = input.value;
+      markDirty();
+      paintPagePreview();
+    });
+  });
+  document.getElementById("mtPageImage")?.addEventListener("change", choosePageImage);
+  document.getElementById("mtPageImageChoose")?.addEventListener("click", () => { document.getElementById("mtPageImage")?.click(); });
+  document.getElementById("mtPageImageReset")?.addEventListener("click", () => {
+    imageRevision += 1;
+    imageLoading = false;
+    pendingImage = null;
+    document.getElementById("mtPageImage").value = "";
+    setImageStatus("Default illustration · Ready to save");
+    markDirty();
+    paintPagePreview();
+  });
+  document.getElementById("mtPageRestore")?.addEventListener("click", () => {
+    pageForm = { ...PAGE_DEFAULTS };
+    form.site_portal.message = "";
+    pendingImage = null;
+    imageRevision += 1;
+    imageLoading = false;
+    document.getElementById("mtPageImage").value = "";
+    setImageStatus("Default illustration · Ready to save");
+    markDirty();
+    paintAll();
+  });
 }
 
 function paintSummary() {
-  const active = SCOPES.filter((cfg) => form[cfg.key].active);
+  // This card reports the saved state. Draft toggles become live only after save.
+  const liveCount = SCOPES.filter((cfg) => serverState[cfg.key].active).length;
+  const online = !fault && loaded && liveCount === 0;
   const pill = document.getElementById("mtLivePill");
   const pillText = document.getElementById("mtLivePillText");
   const banner = document.getElementById("mtBanner");
@@ -320,44 +491,51 @@ function paintSummary() {
   const bannerTitle = document.getElementById("mtBannerTitle");
   const bannerText = document.getElementById("mtBannerText");
 
-  if (pill) pill.classList.toggle("is-on", active.length > 0);
-  // Green + a pulsing dot only when the pill is literally about to print
-  // "Everything online", so the colour can never disagree with the words. Gated
-  // on the same expression the text below uses — a fault or a snapshot that never
-  // arrived leaves the pill grey, because "online" would be a claim the page is
-  // in no position to make. This reads the *form* state, like `is-on` does, not
-  // the banner's server-side `liveCount`.
   if (pill) {
-    pill.classList.toggle("is-live", !fault && loaded && active.length === 0);
+    pill.classList.toggle("is-on", !fault && loaded && liveCount > 0);
+    pill.classList.toggle("is-live", online);
   }
   if (pillText) {
     pillText.textContent = fault
       ? "Not loaded"
       : !loaded
         ? "Loading…"
-        : active.length === 0
+        : online
           ? "Everything online"
-          : `${active.length} of ${SCOPES.length} under maintenance`;
+          : `${liveCount} of ${SCOPES.length} under maintenance`;
   }
 
-  // A fault outranks the live count: if the snapshot never arrived, "0 items are
-  // offline" would be a claim the page is in no position to make.
-  const liveCount = SCOPES.filter((cfg) => serverState[cfg.key].active).length;
   if (banner) {
-    banner.hidden = !fault && liveCount === 0;
+    banner.hidden = false;
     banner.classList.toggle("is-fault", Boolean(fault));
+    banner.classList.toggle("is-online", online);
+    banner.classList.toggle("is-loading", !fault && !loaded);
   }
   if (bannerIcon) {
     bannerIcon.className = fault
       ? "fa-solid fa-circle-exclamation"
-      : "fa-solid fa-triangle-exclamation";
+      : !loaded
+        ? "fa-solid fa-circle-info"
+        : online
+          ? "fa-solid fa-circle-check"
+          : "fa-solid fa-triangle-exclamation";
   }
   if (bannerTitle) {
-    bannerTitle.textContent = fault ? fault.title : "Maintenance is live.";
+    bannerTitle.textContent = fault
+      ? fault.title
+      : !loaded
+        ? "Checking availability."
+        : online
+          ? "Website availability."
+          : "Maintenance is live.";
   }
   if (bannerText) {
     if (fault) {
       bannerText.innerHTML = fault.html;
+    } else if (!loaded) {
+      bannerText.textContent = "Loading the saved maintenance settings.";
+    } else if (online) {
+      bannerText.textContent = "The public website and customer access are available.";
     } else {
       bannerText.textContent =
         liveCount === 1
@@ -378,7 +556,11 @@ function paintSaveHint() {
 
 function paintAll() {
   SCOPES.forEach(paintRow);
+  paintPagePreview();
   paintSummary();
+  document.querySelectorAll('[data-toggle], [data-msg], [data-default]').forEach((control) => { control.disabled = !loaded || saving; });
+  const save = document.getElementById("btnSaveMaintenance");
+  if (save) save.disabled = !loaded || saving;
 }
 
 function markDirty() {
@@ -421,7 +603,7 @@ async function load() {
   let res;
   try {
     // `cache: "no-store"` on purpose. The endpoint ships an ETag for the
-    // customer gate's 20s revalidation, but the admin panel must never paint
+    // customer gate's background revalidation, but the admin panel must never paint
     // switches from a cached body — it is the screen you open to confirm what is
     // actually live right now.
     res = await fetch(`${API}/maintenance`, {
@@ -460,6 +642,9 @@ async function load() {
       serverState[cfg.key] = { active: row.active === true, message };
     });
 
+    pageInstalled = json.site_page_installed === true;
+    applyPageSnapshot(json.site_page);
+
     fault = null;
     loaded = true;
     dirty = false;
@@ -481,7 +666,11 @@ function newlyActivated() {
 }
 
 function requestSave() {
-  if (!loaded) return;
+  if (!loaded || saving) return;
+  if (imageLoading) {
+    window.showAdminPopup?.("Please wait until your illustration finishes loading.", { title: "Checking image" });
+    return;
+  }
 
   const turningOn = newlyActivated();
   if (turningOn.length === 0) {
@@ -508,6 +697,10 @@ function requestSave() {
 }
 
 async function doSave() {
+  if (saving) return;
+  saving = true;
+  const stack = document.getElementById("mtStack");
+  if (stack) { stack.inert = true; stack.setAttribute("aria-busy", "true"); }
   const button = document.getElementById("btnSaveMaintenance");
   const originalHtml = button?.innerHTML || "";
   if (button) {
@@ -523,6 +716,12 @@ async function doSave() {
       message: text === "" ? null : text,
     };
   });
+  if (pageInstalled) {
+    payload.site_page = {};
+    Object.keys(PAGE_LIMITS).forEach((field) => { payload.site_page[field] = pageForm[field].trim(); });
+    payload.site_page.theme = pageForm.theme;
+    if (pendingImage !== undefined) payload.site_page.image_data = pendingImage;
+  }
 
   try {
     const res = await fetch(`${API}/admin/maintenance`, {
@@ -549,9 +748,15 @@ async function doSave() {
         ? Object.values(data.errors)[0]?.[0]
         : data.message;
       window.showAdminPopup?.(
-        first || `Each message must be ${MAX_LEN} characters or fewer.`,
+        first || "Check the character limits and illustration, then try again.",
         { title: "Check your messages" },
       );
+      return;
+    }
+    if (res.status === 503 && data.site_page_installed === false) {
+      pageInstalled = false;
+      paintAll();
+      window.showAdminPopup?.(data.message || "Maintenance screen customization is not installed yet. Run the database migration, then click Refresh.", { title: "Screen settings unavailable" });
       return;
     }
     // The table is missing, so there is nowhere to write. Say what to run rather
@@ -571,6 +776,7 @@ async function doSave() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     applySnapshot(data.data);
+    applyPageSnapshot(data.site_page);
     dirty = false;
     paintAll();
     broadcastSiteUpdate("updated");
@@ -581,12 +787,15 @@ async function doSave() {
       { title: "Error" },
     );
   } finally {
+    saving = false;
+    if (stack) { stack.inert = false; stack.removeAttribute("aria-busy"); }
     if (button) {
-      button.disabled = false;
+      button.disabled = !loaded;
       button.innerHTML =
         originalHtml ||
         '<i class="fa-solid fa-floppy-disk"></i> Save All Changes';
     }
+    paintAll();
   }
 }
 
@@ -604,8 +813,8 @@ function applySnapshot(data) {
 /**
  * The same two signals Website Management already fires — no new channel and no
  * new storage key. maintenance-gate.js listens on both, so every customer tab in
- * this browser reacts without a reload; other devices pick it up on the next
- * 20 s ETag poll that main.js already runs.
+ * this browser reacts without a reload; other devices pick it up on the gate's
+ * background checks or before opening a page, image or other content.
  */
 function broadcastSiteUpdate(type) {
   try {
@@ -632,6 +841,7 @@ function broadcastSiteUpdate(type) {
  * press this button, so it must not be a trap. Unsaved work is confirmed first.
  */
 function requestRefresh() {
+  if (saving || imageLoading) return;
   const run = () => {
     fault = null;
     loaded = false;
@@ -662,6 +872,7 @@ function requestRefresh() {
 
 document.addEventListener("DOMContentLoaded", () => {
   renderRows();
+  wirePageEditor();
   paintAll();
   document
     .getElementById("btnSaveMaintenance")

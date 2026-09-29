@@ -15521,10 +15521,8 @@ const openReturnRequestModal = (() => {
     // here too. reloadServices() no-ops on an unchanged payload, so this costs
     // one small conditional GET and never rebuilds the carousel needlessly.
     void reloadServices();
-    // Maintenance Mode rides this pipeline instead of adding one of its own:
-    // same channel, same storage stamp, same tick. The /api/maintenance ETag
-    // makes the extra request a 304 whenever nothing has changed.
-    void window.FMRC_MAINTENANCE?.refresh();
+    // The shared maintenance gate owns its own realtime checks, including on
+    // Customer sign-in pages that do not load main.js. Avoid a duplicate read.
   }
 
   function initSdgRealtime() {
@@ -15567,7 +15565,6 @@ const openReturnRequestModal = (() => {
         void loadSdgs();
         void reloadSettings();
         void reloadServices();
-        void window.FMRC_MAINTENANCE?.refresh();
       }
     }, 20000);
   }

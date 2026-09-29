@@ -83,7 +83,7 @@
       /* ── Live banner ──────────────────────────────────────────────────── */
       .mt-alert {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         gap: 10px;
         background: #fffbeb;
         border: 1px solid #fde68a;
@@ -93,13 +93,37 @@
         color: #713f12;
         line-height: 1.5;
       }
-      /* `display: flex` above is (0,1,0) and out-ranks the browser's own
-         `[hidden] { display: none }` (0,0,0), so `banner.hidden = true` in
-         paintSummary() had no visible effect and the strip sat there reading
-         "Maintenance is live. 0 items are currently offline" with nothing
-         actually offline. This restores the attribute. */
       .mt-alert[hidden] {
         display: none;
+      }
+      .mt-alert__copy {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .mt-alert > .mt-live-pill {
+        flex: 0 0 auto;
+        margin-left: auto;
+        max-width: 100%;
+        white-space: nowrap;
+      }
+      .mt-alert.is-online {
+        background: #f0fdf4;
+        border-color: #bbf7d0;
+        color: #166534;
+      }
+      .mt-alert.is-online > i,
+      .mt-alert.is-online strong {
+        color: #15803d;
+      }
+      .mt-alert.is-loading {
+        background: #f8fafc;
+        border-color: #e2e8f0;
+        color: #475569;
+      }
+      .mt-alert.is-loading > i,
+      .mt-alert.is-loading strong {
+        color: #475569;
       }
       /* The "not installed / could not load" variant of the same strip: red
          instead of amber, because it reports a fault rather than a live state. */
@@ -112,6 +136,10 @@
       .mt-alert.is-fault strong {
         color: #b91c1c;
       }
+      .mt-alert.is-fault .mt-live-pill {
+        background: #fee2e2;
+        color: #b91c1c;
+      }
       .mt-alert code {
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
         font-size: 0.95em;
@@ -119,9 +147,9 @@
         border-radius: 4px;
         padding: 1px 5px;
       }
-      .mt-alert i {
+      .mt-alert > i {
         color: #ca8a04;
-        margin-top: 2px;
+        flex: 0 0 auto;
       }
       .mt-alert strong {
         color: #713f12;
@@ -257,6 +285,8 @@
         font-weight: 700;
         color: #374151;
       }
+      .mt-row-msg textarea { min-height: 88px; resize: vertical; }
+      #mtRowsWebsite { padding-bottom: 20px; border-bottom: 1px solid #e7e5e4; }
       .mt-msg-field {
         display: flex;
         align-items: center;
@@ -341,11 +371,124 @@
       .mt-live-pill i {
         font-size: 0.62rem;
       }
+      .mt-page-toolbar > .toolbar-title {
+        flex: 1 1 320px;
+        min-width: 0;
+      }
+      .toolbar-actions.mt-toolbar-actions {
+        display: grid;
+        grid-template-columns: repeat(2, max-content);
+        flex: 0 0 auto;
+        align-items: stretch;
+        gap: 10px;
+        margin-left: auto;
+        max-width: 100%;
+      }
+      @media (max-width: 720px) {
+        .mt-page-toolbar > .toolbar-title { flex: 0 1 auto; }
+        .toolbar-actions.mt-toolbar-actions {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 8px;
+        }
+        .mt-toolbar-actions > .btn-admin {
+          min-width: 0;
+          min-height: 40px;
+          white-space: nowrap;
+        }
+        .mt-alert {
+          display: grid;
+          grid-template-columns: 18px minmax(0, 1fr);
+          align-items: start;
+        }
+        .mt-alert > i { margin-top: 4px; }
+        .mt-alert > .mt-live-pill {
+          grid-column: 1 / -1;
+          justify-self: end;
+          width: fit-content;
+        }
+      }
       /* The whole form is inert until the first snapshot lands, so a toggle can
          never be published against a state that was never read. */
       .mt-loading .mt-row {
         opacity: 0.5;
         pointer-events: none;
+      }
+      .mt-page-editor {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(260px, 0.9fr);
+        gap: 26px;
+        margin-top: 22px;
+      }
+      .mt-page-fields { display: grid; gap: 16px; min-width: 0; }
+      .mt-page-field { display: grid; gap: 7px; }
+      .mt-page-field > label, .mt-page-field > legend {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #374151;
+      }
+      .mt-page-field .mt-msg-field { align-items: flex-start; }
+      .mt-page-field .mt-counter { padding-top: 9px; }
+      .mt-theme-options { display: flex; flex-wrap: wrap; gap: 8px; }
+      .mt-theme-choice {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 10px 12px;
+        border: 1px solid #e2d8d2;
+        border-radius: 8px;
+        font-size: 0.75rem;
+        cursor: pointer;
+      }
+      .mt-theme-choice:has(input:checked) { border-color: #6d2030; background: #f7eeed; }
+      .mt-theme-choice input { accent-color: #6d2030; margin: 0; }
+      .mt-upload-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+      .mt-upload-actions .btn-admin { font-size: 0.76rem; padding: 9px 12px; cursor: pointer; }
+      .mt-upload-status { margin: 0; font-size: 0.75rem; color: #6b7280; overflow-wrap: anywhere; }
+      .mt-upload-status.is-error { color: #a80f0f; }
+      .mt-preview-wrap { min-width: 0; align-self: start; position: sticky; top: 20px; }
+      .mt-preview-label { display: flex; gap: 7px; align-items: center; margin: 0 0 10px; color: #6b7280; font-size: 0.76rem; font-weight: 700; }
+      .mt-page-preview {
+        --preview-bg: #fffcf8;
+        --preview-soft: #f9ede9;
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+        gap: 16px;
+        align-items: center;
+        background: var(--preview-bg);
+        border: 1px solid #e7dbd2;
+        border-radius: 12px;
+        padding: 30px 22px;
+        min-height: 280px;
+        overflow: hidden;
+      }
+      .mt-page-preview[data-theme="warm_maroon"] { --preview-bg: #f8efec; --preview-soft: #eedad8; }
+      .mt-page-preview[data-theme="soft_gold"] { --preview-bg: #fff9ed; --preview-soft: #f8ebce; }
+      .mt-preview-copy { min-width: 0; position: relative; isolation: isolate; }
+      .mt-preview-copy::before { content: ""; position: absolute; z-index: -1; inset: -20px -10px; border-radius: 50% 40% 46% 35%; background: var(--preview-soft); }
+      .mt-preview-eyebrow { color: #6d2030; font-size: 0.58rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 9px; overflow-wrap: anywhere; }
+      .mt-preview-title { color: #6d2030; font-size: clamp(1.15rem, 2vw, 1.75rem); line-height: 1.18; letter-spacing: -0.04em; margin: 0 0 12px; overflow-wrap: anywhere; }
+      .mt-preview-title span { display: block; }
+      .mt-preview-body { color: #635b60; font-size: 0.64rem; line-height: 1.6; margin: 0 0 12px; overflow-wrap: anywhere; }
+      .mt-preview-support { color: #6d2030; font-size: 0.6rem; font-weight: 600; margin: 0; overflow-wrap: anywhere; }
+      .mt-page-preview img { width: 100%; max-height: 235px; object-fit: contain; }
+      .mt-page-preview [hidden] { display: none !important; }
+      .mt-preview-note { margin: 12px 0 0; font-size: 0.72rem; color: #6b7280; line-height: 1.55; }
+      .mt-page-editor-footer { margin-top: 18px; padding-top: 15px; border-top: 1px solid #eee4de; }
+      .mt-loading #mtPageFields { opacity: 0.5; pointer-events: none; }
+      #mtPageMigrationNotice { margin: 14px 0 0; color: #92400e; }
+      #mtPageFields:disabled { opacity: 0.5; }
+      #mtPageFields { border: 0; padding: 0; margin: 0; }
+      @media (max-width: 1100px) {
+        .mt-page-editor { grid-template-columns: minmax(0, 1fr); }
+        .mt-preview-wrap { position: static; }
+        .mt-page-preview { max-width: 620px; margin: 0 auto; }
+      }
+      @media (max-width: 520px) {
+        .wm-section { padding: 18px 16px; }
+        .mt-row-msg { padding-left: 0; }
+        .mt-page-preview { padding: 24px 16px; gap: 12px; min-height: 240px; }
+        .mt-page-preview img { max-height: 190px; }
+        .mt-preview-title { font-size: 1.18rem; }
       }
     </style>
     <link rel="stylesheet" href="admin-responsive.css?v=3.1" />
@@ -463,7 +606,7 @@
           </div>
         </header>
         <section class="module-content">
-          <div class="page-toolbar">
+          <div class="page-toolbar mt-page-toolbar">
             <div class="toolbar-title">
               <h2>Maintenance Mode</h2>
               <p>
@@ -472,7 +615,7 @@
                 header and footer visible.
               </p>
             </div>
-            <div class="toolbar-actions">
+            <div class="toolbar-actions mt-toolbar-actions">
               <button
                 class="btn-admin btn-secondary"
                 type="button"
@@ -481,10 +624,6 @@
               >
                 <i class="fa-solid fa-arrows-rotate"></i> Refresh
               </button>
-              <span class="mt-live-pill" id="mtLivePill"
-                ><i class="fa-solid fa-circle"></i>
-                <span id="mtLivePillText">Loading…</span></span
-              >
               <a
                 href="/home-page/main.html"
                 target="_blank"
@@ -495,26 +634,32 @@
           </div>
 
           <div class="section-stack mt-loading" id="mtStack">
-            <!-- One strip, two jobs: the amber "N items are offline" state, and
-                 the red fault state when the snapshot could not be read (see
-                 paintSummary / showFault in website-maintenance.js). Both the
-                 icon and the lead-in are addressable so neither state has to
-                 duplicate the markup. -->
-            <div class="mt-alert" id="mtBanner" hidden>
-              <i class="fa-solid fa-triangle-exclamation" id="mtBannerIcon"></i>
-              <div>
-                <strong id="mtBannerTitle">Maintenance is live.</strong>
-                <span id="mtBannerText"></span>
+            <!-- One card holds the saved availability status, maintenance count,
+                 and any loading fault. Unsaved changes stay in the save bar. -->
+            <div class="mt-alert is-loading" id="mtBanner">
+              <i class="fa-solid fa-circle-info" id="mtBannerIcon" aria-hidden="true"></i>
+              <div class="mt-alert__copy">
+                <strong id="mtBannerTitle">Checking availability.</strong>
+                <span id="mtBannerText">Loading the saved maintenance settings.</span>
               </div>
+              <span
+                class="mt-live-pill"
+                id="mtLivePill"
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+                ><i class="fa-solid fa-circle" aria-hidden="true"></i>
+                <span id="mtLivePillText">Loading…</span></span
+              >
             </div>
             <!-- The maintenance rows are rendered by website-maintenance.js from one
                  SCOPES table, the same way the Brand Logos grid is built on the
                  Home screen: one template, so no row can drift from the others
                  and the scope keys can never disagree with the backend. -->
-            <div class="wm-section">
+            <div class="wm-section" id="mtPageSection">
               <div class="wm-section-header">
                 <i class="fa-solid fa-globe"></i>
-                <h3>Public Website</h3>
+                <h3>Website Maintenance</h3>
               </div>
               <p class="field-hint" style="margin: 12px 0 0">
                 Pause the entire public site at <strong>ucn-fabmanlab.com</strong>.
@@ -522,6 +667,84 @@
                 Staff portals stay available so your team can restore the site.
               </p>
               <div id="mtRowsWebsite"></div>
+              <p class="field-hint" id="mtPageMigrationNotice" hidden>
+                Screen customization is not installed yet. Run <code>php artisan migrate</code>
+                on the server, then click Refresh. Existing availability controls still work.
+              </p>
+              <div class="mt-page-editor">
+                <fieldset class="mt-page-fields" id="mtPageFields" disabled>
+                  <div class="mt-page-field">
+                    <label for="mtPageEyebrow">Small heading</label>
+                    <div class="mt-msg-field">
+                      <input class="wm-input" id="mtPageEyebrow" data-page-field="eyebrow" maxlength="48" />
+                      <span class="mt-counter" data-page-counter="eyebrow">0/48</span>
+                    </div>
+                  </div>
+                  <div class="mt-page-field">
+                    <label for="mtPageHeadline">Main heading</label>
+                    <div class="mt-msg-field">
+                      <input class="wm-input" id="mtPageHeadline" data-page-field="headline" maxlength="60" />
+                      <span class="mt-counter" data-page-counter="headline">0/60</span>
+                    </div>
+                  </div>
+                  <div class="mt-page-field">
+                    <label for="mtPageAccent">Second heading line</label>
+                    <div class="mt-msg-field">
+                      <input class="wm-input" id="mtPageAccent" data-page-field="headline_accent" maxlength="30" />
+                      <span class="mt-counter" data-page-counter="headline_accent">0/30</span>
+                    </div>
+                  </div>
+                  <div class="mt-page-field">
+                    <label for="mtPageSupport">Supporting note</label>
+                    <div class="mt-msg-field">
+                      <input class="wm-input" id="mtPageSupport" data-page-field="supporting_line" maxlength="100" />
+                      <span class="mt-counter" data-page-counter="supporting_line">0/100</span>
+                    </div>
+                  </div>
+                  <div class="mt-page-field">
+                    <label>Color theme</label>
+                    <div class="mt-theme-options" role="radiogroup" aria-label="Maintenance screen color theme">
+                      <label class="mt-theme-choice"><input type="radio" name="mtPageTheme" value="cream_maroon" checked />Cream &amp; Maroon</label>
+                      <label class="mt-theme-choice"><input type="radio" name="mtPageTheme" value="warm_maroon" />Warm Maroon</label>
+                      <label class="mt-theme-choice"><input type="radio" name="mtPageTheme" value="soft_gold" />Soft Gold</label>
+                    </div>
+                  </div>
+                  <div class="mt-page-field">
+                    <label for="mtPageImage">Maintenance illustration</label>
+                    <div class="mt-upload-actions">
+                      <button class="btn-admin btn-secondary" id="mtPageImageChoose" type="button"><i class="fa-solid fa-arrow-up-from-bracket" aria-hidden="true"></i> Choose Image</button>
+                      <input type="file" id="mtPageImage" accept="image/png,image/jpeg,image/webp" hidden />
+                      <button class="btn-admin btn-secondary" id="mtPageImageReset" type="button"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Use Default Image</button>
+                    </div>
+                    <p class="mt-upload-status" id="mtPageImageStatus" role="status">Default maintenance illustration</p>
+                    <span class="field-hint">PNG, JPG, or WebP · Up to 1 MB and 2400 × 2400 pixels. Use an illustration with a clean background.</span>
+                  </div>
+                  <div class="mt-page-field">
+                    <label for="mtPageAlt">Image description</label>
+                    <div class="mt-msg-field">
+                      <input class="wm-input" id="mtPageAlt" data-page-field="image_alt" maxlength="120" />
+                      <span class="mt-counter" data-page-counter="image_alt">0/120</span>
+                    </div>
+                    <span class="field-hint">Describe the illustration for visitors using a screen reader.</span>
+                  </div>
+                  <div class="mt-page-editor-footer">
+                    <button class="mt-default-link" id="mtPageRestore" type="button">Restore Default Screen</button>
+                  </div>
+                </fieldset>
+                <div class="mt-preview-wrap">
+                  <p class="mt-preview-label"><i class="fa-solid fa-eye" aria-hidden="true"></i> Screen Preview</p>
+                  <div class="mt-page-preview" id="mtPagePreview" data-theme="cream_maroon">
+                    <div class="mt-preview-copy">
+                      <p class="mt-preview-eyebrow" id="mtPreviewEyebrow"></p>
+                      <h4 class="mt-preview-title"><span id="mtPreviewHeadline"></span><span id="mtPreviewAccent"></span></h4>
+                      <p class="mt-preview-body" id="mtPreviewMessage"></p>
+                      <p class="mt-preview-support" id="mtPreviewSupport"></p>
+                    </div>
+                    <img id="mtPreviewImage" src="../home-page/maintenance-illustration.svg?v=2.1" alt="Technician maintaining a website server" />
+                  </div>
+                  <p class="mt-preview-note">Your edits appear here immediately. Click Save All Changes to publish them for visitors.</p>
+                </div>
+              </div>
             </div>
 
             <div class="wm-section">
@@ -581,8 +804,8 @@
     <script src="session-helper.js?v=2.3"></script>
     <script src="admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
-    <script src="admin-common.js?v=7.7"></script>
-    <script src="website-maintenance.js?v=1.4"></script>
+    <script src="admin-common.js?v=7.8"></script>
+    <script src="website-maintenance.js?v=2.2"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>

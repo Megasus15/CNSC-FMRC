@@ -30,7 +30,7 @@ class PaymentMethodAvailabilityTest extends TestCase
 
     public static function editorRoles(): array
     {
-        return [['admin'], ['staff']];
+        return [['admin']];
     }
 
     public static function paymentMethods(): array
@@ -95,7 +95,7 @@ class PaymentMethodAvailabilityTest extends TestCase
     #[DataProvider('invalidValues')]
     public function test_invalid_payment_value_cannot_partially_save_settings(mixed $invalid): void
     {
-        $this->signIn('staff');
+        $this->signIn('admin');
         SiteSetting::set('hero_title', 'Original title');
         SiteSetting::set('payment_cash_on_pickup_enabled', '1');
 
@@ -108,6 +108,21 @@ class PaymentMethodAvailabilityTest extends TestCase
         $this->assertSame('Original title', SiteSetting::get('hero_title'));
         $this->assertSame('1', SiteSetting::get('payment_cash_on_pickup_enabled'));
         $this->assertNull(SiteSetting::get('payment_gcash_enabled'));
+    }
+
+    #[DataProvider('paymentMethods')]
+    public function test_staff_cannot_configure_payment_methods_and_mixed_requests_are_atomic(string $method): void
+    {
+        $this->signIn('staff');
+        $key = PaymentMethodAvailability::SETTING_KEYS[$method];
+        SiteSetting::set('hero_title', 'Original hero');
+        SiteSetting::set($key, '1');
+        $this->putJson('/api/admin/site-settings', [
+            $key => false,
+            'hero_title' => 'Must not save',
+        ])->assertForbidden();
+        $this->assertSame('1', SiteSetting::get($key));
+        $this->assertSame('Original hero', SiteSetting::get('hero_title'));
     }
 
     public function test_a_write_failure_rolls_back_the_entire_payment_change(): void

@@ -606,7 +606,7 @@
 
     <!-- Maintenance Mode gate stays synchronous: it must apply the cached
          snapshot before anything that should be hidden can be painted. -->
-    <script src="../home-page/maintenance-gate.js?v=1.6"></script>
+    <script src="../home-page/maintenance-gate.js?v=2.3"></script>
     <!-- Deferred as a set, never individually: `defer` only preserves relative
          order among deferred scripts, so leaving any one of these synchronous
          would run it ahead of the others. All three wrap their work in a
@@ -617,7 +617,7 @@
          `window.FMRCLoader?.…`, so if this one request ever fails the affected
          flow falls back to the plain disabled button it had before. -->
     <script defer src="../home-page/fmrc-loader.js?v=2.0"></script>
-    <script defer src="../home-page/main.js?v=11.5"></script>
+    <script defer src="../home-page/main.js?v=11.6"></script>
     <script defer src="services.js?v=6.0"></script>
     <script defer src="../home-page/customer-announcements.js?v=6.6"></script>
   </body>

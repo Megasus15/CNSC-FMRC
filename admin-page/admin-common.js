@@ -2195,14 +2195,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const isStaffWebsiteShell = window.AdminSession?.isStaff || /\/staff-page\//i.test(window.location.pathname);
+  const ADMIN_ONLY_WEBSITE_ROUTES = ["website-payments.html", "website-portals.html"];
   const WEBSITE_MGMT_ROUTES = [
     "website-home.html",
     "website-about.html",
     "website-services.html",
     "website-contact.html",
     "website-footer.html",
-    "website-payments.html",
-    "website-portals.html",
+    ...(!isStaffWebsiteShell ? ADMIN_ONLY_WEBSITE_ROUTES : []),
     "website-emails.html",
     "website-maintenance.html",
   ];
@@ -2210,6 +2211,12 @@ document.addEventListener("DOMContentLoaded", () => {
     window.location.pathname.toLowerCase().replace(/\/$/, "").replace(/\.html$/, "")
       .endsWith(`/${route.replace(/\.html$/, "")}`),
   );
+
+  // Staff content editors share the shell, but these settings belong to Admin.
+  // Remove entries from cached static menus as well as skipping new insertion.
+  if (isStaffWebsiteShell) {
+    document.querySelectorAll('a[href="website-portals.html"], a[href="website-payments.html"]').forEach((link) => link.remove());
+  }
 
   // Both portals share this shell, including pages with older static menus.
   // Insert the new destination once without duplicating a link shipped in HTML.
@@ -2224,6 +2231,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.querySelectorAll('a.sub-link[href="website-home.html"]').forEach((homeLink) => {
+    if (isStaffWebsiteShell) return;
     const menu = homeLink.parentElement;
     let portalsLink = menu.querySelector('a[href="website-portals.html"]');
     if (!portalsLink) {
@@ -2241,6 +2249,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   document.querySelectorAll('a.sub-link[href="website-home.html"]').forEach((homeLink) => {
+    if (isStaffWebsiteShell) return;
     const menu = homeLink.parentElement;
     let paymentsLink = menu.querySelector('a[href="website-payments.html"]');
     if (!paymentsLink) {

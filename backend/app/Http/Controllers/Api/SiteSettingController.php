@@ -106,6 +106,22 @@ class SiteSettingController extends Controller
         }
 
         $input = $request->all();
+
+        // Staff may edit ordinary customer content, but login branding and
+        // checkout availability are Admin-only, including legacy portal logos.
+        // Reject the whole request before validation or writes so a mixed
+        // payload cannot partially change ordinary settings.
+        if ($role !== 'admin') {
+            foreach ($input as $key => $value) {
+                if (is_string($key) && (str_starts_with($key, 'portal_')
+                    || in_array($key, PaymentMethodAvailability::SETTING_KEYS, true))) {
+                    return response()->json([
+                        'message' => 'Forbidden. Admin access is required to configure login portals or payment methods.',
+                    ], 403);
+                }
+            }
+        }
+
         PortalAppearanceSettings::rejectUnsupportedKeys($input);
 
         // Validate the entire payload before saving any settings so an overlong

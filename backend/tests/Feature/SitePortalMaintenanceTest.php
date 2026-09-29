@@ -82,4 +82,30 @@ class SitePortalMaintenanceTest extends TestCase
             ->assertJsonPath('data.home_about.active', false)
             ->assertJsonPath('data.site_portal.active', false);
     }
+
+    public function test_snapshot_revalidation_reports_site_switches_immediately(): void
+    {
+        $initial = $this->getJson('/api/maintenance')->assertOk();
+        $initialEtag = $initial->headers->get('ETag');
+
+        Sanctum::actingAs(User::factory()->create(['role' => 'admin']));
+        $this->putJson('/api/admin/maintenance', [
+            'scopes' => ['site_portal' => ['is_active' => true, 'message' => 'Brief site maintenance.']],
+        ])->assertOk();
+
+        $enabled = $this->withHeader('If-None-Match', $initialEtag)
+            ->getJson('/api/maintenance')->assertOk()
+            ->assertJsonPath('data.site_portal.active', true);
+        $enabledEtag = $enabled->headers->get('ETag');
+        $this->assertNotSame($initialEtag, $enabledEtag);
+        $this->withHeader('If-None-Match', $enabledEtag)
+            ->getJson('/api/maintenance')->assertStatus(304);
+
+        $this->putJson('/api/admin/maintenance', [
+            'scopes' => ['site_portal' => ['is_active' => false, 'message' => '']],
+        ])->assertOk();
+        $this->withHeader('If-None-Match', $enabledEtag)
+            ->getJson('/api/maintenance')->assertOk()
+            ->assertJsonPath('data.site_portal.active', false);
+    }
 }

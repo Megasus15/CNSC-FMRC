@@ -69,7 +69,7 @@
       else if (field === "overlay_opacity") {
         const numeric = typeof value === "number" || (typeof value === "string" && /^[+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?$/i.test(value.trim()));
         const opacity = numeric ? Number(value) : NaN;
-        config[field] = Number.isFinite(opacity) && opacity >= 0 && opacity <= 0.9 ? opacity : base[field];
+        config[field] = Number.isFinite(opacity) && opacity >= 0 && opacity <= 1 ? opacity : base[field];
       } else if (has(settings, settingKey) && value === null) {
         config[field] = ["brand_name", "portal_name"].includes(field) ? base[field] : "";
       } else if (typeof value === "string") {
@@ -92,8 +92,24 @@
     // gradually toward both ends, also concealing the showcase's top graphics.
     root.style.setProperty("--auth-image-position", bundled && config.image_position === "center" ? "58%" : config.image_position);
     root.style.setProperty("--auth-image-size", bundled ? "auto 115%" : "cover");
-    root.style.setProperty("--auth-image-overlay", "linear-gradient(180deg, #2f0d17 0%, rgb(47 13 23 / 98%) 15%, rgb(55 18 28 / 82%) 24%, rgb(69 21 31 / 36%) 36%, rgb(69 21 31 / 24%) 44%, rgb(55 15 24 / 56%) 60%, rgb(47 13 23 / 88%) 80%, #2f0d17 100%)");
-    root.style.setProperty("--auth-image-overlay-strength", String(bundled ? Math.min(1, config.overlay_opacity + 0.45) : config.overlay_opacity));
+    const intensity = config.overlay_opacity;
+    const stops = [
+      ["47 13 23", 1, 0], ["47 13 23", 0.98, 15], ["55 18 28", 0.82, 24],
+      ["69 21 31", 0.36, 36], ["69 21 31", 0.24, 44], ["55 15 24", 0.56, 60],
+      ["47 13 23", 0.88, 80], ["47 13 23", 1, 100],
+    ];
+    const gradient = stops.map(([color, alpha, position]) => {
+      // 55% retains the established photograph treatment. Higher settings
+      // deepen every gradient stop until 100% is fully maroon; lower settings
+      // fade it toward the unfiltered photograph without an early saturation.
+      const baseline = alpha * (bundled ? 1 : 0.55);
+      const opacity = intensity <= 0.55
+        ? baseline * intensity / 0.55
+        : baseline + (1 - baseline) * (intensity - 0.55) / 0.45;
+      return `rgb(${color} / ${Math.round(opacity * 10000) / 100}%) ${position}%`;
+    }).join(", ");
+    root.style.setProperty("--auth-image-overlay", `linear-gradient(180deg, ${gradient})`);
+    root.style.setProperty("--auth-image-overlay-strength", "1");
     setText("[data-portal-brand-name]", config.brand_name);
     setText("[data-portal-name]", config.portal_name);
     setText("[data-portal-university-name]", config.university_name);

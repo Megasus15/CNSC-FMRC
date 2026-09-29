@@ -1,4 +1,4 @@
-/* Shared Login Portals appearance editor; authentication controls are fixed. */
+/* Admin Login Portals appearance editor; authentication controls are fixed. */
 (() => {
   "use strict";
 
@@ -102,6 +102,7 @@
       appearance.apply(preview, config);
       preview.querySelector("[data-portal-photo-brand]").textContent = config.brand_name;
       preview.querySelector(".portal-preview-submit").textContent = active === "customer" ? "Sign in" : "Enter Workspace";
+      preview.querySelector(".portal-preview-return").hidden = active !== "customer";
       document.getElementById("portalPreviewCaption").textContent = active === "customer" ? "UCN-FMRC Customer Portal" : "UCN-FMRC Admin / Staff Portal";
       document.getElementById("portalPhotoThumbnail").src = config.background_image;
       document.getElementById("portalPhotoThumbnail").style.objectPosition = config.image_position;

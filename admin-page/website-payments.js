@@ -1,4 +1,4 @@
-/* Shared by the Admin and Staff Payment Methods pages. */
+/* Admin Payment Methods editor. */
 (() => {
   "use strict";
 

@@ -22,10 +22,24 @@ class AdminPortalConsistencyTest extends TestCase
 
     public function test_portal_has_the_expected_37_admin_and_staff_pages(): void
     {
-        // 20 admin-page/*.html + 17 staff-page/*.html. Bump this when a portal
+        // 21 admin-page/*.html + 16 staff-page/*.html. Bump this when a portal
         // page is genuinely added or removed — it is the guard that every new
         // page inherits the shared-UI version pins the tests below enforce.
         $this->assertCount(37, self::portalHtmlProvider());
+    }
+
+    public function test_login_portals_and_payment_editors_belong_to_admin_only(): void
+    {
+        $root = dirname(__DIR__, 3);
+        foreach (['website-portals', 'website-payments'] as $page) {
+            $this->assertFileExists($root.'/admin-page/'.$page.'.html');
+            $this->assertFileDoesNotExist($root.'/staff-page/'.$page.'.html');
+            foreach (glob($root.'/staff-page/*.html') ?: [] as $staffPage) {
+                $this->assertStringNotContainsString($page.'.html', (string) file_get_contents($staffPage));
+            }
+        }
+        $this->assertStringNotContainsString('Return to FMRC Home', (string) file_get_contents($root.'/admin-auth/auth.html'));
+        $this->assertStringContainsString('Return to FMRC Home', (string) file_get_contents($root.'/customer-auth/auth.html'));
     }
 
     #[DataProvider('portalHtmlProvider')]

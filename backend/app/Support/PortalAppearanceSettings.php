@@ -62,7 +62,7 @@ final class PortalAppearanceSettings
 
             $rules[$prefix.'image_side'] = ['sometimes', 'required', 'string', 'in:left,right'];
             $rules[$prefix.'image_position'] = ['sometimes', 'required', 'string', 'in:center,top,bottom'];
-            $rules[$prefix.'overlay_opacity'] = ['sometimes', 'required', 'numeric', 'between:0,0.9'];
+            $rules[$prefix.'overlay_opacity'] = ['sometimes', 'required', 'numeric', 'between:0,1'];
 
             foreach (self::TEXT_LIMITS as $suffix => $limit) {
                 $rules[$prefix.$suffix] = [
