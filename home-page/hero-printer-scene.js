@@ -249,7 +249,7 @@
       // Follow display cadence (including 90/120 Hz) instead of a fixed FPS gate.
       // Timestamp-based motion keeps the build duration identical at every rate.
       let frame=0,elapsed=0,previous=0,visible=true,scrolling=false,scrollTimer=0;
-      const active=()=>scene.dataset.motion==="on"&&!reducedMotion.matches&&!document.hidden&&visible&&!scrolling&&scene.isConnected;
+      const active=()=>scene.dataset.motion==="on"&&(!scene.dataset.machine||scene.dataset.machine==="printer")&&!reducedMotion.matches&&!document.hidden&&visible&&!scrolling&&scene.isConnected;
       const tick=now=>{
         frame=0;if(!active()) return;
         if(previous) elapsed+=Math.min(now-previous,64);
@@ -264,7 +264,7 @@
         if(active()) frame=requestAnimationFrame(tick);
       };
       paint(0,scene.dataset.motion!=="on"||reducedMotion.matches);
-      new MutationObserver(sync).observe(scene,{attributes:true,attributeFilter:["data-motion"]});
+      new MutationObserver(sync).observe(scene,{attributes:true,attributeFilter:["data-motion","data-machine"]});
       reducedMotion.addEventListener("change",sync);document.addEventListener("visibilitychange",sync);
       window.addEventListener("scroll",()=>{
         if(!scrolling){scrolling=true;sync();}

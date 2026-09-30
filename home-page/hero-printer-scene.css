@@ -350,3 +350,22 @@
 }
 /* The artwork no longer needs a downward nudge into the old SDG tail. */
 .hero-section:has(.hero-community) .hero-content-right .fmrc-hero-scene { top: 0; }
+/* Laser and router use the printer's existing frame, aspect ratio and scale. */
+.hero-machine-art { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.fmrc-hero-scene[data-machine-ready="true"] > :is(.hero-printer-art, .hero-printer-mechanism, .hero-printer-badge) { visibility: hidden; }
+.hero-machine-art :is(.hm-screen-background,.hm-screen-header,.hm-progress,.hm-progress-fill,.hm-phase) { transition: fill 240ms ease; }
+.hero-machine-art[data-phase="complete"] .hm-screen-background { fill: #164b39; }
+.hero-machine-art[data-phase="complete"] .hm-screen-header { fill: #24684c; }
+.hero-machine-art[data-phase="complete"] .hm-progress-fill { fill: #80e3a5; }
+.hero-machine-art[data-phase="complete"] :is(.hm-progress,.hm-phase) { fill: #e4ffec; }
+.hero-machine-art[data-phase="resetting"] .hm-screen-background { fill: #1e1828; }
+.hero-machine-art .hm-worklight-lens { stroke: #80d8f4; transition: stroke 240ms ease; }
+.hero-machine-art .hm-worklight-stop { stop-color: #80d8f4; transition: stop-color 240ms ease; }
+.hero-machine-art .hm-worklight-beams { pointer-events: none; transition: opacity 240ms ease; }
+.hero-machine-art[data-phase="working"][data-running="true"] .hm-worklight-beams { animation: hp-task-light 3.2s ease-in-out infinite; }
+.hero-machine-art[data-phase="complete"] .hm-worklight-lens { stroke: #88e5ac; }
+.hero-machine-art[data-phase="complete"] .hm-worklight-stop { stop-color: #88e5ac; }
+.hero-machine-art[data-phase="resetting"] .hm-worklight-beams { opacity: 0; }
+.hero-machine-art[data-phase="resetting"] .hm-worklight-lens { stroke: #56616b; }
+@media (prefers-reduced-motion: reduce) { .hero-machine-art .hm-worklight-beams { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .hero-machine-art * { transition: none !important; } }

@@ -108,6 +108,7 @@ final class WebsiteContentLimits
         $rules['hero_scene_accent'] = ['sometimes', 'required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'];
         $rules['hero_scene_scale'] = ['sometimes', 'required', 'integer', 'between:85,115', 'multiple_of:5'];
         $rules['hero_scene_motion'] = ['sometimes', 'required', 'in:on,off'];
+        $rules['hero_scene_machine'] = ['sometimes', 'required', 'in:printer,laser,cnc'];
 
         return $rules;
     }

@@ -14950,6 +14950,8 @@ const openReturnRequestModal = (() => {
           : "1",
       );
       printerScene.dataset.motion = s.hero_scene_motion === "off" ? "off" : "on";
+      printerScene.dataset.machine = ["printer", "laser", "cnc"].includes(s.hero_scene_machine)
+        ? s.hero_scene_machine : "printer";
     }
     _logo(
       "footerLogoPrimaryEl",

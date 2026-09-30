@@ -311,6 +311,7 @@ function populateForm() {
     && savedSceneScale <= 115 && savedSceneScale % 5 === 0
     ? String(savedSceneScale) : "100");
   setVal("heroSceneMotion", s.hero_scene_motion === "off" ? "off" : "on");
+  setVal("heroSceneMachine", ["printer", "laser", "cnc"].includes(s.hero_scene_machine) ? s.hero_scene_machine : "printer");
 
   // Brand logos: a blank setting means "on the bundled default".
   BRAND_LOGOS.forEach(function (conf) {
@@ -422,6 +423,7 @@ function updateHeroScenePreview() {
   preview.style.setProperty("--hero-scene-accent", accent);
   preview.style.setProperty("--hero-scene-scale", String(scale / 100));
   preview.dataset.motion = motion;
+  preview.dataset.machine = document.getElementById("heroSceneMachine")?.value || "printer";
   const output = document.getElementById("heroSceneScaleValue");
   if (output) output.textContent = `${scale}%`;
   const logo = preview.querySelector("[data-hero-scene-logo]");
@@ -510,7 +512,7 @@ function bindEvents() {
     toggleBgType(this.value);
   });
 
-  ["heroSceneAccent", "heroSceneScale", "heroSceneMotion"].forEach((id) => {
+  ["heroSceneAccent", "heroSceneScale", "heroSceneMotion", "heroSceneMachine"].forEach((id) => {
     document.getElementById(id)?.addEventListener("input", updateHeroScenePreview);
     document.getElementById(id)?.addEventListener("change", updateHeroScenePreview);
   });
@@ -932,6 +934,7 @@ async function doSaveAll() {
     hero_scene_accent: document.getElementById("heroSceneAccent").value,
     hero_scene_scale: Number(document.getElementById("heroSceneScale").value),
     hero_scene_motion: document.getElementById("heroSceneMotion").value,
+    hero_scene_machine: document.getElementById("heroSceneMachine")?.value || "printer",
     // hero_logo_image is deliberately absent: the Brand Logos section saves it
     // the moment a crop is applied, so re-sending it here could only overwrite a
     // newer upload with whatever this form happened to load with.
