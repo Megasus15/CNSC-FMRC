@@ -313,7 +313,7 @@
   position: static;
   transform: none;
   animation: none;
-  flex-direction: row;
+  flex-direction: column;
   margin: 0;
   min-height: 44px;
   display: inline-flex;
@@ -324,6 +324,25 @@
   border-top: 1px solid rgb(255 255 255 / 24%);
 }
 .hero-community .scroll-icon { margin: 0; }
+.hero-community .scroll-chevron {
+  color: #bfc1c5;
+  animation: heroChevronFlow 1.8s ease-in-out infinite;
+}
+.hero-community .scroll-chevron--second { animation-delay: 180ms; }
+@keyframes heroChevronFlow {
+  0%, 100% { color: #bfc1c5; transform: translateY(-1px); }
+  50% { color: #fff; transform: translateY(1px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-community .scroll-chevron { animation: none; color: #fff; }
+}
+@media (max-width: 480px) {
+  .hero-section .hero-buttons :is(.btn-browse, .btn-appointment) {
+    font-size: clamp(13px, 3.7vw, 15px);
+    line-height: 1.35;
+    min-height: 44px;
+  }
+}
 @media (max-width: 480px) {
   .hero-section .hero-community { max-width: 320px; gap: 14px; }
   .hero-community .hero-sdg-item { flex-basis: 48px; }

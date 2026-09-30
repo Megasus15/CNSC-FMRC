@@ -124,7 +124,7 @@
         const widgetId = window.turnstile.render(widget, {
           sitekey: siteKey,
           theme: "light",
-          size: widget.dataset.size || "flexible",
+          size: widget.dataset.size || "normal",
           callback: (token) => {
             widget.dataset.token = String(token || "");
             widget.dispatchEvent(
