@@ -258,7 +258,7 @@
     max-width: 100%;
     margin-inline: 0;
     margin-bottom: 24px;
-    font-size: clamp(34px, 9.5vw, 42px) !important;
+    font-size: clamp(25px, 8vw, 36px) !important;
     line-height: 1.1;
     letter-spacing: -.025em;
     text-align: center;
@@ -273,4 +273,8 @@
     align-self: center;
     margin-inline: 0;
   }
+}
+
+@media (max-width: 900px), (max-width: 1100px) and (max-height: 520px) and (orientation: landscape) {
+  .hero-section .hero-title .hero-service-line { white-space: nowrap; }
 }

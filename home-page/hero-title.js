@@ -32,7 +32,7 @@
     return lines
       .map(function (line, i) {
         return i === lines.length - 1
-          ? '<span class="hero-research-line">' + esc(line) + "</span>"
+          ? '<span class="hero-research-line' + (/^service\s+solution$/i.test(line.trim()) ? ' hero-service-line' : '') + '">' + esc(line) + "</span>"
           : esc(line) + "<br />";
       })
       .join("");
