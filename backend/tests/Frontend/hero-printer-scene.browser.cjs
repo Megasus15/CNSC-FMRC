@@ -350,6 +350,9 @@ test('Customer Home 3D printer scene fits desktop and modern iPhones and applies
           productId:scene.dataset.productId, productName:scene.dataset.productName,
           mainId:product.dataset.productId, miniId:miniature.dataset.productId,
           miniHash, miniSize:[miniBounds.width,miniBounds.height],
+          lightCount:scene.querySelectorAll('.hp-worklight-lens').length,
+          lightColor:getComputedStyle(scene.querySelector('.hp-worklight-lens')).color,
+          lightOpacity:getComputedStyle(scene.querySelector('.hp-worklight-beams')).opacity,
           totalLayers:layers.length,
           visibleLayers:layers.filter(el => getComputedStyle(el).display !== 'none' && +getComputedStyle(el).opacity > 0).length,
           productTransform:product.getAttribute('transform'), productOpacity:productStyle.opacity,
@@ -370,6 +373,10 @@ test('Customer Home 3D printer scene fits desktop and modern iPhones and applies
         await evaluate('window.__heroTestClock.advance(240)');
         const state = await evaluate(mechanismState);
         samples.push(state);
+        assert.equal(state.lightCount, 4, 'one light is mounted at each upper corner');
+        assert.equal(state.lightColor, state.phase === 'printing' ? 'rgb(128, 216, 244)' :
+          state.phase === 'resetting' ? 'rgb(86, 97, 107)' : 'rgb(136, 229, 172)', 'lights follow print phase');
+        if (state.phase === 'resetting') assert.equal(state.lightOpacity, '0', 'beams switch off during reset');
         assert.equal(state.mainId, state.productId, 'built product matches the current job');
         assert.equal(state.miniId, state.productId, 'monitor miniature matches the actual product');
         assert.ok(state.miniSize.every(value => value > 0), 'the monitor contains a dimensional miniature');

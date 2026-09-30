@@ -5095,3 +5095,58 @@
 /* ===== end of STEP 12 ===== */
 
 
+
+/* Shared navigation finish: calm hover, clear current location and grouped
+   configuration links. Drawer/rail sizing remains owned by the shell above. */
+.sidebar .sidebar-nav .nav-link,
+.sidebar .sidebar-nav .sub-link {
+  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+.sidebar .sidebar-nav .nav-link:hover:not(.active),
+.sidebar .sidebar-nav .sub-link:hover:not(.active) {
+  background: #f2e8e6;
+  color: #752332;
+}
+.sidebar .sidebar-nav .nav-link:hover:not(.active) i { color: #752332; }
+.sidebar .sidebar-nav .nav-link.active,
+.sidebar .sidebar-nav .sub-link.active {
+  background: #752332;
+  color: #fffaf6;
+  box-shadow: none;
+}
+.sidebar .sidebar-nav .nav-link.active i { color: #fffaf6; }
+.sidebar .sidebar-nav :is(.nav-link, .sub-link):focus-visible {
+  outline: 2px solid #a87543;
+  outline-offset: -2px;
+}
+.sidebar .website-config-menu {
+  padding-left: 24px;
+  margin: 0 0 10px 12px;
+  border-left: 1px solid #e5d9d5;
+}
+.sidebar .sidebar-section-label {
+  display: block;
+  padding: 12px 12px 6px;
+  color: #83716e;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+.sidebar .sidebar-section-label:not(:first-child) {
+  margin-top: 8px;
+  border-top: 1px solid #e9dfda;
+}
+.sidebar .website-config-menu .sub-link {
+  border-radius: 7px;
+  padding-left: 12px;
+  margin-bottom: 3px;
+}
+@media (min-width: 721px) and (max-width: 1024px) {
+  body:not(.admin-sidebar-open) .sidebar .sidebar-section-label { display: none; }
+  body:not(.admin-sidebar-open) .sidebar .website-config-menu { border-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar .sidebar-nav :is(.nav-link, .sub-link) { transition: none; }
+}

@@ -420,3 +420,21 @@
     transition: none;
   }
 }
+
+/* Keep the compact mobile wordmark comfortably readable without crowding
+   notification/profile controls. Drawer branding has its own breathing room. */
+@media (max-width: 900px) {
+  .site-header > .logo-container .logo-text {
+    font-size: clamp(14px, 4.05vw, 18px);
+  }
+  .sidebar-logo-container {
+    gap: 14px;
+  }
+  .sidebar-logo-container .header-logo-pair {
+    flex: 0 0 auto;
+    margin-right: 0;
+  }
+  .sidebar-logo-container .logo-text {
+    font-size: clamp(15px, 4.1vw, 18px);
+  }
+}

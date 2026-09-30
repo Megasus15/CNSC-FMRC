@@ -241,7 +241,7 @@
         text(phaseReadout,printing?"PRINTING":complete?"COMPLETE":exiting?"FINISHED":"RESETTING");
       }
       let frame=0,elapsed=0,previous=0,lastPaint=-Infinity,visible=true,scrolling=false,scrollTimer=0;
-      const frameInterval=1000/(window.matchMedia("(pointer: coarse)").matches?24:30);
+      const frameInterval=1000/60;
       const active=()=>scene.dataset.motion==="on"&&!reducedMotion.matches&&!document.hidden&&visible&&!scrolling&&scene.isConnected;
       const tick=now=>{
         frame=0;if(!active()) return;

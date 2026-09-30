@@ -231,3 +231,17 @@
   .fmrc-hero-scene[data-motion="on"] .hp-fan { animation: none; }
   .hp-screen-background, .hp-screen-header, .hp-screen-fill, .hp-screen-progress { transition: none; }
 }
+
+/* Chamber task lights follow the same print lifecycle as the monitor. */
+.hp-worklight-beams, .hp-worklight-lens { color: #80d8f4; }
+.hp-worklight-beams { pointer-events: none; }
+.fmrc-hero-scene[data-print-state="printing"][data-running="true"] .hp-worklight-beams {
+  animation: hp-task-light 3.2s ease-in-out infinite;
+}
+.fmrc-hero-scene:is([data-print-state="complete"], [data-print-state="popout"]) :is(.hp-worklight-beams,.hp-worklight-lens) { color: #88e5ac; }
+.fmrc-hero-scene[data-print-state="resetting"] .hp-worklight-beams { opacity: 0; }
+.fmrc-hero-scene[data-print-state="resetting"] .hp-worklight-lens { color: #56616b; }
+@keyframes hp-task-light { 0%,100% { opacity: .65; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+ .fmrc-hero-scene .hp-worklight-beams { animation: none !important; }
+}

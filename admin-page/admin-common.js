@@ -2267,6 +2267,29 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Keep the longer configuration menu scannable without adding another
+  // accordion level. Reuse existing links so permissions and handlers survive.
+  document.querySelectorAll('a.sub-link[href="website-home.html"]').forEach((homeLink) => {
+    const menu = homeLink.parentElement;
+    if (menu.dataset.grouped === "true") return;
+    menu.dataset.grouped = "true";
+    menu.classList.add("website-config-menu");
+    const groups = [
+      ["Site content", ["home", "about", "services", "contact", "footer"]],
+      ["Settings", ["portals", "payments", "emails", "maintenance"]],
+    ];
+    groups.forEach(([label, routes]) => {
+      const links = routes.map(route => menu.querySelector(`a.sub-link[href="website-${route}.html"]`)).filter(Boolean);
+      if (!links.length) return;
+      const heading = document.createElement("span");
+      heading.className = "sidebar-section-label";
+      heading.textContent = label;
+      menu.appendChild(heading);
+      links.forEach(link => menu.appendChild(link));
+    });
+  });
+  document.querySelectorAll('.sidebar-nav a.active').forEach(link => link.setAttribute("aria-current", "page"));
+
   // Support both admin and staff control button IDs (adminControlBtn, staffControlBtn)
   const controlBtn =
     document.getElementById("adminControlBtn") ||

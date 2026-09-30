@@ -166,6 +166,16 @@ parts.push('<g class="hp-product-slot"></g></g>');
 parts.push(box(335,-10,326,12,14,87,'dark'));
 parts.push(steelRod([341,-3,407],[341,-39,407],7));
 // Reel faces lie in the X/Z plane and inherit its oblique projection.
+// Deep wound core and rear flange, on the same axle as the front flange.
+parts.push(box(329,-8,327,24,19,13,'body'));
+parts.push(bolt(335,11,334,2)+bolt(347,11,334,2));
+parts.push(steelRod([341,-4,370],[341,-39,407],4));
+const rear=P(341,-10,407);
+parts.push(`<g transform="matrix(${axes.xAxis[0]} ${axes.xAxis[1]} 0 -1 ${pt(rear).replace(',',' ')})"><circle r="44" fill="#392332" stroke="#cbb7a1" stroke-width="3"/></g>`);
+for(let y=-12;y>=-29;y-=2){
+ const c=P(341,y,407);
+ parts.push(`<g transform="matrix(${axes.xAxis[0]} ${axes.xAxis[1]} 0 -1 ${pt(c).replace(',',' ')})"><circle r="36" fill="#ad7f48" stroke="#f0cd89" stroke-width="1"/></g>`);
+}
 const spoolCenter=P(341,-30,407);
 parts.push(`<g transform="matrix(${axes.xAxis[0]} ${axes.xAxis[1]} 0 -1 ${pt(spoolCenter).replace(',',' ')})">
  <ellipse cx="-5" cy="0" rx="45" ry="45" fill="#321a29" stroke="#af7881" stroke-width="2"/>
@@ -173,13 +183,41 @@ parts.push(`<g transform="matrix(${axes.xAxis[0]} ${axes.xAxis[1]} 0 -1 ${pt(spo
  ${[18,23,28,33,37].map(r=>`<circle r="${r}" stroke="#d4a16c" stroke-width="1.4" fill="none" opacity=".8"/>`).join('')}
  <circle r="44" fill="none" stroke="#fae3ae" stroke-width="7"/>
  ${[0,120,240].map(a=>`<path d="M11 0L35 0" transform="rotate(${a})" stroke="#ead5b2" stroke-width="8" stroke-linecap="round"/>`).join('')}
- <circle r="11" fill="#392030" stroke="#f3d494" stroke-width="5"/><circle r="3" fill="#1b1320"/>
+ <circle r="11" fill="#392030" stroke="#f3d494" stroke-width="5"/><circle r="5" fill="#b5a4a3" stroke="#fff0d3" stroke-width="1.5"/><path d="M-2 0H2" stroke="#392030" stroke-width="1.5"/>
  </g>`);
 const feeder=P(316,2,334), spoolExit=P(302,-30,407);
 parts.push(`<path d="M${pt(spoolExit)}C${pt([spoolExit[0]-15,spoolExit[1]+58])} ${pt([feeder[0]-17,feeder[1]-28])} ${pt(feeder)}" stroke="#281725" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M${pt(spoolExit)}C${pt([spoolExit[0]-15,spoolExit[1]+58])} ${pt([feeder[0]-17,feeder[1]-28])} ${pt(feeder)}" stroke="#e8d5ba" stroke-width="3" fill="none" stroke-linecap="round"/>`);
 parts.push(box(302,-1,328,27,21,21,'dark'));
 parts.push(dot([310,20,339],3,'#e4be7b'));
 
+// Recessed swivel lamps sit inside the frame. Each lens plane is perpendicular
+// to its aim vector, so the visible fixture and its beam share the same target.
+const lightTarget=[155,140,225];
+const lamps=[[28,28,331],[322,28,331],[28,228,331],[322,228,331]].map(mount=>{
+ const delta=lightTarget.map((v,i)=>v-mount[i]),length=Math.hypot(...delta);
+ const normal=delta.map(v=>v/length),horizontal=Math.hypot(normal[0],normal[1]);
+ const u=[-normal[1]/horizontal,normal[0]/horizontal,0];
+ const v=[-normal[2]*u[1],normal[2]*u[0],normal[0]*u[1]-normal[1]*u[0]];
+ const center=mount.map((c,i)=>c+normal[i]*10);
+ const face=(c,size)=>[[-1,-1],[1,-1],[1,1],[-1,1]].map(([a,b])=>c.map((n,i)=>n+size*(a*u[i]+b*v[i])));
+ return {mount,normal,center,face};
+});
+parts.push('<g class="hp-worklight-beams" fill="currentColor">');
+for(const {center,face} of lamps){
+ const source=face(center,4),end=face(lightTarget,21);
+ parts.push(poly([source[0],source[1],end[1],end[0]],'currentColor','opacity=".065"'));
+ parts.push(poly([source[3],source[2],end[2],end[3]],'currentColor','opacity=".035"'));
+}
+parts.push('</g>');
+for(const {mount,normal,center,face} of lamps){
+ const rear=center.map((c,i)=>c-normal[i]*7),back=face(rear,7),front=face(center,7);
+ parts.push(box(mount[0]-5,mount[1]-5,mount[2],10,10,7,'dark'));
+ parts.push(steelRod(mount,rear,3));
+ parts.push(poly(back,'#42303b'));
+ for(let i=0;i<4;i++)parts.push(poly([back[i],back[(i+1)%4],front[(i+1)%4],front[i]],i%2?'#211924':'#62505b'));
+ parts.push(poly(front,'#211924','stroke="#9f8b91" stroke-width=".6"'));
+ parts.push(poly(face(center.map((c,i)=>c+normal[i]*.2),4.5),'currentColor','class="hp-worklight-lens"'));
+}
 // X gantry is a distinct Y-translating assembly. Both ends sit on side guides.
 const head={x:146,y:170,z:225};
 parts.push('<g id="hp-gantry" class="hp-gantry">');
