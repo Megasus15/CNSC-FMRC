@@ -161,6 +161,7 @@
       slot.appendChild(trail);
       scene.insertBefore(svg,fallback); scene.dataset.mechanism="ready";
       const PRINT=16000,COMPLETE=2200,EXIT=1100,RESET=1400,CYCLE=PRINT+COMPLETE+EXIT+RESET;
+      const endpoints=PRODUCTS.map(product=>({start:product.profile(0)[0][0],end:product.profile(1)[0][0]}));
       function geometryFor(product,step){
         if(geometryCache.has(step)) return geometryCache.get(step);
         const q=step/BUILD_STEPS;
@@ -193,14 +194,19 @@
         const layerNumber=Math.min(build.layerCount-1,Math.floor(built*build.layerCount));
         const fraction=printing?progress*build.layerCount-layerNumber:1,completedCount=printing?layerNumber:build.layerCount;
         if(completedCount!==shownLayers){layers.forEach((layer,i)=>{layer.style.display=i<completedCount?"":"none";});shownLayers=completedCount;}
-        activeLayer.style.display=printing?"":"none";
+        attr(activeLayer,"display",printing?"inline":"none");
         const geometry=geometryFor(product,step);
         if(geometry!==shownGeometry){
           geometry.surfaces.forEach((d,i)=>attr(activeNodes[i],"d",d));
           attr(trail,"d",geometry.trail); attr(tracePath,"d",geometry.trace);
           shownGeometry=geometry;
         }
-        const builtHeight=built*product.height;
+        // Interpolate the subpixel remainder without rebuilding the cached mesh.
+        // The bed, active surface and deposited filament stay at nozzle height.
+        const builtHeight=(printing?progress:built)*product.height;
+        const surfaceOffset=printing?-(progress-built)*product.height:0;
+        attr(activeLayer,"transform","translate(0 "+surfaceOffset.toFixed(4)+")");
+        attr(trail,"transform","translate(0 "+surfaceOffset.toFixed(4)+")");
         // CoreXY: rails remain fixed; platform/nuts descend on their Z screws.
         const bedOffset=-height+(resetting?product.height*(1-reset):builtHeight);
         attr(platform,"transform","translate(0 "+bedOffset.toFixed(3)+")");
@@ -210,10 +216,10 @@
         const contour=contourAt(geometry,fraction);
         let world=contour.point.map((v,i)=>v+build.center[i]);
         if(!printing){
-          const last=product.profile(1)[0][0].map((v,i)=>v+build.center[i]),park=still?1:ease((t-PRINT)/450);
+          const last=endpoints[index].end.map((v,i)=>v+build.center[i]),park=still?1:ease((t-PRINT)/450);
           world=last.map((v,i)=>lerp(v,build.park[i],park));
           if(resetting){
-            const next=PRODUCTS[(index+1)%PRODUCTS.length].profile(0)[0][0],home=ease((reset-.35)/.65);
+            const next=endpoints[(index+1)%PRODUCTS.length].start,home=ease((reset-.35)/.65);
             world=build.park.map((v,i)=>lerp(v,next[i]+build.center[i],home));
           }
         }
@@ -223,9 +229,9 @@
         const {start,end,control1,control2}=mechanics.feed;
         const hose="M"+ps(start)+"C"+ps(control1)+" "+ps([control2[0]+hx*.6,control2[1]+hy*.6])+" "+ps([end[0]+hx,end[1]+hy]);
         tubes.forEach(tube=>attr(tube,"d",hose));
-        trail.style.strokeDashoffset=String((1-contour.reveal)*100); trail.style.display=printing?"":"none";
+        attr(trail,"stroke-dashoffset",((1-contour.reveal)*100).toFixed(4)); attr(trail,"display",printing?"inline":"none");
         attr(traceCursor,"cx",(43+(world[0]-build.center[0])*.72).toFixed(2));
-        attr(traceCursor,"cy",(41+(world[1]-build.center[1])*.4).toFixed(2)); traceCursor.style.opacity=printing?"1":"0";
+        attr(traceCursor,"cy",(41+(world[1]-build.center[1])*.4).toFixed(2)); attr(traceCursor,"opacity",printing?"1":"0");
         // A restrained completion lift starts only after the carriage clears.
         const pop=complete&&!still?Math.sin(Math.PI*clamp((t-PRINT-500)/950)):0;
         const exit=exiting?ease((t-PRINT-COMPLETE)/EXIT):0,lift=pop*7+exit*20,scale=1+pop*.045-exit*.12;
@@ -240,18 +246,19 @@
         text(progressReadout,Math.floor(progress*100)+"%"); attr(progressFill,"width",(104*progress).toFixed(2));
         text(phaseReadout,printing?"PRINTING":complete?"COMPLETE":exiting?"FINISHED":"RESETTING");
       }
-      let frame=0,elapsed=0,previous=0,lastPaint=-Infinity,visible=true,scrolling=false,scrollTimer=0;
-      const frameInterval=1000/60;
+      // Follow display cadence (including 90/120 Hz) instead of a fixed FPS gate.
+      // Timestamp-based motion keeps the build duration identical at every rate.
+      let frame=0,elapsed=0,previous=0,visible=true,scrolling=false,scrollTimer=0;
       const active=()=>scene.dataset.motion==="on"&&!reducedMotion.matches&&!document.hidden&&visible&&!scrolling&&scene.isConnected;
       const tick=now=>{
         frame=0;if(!active()) return;
         if(previous) elapsed+=Math.min(now-previous,64);
         previous=now;
-        if(now-lastPaint>=frameInterval-.5){paint(elapsed);lastPaint=now-((now-lastPaint)%frameInterval||0);}
+        paint(elapsed);
         frame=requestAnimationFrame(tick);
       };
       const sync=()=>{
-        cancelAnimationFrame(frame);frame=0;previous=0;lastPaint=0;
+        cancelAnimationFrame(frame);frame=0;previous=0;
         if(scene.dataset.motion!=="on"||reducedMotion.matches){elapsed=0;paint(0,true);}
         attr(scene,"data-running",active()?"true":"false");
         if(active()) frame=requestAnimationFrame(tick);

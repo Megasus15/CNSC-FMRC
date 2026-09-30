@@ -365,6 +365,28 @@ test('Customer Home 3D printer scene fits desktop and modern iPhones and applies
           trailEnd:{x:trailEnd.x,y:trailEnd.y}, endpoints,
           fan:getComputedStyle(scene.querySelector('.hp-fan')).animationName};
       })()`;
+      // Synthetic display cadence verifies eligibility, not hardware FPS.
+      for (const hz of [60,90,120]) {
+        await evaluate("document.getElementById('heroPrinterScene').dataset.motion = 'off'");
+        await evaluate("document.getElementById('heroPrinterScene').dataset.motion = 'on'");
+        await waitFor("document.getElementById('heroPrinterScene').dataset.running === 'true'");
+        const cadence = await evaluate(`(() => {
+          const scene=document.getElementById('heroPrinterScene'), step=1000/${hz};
+          window.__heroTestClock.advance(step);
+          let changed=0,last=+scene.dataset.printProgress;
+          for(let i=0;i<${hz};i++) {
+            window.__heroTestClock.advance(step);
+            const next=+scene.dataset.printProgress;
+            if(next>last) changed++;
+            last=next;
+          }
+          return {changed,progress:last};
+        })()`);
+        assert.equal(cadence.changed,hz, 'every supplied '+hz+' Hz frame updates the print');
+        assert.ok(Math.abs(cadence.progress-1/16)<.0001, 'build speed is independent of refresh rate');
+      }
+      await evaluate("document.getElementById('heroPrinterScene').dataset.motion = 'off'");
+      await evaluate("document.getElementById('heroPrinterScene').dataset.motion = 'on'");
       const samples = [];
       const captured = new Set();
       const completionSamples = new Map();

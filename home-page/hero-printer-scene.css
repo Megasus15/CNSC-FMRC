@@ -245,3 +245,32 @@
 @media (prefers-reduced-motion: reduce) {
  .fmrc-hero-scene .hp-worklight-beams { animation: none !important; }
 }
+
+/* Home phone headline: generous type, a consistent left edge and natural
+   wrapping for both short copy and the administrator's custom line breaks. */
+@media (max-width: 900px), (max-width: 1100px) and (max-height: 520px) and (orientation: landscape) {
+  .hero-section .hero-content-left {
+    align-items: flex-start;
+    text-align: left;
+  }
+  .hero-section .hero-title {
+    width: 100%;
+    max-width: 100%;
+    margin-inline: 0;
+    margin-bottom: 24px;
+    font-size: clamp(30px, 8.4vw, 38px) !important;
+    line-height: 1.1;
+    letter-spacing: -.025em;
+    text-align: left;
+    text-wrap: balance;
+    overflow-wrap: anywhere;
+  }
+  .hero-section .hero-title .hero-research-line {
+    display: inline;
+    white-space: normal;
+  }
+  .hero-section .hero-buttons {
+    align-self: flex-start;
+    margin-inline: 0;
+  }
+}
