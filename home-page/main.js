@@ -208,6 +208,7 @@ const ensureCustomerSystemPopup = () => {
 const showCustomerPopup = (message, options = {}) =>
   new Promise((resolve) => {
     const popup = ensureCustomerSystemPopup();
+    window.clearTimeout(popup.dismissTimer);
     const card = popup.querySelector(".admin-system-popup__card");
     const titleEl = popup.querySelector("#customerSystemPopupTitle");
     const msgEl = popup.querySelector("#customerSystemPopupMessage");
@@ -233,6 +234,7 @@ const showCustomerPopup = (message, options = {}) =>
     if (eyebrowEl) eyebrowEl.textContent = options.eyebrow || tone.eyebrow;
 
     const closePopup = (accepted) => {
+      window.clearTimeout(popup.dismissTimer);
       popup.classList.remove("show");
       resolve(Boolean(accepted));
     };
@@ -267,6 +269,9 @@ const showCustomerPopup = (message, options = {}) =>
     // also removes the old race where the click that opened the popup could close
     // it again on the way back up the tree.
     popup.classList.add("show");
+    if (!isConfirm && Number(options.autoCloseMs) > 0) {
+      popup.dismissTimer = window.setTimeout(() => closePopup(false), Number(options.autoCloseMs));
+    }
 
     if (backdrop) {
       backdrop.onclick = null;
@@ -9339,7 +9344,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         await showCustomerPopup(
           "Your session has expired, so your orders cannot be loaded. You will be taken to the login page.",
-          { title: "Login required" },
+          { title: "Login required", autoCloseMs: 10000 },
         );
         window.location.href = "../customer-auth/auth.html#login";
       };
@@ -10105,7 +10110,7 @@ document.addEventListener("DOMContentLoaded", () => {
           state.token || localStorage.getItem("customer_token") || "";
         if (!token) {
           await showCustomerPopup("Your session has expired. Please login again.", {
-            title: "Login required",
+            title: "Login required", autoCloseMs: 10000,
           });
           return;
         }
@@ -10580,7 +10585,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!token) {
           await showCustomerPopup(
             "Your session has expired. Please login again.",
-            { title: "Login required" },
+            { title: "Login required", autoCloseMs: 10000 },
           );
           return "";
         }

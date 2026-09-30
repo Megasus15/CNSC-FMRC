@@ -438,3 +438,14 @@
     font-size: clamp(15px, 4.1vw, 18px);
   }
 }
+
+/* Customer phone navigation opens and closes immediately, including its scrim. */
+@media (max-width: 1100px) {
+  .mobile-sidebar,
+  .sidebar-backdrop,
+  .mobile-menu-toggle,
+  .mobile-menu-toggle span {
+    transition: none !important;
+    animation: none !important;
+  }
+}

@@ -277,10 +277,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const adminSessionNotice = document.getElementById("adminSessionNotice");
   const adminSessionMessage = document.getElementById("adminSessionMessage");
+  let sessionNoticeTimer = 0;
   const showSessionNotice = (message) => {
     if (!adminSessionNotice || !adminSessionMessage || !message) return;
     adminSessionMessage.textContent = message;
     adminSessionNotice.hidden = false;
+    window.clearTimeout(sessionNoticeTimer);
+    sessionNoticeTimer = window.setTimeout(() => {
+      adminSessionNotice.hidden = true;
+    }, 10000);
   };
   try {
     const redirectedNotice = sessionStorage.getItem("fmrc_admin_session_notice");
