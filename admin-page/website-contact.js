@@ -77,7 +77,7 @@ async function loadSettings() {
     );
   } catch {
     window.showAdminPopup(
-      "Failed to load contact settings. Check backend connection.",
+      "Failed to load contact settings. Please try again.",
     );
   }
 }

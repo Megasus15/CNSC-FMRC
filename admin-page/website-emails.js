@@ -548,6 +548,7 @@ const loadTemplates = async ({ keepActive = true } = {}) => {
       ? data.clearable_parts
       : DEFAULT_CLEARABLE_PARTS.slice();
     state.rows = Array.isArray(data.templates) ? data.templates : [];
+    window.AdminPageNotice.clear("emails");
     state.bySlug = new Map(state.rows.map((row) => [row.slug, row]));
 
     const wanted =
@@ -564,8 +565,9 @@ const loadTemplates = async ({ keepActive = true } = {}) => {
   } catch (error) {
     const message =
       error?.message || "The email templates could not be loaded.";
-    if (list) list.innerHTML = `<p class="et-hint">${escHtml(message)}</p>`;
-    setStatus(message, true);
+    window.AdminPageNotice.show(error, { key: "emails", retry: () => { void loadTemplates(); } });
+    if (list) list.innerHTML = `<p class="et-hint">Notifications unavailable.</p>`;
+    setStatus("Notifications unavailable.", true);
   }
 };
 

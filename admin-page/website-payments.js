@@ -91,6 +91,11 @@
     };
 
     const showError = (message, canRetry) => {
+      if (canRetry) {
+        errorBox.hidden = true;
+        window.AdminPageNotice.show(message, { key: "settings", retry: () => { void load(); } });
+        return;
+      }
       errorText.textContent = message;
       errorBox.hidden = false;
       retry.hidden = !canRetry;
@@ -113,6 +118,7 @@
           changedElsewhere.hidden = true;
         }
         errorBox.hidden = true;
+        window.AdminPageNotice.clear("settings");
       } catch (error) {
         showError(saved ? "Could not refresh saved payment methods. Your selections are still here. Please try again." : error.message, true);
       } finally {

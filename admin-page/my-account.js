@@ -736,7 +736,7 @@
         setRecoveryMeter(0, 0);
         if (recoveryGenerateBtn) recoveryGenerateBtn.disabled = true;
         setRecoveryNote(
-          "Recovery codes are not installed on this server yet — run the pending migration (<strong>php artisan migrate --force</strong>), then refresh this page.",
+          "Recovery codes are temporarily unavailable. Please try again later.",
           "danger",
         );
         return;
@@ -801,7 +801,7 @@
         renderRecoveryStatus(await res.json());
       } catch (e) {
         setRecoveryNote(
-          "Could not reach the server to read the recovery-code status.",
+          "Recovery-code status is temporarily unavailable.",
           "warn",
         );
       }

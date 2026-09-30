@@ -1238,7 +1238,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 200);
       } catch (err) {
         console.error("Archive appointment error:", err);
-        window.showAdminPopup?.("Cannot connect to server.", {
+        window.showAdminPopup?.("Connection lost. Please try again.", {
           title: "Error",
         });
       } finally {
@@ -1304,7 +1304,7 @@ document.addEventListener("DOMContentLoaded", () => {
       window.AdminTableSkeleton?.finish(tableBody);
       if (tableMeta) tableMeta.textContent = "Unable to load appointments.";
       window.showAdminPopup?.(
-        error?.message || "Unable to load appointments from the server.",
+        error?.message || "Unable to load appointments. Please try again.",
         { title: "Load Failed" },
       );
     }
@@ -1777,7 +1777,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 200);
       } catch (err) {
         console.error("Mark complete error:", err);
-        window.showAdminPopup?.("Cannot connect to server.", {
+        window.showAdminPopup?.("Connection lost. Please try again.", {
           title: "Error",
         });
       } finally {

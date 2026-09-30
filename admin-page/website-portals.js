@@ -56,6 +56,11 @@
     const anyDirty = () => PORTALS.some(dirty);
     const resolved = (draft, portal) => appearance.read(Object.fromEntries(fields.map((field) => [appearance.key(portal, field), draft[field]])), portal);
     const showError = (message, canRetry = false) => {
+      if (canRetry) {
+        errorBox.hidden = true;
+        window.AdminPageNotice.show(message, { key: "settings", retry: () => { void load(); } });
+        return;
+      }
       errorText.textContent = message;
       errorBox.hidden = false;
       retry.hidden = !canRetry;
@@ -132,7 +137,7 @@
         return json;
       } catch (error) {
         if (error.name === "AbortError") throw new Error("The request took too long. Please try again.");
-        if (error instanceof TypeError) throw new Error("The server could not be reached. Your draft is kept here. Please try again.");
+        if (error instanceof TypeError) throw new Error("Connection lost. Your draft is kept here. Please try again.");
         throw error;
       } finally { window.clearTimeout(timeout); }
     };
@@ -156,6 +161,7 @@
           }
         });
         errorBox.hidden = true;
+        window.AdminPageNotice.clear("settings");
       } catch (error) {
         showError(error.message || "The saved portal appearance could not be loaded. Please try again.", true);
       } finally {

@@ -1862,7 +1862,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 200);
     } catch (err) {
       console.error("Save product error:", err);
-      window.showAdminPopup?.("Cannot connect to server.", { title: "Error" });
+      window.showAdminPopup?.("Connection lost. Please try again.", { title: "Error" });
     } finally {
       btnSaveProduct.disabled = false;
       btnSaveProduct.innerHTML =
@@ -2071,7 +2071,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 200);
     } catch (err) {
       console.error("Update product error:", err);
-      window.showAdminPopup?.("Cannot connect to server.", { title: "Error" });
+      window.showAdminPopup?.("Connection lost. Please try again.", { title: "Error" });
     } finally {
       btnUpdateProduct.disabled = false;
       btnUpdateProduct.innerHTML =
@@ -2125,7 +2125,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 200);
     } catch (err) {
       console.error("Delete product error:", err);
-      window.showAdminPopup?.("Cannot connect to server.", { title: "Error" });
+      window.showAdminPopup?.("Connection lost. Please try again.", { title: "Error" });
     } finally {
       btnConfirmProductDelete.disabled = false;
       btnConfirmProductDelete.textContent = "Delete Product";

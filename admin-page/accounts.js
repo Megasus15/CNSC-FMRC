@@ -562,7 +562,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!state.requestsInstalled) {
       requestsTableBody.innerHTML = emptyRow(
         REQUEST_COLUMNS,
-        "Account requests are not enabled on this server yet. Run the database install script, then reload this page.",
+        "Account requests are temporarily unavailable.",
         { icon: "fa-solid fa-circle-info" },
       );
     } else if (!paged.length) {
@@ -580,7 +580,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (requestsTableMeta) {
       requestsTableMeta.textContent = !state.requestsInstalled
-        ? "Account requests are not installed on this server yet."
+        ? "Account requests are temporarily unavailable."
         : `Showing ${totalRows ? start + 1 : 0}-${Math.min(start + state.pageSize, totalRows)} of ${totalRows} requests`;
     }
 
@@ -966,7 +966,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       console.error("Failed to create account:", error);
       updateFormStatus(
-        "Unable to connect to server. Please check your internet connection and try again.",
+        "Connection lost. Please try again.",
         true,
       );
     } finally {

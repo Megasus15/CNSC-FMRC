@@ -1058,7 +1058,7 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Load stock rules error:", err);
       if (!silent) {
         showPopup(
-          "Could not load the stock level rules. Please try again once the server is reachable.",
+          "Unable to load stock rules. Please try again.",
           { title: "Stock Rules" },
         );
       }
@@ -1495,7 +1495,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }, 200);
     } catch (err) {
       console.error("Save inventory error:", err);
-      showPopup("Cannot connect to server.", { title: "Error" });
+      showPopup("Connection lost. Please try again.", { title: "Error" });
     } finally {
       btnSaveForm.disabled = false;
       btnSaveForm.innerHTML = isEditing
@@ -1941,7 +1941,7 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     } catch (err) {
       console.error("Deduct error:", err);
-      showPopup("Cannot connect to server.", { title: "Error" });
+      showPopup("Connection lost. Please try again.", { title: "Error" });
     } finally {
       btnSaveDeduct.disabled = false;
       btnSaveDeduct.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save';
@@ -2758,7 +2758,7 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     } catch (err) {
       console.error("Save stock rules error:", err);
-      showPopup("Cannot connect to server.", { title: "Error" });
+      showPopup("Connection lost. Please try again.", { title: "Error" });
     } finally {
       btnSaveStockRules.disabled = false;
       btnSaveStockRules.innerHTML = originalHtml;

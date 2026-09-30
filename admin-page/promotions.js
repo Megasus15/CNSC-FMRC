@@ -841,7 +841,7 @@ document.addEventListener("DOMContentLoaded", () => {
             '<span class="field-hint">Unable to load products.</span>';
         }
       }
-      showError(error);
+      if (!window.AdminPageNotice.active) window.AdminPageNotice.show(error);
     }
   }
 

@@ -286,7 +286,7 @@ async function loadServices() {
     renderCards();
   } catch {
     grid.innerHTML =
-      '<p class="empty-state">Failed to load services. Check backend connection.</p>';
+      '<p class="empty-state">Failed to load services. Please try again.</p>';
   }
 }
 

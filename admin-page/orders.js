@@ -777,13 +777,9 @@ document.addEventListener("DOMContentLoaded", () => {
       let message =
         data.message || `Request failed with status ${response.status}.`;
 
-      // Laravel answers a 500 with a bare {"message":"Server Error"} whenever
-      // APP_DEBUG is off, which is what this modal used to show - a string that
-      // tells whoever is reading it nothing at all. The usual cause is deployed
-      // code running ahead of the database, so point at that instead of leaving
-      // the reader with two words.
+      // Keep infrastructure diagnostics out of user-facing feedback.
       if (response.status >= 500) {
-        message = `${message} (HTTP ${response.status}) — the server could not build this response. If the site was updated recently, its database migrations may still be pending.`;
+        message = "Temporarily unavailable. Please try again.";
       }
 
       const error = new Error(message);
@@ -2413,12 +2409,14 @@ document.addEventListener("DOMContentLoaded", () => {
       refreshPaymentsFromDirectory();
       mapOrderById();
       renderAll();
+      window.AdminPageNotice.clear("orders");
       state.lastSyncAt = Date.now();
     } catch (error) {
       if (error?.isCancelled) {
         return;
       }
 
+      window.AdminPageNotice.show(error, { key: "orders", retry: () => { void syncOrders(true, { source: "manual" }); } });
       const status = Number(error?.status || 0);
       if (status === 401 || status === 403) {
         showPopup("Session expired or unauthorized. Please login again.", {
@@ -2431,7 +2429,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (showErrorPopup && source === "manual") {
-        showPopup(error.message || "Unable to load orders from the server.", {
+        showPopup(error.message || "Unable to load orders. Please try again.", {
           title: "Sync Failed",
         });
       } else {

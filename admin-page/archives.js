@@ -769,7 +769,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const setError = (message) => {
     Object.values(moduleConfig).forEach((config) => {
       if (!config.tbody) return;
-      config.tbody.innerHTML = emptyRow(config.colCount, message, {
+      config.tbody.innerHTML = emptyRow(config.colCount, "Records temporarily unavailable.", {
         icon: "fa-solid fa-triangle-exclamation",
         tone: "error",
       });

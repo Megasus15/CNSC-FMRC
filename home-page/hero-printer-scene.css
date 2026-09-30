@@ -278,3 +278,56 @@
 @media (max-width: 900px), (max-width: 1100px) and (max-height: 520px) and (orientation: landscape) {
   .hero-section .hero-title .hero-service-line { white-space: nowrap; }
 }
+/* A centered closing band connects the supported goals to the next section. */
+.hero-section:has(.hero-community) {
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(28px, 4vw, 48px);
+  min-height: calc(100svh - var(--ux-header-h, 76px));
+  padding-bottom: clamp(24px, 4vw, 44px);
+}
+.hero-section:has(.hero-community) .hero-container { margin-bottom: 0; }
+.hero-section .hero-community {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  max-width: 720px;
+  margin-inline: auto;
+  text-align: center;
+}
+.hero-section .hero-community .hero-sdg-strip {
+  position: static;
+  width: 100%;
+  margin: 0;
+  --sdg-gap: clamp(8px, 1.6vw, 14px);
+}
+.hero-community .hero-sdg-rows { display: flex; flex-flow: row wrap; justify-content: center; gap: var(--sdg-gap); }
+.hero-community .hero-sdg-row { display: contents; }
+.hero-community .hero-sdg-item { flex: 0 0 clamp(44px, 7vw, 64px); width: auto; max-width: none; }
+.hero-community .hero-sdg-caption { text-align: center; margin-top: 12px; text-wrap: balance; }
+.hero-section .hero-community .scroll-indicator {
+  position: static;
+  transform: none;
+  animation: none;
+  flex-direction: row;
+  margin: 0;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid rgb(255 255 255 / 24%);
+}
+.hero-community .scroll-icon { margin: 0; }
+@media (max-width: 480px) {
+  .hero-section .hero-community { max-width: 320px; gap: 14px; }
+  .hero-community .hero-sdg-item { flex-basis: 48px; }
+  .hero-community .hero-sdg-rows { max-width: 256px; margin-inline: auto; }
+}
+/* The artwork no longer needs a downward nudge into the old SDG tail. */
+.hero-section:has(.hero-community) .hero-content-right .fmrc-hero-scene { top: 0; }

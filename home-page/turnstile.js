@@ -123,7 +123,7 @@
 
         const widgetId = window.turnstile.render(widget, {
           sitekey: siteKey,
-          theme: widget.dataset.theme || "auto",
+          theme: "light",
           size: widget.dataset.size || "flexible",
           callback: (token) => {
             widget.dataset.token = String(token || "");

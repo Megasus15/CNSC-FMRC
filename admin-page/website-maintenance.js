@@ -506,7 +506,7 @@ function paintSummary() {
   }
 
   if (banner) {
-    banner.hidden = false;
+    banner.hidden = Boolean(fault);
     banner.classList.toggle("is-fault", Boolean(fault));
     banner.classList.toggle("is-online", online);
     banner.classList.toggle("is-loading", !fault && !loaded);
@@ -587,8 +587,9 @@ function markDirty() {
  * The controls stay locked in every case: publishing all scopes from a state that
  * never loaded could switch something off that was switched on elsewhere.
  */
-function failLoad(title, html) {
-  fault = { title, html };
+function failLoad(title) {
+  fault = { title: "Temporarily unavailable", html: "Refresh to try again." };
+  window.AdminPageNotice.show(title, { key: "maintenance", retry: () => { void load(); } });
   loaded = false;
   document.getElementById("mtStack")?.classList.add("mt-loading");
   paintAll();
@@ -612,8 +613,7 @@ async function load() {
     });
   } catch {
     failLoad(
-      "Could not reach the server.",
-      ` The request to <code>${esc(API)}/maintenance</code> did not complete, so the switches below are locked. Please check your internet connection and try again, then click Refresh.`,
+      "Connection lost. Please try again.",
     );
     return;
   }
@@ -628,8 +628,7 @@ async function load() {
     // letting the admin trust a form that cannot save.
     if (json && json.installed === false) {
       failLoad(
-        "Maintenance Mode is not installed on this server yet.",
-        ' The database table is missing, so nothing can be taken offline. Run <code>php artisan migrate</code> once on the server, then click Refresh.',
+        "Temporarily unavailable.",
       );
       return;
     }
@@ -646,14 +645,14 @@ async function load() {
     applyPageSnapshot(json.site_page);
 
     fault = null;
+    window.AdminPageNotice.clear("maintenance");
     loaded = true;
     dirty = false;
     document.getElementById("mtStack")?.classList.remove("mt-loading");
     paintAll();
   } catch {
     failLoad(
-      "Could not read the maintenance settings.",
-      ` The server answered <code>HTTP ${esc(res.status)}</code>, so the switches below are locked and nothing can be published by mistake. Click Refresh to try again.`,
+      "Temporarily unavailable.",
     );
   }
 }
@@ -844,6 +843,7 @@ function requestRefresh() {
   if (saving || imageLoading) return;
   const run = () => {
     fault = null;
+    window.AdminPageNotice.clear("maintenance");
     loaded = false;
     document.getElementById("mtStack")?.classList.add("mt-loading");
     paintAll();

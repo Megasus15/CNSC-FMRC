@@ -666,49 +666,14 @@ document.addEventListener("DOMContentLoaded", () => {
     "recent.customer_inquiries": "Recent Customer Inquiries",
   };
 
-  let dashboardNoticeEl = null;
-
-  const ensureDashboardNotice = () => {
-    if (dashboardNoticeEl?.isConnected) return dashboardNoticeEl;
-
-    const anchor = document.querySelector(".dashboard-content .summary-cards");
-    if (!anchor?.parentNode) return null;
-
-    dashboardNoticeEl = document.createElement("div");
-    dashboardNoticeEl.className = "dashboard-data-notice";
-    dashboardNoticeEl.id = "dashboardDataNotice";
-    dashboardNoticeEl.setAttribute("role", "status");
-    dashboardNoticeEl.hidden = true;
-    dashboardNoticeEl.innerHTML = `
-        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
-        <div class="dashboard-data-notice-copy">
-          <strong class="dashboard-data-notice-title"></strong>
-          <span class="dashboard-data-notice-text"></span>
-        </div>
-        <button type="button" class="btn-admin btn-secondary dashboard-data-notice-retry">
-          <i class="fa-solid fa-arrows-rotate"></i> Retry
-        </button>`;
-    anchor.parentNode.insertBefore(dashboardNoticeEl, anchor);
-    dashboardNoticeEl
-      .querySelector(".dashboard-data-notice-retry")
-      ?.addEventListener("click", () => {
-        void syncDashboardData({ force: true, source: "manual" });
-      });
-
-    return dashboardNoticeEl;
-  };
-
   const showDashboardNotice = (title, text) => {
-    const notice = ensureDashboardNotice();
-    if (!notice) return;
-    notice.querySelector(".dashboard-data-notice-title").textContent = title;
-    notice.querySelector(".dashboard-data-notice-text").textContent = text;
-    notice.hidden = false;
+    window.AdminPageNotice.show(text || title, {
+      key: "dashboard",
+      retry: () => { void syncDashboardData({ force: true, source: "manual" }); },
+    });
   };
 
-  const hideDashboardNotice = () => {
-    if (dashboardNoticeEl) dashboardNoticeEl.hidden = true;
-  };
+  const hideDashboardNotice = () => window.AdminPageNotice.clear("dashboard");
 
   // "Total Revenue, Sales by Category and 1 more" — four revenue terms share one
   // card, so the keys are de-duplicated by label before being counted.
@@ -794,14 +759,14 @@ document.addEventListener("DOMContentLoaded", () => {
    */
   const plainDashboardReason = (message) => {
     const raw = String(message || "").trim();
-    if (!raw) return "The server could not build the dashboard summary.";
+    if (!raw) return "Dashboard temporarily unavailable.";
 
     if (/SQLSTATE|Base table or view not found|doesn't exist|SQL:/i.test(raw)) {
       console.warn("[dashboard] summary failed:", raw);
-      return "The server could not read one of the dashboard tables.";
+      return "Some dashboard data is unavailable.";
     }
 
-    return raw;
+    return window.AdminPageNotice.describe(raw);
   };
 
   /**
@@ -961,9 +926,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const timeoutError = new Error(
-          "Request timed out. Please check your network and backend server.",
+          "Request timed out. Please try again.",
         );
         timeoutError.code = "TIMEOUT";
+        showDashboardNotice("Request timed out.", timeoutError.message);
         throw timeoutError;
       }
       throw error;
@@ -1632,8 +1598,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (unavailableSections.length) {
       const affected = describeUnavailableSections(unavailableSections);
       showDashboardNotice(
-        "Some dashboard figures are unavailable on this server.",
-        `${affected} could not be read on this server, so ${unavailableSections.length === 1 ? "that figure is" : "those figures are"} shown as unavailable. Everything else on this page is live.`,
+        "Some dashboard figures are unavailable.",
+        `${affected} temporarily unavailable.`,
       );
     } else {
       hideDashboardNotice();
@@ -1748,7 +1714,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         renderDashboardSummaryUnavailable(
           summaryFailure?.code === "TIMEOUT"
-            ? "The server took too long to answer."
+            ? "Request timed out."
             : plainDashboardReason(summaryFailure?.message),
         );
       }
@@ -1778,8 +1744,8 @@ document.addEventListener("DOMContentLoaded", () => {
           total_inventory_items: null,
         });
         const reason =
-          error?.message || "Please check your network and backend server.";
-        renderDashboardSyncError(reason);
+          error?.message || "Connection lost. Please try again.";
+        renderDashboardSyncError(window.AdminPageNotice.describe(reason));
         showDashboardNotice("The dashboard could not be loaded.", reason);
       }
     } finally {

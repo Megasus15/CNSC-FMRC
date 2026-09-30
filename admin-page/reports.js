@@ -1163,7 +1163,7 @@
 
       if (!response.ok) {
         const error = new Error(
-          payload?.message || "Unable to load this report from the server.",
+          payload?.message || "Unable to load this report. Please try again.",
         );
         error.status = response.status;
         error.code = payload?.code || payload?.error?.code || "";
@@ -1219,6 +1219,7 @@
         state.activeParams = copyReportFilters(params);
         if (!preserveCurrentPage) state.currentPage = 1;
         window.AdminLiveData?.setAvailability?.("reports-data", true);
+        window.AdminPageNotice.clear("reports");
         hidePageMessage();
         renderReport();
         elements.lastUpdated.textContent = formatDateValue(synchronizedAt, true);
@@ -1241,14 +1242,15 @@
         }
         return true;
       } catch (error) {
-        const message = error?.message || "Unable to synchronize report data.";
+        const message = window.AdminPageNotice.describe(error);
+        window.AdminPageNotice.show(error, { key: "reports" });
         if (![400, 409, 422].includes(Number(error?.status))) {
           window.AdminLiveData?.setAvailability?.("reports-data", false);
         }
         if (hadGoodData) {
-          showPageMessage(`${message} Showing the last successfully loaded report.`);
+          showPageMessage("Showing the last loaded report.");
         } else {
-          showPageMessage(message, "error");
+          showPageMessage("");
           renderInitialError(message);
         }
 

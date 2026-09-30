@@ -1,3 +1,70 @@
+// One viewport notice for page-data failures in both Admin and Staff.
+(() => {
+  const failures = new Map();
+  let bar, copy, retry, spacer;
+  const describe = (error) => {
+    const status = Number(error?.status);
+    const text = String(error?.message || error || '');
+    if (navigator.onLine === false) return 'Offline. Check connection.';
+    if (status === 408 || status === 504 || /timeout|timed out|too long/i.test(text)) return 'Request timed out.';
+    if (status === 401 || status === 419) return 'Session expired. Sign in again.';
+    if (status === 403) return 'Access denied.';
+    if (status === 404) return 'Data not found.';
+    if (status === 429) return 'Too many requests. Try later.';
+    if (status >= 500) return 'Temporarily unavailable.';
+    if (/failed to fetch|network|connection|load failed/i.test(text)) return 'Connection lost. Try again.';
+    if (error instanceof SyntaxError) return 'Unable to load. Try again.';
+    return 'Temporarily unavailable.';
+  };
+  const render = () => {
+    if (!document.body) return;
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'adminPageLoadNotice';
+      bar.className = 'admin-page-load-notice';
+      bar.hidden = true;
+      bar.innerHTML = `<div class="admin-page-load-notice__inner">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 4.5 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 4.5a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4m0 4h.01"/></svg>
+        <span class="admin-page-load-notice__copy" role="status" aria-live="polite" aria-atomic="true"></span>
+        <button type="button" class="admin-page-load-notice__retry">Retry</button>
+        <button type="button" class="admin-page-load-notice__close" aria-label="Dismiss page loading notice">&#215;</button>
+      </div>`;
+      copy = bar.querySelector('.admin-page-load-notice__copy');
+      retry = bar.querySelector('.admin-page-load-notice__retry');
+      bar.querySelector('.admin-page-load-notice__close').onclick = () => { failures.clear(); render(); };
+      spacer = document.createElement('div');
+      spacer.className = 'admin-page-load-notice-space';
+      spacer.setAttribute('aria-hidden', 'true');
+      document.body.append(spacer, bar);
+      new ResizeObserver(() => {
+        const height = `${bar.hidden ? 0 : bar.getBoundingClientRect().height}px`;
+        spacer.style.height = height;
+        document.body.style.setProperty('--admin-page-notice-height', height);
+      }).observe(bar);
+    }
+    const entries = [...failures.values()];
+    const entry = entries.findLast(item => describe(item.error) !== 'Temporarily unavailable.') || entries.at(-1);
+    bar.hidden = !entry;
+    spacer.style.height = entry ? `${bar.getBoundingClientRect().height}px` : '0px';
+    if (!entry) return;
+    const message = describe(entry.error);
+    if (copy.textContent !== message) copy.textContent = message;
+    const action = entries.findLast(item => typeof item.retry === 'function')?.retry;
+    retry.hidden = !action;
+    retry.onclick = action || null;
+  };
+  window.AdminPageNotice = {
+    show(error, options = {}) {
+      failures.set(options.key || 'page', { error, retry: options.retry });
+      render();
+    },
+    clear(key = 'page') { failures.delete(key); render(); },
+    describe,
+    get active() { return failures.size > 0; },
+  };
+  document.addEventListener('DOMContentLoaded', () => { if (failures.size) render(); }, { once: true });
+})();
+
 // Execute as early as possible to prevent initial CSS transitions flashing
 if (document.body) {
   document.body.classList.add("no-transitions");
@@ -655,11 +722,19 @@ document.documentElement.classList.add("fmrc-admin-portal");
     if (!request) return nativeFetch.apply(this, args);
 
     const id = begin();
+    const noticeKey = `request:${request.path.split('?')[0]}`;
+    const pageRead = request.method === "GET" && !/\/(site-favicon|session)(?:[/?]|$)/i.test(request.path);
+    const reportFailure = (error) => {
+      // Intentional cancellation is not a failed load. Page timeout handlers
+      // report their own timeout once they distinguish it from cancellation.
+      if (pageRead && error?.name !== "AbortError") window.AdminPageNotice.show(error, { key: noticeKey });
+    };
     let promise;
     try {
       promise = nativeFetch.apply(this, args);
     } catch (error) {
       fail(id, error);
+      reportFailure(error);
       throw error;
     }
 
@@ -667,6 +742,10 @@ document.documentElement.classList.add("fmrc-admin-portal");
       (response) => {
         if (response?.ok || response?.status === 304) {
           succeed(id);
+          if (pageRead) {
+            window.AdminPageNotice.clear(noticeKey);
+            window.AdminPageNotice.clear("page");
+          }
           const scope = mutationScope(request);
           if (scope) publish(scope, { source: "api" });
         } else if ([400, 409, 422].includes(Number(response?.status))) {
@@ -676,9 +755,11 @@ document.documentElement.classList.add("fmrc-admin-portal");
         } else {
           serverFailure(id);
         }
+        if (!response?.ok && response?.status !== 304) reportFailure(response);
         return response;
       },
       (error) => {
+        reportFailure(error);
         fail(id, error);
         throw error;
       },
@@ -4036,6 +4117,13 @@ document.addEventListener("DOMContentLoaded", () => {
   window.showAdminSuccessNotification = showAdminSuccessNotification;
 
   window.showAdminPopup = (message, options = {}) => {
+    if (!options.onOk && (/load failed|sync failed/i.test(options.title || "") || /(?:failed|unable|could not) to (?:load|fetch)|could not be loaded/i.test(String(message)))) {
+      if (!window.AdminPageNotice.active) window.AdminPageNotice.show(message);
+      return;
+    }
+    if (/SQLSTATE|Laravel|php artisan|database|backend|\bHTTP\s*\d|\bserver\b/i.test(String(message))) {
+      message = window.AdminPageNotice.describe(message);
+    }
     if (shouldUseAdminSuccessNotification(message, options)) {
       showAdminSuccessNotification(message, { title: "Success!" });
       if (typeof options.onOk === "function") {
@@ -4555,7 +4643,7 @@ document.addEventListener("DOMContentLoaded", () => {
         bar.classList.add("is-docked");
         bar.style.left = `${Math.max(12, slotRect.left)}px`;
         bar.style.width = `${Math.max(0, slotRect.width)}px`;
-        bar.style.bottom = "20px";
+        bar.style.bottom = "calc(20px + var(--admin-page-notice-height, 0px))";
       } else {
         if (bar.parentElement !== slot) slot.appendChild(bar);
         bar.classList.remove("is-docked");

@@ -91,7 +91,7 @@ async function loadSettings() {
     renderQuickLinks();
   } catch {
     window.showAdminPopup(
-      "Failed to load footer settings. Check backend connection.",
+      "Failed to load footer settings. Please try again.",
     );
   }
 }
