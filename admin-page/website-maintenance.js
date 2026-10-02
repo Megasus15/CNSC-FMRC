@@ -83,7 +83,8 @@ const PAGE_DEFAULTS = {
 };
 const PAGE_LIMITS = { eyebrow: 48, headline: 60, headline_accent: 30, supporting_line: 100, image_alt: 120 };
 const PAGE_THEMES = ["cream_maroon", "warm_maroon", "soft_gold"];
-const DEFAULT_IMAGE = "../home-page/maintenance-illustration.svg?v=2.1";
+const DEFAULT_IMAGE = "../home-page/maintenance-illustration.svg?v=2.4";
+const DEFAULT_STILL_IMAGE = "../home-page/maintenance-illustration-still.svg?v=1.0";
 
 /** Keys and default wording mirror MaintenanceSetting::DEFAULTS exactly. */
 const SCOPES = [
@@ -396,6 +397,11 @@ function paintPagePreview() {
   const image = document.getElementById("mtPreviewImage");
   if (image) {
     const source = typeof pendingImage === "string" && pendingImage ? pendingImage : pendingImage === null ? DEFAULT_IMAGE : pageForm.image_url || DEFAULT_IMAGE;
+    const stillSource = document.getElementById("mtPreviewStillImage");
+    if (stillSource) {
+      if (source === DEFAULT_IMAGE) stillSource.setAttribute("srcset", DEFAULT_STILL_IMAGE);
+      else stillSource.removeAttribute("srcset");
+    }
     if (image.getAttribute("src") !== source) image.setAttribute("src", source);
     image.alt = pageForm.image_alt;
   }

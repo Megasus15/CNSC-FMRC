@@ -40,9 +40,13 @@
   var illustrationUrl = (function () {
     var script = document.currentScript;
     return script && script.src
-      ? new URL("maintenance-illustration.svg?v=2.1", script.src).href
-      : "../home-page/maintenance-illustration.svg?v=2.1";
+      ? new URL("maintenance-illustration.svg?v=2.4", script.src).href
+      : "../home-page/maintenance-illustration.svg?v=2.4";
   })();
+  var stillIllustrationUrl = new URL(
+    "maintenance-illustration-still.svg?v=1.0",
+    new URL(illustrationUrl, window.location.href)
+  ).href;
 
   /** Mirrors MaintenanceSetting::DEFAULTS, so a cold cache still reads well. */
   var DEFAULTS = {
@@ -384,6 +388,7 @@
       ".maint-site__rule span{min-width:0;}",
       ".maint-site__rule svg{flex:0 0 19px;width:19px;height:19px;color:#8e3340;}",
       ".maint-site__art{display:flex;align-items:center;justify-content:center;min-width:0;min-height:0;}",
+      ".maint-site__art picture{display:contents;}",
       ".maint-site__art img{display:block;width:100%;height:100%;max-width:720px;max-height:100%;",
       "object-fit:contain;filter:drop-shadow(0 18px 22px rgba(93,35,42,.06));}",
       ".maint-site__foot{display:flex;align-items:center;justify-content:space-between;",
@@ -510,7 +515,9 @@
       '<p class="maint-site__rule">' + MAINT_SVG +
       '<span>Thank you for your patience.</span></p>' +
       '</div></div>' +
-      '<div class="maint-site__art"><img alt="Technician maintaining a website server" /></div>' +
+      '<div class="maint-site__art"><picture>' +
+      '<source media="(prefers-reduced-motion: reduce)" />' +
+      '<img alt="Technician maintaining a website server" /></picture></div>' +
       '</main>' +
       '<div class="maint-site__foot"><span>University of Camarines Norte</span>' +
       '<strong>UCN–FMRC</strong></div>' +
@@ -544,6 +551,10 @@
     supporting.hidden = !sitePage.supporting_line;
     var illustration = screen.querySelector(".maint-site__art img");
     var src = siteImageUrl();
+    // A picture source also respects motion preferences in embedded SVG images.
+    var stillSource = screen.querySelector(".maint-site__art source");
+    if (src === illustrationUrl) stillSource.setAttribute("srcset", stillIllustrationUrl);
+    else stillSource.removeAttribute("srcset");
     if (illustration.src !== src) illustration.src = src;
     illustration.alt = sitePage.image_alt;
     screen.className = "maint-site maint-site--" + sitePage.theme;

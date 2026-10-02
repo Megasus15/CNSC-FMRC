@@ -1921,7 +1921,7 @@
     <!-- Maintenance Mode gate: must run before main.js so the cached snapshot is
          applied before anything that should be hidden can be painted. This one
          stays synchronous for that reason — everything below it is deferred. -->
-    <script src="maintenance-gate.js?v=2.3"></script>
+    <script src="maintenance-gate.js?v=2.6"></script>
     <!-- Deferred as a set, never individually: `defer` only preserves relative
          order among deferred scripts, so leaving any one of these synchronous
          would run it ahead of the others. Both wrap their work in a
