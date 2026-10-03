@@ -26,6 +26,10 @@
  * visible-tab polling, and a fresh check before visitor interactions.
  */
 (function () {
+  // Only the dedicated editor iframe opts into draft rendering. Customer URLs
+  // cannot enable it, and it never reads/writes caches or contacts the API.
+  var previewMode = !!(document.currentScript &&
+    document.currentScript.hasAttribute("data-maintenance-preview"));
   var CACHE_KEY = "fmrc_maintenance_snapshot";
   var SITE_PAGE_CACHE_KEY = "fmrc_maintenance_site_page";
   var CHANNEL = "fmrc-site-settings-realtime";
@@ -528,6 +532,8 @@
 
   function siteImageUrl() {
     if (!sitePage.image_url) return illustrationUrl;
+    if (previewMode && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(sitePage.image_url) &&
+        sitePage.image_url.length <= 1500000) return sitePage.image_url;
     try {
       var url = new URL(sitePage.image_url, window.location.href);
       if (url.protocol === "http:" || url.protocol === "https:") return url.href;
@@ -620,7 +626,7 @@
       }
       if (!siteVisible) {
         siteVisible = true;
-        screen.querySelector("main").focus({ preventScroll: true });
+        if (!previewMode) screen.querySelector("main").focus({ preventScroll: true });
         emitSiteState(true);
       }
       return;
@@ -1180,6 +1186,26 @@
   }
 
   /* -------------------------------------------------------------------- boot */
+
+  if (previewMode) {
+    // Same renderer, media queries, artwork, text fitting and footer as the
+    // public screen. Only draft delivery replaces public maintenance polling.
+    window.addEventListener("message", function (event) {
+      if (window.parent === window || event.source !== window.parent ||
+          event.origin !== window.location.origin ||
+          !event.data || event.data.type !== "fmrc:maintenance-preview") return;
+      sitePage = normaliseSitePage(event.data.site_page);
+      snapshot = normalise({ site_portal: { active: true, message: event.data.message } });
+      syncSiteScreen(true);
+    });
+    window.addEventListener("resize", scheduleSiteFit);
+    if (document.fonts) document.fonts.ready.then(scheduleSiteFit);
+    if (window.parent !== window) window.parent.postMessage(
+      { type: "fmrc:maintenance-preview-ready" },
+      window.location.origin === "null" ? "*" : window.location.origin
+    );
+    return;
+  }
 
   var cached = readCache();
   if (cached) snapshot = normalise(cached);

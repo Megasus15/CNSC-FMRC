@@ -83,8 +83,6 @@ const PAGE_DEFAULTS = {
 };
 const PAGE_LIMITS = { eyebrow: 48, headline: 60, headline_accent: 30, supporting_line: 100, image_alt: 120 };
 const PAGE_THEMES = ["cream_maroon", "warm_maroon", "soft_gold"];
-const DEFAULT_IMAGE = "../home-page/maintenance-illustration.svg?v=2.4";
-const DEFAULT_STILL_IMAGE = "../home-page/maintenance-illustration-still.svg?v=1.0";
 
 /** Keys and default wording mirror MaintenanceSetting::DEFAULTS exactly. */
 const SCOPES = [
@@ -367,6 +365,59 @@ function setImageStatus(message, error = false) {
   status.classList.toggle("is-error", error);
 }
 
+// An actual customer viewport, scaled as a whole to fit the editor column.
+// Changing desktop/mobile never rebuilds the frame or restarts its artwork.
+let previewViewport = "desktop";
+const PREVIEW_VIEWPORTS = { desktop: [1440, 900], mobile: [390, 844] };
+function fitPagePreview() {
+  const host = document.getElementById("mtPagePreview");
+  const stage = document.getElementById("mtPreviewViewport");
+  const frame = document.getElementById("mtPreviewFrame");
+  if (!host || !stage || !frame || !host.clientWidth) return;
+  const [width, height] = PREVIEW_VIEWPORTS[previewViewport];
+  const scale = Math.min(1, host.clientWidth / width);
+  stage.style.width = `${width * scale}px`;
+  stage.style.height = `${height * scale}px`;
+  frame.style.width = `${width}px`;
+  frame.style.height = `${height}px`;
+  frame.style.transform = `scale(${scale})`;
+  document.getElementById("mtPreviewSize").textContent = `${width} ? ${height}`;
+  document.querySelectorAll('[data-maint-preview-view]').forEach(button => {
+    button.setAttribute("aria-pressed", String(button.dataset.maintPreviewView === previewViewport));
+  });
+}
+function sendPagePreview() {
+  const frame = document.getElementById("mtPreviewFrame");
+  if (!frame?.contentWindow) return;
+  const image = typeof pendingImage === "string" && pendingImage ? pendingImage
+    : pendingImage === null ? "" : pageForm.image_url;
+  frame.contentWindow.postMessage({
+    type: "fmrc:maintenance-preview",
+    site_page: { ...pageForm, image_url: image },
+    message: form.site_portal.message,
+  }, location.origin === "null" ? "*" : location.origin);
+}
+function wirePagePreview() {
+  const host = document.getElementById("mtPagePreview");
+  const frame = document.getElementById("mtPreviewFrame");
+  if (!host || !frame) return;
+  document.querySelectorAll('[data-maint-preview-view]').forEach(button => {
+    button.addEventListener("click", () => {
+      previewViewport = button.dataset.maintPreviewView;
+      fitPagePreview();
+    });
+  });
+  frame.addEventListener("load", sendPagePreview);
+  window.addEventListener("message", event => {
+    if (event.source === frame.contentWindow && event.origin === location.origin &&
+        event.data?.type === "fmrc:maintenance-preview-ready") sendPagePreview();
+  });
+  if (typeof ResizeObserver === "function") new ResizeObserver(fitPagePreview).observe(host);
+  window.addEventListener("resize", fitPagePreview);
+  fitPagePreview();
+  sendPagePreview();
+}
+
 function paintPagePreview() {
   Object.keys(PAGE_LIMITS).forEach((field) => {
     const input = document.querySelector(`[data-page-field="${field}"]`);
@@ -377,34 +428,9 @@ function paintPagePreview() {
       counter.classList.toggle("is-max", pageForm[field].length >= PAGE_LIMITS[field]);
     }
   });
-  const text = form.site_portal.message || "";
-  const preview = {
-    mtPreviewEyebrow: pageForm.eyebrow.trim(),
-    mtPreviewHeadline: pageForm.headline.trim() || PAGE_DEFAULTS.headline,
-    mtPreviewAccent: pageForm.headline_accent.trim(),
-    mtPreviewMessage: text.trim() || SCOPES[0].def,
-    mtPreviewSupport: pageForm.supporting_line.trim(),
-  };
-  Object.entries(preview).forEach(([id, value]) => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.textContent = value;
-      el.hidden = !value.trim();
-    }
-  });
   document.getElementById("mtPagePreview")?.setAttribute("data-theme", pageForm.theme);
   document.querySelectorAll('[name="mtPageTheme"]').forEach((input) => { input.checked = input.value === pageForm.theme; });
-  const image = document.getElementById("mtPreviewImage");
-  if (image) {
-    const source = typeof pendingImage === "string" && pendingImage ? pendingImage : pendingImage === null ? DEFAULT_IMAGE : pageForm.image_url || DEFAULT_IMAGE;
-    const stillSource = document.getElementById("mtPreviewStillImage");
-    if (stillSource) {
-      if (source === DEFAULT_IMAGE) stillSource.setAttribute("srcset", DEFAULT_STILL_IMAGE);
-      else stillSource.removeAttribute("srcset");
-    }
-    if (image.getAttribute("src") !== source) image.setAttribute("src", source);
-    image.alt = pageForm.image_alt;
-  }
+  sendPagePreview();
   const fields = document.getElementById("mtPageFields");
   if (fields) fields.disabled = !loaded || !pageInstalled;
   const notice = document.getElementById("mtPageMigrationNotice");
@@ -448,6 +474,7 @@ async function choosePageImage(event) {
 }
 
 function wirePageEditor() {
+  wirePagePreview();
   document.querySelectorAll("[data-page-field]").forEach((input) => {
     input.addEventListener("input", () => {
       pageForm[input.dataset.pageField] = input.value;

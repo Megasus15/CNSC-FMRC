@@ -27,7 +27,7 @@
   function initialize(scene) {
     const machines = new Map();
     let desired = '', current = null, frame = 0, previous = 0, visible = true, scrolling = false, timer = 0, request = 0;
-    const live = () => current && selected(scene) !== 'printer' && scene.dataset.motion !== 'off' && !reduced.matches && !document.hidden && visible && !scrolling && scene.isConnected;
+    const live = () => current && selected(scene) !== 'printer' && scene.dataset.motion !== 'off' && scene.dataset.machinePower !== 'off' && !reduced.matches && !document.hidden && visible && !scrolling && scene.isConnected;
     function build(svg, type) {
       // Separate paint-server IDs when an editor contains more than one scene.
       const prefix = `machine-${++sequence}-`;
@@ -199,7 +199,7 @@
     async function choose() {
       const type=selected(scene);
       scene.setAttribute('aria-label', labels[type]);
-      scene.setAttribute('role','img');
+      scene.setAttribute('role','group');
       if(type===desired) { sync();return; }
       desired=type;
       const revision=++request;
@@ -226,7 +226,7 @@
         console.warn('Hero machine artwork could not be loaded.',error);
       }
     }
-    new MutationObserver(choose).observe(scene,{attributes:true,attributeFilter:['data-machine','data-motion']});
+    new MutationObserver(choose).observe(scene,{attributes:true,attributeFilter:['data-machine','data-motion','data-machine-power']});
     const original=scene.querySelector('.hero-printer-logo');
     if(original) new MutationObserver(logo).observe(original,{attributes:true,attributeFilter:['src']});
     reduced.addEventListener('change',sync);

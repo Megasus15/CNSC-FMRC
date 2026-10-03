@@ -73,14 +73,14 @@
          blocks first paint wherever in the head it sits, and this page's first
          paint is already gated on main.css above it, so these rules are
          guaranteed present the first time anything paints. -->
-    <link rel="stylesheet" href="fmrc-loader.css?v=2.3" />
+    <link rel="stylesheet" href="fmrc-loader.css?v=3.0" />
     <link rel="stylesheet" href="customer-editorial.css?v=1.6" />
     <link rel="stylesheet" href="customer-navbar.css?v=1.9" />
     <link rel="stylesheet" href="customer-footer.css?v=1.8" />
     <link rel="stylesheet" href="announcement-card.css?v=1.0" />
     <link rel="stylesheet" href="customer-button-feedback.css?v=1.0" />
     <link rel="stylesheet" href="customer-mobile.css?v=1.8" />
-    <link rel="stylesheet" href="hero-printer-scene.css?v=2.7" />
+    <link rel="stylesheet" href="hero-printer-scene.css?v=2.8" />
     <script>
       /* Keeps the signature 3D loader on screen for a minimum of 700–900 ms
          (randomised so repeated visits never look mechanical), capped at
@@ -1921,7 +1921,7 @@
     <!-- Maintenance Mode gate: must run before main.js so the cached snapshot is
          applied before anything that should be hidden can be painted. This one
          stays synchronous for that reason — everything below it is deferred. -->
-    <script src="maintenance-gate.js?v=2.6"></script>
+    <script src="maintenance-gate.js?v=2.7"></script>
     <!-- Deferred as a set, never individually: `defer` only preserves relative
          order among deferred scripts, so leaving any one of these synchronous
          would run it ahead of the others. Both wrap their work in a
@@ -1941,8 +1941,9 @@
          button it had before. -->
     <script defer src="fmrc-loader.js?v=2.2"></script>
     <script defer src="page-content.js?v=1.2"></script>
-    <script defer src="hero-printer-scene.js?v=1.9"></script>
-    <script defer src="hero-machine-scenes.js?v=1.1"></script>
+    <script defer src="hero-machine-power.js?v=1.0"></script>
+    <script defer src="hero-printer-scene.js?v=2.0"></script>
+    <script defer src="hero-machine-scenes.js?v=1.2"></script>
     <script defer src="main.js?v=12.0"></script>
     <script defer src="service-dialogs.js?v=1.0"></script>
     <script defer src="customer-announcements.js?v=6.6"></script>

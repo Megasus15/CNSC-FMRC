@@ -369,3 +369,60 @@
 .hero-machine-art[data-phase="resetting"] .hm-worklight-lens { stroke: #56616b; }
 @media (prefers-reduced-motion: reduce) { .hero-machine-art .hm-worklight-beams { animation: none !important; } }
 @media (prefers-reduced-motion: reduce) { .hero-machine-art * { transition: none !important; } }
+
+/* A freestanding rectangular power pedestal shares the machine's projection.
+   Only the cap moves into its housing; the pole and weighted foot stay still. */
+.hero-power-stand {
+  --power-top: #76c99a;
+  --power-face: #268353;
+  --power-side: #155037;
+  --power-rim: #9ad5b0;
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.fmrc-hero-scene[data-machine-power="off"] .hero-power-stand {
+  --power-top: #e69687;
+  --power-face: #b84042;
+  --power-side: #752832;
+  --power-rim: #edb1a5;
+}
+.fmrc-hero-scene > .hero-machine-power {
+  position: absolute;
+  z-index: 4;
+  display: block;
+  width: max(44px, 7%);
+  aspect-ratio: 1;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  appearance: none;
+  background: transparent;
+  box-shadow: none;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.fmrc-hero-scene > .hero-machine-power[hidden] { display: none; }
+.hero-machine-power:focus-visible { outline: 2px solid #f5dfab; outline-offset: 2px; }
+.hero-machine-power:disabled { cursor: default; }
+.hero-machine-power-status {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+/* Switch-off freezes geometry immediately. Only lights and monitor materials
+   settle for 180ms; the workpiece and its progress never disappear or reset. */
+.fmrc-hero-scene[data-power-switching] :is(.hp-worklight-beams, .hm-tool-light, .hm-worklight-beams) { transition: opacity 180ms ease; }
+.fmrc-hero-scene[data-power-switching] :is(.hp-screen-background, .hp-screen-header, .hm-screen-background, .hm-screen-header) { transition: fill 180ms ease; }
+.fmrc-hero-scene[data-machine-power="off"] :is(.hero-printer-mechanism, .hero-machine-art) * { animation-play-state: paused !important; }
+.fmrc-hero-scene[data-machine-power="off"] :is(.hp-worklight-beams, .hm-tool-light, .hm-worklight-beams) { opacity: 0; }
+.fmrc-hero-scene[data-machine-power="off"] :is(.hp-screen-background, .hm-screen-background) { fill: #261f29; }
+.fmrc-hero-scene[data-machine-power="off"] :is(.hp-screen-header, .hm-screen-header) { fill: #55313c; }
+@media (prefers-reduced-motion: reduce) {
+  .fmrc-hero-scene :is(.hp-worklight-beams, .hm-tool-light, .hm-worklight-beams, .hp-screen-background, .hp-screen-header, .hm-screen-background, .hm-screen-header) { transition: none; }
+}

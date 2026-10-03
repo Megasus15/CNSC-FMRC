@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>FMRC refined loader preview</title>
+  <link rel="stylesheet" href="../../home-page/fmrc-loader.css?v=3.0">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #fdfaf6; color: #382c2a; font-family: Montserrat, "Segoe UI", sans-serif; }
+    .preview { padding: 24px; }
+    h1 { margin: 0 0 10px; font-size: 24px; }
+    .note { color: #71635e; max-width: 70ch; line-height: 1.6; }
+    .controls { display: flex; flex-wrap: wrap; align-items: end; gap: 16px; margin: 24px 0; }
+    label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
+    select, button { font: inherit; padding: 10px 12px; border: 1px solid #cbbab0; border-radius: 8px; background: white; color: #6b202b; }
+    button { cursor: pointer; }
+    .canvas { overflow: auto; padding: 1px; }
+    iframe { box-sizing: content-box; display: block; border: 1px solid #dccfc5; background: #fdfaf6; }
+    .sample-page { max-width: 760px; padding: 40px; margin: auto; }
+    .sample-card { padding: 24px; margin: 20px 0; background: #fff; border: 1px solid #e5d9ce; border-radius: 16px; }
+    .inline-stage { min-height: 100dvh; display: grid; place-content: center; gap: 24px; padding: 24px; }
+    .inline-row { display: flex; align-items: center; gap: 14px; padding: 16px; border: 1px solid #dccfc5; border-radius: 12px; font-size: 13px; }
+    .inline-row.wine { background: #6b202b; color: #fff; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main class="preview" id="preview" hidden>
+    <h1>FMRC refined emblem</h1>
+    <p class="note">Live preview of the shared production stylesheet and loader. Choose a presentation and viewport. The animation follows your system’s reduced-motion preference.</p>
+    <div class="controls">
+      <label>Presentation
+        <select id="mode">
+          <option value="fullscreen">Customer sign-in</option>
+          <option value="admin">Admin / Staff navigation</option>
+          <option value="card">Customer action card</option>
+          <option value="inline">Compact inline loaders</option>
+        </select>
+      </label>
+      <label>Viewport
+        <select id="size">
+          <option value="390,844">Phone · 390 × 844</option>
+          <option value="320,568">Small phone · 320 × 568</option>
+          <option value="768,1024">Tablet · 768 × 1024</option>
+          <option value="1440,900">Desktop · 1440 × 900</option>
+          <option value="844,390">Landscape · 844 × 390</option>
+          <option value="568,320">Short landscape · 568 × 320</option>
+        </select>
+      </label>
+      <label>Status text
+        <select id="copy"><option value="normal">Standard</option><option value="long">Long caption and hint</option></select>
+      </label>
+      <button id="restart" type="button">Replay entrance</button>
+    </div>
+    <div class="canvas"><iframe id="stage" title="FMRC loader viewport"></iframe></div>
+    <p class="note">Preview only. No sign-in, navigation, payment, or other API requests are performed. The loader remains visible here for reviewing complete animation cycles.</p>
+  </main>
+  <script src="../../home-page/fmrc-loader.js?v=2.2"></script>
+  <script>
+    (() => {
+      const params = new URLSearchParams(location.search);
+      if (!params.has('stage')) {
+        document.getElementById('preview').hidden = false;
+        const frame = document.getElementById('stage');
+        const mode = document.getElementById('mode');
+        const size = document.getElementById('size');
+        const copy = document.getElementById('copy');
+        function render() {
+          const [width, height] = size.value.split(',');
+          frame.width = width;
+          frame.height = height;
+          frame.src = `${location.pathname}?stage=1&mode=${mode.value}&copy=${copy.value}&replay=${Date.now()}`;
+        }
+        [mode, size, copy].forEach(control => control.addEventListener('change', render));
+        document.getElementById('restart').addEventListener('click', render);
+        render();
+        return;
+      }
+      document.getElementById('preview').remove();
+      const mode = params.get('mode');
+      if (mode === 'inline') {
+        document.body.innerHTML = `<main class="inline-stage">
+          <div class="inline-row" role="status"><span class="fmrc-load-inline" aria-hidden="true"></span>Loading reviews…</div>
+          <div class="inline-row" role="status"><span class="fmrc-load-inline fmrc-load-inline--panel" aria-hidden="true"></span>Preparing your image</div>
+          <div class="inline-row wine" role="status"><span class="fmrc-load-inline" aria-hidden="true"></span>Sending…</div>
+          <div class="inline-row" role="status"><span class="fmrc-load-inline" style="--fmrc-inline-size:16px" aria-hidden="true"></span>Syncing orders</div>
+        </main>`;
+        return;
+      }
+      document.body.innerHTML = '<main class="sample-page"><h1>Welcome to FMRC</h1><div class="sample-card">Your workspace</div><div class="sample-card">Recent activity</div></main>';
+      if (mode === 'admin') document.documentElement.classList.add('fmrc-admin-portal');
+      const long = params.get('copy') === 'long';
+      const caption = long ? 'Preparing your appointment details and available services' : mode === 'admin' ? 'Your dashboard is loading.' : mode === 'card' ? 'Sending your message' : 'Signing you in';
+      const hint = long ? 'Please keep this page open while we finish preparing your information.' : '';
+      window.FMRCLoader.show(caption, hint, { fullscreen: mode === 'fullscreen' });
+    })();
+  </script>
+</body>
+</html>

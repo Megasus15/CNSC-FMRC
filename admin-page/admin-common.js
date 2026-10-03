@@ -131,7 +131,7 @@ document.documentElement.classList.add("fmrc-admin-portal");
     if (window.FMRCLoader) return Promise.resolve(window.FMRCLoader);
     if (loaderPromise) return loaderPromise;
 
-    const styleHref = resolveLoaderAsset("fmrc-loader.css?v=2.2");
+    const styleHref = resolveLoaderAsset("fmrc-loader.css?v=3.0");
     let styleReady = Promise.resolve();
     if (!document.querySelector('link[data-fmrc-admin-loader="styles"]')) {
       const style = document.createElement("link");

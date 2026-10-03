@@ -447,32 +447,15 @@
       .mt-upload-status.is-error { color: #a80f0f; }
       .mt-preview-wrap { min-width: 0; align-self: start; position: sticky; top: 20px; }
       .mt-preview-label { display: flex; gap: 7px; align-items: center; margin: 0 0 10px; color: #6b7280; font-size: 0.76rem; font-weight: 700; }
-      .mt-page-preview {
-        --preview-bg: #fffcf8;
-        --preview-soft: #f9ede9;
-        display: grid;
-        grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-        gap: 16px;
-        align-items: center;
-        background: var(--preview-bg);
-        border: 1px solid #e7dbd2;
-        border-radius: 12px;
-        padding: 30px 22px;
-        min-height: 280px;
-        overflow: hidden;
-      }
-      .mt-page-preview[data-theme="warm_maroon"] { --preview-bg: #f8efec; --preview-soft: #eedad8; }
-      .mt-page-preview[data-theme="soft_gold"] { --preview-bg: #fff9ed; --preview-soft: #f8ebce; }
-      .mt-preview-copy { min-width: 0; position: relative; isolation: isolate; }
-      .mt-preview-copy::before { content: ""; position: absolute; z-index: -1; inset: -20px -10px; border-radius: 50% 40% 46% 35%; background: var(--preview-soft); }
-      .mt-preview-eyebrow { color: #6d2030; font-size: 0.58rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; margin: 0 0 9px; overflow-wrap: anywhere; }
-      .mt-preview-title { color: #6d2030; font-size: clamp(1.15rem, 2vw, 1.75rem); line-height: 1.18; letter-spacing: -0.04em; margin: 0 0 12px; overflow-wrap: anywhere; }
-      .mt-preview-title span { display: block; }
-      .mt-preview-body { color: #635b60; font-size: 0.64rem; line-height: 1.6; margin: 0 0 12px; overflow-wrap: anywhere; }
-      .mt-preview-support { color: #6d2030; font-size: 0.6rem; font-weight: 600; margin: 0; overflow-wrap: anywhere; }
-      .mt-page-preview picture { display: contents; }
-      .mt-page-preview img { width: 100%; max-height: 235px; object-fit: contain; }
-      .mt-page-preview [hidden] { display: none !important; }
+      .mt-preview-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+      .mt-preview-devices { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid #e7dbd2; border-radius: 10px; background: #f8f3ee; }
+      .mt-preview-device { border: 0; border-radius: 7px; padding: 9px 12px; min-height: 40px; background: transparent; color: #71635e; font: inherit; font-size: .75rem; font-weight: 600; cursor: pointer; }
+      .mt-preview-device[aria-pressed="true"] { background: #6b202b; color: white; }
+      .mt-preview-device:focus-visible { outline: 2px solid #6b202b; outline-offset: 3px; }
+      .mt-preview-size { color: #71635e; font-size: .7rem; font-variant-numeric: tabular-nums; }
+      .mt-page-preview { overflow: hidden; border: 1px solid #e7dbd2; border-radius: 12px; background: #eee7e1; }
+      .mt-preview-viewport { position: relative; overflow: hidden; margin: 0 auto; width: 100%; aspect-ratio: 1440 / 900; background: #fcf9f4; }
+      .mt-preview-frame { position: absolute; inset: 0 auto auto 0; display: block; width: 1440px; height: 900px; max-width: none; border: 0; transform-origin: top left; }
       .mt-preview-note { margin: 12px 0 0; font-size: 0.72rem; color: #6b7280; line-height: 1.55; }
       .mt-page-editor-footer { margin-top: 18px; padding-top: 15px; border-top: 1px solid #eee4de; }
       .mt-loading #mtPageFields { opacity: 0.5; pointer-events: none; }
@@ -487,13 +470,10 @@
       @media (max-width: 520px) {
         .wm-section { padding: 18px 16px; }
         .mt-row-msg { padding-left: 0; }
-        .mt-page-preview { padding: 24px 16px; gap: 12px; min-height: 240px; }
-        .mt-page-preview img { max-height: 190px; }
-        .mt-preview-title { font-size: 1.18rem; }
       }
     </style>
     <link rel="stylesheet" href="admin-responsive.css?v=3.2" />
-    <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=2.2" />
+    <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=3.0" />
   </head>
   <body>
     <div class="dashboard-container">
@@ -734,19 +714,19 @@
                 </fieldset>
                 <div class="mt-preview-wrap">
                   <p class="mt-preview-label"><i class="fa-solid fa-eye" aria-hidden="true"></i> Screen Preview</p>
-                  <div class="mt-page-preview" id="mtPagePreview" data-theme="cream_maroon">
-                    <div class="mt-preview-copy">
-                      <p class="mt-preview-eyebrow" id="mtPreviewEyebrow"></p>
-                      <h4 class="mt-preview-title"><span id="mtPreviewHeadline"></span><span id="mtPreviewAccent"></span></h4>
-                      <p class="mt-preview-body" id="mtPreviewMessage"></p>
-                      <p class="mt-preview-support" id="mtPreviewSupport"></p>
+                  <div class="mt-preview-toolbar">
+                    <div class="mt-preview-devices" role="group" aria-label="Customer preview viewport">
+                      <button class="mt-preview-device" type="button" data-maint-preview-view="desktop" aria-pressed="true"><i class="fa-solid fa-desktop" aria-hidden="true"></i> Desktop</button>
+                      <button class="mt-preview-device" type="button" data-maint-preview-view="mobile" aria-pressed="false"><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i> Mobile</button>
                     </div>
-                    <picture>
-                      <source id="mtPreviewStillImage" media="(prefers-reduced-motion: reduce)" srcset="../home-page/maintenance-illustration-still.svg?v=1.0" />
-                      <img id="mtPreviewImage" src="../home-page/maintenance-illustration.svg?v=2.4" alt="Technician maintaining a website server" />
-                    </picture>
+                    <span class="mt-preview-size" id="mtPreviewSize">1440 ? 900</span>
                   </div>
-                  <p class="mt-preview-note">Your edits appear here immediately. Click Save All Changes to publish them for visitors.</p>
+                  <div class="mt-page-preview" id="mtPagePreview">
+                    <div class="mt-preview-viewport" id="mtPreviewViewport">
+                      <iframe class="mt-preview-frame" id="mtPreviewFrame" src="maintenance-preview.html?v=1.0" title="Live customer and guest maintenance screen preview"></iframe>
+                    </div>
+                  </div>
+                  <p class="mt-preview-note">The customer screen is scaled to fit this preview. Edits appear immediately; visitors see them after you click Save All Changes.</p>
                 </div>
               </div>
             </div>
@@ -808,8 +788,8 @@
     <script src="session-helper.js?v=2.3"></script>
     <script src="admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
-    <script src="admin-common.js?v=8.0"></script>
-    <script src="website-maintenance.js?v=2.6"></script>
+    <script src="admin-common.js?v=8.1"></script>
+    <script src="website-maintenance.js?v=2.7"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>

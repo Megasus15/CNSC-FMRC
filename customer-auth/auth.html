@@ -27,7 +27,7 @@
 
     <!-- The shared customer loader uses the homepage hero logo for both
          initial loading and authentication actions. -->
-    <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=2.3" />
+    <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=3.0" />
     <link rel="stylesheet" href="../home-page/portal-auth.css?v=1.4" />
     <script>
       /* Keeps the signature 3D loader on screen for a minimum of 700–900 ms
@@ -854,7 +854,7 @@
     <script src="../home-page/portal-brand.js?v=2.1"></script>
     <!-- Maintenance Mode gate: disables sign-up / sign-in with the admin's own
          wording while those scopes are active. The 503 is still the authority. -->
-    <script src="../home-page/maintenance-gate.js?v=2.6"></script>
+    <script src="../home-page/maintenance-gate.js?v=2.7"></script>
     <!-- Synchronous, and ahead of auth.js, because this page's tail scripts are
          all synchronous: `defer` here would run it after them and after
          DOMContentLoaded, which is later than auth.js's first handler could
