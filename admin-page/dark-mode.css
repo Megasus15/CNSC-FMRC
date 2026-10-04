@@ -1,0 +1,109 @@
+/* Shared Admin/Staff appearance. Auth pages never include this stylesheet. */
+@import url("portal-theme-coverage.css?v=2.1");
+
+html[data-portal] {
+  color-scheme:light;
+  --portal-action:#800000;
+  --portal-action-hover:#650d20;
+  --portal-accent:#800000;
+  --portal-accent-soft:#fbf1f2;
+  --portal-switch-off:#8a8f99;
+  --portal-success:#287345;
+}
+@media screen {
+  html[data-portal][data-theme="dark"] {
+    color-scheme:dark;
+    --primary-color:#efb0bc;
+    --secondary-color:#e5c477;
+    --bg-light:#14171e;
+    --surface:#1e222b;
+    --surface-alt:#252a34;
+    --sidebar-bg:#191d25;
+    --on-primary:#fff4f6;
+    --text-main:#edf0f5;
+    --text-muted:#b7bdc9;
+    --border-color:#3a404d;
+    --hover-bg:#2b303c;
+    --portal-action:#94344a;
+    --portal-action-hover:#aa4058;
+    --portal-accent:#efb0bc;
+    --portal-accent-soft:#34232e;
+    --portal-accent-border:#704353;
+    --portal-success:#89d9ae;
+    --portal-success-soft:#1c342c;
+    --portal-success-border:#3b6753;
+    --portal-warning:#e9cd8d;
+    --portal-warning-soft:#362e20;
+    --portal-warning-border:#6a5836;
+    --portal-info:#9ec8f4;
+    --portal-info-soft:#213044;
+    --portal-info-border:#435d7a;
+    --portal-switch-off:#565e70;
+    --portal-skeleton-low:#292e39;
+    --portal-skeleton-high:#3a4150;
+    --ux-dlg-scrim:#080a10b8;
+    --fmrc-boot-field:#14171e;
+    --fmrc-admin-transition-field:#14171e;
+    background:var(--bg-light);
+  }
+  html[data-portal][data-theme="dark"] body { background:var(--bg-light); color:var(--text-main); }
+  html[data-portal][data-theme="dark"] :is(.sidebar,.sidebar-header,.sidebar-footer) { background:var(--sidebar-bg); border-color:var(--border-color); }
+  html[data-portal][data-theme="dark"] :is(.top-header,.profile-popup,.notification-dropdown,.all-notif-panel,.all-notif-head,.admin-session-warning__dialog,.admin-system-popup__card,.admin-media-viewer-dialog,.admin-media-viewer-head,.modal-card,.wm-modal-card) { background:var(--surface); border-color:var(--border-color); color:var(--text-main); box-shadow:0 16px 44px #00000038; }
+  html[data-portal][data-theme="dark"] .top-header { box-shadow:none; }
+  html[data-portal][data-theme="dark"] .profile-popup::before { background:var(--surface); border-color:var(--border-color); }
+  html[data-portal][data-theme="dark"] :is(.profile-icon,.popup-profile-icon,.account-avatar) { background:var(--portal-accent-soft); color:var(--portal-accent); border-color:var(--portal-accent-border); box-shadow:none; }
+  html[data-portal][data-theme="dark"] :is(.profile-popup-link,.nav-link,.sub-link) { color:var(--text-main); }
+  html[data-portal][data-theme="dark"] :is(.nav-link,.sub-link,.profile-popup-link):hover { background:var(--hover-bg) !important; color:var(--text-main) !important; }
+  html[data-portal][data-theme="dark"] :is(.nav-link,.sub-link).active { background:var(--portal-accent-soft) !important; color:var(--portal-accent) !important; box-shadow:none; }
+  html[data-portal][data-theme="dark"] .nav-link i { color:var(--text-muted); }
+  html[data-portal][data-theme="dark"] .nav-link.active i { color:var(--portal-accent); }
+  html[data-portal][data-theme="dark"] .sidebar-header h2 { color:var(--text-main); }
+  html[data-portal][data-theme="dark"] :is(.admin-sidebar-toggle,.page-btn,.action-icons button,.btn-secondary,.btn-admin.btn-secondary,.report-icon-button) { background:var(--surface-alt) !important; color:var(--text-main) !important; border-color:var(--border-color) !important; }
+  html[data-portal][data-theme="dark"] :is(.btn-secondary,.btn-admin.btn-secondary,.page-btn,.report-icon-button):hover:not(:disabled) { background:var(--hover-bg) !important; color:var(--text-main) !important; border-color:var(--text-muted) !important; }
+  html[data-portal][data-theme="dark"] :is(.btn-admin,.logout-btn):not(.btn-secondary):not(:disabled) { background:var(--portal-action) !important; border-color:var(--portal-action) !important; color:var(--on-primary) !important; }
+  html[data-portal][data-theme="dark"] :is(.btn-admin,.logout-btn):not(.btn-secondary):hover:not(:disabled) { background:var(--portal-action-hover) !important; border-color:var(--portal-action-hover) !important; }
+  html[data-portal][data-theme="dark"] :is(.btn-admin,.page-btn,.action-icons button):disabled { background:var(--surface-alt) !important; color:#9199aa !important; border-color:var(--border-color) !important; box-shadow:none; }
+  html[data-portal][data-theme="dark"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="submit"]),textarea,select) { background:var(--sidebar-bg) !important; color:var(--text-main) !important; border-color:var(--border-color) !important; }
+  html[data-portal][data-theme="dark"] :is(input,textarea)::placeholder { color:#a2aabb; opacity:1; }
+  html[data-portal][data-theme="dark"] :is(input,textarea,select):focus { border-color:var(--portal-accent) !important; }
+  html[data-portal] :is(input[type="checkbox"],input[type="radio"]) { accent-color:var(--portal-action); }
+  html[data-portal][data-theme="dark"] :is(.admin-global-page-skeleton,.admin-products-bootstrap-skeleton) { background:var(--bg-light); }
+  html[data-portal][data-theme="dark"] :is(.admin-global-skeleton-toolbar,.admin-global-skeleton-panel,.admin-global-skeleton-card,.admin-static-table-skeleton-overlay,.report-loading-card) { background:var(--surface) !important; border-color:var(--border-color) !important; }
+  html[data-portal][data-theme="dark"] :is(.admin-global-skeleton-bar,.admin-table-skeleton-bar,.inv-skeleton-cell,.skeleton-cell,.skeleton-text,.skeleton-avatar,.card-value-loading,.report-loading-line,.aov-shimmer-row,.analytics-card-skeleton__label,.analytics-card-skeleton__bar,.analytics-card-skeleton__dot,.analytics-card-skeleton__value,.analytics-card-skeleton__rank,.analytics-card-skeleton__axis span) { background:linear-gradient(90deg,var(--portal-skeleton-low) 25%,var(--portal-skeleton-high) 50%,var(--portal-skeleton-low) 75%) !important; background-size:200% 100% !important; }
+  html[data-portal][data-theme="dark"] :is(.admin-table-skeleton-active .table-footer-meta,.admin-table-skeleton-active .page-number)::after { background:linear-gradient(90deg,var(--portal-skeleton-low),var(--portal-skeleton-high),var(--portal-skeleton-low)); }
+  html[data-portal][data-theme="dark"] .analytics-card-skeleton__ring { border-color:var(--portal-skeleton-high); border-right-color:var(--portal-skeleton-low); }
+  html[data-portal][data-theme="dark"] :is(.revenue-hero__loading-area,.analytics-card-skeleton__area) { fill:var(--portal-skeleton-low) !important; }
+  html[data-portal][data-theme="dark"] :is(.revenue-hero__loading-grid,.analytics-card-skeleton__grid) { stroke:var(--border-color) !important; }
+  html[data-portal][data-theme="dark"] :is(.revenue-hero__loading-stroke,.analytics-card-skeleton__stroke) { stroke:var(--portal-skeleton-high) !important; }
+  html[data-portal][data-theme="dark"] :is(.fmrc-load-boot,.fmrc-load-veil) { background:var(--bg-light) !important; }
+  html[data-portal][data-theme="dark"] .fmrc-load-core { color:var(--text-main); }
+  html[data-portal][data-theme="dark"] .fmrc-load-veil .fmrc-load-core { background:transparent; box-shadow:none; }
+  html[data-portal][data-theme="dark"] :is(.fmrc-load-name,.fmrc-load-caption,.fmrc-load-brand) { color:var(--text-main); }
+  html[data-portal][data-theme="dark"] .fmrc-load-hint { color:var(--text-muted); }
+  html[data-portal][data-theme="dark"] .fmrc-load-rail { background:var(--border-color); }
+  html[data-portal][data-theme="dark"] .admin-page-load-notice { background:#2f202a !important; border-color:var(--portal-accent-border) !important; color:#f6b7c3 !important; }
+  html[data-portal][data-theme="dark"] .admin-page-load-notice button { color:inherit; }
+  html[data-portal][data-theme="dark"] .admin-page-load-notice button:hover { background:var(--portal-accent-soft) !important; }
+  html[data-portal][data-theme="dark"] .admin-success-notification { background:var(--surface) !important; border-color:var(--portal-success-border); }
+  html[data-portal][data-theme="dark"] :is(.admin-session-warning,.modal-overlay,.wm-modal-overlay,.admin-media-viewer-overlay,.admin-system-popup__backdrop) { background:var(--ux-dlg-scrim); }
+  html[data-portal][data-theme="dark"] :is(.account-summary-card,.account-form-card,.recovery-reveal,.wm-section,.payment-settings-card) { background:var(--surface) !important; color:var(--text-main); border-color:var(--border-color); }
+  html[data-portal][data-theme="dark"] :is(.preset-theme-card,.admin-spectator-notice) { background:var(--surface) !important; color:var(--text-main) !important; border-color:var(--border-color) !important; }
+  html[data-portal][data-theme="dark"] .preset-theme-card.active { border-color:var(--portal-accent) !important; }
+  html[data-portal][data-theme="dark"] .admin-spectator-notice strong { color:var(--text-main) !important; }
+  html[data-portal][data-theme="dark"] .admin-spectator-notice__close { color:var(--text-muted) !important; }
+  html[data-portal][data-theme="dark"] .admin-spectator-notice__close:hover { background:var(--hover-bg) !important; }
+  html[data-portal][data-theme="dark"] .recovery-meter { background:var(--hover-bg); }
+  html[data-portal][data-theme="dark"] .account-meta-item { background:var(--surface-alt) !important; border-color:var(--border-color); }
+  html[data-portal][data-theme="dark"] .admin-table tbody tr:hover td { background:var(--hover-bg); }
+  html[data-portal][data-theme="dark"] .admin-table .sticky-action { background:var(--surface) !important; }
+  html[data-portal][data-theme="dark"] .admin-table tbody tr:hover .sticky-action { background:var(--hover-bg) !important; }
+  html[data-portal][data-theme="dark"] :is(.custom-select-list,.custom-select-item,.combobox-list) { background:var(--surface); color:var(--text-main); border-color:var(--border-color); }
+  html[data-portal][data-theme="dark"] :is(.custom-select-item,.combobox-list li):hover { background:var(--hover-bg) !important; }
+  html[data-portal] :is(.card,.metric-card,.analytics-card,.analytics-overview-card,.ratings-stat-card,.wm-service-card,.theme-option-frame):hover { transform:none !important; translate:none !important; }
+  html[data-portal] :is(.notif-read-btn,.notif-del-btn,.notif-mark-all-btn):hover,
+  html[data-portal] .payment-claim-proof a:hover img,
+  html[data-portal] .notif-item.notif-clickable:hover .notif-item-target i { transform:none !important; }
+  html[data-portal][data-table-density="compact"] :is(.admin-table,.inventory-table,.enhanced-table,.analytics-perf-table,.return-items-table) :is(th,td) { padding-block:8px !important; }
+  html[data-portal][data-portal-motion="reduced"] *, html[data-portal][data-portal-motion="reduced"] *::before, html[data-portal][data-portal-motion="reduced"] *::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; }
+  html[data-portal][data-portal-motion="reduced"] .analytics-card-animate { opacity:1 !important; transform:none !important; }
+}

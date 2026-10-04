@@ -10,7 +10,7 @@
     <link rel="icon" type="image/png" href="../images/FMRC%20Brand%20Logo.png?v=1" />
     <link rel="apple-touch-icon" href="../images/FMRC%20Brand%20Logo.png?v=1" />
     <title>Ratings &amp; Feedback | UCN-FMRC Staff</title>
-    <link rel="stylesheet" href="../admin-page/dashboard.css?v=7.3" />
+    <link rel="stylesheet" href="../admin-page/dashboard.css?v=7.4" />
     <link rel="stylesheet" href="../admin-page/admin-modules.css?v=6.7" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
@@ -197,6 +197,9 @@
     </style>
     <link rel="stylesheet" href="../admin-page/admin-responsive.css?v=3.2" />
     <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=3.0" />
+    <!-- Shared authenticated appearance -->
+    <link rel="stylesheet" href="../admin-page/dark-mode.css?v=2.1" />
+    <script src="../admin-page/dark-mode.js?v=2.2"></script>
   </head>
   <body>
     <div class="dashboard-container">
@@ -206,7 +209,7 @@
           <h2>UCN-FMRC</h2>
         </div>
         <nav class="sidebar-nav">
-          <a href="dashboard.html" class="nav-link"><i class="fa-solid fa-house"></i> Dashboard</a>
+          <a href="dashboard.html" class="nav-link"><i class="admin-dashboard-icon" aria-hidden="true"></i> Dashboard</a>
           <a href="inventory.html" class="nav-link"><i class="fa-solid fa-box"></i> Inventory</a>
           <a href="products.html" class="nav-link"><i class="fa-solid fa-tags"></i> Products</a>
           <a href="promotions.html" class="nav-link" title="Promotions &amp; Announcements"><i class="fa-solid fa-bullhorn"></i> Promotions</a>
@@ -230,6 +233,9 @@
           </div>
 
           <a href="archives.html" class="nav-link"><i class="fa-solid fa-box-archive"></i> Archives</a>
+          <a href="settings.html" class="nav-link"
+            ><i class="fa-solid fa-gear"></i> <span class="nav-label">Settings</span></a
+          >
           <a href="my-account.html" class="nav-link"><i class="fa-regular fa-id-card"></i> My Account</a>
         </nav>
         <div class="sidebar-footer">
@@ -258,6 +264,9 @@
                     </div>
                   </div>
                 </div>
+                <a href="settings.html" class="profile-popup-link"
+                  ><i class="fa-solid fa-gear"></i> Settings</a
+                >
                 <a href="my-account.html" class="profile-popup-link"><i class="fa-regular fa-id-card"></i> My Account</a>
                 <hr />
                 <button class="logout-btn popup-logout"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>

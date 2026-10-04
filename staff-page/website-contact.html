@@ -10,7 +10,7 @@
     <link rel="icon" type="image/png" href="../images/FMRC%20Brand%20Logo.png?v=1" />
     <link rel="apple-touch-icon" href="../images/FMRC%20Brand%20Logo.png?v=1" />
     <title>Contact Page Management | UCN-FMRC Staff</title>
-    <link rel="stylesheet" href="../admin-page/dashboard.css?v=7.3" />
+    <link rel="stylesheet" href="../admin-page/dashboard.css?v=7.4" />
     <link rel="stylesheet" href="../admin-page/admin-modules.css?v=6.7" />
     <link
       rel="stylesheet"
@@ -126,6 +126,9 @@
     </style>
     <link rel="stylesheet" href="../admin-page/admin-responsive.css?v=3.2" />
     <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=3.0" />
+    <!-- Shared authenticated appearance -->
+    <link rel="stylesheet" href="../admin-page/dark-mode.css?v=2.1" />
+    <script src="../admin-page/dark-mode.js?v=2.2"></script>
   </head>
   <body>
     <div class="dashboard-container">
@@ -136,7 +139,7 @@
         </div>
         <nav class="sidebar-nav">
           <a href="dashboard.html" class="nav-link"
-            ><i class="fa-solid fa-house"></i> Dashboard</a
+            ><i class="admin-dashboard-icon" aria-hidden="true"></i> Dashboard</a
           >
           <a href="inventory.html" class="nav-link"
             ><i class="fa-solid fa-box"></i> Inventory</a
@@ -178,6 +181,9 @@
           <a href="archives.html" class="nav-link"
             ><i class="fa-solid fa-box-archive"></i> Archives</a
           >
+          <a href="settings.html" class="nav-link"
+            ><i class="fa-solid fa-gear"></i> <span class="nav-label">Settings</span></a
+          >
           <a href="my-account.html" class="nav-link"
             ><i class="fa-regular fa-id-card"></i> My Account</a
           >
@@ -216,6 +222,9 @@
                     </div>
                   </div>
                 </div>
+                <a href="settings.html" class="profile-popup-link"
+                  ><i class="fa-solid fa-gear"></i> Settings</a
+                >
                 <a href="my-account.html" class="profile-popup-link"
                   ><i class="fa-regular fa-id-card"></i> My Account</a
                 >

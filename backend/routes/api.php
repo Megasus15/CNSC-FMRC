@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\OrderReturnController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\ProductAnalyticsController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\PortalPreferenceController;
 use App\Http\Controllers\Api\ProductRatingController;
 use App\Http\Controllers\Api\PromotionController;
 use App\Http\Controllers\Api\PsgcController;
@@ -147,6 +148,8 @@ Route::post('/webhooks/paymongo', [PayMongoWebhookController::class, 'handleWebh
 Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(function () {
     Route::get('/admin/session', [AdminSessionController::class, 'status']);
     Route::post('/admin/session/activity', [AdminSessionController::class, 'activity']);
+    Route::get('/admin/preferences', [PortalPreferenceController::class, 'show']);
+    Route::put('/admin/preferences', [PortalPreferenceController::class, 'update']);
 
     Route::get('/users', [AuthController::class, 'getUsers']);
     Route::post('/users', [AuthController::class, 'adminCreateUser']);

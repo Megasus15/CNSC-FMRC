@@ -146,6 +146,29 @@
   width: 100%;
 }
 
+/* Pagination stays at the card's bottom edge, outside the scrolling records. */
+#productPerformanceCard > .analytics-card-body--table {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-bottom: 0;
+}
+
+#productPerformanceTableWrapper {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+#productPerformanceCard > #productPerformanceFooter {
+  flex: 0 0 auto;
+  margin-top: auto;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border-color);
+  background: var(--surface);
+}
+
 .analytics-card .analytics-dropdown {
   flex: 0 0 auto;
   max-width: 100%;

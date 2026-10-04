@@ -12,6 +12,9 @@ assert(start >= 0 && end > start, 'Shared Website Configuration menu initializer
 
 function menuFor(portal, cachedAdminEntries = false) {
   const menu = {
+    // Destination checks use the existing grouped shell, rather than testing
+    // the separate DOM grouping renderer with a link-only fixture.
+    dataset: { grouped: 'true' },
     links: [],
     querySelector(selector) {
       const href = selector.match(/href="([^"]+)"/)?.[1];

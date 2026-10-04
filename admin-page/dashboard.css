@@ -393,6 +393,22 @@ table tbody > .admin-table-skeleton-row > td,
   transition: color 0.12s ease;
 }
 
+/* Locally bundled asymmetric dashboard panels; uses the same navigation slot. */
+.nav-link i.admin-dashboard-icon {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+}
+.admin-dashboard-icon::before {
+  content: "";
+  display: block;
+  width: 20px;
+  height: 20px;
+  background: currentColor;
+  -webkit-mask: url("assets/icons/dashboard.svg") center / contain no-repeat;
+  mask: url("assets/icons/dashboard.svg") center / contain no-repeat;
+}
+
 .nav-label {
   display: inline-block;
   margin-left: 10px;
@@ -1742,19 +1758,24 @@ table tbody > .admin-table-skeleton-row > td,
   font-weight: 600;
   color: var(--text-main);
   padding: 9px 10px;
-  border-radius: 10px;
-  background: #f8fafc;
-  border: 1px solid #e8edf3;
+  border-radius: 8px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  margin-top: 3px;
   transition:
     background-color 0.2s ease,
-    color 0.2s ease,
-    border-color 0.2s ease;
+    color 0.2s ease;
 }
 
 .profile-popup-link:hover {
   background: #f8e8e8;
   color: var(--primary-color);
-  border-color: #dec8c8;
+}
+
+.profile-popup-link:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
 }
 
 .profile-popup-link i {

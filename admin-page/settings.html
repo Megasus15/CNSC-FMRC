@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#800000" />
+    <link rel="icon" type="image/png" href="../images/FMRC%20Brand%20Logo.png?v=1" />
+    <link rel="apple-touch-icon" href="../images/FMRC%20Brand%20Logo.png?v=1" />
+    <title>Settings &amp; Preferences | UCN-FMRC Admin</title>
+    <link rel="stylesheet" href="dashboard.css?v=7.4" />
+    <link rel="stylesheet" href="admin-modules.css?v=6.7" />
+    <link rel="stylesheet" href="admin-responsive.css?v=3.2" />
+    <link rel="stylesheet" href="settings.css?v=2.0" />
+    <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=3.0" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="dark-mode.css?v=2.1" />
+    <script src="dark-mode.js?v=2.2"></script>
+  </head>
+  <body>
+    <div class="dashboard-container">
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <img src="../images/FMRC Brand Logo.png" alt="FMRC Logo" class="logo" />
+          <h2>UCN-FMRC</h2>
+        </div>
+
+        <nav class="sidebar-nav">
+          <a href="dashboard.html" class="nav-link"
+            ><i class="admin-dashboard-icon" aria-hidden="true"></i> <span class="nav-label">Dashboard</span></a
+          >
+          <a href="inventory.html" class="nav-link"
+            ><i class="fa-solid fa-box"></i> <span class="nav-label">Inventory</span></a
+          >
+          <a href="products.html" class="nav-link"
+            ><i class="fa-solid fa-tags"></i> <span class="nav-label">Products</span></a
+          >
+          <a href="promotions.html" class="nav-link" title="Promotions &amp; Announcements"
+            ><i class="fa-solid fa-bullhorn"></i> <span class="nav-label">Promotions</span></a
+          >
+          <a href="appointments.html" class="nav-link"
+            ><i class="fa-regular fa-calendar-check"></i> <span class="nav-label">Appointment</span></a
+          >
+          <a href="accounts.html" class="nav-link"
+            ><i class="fa-solid fa-users"></i> <span class="nav-label">User Management</span></a
+          >
+          <a href="reports.html" class="nav-link"
+            ><i class="fa-solid fa-chart-line"></i> <span class="nav-label">Reports</span></a
+          >
+          <a href="orders.html" class="nav-link"
+            ><i class="fa-solid fa-box-open"></i> <span class="nav-label">Orders</span></a
+          >
+          <a href="customer-inquiries.html" class="nav-link"
+            ><i class="fa-regular fa-envelope-open"></i> <span class="nav-label">Customer Inquiries</span></a
+          >
+          <a href="ratings.html" class="nav-link"
+            ><i class="fa-solid fa-star"></i> <span class="nav-label">Ratings &amp; Feedback</span></a
+          >
+
+          <div class="nav-item has-dropdown">
+            <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn">
+              <div class="dropdown-title">
+                <i class="fa-solid fa-screwdriver-wrench"></i>
+                <span class="nav-label">Website Management</span>
+              </div>
+              <i class="fa-solid fa-chevron-down arrow"></i>
+            </a>
+            <div class="dropdown-menu">
+              <a href="website-home.html" class="sub-link"><span class="nav-label">Home</span></a>
+              <a href="website-services.html" class="sub-link"><span class="nav-label">Services</span></a>
+              <a href="website-contact.html" class="sub-link"><span class="nav-label">Contact</span></a>
+              <a href="website-footer.html" class="sub-link"><span class="nav-label">Footer</span></a>
+              <a href="website-emails.html" class="sub-link"><span class="nav-label">Email Templates</span></a>
+              <a href="website-maintenance.html" class="sub-link"><span class="nav-label">Maintenance</span></a>
+            </div>
+          </div>
+
+          <a href="archives.html" class="nav-link"
+            ><i class="fa-solid fa-box-archive"></i> <span class="nav-label">Archives</span></a
+          >
+          <a href="settings.html" class="nav-link active"
+            ><i class="fa-solid fa-gear"></i> <span class="nav-label">Settings</span></a
+          >
+          <a href="my-account.html" class="nav-link"
+            ><i class="fa-regular fa-id-card"></i> <span class="nav-label">My Account</span></a
+          >
+        </nav>
+
+        <div class="sidebar-footer">
+          <button class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
+        </div>
+      </aside>
+
+      <!-- MAIN CONTENT -->
+      <main class="main-content">
+        <header class="top-header">
+          <div class="header-left">
+            <h1>Settings</h1>
+          </div>
+          <div class="header-right">
+            <div class="notifications" id="notifBell">
+              <i class="fa-regular fa-bell"></i>
+              <span class="badge" id="notifBadge" style="display: none"></span>
+            </div>
+
+            <div class="user-profile">
+              <div class="user-info">
+                <span class="role">Admin</span>
+              </div>
+              <span
+                class="profile-icon profile-initial"
+                data-email="admin@cnsc.edu.ph"
+              ></span>
+
+              <div class="profile-popup" id="profilePopup">
+                <div class="popup-header">
+                  <div class="popup-profile-row">
+                    <span
+                      class="popup-profile-icon profile-initial"
+                      data-email="admin@cnsc.edu.ph"
+                    ></span>
+                    <div class="popup-profile-meta">
+                      <p class="popup-identity">admin@cnsc.edu.ph</p>
+                      <span class="popup-role">Admin</span>
+                    </div>
+                  </div>
+                </div>
+                <a href="settings.html" class="profile-popup-link"
+                  ><i class="fa-solid fa-gear"></i> Settings</a
+                >
+                <a href="my-account.html" class="profile-popup-link"
+                  ><i class="fa-regular fa-id-card"></i> My Account</a
+                >
+                <hr />
+                <button class="logout-btn popup-logout">
+                  <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section class="module-content portal-settings">
+          <div class="settings-intro">
+            <div><div class="settings-eyebrow">Your workspace</div><h2>Make yourself comfortable</h2><p>Choose an appearance and display preferences that suit the way you work. Every change takes effect immediately.</p></div>
+            <span class="settings-status"><span class="settings-status-dot" aria-hidden="true"></span><span id="settingsStateLabel">Loading preferences</span></span>
+          </div>
+          <section class="settings-section" aria-labelledby="appearanceHeading">
+            <div class="settings-section-heading"><h3 id="appearanceHeading"><i class="fa-solid fa-palette" aria-hidden="true"></i> Appearance</h3><p>A consistent theme for your workspace. These preferences are personal to your account.</p></div>
+            <fieldset class="theme-options"><legend>Choose your appearance</legend><div class="theme-options-grid">
+              <label class="theme-option">
+                  <input type="radio" name="portalTheme" value="light" />
+                  <span class="theme-option-frame">
+                    <span class="theme-preview theme-preview--light" aria-hidden="true">
+                      <span class="theme-preview-sidebar"><span></span><span></span><span></span></span>
+                      <span class="theme-preview-main"><span class="theme-preview-header" style="display:block"></span>
+                        <span class="theme-preview-content" style="display:block"><span class="theme-preview-title" style="display:block"></span>
+                          <span class="theme-preview-cards"><span></span><span></span></span><span class="theme-preview-table" style="display:block"></span>
+                        </span>
+                      </span>
+                    </span>
+                    <span class="theme-option-meta"><span><span class="theme-option-name">Light</span><span class="theme-option-desc">Warm, clear surfaces.</span></span><span class="theme-option-check" aria-hidden="true"></span></span>
+                  </span>
+                </label>
+              <label class="theme-option">
+                  <input type="radio" name="portalTheme" value="dark" />
+                  <span class="theme-option-frame">
+                    <span class="theme-preview theme-preview--dark" aria-hidden="true">
+                      <span class="theme-preview-sidebar"><span></span><span></span><span></span></span>
+                      <span class="theme-preview-main"><span class="theme-preview-header" style="display:block"></span>
+                        <span class="theme-preview-content" style="display:block"><span class="theme-preview-title" style="display:block"></span>
+                          <span class="theme-preview-cards"><span></span><span></span></span><span class="theme-preview-table" style="display:block"></span>
+                        </span>
+                      </span>
+                    </span>
+                    <span class="theme-option-meta"><span><span class="theme-option-name">Dark</span><span class="theme-option-desc">Soft charcoal, gentle contrast.</span></span><span class="theme-option-check" aria-hidden="true"></span></span>
+                  </span>
+                </label>
+              <label class="theme-option">
+                  <input type="radio" name="portalTheme" value="system" />
+                  <span class="theme-option-frame">
+                    <span class="theme-preview theme-preview--system" aria-hidden="true">
+                      <span class="theme-preview-sidebar"><span></span><span></span><span></span></span>
+                      <span class="theme-preview-main"><span class="theme-preview-header" style="display:block"></span>
+                        <span class="theme-preview-content" style="display:block"><span class="theme-preview-title" style="display:block"></span>
+                          <span class="theme-preview-cards"><span></span><span></span></span><span class="theme-preview-table" style="display:block"></span>
+                        </span>
+                      </span>
+                    </span>
+                    <span class="theme-option-meta"><span><span class="theme-option-name">Use device setting</span><span class="theme-option-desc">Follow your device appearance.</span></span><span class="theme-option-check" aria-hidden="true"></span></span>
+                  </span>
+                </label>
+            </div></fieldset>
+            <p class="settings-theme-note" id="settingsCurrentTheme" aria-live="polite"></p>
+          </section>
+          <section class="settings-section" aria-labelledby="displayHeading">
+            <div class="settings-section-heading"><h3 id="displayHeading"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Display &amp; comfort</h3><p>Small adjustments that make everyday tasks easier.</p></div>
+            <div class="settings-rows">
+              <div class="settings-preference-row"><div><label for="settingCompactTables" class="settings-preference-label">Compact tables</label><span id="compactDescription" class="settings-preference-desc">Use closer row spacing across management tables to see more records at once.</span></div><label class="settings-switch"><input id="settingCompactTables" type="checkbox" data-portal-preference="compact" aria-describedby="compactDescription" aria-label="Compact tables" /><span class="settings-switch-track" aria-hidden="true"></span></label></div>
+              <div class="settings-preference-row"><div><label for="settingReducedMotion" class="settings-preference-label">Reduce motion</label><span id="motionDescription" class="settings-preference-desc">Keep loading indicators and transitions still. Your device's reduced motion preference is always respected.</span></div><label class="settings-switch"><input id="settingReducedMotion" type="checkbox" data-portal-preference="reducedMotion" aria-describedby="motionDescription" aria-label="Reduce motion" /><span class="settings-switch-track" aria-hidden="true"></span></label></div>
+            </div>
+          </section>
+          <div class="settings-footer"><p id="settingsSaveStatus" class="settings-save-status" role="status" aria-live="polite"></p><button class="btn-admin btn-secondary" id="settingsResetBtn" type="button"><i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i> Restore defaults</button></div>
+        </section>
+      </main>
+    </div>
+    <script src="session-helper.js?v=2.3"></script>
+    <script src="admin-session.js?v=1.0"></script>
+    <script src="../home-page/fmrc-loader.js?v=2.1"></script>
+    <script src="admin-common.js?v=8.1"></script>
+    <script src="admin-table-resize.js?v=1.4" defer></script>
+    <script src="settings.js?v=2.0"></script>
+  </body>
+</html>
