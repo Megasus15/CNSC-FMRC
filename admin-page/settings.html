@@ -13,14 +13,16 @@
     <link rel="stylesheet" href="dashboard.css?v=7.4" />
     <link rel="stylesheet" href="admin-modules.css?v=6.7" />
     <link rel="stylesheet" href="admin-responsive.css?v=3.2" />
-    <link rel="stylesheet" href="settings.css?v=2.0" />
+    <link rel="stylesheet" href="settings.css?v=3.3" />
     <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=3.0" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
     <link rel="stylesheet" href="dark-mode.css?v=2.1" />
-    <script src="dark-mode.js?v=2.2"></script>
+    <script src="dark-mode.js?v=3.1"></script>
+    <link rel="stylesheet" href="portal-sidebar.css?v=1.1" />
+    <script src="portal-sidebar.js?v=1.0" defer></script>
   </head>
   <body>
     <div class="dashboard-container">
@@ -84,11 +86,11 @@
           <a href="archives.html" class="nav-link"
             ><i class="fa-solid fa-box-archive"></i> <span class="nav-label">Archives</span></a
           >
-          <a href="settings.html" class="nav-link active"
-            ><i class="fa-solid fa-gear"></i> <span class="nav-label">Settings</span></a
-          >
           <a href="my-account.html" class="nav-link"
             ><i class="fa-regular fa-id-card"></i> <span class="nav-label">My Account</span></a
+          >
+          <a href="settings.html" class="nav-link active"
+            ><i class="fa-solid fa-gear"></i> <span class="nav-label">Settings</span></a
           >
         </nav>
 
@@ -133,11 +135,11 @@
                     </div>
                   </div>
                 </div>
-                <a href="settings.html" class="profile-popup-link"
-                  ><i class="fa-solid fa-gear"></i> Settings</a
-                >
                 <a href="my-account.html" class="profile-popup-link"
                   ><i class="fa-regular fa-id-card"></i> My Account</a
+                >
+                <a href="settings.html" class="profile-popup-link"
+                  ><i class="fa-solid fa-gear"></i> Settings</a
                 >
                 <hr />
                 <button class="logout-btn popup-logout">
@@ -157,7 +159,7 @@
             <div class="settings-section-heading"><h3 id="appearanceHeading"><i class="fa-solid fa-palette" aria-hidden="true"></i> Appearance</h3><p>A consistent theme for your workspace. These preferences are personal to your account.</p></div>
             <fieldset class="theme-options"><legend>Choose your appearance</legend><div class="theme-options-grid">
               <label class="theme-option">
-                  <input type="radio" name="portalTheme" value="light" />
+                  <input type="radio" name="portalTheme" value="light" checked />
                   <span class="theme-option-frame">
                     <span class="theme-preview theme-preview--light" aria-hidden="true">
                       <span class="theme-preview-sidebar"><span></span><span></span><span></span></span>
@@ -208,15 +210,57 @@
               <div class="settings-preference-row"><div><label for="settingReducedMotion" class="settings-preference-label">Reduce motion</label><span id="motionDescription" class="settings-preference-desc">Keep loading indicators and transitions still. Your device's reduced motion preference is always respected.</span></div><label class="settings-switch"><input id="settingReducedMotion" type="checkbox" data-portal-preference="reducedMotion" aria-describedby="motionDescription" aria-label="Reduce motion" /><span class="settings-switch-track" aria-hidden="true"></span></label></div>
             </div>
           </section>
+          <section class="settings-section" aria-labelledby="workspaceHeading">
+            <div class="settings-section-heading">
+              <h3 id="workspaceHeading"><i class="fa-solid fa-table-columns" aria-hidden="true"></i> Sidebar &amp; branding</h3>
+              <p>Make this workspace your own. Your logo, title, and desktop sidebar width are personal to your account.</p>
+            </div>
+            <div class="settings-workspace-grid">
+              <div class="settings-brand-controls">
+                <div class="settings-label-row"><label for="settingSidebarLabel">Sidebar title</label><span id="sidebarTitleCount">8 / 18</span></div>
+                <input id="settingSidebarLabel" type="text" maxlength="18" value="UCN-FMRC" autocomplete="off" aria-describedby="sidebarTitleHint" />
+                <p class="field-hint" id="sidebarTitleHint">Up to 18 characters. The title stays neatly on one line.</p>
+                <span class="settings-field-label">Circular logo</span>
+                <div class="settings-logo-actions">
+                  <button class="btn-admin btn-secondary" id="sidebarLogoUpload" type="button"><i class="fa-regular fa-image" aria-hidden="true"></i> Upload</button>
+                  <button class="btn-admin btn-secondary" id="sidebarLogoAdjust" type="button" disabled><i class="fa-solid fa-crop-simple" aria-hidden="true"></i> Adjust</button>
+                  <button class="btn-admin btn-secondary" id="sidebarBrandDefault" type="button"><i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i> Default branding</button>
+                </div>
+                <input id="sidebarLogoInput" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+                <p class="field-hint">PNG, JPG, or WebP, up to 5 MB. Fit your artwork inside the circle before applying it.</p>
+                <p class="settings-field-message" id="sidebarLogoMessage" role="status" aria-live="polite"></p>
+              </div>
+            </div>
+            <div class="settings-sidebar-width">
+              <div class="settings-label-row"><label for="settingSidebarWidth">Desktop sidebar width</label><output id="sidebarWidthValue" for="settingSidebarWidth">270 px</output></div>
+              <input id="settingSidebarWidth" type="range" min="76" max="270" step="1" value="270" aria-describedby="sidebarWidthHint" />
+              <div class="settings-width-ends"><span>Icon rail</span><span>Full width</span></div>
+              <p class="field-hint" id="sidebarWidthHint">Drag the sidebar's right edge to resize, or click it to collapse and reopen. Smaller screens arrange navigation automatically.</p>
+            </div>
+          </section>
           <div class="settings-footer"><p id="settingsSaveStatus" class="settings-save-status" role="status" aria-live="polite"></p><button class="btn-admin btn-secondary" id="settingsResetBtn" type="button"><i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i> Restore defaults</button></div>
         </section>
       </main>
     </div>
+    <dialog class="sidebar-logo-dialog" id="sidebarLogoDialog" aria-labelledby="sidebarLogoDialogTitle">
+      <div class="sidebar-logo-dialog-header"><h3 id="sidebarLogoDialogTitle">Fit your sidebar logo</h3><button class="sidebar-logo-close" id="sidebarLogoClose" type="button" aria-label="Close logo editor">&times;</button></div>
+      <div class="sidebar-logo-dialog-body">
+        <p class="field-hint" id="sidebarLogoEditorHint">Drag to position your artwork. Use the controls to resize and rotate, or focus the preview and use the arrow keys.</p>
+        <div class="sidebar-logo-stage"><canvas id="sidebarLogoCanvas" width="256" height="256" tabindex="0" aria-label="Circular logo editor" aria-describedby="sidebarLogoEditorHint"></canvas></div>
+        <button class="btn-admin btn-secondary" id="sidebarLogoFit" type="button"><i class="fa-solid fa-compress" aria-hidden="true"></i> Fit to circle</button>
+        <div class="settings-label-row"><label for="sidebarLogoZoom">Size</label><output id="sidebarLogoZoomValue">100%</output></div>
+        <input id="sidebarLogoZoom" type="range" min="50" max="300" value="100" />
+        <div class="settings-label-row"><label for="sidebarLogoRotate">Rotation</label><output id="sidebarLogoRotateValue">0&deg;</output></div>
+        <input id="sidebarLogoRotate" type="range" min="-180" max="180" value="0" />
+        <p class="settings-field-message" id="sidebarLogoEditorMessage" role="status" aria-live="polite"></p>
+      </div>
+      <div class="sidebar-logo-dialog-footer"><button class="btn-admin btn-secondary" id="sidebarLogoCancel" type="button">Cancel</button><button class="btn-admin" id="sidebarLogoApply" type="button">Use logo</button></div>
+    </dialog>
     <script src="session-helper.js?v=2.3"></script>
     <script src="admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="admin-common.js?v=8.1"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
-    <script src="settings.js?v=2.0"></script>
+    <script src="settings.js?v=3.2"></script>
   </body>
 </html>

@@ -3,7 +3,7 @@
   "use strict";
   if (!/(?:^|\/)(?:admin-page|staff-page)\//.test(location.pathname) || /maintenance-preview\.html$/.test(location.pathname)) return;
   const root = document.documentElement;
-  const defaults = { theme: "system", compact: false, reducedMotion: false };
+  const defaults = { theme: "light", compact: false, reducedMotion: false, sidebarWidth: 270, sidebarLabel: 'UCN-FMRC', sidebarLogo: '' };
   const role = location.pathname.includes('/staff-page/') ? 'staff' : 'admin';
   const infoKey = `${role}_user_info`, tokenKey = `${role}_auth_token`;
   const modes = ["light", "dark", "system"];
@@ -20,8 +20,12 @@
       ? `${location.protocol}//${location.hostname}:8000/api` : `${location.origin}/api`;
   };
   function normalize(stored) {
+    const label = typeof stored?.sidebarLabel === 'string' ? Array.from(stored.sidebarLabel.replace(/[\u0000-\u001f\u007f]/g, '').trim()).slice(0,18).join('') : '';
     return { theme: modes.includes(stored?.theme) ? stored.theme : defaults.theme,
-      compact: stored?.compact === true, reducedMotion: stored?.reducedMotion === true };
+      compact: stored?.compact === true, reducedMotion: stored?.reducedMotion === true,
+      sidebarWidth: Number.isFinite(stored?.sidebarWidth) ? Math.round(Math.max(76, Math.min(270, stored.sidebarWidth))) : 270,
+      sidebarLabel: label || defaults.sidebarLabel,
+      sidebarLogo: typeof stored?.sidebarLogo === 'string' && stored.sidebarLogo.length <= 400000 && /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(stored.sidebarLogo) ? stored.sidebarLogo : '' };
   }
   function bindAccount() {
     let nextId = '', nextToken = '';
@@ -80,7 +84,11 @@
         saveState = 'saving'; syncControls();
         const result = await request('PUT', snapshot);
         if (owner !== identity || ownerToken !== token || String(result.user_id) !== owner) return;
-        if (revision === version) { pending = false; saveState = 'saved'; cache(); channel?.postMessage({ updated: true }); }
+        if (revision === version) {
+          const confirmed = normalize(result.preferences);
+          if (Object.keys(defaults).some(field => confirmed[field] !== snapshot[field])) throw new Error('Preferences were not confirmed');
+          pending = false; saveState = 'saved'; cache(); channel?.postMessage({ updated: true });
+        }
       }
     } catch (_) { if (owner === identity) saveState = 'offline'; }
     finally { writing = false; syncControls(); if (pending && (owner !== identity || ownerToken !== token)) save(); }
@@ -98,6 +106,9 @@
       if (cachedSnapshot() !== cachedAtRequest) {
         version++; preferences = read(); saveState = pending ? 'saving' : 'saved'; apply();
         return;
+      }
+      if (['sidebarWidth','sidebarLabel','sidebarLogo'].some(field => result.preferences?.[field] === undefined && preferences[field] !== defaults[field])) {
+        pending = true; version++; saveState = 'offline'; cache(); apply(); return;
       }
       preferences = normalize(result.preferences); saveState = 'saved'; cache(); apply();
     } catch (_) { if (owner === identity) { saveState = 'offline'; syncControls(); } }
@@ -160,6 +171,8 @@
     root.dataset.themePreference = preferences.theme;
     root.dataset.tableDensity = preferences.compact ? "compact" : "comfortable";
     root.dataset.portalMotion = preferences.reducedMotion || motion.matches ? "reduced" : "full";
+    root.style.setProperty('--portal-sidebar-width', `${preferences.sidebarWidth}px`);
+    root.dataset.sidebarMode = preferences.sidebarWidth < 180 ? 'rail' : 'expanded';
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.content = root.dataset.theme === "dark" ? "#191d25" : "#800000";
     syncCharts(); syncControls();
@@ -168,11 +181,14 @@
   }
   function set(patch) {
     if (!identity) return;
-    preferences = {
+    preferences = normalize({
       theme: modes.includes(patch.theme) ? patch.theme : preferences.theme,
       compact: typeof patch.compact === "boolean" ? patch.compact : preferences.compact,
       reducedMotion: typeof patch.reducedMotion === "boolean" ? patch.reducedMotion : preferences.reducedMotion,
-    };
+      sidebarWidth: patch.sidebarWidth ?? preferences.sidebarWidth,
+      sidebarLabel: patch.sidebarLabel ?? preferences.sidebarLabel,
+      sidebarLogo: patch.sidebarLogo ?? preferences.sidebarLogo,
+    });
     pending = true; version++; saveState = 'saving'; cache();
     apply(); channel?.postMessage({ updated: true }); save();
   }
