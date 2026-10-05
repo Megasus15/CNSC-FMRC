@@ -694,7 +694,7 @@
     };
 
     // 2. Ensure Bell Button & Wrapper exist ONLY on Customer Pages (NOT Admin/Staff)
-    if (!isAdminOrStaff && !window.FMRCApp?.customerInbox) {
+    if (!isAdminOrStaff) {
       const headerRight = document.querySelector(
         ".header-right-actions, .header-right, .nav-right",
       );

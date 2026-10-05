@@ -162,7 +162,7 @@
     }
   }
   function controls(container) {
-    if (container.querySelector(".fmrc-phone-controls")) return;
+    if (!installDevice || container.querySelector(".fmrc-phone-controls")) return;
     const panel = document.createElement("section"); panel.className = "fmrc-phone-controls";
     const title = document.createElement("h3"); title.textContent = "Phone notifications";
     const intro = document.createElement("p"); intro.textContent = app === "customer" ? "Choose which FMRC updates reach this device. Phone previews keep account details private." : "Receive private FMRC update previews on this device, including after your website session expires. Signing out turns them off.";
@@ -273,15 +273,23 @@
       if (footer.querySelector(".fmrc-install-button") || standalone() || !installDevice) return;
       const b = button("Install App", install, true); b.classList.add("fmrc-install-button"); b.innerHTML = '<span aria-hidden="true">↓</span><span class="nav-label">Install App</span>'; footer.prepend(b);
     });
-    if (app === "customer" && !bell) {
-      const header = document.querySelector(".header-right-actions, .header-right, .nav-right");
-      if (header) {
-        bell = document.getElementById("announcementBell") || document.createElement("button");
-        bell.className = "fmrc-inbox-bell"; bell.type = "button"; bell.innerHTML = `${bellSvg}<span class="fmrc-inbox-badge" hidden></span>`; bell.setAttribute("aria-label", "Notifications"); bell.title = "Notifications";
-        if (!bell.isConnected) header.prepend(bell); bell.addEventListener("click", openInbox); void refreshBadge();
+    // The navbar announcement bell belongs to customer-announcements.js.
+    // App notifications have their own phone-sidebar entry and never replace it.
+    if (app === "customer" && installDevice && !bell) {
+      const footer = document.querySelector(".mobile-sidebar .sidebar-footer-actions");
+      if (footer) {
+        bell = button("App Notifications", () => {
+          document.querySelector(".mobile-sidebar .sidebar-close-btn")?.click();
+          void openInbox();
+        }, true);
+        bell.classList.add("fmrc-app-inbox-button");
+        bell.innerHTML = `${bellSvg}<span class="nav-label">App Notifications</span><span class="fmrc-inbox-badge" hidden></span>`;
+        bell.setAttribute("aria-label", "App notifications");
+        footer.insertBefore(bell, footer.querySelector(".fmrc-install-button")?.nextSibling || footer.firstChild);
+        void refreshBadge();
       }
     }
-    if (app === "team" && /\/settings(?:\.html)?\/?$/.test(location.pathname)) {
+    if (app === "team" && installDevice && /\/settings(?:\.html)?\/?$/.test(location.pathname)) {
       const container = document.querySelector(".portal-settings, .settings-content, .settings-card, .settings-panel") || document.querySelector("main");
       if (container) controls(container);
     }
@@ -317,7 +325,7 @@
     if (!record) return dialog("Notification unavailable", "This update has been removed or is no longer available to your account. Your recent notifications are available from the bell.");
     const d = dialog(record.title, record.message); d.append(button("View Update", () => { d.close(); void openNotification(id); }));
   }
-  window.FMRCApp = { app, prefix, inApp, installDevice, url, install, enable, disable, logout, syncAccount, openInbox, controls, launch, loginDestination, consumeTeamNotification, updateBadge: badge, customerInbox: app === "customer" };
+  window.FMRCApp = { app, prefix, inApp, installDevice, url, install, enable, disable, logout, syncAccount, openInbox, controls, launch, loginDestination, consumeTeamNotification, updateBadge: badge };
   if (installDevice && !localAppOrigin()) { const manifest = document.createElement("link"); manifest.rel = "manifest"; manifest.href = `${prefix}manifest.webmanifest`; document.head.append(manifest); }
   const touch = document.querySelector('link[rel="apple-touch-icon"]') || document.createElement("link"); touch.rel = "apple-touch-icon"; touch.href = `${prefix}icons/apple-touch-icon.png`; if (!touch.isConnected) document.head.append(touch);
   const theme = document.querySelector('meta[name="theme-color"]') || document.createElement("meta"); theme.name = "theme-color"; theme.content = app === "customer" ? "#fff9ed" : "#6b202b"; if (!theme.isConnected) document.head.append(theme);

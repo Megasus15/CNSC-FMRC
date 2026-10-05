@@ -33,7 +33,7 @@ test('two app shells retain navigation, device isolation, explicit permission, o
     }
     let relative = decodeURIComponent(u.pathname).replace(/^\//, '');
     const namespace = relative.match(/^apps\/(customer|team)\/(.*)$/);
-    if (namespace && /^(home-page|about-page|products-page|customer-auth|admin-auth|admin-page|staff-page)\//.test(namespace[2])) relative = namespace[2];
+    if (namespace && /^(home-page|about-page|services-page|products-page|contact-page|customer-auth|admin-auth|admin-page|staff-page)\//.test(namespace[2])) relative = namespace[2];
     if (u.pathname.endsWith('/test.html')) {
       res.setHeader('Content-Type', 'text/html'); const app = u.pathname.includes('/team/') ? 'team' : 'customer';
       res.end(`<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script>window.APP_API_BASE_URL=location.origin+'/api';</script><link rel="stylesheet" href="/apps/shared/pwa.css"><script src="/apps/shared/pwa.js"></script></head><body style="font-family:Arial"><header class="header-right-actions"></header><aside class="mobile-sidebar"><footer class="sidebar-footer-actions"></footer></aside><aside><footer class="sidebar-footer"></footer></aside><main><a id="internal" href="/${app === 'team' ? 'admin-page/dashboard' : 'about-page/about'}.html">Next page</a><a id="api" href="/api/customer/orders">API</a><a id="external" href="https://example.com">External</a></main></body></html>`); return;
@@ -57,7 +57,17 @@ test('two app shells retain navigation, device isolation, explicit permission, o
     await navigate('/apps/customer/test.html');await wait('!!window.FMRCApp');
     assert.equal(await evaluate('FMRCApp.installDevice'),false);assert.equal(await evaluate('!!document.querySelector(".fmrc-install-button,link[rel=manifest]")'),false);
     await evaluate(`localStorage.setItem('admin_auth_token','8|admin');localStorage.setItem('admin_user_info',JSON.stringify({id:8,name:'Admin',role:'admin'}));`);
-    await navigate('/apps/team/admin-page/settings.html');await wait('!!document.querySelector(".fmrc-phone-controls")');assert.equal(await evaluate('!!document.querySelector(".fmrc-install-button,.fmrc-settings-install")'),false);
+    await navigate('/apps/team/admin-page/settings.html');await wait('!!window.FMRCApp');assert.equal(await evaluate('!!document.querySelector(".fmrc-phone-controls,.fmrc-install-button,.fmrc-settings-install")'),false);
+    await client.send('Emulation.setDeviceMetricsOverride',{width:1440,height:900,deviceScaleFactor:1,mobile:false});
+    for (const page of ['home-page/main','about-page/about','services-page/service','products-page/product','contact-page/contact']) {
+      await navigate('/apps/customer/'+page+'.html');await wait('!!document.getElementById("announcementModal")');
+      assert.equal(await evaluate('!!document.querySelector("#announcementBell.announcement-bell .fa-bell")'),true,page);
+      assert.equal(await evaluate('!!document.querySelector(".fmrc-app-inbox-button,.fmrc-inbox-bell,.fmrc-phone-controls,.fmrc-install-button")'),false,page);
+      await evaluate('document.getElementById("announcementBell").click()');await wait('document.getElementById("announcementModal").hidden===false');
+      assert.equal(await evaluate('!!document.querySelector("dialog.fmrc-app-dialog,.fmrc-phone-controls")'),false,page);
+      await evaluate('document.getElementById("announcementModalCloseX").click()');
+    }
+    await client.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
     await client.send('Network.setUserAgentOverride',{userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 Version/18.5 Mobile/15E148 Safari/604.1'});
     await navigate('/apps/customer/test.html');await wait('!!document.querySelector(".fmrc-install-button")');
     assert.equal(await evaluate('document.getElementById("internal").pathname'),'/apps/customer/about-page/about.html');assert.equal(await evaluate('document.getElementById("api").pathname'),'/api/customer/orders');
@@ -88,14 +98,22 @@ test('two app shells retain navigation, device isolation, explicit permission, o
     assert.equal(await evaluate('!!document.querySelector(".fmrc-settings-install")'),true);
     assert.equal(await evaluate('document.documentElement.scrollWidth>innerWidth'),false);
     await navigate('/apps/team/admin-page/settings.html');await wait('!!document.querySelector(".fmrc-settings-install")');
-    await navigate('/apps/customer/home-page/main.html');await wait('!!document.querySelector(".fmrc-inbox-bell")');await wait('!!document.querySelector(".mobile-sidebar .fmrc-install-button")');await pause(1600);await screenshot('customer-home-390');
+    await navigate('/apps/customer/home-page/main.html');await wait('!!document.querySelector(".mobile-sidebar .fmrc-app-inbox-button")');await wait('!!document.querySelector(".mobile-sidebar .fmrc-install-button")');await wait('!!document.getElementById("announcementModal")');await pause(1600);
+    assert.equal(await evaluate('!!document.querySelector("#announcementBell.announcement-bell .fa-bell")'),true);
+    await evaluate('document.getElementById("announcementBell").click()');await wait('document.getElementById("announcementModal").hidden===false');
+    assert.equal(await evaluate('!!document.querySelector(".fmrc-phone-controls")'),false);
+    await evaluate('document.getElementById("announcementModalCloseX").click();document.getElementById("mobileMenuToggle").click()');await screenshot('customer-sidebar-390');
+    await evaluate('document.querySelector(".mobile-sidebar .fmrc-app-inbox-button").click()');await wait('!!document.querySelector("dialog.fmrc-inbox-dialog[open]")');
+    assert.equal(await evaluate('document.querySelector(".mobile-sidebar").classList.contains("open")'),false);
+    assert.equal(await evaluate('!!document.querySelector("dialog .fmrc-phone-controls")'),true);await screenshot('customer-app-notifications-390');
+    await evaluate('document.querySelector("dialog").close()');
     const cached=await evaluate('(async()=> {const result={};for(const name of await caches.keys()){const cache=await caches.open(name);result[name]=(await cache.keys()).map(r=>new URL(r.url).pathname)}return result})()');
     assert.equal(Object.keys(cached).length,2);for(const assets of Object.values(cached))assert.equal(assets.length,3);
     offlineNavigation = true;
     await client.send('Network.emulateNetworkConditions',{offline:true,latency:0,downloadThroughput:0,uploadThroughput:0});
     await navigate('/apps/customer/about-page/about.html');await wait('document.querySelector("h1")?.textContent==="You\'re offline"');await screenshot('offline-390');
     offlineNavigation = false;
-    await client.send('Network.emulateNetworkConditions',{offline:false,latency:0,downloadThroughput:-1,uploadThroughput:-1});await evaluate('document.querySelector("button").click()');await wait('!!document.querySelector(".fmrc-inbox-bell")');
+    await client.send('Network.emulateNetworkConditions',{offline:false,latency:0,downloadThroughput:-1,uploadThroughput:-1});await evaluate('document.querySelector("button").click()');await wait('!!document.querySelector(".fmrc-app-inbox-button")');
     console.log('Browser artifacts: '+artifacts);
   } finally { client?.close();browser.kill();server.close(); }
 });

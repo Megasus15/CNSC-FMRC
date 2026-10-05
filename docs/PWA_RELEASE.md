@@ -15,6 +15,13 @@ app windows. A narrow desktop window does not enable installation. This is a
 product UI restriction; browser manufacturers can independently offer their own
 website shortcuts.
 
+The original Customer navbar announcement bell, badge and announcement popup are
+retained. Customer **App Notifications** has a separate phone-sidebar button;
+its inbox contains account/public app alerts and phone preferences. Operator phone
+preferences remain in Settings. No phone-notification panel appears on desktops.
+See [the Hostinger step-by-step guide](HOSTINGER_PWA_SETUP.md) for Git deployment,
+phpMyAdmin installation, VAPID configuration and the one-minute cron job.
+
 Android browsers can provide a native install prompt. iPhone uses Safari Share →
 Add to Home Screen, with Open as Web App enabled when that option is shown.
 Phone notifications need permission and an installed app on iPhone. Permission
@@ -179,8 +186,12 @@ offline navigation and reconnection. Worker tests check binding isolation and
 private previews. The isolated Apache test exercises the actual `.htaccess`.
 Native installation/permission responses in automation are fixtures; they do not
 establish real iPhone/Android closed-app delivery.
-The combined frontend run passed 22 tests, including rendered Website Management
-loading/recovery, account-save gating, and phone layouts for both portals.
+The earlier combined frontend run passed 22 tests, including rendered Website
+Management loading/recovery, account-save gating, and phone layouts for both
+portals. The latest UI correction passed nine frontend checks, including the
+original announcement bell/popup on all five Customer pages, separate phone
+sidebar controls, desktop exclusion, both workers and offline recovery. The
+phpMyAdmin installer also matched the migration in local MySQL scratch databases.
 
 Run from the repository root (PHP commands from `backend/`):
 
