@@ -20,6 +20,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        foreach ([\App\Models\Order::class, \App\Models\Payment::class, \App\Models\OrderReturn::class,
+            \App\Models\Appointment::class, \App\Models\AdminNotification::class, \App\Models\User::class,
+            \App\Models\Announcement::class, \App\Models\Promotion::class] as $model) {
+            $model::observe(\App\Services\PwaNotifications::class);
+        }
         // The sender NAME shown in the recipient's inbox. Five mailables in app/Mail
         // never set `from:` on their envelope, so they inherit this value, and five
         // inline builders read `config('mail.from.name', ...)` directly - normalising

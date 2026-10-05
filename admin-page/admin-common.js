@@ -1438,6 +1438,7 @@ document.documentElement.classList.add("fmrc-admin-portal");
   };
 
   const showInitial = () => {
+    if (window.AdminWebsiteLoading) return;
     if (initialSkeletonDismissed) return;
     const main = document.querySelector(".main-content");
     if (!main || main.querySelector(".admin-global-page-skeleton")) return;
@@ -2707,6 +2708,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Helper: update badge display
     const updateBadge = (count) => {
       currentUnreadCount = count;
+      void window.FMRCApp?.updateBadge(count);
       if (notifBadge) {
         if (count > 0) {
           notifBadge.textContent = count > 99 ? "99+" : String(count);
@@ -2966,6 +2968,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const renderNotifications = (notifications) => {
       if (!notifBody) return;
       _lastNotifData = notifications;
+      window.FMRCApp?.consumeTeamNotification(notifications, openNotification);
 
       // Remove existing items (keep empty state)
       Array.from(notifBody.querySelectorAll(".notif-item")).forEach((el) =>
@@ -3649,6 +3652,7 @@ document.addEventListener("DOMContentLoaded", () => {
       localStorage.getItem("auth_token");
     await window.FMRCAdminLoader?.show("Signing you out.");
     try {
+      await window.FMRCApp?.logout();
       if (token) {
         const proto = window.location.protocol;
         const host = window.location.hostname;

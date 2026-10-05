@@ -518,6 +518,20 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        // An explicit logout ends this device's private grant, independently of session lifetime.
+        if (\App\Support\Pwa::installed() && $request->header('X-FMRC-Device')) {
+            $devices = \Illuminate\Support\Facades\DB::table('pwa_subscriptions')
+                ->where('user_id', $request->user()?->id)
+                ->where('credential_hash', hash('sha256', $request->header('X-FMRC-Device')));
+            foreach ($devices->get() as $device) {
+                if ($device->app === 'team') {
+                    \Illuminate\Support\Facades\DB::table('pwa_subscriptions')->where('id', $device->id)->delete();
+                } else {
+                    \Illuminate\Support\Facades\DB::table('pwa_subscriptions')->where('id', $device->id)
+                        ->update(['user_id' => null, 'role' => null, 'account_alerts' => false, 'updated_at' => now()]);
+                }
+            }
+        }
         // Revoke only the token that made this request. Deleting every token of
         // the account signed the user out of all their other devices at once and
         // left those sessions holding a token that no longer existed, which the

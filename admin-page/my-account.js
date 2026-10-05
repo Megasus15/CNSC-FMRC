@@ -5,13 +5,60 @@
     const newPasswordInput = document.getElementById("newPassword");
     const confirmPasswordInput = document.getElementById("confirmPassword");
     const saveBtn = document.getElementById("saveCredentialsBtn");
-    const cancelBtn = document.getElementById("cancelCredentialsBtn");
     const currentGmailEl = document.getElementById("currentGmailValue");
     const popupIdentity = document.querySelector(".popup-identity");
     const usernameInput = document.getElementById("usernameInput");
     const fullNameInput = document.getElementById("fullNameInput");
     const currentUsernameEl = document.getElementById("currentUsernameValue");
     const currentFullnameEl = document.getElementById("currentFullnameValue");
+    const saveHint = document.getElementById("credentialsSaveHint");
+    let accountReady = false;
+    let savingCredentials = false;
+    const savedCredentials = { email: "", username: "" };
+    const gmailRegex = /^[A-Za-z0-9._%+-]+@gmail\.com$/i;
+
+    const credentialState = () => {
+      const email = (emailInput?.value || "").trim();
+      const username = (usernameInput?.value || "").trim();
+      const current = currentPasswordInput?.value || "";
+      const newpw = newPasswordInput?.value || "";
+      const confirm = confirmPasswordInput?.value || "";
+      const emailChanged = email.toLowerCase() !== savedCredentials.email.toLowerCase();
+      const usernameChanged = !!usernameInput && username !== savedCredentials.username;
+      const passwordChanged = !!(newpw || confirm);
+      let hint = "Enter an update to enable Save Changes.";
+      let valid = accountReady && (emailChanged || usernameChanged || passwordChanged);
+      if (emailChanged && (!gmailRegex.test(email) || email.length > 255)) {
+        valid = false;
+        hint = "Enter a valid Gmail address.";
+      } else if (usernameChanged && (!/^[\p{L}\p{M}\p{N}_-]+$/u.test(username) || username.length > 255)) {
+        valid = false;
+        hint = "Use letters, numbers, underscores, or dashes for your username.";
+      } else if (passwordChanged && !current) {
+        valid = false;
+        hint = "Enter your current password to change your password.";
+      } else if (passwordChanged && newpw.length < 8) {
+        valid = false;
+        hint = "Use at least 8 characters for your new password.";
+      } else if (passwordChanged && newpw !== confirm) {
+        valid = false;
+        hint = "Confirm your new password with the same password.";
+      } else if (valid) {
+        hint = "Your changes are ready to save.";
+      }
+      return { email, username, current, newpw, confirm, emailChanged, usernameChanged, passwordChanged, canSave: valid && !savingCredentials, hint };
+    };
+
+    const syncSaveState = () => {
+      const state = credentialState();
+      if (saveBtn) saveBtn.disabled = !state.canSave;
+      if (saveHint) saveHint.textContent = savingCredentials ? "Saving your changes..." : !accountReady ? "Loading your account details..." : state.hint;
+    };
+    [emailInput, usernameInput, currentPasswordInput, newPasswordInput, confirmPasswordInput].forEach((input) => {
+      input?.addEventListener("input", syncSaveState);
+      input?.addEventListener("change", syncSaveState);
+    });
+    syncSaveState();
 
     const API_BASE = (() => {
       const configured =
@@ -229,6 +276,10 @@
       if (currentFullnameEl)
         currentFullnameEl.textContent =
           fullnameVal || currentFullnameEl.textContent || "";
+      savedCredentials.email = (emailInput?.value || emailVal).trim();
+      savedCredentials.username = (usernameInput?.value || usernameVal).trim();
+      accountReady = true;
+      syncSaveState();
     };
 
     // initial load
@@ -450,6 +501,7 @@
         // Put the live address back in the field so a later save is a no-op.
         const liveEmail = payload?.data?.email || "";
         if (emailInput && liveEmail) emailInput.value = liveEmail;
+        syncSaveState();
         showSuccessNotification(
           payload?.message ||
             "Gmail change cancelled. Your account still uses your current address.",
@@ -464,16 +516,14 @@
 
     saveBtn?.addEventListener("click", async (e) => {
       e.preventDefault();
-      const email = (emailInput?.value || "").trim();
-      const current = currentPasswordInput?.value || "";
-      const newpw = newPasswordInput?.value || "";
-      const confirm = confirmPasswordInput?.value || "";
-
-      const gmailRegex = /^[A-Za-z0-9._%+-]+@gmail\.com$/i;
-      if (!email || !gmailRegex.test(email)) {
-        showStatusLocal("Please enter a valid Gmail address.");
+      const state = credentialState();
+      if (!state.canSave) {
+        syncSaveState();
         return;
       }
+      const { email, username, current, newpw, confirm } = state;
+      savingCredentials = true;
+      syncSaveState();
 
       const originalSaveButtonHtml = saveBtn?.innerHTML || "";
       if (saveBtn) {
@@ -489,34 +539,37 @@
 
         // Update profile (email and optional username)
         const updatePayload = {};
-        if (email) updatePayload.email = email;
-        if (usernameInput && usernameInput.value && usernameInput.value.trim())
-          updatePayload.username = usernameInput.value.trim();
+        if (state.emailChanged) updatePayload.email = email;
+        if (state.usernameChanged) updatePayload.username = username;
 
-        const emailRes = await fetch(`${API_BASE}/user`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(updatePayload),
-        });
-
-        if (!emailRes.ok) {
-          const msg = await extractError(emailRes);
-          setLoadingLocal(false);
-          showStatusLocal(msg || "Failed to update email.");
-          return;
-        }
-
-        // An admin Gmail change is parked until it is verified, so the response
-        // is what says whether the address actually moved.
         let emailPayload = null;
-        try {
-          emailPayload = await emailRes.json();
-        } catch (e) {
-          /* ignore */
+        if (Object.keys(updatePayload).length) {
+          const emailRes = await fetch(`${API_BASE}/user`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(updatePayload),
+          });
+
+          if (!emailRes.ok) {
+            const msg = await extractError(emailRes);
+            setLoadingLocal(false);
+            showStatusLocal(msg || "Failed to update email.");
+            return;
+          }
+
+          // An admin Gmail change is parked until it is verified, so the response
+          // is what says whether the address actually moved.
+          try {
+            emailPayload = await emailRes.json();
+          } catch (e) {
+            /* ignore */
+          }
+          if (state.usernameChanged) savedCredentials.username = username;
+          if (state.emailChanged && !emailPayload?.email_verification_required) savedCredentials.email = email;
         }
         const verificationRequired = !!emailPayload?.email_verification_required;
 
@@ -560,6 +613,7 @@
         // the success flash and keep the page as it is.
         if (verificationRequired) {
           setLoadingLocal(false);
+          if (emailInput) emailInput.value = savedCredentials.email;
           if (currentPasswordInput) currentPasswordInput.value = "";
           if (newPasswordInput) newPasswordInput.value = "";
           if (confirmPasswordInput) confirmPasswordInput.value = "";
@@ -612,10 +666,11 @@
         setLoadingLocal(false);
         const restoreSaveButton = () => {
           if (!saveBtn) return;
-          saveBtn.disabled = false;
+          savingCredentials = false;
           saveBtn.innerHTML =
             originalSaveButtonHtml ||
             '<i class="fa-solid fa-floppy-disk"></i> Save Changes';
+          syncSaveState();
         };
         if (reloadRequested) {
           window.setTimeout(restoreSaveButton, 900);
@@ -623,14 +678,6 @@
           restoreSaveButton();
         }
       }
-    });
-
-    cancelBtn?.addEventListener("click", (e) => {
-      e.preventDefault();
-      if (emailInput) emailInput.value = "";
-      if (currentPasswordInput) currentPasswordInput.value = "";
-      if (newPasswordInput) newPasswordInput.value = "";
-      if (confirmPasswordInput) confirmPasswordInput.value = "";
     });
 
     /* -------------------- Recovery codes (admin only) --------------------

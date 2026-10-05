@@ -1,0 +1,32 @@
+"""Generate app metadata and SVG icon masters from the supplied FMRC mark.
+
+PNG exports are rendered by render-icons.cjs; frontend source is never copied.
+"""
+from pathlib import Path
+import base64
+import json
+
+ROOT = Path(__file__).resolve().parents[2]
+brand = base64.b64encode((ROOT / "images/FMRC Brand Logo.png").read_bytes()).decode()
+for app, name, color in [("customer", "FMRC Customer", "#fff9ed"), ("team", "FMRC Admin/Staff", "#6b202b")]:
+    folder = ROOT / "apps" / app
+    (folder / "icons").mkdir(parents=True, exist_ok=True)
+    prefix = f"/apps/{app}/"
+    manifest = {"id": prefix, "name": name, "short_name": "FMRC" if app == "customer" else "FMRC Team",
+                "description": "FMRC browsing, orders and appointments" if app == "customer" else "FMRC Admin and Staff workspace",
+                "start_url": prefix, "scope": prefix, "display": "standalone", "background_color": color,
+                "theme_color": color, "lang": "en", "orientation": "any", "icons": [
+                    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+                    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+                    {"src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}]}
+    (folder / "manifest.webmanifest").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    # The original mark stays untouched. A circular clip removes its square background.
+    icon = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><clipPath id="mark"><circle cx="256" cy="249" r="153"/></clipPath></defs><path fill="{color}" d="M0 0h512v512H0z"/><circle cx="256" cy="249" r="172" fill="none" stroke="#c3a250" stroke-width="3"/><image href="data:image/png;base64,{brand}" x="94" y="87" width="324" height="324" clip-path="url(#mark)"/><path d="M223 442h66" stroke="#c3a250" stroke-width="5" stroke-linecap="round"/></svg>'''
+    (folder / "icons/master.svg").write_text(icon, encoding="utf-8")
+    notification = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><path fill="white" d="M48 10 82 29v38L48 86 14 67V29zm0 12L26 35l22 13 22-13zm-24 23v16l19 11V56zm29 11v16l19-11V45z"/></svg>'
+    (folder / "icons/notification.svg").write_text(notification, encoding="utf-8")
+    head = f'''<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>{name}</title><meta name="theme-color" content="{color}"><link rel="apple-touch-icon" href="{prefix}icons/apple-touch-icon.png"><link rel="stylesheet" href="/apps/shared/offline.css">'''
+    (folder / "index.html").write_text(f'''<!doctype html><html lang="en"><head>{head}<link rel="stylesheet" href="/apps/shared/pwa.css"><script src="/apps/shared/pwa.js?v=1.0"></script></head><body data-app="{app}"><main><img src="icons/icon-192.png" alt=""><h1>{name}</h1><p>Opening FMRC…</p><noscript>Enable JavaScript to open FMRC.</noscript></main><script>FMRCApp.launch();</script></body></html>\n''', encoding="utf-8")
+    (folder / "offline.html").write_text(f'''<!doctype html><html lang="en"><head>{head}</head><body data-app="{app}"><main><img src="{prefix}icons/icon-192.png" alt=""><h1>You're offline</h1><p>Connect to the internet to open {name}. Your information stays secure, and changes are sent only while you're connected.</p><button type="button" onclick="location.reload()">Retry</button></main></body></html>\n''', encoding="utf-8")
+    (folder / "install.html").write_text(f'''<!doctype html><html lang="en"><head>{head}<link rel="stylesheet" href="/apps/shared/pwa.css"><script src="/apps/shared/pwa.js?v=1.0"></script></head><body data-app="{app}"><main><img src="icons/icon-192.png" alt=""><h1>{name}</h1><p data-fmrc-install-hint>Install FMRC for a dedicated Home Screen icon and app window.</p><button type="button" hidden data-fmrc-install onclick="FMRCApp.install()">Install App</button><a class="action secondary" href="{prefix}">Open FMRC</a><p>On iPhone, open in Safari, tap Share, then Add to Home Screen. Keep Open as Web App enabled if shown.</p></main></body></html>\n''', encoding="utf-8")
+print("Generated two manifests, launch/install/offline pages, and SVG icon masters.")

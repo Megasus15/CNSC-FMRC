@@ -104,6 +104,7 @@
         localStorage.removeItem(`fmrc_${rk}_session_timing`);
         localStorage.setItem(tk, token);
         localStorage.setItem(ik, JSON.stringify(userInfo));
+        localStorage.setItem("fmrc_pwa_team_role", rk);
       } catch {
         /* ignore */
       }

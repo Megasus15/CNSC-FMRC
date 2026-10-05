@@ -633,7 +633,12 @@ function failLoad(title) {
  * default in when it answers. Folding an answer that equals the default back to
  * "" is what keeps the placeholder — and "Use the default wording" — meaningful.
  */
-async function load() {
+async function load(...args) {
+  const work = () => loadData(...args);
+  return window.AdminWebsiteLoading ? window.AdminWebsiteLoading.during(work) : work();
+}
+
+async function loadData() {
   let res;
   try {
     // `cache: "no-store"` on purpose. The endpoint ships an ETag for the

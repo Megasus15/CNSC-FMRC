@@ -1,6 +1,8 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <link rel="stylesheet" href="/apps/shared/pwa.css?v=1.0" />
+    <script src="/apps/shared/pwa.js?v=1.0"></script>
     <meta charset="UTF-8" />
     <meta
       name="viewport"
@@ -11,7 +13,7 @@
     <link rel="apple-touch-icon" href="../images/FMRC%20Brand%20Logo.png?v=1" />
     <title>My Account | UCN-FMRC Staff</title>
     <link rel="stylesheet" href="../admin-page/dashboard.css?v=7.4" />
-    <link rel="stylesheet" href="../admin-page/admin-modules.css?v=6.7" />
+    <link rel="stylesheet" href="../admin-page/admin-modules.css?v=6.8" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -144,8 +146,7 @@
             <div class="toolbar-title">
               <h2>Account Settings</h2>
               <p>
-                Manage your account credentials and profile information. Changes
-                are persisted to the backend.
+                Manage your sign-in details and review your account information.
               </p>
             </div>
             <div class="toolbar-actions">
@@ -201,8 +202,7 @@
               <div class="account-form-card">
                 <h3>Update Credentials</h3>
                 <p class="account-form-subtext">
-                  Manage your account credentials and profile information.
-                  Changes are persisted to the backend.
+                  Update your username, Gmail address, or password, then save your changes.
                 </p>
 
                 <div class="form-grid">
@@ -295,16 +295,13 @@
                   </div>
                 </div>
 
+                <p id="credentialsSaveHint" class="account-form-subtext" aria-live="polite">
+                Enter an update to enable Save Changes.
+              </p>
                 <div class="modal-actions">
                   <button
-                    id="cancelCredentialsBtn"
-                    class="btn-admin btn-secondary"
-                    type="button"
-                  >
-                    Cancel
-                  </button>
-                  <button
                     id="saveCredentialsBtn"
+                    disabled
                     class="btn-admin"
                     type="button"
                   >
@@ -318,11 +315,11 @@
       </main>
     </div>
 
-    <script src="../admin-page/session-helper.js?v=2.3"></script>
+    <script src="../admin-page/session-helper.js?v=2.4"></script>
     <script src="../admin-page/admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
-    <script src="../admin-page/admin-common.js?v=8.2"></script>
-    <script src="../admin-page/my-account.js?v=1.2"></script>
+    <script src="../admin-page/admin-common.js?v=8.4"></script>
+    <script src="../admin-page/my-account.js?v=1.3"></script>
     <script src="../admin-page/admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>

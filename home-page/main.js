@@ -4771,6 +4771,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (gcashReference) {
           basePayload.payment_reference = gcashReference;
         }
+        if (window.FMRCApp?.inApp && window.FMRCApp.app === "customer") basePayload.app_context = "customer";
 
         // A pickup order has no destination to ship to: the server pins the
         // location to the FMRC office, so we send no address and no courier.
@@ -10308,7 +10309,8 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
 
-        window.location.href = resolveProductsPageUrl();
+        const destination = resolveProductsPageUrl();
+        window.location.href = window.FMRCApp?.url(destination) || destination;
       };
 
       const openBuyAgainPicker = (order, items) => {
@@ -12782,6 +12784,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
           setSyncStatus("live", "Live updates on");
 
+          const deepLinkedOrder = new URLSearchParams(window.location.search).get("order_id");
+          if (new URLSearchParams(window.location.search).get("orders") === "1" && deepLinkedOrder && !state.notificationOrderOpened) {
+            state.notificationOrderOpened = true;
+            if (state.orders.some(order => String(order.id) === deepLinkedOrder)) void openOrderDetail(deepLinkedOrder);
+          }
+
           void refreshActiveDetail(false);
           void refreshActiveReturnDetail();
         } catch (error) {
@@ -14438,6 +14446,9 @@ const openReturnRequestModal = (() => {
       hideDropdown(dropdown);
       openOrdersModal(userInfo);
     });
+  if (new URLSearchParams(window.location.search).get("orders") === "1") {
+    openOrdersModal(userInfo);
+  }
 
   // Only the saved server flags determine whether this reminder is shown.
   // A Gmail address alone never means that the customer used Google sign-in.
@@ -14622,6 +14633,7 @@ const openReturnRequestModal = (() => {
          looks like signing in. */
       window.FMRCLoader?.show("Signing you out", "", { fullscreen: true });
       try {
+        await window.FMRCApp?.logout();
         await fetch(`${API_BASE_URL}/logout`, {
           method: "POST",
           headers: {

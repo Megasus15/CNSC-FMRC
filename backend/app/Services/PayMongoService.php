@@ -64,10 +64,16 @@ class PayMongoService
         string $orderNo,
         int $orderId,
         int $paymentId,
+        string $appContext = '',
     ): ?array {
         $defaultBase = rtrim((string) (config('app.frontend_url') ?: config('app.url', 'https://ucn-fabmanlab.com')), '/');
         $successUrl = config('payments.paymongo.success_url') ?: "{$defaultBase}/products-page/product.html?payment=success";
         $failedUrl = config('payments.paymongo.failed_url') ?: "{$defaultBase}/products-page/product.html?payment=failed";
+        if ($appContext === 'customer') {
+            // Fixed destinations on the configured frontend origin; never accept a return URL from a client.
+            $successUrl = "{$defaultBase}/apps/customer/products-page/product.html?payment=success";
+            $failedUrl = "{$defaultBase}/apps/customer/products-page/product.html?payment=failed";
+        }
 
         // Append order identification to the redirect URLs so the frontend
         // can show meaningful feedback after the customer returns.
@@ -78,6 +84,7 @@ class PayMongoService
         if (config('payments.paymongo.sandbox_simulator')) {
             $simCheckoutId = 'cs_sim_' . bin2hex(random_bytes(10));
             $simulatorUrl = "{$defaultBase}/products-page/paymongo-simulator.html?session_id={$simCheckoutId}&order_id={$orderId}&order_no=" . urlencode($orderNo) . "&amount=" . number_format($amountCentavos / 100, 2, '.', '');
+            if ($appContext === 'customer') $simulatorUrl = str_replace('/products-page/', '/apps/customer/products-page/', $simulatorUrl);
 
             Log::info('[PAYMONGO] Sandbox simulator checkout session created', [
                 'session_id' => $simCheckoutId,

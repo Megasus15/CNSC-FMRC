@@ -357,7 +357,11 @@ const insertToken = (name) => {
  * Render through the real backend renderer so the iframe shows exactly what a
  * recipient gets -- including the code-owned blocks this page cannot edit.
  */
-const renderPreview = async () => {
+const renderPreview = (...args) => window.AdminWebsiteLoading
+  ? window.AdminWebsiteLoading.during(() => renderPreviewData(...args), el("emailTemplatePreview")?.closest(".wm-section"))
+  : renderPreviewData(...args);
+
+const renderPreviewData = async () => {
   const slug = state.activeSlug;
   if (!slug) return;
 
@@ -500,7 +504,11 @@ const persist = async (isReset) => {
   }
 };
 
-const loadTemplates = async ({ keepActive = true } = {}) => {
+const loadTemplates = (...args) => window.AdminWebsiteLoading
+  ? window.AdminWebsiteLoading.during(() => loadTemplatesData(...args))
+  : loadTemplatesData(...args);
+
+const loadTemplatesData = async ({ keepActive = true } = {}) => {
   const list = el("emailTemplateList");
   const authToken = token();
 

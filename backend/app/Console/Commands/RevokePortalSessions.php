@@ -26,6 +26,9 @@ class RevokePortalSessions extends Command
         }
 
         $revoked = $query->delete();
+        if (\App\Support\Pwa::installed()) {
+            \Illuminate\Support\Facades\DB::table('pwa_subscriptions')->where('app', 'team')->delete();
+        }
         $this->info("{$revoked} Admin/Staff session(s) revoked. Customer sessions were not changed.");
 
         return self::SUCCESS;

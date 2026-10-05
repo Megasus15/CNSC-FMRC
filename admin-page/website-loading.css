@@ -1,0 +1,64 @@
+/* The Dashboard shimmer follows the real section geometry and theme tokens. */
+.website-section-loading {
+  isolation: isolate;
+}
+.website-section-loading:not(.is-docked) { position: relative !important; }
+.website-section-loading > :not(.website-section-skeleton) {
+  visibility: hidden !important;
+}
+.website-section-skeleton {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background: var(--surface);
+  pointer-events: none;
+}
+.website-section-skeleton > .admin-global-skeleton-bar {
+  position: absolute;
+  max-width: 100%;
+}
+.website-section-loading:has(#servicesGrid) {
+  min-height: 268px;
+}
+.website-section-loading:has(#quickLinksContainer) { min-height: 224px; }
+.website-skeleton-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  padding: 20px;
+}
+.website-skeleton-cards > div {
+  display: grid;
+  gap: 14px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+.website-skeleton-cards .website-skeleton-image {
+  height: 140px;
+}
+.website-skeleton-cards > div > span:last-child { width: 65%; }
+.website-skeleton-links {
+  position: absolute;
+  inset: 68px 24px auto;
+  display: grid;
+  gap: 12px;
+}
+.website-skeleton-links > div {
+  display: grid;
+  grid-template-columns: 1fr 2fr 32px;
+  gap: 12px;
+}
+.website-skeleton-links .admin-global-skeleton-bar { height: 32px; }
+.website-skeleton-fallback {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+}
+.website-skeleton-fallback > span:nth-child(2) { width: 80%; }
+.website-skeleton-fallback > span:nth-child(3) { width: 60%; }
+@media (max-width: 720px) {
+  .website-skeleton-cards { grid-template-columns: 1fr; padding: 16px; }
+  .website-skeleton-cards > div:nth-child(n + 2) { display: none; }
+}

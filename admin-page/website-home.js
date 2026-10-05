@@ -164,7 +164,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindEvents();
 });
 
-async function loadAllData() {
+async function loadAllData(...args) {
+  const work = () => loadInitialData(...args);
+  return window.AdminWebsiteLoading ? window.AdminWebsiteLoading.during(work) : work();
+}
+
+async function loadInitialData() {
   // Locked before the first request goes out, not just when one fails: a fetch
   // that never settles would otherwise leave the button live over empty fields.
   setSettingsLoaded(false);
@@ -230,7 +235,12 @@ async function fetchSiteSettings() {
  * report a successful save as a failed one. Returns whether the form is now
  * holding live content.
  */
-async function loadSettings(options) {
+async function loadSettings(...args) {
+  const work = () => loadSettingsData(...args);
+  return window.AdminWebsiteLoading ? window.AdminWebsiteLoading.during(work) : work();
+}
+
+async function loadSettingsData(options) {
   const silent = Boolean(options && options.silent);
   try {
     currentSettings = await fetchSiteSettings();
@@ -431,7 +441,12 @@ function updateHeroScenePreview() {
 }
 
 // ── API: Load services ────────────────────────────────────────────────────────
-async function loadServices() {
+async function loadServices(...args) {
+  const work = () => loadServicesData(...args);
+  return window.AdminWebsiteLoading ? window.AdminWebsiteLoading.during(work) : work();
+}
+
+async function loadServicesData() {
   try {
     // Same two additions as the settings loader above: ask for JSON, and treat a
     // non-2xx as the failure it is instead of feeding an HTML error page to
@@ -2084,7 +2099,12 @@ function sdgEsc(str) {
   );
 }
 
-async function loadSdgs() {
+async function loadSdgs(...args) {
+  const work = () => loadSdgsData(...args);
+  return window.AdminWebsiteLoading ? window.AdminWebsiteLoading.during(work) : work();
+}
+
+async function loadSdgsData() {
   const grid = document.getElementById("homeSdgGrid");
   if (!grid) return;
   try {

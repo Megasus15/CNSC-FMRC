@@ -835,7 +835,8 @@ document.addEventListener("DOMContentLoaded", () => {
           localStorage.setItem("customer_info", JSON.stringify(data.user));
           localStorage.setItem("customer_auth_method", "password");
           showStatus("Login successful. Redirecting to your account...");
-          window.location.href = "../home-page/main.html";
+          await window.FMRCApp?.syncAccount();
+          window.location.href = window.FMRCApp?.loginDestination("../home-page/main.html") || "../home-page/main.html";
           return;
         }
 
@@ -1322,8 +1323,9 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.setItem("customer_info", JSON.stringify(data.user));
         localStorage.setItem("customer_auth_method", "google");
         showStatus("Signed in with Google! Redirecting to your account...");
-        setTimeout(() => {
-          window.location.href = "../home-page/main.html";
+        setTimeout(async () => {
+          await window.FMRCApp?.syncAccount();
+          window.location.href = window.FMRCApp?.loginDestination("../home-page/main.html") || "../home-page/main.html";
         }, 400);
         return;
       }

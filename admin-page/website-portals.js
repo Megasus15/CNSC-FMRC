@@ -142,7 +142,11 @@
       } finally { window.clearTimeout(timeout); }
     };
 
-    const load = async ({ replacePortal = null } = {}) => {
+    const load = (...args) => window.AdminWebsiteLoading
+      ? window.AdminWebsiteLoading.during(() => loadData(...args))
+      : loadData(...args);
+
+    const loadData = async ({ replacePortal = null } = {}) => {
       if (isBusy()) { queuedLoad = true; return; }
       loading = true;
       render();

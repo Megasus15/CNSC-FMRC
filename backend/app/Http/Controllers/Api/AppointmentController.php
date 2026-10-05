@@ -142,7 +142,8 @@ class AppointmentController extends Controller
         $appointment = DB::transaction(function () use ($validated, $request, $storedPath, $storedName) {
             $appointment = Appointment::create([
                 'reference_no' => null,
-                'user_id' => $request->user()?->id,
+                // This public route accepts guest bookings and optional Customer bearer authentication.
+                'user_id' => $request->user('sanctum')?->id,
                 'first_name' => $validated['first_name'],
                 'last_name' => $validated['last_name'],
                 'middle_initial' => $validated['middle_initial'] ?? null,

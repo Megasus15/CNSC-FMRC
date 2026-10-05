@@ -631,6 +631,7 @@ class OrderController extends Controller
                         orderNo: $orderNoLabel,
                         orderId: (int) $createdOrder->id,
                         paymentId: (int) $createdOrder->payment->id,
+                        appContext: $request->input('app_context') === 'customer' ? 'customer' : '',
                     );
 
                     if ($session) {

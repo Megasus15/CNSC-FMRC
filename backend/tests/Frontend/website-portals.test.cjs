@@ -67,6 +67,7 @@ async function harness(settings = {}, role = 'admin') {
     setTimeout, clearTimeout,
     AdminSession: { getToken: () => `${role}-token` },
     showAdminPopup() {},
+    AdminPageNotice: { show() {}, clear() {} },
     confirm: () => true,
   });
   const requests = [];

@@ -166,7 +166,12 @@ function categoryPayload() {
   return clean;
 }
 
-async function loadServiceCategories() {
+async function loadServiceCategories(...args) {
+  const work = () => loadServiceCategoriesData(...args);
+  return window.AdminWebsiteLoading ? window.AdminWebsiteLoading.during(work) : work();
+}
+
+async function loadServiceCategoriesData() {
   const status = document.getElementById("serviceCategoryStatus");
   try {
     const response = await fetch(`${API}/site-settings`, { cache: "no-store", headers: { Accept: "application/json" } });
@@ -273,7 +278,12 @@ async function saveServiceCategories(categories) {
   }
 }
 
-async function loadServices() {
+async function loadServices(...args) {
+  const work = () => loadServicesData(...args);
+  return window.AdminWebsiteLoading ? window.AdminWebsiteLoading.during(work) : work();
+}
+
+async function loadServicesData() {
   const grid = document.getElementById("servicesGrid");
   try {
     const res = await fetch(`${API}/services`);
@@ -769,7 +779,12 @@ function initializePageCopyEditor() {
     field.addEventListener("input", () => describe(field, definition));
     fields.set(definition.key, field);
   });
-  async function load() {
+  async function load(...args) {
+    const work = () => loadData(...args);
+    return window.AdminWebsiteLoading ? window.AdminWebsiteLoading.during(work) : work();
+  }
+
+  async function loadData() {
     loaded = false;
     fieldset.disabled = true;
     save.disabled = true;

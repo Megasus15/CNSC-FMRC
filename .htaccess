@@ -50,10 +50,34 @@
     # 5. Serve .html Files Behind the Clean URL
     # Example: /home-page/main loads /home-page/main.html internally
     # --------------------------------------------------------------------------
+    # Two isolated apps, served directly from allowlisted source folders.
+    # END prevents another rewrite pass from canonicalizing the internal source URL.
+    RewriteRule ^apps/(customer|team)/?$ apps/$1/index.html [END]
+    RewriteRule ^apps/(customer|team)/(install|offline|index)/?$ apps/$1/$2.html [END]
+    RewriteCond %{DOCUMENT_ROOT}/$1/$2.html -f
+    RewriteRule ^apps/customer/(home-page|about-page|services-page|products-page|contact-page|customer-auth)/([A-Za-z0-9_-]+)/?$ $1/$2.html [END]
+    RewriteCond %{DOCUMENT_ROOT}/$1/$2.html -f
+    RewriteRule ^apps/team/(admin-page|staff-page|admin-auth)/([A-Za-z0-9_-]+)/?$ $1/$2.html [END]
+    RewriteRule ^apps/customer/(home-page|about-page|services-page|products-page|contact-page|customer-auth)/([A-Za-z0-9_-]+\.html)$ $1/$2 [END]
+    RewriteRule ^apps/team/(admin-page|staff-page|admin-auth)/([A-Za-z0-9_-]+\.html)$ $1/$2 [END]
+    RewriteCond %{DOCUMENT_ROOT}/$1/$2 -f
+    RewriteCond $2 !(^|/)\.{1,2}(/|$)
+    RewriteRule "^apps/(?:customer|team)/(home-page|about-page|services-page|products-page|contact-page|customer-auth|admin-page|staff-page|admin-auth|images)/([A-Za-z0-9 _%./-]+\.(?:css|js|png|jpe?g|svg|webp|ico|woff2?|mp4|gif))$" $1/$2 [END,NC]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^apps/(?:customer|team)/ - [R=404,L]
+
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{DOCUMENT_ROOT}/$1.html -f
     RewriteRule ^(.*?)/?$ $1.html [L]
 
+</IfModule>
+
+AddType application/manifest+json .webmanifest
+<IfModule mod_headers.c>
+    <FilesMatch "^(sw\.js|worker\.js|manifest\.webmanifest)$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+    </FilesMatch>
 </IfModule>
 
 # ------------------------------------------------------------------------------

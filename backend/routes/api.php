@@ -35,6 +35,19 @@ use App\Http\Middleware\VerifyTurnstile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+Route::prefix('pwa')->middleware('throttle:60,1')->group(function () {
+    Route::get('/config', [\App\Http\Controllers\Api\PwaController::class, 'config']);
+    Route::post('/subscriptions', [\App\Http\Controllers\Api\PwaController::class, 'register']);
+    Route::patch('/subscriptions/{id}', [\App\Http\Controllers\Api\PwaController::class, 'preferences'])->whereNumber('id');
+    Route::delete('/subscriptions/{id}', [\App\Http\Controllers\Api\PwaController::class, 'remove'])->whereNumber('id');
+});
+Route::prefix('customer/notifications')->middleware('throttle:120,1')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Api\CustomerNotificationController::class, 'index']);
+    Route::get('/unread-count', [\App\Http\Controllers\Api\CustomerNotificationController::class, 'unread']);
+    Route::patch('/{id}/read', [\App\Http\Controllers\Api\CustomerNotificationController::class, 'read'])->whereNumber('id');
+    Route::post('/mark-all-read', [\App\Http\Controllers\Api\CustomerNotificationController::class, 'readAll']);
+});
+
 // ─── PSGC Address Proxy (public, no auth needed) ──────────────────────────
 Route::get('/psgc/regions', [PsgcController::class, 'regions']);
 Route::get('/psgc/regions/{regionCode}/provinces', [PsgcController::class, 'provinces']);

@@ -101,7 +101,11 @@
       retry.hidden = !canRetry;
     };
 
-    const load = async ({ replaceDraft = false } = {}) => {
+    const load = (...args) => window.AdminWebsiteLoading
+      ? window.AdminWebsiteLoading.during(() => loadData(...args))
+      : loadData(...args);
+
+    const loadData = async ({ replaceDraft = false } = {}) => {
       if (busy || refreshing) { refreshQueued = true; return; }
       refreshing = true;
       if (!saved) busy = true;

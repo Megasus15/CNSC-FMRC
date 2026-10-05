@@ -681,9 +681,10 @@ document.addEventListener("DOMContentLoaded", () => {
             );
 
             showStatus("Login successful. Opening dashboard...");
-            window.location.href = isStaff
-              ? "../staff-page/dashboard.html"
-              : "../admin-page/dashboard.html";
+            localStorage.setItem("fmrc_pwa_team_role", isStaff ? "staff" : "admin");
+            await window.FMRCApp?.syncAccount();
+            const dashboard = isStaff ? "../staff-page/dashboard.html" : "../admin-page/dashboard.html";
+            window.location.href = window.FMRCApp?.loginDestination(dashboard) || dashboard;
           } else {
             // The credentials were valid, so the API answered 200 and minted a
             // token -- this is a customer on the wrong sign-in page. None of it

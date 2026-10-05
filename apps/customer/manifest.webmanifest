@@ -1,0 +1,33 @@
+{
+  "id": "/apps/customer/",
+  "name": "FMRC Customer",
+  "short_name": "FMRC",
+  "description": "FMRC browsing, orders and appointments",
+  "start_url": "/apps/customer/",
+  "scope": "/apps/customer/",
+  "display": "standalone",
+  "background_color": "#fff9ed",
+  "theme_color": "#fff9ed",
+  "lang": "en",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

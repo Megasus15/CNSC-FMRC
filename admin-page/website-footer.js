@@ -60,7 +60,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 });
 
-async function loadSettings() {
+async function loadSettings(...args) {
+  const work = () => loadSettingsData(...args);
+  return window.AdminWebsiteLoading ? window.AdminWebsiteLoading.during(work) : work();
+}
+
+async function loadSettingsData() {
   try {
     const res = await fetch(`${API}/site-settings`);
     const json = await res.json();

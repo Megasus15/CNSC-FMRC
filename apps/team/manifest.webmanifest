@@ -1,0 +1,33 @@
+{
+  "id": "/apps/team/",
+  "name": "FMRC Admin/Staff",
+  "short_name": "FMRC Team",
+  "description": "FMRC Admin and Staff workspace",
+  "start_url": "/apps/team/",
+  "scope": "/apps/team/",
+  "display": "standalone",
+  "background_color": "#6b202b",
+  "theme_color": "#6b202b",
+  "lang": "en",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

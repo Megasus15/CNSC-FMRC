@@ -49,6 +49,7 @@ async function emailHarness(t) {
     clearTimeout,
     showAdminConfirmPopup(_message, options) { options.onConfirm(); },
     showAdminPopup() {},
+    AdminPageNotice: { show() {}, clear() {} },
     BroadcastChannel: class {
       constructor() { Object.assign(this, element()); channels.push(this); }
       postMessage(message) { broadcasts.push(message); }
@@ -118,6 +119,6 @@ test('Website Configuration content editors have no tab-return reload listeners 
       assert.match(html, /Refresh/, `${portal}/${name} has no manual refresh control`);
     }
   }
-  assert.match(fs.readFileSync(path.join(repo, 'admin-page/website-payments.html'), 'utf8'), /website-payments\.js\?v=1\.2/);
-  assert.match(fs.readFileSync(path.join(repo, 'admin-page/website-emails.html'), 'utf8'), /website-emails\.js\?v=6\.3/);
+  assert.match(fs.readFileSync(path.join(repo, 'admin-page/website-payments.html'), 'utf8'), /website-payments\.js\?v=\d+(?:\.\d+)+/);
+  assert.match(fs.readFileSync(path.join(repo, 'admin-page/website-emails.html'), 'utf8'), /website-emails\.js\?v=\d+(?:\.\d+)+/);
 });

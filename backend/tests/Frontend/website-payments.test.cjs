@@ -27,6 +27,7 @@ async function harness(settings = {}, role = 'admin', initialFailure = false) {
   document.getElementById = field;
   document.querySelector = () => null;
   const window = element();
+  window.AdminPageNotice = { show(_message, options) { this.notice = options; }, clear() { this.notice = null; } };
   window.location = { protocol: 'https:', hostname: 'fmrc.test', origin: 'https://fmrc.test', port: '' };
   window.AdminSession = { getToken: () => `${role}-token` };
   const requests = [];
@@ -153,9 +154,10 @@ test('initial fetch failure keeps editing disabled until Retry succeeds', async 
   const h = await harness({}, 'admin', true);
   assert.equal(h.field('paymentSettingsFields').disabled, true);
   assert.equal(h.field('savePaymentSettings').disabled, true);
-  assert.equal(h.field('retryPaymentSettings').hidden, false);
+  assert.equal(typeof h.window.AdminPageNotice.notice?.retry, 'function');
   h.state.failGet = false;
-  await h.click('retryPaymentSettings');
+  await h.window.AdminPageNotice.notice.retry();
+  await settle();
   assert.equal(h.field('paymentSettingsFields').disabled, false);
   assert.equal(h.field('paymentSettingsError').hidden, true);
 });
