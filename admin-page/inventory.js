@@ -771,7 +771,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const statusHtml = `<span class="status-pill ${statusClass(statusText)}">${escHtml(statusText)}</span>`;
         const remarksHtml = item.remarks
           ? `<span class="remarks-pill ${remarksClass(item.remarks)}">${escHtml(item.remarks)}</span>`
-          : `<span style="color:#9ca3af;font-size:0.75rem;">—</span>`;
+          : `<span style="color:var(--portal-muted-color,#9ca3af);font-size:0.75rem;">—</span>`;
         const baseDescriptionHtml = hasVariants
           ? ""
           : escHtml(item.description || "—");
@@ -821,7 +821,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const variantStatusHtml = `<span class="status-pill ${statusClass(variantStatus)}">${escHtml(variantStatus)}</span>`;
             const variantRemarksHtml = variant.remarks
               ? `<span class="remarks-pill ${remarksClass(variant.remarks)}">${escHtml(variant.remarks)}</span>`
-              : `<span style="color:#9ca3af;font-size:0.75rem;">—</span>`;
+              : `<span style="color:var(--portal-muted-color,#9ca3af);font-size:0.75rem;">—</span>`;
             rows.push(`
               <tr class="inv-variant-row" data-variant-parent="${item.id}" style="display:none;">
                 <td aria-hidden="true"></td>
@@ -837,7 +837,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <td>${variant.on_hand ?? 0}</td>
                 <td>${variantStatusHtml}</td>
                 <td>${variantRemarksHtml}</td>
-                <td class="sticky-action" aria-hidden="true"><span style="color:#cbd5f5;">—</span></td>
+                <td class="sticky-action" aria-hidden="true"><span style="color:var(--portal-muted-color,#cbd5f5);">—</span></td>
               </tr>
             `);
           });
@@ -1518,7 +1518,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const remarksCls = remarksClass(item.remarks);
     const remarksHtml = item.remarks
       ? `<span class="remarks-pill ${remarksCls}">${escHtml(item.remarks)}</span>`
-      : '<span style="color:#9ca3af;">—</span>';
+      : '<span style="color:var(--portal-muted-color,#9ca3af);">—</span>';
 
     const variants = Array.isArray(item.variants) ? item.variants : [];
     const variantTotalPages = Math.max(
@@ -1547,7 +1547,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const variantStatusHtml = `<span class="status-pill ${statusClass(variantStatus)}">${escHtml(variantStatus)}</span>`;
         const variantRemarksHtml = variant.remarks
           ? `<span class="remarks-pill ${remarksClass(variant.remarks)}">${escHtml(variant.remarks)}</span>`
-          : '<span style="color:#9ca3af;">—</span>';
+          : '<span style="color:var(--portal-muted-color,#9ca3af);">—</span>';
         return `
         <tr>
           <td>${escHtml(variant.name || "—")}</td>

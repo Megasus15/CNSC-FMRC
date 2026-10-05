@@ -638,7 +638,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const rowNum = String(start + idx + 1).padStart(3, "0");
           const imgCell = p.image_data
             ? `<img src="${p.image_data}" alt="${escHtml(p.name)}" style="height:36px;width:48px;object-fit:cover;border-radius:6px;" loading="lazy" decoding="async" />`
-            : `<span style="color:#9ca3af;font-size:0.75rem;">No image</span>`;
+            : `<span style="color:var(--portal-muted-color,#9ca3af);font-size:0.75rem;">No image</span>`;
           const stockStatusHtml =
             p.stock_status === "in_stock"
               ? `<span class="status-pill status-green">In Stock</span>`
@@ -648,7 +648,7 @@ document.addEventListener("DOMContentLoaded", () => {
             : `<span class="status-pill status-green">Active</span>`;
           const discountPercent = Math.max(0, Math.min(100, Number(p.discount_percent || 0)));
           const priceCell = discountPercent > 0
-            ? `<div><span style="background:#fee2e2;color:#b91c1c;font-size:0.68rem;font-weight:800;padding:2px 6px;border-radius:4px;display:inline-block;margin-bottom:3px;">${discountPercent}% OFF</span><br/><s style="color:#9ca3af;font-size:0.75rem;">${formatPrice(p.price)}</s> <b style="color:#c0392b;">${formatPrice(p.sale_price)}</b></div>`
+            ? `<div><span style="background:var(--portal-accent-soft,#fee2e2);color:var(--portal-data-color,#b91c1c);font-size:0.68rem;font-weight:800;padding:2px 6px;border-radius:4px;display:inline-block;margin-bottom:3px;">${discountPercent}% OFF</span><br/><s style="color:var(--portal-muted-color,#9ca3af);font-size:0.75rem;">${formatPrice(p.price)}</s> <b style="color:var(--portal-data-color,#c0392b);">${formatPrice(p.sale_price)}</b></div>`
             : formatPrice(p.price);
           return `
           <tr class="${p.is_blocked ? "row-blocked" : ""}">
@@ -1879,15 +1879,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const chipsHtml = (product.details_chips || []).length
       ? `<div class="chips-preview">${(product.details_chips || []).map((c) => `<span class="chip-tag">${escHtml(c)}</span>`).join("")}</div>`
-      : `<span style="color:#9ca3af;font-size:0.82rem;">No chips defined</span>`;
+      : `<span style="color:var(--portal-muted-color,#9ca3af);font-size:0.82rem;">No chips defined</span>`;
 
     const availHtml = (product.availability || []).length
-      ? `<ul style="margin:0;padding-left:16px;font-size:0.82rem;color:#374151;">${(product.availability || []).map((a) => `<li>${escHtml(a)}</li>`).join("")}</ul>`
-      : `<span style="color:#9ca3af;font-size:0.82rem;">Not set</span>`;
+      ? `<ul style="margin:0;padding-left:16px;font-size:0.82rem;color:var(--portal-data-color,#374151);">${(product.availability || []).map((a) => `<li>${escHtml(a)}</li>`).join("")}</ul>`
+      : `<span style="color:var(--portal-muted-color,#9ca3af);font-size:0.82rem;">Not set</span>`;
 
     const recHtml = (product.recommended_for || []).length
-      ? `<ul style="margin:0;padding-left:16px;font-size:0.82rem;color:#374151;">${(product.recommended_for || []).map((r) => `<li>${escHtml(r)}</li>`).join("")}</ul>`
-      : `<span style="color:#9ca3af;font-size:0.82rem;">Not set</span>`;
+      ? `<ul style="margin:0;padding-left:16px;font-size:0.82rem;color:var(--portal-data-color,#374151);">${(product.recommended_for || []).map((r) => `<li>${escHtml(r)}</li>`).join("")}</ul>`
+      : `<span style="color:var(--portal-muted-color,#9ca3af);font-size:0.82rem;">Not set</span>`;
 
     const imgHtml = product.image_data
       ? `<div class="view-product-image"><img src="${product.image_data}" alt="${escHtml(product.name)}" /></div>`

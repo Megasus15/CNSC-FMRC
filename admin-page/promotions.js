@@ -201,7 +201,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ? products
           .map(
             (product) =>
-              `<label style="display:flex; align-items:center; gap:8px; padding:6px; font-size:0.8rem; cursor:pointer;"><input type="checkbox" value="${product.id}" ${selected.includes(Number(product.id)) ? "checked" : ""} /> ${esc(product.name)} <span style="margin-left:auto;color:#8892a1;font-size:0.75rem">${esc(product.code || "")}</span></label>`,
+              `<label style="display:flex; align-items:center; gap:8px; padding:6px; font-size:0.8rem; cursor:pointer;"><input type="checkbox" value="${product.id}" ${selected.includes(Number(product.id)) ? "checked" : ""} /> ${esc(product.name)} <span style="margin-left:auto;color:var(--portal-muted-color,#8892a1);font-size:0.75rem">${esc(product.code || "")}</span></label>`,
           )
           .join("")
       : '<span class="field-hint">No products are available yet.</span>';
@@ -257,11 +257,11 @@ document.addEventListener("DOMContentLoaded", () => {
           return `
           <tr>
             <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="promotions" value="${promotion.id}" aria-label="Select ${esc(promotion.title)}" /></td>
-            <td style="font-weight:600;color:#6b7280;">${rowNum}</td>
-            <td style="font-weight:600;color:#1e293b;">${esc(promotion.title)}</td>
-            <td><span style="font-weight:700;color:#800000;">${promotion.discount_percent}% OFF</span></td>
-            <td style="font-size:0.82rem;color:#475569;">${scopeText}</td>
-            <td style="font-size:0.78rem;color:#64748b;">${scheduleText}</td>
+            <td style="font-weight:600;color:var(--portal-muted-color,#6b7280);">${rowNum}</td>
+            <td style="font-weight:600;color:var(--portal-data-color,#1e293b);">${esc(promotion.title)}</td>
+            <td><span style="font-weight:700;color:var(--portal-data-color,#800000);">${promotion.discount_percent}% OFF</span></td>
+            <td style="font-size:0.82rem;color:var(--portal-data-color,#475569);">${scopeText}</td>
+            <td style="font-size:0.78rem;color:var(--portal-muted-color,#64748b);">${scheduleText}</td>
             <td>${status(promotion)}</td>
             <td class="action-icons sticky-action">
               <button type="button" data-tooltip="Edit Promotion" data-edit-promotion="${promotion.id}"><i class="fa-solid fa-pen-to-square"></i></button>
@@ -326,10 +326,10 @@ document.addEventListener("DOMContentLoaded", () => {
           return `
           <tr>
             <td class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-row="announcements" value="${announcement.id}" aria-label="Select ${esc(announcement.title)}" /></td>
-            <td style="font-weight:600;color:#6b7280;">${rowNum}</td>
-            <td style="font-weight:600;color:#1e293b;">${esc(announcement.title)}</td>
-            <td style="font-size:0.82rem;color:#475569;">${esc(placementText)}</td>
-            <td style="font-size:0.78rem;color:#64748b;">${scheduleText}</td>
+            <td style="font-weight:600;color:var(--portal-muted-color,#6b7280);">${rowNum}</td>
+            <td style="font-weight:600;color:var(--portal-data-color,#1e293b);">${esc(announcement.title)}</td>
+            <td style="font-size:0.82rem;color:var(--portal-data-color,#475569);">${esc(placementText)}</td>
+            <td style="font-size:0.78rem;color:var(--portal-muted-color,#64748b);">${scheduleText}</td>
             <td>${status(announcement)}</td>
             <td class="action-icons sticky-action">
               <button type="button" data-tooltip="Edit Announcement" data-edit-announcement="${announcement.id}"><i class="fa-solid fa-pen-to-square"></i></button>
@@ -767,7 +767,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderProductPicker(item.product_ids || []);
 
     if ($("promotionModalTitle")) {
-      $("promotionModalTitle").innerHTML = `<i class="fa-solid fa-pen-to-square" style="margin-right: 8px; color:#800000;"></i>Edit Promotion`;
+      $("promotionModalTitle").innerHTML = `<i class="fa-solid fa-pen-to-square" style="margin-right: 8px; color:var(--portal-data-color,#800000);"></i>Edit Promotion`;
     }
     promotionDiscardGuard?.capture();
     openModal("modalAddPromotion");
@@ -787,7 +787,7 @@ document.addEventListener("DOMContentLoaded", () => {
     $("announcementEnabled").checked = item.is_enabled;
 
     if ($("announcementModalTitle")) {
-      $("announcementModalTitle").innerHTML = `<i class="fa-solid fa-pen-to-square" style="margin-right: 8px; color:#800000;"></i>Edit Announcement`;
+      $("announcementModalTitle").innerHTML = `<i class="fa-solid fa-pen-to-square" style="margin-right: 8px; color:var(--portal-data-color,#800000);"></i>Edit Announcement`;
     }
     announcementDiscardGuard?.capture();
     openModal("modalAddAnnouncement");
@@ -849,7 +849,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("btnOpenAddPromotion")?.addEventListener("click", () => {
     clearPromotion();
     if ($("promotionModalTitle")) {
-      $("promotionModalTitle").innerHTML = `<i class="fa-solid fa-tags" style="margin-right: 8px; color:#800000;"></i>Add New Promotion`;
+      $("promotionModalTitle").innerHTML = `<i class="fa-solid fa-tags" style="margin-right: 8px; color:var(--portal-data-color,#800000);"></i>Add New Promotion`;
     }
     promotionDiscardGuard?.capture();
     openModal("modalAddPromotion");
@@ -858,7 +858,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("btnOpenAddAnnouncement")?.addEventListener("click", () => {
     clearAnnouncement();
     if ($("announcementModalTitle")) {
-      $("announcementModalTitle").innerHTML = `<i class="fa-solid fa-bullhorn" style="margin-right: 8px; color:#800000;"></i>Add New Announcement`;
+      $("announcementModalTitle").innerHTML = `<i class="fa-solid fa-bullhorn" style="margin-right: 8px; color:var(--portal-data-color,#800000);"></i>Add New Announcement`;
     }
     announcementDiscardGuard?.capture();
     openModal("modalAddAnnouncement");

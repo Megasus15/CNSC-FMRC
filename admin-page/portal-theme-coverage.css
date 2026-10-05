@@ -31,6 +31,9 @@ html[data-portal][data-theme="dark"] .admin-table-skeleton-active .page-number::
     html[data-portal][data-theme="dark"] .admin-static-table-skeleton-overlay {
         background: var(--surface) !important
     }
+    html[data-portal][data-theme="dark"] .sidebar-header h2 {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .admin-sidebar-toggle {
         border: 1px solid var(--border-color) !important;
         background: var(--surface) !important
@@ -48,6 +51,9 @@ html[data-portal][data-theme="dark"] .admin-table-skeleton-active .page-number::
 html[data-portal][data-theme="dark"] .nav-link.active {
         background-color: var(--portal-action) !important
     }
+    html[data-portal][data-theme="dark"] .sub-link:hover {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .sub-link.active {
         background-color: var(--portal-action) !important
     }
@@ -62,11 +68,15 @@ html[data-portal][data-theme="dark"] .nav-link.active {
         background-color: var(--surface) !important
     }
     html[data-portal][data-theme="dark"] .notifications:hover {
-        background-color: var(--surface) !important
+        background-color: var(--surface) !important;
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .notification-dropdown {
         background-color: var(--surface) !important;
         border: 1px solid var(--border-color) !important
+    }
+    html[data-portal][data-theme="dark"] .notif-header h3 {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .notif-item {
         border-bottom: 1px solid var(--border-color) !important;
@@ -86,7 +96,7 @@ html[data-portal][data-theme="dark"] .nav-link.active {
     }
     html[data-portal][data-theme="dark"] .notif-type-order {
         background: var(--surface) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .notif-type-appointment {
         background: var(--surface) !important;
@@ -116,6 +126,9 @@ html[data-portal][data-theme="dark"] .notif-type-order_return {
     html[data-portal][data-theme="dark"] .notif-item-title {
         color: var(--text-main) !important
     }
+    html[data-portal][data-theme="dark"] .notif-item.notif-unread .notif-item-title {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .notif-item-msg {
         color: var(--text-main) !important
     }
@@ -123,6 +136,7 @@ html[data-portal][data-theme="dark"] .notif-type-order_return {
         color: var(--text-muted) !important
     }
     html[data-portal][data-theme="dark"] .notif-item-target {
+        color: var(--text-main) !important;
         background: var(--surface) !important;
         border: 1px solid var(--border-color) !important
     }
@@ -130,8 +144,11 @@ html[data-portal][data-theme="dark"] .notif-type-order_return {
         background: var(--surface) !important;
         border-color: var(--portal-accent-border) !important
     }
-    html[data-portal][data-theme="dark"] .notif-read-btn,
-html[data-portal][data-theme="dark"] .notif-del-btn {
+    html[data-portal][data-theme="dark"] .notif-read-btn {
+        background: var(--surface) !important;
+        color: var(--text-muted) !important
+    }
+    html[data-portal][data-theme="dark"] .notif-del-btn {
         background: var(--surface) !important;
         color: var(--text-muted) !important
     }
@@ -151,6 +168,9 @@ html[data-portal][data-theme="dark"] .notif-del-btn {
     html[data-portal][data-theme="dark"] .notif-footer {
         border-top: 1px solid var(--border-color) !important
     }
+    html[data-portal][data-theme="dark"] .notif-view-all-btn {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .notif-mark-all-btn {
         border: 1px solid var(--border-color) !important;
         color: var(--text-muted) !important
@@ -167,6 +187,9 @@ html[data-portal][data-theme="dark"] .notif-del-btn {
         border-bottom: 1px solid var(--border-color) !important;
         background: var(--surface) !important
     }
+    html[data-portal][data-theme="dark"] .all-notif-head-left h2 {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .all-notif-head-left p {
         color: var(--text-muted) !important
     }
@@ -177,7 +200,7 @@ html[data-portal][data-theme="dark"] .notif-del-btn {
     }
     html[data-portal][data-theme="dark"] .all-notif-close:hover {
         background: var(--surface) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .all-notif-filter {
         border-bottom: 1px solid var(--border-color) !important
@@ -189,6 +212,7 @@ html[data-portal][data-theme="dark"] .notif-del-btn {
     }
     html[data-portal][data-theme="dark"] .all-notif-filter-btn:hover {
         background: var(--surface) !important;
+        color: var(--text-main) !important;
         border-color: var(--portal-accent-border) !important
     }
     html[data-portal][data-theme="dark"] .all-notif-filter-btn.active {
@@ -235,7 +259,8 @@ html[data-portal][data-theme="dark"] .all-notif-empty {
     }
     html[data-portal][data-theme="dark"] .profile-icon {
         border: 2px solid var(--portal-accent-border) !important;
-        background-color: var(--surface) !important
+        background-color: var(--surface) !important;
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .user-profile:hover .profile-icon {
         background-color: var(--surface) !important;
@@ -255,7 +280,7 @@ html[data-portal][data-theme="dark"] .all-notif-empty {
         border: 1px solid var(--border-color) !important
     }
     html[data-portal][data-theme="dark"] .admin-system-popup__title {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .admin-system-popup__separator {
         border-top: 1px solid var(--border-color) !important
@@ -290,16 +315,25 @@ html[data-portal][data-theme="dark"] .all-notif-empty {
         stroke: var(--portal-success) !important
     }
     html[data-portal][data-theme="dark"] .popup-profile-icon {
-        background-color: var(--surface) !important
+        background-color: var(--surface) !important;
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .popup-role {
-        background-color: var(--surface) !important
+        background-color: var(--surface) !important;
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .profile-popup-link:hover {
-        background: var(--surface) !important
+        background: var(--surface) !important;
+        color: var(--text-main) !important
+    }
+    html[data-portal][data-theme="dark"] .profile-popup-link i {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .page-toolbar {
         background-color: var(--surface) !important
+    }
+    html[data-portal][data-theme="dark"] .toolbar-title h2 {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .admin-media-viewer-dialog {
         background: var(--surface) !important
@@ -311,14 +345,24 @@ html[data-portal][data-theme="dark"] .all-notif-empty {
     html[data-portal][data-theme="dark"] .admin-media-viewer-title {
         color: var(--text-main) !important
     }
+    html[data-portal][data-theme="dark"] .admin-media-viewer-open {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .admin-media-viewer-close {
         border: 1px solid var(--border-color) !important;
         background: var(--surface) !important;
         color: var(--text-main) !important
     }
+    html[data-portal][data-theme="dark"] .admin-media-viewer-close:hover {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .admin-media-thumb {
         border: 1px solid var(--border-color) !important;
         background: var(--surface) !important;
+        color: var(--text-main) !important
+    }
+    html[data-portal][data-theme="dark"] .admin-media-thumb:hover,
+html[data-portal][data-theme="dark"] .admin-media-thumb:focus-visible {
         color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .admin-media-thumb img {
@@ -344,14 +388,16 @@ html[data-portal][data-theme="dark"] .all-notif-empty {
         border-color: var(--portal-accent-border) !important
     }
     html[data-portal][data-theme="dark"] .btn-secondary {
-        background-color: var(--surface) !important
+        background-color: var(--surface) !important;
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .btn-secondary:hover {
         background-color: var(--portal-action) !important;
         border-color: var(--portal-accent-border) !important
     }
     html[data-portal][data-theme="dark"] .btn-admin.btn-secondary {
-        background-color: var(--surface) !important
+        background-color: var(--surface) !important;
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .btn-admin.btn-secondary:hover:not(:active) {
         background-color: var(--portal-action) !important;
@@ -380,8 +426,14 @@ html[data-portal][data-theme="dark"] .btn-admin.btn-secondary[disabled]:hover {
     html[data-portal][data-theme="dark"] .card {
         background-color: var(--surface) !important
     }
+    html[data-portal][data-theme="dark"] .card-info h3 {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .card-revenue-hero {
         background: linear-gradient(135deg, var(--surface) 0%, var(--surface) 100%) !important
+    }
+    html[data-portal][data-theme="dark"] .revenue-hero__period {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .revenue-hero__delta--up {
         color: var(--portal-success) !important
@@ -417,6 +469,9 @@ html[data-portal][data-theme="dark"] .aov-body--chart .aov-empty {
     html[data-portal][data-theme="dark"] .widget {
         background-color: var(--surface) !important
     }
+    html[data-portal][data-theme="dark"] .view-all-link {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .recent-list li {
         border: 1px solid var(--border-color) !important;
         background: var(--surface) !important
@@ -426,7 +481,7 @@ html[data-portal][data-theme="dark"] .aov-body--chart .aov-empty {
         background: linear-gradient(135deg, var(--surface), var(--surface)) !important
     }
     html[data-portal][data-theme="dark"] .latest-chip {
-        color: var(--portal-accent) !important;
+        color: var(--text-main) !important;
         background: var(--surface) !important;
         border: 1px solid var(--portal-accent-border) !important
     }
@@ -476,7 +531,7 @@ html[data-portal][data-theme="dark"] .aov-body--chart .aov-empty {
     }
     html[data-portal][data-theme="dark"] .aov-rank.rank-1 {
         background: linear-gradient(135deg, var(--portal-warning-soft), var(--portal-warning-soft)) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .aov-rank.rank-2 {
         background: var(--surface) !important;
@@ -484,13 +539,13 @@ html[data-portal][data-theme="dark"] .aov-body--chart .aov-empty {
     }
     html[data-portal][data-theme="dark"] .aov-rank.rank-3 {
         background: var(--portal-accent-soft) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .aov-name {
         color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .aov-value {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .aov-category-revenue {
         color: var(--text-muted) !important
@@ -510,13 +565,13 @@ html[data-portal][data-theme="dark"] .aov-body--chart .aov-empty {
         background-color: var(--surface) !important
     }
     html[data-portal][data-theme="dark"] .dashboard-data-notice > i {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .dashboard-data-notice-title {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .dashboard-data-notice-text {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .admin-session-warning__dialog {
         border: 1px solid var(--border-color) !important
@@ -546,7 +601,7 @@ html[data-portal][data-theme="dark"] .aov-body--chart .aov-empty {
     html[data-portal][data-theme="dark"] .admin-page-load-notice {
         border-top: 1px solid var(--portal-accent-border) !important;
         background: var(--surface) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .admin-page-load-notice button:hover {
         background: var(--surface) !important
@@ -555,7 +610,11 @@ html[data-portal][data-theme="dark"] .aov-body--chart .aov-empty {
         background-color: var(--surface) !important
     }
     html[data-portal][data-theme="dark"] .metric-icon {
-        background-color: var(--surface) !important
+        background-color: var(--surface) !important;
+        color: var(--text-main) !important
+    }
+    html[data-portal][data-theme="dark"] .metric-value {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .panel {
         background-color: var(--surface) !important
@@ -593,13 +652,17 @@ html[data-portal][data-theme="dark"] .admin-table td {
     html[data-portal][data-theme="dark"] .enhanced-table .sticky-action {
         background-color: var(--surface) !important
     }
+    html[data-portal][data-theme="dark"] .photo-link {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .photo-link:hover {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .table-footer-meta {
         color: var(--text-muted) !important
     }
     html[data-portal][data-theme="dark"] .page-number {
+        color: var(--text-main) !important;
         background-color: var(--surface) !important
     }
     html[data-portal][data-theme="dark"] .inv-cat-footer-meta {
@@ -609,13 +672,15 @@ html[data-portal][data-theme="dark"] .admin-table td {
         color: var(--text-muted) !important
     }
     html[data-portal][data-theme="dark"] .inv-select-all-pages.is-active {
-        background: var(--surface) !important
+        background: var(--surface) !important;
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .admin-bulk-selection-count {
         color: var(--text-muted) !important
     }
     html[data-portal][data-theme="dark"] .admin-bulk-select-all-pages.is-active {
-        background: var(--surface) !important
+        background: var(--surface) !important;
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .admin-bulk-select-all-pages.is-active:hover {
         background: var(--portal-action) !important
@@ -667,6 +732,7 @@ html[data-portal][data-theme="dark"] .admin-bulk-mode-toggle.admin-bulk-restore:
         border-color: var(--portal-success-border) !important
     }
     html[data-portal][data-theme="dark"] .page-btn {
+        color: var(--text-main) !important;
         background-color: var(--surface) !important
     }
     html[data-portal][data-theme="dark"] .page-btn:hover:not(:disabled) {
@@ -682,6 +748,10 @@ html[data-portal][data-theme="dark"] .textarea-field {
     }
     html[data-portal][data-theme="dark"] .toggle-pass {
         color: var(--portal-accent) !important
+    }
+    html[data-portal][data-theme="dark"] .toggle-pass:hover,
+html[data-portal][data-theme="dark"] .toggle-pass:focus {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .file-input::file-selector-button {
         background: var(--surface) !important;
@@ -714,13 +784,17 @@ html[data-portal][data-theme="dark"] .textarea-field {
         color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .payment-claim-copy:hover {
-        background: var(--surface) !important
+        background: var(--surface) !important;
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .payment-claim-amount {
         color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .payment-claim-row .is-overdue {
         color: var(--portal-accent) !important
+    }
+    html[data-portal][data-theme="dark"] .payment-claim-proof a {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .payment-claim-proof img {
         background: var(--surface) !important
@@ -741,10 +815,11 @@ html[data-portal][data-theme="dark"] .textarea-field {
     }
     html[data-portal][data-theme="dark"] #modalPaymentVerifyBlock .payment-verification-icon {
         border: 1px solid var(--border-color) !important;
-        background: var(--surface) !important
+        background: var(--surface) !important;
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] #modalPaymentVerifyBlock .payment-verification-eyebrow {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] #modalPaymentVerifyBlock h4 {
         color: var(--text-main) !important
@@ -752,7 +827,7 @@ html[data-portal][data-theme="dark"] .textarea-field {
     html[data-portal][data-theme="dark"] #modalPaymentVerifyBlock .payment-verification-status {
         border: 1px solid var(--portal-warning-border) !important;
         background: var(--surface) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] #modalPaymentVerifyBlock[data-payment-state="paid"] .payment-verification-status,
 html[data-portal][data-theme="dark"] #modalPaymentVerifyBlock[data-payment-state="refunded"] .payment-verification-status {
@@ -813,7 +888,7 @@ html[data-portal][data-theme="dark"] #modalPaymentVerifyBlock .payment-verificat
         color: var(--portal-info) !important
     }
     html[data-portal][data-theme="dark"] #modalPaymentVerifyBlock .payment-verification-refund h5 > i {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] #modalPaymentVerifyBlock .payment-refund-field label,
 html[data-portal][data-theme="dark"] #modalPaymentVerifyBlock .payment-correction-field label {
@@ -830,10 +905,10 @@ html[data-portal][data-theme="dark"] #modalPaymentVerifyBlock .payment-correctio
     html[data-portal][data-theme="dark"] .tracking-coord-btn:hover {
         border-color: var(--portal-accent-border) !important;
         background: var(--surface) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .field-hint--warn {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .gcash-qr-admin-preview {
         background: var(--surface) !important
@@ -867,7 +942,7 @@ html[data-portal][data-theme="dark"] .accounts-form-grid .field-stack.has-error 
     }
     html[data-portal][data-theme="dark"] .role-tag-admin {
         background: var(--surface) !important;
-        color: var(--portal-accent) !important;
+        color: var(--text-main) !important;
         border-color: var(--portal-accent-border) !important
     }
     html[data-portal][data-theme="dark"] .role-tag-staff {
@@ -887,7 +962,7 @@ html[data-portal][data-theme="dark"] .accounts-form-grid .field-stack.has-error 
     }
     html[data-portal][data-theme="dark"] .password-status-pending {
         background: var(--surface) !important;
-        color: var(--portal-accent) !important;
+        color: var(--text-main) !important;
         border-color: var(--portal-accent-border) !important
     }
     html[data-portal][data-theme="dark"] .accounts-table .sticky-action {
@@ -931,7 +1006,7 @@ html[data-portal][data-theme="dark"] .photo-editor-preview {
         background: linear-gradient(160deg, var(--surface), var(--surface)) !important
     }
     html[data-portal][data-theme="dark"] .incoming-subtitle {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .status-green {
         background-color: var(--surface) !important;
@@ -939,7 +1014,7 @@ html[data-portal][data-theme="dark"] .photo-editor-preview {
     }
     html[data-portal][data-theme="dark"] .status-yellow {
         background-color: var(--portal-accent-soft) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .status-blue {
         background-color: var(--surface) !important;
@@ -978,6 +1053,9 @@ html[data-portal][data-theme="dark"] .photo-editor-preview {
         color: var(--text-muted) !important;
         background: var(--surface) !important;
         border: 1px dashed var(--border-color) !important
+    }
+    html[data-portal][data-theme="dark"] .returns-summary-total strong {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .return-amount-caption {
         color: var(--text-muted) !important
@@ -1018,6 +1096,9 @@ html[data-portal][data-theme="dark"] .return-evidence-grid video {
     html[data-portal][data-theme="dark"] .return-receipt strong {
         color: var(--text-main) !important
     }
+    html[data-portal][data-theme="dark"] .return-receipt p:first-child strong {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .return-timeline-item::before {
         background: var(--surface) !important
     }
@@ -1032,13 +1113,14 @@ html[data-portal][data-theme="dark"] .return-evidence-grid video {
     }
     html[data-portal][data-theme="dark"] .action-icons button {
         border: 1px solid var(--border-color) !important;
-        background: var(--surface) !important
+        background: var(--surface) !important;
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .action-icons button:hover {
         background-color: var(--portal-action) !important
     }
     html[data-portal][data-theme="dark"] .action-icons button.appointment-complete-action {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .action-icons button.appointment-complete-action:hover,
 html[data-portal][data-theme="dark"] .action-icons button.appointment-complete-action:focus-visible {
@@ -1107,7 +1189,7 @@ html[data-portal][data-theme="dark"] .admin-calendar-right {
     }
     html[data-portal][data-theme="dark"] .btn-clear-day-blocks {
         background: var(--surface) !important;
-        color: var(--portal-accent) !important;
+        color: var(--text-main) !important;
         border: 1px solid var(--portal-accent-border) !important
     }
     html[data-portal][data-theme="dark"] .btn-clear-day-blocks:hover {
@@ -1139,7 +1221,7 @@ html[data-portal][data-theme="dark"] .admin-calendar-right {
         border-bottom: 1px solid var(--border-color) !important
     }
     html[data-portal][data-theme="dark"] .cal-navigation h4 {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .cal-days-header {
         color: var(--text-muted) !important
@@ -1160,7 +1242,7 @@ html[data-portal][data-theme="dark"] .admin-calendar-right {
         color: var(--text-muted) !important
     }
     html[data-portal][data-theme="dark"] .admin-calendar-right h4 {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .admin-event-input-group label {
         color: var(--text-main) !important
@@ -1171,7 +1253,7 @@ html[data-portal][data-theme="dark"] .admin-calendar-right {
     html[data-portal][data-theme="dark"] .admin-event-item {
         background: var(--surface) !important;
         border: 1px solid var(--portal-accent-border) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .admin-event-remove {
         color: var(--portal-accent) !important
@@ -1237,10 +1319,10 @@ html[data-portal][data-theme="dark"] .admin-calendar-right {
     html[data-portal][data-theme="dark"] .time-slot-btn.selected {
         border-color: var(--portal-accent-border) !important;
         background: var(--surface) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .time-slot-btn.selected::before {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .time-slot-btn .time-slot-label {
         background: var(--surface) !important;
@@ -1252,6 +1334,9 @@ html[data-portal][data-theme="dark"] .admin-calendar-right {
     html[data-portal][data-theme="dark"] .time-placeholder {
         color: var(--text-muted) !important;
         border: 1px dashed var(--border-color) !important
+    }
+    html[data-portal][data-theme="dark"] .modal-title {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .field-stack label {
         color: var(--text-muted) !important
@@ -1274,13 +1359,15 @@ html[data-portal][data-theme="dark"] .admin-calendar-right {
     html[data-portal][data-theme="dark"] .report-category-button:hover {
         border-color: var(--portal-accent-border) !important;
         background: var(--surface) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .report-category-button.is-active {
-        background: var(--surface) !important
+        background: var(--surface) !important;
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .report-category-icon {
-        background: var(--surface) !important
+        background: var(--surface) !important;
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .report-category-button.is-active .report-category-icon {
         background: var(--portal-action) !important
@@ -1303,7 +1390,7 @@ html[data-portal][data-theme="dark"] .admin-calendar-right {
     html[data-portal][data-theme="dark"] .report-page-message {
         border: 1px solid var(--portal-accent-border) !important;
         background: var(--surface) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .report-page-message.is-error {
         border-color: var(--portal-accent-border) !important;
@@ -1313,6 +1400,9 @@ html[data-portal][data-theme="dark"] .admin-calendar-right {
     html[data-portal][data-theme="dark"] .report-result-banner {
         border: 1px solid var(--border-color) !important;
         background: linear-gradient(100deg, var(--surface) 0%, var(--surface) 100%) !important
+    }
+    html[data-portal][data-theme="dark"] .report-result-eyebrow {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .report-result-banner h3 {
         color: var(--text-main) !important
@@ -1337,7 +1427,8 @@ html[data-portal][data-theme="dark"] .admin-calendar-right {
         background: var(--surface) !important
     }
     html[data-portal][data-theme="dark"] .report-metric-icon {
-        background: var(--surface) !important
+        background: var(--surface) !important;
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .report-metric-value {
         color: var(--text-main) !important
@@ -1363,6 +1454,9 @@ html[data-portal][data-theme="dark"] .admin-calendar-right {
     }
     html[data-portal][data-theme="dark"] .report-breakdown-label {
         color: var(--text-muted) !important
+    }
+    html[data-portal][data-theme="dark"] .report-breakdown-value {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .report-breakdown-track {
         background: var(--surface) !important
@@ -1394,7 +1488,8 @@ html[data-portal][data-theme="dark"] .admin-calendar-right {
     }
     html[data-portal][data-theme="dark"] .report-icon-button {
         border: 1px solid var(--border-color) !important;
-        background: var(--surface) !important
+        background: var(--surface) !important;
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .report-icon-button:hover {
         background: var(--portal-action) !important
@@ -1410,9 +1505,15 @@ html[data-portal][data-theme="dark"] .admin-calendar-right {
         background: var(--surface) !important;
         color: var(--text-muted) !important
     }
+    html[data-portal][data-theme="dark"] .report-letterhead-note i {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .report-letterhead-group {
         border: 1px solid var(--border-color) !important;
         background: var(--surface) !important
+    }
+    html[data-portal][data-theme="dark"] .report-letterhead-group legend {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .report-letterhead-label {
         color: var(--text-main) !important
@@ -1437,13 +1538,15 @@ html[data-portal][data-theme="dark"] .admin-calendar-right {
         background: linear-gradient(160deg, var(--surface), var(--surface)) !important
     }
     html[data-portal][data-theme="dark"] .account-avatar {
-        background: var(--surface) !important
+        background: var(--surface) !important;
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .account-name {
         color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .account-role-badge {
         background: var(--surface) !important;
+        color: var(--text-main) !important;
         border: 1px solid var(--border-color) !important
     }
     html[data-portal][data-theme="dark"] .account-meta-item {
@@ -1457,6 +1560,9 @@ html[data-portal][data-theme="dark"] .admin-calendar-right {
     }
     html[data-portal][data-theme="dark"] .account-form-card {
         background: var(--surface) !important
+    }
+    html[data-portal][data-theme="dark"] .account-form-card h3 {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .account-form-subtext {
         color: var(--text-muted) !important
@@ -1478,6 +1584,9 @@ html[data-portal][data-theme="dark"] .admin-calendar-right {
     html[data-portal][data-theme="dark"] .combobox-caret {
         color: var(--text-muted) !important
     }
+    html[data-portal][data-theme="dark"] .combobox-wrap.open .combobox-caret {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .combobox-list {
         background: var(--surface) !important;
         border: 1px solid var(--border-color) !important
@@ -1487,7 +1596,8 @@ html[data-portal][data-theme="dark"] .admin-calendar-right {
     }
     html[data-portal][data-theme="dark"] .combobox-list li:hover,
 html[data-portal][data-theme="dark"] .combobox-list li.combobox-active {
-        background-color: var(--surface) !important
+        background-color: var(--surface) !important;
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .combobox-list li.combobox-no-results {
         color: var(--text-muted) !important
@@ -1505,7 +1615,7 @@ html[data-portal][data-theme="dark"] .combobox-list li.combobox-active {
         color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .inv-view-section-title {
-        color: var(--portal-accent) !important;
+        color: var(--text-main) !important;
         border-bottom: 2px solid var(--border-color) !important
     }
     html[data-portal][data-theme="dark"] .inv-variant-table th,
@@ -1538,14 +1648,25 @@ html[data-portal][data-theme="dark"] .inv-variant-table td {
     }
     @media (max-width: 720px),
   (orientation: landscape) and (max-height: 520px) and (max-width: 1024px) {
+        html[data-portal][data-theme="dark"] .inv-category-card .inv-table thead th {
+            background: var(--surface) !important
+        }
+    }
+    @media (max-width: 720px),
+  (orientation: landscape) and (max-height: 520px) and (max-width: 1024px) {
         html[data-portal][data-theme="dark"] :is(
       #appointmentsTable, #incomingOrdersTable, #ordersDirectoryTable,
       #walkInOrdersTable, #rejectedOrdersTable, #returnsRefundsTable,
       #paymentsHistoryTable, #productTable, #accountsTable, #inquiriesTable,
       #ratingsTable, #promotionTable, #announcementTable
     )
-    thead th,
-html[data-portal][data-theme="dark"] .inv-category-card .inv-table thead th {
+    thead th {
+            background: var(--surface) !important
+        }
+    }
+    @media (max-width: 720px),
+  (orientation: landscape) and (max-height: 520px) and (max-width: 1024px) {
+        html[data-portal][data-theme="dark"] .inv-category-card .inv-table thead .sticky-action {
             background: var(--surface) !important
         }
     }
@@ -1558,8 +1679,7 @@ html[data-portal][data-theme="dark"] .inv-category-card .inv-table thead th {
       #ratingsTable, #promotionTable, #announcementTable
     )
     thead
-    .sticky-action,
-html[data-portal][data-theme="dark"] .inv-category-card .inv-table thead .sticky-action {
+    .sticky-action {
             background: var(--surface) !important
         }
     }
@@ -1614,10 +1734,10 @@ html[data-portal][data-theme="dark"] .btn-admin.archives-save-auto-delete:hover 
     html[data-portal][data-theme="dark"] .sidebar .sidebar-nav .nav-link:hover:not(.active),
 html[data-portal][data-theme="dark"] .sidebar .sidebar-nav .sub-link:hover:not(.active) {
         background: var(--surface) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .sidebar .sidebar-nav .nav-link:hover:not(.active) i {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .sidebar .sidebar-nav .nav-link.active,
 html[data-portal][data-theme="dark"] .sidebar .sidebar-nav .sub-link.active {
@@ -1642,7 +1762,7 @@ html[data-portal][data-theme="dark"] .product-analytics-grid > .analytics-card {
     }
     html[data-portal][data-theme="dark"] .analytics-overview-card .aov-icon {
         background: var(--surface) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .analytics-overview-card .aov-header h4,
 html[data-portal][data-theme="dark"] .analytics-card .analytics-card-title {
@@ -1691,7 +1811,7 @@ html[data-portal][data-theme="dark"] .analytics-card-skeleton--table .analytics-
         color: var(--text-muted) !important
     }
     html[data-portal][data-theme="dark"] .analytics-toolbar__btn:hover {
-        color: var(--portal-accent) !important;
+        color: var(--text-main) !important;
         background: var(--surface) !important
     }
     html[data-portal][data-theme="dark"] .analytics-toolbar__btn:focus-visible {
@@ -1733,12 +1853,15 @@ html[data-portal][data-theme="dark"] .analytics-card-skeleton--table .analytics-
     html[data-portal][data-theme="dark"] .analytics-toolbar__apply:focus-visible {
         outline: 2px solid var(--portal-accent-border) !important
     }
+    html[data-portal][data-theme="dark"] .revenue-hero__chart-title {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .email-pending {
         border: 1px solid var(--portal-warning-border) !important;
         background: var(--surface) !important
     }
     html[data-portal][data-theme="dark"] .email-pending__title {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .email-pending__text {
         color: var(--text-muted) !important
@@ -1754,6 +1877,9 @@ html[data-portal][data-theme="dark"] .analytics-card-skeleton--table .analytics-
     }
     html[data-portal][data-theme="dark"] .recovery-stat__label {
         color: var(--text-muted) !important
+    }
+    html[data-portal][data-theme="dark"] .recovery-stat__value {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .recovery-stat__value--muted {
         color: var(--text-muted) !important
@@ -1777,7 +1903,7 @@ html[data-portal][data-theme="dark"] .analytics-card-skeleton--table .analytics-
     html[data-portal][data-theme="dark"] .recovery-note--warn {
         border-color: var(--portal-warning-border) !important;
         background: var(--surface) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .recovery-note--warn strong {
         color: var(--text-main) !important
@@ -1794,6 +1920,9 @@ html[data-portal][data-theme="dark"] .analytics-card-skeleton--table .analytics-
         border: 1px solid var(--border-color) !important;
         background: linear-gradient(160deg, var(--surface), var(--surface)) !important
     }
+    html[data-portal][data-theme="dark"] .recovery-reveal__title {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .recovery-reveal__text {
         color: var(--text-muted) !important
     }
@@ -1802,7 +1931,7 @@ html[data-portal][data-theme="dark"] .analytics-card-skeleton--table .analytics-
         background: var(--surface) !important
     }
     html[data-portal][data-theme="dark"] .recovery-code__index {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .recovery-code__value {
         color: var(--text-main) !important
@@ -1813,10 +1942,14 @@ html[data-portal][data-theme="dark"] .analytics-card-skeleton--table .analytics-
     html[data-portal][data-theme="dark"] .payment-settings-page .payment-settings-card {
         background: var(--surface) !important
     }
+    html[data-portal][data-theme="dark"] .payment-settings-page h3 {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .payment-settings-page p {
         color: var(--text-muted) !important
     }
     html[data-portal][data-theme="dark"] .payment-settings-page .payment-method-icon {
+        color: var(--text-main) !important;
         background: var(--surface) !important
     }
     html[data-portal][data-theme="dark"] .payment-settings-page .payment-method-name {
@@ -1872,7 +2005,7 @@ html[data-portal][data-theme="dark"] .payment-settings-page .payment-settings-me
     html[data-portal][data-theme="dark"] .portal-settings-page .portal-message {
         border: 1px solid var(--portal-accent-border) !important;
         background: var(--surface) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .portal-settings-page .portal-message.is-error {
         background: var(--surface) !important;
@@ -1880,10 +2013,10 @@ html[data-portal][data-theme="dark"] .payment-settings-page .payment-settings-me
         color: var(--portal-accent) !important
     }
     html[data-portal][data-theme="dark"] .portal-settings-page .portal-eyebrow {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .portal-settings-page .portal-block-number {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .portal-settings-page h4 {
         color: var(--text-main) !important
@@ -1946,7 +2079,7 @@ html[data-portal][data-theme="dark"] .portal-settings-page .portal-field select 
         color: var(--text-muted) !important
     }
     html[data-portal][data-theme="dark"] .portal-save-bar strong {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .portal-settings-page :is(button, a, input, select, textarea):focus-visible {
         outline: 2px solid var(--portal-accent-border) !important
@@ -1965,15 +2098,15 @@ html[data-portal][data-theme="dark"] .portal-settings-page .portal-field select 
     }
     html[data-portal][data-theme="dark"] .badge-promotion {
         background: var(--portal-accent-soft) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .badge-announcement {
         background: var(--surface) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .badge-rating {
         background: var(--portal-warning-soft) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .badge-return {
         background: var(--portal-success-soft) !important;
@@ -2040,7 +2173,7 @@ html[data-portal][data-theme="dark"] td.sticky-action {
     }
     html[data-portal][data-theme="dark"] .inq-status-new {
         background: var(--surface) !important;
-        color: var(--portal-accent) !important;
+        color: var(--text-main) !important;
         border: 1px solid var(--portal-accent-border) !important
     }
     html[data-portal][data-theme="dark"] .inq-status-resolved {
@@ -2100,10 +2233,15 @@ html[data-portal][data-theme="dark"] td.sticky-action {
         background: var(--surface) !important
     }
     html[data-portal][data-theme="dark"] .inv-category-icon {
+        color: var(--text-main) !important;
         background: var(--surface) !important
+    }
+    html[data-portal][data-theme="dark"] .inv-category-title {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .inv-category-badge {
         background: var(--surface) !important;
+        color: var(--text-main) !important;
         border: 1px solid var(--portal-accent-border) !important
     }
     html[data-portal][data-theme="dark"] .inv-cat-footer {
@@ -2119,7 +2257,7 @@ html[data-portal][data-theme="dark"] td.sticky-action {
     }
     html[data-portal][data-theme="dark"] .remarks-restock {
         background: var(--portal-warning-soft) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .remarks-default {
         background: var(--surface) !important;
@@ -2143,6 +2281,7 @@ html[data-portal][data-theme="dark"] td.sticky-action {
     }
     html[data-portal][data-theme="dark"] .inv-variant-chip {
         background: var(--surface) !important;
+        color: var(--text-main) !important;
         border: 1px solid var(--portal-accent-border) !important
     }
     html[data-portal][data-theme="dark"] .inv-variant-table th {
@@ -2178,14 +2317,23 @@ html[data-portal][data-theme="dark"] #modalDeductInventoryItem .input-field:disa
     html[data-portal][data-theme="dark"] .stock-rule-block-title {
         color: var(--text-main) !important
     }
+    html[data-portal][data-theme="dark"] .stock-rule-block-title i {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .stock-rule-formula {
         background: var(--surface) !important;
         color: var(--portal-info) !important
+    }
+    html[data-portal][data-theme="dark"] .stock-rule-formula i {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .stock-rule-guide {
         border: 1px dashed var(--border-color) !important;
         background: var(--surface) !important;
         color: var(--portal-info) !important
+    }
+    html[data-portal][data-theme="dark"] .stock-rule-guide li i {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .stock-rule-guide strong {
         color: var(--text-main) !important
@@ -2221,14 +2369,14 @@ html[data-portal][data-theme="dark"] #modalDeductInventoryItem .input-field:disa
     }
     html[data-portal][data-theme="dark"] .stock-rule-chip--custom {
         background: var(--surface) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .stock-rule-clear {
         color: var(--text-muted) !important
     }
     html[data-portal][data-theme="dark"] .stock-rule-clear:hover:not(:disabled) {
         background: var(--surface) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .stock-rule-clear:focus-visible {
         outline: 2px solid var(--portal-accent-border) !important
@@ -2318,7 +2466,7 @@ html[data-portal][data-theme="dark"] .custom-select-item.active {
     html[data-portal][data-theme="dark"] .custom-select-footer {
         border-top: 1px solid var(--border-color) !important;
         background: var(--surface) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .custom-select-footer:hover {
         background: var(--surface) !important
@@ -2384,8 +2532,11 @@ html[data-portal][data-theme="dark"] .custom-select-item.active {
     html[data-portal][data-theme="dark"] .analytics-card-title {
         color: var(--text-main) !important
     }
+    html[data-portal][data-theme="dark"] .analytics-view-all {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .analytics-view-all:hover {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .analytics-table-wrapper::-webkit-scrollbar-thumb {
         background: var(--surface) !important
@@ -2406,11 +2557,11 @@ html[data-portal][data-theme="dark"] .analytics-perf-table td {
     }
     html[data-portal][data-theme="dark"] .perf-status--high {
         background: var(--portal-warning-soft) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .perf-status--low {
         background: var(--portal-accent-soft) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .perf-status--out {
         background: var(--surface) !important;
@@ -2434,7 +2585,7 @@ html[data-portal][data-theme="dark"] .analytics-perf-table td {
         color: var(--text-muted) !important
     }
     html[data-portal][data-theme="dark"] .sales-category-center strong {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .sales-category-center span {
         color: var(--text-muted) !important
@@ -2466,7 +2617,7 @@ html[data-portal][data-theme="dark"] .analytics-perf-table td {
         color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .campaign-panel h2 i {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .campaign-panel p {
         color: var(--portal-info) !important
@@ -2532,7 +2683,7 @@ html[data-portal][data-theme="dark"] .campaign-field textarea:focus {
     }
     html[data-portal][data-theme="dark"] .campaign-status {
         background: var(--portal-warning-soft) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .campaign-status.live {
         background: var(--surface) !important;
@@ -2544,7 +2695,7 @@ html[data-portal][data-theme="dark"] .campaign-field textarea:focus {
     }
     html[data-portal][data-theme="dark"] .campaign-status.finished {
         background: var(--surface) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .campaign-item-actions button {
         background: var(--surface) !important;
@@ -2574,7 +2725,7 @@ html[data-portal][data-theme="dark"] .campaign-field textarea:focus {
         background: var(--surface) !important
     }
     html[data-portal][data-theme="dark"] .star-display {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .rating-feedback-preview {
         color: var(--text-main) !important
@@ -2588,7 +2739,7 @@ html[data-portal][data-theme="dark"] .campaign-field textarea:focus {
     }
     html[data-portal][data-theme="dark"] .rating-reply-status.pending {
         background: var(--portal-warning-soft) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] tr.row-replied {
         background: var(--surface) !important
@@ -2623,10 +2774,10 @@ html[data-portal][data-theme="dark"] .rating-media-strip video {
     }
     html[data-portal][data-theme="dark"] .rating-visibility-badge {
         background: var(--surface) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .rating-detail-stars .star-lg {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .rating-detail-stars .score-label {
         color: var(--text-main) !important
@@ -2652,11 +2803,20 @@ html[data-portal][data-theme="dark"] .rating-media-strip video {
     html[data-portal][data-theme="dark"] .rating-existing-reply-date {
         color: var(--text-muted) !important
     }
+    html[data-portal][data-theme="dark"] .wm-editorial-group summary {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .wm-section {
         background: var(--surface) !important
     }
     html[data-portal][data-theme="dark"] .wm-section-header {
         border-bottom: 1px solid var(--border-color) !important
+    }
+    html[data-portal][data-theme="dark"] .wm-section-header h3 {
+        color: var(--text-main) !important
+    }
+    html[data-portal][data-theme="dark"] .wm-section-header i {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .field-stack label {
         color: var(--text-main) !important
@@ -2694,6 +2854,9 @@ html[data-portal][data-theme="dark"] .wm-select {
     html[data-portal][data-theme="dark"] .wm-service-card .card-img .no-img {
         color: var(--text-muted) !important
     }
+    html[data-portal][data-theme="dark"] .wm-service-card .card-cat {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .wm-service-card .card-title {
         color: var(--text-main) !important
     }
@@ -2704,12 +2867,13 @@ html[data-portal][data-theme="dark"] .wm-select {
         border-top: 1px solid var(--border-color) !important
     }
     html[data-portal][data-theme="dark"] .btn-edit-sm {
-        background: var(--surface) !important
+        background: var(--surface) !important;
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .btn-del-sm {
         background: var(--surface) !important;
         border: 1px solid var(--portal-accent-border) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .btn-edit-sm:hover {
         background: var(--portal-action) !important
@@ -2729,6 +2893,9 @@ html[data-portal][data-theme="dark"] .wm-select {
     }
     html[data-portal][data-theme="dark"] .wm-modal-header {
         border-bottom: 1px solid var(--border-color) !important
+    }
+    html[data-portal][data-theme="dark"] .wm-modal-header h3 {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .wm-modal-footer {
         border-top: 1px solid var(--border-color) !important;
@@ -2787,13 +2954,13 @@ html[data-portal][data-theme="dark"] .wm-select {
     html[data-portal][data-theme="dark"] .wm-sdg-add:hover {
         border-color: var(--portal-accent-border) !important;
         background: var(--surface) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .wm-sdg-title {
         color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .wm-sdg-hidden-tag {
-        color: var(--portal-accent) !important;
+        color: var(--text-main) !important;
         background: var(--portal-warning-soft) !important;
         border: 1px solid var(--portal-warning-border) !important
     }
@@ -2815,12 +2982,22 @@ html[data-portal][data-theme="dark"] .wm-select {
         border: 1px solid var(--border-color) !important
     }
     html[data-portal][data-theme="dark"] .wm-logo-tag.is-custom {
-        color: var(--portal-accent) !important;
+        color: var(--text-main) !important;
         background: var(--surface) !important;
         border-color: var(--portal-accent-border) !important
     }
     html[data-portal][data-theme="dark"] .wm-logo-hint {
         color: var(--text-muted) !important
+    }
+    html[data-portal][data-theme="dark"] .wm-grad-swatch {
+        border: 2px solid var(--border-color) !important;
+        background: var(--surface) !important
+    }
+    html[data-portal][data-theme="dark"] .wm-grad-swatch:hover {
+        border-color: var(--portal-accent-border) !important
+    }
+    html[data-portal][data-theme="dark"] .wm-grad-swatch.is-selected {
+        border-color: var(--portal-accent-border) !important
     }
     html[data-portal][data-theme="dark"] .wm-grad-label {
         color: var(--text-main) !important
@@ -2839,6 +3016,9 @@ html[data-portal][data-theme="dark"] .wm-textarea {
         color: var(--text-muted) !important
     }
     html[data-portal][data-theme="dark"] .contact-preview-row {
+        color: var(--text-main) !important
+    }
+    html[data-portal][data-theme="dark"] .contact-preview-row i {
         color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .et-group-label {
@@ -2871,7 +3051,7 @@ html[data-portal][data-theme="dark"] .et-item.active:hover {
     html[data-portal][data-theme="dark"] .et-locked {
         background: var(--surface) !important;
         border: 1px solid var(--portal-warning-border) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .et-token {
         background: var(--surface) !important;
@@ -2924,7 +3104,7 @@ html[data-portal][data-theme="dark"] .et-item.active:hover {
         color: var(--text-muted) !important
     }
     html[data-portal][data-theme="dark"] .ql-del:hover {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .btn-add-link {
         background: var(--surface) !important;
@@ -2940,7 +3120,7 @@ html[data-portal][data-theme="dark"] .et-item.active:hover {
         background: var(--surface) !important
     }
     html[data-portal][data-theme="dark"] .wm-scene-range output {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .wm-input {
         border: 1px solid var(--border-color) !important;
@@ -2993,7 +3173,8 @@ html[data-portal][data-theme="dark"] .mt-alert.is-fault strong {
         border-bottom: 1px solid var(--border-color) !important
     }
     html[data-portal][data-theme="dark"] .mt-row-title > i {
-        background: var(--surface) !important
+        background: var(--surface) !important;
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .mt-row-title h4 {
         color: var(--text-main) !important
@@ -3017,7 +3198,7 @@ html[data-portal][data-theme="dark"] .mt-alert.is-fault strong {
         color: var(--text-muted) !important
     }
     html[data-portal][data-theme="dark"] .mt-switch input:checked ~ .mt-switch-state {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .mt-row-msg > label {
         color: var(--text-main) !important
@@ -3029,13 +3210,16 @@ html[data-portal][data-theme="dark"] .mt-alert.is-fault strong {
         color: var(--text-muted) !important
     }
     html[data-portal][data-theme="dark"] .mt-counter.is-max {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
+    }
+    html[data-portal][data-theme="dark"] .mt-default-link {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .mt-default-link:hover {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .mt-default-link:active {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .mt-live-pill {
         background: var(--surface) !important;
@@ -3043,7 +3227,7 @@ html[data-portal][data-theme="dark"] .mt-alert.is-fault strong {
     }
     html[data-portal][data-theme="dark"] .mt-live-pill.is-on {
         background: var(--portal-warning-soft) !important;
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .mt-live-pill.is-live {
         background: var(--portal-accent-soft) !important;
@@ -3100,7 +3284,10 @@ html[data-portal][data-theme="dark"] .mt-page-field > legend {
         border-top: 1px solid var(--border-color) !important
     }
     html[data-portal][data-theme="dark"] #mtPageMigrationNotice {
-        color: var(--portal-accent) !important
+        color: var(--text-main) !important
+    }
+    html[data-portal][data-theme="dark"] .card-cat {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .card-title {
         color: var(--text-main) !important
@@ -3111,12 +3298,18 @@ html[data-portal][data-theme="dark"] .mt-page-field > legend {
     html[data-portal][data-theme="dark"] .empty-state {
         color: var(--text-muted) !important
     }
+    html[data-portal][data-theme="dark"] .service-page-copy-panel h2 {
+        color: var(--text-main) !important
+    }
     html[data-portal][data-theme="dark"] .service-field-count {
         color: var(--portal-info) !important
     }
     html[data-portal][data-theme="dark"] .service-field-count.is-invalid,
 html[data-portal][data-theme="dark"] .service-form-status.is-invalid {
         color: var(--portal-accent) !important
+    }
+    html[data-portal][data-theme="dark"] .service-category-panel h2 {
+        color: var(--text-main) !important
     }
     html[data-portal][data-theme="dark"] .wm-input[aria-invalid="true"],
 html[data-portal][data-theme="dark"] .wm-textarea[aria-invalid="true"] {

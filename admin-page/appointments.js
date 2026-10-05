@@ -1089,7 +1089,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const status = safe(appt.status);
     const statusCls = statusClass(status);
     const fileHtml = attachmentHtml(appt, {
-      emptyHtml: '<span style="color:#9ca3af;">No file attached</span>',
+      emptyHtml: '<span style="color:var(--portal-muted-color,#9ca3af);">No file attached</span>',
     });
 
     const body = document.getElementById("apptViewBody");
@@ -1106,39 +1106,39 @@ document.addEventListener("DOMContentLoaded", () => {
         <hr class="confirm-separator" style="margin:12px 0;" />
         <div class="appt-view-grid">
           <div class="appt-view-field">
-            <div class="inv-view-label"><i class="fa-solid fa-phone" style="margin-right:6px;color:#800000;"></i>Contact Number</div>
+            <div class="inv-view-label"><i class="fa-solid fa-phone" style="margin-right:6px;color:var(--portal-data-color,#800000);"></i>Contact Number</div>
             <div class="inv-view-value">${safe(appt.contact_number)}</div>
           </div>
           <div class="appt-view-field">
-            <div class="inv-view-label"><i class="fa-regular fa-envelope" style="margin-right:6px;color:#800000;"></i>Email Address</div>
+            <div class="inv-view-label"><i class="fa-regular fa-envelope" style="margin-right:6px;color:var(--portal-data-color,#800000);"></i>Email Address</div>
             <div class="inv-view-value">${safe(appt.email)}</div>
           </div>
           <div class="appt-view-field full">
-            <div class="inv-view-label"><i class="fa-solid fa-location-dot" style="margin-right:6px;color:#800000;"></i>Address</div>
+            <div class="inv-view-label"><i class="fa-solid fa-location-dot" style="margin-right:6px;color:var(--portal-data-color,#800000);"></i>Address</div>
             <div class="inv-view-value">${safe(appt.full_address)}</div>
           </div>
           <div class="appt-view-field">
-            <div class="inv-view-label"><i class="fa-solid fa-user-tag" style="margin-right:6px;color:#800000;"></i>Client Type</div>
+            <div class="inv-view-label"><i class="fa-solid fa-user-tag" style="margin-right:6px;color:var(--portal-data-color,#800000);"></i>Client Type</div>
             <div class="inv-view-value">${safe(appt.client_type)}</div>
           </div>
           <div class="appt-view-field">
-            <div class="inv-view-label"><i class="fa-solid fa-calendar-day" style="margin-right:6px;color:#800000;"></i>Appointment Date</div>
+            <div class="inv-view-label"><i class="fa-solid fa-calendar-day" style="margin-right:6px;color:var(--portal-data-color,#800000);"></i>Appointment Date</div>
             <div class="inv-view-value">${prettyDate(appt.appointment_date)}</div>
           </div>
           <div class="appt-view-field">
-            <div class="inv-view-label"><i class="fa-regular fa-clock" style="margin-right:6px;color:#800000;"></i>Appointment Time</div>
+            <div class="inv-view-label"><i class="fa-regular fa-clock" style="margin-right:6px;color:var(--portal-data-color,#800000);"></i>Appointment Time</div>
             <div class="inv-view-value">${safe(appt.appointment_time)}</div>
           </div>
           <div class="appt-view-field full">
-            <div class="inv-view-label"><i class="fa-solid fa-bullseye" style="margin-right:6px;color:#800000;"></i>Purpose / Service</div>
+            <div class="inv-view-label"><i class="fa-solid fa-bullseye" style="margin-right:6px;color:var(--portal-data-color,#800000);"></i>Purpose / Service</div>
             <div class="inv-view-value">${safe(appt.purpose)}</div>
           </div>
           <div class="appt-view-field full">
-            <div class="inv-view-label"><i class="fa-regular fa-note-sticky" style="margin-right:6px;color:#800000;"></i>Additional Notes</div>
+            <div class="inv-view-label"><i class="fa-regular fa-note-sticky" style="margin-right:6px;color:var(--portal-data-color,#800000);"></i>Additional Notes</div>
             <div class="inv-view-value">${safe(appt.additional_notes)}</div>
           </div>
           <div class="appt-view-field full">
-            <div class="inv-view-label"><i class="fa-solid fa-paperclip" style="margin-right:6px;color:#800000;"></i>Attached File</div>
+            <div class="inv-view-label"><i class="fa-solid fa-paperclip" style="margin-right:6px;color:var(--portal-data-color,#800000);"></i>Attached File</div>
             <div class="inv-view-value">${fileHtml}</div>
           </div>
         </div>`;

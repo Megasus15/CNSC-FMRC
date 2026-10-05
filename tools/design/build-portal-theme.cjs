@@ -12,7 +12,10 @@ const sources = [
   'admin-page/website-payments.css', 'admin-page/website-portals.css',
   ...['admin-page', 'staff-page'].flatMap(dir => fs.readdirSync(path.join(root, dir)).filter(f => f.endsWith('.html') && !['settings.html', 'maintenance-preview.html'].includes(f)).sort().map(f => `${dir}/${f}`)),
 ];
-const protectedSelector = /official-|report-print|recovery-print|inventory-report-document|portal-preview-(?:form|brand|signin|label|input|forgot|submit|return|photo|story)|portal-layout-mini|wm-hero-scene-preview|wm-grad-(?:swatch|check)|mt-theme-swatch|\.mt-switch-knob|payment-switch::before/;
+const protectedSelector = /official-|report-print|recovery-print|inventory-report-document|portal-preview-(?:form|brand|signin|label|input|forgot|submit|return|photo|story)|portal-layout-mini|wm-hero-scene-preview|wm-grad-(?:chip|check)|mt-theme-swatch|\.mt-switch-knob|payment-switch::before/;
+// Red carries meaning for failures and destructive actions. Ordinary headings,
+// totals, references and editor labels use the same neutral text as other data.
+const semanticRed = /error|danger|invalid|alert|warning|reject|cancel|overdue|delete|notif-del|remove|negative|offline|failed|inactive|unavailable|blocked|required|archive-action|status-red|priority-high|delta--down|stock-(?:low|out|critical)|low-stock|out-of-stock/i;
 const prefix = 'html[data-portal][data-theme="dark"]';
 const output = postcss.root();
 const screen = postcss.atRule({ name: 'media', params: 'screen' });
@@ -30,10 +33,11 @@ function tone(hex) {
   const kind = max - min < 28 ? 'neutral' : r > g * 1.15 && r > b * 1.06 ? 'red' : r > b * 1.2 && g > b * 1.18 ? 'warning' : g > r * 1.15 && g > b * .9 ? 'success' : b > r * 1.2 ? 'info' : 'accent';
   return { luminance, kind };
 }
-function color(hex, prop) {
+function color(hex, prop, semantic) {
   const { luminance, kind } = tone(hex);
   if (prop === 'color' || prop === 'fill' || prop === 'stroke') {
     if (luminance > .5) return hex;
+    if (kind === 'red' && prop === 'color' && !semantic) return 'var(--text-main)';
     if (kind !== 'neutral') return `var(--portal-${kind === 'red' ? 'accent' : kind})`;
     return luminance > .1 ? 'var(--text-muted)' : 'var(--text-main)';
   }
@@ -56,29 +60,34 @@ for (const source of sources) {
     if (/^\s*(?:html|:root|\*)/.test(rule.selector)) return;
     const selectors = rule.selectors.filter(s => !protectedSelector.test(s));
     if (!selectors.length) return;
-    const themed = postcss.rule({ selector: selectors.map(s => `${prefix} ${s}`).join(',\n') });
-    rule.nodes.filter(n => n.type === 'decl').forEach(decl => {
-      if (!/^(?:color|background(?:-color)?|border(?:-(?:top|bottom|left|right))?(?:-color)?|outline(?:-color)?|fill|stroke)$/.test(decl.prop)) return;
-      // A var() fallback already inherits shared tokens; never flatten it.
-      if (decl.value.includes('url(')) return;
-      if (decl.value.includes('var(')) {
-        if (/background/.test(decl.prop) && decl.value.includes('var(--primary-color)')) themed.append({ prop: decl.prop, value: decl.value.replaceAll('var(--primary-color)', 'var(--portal-action)'), important: true });
-        return;
-      }
-      const value = decl.value.replace(literal, raw => {
-        const hex = raw === 'white' ? '#ffffff' : raw === 'black' ? '#000000' : raw;
-        if (![4,7].includes(hex.length)) return raw;
-        return color(hex, decl.prop);
+    for (const semantic of [false, true]) {
+      const group = selectors.filter(s => semanticRed.test(s) === semantic);
+      if (!group.length) continue;
+      const themed = postcss.rule({ selector: group.map(s => `${prefix} ${s}`).join(',\n') });
+      rule.nodes.filter(n => n.type === 'decl').forEach(decl => {
+        if (!/^(?:color|background(?:-color)?|border(?:-(?:top|bottom|left|right))?(?:-color)?|outline(?:-color)?|fill|stroke)$/.test(decl.prop)) return;
+        // A var() fallback already inherits shared tokens; never flatten it.
+        if (decl.value.includes('url(')) return;
+        if (decl.value.includes('var(')) {
+          if (/background/.test(decl.prop) && decl.value.includes('var(--primary-color)')) themed.append({ prop: decl.prop, value: decl.value.replaceAll('var(--primary-color)', 'var(--portal-action)'), important: true });
+          if (decl.prop === 'color' && !semantic && /var\(--primary-color(?:\s*,[^)]*)?\)/.test(decl.value)) themed.append({ prop: 'color', value: decl.value.replace(/var\(--primary-color(?:\s*,[^)]*)?\)/g, 'var(--text-main)'), important: true });
+          return;
+        }
+        const value = decl.value.replace(literal, raw => {
+          const hex = raw === 'white' ? '#ffffff' : raw === 'black' ? '#000000' : raw;
+          if (![4,7].includes(hex.length)) return raw;
+          return color(hex, decl.prop, semantic);
+        });
+        if (value !== decl.value) themed.append({ prop: decl.prop, value, important: true });
       });
-      if (value !== decl.value) themed.append({ prop: decl.prop, value, important: true });
-    });
-    if (!themed.nodes.length) return;
-    const signature = ancestors.map(a => `${a.name}:${a.params}`).join('|') + themed.toString().replace(/\s+/g, ' ');
-    if (emitted.has(signature)) return;
-    emitted.add(signature);
-    let container = screen;
-    ancestors.forEach(a => { const clone = postcss.atRule({ name: a.name, params: a.params }); container.append(clone); container = clone; });
-    container.append(themed);
+      if (!themed.nodes.length) continue;
+      const signature = ancestors.map(a => `${a.name}:${a.params}`).join('|') + themed.toString().replace(/\s+/g, ' ');
+      if (emitted.has(signature)) continue;
+      emitted.add(signature);
+      let container = screen;
+      ancestors.forEach(a => { const clone = postcss.atRule({ name: a.name, params: a.params }); container.append(clone); container = clone; });
+      container.append(themed);
+      }
   });
 }
 fs.writeFileSync(path.join(root, 'admin-page/portal-theme-coverage.css'), output.toString() + '\n');

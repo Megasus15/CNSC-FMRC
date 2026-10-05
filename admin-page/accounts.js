@@ -1016,13 +1016,13 @@ document.addEventListener("DOMContentLoaded", () => {
         const passwordStatusLabel = hasCustomPassword ? "Set" : "Not set";
         viewContent.innerHTML = `
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;">
-            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Full Name</div><div style="font-size:.88rem;color:#111827;font-weight:500;">${escapeHtml(user?.name || "N/A")}</div></div>
-            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Role</div><div><span class="role-tag ${roleClass}">${toTitleCase(user?.role)}</span></div></div>
-            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Username</div><div style="font-size:.88rem;color:#111827;">${escapeHtml(user?.username || "N/A")}</div></div>
-            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Email</div><div style="font-size:.88rem;color:#111827;word-break:break-word;">${escapeHtml(user?.email || "N/A")}</div></div>
-            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Password Sign-in</div><div><span class="password-status ${passwordStatusClass}">${passwordStatusLabel}</span></div></div>
-            <div><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Google Sign-in</div><div style="font-size:.88rem;color:#111827;">${user?.signed_with_google === true ? "Enabled" : "Not used"}</div></div>
-            <div style="grid-column:1/-1;"><div style="font-size:.73rem;color:#9ca3af;font-weight:700;text-transform:uppercase;">Date Created</div><div style="font-size:.88rem;color:#111827;">${formatDate(user?.created_at)}</div></div>
+            <div><div style="font-size:.73rem;color:var(--portal-muted-color,#9ca3af);font-weight:700;text-transform:uppercase;">Full Name</div><div style="font-size:.88rem;color:var(--portal-data-color,#111827);font-weight:500;">${escapeHtml(user?.name || "N/A")}</div></div>
+            <div><div style="font-size:.73rem;color:var(--portal-muted-color,#9ca3af);font-weight:700;text-transform:uppercase;">Role</div><div><span class="role-tag ${roleClass}">${toTitleCase(user?.role)}</span></div></div>
+            <div><div style="font-size:.73rem;color:var(--portal-muted-color,#9ca3af);font-weight:700;text-transform:uppercase;">Username</div><div style="font-size:.88rem;color:var(--portal-data-color,#111827);">${escapeHtml(user?.username || "N/A")}</div></div>
+            <div><div style="font-size:.73rem;color:var(--portal-muted-color,#9ca3af);font-weight:700;text-transform:uppercase;">Email</div><div style="font-size:.88rem;color:var(--portal-data-color,#111827);word-break:break-word;">${escapeHtml(user?.email || "N/A")}</div></div>
+            <div><div style="font-size:.73rem;color:var(--portal-muted-color,#9ca3af);font-weight:700;text-transform:uppercase;">Password Sign-in</div><div><span class="password-status ${passwordStatusClass}">${passwordStatusLabel}</span></div></div>
+            <div><div style="font-size:.73rem;color:var(--portal-muted-color,#9ca3af);font-weight:700;text-transform:uppercase;">Google Sign-in</div><div style="font-size:.88rem;color:var(--portal-data-color,#111827);">${user?.signed_with_google === true ? "Enabled" : "Not used"}</div></div>
+            <div style="grid-column:1/-1;"><div style="font-size:.73rem;color:var(--portal-muted-color,#9ca3af);font-weight:700;text-transform:uppercase;">Date Created</div><div style="font-size:.88rem;color:var(--portal-data-color,#111827);">${formatDate(user?.created_at)}</div></div>
           </div>`;
       }
       modalViewUser?.classList.add("show");

@@ -345,13 +345,13 @@ document.addEventListener("DOMContentLoaded", () => {
       ${rowCheckbox("inventory", item, item.item_name)}
       <td>${rowNumber}</td>
       <td style="font-weight:600;">${itemName}</td>
-      <td style="color:#64748b;">${blankWhenVariants(esc(item.description || "—"))}</td>
+      <td style="color:var(--portal-muted-color,#64748b);">${blankWhenVariants(esc(item.description || "—"))}</td>
       <td>${blankWhenVariants(esc(item.unit || "—"))}</td>
       <td>${blankWhenVariants(esc(onHand))}</td>
       <td>${blankWhenVariants(statusPill(status))}</td>
       <td>${blankWhenVariants(esc(item.remarks || "—"))}</td>
       <td><span style="font-size:0.75rem;background:#f0f2f5;padding:2px 8px;border-radius:99px;font-weight:600;">${esc(item.category)}</span></td>
-      <td style="color:#64748b;font-size:0.82rem;">${fmtDate(item.archived_at)}</td>
+      <td style="color:var(--portal-muted-color,#64748b);font-size:0.82rem;">${fmtDate(item.archived_at)}</td>
       <td class="action-icons sticky-action">${restoreButton("inventory", item, item.item_name)}${deleteButton("inventory", item, item.item_name)}</td>
     </tr>`;
 
@@ -382,7 +382,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <td class="admin-bulk-select-cell"></td>
         <td></td>
         <td><div class="inv-variant-indent"><span class="inv-variant-name">${esc(variant.name)}</span></div></td>
-        <td style="color:#64748b;">${esc(variant.description || "—")}</td>
+        <td style="color:var(--portal-muted-color,#64748b);">${esc(variant.description || "—")}</td>
         <td>${esc(variant.unit || "—")}</td>
         <td>${esc(variantOnHand)}</td>
         <td>${statusPill(variantStatus)}</td>
@@ -419,31 +419,31 @@ document.addEventListener("DOMContentLoaded", () => {
     if (module === "appointment") {
       return `<tr>
         ${rowCheckbox(module, row, row.reference_no)}
-        <td style="font-weight:700;color:#800000;">${esc(row.reference_no)}</td>
+        <td style="font-weight:700;color:var(--portal-data-color,#800000);">${esc(row.reference_no)}</td>
         <td style="font-weight:600;">${esc(row.client_name)}</td>
         <td>${esc(row.contact_number)}</td>
-        <td style="color:#64748b;">${esc(row.email)}</td>
-        <td style="color:#64748b;font-size:0.8rem;">${esc(row.full_address || "—")}</td>
+        <td style="color:var(--portal-muted-color,#64748b);">${esc(row.email)}</td>
+        <td style="color:var(--portal-muted-color,#64748b);font-size:0.8rem;">${esc(row.full_address || "—")}</td>
         <td>${esc(row.client_type)}</td>
         <td>${esc(row.purpose)}</td>
         <td>${esc(row.appointment_date)}</td>
         <td>${esc(row.appointment_time)}</td>
         <td>${statusPill(row.status)}</td>
-        <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
+        <td style="color:var(--portal-muted-color,#64748b);font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
         <td class="action-icons sticky-action">${restoreButton(module, row, row.reference_no)}${deleteButton(module, row, row.reference_no)}</td>
       </tr>`;
     }
     if (module === "order") {
       return `<tr>
         ${rowCheckbox(module, row, row.order_no)}
-        <td style="font-weight:700;color:#800000;">${esc(row.order_no)}</td>
+        <td style="font-weight:700;color:var(--portal-data-color,#800000);">${esc(row.order_no)}</td>
         <td style="font-weight:600;">${esc(row.order_item)}</td>
         <td>${esc(row.date)}</td>
         <td>${esc(row.customer_name)}</td>
         <td>${esc(row.payment_method)}</td>
         <td style="font-weight:700;">${esc(row.total_label)}</td>
         <td>${statusPill(row.lifecycle_status)}</td>
-        <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
+        <td style="color:var(--portal-muted-color,#64748b);font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
         <td class="action-icons sticky-action">${restoreButton(module, row, row.order_no)}${deleteButton(module, row, row.order_no)}</td>
       </tr>`;
     }
@@ -455,11 +455,11 @@ document.addEventListener("DOMContentLoaded", () => {
       return `<tr>
         ${rowCheckbox(module, row, row.title)}
         <td style="font-weight:600;">${esc(row.title)}</td>
-        <td><strong style="color:#800000;">${esc(row.discount_percent)}% OFF</strong></td>
+        <td><strong style="color:var(--portal-data-color,#800000);">${esc(row.discount_percent)}% OFF</strong></td>
         <td>${esc(scope)}</td>
-        <td style="font-size:0.78rem;color:#64748b;">${scheduleLabel(row)}</td>
+        <td style="font-size:0.78rem;color:var(--portal-muted-color,#64748b);">${scheduleLabel(row)}</td>
         <td>${statusPill(row.is_enabled ? "Enabled" : "Paused")}</td>
-        <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
+        <td style="color:var(--portal-muted-color,#64748b);font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
         <td class="action-icons sticky-action">${restoreButton(module, row, row.title)}${deleteButton(module, row, row.title)}</td>
         </tr>`;
     }
@@ -479,18 +479,18 @@ document.addEventListener("DOMContentLoaded", () => {
       const itemsLine = `${itemsCount} item${itemsCount === 1 ? "" : "s"} • ${quantity} pc${quantity === 1 ? "" : "s"}`;
       return `<tr>
         ${rowCheckbox(module, row, row.return_no)}
-        <td style="font-weight:700;color:#800000;">${esc(row.return_no)}<div style="font-size:0.74rem;color:#64748b;font-weight:600;">${esc(row.order_no)}</div></td>
+        <td style="font-weight:700;color:var(--portal-data-color,#800000);">${esc(row.return_no)}<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);font-weight:600;">${esc(row.order_no)}</div></td>
         <td>
           <strong>${esc(customer)}</strong>
-          ${row.customer_email ? `<div style="font-size:0.74rem;color:#64748b;">${esc(row.customer_email)}</div>` : ""}
+          ${row.customer_email ? `<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);">${esc(row.customer_email)}</div>` : ""}
         </td>
-        <td><strong>${esc(row.product_name)}</strong><div style="font-size:0.74rem;color:#64748b;">${esc(itemsLine)}</div></td>
-        <td style="min-width:180px;white-space:normal;">${esc(row.reason_label)}<div style="font-size:0.74rem;color:#64748b;">${esc(row.resolution_label)}</div></td>
-        <td style="font-weight:700;">${esc(row.amount_label)}${row.refund_method_label ? `<div style="font-size:0.74rem;color:#64748b;font-weight:600;">${esc(row.refund_method_label)}</div>` : ""}</td>
+        <td><strong>${esc(row.product_name)}</strong><div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);">${esc(itemsLine)}</div></td>
+        <td style="min-width:180px;white-space:normal;">${esc(row.reason_label)}<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);">${esc(row.resolution_label)}</div></td>
+        <td style="font-weight:700;">${esc(row.amount_label)}${row.refund_method_label ? `<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);font-weight:600;">${esc(row.refund_method_label)}</div>` : ""}</td>
         <td><span class="status-pill ${statusClass}">${esc(row.status_label)}</span></td>
-        <td>${esc(row.handled_by || "—")}<div style="font-size:0.74rem;color:#64748b;">${esc(row.media_count || 0)} evidence</div></td>
-        <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.created_at)}</td>
-        <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
+        <td>${esc(row.handled_by || "—")}<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);">${esc(row.media_count || 0)} evidence</div></td>
+        <td style="color:var(--portal-muted-color,#64748b);font-size:0.82rem;">${fmtDate(row.created_at)}</td>
+        <td style="color:var(--portal-muted-color,#64748b);font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
         <td class="action-icons sticky-action">${restoreButton(module, row, row.return_no)}${deleteButton(module, row, row.return_no)}</td>
       </tr>`;
     }
@@ -507,16 +507,16 @@ document.addEventListener("DOMContentLoaded", () => {
         ${rowCheckbox(module, row, customer)}
         <td>
           <strong>${esc(customer)}</strong>
-          ${row.customer_email ? `<div style="font-size:0.74rem;color:#64748b;">${esc(row.customer_email)}</div>` : ""}
+          ${row.customer_email ? `<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);">${esc(row.customer_email)}</div>` : ""}
           ${row.is_anonymous ? `<div style="font-size:0.7rem;color:#92400e;margin-top:3px;"><i class="fa-solid fa-user-secret"></i> Anonymous on product page</div>` : ""}
         </td>
-        <td><strong>${esc(row.product_name || "Custom Order")}</strong><div style="font-size:0.74rem;color:#64748b;">${esc(orderLabel)}</div></td>
-        <td><span style="color:#f59e0b;letter-spacing:1px;white-space:nowrap;">${starMarkup}</span><div style="font-size:0.74rem;color:#64748b;">${stars}/5</div></td>
+        <td><strong>${esc(row.product_name || "Custom Order")}</strong><div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);">${esc(orderLabel)}</div></td>
+        <td><span style="color:#f59e0b;letter-spacing:1px;white-space:nowrap;">${starMarkup}</span><div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);">${stars}/5</div></td>
         <td style="min-width:220px;max-width:300px;white-space:normal;">${esc(feedback)}</td>
         <td>${statusPill(replyLabel).replace("status-gray", replyClass)}</td>
-        <td>${esc(row.media_count || 0)} media<div style="font-size:0.74rem;color:#64748b;"><i class="fa-regular fa-thumbs-up"></i> ${esc(row.likes_count || 0)} likes</div></td>
-        <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.created_at)}</td>
-        <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
+        <td>${esc(row.media_count || 0)} media<div style="font-size:0.74rem;color:var(--portal-muted-color,#64748b);"><i class="fa-regular fa-thumbs-up"></i> ${esc(row.likes_count || 0)} likes</div></td>
+        <td style="color:var(--portal-muted-color,#64748b);font-size:0.82rem;">${fmtDate(row.created_at)}</td>
+        <td style="color:var(--portal-muted-color,#64748b);font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
         <td class="action-icons sticky-action">${restoreButton(module, row, customer)}${deleteButton(module, row, customer)}</td>
       </tr>`;
     }
@@ -527,9 +527,9 @@ document.addEventListener("DOMContentLoaded", () => {
       // colour from the word itself.
       return `<tr>
         ${rowCheckbox(module, row, row.order_no)}
-        <td style="font-weight:700;color:#800000;">${esc(row.order_no)}</td>
+        <td style="font-weight:700;color:var(--portal-data-color,#800000);">${esc(row.order_no)}</td>
         <td style="font-weight:600;">${esc(row.customer_name)}</td>
-        <td style="color:#64748b;font-size:0.8rem;min-width:180px;white-space:normal;">${esc(row.address)}</td>
+        <td style="color:var(--portal-muted-color,#64748b);font-size:0.8rem;min-width:180px;white-space:normal;">${esc(row.address)}</td>
         <td>${esc(row.contact_number)}</td>
         <td>${esc(row.client_type)}</td>
         <td>${esc(row.agency_organization)}</td>
@@ -540,7 +540,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <td style="font-weight:700;">${esc(row.total_label)}</td>
         <td>${esc(row.payment)}</td>
         <td>${statusPill(row.status)}</td>
-        <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.archived_at, true)}</td>
+        <td style="color:var(--portal-muted-color,#64748b);font-size:0.82rem;">${fmtDate(row.archived_at, true)}</td>
         <td class="action-icons sticky-action">${restoreButton(module, row, row.order_no)}${deleteButton(module, row, row.order_no)}</td>
       </tr>`;
     }
@@ -550,9 +550,9 @@ document.addEventListener("DOMContentLoaded", () => {
       <td style="font-weight:600;">${esc(row.title)}</td>
       <td>${esc(row.placement || "Everywhere")}</td>
       <td style="min-width:220px;white-space:normal;">${esc(row.message)}</td>
-      <td style="font-size:0.78rem;color:#64748b;">${scheduleLabel(row)}</td>
+      <td style="font-size:0.78rem;color:var(--portal-muted-color,#64748b);">${scheduleLabel(row)}</td>
       <td>${statusPill(row.is_enabled ? "Enabled" : "Paused")}</td>
-      <td style="color:#64748b;font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
+      <td style="color:var(--portal-muted-color,#64748b);font-size:0.82rem;">${fmtDate(row.archived_at)}</td>
       <td class="action-icons sticky-action">${restoreButton(module, row, row.title)}${deleteButton(module, row, row.title)}</td>
     </tr>`;
   };

@@ -4620,9 +4620,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   };
 
-  // Dock Save All Changes bars at the viewport bottom until their natural
-  // page-end position becomes visible. Moving the docked bar to <body> avoids
-  // transformed content containers changing fixed-position behavior.
+  // Keep Website Management actions in the same viewport footer as Settings.
+  // A body-level bar escapes animated content; its slot reserves scroll space.
   const dockedSaveBars = new Set();
   let saveBarFrame = 0;
   const saveBarResizeObserver =
@@ -4635,24 +4634,9 @@ document.addEventListener("DOMContentLoaded", () => {
     dockedSaveBars.forEach(({ bar, slot }) => {
       if (!bar.isConnected || !slot.isConnected) return;
 
-      const slotRect = slot.getBoundingClientRect();
-      const shouldDock = slotRect.top > window.innerHeight - 20;
-
-      if (shouldDock) {
-        if (bar.parentElement !== document.body) document.body.appendChild(bar);
-        bar.classList.add("is-docked");
-        bar.style.left = `${Math.max(12, slotRect.left)}px`;
-        bar.style.width = `${Math.max(0, slotRect.width)}px`;
-        bar.style.bottom = "calc(20px + var(--admin-page-notice-height, 0px))";
-      } else {
-        if (bar.parentElement !== slot) slot.appendChild(bar);
-        bar.classList.remove("is-docked");
-        bar.style.removeProperty("left");
-        bar.style.removeProperty("width");
-        bar.style.removeProperty("bottom");
-      }
-
-      slot.style.minHeight = `${Math.ceil(bar.getBoundingClientRect().height)}px`;
+      if (bar.parentElement !== document.body) document.body.appendChild(bar);
+      bar.classList.add("is-docked", "portal-bottom-bar");
+      slot.style.minHeight = `${Math.ceil(bar.getBoundingClientRect().height) + 24}px`;
     });
   };
 

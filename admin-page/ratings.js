@@ -159,10 +159,10 @@ document.addEventListener("DOMContentLoaded", () => {
             <div style="font-size:0.73rem;color:#6b7280">${customerEmail}</div>
             ${row.is_anonymous ? `<span class="rating-reply-status pending" style="margin-top:4px"><i class="fa-solid fa-user-secret"></i> Anonymous on product page</span>` : ""}
           </td>
-          <td>${productName}<div style="font-size:0.73rem;color:#6b7280;margin-top:3px">${escapeHtml(orderLabel)}</div></td>
-          <td><span class="star-display">${renderStars(stars)}</span> <span style="font-size:0.75rem;color:#6b7280;margin-left:4px">${stars}/5</span></td>
+          <td>${productName}<div style="font-size:0.73rem;color:var(--portal-muted-color,#6b7280);margin-top:3px">${escapeHtml(orderLabel)}</div></td>
+          <td><span class="star-display">${renderStars(stars)}</span> <span style="font-size:0.75rem;color:var(--portal-muted-color,#6b7280);margin-left:4px">${stars}/5</span></td>
           <td>${feedback ? `<div class="rating-feedback-preview">${feedback}</div>` : `<span class="rating-no-feedback">No feedback</span>`}</td>
-          <td><span class="rating-reply-status ${mediaCount ? "replied" : "pending"}"><i class="fa-regular ${mediaCount ? "fa-images" : "fa-image"}"></i> ${mediaCount} media</span><div style="font-size:0.75rem;color:#6b7280;margin-top:4px"><i class="fa-regular fa-thumbs-up"></i> ${Number(row.likes_count) || 0} likes</div></td>
+          <td><span class="rating-reply-status ${mediaCount ? "replied" : "pending"}"><i class="fa-regular ${mediaCount ? "fa-images" : "fa-image"}"></i> ${mediaCount} media</span><div style="font-size:0.75rem;color:var(--portal-muted-color,#6b7280);margin-top:4px"><i class="fa-regular fa-thumbs-up"></i> ${Number(row.likes_count) || 0} likes</div></td>
           <td>
             ${hasReply
               ? `<span class="rating-reply-status replied"><i class="fa-solid fa-check-circle"></i> Replied</span>`

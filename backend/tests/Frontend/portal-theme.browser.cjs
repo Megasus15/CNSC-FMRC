@@ -33,6 +33,9 @@ test('all portal pages render both themes; account-scoped settings synchronize l
       else if (route === '/api/admin/session') data = { server_time: new Date().toISOString(), idle_warning_at: new Date(Date.now()+3600000).toISOString(), idle_expires_at: new Date(Date.now()+3780000).toISOString(), absolute_expires_at: new Date(Date.now()+21600000).toISOString() };
       else if (route === '/api/site-favicon') data = { favicon_image: '' };
       else if (route === '/api/site-settings') data = { data: {} };
+      else if (route === '/api/admin/products') data = {data:[{id:1,name:'Sample product',category:'3D Print',code:'P-001',stock:12,price:100,sale_price:80,discount_percent:20,stock_status:'in_stock',is_blocked:false},{id:2,name:'Unavailable sample',category:'3D Print',code:'P-002',stock:0,price:100,stock_status:'out_of_stock',is_blocked:true}]};
+      else if (route === '/api/admin/promotions') data = {data:[{id:1,title:'Sample promotion',discount_percent:20,scope:'all_products',is_enabled:true,starts_at:'2020-01-01',ends_at:'2099-01-01'}]};
+      else if (route === '/api/admin/archives') data = {appointments:[{source_id:1,reference_no:'AP-001',client_name:'Sample client',status:'completed'}],orders:[{source_id:2,order_no:'OR-001',customer_name:'Sample client'}],promotions:[{source_id:3,title:'Sample archived promotion',discount_percent:20}]};
       else if (route.startsWith('/api/admin/product-analytics/product-performance')) data = { data: Array.from({length:23},(_,i)=>({product_code:`P-${i+1}`,product_name:`Fixture product ${i+1}`,category:'Fabrication',total_sold:10+i,total_revenue:1000+i*10,status:'High',status_class:'high'})) };
       res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(data)); return;
     }
@@ -61,6 +64,40 @@ test('all portal pages render both themes; account-scoped settings synchronize l
     const navigate = async (route, cdp = main) => { await cdp.send('Page.navigate', { url: base + route }); await wait(`location.pathname === ${JSON.stringify(route)} && document.readyState === "complete"`, cdp); };
     const viewport = (width, height) => main.send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
     const settled = () => wait(`!document.querySelector('.fmrc-load-veil.is-on') && !document.querySelector('.admin-global-page-skeleton') && (!document.querySelector('.fmrc-load-veil') || getComputedStyle(document.querySelector('.fmrc-load-veil')).visibility === 'hidden')`);
+    const checkHeader = async label => {
+      const geometry = await evaluate('(() => {const a=document.querySelector(".sidebar-header"),b=document.querySelector(".top-header");return {sidebar:a.getBoundingClientRect().height,navbar:b.getBoundingClientRect().height,sidebarColor:getComputedStyle(a).backgroundColor,navbarColor:getComputedStyle(b).backgroundColor};})()');
+      assert(Math.abs(geometry.sidebar-geometry.navbar)<1,`${label}: brand header and navbar align`);
+      assert.equal(geometry.sidebarColor,geometry.navbarColor,`${label}: header surfaces match`);
+      const submenu = await evaluate('(() => [...document.querySelectorAll(".website-config-menu .sub-link")].map(link=>{const r=link.getBoundingClientRect(),text=link.querySelector(".nav-label"),t=text?.getBoundingClientRect();return {display:getComputedStyle(link).display,align:getComputedStyle(link).alignItems,height:r.height,offset:t&&r.height&&t.height?Math.abs((r.top+r.height/2)-(t.top+t.height/2)):0};}))()');
+      submenu.forEach(row=>{assert.equal(row.display,'flex',label);assert.equal(row.align,'center',label);assert(row.offset<1,`${label}: submenu text is vertically centered`);});
+    };
+    const checkBottomBar = async (label, selector = '.settings-footer') => {
+      for (const scroll of [0,100000]) {
+        await evaluate(`window.scrollTo(0,${scroll})`);
+        const geometry = await evaluate(`(() => {const f=document.querySelector(${JSON.stringify(selector)}),r=f.getBoundingClientRect(),buttons=[...f.querySelectorAll('button')].filter(b=>getComputedStyle(b).display!=='none').map(b=>{const t=b.getBoundingClientRect();return {top:t.top,bottom:t.bottom,right:t.right,left:t.left};});return {position:getComputedStyle(f).position,bottom:r.bottom,left:r.left,right:r.right,height:r.height,viewport:innerHeight,width:innerWidth,contentLeft:document.querySelector('.top-header').getBoundingClientRect().left,buttons};})()`);
+        assert.equal(geometry.position,'fixed',label);
+        assert(Math.abs(geometry.bottom-geometry.viewport)<1,`${label}: footer stays on screen while scrolling`);
+        assert(geometry.buttons.every(b=>b.top>=0 && b.bottom<=geometry.viewport && b.right<=geometry.width && b.left>=0),`${label}: action buttons fit`);
+        assert(Math.abs(geometry.left-geometry.contentLeft)<1 && Math.abs(geometry.right-(geometry.width-15))<=15,`${label}: footer spans the main content`);
+      }
+      await evaluate('window.scrollTo(0,0)');
+    };
+    const checkDensity = async label => {
+      const sample = '(() => [...document.querySelectorAll(".admin-table,.inventory-table,.enhanced-table,.analytics-perf-table,.return-items-table,.inv-variant-table")].map(t=>{const c=t.querySelector("td,th");return c?{padding:parseFloat(getComputedStyle(c).paddingTop),height:c.parentElement.getBoundingClientRect().height}:null}).filter(Boolean))()';
+      if (!(await evaluate(sample)).length) return;
+      await evaluate('window.AdminPreferences.set({compact:false})');
+      const comfortable = await evaluate(sample);
+      await evaluate('window.AdminPreferences.set({compact:true})');
+      const compact = await evaluate(sample);
+      assert.equal(compact.length,comfortable.length);
+      compact.forEach((row,i)=>{
+        assert.equal(comfortable[i].padding-row.padding,7,`${label}: every table switches immediately`);
+        if (row.height>0) assert(comfortable[i].height-row.height>=13,`${label}: rows visibly shrink`);
+      });
+      await evaluate('window.AdminPreferences.set({compact:false})');
+      assert.deepEqual(await evaluate(sample),comfortable,`${label}: turning compact off restores spacing`);
+      await wait('JSON.parse(localStorage.getItem("fmrc-portal-preferences:user:"+(location.pathname.includes("staff-page")?22:11)))._pending === false');
+    };
     const shot = async (name, loading = false) => { await main.send('Page.bringToFront'); if (!loading) await settled(); const result = await main.send('Page.captureScreenshot', { format:'png',fromSurface:true }); fs.writeFileSync(path.join(artifacts, name + '.png'), Buffer.from(result.data, 'base64')); };
     const box = selector => evaluate(`(() => {const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);
     const dragEdge = async delta => {
@@ -81,6 +118,8 @@ test('all portal pages render both themes; account-scoped settings synchronize l
     };
     await viewport(1440, 1000); await navigate('/admin-page/settings.html');
     await wait('document.documentElement.dataset.theme === "dark" && document.getElementById("settingsSaveStatus").textContent.startsWith("Saved to")');
+    await checkHeader('Admin desktop'); await checkBottomBar('Admin desktop');
+    assert.equal(await evaluate('document.querySelector(".settings-density-preview")'),null,'table spacing preview is removed');
     assert.equal(await evaluate('document.querySelector(".settings-brand-preview")'),null,'the Settings live preview was removed');
     await evaluate('document.querySelector(".sidebar .dropdown-toggle").click()');
     const leftScrollbar = await evaluate('(() => {const n=document.querySelector(".sidebar-nav"),link=n.querySelector(".nav-link");return {direction:getComputedStyle(n).direction,linkDirection:getComputedStyle(link).direction,leftInset:n.clientLeft,overflow:n.scrollHeight>n.clientHeight};})()');
@@ -99,6 +138,7 @@ test('all portal pages render both themes; account-scoped settings synchronize l
     assert.equal(await evaluate('document.querySelectorAll(".dark-mode-toggle,.profile-dark-mode-row,.auth-dark-mode-toggle").length'), 0);
     assert.equal(await evaluate('document.documentElement.scrollWidth <= innerWidth'), true);
     await viewport(390,844); await wait('!document.body.classList.contains("admin-sidebar-open") && document.querySelector(".sidebar").getBoundingClientRect().right <= 1'); await shot('settings-admin-dark-mobile');
+    await checkHeader('Admin phone'); await checkBottomBar('Admin phone');
     assert.equal(await evaluate('document.documentElement.scrollWidth <= innerWidth'), true, 'mobile settings fit');
     assert.equal(await evaluate('getComputedStyle(document.querySelector(".portal-sidebar-edge")).display'), 'none');
     assert.equal(await evaluate('document.getElementById("settingSidebarWidth").disabled'),true);
@@ -106,11 +146,18 @@ test('all portal pages render both themes; account-scoped settings synchronize l
     await wait('document.body.classList.contains("admin-sidebar-open") && !document.querySelector(".sidebar").inert');
     await key('Escape'); await wait('!document.body.classList.contains("admin-sidebar-open")');
     await viewport(900,1000);
+    await checkHeader('Admin tablet'); await checkBottomBar('Admin tablet');
+    assert.equal(await evaluate('document.querySelector(".admin-sidebar-toggle").parentElement.className'),'header-left','tablet toggle leaves space for an aligned brand header');
+    await evaluate('document.querySelector(".admin-sidebar-toggle").click()');
+    await wait('document.body.classList.contains("admin-sidebar-open")');
+    await checkHeader('Admin expanded tablet');
+    await evaluate('document.querySelector(".admin-sidebar-toggle").click()');
     assert.equal(await evaluate('getComputedStyle(document.querySelector(".portal-sidebar-edge")).display'), 'none','tablet keeps automatic navigation');
     await viewport(1440,1000);
-    const { targetId } = await controller.send('Target.createTarget', { url: base + '/admin-page/my-account.html' });
+    const { targetId } = await controller.send('Target.createTarget', { url: 'about:blank' });
     const tabList = await (await fetch(`http://127.0.0.1:${new URL(endpoint).port}/json/list`)).json();
     second = await connect(tabList.find(t => t.id === targetId).webSocketDebuggerUrl); await prepare(second);
+    await navigate('/admin-page/my-account.html',second);
     await wait('window.AdminPreferences && document.documentElement.dataset.theme === "dark"', second);
     await dragEdge(-210);
     await wait('window.AdminPreferences.get().sidebarWidth === 76 && Math.abs(document.querySelector(".sidebar").getBoundingClientRect().width-76)<1');
@@ -221,6 +268,8 @@ test('all portal pages render both themes; account-scoped settings synchronize l
           await navigate(`/${folder}/${file}`);
           await wait(`document.documentElement.dataset.theme === '${theme}'`);
           await settled();
+          await checkHeader(`${folder}/${file} ${theme}`);
+          if (await evaluate('!!document.querySelector(".wm-save-bar[data-dock-save-bar]")')) await checkBottomBar(`${folder}/${file} ${theme}`,'.wm-save-bar');
           const report = await evaluate(`(() => { const selectors=['body','.sidebar','.top-header','.panel','.account-summary-card','.account-form-card','.modal-card','.wm-section','.settings-section','.admin-global-skeleton-card'];return selectors.flatMap(selector=>[...document.querySelectorAll(selector)].slice(0,3).map(el=>{const s=getComputedStyle(el);return {selector,background:s.backgroundColor,color:s.color}})); })()`);
           report.forEach(item => { const rgb = item.background.match(/[\d.]+/g)?.map(Number); if (!rgb || rgb[3] === 0) return; const mean = (rgb[0]+rgb[1]+rgb[2])/3; assert(theme === 'dark' ? mean < 90 : mean > 180, `${folder}/${file} ${theme} ${item.selector}: ${item.background}`); });
           measurements.push({ page:`${folder}/${file}`,theme,surfaces:report });
@@ -236,6 +285,20 @@ test('all portal pages render both themes; account-scoped settings synchronize l
             await wait('JSON.parse(localStorage.getItem("fmrc-portal-preferences:user:"+(location.pathname.includes("staff-page")?22:11)))._pending === false');
           }
           if (theme === 'dark') {
+            await checkDensity(`${folder}/${file}`);
+            const dataColors = await evaluate('(() => [...document.querySelectorAll(".card-info h3,.metric-value,.report-metric-value,.report-breakdown-value,.revenue-hero__amount,.wm-section-title,.toolbar-title h2")].map(el=>({text:el.textContent.trim(),color:getComputedStyle(el).color})))()');
+            dataColors.forEach(item=>assert.equal(item.color,'rgb(237, 240, 245)',`${folder}/${file}: ordinary text ${item.text} uses neutral white`));
+            assert.equal(await evaluate(`[...document.querySelectorAll('[style*="--portal-data-color"]')].every(el=>getComputedStyle(el).color==='rgb(237, 240, 245)')`),true,`${folder}/${file}: dynamically rendered values and references are readable`);
+            if (file === 'products.html') {
+              await wait('document.querySelector("#productTableBody [data-view-id]")');
+              assert.equal(await evaluate('getComputedStyle(document.querySelector("#productTableBody .status-red")).color'),'rgb(239, 176, 188)','genuine blocked and out-of-stock states retain their semantic color');
+            }
+            if (file === 'website-home.html') {
+              assert(await evaluate('document.querySelectorAll(".wm-grad-label").length>=8'));
+              assert.equal(await evaluate('[...document.querySelectorAll(".wm-grad-label")].every(el=>getComputedStyle(el).color==="rgb(237, 240, 245)" && getComputedStyle(el.closest(".wm-grad-swatch")).backgroundColor==="rgb(30, 34, 43)")'),true,'gradient names have dark surfaces and readable white text');
+              await evaluate('document.getElementById("heroBgType").value="gradient";document.getElementById("heroBgType").dispatchEvent(new Event("change"));document.getElementById("heroGradientGrid").scrollIntoView({block:"center"})');
+              await shot(`${folder}-gradient-presets-dark`);
+            }
             const bright = await evaluate(`(() => [...document.querySelectorAll('body *')].filter(el=>{const r=el.getBoundingClientRect(),s=getComputedStyle(el),c=s.backgroundColor.match(/[\\d.]+/g)?.map(Number);return r.width*r.height>6000 && r.width>90 && r.height>35 && r.top<innerHeight && r.bottom>0 && s.visibility!=='hidden' && s.display!=='none' && c && c[3]!==0 && (c[0]+c[1]+c[2])/3>190 && !el.closest('.theme-preview,.official-report-page,.portal-preview,.portal-layout-mini,.wm-hero-scene-preview,#themePromoCardPreview,.fmrc-announcement-preview-stage,.mt-preview-frame')}).map(el=>({tag:el.tagName,id:el.id,classes:el.className,background:getComputedStyle(el).backgroundColor})))()`);
             if (bright.length) brightSurfaces.push({ page:`${folder}/${file}`,elements:bright });
           }
@@ -243,9 +306,28 @@ test('all portal pages render both themes; account-scoped settings synchronize l
         }
       }
     }
+    for (const folder of ['admin-page','staff-page']) for (const size of [[320,700],[390,844],[900,1000],[1440,1000],[852,393]]) {
+      await viewport(...size); await navigate(`/${folder}/settings.html`); await settled();
+      await checkHeader(`${folder} ${size.join('x')}`); await checkBottomBar(`${folder} ${size.join('x')}`);
+      await evaluate('window.scrollTo(0,100000)');
+      assert.equal(await evaluate('document.getElementById("settingSidebarWidth").getBoundingClientRect().bottom < document.querySelector(".settings-footer").getBoundingClientRect().top'),true,'fixed footer leaves the final controls reachable');
+      assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true,'Settings stays within the viewport');
+      await shot(`${folder}-settings-fixed-footer-${size.join('x')}`);
+    }
+    for (const folder of ['admin-page','staff-page']) {
+      const pages=fs.readdirSync(path.join(root,folder)).filter(file=>file.startsWith('website-') && file.endsWith('.html') && fs.readFileSync(path.join(root,folder,file),'utf8').includes('data-dock-save-bar'));
+      for (const file of pages) for (const size of [[390,844],[852,393]]) {
+        await viewport(...size); await navigate(`/${folder}/${file}`); await settled();
+        await checkBottomBar(`${folder}/${file} ${size.join('x')}`,'.wm-save-bar');
+        assert.equal(await evaluate('document.querySelector(".wm-save-bar").parentElement===document.body'),true,'save bars escape content animations');
+        if (file==='website-payments.html') assert.equal(await evaluate('document.getElementById("savePaymentSettings").form.id'),'paymentSettingsForm','moving payment actions preserves form submission');
+        await shot(`${folder}-${file.replace('.html','')}-fixed-footer-${size.join('x')}`);
+      }
+    }
     // The actual renderer must keep pagination anchored for long and short pages.
     for (const folder of ['admin-page','staff-page']) for (const width of [1440,390]) {
       await viewport(width,1000); await navigate(`/${folder}/products.html`); await settled();
+      await checkHeader(`${folder} ${width}px`); await checkDensity(`${folder} products ${width}px`);
       await wait('document.getElementById("productPerformanceFooter")?.style.display === "flex"');
       const geometry = `(() => {const footer=document.getElementById('productPerformanceFooter'),card=document.getElementById('productPerformanceCard'),r=footer.getBoundingClientRect(),c=card.getBoundingClientRect();return {top:r.top-c.top,bottom:c.bottom-r.bottom,parent:footer.parentElement.id};})()`;
       const before = await evaluate(geometry);

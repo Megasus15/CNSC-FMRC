@@ -445,7 +445,7 @@ async function loadServices() {
     renderServiceCards();
   } catch {
     document.getElementById("homeServicesGrid").innerHTML =
-      '<p style="color:#9ca3af;text-align:center;padding:20px;grid-column:1/-1;">Failed to load services.</p>';
+      '<p style="color:var(--portal-muted-color,#9ca3af);text-align:center;padding:20px;grid-column:1/-1;">Failed to load services.</p>';
   }
 }
 
@@ -453,7 +453,7 @@ function renderServiceCards() {
   const grid = document.getElementById("homeServicesGrid");
   if (!servicesData.length) {
     grid.innerHTML =
-      '<p style="color:#9ca3af;text-align:center;padding:20px;grid-column:1/-1;">No services yet. Add one!</p>';
+      '<p style="color:var(--portal-muted-color,#9ca3af);text-align:center;padding:20px;grid-column:1/-1;">No services yet. Add one!</p>';
     return;
   }
   grid.innerHTML = servicesData
@@ -1928,7 +1928,7 @@ function renderGallerySlots(kind) {
       <span class="wm-sdg-slot-index">Slot ${list.length + i + 1}</span>
       <button class="wm-sdg-add wm-gal-add ${conf.shape}" type="button" title="Upload a ${conf.label.toLowerCase()} photo"
               onclick="openGalleryUpload('${kind}', null)"><i class="fa-solid fa-plus"></i></button>
-      <div class="wm-sdg-title" style="color:#9ca3af;font-weight:600">Upload photo</div>
+      <div class="wm-sdg-title" style="color:var(--portal-muted-color,#9ca3af);font-weight:600">Upload photo</div>
     </div>`,
   ).join("");
 
@@ -2101,7 +2101,7 @@ async function loadSdgs() {
     renderSdgSlots();
   } catch {
     grid.innerHTML =
-      '<p style="color:#9ca3af;text-align:center;padding:20px;grid-column:1/-1;">Failed to load SDG badges.</p>';
+      '<p style="color:var(--portal-muted-color,#9ca3af);text-align:center;padding:20px;grid-column:1/-1;">Failed to load SDG badges.</p>';
   }
 }
 
@@ -2118,7 +2118,7 @@ function renderSdgSlots() {
       <span class="wm-sdg-slot-index">Slot ${sdgsData.length + i + 1}</span>
       <button class="wm-sdg-add" type="button" title="Upload an SDG badge"
               onclick="openSdgUpload(null)"><i class="fa-solid fa-plus"></i></button>
-      <div class="wm-sdg-title" style="color:#9ca3af;font-weight:600">Upload SDG</div>
+      <div class="wm-sdg-title" style="color:var(--portal-muted-color,#9ca3af);font-weight:600">Upload SDG</div>
     </div>`,
   ).join("");
 

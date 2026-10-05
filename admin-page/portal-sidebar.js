@@ -8,6 +8,14 @@
     const logo = header?.querySelector('.logo'), title = header?.querySelector('h2');
     const defaultLogo = logo?.getAttribute('src') || '../images/FMRC Brand Logo.png';
     const desktop = window.matchMedia('(min-width:1025px)');
+    const tablet = window.matchMedia('(min-width:721px) and (max-width:1024px)');
+    const toggle = document.querySelector('.admin-sidebar-toggle');
+    const headerLeft = document.querySelector('.top-header .header-left');
+    function syncToggle() {
+      if (!toggle || !headerLeft || !header) return;
+      const host = tablet.matches ? headerLeft : header;
+      if (toggle.parentElement !== host) host.prepend(toggle);
+    }
     const owner = () => { const info = window.AdminSession?.getUserInfo(); return String((info?.data || info)?.id || '')+':'+window.AdminSession?.getToken(); };
     let drag = null, lastExpanded = 270, sidebarOwner = owner();
     for (const menu of [sidebar.querySelector('.sidebar-nav'),document.getElementById('profilePopup')]) {
@@ -90,11 +98,12 @@
       toggle.setAttribute('aria-expanded','true'); commit(lastExpanded);
     },true);
     desktop.addEventListener('change',()=>{ if (drag) finish({pointerId:drag.id},true); sync(); });
+    tablet.addEventListener('change',syncToggle);
     window.addEventListener('admin:session-updated',()=>{ if (drag) finish({pointerId:drag.id},true); sync(); });
     window.addEventListener('adminPreferencesChanged',sync);
     window.AdminSidebar = {preview,reset:()=>commit(270)};
     if (logo) logo.addEventListener('error',()=>{ if (logo.getAttribute('src') !== defaultLogo) logo.src = defaultLogo; });
-    sync();
+    syncToggle(); sync();
   }
   if (document.readyState === 'complete') init();
   else document.addEventListener('DOMContentLoaded',init,{once:true});

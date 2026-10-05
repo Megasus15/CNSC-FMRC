@@ -1,5 +1,5 @@
 /* Shared Admin/Staff appearance. Auth pages never include this stylesheet. */
-@import url("portal-theme-coverage.css?v=2.1");
+@import url("portal-theme-coverage.css?v=2.2");
 
 html[data-portal] {
   color-scheme:light;
@@ -21,6 +21,8 @@ html[data-portal] {
     --sidebar-bg:#191d25;
     --on-primary:#fff4f6;
     --text-main:#edf0f5;
+    --portal-data-color:var(--text-main);
+    --portal-muted-color:var(--text-muted);
     --text-muted:#b7bdc9;
     --border-color:#3a404d;
     --hover-bg:#2b303c;
@@ -103,7 +105,10 @@ html[data-portal] {
   html[data-portal] :is(.notif-read-btn,.notif-del-btn,.notif-mark-all-btn):hover,
   html[data-portal] .payment-claim-proof a:hover img,
   html[data-portal] .notif-item.notif-clickable:hover .notif-item-target i { transform:none !important; }
-  html[data-portal][data-table-density="compact"] :is(.admin-table,.inventory-table,.enhanced-table,.analytics-perf-table,.return-items-table) :is(th,td) { padding-block:8px !important; }
+  /* A visible 14px row-spacing difference, also on tables inserted after load.
+     Keep font sizes and mobile action targets readable in both densities. */
+  html[data-portal][data-table-density="comfortable"] :is(.admin-table,.inventory-table,.enhanced-table,.analytics-perf-table,.return-items-table,.inv-variant-table) :is(th,td) { padding-block:12px !important; }
+  html[data-portal][data-table-density="compact"] :is(.admin-table,.inventory-table,.enhanced-table,.analytics-perf-table,.return-items-table,.inv-variant-table) :is(th,td) { padding-block:5px !important; }
   html[data-portal][data-portal-motion="reduced"] *, html[data-portal][data-portal-motion="reduced"] *::before, html[data-portal][data-portal-motion="reduced"] *::after { animation:none !important; transition:none !important; scroll-behavior:auto !important; }
   html[data-portal][data-portal-motion="reduced"] .analytics-card-animate { opacity:1 !important; transform:none !important; }
 }
