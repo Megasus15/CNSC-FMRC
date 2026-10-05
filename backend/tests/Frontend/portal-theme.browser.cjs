@@ -100,6 +100,49 @@ test('all portal pages render both themes; account-scoped settings synchronize l
     };
     const shot = async (name, loading = false) => { await main.send('Page.bringToFront'); if (!loading) await settled(); const result = await main.send('Page.captureScreenshot', { format:'png',fromSurface:true }); fs.writeFileSync(path.join(artifacts, name + '.png'), Buffer.from(result.data, 'base64')); };
     const box = selector => evaluate(`(() => {const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);
+    const checkLogout = async (theme, label, options = {}) => {
+      const session = await evaluate('({path:location.pathname,token:window.AdminSession.getToken()})');
+      await main.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:0,y:0});
+      if (options.profile) await evaluate('document.querySelector(".user-profile").click()');
+      await evaluate(`document.querySelector(${JSON.stringify(options.profile ? '.profile-popup .logout-btn' : '.sidebar-footer .logout-btn')}).click()`);
+      await wait('document.querySelector(".admin-logout-modal") && getComputedStyle(document.querySelector(".admin-logout-modal")).opacity === "1"');
+      const palette = async active => {
+        const dark = active === 'dark';
+        const card = dark ? 'rgb(30, 34, 43)' : 'rgb(255, 255, 255)';
+        await wait(`getComputedStyle(document.getElementById('cancelLogoutBtn')).backgroundColor === ${JSON.stringify(card)}`);
+        await wait(`getComputedStyle(document.getElementById('confirmLogoutBtn')).backgroundColor === ${JSON.stringify(dark?'rgb(148, 52, 74)':'rgb(128, 0, 0)')}`);
+        const colors = await evaluate('(() => {const css=s=>getComputedStyle(document.querySelector(s));return {card:css(".admin-logout-modal__card").backgroundColor,title:css(".admin-logout-modal__title").color,text:css(".admin-logout-modal__text").color,footer:css(".admin-logout-modal__foot").backgroundColor,cancel:css("#cancelLogoutBtn").color,confirm:css("#confirmLogoutBtn").backgroundColor,confirmText:css("#confirmLogoutBtn").color,icon:css(".admin-logout-modal__icon").backgroundColor,stroke:css(".admin-logout-modal__icon svg").stroke};})()');
+        assert.equal(colors.card,card,`${label}: logout card follows ${active}`);
+        assert.equal(colors.title,dark?'rgb(237, 240, 245)':'rgb(17, 24, 39)',label);
+        assert.equal(colors.text,dark?'rgb(183, 189, 201)':'rgb(75, 85, 99)',label);
+        assert.equal(colors.footer,dark?'rgb(37, 42, 52)':'rgb(249, 250, 251)',label);
+        assert.equal(colors.cancel,dark?'rgb(237, 240, 245)':'rgb(55, 65, 81)',label);
+        assert.equal(colors.confirm,dark?'rgb(148, 52, 74)':'rgb(128, 0, 0)',label);
+        assert.equal(colors.confirmText,dark?'rgb(255, 244, 246)':'rgb(255, 255, 255)',label);
+        assert.equal(colors.icon,dark?'rgb(52, 35, 46)':'rgb(254, 226, 226)',label);
+        assert.equal(colors.stroke,dark?'rgb(239, 176, 188)':'rgb(220, 38, 38)',label);
+      };
+      await palette(theme);
+      if (options.live) {
+        await evaluate('window.AdminPreferences.set({theme:"light"})'); await palette('light');
+        await evaluate('window.AdminPreferences.set({theme:"dark"})'); await palette('dark');
+        await wait('JSON.parse(localStorage.getItem("fmrc-portal-preferences:user:"+(location.pathname.includes("staff-page")?22:11)))._pending === false');
+      }
+      if (theme === 'dark') {
+        await main.send('Input.dispatchMouseEvent',{type:'mouseMoved',...await box('#cancelLogoutBtn')});
+        await wait('getComputedStyle(document.getElementById("cancelLogoutBtn")).backgroundColor === "rgb(43, 48, 60)"');
+        assert.equal(await evaluate('getComputedStyle(document.getElementById("cancelLogoutBtn")).color'),'rgb(237, 240, 245)',`${label}: cancel hover remains readable`);
+        await main.send('Input.dispatchMouseEvent',{type:'mouseMoved',...await box('#confirmLogoutBtn')});
+        await wait('getComputedStyle(document.getElementById("confirmLogoutBtn")).backgroundColor === "rgb(170, 64, 88)"');
+        await main.send('Input.dispatchMouseEvent',{type:'mouseMoved',x:0,y:0}); await palette(theme);
+      }
+      const fits = await evaluate('(() => {const r=document.querySelector(".admin-logout-modal__card").getBoundingClientRect();return r.left>=0 && r.right<=innerWidth && r.top>=0 && r.bottom<=innerHeight;})()');
+      assert.equal(fits,true,`${label}: logout dialog fits the viewport`);
+      if (options.screenshot) await shot(options.screenshot);
+      await evaluate('document.getElementById("cancelLogoutBtn").click()');
+      await wait('document.getElementById("laravelLogoutModal").style.display === "none"');
+      assert.deepEqual(await evaluate('({path:location.pathname,token:window.AdminSession.getToken()})'),session,`${label}: Cancel preserves the session and page`);
+    };
     const dragEdge = async delta => {
       await wait('Math.abs(document.querySelector(".sidebar").getBoundingClientRect().width-window.AdminPreferences.get().sidebarWidth)<1');
       const point = await box('.portal-sidebar-edge');
@@ -116,6 +159,26 @@ test('all portal pages render both themes; account-scoped settings synchronize l
       await main.send('DOM.setFileInputFiles',{nodeId,files:[path.join(root,'images','FMRC Brand Logo.png')]});
       await wait('document.getElementById("sidebarLogoDialog").open');
     };
+    if (process.env.FMRC_LOGOUT_QA) {
+      await viewport(1440,1000); await navigate('/admin-page/settings.html');
+      let logoutChecks = 0;
+      for (const folder of ['admin-page','staff-page']) for (const theme of ['dark','light']) {
+        const account = folder === 'admin-page' ? 11 : 22;
+        const state = {theme,compact:false,reducedMotion:false}; prefs.set(account,state);
+        await evaluate(`localStorage.setItem('fmrc-portal-preferences:user:${account}',JSON.stringify(${JSON.stringify(state)}))`);
+        for (const file of fs.readdirSync(path.join(root,folder)).filter(f=>f.endsWith('.html') && f!=='maintenance-preview.html')) {
+          await navigate(`/${folder}/${file}`); await wait(`document.documentElement.dataset.theme === '${theme}' && document.querySelector('.sidebar-footer .logout-btn')?.dataset.logoutBound === '1'`);
+          await checkLogout(theme,`${folder}/${file}`,{live:theme==='dark'&&file==='settings.html',screenshot:file==='dashboard.html'?`${folder}-logout-${theme}-desktop`:null});
+          logoutChecks++;
+        }
+      }
+      for (const folder of ['admin-page','staff-page']) for (const size of [[320,700],[390,844],[852,393]]) {
+        await viewport(...size); await navigate(`/${folder}/orders.html`); await settled();
+        await evaluate('window.AdminPreferences.set({theme:"dark"})'); await wait('document.documentElement.dataset.theme === "dark"');
+        await checkLogout('dark',`${folder} ${size.join('x')}`,{profile:true,screenshot:`${folder}-logout-dark-${size.join('x')}`}); logoutChecks++;
+      }
+      console.log(JSON.stringify({logoutChecks,artifacts})); return;
+    }
     await viewport(1440, 1000); await navigate('/admin-page/settings.html');
     await wait('document.documentElement.dataset.theme === "dark" && document.getElementById("settingsSaveStatus").textContent.startsWith("Saved to")');
     await checkHeader('Admin desktop'); await checkBottomBar('Admin desktop');
@@ -269,6 +332,7 @@ test('all portal pages render both themes; account-scoped settings synchronize l
           await wait(`document.documentElement.dataset.theme === '${theme}'`);
           await settled();
           await checkHeader(`${folder}/${file} ${theme}`);
+          await checkLogout(theme,`${folder}/${file}`);
           if (await evaluate('!!document.querySelector(".wm-save-bar[data-dock-save-bar]")')) await checkBottomBar(`${folder}/${file} ${theme}`,'.wm-save-bar');
           const report = await evaluate(`(() => { const selectors=['body','.sidebar','.top-header','.panel','.account-summary-card','.account-form-card','.modal-card','.wm-section','.settings-section','.admin-global-skeleton-card'];return selectors.flatMap(selector=>[...document.querySelectorAll(selector)].slice(0,3).map(el=>{const s=getComputedStyle(el);return {selector,background:s.backgroundColor,color:s.color}})); })()`);
           report.forEach(item => { const rgb = item.background.match(/[\d.]+/g)?.map(Number); if (!rgb || rgb[3] === 0) return; const mean = (rgb[0]+rgb[1]+rgb[2])/3; assert(theme === 'dark' ? mean < 90 : mean > 180, `${folder}/${file} ${theme} ${item.selector}: ${item.background}`); });

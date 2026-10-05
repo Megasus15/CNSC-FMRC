@@ -52,6 +52,20 @@ html[data-portal] {
   html[data-portal][data-theme="dark"] :is(.sidebar,.sidebar-header,.sidebar-footer) { background:var(--sidebar-bg); border-color:var(--border-color); }
   html[data-portal][data-theme="dark"] :is(.top-header,.profile-popup,.notification-dropdown,.all-notif-panel,.all-notif-head,.admin-session-warning__dialog,.admin-system-popup__card,.admin-media-viewer-dialog,.admin-media-viewer-head,.modal-card,.wm-modal-card) { background:var(--surface); border-color:var(--border-color); color:var(--text-main); box-shadow:0 16px 44px #00000038; }
   html[data-portal][data-theme="dark"] .top-header { box-shadow:none; }
+  /* Logout is created at runtime with legacy inline colors. These overrides
+     also win over its pointer handlers and update while the dialog is open. */
+  html[data-portal][data-theme="dark"] .admin-logout-modal { background:var(--ux-dlg-scrim) !important; }
+  html[data-portal][data-theme="dark"] .admin-logout-modal__card { background:var(--surface) !important; color:var(--text-main); border:1px solid var(--border-color); box-shadow:0 16px 44px #00000038 !important; font-family:inherit !important; }
+  html[data-portal][data-theme="dark"] .admin-logout-modal__title { color:var(--text-main) !important; }
+  html[data-portal][data-theme="dark"] .admin-logout-modal__text { color:var(--text-muted) !important; }
+  html[data-portal][data-theme="dark"] .admin-logout-modal__foot { background:var(--surface-alt) !important; border-color:var(--border-color) !important; }
+  html[data-portal][data-theme="dark"] .admin-logout-modal__icon { background:var(--portal-accent-soft) !important; }
+  html[data-portal][data-theme="dark"] .admin-logout-modal__icon svg { stroke:var(--portal-accent); }
+  html[data-portal][data-theme="dark"] #cancelLogoutBtn { background:var(--surface) !important; color:var(--text-main) !important; border-color:var(--border-color) !important; }
+  html[data-portal][data-theme="dark"] #cancelLogoutBtn:hover { background:var(--hover-bg) !important; color:var(--text-main) !important; border-color:var(--text-muted) !important; }
+  html[data-portal][data-theme="dark"] #confirmLogoutBtn { background:var(--portal-action) !important; color:var(--on-primary) !important; }
+  html[data-portal][data-theme="dark"] #confirmLogoutBtn:hover { background:var(--portal-action-hover) !important; }
+  html[data-portal][data-theme="dark"] :is(#cancelLogoutBtn,#confirmLogoutBtn):focus-visible { outline:2px solid var(--portal-accent); outline-offset:3px; }
   html[data-portal][data-theme="dark"] .profile-popup::before { background:var(--surface); border-color:var(--border-color); }
   html[data-portal][data-theme="dark"] :is(.profile-icon,.popup-profile-icon,.account-avatar) { background:var(--portal-accent-soft); color:var(--portal-accent); border-color:var(--portal-accent-border); box-shadow:none; }
   html[data-portal][data-theme="dark"] :is(.profile-popup-link,.nav-link,.sub-link) { color:var(--text-main); }
