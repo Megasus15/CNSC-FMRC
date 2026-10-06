@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/.well-known/assetlinks.json', [\App\Http\Controllers\PwaAssetController::class, 'assetLinks']);
+
 Route::get('/apps/{app}/{path?}', [\App\Http\Controllers\PwaAssetController::class, 'show'])
     ->where('app', 'customer|team|shared')->where('path', '.*');
 Route::get('/{folder}/{path}', [\App\Http\Controllers\PwaAssetController::class, 'original'])

@@ -31,6 +31,7 @@
     # --------------------------------------------------------------------------
     # 3. Route Backend Requests to Laravel
     # --------------------------------------------------------------------------
+    RewriteRule ^\.well-known/assetlinks\.json$ backend/public/index.php [QSA,L]
     RewriteRule ^api/(.*)$ backend/public/index.php [QSA,L]
     RewriteRule ^api$ backend/public/index.php [QSA,L]
     RewriteRule ^reset-password(.*)$ backend/public/index.php [QSA,L]

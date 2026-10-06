@@ -275,6 +275,16 @@ class PwaTest extends TestCase
         $this->get('/images/FMRC%20Brand%20Logo.png')->assertOk();
     }
 
+    public function test_installation_detection_links_use_the_current_site_origin_and_only_the_two_app_manifests(): void
+    {
+        foreach (['https://ucn-fabmanlab.com', 'https://staging.ucn-fabmanlab.com'] as $origin) {
+            $this->getJson($origin.'/.well-known/assetlinks.json')->assertOk()->assertExactJson([
+                ['relation' => ['delegate_permission/common.query_webapk'], 'target' => ['namespace' => 'web', 'site' => "$origin/apps/customer/manifest.webmanifest"]],
+                ['relation' => ['delegate_permission/common.query_webapk'], 'target' => ['namespace' => 'web', 'site' => "$origin/apps/team/manifest.webmanifest"]],
+            ])->assertHeader('X-Content-Type-Options', 'nosniff');
+        }
+    }
+
     public function test_successful_delivery_is_not_replayed_and_account_deletion_removes_the_device(): void
     {
         $customer = User::factory()->create(['role' => 'customer']);

@@ -8,19 +8,41 @@ icons, worker registrations and device credentials are separate:
 | FMRC Customer | `/apps/customer/` | `/apps/customer/` |
 | FMRC Admin/Staff | `/apps/team/` | `/apps/team/` |
 
-Install App appears in the Customer phone sidebar, both operator phone sidebars,
-and both operator Settings pages on supported phones. It is hidden on laptops,
+Install App appears above App Notifications in the Customer phone sidebar, and
+only inside Admin/Staff Settings on supported phones. Operator sidebars contain
+no install action. The Customer app actions remain outside the scrollable links,
+above the divider for Appoint Now. Installation is hidden on laptops,
 desktops, Android tablets, iPhones below iOS 16.4, insecure origins, and installed
-app windows. A narrow desktop window does not enable installation. This is a
+app windows. Installation is remembered per app in the phone's browser, survives
+page changes and logout, and is checked against installed related apps where
+supported. A narrow desktop window does not enable installation. This is a
 product UI restriction; browser manufacturers can independently offer their own
 website shortcuts.
+
+Safari and other browsers without installation detection use an explicit
+confirmation after adding the icon. The app-specific installation page also
+supports confirming an existing install or reporting that the icon was removed.
+An empty OS query does not erase a remembered install; a fresh native install
+offer restores installation availability. Clearing browser data, changing browsers,
+and Safari's separate Home Screen storage can require confirmation in the browser.
+This does not change either app's notification permission or account binding.
+[Installation detection support](https://developer.chrome.com/docs/capabilities/get-installed-related-apps).
 
 The original Customer navbar announcement bell, badge and announcement popup are
 retained. Customer **App Notifications** has a separate phone-sidebar button;
 its inbox contains account/public app alerts and phone preferences. Operator phone
 preferences remain in Settings. No phone-notification panel appears on desktops.
+The inbox toolbar keeps Refresh, Mark All Read and guest Sign In on one row with
+single-line labels and matching heights, including 320px phone widths. Notification cards have uniform
+borders and no lift on hover. The Team icon uses a maroon tile (`#701b2b`) with
+the existing gold accent; Customer icon artwork is unchanged. Platform icon caches
+can require removing and reinstalling an existing Team icon after deployment.
 See [the Hostinger step-by-step guide](HOSTINGER_PWA_SETUP.md) for Git deployment,
 phpMyAdmin installation, VAPID configuration and the one-minute cron job.
+If SSH/Composer is unavailable, use [the File Manager and PHP cron guide](HOSTINGER_PWA_NO_SSH.md)
+with the locally prepared production dependency ZIP.
+To create the selected test site first, use
+[the independent staging-subdomain guide](HOSTINGER_PWA_STAGING.md).
 
 Android browsers can provide a native install prompt. iPhone uses Safari Share →
 Add to Home Screen, with Open as Web App enabled when that option is shown.
@@ -178,7 +200,8 @@ App Store/Play Store packaging is outside this release.
 New backend tests cover capability gating, ownership, read receipts, endpoint and
 credential checks, logout, session expiry, revocation, genuine business changes,
 rollback, publication, outbox deduplication, retries, pruning and payment returns.
-The latest PWA-specific run passed 14 tests. Targeted authentication, order,
+The latest PWA-specific run passed 15 tests with 129 assertions, including
+origin-correct Android detection links for production and staging. Targeted authentication, order,
 appointment, campaign and spectator regression batches also passed.
 Chromium checks exercise the actual app JS, actual workers/cache scopes, phone UA
 installation guides, Settings placement, desktop exclusion, permission fixtures,
@@ -192,6 +215,14 @@ portals. The latest UI correction passed nine frontend checks, including the
 original announcement bell/popup on all five Customer pages, separate phone
 sidebar controls, desktop exclusion, both workers and offline recovery. The
 phpMyAdmin installer also matched the migration in local MySQL scratch databases.
+
+The latest installation update passed ten targeted frontend checks: Chromium
+tested guest/customer/admin/staff refreshes and navigation, install completion,
+accepted/dismissed prompts, Safari confirmation, standalone windows, separate
+app detection, logout, and notification availability changing without a permission
+prompt. Apache verified the asset-links gateway and existing app aliases. These
+are local tests with controlled installation/notification APIs, not real OS installs
+or closed-app phone delivery.
 
 Run from the repository root (PHP commands from `backend/`):
 

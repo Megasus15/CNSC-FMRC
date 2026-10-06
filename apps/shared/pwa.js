@@ -12,6 +12,38 @@
   const installDevice = (modernIphone || androidPhone) && !!navigator.serviceWorker && window.isSecureContext;
   document.documentElement.classList.toggle("fmrc-mobile-install", installDevice);
   const storageKey = `fmrc_pwa_${app}_device`;
+  const installedKey = `fmrc_pwa_${app}_installed`;
+  let knownInstalled = false, checkingInstallation = false;
+  try { knownInstalled = localStorage.getItem(installedKey) === "1"; } catch {}
+  const isInstalled = () => standalone() || knownInstalled;
+  document.documentElement.classList.toggle("fmrc-app-installed", isInstalled());
+  function rememberInstallation(value) {
+    knownInstalled = value;
+    try { if (value) localStorage.setItem(installedKey, "1"); else localStorage.removeItem(installedKey); } catch {}
+    document.documentElement.classList.toggle("fmrc-app-installed", isInstalled());
+    inject();
+    refreshPhoneControls();
+  }
+  async function checkInstallation() {
+    if (!installDevice) return;
+    if (standalone()) { rememberInstallation(true); return; }
+    if (checkingInstallation || !navigator.getInstalledRelatedApps || localAppOrigin()) return;
+    checkingInstallation = true;
+    try {
+      const related = await navigator.getInstalledRelatedApps();
+      if (related.some(entry => {
+        if (entry.platform !== "webapp") return false;
+        try {
+          const manifest = entry.url && new URL(entry.url, location.href);
+          const identity = entry.id && new URL(entry.id, location.origin);
+          return (manifest?.origin === location.origin && manifest.pathname === `${prefix}manifest.webmanifest`)
+            || (identity?.origin === location.origin && identity.pathname === prefix);
+        } catch { return false; }
+      })) rememberInstallation(true);
+      // An empty result can also mean a shortcut, a pending WebAPK, or no support.
+      // A fresh native install offer is the reliable signal to allow reinstalling.
+    } catch {} finally { checkingInstallation = false; }
+  }
   const parse = (value, fallback = null) => { try { return JSON.parse(value) || fallback; } catch { return fallback; } };
   const saved = () => parse(localStorage.getItem(storageKey));
   const save = value => { if (value) localStorage.setItem(storageKey, JSON.stringify(value)); else localStorage.removeItem(storageKey); };
@@ -44,8 +76,13 @@
     if (!response.ok) { const error = Error(response.status === 401 ? "Please sign in again to continue." : response.status === 409 ? "Reset notifications on this device, then enable them again." : "Notifications are unavailable right now. Please try again."); error.status = response.status; throw error; }
     return data;
   }
-  let registration, installPrompt, configuration, lastSyncedToken = null;
-  const config = async () => configuration ||= await request("/pwa/config", { device: false });
+  let registration, installPrompt, configuration, configuredAt = 0, lastSyncedToken = null;
+  const config = async (refresh = false) => {
+    if (refresh || !configuration || Date.now() - configuredAt > 30000) {
+      configuration = await request("/pwa/config", { device: false }); configuredAt = Date.now();
+    }
+    return configuration;
+  };
   const registerWorker = async () => {
     if (!navigator.serviceWorker || !window.isSecureContext) return null;
     registration ||= await navigator.serviceWorker.register(`${prefix}sw.js`, { scope: prefix, updateViaCache: "none" });
@@ -80,11 +117,15 @@
   }
   function button(text, handler, secondary = false) { const b = document.createElement("button"); b.type = "button"; b.className = "fmrc-app-button" + (secondary ? " is-secondary" : ""); b.textContent = text; b.addEventListener("click", handler); return b; }
   async function install() {
-    if (!installDevice || standalone()) return;
+    if (!installDevice || isInstalled()) return;
     // Live Server cannot run Apache aliases; its install action opens Laravel's app gateway.
     if (localAppOrigin()) { location.href = `${localAppOrigin()}${prefix}install.html`; return; }
     if (installPrompt && !ios) {
-      try { await installPrompt.prompt(); await installPrompt.userChoice; installPrompt = null; return; }
+      try {
+        await installPrompt.prompt(); const choice = await installPrompt.userChoice; installPrompt = null;
+        if (choice.outcome === "accepted") rememberInstallation(true);
+        return;
+      }
       catch { installPrompt = null; }
     }
     const d = dialog(`Install ${app === "customer" ? "FMRC Customer" : "FMRC Admin/Staff"}`, "Keep FMRC on your Home Screen and open it in its own app window.");
@@ -93,13 +134,18 @@
     const texts = ios ? ["Open this app in Safari.", "Tap Share, then Add to Home Screen.", "Keep Open as Web App enabled if shown, then tap Add."] : ["Open this app in Chrome, Edge, or another browser with app installation support.", "Open the browser menu and choose Install app or Add to Home screen.", "Confirm to add the FMRC icon to your device."];
     texts.forEach(text => { const li = document.createElement("li"); li.textContent = text; steps.append(li); }); d.append(steps);
     if (!inApp) { const a = document.createElement("a"); a.className = "fmrc-app-button"; a.href = `${prefix}install.html`; a.textContent = "Continue to installation"; d.append(a); }
-    else d.append(button("Done", () => d.close()));
+    else {
+      // Safari does not report Home Screen installs to an ordinary browser tab.
+      const confirmation = document.createElement("p"); confirmation.textContent = "After adding the Home Screen icon, confirm below to hide Install App in this browser."; d.append(confirmation);
+      d.append(button("I've added FMRC to my Home Screen", () => { rememberInstallation(true); d.close(); }));
+      d.append(button("Not Now", () => d.close(), true));
+    }
   }
   function capabilityMessage() {
     if (!installDevice) return "Phone notifications are available in FMRC on supported iPhones and Android phones.";
     if (localAppOrigin()) return "Open the FMRC app to enable phone notifications on this device.";
     if (!window.isSecureContext) return "Open FMRC using a secure connection to enable phone notifications.";
-    if (ios && !standalone()) return "Install this app on your Home Screen, then open it to enable phone notifications. iPhone requires iOS 16.4 or later.";
+    if (ios && !standalone()) return isInstalled() ? "Open FMRC from its Home Screen icon to enable phone notifications." : "Install this app on your Home Screen, then open it to enable phone notifications. iPhone requires iOS 16.4 or later.";
     if (!("Notification" in window) || !("PushManager" in window) || !navigator.serviceWorker) return "This browser does not support phone notifications. Your FMRC inbox is still available.";
     if (Notification.permission === "denied") return "Notifications are blocked. Allow them in your device or browser settings, then return here.";
     return "";
@@ -161,14 +207,21 @@
       else if (e.status === 401 || e.status === 403) await logout();
     }
   }
+  const phonePanels = new Map();
+  function refreshPhoneControls(refresh = false) {
+    for (const [panel, update] of phonePanels) {
+      if (!panel.isConnected) phonePanels.delete(panel);
+      else void update(refresh);
+    }
+  }
   function controls(container) {
     if (!installDevice || container.querySelector(".fmrc-phone-controls")) return;
     const panel = document.createElement("section"); panel.className = "fmrc-phone-controls";
     const title = document.createElement("h3"); title.textContent = "Phone notifications";
     const intro = document.createElement("p"); intro.textContent = app === "customer" ? "Choose which FMRC updates reach this device. Phone previews keep account details private." : "Receive private FMRC update previews on this device, including after your website session expires. Signing out turns them off.";
     const message = document.createElement("p"); message.className = "fmrc-app-status"; message.setAttribute("role", "status");
-    if (app === "team" && installDevice && !standalone()) {
-      const installAction = button("Install App", install, true); installAction.classList.add("fmrc-settings-install"); panel.append(installAction);
+    if (app === "team") {
+      const installAction = button("Install App", install, true); installAction.classList.add("fmrc-settings-install"); installAction.hidden = isInstalled(); panel.append(installAction);
     }
     const fields = [];
     for (const [key, label] of app === "customer" ? [["public_alerts", "Announcements & promotions"], ["account_alerts", "My orders & appointments"]] : [["account_alerts", "Workspace updates"]]) {
@@ -177,7 +230,9 @@
       row.append(input, document.createTextNode(label)); panel.append(row); fields.push(input);
     }
     const actions = document.createElement("div"); actions.className = "fmrc-app-actions";
+    let busy = false;
     const apply = button(saved() ? "Update Preferences" : "Enable Notifications", async () => {
+      busy = true;
       apply.disabled = true; status(message, "Updating notifications…");
       try {
         const prefs = Object.fromEntries(fields.map(field => [field.dataset.preference, field.checked]));
@@ -193,12 +248,26 @@
           await disable().catch(() => {}); off.hidden = true; apply.textContent = "Enable Notifications";
           status(message, "This device's subscription has ended. Enable notifications again to reconnect it.");
         } else status(message, error.message);
-      } finally { apply.disabled = false; }
+      } finally { busy = false; await updateAvailability(); }
     });
-    const off = button("Turn Off", async () => { off.disabled = true; try { await disable(); status(message, "Phone notifications are off."); off.hidden = true; apply.textContent = "Enable Notifications"; } catch (e) { status(message, e.message); } finally { off.disabled = false; } }, true);
+    const off = button("Turn Off", async () => { busy = true; off.disabled = true; try { await disable(); status(message, "Phone notifications are off."); off.hidden = true; apply.textContent = "Enable Notifications"; } catch (e) { status(message, e.message); } finally { busy = false; off.disabled = false; await updateAvailability(); } }, true);
     off.hidden = !saved(); actions.append(apply, off); panel.prepend(title, intro); panel.append(actions, message); container.append(panel);
-    const reason = capabilityMessage(); if (reason) { apply.disabled = true; status(message, reason); }
-    else config().then(cfg => { if (!cfg.push_available) { apply.disabled = !saved(); status(message, "Phone notifications are not available yet. Your FMRC inbox is still available."); } }).catch(() => status(message, "Connect to FMRC to check phone notification availability."));
+    let unavailable = false;
+    apply.disabled = true;
+    async function updateAvailability(refresh = false) {
+      if (busy) return;
+      const reason = capabilityMessage();
+      if (reason) { unavailable = true; apply.disabled = true; status(message, reason); return; }
+      try {
+        const cfg = await config(refresh); if (busy || !panel.isConnected) return;
+        apply.disabled = !cfg.push_available && !saved();
+        if (!cfg.push_available) { unavailable = true; status(message, "Phone notifications are not available yet. Your FMRC inbox is still available."); }
+        else if (unavailable) { unavailable = false; status(message, saved() ? "Notifications enabled for this device." : "Enable notifications to receive FMRC updates on this phone."); }
+      } catch {
+        if (!busy) { unavailable = true; apply.disabled = !saved(); status(message, "Connect to FMRC to check phone notification availability."); }
+      }
+    }
+    phonePanels.set(panel, updateAvailability); void updateAvailability();
   }
   const bellSvg = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"/><path d="M10 21h4"/></svg>';
   let bell, unread = 0, inbox, pageNumber = 1, rows = [], nextPage = null;
@@ -254,11 +323,12 @@
     if (inbox?.open) return;
     inbox = dialog("Notifications", token() ? "Your account updates, announcements and promotions." : "FMRC announcements and promotions. Sign in for your order and appointment updates.");
     inbox.classList.add("fmrc-inbox-dialog");
-    const actions = document.createElement("div"); actions.className = "fmrc-app-actions";
+    const actions = document.createElement("div"); actions.className = "fmrc-app-actions fmrc-inbox-toolbar";
     actions.append(button("Refresh", () => loadInbox(), true), button("Mark All Read", async () => {
       try { if (token()) await request("/customer/notifications/mark-all-read", { method: "POST", authenticated: true }); else { const data = await request("/customer/notifications"); const latest = Math.max(guestReadThrough(), ...data.data.map(row => Number(row.id))); localStorage.setItem("fmrc_customer_public_read_through", String(latest)); localStorage.removeItem(guestReadsKey); } await loadInbox(); await refreshBadge(); } catch { inbox.querySelector(".fmrc-inbox-status").textContent = "Please reconnect to mark updates as read."; }
     }, true));
     if (!token()) {
+      actions.classList.add("has-sign-in");
       const signIn = document.createElement("a"); signIn.className = "fmrc-app-button"; signIn.href = loginDestination("../customer-auth/auth.html#login"); signIn.textContent = "Sign In"; actions.append(signIn);
     }
     const list = document.createElement("div"); list.className = "fmrc-inbox-list"; const message = document.createElement("p"); message.className = "fmrc-inbox-status"; message.setAttribute("role", "status");
@@ -266,27 +336,50 @@
     inbox.append(actions, message, list, more); controls(inbox); await loadInbox();
   }
   function inject() {
-    document.querySelectorAll("[data-fmrc-install]").forEach(action => { action.hidden = !installDevice || standalone(); });
+    document.querySelectorAll(".fmrc-install-button,.fmrc-settings-install,[data-fmrc-install]").forEach(action => { action.hidden = !installDevice || isInstalled(); });
     const installationHint = document.querySelector("[data-fmrc-install-hint]");
-    if (installationHint && !installDevice && !installationHint.dataset.desktopHint) { installationHint.dataset.desktopHint = "1"; installationHint.textContent = "Open FMRC on an iPhone with iOS 16.4 or later, or a supported Android phone, to install the app."; }
-    document.querySelectorAll(app === "customer" ? ".mobile-sidebar .sidebar-footer-actions" : ".sidebar-footer").forEach(footer => {
-      if (footer.querySelector(".fmrc-install-button") || standalone() || !installDevice) return;
-      const b = button("Install App", install, true); b.classList.add("fmrc-install-button"); b.innerHTML = '<span aria-hidden="true">↓</span><span class="nav-label">Install App</span>'; footer.prepend(b);
-    });
+    if (installationHint) {
+      const hint = !installDevice ? "Open FMRC on an iPhone with iOS 16.4 or later, or a supported Android phone, to install the app."
+        : isInstalled() ? "FMRC is installed. Open it from its Home Screen icon."
+        : "Install FMRC for a dedicated Home Screen icon and app window.";
+      if (installationHint.textContent !== hint) installationHint.textContent = hint;
+      if (installDevice && !installationHint.parentElement.querySelector(".fmrc-install-confirm")) {
+        const confirmed = button("I've already installed this app", () => rememberInstallation(true), true);
+        confirmed.classList.add("fmrc-install-confirm");
+        const removed = button("I removed this app", () => rememberInstallation(false), true);
+        removed.classList.add("fmrc-install-reset"); installationHint.parentElement.append(confirmed, removed);
+      }
+      const confirmed = installationHint.parentElement.querySelector(".fmrc-install-confirm"), removed = installationHint.parentElement.querySelector(".fmrc-install-reset");
+      if (confirmed) confirmed.hidden = !installDevice || isInstalled();
+      if (removed) removed.hidden = !installDevice || !knownInstalled || standalone();
+    }
+    // Operator installation belongs only in Settings, including app windows.
+    if (app === "team") document.querySelectorAll(".sidebar-footer .fmrc-install-button").forEach(action => action.remove());
     // The navbar announcement bell belongs to customer-announcements.js.
     // App notifications have their own phone-sidebar entry and never replace it.
-    if (app === "customer" && installDevice && !bell) {
+    if (app === "customer" && installDevice) {
       const footer = document.querySelector(".mobile-sidebar .sidebar-footer-actions");
       if (footer) {
-        bell = button("App Notifications", () => {
-          document.querySelector(".mobile-sidebar .sidebar-close-btn")?.click();
-          void openInbox();
-        }, true);
-        bell.classList.add("fmrc-app-inbox-button");
-        bell.innerHTML = `${bellSvg}<span class="nav-label">App Notifications</span><span class="fmrc-inbox-badge" hidden></span>`;
-        bell.setAttribute("aria-label", "App notifications");
-        footer.insertBefore(bell, footer.querySelector(".fmrc-install-button")?.nextSibling || footer.firstChild);
-        void refreshBadge();
+        const sidebar = footer.parentElement;
+        let appActions = sidebar.querySelector(".fmrc-sidebar-app-actions");
+        if (!appActions) {
+          appActions = document.createElement("div"); appActions.className = "fmrc-sidebar-app-actions";
+          appActions.setAttribute("role", "group"); appActions.setAttribute("aria-label", "FMRC app");
+          sidebar.insertBefore(appActions, footer); sidebar.classList.add("fmrc-sidebar-apps");
+        }
+        if (!isInstalled() && !appActions.querySelector(".fmrc-install-button")) {
+          const action = button("Install App", install, true); action.classList.add("fmrc-install-button");
+          action.innerHTML = '<span aria-hidden="true">↓</span><span class="nav-label">Install App</span>'; appActions.prepend(action);
+        }
+        if (!bell?.isConnected) {
+          bell = button("App Notifications", () => {
+            document.querySelector(".mobile-sidebar .sidebar-close-btn")?.click();
+            void openInbox();
+          }, true);
+          bell.classList.add("fmrc-app-inbox-button");
+          bell.innerHTML = `${bellSvg}<span class="nav-label">App Notifications</span><span class="fmrc-inbox-badge" hidden></span>`;
+          bell.setAttribute("aria-label", "App notifications"); appActions.append(bell); void refreshBadge();
+        }
       }
     }
     if (app === "team" && installDevice && /\/settings(?:\.html)?\/?$/.test(location.pathname)) {
@@ -327,27 +420,49 @@
   }
   window.FMRCApp = { app, prefix, inApp, installDevice, url, install, enable, disable, logout, syncAccount, openInbox, controls, launch, loginDestination, consumeTeamNotification, updateBadge: badge };
   if (installDevice && !localAppOrigin()) { const manifest = document.createElement("link"); manifest.rel = "manifest"; manifest.href = `${prefix}manifest.webmanifest`; document.head.append(manifest); }
-  const touch = document.querySelector('link[rel="apple-touch-icon"]') || document.createElement("link"); touch.rel = "apple-touch-icon"; touch.href = `${prefix}icons/apple-touch-icon.png`; if (!touch.isConnected) document.head.append(touch);
-  const theme = document.querySelector('meta[name="theme-color"]') || document.createElement("meta"); theme.name = "theme-color"; theme.content = app === "customer" ? "#fff9ed" : "#6b202b"; if (!theme.isConnected) document.head.append(theme);
-  window.addEventListener("beforeinstallprompt", event => { event.preventDefault(); if (installDevice) installPrompt = event; });
-  window.addEventListener("appinstalled", () => document.querySelectorAll(".fmrc-install-button,.fmrc-settings-install,[data-fmrc-install]").forEach(b => b.remove()));
-  matchMedia("(display-mode: standalone)").addEventListener?.("change", () => { if (standalone()) document.querySelectorAll(".fmrc-install-button,.fmrc-settings-install,[data-fmrc-install]").forEach(b => b.remove()); else inject(); });
-  window.addEventListener("storage", event => { if (event.key === storageKey) { void workerBinding(); } if (/token$|user_info$|customer_user/.test(event.key || "")) { void syncAccount(); void refreshBadge(); } });
+  function applyAppIdentity() {
+    // The shared script loads before the original head links are parsed. Wait
+    // for boot so Safari cannot select a second, older Apple icon link.
+    const touches = Array.from(document.querySelectorAll('link[rel="apple-touch-icon"]'));
+    const touch = touches.shift() || document.createElement("link"); touch.rel = "apple-touch-icon";
+    touch.href = `${prefix}icons/apple-touch-icon.png${app === "team" ? "?v=2" : ""}`;
+    if (!touch.isConnected) document.head.append(touch); touches.forEach(extra => extra.remove());
+    const themes = Array.from(document.querySelectorAll('meta[name="theme-color"]'));
+    const theme = themes.shift() || document.createElement("meta"); theme.name = "theme-color";
+    theme.content = app === "customer" ? "#fff9ed" : "#701b2b";
+    if (!theme.isConnected) document.head.append(theme); themes.forEach(extra => extra.remove());
+  }
+  window.addEventListener("beforeinstallprompt", event => {
+    event.preventDefault();
+    if (installDevice && !standalone()) { installPrompt = event; rememberInstallation(false); }
+  });
+  window.addEventListener("appinstalled", () => { if (installDevice) { installPrompt = null; rememberInstallation(true); } });
+  matchMedia("(display-mode: standalone)").addEventListener?.("change", () => { if (standalone()) rememberInstallation(true); else inject(); });
+  window.addEventListener("storage", event => {
+    if (event.key === installedKey || event.key === null) {
+      try { knownInstalled = localStorage.getItem(installedKey) === "1"; } catch {}
+      document.documentElement.classList.toggle("fmrc-app-installed", isInstalled()); inject();
+    }
+    if (event.key === storageKey) void workerBinding();
+    if (/token$|user_info$|customer_user/.test(event.key || "")) { void syncAccount(); void refreshBadge(); }
+  });
   window.addEventListener("admin:session-updated", syncAccount);
-  window.addEventListener("online", () => { configuration = null; void refreshBadge(); void syncAccount(); });
+  window.addEventListener("online", () => { configuration = null; refreshPhoneControls(); void refreshBadge(); void syncAccount(); void checkInstallation(); });
   document.addEventListener("click", event => {
     if (!inApp) return;
     const anchor = event.target instanceof Element ? event.target.closest("a[href]") : null;
     if (anchor && !anchor.getAttribute("href").startsWith("#")) anchor.href = url(anchor.href);
   }, true);
   document.addEventListener("submit", event => { if (inApp && event.target instanceof HTMLFormElement) event.target.action = url(event.target.action); }, true);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) { void refreshBadge(); void syncAccount(); } });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { refreshPhoneControls(true); void checkInstallation(); void refreshBadge(); void syncAccount(); } });
   const boot = async () => {
+    applyAppIdentity();
     if (app === "team" && /\/(admin|staff)-page\//.test(location.pathname) && token()) localStorage.setItem("fmrc_pwa_team_role", role());
-    inject(); const observer = new MutationObserver(inject); observer.observe(document.body, { childList: true, subtree: true });
+    if (installDevice && standalone()) rememberInstallation(true);
+    inject(); void checkInstallation(); const observer = new MutationObserver(inject); observer.observe(document.body, { childList: true, subtree: true });
     await registerWorker().catch(() => null); if (saved()) { await workerBinding(); await syncAccount(); }
     if (app === "customer" && new URLSearchParams(location.search).has("notification")) await openInbox();
-    setInterval(() => { if (!document.hidden) { void refreshBadge(); void syncAccount(); } }, 60000);
+    setInterval(() => { if (!document.hidden) { refreshPhoneControls(); void refreshBadge(); void syncAccount(); } }, 60000);
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot, { once: true }); else void boot();
 })();

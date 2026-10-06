@@ -10,9 +10,9 @@ async function connect(url) {
   socket.onmessage = ({ data }) => { const m = JSON.parse(data), job = jobs.get(m.id); if (job) { jobs.delete(m.id); m.error ? job.reject(Error(JSON.stringify(m.error))) : job.resolve(m.result); } };
   return { send(method, params = {}) { return new Promise((resolve, reject) => { const number = ++id, timer = setTimeout(() => reject(Error(method)), 15000); jobs.set(number, { resolve: value => { clearTimeout(timer); resolve(value); }, reject }); socket.send(JSON.stringify({ id: number, method, params })); }); }, close() { socket.close(); } };
 }
-test('two app shells retain navigation, device isolation, explicit permission, offline Retry, and phone layouts', { skip: !chrome, timeout: 120000 }, async () => {
+test('two app shells retain navigation, installation state, device isolation, explicit permission, offline Retry, and phone layouts', { skip: !chrome, timeout: 180000 }, async () => {
   const artifacts = fs.mkdtempSync(path.join(os.tmpdir(), 'fmrc-pwa-'));
-  let offlineNavigation = false, devices = {}, lastPost, reads = new Set();
+  let offlineNavigation = false, pushReady = true, devices = {}, lastPost, reads = new Set();
   const server = http.createServer(async (req, res) => {
     const u = new URL(req.url, 'http://localhost');
     if (offlineNavigation && u.pathname === '/apps/customer/about-page/about.html') { req.socket.destroy(); return; }
@@ -20,7 +20,7 @@ test('two app shells retain navigation, device isolation, explicit permission, o
       let chunks = ''; for await (const part of req) chunks += part;
       const body = chunks ? JSON.parse(chunks) : {}; res.setHeader('Content-Type', 'application/json');
       let data = { data: [], unread_count: 0 };
-      if (u.pathname === '/api/pwa/config') data = { push_available: true, inbox_available: true, public_key: 'B' + 'a'.repeat(86) };
+      if (u.pathname === '/api/pwa/config') data = { push_available: pushReady, inbox_available: true, public_key: pushReady ? 'B' + 'a'.repeat(86) : null };
       if (u.pathname === '/api/pwa/subscriptions' && req.method === 'POST') { lastPost = body; const id = body.app === 'team' ? 2 : 1; devices[id] = { id, credential: 'a'.repeat(64), user_id: req.headers.authorization ? (body.app === 'team' ? 8 : 7) : null, public_alerts: body.public_alerts, account_alerts: body.account_alerts }; data = devices[id]; }
       const device = u.pathname.match(/\/pwa\/subscriptions\/(\d+)/);
       if (device) { const id = +device[1]; if (!devices[id]) { res.statusCode = 404; data = {}; } else if (req.method === 'DELETE') { delete devices[id]; data = { removed: true }; } else { if (body.detach) { devices[id].user_id = null; devices[id].account_alerts = false; } else Object.assign(devices[id], body); data = devices[id]; } }
@@ -53,7 +53,7 @@ test('two app shells retain navigation, device isolation, explicit permission, o
     const evaluate=async expression=>{const r=await client.send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(r.exceptionDetails)throw Error(JSON.stringify(r.exceptionDetails));return r.result.value;};
     const wait=async expression=>{for(let i=0;i<150;i++){if(await evaluate(expression))return;await pause(40);}throw Error('Timeout: '+expression);};
     const navigate=async route=>{await client.send('Page.navigate',{url:base+route});await wait(`location.pathname===${JSON.stringify(route)}&&document.readyState==='complete'`);};
-    const screenshot=async name=>{const r=await client.send('Page.captureScreenshot',{captureBeyondViewport:true});fs.writeFileSync(path.join(artifacts,name+'.png'),Buffer.from(r.data,'base64'));};
+    const screenshot=async name=>{const r=await client.send('Page.captureScreenshot',{captureBeyondViewport:false});fs.writeFileSync(path.join(artifacts,name+'.png'),Buffer.from(r.data,'base64'));};
     await navigate('/apps/customer/test.html');await wait('!!window.FMRCApp');
     assert.equal(await evaluate('FMRCApp.installDevice'),false);assert.equal(await evaluate('!!document.querySelector(".fmrc-install-button,link[rel=manifest]")'),false);
     await evaluate(`localStorage.setItem('admin_auth_token','8|admin');localStorage.setItem('admin_user_info',JSON.stringify({id:8,name:'Admin',role:'admin'}));`);
@@ -81,24 +81,40 @@ test('two app shells retain navigation, device isolation, explicit permission, o
     assert.equal(await evaluate('getComputedStyle(document.querySelector(".fmrc-inbox-item .fmrc-app-button")).transform'),'none');
     assert.equal(await evaluate('document.querySelector(".fmrc-phone-controls .fmrc-app-button").disabled'),true);
     await client.send('Network.setUserAgentOverride',{userAgent:'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/140.0.0.0 Mobile Safari/537.36'});
+    pushReady = false;
     await navigate('/apps/customer/test.html');await evaluate('FMRCApp.openInbox()');await wait('!!document.querySelector(".fmrc-inbox-item")');
     await evaluate(`Notification.requestPermission=async()=>{window.permissionCount=(window.permissionCount||0)+1;return 'denied'};`);
+    assert.equal(await evaluate('window.permissionCount||0'),0);
+    await wait('document.querySelector(".fmrc-app-status").textContent.includes("not available yet")');
+    assert.equal(await evaluate('document.querySelector(".fmrc-phone-controls .fmrc-app-button").disabled'),true);
+    pushReady = true;
+    await evaluate('document.dispatchEvent(new Event("visibilitychange"))');
+    await wait('!document.querySelector(".fmrc-phone-controls .fmrc-app-button").disabled');
     assert.equal(await evaluate('window.permissionCount||0'),0);
     await evaluate('document.querySelector(".fmrc-phone-controls .fmrc-app-button").click()');await wait('window.permissionCount===1');
     await wait('document.querySelector(".fmrc-app-status").textContent.includes("not enabled")');
     await evaluate(`Notification.requestPermission=async()=>{window.permissionCount++;return 'granted'};PushManager.prototype.getSubscription=async()=>null;PushManager.prototype.subscribe=async()=>({toJSON:()=>({endpoint:'https://fcm.googleapis.com/fcm/send/test',keys:{p256dh:'test',auth:'test'}}),unsubscribe:async()=>true});localStorage.setItem('customer_token','7|customer');`);
     await evaluate('document.querySelector(".fmrc-phone-controls .fmrc-app-button").click()');await wait('!!localStorage.getItem("fmrc_pwa_customer_device")');assert.equal(lastPost.app,'customer');
     await evaluate('FMRCApp.logout()');assert.equal(devices[1].user_id,null);assert.equal(devices[1].public_alerts,true);
-    await navigate('/apps/team/test.html');await wait('!!document.querySelector(".sidebar-footer .fmrc-install-button")');
+    await navigate('/apps/team/test.html');await wait('!!window.FMRCApp');
+    assert.equal(await evaluate('!!document.querySelector(".sidebar-footer .fmrc-install-button")'),false);
     assert.equal(await evaluate('document.getElementById("internal").pathname'),'/apps/team/admin-page/dashboard.html');
     await wait('(async()=> (await navigator.serviceWorker.getRegistrations()).length===2)()');
     const scopes=await evaluate('(async()=> (await navigator.serviceWorker.getRegistrations()).map(r=>new URL(r.scope).pathname).sort())()');assert.deepEqual(scopes,['/apps/customer/','/apps/team/']);
     await evaluate(`localStorage.setItem('staff_auth_token','8|staff');localStorage.setItem('staff_user_info',JSON.stringify({id:8,name:'Staff',role:'staff'}));localStorage.setItem('fmrc_pwa_team_role','staff')`);
     await navigate('/apps/team/staff-page/settings.html');await wait('!!document.querySelector(".fmrc-phone-controls")');await pause(1800);await evaluate('document.querySelector(".fmrc-phone-controls").scrollIntoView({block:"center"})');await screenshot('staff-settings-390');
+    assert.deepEqual(await evaluate('Array.from(document.querySelectorAll("link[rel=apple-touch-icon]")).map(l=>new URL(l.href).pathname+new URL(l.href).search)'),['/apps/team/icons/apple-touch-icon.png?v=2']);
+    // The portal's theme helper may set its existing browser-chrome color later.
+    assert.equal(await evaluate('document.querySelectorAll("meta[name=theme-color]").length'),1);
     assert.equal(await evaluate('!!document.querySelector(".fmrc-settings-install")'),true);
+    assert.equal(await evaluate('!!document.querySelector(".sidebar-footer .fmrc-install-button")'),false);
     assert.equal(await evaluate('document.documentElement.scrollWidth>innerWidth'),false);
     await navigate('/apps/team/admin-page/settings.html');await wait('!!document.querySelector(".fmrc-settings-install")');
+    await evaluate('localStorage.removeItem("customer_token")');
     await navigate('/apps/customer/home-page/main.html');await wait('!!document.querySelector(".mobile-sidebar .fmrc-app-inbox-button")');await wait('!!document.querySelector(".mobile-sidebar .fmrc-install-button")');await wait('!!document.getElementById("announcementModal")');await pause(1600);
+    assert.equal(await evaluate('document.querySelector(".fmrc-sidebar-app-actions").nextElementSibling.className'),'sidebar-footer-actions');
+    assert.deepEqual(await evaluate('Array.from(document.querySelector(".fmrc-sidebar-app-actions").children).map(b=>b.classList.contains("fmrc-install-button")?"install":"notifications")'),['install','notifications']);
+    assert.equal(await evaluate('!!document.querySelector(".sidebar-footer-actions .fmrc-install-button,.sidebar-footer-actions .fmrc-app-inbox-button")'),false);
     assert.equal(await evaluate('!!document.querySelector("#announcementBell.announcement-bell .fa-bell")'),true);
     await evaluate('document.getElementById("announcementBell").click()');await wait('document.getElementById("announcementModal").hidden===false');
     assert.equal(await evaluate('!!document.querySelector(".fmrc-phone-controls")'),false);
@@ -106,7 +122,27 @@ test('two app shells retain navigation, device isolation, explicit permission, o
     await evaluate('document.querySelector(".mobile-sidebar .fmrc-app-inbox-button").click()');await wait('!!document.querySelector("dialog.fmrc-inbox-dialog[open]")');
     assert.equal(await evaluate('document.querySelector(".mobile-sidebar").classList.contains("open")'),false);
     assert.equal(await evaluate('!!document.querySelector("dialog .fmrc-phone-controls")'),true);await screenshot('customer-app-notifications-390');
+    // Three equal controls stay on one row, with single-line labels, on narrow phones.
+    for (const width of [320,390]) {
+      await client.send('Emulation.setDeviceMetricsOverride',{width,height:844,deviceScaleFactor:1,mobile:true});
+      const toolbar = await evaluate('Array.from(document.querySelector(".fmrc-inbox-toolbar").children).map(b=>{const r=b.getBoundingClientRect();return {top:r.top,height:r.height,fits:b.scrollWidth<=b.clientWidth,nowrap:getComputedStyle(b).whiteSpace}})');
+      assert.equal(toolbar.length,3);
+      assert(toolbar.every(b=>b.top===toolbar[0].top && b.height===toolbar[0].height && b.fits && b.nowrap==='nowrap'));
+      assert.equal(await evaluate('document.querySelector("dialog").scrollWidth>document.querySelector("dialog").clientWidth'),false);
+      await screenshot('customer-app-notifications-'+width);
+    }
     await evaluate('document.querySelector("dialog").close()');
+    // The app actions stay above the appointment divider while only navigation scrolls.
+    await evaluate('document.getElementById("mobileMenuToggle").click();document.querySelector(".sidebar-nav ul").innerHTML+=document.querySelector(".sidebar-nav ul").innerHTML.repeat(3)');
+    for (const [width,height] of [[320,568],[390,844],[844,390]]) {
+      await client.send('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:true});
+      const before=await evaluate('(()=>{const a=document.querySelector(".fmrc-sidebar-app-actions").getBoundingClientRect(),f=document.querySelector(".sidebar-footer-actions").getBoundingClientRect();return {top:a.top,bottom:a.bottom,divider:f.top,footerBottom:f.bottom}})()');
+      await evaluate('document.querySelector(".sidebar-nav").scrollTop=10000');
+      assert.equal(await evaluate('document.querySelector(".fmrc-sidebar-app-actions").getBoundingClientRect().top'),before.top);
+      assert(before.top>=0 && before.bottom<=before.divider && before.footerBottom<=height);
+      await screenshot('customer-sidebar-'+width+'x'+height);
+    }
+    await client.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
     const cached=await evaluate('(async()=> {const result={};for(const name of await caches.keys()){const cache=await caches.open(name);result[name]=(await cache.keys()).map(r=>new URL(r.url).pathname)}return result})()');
     assert.equal(Object.keys(cached).length,2);for(const assets of Object.values(cached))assert.equal(assets.length,3);
     offlineNavigation = true;
@@ -114,6 +150,72 @@ test('two app shells retain navigation, device isolation, explicit permission, o
     await navigate('/apps/customer/about-page/about.html');await wait('document.querySelector("h1")?.textContent==="You\'re offline"');await screenshot('offline-390');
     offlineNavigation = false;
     await client.send('Network.emulateNetworkConditions',{offline:false,latency:0,downloadThroughput:-1,uploadThroughput:-1});await evaluate('document.querySelector("button").click()');await wait('!!document.querySelector(".fmrc-app-inbox-button")');
+    // Native install completion must survive the same observer that used to recreate the button.
+    // These tests emulate OS installation; suppress genuine headless install offers for
+    // the physically uninstalled fixture. Controlled beforeinstallprompt events remain active.
+    const installFixture = await client.send('Page.addScriptToEvaluateOnNewDocument',{source:'window.addEventListener("beforeinstallprompt",e=>{if(e.isTrusted){e.preventDefault();e.stopImmediatePropagation()}},true)'});
+    await navigate('/apps/customer/test.html');await wait('!!document.querySelector(".fmrc-install-button")');
+    await evaluate('window.dispatchEvent(new Event("appinstalled"));document.body.append(document.createElement("div"))');
+    await pause(100);
+    assert.equal(await evaluate('getComputedStyle(document.querySelector(".fmrc-install-button")).display'),'none');
+    assert.equal(await evaluate('localStorage.getItem("fmrc_pwa_customer_installed")'),'1');
+    for (const customerToken of ['', '7|customer']) {
+      await evaluate(`localStorage.setItem('customer_token',${JSON.stringify(customerToken)})`);
+      await navigate('/home-page/main.html');await wait('!!window.FMRCApp');
+      assert.equal(await evaluate('!!document.querySelector(".fmrc-install-button:not([hidden])")'),false);
+      assert.equal(await evaluate('!!document.querySelector(".fmrc-app-inbox-button")'),true);
+    }
+    await evaluate('FMRCApp.logout()');
+    assert.equal(await evaluate('localStorage.getItem("fmrc_pwa_customer_installed")'),'1');
+    await navigate('/apps/team/admin-page/settings.html');await wait('!!document.querySelector(".fmrc-settings-install")');
+    assert.equal(await evaluate('document.querySelector(".fmrc-settings-install").hidden'),false);
+    await evaluate('window.dispatchEvent(new Event("appinstalled"));document.body.append(document.createElement("div"))');
+    assert.equal(await evaluate('getComputedStyle(document.querySelector(".fmrc-settings-install")).display'),'none');
+    for (const role of ['admin', 'staff']) {
+      await navigate(`/${role}-page/settings.html`);await wait('!!document.querySelector(".fmrc-phone-controls")');
+      assert.equal(await evaluate('document.querySelector(".fmrc-settings-install").hidden'),true);
+      assert.equal(await evaluate('!!document.querySelector(".fmrc-install-button:not([hidden])")'),false);
+    }
+    // A fresh OS install offer after removal clears only this app's remembered state.
+    await evaluate(`(()=>{const e=new Event('beforeinstallprompt',{cancelable:true});e.prompt=async()=>{};e.userChoice=Promise.resolve({outcome:'dismissed'});window.dispatchEvent(e)})()`);
+    await wait('!!document.querySelector(".fmrc-settings-install:not([hidden])")');
+    await evaluate('FMRCApp.install()');
+    assert.equal(await evaluate('localStorage.getItem("fmrc_pwa_team_installed")'),null);
+    assert.equal(await evaluate('localStorage.getItem("fmrc_pwa_customer_installed")'),'1');
+    await evaluate(`(()=>{const e=new Event('beforeinstallprompt',{cancelable:true});e.prompt=async()=>{};e.userChoice=Promise.resolve({outcome:'accepted'});window.dispatchEvent(e)})()`);
+    await evaluate('FMRCApp.install()');
+    assert.equal(await evaluate('localStorage.getItem("fmrc_pwa_team_installed")'),'1');
+    // Safari-style confirmation never marks merely opening/closing its installation guide.
+    await client.send('Network.setUserAgentOverride',{userAgent:'Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 Version/18.5 Mobile/15E148 Safari/604.1'});
+    await navigate('/apps/customer/install.html');await wait('!!document.querySelector(".fmrc-install-reset")');
+    await evaluate('document.querySelector(".fmrc-install-reset").click();FMRCApp.install()');await wait('!!document.querySelector("dialog[open]")');
+    await evaluate('document.querySelector("dialog").close()');
+    assert.equal(await evaluate('localStorage.getItem("fmrc_pwa_customer_installed")'),null);
+    await evaluate('FMRCApp.install()');await wait('!!document.querySelector("dialog[open]")');
+    await evaluate('Array.from(document.querySelectorAll("dialog button")).find(b=>b.textContent.startsWith("I\'ve added")).click()');
+    assert.equal(await evaluate('getComputedStyle(document.querySelector("[data-fmrc-install]")).display'),'none');
+    await navigate('/home-page/main.html');await wait('!!window.FMRCApp');
+    assert.equal(await evaluate('!!document.querySelector(".fmrc-install-button:not([hidden])")'),false);
+    // An installed app window hides installation even without the browser's stored marker.
+    await evaluate('localStorage.removeItem("fmrc_pwa_customer_installed")');
+    const standaloneFixture = await client.send('Page.addScriptToEvaluateOnNewDocument',{source:'Object.defineProperty(navigator,"standalone",{value:true,configurable:true})'});
+    await navigate('/apps/customer/test.html');await wait('!!window.FMRCApp');
+    assert.equal(await evaluate('localStorage.getItem("fmrc_pwa_customer_installed")'),'1');
+    assert.equal(await evaluate('!!document.querySelector(".fmrc-install-button:not([hidden])")'),false);
+    await client.send('Page.removeScriptToEvaluateOnNewDocument',{identifier:standaloneFixture.identifier});
+    // Android detection only recognizes the current app, including outside its launch scope.
+    await client.send('Network.setUserAgentOverride',{userAgent:'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/140.0.0.0 Mobile Safari/537.36'});
+    const relatedFixture = await client.send('Page.addScriptToEvaluateOnNewDocument',{source:'Object.defineProperty(navigator,"getInstalledRelatedApps",{configurable:true,value:async()=>JSON.parse(localStorage.getItem("fixture_installed_apps")||"[]")})'});
+    await evaluate('localStorage.removeItem("fmrc_pwa_customer_installed");localStorage.removeItem("fmrc_pwa_team_installed");localStorage.setItem("fixture_installed_apps",JSON.stringify([{platform:"webapp",url:location.origin+"/apps/customer/manifest.webmanifest"}]))');
+    await navigate('/home-page/main.html');await wait('localStorage.getItem("fmrc_pwa_customer_installed")==="1"');
+    assert.equal(await evaluate('!!document.querySelector(".fmrc-install-button:not([hidden])")'),false);
+    await navigate('/staff-page/settings.html');await wait('!!document.querySelector(".fmrc-settings-install")');
+    assert.equal(await evaluate('document.querySelector(".fmrc-settings-install").hidden'),false);
+    await evaluate('localStorage.setItem("fixture_installed_apps",JSON.stringify([{platform:"webapp",id:location.origin+"/apps/team/"}]))');
+    await navigate('/admin-page/settings.html');await wait('localStorage.getItem("fmrc_pwa_team_installed")==="1"');
+    assert.equal(await evaluate('document.querySelector(".fmrc-settings-install").hidden'),true);
+    await client.send('Page.removeScriptToEvaluateOnNewDocument',{identifier:relatedFixture.identifier});
+    await client.send('Page.removeScriptToEvaluateOnNewDocument',{identifier:installFixture.identifier});
     console.log('Browser artifacts: '+artifacts);
   } finally { client?.close();browser.kill();server.close(); }
 });

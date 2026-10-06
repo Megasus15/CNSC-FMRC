@@ -3,20 +3,25 @@
 These steps activate the existing website as two Home Screen apps. Installation
 and phone push are separate: the icons can work before phone delivery is enabled.
 The Customer announcement bell and its original popup stay in the navbar.
-Customer app notifications and Install App are in the phone sidebar. Admin/Staff
-also have phone controls inside Settings. Desktop browsers get no phone controls.
+Customer Install App is above App Notifications in a fixed phone-sidebar area
+above the Appoint Now divider. Admin/Staff installation and phone preferences
+appear only inside Settings. Desktop browsers get no phone controls.
 
-On October 5, 2026, a read-only check of the live
+On October 6, 2026, a read-only check of the live
 `https://ucn-fabmanlab.com/api/pwa/config` returned:
 
 ```json
-{"push_available":false,"inbox_available":false,"public_key":null}
+{"push_available":false,"inbox_available":true,"public_key":null}
 ```
 
-The live Customer inbox returned HTTP 503. At least one required notification
-table is absent from the database used by the deployed backend. This explains
-why deploying the source files alone did not make the new inbox work. The
-original announcement feed uses its existing tables and is independent.
+The notification tables are now installed and the cron has completed successfully.
+Phone delivery remains disabled while the chosen test subdomain is prepared.
+A null public key while delivery is disabled does not establish that the server's
+keys are missing. The original announcement feed
+uses its existing tables and is independent. If you cannot use SSH/Composer,
+continue with [the prepared File Manager and PHP cron method](HOSTINGER_PWA_NO_SSH.md).
+If you do not have a test website yet, start with
+[creating the independent staging subdomain](HOSTINGER_PWA_STAGING.md).
 
 ## 1. Back up the current website and database
 
@@ -50,12 +55,18 @@ public_html/
   backend/
 ```
 
-Ship the HTML asset-version changes too: PWA assets use `v=1.1`, and the Customer
+Ship the HTML asset-version changes too: PWA assets use `v=1.3`, and the Customer
 announcement script uses `v=6.8`. Refresh the browser after deployment. Preserve
 the existing server `backend/.env`; `.env.example` is documentation, not its
 replacement. Dependencies in `backend/vendor/` are not included by a normal Git
 push. Do not recursively copy `backend/public/frontend`; app aliases use the
 original frontend folders.
+
+The installation fix also requires both app manifests, the root `.htaccess`,
+`backend/routes/web.php` and `PwaAssetController.php`. Verify
+`/.well-known/assetlinks.json` returns two manifest links for the current site.
+Customer/Guest and Admin/Staff installation states are independent. See the
+[browser detection limitations and confirmation controls](HOSTINGER_PWA_STAGING.md#installation-button-behavior).
 
 ## 3. Connect to Hostinger SSH and check PHP
 
@@ -80,6 +91,9 @@ web PHP and command-line PHP must be 8.3 or later. If the CLI uses an older
 version, select a supported PHP binary with Hostinger before continuing.
 
 ## 4. Install the locked PHP dependencies
+
+**Cannot use SSH?** Use [the dependency ZIP and PHP cron guide](HOSTINGER_PWA_NO_SSH.md)
+instead of the terminal commands below. Your completed SQL installation stays in place.
 
 While still in the deployed `backend` folder, run:
 
@@ -220,13 +234,15 @@ protected Laravel log and hPanel cron output before enrolling devices.
 Customer: open `https://ucn-fabmanlab.com/apps/customer/`.
 Admin/Staff: open `https://ucn-fabmanlab.com/apps/team/`.
 
-**iPhone, iOS 16.4 or later:** open in Safari, open the sidebar and tap **Install
-App**. Follow Share → Add to Home Screen. Keep **Open as Web App** enabled if
+**iPhone, iOS 16.4 or later:** open in Safari. Customer uses sidebar → **Install
+App**; Admin/Staff sign in and use **Settings → Install App**.
+Follow Share → Add to Home Screen. Keep **Open as Web App** enabled if
 shown, tap Add, and launch the new Home Screen icon. Customer then opens the
 sidebar → **App Notifications** → **Enable Notifications**. Admin/Staff sign in,
 open **Settings** → **Enable Notifications**. Accept the system permission.
 
-**Android phone:** open in Chrome, open the sidebar → **Install App**, and accept
+**Android phone:** open in Chrome, use Customer sidebar → **Install App**, or
+Admin/Staff **Settings → Install App**, and accept
 the native installation prompt. If the browser provides no prompt, use its menu
 → Install app/Add to Home screen. Launch the icon, use the same Customer sidebar
 or operator Settings controls, and allow notifications.
@@ -252,12 +268,12 @@ produce another broadcast, so use a new campaign when testing publication.
 ## If you only have File Manager and phpMyAdmin
 
 The corrected UI, app installation and website inbox can work after deploying
-the source files and running the SQL installer. File Manager/phpMyAdmin alone
-do not install Composer dependencies or prove a background processor is running.
-Arrange SSH access, a deployment build with the locked vendor dependencies, or
-Hostinger assistance for steps 4, 6 and 7. Keep `PWA_PUSH_ENABLED=false` until
-those steps are complete; there is no public setup page that runs arbitrary
-Artisan commands or exposes keys.
+the source files and running the SQL installer. For phone delivery without SSH,
+use [the prepared dependency ZIP and PHP cron file](HOSTINGER_PWA_NO_SSH.md).
+File Manager installs the locked dependencies; a PHP cron job generates persistent
+server-side keys and processes notifications. Keep `PWA_PUSH_ENABLED=false`
+until setup is complete. The helper refuses HTTP requests and never enables push
+or changes your environment file.
 
 If Laravel configuration/routes were cached, have the deployment run the cache
 commands above. With File Manager only, the exact generated cache files

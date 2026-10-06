@@ -2,6 +2,8 @@
 const fs = require('node:fs'), path = require('node:path'), http = require('node:http'), os = require('node:os');
 const { spawn } = require('node:child_process');
 const root = path.resolve(__dirname, '../..');
+const apps = process.argv[2] ? [process.argv[2]] : ['customer', 'team'];
+if (apps.some(app => !['customer', 'team'].includes(app))) throw Error('Choose customer or team.');
 const chrome = ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(fs.existsSync);
 if (!chrome) throw Error('Chrome or Edge is required to render the SVG masters.');
 async function connect(url) {
@@ -26,7 +28,7 @@ async function connect(url) {
     const tabs = await (await fetch(`http://127.0.0.1:${new URL(endpoint).port}/json/list`)).json();
     client = await connect(tabs.find(tab => tab.type === 'page').webSocketDebuggerUrl);
     await client.send('Page.enable'); await client.send('Emulation.setDefaultBackgroundColorOverride', { color: { r: 0, g: 0, b: 0, a: 0 } });
-    for (const app of ['customer', 'team']) for (const [file, size, master] of [['icon-192',192,'master'],['icon-512',512,'master'],['maskable-512',512,'master'],['apple-touch-icon',180,'master'],['notification',96,'notification']]) {
+    for (const app of apps) for (const [file, size, master] of [['icon-192',192,'master'],['icon-512',512,'master'],['maskable-512',512,'master'],['apple-touch-icon',180,'master'],['notification',96,'notification']]) {
       await client.send('Emulation.setDeviceMetricsOverride', { width: size, height: size, deviceScaleFactor: 1, mobile: false });
       await client.send('Page.navigate', { url: `http://127.0.0.1:${server.address().port}/${app}/${master}` });
       for (let i = 0; i < 100; i++) {
@@ -37,6 +39,6 @@ async function connect(url) {
       const png = await client.send('Page.captureScreenshot', { format: 'png' });
       fs.writeFileSync(path.join(root, 'apps', app, 'icons', file + '.png'), Buffer.from(png.data, 'base64'));
     }
-    console.log('Rendered 10 platform icons from the two SVG masters.');
+    console.log(`Rendered ${apps.length * 5} platform icons for ${apps.join(', ')}.`);
   } finally { client?.close(); browser.kill(); server.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

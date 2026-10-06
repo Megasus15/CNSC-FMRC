@@ -1,7 +1,7 @@
 /* Only the offline shell is cached. No account data, API responses or writes. */
 const APP = new URL(self.registration.scope).pathname.includes('/team/') ? 'team' : 'customer';
 const ROOT = `/apps/${APP}/`;
-const CACHE = `fmrc-${APP}-offline-v1`;
+const CACHE = `fmrc-${APP}-offline-v2`;
 const ASSETS = [`${ROOT}offline.html`, '/apps/shared/offline.css', `${ROOT}icons/icon-192.png`];
 function bindingDB() {
   return new Promise((resolve, reject) => { const open = indexedDB.open(`fmrc-${APP}-push`, 1); open.onupgradeneeded = () => open.result.createObjectStore('preferences'); open.onsuccess = () => resolve(open.result); open.onerror = () => reject(open.error); });

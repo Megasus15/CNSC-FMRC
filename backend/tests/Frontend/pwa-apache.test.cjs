@@ -19,6 +19,9 @@ test('Apache serves clean and .html app aliases with isolated scopes, safe paths
     let ready = false;
     for (let i = 0; i < 100; i++) { try { const response = await fetch(base+'/apps/customer/manifest.webmanifest'); if (response.ok) { ready = true; break; } } catch {} await pause(50); }
     assert(ready, fs.existsSync(path.join(temporary,'error.log')) ? fs.readFileSync(path.join(temporary,'error.log'),'utf8') : 'Apache did not start');
+    // This isolated server deliberately disables PHP. A 403 confirms the exact
+    // asset-links route reached the PHP gateway; its JSON is covered by PwaTest.
+    assert.equal((await fetch(base+'/.well-known/assetlinks.json')).status,403);
     for (const [route, source] of [['/apps/customer/home-page/main','home-page/main.html'],['/apps/customer/home-page/main.html','home-page/main.html'],['/apps/team/staff-page/settings','staff-page/settings.html'],['/apps/team/admin-auth/auth.html','admin-auth/auth.html'],['/apps/customer/home-page/main.js','home-page/main.js'],['/apps/team/admin-page/admin-common.js','admin-page/admin-common.js'],['/apps/customer/images/FMRC%20Brand%20Logo.png','images/FMRC Brand Logo.png']]) {
       const response = await fetch(base+route); assert.equal(response.status,200,route); assert.equal(new URL(response.url).pathname.startsWith('/apps/'),true,route); assert.deepEqual(Buffer.from(await response.arrayBuffer()),fs.readFileSync(path.join(root,source)),route);
     }

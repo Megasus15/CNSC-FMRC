@@ -6,6 +6,18 @@ use Illuminate\Http\Request;
 
 class PwaAssetController extends Controller
 {
+    // Allow the ordinary website to detect its own installed WebAPKs on Android.
+    // Resolve the origin per deployment so staging never points at production.
+    public function assetLinks(Request $request)
+    {
+        $origin = $request->getSchemeAndHttpHost();
+
+        return response()->json(array_map(fn ($app) => [
+            'relation' => ['delegate_permission/common.query_webapk'],
+            'target' => ['namespace' => 'web', 'site' => "$origin/apps/$app/manifest.webmanifest"],
+        ], ['customer', 'team']), 200, ['Cache-Control' => 'public, max-age=3600', 'X-Content-Type-Options' => 'nosniff']);
+    }
+
     public function original(Request $request, string $folder, string $path)
     {
         $app = in_array($folder, ['admin-page', 'staff-page', 'admin-auth']) ? 'team' : 'customer';
