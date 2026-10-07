@@ -1,7 +1,7 @@
 /* Only the offline shell is cached. No account data, API responses or writes. */
 const APP = new URL(self.registration.scope).pathname.includes('/team/') ? 'team' : 'customer';
 const ROOT = `/apps/${APP}/`;
-const CACHE = `fmrc-${APP}-offline-v3`;
+const CACHE = `fmrc-${APP}-offline-v4`;
 const ASSETS = [`${ROOT}offline.html`, '/apps/shared/offline.css', `${ROOT}icons/icon-192.png`];
 function bindingDB() {
   return new Promise((resolve, reject) => { const open = indexedDB.open(`fmrc-${APP}-push`, 1); open.onupgradeneeded = () => open.result.createObjectStore('preferences'); open.onsuccess = () => resolve(open.result); open.onerror = () => reject(open.error); });
@@ -31,7 +31,7 @@ self.addEventListener('push', event => event.waitUntil((async () => {
   const target = new URL(data.url, self.location.origin);
   if (target.origin !== self.location.origin || !target.pathname.startsWith(ROOT)) return;
   // Phone previews deliberately omit the website message and any personal or financial fields.
-  await self.registration.showNotification(APP === 'team' ? 'FMRC Admin/Staff' : 'FMRC Customer', {
+  await self.registration.showNotification(APP === 'team' ? 'FMRC Team' : 'UCN–FMRC', {
     body: `${String(data.kind || 'FMRC update').slice(0, 64)}. Open FMRC to view it.`,
     icon: `${ROOT}icons/icon-192.png${APP === 'team' ? '?v=3' : ''}`, badge: `${ROOT}icons/notification.png`, tag: `fmrc-${APP}-${data.id}`, renotify: false,
     data: { url: target.href },

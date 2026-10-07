@@ -11,6 +11,8 @@ function worker(app) {
 test('two manifest identities and maskable/Apple icon exports are distinct and correctly sized', () => {
   const manifests = ['customer', 'team'].map(app => JSON.parse(fs.readFileSync(path.join(root, 'apps', app, 'manifest.webmanifest'))));
   assert.notEqual(manifests[0].id, manifests[1].id); assert.notEqual(manifests[0].scope, manifests[1].scope);
+  assert.equal(manifests[0].name,'UCN–FMRC');assert.equal(manifests[0].short_name,'UCN–FMRC');
+  assert.equal(manifests[1].name,'FMRC Team');assert.equal(manifests[1].short_name,'FMRC Team');
   assert.equal(manifests[1].background_color,'#701b2b');
   assert(manifests[1].icons.every(icon=>icon.src.endsWith('?v=3')));
   for (const manifest of manifests) assert.deepEqual(manifest.related_applications, [{ platform: 'webapp', url: manifest.scope + 'manifest.webmanifest', id: manifest.id }]);
@@ -22,7 +24,7 @@ test('workers cache only their offline shell, leave writes/API alone, and do not
   for (const app of ['customer', 'team']) {
     const w = worker(app); w.caches.set(`fmrc-${app === 'team' ? 'customer' : 'team'}-offline-v1`, []);
     await w.event('install'); await w.event('activate'); assert.equal(w.caches.size, 2);
-    const assets = w.caches.get(`fmrc-${app}-offline-v3`); assert.equal(assets.length, 3); assert(assets.every(url => /offline|icon-192/.test(url)));
+    const assets = w.caches.get(`fmrc-${app}-offline-v4`); assert.equal(assets.length, 3); assert(assets.every(url => /offline|icon-192/.test(url)));
     assert.equal(await w.event('fetch', { request: { method: 'POST', mode: 'navigate', url: `https://fmrc.example/apps/${app}/payment` } }), undefined);
     assert.equal(await w.event('fetch', { request: { method: 'GET', mode: 'cors', url: 'https://fmrc.example/api/customer/orders' } }), undefined);
     w.setOffline(); const result = await w.event('fetch', { request: { method: 'GET', mode: 'navigate', url: `https://fmrc.example/apps/${app}/home-page/main` } });
@@ -39,6 +41,7 @@ test('push ignores old account bindings, separate app payloads and untrusted lin
   assert.equal(w.notifications.length, 0);
   await push({ app: 'customer', binding: 7, id: 9, kind: 'Order update', url: '/apps/customer/?notification=9', message: 'Private person and payment details' });
   assert.equal(w.notifications.length, 1); assert.equal(w.notifications[0].body, 'Order update. Open FMRC to view it.');
+  assert.equal(w.notifications[0].title,'UCN–FMRC');
   assert(!JSON.stringify(w.notifications).includes('Private person'));
   await w.event('notificationclick', { notification: { close() {}, data: w.notifications[0].data } }); assert.equal(w.navigations[0], 'https://fmrc.example/apps/customer/?notification=9');
   await w.event('message', { data: { type: 'binding', value: { user_id: null, account_alerts: false, public_alerts: true } }, ports: [] });

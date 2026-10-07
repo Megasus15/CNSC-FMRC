@@ -12,7 +12,7 @@ brand = base64.b64encode((ROOT / "images/FMRC Brand Logo.png").read_bytes()).dec
 parser = argparse.ArgumentParser()
 parser.add_argument("app", nargs="?", choices=["customer", "team"])
 selected = parser.parse_args().app
-for app, name, color in [("customer", "FMRC Customer", "#fff9ed"), ("team", "FMRC Admin/Staff", "#701b2b")]:
+for app, name, color in [("customer", "UCN–FMRC", "#fff9ed"), ("team", "FMRC Team", "#701b2b")]:
     if selected and selected != app:
         continue
     icon_version = "?v=3" if app == "team" else ""
@@ -20,7 +20,7 @@ for app, name, color in [("customer", "FMRC Customer", "#fff9ed"), ("team", "FMR
     folder = ROOT / "apps" / app
     (folder / "icons").mkdir(parents=True, exist_ok=True)
     prefix = f"/apps/{app}/"
-    manifest = {"id": prefix, "name": name, "short_name": "FMRC" if app == "customer" else "FMRC Team",
+    manifest = {"id": prefix, "name": name, "short_name": name,
                 "description": "FMRC browsing, orders and appointments" if app == "customer" else "FMRC Admin and Staff workspace",
                 "start_url": prefix, "scope": prefix, "display": "standalone", "background_color": color,
                 "theme_color": color, "lang": "en", "orientation": "any",
@@ -43,7 +43,7 @@ for app, name, color in [("customer", "FMRC Customer", "#fff9ed"), ("team", "FMR
     head = f'''<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>{name}</title><meta name="theme-color" content="{color}"><link rel="apple-touch-icon" href="{prefix}icons/apple-touch-icon.png{icon_version}"><link rel="stylesheet" href="/apps/shared/offline.css">'''
     launch_head = head.replace('<link rel="stylesheet" href="/apps/shared/offline.css">', '')
     fallback = f'{prefix}home-page/main.html' if app == 'customer' else f'{prefix}admin-auth/auth.html'
-    (folder / "index.html").write_text(f'''<!doctype html><html lang="en"><head>{launch_head}<style>html{{background:#fffdf9}}</style><link rel="stylesheet" href="/apps/shared/pwa.css?v=1.4"><script src="/apps/shared/pwa.js?v=1.4"></script></head><body data-app="{app}"><script>FMRCApp.launch();</script><noscript><a href="{fallback}">Open FMRC</a></noscript></body></html>\n''', encoding="utf-8")
+    (folder / "index.html").write_text(f'''<!doctype html><html lang="en"><head>{launch_head}<style>html{{background:#fffdf9}}</style><link rel="stylesheet" href="/apps/shared/pwa.css?v=1.5"><script src="/apps/shared/pwa.js?v=1.5"></script></head><body data-app="{app}"><script>FMRCApp.launch();</script><noscript><a href="{fallback}">Open FMRC</a></noscript></body></html>\n''', encoding="utf-8")
     (folder / "offline.html").write_text(f'''<!doctype html><html lang="en"><head>{head}</head><body data-app="{app}"><main><img src="{prefix}icons/icon-192.png" alt=""><h1>You're offline</h1><p>Connect to the internet to open {name}. Your information stays secure, and changes are sent only while you're connected.</p><button type="button" onclick="location.reload()">Retry</button></main></body></html>\n''', encoding="utf-8")
-    (folder / "install.html").write_text(f'''<!doctype html><html lang="en"><head>{head}<link rel="stylesheet" href="/apps/shared/pwa.css?v=1.4"><script src="/apps/shared/pwa.js?v=1.4"></script></head><body data-app="{app}"><main><img src="icons/icon-192.png{icon_version}" alt=""><h1>{name}</h1><p data-fmrc-install-hint>Install FMRC for a dedicated Home Screen icon and app window.</p><button type="button" hidden data-fmrc-install onclick="FMRCApp.install()">Install App</button><a class="action secondary" href="{prefix}">Open FMRC</a><p>On iPhone, open in Safari, tap Share, then Add to Home Screen. Keep Open as Web App enabled if shown.</p></main></body></html>\n''', encoding="utf-8")
+    (folder / "install.html").write_text(f'''<!doctype html><html lang="en"><head>{head}<link rel="stylesheet" href="/apps/shared/pwa.css?v=1.5"><script src="/apps/shared/pwa.js?v=1.5"></script></head><body data-app="{app}"><main><img src="icons/icon-192.png{icon_version}" alt=""><h1>{name}</h1><p data-fmrc-install-hint>Install FMRC for a dedicated Home Screen icon and app window.</p><button type="button" hidden data-fmrc-install onclick="FMRCApp.install()">Install App</button><a class="action secondary" href="{prefix}">Open FMRC</a><p>On iPhone, open in Safari, tap Share, then Add to Home Screen. Keep Open as Web App enabled if shown.</p></main></body></html>\n''', encoding="utf-8")
 print("Generated " + (selected or "both apps") + " metadata, launch/install/offline pages, and SVG icon masters.")

@@ -1,6 +1,6 @@
 {
   "id": "/apps/team/",
-  "name": "FMRC Admin/Staff",
+  "name": "FMRC Team",
   "short_name": "FMRC Team",
   "description": "FMRC Admin and Staff workspace",
   "start_url": "/apps/team/",

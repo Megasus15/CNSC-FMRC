@@ -24,6 +24,10 @@ test('two app shells retain navigation, installation state, device isolation, ex
   let offlineNavigation = false, pushReady = true, devices = {}, lastPost, reads = new Set();
   const server = http.createServer(async (req, res) => {
     const u = new URL(req.url, 'http://localhost');
+    if (u.pathname === '/.well-known/assetlinks.json') {
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify(['customer','team'].map(app=>({relation:['delegate_permission/common.query_webapk'],target:{namespace:'web',site:`http://${req.headers.host}/apps/${app}/manifest.webmanifest`}})))); return;
+    }
     if (offlineNavigation && u.pathname === '/apps/customer/about-page/about.html') { req.socket.destroy(); return; }
     if (u.pathname.startsWith('/api/')) {
       let chunks = ''; for await (const part of req) chunks += part;
@@ -166,7 +170,7 @@ test('two app shells retain navigation, installation state, device isolation, ex
     // Native install completion must survive the same observer that used to recreate the button.
     // These tests emulate OS installation; suppress genuine headless install offers for
     // the physically uninstalled fixture. Controlled beforeinstallprompt events remain active.
-    const installFixture = await client.send('Page.addScriptToEvaluateOnNewDocument',{source:'window.addEventListener("beforeinstallprompt",e=>{if(e.isTrusted){e.preventDefault();e.stopImmediatePropagation()}},true)'});
+    const installFixture = await client.send('Page.addScriptToEvaluateOnNewDocument',{source:'Object.defineProperty(navigator,"brave",{configurable:true,value:{isBrave:async()=>true}});window.addEventListener("beforeinstallprompt",e=>{if(e.isTrusted){e.preventDefault();e.stopImmediatePropagation()}},true)'});
     await navigate('/apps/customer/test.html');await wait('!!document.querySelector(".fmrc-install-button")');
     await evaluate('window.dispatchEvent(new Event("appinstalled"));document.body.append(document.createElement("div"))');
     await pause(100);
@@ -180,6 +184,13 @@ test('two app shells retain navigation, installation state, device isolation, ex
     }
     await evaluate('FMRCApp.logout()');
     assert.equal(await evaluate('localStorage.getItem("fmrc_pwa_customer_installed")'),'1');
+    // A shortcut can be removed from the same permission panel; no hidden install page required.
+    await evaluate('FMRCApp.openPreferences()');await wait('!!document.querySelector(".fmrc-install-remove-choice:not([hidden])")');
+    await evaluate('document.querySelector(".fmrc-install-remove-choice").click()');
+    assert.equal(await evaluate('!!document.querySelector(".fmrc-install-button:not([hidden])")'),true);
+    await evaluate('document.querySelector(".fmrc-install-confirm-choice").click()');
+    assert.equal(await evaluate('!!document.querySelector(".fmrc-install-button:not([hidden])")'),false);
+    await evaluate('document.querySelector("dialog").close()');
     await navigate('/apps/team/admin-page/settings.html');await wait('!!document.querySelector(".fmrc-settings-install")');
     assert.equal(await evaluate('document.querySelector(".fmrc-settings-install").hidden'),false);
     await evaluate('window.dispatchEvent(new Event("appinstalled"));document.body.append(document.createElement("div"))');
@@ -195,9 +206,11 @@ test('two app shells retain navigation, installation state, device isolation, ex
     assert.equal(await evaluate('localStorage.getItem("fmrc_pwa_team_installed")'),'1');
     await client.send('Page.reload',{ignoreCache:true});await wait('performance.getEntriesByType("navigation")[0]?.type==="reload" && document.readyState==="complete" && !!document.querySelector(".fmrc-settings-install")');
     assert.equal(await evaluate('document.querySelector(".fmrc-settings-install").hidden'),true);
-    // Manual removal remains available when the browser cannot report shortcuts.
-    await navigate('/apps/team/install.html');await wait('!!document.querySelector(".fmrc-install-reset")');
-    await evaluate('document.querySelector(".fmrc-install-reset").click()');
+    // The same removal control is available inside both operator Settings cards.
+    await wait('!!document.querySelector(".fmrc-install-remove-choice:not([hidden])")');
+    assert.equal(await evaluate('!!document.querySelector(".fmrc-phone-controls .fmrc-settings-install")'),true);
+    await evaluate('document.querySelector(".fmrc-install-remove-choice").click()');
+    assert.equal(await evaluate('document.querySelector(".fmrc-settings-install").hidden'),false);
     assert.equal(await evaluate('localStorage.getItem("fmrc_pwa_team_installed")'),null);
     assert.equal(await evaluate('localStorage.getItem("fmrc_pwa_customer_installed")'),'1');
     await evaluate(`(()=>{const e=new Event('beforeinstallprompt',{cancelable:true});e.prompt=async()=>{};e.userChoice=Promise.resolve({outcome:'accepted'});window.dispatchEvent(e)})()`);
@@ -223,7 +236,10 @@ test('two app shells retain navigation, installation state, device isolation, ex
     await client.send('Page.removeScriptToEvaluateOnNewDocument',{identifier:standaloneFixture.identifier});
     // Android detection only recognizes the current app, including outside its launch scope.
     await client.send('Network.setUserAgentOverride',{userAgent:'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/140.0.0.0 Mobile Safari/537.36'});
-    const relatedFixture = await client.send('Page.addScriptToEvaluateOnNewDocument',{source:'Object.defineProperty(navigator,"getInstalledRelatedApps",{configurable:true,value:async()=>JSON.parse(localStorage.getItem("fixture_installed_apps")||"[]")})'});
+    const relatedFixture = await client.send('Page.addScriptToEvaluateOnNewDocument',{source:'delete navigator.brave;Object.defineProperty(navigator,"getInstalledRelatedApps",{configurable:true,value:async()=>JSON.parse(localStorage.getItem("fixture_installed_apps")||"[]")})'});
+    // A current supported inventory repairs legacy "installed" flags even if they were never verified.
+    await evaluate('localStorage.setItem("fmrc_pwa_customer_installed","1");localStorage.removeItem("fmrc_pwa_customer_installed_verified");localStorage.setItem("fixture_installed_apps","[]")');
+    await navigate('/home-page/main.html');await wait('localStorage.getItem("fmrc_pwa_customer_installed")===null && !!document.querySelector(".fmrc-install-button:not([hidden])")');
     await evaluate('localStorage.removeItem("fmrc_pwa_customer_installed");localStorage.removeItem("fmrc_pwa_team_installed");localStorage.setItem("fixture_installed_apps",JSON.stringify([{platform:"webapp",url:location.origin+"/apps/customer/manifest.webmanifest"}]))');
     await navigate('/home-page/main.html');await wait('localStorage.getItem("fmrc_pwa_customer_installed")==="1"');
     assert.equal(await evaluate('!!document.querySelector(".fmrc-install-button:not([hidden])")'),false);
@@ -236,6 +252,13 @@ test('two app shells retain navigation, installation state, device isolation, ex
     await evaluate('localStorage.setItem("fixture_installed_apps","[]");document.dispatchEvent(new Event("visibilitychange"))');
     await wait('localStorage.getItem("fmrc_pwa_team_installed")===null && !document.querySelector(".fmrc-settings-install").hidden');
     assert.equal(await evaluate('localStorage.getItem("fmrc_pwa_customer_installed")'),'1');
+    await client.send('Page.reload',{ignoreCache:true});await wait('performance.getEntriesByType("navigation")[0]?.type==="reload" && document.readyState==="complete" && !!document.querySelector("meta[name=application-name]") && !!document.querySelector(".fmrc-phone-controls .fmrc-settings-install:not([hidden])")');
+    assert.equal(await evaluate('document.querySelector("meta[name=application-name]").content'),'FMRC Team');
+    // A delayed negative inventory cannot overwrite a newer installation event.
+    await evaluate('Object.defineProperty(navigator,"getInstalledRelatedApps",{configurable:true,value:()=>new Promise(resolve=>window.finishInstallCheck=resolve)});window.dispatchEvent(new Event("focus"))');
+    await wait('!!window.finishInstallCheck');
+    await evaluate('window.dispatchEvent(new Event("appinstalled"));window.finishInstallCheck([])');await pause(50);
+    assert.equal(await evaluate('localStorage.getItem("fmrc_pwa_team_installed")'),'1');
     await client.send('Page.removeScriptToEvaluateOnNewDocument',{identifier:relatedFixture.identifier});
     await client.send('Page.removeScriptToEvaluateOnNewDocument',{identifier:installFixture.identifier});
     // Both operator cards keep saved preferences and Turn off on one compact row.
@@ -251,6 +274,9 @@ test('two app shells retain navigation, installation state, device isolation, ex
       const actions = await evaluate('Array.from(document.querySelector(".fmrc-phone-actions").children).filter(b=>!b.hidden).map(b=>{const r=b.getBoundingClientRect();return {top:r.top,height:r.height,fits:b.scrollWidth<=b.clientWidth,nowrap:getComputedStyle(b).whiteSpace}})');
       assert.equal(actions.length,2);assert(actions.every(b=>b.top===actions[0].top && b.height===actions[0].height && b.height<=44 && b.fits && b.nowrap==='nowrap'));
       assert.equal(await evaluate('document.querySelector(".fmrc-phone-controls").scrollWidth>document.querySelector(".fmrc-phone-controls").clientWidth'),false);
+      assert.equal(await evaluate('!!document.querySelector(".fmrc-phone-controls .fmrc-settings-install")'),true);
+      const gaps=await evaluate('(()=>{const cards=[...document.querySelectorAll(".portal-settings > .settings-section,.portal-settings > .fmrc-phone-controls")];return cards.slice(1).map((card,i)=>card.getBoundingClientRect().top-cards[i].getBoundingClientRect().bottom)})()');
+      assert(gaps.length>=3 && gaps.every(gap=>Math.abs(gap-16)<1),JSON.stringify(gaps));
       await screenshot(operator+'-permissions-'+width+'-dark');
     }
     // Customer phone taps resolve the original update, never the permissions dialog.

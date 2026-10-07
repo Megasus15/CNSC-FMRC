@@ -1,7 +1,7 @@
 {
   "id": "/apps/customer/",
-  "name": "FMRC Customer",
-  "short_name": "FMRC",
+  "name": "UCN\u2013FMRC",
+  "short_name": "UCN\u2013FMRC",
   "description": "FMRC browsing, orders and appointments",
   "start_url": "/apps/customer/",
   "scope": "/apps/customer/",

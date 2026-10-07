@@ -3,6 +3,7 @@
   "use strict";
   const app = /\/(?:admin|staff)-page\/|\/admin-auth\/|^\/apps\/team(?:\/|$)/.test(location.pathname) ? "team" : "customer";
   const prefix = `/apps/${app}/`;
+  const appName = app === "customer" ? "UCN–FMRC" : "FMRC Team";
   const inApp = location.pathname.startsWith(prefix);
   const standalone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
   const ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -24,6 +25,7 @@
     }
   }
   let knownInstalled = false, verifiedInventory = false, checkingInstallation = false;
+  let inventoryReliable = false, installationRevision = 0, removalSupport;
   let installationChecked = !installDevice || !navigator.getInstalledRelatedApps || standalone();
   try {
     knownInstalled = localStorage.getItem(installedKey) === "1";
@@ -33,6 +35,7 @@
   document.documentElement.classList.toggle("fmrc-app-installed", isInstalled());
   document.documentElement.classList.toggle("fmrc-install-checking", !installationChecked);
   function rememberInstallation(value, inventory = false) {
+    installationRevision++;
     knownInstalled = value;
     if (inventory) verifiedInventory = true;
     if (!value) verifiedInventory = false;
@@ -44,6 +47,20 @@
     inject();
     refreshPhoneControls();
   }
+  async function supportsRemovalCheck() {
+    // Chrome's Android WebAPK inventory can report absence. A Brave shortcut
+    // cannot: its empty array must not erase an explicit installation choice.
+    // Verify the out-of-scope relationship before trusting a negative result.
+    if (!androidPhone || !/Chrome\//.test(navigator.userAgent) || /EdgA|OPR|SamsungBrowser/.test(navigator.userAgent)) return false;
+    try {
+      if (navigator.brave && await navigator.brave.isBrave()) return false;
+      const response = await fetch("/.well-known/assetlinks.json", { cache: "no-store", signal: AbortSignal.timeout(2500) });
+      if (!response.ok) return false;
+      const links = await response.json();
+      return Array.isArray(links) && links.some(link => link.relation?.includes("delegate_permission/common.query_webapk")
+        && link.target?.namespace === "web" && link.target.site === `${location.origin}${prefix}manifest.webmanifest`);
+    } catch { return false; }
+  }
   async function checkInstallation() {
     if (!installDevice) return;
     if (standalone()) { rememberInstallation(true); return; }
@@ -52,12 +69,14 @@
       installationChecked = true; document.documentElement.classList.remove("fmrc-install-checking"); inject(); return;
     }
     checkingInstallation = true;
+    const revision = installationRevision;
     try {
+      removalSupport ||= supportsRemovalCheck();
       const related = await Promise.race([
         navigator.getInstalledRelatedApps(),
         new Promise(resolve => setTimeout(() => resolve(null), 3000)),
       ]);
-      if (!Array.isArray(related)) return;
+      if (!Array.isArray(related)) { inventoryReliable = false; return; }
       const found = related.some(entry => {
         if (entry.platform !== "webapp") return false;
         try {
@@ -67,11 +86,13 @@
             || (identity?.origin === location.origin && identity.pathname === prefix);
         } catch { return false; }
       });
+      const canReportRemoval = verifiedInventory || await removalSupport;
+      // A slow query must not undo an install/removal confirmed while it ran.
+      if (revision !== installationRevision) return;
+      inventoryReliable = found || canReportRemoval;
       if (found) rememberInstallation(true, true);
-      // Only an inventory that previously recognized this exact app can report
-      // removal. Empty results from shortcut/unsupported browsers are inconclusive.
-      else if (verifiedInventory) rememberInstallation(false);
-    } catch {} finally {
+      else if (canReportRemoval) rememberInstallation(false);
+    } catch { inventoryReliable = false; } finally {
       checkingInstallation = false; installationChecked = true;
       document.documentElement.classList.remove("fmrc-install-checking"); inject();
     }
@@ -160,7 +181,7 @@
       }
       catch { installPrompt = null; }
     }
-    const d = dialog(`Install ${app === "customer" ? "FMRC Customer" : "FMRC Admin/Staff"}`, "Keep FMRC on your Home Screen and open it in its own app window.");
+    const d = dialog(`Install ${appName}`, "Keep FMRC on your Home Screen and open it in its own app window.");
     const icon = document.createElement("img"); icon.src = `${prefix}icons/icon-192.png`; icon.className = "fmrc-app-guide-icon"; icon.alt = ""; d.insertBefore(icon, d.firstChild);
     const steps = document.createElement("ol");
     const texts = ios ? ["Open this app in Safari.", "Tap Share, then Add to Home Screen.", "Keep Open as Web App enabled if shown, then tap Add."] : ["Open this app in Chrome, Edge, or another browser with app installation support.", "Open the browser menu and choose Install app or Add to Home screen.", "Confirm to add the FMRC icon to your device."];
@@ -250,9 +271,6 @@
     const intro = document.createElement("p"); intro.textContent = app === "customer" ? "Choose which FMRC updates reach this device. Phone previews keep account details private." : "Receive private FMRC update previews on this device, including after your website session expires. Signing out turns them off.";
     const message = document.createElement("p"); message.className = "fmrc-app-status"; message.setAttribute("role", "status");
     status(message, saved() ? "Notifications enabled for this device." : "Phone notifications are off.");
-    if (app === "team" && !container.querySelector(".fmrc-settings-install")) {
-      const installAction = button("Install App", install, true); installAction.classList.add("fmrc-settings-install"); installAction.hidden = isInstalled() || !installationChecked; container.append(installAction);
-    }
     const fields = [];
     for (const [key, label] of app === "customer" ? [["public_alerts", "Announcements & promotions"], ["account_alerts", "My orders & appointments"]] : [["account_alerts", "Workspace updates"]]) {
       const row = document.createElement("label"); row.className = "fmrc-app-check"; const input = document.createElement("input"); input.type = "checkbox"; input.dataset.preference = key;
@@ -286,7 +304,20 @@
       } finally { busy = false; await updateAvailability(); }
     });
     const off = button("Turn off", async () => { busy = true; off.disabled = true; try { await disable(); status(message, "Phone notifications are off."); off.hidden = true; apply.textContent = "Enable notifications"; } catch (e) { status(message, e.message); } finally { busy = false; off.disabled = false; await updateAvailability(); } }, true);
-    off.hidden = !saved(); actions.append(apply, off); if (!embedded) panel.prepend(title, intro); panel.append(actions, message); container.append(panel);
+    off.hidden = !saved(); actions.append(apply, off); if (!embedded) panel.prepend(title, intro); panel.append(actions, message);
+    const installation = document.createElement("div"); installation.className = "fmrc-install-options";
+    if (app === "team") {
+      const installAction = button("Install App", install, true); installAction.classList.add("fmrc-settings-install");
+      installAction.hidden = isInstalled() || !installationChecked; installation.append(installAction);
+    }
+    const installNote = document.createElement("p"); installNote.className = "fmrc-install-note";
+    const confirmInstall = button("Already installed", () => rememberInstallation(true), true);
+    confirmInstall.classList.add("fmrc-install-choice", "fmrc-install-confirm-choice");
+    const removeInstall = button("I removed this app", () => { inventoryReliable = false; rememberInstallation(false); }, true);
+    removeInstall.classList.add("fmrc-install-choice", "fmrc-install-remove-choice");
+    installation.append(installNote, confirmInstall, removeInstall); panel.append(installation);
+    // Keep the notification card with the other cards, above the fixed footer.
+    container.insertBefore(panel, container.querySelector(":scope > .settings-footer"));
     let unavailable = false;
     apply.disabled = true;
     async function updateAvailability(refresh = false) {
@@ -355,6 +386,16 @@
   }
   function inject() {
     document.querySelectorAll(".fmrc-install-button,.fmrc-settings-install,[data-fmrc-install]").forEach(action => { action.hidden = !installDevice || isInstalled() || !installationChecked; });
+    document.querySelectorAll(".fmrc-install-options").forEach(section => {
+      const fallback = installationChecked && !inventoryReliable && !standalone();
+      const confirm = section.querySelector(".fmrc-install-confirm-choice"), remove = section.querySelector(".fmrc-install-remove-choice");
+      confirm.hidden = !fallback || knownInstalled; remove.hidden = !fallback || !knownInstalled;
+      const note = section.querySelector(".fmrc-install-note"); note.hidden = !fallback;
+      const text = knownInstalled ? "Installation remembered in this browser. If you removed the app, update it below."
+        : "Already on your Home Screen? Confirm to hide Install App in this browser.";
+      if (note.textContent !== text) note.textContent = text;
+      section.hidden = standalone() || (!fallback && (app !== "team" || isInstalled() || !installationChecked));
+    });
     const installationHint = document.querySelector("[data-fmrc-install-hint]");
     if (installationHint) {
       const hint = !installDevice ? "Open FMRC on an iPhone with iOS 16.4 or later, or a supported Android phone, to install the app."
@@ -449,6 +490,10 @@
     const theme = themes.shift() || document.createElement("meta"); theme.name = "theme-color";
     theme.content = app === "customer" ? "#fff9ed" : "#701b2b";
     if (!theme.isConnected) document.head.append(theme); themes.forEach(extra => extra.remove());
+    for (const name of ["application-name", "apple-mobile-web-app-title"]) {
+      const meta = document.querySelector(`meta[name="${name}"]`) || document.createElement("meta");
+      meta.name = name; meta.content = appName; if (!meta.isConnected) document.head.append(meta);
+    }
   }
   window.addEventListener("beforeinstallprompt", event => {
     event.preventDefault();
@@ -457,8 +502,9 @@
   window.addEventListener("appinstalled", () => { if (installDevice) { installPrompt = null; rememberInstallation(true); } });
   matchMedia("(display-mode: standalone)").addEventListener?.("change", () => { if (standalone()) rememberInstallation(true); else inject(); });
   window.addEventListener("storage", event => {
-    if (event.key === installedKey || event.key === null) {
-      try { knownInstalled = localStorage.getItem(installedKey) === "1"; } catch {}
+    if (event.key === installedKey || event.key === inventoryKey || event.key === null) {
+      installationRevision++;
+      try { knownInstalled = localStorage.getItem(installedKey) === "1"; verifiedInventory = localStorage.getItem(inventoryKey) === "1"; } catch {}
       document.documentElement.classList.toggle("fmrc-app-installed", isInstalled()); inject();
     }
     if (event.key === storageKey) void workerBinding();
@@ -467,7 +513,7 @@
   window.addEventListener("admin:session-updated", syncAccount);
   window.addEventListener("pageshow", () => { void checkInstallation(); });
   window.addEventListener("focus", () => { void checkInstallation(); });
-  window.addEventListener("online", () => { configuration = null; refreshPhoneControls(); void refreshBadge(); void syncAccount(); void checkInstallation(); });
+  window.addEventListener("online", () => { configuration = null; removalSupport = null; refreshPhoneControls(); void refreshBadge(); void syncAccount(); void checkInstallation(); });
   document.addEventListener("click", event => {
     if (!inApp) return;
     const anchor = event.target instanceof Element ? event.target.closest("a[href]") : null;

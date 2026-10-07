@@ -1,7 +1,7 @@
 """Package the notification UI update for an existing FMRC website.
 
 Only the listed runtime assets and original HTML consumers are included.
-Environment, database, dependencies, storage and push-delivery code are excluded.
+Backend, environment, database, dependencies and storage are excluded.
 """
 from datetime import datetime, timezone
 from pathlib import Path
@@ -12,22 +12,21 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[2]
 ARCHIVE = ROOT / "output/fmrc-notification-ui-update.zip"
 FILES = [
-    # Add the tap resolver before exposing it to the new frontend.
-    "backend/app/Http/Controllers/Api/CustomerNotificationController.php",
-    "backend/routes/api.php",
     "apps/shared/pwa.js", "apps/shared/pwa.css", "apps/shared/worker.js",
     "apps/customer/index.html", "apps/customer/install.html",
+    "apps/customer/manifest.webmanifest", "apps/customer/offline.html",
     "apps/team/index.html", "apps/team/install.html", "apps/team/offline.html",
     "apps/team/manifest.webmanifest",
     "apps/team/icons/icon-192.png", "apps/team/icons/icon-512.png",
     "apps/team/icons/maskable-512.png", "apps/team/icons/apple-touch-icon.png",
+    "admin-page/settings.css",
 ]
 for folder in ("home-page", "about-page", "services-page", "products-page",
                "contact-page", "customer-auth", "admin-auth", "admin-page", "staff-page"):
     for source in sorted((ROOT / folder).glob("*.html")):
         content = source.read_text(encoding="utf-8")
-        if "apps/shared/pwa.js?v=1.4" in content:
-            assert "apps/shared/pwa.css?v=1.4" in content, source
+        if "apps/shared/pwa.js?v=1.5" in content:
+            assert "apps/shared/pwa.css?v=1.5" in content, source
             FILES.append(source.relative_to(ROOT).as_posix())
 
 assert len(FILES) == len(set(FILES))
@@ -39,10 +38,10 @@ for relative in FILES:
 
 sources["FMRC_PWA_UI_UPDATE.json"] = (json.dumps({
     "built_at": datetime.now(timezone.utc).isoformat(),
-    "release": "notification-ui-1.4", "target_origin": "https://ucn-fabmanlab.com",
+    "release": "notification-ui-1.5", "target_origin": "https://ucn-fabmanlab.com",
     "source_sha256": {name: hashlib.sha256(data).hexdigest() for name, data in sources.items()},
 }, indent=2) + "\n").encode()
-sources["FMRC_PWA_UI_UPDATE_README.txt"] = b"""FMRC notification UI 1.4
+sources["FMRC_PWA_UI_UPDATE_README.txt"] = b"""FMRC notification UI 1.5
 
 Use this update on the existing official site, ucn-fabmanlab.com.
 Back up the matching files before extracting. This ZIP has no enclosing folder.
@@ -56,21 +55,25 @@ Back up the matching files before extracting. This ZIP has no enclosing folder.
 Do not extract with both the destination and folder name set to public_html:
 that creates public_html/public_html and the active site is not updated.
 
-If backend/bootstrap/cache/routes-v7.php exists, remove only that generated
-route-cache file. With SSH, run php artisan route:clear from backend instead.
 Keep the existing notification cron, push setting, VAPID keys and subscriptions.
-No environment edit, SQL, keys or Composer install are required.
+No backend files, route-cache cleanup, environment edit, SQL or Composer install
+are required for this frontend update. Apply it on the existing working site.
 
 Refresh both website tabs and reopen both apps. Permission panels contain only
 phone alert preferences. Save preferences / Turn off fit one compact row.
 App gateways go directly to the original page with the existing logo loader.
-The new Team icons are solid maroon and use version 3 in the manifest.
+Team Install App now sits inside Phone notifications. Settings cards use one
+16px gap. App names are UCN-FMRC (Customer) and FMRC Team (Admin/Staff).
 
 Existing OS launcher icons may need removing/reinstalling to refresh artwork.
 Re-enable Team phone notifications afterward only if the device grant changed.
-Browsers with a working related-app inventory detect removal automatically.
-Browsers that cannot report Home Screen shortcuts keep a per-app confirmation;
-use /apps/customer/install.html or /apps/team/install.html to confirm removal.
+Supported Android Chrome inventory detects installation/removal. Existing
+installation flags are corrected after a successful supported inventory check.
+Brave/iOS Home Screen shortcuts cannot always be inspected automatically.
+Both phone panels now include Already installed / I removed this app controls
+when automatic detection is unavailable. Customer: sidebar > App Notifications.
+Admin/Staff: Settings > Phone notifications. Use I removed this app after
+deleting a shortcut to restore Install App immediately in that browser.
 Clearing site data or changing browsers can require confirming an existing app.
 
 Check both panels, app launches, refresh persistence, phone delivery and taps.

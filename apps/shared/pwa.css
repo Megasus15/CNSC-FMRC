@@ -14,7 +14,11 @@ html[data-theme="dark"] :is(.fmrc-app-dialog,.fmrc-phone-controls,.fmrc-settings
 .fmrc-phone-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.fmrc-phone-actions>.fmrc-app-button{min-width:0;white-space:nowrap;min-height:40px;padding:9px 12px}.fmrc-phone-actions>.fmrc-app-button:only-child,.fmrc-phone-actions>.fmrc-app-button:first-child:has(+[hidden]){grid-column:1/-1}
 .fmrc-phone-controls .fmrc-app-status{font-size:12px;margin:12px 0 0}.fmrc-app-status:empty{display:none}.fmrc-account-alert-hint{font-size:12px!important;margin:8px 0 0!important}.fmrc-account-alert-hint a{color:var(--app-wine);font-weight:600;text-underline-offset:3px}
 .fmrc-permissions-dialog .fmrc-phone-controls{border:0;background:transparent;padding:0;margin:0}.fmrc-permissions-dialog h2{font-size:20px}
-.fmrc-settings-install{width:100%;justify-content:flex-start;white-space:nowrap;margin:24px 0 -12px}
+.fmrc-settings-install{width:100%;justify-content:flex-start;white-space:nowrap;margin:0}
+.fmrc-install-options{border-top:1px solid var(--app-border);padding-top:14px;margin-top:16px}
+.fmrc-phone-controls .fmrc-install-note{font-size:12px;line-height:1.5;margin:10px 0 2px}
+.fmrc-install-choice.fmrc-app-button{min-height:40px;padding:8px 0;border:0;border-radius:4px;font-size:12px;text-align:left;text-decoration:underline;text-underline-offset:3px;justify-content:flex-start}
+.fmrc-install-choice.fmrc-app-button:hover:not(:disabled){background:transparent;color:var(--app-wine)}
 .mobile-sidebar.fmrc-sidebar-apps>.sidebar-header{flex-shrink:0}.mobile-sidebar.fmrc-sidebar-apps>.sidebar-nav{flex:1;min-height:0;overflow-y:auto}.mobile-sidebar.fmrc-sidebar-apps>.sidebar-footer-actions{margin-top:0}
 .fmrc-sidebar-app-actions{display:flex;flex-direction:column;gap:8px;flex-shrink:0;padding:12px 16px 16px;background:var(--customer-paper,#fdfaf6)}.fmrc-sidebar-app-actions .fmrc-app-button{width:100%;justify-content:flex-start;margin:0;min-height:44px;font-size:14px;white-space:nowrap}.fmrc-app-inbox-button svg{flex-shrink:0}
 .fmrc-app-dialog [hidden],.fmrc-phone-controls [hidden],[data-fmrc-install][hidden]{display:none!important}

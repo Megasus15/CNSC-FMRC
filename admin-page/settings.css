@@ -1,11 +1,12 @@
-.portal-settings { max-width:1180px; margin-inline:auto; padding-bottom:calc(130px + env(safe-area-inset-bottom)); }
-.settings-intro { display:flex; justify-content:space-between; align-items:flex-start; gap:24px; margin:2px 0 24px; }
+.module-content.portal-settings { max-width:1180px; width:100%; box-sizing:border-box; margin-inline:auto; padding-bottom:calc(130px + env(safe-area-inset-bottom)); gap:16px; }
+.portal-settings > .settings-section, .portal-settings > .fmrc-phone-controls { margin:0; flex-shrink:0; }
+.settings-intro { display:flex; justify-content:space-between; align-items:flex-start; gap:24px; margin:2px 0 0; }
 .settings-eyebrow { color:var(--text-muted); font-size:.72rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase; margin-bottom:8px; }
 .settings-intro h2 { font-size:clamp(1.35rem,2.2vw,1.8rem); line-height:1.35; color:var(--text-main); margin-bottom:8px; }
 .settings-intro p, .settings-section-heading p { font-size:.85rem; line-height:1.7; color:var(--text-muted); max-width:650px; }
 .settings-status { display:flex; align-items:center; gap:8px; border:1px solid var(--border-color); border-radius:99px; padding:8px 12px; background:var(--surface); color:var(--text-muted); font-size:.72rem; white-space:nowrap; }
 .settings-status-dot { width:6px; height:6px; border-radius:50%; background:var(--portal-success,#287345); }
-.settings-section { border:1px solid var(--border-color); border-radius:14px; background:var(--surface); margin-bottom:20px; overflow:hidden; }
+.settings-section { border:1px solid var(--border-color); border-radius:14px; background:var(--surface); overflow:hidden; }
 .settings-section-heading { padding:24px 26px 0; }
 .settings-section-heading h3 { display:flex; align-items:center; gap:10px; font-size:1rem; font-weight:600; color:var(--text-main); margin-bottom:6px; }
 .settings-section-heading h3 i { font-size:.9rem; color:var(--primary-color); }
