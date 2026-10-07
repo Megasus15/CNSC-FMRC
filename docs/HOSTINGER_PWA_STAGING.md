@@ -97,9 +97,14 @@ website login tokens, uploaded customer files or private VAPID keys.
    into `PWA_VAPID_PRIVATE_KEY`. Keep `PWA_VAPID_SUBJECT` as the staging HTTPS URL.
    Do not regenerate or share these keys. Remove the uploaded ZIP after extraction.
 
-The upload and setup steps have been checked locally against a fresh MySQL
-database and the packaged production dependencies. They have not been executed
-in Hostinger. Use staging test records for phone tests; do not send actual payments.
+The upload and setup steps were checked locally against a fresh MySQL database
+and the packaged production dependencies. The October 6 hPanel results also
+confirm staging initialization and its recurring cron completed successfully.
+The user confirmed Customer phone delivery through Brave on Android, initially
+with a delay of about one to one-and-a-half minutes. After the delivery update
+was copied into the active backend on October 7, they reported realtime phone
+alerts for both Customer and Team. iPhone delivery remains untested. Use staging
+test records for phone tests.
 
 ### General requirements for other staging deployments
 
@@ -150,6 +155,81 @@ notifications through **Settings**. Close the apps and publish a new staging
 announcement or create a test account update. Follow
 [the complete real-device checks](PWA_RELEASE.md#real-device-acceptance-before-production-enablement)
 before enabling the live site's phone delivery.
+
+### Apply the prompt-delivery update to the existing staging site
+
+The initial release waited for the next minute cron before sending phone alerts.
+The updated backend attempts committed events after the HTTP response, using
+high push urgency. Keep the minute cron for retries, scheduled publication and
+deliveries beyond the bounded request budget (100 devices / approximately 10
+seconds, excluding an in-progress network call). Device/network delivery time
+can still vary. [Web Push urgency](https://www.rfc-editor.org/rfc/rfc8030.html#section-5.3).
+
+1. Build the small update with `python tools/pwa/build-push-update.py`.
+2. In **staging.ucn-fabmanlab.com** File Manager, upload
+   **`output/fmrc-staging-realtime-push.zip`** into its own **`public_html`**.
+3. Extract into a new folder named **`pwa-push-update`** within this `public_html`.
+   Confirm the resulting source directory is
+   `public_html/pwa-push-update/backend/`. Copy the six individual PHP files
+   into their corresponding existing `public_html/backend/` folders, adding
+   the two new classes first and copying `bootstrap/app.php` last. The file list
+   is in the ZIP's README and the recovery table below (replace that table's
+   nested source prefix with `public_html/pwa-push-update/backend/`). The archive
+   contains no `.env`, schema changes or dependencies.
+4. Keep the existing staging notification cron. No new keys, SQL import,
+   environment changes or app reinstallation are needed for this update.
+5. Close the enrolled Customer app and save a **new enabled announcement** in
+   staging. Compare the save time with the phone alert; inspect
+   `diagnose-staging-push.sql` if it still waits for cron. Provider acceptance
+   time is available in the outbox's `delivered_at`; that is not the device's
+   display time. After verification, remove the uploaded ZIP and only the new
+   `pwa-push-update` extraction folder.
+
+On October 7, after copying the six update files into the active staging backend,
+the user reported that Customer and Team phone notifications through Brave on
+Android were now realtime. These are user-reported successful staging tests; no
+exact elapsed seconds were supplied. Notification-tap navigation, iPhone and
+the remaining device acceptance checks are not established by these results.
+For the already-initialized official website, use
+[the small live update guide](HOSTINGER_PWA_LIVE_UPDATE.md).
+
+### Recover an update extracted into an extra public_html folder
+
+On October 7 the user reported a 40–50 second delay after the update upload.
+A read-only HTTPS check returned 404 for `/FMRC_PUSH_UPDATE.json` but found
+the matching six-file update metadata at `/public_html/FMRC_PUSH_UPDATE.json`.
+This shows an extra enclosing directory; the marker alone does not verify
+which PHP files the active application is executing. Correct the file locations
+before attributing the remaining delay to Brave or Android.
+
+In the staging File Manager, copy **individual files** from the nested update
+into the corresponding existing backend folders. Preserve the current backend
+directory and its environment, dependencies, storage and other application files.
+Use the following order so the new classes exist before registration:
+
+| Source under `public_html/public_html/backend/` | Destination under `public_html/backend/` |
+| --- | --- |
+| `app/Services/PwaOutboxProcessor.php` | `app/Services/PwaOutboxProcessor.php` |
+| `app/Http/Middleware/PwaImmediateDelivery.php` | `app/Http/Middleware/PwaImmediateDelivery.php` |
+| `app/Services/PwaNotifications.php` | `app/Services/PwaNotifications.php` |
+| `app/Services/PwaPushTransport.php` | `app/Services/PwaPushTransport.php` |
+| `app/Console/Commands/ProcessPwaPush.php` | `app/Console/Commands/ProcessPwaPush.php` |
+| `bootstrap/app.php` | `bootstrap/app.php` (copy last) |
+
+Choose overwrite for the four existing files. Copy the nested
+`FMRC_PUSH_UPDATE.json` into the outer `public_html` too, then verify
+`https://staging.ucn-fabmanlab.com/FMRC_PUSH_UPDATE.json` returns the matching
+metadata. Repeat the new-announcement phone test. The read-only
+`diagnose-staging-push.sql` reports `server_wait_seconds` between enqueueing and
+provider acceptance, separating server waiting from later device delivery.
+Do not move or replace the whole backend folder. Keep the recurring cron.
+
+The user subsequently confirmed copying the Services files, middleware, command
+and finally `bootstrap/app.php`; the resulting Customer phone test was reported
+as realtime. The existing Services directory screenshot also showed the new
+outbox processor and updated service files. The nested release metadata has not
+been confirmed moved or removed, and metadata location alone is not proof of
+the active PHP version.
 
 ## Installation-button behavior
 

@@ -48,6 +48,16 @@ class CustomerNotificationController extends Controller
         return response()->json(['unread_count' => $query->count()])->header('Cache-Control', 'no-store');
     }
 
+    public function show(Request $request, int $id)
+    {
+        // A phone tap resolves its destination without rebuilding the removed
+        // inbox UI. The same visibility rules protect private account targets.
+        $record = $this->visible($request)->where('n.id', $id)->first(['n.id', 'n.type', 'n.target']);
+        abort_unless($record, 404);
+
+        return response()->json($record)->header('Cache-Control', 'no-store');
+    }
+
     public function read(Request $request, int $id)
     {
         $record = $this->visible($request)->where('n.id', $id)->first();

@@ -44,6 +44,7 @@ Route::prefix('pwa')->middleware('throttle:60,1')->group(function () {
 Route::prefix('customer/notifications')->middleware('throttle:120,1')->group(function () {
     Route::get('/', [\App\Http\Controllers\Api\CustomerNotificationController::class, 'index']);
     Route::get('/unread-count', [\App\Http\Controllers\Api\CustomerNotificationController::class, 'unread']);
+    Route::get('/{id}', [\App\Http\Controllers\Api\CustomerNotificationController::class, 'show'])->whereNumber('id');
     Route::patch('/{id}/read', [\App\Http\Controllers\Api\CustomerNotificationController::class, 'read'])->whereNumber('id');
     Route::post('/mark-all-read', [\App\Http\Controllers\Api\CustomerNotificationController::class, 'readAll']);
 });

@@ -1,0 +1,375 @@
+{
+  "checked_at": "2026-10-07T09:06:32.579624+00:00",
+  "origin": "https://ucn-fabmanlab.com",
+  "public_runtime_files": 61,
+  "matching_files": 61,
+  "backend_files_not_checked_by_public_fetch": 2,
+  "results": [
+    {
+      "path": "apps/shared/pwa.js",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "apps/shared/pwa.css",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "apps/shared/worker.js",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "apps/customer/index.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "apps/customer/install.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "apps/team/index.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "apps/team/install.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "apps/team/offline.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "apps/team/manifest.webmanifest",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "apps/team/icons/icon-192.png",
+      "status": 200,
+      "matches": true,
+      "comparison": "decoded pixels"
+    },
+    {
+      "path": "apps/team/icons/icon-512.png",
+      "status": 200,
+      "matches": true,
+      "comparison": "decoded pixels"
+    },
+    {
+      "path": "apps/team/icons/maskable-512.png",
+      "status": 200,
+      "matches": true,
+      "comparison": "decoded pixels"
+    },
+    {
+      "path": "apps/team/icons/apple-touch-icon.png",
+      "status": 200,
+      "matches": true,
+      "comparison": "decoded pixels"
+    },
+    {
+      "path": "home-page/main.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "about-page/about.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "services-page/service.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "products-page/paymongo-simulator.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "products-page/product.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "contact-page/contact.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "customer-auth/auth.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-auth/auth.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/accounts.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/appointments.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/archives.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/customer-inquiries.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/dashboard.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/inventory.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/maintenance-preview.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/my-account.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/orders.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/products.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/promotions.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/ratings.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/reports.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/settings.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/website-about.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/website-contact.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/website-emails.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/website-footer.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/website-home.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/website-maintenance.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/website-payments.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/website-portals.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "admin-page/website-services.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "staff-page/appointments.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "staff-page/archives.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "staff-page/customer-inquiries.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "staff-page/dashboard.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "staff-page/inventory.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "staff-page/my-account.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "staff-page/orders.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "staff-page/products.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "staff-page/promotions.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "staff-page/ratings.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "staff-page/reports.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "staff-page/settings.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "staff-page/website-about.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "staff-page/website-contact.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "staff-page/website-footer.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "staff-page/website-home.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    },
+    {
+      "path": "staff-page/website-services.html",
+      "status": 200,
+      "matches": true,
+      "comparison": "source bytes"
+    }
+  ]
+}

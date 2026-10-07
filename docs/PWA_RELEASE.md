@@ -22,21 +22,29 @@ website shortcuts.
 Safari and other browsers without installation detection use an explicit
 confirmation after adding the icon. The app-specific installation page also
 supports confirming an existing install or reporting that the icon was removed.
-An empty OS query does not erase a remembered install; a fresh native install
-offer restores installation availability. Clearing browser data, changing browsers,
+An empty OS query clears a remembered install only if that browser's inventory
+previously recognized the exact app. Repeated install offers never clear it.
+Clearing browser data, changing browsers,
 and Safari's separate Home Screen storage can require confirmation in the browser.
 This does not change either app's notification permission or account binding.
 [Installation detection support](https://developer.chrome.com/docs/capabilities/get-installed-related-apps).
 
 The original Customer navbar announcement bell, badge and announcement popup are
 retained. Customer **App Notifications** has a separate phone-sidebar button;
-its inbox contains account/public app alerts and phone preferences. Operator phone
-preferences remain in Settings. No phone-notification panel appears on desktops.
-The inbox toolbar keeps Refresh, Mark All Read and guest Sign In on one row with
-single-line labels and matching heights, including 320px phone widths. Notification cards have uniform
-borders and no lift on hover. The Team icon uses a maroon tile (`#701b2b`) with
-the existing gold accent; Customer icon artwork is unchanged. Platform icon caches
+it opens phone-permission preferences only. Operator phone preferences remain
+in Settings. No phone-notification panel appears on desktops. These panels contain
+checkboxes, a device status and compact single-line Enable notifications / Save
+preferences / Turn off actions. They have no notification feed or read/refresh
+toolbar. A guest sign-in link explains the private-alert requirement.
+The Customer Install App action is text only and left-aligned. The Team icon
+uses an opaque maroon tile (`#701b2b`) reaching every edge, with version 3 icon
+URLs and adaptive-mask metadata; Customer icon artwork is unchanged. Platform icon caches
 can require removing and reinstalling an existing Team icon after deployment.
+The app launch gateways immediately open the original Customer Home or operator
+dashboard/sign-in page. They render no separate opening page. Team launch reuses
+the existing UCN-FMRC medallion loader on the same cream field as Customer.
+OS-generated splash screens remain platform-controlled. Use
+[the notification UI update guide](HOSTINGER_PWA_UI_UPDATE.md) for this package.
 See [the Hostinger step-by-step guide](HOSTINGER_PWA_SETUP.md) for Git deployment,
 phpMyAdmin installation, VAPID configuration and the one-minute cron job.
 If SSH/Composer is unavailable, use [the File Manager and PHP cron guide](HOSTINGER_PWA_NO_SSH.md)
@@ -76,12 +84,24 @@ to the frontend, and no real push delivery was sent.
   save handles immediate publication; the minute processor handles scheduled
   boundaries using the existing Philippine-time campaign rules. Ordinary edits,
   drafts, disabled and expired campaigns do not create repeated broadcasts.
+- Committed HTTP events are attempted after the response, without waiting for
+  the minute cron. The request pass handles only its own new events, with a
+  100-delivery / approximately 10-second budget; a network call already underway
+  can extend that budget. The same leased outbox keeps concurrent cron sends
+  from duplicating accepted deliveries. Cron retains scheduled publication,
+  remaining deliveries and retries. Failed sends do not fail the business save.
+  Push uses high urgency; the device and network still control arrival time.
+  [Web Push urgency](https://www.rfc-editor.org/rfc/rfc8030.html#section-5.3).
 - Customer alerts use `orders.customer_id`, the owning order for returns/payments,
   and `appointments.user_id`. Matching an email does not establish ownership.
   The public appointment booking route resolves optional Sanctum authentication
   explicitly, so signed-in bookings bind to the account while guests stay unbound.
   Model alerts participate in the business transaction and disappear on rollback.
-- Public and owned Customer inbox read state persists for signed-in accounts.
+- Phone taps resolve the visible Customer record to its original order,
+  appointment or campaign destination. A dedicated read-only target route applies
+  the existing ownership/publication checks and omits message contents. Team taps
+  use the existing workspace update handler without an intermediate preview card.
+  Public and owned Customer read state persists for signed-in accounts.
   Guests keep a local read watermark and individual read IDs. Read APIs never
   expose another Customer's private update.
 - Operator push reuses the existing AdminNotification records and restricts
@@ -154,7 +174,9 @@ to the frontend, and no real push delivery was sent.
    * * * * * /path/to/php /absolute/path/to/site/backend/artisan schedule:run >> /absolute/path/to/site/backend/storage/logs/scheduler.log 2>&1
    ```
 
-   No persistent queue worker is required for this outbox. The command uses a lock,
+   No persistent queue worker is required for this outbox. HTTP termination sends
+   new committed events promptly; the recurring command provides recovery and
+   scheduled publication. The command uses a lock,
    database leases, a 45-second processing budget and a default limit of 100.
    Large audiences may need a higher limit or additional server capacity. The
    config endpoint requires a processor heartbeat within three minutes. Monitor
@@ -176,11 +198,11 @@ Verify:
 - Android native prompt, iPhone installation instructions, denied permission,
   unsupported devices, already installed behavior, portrait/landscape safe areas,
   dark mode and reduced motion. Install App is absent on desktop, including narrow
-  desktop windows. Inbox cards have uniform borders and controls have no uplift.
+  desktop windows. Permission panels have compact single-line controls with no uplift.
 - Guest public alerts; owned Customer updates only; cross-device signed-in reads;
   local guest reads; Admin-only account requests; independent app preferences.
 - Close both apps, trigger real updates, and receive generic phone previews.
-  Tap each preview, authenticate when required and open its inbox item. Repeat
+  Tap each preview, authenticate when required and open its original update. Repeat
   after operator session expiry, explicit logout, account switching, disablement,
   password reset, role change and deletion.
 - Scheduled first publication and deduplication, transient failures, expired
@@ -200,9 +222,17 @@ App Store/Play Store packaging is outside this release.
 New backend tests cover capability gating, ownership, read receipts, endpoint and
 credential checks, logout, session expiry, revocation, genuine business changes,
 rollback, publication, outbox deduplication, retries, pruning and payment returns.
-The latest PWA-specific run passed 15 tests with 129 assertions, including
-origin-correct Android detection links for production and staging. Targeted authentication, order,
+The PWA-specific tests include origin-correct Android detection links for
+production and staging. The delivery update adds HTTP send checks for Customer,
+Guest and Team recipients, transaction rollback, current-request priority during
+a cron lock, successful-save preservation on delivery failure, retry and private
+ownership. Targeted authentication, order,
 appointment, campaign and spectator regression batches also passed.
+The prompt-delivery validation batch passed 103 tests with 837 assertions across
+PwaTest, PromotionExpirationTest, AppointmentCompletionEmailTest,
+OrderPaymentVerificationTest, AdminSpectatorTest and AdminSessionLimitsTest.
+The production-only dependency fixture also booted the changed backend and
+completed the recurring cron while preserving its environment and keys.
 Chromium checks exercise the actual app JS, actual workers/cache scopes, phone UA
 installation guides, Settings placement, desktop exclusion, permission fixtures,
 offline navigation and reconnection. Worker tests check binding isolation and
@@ -224,6 +254,26 @@ prompt. Apache verified the asset-links gateway and existing app aliases. These
 are local tests with controlled installation/notification APIs, not real OS installs
 or closed-app phone delivery.
 
+The notification UI 1.4 checks passed 21 PwaTest cases with 189 assertions and
+three worker tests. Chromium verifies permission-only panels at 320/390px,
+Admin/Staff dark-mode cards, original sidebar placement, hard-refresh persistence,
+per-app inventory and notification taps. A browser-process restart check covers
+stored installation confirmation. Launch checks cover Customer, Admin, Staff and
+signed-out Team using the existing single medallion loader. Installation APIs and
+phone permissions remain controlled fixtures, not native device installations.
+The optional Apache rerun could not start in this environment because the
+installed Windows Apache binary rejected its temporary configuration path;
+the rewrite rules were unchanged in this UI update.
+
+On October 7 the user reported both official-site apps receiving phone previews
+in realtime after device notification permissions were enabled. Exact elapsed
+seconds and the new UI package's actual-phone appearance are not verified here.
+After manual extraction with folder name `.` in the existing `public_html`,
+read-only checks matched all 61 public UI release files and the decoded Team
+icon pixels. A numeric/non-numeric route probe confirmed the added Customer
+target route is active. Phone UI and tap acceptance remain separate from these
+deployment checks.
+
 Run from the repository root (PHP commands from `backend/`):
 
 ```sh
@@ -240,5 +290,28 @@ were not changed to suppress their failures. Composer audit also reports existin
 advisories in 11 existing dependencies; none are in the four newly added Web Push
 packages. Resolve those deployment dependencies before a production release.
 
-HTTPS staging deployment, real phone installation and actual APNs/FCM delivery
-remain unverified. Phone delivery remains disabled in the local environment.
+On October 6 the user confirmed HTTPS staging initialization, Customer sign-in,
+notification preferences and a closed-app phone alert through Brave on Android.
+The original minute-processed release took approximately one to one-and-a-half
+minutes to arrive. On October 7 an initial 40–50 second test exposed an update
+extracted into an extra `public_html` folder. After the user copied the six PHP
+files into the active staging backend, with `bootstrap/app.php` last, they
+reported realtime Customer and Team phone notifications through Brave on Android. Exact
+elapsed seconds were not supplied. This is user-reported staging acceptance;
+Notification-tap navigation, iPhone and the remaining device acceptance checks
+are still open. Phone delivery remains disabled in the local environment.
+
+A first read-only check of the official site on October 7 returned `push_available:
+false` and `inbox_available: true`; the shared app JS, CSS, worker and both
+manifests matched the current source. The same tested six PHP files are packaged
+in `output/fmrc-live-realtime-push.zip`, without environment, database, dependency
+or frontend replacements. Follow [the live update guide](HOSTINGER_PWA_LIVE_UPDATE.md).
+The user subsequently reported backing up the four replaced files, copying the
+six update files into the active official backend and enabling its existing
+production push setting. Read-only configuration checks then returned
+`push_available: true`, `inbox_available: true` and an 87-character public key.
+The user reported that official-site phone notifications worked after enabling
+device notifications; the initial missed alerts occurred before that opt-in.
+This is user-reported production delivery, separate from the staging results.
+Separate Customer and Team arrival times, notification-tap navigation, iPhone
+and the remaining device acceptance checks are still unverified.

@@ -145,14 +145,24 @@ class PwaNotifications
         } else {
             $query->where('app', 'team')->where('account_alerts', true)->whereIn('role', $audience === 'admin' ? ['admin'] : ['admin', 'staff']);
         }
-        $query->orderBy('id')->chunkById(100, function ($devices) use ($key, $audience, $owner, $payload) {
+        $queued = false;
+        $query->orderBy('id')->chunkById(100, function ($devices) use ($key, $audience, $owner, $payload, &$queued) {
             foreach ($devices as $device) {
-                DB::table('pwa_delivery_outbox')->insertOrIgnore([
+                $inserted = DB::table('pwa_delivery_outbox')->insertOrIgnore([
                     'subscription_id' => $device->id, 'event_key' => $key, 'audience' => $audience,
                     'audience_user_id' => $owner ?? $device->user_id, 'payload' => json_encode($payload + ['public' => $audience === 'public', 'binding' => $audience === 'public' ? null : $device->user_id]),
                     'available_at' => now(), 'created_at' => now(), 'updated_at' => now(),
                 ]);
+                $queued = $queued || (bool) $inserted;
             }
         });
+        if ($queued) {
+            $request = app('request');
+            DB::afterCommit(static function () use ($request, $key): void {
+                $events = $request->attributes->get(PwaOutboxProcessor::REQUEST_EVENTS, []);
+                $events[$key] = true;
+                $request->attributes->set(PwaOutboxProcessor::REQUEST_EVENTS, $events);
+            });
+        }
     }
 }

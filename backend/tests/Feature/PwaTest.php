@@ -14,10 +14,12 @@ use App\Services\PayMongoService;
 use App\Services\PwaNotifications;
 use App\Services\PwaPushTransport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -144,6 +146,27 @@ class PwaTest extends TestCase
         $this->postJson('/api/customer/notifications/mark-all-read', [], $this->headers($first))->assertOk();
         $this->getJson('/api/customer/notifications/unread-count', $this->headers($first))->assertJsonPath('unread_count', 0);
         $this->patchJson('/api/customer/notifications/'.$public.'/read', [], $this->headers())->assertUnauthorized();
+    }
+
+    public function test_phone_tap_destination_is_visible_only_to_its_owner_or_public_guests(): void
+    {
+        $owner = User::factory()->create(['role' => 'customer']);
+        $other = User::factory()->create(['role' => 'customer']);
+        $admin = User::factory()->create(['role' => 'admin']);
+        $service = app(PwaNotifications::class);
+        $public = $service->publish(null, 'announcement', 'Title', 'Content', '/home-page/main.html?announcement=1', 'tap:public');
+        $private = $service->publish($owner->id, 'order', 'Private title', 'Private content', '/home-page/main.html?orders=1&order_id=7', 'tap:private');
+
+        $this->getJson('/api/customer/notifications/'.$public, $this->headers())->assertOk()
+            ->assertHeader('Cache-Control', 'no-store, private')->assertJsonPath('id', $public)
+            ->assertJsonMissingPath('title')->assertJsonMissingPath('message');
+        $this->getJson('/api/customer/notifications/'.$private, $this->headers())->assertNotFound();
+        $this->getJson('/api/customer/notifications/'.$private, $this->headers($other))->assertNotFound();
+        $this->getJson('/api/customer/notifications/'.$private, $this->headers($admin))->assertForbidden();
+        $this->getJson('/api/customer/notifications/'.$private, $this->headers($owner))->assertOk()
+            ->assertJsonPath('target', '/home-page/main.html?orders=1&order_id=7');
+        DB::table('customer_notifications')->where('id', $public)->update(['published_at' => now()->addHour()]);
+        $this->getJson('/api/customer/notifications/'.$public, $this->headers())->assertNotFound();
     }
 
     public function test_real_business_changes_create_owned_alerts_and_rolled_back_changes_leave_no_alerts(): void
@@ -297,6 +320,112 @@ class PwaTest extends TestCase
         $customer->delete();
         $this->assertDatabaseMissing('pwa_subscriptions', ['id' => $device['id']]);
         $this->assertDatabaseCount('pwa_delivery_outbox', 0);
+    }
+
+    public function test_http_publication_sends_customer_and_team_alerts_without_waiting_for_cron(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $staff = User::factory()->create(['role' => 'staff']);
+        $customer = User::factory()->create(['role' => 'customer']);
+        $this->device($admin, 'team');
+        $this->device($staff, 'team');
+        $this->device($customer);
+        $this->device();
+        $seen = [];
+        $this->mock(PwaPushTransport::class)->shouldReceive('send')->times(4)
+            ->andReturnUsing(function ($device, $payload) use (&$seen) {
+                $this->assertLessThanOrEqual(1, DB::transactionLevel(), 'A business transaction must commit before sending.');
+                $seen[] = $device->app;
+                return ['success' => true, 'expired' => false, 'status' => 201];
+            });
+        $this->postJson('/api/admin/announcements', ['title' => 'Prompt phone alert', 'message' => 'Staging test',
+            'placement' => 'site', 'is_enabled' => true], $this->headers($admin))->assertCreated();
+        $this->assertSame(['customer', 'customer', 'team', 'team'], $seen);
+        $this->assertSame(4, DB::table('pwa_delivery_outbox')->whereNotNull('delivered_at')->count());
+        $this->artisan('pwa:process')->assertSuccessful(); // The fallback must not replay these sends.
+        $this->getJson('/api/pwa/config', $this->headers())->assertOk(); // Reads do not replay request state.
+        $this->assertDatabaseCount('pwa_delivery_outbox', 4);
+    }
+
+    public function test_prompt_delivery_prioritizes_this_request_and_does_not_wait_for_a_cron_lock(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->device();
+        app(PwaNotifications::class)->publish(null, 'announcement', 'Earlier', 'Earlier', '/home-page/main.html', 'old:pending');
+        $fake = $this->mock(PwaPushTransport::class);
+        $fake->shouldReceive('send')->once()->andReturn(['success' => true, 'expired' => false, 'status' => 201]);
+        $lock = Cache::lock('pwa-push-processor', 120);
+        $this->assertTrue($lock->get());
+        try {
+            $this->postJson('/api/admin/announcements', ['title' => 'New', 'message' => 'New', 'placement' => 'site',
+                'is_enabled' => true], $this->headers($admin))->assertCreated();
+        } finally {
+            $lock->release();
+        }
+        $this->assertDatabaseHas('pwa_delivery_outbox', ['event_key' => 'old:pending', 'attempts' => 0, 'delivered_at' => null]);
+        $this->assertSame(1, DB::table('pwa_delivery_outbox')->whereNotNull('delivered_at')->count());
+        $fake->shouldReceive('send')->once()->andReturn(['success' => true, 'expired' => false, 'status' => 201]);
+        $this->artisan('pwa:process')->assertSuccessful();
+        $this->assertSame(2, DB::table('pwa_delivery_outbox')->whereNotNull('delivered_at')->count());
+    }
+
+    public function test_failed_prompt_send_keeps_successful_save_and_is_retried_by_cron(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $this->device();
+        $fake = $this->mock(PwaPushTransport::class);
+        $fake->shouldReceive('send')->once()->andReturn(['success' => false, 'expired' => false, 'status' => 503]);
+        $this->postJson('/api/admin/announcements', ['title' => 'Saved even during outage', 'message' => 'New',
+            'placement' => 'site', 'is_enabled' => true], $this->headers($admin))->assertCreated();
+        $this->assertDatabaseHas('pwa_delivery_outbox', ['attempts' => 1, 'delivered_at' => null,
+            'discarded_at' => null, 'last_error' => 'push_http_503']);
+        $this->getJson('/api/pwa/config', $this->headers())->assertOk();
+        DB::table('pwa_delivery_outbox')->update(['available_at' => now()]);
+        $fake->shouldReceive('send')->once()->andReturn(['success' => true, 'expired' => false, 'status' => 201]);
+        $this->artisan('pwa:process')->assertSuccessful();
+        $this->assertSame(1, DB::table('pwa_delivery_outbox')->whereNotNull('delivered_at')->where('attempts', 2)->count());
+    }
+
+    public function test_rolled_back_http_business_changes_never_trigger_phone_delivery(): void
+    {
+        $this->device();
+        $this->mock(PwaPushTransport::class)->shouldNotReceive('send');
+        Route::post('/_test/pwa/rollback', function () {
+            try {
+                DB::transaction(function () {
+                    app(PwaNotifications::class)->publish(null, 'announcement', 'Rollback', 'Rollback',
+                        '/home-page/main.html', 'rolled-back:http');
+                    throw new \RuntimeException('Test rollback');
+                });
+            } catch (\RuntimeException) {
+                // The test returns normally so HTTP termination is still exercised.
+            }
+            return response()->json(['done' => true]);
+        });
+        $this->postJson('/_test/pwa/rollback')->assertOk();
+        $this->assertDatabaseCount('customer_notifications', 0);
+        $this->assertDatabaseCount('pwa_delivery_outbox', 0);
+    }
+
+    public function test_prompt_private_update_reaches_only_the_owning_customer(): void
+    {
+        $owner = User::factory()->create(['role' => 'customer']);
+        $other = User::factory()->create(['role' => 'customer']);
+        $device = $this->device($owner);
+        $this->device($other);
+        $this->device();
+        $this->mock(PwaPushTransport::class)->shouldReceive('send')->once()
+            ->withArgs(fn ($recipient, $payload) => $recipient->id === $device['id']
+                && $payload['binding'] === $owner->id && ! $payload['public'])
+            ->andReturn(['success' => true, 'expired' => false, 'status' => 201]);
+        Route::post('/_test/pwa/owned-order', function () use ($owner) {
+            DB::transaction(fn () => Order::create(['customer_id' => $owner->id, 'customer_name' => 'Customer',
+                'lifecycle_status' => 'incoming']));
+            return response()->json(['done' => true]);
+        });
+        $this->postJson('/_test/pwa/owned-order')->assertOk();
+        $this->assertSame(1, DB::table('pwa_delivery_outbox')->whereNotNull('delivered_at')->count());
+        $this->assertDatabaseCount('pwa_delivery_outbox', 1);
     }
 
     public function test_failed_background_processing_removes_capability_heartbeat(): void

@@ -16,7 +16,7 @@ class PwaPushTransport
         $push = new WebPush(['VAPID' => [
             'subject' => config('pwa.vapid.subject'), 'publicKey' => config('pwa.vapid.public_key'),
             'privateKey' => config('pwa.vapid.private_key'),
-        ]], ['TTL' => 3600, 'urgency' => 'normal'], 10, ['allow_redirects' => false, 'connect_timeout' => 5]);
+        ]], ['TTL' => 3600, 'urgency' => 'high'], 10, ['allow_redirects' => false, 'connect_timeout' => 5]);
         // This payload contains only the app, update category and inbox reference.
         $report = $push->sendOneNotification(Subscription::create([
             'endpoint' => $device->endpoint, 'keys' => ['p256dh' => $device->p256dh, 'auth' => $device->auth],

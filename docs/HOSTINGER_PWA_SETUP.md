@@ -203,8 +203,9 @@ its output in hPanel after a minute. If Laravel scheduling is already configured
 for this backend every minute, reuse that job instead of creating a duplicate.
 [Hostinger cron setup](https://www.hostinger.com/support/1583465-how-to-set-up-a-cron-job-at-hostinger/).
 
-This processor handles scheduled publication and queued phone deliveries. There
-is no permanent queue-worker process required. Campaign dates still use the
+New committed HTTP updates attempt phone delivery after the response, using high
+urgency. This processor handles scheduled publication, remaining deliveries and
+retries. There is no permanent queue-worker process required. Campaign dates still use the
 existing Philippine-time rules; a cron that runs every minute works regardless
 of hPanel's displayed timezone.
 
@@ -255,9 +256,10 @@ public announcements/promotions only.
 ## 10. Verify closed-app delivery
 
 With both apps installed, enroll each separately, close them, and create a new
-live announcement or update an owned Customer order/appointment. The cron queues
-and sends eligible generic phone previews. Provider/device delivery time varies;
-aim for roughly one minute plus the phone platform's delivery time.
+live announcement or update an owned Customer order/appointment. New committed
+updates attempt eligible generic phone previews after the save response, without
+waiting for the next minute cron. Scheduled publication, failed sends and larger
+audiences can still need cron. Provider/device delivery time varies.
 
 Tap the preview and verify it opens the matching app and inbox item; private
 details require sign-in. Test operator session expiry, explicit logout, account

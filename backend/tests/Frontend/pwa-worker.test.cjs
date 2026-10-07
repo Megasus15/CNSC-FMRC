@@ -12,7 +12,7 @@ test('two manifest identities and maskable/Apple icon exports are distinct and c
   const manifests = ['customer', 'team'].map(app => JSON.parse(fs.readFileSync(path.join(root, 'apps', app, 'manifest.webmanifest'))));
   assert.notEqual(manifests[0].id, manifests[1].id); assert.notEqual(manifests[0].scope, manifests[1].scope);
   assert.equal(manifests[1].background_color,'#701b2b');
-  assert(manifests[1].icons.every(icon=>icon.src.endsWith('?v=2')));
+  assert(manifests[1].icons.every(icon=>icon.src.endsWith('?v=3')));
   for (const manifest of manifests) assert.deepEqual(manifest.related_applications, [{ platform: 'webapp', url: manifest.scope + 'manifest.webmanifest', id: manifest.id }]);
   for (const app of ['customer', 'team']) for (const [icon, size] of [['icon-192',192],['icon-512',512],['maskable-512',512],['apple-touch-icon',180],['notification',96]]) {
     const png = fs.readFileSync(path.join(root, 'apps', app, 'icons', icon + '.png')); assert.equal(png.readUInt32BE(16), size); assert.equal(png.readUInt32BE(20), size);
@@ -22,7 +22,7 @@ test('workers cache only their offline shell, leave writes/API alone, and do not
   for (const app of ['customer', 'team']) {
     const w = worker(app); w.caches.set(`fmrc-${app === 'team' ? 'customer' : 'team'}-offline-v1`, []);
     await w.event('install'); await w.event('activate'); assert.equal(w.caches.size, 2);
-    const assets = w.caches.get(`fmrc-${app}-offline-v2`); assert.equal(assets.length, 3); assert(assets.every(url => /offline|icon-192/.test(url)));
+    const assets = w.caches.get(`fmrc-${app}-offline-v3`); assert.equal(assets.length, 3); assert(assets.every(url => /offline|icon-192/.test(url)));
     assert.equal(await w.event('fetch', { request: { method: 'POST', mode: 'navigate', url: `https://fmrc.example/apps/${app}/payment` } }), undefined);
     assert.equal(await w.event('fetch', { request: { method: 'GET', mode: 'cors', url: 'https://fmrc.example/api/customer/orders' } }), undefined);
     w.setOffline(); const result = await w.event('fetch', { request: { method: 'GET', mode: 'navigate', url: `https://fmrc.example/apps/${app}/home-page/main` } });
