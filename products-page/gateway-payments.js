@@ -77,19 +77,29 @@
   };
   const render = data => {
     const qrph = data.checkout_method === 'qrph';
+    const refunds = data.refunds || [];
+    const refundRequested = refunds.some(r => r.status === 'requested');
+    const refundProcessing = refunds.some(r => ['submitting','pending','unknown'].includes(r.status));
+    const closedPaid = data.status === 'paid' && ['cancelled','rejected'].includes(data.order_status);
+    const refundLabels = {requested:'Awaiting FMRC approval',submitting:'Processing',pending:'Processing',unknown:'Awaiting confirmation',succeeded:'Confirmed',failed:'Needs FMRC review',rejected:'Request declined — contact FMRC'};
     const canContinue = data.status !== 'paid' && data.status !== 'refunded' && !data.exception && Boolean(data.checkout_url || data.retry_allowed);
     dialog.querySelector('[data-gateway-error]').hidden = true;
     const status = dialog.querySelector('[data-gateway-status]');
-    status.dataset.state = data.exception ? 'review' : data.status;
-    const statusText = data.exception ? 'Needs review' : data.status === 'paid' ? 'Payment confirmed' : data.status === 'refunded' ? 'Refunded' : data.attempt_status === 'expired' ? 'Checkout expired' : 'Awaiting payment';
+    status.dataset.state = refundRequested || refundProcessing || closedPaid ? 'review' : data.exception ? 'review' : data.status;
+    const statusText = refundProcessing ? 'Refund processing' : refundRequested ? 'Refund requested' : data.status === 'refunded' ? 'Refunded' : closedPaid ? 'Refund needs review' : data.exception ? 'Needs review' : data.status === 'paid' ? 'Payment confirmed' : data.attempt_status === 'expired' ? 'Checkout expired' : 'Awaiting payment';
     if (status.textContent !== statusText) status.textContent = statusText;
     dialog.querySelector('[data-gateway-title]').textContent = (data.method_label || (qrph ? 'QR Ph' : 'GCash')) + ' payment';
     dialog.querySelector('[data-gateway-continue]').textContent = qrph ? 'Continue to payment QR' : 'Continue to GCash';
     const instructions = dialog.querySelector('[data-gateway-instructions]');
     instructions.hidden = !qrph || !canContinue;
     instructions.textContent = qrph ? 'Scan the checkout QR with GCash or another QR Ph app. On the same phone, save the QR from checkout and use your payment app’s QR image option, if available. Return here after paying; confirmation updates automatically.' : '';
-    const message = data.status === 'paid' ? (data.exception ? 'Payment received. The team is reviewing this transaction.' : 'Payment confirmed. Your order is awaiting team approval or preparation.')
-      : data.status === 'refunded' ? 'Your payment has been refunded.'
+    const message = refundProcessing ? 'FMRC has approved your refund. We are waiting for confirmation from the payment provider. The money will return to the original payment method; do not pay again.'
+      : refundRequested ? 'Your refund request is awaiting FMRC approval. No money has been returned yet. Its progress will update here.'
+      : data.status === 'refunded' ? 'The payment provider has confirmed your refund to the original payment method. Check your wallet or bank transaction history.'
+      : closedPaid ? 'This order is closed and your payment needs to be returned. FMRC must review the refund. Contact FMRC for assistance; do not pay again.'
+      : refunds.some(r => r.status === 'succeeded') ? 'The confirmed refund amount is listed below. Any remaining payment stays on your order.'
+      : refunds.some(r => ['failed','rejected'].includes(r.status)) ? 'Your payment was received, but the refund request needs FMRC review. Contact FMRC for assistance.'
+      : data.status === 'paid' ? (data.exception ? 'Payment received. The team is reviewing this transaction.' : 'Payment confirmed. Your order is awaiting team approval or preparation.')
       : data.exception ? 'Your payment needs review. Please contact FMRC before attempting another payment.'
       : data.attempt_status === 'expired' ? 'This checkout has expired. You can start a new secure payment.'
       : ['creating','unknown'].includes(data.attempt_status) ? 'We are checking your payment request. Please wait; do not pay again.'
@@ -98,11 +108,12 @@
     const messageEl = dialog.querySelector('[data-gateway-message]');
     if (messageEl.textContent !== message) messageEl.textContent = message;
     dialog.querySelector('[data-gateway-continue]').hidden = !canContinue;
-    dialog.querySelector('[data-gateway-refunds]').textContent = (data.refunds || []).map(r => 'Refund ₱' + (r.amount_centavos / 100).toFixed(2) + ': ' + r.status).join(' · ');
+    dialog.querySelector('[data-gateway-refunds]').textContent = refunds.map(r => 'Refund ₱' + (r.amount_centavos / 100).toFixed(2) + ': ' + (refundLabels[r.status] || 'Checking status')).join(' · ');
     dialog.querySelector('[data-gateway-refunds]').hidden = !(data.refunds || []).length;
-    if (lastStatus !== data.status) window.dispatchEvent(new CustomEvent('fmrc:orders-updated', { detail: {type: 'payment', orderId} }));
-    lastStatus = data.status;
-    shouldPoll = !data.exception && (data.status === 'pending' || (data.refunds || []).some(r => !['succeeded','failed','rejected'].includes(r.status)));
+    const currentStatus = JSON.stringify([data.status, data.order_status, refunds]);
+    if (lastStatus !== currentStatus) window.dispatchEvent(new CustomEvent('fmrc:orders-updated', { detail: {type: 'payment', orderId} }));
+    lastStatus = currentStatus;
+    shouldPoll = refundRequested || refundProcessing || (!data.exception && data.status === 'pending');
   };
   const poll = async ({interactive = false} = {}) => {
     clearTimeout(timer);
@@ -116,7 +127,7 @@
       render(data); delay = 3000; failures = 0;
       const checked = dialog.querySelector('[data-gateway-checked]');
       checked.hidden = false;
-      checked.textContent = 'Last checked at ' + new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'}) + '. ' + (data.status === 'paid' ? 'Payment confirmed.' : data.status === 'refunded' ? 'Refund confirmed.' : data.exception ? 'This payment needs review.' : 'Payment is not confirmed yet.');
+      checked.textContent = 'Last checked at ' + new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit',second:'2-digit'}) + '. ' + dialog.querySelector('[data-gateway-status]').textContent + '.';
     } catch (e) {
       if (current !== generation || !dialog.open) return;
       failures++;

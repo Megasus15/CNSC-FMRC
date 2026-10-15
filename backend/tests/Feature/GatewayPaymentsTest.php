@@ -320,6 +320,102 @@ class GatewayPaymentsTest extends TestCase {
         $this->assertDatabaseHas('order_tracking_events',['order_id'=>$o->id,'title'=>'QR Ph refund confirmed']);
     }
 
+    public function test_staff_rejection_queues_live_qr_refund_and_admin_confirmation_adjusts_revenue_once(): void {
+        config(['payments.paymongo.secret_key'=>'sk_live_example']);
+        $o=$this->order(); $a=$this->attempt($o,true,'qrph'); $g=app(GatewayPayments::class);
+        $g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
+        Sanctum::actingAs(User::factory()->create(['role'=>'staff']));
+        $this->postJson('/api/admin/orders/'.$o->id.'/reject',['reason'=>'Unable to fulfill'])->assertOk();
+        $refund=DB::table('payment_refunds')->first();
+        $this->assertSame('requested',$refund->status); $this->assertSame(50000,$refund->amount_centavos);
+        $this->assertSame($o->fresh()->payment->paymongo_payment_id,$refund->provider_payment_id);
+        Http::assertNothingSent();
+        $this->postJson('/api/admin/gateway-refunds/'.$refund->id.'/approve')->assertForbidden();
+        $g->queueClosedOrderRefunds($o->fresh(),$o->customer_id); $this->assertDatabaseCount('payment_refunds',1);
+        Sanctum::actingAs($o->customer);
+        $this->getJson('/api/customer/orders/'.$o->id)->assertOk()->assertJsonPath('data.payment_refund_status','requested');
+        Sanctum::actingAs(User::factory()->create(['role'=>'admin']));
+        $attrs=['payment_id'=>$refund->provider_payment_id,'amount'=>50000,'currency'=>'PHP','livemode'=>true,'status'=>'pending'];
+        Http::fake(['api.paymongo.com/v1/refunds'=>Http::response(['data'=>['id'=>'ref_closed','attributes'=>$attrs]])]);
+        $this->postJson('/api/admin/gateway-refunds/'.$refund->id.'/approve')->assertOk()->assertJsonPath('data.status','pending');
+        $this->postJson('/api/admin/gateway-refunds/'.$refund->id.'/approve')->assertOk(); Http::assertSentCount(1);
+        $this->assertSame(500.0,GatewayFinancials::total('receipts')); $this->assertSame(0.0,GatewayFinancials::total('refunds'));
+        $attrs['status']='succeeded'; Http::fake(['api.paymongo.com/v1/refunds/ref_closed'=>Http::response(['data'=>['id'=>'ref_closed','attributes'=>$attrs]])]);
+        $g->reconcileRefund(DB::table('payment_refunds')->find($refund->id));
+        $g->reconcileRefund(DB::table('payment_refunds')->find($refund->id));
+        $this->assertSame('refunded',$o->fresh()->payment->status); $this->assertSame('rejected',$o->fresh()->lifecycle_status);
+        $this->assertSame(500.0,GatewayFinancials::total('refunds'));
+        $this->assertSame(1,DB::table('order_tracking_events')->where('order_id',$o->id)->where('title','QR Ph refund confirmed')->count());
+    }
+
+    public function test_bulk_rejection_queues_only_confirmed_online_payments(): void {
+        $paid=$this->order(); $a=$this->attempt($paid,false,'qrph');
+        app(GatewayPayments::class)->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
+        $unpaid=$this->order(); Sanctum::actingAs(User::factory()->create(['role'=>'staff']));
+        $this->postJson('/api/admin/orders/reject-bulk',['ids'=>[$paid->id,$unpaid->id]])->assertOk();
+        $this->assertDatabaseCount('payment_refunds',1);
+        $this->assertDatabaseHas('payment_refunds',['payment_id'=>$paid->payment->id,'status'=>'requested','amount_centavos'=>50000]);
+        Http::assertNothingSent();
+    }
+
+    public function test_approved_cancellation_queues_refund_and_clears_due_only_on_confirmation(): void {
+        $o=$this->order(); $a=$this->attempt($o,false,'qrph'); $g=app(GatewayPayments::class);
+        $g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
+        Sanctum::actingAs($o->customer);
+        $this->postJson('/api/customer/orders/'.$o->id.'/cancel',['reason'=>'no_longer_needed'])->assertOk();
+        $this->assertDatabaseCount('payment_refunds',0);
+        $admin=User::factory()->create(['role'=>'admin']); Sanctum::actingAs($admin);
+        $this->postJson('/api/admin/orders/'.$o->id.'/cancellation',['decision'=>'approve'])->assertOk();
+        $r=DB::table('payment_refunds')->first(); $this->assertNotNull($r);
+        $this->assertTrue($o->fresh()->cancel_refund_due); $this->assertSame('cancelled',$o->fresh()->lifecycle_status);
+        Http::fake(['api.paymongo.com/v1/refunds'=>Http::response(['data'=>['id'=>'ref_cancel','attributes'=>['payment_id'=>$r->provider_payment_id,'amount'=>50000,'currency'=>'PHP','livemode'=>false,'status'=>'succeeded']]])]);
+        $g->approveRefund($r->id,$admin->id);
+        $this->assertFalse($o->fresh()->cancel_refund_due);
+    }
+
+    public function test_scheduler_backfills_remaining_balance_without_duplicating_or_resending_declined_refunds(): void {
+        $o=$this->order(); $a=$this->attempt($o,false,'qrph'); $g=app(GatewayPayments::class);
+        $g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
+        $admin=User::factory()->create(['role'=>'admin']);
+        $g->requestRefund($o->fresh()->payment,10000,'Partial adjustment',$admin->id,(string)Str::uuid());
+        $o->update(['lifecycle_status'=>'rejected']);
+        $this->artisan('payments:reconcile')->assertSuccessful(); $this->artisan('payments:reconcile')->assertSuccessful();
+        $this->assertDatabaseCount('payment_refunds',2);
+        $auto=DB::table('payment_refunds')->orderByDesc('id')->first(); $this->assertSame(40000,$auto->amount_centavos);
+        Sanctum::actingAs($admin);
+        $this->postJson('/api/admin/gateway-refunds/'.$auto->id.'/reject',['reason'=>'Duplicate request requires review'])->assertOk();
+        $this->artisan('payments:reconcile')->assertSuccessful();
+        $this->assertDatabaseCount('payment_refunds',2); Http::assertNothingSent();
+        $this->getJson('/api/admin/gateway-payments?refunds=1&order_id='.$o->id)->assertOk()->assertJsonPath('payments.total',1);
+        $this->assertDatabaseHas('order_tracking_events',['order_id'=>$o->id,'title'=>'Refund request declined']);
+    }
+
+    public function test_late_qr_payment_on_rejected_order_reserves_one_refund_without_reopening(): void {
+        $o=$this->order(['lifecycle_status'=>'rejected']); $a=$this->attempt($o,false,'qrph'); $g=app(GatewayPayments::class);
+        $session=$this->providerSession($a,['source'=>['type'=>'qrph']]);
+        $g->applySession($a->id,$session); $g->applySession($a->id,$session);
+        $this->assertDatabaseCount('payment_refunds',1); $this->assertSame('rejected',$o->fresh()->lifecycle_status);
+        $state=$g->state($o->fresh()); $this->assertSame('rejected',$state['order_status']); $this->assertNull($state['checkout_url']);
+        $this->assertSame('requested',$state['refunds'][0]->status); Http::assertNothingSent();
+    }
+
+    public function test_return_refund_can_retry_definitive_failure_with_a_new_key_and_keeps_return_link(): void {
+        $o=$this->order(['lifecycle_status'=>'completed','customer_stage'=>'completed']); $a=$this->attempt($o); $g=app(GatewayPayments::class);
+        $g->applySession($a->id,$this->providerSession($a));
+        $return=\App\Models\OrderReturn::create(['order_id'=>$o->id,'customer_id'=>$o->customer_id,'return_no'=>'RTN-RETRY','status'=>'approved','resolution'=>'refund','reason'=>'damaged','requested_amount'=>500,'approved_amount'=>500]);
+        $admin=User::factory()->create(['role'=>'admin']); Sanctum::actingAs($admin);
+        $url='/api/admin/returns/'.$return->id.'/refund'; $body=['amount'=>500,'request_key'=>(string)Str::uuid()];
+        $id=$this->postJson($url,$body)->assertOk()->json('refund_request.id');
+        $this->postJson($url,$body)->assertOk(); $this->assertDatabaseCount('payment_refunds',1);
+        Http::fake(['api.paymongo.com/v1/refunds'=>Http::sequence()->push([],422)->push(['data'=>['id'=>'ref_return','attributes'=>['payment_id'=>$o->fresh()->payment->paymongo_payment_id,'amount'=>50000,'currency'=>'PHP','livemode'=>false,'status'=>'succeeded']]])]);
+        $g->approveRefund($id,$admin->id);
+        $body['request_key']=(string)Str::uuid();
+        $retry=$this->postJson($url,$body)->assertOk()->json('refund_request.id'); $this->assertNotSame($id,$retry);
+        $g->approveRefund($retry,$admin->id); $this->assertSame('refunded',$return->fresh()->status);
+        $this->assertDatabaseHas('order_return_events',['order_return_id'=>$return->id,'title'=>'Refund confirmed']);
+        $this->postJson($url,$body)->assertOk(); $this->assertSame('refunded',$return->fresh()->status);
+    }
+
     public function test_live_qrph_report_labels_receipt_and_refund_without_guessing_wallet(): void {
         config(['payments.paymongo.secret_key'=>'sk_live_example','payments.paymongo.checkout_method'=>'gcash']);
         $o=$this->order();$a=$this->attempt($o,true,'qrph');$gateway=app(GatewayPayments::class);

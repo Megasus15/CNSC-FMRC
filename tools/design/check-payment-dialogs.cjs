@@ -8,18 +8,18 @@ const fixture=(admin=false)=>`<!doctype html><html><head><meta charset="utf-8"><
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap">
 ${(admin?['admin-page/dashboard.css','admin-page/admin-modules.css','admin-page/dark-mode.css','admin-page/gateway-payments.css']:['home-page/main.css','products-page/gateway-payments.css']).map(f=>`<link rel="stylesheet" href="/${f}">`).join('')}
 <link rel="stylesheet" href="/home-page/payment-dialogs.css"></head><body><button id="launch">Payment details</button>
-${admin?'<div class="table-wrapper"><table id="paymentsHistoryTable"></table></div>':''}
+${admin?'<div id="ordersModuleTabs"><button data-tab="records" onclick="document.querySelector(\'.table-wrapper\').hidden=false">Records</button></div><button data-gateway-manage="1">Manage refund</button><div class="table-wrapper"><table id="paymentsHistoryTable"></table></div>':''}
 <script>
 localStorage.setItem('customer_token','fixture');localStorage.setItem('auth_token','fixture');
-window.mode='paid'; window.calls=[]; window.hold=false; window.release=null;
+window.mode='paid'; window.calls=[]; window.hold=false; window.release=null; window.refunds=[]; window.orderStatus='incoming'; window.canApprove=true;
 window.fetch=async(url,options={})=>{window.calls.push({url,options});
 if(options.method==='POST' && window.hold) await new Promise(r=>window.release=r);
 if(options.method==='POST' && window.fail) return {ok:false,json:async()=>({message:'Please try again.'})};
-return {ok:true,json:async()=>url.includes('/admin/gateway-payments?')?{checkout_method:'qrph',enabled:true,livemode:false,can_approve:true,last_reconciled_at:new Date().toISOString(),
-payments:{data:[{id:1,order_id:1,order_no:'ORD-FIXTURE',gateway:'paymongo',status:'paid',amount:1.8,paymongo_payment_id:'pay_fixture',lifecycle_status:'pending'}],last_page:1},
-attempts:[{payment_id:1,checkout_id:null,status:'unknown'}],receipts:[{payment_id:1,provider_payment_id:'pay_fixture',amount_centavos:180,source_type:'qrph'}],
-refunds:[{id:2,payment_id:1,status:'requested',amount_centavos:180,reason:'Duplicate payment'},{id:3,payment_id:1,status:'unknown',reason:'Checking refund'}]}:
-{status:window.mode,checkout_method:'qrph',method_label:'QR Ph',checkout_url:window.mode==='pending'?'https://checkout.paymongo.com/fixture':null,refunds:[]}};
+return {ok:true,json:async()=>url.includes('/admin/gateway-payments?')?{checkout_method:'qrph',enabled:true,livemode:false,can_approve:window.canApprove,refunds_awaiting_approval:1,last_reconciled_at:new Date().toISOString(),
+payments:{data:[{id:1,order_id:1,order_no:'ORD-FIXTURE',gateway:'paymongo',status:'paid',amount:500,paymongo_payment_id:'pay_fixture',lifecycle_status:'rejected'}],last_page:1},
+attempts:[{payment_id:1,checkout_id:null,status:'unknown'}],receipts:[{payment_id:1,provider_payment_id:'pay_fixture',amount_centavos:50000,source_type:'qrph'}],
+refunds:[{id:2,payment_id:1,provider_payment_id:'pay_fixture',status:'requested',amount_centavos:180,reason:'Duplicate payment'},{id:3,payment_id:1,provider_payment_id:'pay_fixture',amount_centavos:100,status:'unknown',reason:'Checking refund'}]}:
+{data:{status:'pending'},status:window.mode,order_status:window.orderStatus,checkout_method:'qrph',method_label:'QR Ph',checkout_url:window.mode==='pending'?'https://checkout.paymongo.com/fixture':null,refunds:window.refunds}};
 };
 </script><script src="/${admin?'admin-page':'products-page'}/gateway-payments.js"></script>
 <script>document.querySelector('#launch').onclick=()=>${admin?"document.querySelector('.gateway-team').open=true":"FMRCGatewayPayments.open(1)"};</script></body></html>`;
@@ -64,12 +64,20 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
    await run('window.mode="pending";document.querySelector("#launch").click()');
    await until('!document.querySelector("[data-gateway-continue]").hidden');
    await shot('customer-pending-'+width);
+   await run('window.mode="paid";window.orderStatus="rejected";window.refunds=[{id:1,status:"requested",amount_centavos:180}];document.querySelector("[data-gateway-refresh]").click()');
+   await until('document.querySelector("[data-gateway-status]").textContent==="Refund requested"');
+   assert.equal(await run('document.querySelector("[data-gateway-continue]").hidden'),true);
+   await shot('customer-refund-'+width);
    await run('document.querySelector("[data-gateway-done]").click()');
    assert.equal(await run('document.querySelector("dialog").open'),false);
   }
   await cdp('Page.navigate',{url:'http://127.0.0.1:'+server.address().port+'/fixture-admin'});
   await until('!!document.querySelector(".gateway-team")');await run('document.querySelector("#launch").click()');
   await until('!!document.querySelector("[data-refund]")');
+  await run('document.querySelector(".gateway-refund-shortcut").click()');
+  await until('window.calls.some(c=>c.url.includes("refunds=1"))');
+  await run('document.querySelector("[data-gateway-manage]").click()');
+  await until('window.calls.some(c=>c.url.includes("order_id=1"))');
   await run('window.hold=true;document.querySelector("[data-check]").click()');
   await until('document.querySelector("[data-check]").disabled');
   await run('window.release()');
@@ -85,6 +93,7 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
    assert.equal(await run('document.querySelector("dialog").open'),true);
    const b=await bounds();assert.ok(b.x>=0&&b.y>=0&&b.x+b.w<=b.vw&&!b.overflow,JSON.stringify(b));
    await shot('team-'+type);
+   if(type==='refund') assert.equal(await run('document.querySelector("[name=amount]").value'),'497.20');
    await run('document.querySelector("[data-cancel]").click()');
   }
   await run(`document.documentElement.dataset.portal='admin';document.documentElement.dataset.theme='dark';document.querySelector('[data-refund]').click();document.querySelector('[name=amount]').value='1.80';document.querySelector('[name=reason]').value='Duplicate payment';`);
@@ -99,6 +108,9 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
   assert.match(await run('document.querySelector("[data-error]").textContent'),/try again/);
   await run('window.hold=false;window.fail=false;document.querySelector("dialog form").requestSubmit()');
   await until('!document.querySelector("dialog").open');
+  await run('window.canApprove=false;document.querySelector("[data-gateway-all]").click()');
+  await until('!document.querySelector("[data-approve]")');
+  assert.ok(await run('!!document.querySelector("[data-refund]")'));
   console.log('PASS: Customer desktop/mobile centering, pending/paid actions, Escape/Done; team payment check completion and deadline recovery; all five team dialogs, dark theme, duplicate-submit guard, error recovery and successful close. Fixtures only.');
  } finally {ws?.close();browser.kill();server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

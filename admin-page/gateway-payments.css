@@ -12,7 +12,7 @@
 .gateway-health{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:18px;padding:16px;background:var(--bg-light,#f5f2ed);border:1px solid var(--border-color,#dfe5ee);border-radius:10px;font-size:13px}
 .gateway-health strong{font-size:13px;font-weight:550}
 .gateway-label{display:block;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted,#73717a);margin-bottom:7px}
-.gateway-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px 0;font-size:12px;color:var(--text-muted,#73717a)}
+.gateway-toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin:18px 0;font-size:12px;color:var(--text-muted,#73717a)}
 .gateway-toolbar label{display:flex;align-items:center;gap:8px;color:var(--text-main,#303036);cursor:pointer;font-size:13px}
 .gateway-toolbar input{width:16px;height:16px;accent-color:var(--primary-color,#782235)}
 .gateway-scroll{overflow:auto;max-height:520px;border:1px solid var(--border-color,#dfe5ee);border-radius:10px}
@@ -31,6 +31,8 @@
 .gateway-badge[data-status=live],.gateway-badge[data-status=refunded]{background:#e8effc;color:#365f99}
 .gateway-team button,.gateway-team-dialog button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:7px 12px;border:1px solid var(--border-color,#d8dce5);border-radius:8px;background:var(--surface,#fcf9f5);color:var(--text-main,#303036);font:inherit;font-size:12px;font-weight:500;cursor:pointer}
 .gateway-team td button{margin:3px 4px 3px 0;text-align:left}
+.gateway-team button[data-approve]{background:var(--primary-color,#782235);border-color:var(--primary-color,#782235);color:#fff}
+.gateway-team button[data-approve]:hover:not(:disabled){background:#5e1b2b;color:#fff}
 .gateway-team button:hover:not(:disabled),.gateway-team-dialog button:hover:not(:disabled){background:var(--hover-bg,#f1e9e6);border-color:var(--primary-color,#782235)}
 .gateway-team button:disabled,.gateway-team-dialog button:disabled{opacity:.45;cursor:not-allowed}
 .gateway-team :is(button,summary,input):focus-visible,.gateway-team-dialog :is(button,input,select,textarea):focus-visible{outline:2px solid var(--primary-color,#782235);outline-offset:3px}

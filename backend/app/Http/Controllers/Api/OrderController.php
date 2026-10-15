@@ -1275,6 +1275,7 @@ class OrderController extends Controller
                 }
 
                 $fresh->save();
+                app(GatewayPayments::class)->queueClosedOrderRefunds($fresh, $request->user()->id);
 
                 // Copy the decided values back onto the instance the response and
                 // the notifications are built from.
@@ -1361,7 +1362,7 @@ class OrderController extends Controller
                         : "No payment was collected, so there is nothing to refund.\n\n")
                     .'You can place a new order any time.'
                 : "Hi {$order->customer_name},\n\nWe received your request to cancel order {$orderNoLabel}.\n\nReason: {$reasonLabel}\n\nFMRC has already confirmed your payment for this order, so staff review the request before closing it - that is also how the refund gets arranged. You will be notified as soon as they decide."
-                    .($refundDue ? "\n\nOnce it is approved, staff send the {$amountLabel} back to the GCash number you paid from." : ''),
+                    .($refundDue ? "\n\nOnce the cancellation is approved, FMRC will review the refund of {$amountLabel} to your original payment method. Refund confirmation will appear in My Orders." : ''),
             $immediate ? '#b45309' : '#0a5fd6',
             templateKey: $immediate ? 'order_cancelled_immediately' : 'order_cancellation_requested',
             tokens: [
@@ -1371,7 +1372,7 @@ class OrderController extends Controller
                         ? "If you already sent the {$amountLabel} through GCash, FMRC will check the account and return it to you. Staff will contact you once it has been sent back."
                         : 'No payment was collected, so there is nothing to refund.')
                     : ($refundDue
-                        ? "\n\nOnce it is approved, staff send the {$amountLabel} back to the GCash number you paid from."
+                        ? "\n\nOnce the cancellation is approved, FMRC will review the refund of {$amountLabel} to your original payment method. Refund confirmation will appear in My Orders."
                         : ''),
             ]
         );
@@ -1468,6 +1469,7 @@ class OrderController extends Controller
                 }
 
                 $fresh->save();
+                app(GatewayPayments::class)->queueClosedOrderRefunds($fresh, $request->user()->id);
 
                 $order->forceFill($fresh->only([
                     'cancel_state',
@@ -1498,7 +1500,7 @@ class OrderController extends Controller
             'title' => $approve ? 'Cancellation approved' : 'Cancellation declined',
             'description' => $approve
                 ? 'FMRC approved your cancellation request.'
-                    .($refundDue ? " Your {$amountLabel} GCash payment will be sent back to you." : '')
+                    .($refundDue ? " Your refund of {$amountLabel} is awaiting FMRC approval; confirmation will appear in your payment details." : '')
                     .($note !== '' ? " Note: {$note}" : '')
                 : "FMRC could not cancel this order. {$note}",
             'occurred_at' => now(),
@@ -1516,7 +1518,7 @@ class OrderController extends Controller
                 : "Cancellation Declined: {$orderNoLabel}",
             $approve
                 ? "Order {$orderNoLabel} ({$order->customer_name}) was cancelled. Reason: {$reasonLabel}."
-                    .($refundDue ? " A GCash refund of {$amountLabel} is still owed - record it once sent." : '')
+                    .($refundDue ? " A refund of {$amountLabel} is still owed. For online payments, review and approve it in Online payments & refunds." : '')
                 : "The cancellation request on order {$orderNoLabel} ({$order->customer_name}) was declined. {$note}",
             [
                 'order_id' => $order->id,
@@ -1532,7 +1534,7 @@ class OrderController extends Controller
             $approve
                 ? "Hi {$order->customer_name},\n\nFMRC approved your cancellation request for order {$orderNoLabel}.\n\nReason: {$reasonLabel}\n\n"
                     .($refundDue
-                        ? "Your GCash payment of {$amountLabel} will be sent back to the number you paid from. Staff process refunds by hand, so please allow a few working days.\n\n"
+                        ? "Your refund of {$amountLabel} is awaiting FMRC approval. Once approved and confirmed, the money will return to your original payment method. Follow its progress in My Orders > Payment details.\n\n"
                         : "No payment was collected for this order, so there is nothing to refund.\n\n")
                     .($note !== '' ? "Note from FMRC: {$note}\n\n" : '')
                     .'You can place a new order any time.'
@@ -1543,7 +1545,7 @@ class OrderController extends Controller
                 'reason' => $reasonLabel,
                 'note' => $note,
                 'refund_note' => $refundDue
-                    ? "Your GCash payment of {$amountLabel} will be sent back to the number you paid from. Staff process refunds by hand, so please allow a few working days."
+                    ? "Your refund of {$amountLabel} is awaiting FMRC approval. Once approved and confirmed, the money will return to your original payment method. Follow its progress in My Orders > Payment details."
                     : 'No payment was collected for this order, so there is nothing to refund.',
                 'staff_note' => $note !== '' ? "Note from FMRC: {$note}\n\n" : '',
             ]
@@ -1801,6 +1803,7 @@ class OrderController extends Controller
                 $order->lifecycle_status = 'rejected';
                 $order->rejected_at = Carbon::now();
                 $order->save();
+                app(GatewayPayments::class)->queueClosedOrderRefunds($order, $request->user()->id);
 
                 // Same leak as the single-order reject(): the stock left the
                 // shelf at checkout and nothing puts it back. Already inside
@@ -1931,18 +1934,17 @@ class OrderController extends Controller
             ], 422);
         }
 
-        $order->lifecycle_status = 'rejected';
-        $order->rejected_at = Carbon::now();
-        if (!empty($validated['reason'])) {
-            $order->notes = trim(($order->notes ? $order->notes . "\n\n" : '') . 'Rejection reason: ' . $validated['reason']);
-        }
-        $order->save();
-
-        // Checkout already took the stock off the shelf. A rejected order is
-        // never fulfilled, so without this the goods are lost on paper - the
-        // same leak that cancellations restock. Wrapped with the save so a
-        // failed restock cannot leave the order rejected and the stock gone.
-        $restocked = DB::transaction(function () use ($order): array {
+        $restocked = DB::transaction(function () use ($order, $request, $validated): array {
+            $fresh = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless(in_array($fresh->lifecycle_status, ['incoming','pending'], true), 422, 'This order can no longer be rejected. Refresh its status.');
+            $order->setRawAttributes($fresh->getAttributes(), true);
+            $order->lifecycle_status = 'rejected';
+            $order->rejected_at = Carbon::now();
+            if (!empty($validated['reason'])) {
+                $order->notes = trim(($order->notes ? $order->notes . "\n\n" : '') . 'Rejection reason: ' . $validated['reason']);
+            }
+            $order->save();
+            app(GatewayPayments::class)->queueClosedOrderRefunds($order, $request->user()->id);
             return $this->restockOrder($order);
         });
 

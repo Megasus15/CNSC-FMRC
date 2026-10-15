@@ -8233,6 +8233,16 @@ document.addEventListener("DOMContentLoaded", () => {
       };
     }
     if (isOrderPaymentConfirmed(order)) {
+      if (order?.payment_is_automated && (order.payment_refund_status || ['cancelled','rejected'].includes(order.lifecycle_status))) {
+        const refundStatus = order.payment_refund_status;
+        return {
+          label: refundStatus === 'processing' ? 'Refund processing' : refundStatus === 'requested' ? 'Refund requested' : refundStatus === 'succeeded' ? 'Partial refund confirmed' : 'Refund needs review',
+          note: refundStatus === 'processing' ? 'Your refund is being checked with the payment provider. It will return to the original payment method once confirmed.'
+            : refundStatus === 'requested' ? 'Your refund request is awaiting FMRC approval. No money has been returned yet. Open Payment details to follow its progress.'
+            : refundStatus === 'succeeded' ? 'Part of your payment has been refunded. Open Payment details for the confirmed amount.'
+            : 'Your payment was received, but the refund needs FMRC review. Open Payment details or contact FMRC for assistance. Do not send another payment.',
+        };
+      }
       return {
         label: "Payment confirmed",
         note: order?.cancel_refund_due

@@ -16,8 +16,11 @@ function element() {
   return {
     dataset: {}, hidden: false, disabled: false, checked: false, value: '',
     textContent: '', innerHTML: 'Action', open: false,
+    querySelector() { return this.child || null; },
+    append(child) { this.child = child; },
     classList: {
       add: (name) => classes.add(name),
+      remove: (name) => classes.delete(name),
       contains: (name) => classes.has(name),
       toggle: (name, on) => on ? classes.add(name) : classes.delete(name),
     },
@@ -53,7 +56,7 @@ function harness(initial = order()) {
     formatMoney: (amount) => `PHP ${Number(amount).toFixed(2)}`,
     resolveMediaUrl: (url) => url || '',
     window: { setTimeout }, navigator: {},
-    document: { getElementById: (id) => elements[id] || null },
+    document: { getElementById: (id) => elements[id] || null, createElement: element },
     showPopup: (message, options) => popups.push({ message, options }),
     askConfirm: async () => true,
     notifyOrdersRealtimeUpdate() {},
@@ -241,4 +244,13 @@ test('unavailable provider/manual action displays its server reason', () => {
   const { elements: ui } = harness(blocked);
   assert.match(ui.modalPaymentVerifyHint.textContent, /managed by the payment provider/);
   assert.equal(ui.modalPaymentConfirmWrap.hidden, true);
+});
+
+test('rejected provider payment exposes refund management and closes order details when followed', () => {
+  const { elements: ui } = harness(order({payment_is_automated:true,lifecycle_status:'rejected',payment_status:'paid',payment_refund_status:'requested',payment_actions:actions()}));
+  assert.match(ui.modalPaymentVerifyHint.textContent,/Admin must approve/);
+  assert.equal(ui.modalPaymentVerifyStatus.textContent,'Refund awaiting approval');
+  const button=ui.modalPaymentVerifyBlock.child;
+  assert.equal(button.hidden,false); assert.equal(button.dataset.gatewayManage,'1');
+  button.click(); assert.equal(ui.modalOrderDetails.classList.contains('show'),false);
 });

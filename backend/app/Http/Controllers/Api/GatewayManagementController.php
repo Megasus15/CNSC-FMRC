@@ -14,6 +14,11 @@ class GatewayManagementController extends Controller
         $this->team($r);
         $rows = DB::table('payments')->join('orders', 'orders.id', '=', 'payments.order_id')
             ->where('payments.method', 'GCash')
+            ->when($r->filled('order_id'), fn($q) => $q->where('orders.id', $r->integer('order_id')))
+            ->when($r->boolean('refunds'), fn($q) => $q->where(function($q) {
+                $q->whereExists(fn($f) => $f->selectRaw('1')->from('payment_refunds')->whereColumn('payment_refunds.payment_id','payments.id'))
+                  ->orWhere(fn($c) => $c->whereIn('orders.lifecycle_status',['cancelled','rejected'])->where('payments.status','paid'));
+            }))
             ->when($r->boolean('review'), fn($q) => $q->where(function($q) {
                 $q->where('payments.reference', 'like', 'GCASH-%')->orWhere('payments.paymongo_checkout_id','like','cs_sim_%')
                   ->orWhereExists(fn($a) => $a->selectRaw('1')->from('payment_attempts')->whereColumn('payment_attempts.payment_id','payments.id')->whereNotNull('exception'));
@@ -24,6 +29,7 @@ class GatewayManagementController extends Controller
             'receipts' => DB::table('payment_receipts')->whereIn('payment_id', $ids)->get(),
             'refunds' => DB::table('payment_refunds')->whereIn('payment_id', $ids)->get(),
             'can_approve' => $r->user()->role === 'admin', 'enabled' => $provider->acceptsNewPayments(),
+            'refunds_awaiting_approval' => DB::table('payment_refunds')->where('status','requested')->count(),
             'livemode' => $provider->isLive(),
             'checkout_method' => $provider->checkoutMethod(), 'checkout_label' => $provider::checkoutLabel($provider->checkoutMethod()),
             'last_reconciled_at' => \Illuminate\Support\Facades\Cache::get('payments:last_reconciled_at'),
@@ -42,13 +48,27 @@ class GatewayManagementController extends Controller
     }
     public function reject(Request $r, int $refund): JsonResponse {
         abort_unless($r->user()?->role === 'admin', 403);
-        DB::table('payment_refunds')->where('id', $refund)->where('status', 'requested')->update(['status' => 'rejected', 'approved_by' => $r->user()->id, 'updated_at' => now()]);
+        $v = $r->validate(['reason'=>'required|string|max:400']);
+        DB::transaction(function () use ($r, $refund, $v) {
+            $initial = DB::table('payment_refunds')->find($refund); abort_unless($initial,404);
+            $payment = Payment::findOrFail($initial->payment_id);
+            Order::whereKey($payment->order_id)->lockForUpdate()->firstOrFail();
+            $record = DB::table('payment_refunds')->where('id',$refund)->lockForUpdate()->first();
+            abort_unless($record,404);
+            if ($record->status !== 'requested') return;
+            DB::table('payment_refunds')->where('id',$refund)->update(['status'=>'rejected','approved_by'=>$r->user()->id,'updated_at'=>now()]);
+            \App\Models\OrderTrackingEvent::create(['order_id'=>$payment->order_id,'stage'=>$payment->order->customer_stage,
+                'event_type'=>'system','title'=>'Refund request declined','description'=>$v['reason'].' Contact FMRC if you need assistance.','occurred_at'=>now()]);
+        });
         return response()->json(['data' => DB::table('payment_refunds')->find($refund)]);
     }
     public function reconcile(Request $r, Order $order, GatewayPayments $gateway): JsonResponse {
         $this->team($r); abort_unless($order->payment, 422);
         $attempt = $gateway->attempt($order->payment);
         if ($attempt?->checkout_id) $gateway->reconcile($attempt->id, true);
+        $gateway->queueClosedOrderRefunds($order->fresh(), $r->user()->id);
+        // Refund reconciliation is performed by the scheduled worker. A refresh
+        // must not authorize a refund or race another provider submission.
         return response()->json($gateway->state($order->fresh()));
     }
     /** Attach only a provider record whose immutable association matches this attempt. */

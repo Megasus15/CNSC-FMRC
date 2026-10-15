@@ -1047,6 +1047,15 @@ document.addEventListener("DOMContentLoaded", () => {
       paymentVerificationKey = nextKey;
     }
 
+    let gatewayAction = modalPaymentVerifyBlock.querySelector('[data-gateway-manage]');
+    if (!gatewayAction) {
+      gatewayAction = document.createElement('button'); gatewayAction.type = 'button'; gatewayAction.className = 'btn btn-primary';
+      gatewayAction.addEventListener('click', () => { modalOrderDetails?.classList.remove('show'); });
+      modalPaymentVerifyBlock.append(gatewayAction);
+    }
+    gatewayAction.dataset.gatewayManage = String(order?.id || '');
+    gatewayAction.hidden = !isAutomated;
+    gatewayAction.textContent = 'Manage online payment / refund';
     modalPaymentVerifyBlock.hidden = false;
     modalPaymentVerifyBlock.dataset.orderId = String(order?.id || "");
     modalPaymentVerifyBlock.dataset.paymentMethod = isGcash ? "gcash" : "cash";
@@ -1089,6 +1098,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (!order?.payment_actions) {
       hint = "Payment actions are unavailable. Refresh this order before continuing.";
+    }
+    if (isAutomated && isClosed && status === 'paid') {
+      const refundState = order.payment_refund_status;
+      badge = refundState === 'processing' ? 'Refund processing' : refundState === 'requested' ? 'Refund awaiting approval' : 'Refund needs review';
+      title = 'Return the payment to the customer';
+      hint = 'This order is closed. Open Manage online payment / refund to review the original payment and refund history. Admin must approve a refund before it is sent; Staff can request and track it.';
     }
     if (modalPaymentVerifyStatus) {
       modalPaymentVerifyStatus.textContent = badge;
@@ -1573,7 +1588,8 @@ document.addEventListener("DOMContentLoaded", () => {
             <span class="status-pill status-green" title="${isAutomated ? "Verified by the payment provider" : "Payment confirmed by staff"}">
               <i class="fa-solid fa-circle-check"></i> ${gatewayLabel} (Paid)
             </span>
-            <small class="table-pay-sub">${order?.lifecycle_status === "incoming" ? "Awaiting order approval" : isAutomated ? "Automatically verified" : "Confirmed by staff"}</small>
+            ${isAutomated ? `<button type="button" data-gateway-manage="${order.id}">Manage refund</button>` : ""}
+            <small class="table-pay-sub">${isAutomated && ["rejected","cancelled"].includes(order?.lifecycle_status) ? "Refund required" : order?.lifecycle_status === "incoming" ? "Awaiting order approval" : isAutomated ? "Automatically verified" : "Confirmed by staff"}</small>
           </div>
         `;
       }
@@ -1731,6 +1747,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <td>${escapeHtml(paidAt ? formatDateLabel(paidAt) : "-")}</td>
             <td class="action-icons sticky-action">
               <button data-tooltip="View Order Info" data-order-view="${orderId}"><i class="fa-regular fa-eye"></i></button>
+              ${payment.payment_is_automated ? `<button type="button" data-tooltip="Manage online refund" aria-label="Manage online refund" data-gateway-manage="${orderId}"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>` : ''}
               <button data-tooltip="Archive Payment" data-payment-archive="${orderId}"><i class="fa-solid fa-box-archive"></i></button>
             </td>
           </tr>
@@ -1986,11 +2003,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }),
       returnActionIcon({
         icon: "fa-solid fa-peso-sign",
-        label: "Release Refund",
+        label: row.payment_is_automated ? "Request Online Refund" : "Release Refund",
         enabled: Boolean(row.can_refund),
         attrs: `data-return-action="${id}" data-return-mode="refund"`,
         lockedHint: "available once the return is approved",
       }),
+      row.payment_is_automated ? returnActionIcon({icon:'fa-solid fa-credit-card',label:'Manage Online Refund',enabled:true,attrs:`data-gateway-manage="${row.order_id}"`}) : '',
       returnActionIcon({
         icon: "fa-solid fa-box-archive",
         label: "Archive Return",
@@ -3464,6 +3482,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const copy = RETURN_ACTION_COPY[kind];
+    modalReturnAction.dataset.requestKey = crypto.randomUUID();
     const returnNo = row.return_no_display || `#${row.return_no || row.id}`;
     const requested = Number(row.requested_amount || 0);
     const ceiling = Number(
@@ -3596,7 +3615,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (modalReturnAction?.dataset.gateway === '1') return {
-      path: '/admin/returns/{id}/refund', body: {amount, note: String(returnRefundNote?.value || '').trim() || null},
+      path: '/admin/returns/{id}/refund', body: {amount, note: String(returnRefundNote?.value || '').trim() || null, request_key:modalReturnAction.dataset.requestKey},
       confirmTitle: 'Request payment refund', confirmText: 'Request refund',
       confirmMessage: 'Request ' + formatMoney(amount) + ' back to the original payment method? Admin approval is required before money is returned.',
       success: 'Refund requested. Admin can approve it in Online payments & refunds.',
@@ -3764,7 +3783,7 @@ document.addEventListener("DOMContentLoaded", () => {
         path: `/admin/orders/${orderId}/reject`,
         method: "POST",
         title: "Reject Incoming Order",
-        message: "Reject this incoming order?",
+        message: "Reject this incoming order? A confirmed online payment will be queued for refund. Admin must approve the refund in Online payments & refunds before money is returned.",
         confirmText: "Reject",
         loadingText: "Rejecting...",
         success: "Order rejected.",

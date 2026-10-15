@@ -149,5 +149,28 @@ test('manual check joins a background request and shows its completed result', a
   assert.equal(requests,1);
   finish({ok:true,json:async()=>({status:'pending'})}); await background;
   assert.equal(h.fields.get('[data-gateway-refresh]').disabled,false);
-  assert.match(h.fields.get('[data-gateway-checked]').textContent,/Last checked at.*not confirmed yet/);
+  assert.match(h.fields.get('[data-gateway-checked]').textContent,/Last checked at.*Awaiting payment/);
+});
+
+test('closed paid order displays refund progress, polls even after late payment, and never offers another checkout', async () => {
+  const h=harness({status:'paid',order_status:'rejected',exception:'late_payment_refund_review',refunds:[{id:1,amount_centavos:180,status:'requested'}]});
+  await h.open();
+  assert.equal(h.fields.get('[data-gateway-status]').textContent,'Refund requested');
+  assert.match(h.fields.get('[data-gateway-message]').textContent,/No money has been returned yet/);
+  assert.equal(h.fields.get('[data-gateway-continue]').hidden,true);
+  assert.equal(h.timers.size,1);
+  await h.update({status:'paid',order_status:'rejected',refunds:[{id:1,amount_centavos:180,status:'pending'}]});
+  assert.equal(h.fields.get('[data-gateway-status]').textContent,'Refund processing');
+  await h.update({status:'refunded',order_status:'rejected',refunds:[{id:1,amount_centavos:180,status:'succeeded'}]});
+  assert.equal(h.fields.get('[data-gateway-status]').textContent,'Refunded');
+  assert.match(h.fields.get('[data-gateway-refunds]').textContent,/1.80: Confirmed/);
+  assert.equal(h.timers.size,0);
+});
+
+test('failed refund on rejected order requests assistance instead of promising preparation or completion', async () => {
+  const h=harness({status:'paid',order_status:'rejected',refunds:[{amount_centavos:180,status:'failed'}]});
+  await h.open();
+  assert.equal(h.fields.get('[data-gateway-status]').textContent,'Refund needs review');
+  assert.match(h.fields.get('[data-gateway-message]').textContent,/Contact FMRC/);
+  assert.doesNotMatch(h.fields.get('[data-gateway-message]').textContent,/awaiting team approval|has been refunded/);
 });
