@@ -342,10 +342,21 @@ class Order extends Model
      * sales report has to show everything that happened in the period and instead
      * flags each archived line.
      */
+    /** Existing cash/manual receipt accounting; provider payments use the gateway ledger. */
+    public function scopeLegacyReceipts(Builder $query): Builder {
+        return $query->where(function (Builder $q) {
+            $q->where('payment_method', '!=', 'GCash')->orWhereHas('payment', function (Builder $p) {
+                $p->whereIn('status', ['paid','refunded'])->whereNull('gateway')
+                  ->whereNull('paymongo_checkout_id')->whereNull('paymongo_payment_id')
+                  ->where(fn (Builder $ref) => $ref->whereNull('reference')->orWhere('reference','not like','GCASH-%'));
+            });
+        });
+    }
+
     public function scopeGcashAdvanceRevenue(Builder $query): Builder
     {
         return $query
-            ->where('payment_method', 'GCash')
+            ->legacyReceipts()->where('payment_method', 'GCash')
             ->whereIn('lifecycle_status', self::GCASH_ADVANCE_LIFECYCLE_STATUSES)
             ->whereHas('payment', fn (Builder $payment) => $payment->where('status', 'paid'));
     }

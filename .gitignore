@@ -57,6 +57,10 @@ _ide_helper.php
 *.bak
 *.orig
 
+# Local browser QA profiles and rendered test artifacts.
+/tmp/payment-dialogs/
+/tmp/pdfs/
+
 # Private manual deployment artifacts (includes a presentation password hash).
 /output/admin-spectator-release/
 /output/portal-security-release/

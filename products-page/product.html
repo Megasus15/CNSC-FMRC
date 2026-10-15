@@ -802,7 +802,7 @@
                         </span>
                       </div>
                       <span class="tiktok-pm-sub" id="tiktokGcashSub">
-                        <span id="tiktokGcashActionText" class="tiktok-link-action">+ Link GCash account <i class="fa-solid fa-chevron-right" style="font-size:0.7rem;" aria-hidden="true"></i></span>
+                        <span id="tiktokGcashActionText" class="tiktok-link-action">Authorize securely in GCash <i class="fa-solid fa-chevron-right" style="font-size:0.7rem;" aria-hidden="true"></i></span>
                       </span>
                     </div>
                   </div>
@@ -825,109 +825,18 @@
             </div>
           </div>
 
-          <!--
-            GCash can be paid now or after the order is placed, the way Shopee
-            and Lazada do it: placing the order is free, and the customer has a
-            window (see config/payments.php) to send the money from My Orders.
-            On a phone the GCash app can be opened directly; on a laptop there
-            is no app to open, so the centre's QR is shown for the customer to
-            scan with their phone. GCash prints a 13-digit reference number,
-            and that number is the only proof staff can match against the FMRC
-            GCash account - so it is asked for here, but never required: an
-            order placed without it simply waits in "To Pay".
-          -->
+          <!-- New online payments use provider-hosted checkout and automatic confirmation. -->
           <div
             class="checkout-section gcash-pay-section"
             id="gcashPaymentSection"
             hidden
           >
-            <h3 class="checkout-section-title">Pay with GCash</h3>
+            <h3 class="checkout-section-title">Secure online payment</h3>
 
             <p class="gcash-amount-line">
-              Send exactly
+              Order total
               <strong id="gcashAmountDue">₱0.00</strong>
-              to the FMRC GCash account below.
             </p>
-
-            <p class="gcash-paylater-note" id="gcashPayLaterNote">
-              <i class="fa-regular fa-clock" aria-hidden="true"></i>
-              <span
-                >You can also place the order first and pay later &mdash; it
-                will wait for you under <strong>My Orders &rsaquo; To Pay</strong>.</span
-              >
-            </p>
-
-            <div class="gcash-account-card">
-              <div class="gcash-account-row">
-                <span class="gcash-account-label">Account name</span>
-                <span class="gcash-account-value" id="gcashAccountName">—</span>
-              </div>
-              <div class="gcash-account-row">
-                <span class="gcash-account-label">GCash number</span>
-                <span class="gcash-account-value" id="gcashAccountNumber"
-                  >—</span
-                >
-                <button
-                  type="button"
-                  class="gcash-copy-btn"
-                  id="gcashCopyNumberBtn"
-                >
-                  Copy
-                </button>
-              </div>
-            </div>
-
-            <div class="gcash-pay-methods">
-              <div class="gcash-qr-block" id="gcashQrBlock" hidden>
-                <img
-                  id="gcashQrImage"
-                  class="gcash-qr-image"
-                  alt="FMRC GCash QR code"
-                  decoding="async"
-                />
-                <a
-                  id="gcashQrDownload"
-                  class="gcash-qr-save"
-                  download="fmrc-gcash-qr.png"
-                  href="#"
-                  >Save QR image</a
-                >
-              </div>
-              <div class="gcash-mobile-block" id="gcashMobileBlock" hidden>
-                <button
-                  type="button"
-                  class="gcash-open-app-btn"
-                  id="gcashOpenAppBtn"
-                >
-                  Open the GCash app
-                </button>
-                <p class="gcash-open-app-hint" id="gcashOpenAppHint"></p>
-              </div>
-            </div>
-
-            <ol class="gcash-steps" id="gcashSteps"></ol>
-
-            <div class="form-group gcash-reference-group">
-              <label for="gcashReferenceInput"
-                >GCash reference number
-                <span class="opt-mark">(optional)</span></label
-              >
-              <input
-                type="text"
-                class="c-input"
-                id="gcashReferenceInput"
-                inputmode="numeric"
-                autocomplete="off"
-                maxlength="19"
-                placeholder="13 digits, e.g. 0123456789012"
-              />
-              <small class="gcash-reference-help"
-                >Already sent it? Your GCash receipt shows this as "Ref. No." —
-                we match it against the FMRC GCash account before the order
-                moves forward. Haven't sent it yet? Leave this blank and pay
-                from My Orders.</small
-              >
-            </div>
 
             <p
               class="gcash-unconfigured-note"
@@ -1910,69 +1819,7 @@
 
     <!-- Order success modal above replaces the previous inline card. -->
 
-    <!-- Link GCash Account Modal (Unified Customer Dialog System) -->
-    <div class="link-gcash-modal-overlay ux-dlg" id="linkGcashModal" aria-hidden="true">
-      <div class="link-gcash-modal-box ux-dlg__card">
-        <div class="link-gcash-modal-header ux-dlg__head">
-          <button type="button" class="link-gcash-close-btn ux-dlg__close" id="closeLinkGcashBtn" aria-label="Close GCash modal">&times;</button>
-          <span class="ux-dlg__badge" aria-hidden="true">
-            <img class="link-gcash-brand-icon" src="../images/gcash-icon.png" width="44" height="44" alt="GCash" decoding="async" />
-          </span>
-          <p class="ux-dlg__eyebrow">GCash account</p>
-          <h2 class="link-gcash-modal-title ux-dlg__title">Link GCash Account</h2>
-        </div>
-        <div class="link-gcash-modal-body ux-dlg__body">
-          <p class="link-gcash-desc">
-            Connect your GCash account to enable 1-click checkout on all current and future purchases.
-          </p>
-
-          <div class="link-gcash-step-1" id="linkGcashStep1">
-            <div class="link-gcash-input-wrap">
-              <span class="link-gcash-prefix">+63</span>
-              <input type="tel" class="link-gcash-input" id="linkGcashPhone" placeholder="9XX XXX XXXX" maxlength="11" inputmode="numeric" pattern="[0-9]*" autocomplete="tel" />
-            </div>
-            <p class="link-gcash-help">Enter your 11-digit GCash mobile number (e.g., 09171234567)</p>
-            <button type="button" class="link-gcash-primary-btn ux-dlg__btn ux-dlg__btn--primary" id="btnSendGcashOtp">
-              Continue
-            </button>
-          </div>
-
-          <div class="link-gcash-step-2" id="linkGcashStep2" style="display: none;">
-            <p class="link-gcash-otp-msg">
-              Enter the 6-digit authentication code sent to <strong id="linkGcashDisplayPhone">0917****5945</strong>
-            </p>
-            <div class="link-gcash-otp-wrap">
-              <input type="text" class="link-gcash-otp-input" id="linkGcashOtp" placeholder="••••••" maxlength="6" inputmode="numeric" pattern="[0-9]*" />
-            </div>
-            <p class="link-gcash-test-hint"><i class="fa-solid fa-circle-info"></i> Test Mode: You can enter <strong>123456</strong> as the code</p>
-            <div class="link-gcash-actions">
-              <button type="button" class="link-gcash-primary-btn ux-dlg__btn ux-dlg__btn--primary" id="btnConfirmGcashLink">
-                Authorize & Link GCash
-              </button>
-              <button type="button" class="link-gcash-secondary-btn ux-dlg__btn ux-dlg__btn--ghost" id="btnBackToPhone">
-                Change Number
-              </button>
-            </div>
-          </div>
-
-          <div class="link-gcash-step-3" id="linkGcashStep3" style="display: none;">
-            <div class="link-gcash-success-icon">
-              <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
-            </div>
-            <h4>GCash Account Linked!</h4>
-            <p class="link-gcash-success-sub" id="linkGcashSuccessSub">
-              Your GCash account is now connected for fast 1-click purchases.
-            </p>
-            <button type="button" class="link-gcash-primary-btn ux-dlg__btn ux-dlg__btn--primary" id="btnFinishGcashLink">
-              Continue to Checkout
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Maintenance Mode gate stays synchronous: it must apply the cached
-         snapshot before anything that should be hidden can be painted. -->
+    <!-- Secure payment authorization is handled by PayMongo (Unified Customer Dialog System) -->
     <script src="../home-page/maintenance-gate.js?v=2.7"></script>
     <!-- Deferred as a set, never individually: `defer` only preserves relative
          order among deferred scripts, so leaving any one of these synchronous
@@ -1986,8 +1833,11 @@
          flow falls back to the plain disabled button it had before. -->
     <script defer src="../home-page/fmrc-loader.js?v=2.2"></script>
     <script defer src="../home-page/customer-announcements.js?v=6.8"></script>
-    <script defer src="payment-availability.js?v=1.0"></script>
-    <script defer src="../home-page/main.js?v=12.1"></script>
-    <script defer src="products.js?v=6.5"></script>
+    <script defer src="payment-availability.js?v=1.2-qrph"></script>
+    <link rel="stylesheet" href="../products-page/gateway-payments.css?v=1.0">
+    <link rel="stylesheet" href="../home-page/payment-dialogs.css?v=1.1-consistent">
+    <script defer src="../products-page/gateway-payments.js?v=1.5-check-result"></script>
+    <script defer src="../home-page/main.js?v=12.4-hosted-checkout"></script>
+    <script defer src="products.js?v=6.6-gcash"></script>
   </body>
 </html>

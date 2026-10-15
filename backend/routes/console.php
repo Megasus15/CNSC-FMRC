@@ -9,3 +9,5 @@ Schedule::command('pwa:process')->everyMinute()->withoutOverlapping(5);
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
+
+Schedule::command('payments:reconcile')->everyMinute()->withoutOverlapping(5);

@@ -305,7 +305,7 @@ class AdminReportsTest extends TestCase
         $this->assertSame(-60.0, (float) $refundRow['amount']);
 
         $advanceBreakdown = collect($response->json('data.breakdown.items'))
-            ->firstWhere('label', 'Verified GCash Orders');
+            ->firstWhere('label', 'Verified Online Payments');
         $this->assertIsArray($advanceBreakdown);
         $this->assertSame(400.0, (float) $advanceBreakdown['value']);
     }

@@ -28,56 +28,13 @@ class GcashManualPaymentRailTest extends TestCase
 
     private const REFERENCE = '1234567890123';
 
-    public function test_a_gcash_order_is_placed_first_and_paid_afterwards(): void
+    public function test_new_manual_gcash_orders_are_disabled(): void
     {
-        $customer = $this->actingAsCustomer();
-        $product = $this->makeProduct(['stock' => 25]);
-
-        // No reference number: the customer has not sent anything yet. Refusing
-        // the order here is what forced them to pay before they knew the order
-        // would even go through.
-        $response = $this->postJson('/api/orders', [
-            'product_id' => $product->id,
-            'product_name' => $product->name,
-            'quantity' => 2,
-            'unit_price' => 500,
-            'total_amount' => 1000,
-            'payment_method' => 'GCash',
-            'fulfillment_type' => 'pickup',
-        ]);
-
-        $response->assertCreated();
-
-        $order = Order::query()->latest('id')->firstOrFail();
-
-        $this->assertSame('GCash', $order->payment_method);
-        $this->assertSame('to_pay', $order->customer_stage);
-        $this->assertSame('incoming', $order->lifecycle_status);
-        $this->assertSame('Awaiting GCash reference', $order->payment_reference);
-        $this->assertSame((int) $customer->id, (int) $order->customer_id);
-
-        // The deadline is stamped on the order at checkout rather than derived
-        // on read, so the countdown the customer was promised never moves when
-        // the configured window changes.
-        $expectedWindow = max(1, (int) config('payments.gcash.payment_window_hours', 48));
-        $this->assertNotNull($order->payment_due_at);
-        $this->assertSame(
-            $expectedWindow,
-            (int) round(now()->diffInMinutes($order->payment_due_at, false) / 60),
-        );
-
-        // A payment row exists from the start, unpaid, so staff see the order in
-        // their verification queue instead of it appearing only after a claim.
-        $this->assertDatabaseHas('payments', [
-            'order_id' => $order->id,
-            'method' => 'GCash',
-            'status' => 'pending',
-            'paid_at' => null,
-        ]);
-
-        // Stock is committed at checkout: the item is reserved for this order
-        // whether or not the money has landed.
-        $this->assertSame(23, (int) $product->fresh()->stock);
+        $this->actingAsCustomer(); $product = $this->makeProduct();
+        $this->postJson('/api/orders', ['product_id'=>$product->id, 'product_name'=>$product->name,
+            'quantity'=>1, 'total_amount'=>500, 'payment_method'=>'GCash', 'fulfillment_type'=>'pickup',
+            'checkout_request_key'=>(string) \Illuminate\Support\Str::uuid()])->assertUnprocessable();
+        $this->assertDatabaseCount('orders', 0);
     }
 
     public function test_cash_orders_get_no_payment_deadline(): void

@@ -1,0 +1,55 @@
+/* Shared Admin / Staff payment panel. */
+.gateway-team{margin:16px 0 24px;border:1px solid var(--border-color,#dfe5ee);border-radius:14px;background:var(--surface,#fcf9f5);color:var(--text-main,#303036);font:inherit;overflow:hidden}
+.gateway-team summary{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 20px;cursor:pointer;list-style:none;font-size:15px;font-weight:650}
+.gateway-team summary::-webkit-details-marker{display:none}
+.gateway-team summary span{display:flex;align-items:center;gap:10px}
+.gateway-team summary span i{color:var(--primary-color,#782235)}
+.gateway-chevron{font-size:12px;transition:transform .18s ease}
+.gateway-team[open] .gateway-chevron{transform:rotate(180deg)}
+.gateway-team[open] summary{border-bottom:1px solid var(--border-color,#dfe5ee)}
+.gateway-content{padding:0 20px}
+.gateway-intro{font-size:13px;color:var(--text-muted,#73717a);margin:16px 0}
+.gateway-health{display:grid;grid-template-columns:1fr 1fr 1.4fr;gap:18px;padding:16px;background:var(--bg-light,#f5f2ed);border:1px solid var(--border-color,#dfe5ee);border-radius:10px;font-size:13px}
+.gateway-health strong{font-size:13px;font-weight:550}
+.gateway-label{display:block;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted,#73717a);margin-bottom:7px}
+.gateway-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px 0;font-size:12px;color:var(--text-muted,#73717a)}
+.gateway-toolbar label{display:flex;align-items:center;gap:8px;color:var(--text-main,#303036);cursor:pointer;font-size:13px}
+.gateway-toolbar input{width:16px;height:16px;accent-color:var(--primary-color,#782235)}
+.gateway-scroll{overflow:auto;max-height:520px;border:1px solid var(--border-color,#dfe5ee);border-radius:10px}
+.gateway-team .admin-table{width:100%;min-width:860px;border-collapse:collapse;font-size:13px;table-layout:fixed}
+.gateway-team .admin-table th,.gateway-team .admin-table td{padding:14px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--border-color,#dfe5ee);line-height:1.6;overflow-wrap:anywhere}
+.gateway-team .admin-table th{position:sticky;top:0;z-index:1;background:var(--surface,#fcf9f5);font-size:12px;font-weight:650}
+.gateway-team th:nth-child(1){width:19%}.gateway-team th:nth-child(2){width:21%}.gateway-team th:nth-child(3){width:14%}.gateway-team th:nth-child(4){width:28%}.gateway-team th:nth-child(5){width:18%}
+.gateway-team .admin-table td:nth-child(3){white-space:nowrap;font-variant-numeric:tabular-nums}
+.gateway-team .admin-table tbody tr:hover{background:var(--hover-bg,#f5f0eb)}
+.gateway-order{font-weight:550;white-space:nowrap;font-size:12px}
+.gateway-secondary{display:block;font-size:12px;color:var(--text-muted,#73717a);margin-top:3px}
+.gateway-note{display:block;font-size:11px;color:var(--text-muted,#73717a);margin-top:8px;line-height:1.5;max-width:220px}
+.gateway-badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 9px;font-size:11px;font-weight:600;background:var(--hover-bg,#ece9e5);color:var(--text-main,#55515b)}
+.gateway-badge[data-status=paid],.gateway-badge[data-status=enabled]{background:#e7f4e8;color:#287234}
+.gateway-badge[data-status=pending],.gateway-badge[data-status=test]{background:#fff3d8;color:#805900}
+.gateway-badge[data-status=live],.gateway-badge[data-status=refunded]{background:#e8effc;color:#365f99}
+.gateway-team button,.gateway-team-dialog button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:7px 12px;border:1px solid var(--border-color,#d8dce5);border-radius:8px;background:var(--surface,#fcf9f5);color:var(--text-main,#303036);font:inherit;font-size:12px;font-weight:500;cursor:pointer}
+.gateway-team td button{margin:3px 4px 3px 0;text-align:left}
+.gateway-team button:hover:not(:disabled),.gateway-team-dialog button:hover:not(:disabled){background:var(--hover-bg,#f1e9e6);border-color:var(--primary-color,#782235)}
+.gateway-team button:disabled,.gateway-team-dialog button:disabled{opacity:.45;cursor:not-allowed}
+.gateway-team :is(button,summary,input):focus-visible,.gateway-team-dialog :is(button,input,select,textarea):focus-visible{outline:2px solid var(--primary-color,#782235);outline-offset:3px}
+.gateway-footer{display:flex;justify-content:space-between;align-items:center;padding:14px 0;gap:16px;color:var(--text-muted,#73717a);font-size:12px}
+.gateway-footer>div{display:flex;gap:8px}.gateway-footer button{width:36px}
+.gateway-team td.gateway-empty{text-align:center;padding:40px 16px;color:var(--text-muted,#73717a)}
+.gateway-team-dialog{max-width:500px;width:calc(100% - 32px);max-height:85dvh;overflow:auto;box-sizing:border-box;padding:24px;border:1px solid var(--border-color,#dfe5ee);border-radius:16px;background:var(--surface,#fcf9f5);color:var(--text-main,#303036);font:inherit;box-shadow:0 24px 70px #0003}
+.gateway-team-dialog::backdrop{background:#11182799}
+.gateway-team-dialog h3{margin:0 0 12px;font-size:19px;color:var(--primary-color,#782235)}
+.gateway-team-dialog p{font-size:13px;line-height:1.6;color:var(--text-muted,#73717a)}
+.gateway-team-dialog label{display:block;font-size:13px;font-weight:500;margin:16px 0}
+.gateway-team-dialog [hidden]{display:none!important}
+.gateway-team-dialog :is(input,textarea,select){display:block;box-sizing:border-box;width:100%;margin-top:6px;padding:10px 12px;background:var(--surface,#fcf9f5);color:inherit;border:1px solid var(--border-color,#d8dce5);border-radius:8px;font:inherit;font-size:13px}
+.gateway-team-dialog textarea{min-height:90px;resize:vertical}
+.gateway-team-dialog button{margin:8px 8px 0 0}.gateway-team-dialog button[type=submit]{background:#782235;border-color:#782235;color:white}
+.gateway-team-dialog [data-error]:not(:empty){color:#a12e3d;background:#fff0f1;border-radius:8px;padding:10px}
+[data-theme=dark] .gateway-badge[data-status=paid],[data-theme=dark] .gateway-badge[data-status=enabled]{background:#223f32;color:#b4dfc2}
+[data-theme=dark] .gateway-badge[data-status=pending],[data-theme=dark] .gateway-badge[data-status=test]{background:#493c24;color:#f4d995}
+[data-theme=dark] .gateway-badge[data-status=live],[data-theme=dark] .gateway-badge[data-status=refunded]{background:#263952;color:#bdd4f3}
+[data-theme=dark] .gateway-team-dialog [data-error]:not(:empty){background:#45282e;color:#ffc6cf}
+@media(max-width:720px){.gateway-content{padding:0 12px}.gateway-team summary{padding:16px 12px;font-size:14px}.gateway-health{grid-template-columns:1fr;gap:12px}.gateway-toolbar{align-items:flex-start;flex-direction:column}.gateway-scroll{max-height:440px}.gateway-team-dialog{padding:20px}}
+@media(prefers-reduced-motion:reduce){.gateway-chevron{transition:none}}

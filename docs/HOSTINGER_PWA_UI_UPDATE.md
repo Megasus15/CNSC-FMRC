@@ -1,73 +1,68 @@
-# Update the official notification UI
+# Notification UI update 1.5
 
-The user reported realtime Customer and Team phone delivery on the official
-website on October 7, 2026. This package changes permission panels, installation
-state, app launch presentation and Team icon artwork.
+Use **output/fmrc-notification-ui-update.zip** on the existing working official site.
+Rebuild it with `python tools/pwa/build-ui-update.py`.
 
-Build with `python tools/pwa/build-ui-update.py`. Use
-**`output/fmrc-notification-ui-update.zip`** on the existing official website.
-Its allowlist contains the shared app assets, updated original HTML consumers,
-Team icon/manifest files, app gateways and the Customer notification-tap resolver.
-It contains no environment, SQL, dependencies, storage or delivery-processor files.
+## What changed
 
-1. Select **ucn-fabmanlab.com** in hPanel and open its File Manager.
-2. Back up the matching files listed in `FMRC_PWA_UI_UPDATE.json`, especially
-   `backend/routes/api.php` and `CustomerNotificationController.php`.
-3. Upload the ZIP inside the official **public_html** and open **Extract**.
-4. In the extraction dialog, keep **Currently navigating on** at
-   **`/files/public_html/`**. Enter **`.`** (one dot) in **Choose folder name**
-   to extract directly into that current directory.
-5. Enable **Overwrite existing files**. The destination must resolve to
-   **`/files/public_html/`**, with exactly one `public_html`. Click **Extract**.
-   The archive contains individual matching files and no enclosing folder.
-   [Hostinger documents selecting an existing destination folder and overwriting files](https://www.hostinger.com/support/1583613-how-to-extract-archives-using-the-file-manager-in-hostinger/).
-6. If present, remove only the generated
-   **`backend/bootstrap/cache/routes-v7.php`** to expose the added Customer tap
-   route. With SSH, `php artisan route:clear` from `backend/` does this instead.
-7. Refresh the website and reopen both apps. Keep the existing push setting,
-   VAPID pair, notification subscriptions and permanent cron.
+- Customer app name: **UCN–FMRC**. Admin/Staff app name: **FMRC Team**.
+  The existing app IDs and scopes remain the same; installation screens, Apple
+  title metadata, offline pages and phone notification titles use these names.
+- One shared installation check for Customer, Admin and Staff. A successful
+  supported Android Chrome inventory corrects old installed flags after removal.
+  Checks run on page load, return to the browser, and while the page stays open.
+- Admin/Staff **Install App** sits inside **Phone notifications**.
+- Settings cards use one consistent **16px gap** instead of stacked margins.
 
-Entering `public_html` while already inside `/files/public_html/` creates a
-nested directory. The current-directory dot method was confirmed working in
-this Hostinger session after the earlier parent-folder instructions repeatedly
-left the release inside `public_html/public_html`.
-Do not replace or delete the entire existing frontend or backend directories.
+## Brave and other Home Screen shortcuts
 
-Check the Customer sidebar panel and Admin/Staff Settings at phone width. Each
-panel should show preference checkboxes, compact single-line actions and a
-device status. The original website announcement/workspace bell still works.
-Phone taps should open the original update rather than a preferences panel.
-Open Customer and Team from their Home Screen icons: the extra opening page is
-gone and the existing UCN-FMRC loader remains. Browser/OS splash screens are
-controlled by the platform.
+A website cannot reliably inspect whether a Brave/iOS Home Screen shortcut was
+removed. Saved installation confirmation is not proof that the shortcut still
+exists. Perfect automatic detection on those browsers is not implemented or
+promised. Both apps now expose the same recovery controls in their phone panel:
 
-The Team source icons now have opaque maroon edges, including the adaptive icon.
-An existing phone launcher may retain the old icon. Remove and reinstall **Team**
-only if its artwork stays stale; check its notification permission afterward.
+- Already installed: hides Install App in this browser.
+- I removed this app: restores Install App immediately in this browser.
 
-Installation is remembered separately for Customer and Team across refreshes,
-logout and browser reopening. A supported related-app inventory confirms actual
-installation/removal. Some browsers cannot inspect Home Screen shortcuts, so
-perfect automatic uninstall detection is unavailable there. The installation
-pages retain **Already installed** / **I removed this app** confirmation controls.
-Clearing website data or using a different browser can require reconfirmation.
-[Browser detection support](https://developer.chrome.com/docs/capabilities/get-installed-related-apps),
-[Safari storage and installation detection](https://web.dev/learn/pwa/detection).
+Customer: sidebar → App Notifications. Admin/Staff: Settings → Phone notifications.
+These controls appear when automatic inventory is unavailable or inconclusive.
+An actual app window hides installation controls. Current positive inventory
+results hide Install App, and supported negative results restore it automatically.
+Browser refresh/restart preserves explicit fallback choices separately per app.
+Different browsers, origins, profiles or cleared site data may need confirmation.
 
-Local checks cover the real Chromium DOM/workers, controlled installation and
-permission responses, narrow layouts, dark mode, browser restart and notification
-tap routing. They do not establish actual Brave/Android or iPhone UI acceptance
-for this new package. They remain separate from manual deployment verification.
+[Chrome installation detection requirements](https://developer.chrome.com/docs/capabilities/get-installed-related-apps)
+[Brave WebAPK support tracking](https://github.com/brave/brave-browser/issues/7357)
 
-After the user extracted using the dot method on October 7, read-only requests
-to the official site matched all 61 public runtime files against the release.
-The release marker was present at the active root. All four version-3 Team icon
-images matched the local decoded pixels, including opaque maroon corners.
-The numeric notification-target route also reached its controller and returned
-the expected not-found response for ID 0, while a nonnumeric probe was rejected
-as an unknown route. The added route is active, so no manual route-cache cleanup
-was needed in this session. Backend source bytes were not publicly fetched;
-actual-phone UI/tap acceptance still needs the device check.
+## Upload
 
-After verification, delete the uploaded ZIP and the two `FMRC_PWA_UI_UPDATE`
-metadata/readme files from `public_html`. Keep the rollback backup.
+1. Back up the matching website files.
+2. Upload the ZIP into the official **public_html** and choose **Extract**.
+3. Keep **Currently navigating on** at **/files/public_html/**.
+4. Enter **.** (one dot) as **Choose folder name**.
+5. Enable **Overwrite existing files**, then extract.
+6. Refresh both browser websites and reopen the two apps.
+
+This is a frontend-only package for the existing working installation. No SQL,
+backend files, environment edits, route-cache cleanup or Composer commands are
+needed. Keep the existing notification configuration and cron. Existing launcher
+names/icons may take time to update because the browser/OS manages them.
+
+## Verification
+
+On October 7, 2026, the local Chromium regression passed with controlled native
+installation, inventory and permission responses. It covers Customer/Team
+isolation, legacy flags, removal, hard refresh, actual browser close/reopen,
+shortcut recovery in both cards, a delayed-check/install race, notification tap
+routing, and 320/390px layouts. The three worker/manifest tests also passed.
+Phone screenshots were inspected for card placement, spacing and button fit.
+These tests do not constitute an actual Brave/Android or iPhone installation test.
+
+The prior 1.4 manual release matched 61 public runtime files on the official site.
+The 1.5 changes are local until uploaded/deployed. After deployment, test on the
+phone: fresh install, reopen browser, delete app, and return to both websites.
+Use the recovery control above if the browser cannot report shortcut removal.
+Confirm Customer and Team notifications still arrive and open the correct page.
+
+After verification, remove the uploaded ZIP and the two FMRC_PWA_UI_UPDATE
+metadata/readme files from public_html. Keep the rollback backup.

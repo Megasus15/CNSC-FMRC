@@ -965,13 +965,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const paymentStatus = String(order.payment_status || "pending").toLowerCase();
     const isPaid = paymentStatus === "paid";
     const isGcash = String(order.payment_method || "").toLowerCase() === "gcash";
+    const gatewayLabel = order.payment_method_label || (order.payment_checkout_method === 'qrph' ? 'QR Ph' : 'GCash');
     let paymentDisplay = order.payment_method || "N/A";
     if (isGcash) {
       paymentDisplay = paymentStatus === "refunded"
-        ? "GCash (Refund recorded)"
+        ? `${gatewayLabel} (Refund recorded)`
         : isPaid
-          ? `GCash (Paid — ${order.payment_is_automated ? "Automatically verified" : "Confirmed by staff"})`
-          : "GCash (Awaiting confirmation)";
+          ? `${gatewayLabel} (Paid — ${order.payment_is_automated ? "Automatically verified" : "Confirmed by staff"})`
+          : `${gatewayLabel} (Awaiting confirmation)`;
     } else if (paymentDisplay.toLowerCase().includes("delivery") || paymentDisplay === "COD") {
       paymentDisplay = "Cash on Delivery (COD)";
     } else if (paymentDisplay.toLowerCase().includes("pickup") || paymentDisplay === "COP") {
@@ -1560,16 +1561,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const status = String(order?.payment_status || "pending").toLowerCase();
     const isPaid = status === "paid";
     const isAutomated = order?.payment_is_automated === true;
+    const gatewayLabel = escapeHtml(order?.payment_method_label || (order?.payment_checkout_method === 'qrph' ? 'QR Ph' : 'GCash'));
 
     if (method.toLowerCase() === "gcash") {
       if (status === "refunded") {
-        return '<div class="table-pay-cell"><span class="status-pill status-grey">GCash (Refunded)</span><small class="table-pay-sub">Refund recorded</small></div>';
+        return `<div class="table-pay-cell"><span class="status-pill status-grey">${gatewayLabel} (Refunded)</span><small class="table-pay-sub">Refund recorded</small></div>`;
       }
       if (isPaid) {
         return `
           <div class="table-pay-cell">
             <span class="status-pill status-green" title="${isAutomated ? "Verified by the payment provider" : "Payment confirmed by staff"}">
-              <i class="fa-solid fa-circle-check"></i> GCash (Paid)
+              <i class="fa-solid fa-circle-check"></i> ${gatewayLabel} (Paid)
             </span>
             <small class="table-pay-sub">${order?.lifecycle_status === "incoming" ? "Awaiting order approval" : isAutomated ? "Automatically verified" : "Confirmed by staff"}</small>
           </div>
@@ -1578,7 +1580,7 @@ document.addEventListener("DOMContentLoaded", () => {
       return `
         <div class="table-pay-cell">
           <span class="status-pill status-yellow" title="Awaiting payment or verification">
-            <i class="fa-regular fa-clock"></i> GCash (Unpaid)
+            <i class="fa-regular fa-clock"></i> ${gatewayLabel} (Unpaid)
           </span>
           <small class="table-pay-sub">${order?.payment_under_review ? "Needs verification" : "Awaiting payment"}</small>
         </div>
@@ -1707,7 +1709,7 @@ document.addEventListener("DOMContentLoaded", () => {
           payment.completed_at ||
           payment.updated_at ||
           payment.created_at;
-        const paymentMethod = payment.payment_method || payment.method || "N/A";
+        const paymentMethod = payment.payment_method_label || payment.payment_method || payment.method || "N/A";
         // Completed orders can now be refunded, so this column has to call out a
         // reversed payment instead of reporting every row as Completed.
         const isRefunded =
@@ -3500,6 +3502,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (returnRefundNote) returnRefundNote.value = "";
 
     setReturnActionSections(kind);
+    modalReturnAction.dataset.gateway = row.payment_is_automated ? '1' : '0';
+    if (kind === 'refund' && row.payment_is_automated) {
+      [returnRefundStage, returnRefundMethod, returnRefundReference].forEach(field => { const wrapper = field?.closest('.field-stack'); if (wrapper) wrapper.style.display = 'none'; });
+      if (returnActionTitle) returnActionTitle.textContent = 'Request payment refund';
+      if (returnActionSubtitle) returnActionSubtitle.textContent = returnNo + ' · Admin approval and provider confirmation are required.';
+      if (btnSubmitReturnAction) btnSubmitReturnAction.textContent = 'Request refund';
+    }
     returnActionDiscardGuard?.capture();
     modalReturnAction.classList.add("show");
   };
@@ -3585,6 +3594,13 @@ document.addEventListener("DOMContentLoaded", () => {
         focus: returnRefundAmount,
       };
     }
+
+    if (modalReturnAction?.dataset.gateway === '1') return {
+      path: '/admin/returns/{id}/refund', body: {amount, note: String(returnRefundNote?.value || '').trim() || null},
+      confirmTitle: 'Request payment refund', confirmText: 'Request refund',
+      confirmMessage: 'Request ' + formatMoney(amount) + ' back to the original payment method? Admin approval is required before money is returned.',
+      success: 'Refund requested. Admin can approve it in Online payments & refunds.',
+    };
 
     return {
       path: `/admin/returns/{id}/refund`,
@@ -3678,7 +3694,7 @@ document.addEventListener("DOMContentLoaded", () => {
         returnId: id,
         orderId: String(response?.data?.order_id || ""),
       });
-      showPopup(plan.success, { title: "Success" });
+      showPopup(response?.message || plan.success, { title: "Success" });
       void syncOrders(false, { force: true, source: "action" });
     } catch (error) {
       showPopup(error.message || "Unable to save this return update.", {
@@ -5358,6 +5374,21 @@ document.addEventListener("DOMContentLoaded", () => {
     if (row) window.AdminNotifFocus?.flash(row);
     return true;
   };
+
+  let gatewayOrderTimer, gatewayOrderDelay = 5000;
+  const pollGatewayOrders = async () => {
+    clearTimeout(gatewayOrderTimer);
+    if (!document.hidden && !isPopupVisible()) {
+      const previous = state.lastSyncAt;
+      await syncOrders(false, {source: 'auto'});
+      gatewayOrderDelay = state.lastSyncAt > previous ? 5000 : Math.min(gatewayOrderDelay * 2, 30000);
+    }
+    gatewayOrderTimer = setTimeout(pollGatewayOrders, gatewayOrderDelay);
+  };
+  gatewayOrderTimer = setTimeout(pollGatewayOrders, 5000);
+  window.addEventListener('online', pollGatewayOrders);
+  window.addEventListener('focus', pollGatewayOrders);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) pollGatewayOrders(); });
 
   void syncOrders(true, { force: true, source: "manual" }).finally(() => {
     window.AdminNotifFocus?.onFocus(["order", "return"], (intent) =>

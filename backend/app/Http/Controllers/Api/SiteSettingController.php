@@ -41,8 +41,13 @@ class SiteSettingController extends Controller
 
         $data = array_replace($data, PaymentMethodAvailability::publicSettings($data));
 
-        // Inform the frontend checkout whether manual QR or automated PayMongo is live
-        $data['payment_gateway'] = config('payments.gateway', 'manual');
+        // Expose checkout presentation and readiness without exposing credentials.
+        $data['payment_gateway'] = 'paymongo';
+        $provider = app(\App\Services\PayMongoService::class);
+        $data['payment_gcash_ready'] = $provider->acceptsNewPayments() ? '1' : '0';
+        $data['payment_checkout_method'] = $provider->checkoutMethod();
+        $data['payment_checkout_label'] = $provider::checkoutLabel($provider->checkoutMethod());
+        $data['payment_checkout_description'] = $provider::checkoutDescription($provider->checkoutMethod());
 
         $payload = ['data' => $data];
 

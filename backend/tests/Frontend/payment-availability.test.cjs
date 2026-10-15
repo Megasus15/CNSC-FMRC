@@ -25,7 +25,7 @@ function element() {
 
 function harness({ selector = false } = {}) {
   const fields = new Map();
-  for (const id of ['hiddenPaymentSelect', 'tiktokPaymentList', 'checkoutPaymentNotice', 'checkoutPaymentMessage', 'checkoutPaymentRetry', 'submitOrderBtn']) fields.set(id, element());
+  for (const id of ['hiddenPaymentSelect', 'tiktokPaymentList', 'tiktokGcashTitle', 'tiktokGcashSub', 'checkoutPaymentNotice', 'checkoutPaymentMessage', 'checkoutPaymentRetry', 'submitOrderBtn']) fields.set(id, element());
   const cards = names.map((name) => { const item = element(); item.dataset.method = name; item.click = () => item.dispatchEvent({ type: 'click' }); return item; });
   fields.get('tiktokPaymentList').querySelectorAll = () => cards;
   const select = fields.get('hiddenPaymentSelect');
@@ -34,7 +34,7 @@ function harness({ selector = false } = {}) {
   document.getElementById = (id) => fields.get(id) || null;
   document.querySelector = () => select;
   const context = vm.createContext({
-    document, window: {}, Event: class { constructor(type) { this.type = type; } },
+    document, window: {}, crypto: require('node:crypto').webcrypto, sessionStorage: {getItem(){return null;},setItem(){},removeItem(){}}, Event: class { constructor(type) { this.type = type; } },
     localStorage: { getItem() { return null; } },
     renderCheckoutAddress() {}, renderGcashSection() {},
   });
@@ -49,6 +49,21 @@ function harness({ selector = false } = {}) {
   const choose = (value) => { select.value = value; select.dispatchEvent({ type: 'change' }); };
   return { api: context.window.FMRC_PAYMENT_METHODS, context, fields, select, cards, choose };
 }
+
+test('QR Ph settings update checkout copy while retaining the existing order method value', () => {
+  const h = harness({selector: true});
+  h.api.applySettings({payment_gcash_ready:'1', payment_checkout_method:'qrph', payment_checkout_label:'GCash / QR Ph'});
+  h.choose('GCash');
+  assert.equal(h.fields.get('tiktokGcashTitle').textContent, 'GCash / QR Ph');
+  assert.match(h.fields.get('tiktokGcashSub').textContent, /QR/);
+  assert.equal(h.select.value, 'GCash');
+  assert.equal(h.select.options[3].textContent, 'GCash / QR Ph');
+  assert.equal(h.fields.get('submitOrderBtn').disabled, false);
+  assert.equal(h.api.checkout().method, 'qrph');
+  h.api.applySettings({payment_gcash_ready:'1', payment_checkout_method:'gcash'});
+  assert.equal(h.fields.get('tiktokGcashTitle').textContent, 'GCash');
+  assert.equal(h.select.value, 'GCash');
+});
 
 test('checkout waits for settings and recovers after an initial load failure', () => {
   const h = harness();
@@ -67,7 +82,7 @@ test('checkout waits for settings and recovers after an initial load failure', (
 test('all eight availability combinations disable corresponding options and checkout when all are off', () => {
   for (let mask = 0; mask < 8; mask++) {
     const h = harness();
-    h.api.applySettings(Object.fromEntries(keys.map((key, i) => [key, (mask >> i) & 1 ? '1' : '0'])));
+    h.api.applySettings({payment_gcash_ready:'1', ...Object.fromEntries(keys.map((key, i) => [key, (mask >> i) & 1 ? '1' : '0']))});
     names.forEach((name, i) => {
       const enabled = Boolean((mask >> i) & 1);
       assert.equal(h.api.isEnabled(name), enabled);
@@ -217,6 +232,27 @@ test('failed preflight and a revoked selection prevent any order POST', async ()
   assert.equal(h.fields.get('submitOrderBtn').disabled, true);
 });
 
+test('hosted GCash checkout submits without a linked wallet or manual payment reference', async () => {
+  const h = submitHarness();
+  h.api.applySettings({ payment_gcash_ready: '1', payment_checkout_method: 'qrph' });
+  h.choose('GCash');
+  h.context.getCheckoutPaymentKey = () => 'GCash';
+  h.context.window.FMRC_GET_LINKED_GCASH = () => null;
+  const terms = element();
+  terms.checked = false;
+  h.fields.set('orderTerms', terms);
+  await h.submit();
+  assert.equal(h.requests.length, 0, 'the terms agreement is still required');
+  terms.checked = true;
+  await h.submit();
+  assert.equal(h.requests.length, 1, 'an unlinked customer can create the unpaid order');
+  const payload = JSON.parse(h.requests[0].options.body);
+  assert.equal(payload.payment_method, 'GCash');
+  assert.equal(Object.hasOwn(payload, 'payment_reference'), false);
+  assert.equal(Object.hasOwn(payload, 'gcash_phone'), false);
+  assert.equal(h.popups.some(message => /link your GCash/i.test(message)), false);
+});
+
 test('duplicate clicks while preflight is pending send only one order, then server rejection clears stale selection', async () => {
   const h = submitHarness();
   let release;
@@ -239,3 +275,5 @@ test('duplicate clicks while preflight is pending send only one order, then serv
   assert.equal(h.fields.get('submitOrderBtn').disabled, true);
   assert.match(h.popups[0], /Method unavailable/);
 });
+
+test('GCash requires provider readiness even when the admin preference is enabled', () => { const h=harness(); h.api.applySettings({payment_gcash_enabled:'1',payment_gcash_ready:'0'}); assert.equal(h.api.isEnabled('GCash'),false); h.api.applySettings({payment_gcash_enabled:'1',payment_gcash_ready:'1'}); assert.equal(h.api.isEnabled('GCash'),true); });

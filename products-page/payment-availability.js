@@ -9,12 +9,18 @@
   let submitting = false;
   let selectionRemoved = false;
   let loadFailed = false;
+  let checkout = { method: 'gcash', label: 'GCash', description: 'Authorize securely in GCash' };
 
   const isEnabled = (method) => Boolean(methods && methods[method]);
   const sync = () => {
     const list = document.getElementById("tiktokPaymentList");
     const select = document.getElementById("hiddenPaymentSelect");
     if (!list || !select) return;
+
+    const title = document.getElementById('tiktokGcashTitle');
+    const subtitle = document.getElementById('tiktokGcashSub');
+    if (title) title.textContent = checkout.label;
+    if (subtitle) subtitle.textContent = checkout.description;
 
     list.setAttribute("aria-busy", String(!methods && !loadFailed));
     list.querySelectorAll(".tiktok-pm-item").forEach((item) => {
@@ -29,6 +35,7 @@
     });
     Array.from(select.options).forEach((option) => {
       if (option.value) option.disabled = !isEnabled(option.value);
+      if (option.value === 'GCash') option.textContent = checkout.label;
     });
     if (select.value && !isEnabled(select.value)) {
       selectionRemoved = Boolean(methods);
@@ -56,9 +63,15 @@
   };
 
   const applySettings = (settings) => {
+    const qrph = settings.payment_checkout_method === 'qrph';
+    checkout = {
+      method: qrph ? 'qrph' : 'gcash',
+      label: settings.payment_checkout_label || (qrph ? 'GCash / QR Ph' : 'GCash'),
+      description: settings.payment_checkout_description || (qrph ? 'Scan the secure payment QR with GCash or another QR Ph app.' : 'Authorize securely in GCash'),
+    };
     methods = Object.fromEntries(Object.entries(settingKeys).map(([method, key]) => {
       const value = settings[key];
-      return [method, value === undefined || value === true || value === 1 || value === "1"];
+      return [method, (method !== "GCash" || settings.payment_gcash_ready === "1") && (value === undefined || value === true || value === 1 || value === "1")];
     }));
     loadFailed = false;
     sync();
@@ -66,6 +79,7 @@
   window.FMRC_PAYMENT_METHODS = {
     applySettings,
     isEnabled,
+    checkout: () => ({ ...checkout }),
     sync,
     rejectMethod(method) {
       if (methods && Object.hasOwn(settingKeys, method)) methods[method] = false;

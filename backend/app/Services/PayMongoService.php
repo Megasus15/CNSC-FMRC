@@ -1,267 +1,80 @@
 <?php
-
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Thin wrapper around the PayMongo REST API.
- *
- * Only the two endpoints FMRC actually needs are implemented:
- *
- *  1. Create a Checkout Session — called at order placement to get a URL
- *     the customer's browser is redirected to so GCash can collect the money.
- *
- *  2. Verify a webhook signature — called when PayMongo POSTs back to tell
- *     us the payment succeeded or failed.
- *
- * Everything goes over PayMongo's v1 JSON API, authenticated with the secret
- * key from config/payments.php (which reads .env). No third-party SDK is
- * needed: Laravel's HTTP client handles the request and the response.
- */
+/** Secrets never leave the server. No simulator or unsigned verification path. */
 class PayMongoService
 {
-    private string $baseUrl;
-
-    private string $secretKey;
-
-    public function __construct()
-    {
-        $this->baseUrl = rtrim((string) config('payments.paymongo.base_url', 'https://api.paymongo.com/v1'), '/');
-        $this->secretKey = (string) config('payments.paymongo.secret_key', '');
+    public function checkoutMethod(): string { return (string) config('payments.paymongo.checkout_method', 'qrph'); }
+    public static function supportsMethod(string $method): bool { return in_array($method, ['gcash', 'qrph'], true); }
+    public static function methodLabel(string $method): string { return $method === 'qrph' ? 'QR Ph' : 'GCash'; }
+    public static function checkoutLabel(string $method): string { return $method === 'qrph' ? 'GCash / QR Ph' : 'GCash'; }
+    public static function checkoutDescription(string $method): string {
+        return $method === 'qrph'
+            ? 'Pay with GCash or another supported app using the QR code on the secure checkout page. Your payment is confirmed automatically.'
+            : 'Authorize payment through GCash on the secure checkout page. Your payment is confirmed automatically.';
     }
-
-    /**
-     * Whether the PayMongo gateway has usable credentials.
-     *
-     * A half-configured .env (key present but empty) falls back to manual
-     * GCash rather than breaking the checkout with a 401 from PayMongo.
-     */
-    public function isConfigured(): bool
-    {
-        return $this->secretKey !== ''
-            && str_starts_with($this->secretKey, 'sk_');
+    public function isLive(): bool { return str_starts_with((string) config('payments.paymongo.secret_key'), 'sk_live_'); }
+    public function isConfigured(): bool {
+        $key = (string) config('payments.paymongo.secret_key');
+        return preg_match('/^sk_(test|live)_.+$/', $key) === 1
+            && (string) config('payments.paymongo.webhook_secret') !== ''
+            && (!app()->environment('production') || $this->isLive());
     }
-
-    /**
-     * Create a PayMongo Checkout Session for a GCash payment.
-     *
-     * Returns the full API response as an array on success, or null on failure.
-     * The caller reads `data.attributes.checkout_url` from the response to get
-     * the URL the customer's browser should be redirected to.
-     *
-     * @param  int     $amountCentavos  Total in centavos (₱150.00 = 15000)
-     * @param  string  $description     What the customer sees on the GCash page
-     * @param  string  $orderNo         FMRC order number for reference
-     * @param  int     $orderId         Internal order ID for the metadata
-     * @param  int     $paymentId       Internal payment ID for webhook matching
-     * @return array|null
-     */
-    public function createCheckoutSession(
-        int $amountCentavos,
-        string $description,
-        string $orderNo,
-        int $orderId,
-        int $paymentId,
-        string $appContext = '',
-    ): ?array {
-        $defaultBase = rtrim((string) (config('app.frontend_url') ?: config('app.url', 'https://ucn-fabmanlab.com')), '/');
-        $successUrl = config('payments.paymongo.success_url') ?: "{$defaultBase}/products-page/product.html?payment=success";
-        $failedUrl = config('payments.paymongo.failed_url') ?: "{$defaultBase}/products-page/product.html?payment=failed";
-        if ($appContext === 'customer') {
-            // Fixed destinations on the configured frontend origin; never accept a return URL from a client.
-            $successUrl = "{$defaultBase}/apps/customer/products-page/product.html?payment=success";
-            $failedUrl = "{$defaultBase}/apps/customer/products-page/product.html?payment=failed";
-        }
-
-        // Append order identification to the redirect URLs so the frontend
-        // can show meaningful feedback after the customer returns.
-        $successUrl .= (str_contains($successUrl, '?') ? '&' : '?') . 'order_id=' . $orderId;
-        $failedUrl .= (str_contains($failedUrl, '?') ? '&' : '?') . 'order_id=' . $orderId;
-
-        // Local Sandbox Simulator Mode (for testing without charging real money)
-        if (config('payments.paymongo.sandbox_simulator')) {
-            $simCheckoutId = 'cs_sim_' . bin2hex(random_bytes(10));
-            $simulatorUrl = "{$defaultBase}/products-page/paymongo-simulator.html?session_id={$simCheckoutId}&order_id={$orderId}&order_no=" . urlencode($orderNo) . "&amount=" . number_format($amountCentavos / 100, 2, '.', '');
-            if ($appContext === 'customer') $simulatorUrl = str_replace('/products-page/', '/apps/customer/products-page/', $simulatorUrl);
-
-            Log::info('[PAYMONGO] Sandbox simulator checkout session created', [
-                'session_id' => $simCheckoutId,
-                'order_id' => $orderId,
-            ]);
-
-            return [
-                'data' => [
-                    'id' => $simCheckoutId,
-                    'type' => 'checkout_session',
-                    'attributes' => [
-                        'checkout_url' => $simulatorUrl,
-                        'payment_intent' => [
-                            'attributes' => ['status' => 'awaiting_payment_method'],
-                        ],
-                    ],
-                ],
-            ];
-        }
-
-        $payload = [
-            'data' => [
-                'attributes' => [
-                    'send_email_receipt' => false,
-                    'show_description' => true,
-                    'show_line_items' => true,
-                    'description' => $description,
-                    'line_items' => [
-                        [
-                            'currency' => 'PHP',
-                            'amount' => $amountCentavos,
-                            'name' => $description,
-                            'quantity' => 1,
-                        ],
-                    ],
-                    'payment_method_types' => ['gcash'],
-                    'success_url' => $successUrl,
-                    'cancel_url' => $failedUrl,
-                    'metadata' => [
-                        'order_id' => $orderId,
-                        'order_no' => $orderNo,
-                        'payment_id' => $paymentId,
-                    ],
-                ],
-            ],
-        ];
-
+    public function acceptsNewPayments(): bool {
+        return config('payments.gateway') === 'paymongo' && config('payments.paymongo.enabled', false) && $this->isConfigured() && self::supportsMethod($this->checkoutMethod());
+    }
+    public function request(string $method, string $path, array $attributes = [], ?string $idempotencyKey = null): ?array {
+        if (!$this->isConfigured()) return null;
         try {
-            $response = Http::withBasicAuth($this->secretKey, '')
-                ->timeout(15)
-                ->post("{$this->baseUrl}/checkout_sessions", $payload);
-
-            if ($response->successful()) {
-                return $response->json();
-            }
-
-            Log::error('[PAYMONGO] Checkout session creation failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-                'order_id' => $orderId,
-            ]);
-
+            $client = Http::withBasicAuth((string) config('payments.paymongo.secret_key'), '')->acceptJson()->timeout(15);
+            $url = 'https://api.paymongo.com/'.$path;
+            if ($idempotencyKey) $client = $client->withHeaders(['Idempotency-Key' => $idempotencyKey]);
+            $response = $method === 'GET' ? $client->get($url) : $client->post($url, ['data' => ['attributes' => $attributes]]);
+            // Never automatically retry money-moving POSTs. An ambiguous result is reconciled first.
+            if ($response->successful()) return $response->json();
+            Log::warning('Payment provider request failed', ['path' => strtok($path, '?'), 'status' => $response->status()]);
+            if ($method === 'POST' && in_array($response->status(), [400,401,403,404,422], true)) return ['rejected' => true];
             return null;
         } catch (\Throwable $e) {
-            Log::error('[PAYMONGO] Checkout session request exception', [
-                'message' => $e->getMessage(),
-                'order_id' => $orderId,
-            ]);
-
+            Log::warning('Payment provider unavailable', ['operation' => $method]);
             return null;
         }
     }
-
-    /**
-     * Retrieve a checkout session by its ID.
-     *
-     * Used to check the payment status when the customer returns from PayMongo,
-     * as a fallback in case the webhook has not arrived yet.
-     *
-     * @return array|null
-     */
-    public function retrieveCheckoutSession(string $checkoutSessionId): ?array
-    {
-        // Handle simulator session
-        if (str_starts_with($checkoutSessionId, 'cs_sim_')) {
-            return [
-                'data' => [
-                    'id' => $checkoutSessionId,
-                    'type' => 'checkout_session',
-                    'attributes' => [
-                        'payment_intent' => [
-                            'attributes' => ['status' => 'succeeded'],
-                        ],
-                        'payments' => [
-                            ['id' => 'pay_sim_' . substr($checkoutSessionId, 7)],
-                        ],
-                    ],
-                ],
-            ];
-        }
-
-        try {
-            $response = Http::withBasicAuth($this->secretKey, '')
-                ->timeout(10)
-                ->get("{$this->baseUrl}/checkout_sessions/{$checkoutSessionId}");
-
-            if ($response->successful()) {
-                return $response->json();
-            }
-
-            Log::warning('[PAYMONGO] Checkout session retrieval failed', [
-                'status' => $response->status(),
-                'checkout_session_id' => $checkoutSessionId,
-            ]);
-
-            return null;
-        } catch (\Throwable $e) {
-            Log::warning('[PAYMONGO] Checkout session retrieval exception', [
-                'message' => $e->getMessage(),
-                'checkout_session_id' => $checkoutSessionId,
-            ]);
-
-            return null;
-        }
+    public function createCheckoutSession(int $amountCentavos, string $description, string $orderNo, int $orderId, int $paymentId, string $appContext = '', string $attemptToken = '', ?string $checkoutMethod = null): ?array {
+        $checkoutMethod ??= $this->checkoutMethod();
+        if (!self::supportsMethod($checkoutMethod)) return null;
+        $base = rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/');
+        if (app()->environment('production') && !str_starts_with($base, 'https://')) return null;
+        $page = $base.($appContext === 'customer' ? '/apps/customer' : '').'/products-page/product.html';
+        return $this->request('POST', 'v2/checkout_sessions', [
+            'line_items' => [['currency' => 'PHP', 'amount' => $amountCentavos, 'name' => $description, 'quantity' => 1]],
+            'payment_method_types' => [$checkoutMethod], 'pass_on_fees' => false,
+            'send_email_receipt' => false, 'show_description' => true, 'show_line_items' => true,
+            'description' => $description, 'reference_number' => $attemptToken,
+            'success_url' => $page.'?payment=return&order_id='.$orderId,
+            'cancel_url' => $page.'?payment=cancelled&order_id='.$orderId,
+            'metadata' => ['order_id' => (string) $orderId, 'payment_id' => (string) $paymentId, 'attempt_token' => $attemptToken],
+        ], $attemptToken);
     }
-
-    /**
-     * Verify that a webhook payload actually came from PayMongo.
-     *
-     * PayMongo signs every webhook with the secret from the webhook
-     * registration. The signature is in the `Paymongo-Signature` header
-     * as `t=<timestamp>,te=<test_signature>,li=<live_signature>`.
-     *
-     * We recompute the HMAC and compare it to the one in the header.
-     */
-    public function verifyWebhookSignature(string $payload, string $signatureHeader): bool
-    {
-        // In local simulator mode, accept simulator header
-        if (config('payments.paymongo.sandbox_simulator') && $signatureHeader === 'simulated_test_signature') {
-            return true;
-        }
-
-        $webhookSecret = (string) config('payments.paymongo.webhook_secret', '');
-
-        if ($webhookSecret === '') {
-            // No webhook secret configured — accept everything in test mode
-            // to avoid blocking development. In production this should always
-            // be set.
-            Log::warning('[PAYMONGO] Webhook secret not configured, skipping signature verification');
-            return true;
-        }
-
-        // Parse the signature header: t=timestamp,te=test_sig,li=live_sig
+    // The v1 retrieval API supports both current and legacy sessions.
+    public function retrieveCheckoutSession(string $id): ?array {
+        if (!preg_match('/^cs_[a-zA-Z0-9]+$/', $id)) return null;
+        return $this->request('GET', 'v1/checkout_sessions/'.$id);
+    }
+    public function verifyWebhookSignature(string $payload, string $header): bool {
+        if (!$this->isConfigured()) return false;
         $parts = [];
-        foreach (explode(',', $signatureHeader) as $part) {
-            [$key, $value] = explode('=', $part, 2) + [null, null];
-            if ($key !== null && $value !== null) {
-                $parts[trim($key)] = trim($value);
-            }
+        foreach (explode(',', $header) as $part) {
+            $pair = explode('=', trim($part), 2);
+            if (count($pair) === 2) $parts[$pair[0]] = $pair[1];
         }
-
         $timestamp = $parts['t'] ?? '';
-
-        // In test mode, use the 'te' (test environment) signature.
-        // In live mode, use the 'li' (live) signature.
-        $isLive = str_starts_with($this->secretKey, 'sk_live_');
-        $signature = $isLive
-            ? ($parts['li'] ?? $parts['te'] ?? '')
-            : ($parts['te'] ?? $parts['li'] ?? '');
-
-        if ($timestamp === '' || $signature === '') {
-            return false;
-        }
-
-        // Recompute: HMAC-SHA256 of "timestamp.payload" using the webhook secret
-        $expectedSignature = hash_hmac('sha256', "{$timestamp}.{$payload}", $webhookSecret);
-
-        return hash_equals($expectedSignature, $signature);
+        if (!ctype_digit($timestamp) || abs(time() - (int) $timestamp) > 300) return false;
+        $signature = $parts[$this->isLive() ? 'li' : 'te'] ?? '';
+        $expected = hash_hmac('sha256', $timestamp.'.'.$payload, (string) config('payments.paymongo.webhook_secret'));
+        return $signature !== '' && hash_equals($expected, $signature);
     }
 }

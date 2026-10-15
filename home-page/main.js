@@ -2767,7 +2767,7 @@ document.addEventListener("DOMContentLoaded", () => {
       note = "Choose a payment method first.";
     } else {
       note =
-        "GCash is paid in advance, so you can either collect the order at FMRC or have it delivered.";
+        "Online payment is made in advance, so you can either collect the order at FMRC or have it delivered.";
     }
 
     if (getSelectedFulfillmentType() === "delivery" && missing.length) {
@@ -2799,6 +2799,8 @@ document.addEventListener("DOMContentLoaded", () => {
       accountNumber: String(published?.accountNumber || "").trim(),
       qrImage: String(published?.qrImage || "").trim(),
       gateway: String(published?.gateway || "manual").trim(),
+      checkoutMethod: published?.checkoutMethod === 'qrph' ? 'qrph' : 'gcash',
+      checkoutDescription: String(published?.checkoutDescription || '').trim(),
     };
   };
 
@@ -2913,13 +2915,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const renderGcashSection = () => {
     if (!gcashPaymentSection) return;
 
-    const linked = window.FMRC_GET_LINKED_GCASH?.();
-    if (linked && linked.linked) {
-      gcashPaymentSection.hidden = true;
-      clearCheckoutFieldError("gcashReferenceInput");
-      return;
-    }
-
     const isGcash = getCheckoutPaymentKey() === "GCash";
     gcashPaymentSection.hidden = !isGcash;
     if (!isGcash) {
@@ -2940,7 +2935,7 @@ document.addEventListener("DOMContentLoaded", () => {
       gcashAccountNameEl.textContent = settings.accountName || "—";
     if (gcashAccountNumberEl)
       gcashAccountNumberEl.textContent = settings.accountNumber || "—";
-    const isPayMongo = settings.gateway === "paymongo";
+    const isPayMongo = true;
     const refGroup = gcashReferenceInput?.closest(".gcash-reference-group");
     const accountCard = gcashAccountNameEl?.closest(".gcash-account-card");
 
@@ -2954,7 +2949,9 @@ document.addEventListener("DOMContentLoaded", () => {
       if (gcashReferenceInput) gcashReferenceInput.disabled = true;
       if (gcashUnconfiguredNote) {
         gcashUnconfiguredNote.textContent =
-          "⚡ Automated GCash Payment: When you click Place Order, you will be redirected to the secure GCash payment gateway to authorize payment. Your order will be confirmed immediately.";
+          settings.checkoutMethod === 'qrph'
+            ? "Continue to secure checkout for your order's payment QR. Scan it with GCash or another QR Ph app. On the same phone, save the QR and use your app's QR image option, if available. Confirmation appears automatically."
+            : "Continue to secure checkout, then follow the GCash authorization instructions. Payment confirmation appears automatically.";
         gcashUnconfiguredNote.hidden = false;
       }
       return;
@@ -2995,57 +2992,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // would be worse than saying nothing, so it hides with the rest.
     if (gcashPayLaterNote) gcashPayLaterNote.hidden = !ready;
     if (gcashReferenceInput) gcashReferenceInput.disabled = !ready;
-  };
-
-  /**
-   * The submit gate for GCash. Nothing here proves the money moved, and an
-   * empty reference is not an error: the order is allowed through and waits in
-   * "To Pay" until the customer submits the reference from My Orders. What it
-   * still refuses is a *wrong* reference, which staff would have no way to
-   * reconcile, and GCash with nowhere to send the money.
-   */
-  const validateGcashPaymentStep = () => {
-    const linked = window.FMRC_GET_LINKED_GCASH?.();
-    if (linked && linked.linked) {
-      clearCheckoutFieldError("gcashReferenceInput");
-      return { ok: true, reference: "" };
-    }
-
-    if (getGcashSettings().gateway === "paymongo") {
-      clearCheckoutFieldError("gcashReferenceInput");
-      return { ok: true, reference: "" };
-    }
-
-    if (!isGcashCollectionReady()) {
-      return {
-        ok: false,
-        title: "GCash Not Available Yet",
-        message:
-          "FMRC has not published its GCash number or QR code yet, so there is nowhere to send the payment. Please choose Cash on Pickup or Cash on Delivery.",
-      };
-    }
-
-    const reference = getNormalizedGcashReference();
-
-    // Paying later is a supported choice, not an omission.
-    if (reference === "") {
-      clearCheckoutFieldError("gcashReferenceInput");
-      return { ok: true, reference: "" };
-    }
-
-    if (reference.length !== GCASH_REFERENCE_DIGITS) {
-      const message = `That reference number has ${reference.length} digit${reference.length === 1 ? "" : "s"}. GCash reference numbers are ${GCASH_REFERENCE_DIGITS} digits long — check the "Ref. No." on your receipt, or clear the field and pay later from My Orders.`;
-      setCheckoutFieldError("gcashReferenceInput", message);
-      return {
-        ok: false,
-        title: "Check Your GCash Reference",
-        message,
-        focusReference: true,
-      };
-    }
-
-    clearCheckoutFieldError("gcashReferenceInput");
-    return { ok: true, reference };
   };
 
   if (gcashCopyNumberBtn) {
@@ -4217,340 +4163,37 @@ document.addEventListener("DOMContentLoaded", () => {
   // pickup/delivery changes whether the address block is even relevant, so both
   // re-render the summary. The payment method also decides whether the GCash
   // step is on screen at all.
-  // ── TikTok Shop-Style Payment Method Selector & GCash Account Binding ──
+  // GCash authorization happens exclusively on the provider's checkout.
   const initTikTokPaymentMethods = () => {
-    const paymentList = document.getElementById("tiktokPaymentList");
-    if (!paymentList) return;
-
-    const hiddenSelect = document.querySelector("#checkoutModal .payment-select");
-    const pmItems = paymentList.querySelectorAll(".tiktok-pm-item");
-    const gcashTitle = document.getElementById("tiktokGcashTitle");
-    const gcashBadge = document.getElementById("tiktokGcashBadge");
-    const gcashSub = document.getElementById("tiktokGcashSub");
-
-    hiddenSelect?.addEventListener("change", () => {
-      renderCheckoutAddress();
-      renderGcashSection();
-    });
-
-    // Modal elements
-    const linkGcashModal = document.getElementById("linkGcashModal");
-    const closeLinkGcashBtn = document.getElementById("closeLinkGcashBtn");
-    const linkGcashPhone = document.getElementById("linkGcashPhone");
-    const btnSendGcashOtp = document.getElementById("btnSendGcashOtp");
-    const linkGcashStep1 = document.getElementById("linkGcashStep1");
-    const linkGcashStep2 = document.getElementById("linkGcashStep2");
-    const linkGcashStep3 = document.getElementById("linkGcashStep3");
-    const linkGcashDisplayPhone = document.getElementById("linkGcashDisplayPhone");
-    const linkGcashOtp = document.getElementById("linkGcashOtp");
-    const btnConfirmGcashLink = document.getElementById("btnConfirmGcashLink");
-    const btnBackToPhone = document.getElementById("btnBackToPhone");
-    const btnFinishGcashLink = document.getElementById("btnFinishGcashLink");
-    const linkGcashSuccessSub = document.getElementById("linkGcashSuccessSub");
-
-    let currentLinkedGcash = null;
-
-    // Load linked GCash status from local cache or API
-    const loadLinkedGcashStatus = async () => {
-      try {
-        const cached = localStorage.getItem("fmrc_customer_linked_gcash");
-        if (cached) {
-          currentLinkedGcash = JSON.parse(cached);
-          updateGcashUi(currentLinkedGcash);
-        }
-      } catch {
-        /* ignore */
-      }
-
-      const token = (() => {
-        try { return localStorage.getItem("customer_token"); } catch { return null; }
-      })();
-      if (!token) return;
-
-      try {
-        const res = await fetch(`${API_BASE_URL}/customer/gcash-account`, {
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.linked) {
-            currentLinkedGcash = data;
-            try {
-              localStorage.setItem("fmrc_customer_linked_gcash", JSON.stringify(data));
-            } catch { /* ignore */ }
-            updateGcashUi(data);
-          } else {
-            currentLinkedGcash = null;
-            try {
-              localStorage.removeItem("fmrc_customer_linked_gcash");
-            } catch { /* ignore */ }
-            updateGcashUi(null);
-          }
-        }
-      } catch (err) {
-        console.warn("[FMRC] Could not fetch linked GCash account:", err);
-      }
-    };
-
-    const updateGcashUi = (info) => {
-      if (info && info.linked) {
-        if (gcashTitle) gcashTitle.textContent = info.masked_phone || "GCash (Linked)";
-        if (gcashBadge) gcashBadge.style.display = "inline-flex";
-        if (gcashSub) {
-          gcashSub.innerHTML = `<span>Saved GCash account</span> • <button type="button" class="tiktok-change-link" id="btnChangeGcash">Change</button>`;
-          const changeBtn = document.getElementById("btnChangeGcash");
-          changeBtn?.addEventListener("click", (e) => {
-            e.stopPropagation();
-            openLinkModal();
-          });
-        }
-      } else {
-        if (gcashTitle) gcashTitle.textContent = "GCash";
-        if (gcashBadge) gcashBadge.style.display = "none";
-        if (gcashSub) {
-          gcashSub.innerHTML = `<span class="tiktok-link-action">+ Link GCash account <i class="fa-solid fa-chevron-right" style="font-size:0.7rem;" aria-hidden="true"></i></span>`;
-        }
-      }
-    };
-
-    const selectMethod = (methodName, triggerChangeEvent = true) => {
-      if (window.FMRC_PAYMENT_METHODS && !window.FMRC_PAYMENT_METHODS.isEnabled(methodName)) return;
-      pmItems.forEach((item) => {
-        const isMatch = item.dataset.method === methodName;
-        item.classList.toggle("selected", isMatch);
-        item.setAttribute("aria-pressed", String(isMatch));
+    const list = document.getElementById('tiktokPaymentList');
+    const select = document.querySelector('#checkoutModal .payment-select');
+    if (!list || !select) return;
+    try { localStorage.removeItem('fmrc_customer_linked_gcash'); } catch {}
+    document.getElementById('linkGcashModal')?.remove();
+    const sub = document.getElementById('tiktokGcashSub');
+    if (sub) sub.textContent = window.FMRC_PAYMENT_METHODS?.checkout?.().description || 'Continue to secure payment';
+    const badge = document.getElementById('tiktokGcashBadge');
+    if (badge) badge.hidden = true;
+    const update = () => {
+      list.querySelectorAll('[data-method]').forEach(item => {
+        const selected = item.dataset.method === select.value;
+        item.classList.toggle('selected', selected);
+        item.setAttribute('aria-pressed', String(selected));
       });
-      if (hiddenSelect && hiddenSelect.value !== methodName) {
-        hiddenSelect.value = methodName;
-        if (triggerChangeEvent) {
-          hiddenSelect.dispatchEvent(new Event("change"));
-        }
-      }
+      renderCheckoutAddress(); renderGcashSection();
     };
-
-    pmItems.forEach((item) => {
-      item.addEventListener("click", () => {
-        const method = item.dataset.method;
-        if (item.getAttribute("aria-disabled") === "true") return;
-        if (window.FMRC_PAYMENT_METHODS && !window.FMRC_PAYMENT_METHODS.isEnabled(method)) return;
-        if (method === "GCash" && (!currentLinkedGcash || !currentLinkedGcash.linked)) {
-          openLinkModal();
-          return;
-        }
-        selectMethod(method);
+    list.querySelectorAll('[data-method]').forEach(item => {
+      item.addEventListener('click', () => {
+        if (item.getAttribute('aria-disabled') === 'true' || !window.FMRC_PAYMENT_METHODS?.isEnabled(item.dataset.method)) return;
+        select.value = item.dataset.method; select.dispatchEvent(new Event('change'));
       });
-      item.addEventListener("keydown", (event) => {
-        if (event.target !== item || !["Enter", " "].includes(event.key)) return;
-        event.preventDefault();
-        item.click();
-      });
+      item.addEventListener('keydown', e => { if (e.target === item && ['Enter', ' '].includes(e.key)) { e.preventDefault(); item.click(); } });
     });
-
-    // Modal controls
-    const openLinkModal = () => {
-      if (!linkGcashModal) return;
-      if (window.FMRC_PAYMENT_METHODS && !window.FMRC_PAYMENT_METHODS.isEnabled("GCash")) return;
-      if (linkGcashPhone) linkGcashPhone.value = "";
-      if (linkGcashOtp) linkGcashOtp.value = "";
-      if (linkGcashStep1) linkGcashStep1.style.display = "block";
-      if (linkGcashStep2) linkGcashStep2.style.display = "none";
-      if (linkGcashStep3) linkGcashStep3.style.display = "none";
-      linkGcashModal.classList.add("active");
-      linkGcashModal.setAttribute("aria-hidden", "false");
-      setTimeout(() => linkGcashPhone?.focus(), 100);
-    };
-
-    const closeLinkModal = () => {
-      if (!linkGcashModal) return;
-      linkGcashModal.classList.remove("active");
-      linkGcashModal.setAttribute("aria-hidden", "true");
-    };
-
-    document.addEventListener("fmrc:payment-methods", () => {
-      if (!window.FMRC_PAYMENT_METHODS?.isEnabled("GCash")) closeLinkModal();
-      renderCheckoutAddress();
-      renderGcashSection();
-    });
-
-    closeLinkGcashBtn?.addEventListener("click", closeLinkModal);
-    // Backdrop click is disabled to prevent accidental dismissal; user must click the X close button.
-
-    const notifyGcash = (message, title = "GCash Account") => {
-      if (typeof showCustomerPopup === "function") {
-        void showCustomerPopup(message, { title, eyebrow: "GCash Linking" });
-      } else {
-        alert(message);
-      }
-    };
-
-    const restrictToDigitsOnly = (inputEl) => {
-      if (!inputEl) return;
-      inputEl.addEventListener("keydown", (e) => {
-        if (
-          [
-            "Backspace",
-            "Delete",
-            "Tab",
-            "Escape",
-            "Enter",
-            "ArrowLeft",
-            "ArrowRight",
-            "ArrowUp",
-            "ArrowDown",
-            "Home",
-            "End",
-          ].includes(e.key) ||
-          e.ctrlKey ||
-          e.metaKey
-        ) {
-          return;
-        }
-        if (!/^[0-9]$/.test(e.key)) {
-          e.preventDefault();
-        }
-      });
-
-      inputEl.addEventListener("input", () => {
-        inputEl.value = inputEl.value.replace(/\D/g, "");
-      });
-
-      inputEl.addEventListener("paste", (e) => {
-        const text = (e.clipboardData || window.clipboardData)?.getData("text") || "";
-        if (/\D/.test(text)) {
-          e.preventDefault();
-          const clean = text.replace(/\D/g, "");
-          const start = inputEl.selectionStart || 0;
-          const end = inputEl.selectionEnd || 0;
-          const current = inputEl.value;
-          const max = inputEl.maxLength > 0 ? inputEl.maxLength : undefined;
-          const combined = (current.slice(0, start) + clean + current.slice(end)).slice(0, max);
-          inputEl.value = combined;
-          inputEl.dispatchEvent(new Event("input"));
-        }
-      });
-    };
-
-    restrictToDigitsOnly(linkGcashPhone);
-    restrictToDigitsOnly(linkGcashOtp);
-
-    btnSendGcashOtp?.addEventListener("click", () => {
-      const raw = String(linkGcashPhone?.value || "").replace(/\D/g, "");
-      let cleaned = raw;
-      if (cleaned.startsWith("63") && cleaned.length === 12) cleaned = "0" + cleaned.slice(2);
-      if (cleaned.length === 10 && cleaned.startsWith("9")) cleaned = "0" + cleaned;
-
-      if (cleaned.length !== 11 || !cleaned.startsWith("09")) {
-        notifyGcash(
-          "Please enter a valid 11-digit GCash mobile number (e.g., 09171234567).",
-          "Invalid Phone Number"
-        );
-        linkGcashPhone?.focus();
-        return;
-      }
-
-      const masked = cleaned.slice(0, 4) + "****" + cleaned.slice(-4);
-      if (linkGcashDisplayPhone) linkGcashDisplayPhone.textContent = masked;
-      linkGcashStep1.style.display = "none";
-      linkGcashStep2.style.display = "block";
-      setTimeout(() => linkGcashOtp?.focus(), 100);
-    });
-
-    btnBackToPhone?.addEventListener("click", () => {
-      linkGcashStep2.style.display = "none";
-      linkGcashStep1.style.display = "block";
-      linkGcashPhone?.focus();
-    });
-
-    btnConfirmGcashLink?.addEventListener("click", async () => {
-      const otp = String(linkGcashOtp?.value || "").trim();
-      if (otp.length < 4) {
-        notifyGcash("Please enter the 6-digit verification code.", "Verification Required");
-        linkGcashOtp?.focus();
-        return;
-      }
-
-      const raw = String(linkGcashPhone?.value || "").replace(/\D/g, "");
-      const token = (() => {
-        try { return localStorage.getItem("customer_token"); } catch { return null; }
-      })();
-
-      btnConfirmGcashLink.disabled = true;
-      btnConfirmGcashLink.textContent = "Verifying...";
-
-      try {
-        if (token) {
-          const res = await fetch(`${API_BASE_URL}/customer/gcash-account/link`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ phone: raw, otp }),
-          });
-
-          const resData = await res.json();
-          if (!res.ok) {
-            notifyGcash(resData.message || "Could not link GCash account.", "Linking Failed");
-            btnConfirmGcashLink.disabled = false;
-            btnConfirmGcashLink.textContent = "Authorize & Link GCash";
-            return;
-          }
-
-          currentLinkedGcash = resData.data;
-        } else {
-          // Guest or fallback simulated link
-          let cleaned = raw;
-          if (cleaned.startsWith("63") && cleaned.length === 12) cleaned = "0" + cleaned.slice(2);
-          if (cleaned.length === 10 && cleaned.startsWith("9")) cleaned = "0" + cleaned;
-          currentLinkedGcash = {
-            linked: true,
-            phone: cleaned,
-            masked_phone: `GCash(****${cleaned.slice(-4)})`,
-          };
-        }
-
-        try {
-          localStorage.setItem("fmrc_customer_linked_gcash", JSON.stringify(currentLinkedGcash));
-        } catch { /* ignore */ }
-
-        updateGcashUi(currentLinkedGcash);
-        selectMethod("GCash");
-
-        if (linkGcashSuccessSub) {
-          linkGcashSuccessSub.textContent = `Your ${currentLinkedGcash.masked_phone} is now linked for fast checkout.`;
-        }
-
-        linkGcashStep2.style.display = "none";
-        linkGcashStep3.style.display = "block";
-      } catch (err) {
-        notifyGcash("Network error. Please try again.", "Connection Error");
-      } finally {
-        btnConfirmGcashLink.disabled = false;
-        btnConfirmGcashLink.textContent = "Authorize & Link GCash";
-      }
-    });
-
-    btnFinishGcashLink?.addEventListener("click", () => {
-      closeLinkModal();
-      selectMethod("GCash");
-    });
-
-    // Check if GCash is currently selected in the hidden select on init
-    loadLinkedGcashStatus();
-    if (hiddenSelect?.value) {
-      selectMethod(hiddenSelect.value, false);
-    } else {
-      selectMethod("Cash on Delivery", false);
-    }
-
-    // Export helper to window
-    window.FMRC_GET_LINKED_GCASH = () => currentLinkedGcash;
+    select.addEventListener('change', update);
+    document.addEventListener('fmrc:payment-methods', update);
+    window.FMRC_GET_LINKED_GCASH = () => null;
+    update();
   };
-
   initTikTokPaymentMethods();
   renderGcashSection();
 
@@ -4600,36 +4243,8 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      // GCash is paid before the order exists, so the reference number that
-      // proves it has to be on the form. The server refuses the order without
-      // one too; this only turns that 422 into a pointed message.
-      let gcashReference = "";
-      if (paymentKey === "GCash") {
-        const linked = window.FMRC_GET_LINKED_GCASH?.();
-        if (!linked || !linked.linked) {
-          await showCustomerPopup("Please link your GCash account first to proceed with GCash payment.", {
-            title: "Link GCash Account",
-          });
-          document.getElementById("pmItemGcash")?.click();
-          return;
-        }
-
-        const gcashCheck = validateGcashPaymentStep();
-        if (!gcashCheck.ok) {
-          await showCustomerPopup(gcashCheck.message, {
-            title: gcashCheck.title,
-          });
-          if (gcashCheck.focusReference) {
-            gcashReferenceInput?.scrollIntoView({
-              behavior: "smooth",
-              block: "center",
-            });
-            gcashReferenceInput?.focus();
-          }
-          return;
-        }
-        gcashReference = gcashCheck.reference;
-      }
+      // Online payment authorization happens after the unpaid order is created,
+      // on the provider's checkout. No linked wallet or manual receipt is required.
 
       // Pickup vs delivery decides whether an address is needed at all, so it
       // has to be settled before the address is validated.
@@ -4765,12 +4380,6 @@ document.addEventListener("DOMContentLoaded", () => {
           fulfillment_type: fulfillmentType,
         };
 
-        // The reference the customer read off their GCash receipt. It is a
-        // claim, not a confirmation: the order still waits at "To Pay" until
-        // staff match it in the FMRC GCash account.
-        if (gcashReference) {
-          basePayload.payment_reference = gcashReference;
-        }
         if (window.FMRCApp?.inApp && window.FMRCApp.app === "customer") basePayload.app_context = "customer";
 
         // A pickup order has no destination to ship to: the server pins the
@@ -4853,6 +4462,16 @@ document.addEventListener("DOMContentLoaded", () => {
           };
         }
 
+        // Persist the same key across ambiguous network retries; changed baskets get a new key.
+        const checkoutFingerprint = JSON.stringify(payload);
+        let savedCheckout;
+        try { savedCheckout = JSON.parse(sessionStorage.getItem('fmrc_checkout_request') || 'null'); } catch {}
+        if (!savedCheckout || savedCheckout.fingerprint !== checkoutFingerprint) {
+          savedCheckout = { fingerprint: checkoutFingerprint, key: crypto.randomUUID() };
+          sessionStorage.setItem('fmrc_checkout_request', JSON.stringify(savedCheckout));
+        }
+        payload.checkout_request_key = savedCheckout.key;
+
         const response = await fetchWithTimeout(
           `${API_BASE_URL}/orders`,
           {
@@ -4887,6 +4506,7 @@ document.addEventListener("DOMContentLoaded", () => {
           );
         }
 
+        sessionStorage.removeItem('fmrc_checkout_request');
         const orderNoRaw = String(
           data?.data?.order_no || data?.order_no || "",
         ).trim();
@@ -4947,10 +4567,22 @@ document.addEventListener("DOMContentLoaded", () => {
           console.info(
             `[FMRC] Redirecting to PayMongo GCash checkout: ${checkoutUrl}`,
           );
-          window.location.href = checkoutUrl;
+          window.FMRCGatewayPayments.redirect(checkoutUrl);
           return; // Stop here - browser is navigating away
         }
 
+        if (paymentMethod === 'GCash') {
+          if (useCartCheckout && cartItemsContainer) {
+            cartItemsContainer.querySelectorAll('.cart-item-check:checked').forEach(input => input.closest('.cart-item-card')?.remove());
+            updateCartTotals(); await persistCartItems();
+          }
+          currentCheckoutMode = 'single'; currentCheckoutItems = []; setCheckoutQtyLock(false);
+          checkoutModal.classList.remove('show-modal');
+          document.body.style.overflow = '';
+          window.FMRCGatewayPayments.open(data.data.id);
+          emitCustomerOrdersUpdated({ type: 'created', orderId: data.data.id });
+          return;
+        }
         // -- Step 1: Persist order-success info so products.js can show the
         //   success modal AFTER the product grid finishes reloading.
         //   This prevents the refresh cycle from dismissing the modal.
@@ -8584,6 +8216,7 @@ document.addEventListener("DOMContentLoaded", () => {
     String(order?.lifecycle_status || "").toLowerCase() === "incoming";
 
   const canSubmitOrderPayment = (order) =>
+    !order?.payment_is_automated &&
     !isOrderPaymentConfirmed(order) &&
     !isOrderPaymentRefunded(order) &&
     !["cancelled", "rejected", "completed"].includes(
@@ -8631,6 +8264,12 @@ document.addEventListener("DOMContentLoaded", () => {
         note: "This order is completed. Contact FMRC if its payment record needs to be checked.",
       };
     }
+    if (order?.payment_is_automated) return {
+      label: 'Payment with provider',
+      note: order.payment_checkout_method === 'qrph'
+        ? 'Use the secure checkout QR to pay with GCash or another QR Ph app. Payment confirmation updates automatically.'
+        : 'Use secure GCash checkout to authorize payment. Do not send a separate manual payment.',
+    };
     const isGcash = String(order?.payment_method || "").toLowerCase() === "gcash";
     return {
       label: isGcash ? "Awaiting payment" : "Awaiting payment collection",
@@ -9772,6 +9411,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (isOrderPaymentRefunded(order)) {
             return { label: "Refunded", className: "status-cancelled" };
           }
+          if (order?.payment_is_automated) return {label: 'Payment with provider', className: 'status-to-pay is-review'};
           if (order?.payment_under_review && canSubmitOrderPayment(order)) {
             return { label: "Under Review", className: "status-to-pay is-review" };
           }
@@ -10968,9 +10608,8 @@ document.addEventListener("DOMContentLoaded", () => {
           const collectible = Boolean(
             settings.accountNumber || settings.qrImage,
           );
-          const amountText =
-            order?.total_label ||
-            formatOrderCurrency(Number(order?.total_amount || 0));
+          const paymentAmount = Number(order?.payment_amount ?? order?.total_amount ?? 0);
+          const amountText = order?.payment_amount_label || (order?.payment_amount != null ? formatOrderCurrency(paymentAmount) : order?.total_label) || formatOrderCurrency(paymentAmount);
           const deadline = describePaymentDeadline(order);
           const underReview = order?.payment_under_review === true;
           const submittedRef = String(order?.payment_reference || "");
@@ -10995,7 +10634,7 @@ document.addEventListener("DOMContentLoaded", () => {
                   <span class="cgc-amount-label">${underReview ? "Payment amount under review" : "Amount to send"}</span>
                   <div class="cgc-amount-row">
                     <strong class="cgc-amount-value">${escapeHtml(amountText)}</strong>
-                    <button type="button" class="cgc-copy-btn" data-gcash-copy="${escapeHtml(String(Number(order?.total_amount || 0).toFixed(2)))}">Copy</button>
+                    <button type="button" class="cgc-copy-btn" data-gcash-copy="${escapeHtml(String(paymentAmount.toFixed(2)))}">Copy</button>
                   </div>
                 </div>
                 ${
@@ -11061,6 +10700,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const fileNameEl = overlayEl.querySelector("[data-gcash-file-name]");
         const submitBtn = overlayEl.querySelector("[data-gcash-submit]");
         const submitLabel = overlayEl.querySelector("[data-gcash-submit-label]");
+        let latestPaymentState = null;
         let settled = false;
         let busy = false;
         let openAppTimer = null;
@@ -11097,7 +10737,9 @@ document.addEventListener("DOMContentLoaded", () => {
         // normal order poll also closes stale payment instructions immediately.
         overlayEl.addEventListener("fmrc:payment-state-updated", (event) => {
           const latest = event.detail;
-          if (!latest || settled || busy || canSubmitOrderPayment(latest)) return;
+          if (!latest || settled || canSubmitOrderPayment(latest)) return;
+          latestPaymentState = latest;
+          if (busy) return;
           finish(null);
           const notice = resolveOrderPaymentNotice(latest);
           void showCustomerPopup(notice.note, { title: notice.label });
@@ -11215,6 +10857,12 @@ document.addEventListener("DOMContentLoaded", () => {
             proofInput?.files?.[0] || null,
             showError,
           );
+          if (latestPaymentState) {
+            finish(null);
+            const notice = resolveOrderPaymentNotice(latestPaymentState);
+            void showCustomerPopup(notice.note, { title: notice.label });
+            return;
+          }
           if (!updated) {
             restore();
             return;
@@ -11406,10 +11054,8 @@ document.addEventListener("DOMContentLoaded", () => {
           const amountText =
             order?.total_label ||
             formatOrderCurrency(Number(order?.total_amount || 0));
-          // Money that FMRC is holding. A confirmed payment is a refund staff
-          // have to send by hand, and an unverified claim still has to be
-          // checked - promising either automatically would be a lie, because
-          // there is no GCash API and no cron on this hosting.
+          // Cancellation review and payment refund are separate decisions.
+          // Automatic payments are refunded through the original provider.
           const paymentConfirmed = order?.payment_is_confirmed === true;
           const paymentClaimed = order?.payment_under_review === true;
 
@@ -11437,7 +11083,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     ? ""
                     : `<p class="ccx-notice"><i class="fa-regular fa-hourglass-half" aria-hidden="true"></i> ${
                         paymentConfirmed
-                          ? `FMRC has already confirmed your ${escapeHtml(amountText)} payment, so this sends a request instead of cancelling straight away. If staff approve it, they refund the ${escapeHtml(amountText)} to the GCash number you paid from — by hand, so allow a few working days.`
+                          ? order.payment_is_automated
+                            ? `FMRC has confirmed your ${escapeHtml(amountText)} payment, so staff must review the cancellation. Any approved refund is returned through the original payment method. You can check its status in Payment details.`
+                            : `FMRC has already confirmed your ${escapeHtml(amountText)} payment, so this sends a request instead of cancelling straight away. If staff approve it, they refund the ${escapeHtml(amountText)} to the GCash number you paid from — by hand, so allow a few working days.`
                           : `FMRC is holding a payment for this order, so this sends a request instead of cancelling straight away. Staff check the ${escapeHtml(amountText)} before closing the order.`
                       }</p>`
                 }
@@ -11721,7 +11369,9 @@ document.addEventListener("DOMContentLoaded", () => {
           const paymentConfirmed = result.order?.payment_is_confirmed === true;
           await showCustomerPopup(
             paymentConfirmed
-              ? "Your order is cancelled. FMRC will send your payment back by hand, so allow a few working days."
+              ? result.order?.payment_is_automated
+                ? "Your order is cancelled. Any approved refund is returned through the original payment method. Check Payment details for its status."
+                : "Your order is cancelled. FMRC will send your payment back by hand, so allow a few working days."
               : refundDue
                 ? "Your order is cancelled. If your GCash payment reached FMRC, staff will check the account and send it back — allow a few working days."
                 : "Your order is cancelled and the stock has been returned. Nothing is owed on it.",
@@ -11871,7 +11521,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 order.order_no_display ||
                   `#${order.order_no || order.id || "-"}`,
               );
-              const paymentMethod = escapeHtml(order.payment_method || "N/A");
+              const paymentMethod = escapeHtml(order.payment_method_label || order.payment_method || "N/A");
 
               const numericTotal = Number(order.total_amount || 0);
               const totalLabel = formatOrderCurrency(
@@ -11910,7 +11560,9 @@ document.addEventListener("DOMContentLoaded", () => {
               const paymentNoticeHtml = isOrderPaymentConfirmed(order) || isOrderPaymentRefunded(order) || order.payment_under_review
                 ? `<p class="customer-order-meta"><strong>${escapeHtml(paymentNotice.label)}.</strong>${isOrderAwaitingApproval(order) || order.payment_under_review || isOrderPaymentRefunded(order) ? ` ${escapeHtml(paymentNotice.note)}` : ""}</p>`
                 : "";
-              const payActionsHtml = acceptsPayment && order.awaiting_customer_payment
+              const payActionsHtml = order.payment_is_automated
+                ? `<button type="button" class="customer-order-pay-btn" data-gateway-order="${escapeHtml(order.id)}">${order.payment_is_confirmed || order.payment_is_refunded ? "Payment details" : "View payment"}</button>`
+                : acceptsPayment && order.awaiting_customer_payment
                 ? `<button type="button" class="customer-order-pay-btn${order.payment_is_overdue ? " is-overdue" : ""}" data-order-pay="${escapeHtml(order.id)}"><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i> Pay Now</button>`
                 : acceptsPayment && order.payment_under_review
                   ? `<button type="button" class="customer-order-pay-btn is-review" data-order-pay="${escapeHtml(order.id)}"><i class="fa-regular fa-hourglass-half" aria-hidden="true"></i> Payment under review</button>`
@@ -11934,7 +11586,9 @@ document.addEventListener("DOMContentLoaded", () => {
                      <i class="fa-regular fa-circle-xmark" aria-hidden="true"></i>
                      <span><strong>Cancelled${order.cancelled_at_label ? ` on ${escapeHtml(order.cancelled_at_label)}` : ""}.</strong>${order.cancel_reason_label ? ` ${escapeHtml(order.cancel_reason_label)}.` : ""}${
                        order.cancel_refund_due && order.payment_is_confirmed
-                         ? " FMRC still owes you a refund — staff send it back to the GCash number you paid from."
+                         ? order.payment_is_automated
+                           ? " Your refund is awaiting processing. Check Payment details for its status."
+                           : " FMRC still owes you a refund — staff send it back to the GCash number you paid from."
                          : order.cancel_refund_due
                            ? " If your GCash payment reached FMRC, staff will send it back to the number you paid from."
                            : order.payment_is_refunded
@@ -12061,7 +11715,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const paymentNotice = resolveOrderPaymentNotice(detail);
         const paymentRows = [
           ["Status", paymentNotice.label],
-          ["Method", detail.payment_method],
+          ["Method", detail.payment_method_label || detail.payment_method],
           ["Amount", detail.payment_amount_label || detail.total_label || formatOrderCurrency(detail.total_amount)],
           ["Reference", detail.payment_reference_supplied ? detail.payment_reference : null],
           ["Confirmed", detail.payment_confirmed_label],
@@ -12098,11 +11752,13 @@ document.addEventListener("DOMContentLoaded", () => {
                ${detail.cancel_reason_detail ? `<p class="customer-order-cancel-detail-note">&ldquo;${escapeHtml(detail.cancel_reason_detail)}&rdquo;</p>` : ""}
                <p>${
                  detail.cancel_refund_due && detail.payment_is_confirmed
-                   ? "FMRC still has to send your payment back. Staff transfer it by hand to the GCash number you paid from, so allow a few working days."
+                   ? detail.payment_is_automated
+                     ? "Your refund is awaiting processing through the original payment method. Check Payment details for its status."
+                     : "FMRC still has to send your payment back. Staff transfer it by hand to the GCash number you paid from, so allow a few working days."
                    : detail.cancel_refund_due
                      ? "You sent a GCash reference that nobody had verified yet. Staff will check the FMRC account and, if the money arrived, transfer it back by hand to the number you paid from."
                      : detail.payment_is_refunded
-                       ? `Refunded${detail.payment_refunded_label ? ` on ${escapeHtml(detail.payment_refunded_label)}` : ""}${detail.payment_refund_reference ? ` — GCash ref. ${escapeHtml(detail.payment_refund_reference)}` : ""}.`
+                       ? `Refunded${detail.payment_refunded_label ? ` on ${escapeHtml(detail.payment_refunded_label)}` : ""}${detail.payment_refund_reference ? ` — ref. ${escapeHtml(detail.payment_refund_reference)}` : ""}.`
                        : "No payment was collected on this order, so there is nothing to refund."
                }</p>
                ${detail.cancel_decision_note ? `<p class="customer-order-cancel-detail-note">Staff note: ${escapeHtml(detail.cancel_decision_note)}</p>` : ""}
@@ -12242,7 +11898,7 @@ document.addEventListener("DOMContentLoaded", () => {
         detailContent.innerHTML = `
           <div class="customer-order-detail-summary">
             <div class="customer-order-detail-chip"><span>Status</span><strong>${safeStatus}</strong></div>
-            <div class="customer-order-detail-chip"><span>Payment</span><strong>${escapeHtml(detail.payment_method || "N/A")}</strong></div>
+            <div class="customer-order-detail-chip"><span>Payment</span><strong>${escapeHtml(detail.payment_method_label || detail.payment_method || "N/A")}</strong></div>
             <div class="customer-order-detail-chip"><span>Total</span><strong>${escapeHtml(detail.total_label || formatOrderCurrency(detail.total_amount))}</strong></div>
           </div>
 
@@ -15121,6 +14777,8 @@ const openReturnRequestModal = (() => {
       accountNumber: String(s.gcash_account_number || "").trim(),
       qrImage: String(s.gcash_qr_image || "").trim(),
       gateway: String(s.payment_gateway || "manual").trim(),
+      checkoutMethod: s.payment_checkout_method === 'qrph' ? 'qrph' : 'gcash',
+      checkoutDescription: String(s.payment_checkout_description || '').trim(),
     };
     var previous = window.FMRC_GCASH_SETTINGS;
     window.FMRC_GCASH_SETTINGS = next;
@@ -15129,7 +14787,9 @@ const openReturnRequestModal = (() => {
       previous.accountName === next.accountName &&
       previous.accountNumber === next.accountNumber &&
       previous.qrImage === next.qrImage &&
-      previous.gateway === next.gateway
+      previous.gateway === next.gateway &&
+      previous.checkoutMethod === next.checkoutMethod &&
+      previous.checkoutDescription === next.checkoutDescription
     ) {
       return;
     }

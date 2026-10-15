@@ -193,6 +193,10 @@ class PaymentMethodAvailabilityTest extends TestCase
             SiteSetting::set($key, $candidate === $method ? '1' : '0');
         }
 
+        if ($method === 'GCash') {
+            config(['payments.gateway'=>'paymongo', 'payments.paymongo.enabled'=>true, 'payments.paymongo.secret_key'=>'sk_test_example', 'payments.paymongo.webhook_secret'=>'secret']);
+            Http::fake(['api.paymongo.com/v2/checkout_sessions'=>Http::response(['data'=>['id'=>'cs_test', 'attributes'=>['checkout_url'=>'https://checkout.paymongo.com/test','livemode'=>false]]])]);
+        }
         $this->postJson('/api/orders', $this->orderPayload($product, $method))->assertCreated();
         $this->assertSame(9, (int) $product->fresh()->stock);
         $this->assertDatabaseHas('orders', ['payment_method' => $method]);
@@ -222,8 +226,13 @@ class PaymentMethodAvailabilityTest extends TestCase
     public function test_disabling_checkout_does_not_stop_payment_of_an_existing_order(): void
     {
         $this->signIn('customer');
-        $this->postJson('/api/orders', $this->orderPayload($this->makeProduct(), 'GCash'))->assertCreated();
-        $order = Order::query()->firstOrFail();
+        // A historical manual order remains payable after new checkout is disabled.
+        $customer = auth()->user();
+        $order = Order::create(['order_no'=>'OLD-MANUAL', 'customer_id'=>$customer->id, 'customer_name'=>$customer->name,
+            'customer_contact'=>$customer->email, 'quantity'=>1, 'subtotal'=>500,'total'=>500,
+            'payment_method'=>'GCash', 'payment_reference'=>'Awaiting GCash reference', 'fulfillment_type'=>'pickup',
+            'lifecycle_status'=>'incoming','customer_stage'=>'to_pay']);
+        \App\Models\Payment::create(['order_id'=>$order->id,'payment_no'=>'OLD-PAY','method'=>'GCash','amount'=>500,'status'=>'pending','reference'=>'Awaiting GCash reference']);
         foreach (PaymentMethodAvailability::SETTING_KEYS as $key) {
             SiteSetting::set($key, '0');
         }
@@ -286,6 +295,7 @@ class PaymentMethodAvailabilityTest extends TestCase
     private function orderPayload(Product $product, string $method): array
     {
         $payload = [
+            'checkout_request_key' => (string) \Illuminate\Support\Str::uuid(),
             'product_id' => $product->id,
             'product_name' => $product->name,
             'quantity' => 1,

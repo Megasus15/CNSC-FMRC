@@ -13,6 +13,7 @@ use App\Models\Product;
 use App\Models\ProductRating;
 use App\Models\Promotion;
 use App\Services\PayMongoService;
+use App\Services\GatewayPayments;
 use App\Support\OrderNotifier;
 use App\Support\PaymentMethodAvailability;
 use App\Support\ReturnPresenter;
@@ -130,6 +131,7 @@ class OrderController extends Controller
             'items.*.unit_price' => 'nullable|numeric|min:0|max:9999999.99',
             'items.*.line_total' => 'nullable|numeric|min:0|max:9999999.99',
             'payment_method' => 'required|string|max:30',
+            'checkout_request_key' => 'nullable|uuid',
             'payment_reference' => 'nullable|string|max:180',
             'notes' => 'nullable|string|max:2000',
             'customer_name' => 'nullable|string|max:160',
@@ -238,51 +240,30 @@ class OrderController extends Controller
             ], 422);
         }
 
-        // A GCash order can be placed before the money is sent, the way Shopee and
-        // Lazada do it: the order is recorded, a deadline is shown, and the
-        // customer pays from My Orders afterwards. A reference number supplied
-        // here is still accepted - it just is not demanded up front, because
-        // forcing it meant sending money before knowing the order would go
-        // through. What is never optional is that the digits be plausible: a
-        // half-typed reference is worse than none, since staff would hunt for a
-        // number that was never issued.
         $gcashReference = null;
         $paymentDueAt = null;
+        $paymentStatus = 'pending';
+        $customerStage = 'to_pay';
+        $requestKey = $validated['checkout_request_key'] ?? null;
+        $payloadHash = hash('sha256', json_encode($validated));
         if ($paymentMethod === 'GCash') {
-            $rawReference = trim((string) ($validated['payment_reference'] ?? ''));
-            $expectedDigits = (int) config('payments.gcash.reference_digits', 13);
-
-            if ($rawReference !== '') {
-                $gcashReference = $this->normalizeGcashReference($rawReference);
-
-                if ($gcashReference === null) {
-                    return response()->json([
-                        'message' => 'That GCash reference number does not look right.',
-                        'errors' => [
-                            'payment_reference' => [
-                                "A GCash reference number is exactly {$expectedDigits} digits. Leave it blank if you have not sent the payment yet - you can enter it later from My Orders.",
-                            ],
-                        ],
-                    ], 422);
-                }
-            }
-
-            $windowHours = max(1, (int) config('payments.gcash.payment_window_hours', 48));
-            $paymentDueAt = now()->addHours($windowHours);
+            if (!$requestKey) return response()->json(['message' => 'Please refresh checkout before paying.', 'code' => 'checkout_key_required'], 422);
+            if (!app(PayMongoService::class)->acceptsNewPayments()) return response()->json(['message' => 'GCash is temporarily unavailable. Please choose another payment method.', 'code' => 'gcash_unavailable'], 422);
+            if (collect($orderItems)->contains(fn($item) => empty($item['product_id']))) return response()->json(['message' => 'Please select products from the current catalog.'], 422);
         }
-
-        // TikTok Shop / E-wallet style: if customer has a linked GCash account,
-        // payment is automatically authorized and debited upon order placement.
-        $isLinkedGcash = $paymentMethod === 'GCash' && !empty($customer?->gcash_phone);
-        $linkedGcashLast4 = $isLinkedGcash ? substr(preg_replace('/\D/', '', (string) $customer->gcash_phone), -4) : null;
-        $linkedGcashReference = $isLinkedGcash ? ('GCASH-' . $linkedGcashLast4 . '-' . strtoupper(Str::random(6))) : null;
-
-        $gcashAutoConfirm = (bool) config('payments.gcash.auto_confirm', false);
-        $paymentStatus = ($isLinkedGcash || ($paymentMethod === 'GCash' && $gcashAutoConfirm)) ? 'paid' : 'pending';
-        $customerStage = $paymentStatus === 'paid' ? 'to_ship' : 'to_pay';
+        $replayed = false;
 
         try {
-            $createdOrder = DB::transaction(function () use ($validated, $customer, $orderItems, $quantity, $paymentMethod, $paymentStatus, $customerStage, $fulfillmentType, $gcashReference, $paymentDueAt, $isLinkedGcash, $linkedGcashLast4, $linkedGcashReference): Order {
+            $createdOrder = DB::transaction(function () use ($validated, $customer, $orderItems, $quantity, $paymentMethod, $paymentStatus, $customerStage, $fulfillmentType, $gcashReference, $paymentDueAt, $requestKey, $payloadHash, &$replayed): Order {
+                if ($requestKey) {
+                    \App\Models\User::whereKey($customer->id)->lockForUpdate()->firstOrFail();
+                    $submission = DB::table('payment_submissions')->where('customer_id', $customer->id)->where('request_key', $requestKey)->first();
+                    if ($submission) {
+                        abort_unless(hash_equals($submission->payload_hash, $payloadHash), 409, 'Checkout has changed. Start a new checkout.');
+                        $replayed = true;
+                        return Order::findOrFail($submission->order_id);
+                    }
+                }
                 $productIds = collect($orderItems)
                     ->pluck('product_id')
                     ->filter(fn ($id) => !is_null($id))
@@ -302,13 +283,16 @@ class OrderController extends Controller
                     $product = !is_null($lineItem['product_id']) ? $productsById->get((int) $lineItem['product_id']) : null;
                     $basePrice = $product ? (float) $product->price : max(0, (float) ($lineItem['unit_price'] ?? 0));
                     $promotion = $product ? $activePromotions->filter(fn (Promotion $candidate) => $candidate->appliesTo($product))->sortByDesc('discount_percent')->first() : null;
-                    $unitPrice = round($basePrice * (1 - (($promotion ? (int) $promotion->discount_percent : 0) / 100)), 2);
+                    $unitCentavos = (int) round(GatewayPayments::centavos($basePrice) * (100 - ($promotion ? (int) $promotion->discount_percent : 0)) / 100);
+                    $unitPrice = $unitCentavos / 100;
                     $lineItem['unit_price'] = $unitPrice;
-                    $lineItem['line_total'] = round($unitPrice * max(1, (int) $lineItem['quantity']), 2);
+                    $lineItem['line_total'] = ($unitCentavos * max(1, (int) $lineItem['quantity'])) / 100;
                     $serverPricedItems[] = $lineItem;
                 }
                 $orderItems = $serverPricedItems;
-                $totalAmount = round(array_reduce($orderItems, fn (float $carry, array $item): float => $carry + (float) $item['line_total'], 0.0), 2);
+                $totalCentavos = array_reduce($orderItems, fn (int $carry, array $item): int => $carry + GatewayPayments::centavos($item['line_total']), 0);
+                $totalAmount = $totalCentavos / 100;
+                if ($paymentMethod === 'GCash' && ($totalCentavos < 100 || $totalCentavos > 10000000)) throw new \RuntimeException('GCash orders must be between ₱1 and ₱100,000.');
 
                 foreach ($orderItems as $lineItem) {
                     $lineProductId = $lineItem['product_id'];
@@ -322,7 +306,7 @@ class OrderController extends Controller
                     }
 
                     $availableStock = max(0, (int) $product->stock);
-                    $requestedQuantity = max(1, (int) $lineItem['quantity']);
+                    $requestedQuantity = array_sum(array_map(fn($item) => (int) $item['product_id'] === (int) $lineProductId ? (int) $item['quantity'] : 0, $orderItems));
 
                     if ($availableStock < $requestedQuantity) {
                         throw new \RuntimeException(
@@ -389,14 +373,10 @@ class OrderController extends Controller
                     // human-readable placeholder. A GCash order placed before the
                     // money was sent carries the placeholder until the customer
                     // submits their reference from My Orders.
-                    'payment_reference' => $isLinkedGcash
-                        ? $linkedGcashReference
-                        : ($paymentMethod === 'GCash'
-                            ? ($gcashReference ?? $this->defaultPaymentReference($paymentMethod))
-                            : ($validated['payment_reference'] ?? $this->defaultPaymentReference($paymentMethod))),
+                    'payment_reference' => ($paymentMethod === 'GCash' ? 'Awaiting secure GCash payment' : ($validated['payment_reference'] ?? $this->defaultPaymentReference($paymentMethod))),
                     // Only GCash has a deadline: cash is handed over at the
                     // counter or to the courier, so there is nothing to wait for.
-                    'payment_due_at' => $isLinkedGcash ? null : $paymentDueAt,
+                    'payment_due_at' => $paymentDueAt,
                     'fulfillment_type' => $fulfillmentType,
                     'lifecycle_status' => 'incoming',
                     'customer_stage' => $customerStage,
@@ -470,17 +450,14 @@ class OrderController extends Controller
                     'order_id' => $order->id,
                     'payment_no' => $this->generatePaymentNo((int) $order->id),
                     'method' => $paymentMethod,
-                    'reference' => $isLinkedGcash
-                        ? $linkedGcashReference
-                        : ($paymentMethod === 'GCash'
-                            ? ($gcashReference ?? $this->defaultPaymentReference($paymentMethod))
-                            : ($validated['payment_reference'] ?? $this->defaultPaymentReference($paymentMethod))),
+                    'gateway' => $paymentMethod === 'GCash' ? 'paymongo' : null,
+                    'reference' => ($paymentMethod === 'GCash' ? 'Awaiting secure GCash payment' : ($validated['payment_reference'] ?? $this->defaultPaymentReference($paymentMethod))),
                     'amount' => $totalAmount,
                     'status' => $paymentStatus,
                     // A reference typed at checkout is the customer's claim that
                     // they already sent the money; without one there is nothing to
                     // have submitted yet.
-                    'submitted_at' => ($isLinkedGcash || $gcashReference !== null) ? now() : null,
+                    'submitted_at' => null,
                     'paid_at' => $paymentStatus === 'paid' ? now() : null,
                 ]);
 
@@ -513,13 +490,12 @@ class OrderController extends Controller
                     'stage' => $customerStage,
                     'event_type' => 'system',
                     'title' => match (true) {
-                        $isLinkedGcash => 'Payment confirmed via GCash',
                         $paymentStatus === 'paid' => 'Payment confirmed',
-                        $paymentMethod === 'GCash' && $gcashReference === null => 'Waiting for your GCash payment',
+                        $paymentMethod === 'GCash' && $gcashReference === null => 'Waiting for your online payment',
                         default => 'Awaiting payment confirmation',
                     },
                     'description' => match (true) {
-                        $isLinkedGcash => "Payment completed automatically via linked GCash account (****{$linkedGcashLast4}). Your order is now being processed.",
+                        $paymentMethod === 'GCash' => PayMongoService::checkoutDescription(app(PayMongoService::class)->checkoutMethod()),
                         default => $this->initialPaymentEventDescription(
                             $paymentMethod,
                             $paymentStatus,
@@ -532,10 +508,10 @@ class OrderController extends Controller
                         'payment_status' => $paymentStatus,
                         'fulfillment_type' => $fulfillmentType,
                         'payment_due_at' => optional($paymentDueAt)->toIso8601String(),
-                        'linked_gcash' => $isLinkedGcash,
                     ],
                 ]);
 
+                if ($requestKey) DB::table('payment_submissions')->insert(['customer_id' => $customer->id, 'request_key' => $requestKey, 'payload_hash' => $payloadHash, 'order_id' => $order->id, 'created_at' => now(), 'updated_at' => now()]);
                 return $order;
             });
 
@@ -545,6 +521,7 @@ class OrderController extends Controller
                 'trackingEvents' => fn ($query) => $query->orderByDesc('occurred_at')->orderByDesc('id'),
             ]);
 
+            if (!$replayed) {
             // --- Admin/Staff Notification: New Order ---
             $customerName = $createdOrder->customer_name ?? 'A customer';
             $orderNoLabel = $createdOrder->order_no ?? "ORD-{$createdOrder->id}";
@@ -585,20 +562,6 @@ class OrderController extends Controller
                 );
             }
 
-            if ($isLinkedGcash) {
-                AdminNotification::query()->create([
-                    'type' => 'order',
-                    'title' => "GCash Payment Received: {$orderNoLabel}",
-                    'message' => "{$customerName}'s GCash payment of ₱" . number_format($totalAmount, 2) . " for {$orderNoLabel} was automatically debited from linked GCash account (****{$linkedGcashLast4}).",
-                    'metadata' => json_encode([
-                        'order_id' => $createdOrder->id,
-                        'order_no' => $orderNoLabel,
-                        'payment_method' => 'GCash',
-                        'linked_account' => true,
-                    ]),
-                ]);
-            }
-
             // --- Customer Email: Order Confirmed ---
             $emailHtml = $this->buildOrderEmailHtml(
                 $createdOrder,
@@ -609,51 +572,11 @@ class OrderController extends Controller
             );
             $this->sendCustomerOrderEmail($createdOrder, "Order Received – {$orderNoLabel}", $emailHtml);
 
-            // ── PayMongo checkout session ────────────────────────────────────
-            // When the payment gateway is set to "paymongo" and the customer
-            // chose GCash (without a linked account), create a hosted checkout
-            // session so PayMongo can collect the money through GCash's own interface.
+            }
             $checkoutUrl = null;
-            $usePaymongo = !$isLinkedGcash
-                && config('payments.gateway') === 'paymongo'
-                && $paymentMethod === 'GCash';
-
-            if ($usePaymongo) {
-                $payMongo = app(PayMongoService::class);
-
-                if ($payMongo->isConfigured()) {
-                    $orderNoLabel = $createdOrder->order_no ?? "ORD-{$createdOrder->id}";
-                    $amountCentavos = (int) round($totalAmount * 100);
-
-                    $session = $payMongo->createCheckoutSession(
-                        amountCentavos: $amountCentavos,
-                        description: "FMRC Order {$orderNoLabel}",
-                        orderNo: $orderNoLabel,
-                        orderId: (int) $createdOrder->id,
-                        paymentId: (int) $createdOrder->payment->id,
-                        appContext: $request->input('app_context') === 'customer' ? 'customer' : '',
-                    );
-
-                    if ($session) {
-                        $checkoutId = $session['data']['id'] ?? null;
-                        $checkoutUrl = $session['data']['attributes']['checkout_url'] ?? null;
-
-                        // Store the checkout session ID so the webhook handler can
-                        // find this payment record when PayMongo calls back.
-                        if ($checkoutId) {
-                            $createdOrder->payment->update([
-                                'paymongo_checkout_id' => $checkoutId,
-                            ]);
-                        }
-                    } else {
-                        // PayMongo session creation failed — log it but do NOT
-                        // block the order. The customer falls back to the manual
-                        // GCash flow (enter reference number from My Orders).
-                        Log::warning('[ORDERS] PayMongo checkout session failed, falling back to manual GCash', [
-                            'order_id' => $createdOrder->id,
-                        ]);
-                    }
-                }
+            if ($paymentMethod === 'GCash') {
+                $gatewayState = app(GatewayPayments::class)->checkout($createdOrder, $request->input('app_context') === 'customer' ? 'customer' : '');
+                $checkoutUrl = $gatewayState['checkout_url'];
             }
 
             $responseData = $this->transformOrderDetail($createdOrder, false, true);
@@ -669,6 +592,8 @@ class OrderController extends Controller
                 'data' => $responseData,
             ], 201);
 
+        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e) {
+            throw $e;
         } catch (\RuntimeException $e) {
             // Raised on purpose above for things the customer can act on -
             // "Insufficient stock for product X", "no longer available". These
@@ -2717,7 +2642,7 @@ class OrderController extends Controller
     private function defaultPaymentReference(string $paymentMethod): string
     {
         return match ($paymentMethod) {
-            'GCash' => 'Awaiting GCash reference',
+            'GCash' => 'Awaiting secure GCash payment',
             'COP' => 'Awaiting Cash-on-Pickup',
             'COD' => 'To be collected upon delivery',
             default => 'Pending reference',
@@ -3014,6 +2939,7 @@ class OrderController extends Controller
             'proof_path',
             'paymongo_checkout_id',
             'paymongo_payment_id',
+            'gateway',
             'paid_at',
             'refunded_at',
             'refund_reference',
@@ -3060,8 +2986,7 @@ class OrderController extends Controller
 
     private function paymentIsAutomated(Order $order): bool
     {
-        return filled($order->payment?->paymongo_checkout_id)
-            || filled($order->payment?->paymongo_payment_id);
+        return GatewayPayments::managed($order->payment);
     }
 
     /** Legal manual actions, shared by the write endpoint and every UI payload. */
@@ -3137,7 +3062,7 @@ class OrderController extends Controller
         $isOverdue = $awaitingPayment && $dueAt !== null && $dueAt->isPast();
 
         $ref = (string) ($payment?->reference ?? $order->payment_reference ?? '');
-        $isLinkedGcash = $isGcash && ($isConfirmed || str_starts_with($ref, 'GCASH-') || !empty($order->customer?->gcash_phone));
+        $isLinkedGcash = false;
 
         return [
             'payment_due_at' => $this->formatPhilippineIso($dueAt),
@@ -3156,6 +3081,7 @@ class OrderController extends Controller
             'payment_is_confirmed' => $isConfirmed,
             'payment_awaiting_approval' => $isConfirmed && $order->lifecycle_status === 'incoming',
             'payment_is_automated' => $this->paymentIsAutomated($order),
+            ...GatewayPayments::displayFields($payment, $order->payment_method),
             'payment_actions' => $this->buildPaymentActions($order),
             'payment_is_overdue' => $isOverdue,
             // Refund side of the same row: set once staff have sent the money
@@ -3170,7 +3096,7 @@ class OrderController extends Controller
                 $isConfirmed && $order->lifecycle_status === 'incoming' => 'Payment confirmed - awaiting order approval',
                 $isConfirmed => 'Payment confirmed',
                 $underReview => 'Payment under review',
-                $awaitingPayment => 'Pay with GCash',
+                $awaitingPayment => $this->paymentIsAutomated($order) ? 'Continue to payment' : 'Pay with GCash',
                 default => null,
             },
         ];
@@ -4164,6 +4090,7 @@ class OrderController extends Controller
             'order_no_display' => '#' . ($order->order_no ?: ('ORD-' . $order->id)),
             'customer_name' => $order->customer_name,
             'method' => $payment?->method ?? $order->payment_method,
+            ...GatewayPayments::displayFields($payment, $order->payment_method),
             'reference' => $payment?->reference ?? $order->payment_reference,
             'amount' => (float) ($payment?->amount ?? $order->total),
             'amount_label' => $this->formatMoney((float) ($payment?->amount ?? $order->total)),

@@ -249,7 +249,7 @@ class ReportController extends Controller
     {
         $onlineQuery = Order::query()
             ->with(['payment:id,order_id,method,status'])
-            ->where('lifecycle_status', 'completed');
+            ->legacyReceipts()->where('lifecycle_status', 'completed');
         $this->applyFallbackTimestampRange(
             $onlineQuery,
             'completed_at',
@@ -293,7 +293,7 @@ class ReportController extends Controller
         $refundQuery = OrderReturn::query()
             ->with(['order:id,order_no,customer_name,is_archived'])
             ->whereIn('status', OrderReturn::REVENUE_DEDUCTING_STATUSES)
-            ->where('resolution', 'refund');
+            ->where('resolution', 'refund')->whereHas('order', fn ($q) => $q->legacyReceipts());
         $this->applyFallbackTimestampRange(
             $refundQuery,
             'refunded_at',
@@ -393,6 +393,29 @@ class ReportController extends Controller
             ];
         }
 
+        foreach (['receipts','refunds'] as $kind) {
+            $table = $kind === 'receipts' ? 'payment_receipts' : 'payment_refunds';
+            $ledger = $kind === 'receipts' ? \App\Support\GatewayFinancials::receipts() : \App\Support\GatewayFinancials::refunds();
+            $sourceColumn = 'payment_receipts.source_type';
+            if ($kind === 'refunds') {
+                $ledger->join('payment_receipts as original_receipt', 'original_receipt.provider_payment_id', '=', 'payment_refunds.provider_payment_id');
+                $sourceColumn = 'original_receipt.source_type';
+            }
+            $ledger->whereBetween($table.'.confirmed_at', [$period['start_utc'], $period['end_utc']]);
+            foreach ($ledger->select($table.'.*','orders.order_no','orders.customer_name','orders.is_archived', $sourceColumn.' as confirmed_source_type')->get() as $entry) {
+                $date = \Illuminate\Support\Carbon::parse($entry->confirmed_at);
+                $amount = $entry->amount_centavos / 100;
+                if ($kind === 'receipts') { $advanceSales += $amount; $this->addToBucket($onlineSeries,$bucketKeys,$date,$amount,$period['period']); }
+                else { $refundsIssued += $amount; $this->addToBucket($refundSeries,$bucketKeys,$date,-$amount,$period['period']); }
+                $methodLabel = \App\Services\PayMongoService::methodLabel($entry->confirmed_source_type);
+                $rows[] = ['source' => $methodLabel.($kind === 'receipts' ? ' Provider Payment' : ' Provider Refund'),
+                    'transaction_no' => $entry->order_no, 'transaction_date' => $this->formatReportTimestamp($date),
+                    'customer' => $entry->customer_name, 'status' => 'Confirmed', 'payment_method' => $methodLabel,
+                    'amount' => $kind === 'receipts' ? $amount : -$amount, 'archived' => (bool) $entry->is_archived,
+                    '_sort_at' => $this->timestampValue($date)];
+            }
+        }
+
         $rows = $this->sortAndCleanRows($rows);
         $grossSales = $onlineSales + $advanceSales + $walkInSales;
         $netSales = $grossSales - $refundsIssued;
@@ -421,7 +444,7 @@ class ReportController extends Controller
                 'value_type' => 'currency',
                 'items' => [
                     ['label' => 'Completed Online Orders', 'value' => round($onlineSales, 2)],
-                    ['label' => 'Verified GCash Orders', 'value' => round($advanceSales, 2)],
+                    ['label' => 'Verified Online Payments', 'value' => round($advanceSales, 2)],
                     ['label' => 'Walk-in Orders', 'value' => round($walkInSales, 2)],
                     ['label' => 'Refunds (Approved & Released)', 'value' => round(-$refundsIssued, 2)],
                     ['label' => 'Net Sales', 'value' => round($netSales, 2)],
@@ -451,7 +474,7 @@ class ReportController extends Controller
                 'payment:id,order_id,method,status',
                 'items:id,order_id,quantity',
             ])
-            ->where('lifecycle_status', 'completed');
+            ->legacyReceipts()->where('lifecycle_status', 'completed');
         $this->applyFallbackTimestampRange(
             $query,
             'completed_at',

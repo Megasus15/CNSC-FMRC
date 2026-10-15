@@ -34,9 +34,9 @@ class FinancialMetrics
     public static function collected(?Carbon $start, ?Carbon $end): array
     {
         $online = self::completedOrders($start, $end);
-        $gcash = self::gcashAdvance($start, $end);
+        $gcash = self::gcashAdvance($start, $end) + GatewayFinancials::total('receipts', $start, $end);
         $walkins = self::walkIns($start, $end);
-        $refunds = self::refunds($start, $end);
+        $refunds = self::refunds($start, $end) + GatewayFinancials::total('refunds', $start, $end);
 
         return [
             'collected' => max(0.0, $online + $gcash + $walkins - $refunds),
@@ -52,7 +52,7 @@ class FinancialMetrics
     private static function completedOrders(?Carbon $start, ?Carbon $end): float
     {
         $query = Order::query()
-            ->where('lifecycle_status', 'completed')
+            ->legacyReceipts()->where('lifecycle_status', 'completed')
             ->where('is_archived', false);
         self::between($query, 'COALESCE(orders.completed_at, orders.created_at)', $start, $end);
 
@@ -85,7 +85,7 @@ class FinancialMetrics
     {
         $query = OrderReturn::query()
             ->whereIn('status', OrderReturn::REVENUE_DEDUCTING_STATUSES)
-            ->where('resolution', 'refund');
+            ->where('resolution', 'refund')->whereHas('order', fn (Builder $q) => $q->legacyReceipts());
         self::between($query, 'COALESCE(refunded_at, decided_at)', $start, $end);
 
         return (float) $query->sum(DB::raw('COALESCE(refunded_amount, approved_amount, 0)'));
@@ -115,7 +115,7 @@ class FinancialMetrics
         $granularity = $granularity === 'month' ? 'month' : 'day';
 
         $online = self::bucketSums(
-            Order::query()->where('lifecycle_status', 'completed')->where('is_archived', false),
+            Order::query()->legacyReceipts()->where('lifecycle_status', 'completed')->where('is_archived', false),
             'COALESCE(orders.completed_at, orders.created_at)', 'total', $from, $to, $granularity
         );
         $gcash = self::bucketSums(
@@ -128,14 +128,16 @@ class FinancialMetrics
             'COALESCE(order_date, created_at)', 'total', $from, $to, $granularity
         );
         $refunds = self::bucketSums(
-            OrderReturn::query()->whereIn('status', OrderReturn::REVENUE_DEDUCTING_STATUSES)->where('resolution', 'refund'),
+            OrderReturn::query()->whereIn('status', OrderReturn::REVENUE_DEDUCTING_STATUSES)->where('resolution', 'refund')->whereHas('order', fn (Builder $q) => $q->legacyReceipts()),
             'COALESCE(refunded_at, decided_at)', 'COALESCE(refunded_amount, approved_amount, 0)', $from, $to, $granularity
         );
 
+        $gatewayReceipts = self::bucketSums(GatewayFinancials::receipts()->where('orders.is_archived',false), 'payment_receipts.confirmed_at', 'payment_receipts.amount_centavos / 100.0', $from, $to, $granularity);
+        $gatewayRefunds = self::bucketSums(GatewayFinancials::refunds()->where('orders.is_archived',false), 'payment_refunds.confirmed_at', 'payment_refunds.amount_centavos / 100.0', $from, $to, $granularity);
         $series = [];
         foreach (self::buckets($from, $to, $granularity) as $bucket) {
             $key = $bucket['key'];
-            $amount = ($online[$key] ?? 0) + ($gcash[$key] ?? 0) + ($walkins[$key] ?? 0) - ($refunds[$key] ?? 0);
+            $amount = ($online[$key] ?? 0) + ($gcash[$key] ?? 0) + ($walkins[$key] ?? 0) - ($refunds[$key] ?? 0) + ($gatewayReceipts[$key] ?? 0) - ($gatewayRefunds[$key] ?? 0);
             $series[] = ['label' => $bucket['label'], 'amount' => round(max(0.0, $amount), 2)];
         }
 
@@ -145,7 +147,7 @@ class FinancialMetrics
     /**
      * @return array<string, float>  bucket string => summed amount
      */
-    private static function bucketSums(Builder $query, string $dateSql, string $sumSql, Carbon $from, Carbon $to, string $granularity): array
+    private static function bucketSums($query, string $dateSql, string $sumSql, Carbon $from, Carbon $to, string $granularity): array
     {
         $bucketExpr = self::bucketExpr($dateSql, $granularity);
 

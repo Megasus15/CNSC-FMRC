@@ -671,6 +671,20 @@ class OrderReturnController extends Controller
             return $denied;
         }
 
+        $gatewayPayment = Payment::where('order_id', $orderReturn->order_id)->first();
+        if (\App\Services\GatewayPayments::managed($gatewayPayment)) {
+            $v = $request->validate(['amount' => 'nullable|numeric|min:1', 'note' => 'nullable|string|max:400']);
+            $amount = \App\Services\GatewayPayments::centavos($v['amount'] ?? $orderReturn->approved_amount ?? $orderReturn->requested_amount);
+            // Return ID + amount supplies a stable key for old clients that lack request keys.
+            $hex = md5('gcash-return:'.$orderReturn->id.':'.$amount);
+            $token = substr($hex,0,8).'-'.substr($hex,8,4).'-4'.substr($hex,13,3).'-a'.substr($hex,17,3).'-'.substr($hex,20,12);
+            $refund = app(\App\Services\GatewayPayments::class)->requestRefund($gatewayPayment, $amount,
+                ($v['note'] ?? '') ?: 'Return '.$orderReturn->return_no, $request->user()->id, $token, $orderReturn->id);
+            $orderReturn->update(['status' => 'refund_processing']);
+            $orderReturn->load(['order.payment', 'items', 'events']);
+            return response()->json(['message' => 'Refund requested. Admin must approve it in GCash payments; confirmation appears automatically.', 'data' => $this->transformReturnDetail($orderReturn, true), 'refund_request' => $refund]);
+        }
+
         $validated = $request->validate([
             'stage'            => ['nullable', Rule::in(['processing', 'released'])],
             'refund_method'    => ['required', Rule::in(OrderReturn::REFUND_METHODS)],

@@ -128,7 +128,7 @@ class AdminDashboardController extends Controller
         // filter sits at each call site rather than inside
         // Order::scopeGcashAdvanceRevenue(), which the sales report shares.
         $completedOrdersRevenue = $this->safely('revenue.completed_orders', fn () => (float) Order::query()
-            ->where('lifecycle_status', 'completed')
+            ->legacyReceipts()->where('lifecycle_status', 'completed')
             ->where('is_archived', false)
             ->sum('total'), 0.0, $unavailable);
 
@@ -156,9 +156,11 @@ class AdminDashboardController extends Controller
         // returns also carry an approved_amount but cost no revenue.
         $refundedAmount = $this->safely('revenue.refunds', fn () => (float) OrderReturn::query()
             ->whereIn('status', OrderReturn::REVENUE_DEDUCTING_STATUSES)
-            ->where('resolution', 'refund')
+            ->where('resolution', 'refund')->whereHas('order', fn ($q) => $q->legacyReceipts())
             ->sum(DB::raw('COALESCE(refunded_amount, approved_amount, 0)')), 0.0, $unavailable);
 
+        $verifiedGcashRevenue += $this->safely('revenue.gateway', fn () => \App\Support\GatewayFinancials::total('receipts'), 0.0, $unavailable);
+        $refundedAmount += $this->safely('revenue.gateway_refunds', fn () => \App\Support\GatewayFinancials::total('refunds'), 0.0, $unavailable);
         $totalRevenue = max(
             0.0,
             $completedOrdersRevenue + $verifiedGcashRevenue + $walkInRevenue - $refundedAmount
@@ -248,7 +250,7 @@ class AdminDashboardController extends Controller
             ? "CAST(strftime('%m', created_at) AS INTEGER)"
             : 'MONTH(created_at)';
         $monthlyData = $this->safely('analytics.yearly_trend', fn () => Order::query()
-            ->where('lifecycle_status', 'completed')
+            ->legacyReceipts()->where('lifecycle_status', 'completed')
             ->where('is_archived', false)
             ->whereYear('created_at', $currentYear)
             ->select(

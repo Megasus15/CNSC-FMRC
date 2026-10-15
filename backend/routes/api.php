@@ -190,7 +190,15 @@ Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(func
     // Customer: poll the payment status after returning from PayMongo's GCash page.
     // The webhook usually arrives first, but this lets the frontend show
     // "Payment confirmed" immediately instead of waiting for the next poll.
-    Route::get('/customer/orders/{order}/payment-status', [PayMongoWebhookController::class, 'checkPaymentStatus']);
+    Route::get('/customer/orders/{order}/payment-status', [PayMongoWebhookController::class, 'checkPaymentStatus'])->middleware('throttle:60,1');
+    Route::post('/customer/orders/{order}/payment-checkout', [PayMongoWebhookController::class, 'retry'])->middleware('throttle:10,1');
+    Route::post('/admin/orders/{order}/payment-recover', [\App\Http\Controllers\Api\GatewayManagementController::class, 'recoverCheckout'])->middleware('throttle:10,1');
+    Route::post('/admin/gateway-refunds/{refund}/recover', [\App\Http\Controllers\Api\GatewayManagementController::class, 'recoverRefund'])->middleware('throttle:10,1');
+    Route::get('/admin/gateway-payments', [\App\Http\Controllers\Api\GatewayManagementController::class, 'index']);
+    Route::post('/admin/orders/{order}/gateway-refunds', [\App\Http\Controllers\Api\GatewayManagementController::class, 'requestRefund'])->middleware('throttle:10,1');
+    Route::post('/admin/orders/{order}/payment-reconcile', [\App\Http\Controllers\Api\GatewayManagementController::class, 'reconcile'])->middleware('throttle:10,1');
+    Route::post('/admin/gateway-refunds/{refund}/approve', [\App\Http\Controllers\Api\GatewayManagementController::class, 'approve'])->middleware('throttle:10,1');
+    Route::post('/admin/gateway-refunds/{refund}/reject', [\App\Http\Controllers\Api\GatewayManagementController::class, 'reject']);
 
     // Customer: Linked GCash account (TikTok Shop style 1-click payment)
     Route::get('/customer/gcash-account', [CustomerPaymentMethodController::class, 'getGcashAccount']);

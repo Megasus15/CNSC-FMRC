@@ -438,10 +438,10 @@ class PwaTest extends TestCase
 
     public function test_payment_gateway_returns_stay_in_customer_app_without_accepting_client_urls(): void
     {
-        config(['payments.paymongo.secret_key' => 'sk_test_example', 'payments.paymongo.sandbox_simulator' => false, 'app.frontend_url' => 'https://fmrc.example']);
+        config(['payments.paymongo.secret_key' => 'sk_test_example', 'payments.paymongo.webhook_secret' => 'whsec_example', 'app.frontend_url' => 'https://fmrc.example']);
         Http::fake(['api.paymongo.com/*' => Http::response(['data' => ['id' => 'cs_test']], 200)]);
         app(PayMongoService::class)->createCheckoutSession(10000, 'Order', 'ORD-1', 1, 1, 'customer');
-        Http::assertSent(fn ($request) => $request['data']['attributes']['success_url'] === 'https://fmrc.example/apps/customer/products-page/product.html?payment=success&order_id=1'
-            && $request['data']['attributes']['cancel_url'] === 'https://fmrc.example/apps/customer/products-page/product.html?payment=failed&order_id=1');
+        Http::assertSent(fn ($request) => $request['data']['attributes']['success_url'] === 'https://fmrc.example/apps/customer/products-page/product.html?payment=return&order_id=1'
+            && $request['data']['attributes']['cancel_url'] === 'https://fmrc.example/apps/customer/products-page/product.html?payment=cancelled&order_id=1');
     }
 }
