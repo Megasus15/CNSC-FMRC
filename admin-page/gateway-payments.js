@@ -143,6 +143,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const stats=data.refund_summary || {};
       panel.querySelector('[data-gateway-stats]').innerHTML=[['Awaiting approval',stats.requested||0],['Processing',stats.processing||0],['Needs attention',stats.failed||0],['Returned to customers',money(stats.refunded_centavos||0)]].map(([label,value])=>'<div><span>'+esc(label)+'</span><strong>'+esc(value)+'</strong></div>').join('');
       panel.querySelector('[data-gateway-health]').innerHTML = '<span>'+esc(data.checkout_label || methodLabel(data.checkout_method))+'</span>'+badge(data.livemode?'live':'test')+'<span>Last scheduled check: '+esc(dateLabel(data.last_reconciled_at))+'</span>';
+      if (data.refund_funding) {
+        const funding=data.refund_funding;
+        const balance=funding.available_centavos===null?'': 'Wallet: '+money(funding.available_centavos)+' ? ';
+        panel.querySelector('[data-gateway-health]').insertAdjacentHTML('beforeend','<span>'+esc(balance+funding.message)+'</span>');
+      }
       panel.querySelector('[data-gateway-focus]').textContent = focusedOrder ? 'Showing selected order' : '';
       const nextSnapshot = JSON.stringify([data.payments,data.attempts,data.refunds,data.receipts,data.can_approve]);
       if (nextSnapshot !== snapshot) {

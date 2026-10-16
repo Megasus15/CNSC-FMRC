@@ -3,6 +3,7 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 /** Secrets never leave the server. No simulator or unsigned verification path. */
 class PayMongoService
@@ -26,12 +27,36 @@ class PayMongoService
     public function acceptsNewPayments(): bool {
         return config('payments.gateway') === 'paymongo' && config('payments.paymongo.enabled', false) && $this->isConfigured() && self::supportsMethod($this->checkoutMethod());
     }
-    public function request(string $method, string $path, array $attributes = [], ?string $idempotencyKey = null, bool $qrphRefund = false): ?array {
+    /** Read only. Scheduled payouts cannot fund a QR Ph refund before settlement. */
+    public function refundFunding(bool $refresh = false): array {
+        $unavailable = ['status'=>'unavailable','available_centavos'=>null,
+            'message'=>'Wallet balance unavailable. Check PayMongo before issuing a refund.'];
+        if (!$this->isConfigured() || !$this->isLive()) return $unavailable;
+        $key = 'paymongo:refund-funding:'.hash('sha256', (string) config('payments.paymongo.secret_key'));
+        if (!$refresh && ($cached = Cache::get($key))) return $cached;
+        $result = $this->request('GET', 'v2/wallets?fields=balance', timeout: 5);
+        $wallets = $result['data'] ?? null;
+        $funding = $unavailable;
+        if (is_array($wallets)) {
+            // QR Ph creation uses the default wallet; do not add other wallets or pending funds.
+            $wallet = collect($wallets)->first(fn($w)=>is_array($w) && ($w['is_default'] ?? false) === true && ($w['livemode'] ?? null) === true);
+            $available = $wallet['balance']['available'] ?? null;
+            if ($wallet && ($wallet['status'] ?? '') !== 'activated') {
+                $funding = ['status'=>'inactive','available_centavos'=>null,'message'=>'Activate the PayMongo wallet before issuing a refund.'];
+            } elseif ($wallet && is_int($available) && $available >= 0) {
+                $funding = ['status'=>$available > 0 ? 'available' : 'empty','available_centavos'=>$available,
+                    'message'=>$available > 0 ? 'QR Ph refunds use the available wallet balance.' : 'Top up the PayMongo wallet to issue QR Ph refunds. Scheduled payouts are not available funds.'];
+            }
+        }
+        Cache::put($key, $funding, now()->addSeconds(15));
+        return $funding;
+    }
+    public function request(string $method, string $path, array $attributes = [], ?string $idempotencyKey = null, bool $qrphRefund = false, int $timeout = 15): ?array {
         if (!$this->isConfigured()) return null;
         // Separate QR Ph creation API; never accept a caller-supplied host.
         if ($qrphRefund && !(($method === 'POST' && $path === 'v1/refunds') || ($method === 'GET' && preg_match('/^v1\/refunds\/ref_[A-Za-z0-9]+$/',$path)))) return null;
         try {
-            $client = Http::withBasicAuth((string) config('payments.paymongo.secret_key'), '')->acceptJson()->timeout(15);
+            $client = Http::withBasicAuth((string) config('payments.paymongo.secret_key'), '')->acceptJson()->timeout($timeout);
             $url = ($qrphRefund ? 'https://refunds-api.paymongo.com/' : 'https://api.paymongo.com/').$path;
             if ($idempotencyKey) $client = $client->withHeaders(['Idempotency-Key' => $idempotencyKey]);
             $response = $method === 'GET' ? $client->get($url) : $client->post($url, ['data' => ['attributes' => $attributes]]);

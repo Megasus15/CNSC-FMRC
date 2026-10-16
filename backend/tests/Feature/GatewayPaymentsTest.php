@@ -12,10 +12,21 @@ use Tests\TestCase;
 
 class GatewayPaymentsTest extends TestCase {
     use RefreshDatabase;
+    private int $walletBalance = 100000;
+    private int $walletHttpStatus = 200;
+    private string $walletStatus = 'activated';
     protected function setUp(): void {
         parent::setUp(); Mail::fake();
         config(['payments.gateway'=>'paymongo','payments.paymongo.enabled'=>true,'payments.paymongo.secret_key'=>'sk_test_example','payments.paymongo.webhook_secret'=>'whsec_example']);
         Http::preventStrayRequests();
+        Http::fake(['api.paymongo.com/v2/wallets?fields=balance'=>fn()=>Http::response(['data'=>[
+            ['is_default'=>true,'livemode'=>true,'status'=>$this->walletStatus,'balance'=>['available'=>$this->walletBalance,'pending'=>999999]],
+            ['is_default'=>false,'livemode'=>true,'status'=>'activated','balance'=>['available'=>999999]],
+        ]],$this->walletHttpStatus)]);
+    }
+    /** Wallet GETs are tested separately; these assertions guard payment/refund operations. */
+    private function assertPaymentRequestCount(int $count): void {
+        $this->assertCount($count, Http::recorded(fn($r)=>$r->url() !== 'https://api.paymongo.com/v2/wallets?fields=balance'));
     }
     private function order(array $orderFields = []): Order {
         $u = User::factory()->create(['role'=>'customer']);
@@ -174,7 +185,7 @@ class GatewayPaymentsTest extends TestCase {
         $o=$this->order();$a=$this->attempt($o);$g=app(GatewayPayments::class);$g->applySession($a->id,$this->providerSession($a));
         $admin=User::factory()->create(['role'=>'admin']);$r=$g->requestRefund($o->fresh()->payment,50000,'Cancelled',$admin->id,(string)Str::uuid());
         Http::fake(['api.paymongo.com/v1/refunds'=>Http::response(['data'=>['id'=>'ref_full','attributes'=>['amount'=>50000,'currency'=>'PHP','livemode'=>false,'payment_id'=>$o->fresh()->payment->paymongo_payment_id,'status'=>'succeeded']]])]);
-        $g->approveRefund($r->id,$admin->id);$g->approveRefund($r->id,$admin->id);Http::assertSentCount(1);
+        $g->approveRefund($r->id,$admin->id);$g->approveRefund($r->id,$admin->id);$this->assertPaymentRequestCount(1);
         $this->assertSame('refunded',$o->fresh()->payment->status);
     }
     public function test_definitive_refund_failure_releases_reserved_amount_for_new_request(): void {
@@ -338,7 +349,7 @@ class GatewayPaymentsTest extends TestCase {
         $attrs=['payment_id'=>$refund->provider_payment_id,'amount'=>50000,'currency'=>'PHP','livemode'=>true,'status'=>'pending'];
         Http::fake(['api.paymongo.com/v1/refunds'=>Http::response(['data'=>['id'=>'ref_closed','attributes'=>$attrs]])]);
         $this->postJson('/api/admin/gateway-refunds/'.$refund->id.'/approve')->assertOk()->assertJsonPath('data.status','pending');
-        $this->postJson('/api/admin/gateway-refunds/'.$refund->id.'/approve')->assertOk(); Http::assertSentCount(1);
+        $this->postJson('/api/admin/gateway-refunds/'.$refund->id.'/approve')->assertOk(); $this->assertPaymentRequestCount(1);
         $this->assertSame(500.0,GatewayFinancials::total('receipts')); $this->assertSame(0.0,GatewayFinancials::total('refunds'));
         $attrs['status']='succeeded'; Http::fake(['api.paymongo.com/v1/refunds/ref_closed'=>Http::response(['data'=>['id'=>'ref_closed','attributes'=>$attrs]])]);
         $g->reconcileRefund(DB::table('payment_refunds')->find($refund->id));
@@ -423,7 +434,7 @@ class GatewayPaymentsTest extends TestCase {
         Sanctum::actingAs(User::factory()->create(['role'=>'admin']));
         Http::fake(['*'=>Http::response(['data'=>['id'=>'ref_direct','attributes'=>['amount'=>50000,'payment_id'=>$o->fresh()->payment->paymongo_payment_id,'currency'=>'PHP','livemode'=>false,'status'=>'pending']]])]);
         $this->postJson($url,$body)->assertCreated()->assertJsonPath('data.status','pending');
-        $this->postJson($url,$body)->assertCreated()->assertJsonPath('data.status','pending');Http::assertSentCount(1);
+        $this->postJson($url,$body)->assertCreated()->assertJsonPath('data.status','pending');$this->assertPaymentRequestCount(1);
         $this->assertDatabaseCount('payment_refunds',1);
     }
 
@@ -439,7 +450,7 @@ class GatewayPaymentsTest extends TestCase {
         Sanctum::actingAs(User::factory()->create(['role'=>'admin']));
         Http::fake(['*'=>Http::response(['data'=>['id'=>'ref_returndirect','attributes'=>['payment_id'=>$o->fresh()->payment->paymongo_payment_id,'amount'=>50000,'currency'=>'PHP','livemode'=>true,'status'=>'succeeded']]])]);
         $this->postJson($url,$body)->assertOk()->assertJsonPath('refund_request.status','succeeded')->assertJsonPath('data.status','refunded');
-        $this->postJson($url,$body)->assertOk()->assertJsonPath('refund_request.status','succeeded');Http::assertSentCount(1);
+        $this->postJson($url,$body)->assertOk()->assertJsonPath('refund_request.status','succeeded');$this->assertPaymentRequestCount(1);
         $this->assertDatabaseCount('payment_refunds',1);$this->assertSame(500.0,GatewayFinancials::total('refunds'));
     }
 
@@ -456,12 +467,12 @@ class GatewayPaymentsTest extends TestCase {
         $this->postJson('/api/admin/orders/'.$o->id.'/approve')->assertUnprocessable();
         $this->postJson('/api/admin/orders/'.$o->id.'/gateway-refunds',['amount_centavos'=>50000,'reason'=>'Refund','request_key'=>(string)Str::uuid()])->assertUnprocessable();
         $this->postJson('/api/admin/orders/'.$o->id.'/cancellation',['decision'=>'approve','issue_refund'=>true])->assertForbidden();
-        $this->assertSame('requested',$o->fresh()->cancel_state);Http::assertNothingSent();
+        $this->assertSame('requested',$o->fresh()->cancel_state);$this->assertPaymentRequestCount(0);
         Sanctum::actingAs(User::factory()->create(['role'=>'admin']));
-        Http::fake(function($request)use($o){$this->assertSame('https://refunds-api.paymongo.com/v1/refunds',$request->url());return Http::response(['data'=>['id'=>'ref_cancelcombined','attributes'=>['amount'=>50000,'payment_id'=>$o->fresh()->payment->paymongo_payment_id,'currency'=>'PHP','livemode'=>true,'status'=>'processing','transfer_link'=>'https://transfer.paymongo.com/cancel-claim']]]);});
+        Http::fake(function($request)use($o){if(str_contains($request->url(),'/v2/wallets')) return null;$this->assertSame('https://refunds-api.paymongo.com/v1/refunds',$request->url());return Http::response(['data'=>['id'=>'ref_cancelcombined','attributes'=>['amount'=>50000,'payment_id'=>$o->fresh()->payment->paymongo_payment_id,'currency'=>'PHP','livemode'=>true,'status'=>'processing','transfer_link'=>'https://transfer.paymongo.com/cancel-claim']]]);});
         $url='/api/admin/orders/'.$o->id.'/cancellation';
         $this->postJson($url,['decision'=>'approve','issue_refund'=>true])->assertOk()->assertJsonPath('order.lifecycle_status','cancelled')->assertJsonPath('refunds.0.status','pending')->assertJsonPath('refunds.0.transfer_link','https://transfer.paymongo.com/cancel-claim');
-        $this->postJson($url,['decision'=>'approve','issue_refund'=>true])->assertUnprocessable();Http::assertSentCount(1);
+        $this->postJson($url,['decision'=>'approve','issue_refund'=>true])->assertUnprocessable();$this->assertPaymentRequestCount(1);
         $this->assertSame(0.0,GatewayFinancials::total('refunds'));
     }
 
@@ -486,6 +497,7 @@ class GatewayPaymentsTest extends TestCase {
         $r=$g->requestRefund($o->fresh()->payment,50000,'Rejected order',$admin->id,(string)Str::uuid());
         $status='processing';
         Http::fake(function($request) use ($r,&$status) {
+            if(str_contains($request->url(),'/v2/wallets')) return null;
             if($request->method()==='POST'){
                 $this->assertSame('https://refunds-api.paymongo.com/v1/refunds',$request->url());
                 $this->assertSame(['amount'=>50000,'payment_id'=>$r->provider_payment_id,'reason'=>'others','notes'=>'Rejected order [FMRC '.$r->token.']'],$request['data']['attributes']);
@@ -496,7 +508,7 @@ class GatewayPaymentsTest extends TestCase {
         $revisionBefore=$this->getJson('/api/admin/dashboard/live-counts')->assertOk()->json('data.financial_revision');
         $this->assertIsString($revisionBefore);
         $this->postJson('/api/admin/gateway-refunds/'.$r->id.'/approve')->assertOk()->assertJsonPath('data.status','pending')->assertJsonPath('data.transfer_link','https://transfer.paymongo.com/fixture-claim');
-        $this->postJson('/api/admin/gateway-refunds/'.$r->id.'/approve')->assertOk();Http::assertSentCount(1);
+        $this->postJson('/api/admin/gateway-refunds/'.$r->id.'/approve')->assertOk();$this->assertPaymentRequestCount(1);
         $this->getJson('/api/admin/dashboard/live-counts')->assertOk()->assertJsonPath('data.financial_revision',$revisionBefore);
         $this->assertSame(0.0,GatewayFinancials::total('refunds'));
         Sanctum::actingAs($o->customer);
@@ -504,13 +516,13 @@ class GatewayPaymentsTest extends TestCase {
         Sanctum::actingAs(User::factory()->create(['role'=>'customer']));
         $this->getJson('/api/customer/orders/'.$o->id.'/payment-status')->assertForbidden();
         Sanctum::actingAs($staff);
-        $this->getJson('/api/admin/gateway-payments?order_id='.$o->id)->assertOk()->assertJsonPath('refunds.0.transfer_link','https://transfer.paymongo.com/fixture-claim');Http::assertSentCount(1);
+        $this->getJson('/api/admin/gateway-payments?order_id='.$o->id)->assertOk()->assertJsonPath('refunds.0.transfer_link','https://transfer.paymongo.com/fixture-claim');$this->assertPaymentRequestCount(1);
         $this->travel(11)->seconds();
-        $this->getJson('/api/admin/gateway-payments?order_id='.$o->id)->assertOk()->assertJsonPath('refunds.0.status','pending');Http::assertSentCount(2);
+        $this->getJson('/api/admin/gateway-payments?order_id='.$o->id)->assertOk()->assertJsonPath('refunds.0.status','pending');$this->assertPaymentRequestCount(2);
         $status='succeeded';$this->travel(11)->seconds();
         Sanctum::actingAs($o->customer);
         $this->getJson('/api/customer/orders/'.$o->id.'/payment-status')->assertOk()->assertJsonPath('status','refunded')->assertJsonPath('refunds.0.transfer_link',null);
-        $this->assertSame(500.0,GatewayFinancials::total('refunds'));Http::assertSentCount(3);
+        $this->assertSame(500.0,GatewayFinancials::total('refunds'));$this->assertPaymentRequestCount(3);
         foreach([$admin,$staff] as $user){
             Sanctum::actingAs($user);
             $this->getJson('/api/admin/gateway-payments?order_id='.$o->id)->assertOk()->assertJsonPath('payments.data.0.status','refunded')->assertJsonPath('refund_summary.refunded_centavos',50000);
@@ -530,11 +542,11 @@ class GatewayPaymentsTest extends TestCase {
             $this->assertSame('https://refunds-api.paymongo.com/v1/refunds/ref_lookup',$request->url());
             return Http::response(['data'=>['id'=>'ref_lookup','attributes'=>['status'=>'processing']]]);
         });
-        $this->assertSame('ref_lookup',$provider->retrieveRefund('ref_lookup',true)['data']['id']);Http::assertSentCount(2);
+        $this->assertSame('ref_lookup',$provider->retrieveRefund('ref_lookup',true)['data']['id']);$this->assertPaymentRequestCount(2);
         $error=\App\Support\RefundStatus::failure('parameter_invalid','private@example.test sk_live_private',422,['pointer'=>'/data/attributes/payment_id']);
         $this->assertSame('payment_id',$error['error_field']);
         $this->assertStringNotContainsString('sk_live_private',json_encode($error));
-        $this->assertNull($provider->retrieveRefund('../payments/pay_other',true));Http::assertSentCount(2);
+        $this->assertNull($provider->retrieveRefund('../payments/pay_other',true));$this->assertPaymentRequestCount(2);
     }
 
     public function test_failed_qrph_claim_hides_link_and_keeps_revenue_until_a_confirmed_refund(): void {
@@ -564,7 +576,7 @@ class GatewayPaymentsTest extends TestCase {
         Http::fake(['*'=>Http::response([],503)]);
         $g->approveRefund($r->id,$admin->id);
         $g->reconcileRefund(DB::table('payment_refunds')->find($r->id));
-        $this->artisan('payments:reconcile')->assertSuccessful();Http::assertSentCount(1);
+        $this->artisan('payments:reconcile')->assertSuccessful();$this->assertPaymentRequestCount(1);
         $this->assertDatabaseHas('payment_refunds',['id'=>$r->id,'status'=>'unknown']);
         Sanctum::actingAs($admin);
         $this->postJson('/api/admin/gateway-refunds/'.$r->id.'/retry',['request_key'=>(string)Str::uuid(),'issue'=>true])->assertUnprocessable();
@@ -580,7 +592,7 @@ class GatewayPaymentsTest extends TestCase {
         $ts=time();$sig=hash_hmac('sha256',$ts.'.'.$body,'whsec_example');
         for($i=0;$i<2;$i++)$this->call('POST','/api/webhooks/paymongo',[],[],[],['CONTENT_TYPE'=>'application/json','HTTP_PAYMONGO_SIGNATURE'=>'t='.$ts.',te='.$sig],$body)->assertOk();
         $this->assertDatabaseHas('payment_refunds',['id'=>$r->id,'status'=>'succeeded']);
-        $this->assertDatabaseHas('payment_webhook_events',['event_key'=>'evt_refund_now','status'=>'processed']);Http::assertSentCount(1);
+        $this->assertDatabaseHas('payment_webhook_events',['event_key'=>'evt_refund_now','status'=>'processed']);$this->assertPaymentRequestCount(1);
     }
 
     public function test_claim_links_are_restricted_and_expiry_does_not_release_money(): void {
@@ -616,10 +628,10 @@ class GatewayPaymentsTest extends TestCase {
         Sanctum::actingAs(User::factory()->create(['role'=>'staff']));
         $this->postJson($url,$body)->assertForbidden();$body['issue']=false;
         $next=$this->postJson($url,$body)->assertOk()->assertJsonPath('data.status','requested')->json('data.id');
-        $this->postJson($url,$body)->assertOk()->assertJsonPath('data.id',$next);Http::assertSentCount(1);
+        $this->postJson($url,$body)->assertOk()->assertJsonPath('data.id',$next);$this->assertPaymentRequestCount(1);
         Sanctum::actingAs($admin);$body['issue']=true;
         $this->postJson($url,$body)->assertOk()->assertJsonPath('data.status','pending');
-        $this->postJson($url,$body)->assertOk()->assertJsonPath('data.status','pending');Http::assertSentCount(2);
+        $this->postJson($url,$body)->assertOk()->assertJsonPath('data.status','pending');$this->assertPaymentRequestCount(2);
         $this->getJson('/api/admin/gateway-payments?refund_status=processing&search='.$o->order_no)->assertOk()->assertJsonPath('payments.total',1)->assertJsonPath('refund_summary.failed',0)->assertJsonPath('refund_summary.processing',1);
         $this->postJson('/api/admin/gateway-refunds/'.$next.'/retry',['request_key'=>(string)Str::uuid(),'issue'=>true])->assertUnprocessable();
     }
@@ -638,7 +650,7 @@ class GatewayPaymentsTest extends TestCase {
         DB::table('payment_receipts')->update(['confirmed_at'=>now()->subDays(2)]);
         Sanctum::actingAs($staff);
         $this->postJson('/api/admin/gateway-refunds/'.$r->id.'/check')->assertOk()->assertJsonPath('data.status','succeeded');
-        $this->postJson('/api/admin/gateway-refunds/'.$r->id.'/check')->assertOk();Http::assertSentCount(1);
+        $this->postJson('/api/admin/gateway-refunds/'.$r->id.'/check')->assertOk();$this->assertPaymentRequestCount(1);
         Http::assertNotSent(fn($request)=>$request->method()==='POST');
         foreach([$admin,$staff] as $user){
             Sanctum::actingAs($user);
@@ -664,4 +676,76 @@ class GatewayPaymentsTest extends TestCase {
         $this->assertEqualsCanonicalizing(['QR Ph Provider Payment','QR Ph Provider Refund'],$rows->pluck('source')->all());
         $this->assertEquals(400,$rows->sum('amount'));
     }
+    public function test_live_qrph_refund_waits_for_available_wallet_funds_and_sends_once_after_top_up(): void {
+        config(['payments.paymongo.secret_key'=>'sk_live_example']);
+        $this->walletBalance=0;
+        $o=$this->order(); $a=$this->attempt($o,true,'qrph'); $g=app(GatewayPayments::class);
+        $g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
+        $admin=User::factory()->create(['role'=>'admin']); Sanctum::actingAs($admin);
+        $r=$g->requestRefund($o->fresh()->payment,50000,'Cancelled order',$admin->id,(string)Str::uuid());
+        $url='/api/admin/gateway-refunds/'.$r->id.'/approve';
+        $this->postJson($url)->assertUnprocessable()->assertJsonPath('message','Top up the PayMongo wallet to cover this refund, then issue it again. Scheduled payouts are not available funds.');
+        $this->postJson($url)->assertUnprocessable();
+        $this->assertDatabaseHas('payment_refunds',['id'=>$r->id,'status'=>'requested','approved_by'=>null,'provider_refund_id'=>null]);
+        $this->assertDatabaseCount('payment_refunds',1);
+        $this->assertSame(0,DB::table('order_tracking_events')->where('title','Refund needs attention')->count());
+        $this->assertPaymentRequestCount(0);
+        $this->getJson('/api/admin/gateway-payments')->assertOk()->assertJsonPath('refund_funding.status','empty')->assertJsonPath('refund_funding.available_centavos',0);
+        $this->walletBalance=49999;
+        $this->postJson($url)->assertUnprocessable(); $this->assertPaymentRequestCount(0);
+        $this->walletBalance=50000;
+        Http::fake(['refunds-api.paymongo.com/v1/refunds'=>function($request) use($r) {
+            $this->assertSame(50000,$request['data']['attributes']['amount']);
+            return Http::response(['data'=>['id'=>'ref_funded','attributes'=>['payment_id'=>$r->provider_payment_id,'amount'=>50000,'currency'=>'PHP','livemode'=>true,'status'=>'processing','transfer_link'=>'https://transfer.paymongo.com/claim-funded']]]);
+        }]);
+        $this->postJson($url)->assertOk()->assertJsonPath('data.status','pending')->assertJsonPath('data.transfer_link','https://transfer.paymongo.com/claim-funded');
+        $this->postJson($url)->assertOk(); $this->assertPaymentRequestCount(1);
+        $this->assertSame('paid',$o->fresh()->payment->status);
+        Http::assertSent(fn($r)=>$r->method()==='GET' && $r->url()==='https://api.paymongo.com/v2/wallets?fields=balance');
+    }
+
+    public function test_refund_funding_unavailable_or_inactive_never_submits_a_live_refund(): void {
+        config(['payments.paymongo.secret_key'=>'sk_live_example']);
+        $o=$this->order(); $a=$this->attempt($o,true,'qrph'); $g=app(GatewayPayments::class);
+        $g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
+        $admin=User::factory()->create(['role'=>'admin']); Sanctum::actingAs($admin);
+        $r=$g->requestRefund($o->fresh()->payment,100,'Cancelled order',$admin->id,(string)Str::uuid());
+        $this->walletHttpStatus=503;
+        $this->postJson('/api/admin/gateway-refunds/'.$r->id.'/approve')->assertUnprocessable()->assertJsonPath('message','Wallet balance unavailable. Check PayMongo before issuing a refund.');
+        $this->walletHttpStatus=200; $this->walletStatus='deactivated';
+        $this->postJson('/api/admin/gateway-refunds/'.$r->id.'/approve')->assertUnprocessable()->assertJsonPath('message','Activate the PayMongo wallet before issuing a refund.');
+        $this->assertPaymentRequestCount(0);
+        $this->assertDatabaseHas('payment_refunds',['id'=>$r->id,'status'=>'requested']);
+    }
+
+    public function test_wallet_limit_and_payment_amount_errors_are_distinct_without_exposing_provider_text(): void {
+        foreach(['The refund amount exceeds the available wallet balance.','Amount exceeds wallet balance sk_live_secret customer@example.test'] as $detail) {
+            $failure=\App\Support\RefundStatus::failure('unprocessable_entity',$detail,422);
+            $this->assertSame('PayMongo does not have enough available funds to cover this refund.',$failure['failure_message']);
+            $this->assertStringNotContainsString('sk_live_secret',json_encode($failure));
+            $this->assertStringNotContainsString('customer@example.test',json_encode($failure));
+        }
+        $failure=\App\Support\RefundStatus::failure('refund_amount_exceeds_payment','',422);
+        $this->assertSame('The refund exceeds the amount PayMongo can still return.',$failure['failure_message']);
+        $failure=\App\Support\RefundStatus::failure('unprocessable_entity','Amount exceeds the daily limit.',422);
+        $this->assertSame('PayMongo did not accept the refund request.',$failure['failure_message']);
+        $failure=\App\Support\RefundStatus::failure('unprocessable_entity','Amount exceeds the original payment amount.',422);
+        $this->assertSame('The refund exceeds the amount PayMongo can still return.',$failure['failure_message']);
+    }
+
+    public function test_legacy_ambiguous_amount_message_is_not_presented_as_a_verified_cause(): void {
+        $o=$this->order(); $a=$this->attempt($o); $g=app(GatewayPayments::class);
+        $g->applySession($a->id,$this->providerSession($a));
+        $admin=User::factory()->create(['role'=>'admin']);
+        $r=$g->requestRefund($o->fresh()->payment,100,'Cancelled order',$admin->id,(string)Str::uuid());
+        DB::table('payment_refunds')->where('id',$r->id)->update(['status'=>'failed']);
+        $metadata=['refund_id'=>$r->id,'error_code'=>'unprocessable_entity','failure_message'=>'The refund exceeds the amount PayMongo can still return.'];
+        $event=\App\Models\OrderTrackingEvent::create(['order_id'=>$o->id,'stage'=>'to_pay','event_type'=>'system','title'=>'Refund needs attention','occurred_at'=>now(),'metadata'=>$metadata]);
+        $details=\App\Support\RefundStatus::details(DB::table('payment_refunds')->get())->first();
+        $this->assertSame('This refund was not sent. The earlier failure reason is unverified.',$details->failure_message);
+        $event->update(['metadata'=>$metadata+['failure_version'=>2]]);
+        $details=\App\Support\RefundStatus::details(DB::table('payment_refunds')->get())->first();
+        $this->assertSame($metadata['failure_message'],$details->failure_message);
+    }
+
 }

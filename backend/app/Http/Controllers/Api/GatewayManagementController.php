@@ -51,6 +51,7 @@ class GatewayManagementController extends Controller
                 'failed'=>(int) ($summary->get('failed')?->count ?? 0), 'refunded_centavos'=>(int) ($summary->get('succeeded')?->amount ?? 0)],
             'livemode' => $provider->isLive(),
             'checkout_method' => $provider->checkoutMethod(), 'checkout_label' => $provider::checkoutLabel($provider->checkoutMethod()),
+            'refund_funding' => $provider->isLive() && ($provider->checkoutMethod() === 'qrph' || DB::table('payment_receipts')->whereIn('payment_id',$ids)->where('source_type','qrph')->exists()) ? $provider->refundFunding() : null,
             'last_reconciled_at' => \Illuminate\Support\Facades\Cache::get('payments:last_reconciled_at'),
             'pending_events' => DB::table('payment_webhook_events')->where('status', 'pending')->count()]);
     }

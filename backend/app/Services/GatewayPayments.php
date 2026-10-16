@@ -279,6 +279,19 @@ class GatewayPayments
         $lock = Cache::lock('payment-refund:'.$id,30);
         if (!$lock->get()) return;
         try {
+        $candidate = DB::table('payment_refunds')->find($id);
+        abort_unless($candidate, 404);
+        if ($candidate->status !== 'requested') return;
+        abort_unless($this->provider->isConfigured() && (bool) $candidate->livemode === $this->provider->isLive(), 422, 'The payment provider is unavailable.');
+        $source = DB::table('payment_receipts')->where('payment_id',$candidate->payment_id)->where('provider_payment_id',$candidate->provider_payment_id)->value('source_type');
+        if ($candidate->livemode && $source === 'qrph') {
+            // Keep the request awaiting approval when funding is blocked. No refund
+            // POST or failed provider attempt is created by this check.
+            $funding = $this->provider->refundFunding(true);
+            abort_if($funding['available_centavos'] === null, 422, $funding['message']);
+            abort_if($funding['available_centavos'] < (int) $candidate->amount_centavos, 422,
+                'Top up the PayMongo wallet to cover this refund, then issue it again. Scheduled payouts are not available funds.');
+        }
         $refund = DB::transaction(function () use ($id, $actor) {
             $r = DB::table('payment_refunds')->where('id', $id)->lockForUpdate()->first();
             abort_unless($r, 404); if ($r->status !== 'requested') return null;
@@ -393,7 +406,7 @@ class GatewayPayments
                 : 'FMRC is checking the refund with the payment provider. Confirmation will appear here. Do not submit another payment.';
             OrderTrackingEvent::create(['order_id'=>$payment->order_id,'stage'=>$payment->order->customer_stage,'event_type'=>'system',
                 'title'=>$title,'description'=>$message,'occurred_at'=>now(),
-                'metadata'=>['refund_id'=>$refund->id] + array_intersect_key($failure,array_flip(['error_code','error_field','http_status','failure_message','failure_action']))]);
+                'metadata'=>['refund_id'=>$refund->id] + array_intersect_key($failure,array_flip(['error_code','error_field','http_status','failure_version','failure_message','failure_action']))]);
             if ($status === 'failed') AdminNotification::create(['type'=>'order','title'=>$title.': '.$payment->order->order_no,
                 'message'=>'Review the failed refund in Orders > Online payments & refunds. Do not mark it completed manually.',
                 'metadata'=>json_encode(['order_id'=>$payment->order_id,'refund_id'=>$refund->id])]);

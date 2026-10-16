@@ -4,6 +4,12 @@ This update adds shared Admin/Staff cancellation and refund tables, direct Admin
 
 The 2026-10-16 correction uses PayMongo's separate live QR Ph creation endpoint, `https://refunds-api.paymongo.com/v1/refunds`. The standard refund endpoint is retained for direct GCash and existing standard API attempts. QR Ph refunds generate a customer claim link: they are not an automatic reversal to the wallet that scanned the payment QR.
 
+The wallet-funding correction checks the live default wallet's **available** balance before submitting a QR Ph refund. Insufficient funds, an inactive wallet, or an unavailable balance leaves the request awaiting approval; no refund POST is sent. After funding, Admin issues that same pending request. The Orders payment-status area shows wallet availability, cached for 15 seconds; approval always checks it afresh. Pending settlement and balances in other wallets are excluded. Provider rejection and confirmation still control the final result.
+
+The earlier error mapper treated any response containing `exceeds` as an over-refund. It now distinguishes wallet funds from an excessive payment refund. Older generic errors with that ambiguous saved message show an unverified cause, since the original provider detail was not retained. Historical refund attempts are preserved.
+
+Local patch files: `backend/app/Services/PayMongoService.php`, `backend/app/Services/GatewayPayments.php`, `backend/app/Support/RefundStatus.php`, `backend/app/Http/Controllers/Api/GatewayManagementController.php`, `admin-page/gateway-payments.js`, and both Orders HTML files. No schema change. Code checks do not fund the merchant wallet, deploy the patch, or issue a live refund.
+
 ## Deploy
 
 1. Commit the refund changes in GitHub Desktop and push to the connected production branch.

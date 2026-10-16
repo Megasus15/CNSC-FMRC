@@ -15,13 +15,13 @@ final class RefundStatus
         $field = is_array($source) ? ($source['attribute'] ?? basename((string)($source['pointer'] ?? ''))) : '';
         $field = in_array($field,['payment_id','amount','reason','notes','currency'],true) ? $field : null;
         [$message, $action] = match (true) {
-            $code === 'parameter_invalid' =>
-                ['PayMongo rejected a refund request field'.($field ? ' ('.$field.')' : '').'.', 'Check the original payment reference and refund amount. Share this error code and field with FMRC technical support before retrying.'],
-            str_contains($hint, 'insufficient') || preg_match('/(balance.*(low|not enough)|not enough.*balance)/', $hint) === 1 =>
-                ['PayMongo does not have enough available funds to cover this refund.', 'For QR Ph refunds, fund the merchant PayMongo wallet or wait for settlement into it. Scheduled payouts are not available wallet funds. Then retry this refund. The customer has not been refunded.'],
             in_array($httpStatus,[401,403],true) =>
                 ['PayMongo did not authorize this refund.', 'Ask the account owner to check refund access and the live account credentials with PayMongo. Retry only after access is restored.'],
-            str_contains($hint,'exceeds') || str_contains($hint,'already_refunded') =>
+            str_contains($hint, 'insufficient') || preg_match('/(balance.*(low|not enough)|not enough.*balance|exceed\w*.*(?:wallet|available balance)|(?:wallet|available balance).*exceed)/', $hint) === 1 =>
+                ['PayMongo does not have enough available funds to cover this refund.', 'Top up the PayMongo wallet, then retry. Scheduled payouts are not available wallet funds.'],
+            $code === 'parameter_invalid' =>
+                ['PayMongo rejected a refund request field'.($field ? ' ('.$field.')' : '').'.', 'Check the payment ID and refund amount before retrying.'],
+            in_array($code,['refund_amount_exceeds_payment','already_refunded'],true) || preg_match('/exceed\w*.*(?:original payment|payment amount|refundable amount)/', $hint) === 1 =>
                 ['The refund exceeds the amount PayMongo can still return.', 'Check the original payment for previous or pending refunds in PayMongo before making another request.'],
             str_contains($hint,'expired') || str_contains($hint,'window') =>
                 ['This payment is outside the provider refund window.', 'Contact PayMongo and the customer to arrange the next step. Do not mark the payment refunded until funds are actually returned.'],
@@ -31,7 +31,7 @@ final class RefundStatus
                 ['PayMongo cannot refund this payment in its current state.', 'Open the original payment in PayMongo and check its refund eligibility, then contact PayMongo if needed.'],
             default => ['PayMongo did not accept the refund request.', 'Check the original payment in PayMongo and share the error code with PayMongo support. Resolve the issue before retrying.'],
         };
-        return ['error_code'=>$code,'error_field'=>$field,'http_status'=>$httpStatus,'failure_message'=>$message,'failure_action'=>$action];
+        return ['error_code'=>$code,'error_field'=>$field,'http_status'=>$httpStatus,'failure_version'=>2,'failure_message'=>$message,'failure_action'=>$action];
     }
 
     public static function safeTransferLink(mixed $url, bool $live): ?string
@@ -73,6 +73,14 @@ final class RefundStatus
             $r->error_field = $info['error_field'] ?? null;
             $r->failure_message = $r->status === 'failed' ? ($info['failure_message'] ?? 'This refund was not completed. The original failure reason was not saved.') : null;
             $r->failure_action = $r->status === 'failed' ? ($info['failure_action'] ?? 'Check the original payment in PayMongo before retrying. New failed attempts will show the provider error code here.') : null;
+            // Older versions mapped every "exceeds" response to an over-refund,
+            // including wallet balance errors. The original detail was not stored,
+            // so do not present that unverified diagnosis as a confirmed cause.
+            if (($info['failure_version'] ?? 0) < 2 && $r->status === 'failed' && $r->error_code === 'unprocessable_entity'
+                && $r->failure_message === 'The refund exceeds the amount PayMongo can still return.') {
+                $r->failure_message = 'This refund was not sent. The earlier failure reason is unverified.';
+                $r->failure_action = 'Check the wallet balance and any existing PayMongo refunds before retrying.';
+            }
             return $r;
         });
     }
