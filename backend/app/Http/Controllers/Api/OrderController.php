@@ -1421,7 +1421,9 @@ class OrderController extends Controller
         $validated = $request->validate([
             'decision' => ['required', Rule::in(['approve', 'decline'])],
             'note' => ['nullable', 'string', 'max:600'],
+            'issue_refund' => ['nullable','boolean'],
         ]);
+        if($request->boolean('issue_refund')) abort_unless($request->user()?->role === 'admin',403);
 
         $order->load(['payment', 'items']);
 
@@ -1447,12 +1449,14 @@ class OrderController extends Controller
         $restocked = [];
 
         try {
-            DB::transaction(function () use ($order, $request, $approve, $note, $refundDue, &$restocked): void {
+            DB::transaction(function () use ($order, $request, $approve, $note, &$refundDue, &$restocked): void {
                 $fresh = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
 
                 if ($fresh->cancel_state !== 'requested' || $fresh->lifecycle_status === 'cancelled') {
                     throw new \DomainException('This request has already been decided.');
                 }
+                $payment=Payment::where('order_id',$fresh->id)->lockForUpdate()->first();
+                $refundDue=$payment?->status === 'paid' || (bool)$payment?->hasCustomerClaim();
 
                 $fresh->cancel_state = $approve ? 'approved' : 'declined';
                 $fresh->cancel_decided_at = now();
@@ -1469,7 +1473,7 @@ class OrderController extends Controller
                 }
 
                 $fresh->save();
-                app(GatewayPayments::class)->queueClosedOrderRefunds($fresh, $request->user()->id);
+                app(GatewayPayments::class)->queueClosedOrderRefunds($fresh, $request->user()->id, $approve && $request->boolean('issue_refund'));
 
                 $order->forceFill($fresh->only([
                     'cancel_state',
@@ -1489,6 +1493,16 @@ class OrderController extends Controller
             return response()->json(['message' => 'Could not save the decision. Please try again.'], 500);
         }
 
+        $refundIssueError=null;
+        if($approve && $request->boolean('issue_refund')) {
+            try {
+                foreach(DB::table('payment_refunds')->where('payment_id',$order->payment?->id)->where('status','requested')->get() as $refund)
+                    app(GatewayPayments::class)->approveRefund($refund->id,$request->user()->id);
+            } catch(\Throwable $error) {
+                Log::warning('Cancellation saved; refund needs review',['order_id'=>$order->id]);
+                $refundIssueError='The order is cancelled, but the refund needs attention. Open Online refunds to continue. Do not submit another cancellation.';
+            }
+        }
         $orderNoLabel = $order->order_no ?: "ORD-{$order->id}";
         $amountLabel = $this->formatMoney((float) $order->total);
         $reasonLabel = $order->cancelReasonLabel() ?? 'No reason given';
@@ -1500,7 +1514,7 @@ class OrderController extends Controller
             'title' => $approve ? 'Cancellation approved' : 'Cancellation declined',
             'description' => $approve
                 ? 'FMRC approved your cancellation request.'
-                    .($refundDue ? " Your refund of {$amountLabel} is awaiting FMRC approval; confirmation will appear in your payment details." : '')
+                    .($refundDue ? " Open My Orders > Payment details for your refund status and any secure claim form." : '')
                     .($note !== '' ? " Note: {$note}" : '')
                 : "FMRC could not cancel this order. {$note}",
             'occurred_at' => now(),
@@ -1518,7 +1532,7 @@ class OrderController extends Controller
                 : "Cancellation Declined: {$orderNoLabel}",
             $approve
                 ? "Order {$orderNoLabel} ({$order->customer_name}) was cancelled. Reason: {$reasonLabel}."
-                    .($refundDue ? " A refund of {$amountLabel} is still owed. For online payments, review and approve it in Online payments & refunds." : '')
+                    .($refundDue ? " Follow the refund of {$amountLabel} in Online refunds, including any approval or provider action still needed." : '')
                 : "The cancellation request on order {$orderNoLabel} ({$order->customer_name}) was declined. {$note}",
             [
                 'order_id' => $order->id,
@@ -1534,7 +1548,7 @@ class OrderController extends Controller
             $approve
                 ? "Hi {$order->customer_name},\n\nFMRC approved your cancellation request for order {$orderNoLabel}.\n\nReason: {$reasonLabel}\n\n"
                     .($refundDue
-                        ? "Your refund of {$amountLabel} is awaiting FMRC approval. Once approved and confirmed, the money will return to your original payment method. Follow its progress in My Orders > Payment details.\n\n"
+                        ? "Follow your refund of {$amountLabel} in My Orders > Payment details. QR Ph refunds require a secure PayMongo claim form when available.\n\n"
                         : "No payment was collected for this order, so there is nothing to refund.\n\n")
                     .($note !== '' ? "Note from FMRC: {$note}\n\n" : '')
                     .'You can place a new order any time.'
@@ -1545,7 +1559,7 @@ class OrderController extends Controller
                 'reason' => $reasonLabel,
                 'note' => $note,
                 'refund_note' => $refundDue
-                    ? "Your refund of {$amountLabel} is awaiting FMRC approval. Once approved and confirmed, the money will return to your original payment method. Follow its progress in My Orders > Payment details."
+                    ? "Follow your refund of {$amountLabel} in My Orders > Payment details. QR Ph refunds require a secure PayMongo claim form when available."
                     : 'No payment was collected for this order, so there is nothing to refund.',
                 'staff_note' => $note !== '' ? "Note from FMRC: {$note}\n\n" : '',
             ]
@@ -1563,6 +1577,8 @@ class OrderController extends Controller
                 ? 'Order cancelled. The customer has been notified.'
                 : 'Cancellation declined. The customer has been notified.',
             'order' => $this->transformOrderSummary($order),
+            'refund_issue_error' => $refundIssueError,
+            'refunds' => $order->payment ? \App\Support\RefundStatus::details(DB::table('payment_refunds')->where('payment_id',$order->payment->id)->get()) : [],
         ]);
     }
 
@@ -1686,10 +1702,8 @@ class OrderController extends Controller
             'returns' => $returns,
             'returns_summary' => $returnsSummary,
             'return_window_days' => OrderReturn::WINDOW_DAYS,
-            // Cancellations do not get their own tab - a cancelled order is still
-            // an order and stays in the directory - but staff need to see at a
-            // glance that somebody is waiting on a decision, and that a refund is
-            // still owed on an order that was already paid.
+            // The dedicated cancellation queue uses these counts and each order
+            // summary carries its reason and decision state.
             'cancellations_summary' => [
                 'pending' => $mapped->where('cancel_pending', true)->count(),
                 'cancelled' => $mapped->where('is_cancelled', true)->count(),
@@ -1730,6 +1744,7 @@ class OrderController extends Controller
                 ->whereIn('id', $ids)
                 ->where('is_archived', false)
                 ->where('lifecycle_status', 'incoming')
+                ->where(fn($q)=>$q->whereNull('cancel_state')->orWhere('cancel_state','!=','requested'))
                 ->lockForUpdate()
                 ->get();
 
@@ -1865,6 +1880,7 @@ class OrderController extends Controller
                 'message' => 'Only incoming orders can be approved.',
             ], 422);
         }
+        if($order->hasPendingCancellation()) return response()->json(['message'=>'Review the customer cancellation before approving this order.'],422);
 
         $paymentStatus = $order->payment?->status;
         $nextCustomerStage = $paymentStatus === 'paid' ? 'to_ship' : $order->customer_stage;
@@ -1876,7 +1892,11 @@ class OrderController extends Controller
         $order->lifecycle_status = 'pending';
         $order->customer_stage = $nextCustomerStage;
         $order->approved_at = Carbon::now();
-        $order->save();
+        $updated=Order::whereKey($order->id)->where('lifecycle_status','incoming')
+            ->where(fn($q)=>$q->whereNull('cancel_state')->orWhere('cancel_state','!=','requested'))
+            ->update(['lifecycle_status'=>$order->lifecycle_status,'customer_stage'=>$order->customer_stage,'approved_at'=>$order->approved_at]);
+        if(!$updated) return response()->json(['message'=>'This order changed. Review its cancellation or current status before continuing.'],422);
+        $order->refresh();
 
         $this->createTrackingEvent($order, [
             'created_by_user_id' => $request->user()?->id,
@@ -2215,6 +2235,8 @@ class OrderController extends Controller
         if ($denied) {
             return $denied;
         }
+
+        if($order->hasPendingCancellation()) return response()->json(['message'=>'Review the customer cancellation before updating fulfillment.'],422);
 
         $validated = $request->validate([
             'stage' => 'nullable|in:to_pay,to_ship,to_receive,completed',

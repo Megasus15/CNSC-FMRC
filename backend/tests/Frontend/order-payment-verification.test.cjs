@@ -252,5 +252,36 @@ test('rejected provider payment exposes refund management and closes order detai
   assert.equal(ui.modalPaymentVerifyStatus.textContent,'Refund awaiting approval');
   const button=ui.modalPaymentVerifyBlock.child;
   assert.equal(button.hidden,false); assert.equal(button.dataset.gatewayManage,'1');
+  assert.equal(button.className,'btn-admin btn-secondary gateway-order-action');
+  assert.equal(button.textContent,'Payment & refund details');
   button.click(); assert.equal(ui.modalOrderDetails.classList.contains('show'),false);
+});
+
+test('provider payment with a pending cancellation leads to its review', () => {
+  const { elements: ui } = harness(order({payment_is_automated:true,cancel_pending:true,payment_status:'paid',payment_actions:actions()}));
+  const button=ui.modalPaymentVerifyBlock.child;
+  assert.equal(button.className,'btn-admin btn-secondary gateway-order-action');
+  assert.equal(button.textContent,'Review customer cancellation');
+  assert.equal(button.dataset.cancellationReview,'1');
+  assert.equal(button.dataset.gatewayManage,undefined);
+  assert.equal(ui.modalPaymentProofWrap.hidden,true);
+  button.click(); assert.equal(ui.modalOrderDetails.classList.contains('show'),false);
+});
+
+test('product-return refund plan distinguishes direct Admin issue from Staff approval', () => {
+  const planSource=source.slice(source.indexOf('  const buildReturnActionRequest ='),source.indexOf('  // Repaints an open Return Details modal'));
+  for(const role of ['admin','staff']){
+    const context=vm.createContext({
+      canIssueOnlineRefund:()=>role==='admin',
+      returnRefundMethod:{value:'gcash'},returnRefundStage:{value:'released'},returnRefundAmount:{value:'250.00'},
+      returnRefundNote:{value:'Returned item inspected'},returnActionCeilingAmount:250,
+      modalReturnAction:{dataset:{gateway:'1',requestKey:'fixture-key'}},formatMoney:amount=>`PHP ${amount.toFixed(2)}`,
+    });
+    vm.runInContext(planSource+'\nglobalThis.plan=buildReturnActionRequest("refund");',context);
+    assert.equal(context.plan.body.issue,role==='admin');
+    assert.equal(context.plan.confirmText,role==='admin'?'Issue refund':'Request refund');
+    assert.equal(context.plan.path,'/admin/returns/{id}/refund');
+    if(role==='admin')assert.match(context.plan.confirmMessage,/directly to PayMongo.*claim form/);
+    else assert.match(context.plan.confirmMessage,/Admin must approve/);
+  }
 });

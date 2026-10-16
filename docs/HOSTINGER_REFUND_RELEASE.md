@@ -1,6 +1,6 @@
 # Refund management update
 
-This update adds a shared Admin/Staff refund workspace, safe failure explanations, explicit retry approval, and refund status checks. Confirmed refunds reduce net revenue; pending and failed attempts do not. A day with only refunds can correctly show negative net collections.
+This update adds shared Admin/Staff cancellation and refund tables, direct Admin refund issuing, safe failure explanations, explicit retry approval, and refund status checks. Confirmed refunds reduce net revenue; pending and failed attempts do not. A day with only refunds can correctly show negative net collections.
 
 The 2026-10-16 correction uses PayMongo's separate live QR Ph creation endpoint, `https://refunds-api.paymongo.com/v1/refunds`. The standard refund endpoint is retained for direct GCash and existing standard API attempts. QR Ph refunds generate a customer claim link: they are not an automatic reversal to the wallet that scanned the payment QR.
 
@@ -9,16 +9,26 @@ The 2026-10-16 correction uses PayMongo's separate live QR Ph creation endpoint,
 1. Commit the refund changes in GitHub Desktop and push to the connected production branch.
 2. In Hostinger, confirm that the deployment for `ucn-fabmanlab.com` completed with that commit.
 3. In the production backend directory, run `php artisan optimize:clear` to remove cached routes/configuration. No new database migration is needed for this correction. Keep the existing payment reconciliation cron and signed PayMongo webhook configured. In PayMongo, enable `refund.succeeded` on the live webhook; also enable refund updates/failures where available.
-4. Reload Admin and Staff Orders. Open **Online refunds**. The new screen shows approval/processing/attention counts, search, status filters, and one card per payment.
+4. Reload Admin and Staff Orders. Open **Cancellations** and **Online refunds**. Both use searchable tables with consistent buttons and fonts. Online refunds includes approval/processing/attention counts and status filters. The new asset versions refresh the shared scripts/styles in both portals.
 
 Do not replace the production `.env` with staging values or copy test payment records into production. Existing live credentials remain in the server environment.
+
+## A paid customer asks to cancel
+
+1. A new request appears in **Orders > Cancellations**, with an alert above the tabs. The table shows the order, customer, request time, exact customer reason, payment and decision. Order Details also shows the cancellation reason at the top. This queue uses the existing live order refresh.
+2. For a paid online order, an Admin selects **Cancel & refund**, then confirms **Cancel order & issue refund**. This closes the order, restores stock once, queues its eligible refund and sends it to PayMongo. There is no second Admin approval. Staff sees **Cancel & request refund**, which closes the order and queues the refund for Admin approval.
+3. **Decline** requires a note that the customer can read. The order continues when the cancellation is declined. While a cancellation is awaiting a decision, normal fulfillment approval/tracking changes and separate refund requests are blocked so the request must be handled explicitly.
+4. Open **Online refunds** to follow the provider outcome. If cancellation was saved but the refund needs attention, the decision stays saved and the screen tells the operator to continue in Online refunds. Do not submit the cancellation again.
+5. The customer opens **My Orders > Payment details > Claim refund** after PayMongo creates the claim link. Completing that provider form is required for QR Ph funds to reach the chosen receiving account. Cancelling an order alone does not prove money was returned.
+
+For other eligible online payments and approved product returns, Admin's **Issue refund** sends the refund directly; Staff's **Request refund** sends it for Admin approval. The Order Details action is now **Payment & refund details**, styled with the shared Admin button classes; pending cancellations instead lead directly to **Review customer cancellation**. Refund dialogs use the same Poppins font as the Admin/Staff pages, with shared close and footer controls.
 
 ## Resolve an existing failed refund
 
 1. Open **Refunds** in the merchant PayMongo dashboard and inspect the original payment/refund. The **Scheduled** value in the Payments settlement column is a merchant payout status, not a refund status. Do not issue a second refund if PayMongo already has one pending or completed.
 2. Open **Online refunds** in FMRC and select the order. Older failed attempts may say that their original failure reason was not saved. This update cannot reconstruct a past API error.
 3. For QR Ph, ensure the merchant's PayMongo wallet has enough **available** funds. The scheduled payout balance is not available wallet money. The account owner can use PayMongo's wallet funding controls or wait for settlement into the wallet. FMRC does not automatically move or top up merchant funds.
-4. If no refund exists in PayMongo and the underlying issue is resolved, an Admin can choose **Review & retry refund**, review the amount, and confirm **Retry and issue refund**. Staff can request a retry for Admin approval. Existing `parameter_invalid` attempts remain in history; the corrected retry creates a new request.
+4. If no refund exists in PayMongo and the underlying issue is resolved, an Admin can choose **Retry refund**, review the amount, and confirm **Retry and issue refund**. Staff can request a retry for Admin approval. Existing `parameter_invalid` attempts remain in history; the corrected retry creates a new request. Use **Details** for full refund history and any saved provider failure information.
 5. For an existing processing refund, choose **Check refund**. This retrieves its status without submitting another refund. The scheduled reconciliation worker also updates pending refunds.
 6. Once PayMongo creates the QR Ph refund, the customer opens **My Orders > Payment details > Claim refund**. The secure PayMongo form lets the customer choose a receiving bank or e-wallet such as GCash. The customer must complete the form within **3 days**. Admin/Staff can copy the link for that customer; claim links must only be shared with the corresponding customer.
 7. After provider confirmation, verify the refund reference in PayMongo, ask the customer to check the receiving wallet or bank transaction history, and check Admin/Staff net revenue. A confirmed amount is deducted once. Creating a claim link or receiving a `processing` status does not deduct a completed refund.

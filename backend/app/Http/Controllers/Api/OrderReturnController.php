@@ -673,18 +673,24 @@ class OrderReturnController extends Controller
 
         $gatewayPayment = Payment::where('order_id', $orderReturn->order_id)->first();
         if (\App\Services\GatewayPayments::managed($gatewayPayment)) {
-            $v = $request->validate(['amount' => 'nullable|numeric|min:1', 'note' => 'nullable|string|max:400', 'request_key'=>'nullable|uuid']);
+            $v = $request->validate(['amount' => 'nullable|numeric|min:1', 'note' => 'nullable|string|max:400', 'request_key'=>'nullable|uuid','issue'=>'nullable|boolean']);
+            if ($request->boolean('issue')) abort_unless($request->user()->role === 'admin',403);
             $amount = \App\Services\GatewayPayments::centavos($v['amount'] ?? $orderReturn->approved_amount ?? $orderReturn->requested_amount);
             // Return ID + amount supplies a stable key for old clients that lack request keys.
             $hex = md5('gcash-return:'.$orderReturn->id.':'.$amount);
             $token = substr($hex,0,8).'-'.substr($hex,8,4).'-4'.substr($hex,13,3).'-a'.substr($hex,17,3).'-'.substr($hex,20,12);
             $token = $v['request_key'] ?? $token;
             $refund = app(\App\Services\GatewayPayments::class)->requestRefund($gatewayPayment, $amount,
-                ($v['note'] ?? '') ?: 'Return '.$orderReturn->return_no, $request->user()->id, $token, $orderReturn->id);
+                ($v['note'] ?? '') ?: 'Return '.$orderReturn->return_no, $request->user()->id, $token, $orderReturn->id, null, $request->boolean('issue'));
             OrderReturn::whereKey($orderReturn->id)->whereIn('status',['approved','item_received','refund_processing'])->update(['status' => 'refund_processing']);
+            if ($request->boolean('issue')) app(\App\Services\GatewayPayments::class)->approveRefund($refund->id,$request->user()->id);
             $orderReturn->refresh();
             $orderReturn->load(['order.payment', 'items', 'events']);
-            return response()->json(['message' => 'Refund requested. Admin must approve it in Online payments & refunds; confirmation appears automatically.', 'data' => $this->transformReturnDetail($orderReturn, true), 'refund_request' => $refund]);
+            $refund=\App\Support\RefundStatus::details(collect([DB::table('payment_refunds')->find($refund->id)]))->first();
+            $message=$request->boolean('issue')
+                ? ($refund->status === 'failed' ? 'The refund needs attention. Open Online refunds for the provider response.' : 'Refund issued for provider processing. Follow its status and any customer claim form in Online refunds.')
+                : 'Refund requested. Admin must issue it in Online refunds; confirmation appears automatically.';
+            return response()->json(['message' => $message, 'data' => $this->transformReturnDetail($orderReturn, true), 'refund_request' => $refund]);
         }
 
         $validated = $request->validate([

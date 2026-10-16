@@ -22,17 +22,21 @@ class GatewayManagementController extends Controller
             ->when($r->filled('order_id'), fn($q) => $q->where('orders.id', $r->integer('order_id')))
             ->when($r->boolean('refunds'), fn($q) => $q->where(function($q) {
                 $q->whereExists(fn($f) => $f->selectRaw('1')->from('payment_refunds')->whereColumn('payment_refunds.payment_id','payments.id'))
-                  ->orWhere(fn($c) => $c->whereIn('orders.lifecycle_status',['cancelled','rejected'])->where('payments.status','paid'));
+                  ->orWhere(fn($c) => $c->whereIn('orders.lifecycle_status',['cancelled','rejected'])->where('payments.status','paid'))
+                  ->orWhere('orders.cancel_state','requested');
             }))
             ->when($r->boolean('review'), fn($q) => $q->where(function($q) {
                 $q->where('payments.reference', 'like', 'GCASH-%')->orWhere('payments.paymongo_checkout_id','like','cs_sim_%')
                   ->orWhereExists(fn($a) => $a->selectRaw('1')->from('payment_attempts')->whereColumn('payment_attempts.payment_id','payments.id')->whereNotNull('exception'));
             }))->orderByDesc('payments.id')
-            ->select(['payments.id','payments.order_id','orders.order_no','orders.customer_name','orders.lifecycle_status','payments.amount','payments.status','payments.gateway','payments.reference','payments.paymongo_checkout_id','payments.paymongo_payment_id','payments.paid_at'])->paginate(20);
+            ->select(['payments.id','payments.order_id','orders.order_no','orders.customer_name','orders.lifecycle_status','orders.cancel_state','orders.cancel_reason','orders.cancel_reason_detail','orders.cancel_requested_at','orders.cancel_decision_note','payments.amount','payments.status','payments.gateway','payments.reference','payments.paymongo_checkout_id','payments.paymongo_payment_id','payments.paid_at'])->paginate(20);
         $ids = collect($rows->items())->pluck('id');
         $gateway->refreshRefunds($ids->all());
         $currentStatuses=DB::table('payments')->whereIn('id',$ids)->pluck('status','id');
-        foreach($rows->items() as $row) $row->status=$currentStatuses[$row->id] ?? $row->status;
+        foreach($rows->items() as $row) {
+            $row->status=$currentStatuses[$row->id] ?? $row->status;
+            $row->cancel_reason_label=Order::CANCEL_REASON_LABELS[$row->cancel_reason] ?? $row->cancel_reason;
+        }
         $summary = DB::table('payment_refunds')->where('livemode',$provider->isLive())
             ->where(fn($q)=>$q->whereNotIn('status',['failed','rejected'])->orWhereNotExists(fn($new)=>$new->selectRaw('1')->from('payment_refunds as newer')
                 ->whereColumn('newer.payment_id','payment_refunds.payment_id')->whereColumn('newer.provider_payment_id','payment_refunds.provider_payment_id')->whereColumn('newer.id','>','payment_refunds.id')))
@@ -52,9 +56,13 @@ class GatewayManagementController extends Controller
     }
     public function requestRefund(Request $r, Order $order, GatewayPayments $gateway): JsonResponse {
         $this->team($r);
-        $v = $r->validate(['amount_centavos' => 'required|integer|min:100', 'reason' => 'required|string|max:400', 'request_key' => 'required|uuid', 'provider_payment_id' => 'nullable|string|max:100']);
+        $v = $r->validate(['amount_centavos' => 'required|integer|min:100', 'reason' => 'required|string|max:400', 'request_key' => 'required|uuid', 'provider_payment_id' => 'nullable|string|max:100','issue'=>'nullable|boolean']);
+        if($r->boolean('issue')) abort_unless($r->user()->role === 'admin',403);
+        abort_if($order->hasPendingCancellation(),422,'Review the customer cancellation first. Use the cancellation action to cancel the order and handle its refund.');
         abort_unless($order->payment, 422);
-        return response()->json(['data' => $gateway->requestRefund($order->payment, $v['amount_centavos'], $v['reason'], $r->user()->id, $v['request_key'], null, $v['provider_payment_id'] ?? null)], 201);
+        $refund=$gateway->requestRefund($order->payment, $v['amount_centavos'], $v['reason'], $r->user()->id, $v['request_key'], null, $v['provider_payment_id'] ?? null, $r->boolean('issue'));
+        if($r->boolean('issue')) $gateway->approveRefund($refund->id,$r->user()->id);
+        return response()->json(['data'=>RefundStatus::details(collect([DB::table('payment_refunds')->find($refund->id)]))->first()],201);
     }
     public function approve(Request $r, int $refund, GatewayPayments $gateway): JsonResponse {
         abort_unless($r->user()?->role === 'admin', 403);

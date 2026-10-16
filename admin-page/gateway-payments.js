@@ -4,27 +4,28 @@ document.addEventListener('DOMContentLoaded', () => {
   const base = (window.APP_API_BASE_URL || ((['localhost','127.0.0.1'].includes(location.hostname) && location.port !== '8000') ? location.protocol + '//' + location.hostname + ':8000/api' : location.origin + '/api')).replace(/\/$/, '');
   const panel = document.createElement('details'); panel.className = 'gateway-team';
   panel.innerHTML = `<summary><span><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Refunds &amp; online payments</span><i class="fa-solid fa-chevron-down gateway-chevron" aria-hidden="true"></i></summary>
-    <div class="gateway-content"><p class="gateway-intro">Staff requests refunds; Admin approves them. QR Ph refunds use a secure PayMongo claim form where the customer selects a receiving bank or e-wallet. The merchant wallet must have available funds.</p>
+    <div class="gateway-content"><p class="gateway-intro">Admin can issue refunds directly. Staff sends requests for Admin approval. QR Ph refunds use a secure PayMongo claim form where the customer selects a receiving bank or e-wallet. The merchant wallet must have available funds.</p>
     <div class="gateway-stats" data-gateway-stats aria-label="Refund overview"></div>
     <div class="gateway-health" data-gateway-health role="status">Loading payment status...</div>
     <div class="gateway-toolbar"><label class="gateway-search">Find an order or customer<input type="search" maxlength="100" placeholder="Order number or customer name" data-gateway-search></label>
       <label class="gateway-filter">Refund status<select data-gateway-status-filter><option value="">All statuses</option><option value="requested">Awaiting approval</option><option value="processing">Processing</option><option value="failed">Needs attention</option><option value="succeeded">Refund confirmed</option></select></label>
       <button type="button" data-gateway-all>Clear filters</button></div>
     <div class="gateway-scope"><label><input type="checkbox" data-gateway-refund-filter checked> Refunds &amp; closed paid orders</label><label><input type="checkbox" data-gateway-review> Payment issues only</label><span data-gateway-focus></span></div>
-    <div class="gateway-payment-list" data-payment-list><p class="gateway-empty">Loading online payments...</p></div>
-    <div class="gateway-footer"><span data-page aria-live="polite"></span><div><button type="button" data-prev aria-label="Previous payment page">Previous</button><button type="button" data-next aria-label="Next payment page">Next</button></div></div></div>`;
+    <p class="gateway-scroll-note">Scroll horizontally to see every column.</p><div class="table-wrapper gateway-table-wrap"><table class="admin-table" id="gatewayPaymentsTable"><thead><tr><th>Order / customer</th><th>Cancellation / reason</th><th>Received</th><th>Refunded</th><th>Refund status</th><th class="sticky-action">Actions</th></tr></thead><tbody data-payment-list><tr><td colspan="6">Loading online payments...</td></tr></tbody></table></div>
+    <div class="gateway-footer"><span data-page aria-live="polite"></span><div><button type="button" data-prev aria-label="Previous payment page">&#8249;</button><button type="button" data-next aria-label="Next payment page">&#8250;</button></div></div></div>`;
   const workspace = document.createElement('section'); workspace.id='sectionRefunds'; workspace.className='archive-section'; workspace.hidden=true; workspace.append(panel);
   const tabs = document.getElementById('ordersModuleTabs');
   if (tabs && document.getElementById('sectionRecords')) document.getElementById('sectionRecords').after(workspace);
   else { target.closest('.table-wrapper, .table-responsive, .table-wrap, .table-container')?.before(workspace); if(!workspace.isConnected) target.before(workspace); workspace.hidden=false; }
-  const openWorkspace = () => {
-    if (tabs) {
-      document.querySelectorAll('.orders-layout-stack .archive-section').forEach(section=>section.classList.toggle('active',section===workspace));
-      tabs.querySelectorAll('.archive-tab-btn').forEach(button=>{button.classList.toggle('active',button===refundShortcut);button.setAttribute('aria-pressed',String(button===refundShortcut));});
-    }
-    workspace.hidden=false; workspace.classList.add('active'); panel.open=true;
+  const openWorkspace = (which='refunds') => {
+    const section=which==='cancellations'?cancelWorkspace:workspace;
+    const selected=which==='cancellations'?cancelShortcut:refundShortcut;
+    document.querySelectorAll('.orders-layout-stack .archive-section').forEach(item=>item.classList.toggle('active',item===section));
+    tabs?.querySelectorAll('.archive-tab-btn').forEach(button=>{button.classList.toggle('active',button===selected);button.setAttribute('aria-pressed',String(button===selected));});
+    workspace.hidden=section!==workspace;cancelWorkspace.hidden=section!==cancelWorkspace;
+    section.classList.add('active');panel.open=true;
   };
-  tabs?.addEventListener('click',e=>{if(e.target.closest('.archive-tab-btn') && !e.target.closest('.gateway-refund-shortcut')) {workspace.hidden=true;workspace.classList.remove('active');refundShortcut.classList.remove('active');refundShortcut.setAttribute('aria-pressed','false');}});
+  tabs?.addEventListener('click',e=>{if(e.target.closest('.archive-tab-btn') && !e.target.closest('.gateway-refund-shortcut,.gateway-cancellations-shortcut')) {workspace.hidden=true;cancelWorkspace.hidden=true;}});
   const checkResult = document.createElement('p');
   checkResult.className = 'gateway-intro'; checkResult.setAttribute('role', 'status'); checkResult.hidden = true;
   panel.querySelector('[data-gateway-health]').after(checkResult);
@@ -36,6 +37,22 @@ document.addEventListener('DOMContentLoaded', () => {
   refundShortcut.type = 'button'; refundShortcut.className = 'archive-tab-btn gateway-refund-shortcut'; refundShortcut.textContent = 'Online refunds';
   refundShortcut.dataset.tab = 'refunds'; refundShortcut.setAttribute('aria-pressed','false');
   document.getElementById('ordersModuleTabs')?.append(refundShortcut);
+  const cancelShortcut=document.createElement('button');cancelShortcut.type='button';cancelShortcut.className='archive-tab-btn gateway-cancellations-shortcut';cancelShortcut.dataset.tab='cancellations';cancelShortcut.textContent='Cancellations';
+  tabs?.insertBefore(cancelShortcut,tabs.children[1] || refundShortcut);
+  const cancelAlert=document.createElement('button');cancelAlert.type='button';cancelAlert.className='cancellation-alert';cancelAlert.hidden=true;tabs?.before(cancelAlert);
+  const cancelWorkspace=document.createElement('section');cancelWorkspace.id='sectionCancellations';cancelWorkspace.className='archive-section';cancelWorkspace.hidden=true;
+  cancelWorkspace.innerHTML=`<article class="panel cancellation-panel"><div class="panel-header"><div><h3>Customer cancellations</h3><p>Review the customer's reason, then approve or decline the cancellation. Paid online orders also need a refund.</p></div></div>
+    <p class="gateway-intro" data-cancel-result role="status" hidden></p><div class="gateway-toolbar"><label class="gateway-search">Find a cancellation<input type="search" data-cancel-search placeholder="Order, customer or reason"></label><label class="gateway-filter">Status<select data-cancel-filter><option value="requested">Awaiting decision</option><option value="all">All cancellations</option><option value="approved">Approved</option><option value="declined">Declined</option></select></label></div>
+    <p class="gateway-scroll-note">Scroll horizontally to see every column.</p><div class="table-wrapper gateway-table-wrap"><table class="admin-table" id="orderCancellationsTable"><thead><tr><th>Order / customer</th><th>Requested</th><th>Customer's reason</th><th>Payment</th><th>Cancellation status</th><th class="sticky-action">Actions</th></tr></thead><tbody data-cancellation-list><tr><td colspan="6">Loading cancellations...</td></tr></tbody></table></div>
+    <div class="gateway-footer"><span data-cancel-page></span><div><button class="page-btn" type="button" data-cancel-prev aria-label="Previous cancellations page">&#8249;</button><button class="page-btn" type="button" data-cancel-next aria-label="Next cancellations page">&#8250;</button></div></div></article>`;
+  workspace.after(cancelWorkspace);
+  let currentCancellations=[],cancelPage=1;
+  cancelShortcut.onclick=()=>{openWorkspace('cancellations');renderCancellations();};
+  cancelAlert.onclick=()=>{cancelWorkspace.querySelector('[data-cancel-filter]').value='requested';cancelWorkspace.querySelector('[data-cancel-search]').value='';cancelPage=1;openWorkspace('cancellations');renderCancellations();};
+  window.addEventListener('fmrc:orders-synced',e=>{
+    currentCancellations=(e.detail?.orders || []).filter(o=>o.cancel_state && o.cancel_state!=='none');
+    renderCancellations();
+  });
   let focusedOrder = null, reloadPending = false;
   let page = 1, pages = 1, timer, busy = false, delay = 5000, snapshot = '', canApprove = false, currentRefunds = [], currentPayments = [], currentReceipts = [];
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -49,6 +66,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? 'Unavailable' : new Intl.DateTimeFormat('en-PH', {timeZone:'Asia/Manila', month:'short', day:'numeric', hour:'numeric', minute:'2-digit', second:'2-digit'}).format(date) + ' PHT';
   };
+  const cancellationReason = row => [row.cancel_reason_label || row.cancel_reason,row.cancel_reason_detail].filter(Boolean).join(' - ');
+  const renderCancellations=()=>{
+    const pending=currentCancellations.filter(o=>o.cancel_pending);
+    cancelShortcut.innerHTML='Cancellations <span class="tab-count">'+pending.length+'</span>';
+    cancelAlert.hidden=!pending.length;cancelAlert.textContent=pending.length+' customer cancellation'+(pending.length===1?'':'s')+' awaiting a decision. View requests';
+    const term=cancelWorkspace.querySelector('[data-cancel-search]').value.toLowerCase();
+    const filter=cancelWorkspace.querySelector('[data-cancel-filter]').value;
+    const rows=currentCancellations.filter(o=>(filter==='all'||o.cancel_state===filter) && [o.order_no,o.customer_name,cancellationReason(o)].join(' ').toLowerCase().includes(term)).sort((a,b)=>String(b.cancel_requested_at||'').localeCompare(String(a.cancel_requested_at||'')));
+    const pages=Math.max(1,Math.ceil(rows.length/10));cancelPage=Math.min(Math.max(1,cancelPage),pages);
+    cancelWorkspace.querySelector('[data-cancellation-list]').innerHTML=rows.slice((cancelPage-1)*10,cancelPage*10).map(o=>{
+      const paid=o.payment_status==='paid',automated=o.payment_is_automated;
+      return `<tr><td><strong>${esc(o.order_no_display || o.order_no)}</strong><small>${esc(o.customer_name)}</small></td><td>${esc(dateLabel(o.cancel_requested_at))}</td><td>${esc(cancellationReason(o) || 'No reason recorded')}<small>${esc(o.cancel_decision_note || '')}</small></td><td>${esc(o.payment_method_label || o.payment_method)}<small>${esc(paid?'Paid':readable(o.payment_status))} &middot; ${money(Math.round(Number(o.total_amount || o.total || 0)*100))}</small></td><td><span class="gateway-badge" data-status="${o.cancel_pending?'requested':esc(o.cancel_state)}">${esc(o.cancel_pending?'Awaiting decision':o.cancel_state_label || readable(o.cancel_state))}</span></td><td class="gateway-actions-cell"><div class="gateway-actions">${o.cancel_pending?`<button class="gateway-primary" data-cancelapprove="${o.id}">${canApprove && automated && paid?'Cancel & refund':paid && automated?'Cancel & request refund':'Approve cancellation'}</button><button data-canceldecline="${o.id}">Decline</button>`:automated?`<button data-gateway-manage="${o.id}">Refund details</button>`:''}<button data-order-view="${o.id}">Order details</button></div></td></tr>`;
+    }).join('') || '<tr><td colspan="6" class="gateway-empty">No cancellations match these filters.</td></tr>';
+    cancelWorkspace.querySelector('[data-cancel-page]').textContent=rows.length+' cancellation'+(rows.length===1?'':'s')+' - Page '+cancelPage+' of '+pages;
+    cancelWorkspace.querySelector('[data-cancel-prev]').disabled=cancelPage===1;cancelWorkspace.querySelector('[data-cancel-next]').disabled=cancelPage===pages;
+    window.AdminTableResize?.refresh?.();
+  };
+  cancelWorkspace.querySelector('[data-cancel-search]').oninput=()=>{cancelPage=1;renderCancellations();};
+  cancelWorkspace.querySelector('[data-cancel-filter]').onchange=()=>{cancelPage=1;renderCancellations();};
+  cancelWorkspace.addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b)return;
+    if(b.hasAttribute('data-cancel-prev')){cancelPage--;renderCancellations();}
+    else if(b.hasAttribute('data-cancel-next')){cancelPage++;renderCancellations();}
+    else if(b.dataset.cancelapprove)show('cancelapprove',b.dataset.cancelapprove);
+    else if(b.dataset.canceldecline)show('canceldecline',b.dataset.canceldecline);
+  });
   const api = async (path, body) => {
     const token = window.AdminSession?.getToken() || localStorage.getItem('auth_token');
     const controller = new AbortController(); let deadline;
@@ -68,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const data = await api('/admin/gateway-payments?page=' + page + (panel.querySelector('[data-gateway-review]').checked ? '&review=1' : '') + (panel.querySelector('[data-gateway-refund-filter]').checked ? '&refunds=1' : '') + (focusedOrder ? '&order_id='+encodeURIComponent(focusedOrder) : '') + '&search='+encodeURIComponent(panel.querySelector('[data-gateway-search]').value)+'&refund_status='+encodeURIComponent(panel.querySelector('[data-gateway-status-filter]').value));
       if (reloadPending) return;
-      currentReceipts = data.receipts || []; currentRefunds = data.refunds; currentPayments = data.payments.data; canApprove = data.can_approve; pages = data.payments.last_page;
+      currentReceipts = data.receipts || []; currentRefunds = data.refunds; currentPayments = data.payments.data; canApprove = data.can_approve; pages = data.payments.last_page; renderCancellations();
       refundShortcut.textContent = 'Online refunds' + (data.refunds_awaiting_approval ? ' ('+data.refunds_awaiting_approval+')' : '');
       refundShortcut.title = 'Refund requests awaiting Admin approval';
       const stats=data.refund_summary || {};
@@ -77,38 +120,28 @@ document.addEventListener('DOMContentLoaded', () => {
       panel.querySelector('[data-gateway-focus]').textContent = focusedOrder ? 'Showing selected order' : '';
       const nextSnapshot = JSON.stringify([data.payments,data.attempts,data.refunds,data.receipts,data.can_approve]);
       if (nextSnapshot !== snapshot) {
-        panel.querySelector('[data-payment-list]').innerHTML = data.payments.data.map(p => {
-          const attempts = data.attempts.filter(a => Number(a.payment_id) === Number(p.id));
-          const refunds = data.refunds.filter(r => Number(r.payment_id) === Number(p.id));
-          const receipts = currentReceipts.filter(r => Number(r.payment_id) === Number(p.id));
-          const remaining = receipt => Number(receipt.amount_centavos) - refunds.filter(f => f.provider_payment_id === receipt.provider_payment_id && !['failed','rejected'].includes(f.status)).reduce((sum,f)=>sum+Number(f.amount_centavos||0),0);
-          const refundable = receipts.some(r=>remaining(r)>=100);
-          const received = receipts.reduce((sum,r)=>sum+Number(r.amount_centavos||0),0);
-          const returned = refunds.filter(r=>r.status==='succeeded').reduce((sum,r)=>sum+Number(r.amount_centavos||0),0);
-          const reserved = refunds.filter(r=>['requested','submitting','pending','unknown'].includes(r.status)).reduce((sum,r)=>sum+Number(r.amount_centavos||0),0);
-          const unresolved = attempts.some(a => !a.checkout_id && ['creating','unknown'].includes(a.status));
-          const visibleRefunds = refunds.filter(r=>!['failed','rejected'].includes(r.status) || !refunds.some(next=>next.id>r.id && next.provider_payment_id===r.provider_payment_id));
-          const refundRows=visibleRefunds.map(r=>{
-            const canRetry=r.status==='failed' && receipts.some(receipt=>receipt.provider_payment_id===r.provider_payment_id && remaining(receipt)>=Number(r.amount_centavos));
-            return `<div class="gateway-refund-row"><div class="gateway-refund-heading"><strong>${money(r.amount_centavos)}</strong><span class="gateway-badge" data-status="${esc(r.status)}">${esc(refundLabel(r.status))}</span></div>
-              <p class="gateway-refund-reason">${esc(r.reason)}</p>
-              ${r.transfer_link?'<p class="gateway-secondary"><strong>Customer action needed.</strong> The customer can claim this refund in My Orders > Payment details. Claim links are valid for 3 days.</p>':''}
-              ${r.status==='failed'?`<div class="gateway-failure"><strong>${esc(r.failure_message || 'This refund was not completed.')}</strong><p>${esc(r.failure_action || 'Check the original payment in PayMongo before retrying. The original failure reason was not saved.')}</p>${r.error_code?`<small>PayMongo code: ${esc(r.error_code)}</small>`:''}</div>`:''}
-              <div class="gateway-actions">${canApprove && r.status==='requested'?`<button class="gateway-primary" data-approve="${r.id}">Issue refund</button><button data-reject="${r.id}">Decline request</button>`:''}
-              ${canRetry?`<button data-retry="${r.id}">${canApprove?'Review & retry refund':'Request refund retry'}</button>`:''}
-              ${r.provider_refund_id && ['pending','unknown','submitting'].includes(r.status)?`<button data-check-refund="${r.id}">Check refund</button>`:''}
-              ${r.transfer_link?`<button data-copy-claim="${r.id}">Copy customer claim link</button>`:''}
-              ${canApprove && !r.provider_refund_id && ['unknown','submitting'].includes(r.status)?`<button data-recoverrefund="${r.id}">Match provider refund</button>`:''}</div>
-              ${r.confirmed_at?`<small class="gateway-secondary">Confirmed ${esc(dateLabel(r.confirmed_at))}</small>`:''}</div>`;
-          }).join('');
-          const references=receipts.map(r=>'<div><span>'+esc(methodLabel(r.source_type))+' payment</span><code>'+esc(r.provider_payment_id)+'</code></div>').join('');
-          const history=refunds.map(r=>'<div><span>'+money(r.amount_centavos)+' &middot; '+esc(refundLabel(r.status))+'</span><code>'+esc(r.provider_refund_id || 'Request #'+r.id)+'</code></div>').join('');
-          return `<article class="gateway-payment-card"><header><div><h3>${esc(p.order_no)}</h3><p>${esc(p.customer_name || 'Customer')} &middot; ${esc(readable(p.lifecycle_status))}</p></div>${badge(p.status)}</header>
-            <dl class="gateway-amounts"><div><dt>Received</dt><dd>${money(received)}</dd></div><div><dt>Refund confirmed</dt><dd>${money(returned)}</dd></div><div><dt>Awaiting refund</dt><dd>${money(reserved)}</dd></div></dl>
-            ${refundRows || '<p class="gateway-secondary">'+(['cancelled','rejected'].includes(p.lifecycle_status) && p.status==='paid'?'This paid order is closed. Request a refund for the customer.':'No refund requested for this payment.')+'</p>'}
-            <div class="gateway-card-footer"><div class="gateway-actions"><button data-check="${p.order_id}">Check payment</button>${refundable && ['paid','refunded'].includes(p.status)?`<button data-refund="${p.order_id}">Request refund</button>`:''}${canApprove && unresolved?`<button data-recovercheckout="${p.order_id}">Match checkout</button>`:''}</div>
-            <details class="gateway-history"><summary>Payment references &amp; history</summary>${references}${history || '<span>No refunds recorded</span>'}</details></div></article>`;
-        }).join('') || '<p class="gateway-empty">No payments match these filters.</p>';
+        panel.querySelector('[data-payment-list]').innerHTML = data.payments.data.map(p=>{
+          const refunds=data.refunds.filter(r=>Number(r.payment_id)===Number(p.id));
+          const receipts=currentReceipts.filter(r=>Number(r.payment_id)===Number(p.id));
+          const remaining=receipt=>Number(receipt.amount_centavos)-refunds.filter(f=>f.provider_payment_id===receipt.provider_payment_id && !['failed','rejected'].includes(f.status)).reduce((sum,f)=>sum+Number(f.amount_centavos||0),0);
+          const refundable=receipts.some(r=>remaining(r)>=100);
+          const visible=refunds.filter(r=>!['failed','rejected'].includes(r.status)||!refunds.some(n=>n.id>r.id && n.provider_payment_id===r.provider_payment_id));
+          const actions=[];
+          if(p.cancel_state==='requested')actions.push(`<button class="gateway-primary" data-cancellation-review="${p.order_id}">Review cancellation</button>`);
+          for(const r of visible){
+            if(canApprove && r.status==='requested')actions.push(`<button class="gateway-primary" data-approve="${r.id}">Issue refund</button><button data-reject="${r.id}">Decline refund</button>`);
+            if(r.status==='failed' && receipts.some(x=>x.provider_payment_id===r.provider_payment_id && remaining(x)>=Number(r.amount_centavos)))actions.push(`<button data-retry="${r.id}">${canApprove?'Retry refund':'Request retry'}</button>`);
+            if(r.provider_refund_id && ['pending','unknown','submitting'].includes(r.status))actions.push(`<button data-check-refund="${r.id}">Check refund</button>`);
+            if(r.transfer_link)actions.push(`<button data-copy-claim="${r.id}">Copy claim link</button>`);
+            if(canApprove && !r.provider_refund_id && ['unknown','submitting'].includes(r.status))actions.push(`<button data-recoverrefund="${r.id}">Match refund</button>`);
+          }
+          if(refundable && ['paid','refunded'].includes(p.status) && p.cancel_state!=='requested' && !visible.some(r=>['requested','submitting','pending','unknown','failed'].includes(r.status)))actions.push(`<button data-refund="${p.order_id}">${canApprove?'Issue refund':'Request refund'}</button>`);
+          if(canApprove && data.attempts.some(a=>Number(a.payment_id)===Number(p.id) && !a.checkout_id && ['creating','unknown'].includes(a.status)))actions.push(`<button data-recovercheckout="${p.order_id}">Match checkout</button>`);
+          actions.push(`<button data-check="${p.order_id}">Check payment</button><button data-history="${p.order_id}">Details</button>`);
+          const status=visible.map(r=>`<div class="gateway-table-state"><span class="gateway-badge" data-status="${esc(r.status)}">${esc(r.transfer_link?'Awaiting customer claim':refundLabel(r.status))}</span><small>${money(r.amount_centavos)}${r.status==='failed'?' - '+esc(r.failure_message || 'Needs review'):''}</small></div>`).join('') || '<span class="gateway-secondary">'+(p.cancel_state==='requested'?'Review cancellation first':['cancelled','rejected'].includes(p.lifecycle_status) && p.status==='paid'?'Refund required':'No refund requested')+'</span>';
+          return `<tr><td><strong>${esc(p.order_no)}</strong><small>${esc(p.customer_name || 'Customer')}</small><small>${esc(readable(p.lifecycle_status))} &middot; ${esc(readable(p.status))}</small></td><td>${esc(cancellationReason(p) || (p.lifecycle_status==='rejected'?'Order rejected':'-'))}${p.cancel_requested_at?'<small>'+esc(dateLabel(p.cancel_requested_at))+'</small>':''}</td><td class="gateway-money">${money(receipts.reduce((n,r)=>n+Number(r.amount_centavos),0))}</td><td class="gateway-money">${money(refunds.filter(r=>r.status==='succeeded').reduce((n,r)=>n+Number(r.amount_centavos),0))}</td><td>${status}</td><td class="gateway-actions-cell"><div class="gateway-actions">${actions.join('')}</div></td></tr>`;
+        }).join('') || '<tr><td colspan="6" class="gateway-empty">No payments match these filters.</td></tr>';
+        window.AdminTableResize?.refresh?.();
         snapshot = nextSnapshot;
         panel.querySelectorAll('[data-check]').forEach(b => { b.disabled = checking.has(b.dataset.check); b.textContent = b.disabled ? 'Checking\u2026' : 'Check payment'; });
         panel.querySelectorAll('[data-check-refund]').forEach(b => {b.disabled=checking.has('refund-'+b.dataset.checkRefund);b.textContent=b.disabled?'Checking...':'Check refund';});
@@ -138,7 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <label data-amount>Amount (PHP)<input name="amount" type="number" min="1" step="0.01" required></label>
       <label data-reason>Reason<textarea name="reason" maxlength="400" required></textarea></label>
       <label data-provider hidden>Provider reference<input name="provider_id" required></label>
-      <p class="payment-modal-error" data-error role="alert"></p>
+      <div data-record hidden></div><p class="payment-modal-error" data-error role="alert"></p>
     </div><footer class="payment-modal-footer"><button type="button" data-cancel>Cancel</button><button class="payment-modal-primary" type="submit">Confirm</button></footer>
   </form>`;
   document.body.append(modal); let action, submitting = false;
@@ -153,8 +186,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (submitting) return;
     action = {type,id,key:crypto.randomUUID()}; const request = type === 'refund'; const recovering = type.startsWith('recover');
     modal.querySelector('form').reset(); modal.querySelector('[data-error]').textContent = '';
-    modal.querySelector('[data-title]').textContent = request ? 'Request payment refund' : type === 'approve' ? 'Approve and issue refund' : 'Reject refund request';
-    modal.querySelector('[data-description]').textContent = request ? 'Admin will review this request before money is returned.' : type === 'approve' ? 'This sends the requested refund to the original payment method. Confirm only after reviewing the amount and reason in the payment history.' : 'No money will be returned for this request.';
+    modal.querySelector('[data-record]').hidden=true; modal.querySelector('[type=submit]').hidden=false; modal.querySelector('[data-cancel]').textContent='Cancel'; modal.querySelector('[name=reason]').required=true; modal.querySelector('[data-reason]').firstChild.textContent='Reason';
+    modal.querySelector('[data-title]').textContent = request ? (canApprove?'Issue payment refund':'Request payment refund') : type === 'approve' ? 'Approve and issue refund' : 'Reject refund request';
+    modal.querySelector('[data-description]').textContent = request ? (canApprove?'You are issuing this refund as Admin. For QR Ph, PayMongo creates a claim form for the customer. No separate Admin approval is needed.':'Send this refund request to Admin for approval. No money is returned until Admin issues it.') : type === 'approve' ? 'This sends the requested refund to the original payment method. Confirm only after reviewing the amount and reason in the payment history.' : 'No money will be returned for this request.';
     modal.querySelector('[data-receipt]').hidden = !request;
     modal.querySelector('[name=provider_payment_id]').disabled = !request;
     const payment = currentPayments.find(p => String(p.order_id) === String(id));
@@ -188,13 +222,33 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     modal.querySelector('[data-provider]').hidden = !recovering; modal.querySelector('[name=provider_id]').disabled = !recovering;
     if (recovering) { modal.querySelector('[data-title]').textContent = 'Match provider record'; modal.querySelector('[data-description]').textContent = 'Copy the matching checkout or refund ID from the school PayMongo dashboard. FMRC verifies the original request before accepting it.'; }
-    modal.querySelector('[type=submit]').textContent = request ? 'Send refund request' : type === 'approve' ? 'Issue refund' : recovering ? 'Verify record' : 'Reject request';
+    modal.querySelector('[type=submit]').textContent = request ? (canApprove?'Issue refund':'Send refund request') : type === 'approve' ? 'Issue refund' : recovering ? 'Verify record' : 'Reject request';
     if (type === 'retry') modal.querySelector('[type=submit]').textContent = canApprove ? 'Retry and issue refund' : 'Request retry';
+    if(type==='history'){
+      const p=currentPayments.find(p=>String(p.order_id)===String(id));
+      const receipts=currentReceipts.filter(r=>Number(r.payment_id)===Number(p?.id));
+      const refunds=currentRefunds.filter(r=>Number(r.payment_id)===Number(p?.id));
+      modal.querySelector('[data-title]').textContent='Payment & refund details';
+      modal.querySelector('[data-description]').textContent=(p?.order_no || 'Order')+' - '+(p?.customer_name || 'Customer');
+      modal.querySelector('[data-record]').hidden=false;
+      modal.querySelector('[data-record]').innerHTML='<p><strong>Cancellation / reason</strong><br>'+esc(cancellationReason(p || {}) || 'No customer cancellation recorded')+'</p>'+receipts.map(r=>'<p><strong>'+esc(methodLabel(r.source_type))+' received: '+money(r.amount_centavos)+'</strong><br><code>'+esc(r.provider_payment_id)+'</code></p>').join('')+refunds.map(r=>'<div class="gateway-history-entry"><strong>'+money(r.amount_centavos)+' - '+esc(refundLabel(r.status))+'</strong><p>'+esc(r.reason)+'</p><p>'+esc(r.failure_message || (r.transfer_link?'Customer can claim this refund in My Orders > Payment details.':''))+'</p><p>'+esc(r.failure_action || '')+'</p><small>'+esc(r.error_code || '')+' '+esc(r.provider_refund_id || 'Request #'+r.id)+'</small></div>').join('');
+      modal.querySelector('[type=submit]').hidden=true;modal.querySelector('[data-cancel]').textContent='Done';
+    }
+    if(type==='cancelapprove' || type==='canceldecline'){
+      const o=currentCancellations.find(o=>String(o.id)===String(id));
+      if(!o?.cancel_pending){checkResult.hidden=false;checkResult.textContent='This cancellation is no longer awaiting a decision.';return;}
+      action.issueRefund=type==='cancelapprove' && canApprove && o.payment_is_automated && o.payment_status==='paid';
+      modal.querySelector('[data-title]').textContent=type==='canceldecline'?'Decline cancellation':action.issueRefund?'Cancel order & issue refund':'Approve cancellation';
+      modal.querySelector('[data-description]').textContent=(o.order_no_display || o.order_no)+' - '+o.customer_name+'. Customer reason: '+cancellationReason(o)+'. '+(type==='canceldecline'?'The order will continue. The customer will see your reason.':action.issueRefund?'This cancels the order and issues its eligible refund in the same action. For QR Ph, the customer must complete PayMongo\'s claim form.':o.payment_is_automated && o.payment_status==='paid'?'This cancels the order and queues its refund for Admin to issue.':'This cancels the order. Any payment already received must be returned and recorded.');
+      modal.querySelector('[data-reason]').hidden=false;modal.querySelector('[data-reason]').firstChild.textContent=type==='canceldecline'?'Reason for declining':'Note to customer (optional)';
+      modal.querySelector('[name=reason]').disabled=false;modal.querySelector('[name=reason]').required=type==='canceldecline';
+      modal.querySelector('[type=submit]').textContent=type==='canceldecline'?'Decline cancellation':action.issueRefund?'Cancel order & issue refund':o.payment_is_automated && o.payment_status==='paid'?'Cancel & request refund':'Approve cancellation';
+    }
     if (!modal.open) modal.showModal();
   };
   modal.querySelector('form').onsubmit = async e => {
     e.preventDefault();
-    if (submitting || !action || !modal.querySelector('form').reportValidity()) return;
+    if (submitting || !action || action.type === 'history' || !modal.querySelector('form').reportValidity()) return;
     submitting = true; const button = modal.querySelector('[type=submit]'), label = button.textContent;
     modal.setAttribute('closedby', 'none');
     button.disabled = true; button.textContent = 'Processing\u2026';
@@ -203,14 +257,24 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       if (action.type === 'recovercheckout') await api('/admin/orders/'+action.id+'/payment-recover', {provider_id:modal.querySelector('[name=provider_id]').value.trim()});
       else if (action.type === 'recoverrefund') await api('/admin/gateway-refunds/'+action.id+'/recover', {provider_id:modal.querySelector('[name=provider_id]').value.trim()});
-      else if (action.type === 'refund') await api('/admin/orders/'+action.id+'/gateway-refunds', {amount_centavos:Math.round(Number(modal.querySelector('[name=amount]').value)*100),reason:modal.querySelector('[name=reason]').value,request_key:action.key,provider_payment_id:modal.querySelector('[name=provider_payment_id]').value});
+      else if(action.type==='cancelapprove' || action.type==='canceldecline'){
+        const result=await api('/admin/orders/'+action.id+'/cancellation',{decision:action.type==='cancelapprove'?'approve':'decline',note:modal.querySelector('[name=reason]').value.trim(),issue_refund:!!action.issueRefund});
+        if(result.order)currentCancellations=currentCancellations.map(o=>String(o.id)===String(result.order.id)?result.order:o);
+        const feedback=cancelWorkspace.querySelector('[data-cancel-result]');feedback.hidden=false;
+        const states=(result.refunds || []).map(r=>refundLabel(r.status)).filter((v,i,a)=>a.indexOf(v)===i).join(', ');
+        feedback.textContent=result.refund_issue_error || result.message+(states?' Refund: '+states+'. Open Online refunds for details.':'');
+        renderCancellations();
+      }
+      else if (action.type === 'refund'){
+        const result=await api('/admin/orders/'+action.id+'/gateway-refunds',{amount_centavos:Math.round(Number(modal.querySelector('[name=amount]').value)*100),reason:modal.querySelector('[name=reason]').value,request_key:action.key,provider_payment_id:modal.querySelector('[name=provider_payment_id]').value,issue:canApprove});
+        checkResult.hidden=false;checkResult.textContent=canApprove?refundLabel(result.data?.status)+'. '+(result.data?.failure_message || 'The customer can follow progress in Payment details.'):'Refund requested. Admin must approve it before it is sent to PayMongo.';
+      }
       else {
         const result = await api('/admin/gateway-refunds/'+action.id+'/'+action.type, action.type === 'retry' ? {request_key:action.key,issue:canApprove} : action.type === 'reject' ? {reason:modal.querySelector('[name=reason]').value.trim()} : {});
         checkResult.hidden = false;
         checkResult.textContent = action.type === 'reject' ? 'Refund request declined. No money was sent.' : refundLabel(result.data?.status) + '. ' + (result.data?.failure_message || 'Open the refund history below for details.');
       }
-      if (action.type === 'refund') { checkResult.hidden = false; checkResult.textContent = 'Refund requested. Admin must approve it before money is returned to the customer.'; }
-      modal.close(); snapshot = ''; await load();
+      modal.close(); window.dispatchEvent(new CustomEvent('fmrc:orders-updated',{detail:{source:'gateway-payments',timestamp:Date.now()}})); snapshot = ''; await load();
     } catch (e) { modal.querySelector('[data-error]').textContent = e.message; }
     finally { submitting = false; modal.removeAttribute('closedby'); button.disabled = false; button.textContent = label; modal.querySelector('[data-cancel]').disabled = false; modal.querySelector('[data-close]').disabled = false; }
   };
@@ -235,7 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (b.hasAttribute('data-gateway-all')) { focusedOrder=null; page=1; snapshot=''; panel.querySelector('[data-gateway-search]').value=''; panel.querySelector('[data-gateway-status-filter]').value=''; panel.querySelector('[data-gateway-review]').checked=false; panel.querySelector('[data-gateway-refund-filter]').checked=false; return load(); }
     if (b.hasAttribute('data-prev')) { page--; snapshot=''; return load(); }
     if (b.hasAttribute('data-next')) { page++; snapshot=''; return load(); }
-    for (const type of ['refund','retry','approve','reject','recovercheckout','recoverrefund']) if (b.dataset[type]) return show(type,b.dataset[type]);
+    for (const type of ['refund','retry','approve','reject','history','recovercheckout','recoverrefund']) if (b.dataset[type]) return show(type,b.dataset[type]);
     if (b.dataset.check) {
       const id = b.dataset.check; if (checking.has(id)) return;
       checking.add(id); b.disabled = true; b.textContent = 'Checking\u2026';
@@ -262,6 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
     focusedOrder=null; page=1; snapshot=''; panel.querySelector('[data-gateway-search]').value=''; panel.querySelector('[data-gateway-status-filter]').value=''; panel.querySelector('[data-gateway-review]').checked=false;
     panel.querySelector('[data-gateway-refund-filter]').checked=true; panel.open=true; void load(); panel.scrollIntoView({behavior:'smooth',block:'start'});
   };
+  document.addEventListener('click',e=>{const button=e.target.closest('[data-cancellation-review]');if(!button)return;document.getElementById('modalOrderDetails')?.classList.remove('show');openWorkspace('cancellations');show('cancelapprove',button.dataset.cancellationReview);});
   document.addEventListener('click', e => {
     const button = e.target.closest('[data-gateway-manage]'); if (!button) return;
     openWorkspace();

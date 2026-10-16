@@ -44,6 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const authToken =
     (window.AdminSession && window.AdminSession.getToken()) ||
     localStorage.getItem("auth_token");
+  const canIssueOnlineRefund = () => window.AdminSession?.role === 'admin';
   const PHILIPPINES_TIME_ZONE = "Asia/Manila";
   const REQUEST_TIMEOUT_MS = 25000; // Increased to 25s because local Laravel SMTP blocking causes long load times
   const ORDERS_REALTIME_CHANNEL = "fmrc-orders-realtime";
@@ -927,6 +928,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!order || !modalOrderDetails) return;
     if (!paymentActionBusy) paymentVerificationKey = "";
 
+    const body=modalOrderDetails.querySelector('.modal-body');
+    if(body){
+      let notice=body.querySelector('[data-cancellation-notice]');
+      if(!notice){notice=document.createElement('section');notice.className='order-cancellation-notice';notice.dataset.cancellationNotice='';body.prepend(notice);}
+      notice.hidden=!order.cancel_state || order.cancel_state==='none';
+      notice.innerHTML='<strong>'+escapeHtml(order.cancel_pending?'Customer cancellation awaiting your decision':order.cancel_state_label || 'Customer cancellation')+'</strong><p>'+escapeHtml(order.cancel_reason_label || order.cancel_reason || '')+(order.cancel_reason_detail?' - '+escapeHtml(order.cancel_reason_detail):'')+'</p><small>'+escapeHtml(order.cancel_requested_label || '')+'</small>'+(order.cancel_pending?'<button type="button" class="btn-admin btn-primary" data-cancellation-review="'+order.id+'">Review cancellation</button>':'');
+    }
     const setInput = (id, value) => {
       const input = document.getElementById(id);
       if (!input) return;
@@ -1047,15 +1055,16 @@ document.addEventListener("DOMContentLoaded", () => {
       paymentVerificationKey = nextKey;
     }
 
-    let gatewayAction = modalPaymentVerifyBlock.querySelector('[data-gateway-manage]');
+    let gatewayAction = modalPaymentVerifyBlock.querySelector('.gateway-order-action');
     if (!gatewayAction) {
-      gatewayAction = document.createElement('button'); gatewayAction.type = 'button'; gatewayAction.className = 'btn btn-primary';
+      gatewayAction = document.createElement('button'); gatewayAction.type = 'button'; gatewayAction.className = 'btn-admin btn-secondary gateway-order-action';
       gatewayAction.addEventListener('click', () => { modalOrderDetails?.classList.remove('show'); });
       modalPaymentVerifyBlock.append(gatewayAction);
     }
     gatewayAction.dataset.gatewayManage = String(order?.id || '');
     gatewayAction.hidden = !isAutomated;
-    gatewayAction.textContent = 'Manage online payment / refund';
+    gatewayAction.textContent = order?.cancel_pending ? 'Review customer cancellation' : 'Payment & refund details';
+    if(order?.cancel_pending){delete gatewayAction.dataset.gatewayManage;gatewayAction.dataset.cancellationReview=String(order.id);}else delete gatewayAction.dataset.cancellationReview;
     modalPaymentVerifyBlock.hidden = false;
     modalPaymentVerifyBlock.dataset.orderId = String(order?.id || "");
     modalPaymentVerifyBlock.dataset.paymentMethod = isGcash ? "gcash" : "cash";
@@ -1112,7 +1121,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (modalPaymentVerifyTitle) modalPaymentVerifyTitle.textContent = title;
     if (modalPaymentVerifyHint) modalPaymentVerifyHint.textContent = hint;
     if (modalPaymentCustomerImpact) {
-      modalPaymentCustomerImpact.textContent = isClosed
+      modalPaymentCustomerImpact.textContent = order?.cancel_pending ? "The customer requested cancellation. Review their reason and approve or decline it before continuing this order. Use Review customer cancellation above." : isClosed
         ? "The customer’s order stays closed. Recording a refund updates their payment details; this button does not transfer money."
         : status === "refunded"
           ? "The customer sees the recorded refund. Payment cannot be confirmed again."
@@ -1152,7 +1161,7 @@ document.addEventListener("DOMContentLoaded", () => {
       modalPaymentClaimDeadline.textContent = `${order?.payment_due_label || "-"}${order?.payment_is_overdue ? " — overdue" : ""}`;
       modalPaymentClaimDeadline.classList.toggle("is-overdue", Boolean(order?.payment_is_overdue));
     }
-    if (modalPaymentProofWrap) modalPaymentProofWrap.hidden = !isGcash;
+    if (modalPaymentProofWrap) modalPaymentProofWrap.hidden = !isGcash || isAutomated;
     if (modalPaymentProofLink) {
       modalPaymentProofLink.hidden = !proofUrl;
       if (proofUrl) modalPaymentProofLink.href = proofUrl;
@@ -1678,9 +1687,9 @@ document.addEventListener("DOMContentLoaded", () => {
           order.lifecycle_status || "pending",
         ).toLowerCase();
         const statusClass = lifecycleClass(lifecycle);
-        const canTrack = lifecycle === "pending";
+        const canTrack = lifecycle === "pending" && !order.cancel_pending;
 
-        const statusCell = canTrack
+        const statusCell = order.cancel_pending ? `<button type="button" class="status-pill status-blue status-pill-action" data-cancellation-review="${order.id}">Cancellation requested</button>` : canTrack
           ? `<button type="button" class="status-pill ${statusClass} status-pill-action" data-order-track="${order.id}">${escapeHtml(order.lifecycle_status_label || "Pending")}</button>`
           : `<span class="status-pill ${statusClass}">${escapeHtml(order.lifecycle_status_label || "Pending")}</span>`;
 
@@ -2003,7 +2012,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }),
       returnActionIcon({
         icon: "fa-solid fa-peso-sign",
-        label: row.payment_is_automated ? "Request Online Refund" : "Release Refund",
+        label: row.payment_is_automated ? (canIssueOnlineRefund() ? "Issue Online Refund" : "Request Online Refund") : "Release Refund",
         enabled: Boolean(row.can_refund),
         attrs: `data-return-action="${id}" data-return-mode="refund"`,
         lockedHint: "available once the return is approved",
@@ -2299,6 +2308,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderWalkInTable();
 
     renderOrdersTabCounts();
+    window.dispatchEvent(new CustomEvent("fmrc:orders-synced",{detail:{orders:[...state.incoming,...state.directory]}}));
   };
 
   const renderOrdersLoading = () => {
@@ -3524,9 +3534,9 @@ document.addEventListener("DOMContentLoaded", () => {
     modalReturnAction.dataset.gateway = row.payment_is_automated ? '1' : '0';
     if (kind === 'refund' && row.payment_is_automated) {
       [returnRefundStage, returnRefundMethod, returnRefundReference].forEach(field => { const wrapper = field?.closest('.field-stack'); if (wrapper) wrapper.style.display = 'none'; });
-      if (returnActionTitle) returnActionTitle.textContent = 'Request payment refund';
-      if (returnActionSubtitle) returnActionSubtitle.textContent = returnNo + ' · Admin approval and provider confirmation are required.';
-      if (btnSubmitReturnAction) btnSubmitReturnAction.textContent = 'Request refund';
+      if (returnActionTitle) returnActionTitle.textContent = canIssueOnlineRefund() ? 'Issue payment refund' : 'Request payment refund';
+      if (returnActionSubtitle) returnActionSubtitle.textContent = returnNo + (canIssueOnlineRefund() ? ' · Issue directly to PayMongo. QR Ph requires a customer claim form.' : ' · Send to Admin for approval before provider processing.');
+      if (btnSubmitReturnAction) btnSubmitReturnAction.textContent = canIssueOnlineRefund() ? 'Issue refund' : 'Request refund';
     }
     returnActionDiscardGuard?.capture();
     modalReturnAction.classList.add("show");
@@ -3615,10 +3625,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (modalReturnAction?.dataset.gateway === '1') return {
-      path: '/admin/returns/{id}/refund', body: {amount, note: String(returnRefundNote?.value || '').trim() || null, request_key:modalReturnAction.dataset.requestKey},
-      confirmTitle: 'Request payment refund', confirmText: 'Request refund',
-      confirmMessage: 'Request ' + formatMoney(amount) + ' back to the original payment method? Admin approval is required before money is returned.',
-      success: 'Refund requested. Admin can approve it in Online payments & refunds.',
+      path: '/admin/returns/{id}/refund', body: {amount, note: String(returnRefundNote?.value || '').trim() || null, request_key:modalReturnAction.dataset.requestKey,issue:canIssueOnlineRefund()},
+      confirmTitle: canIssueOnlineRefund() ? 'Issue payment refund' : 'Request payment refund', confirmText: canIssueOnlineRefund() ? 'Issue refund' : 'Request refund',
+      confirmMessage: (canIssueOnlineRefund() ? 'Issue ' : 'Request ') + formatMoney(amount) + '? ' + (canIssueOnlineRefund() ? 'This sends the refund directly to PayMongo. QR Ph refunds require the customer to complete a claim form. The merchant wallet must have available funds.' : 'Admin must approve this request before it is sent to PayMongo.'),
+      success: canIssueOnlineRefund() ? 'Follow the provider result in Online refunds.' : 'Refund requested. Admin can issue it in Online refunds.',
     };
 
     return {
