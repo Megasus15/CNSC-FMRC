@@ -73,6 +73,10 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
         }
         await run(`document.querySelector('[data-tab=refunds]').click();document.querySelector('[data-history]').click()`);
         await until('document.querySelector("dialog").open');
+        assert.equal(await run(`document.querySelectorAll('dialog .gateway-record-card').length`),4);
+        assert.equal(await run(`document.querySelectorAll('dialog .gateway-next-step').length`),3);
+        assert.equal(await run(`document.querySelector('dialog [data-context] dt').textContent`),'Order');
+        await shot(portal+'-'+width+'-'+theme+'-details');
         // Force a long history to verify the scroll boundary independent of fixture count.
         await run(`document.querySelector('dialog [data-record]').innerHTML+=Array(20).fill('<p>Additional refund history detail for scroll verification.</p>').join('')`);
         const before=await run(`(()=>{const d=document.querySelector('dialog'),b=d.querySelector('.modal-body-scroll'),h=d.querySelector('header').getBoundingClientRect(),f=d.querySelector('footer').getBoundingClientRect(),r=d.getBoundingClientRect();return {header:h.y,footer:f.y,top:r.y,bottom:r.bottom,width:r.width,overflow:d.scrollWidth>d.clientWidth+1,scrolls:b.scrollHeight>b.clientHeight,dialogScroll:d.scrollHeight>d.clientHeight+1}})()`);
@@ -83,6 +87,7 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
         await shot(portal+'-'+width+'-'+theme+'-history');
         await run(`document.querySelector('dialog [data-cancel]').click();document.querySelector('[data-tab=cancellations]').click();document.querySelector('[data-cancelapprove]').click()`);
         assert.equal(await run(`document.querySelector('dialog').open`),true);
+        assert.equal(await run(`Array.from(document.querySelectorAll('dialog [data-context] dt')).map(n=>n.textContent).join(',')`),'Order,Customer,Reason,Payment,Status');
         await shot(portal+'-'+width+'-'+theme+'-cancellation');
         await run(`document.querySelector('dialog [data-cancel]').click()`);
       }

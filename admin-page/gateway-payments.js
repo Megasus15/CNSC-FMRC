@@ -76,6 +76,21 @@ document.addEventListener('DOMContentLoaded', () => {
     return Number.isNaN(date.getTime()) ? 'Unavailable' : new Intl.DateTimeFormat('en-PH', {timeZone:'Asia/Manila', month:'short', day:'numeric', hour:'numeric', minute:'2-digit', second:'2-digit'}).format(date) + ' PHT';
   };
   const cancellationReason = row => [row.cancel_reason_label || row.cancel_reason,row.cancel_reason_detail].filter(Boolean).join(' - ');
+  const detailField = (label, value, full=false) => `<div class="gateway-detail-field${full?' full':''}"><dt>${esc(label)}</dt><dd>${esc(value || 'Not provided')}</dd></div>`;
+  const orderDetails = (order, reason='') => `<dl class="form-grid gateway-detail-grid">${detailField('Order',order.order_no_display || order.order_no)}${detailField('Customer',order.customer_name)}${reason?detailField('Reason',reason,true):''}</dl>`;
+  const historyStatus = refund => refund.transfer_link ? 'Awaiting claim' : ({requested:'Awaiting approval',submitting:'Sending',pending:'Processing',unknown:'Checking status',succeeded:'Refunded',failed:'Failed',rejected:'Declined'}[refund.status] || readable(refund.status));
+  const refundNextStep = refund => refund.failure_action || (refund.transfer_link ? 'The customer can claim the refund in My Orders.' : ({requested:'Admin must approve this refund.',submitting:'Wait for confirmation.',pending:'Wait for confirmation.',unknown:'Check the refund status.',succeeded:'Refund confirmed.',rejected:'No refund was sent.'}[refund.status] || 'Review the payment before retrying.'));
+  const paymentHistory = (receipts, refunds) => `
+    <section class="gateway-detail-section" aria-label="Payments"><h4><i class="fa-regular fa-credit-card" aria-hidden="true"></i> Payments</h4>
+      ${receipts.length ? receipts.map(r=>`<article class="gateway-record-card"><div class="gateway-record-heading"><strong>${esc(methodLabel(r.source_type))}</strong><span class="gateway-record-amount">${money(r.amount_centavos)}</span></div><dl class="gateway-record-fields">${detailField('Payment ID',r.provider_payment_id)}</dl></article>`).join('') : '<p class="gateway-detail-empty">No payments recorded.</p>'}
+    </section>
+    <section class="gateway-detail-section" aria-label="Refunds"><h4><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Refunds <span class="gateway-detail-count">${refunds.length}</span></h4>
+      ${refunds.length ? [...refunds].sort((a,b)=>Number(b.id)-Number(a.id)).map(r=>`<article class="gateway-record-card"><div class="gateway-record-heading"><strong class="gateway-record-amount">${money(r.amount_centavos)}</strong><span class="status-pill ${statusClass(r.status)}">${esc(historyStatus(r))}</span></div>
+        <dl class="gateway-record-fields">${detailField('Reason',r.reason || 'Not provided')}${r.failure_message?detailField('Issue',r.failure_message):''}</dl>
+        <div class="gateway-next-step"><span>Next step</span><p>${esc(refundNextStep(r))}</p></div>
+        <dl class="gateway-record-meta">${detailField('Request','#'+r.id)}${r.provider_refund_id?detailField('Refund ID',r.provider_refund_id):''}${r.error_code?detailField('Provider code',r.error_code):''}</dl>
+      </article>`).join('') : '<p class="gateway-detail-empty">No refunds requested.</p>'}
+    </section>`;
   const renderCancellations=()=>{
     const pending=currentCancellations.filter(o=>o.cancel_pending);
     cancelShortcut.innerHTML='<i class="fa-solid fa-ban" aria-hidden="true"></i> Cancellations <span class="tab-count">'+pending.length+'</span>';
@@ -177,13 +192,13 @@ document.addEventListener('DOMContentLoaded', () => {
   modal.setAttribute('aria-describedby', 'gatewayTeamDescription');
   modal.innerHTML = `<form>
     <header class="modal-header-fixed"><h3 class="modal-title" id="gatewayTeamTitle" data-title></h3>
-    </header><div class="modal-body-scroll"><p id="gatewayTeamDescription" data-description></p>
+    </header><div class="modal-body-scroll"><div data-context hidden></div><p id="gatewayTeamDescription" data-description></p>
       <div class="field-stack" data-receipt><label for="gatewayReceipt">Original payment</label><select id="gatewayReceipt" class="input-field" name="provider_payment_id" required></select></div>
       <div class="field-stack" data-amount><label for="gatewayAmount">Amount (PHP)</label><input id="gatewayAmount" class="input-field" name="amount" type="number" min="1" step="0.01" required></div>
       <div class="field-stack" data-reason><label for="gatewayReason">Reason</label><textarea id="gatewayReason" class="textarea-field" name="reason" maxlength="400" required></textarea></div>
       <div class="field-stack" data-provider hidden><label for="gatewayProvider">Provider reference</label><input id="gatewayProvider" class="input-field" name="provider_id" required></div>
       <div data-record hidden></div><p class="gateway-modal-error" data-error role="alert"></p>
-    </div><footer class="modal-footer-fixed"><button class="btn-admin btn-secondary" type="button" data-cancel>Cancel</button><button class="btn-admin" type="submit">Confirm</button></footer>
+    </div><footer class="modal-footer-fixed"><button class="btn-admin btn-secondary" type="button" data-cancel>Close</button><button class="btn-admin" type="submit">Confirm</button></footer>
   </form>`;
   document.body.append(modal); let action, submitting = false;
   const close = () => { if (!submitting) modal.close(); };
@@ -195,8 +210,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const show = (type,id) => {
     if (submitting) return;
     action = {type,id,key:crypto.randomUUID()}; const request = type === 'refund'; const recovering = type.startsWith('recover');
+    modal.querySelector('[data-context]').hidden=true;
+    modal.querySelector('[data-context]').innerHTML='';
+    modal.querySelector('[data-description]').hidden=false;
+    modal.querySelector('[data-description]').classList.remove('gateway-action-note');
+    modal.querySelector('.modal-body-scroll').scrollTop=0;
     modal.querySelector('form').reset(); modal.querySelector('[data-error]').textContent = '';
-    modal.querySelector('[data-record]').hidden=true; modal.querySelector('[type=submit]').hidden=false; modal.querySelector('[data-cancel]').textContent='Cancel'; modal.querySelector('[name=reason]').required=true; modal.querySelector('[data-reason]').firstChild.textContent='Reason';
+    modal.querySelector('[data-record]').hidden=true; modal.querySelector('[type=submit]').hidden=false; modal.querySelector('[data-cancel]').textContent='Close'; modal.querySelector('[name=reason]').required=true; modal.querySelector('[data-reason]').firstChild.textContent='Reason';
     modal.querySelector('[data-title]').textContent = request ? (canApprove?'Issue payment refund':'Request payment refund') : type === 'approve' ? 'Approve and issue refund' : 'Reject refund request';
     modal.querySelector('[data-description]').textContent = request ? (canApprove?'You are issuing this refund as Admin. For QR Ph, PayMongo creates a claim form for the customer. No separate Admin approval is needed.':'Send this refund request to Admin for approval. No money is returned until Admin issues it.') : type === 'approve' ? 'This sends the requested refund to the original payment method. Confirm only after reviewing the amount and reason in the payment history.' : 'No money will be returned for this request.';
     modal.querySelector('[data-receipt]').hidden = !request;
@@ -239,20 +259,26 @@ document.addEventListener('DOMContentLoaded', () => {
       const receipts=currentReceipts.filter(r=>Number(r.payment_id)===Number(p?.id));
       const refunds=currentRefunds.filter(r=>Number(r.payment_id)===Number(p?.id));
       modal.querySelector('[data-title]').textContent='Payment & refund details';
-      modal.querySelector('[data-description]').textContent=(p?.order_no || 'Order')+' - '+(p?.customer_name || 'Customer');
+      modal.querySelector('[data-description]').textContent='Payment and refund records.';
+      modal.querySelector('[data-description]').hidden=true;
+      modal.querySelector('[data-context]').hidden=false;
+      modal.querySelector('[data-context]').innerHTML=orderDetails(p || {},cancellationReason(p || {}) || 'No cancellation recorded');
       modal.querySelector('[data-record]').hidden=false;
-      modal.querySelector('[data-record]').innerHTML='<p><strong>Cancellation / reason</strong><br>'+esc(cancellationReason(p || {}) || 'No customer cancellation recorded')+'</p>'+receipts.map(r=>'<p><strong>'+esc(methodLabel(r.source_type))+' received: '+money(r.amount_centavos)+'</strong><br><code>'+esc(r.provider_payment_id)+'</code></p>').join('')+refunds.map(r=>'<div class="gateway-history-entry"><strong>'+money(r.amount_centavos)+' - '+esc(refundLabel(r.status))+'</strong><p>'+esc(r.reason)+'</p><p>'+esc(r.failure_message || (r.transfer_link?'Customer can claim this refund in My Orders > Payment details.':''))+'</p><p>'+esc(r.failure_action || '')+'</p><small>'+esc(r.error_code || '')+' '+esc(r.provider_refund_id || 'Request #'+r.id)+'</small></div>').join('');
+      modal.querySelector('[data-record]').innerHTML=paymentHistory(receipts,refunds);
       modal.querySelector('[type=submit]').hidden=true;modal.querySelector('[data-cancel]').textContent='Done';
     }
     if(type==='cancelapprove' || type==='canceldecline'){
       const o=currentCancellations.find(o=>String(o.id)===String(id));
       if(!o?.cancel_pending){checkResult.hidden=false;checkResult.textContent='This cancellation is no longer awaiting a decision.';return;}
       action.issueRefund=type==='cancelapprove' && canApprove && o.payment_is_automated && o.payment_status==='paid';
-      modal.querySelector('[data-title]').textContent=type==='canceldecline'?'Decline cancellation':action.issueRefund?'Cancel order & issue refund':'Approve cancellation';
-      modal.querySelector('[data-description]').textContent=(o.order_no_display || o.order_no)+' - '+o.customer_name+'. Customer reason: '+cancellationReason(o)+'. '+(type==='canceldecline'?'The order will continue. The customer will see your reason.':action.issueRefund?'This cancels the order and issues its eligible refund in the same action. For QR Ph, the customer must complete PayMongo\'s claim form.':o.payment_is_automated && o.payment_status==='paid'?'This cancels the order and queues its refund for Admin to issue.':'This cancels the order. Any payment already received must be returned and recorded.');
+      modal.querySelector('[data-title]').textContent=type==='canceldecline'?'Decline cancellation':action.issueRefund?'Cancel & refund':'Approve cancellation';
+      modal.querySelector('[data-context]').hidden=false;
+      modal.querySelector('[data-context]').innerHTML=orderDetails(o,cancellationReason(o) || 'No reason recorded')+`<dl class="form-grid gateway-detail-grid">${detailField('Payment',o.payment_method_label || methodLabel(o.payment_method))}${detailField('Status',readable(o.payment_status))}</dl>`;
+      modal.querySelector('[data-description]').classList.add('gateway-action-note');
+      modal.querySelector('[data-description]').textContent=type==='canceldecline'?'The order will continue. The customer will see your reason.':action.issueRefund?'Cancel this order and issue a refund. For QR Ph, the customer must claim the refund.':o.payment_is_automated && o.payment_status==='paid'?'Cancel this order and send the refund to Admin for approval.':'Cancel this order. Return and record any payment received.';
       modal.querySelector('[data-reason]').hidden=false;modal.querySelector('[data-reason]').firstChild.textContent=type==='canceldecline'?'Reason for declining':'Note to customer (optional)';
       modal.querySelector('[name=reason]').disabled=false;modal.querySelector('[name=reason]').required=type==='canceldecline';
-      modal.querySelector('[type=submit]').textContent=type==='canceldecline'?'Decline cancellation':action.issueRefund?'Cancel order & issue refund':o.payment_is_automated && o.payment_status==='paid'?'Cancel & request refund':'Approve cancellation';
+      modal.querySelector('[type=submit]').textContent=type==='canceldecline'?'Decline cancellation':action.issueRefund?'Cancel & refund':o.payment_is_automated && o.payment_status==='paid'?'Cancel & request refund':'Approve cancellation';
     }
     if (!modal.open) modal.showModal();
   };
