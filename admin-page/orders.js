@@ -5013,31 +5013,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Section switcher - same behaviour as the Archives page tabs. Guarded so this
   // file keeps working on a page that ships the stack without the chip strip.
-  const ordersTabButtons = Array.from(
-    document.querySelectorAll("#ordersModuleTabs .archive-tab-btn"),
-  );
-  if (ordersTabButtons.length) {
-    const ordersSections = Array.from(
-      document.querySelectorAll(".orders-layout-stack .archive-section"),
-    );
-    ordersTabButtons.forEach((button) => {
-      button.addEventListener("click", () => {
-        const tab = String(button.dataset.tab || "");
-        ordersTabButtons.forEach((candidate) => {
-          candidate.classList.toggle("active", candidate === button);
-        });
-        ordersSections.forEach((section) => {
-          section.classList.toggle(
-            "active",
-            section.id.toLowerCase() === `section${tab}`.toLowerCase(),
-          );
-        });
-        // A table that was display:none is skipped by the column sizer, so the
-        // one that just became visible needs a pass.
-        window.AdminTableResize?.refresh?.();
-      });
+  const ordersModuleTabs = document.getElementById("ordersModuleTabs");
+  ordersModuleTabs?.addEventListener("click", (event) => {
+    const button = event.target.closest(".archive-tab-btn");
+    if (!button || !ordersModuleTabs.contains(button)) return;
+    const tab = String(button.dataset.tab || "").toLowerCase();
+    // Gateway tabs are inserted after this script initializes. Read the current
+    // buttons and sections so every selection clears the previous active tab.
+    ordersModuleTabs.querySelectorAll(".archive-tab-btn").forEach((candidate) => {
+      const selected = candidate === button;
+      candidate.classList.toggle("active", selected);
+      candidate.setAttribute("aria-pressed", String(selected));
     });
-  }
+    document.querySelectorAll(".orders-layout-stack .archive-section").forEach((section) => {
+      const selected = section.id.toLowerCase() === `section${tab}`;
+      section.classList.toggle("active", selected);
+      section.hidden = !selected;
+    });
+    window.AdminTableResize?.refresh?.();
+  });
 
   refreshBtn?.addEventListener("click", () => {
     refreshBtn.disabled = true;

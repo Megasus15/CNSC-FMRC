@@ -6,14 +6,26 @@
 .gateway-toolbar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;margin:20px 0 14px}.gateway-toolbar label{display:block;font-size:12px;font-weight:600}.gateway-search{flex:1 1 230px}.gateway-filter{flex:0 1 210px}.gateway-toolbar :is(input,select){box-sizing:border-box;width:100%;height:42px;margin-top:7px;padding:9px 12px;font:inherit;border:1px solid var(--border-color,#dfe5ee);border-radius:8px;background:var(--surface,#fcf9f5);color:var(--text-main,#303036)}
 .gateway-scope{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;margin:16px 0 20px;font-size:12px;color:var(--text-muted,#6b6872)}.gateway-scope label{display:flex;align-items:center;gap:8px}.gateway-scope input{width:16px;height:16px;accent-color:#782235}
 .gateway-table-wrap{overflow:auto;width:100%;max-width:100%}.gateway-table-wrap .admin-table{min-width:1030px}.gateway-table-wrap td:nth-child(2){overflow-wrap:anywhere}.gateway-table-wrap small{display:block;color:var(--text-muted);font-size:11px;line-height:1.65;margin-top:4px}.gateway-money{font-variant-numeric:tabular-nums;white-space:nowrap}.gateway-table-state+.gateway-table-state{margin-top:8px}
-.gateway-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:104px;max-width:152px}.gateway-actions button{flex:none;margin:0}.gateway-secondary{display:block;font-size:12px;line-height:1.7;color:var(--text-muted,#6b6872)}.gateway-history-entry{border-top:1px solid var(--border-color,#dfe5ee);padding:14px 0}.gateway-team-dialog code{overflow-wrap:anywhere;font-size:12px}
+.gateway-secondary{display:block;font-size:12px;line-height:1.7;color:var(--text-muted,#6b6872)}.gateway-history-entry{border-top:1px solid var(--border-color,#dfe5ee);padding:14px 0}.gateway-team-dialog code{overflow-wrap:anywhere;font-size:12px}
 .gateway-team button:not(.page-btn):not(.action-icons button),.cancellation-panel button:not(.page-btn):not(.action-icons button),.cancellation-alert,.gateway-order-action,.table-pay-cell [data-gateway-manage]{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:38px;padding:8px 12px;border:1px solid var(--border-color,#d8dce5);border-radius:8px;background:var(--surface,#fcf9f5);color:var(--text-main,#303036);font:inherit;font-size:12px;font-weight:600;cursor:pointer;box-shadow:none}
 .gateway-order-action{margin:16px 20px!important;width:calc(100% - 40px)!important}.table-pay-cell [data-gateway-manage]{min-height:30px;padding:4px 9px;margin-top:6px;font-size:11px;width:fit-content}
 :is(.gateway-team,.cancellation-panel) button:not(.page-btn):not(.action-icons button).gateway-primary{background:#782235;border-color:#782235;color:#fff}:is(.gateway-team,.cancellation-panel) button:not(.page-btn):not(.action-icons button):hover:not(:disabled),.cancellation-alert:hover,.gateway-order-action:hover{background:var(--hover-bg,#f1e9e6);border-color:#985365;transform:none}:is(.gateway-team,.cancellation-panel) button:not(.page-btn):not(.action-icons button).gateway-primary:hover:not(:disabled){background:#5e1b2b;color:#fff}:is(.gateway-team,.cancellation-panel) button:not(.page-btn):not(.action-icons button):disabled{opacity:.5;cursor:not-allowed}:is(.gateway-team,.cancellation-panel) :is(input:not(.page-number),select):focus-visible{outline:2px solid #985365;outline-offset:3px}
-dialog.fmrc-payment-modal.gateway-team-dialog{--ux-dlg-badge:#f4eae5;--ux-dlg-eyebrow:#edddd7;--ux-dlg-band:#641f2e;--payment-font:"Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.gateway-team-dialog .payment-modal-head::after{display:none}
 #sectionRefunds,#sectionCancellations,.gateway-team,.gateway-content,.cancellation-panel{min-width:0}
 
 
 .cancellation-panel .panel-header p{font-size:13px;color:var(--text-muted);margin:7px 0 0}
 .cancellation-alert{display:flex;width:100%;justify-content:flex-start;padding:14px 18px;margin:0 0 16px;border-left:3px solid var(--primary-color)}
 .order-cancellation-notice{margin-bottom:20px;border:1px solid var(--border-color);border-left:3px solid var(--primary-color);background:var(--bg-light);padding:16px;border-radius:8px}.order-cancellation-notice p{margin:8px 0}.order-cancellation-notice small{display:block;margin-bottom:12px}
+
+/* Reuse the Orders modal card, fields and buttons; only its body scrolls. */
+dialog.gateway-team-dialog{margin:auto;color:var(--text-main);font:inherit;max-height:calc(100dvh - 32px);overflow:hidden}
+dialog.gateway-team-dialog:not([open]){display:none}
+dialog.gateway-team-dialog::backdrop{background:rgba(30,20,20,.38)}
+.gateway-team-dialog form{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.gateway-team-dialog :is(.modal-header-fixed,.modal-footer-fixed){flex-shrink:0}
+.gateway-team-dialog .modal-body-scroll{flex:1 1 auto;min-height:0;max-height:none;overscroll-behavior:contain}
+.gateway-team-dialog .field-stack{margin-top:14px}
+.gateway-team-dialog [hidden]{display:none!important}
+.gateway-team-dialog [data-description]{margin:0 0 14px;color:var(--text-muted)}
+.gateway-modal-error{color:var(--primary-color);margin:12px 0 0}
+.gateway-modal-error:empty{display:none}

@@ -20,12 +20,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const openWorkspace = (which='refunds') => {
     const section=which==='cancellations'?cancelWorkspace:workspace;
     const selected=which==='cancellations'?cancelShortcut:refundShortcut;
-    document.querySelectorAll('.orders-layout-stack .archive-section').forEach(item=>item.classList.toggle('active',item===section));
+    document.querySelectorAll('.orders-layout-stack .archive-section').forEach(item=>{item.classList.toggle('active',item===section);item.hidden=item!==section;});
     tabs?.querySelectorAll('.archive-tab-btn').forEach(button=>{button.classList.toggle('active',button===selected);button.setAttribute('aria-pressed',String(button===selected));});
     workspace.hidden=section!==workspace;cancelWorkspace.hidden=section!==cancelWorkspace;
     section.classList.add('active');
   };
-  tabs?.addEventListener('click',e=>{if(e.target.closest('.archive-tab-btn') && !e.target.closest('.gateway-refund-shortcut,.gateway-cancellations-shortcut')) {workspace.hidden=true;cancelWorkspace.hidden=true;}});
   const checkResult = document.createElement('p');
   checkResult.className = 'gateway-intro'; checkResult.setAttribute('role', 'status'); checkResult.hidden = true;
   panel.querySelector('[data-gateway-health]').after(checkResult);
@@ -63,7 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const icon=Object.keys(actionIcons).find(key=>button.hasAttribute('data-'+key));
     button.type='button'; button.classList.remove('gateway-primary');
     button.setAttribute('aria-label',label); button.dataset.tooltip=label;
-    button.innerHTML='<i class="fa-solid fa-'+(button.disabled?'spinner fa-spin':actionIcons[icon] || 'eye')+'" aria-hidden="true"></i>';
+    button.innerHTML='<i class="'+(!button.disabled && ['order-view','history'].includes(icon)?'fa-regular':'fa-solid')+' fa-'+(button.disabled?'spinner fa-spin':actionIcons[icon] || 'eye')+'" aria-hidden="true"></i>';
   });
   const money = cents => '₱' + (Number(cents) / 100).toLocaleString('en-PH', {minimumFractionDigits:2,maximumFractionDigits:2});
   const methodLabel = method => method === 'qrph' ? 'QR Ph' : method === 'gcash' ? 'GCash' : 'Online payment';
@@ -87,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pages=Math.max(1,Math.ceil(rows.length/10));cancelPage=Math.min(Math.max(1,cancelPage),pages);
     cancelWorkspace.querySelector('[data-cancellation-list]').innerHTML=rows.slice((cancelPage-1)*10,cancelPage*10).map(o=>{
       const paid=o.payment_status==='paid',automated=o.payment_is_automated;
-      return `<tr><td><strong>${esc(o.order_no_display || o.order_no)}</strong><small>${esc(o.customer_name)}</small></td><td>${esc(dateLabel(o.cancel_requested_at))}</td><td>${esc(cancellationReason(o) || 'No reason recorded')}<small>${esc(o.cancel_decision_note || '')}</small></td><td>${esc(o.payment_method_label || o.payment_method)}<small>${esc(paid?'Paid':readable(o.payment_status))} &middot; ${money(Math.round(Number(o.total_amount || o.total || 0)*100))}</small></td><td><span class="status-pill ${statusClass(o.cancel_pending?'requested':o.cancel_state)}" data-status="${o.cancel_pending?'requested':esc(o.cancel_state)}">${esc(o.cancel_pending?'Awaiting decision':o.cancel_state_label || readable(o.cancel_state))}</span></td><td class="action-icons sticky-action"><div class="gateway-actions">${o.cancel_pending?`<button class="gateway-primary" data-cancelapprove="${o.id}">${canApprove && automated && paid?'Cancel & refund':paid && automated?'Cancel & request refund':'Approve cancellation'}</button><button data-canceldecline="${o.id}">Decline</button>`:automated?`<button data-gateway-manage="${o.id}">Refund details</button>`:''}<button data-order-view="${o.id}">Order details</button></div></td></tr>`;
+      return `<tr><td><strong>${esc(o.order_no_display || o.order_no)}</strong><small>${esc(o.customer_name)}</small></td><td>${esc(dateLabel(o.cancel_requested_at))}</td><td>${esc(cancellationReason(o) || 'No reason recorded')}<small>${esc(o.cancel_decision_note || '')}</small></td><td>${esc(o.payment_method_label || o.payment_method)}<small>${esc(paid?'Paid':readable(o.payment_status))} &middot; ${money(Math.round(Number(o.total_amount || o.total || 0)*100))}</small></td><td><span class="status-pill ${statusClass(o.cancel_pending?'requested':o.cancel_state)}" data-status="${o.cancel_pending?'requested':esc(o.cancel_state)}">${esc(o.cancel_pending?'Awaiting decision':o.cancel_state_label || readable(o.cancel_state))}</span></td><td class="action-icons sticky-action gateway-actions">${o.cancel_pending?`<button class="gateway-primary" data-cancelapprove="${o.id}">${canApprove && automated && paid?'Cancel & refund':paid && automated?'Cancel & request refund':'Approve cancellation'}</button><button data-canceldecline="${o.id}">Decline</button>`:automated?`<button data-gateway-manage="${o.id}">Refund details</button>`:''}<button data-order-view="${o.id}">Order details</button></td></tr>`;
     }).join('') || emptyRow('No cancellations match these filters.');
     cancelWorkspace.querySelector('[data-cancel-page]').textContent='Page '+cancelPage+' of '+pages;
     cancelWorkspace.querySelector('[data-cancel-prev]').disabled=cancelPage===1;cancelWorkspace.querySelector('[data-cancel-next]').disabled=cancelPage===pages;
@@ -151,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if(canApprove && data.attempts.some(a=>Number(a.payment_id)===Number(p.id) && !a.checkout_id && ['creating','unknown'].includes(a.status)))actions.push(`<button data-recovercheckout="${p.order_id}">Match checkout</button>`);
           actions.push(`<button data-check="${p.order_id}">Check payment</button><button data-history="${p.order_id}">Details</button>`);
           const status=visible.map(r=>`<div class="gateway-table-state"><span class="status-pill ${statusClass(r.status)}" data-status="${esc(r.status)}">${esc(r.transfer_link?'Awaiting customer claim':refundLabel(r.status))}</span><small>${money(r.amount_centavos)}${r.status==='failed'?' - '+esc(r.failure_message || 'Needs review'):''}</small></div>`).join('') || '<span class="gateway-secondary">'+(p.cancel_state==='requested'?'Review cancellation first':['cancelled','rejected'].includes(p.lifecycle_status) && p.status==='paid'?'Refund required':'No refund requested')+'</span>';
-          return `<tr><td><strong>${esc(p.order_no)}</strong><small>${esc(p.customer_name || 'Customer')}</small><small>${esc(readable(p.lifecycle_status))} &middot; ${esc(readable(p.status))}</small></td><td>${esc(cancellationReason(p) || (p.lifecycle_status==='rejected'?'Order rejected':'-'))}${p.cancel_requested_at?'<small>'+esc(dateLabel(p.cancel_requested_at))+'</small>':''}</td><td class="gateway-money">${money(receipts.reduce((n,r)=>n+Number(r.amount_centavos),0))}</td><td class="gateway-money">${money(refunds.filter(r=>r.status==='succeeded').reduce((n,r)=>n+Number(r.amount_centavos),0))}</td><td>${status}</td><td class="action-icons sticky-action"><div class="gateway-actions">${actions.join('')}</div></td></tr>`;
+          return `<tr><td><strong>${esc(p.order_no)}</strong><small>${esc(p.customer_name || 'Customer')}</small><small>${esc(readable(p.lifecycle_status))} &middot; ${esc(readable(p.status))}</small></td><td>${esc(cancellationReason(p) || (p.lifecycle_status==='rejected'?'Order rejected':'-'))}${p.cancel_requested_at?'<small>'+esc(dateLabel(p.cancel_requested_at))+'</small>':''}</td><td class="gateway-money">${money(receipts.reduce((n,r)=>n+Number(r.amount_centavos),0))}</td><td class="gateway-money">${money(refunds.filter(r=>r.status==='succeeded').reduce((n,r)=>n+Number(r.amount_centavos),0))}</td><td>${status}</td><td class="action-icons sticky-action gateway-actions">${actions.join('')}</td></tr>`;
         }).join('') || emptyRow('No payments match these filters.');
         window.AdminTableResize?.refresh?.();
         snapshot = nextSnapshot;
@@ -173,25 +172,22 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) { panel.querySelector('[data-gateway-health]').textContent = e.message; delay = Math.min(delay*2,30000); }
     finally { busy = false; const nextDelay = reloadPending ? 0 : delay; reloadPending = false; timer = setTimeout(load, nextDelay); }
   };
-  const modal = document.createElement('dialog'); modal.className = 'gateway-team-dialog fmrc-payment-modal';
+  const modal = document.createElement('dialog'); modal.className = 'gateway-team-dialog modal-card product-modal';
   modal.setAttribute('aria-labelledby', 'gatewayTeamTitle');
   modal.setAttribute('aria-describedby', 'gatewayTeamDescription');
   modal.innerHTML = `<form>
-    <header class="payment-modal-head"><span class="payment-modal-icon" aria-hidden="true">&#8634;</span>
-      <div><p class="payment-modal-eyebrow">Payments &amp; refunds</p><h3 id="gatewayTeamTitle" data-title></h3></div>
-      <button type="button" class="payment-modal-close" data-close aria-label="Close payment action"><svg viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="m6 6 8 8M14 6l-8 8"/></svg></button>
-    </header><div class="payment-modal-body"><p id="gatewayTeamDescription" data-description></p>
-      <label data-receipt>Original payment<select name="provider_payment_id" required></select></label>
-      <label data-amount>Amount (PHP)<input name="amount" type="number" min="1" step="0.01" required></label>
-      <label data-reason>Reason<textarea name="reason" maxlength="400" required></textarea></label>
-      <label data-provider hidden>Provider reference<input name="provider_id" required></label>
-      <div data-record hidden></div><p class="payment-modal-error" data-error role="alert"></p>
-    </div><footer class="payment-modal-footer"><button type="button" data-cancel>Cancel</button><button class="payment-modal-primary" type="submit">Confirm</button></footer>
+    <header class="modal-header-fixed"><h3 class="modal-title" id="gatewayTeamTitle" data-title></h3>
+    </header><div class="modal-body-scroll"><p id="gatewayTeamDescription" data-description></p>
+      <div class="field-stack" data-receipt><label for="gatewayReceipt">Original payment</label><select id="gatewayReceipt" class="input-field" name="provider_payment_id" required></select></div>
+      <div class="field-stack" data-amount><label for="gatewayAmount">Amount (PHP)</label><input id="gatewayAmount" class="input-field" name="amount" type="number" min="1" step="0.01" required></div>
+      <div class="field-stack" data-reason><label for="gatewayReason">Reason</label><textarea id="gatewayReason" class="textarea-field" name="reason" maxlength="400" required></textarea></div>
+      <div class="field-stack" data-provider hidden><label for="gatewayProvider">Provider reference</label><input id="gatewayProvider" class="input-field" name="provider_id" required></div>
+      <div data-record hidden></div><p class="gateway-modal-error" data-error role="alert"></p>
+    </div><footer class="modal-footer-fixed"><button class="btn-admin btn-secondary" type="button" data-cancel>Cancel</button><button class="btn-admin" type="submit">Confirm</button></footer>
   </form>`;
   document.body.append(modal); let action, submitting = false;
   const close = () => { if (!submitting) modal.close(); };
   modal.querySelector('[data-cancel]').onclick = close;
-  modal.querySelector('[data-close]').onclick = close;
   modal.addEventListener('cancel', e => { if (submitting) e.preventDefault(); });
   modal.addEventListener('keydown', e => {
     if (submitting && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); }
@@ -266,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
     submitting = true; const button = modal.querySelector('[type=submit]'), label = button.textContent;
     modal.setAttribute('closedby', 'none');
     button.disabled = true; button.textContent = 'Processing\u2026';
-    modal.querySelector('[data-cancel]').disabled = true; modal.querySelector('[data-close]').disabled = true;
+    modal.querySelector('[data-cancel]').disabled = true;
     modal.querySelector('[data-error]').textContent = '';
     try {
       if (action.type === 'recovercheckout') await api('/admin/orders/'+action.id+'/payment-recover', {provider_id:modal.querySelector('[name=provider_id]').value.trim()});
@@ -290,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       modal.close(); window.dispatchEvent(new CustomEvent('fmrc:orders-updated',{detail:{source:'gateway-payments',timestamp:Date.now()}})); snapshot = ''; await load();
     } catch (e) { modal.querySelector('[data-error]').textContent = e.message; }
-    finally { submitting = false; modal.removeAttribute('closedby'); button.disabled = false; button.textContent = label; modal.querySelector('[data-cancel]').disabled = false; modal.querySelector('[data-close]').disabled = false; }
+    finally { submitting = false; modal.removeAttribute('closedby'); button.disabled = false; button.textContent = label; modal.querySelector('[data-cancel]').disabled = false; }
   };
   panel.addEventListener('click', async e => {
     const b = e.target.closest('button'); if (!b) return;
