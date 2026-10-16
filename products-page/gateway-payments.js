@@ -108,12 +108,12 @@
     const messageEl = dialog.querySelector('[data-gateway-message]');
     if (messageEl.textContent !== message) messageEl.textContent = message;
     dialog.querySelector('[data-gateway-continue]').hidden = !canContinue;
-    dialog.querySelector('[data-gateway-refunds]').textContent = refunds.map(r => 'Refund ₱' + (r.amount_centavos / 100).toFixed(2) + ': ' + (refundLabels[r.status] || 'Checking status')).join(' · ');
+    dialog.querySelector('[data-gateway-refunds]').textContent = refunds.map(r => 'Refund ₱' + (r.amount_centavos / 100).toFixed(2) + ': ' + (data.status === 'refunded' && ['failed','rejected'].includes(r.status) ? 'Earlier unsuccessful attempt; refund now confirmed' : refundLabels[r.status] || 'Checking status')).join(' · ');
     dialog.querySelector('[data-gateway-refunds]').hidden = !(data.refunds || []).length;
     const currentStatus = JSON.stringify([data.status, data.order_status, refunds]);
     if (lastStatus !== currentStatus) window.dispatchEvent(new CustomEvent('fmrc:orders-updated', { detail: {type: 'payment', orderId} }));
     lastStatus = currentStatus;
-    shouldPoll = refundRequested || refundProcessing || (!data.exception && data.status === 'pending');
+    shouldPoll = refundRequested || refundProcessing || closedPaid || (!data.exception && data.status === 'pending');
   };
   const poll = async ({interactive = false} = {}) => {
     clearTimeout(timer);

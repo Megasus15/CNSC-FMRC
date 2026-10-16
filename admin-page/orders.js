@@ -1580,7 +1580,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (method.toLowerCase() === "gcash") {
       if (status === "refunded") {
-        return `<div class="table-pay-cell"><span class="status-pill status-grey">${gatewayLabel} (Refunded)</span><small class="table-pay-sub">Refund recorded</small></div>`;
+        return `<div class="table-pay-cell"><span class="status-pill status-grey">${gatewayLabel} (Refunded)</span>${isAutomated ? `<button type="button" data-gateway-manage="${order.id}">Refund history</button>` : ""}<small class="table-pay-sub">Refund recorded</small></div>`;
       }
       if (isPaid) {
         return `
@@ -1589,7 +1589,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <i class="fa-solid fa-circle-check"></i> ${gatewayLabel} (Paid)
             </span>
             ${isAutomated ? `<button type="button" data-gateway-manage="${order.id}">Manage refund</button>` : ""}
-            <small class="table-pay-sub">${isAutomated && ["rejected","cancelled"].includes(order?.lifecycle_status) ? "Refund required" : order?.lifecycle_status === "incoming" ? "Awaiting order approval" : isAutomated ? "Automatically verified" : "Confirmed by staff"}</small>
+            <small class="table-pay-sub">${isAutomated && ["rejected","cancelled"].includes(order?.lifecycle_status) ? ({requested:"Awaiting refund approval",processing:"Refund processing",needs_review:"Refund needs attention",succeeded:"Refund confirmed"}[order.payment_refund_status] || "Refund required") : order?.lifecycle_status === "incoming" ? "Awaiting order approval" : isAutomated ? "Automatically verified" : "Confirmed by staff"}</small>
           </div>
         `;
       }

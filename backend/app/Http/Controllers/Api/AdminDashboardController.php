@@ -161,10 +161,7 @@ class AdminDashboardController extends Controller
 
         $verifiedGcashRevenue += $this->safely('revenue.gateway', fn () => \App\Support\GatewayFinancials::total('receipts'), 0.0, $unavailable);
         $refundedAmount += $this->safely('revenue.gateway_refunds', fn () => \App\Support\GatewayFinancials::total('refunds'), 0.0, $unavailable);
-        $totalRevenue = max(
-            0.0,
-            $completedOrdersRevenue + $verifiedGcashRevenue + $walkInRevenue - $refundedAmount
-        );
+        $totalRevenue = round($completedOrdersRevenue + $verifiedGcashRevenue + $walkInRevenue - $refundedAmount, 2);
 
         // ─── Total Inventory Items ───
         $totalInventoryItems = $this->safely('counts.total_inventory_items', fn () => InventoryItem::query()->count(), 0, $unavailable);

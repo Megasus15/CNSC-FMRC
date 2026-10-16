@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 import hashlib, json, zipfile
 ROOT = Path(__file__).resolve().parents[2]
 FILES = [
+    "backend/app/Support/RefundStatus.php",
+    "docs/HOSTINGER_REFUND_RELEASE.md",
     "products-page/paymongo-simulator.html",
     "about-page/about.html",
     "admin-page/orders.html",

@@ -39,7 +39,7 @@ class FinancialMetrics
         $refunds = self::refunds($start, $end) + GatewayFinancials::total('refunds', $start, $end);
 
         return [
-            'collected' => max(0.0, $online + $gcash + $walkins - $refunds),
+            'collected' => round($online + $gcash + $walkins - $refunds, 2),
             'breakdown' => [
                 'online' => round($online, 2),
                 'gcash_advance' => round($gcash, 2),
@@ -138,7 +138,7 @@ class FinancialMetrics
         foreach (self::buckets($from, $to, $granularity) as $bucket) {
             $key = $bucket['key'];
             $amount = ($online[$key] ?? 0) + ($gcash[$key] ?? 0) + ($walkins[$key] ?? 0) - ($refunds[$key] ?? 0) + ($gatewayReceipts[$key] ?? 0) - ($gatewayRefunds[$key] ?? 0);
-            $series[] = ['label' => $bucket['label'], 'amount' => round(max(0.0, $amount), 2)];
+            $series[] = ['label' => $bucket['label'], 'amount' => round($amount, 2)];
         }
 
         return $series;

@@ -173,4 +173,9 @@ test('failed refund on rejected order requests assistance instead of promising p
   assert.equal(h.fields.get('[data-gateway-status]').textContent,'Refund needs review');
   assert.match(h.fields.get('[data-gateway-message]').textContent,/Contact FMRC/);
   assert.doesNotMatch(h.fields.get('[data-gateway-message]').textContent,/awaiting team approval|has been refunded/);
+  assert.equal(h.timers.size,1);
+  await h.update({status:'refunded',order_status:'rejected',refunds:[{amount_centavos:180,status:'failed'},{amount_centavos:180,status:'succeeded'}]});
+  assert.match(h.fields.get('[data-gateway-refunds]').textContent,/Earlier unsuccessful attempt; refund now confirmed/);
+  assert.doesNotMatch(h.fields.get('[data-gateway-refunds]').textContent,/Needs FMRC review/);
+  assert.equal(h.timers.size,0);
 });

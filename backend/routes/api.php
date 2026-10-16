@@ -198,6 +198,8 @@ Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(func
     Route::post('/admin/orders/{order}/gateway-refunds', [\App\Http\Controllers\Api\GatewayManagementController::class, 'requestRefund'])->middleware('throttle:10,1');
     Route::post('/admin/orders/{order}/payment-reconcile', [\App\Http\Controllers\Api\GatewayManagementController::class, 'reconcile'])->middleware('throttle:10,1');
     Route::post('/admin/gateway-refunds/{refund}/approve', [\App\Http\Controllers\Api\GatewayManagementController::class, 'approve'])->middleware('throttle:10,1');
+    Route::post('/admin/gateway-refunds/{refund}/retry', [\App\Http\Controllers\Api\GatewayManagementController::class, 'retry'])->middleware('throttle:10,1');
+    Route::post('/admin/gateway-refunds/{refund}/check', [\App\Http\Controllers\Api\GatewayManagementController::class, 'checkRefund'])->middleware('throttle:10,1');
     Route::post('/admin/gateway-refunds/{refund}/reject', [\App\Http\Controllers\Api\GatewayManagementController::class, 'reject']);
 
     // Customer: Linked GCash account (TikTok Shop style 1-click payment)

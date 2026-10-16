@@ -8,17 +8,17 @@ const fixture=(admin=false)=>`<!doctype html><html><head><meta charset="utf-8"><
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap">
 ${(admin?['admin-page/dashboard.css','admin-page/admin-modules.css','admin-page/dark-mode.css','admin-page/gateway-payments.css']:['home-page/main.css','products-page/gateway-payments.css']).map(f=>`<link rel="stylesheet" href="/${f}">`).join('')}
 <link rel="stylesheet" href="/home-page/payment-dialogs.css"></head><body><button id="launch">Payment details</button>
-${admin?'<div id="ordersModuleTabs"><button data-tab="records" onclick="document.querySelector(\'.table-wrapper\').hidden=false">Records</button></div><button data-gateway-manage="1">Manage refund</button><div class="table-wrapper"><table id="paymentsHistoryTable"></table></div>':''}
+${admin?'<div id="ordersModuleTabs"><button class="archive-tab-btn" data-tab="records" onclick="document.querySelector(\'.table-wrapper\').hidden=false">Records</button></div><button data-gateway-manage="1">Manage refund</button><div class="orders-layout-stack"><section id="sectionRecords" class="archive-section active"><div class="table-wrapper"><table id="paymentsHistoryTable"></table></div></section></div>':''}
 <script>
 localStorage.setItem('customer_token','fixture');localStorage.setItem('auth_token','fixture');
 window.mode='paid'; window.calls=[]; window.hold=false; window.release=null; window.refunds=[]; window.orderStatus='incoming'; window.canApprove=true;
 window.fetch=async(url,options={})=>{window.calls.push({url,options});
 if(options.method==='POST' && window.hold) await new Promise(r=>window.release=r);
 if(options.method==='POST' && window.fail) return {ok:false,json:async()=>({message:'Please try again.'})};
-return {ok:true,json:async()=>url.includes('/admin/gateway-payments?')?{checkout_method:'qrph',enabled:true,livemode:false,can_approve:window.canApprove,refunds_awaiting_approval:1,last_reconciled_at:new Date().toISOString(),
+return {ok:true,json:async()=>url.includes('/admin/gateway-payments?')?{checkout_method:'qrph',enabled:true,livemode:false,can_approve:window.canApprove,refunds_awaiting_approval:1,refund_summary:{requested:1,processing:1,failed:1,refunded_centavos:0},last_reconciled_at:new Date().toISOString(),
 payments:{data:[{id:1,order_id:1,order_no:'ORD-FIXTURE',gateway:'paymongo',status:'paid',amount:500,paymongo_payment_id:'pay_fixture',lifecycle_status:'rejected'}],last_page:1},
 attempts:[{payment_id:1,checkout_id:null,status:'unknown'}],receipts:[{payment_id:1,provider_payment_id:'pay_fixture',amount_centavos:50000,source_type:'qrph'}],
-refunds:[{id:2,payment_id:1,provider_payment_id:'pay_fixture',status:'requested',amount_centavos:180,reason:'Duplicate payment'},{id:3,payment_id:1,provider_payment_id:'pay_fixture',amount_centavos:100,status:'unknown',reason:'Checking refund'}]}:
+refunds:[{id:4,payment_id:1,provider_payment_id:'pay_fixture',amount_centavos:100,status:'failed',reason:'Rejected order',error_code:'refund_rejected',failure_message:'The refund was not accepted.',failure_action:'Review the original payment in PayMongo before retrying.'},{id:2,payment_id:1,provider_payment_id:'pay_fixture',status:'requested',amount_centavos:180,reason:'Duplicate payment'},{id:3,payment_id:1,provider_payment_id:'pay_fixture',amount_centavos:100,status:'unknown',reason:'Checking refund'}]}:
 {data:{status:'pending'},status:window.mode,order_status:window.orderStatus,checkout_method:'qrph',method_label:'QR Ph',checkout_url:window.mode==='pending'?'https://checkout.paymongo.com/fixture':null,refunds:window.refunds}};
 };
 </script><script src="/${admin?'admin-page':'products-page'}/gateway-payments.js"></script>
@@ -76,8 +76,17 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
   await until('!!document.querySelector("[data-refund]")');
   await run('document.querySelector(".gateway-refund-shortcut").click()');
   await until('window.calls.some(c=>c.url.includes("refunds=1"))');
+  assert.equal(await run('document.querySelector("#sectionRefunds").hidden'),false);
+  assert.equal(await run('document.querySelector("#sectionRecords").classList.contains("active")'),false);
+  await run('document.querySelector("[data-tab=records]").click()');
+  assert.equal(await run('document.querySelector("#sectionRefunds").hidden'),true);
   await run('document.querySelector("[data-gateway-manage]").click()');
   await until('window.calls.some(c=>c.url.includes("order_id=1"))');
+  for(const width of [1280,390]){
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height:850,deviceScaleFactor:1,mobile:false});
+    assert.equal(await run('document.documentElement.scrollWidth>innerWidth+1'),false);
+    await shot('refund-workspace-'+width);
+  }
   await run('window.hold=true;document.querySelector("[data-check]").click()');
   await until('document.querySelector("[data-check]").disabled');
   await run('window.release()');
@@ -88,7 +97,7 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
   await until('document.querySelector(".gateway-content > p[role=status]").textContent.includes("too long")');
   assert.equal(await run('document.querySelector("[data-check]").disabled'),false);
   await run('window.release();window.hold=false;window.setTimeout=window.originalTimer;window.calls=[]');
-  for(const type of ['refund','approve','reject','recovercheckout','recoverrefund']){
+  for(const type of ['refund','retry','approve','reject','recovercheckout','recoverrefund']){
    await run(`document.querySelector('[data-${type}]').click()`);
    assert.equal(await run('document.querySelector("dialog").open'),true);
    const b=await bounds();assert.ok(b.x>=0&&b.y>=0&&b.x+b.w<=b.vw&&!b.overflow,JSON.stringify(b));
@@ -108,9 +117,12 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
   assert.match(await run('document.querySelector("[data-error]").textContent'),/try again/);
   await run('window.hold=false;window.fail=false;document.querySelector("dialog form").requestSubmit()');
   await until('!document.querySelector("dialog").open');
+  await run('document.querySelector("[data-retry]").click();document.querySelector("dialog form").requestSubmit()');
+  await until('!document.querySelector("dialog").open');
+  assert.equal(await run('JSON.parse(window.calls.find(c=>c.url.endsWith("/4/retry")).options.body).issue'),true);
   await run('window.canApprove=false;document.querySelector("[data-gateway-all]").click()');
   await until('!document.querySelector("[data-approve]")');
   assert.ok(await run('!!document.querySelector("[data-refund]")'));
-  console.log('PASS: Customer desktop/mobile centering, pending/paid actions, Escape/Done; team payment check completion and deadline recovery; all five team dialogs, dark theme, duplicate-submit guard, error recovery and successful close. Fixtures only.');
+  console.log('PASS: Customer desktop/mobile centering, pending/paid actions, Escape/Done; team payment check completion and deadline recovery; all six team dialogs, dark theme, duplicate-submit guard, error recovery and successful close. Fixtures only.');
  } finally {ws?.close();browser.kill();server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

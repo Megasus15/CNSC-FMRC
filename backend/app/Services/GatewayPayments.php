@@ -28,8 +28,8 @@ class GatewayPayments
         $refunds = self::managed($payment) ? DB::table('payment_refunds')->where('payment_id', $payment->id)->get(['status','amount_centavos']) : collect();
         $refundStatus = $refunds->contains(fn($r) => in_array($r->status, ['submitting','pending','unknown'], true)) ? 'processing'
             : ($refunds->contains('status','requested') ? 'requested'
-            : ($refunds->contains('status','failed') || $refunds->contains('status','rejected') ? 'needs_review'
-            : ($refunds->contains('status','succeeded') ? 'succeeded' : null)));
+            : ($payment?->status === 'refunded' ? 'succeeded' : ($refunds->contains('status','failed') || $refunds->contains('status','rejected') ? 'needs_review'
+            : ($refunds->contains('status','succeeded') ? 'succeeded' : null))));
         return ['payment_refund_status' => $refundStatus,
             'payment_refunded_amount' => $refunds->where('status','succeeded')->sum('amount_centavos') / 100,
             'payment_checkout_method' => $method,
@@ -293,7 +293,7 @@ class GatewayPayments
             $result = $this->provider->request('POST', 'v1/refunds', ['amount' => (int) $r->amount_centavos,
                 'payment_id' => $r->provider_payment_id, 'reason' => 'others', 'notes' => mb_substr($r->reason, 0, 200).' [FMRC '.$r->token.']'], $r->token);
         }
-        if ($result['rejected'] ?? false) { $this->recordRefundProblem($r, $payment, 'failed'); return; }
+        if ($result['rejected'] ?? false) { $this->recordRefundProblem($r, $payment, 'failed', $result); return; }
         if (!$result) { $this->recordRefundProblem($r, $payment, 'unknown'); return; }
         $data = $result['data'] ?? []; $a = $data['attributes'] ?? [];
         if (($a['payment_id'] ?? '') !== $r->provider_payment_id || (int) ($a['amount'] ?? -1) !== (int) $r->amount_centavos
@@ -335,8 +335,8 @@ class GatewayPayments
             }
         });
     }
-    private function recordRefundProblem(object $refund, Payment $payment, string $status): void {
-        DB::transaction(function () use ($refund, $payment, $status) {
+    private function recordRefundProblem(object $refund, Payment $payment, string $status, array $failure = []): void {
+        DB::transaction(function () use ($refund, $payment, $status, $failure) {
             Order::whereKey($payment->order_id)->lockForUpdate()->firstOrFail();
             $current = DB::table('payment_refunds')->where('id',$refund->id)->lockForUpdate()->first();
             if (!$current || !in_array($current->status,['submitting','unknown','pending'],true) || $current->status === $status) return;
@@ -345,7 +345,8 @@ class GatewayPayments
             $message = $status === 'failed' ? 'The refund was not accepted by the payment provider. FMRC must review it and arrange the refund. Your payment has not been marked refunded.'
                 : 'FMRC is checking the refund with the payment provider. Confirmation will appear here. Do not submit another payment.';
             OrderTrackingEvent::create(['order_id'=>$payment->order_id,'stage'=>$payment->order->customer_stage,'event_type'=>'system',
-                'title'=>$title,'description'=>$message,'occurred_at'=>now()]);
+                'title'=>$title,'description'=>$message,'occurred_at'=>now(),
+                'metadata'=>['refund_id'=>$refund->id] + array_intersect_key($failure,array_flip(['error_code','http_status','failure_message','failure_action']))]);
             if ($status === 'failed') AdminNotification::create(['type'=>'order','title'=>$title.': '.$payment->order->order_no,
                 'message'=>'Review the failed refund in Orders > Online payments & refunds. Do not mark it completed manually.',
                 'metadata'=>json_encode(['order_id'=>$payment->order_id,'refund_id'=>$refund->id])]);

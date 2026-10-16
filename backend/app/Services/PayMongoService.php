@@ -36,7 +36,12 @@ class PayMongoService
             // Never automatically retry money-moving POSTs. An ambiguous result is reconciled first.
             if ($response->successful()) return $response->json();
             Log::warning('Payment provider request failed', ['path' => strtok($path, '?'), 'status' => $response->status()]);
-            if ($method === 'POST' && in_array($response->status(), [400,401,403,404,422], true)) return ['rejected' => true];
+            if ($method === 'POST' && in_array($response->status(), [400,401,403,404,422], true)) {
+                $error = $response->json('errors.0') ?? [];
+                $failure = \App\Support\RefundStatus::failure(is_string($error['code'] ?? null) ? $error['code'] : null,
+                    is_string($error['detail'] ?? null) ? $error['detail'] : '', $response->status());
+                return ['rejected' => true] + $failure;
+            }
             return null;
         } catch (\Throwable $e) {
             Log::warning('Payment provider unavailable', ['operation' => $method]);
