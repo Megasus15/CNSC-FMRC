@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const base = (window.APP_API_BASE_URL || ((['localhost','127.0.0.1'].includes(location.hostname) && location.port !== '8000') ? location.protocol + '//' + location.hostname + ':8000/api' : location.origin + '/api')).replace(/\/$/, '');
   const panel = document.createElement('details'); panel.className = 'gateway-team';
   panel.innerHTML = `<summary><span><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Refunds &amp; online payments</span><i class="fa-solid fa-chevron-down gateway-chevron" aria-hidden="true"></i></summary>
-    <div class="gateway-content"><p class="gateway-intro">Return payments to the original wallet or bank account. Staff can request a refund; Admin reviews and issues it.</p>
+    <div class="gateway-content"><p class="gateway-intro">Staff requests refunds; Admin approves them. QR Ph refunds use a secure PayMongo claim form where the customer selects a receiving bank or e-wallet. The merchant wallet must have available funds.</p>
     <div class="gateway-stats" data-gateway-stats aria-label="Refund overview"></div>
     <div class="gateway-health" data-gateway-health role="status">Loading payment status...</div>
     <div class="gateway-toolbar"><label class="gateway-search">Find an order or customer<input type="search" maxlength="100" placeholder="Order number or customer name" data-gateway-search></label>
@@ -29,6 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
   checkResult.className = 'gateway-intro'; checkResult.setAttribute('role', 'status'); checkResult.hidden = true;
   panel.querySelector('[data-gateway-health]').after(checkResult);
   const checking = new Set();
+  let financialSnapshot='';
+  let realtimeChannel;
+  try { if(typeof window.BroadcastChannel==='function') realtimeChannel=new window.BroadcastChannel('fmrc-orders-realtime'); } catch {}
   const refundShortcut = document.createElement('button');
   refundShortcut.type = 'button'; refundShortcut.className = 'archive-tab-btn gateway-refund-shortcut'; refundShortcut.textContent = 'Online refunds';
   refundShortcut.dataset.tab = 'refunds'; refundShortcut.setAttribute('aria-pressed','false');
@@ -89,10 +92,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const canRetry=r.status==='failed' && receipts.some(receipt=>receipt.provider_payment_id===r.provider_payment_id && remaining(receipt)>=Number(r.amount_centavos));
             return `<div class="gateway-refund-row"><div class="gateway-refund-heading"><strong>${money(r.amount_centavos)}</strong><span class="gateway-badge" data-status="${esc(r.status)}">${esc(refundLabel(r.status))}</span></div>
               <p class="gateway-refund-reason">${esc(r.reason)}</p>
+              ${r.transfer_link?'<p class="gateway-secondary"><strong>Customer action needed.</strong> The customer can claim this refund in My Orders > Payment details. Claim links are valid for 3 days.</p>':''}
               ${r.status==='failed'?`<div class="gateway-failure"><strong>${esc(r.failure_message || 'This refund was not completed.')}</strong><p>${esc(r.failure_action || 'Check the original payment in PayMongo before retrying. The original failure reason was not saved.')}</p>${r.error_code?`<small>PayMongo code: ${esc(r.error_code)}</small>`:''}</div>`:''}
               <div class="gateway-actions">${canApprove && r.status==='requested'?`<button class="gateway-primary" data-approve="${r.id}">Issue refund</button><button data-reject="${r.id}">Decline request</button>`:''}
               ${canRetry?`<button data-retry="${r.id}">${canApprove?'Review & retry refund':'Request refund retry'}</button>`:''}
               ${r.provider_refund_id && ['pending','unknown','submitting'].includes(r.status)?`<button data-check-refund="${r.id}">Check refund</button>`:''}
+              ${r.transfer_link?`<button data-copy-claim="${r.id}">Copy customer claim link</button>`:''}
               ${canApprove && !r.provider_refund_id && ['unknown','submitting'].includes(r.status)?`<button data-recoverrefund="${r.id}">Match provider refund</button>`:''}</div>
               ${r.confirmed_at?`<small class="gateway-secondary">Confirmed ${esc(dateLabel(r.confirmed_at))}</small>`:''}</div>`;
           }).join('');
@@ -107,7 +112,13 @@ document.addEventListener('DOMContentLoaded', () => {
         snapshot = nextSnapshot;
         panel.querySelectorAll('[data-check]').forEach(b => { b.disabled = checking.has(b.dataset.check); b.textContent = b.disabled ? 'Checking\u2026' : 'Check payment'; });
         panel.querySelectorAll('[data-check-refund]').forEach(b => {b.disabled=checking.has('refund-'+b.dataset.checkRefund);b.textContent=b.disabled?'Checking...':'Check refund';});
-        window.dispatchEvent(new CustomEvent('fmrc:orders-updated', {detail:{source:'gateway-payments'}}));
+        const financial=JSON.stringify([data.payments.data.map(p=>[p.id,p.status]),data.refunds.map(r=>[r.id,r.status,r.amount_centavos])]);
+        if(financial!==financialSnapshot){
+          financialSnapshot=financial;
+          const detail={source:'gateway-payments',timestamp:Date.now()};
+          window.dispatchEvent(new CustomEvent('fmrc:orders-updated',{detail}));
+          try {localStorage.setItem('fmrc_orders_updated_at',JSON.stringify(detail));realtimeChannel?.postMessage(detail);} catch {}
+        }
       }
       panel.querySelector('[data-page]').textContent = ' Page ' + page + ' of ' + pages + ' ';
       panel.querySelector('[data-prev]').disabled = page <= 1; panel.querySelector('[data-next]').disabled = page >= pages;
@@ -167,12 +178,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (type === 'approve') {
       const refund = currentRefunds.find(r => String(r.id) === String(id));
       const payment = currentPayments.find(p => p.id === refund?.payment_id);
-      modal.querySelector('[data-description]').textContent = 'Return ' + money(refund?.amount_centavos || 0) + ' to the original payment method for ' + (payment?.order_no || 'this order') + '? Reason: ' + (refund?.reason || '');
+      const qr = currentReceipts.some(r=>r.provider_payment_id===refund?.provider_payment_id && r.source_type==='qrph');
+      modal.querySelector('[data-description]').textContent = 'Refund ' + money(refund?.amount_centavos || 0) + ' for ' + (payment?.order_no || 'this order') + '? ' + (qr ? 'This creates a PayMongo claim link. The customer must complete the form to receive the refund. The merchant wallet needs sufficient available funds. ' : 'Funds return through the original payment method. ') + 'Reason: ' + (refund?.reason || '');
     }
     if (type === 'retry') {
       const refund = currentRefunds.find(r => String(r.id) === String(id));
       modal.querySelector('[data-title]').textContent = 'Review refund retry';
-      modal.querySelector('[data-description]').textContent = (refund?.failure_action || 'Check PayMongo for any existing refund before retrying.') + ' ' + (canApprove ? 'This will submit a new refund of ' : 'Request Admin approval to refund ') + money(refund?.amount_centavos || 0) + ' to the original payment method. A scheduled merchant payout is separate from a customer refund.';
+      modal.querySelector('[data-description]').textContent = (refund?.failure_action || 'Check PayMongo for any existing refund before retrying.') + ' ' + (canApprove ? 'Submit a new refund of ' : 'Request Admin approval to refund ') + money(refund?.amount_centavos || 0) + '. For QR Ph, the customer must claim it through PayMongo and the merchant wallet must be funded. A scheduled payout is not an available wallet balance.';
     }
     modal.querySelector('[data-provider]').hidden = !recovering; modal.querySelector('[name=provider_id]').disabled = !recovering;
     if (recovering) { modal.querySelector('[data-title]').textContent = 'Match provider record'; modal.querySelector('[data-description]').textContent = 'Copy the matching checkout or refund ID from the school PayMongo dashboard. FMRC verifies the original request before accepting it.'; }
@@ -204,6 +216,13 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   panel.addEventListener('click', async e => {
     const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.copyClaim) {
+      const refund=currentRefunds.find(r=>String(r.id)===b.dataset.copyClaim);
+      if(!refund?.transfer_link) return;
+      try {await navigator.clipboard.writeText(refund.transfer_link);checkResult.textContent='Claim link copied. Share it only with the customer for this order.';}
+      catch {checkResult.textContent='Copy unavailable. The customer can open the claim link in My Orders > Payment details.';}
+      checkResult.hidden=false;return;
+    }
     if (b.dataset.checkRefund) {
       const key='refund-'+b.dataset.checkRefund; if(checking.has(key)) return;
       checking.add(key); b.disabled=true; b.textContent='Checking...';

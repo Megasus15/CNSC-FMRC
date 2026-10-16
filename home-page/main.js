@@ -8237,7 +8237,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const refundStatus = order.payment_refund_status;
         return {
           label: refundStatus === 'processing' ? 'Refund processing' : refundStatus === 'requested' ? 'Refund requested' : refundStatus === 'succeeded' ? 'Partial refund confirmed' : 'Refund needs review',
-          note: refundStatus === 'processing' ? 'Your refund is being checked with the payment provider. It will return to the original payment method once confirmed.'
+          note: refundStatus === 'processing' ? 'Open Payment details to check your refund. QR Ph refunds may need you to complete a secure PayMongo claim form and select your receiving bank or e-wallet.'
             : refundStatus === 'requested' ? 'Your refund request is awaiting FMRC approval. No money has been returned yet. Open Payment details to follow its progress.'
             : refundStatus === 'succeeded' ? 'Part of your payment has been refunded. Open Payment details for the confirmed amount.'
             : 'Your payment was received, but the refund needs FMRC review. Open Payment details or contact FMRC for assistance. Do not send another payment.',
@@ -11094,7 +11094,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     : `<p class="ccx-notice"><i class="fa-regular fa-hourglass-half" aria-hidden="true"></i> ${
                         paymentConfirmed
                           ? order.payment_is_automated
-                            ? `FMRC has confirmed your ${escapeHtml(amountText)} payment, so staff must review the cancellation. Any approved refund is returned through the original payment method. You can check its status in Payment details.`
+                            ? `FMRC has confirmed your ${escapeHtml(amountText)} payment, so staff must review the cancellation. Any approved refund is processed through PayMongo. QR Ph refunds may require a secure claim form in Payment details.`
                             : `FMRC has already confirmed your ${escapeHtml(amountText)} payment, so this sends a request instead of cancelling straight away. If staff approve it, they refund the ${escapeHtml(amountText)} to the GCash number you paid from — by hand, so allow a few working days.`
                           : `FMRC is holding a payment for this order, so this sends a request instead of cancelling straight away. Staff check the ${escapeHtml(amountText)} before closing the order.`
                       }</p>`
@@ -11380,7 +11380,7 @@ document.addEventListener("DOMContentLoaded", () => {
           await showCustomerPopup(
             paymentConfirmed
               ? result.order?.payment_is_automated
-                ? "Your order is cancelled. Any approved refund is returned through the original payment method. Check Payment details for its status."
+                ? "Your order is cancelled. Check Payment details for refund progress and any secure PayMongo claim form."
                 : "Your order is cancelled. FMRC will send your payment back by hand, so allow a few working days."
               : refundDue
                 ? "Your order is cancelled. If your GCash payment reached FMRC, staff will check the account and send it back — allow a few working days."
@@ -11763,7 +11763,7 @@ document.addEventListener("DOMContentLoaded", () => {
                <p>${
                  detail.cancel_refund_due && detail.payment_is_confirmed
                    ? detail.payment_is_automated
-                     ? "Your refund is awaiting processing through the original payment method. Check Payment details for its status."
+                     ? "Your refund is awaiting PayMongo processing. Check Payment details for its status and any secure claim form."
                      : "FMRC still has to send your payment back. Staff transfer it by hand to the GCash number you paid from, so allow a few working days."
                    : detail.cancel_refund_due
                      ? "You sent a GCash reference that nobody had verified yet. Staff will check the FMRC account and, if the money arrived, transfer it back by hand to the number you paid from."

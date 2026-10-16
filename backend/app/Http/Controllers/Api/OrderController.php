@@ -1362,7 +1362,7 @@ class OrderController extends Controller
                         : "No payment was collected, so there is nothing to refund.\n\n")
                     .'You can place a new order any time.'
                 : "Hi {$order->customer_name},\n\nWe received your request to cancel order {$orderNoLabel}.\n\nReason: {$reasonLabel}\n\nFMRC has already confirmed your payment for this order, so staff review the request before closing it - that is also how the refund gets arranged. You will be notified as soon as they decide."
-                    .($refundDue ? "\n\nOnce the cancellation is approved, FMRC will review the refund of {$amountLabel} to your original payment method. Refund confirmation will appear in My Orders." : ''),
+                    .($refundDue ? "\n\nOnce the cancellation is approved, FMRC will review the refund of {$amountLabel} through the payment provider. Open My Orders > Payment details for refund status and any secure claim form." : ''),
             $immediate ? '#b45309' : '#0a5fd6',
             templateKey: $immediate ? 'order_cancelled_immediately' : 'order_cancellation_requested',
             tokens: [
@@ -1372,7 +1372,7 @@ class OrderController extends Controller
                         ? "If you already sent the {$amountLabel} through GCash, FMRC will check the account and return it to you. Staff will contact you once it has been sent back."
                         : 'No payment was collected, so there is nothing to refund.')
                     : ($refundDue
-                        ? "\n\nOnce the cancellation is approved, FMRC will review the refund of {$amountLabel} to your original payment method. Refund confirmation will appear in My Orders."
+                        ? "\n\nOnce the cancellation is approved, FMRC will review the refund of {$amountLabel} through the payment provider. Open My Orders > Payment details for refund status and any secure claim form."
                         : ''),
             ]
         );

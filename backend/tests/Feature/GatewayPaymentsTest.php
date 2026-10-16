@@ -416,6 +416,126 @@ class GatewayPaymentsTest extends TestCase {
         $this->postJson($url,$body)->assertOk(); $this->assertSame('refunded',$return->fresh()->status);
     }
 
+    public function test_live_qrph_claim_flow_uses_refunds_api_and_updates_customer_team_and_revenue(): void {
+        config(['payments.paymongo.secret_key'=>'sk_live_example']);
+        $o=$this->order();$a=$this->attempt($o,true,'qrph');$g=app(GatewayPayments::class);
+        $g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
+        $o->update(['lifecycle_status'=>'rejected']);
+        $admin=User::factory()->create(['role'=>'admin']);$staff=User::factory()->create(['role'=>'staff']);
+        $r=$g->requestRefund($o->fresh()->payment,50000,'Rejected order',$admin->id,(string)Str::uuid());
+        $status='processing';
+        Http::fake(function($request) use ($r,&$status) {
+            if($request->method()==='POST'){
+                $this->assertSame('https://refunds-api.paymongo.com/v1/refunds',$request->url());
+                $this->assertSame(['amount'=>50000,'payment_id'=>$r->provider_payment_id,'reason'=>'others','notes'=>'Rejected order [FMRC '.$r->token.']'],$request['data']['attributes']);
+            } else $this->assertSame('https://api.paymongo.com/v1/refunds/ref_claim',$request->url());
+            return Http::response(['data'=>['id'=>'ref_claim','attributes'=>['payment_id'=>$r->provider_payment_id,'amount'=>50000,'currency'=>'PHP','livemode'=>true,'status'=>$status,'transfer_link'=>'https://transfer.paymongo.com/fixture-claim','created_at'=>now()->timestamp]]]);
+        });
+        Sanctum::actingAs($admin);
+        $revisionBefore=$this->getJson('/api/admin/dashboard/live-counts')->assertOk()->json('data.financial_revision');
+        $this->assertIsString($revisionBefore);
+        $this->postJson('/api/admin/gateway-refunds/'.$r->id.'/approve')->assertOk()->assertJsonPath('data.status','pending')->assertJsonPath('data.transfer_link','https://transfer.paymongo.com/fixture-claim');
+        $this->postJson('/api/admin/gateway-refunds/'.$r->id.'/approve')->assertOk();Http::assertSentCount(1);
+        $this->getJson('/api/admin/dashboard/live-counts')->assertOk()->assertJsonPath('data.financial_revision',$revisionBefore);
+        $this->assertSame(0.0,GatewayFinancials::total('refunds'));
+        Sanctum::actingAs($o->customer);
+        $this->getJson('/api/customer/orders/'.$o->id.'/payment-status')->assertOk()->assertJsonPath('refunds.0.transfer_link','https://transfer.paymongo.com/fixture-claim')->assertJsonPath('status','paid');
+        Sanctum::actingAs(User::factory()->create(['role'=>'customer']));
+        $this->getJson('/api/customer/orders/'.$o->id.'/payment-status')->assertForbidden();
+        Sanctum::actingAs($staff);
+        $this->getJson('/api/admin/gateway-payments?order_id='.$o->id)->assertOk()->assertJsonPath('refunds.0.transfer_link','https://transfer.paymongo.com/fixture-claim');Http::assertSentCount(1);
+        $this->travel(11)->seconds();
+        $this->getJson('/api/admin/gateway-payments?order_id='.$o->id)->assertOk()->assertJsonPath('refunds.0.status','pending');Http::assertSentCount(2);
+        $status='succeeded';$this->travel(11)->seconds();
+        Sanctum::actingAs($o->customer);
+        $this->getJson('/api/customer/orders/'.$o->id.'/payment-status')->assertOk()->assertJsonPath('status','refunded')->assertJsonPath('refunds.0.transfer_link',null);
+        $this->assertSame(500.0,GatewayFinancials::total('refunds'));Http::assertSentCount(3);
+        foreach([$admin,$staff] as $user){
+            Sanctum::actingAs($user);
+            $this->getJson('/api/admin/gateway-payments?order_id='.$o->id)->assertOk()->assertJsonPath('payments.data.0.status','refunded')->assertJsonPath('refund_summary.refunded_centavos',50000);
+            $summary=$this->getJson('/api/admin/dashboard/summary')->assertOk()->assertJsonPath('data.counts.total_revenue',0);
+            $revisionAfter=$this->getJson('/api/admin/dashboard/live-counts')->assertOk()->json('data.financial_revision');
+            $this->assertNotSame($revisionBefore,$revisionAfter);$this->assertSame($summary->json('data.financial_revision'),$revisionAfter);
+        }
+        $this->assertSame(1,DB::table('order_tracking_events')->where('title','Refund ready to claim')->count());
+        $this->assertSame(1,DB::table('order_tracking_events')->where('title','QR Ph refund confirmed')->count());
+    }
+
+    public function test_qrph_lookup_fallback_is_read_only_and_parameter_errors_identify_safe_fields(): void {
+        $provider=app(PayMongoService::class);
+        Http::fake(function($request){
+            $this->assertSame('GET',$request->method());
+            if($request->url()==='https://api.paymongo.com/v1/refunds/ref_lookup') return Http::response([],404);
+            $this->assertSame('https://refunds-api.paymongo.com/v1/refunds/ref_lookup',$request->url());
+            return Http::response(['data'=>['id'=>'ref_lookup','attributes'=>['status'=>'processing']]]);
+        });
+        $this->assertSame('ref_lookup',$provider->retrieveRefund('ref_lookup',true)['data']['id']);Http::assertSentCount(2);
+        $error=\App\Support\RefundStatus::failure('parameter_invalid','private@example.test sk_live_private',422,['pointer'=>'/data/attributes/payment_id']);
+        $this->assertSame('payment_id',$error['error_field']);
+        $this->assertStringNotContainsString('sk_live_private',json_encode($error));
+        $this->assertNull($provider->retrieveRefund('../payments/pay_other',true));Http::assertSentCount(2);
+    }
+
+    public function test_failed_qrph_claim_hides_link_and_keeps_revenue_until_a_confirmed_refund(): void {
+        config(['payments.paymongo.secret_key'=>'sk_live_example']);
+        $o=$this->order();$a=$this->attempt($o,true,'qrph');$g=app(GatewayPayments::class);
+        $g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
+        $admin=User::factory()->create(['role'=>'admin']);$r=$g->requestRefund($o->fresh()->payment,50000,'Refund',$admin->id,(string)Str::uuid());
+        $attrs=['payment_id'=>$r->provider_payment_id,'amount'=>50000,'currency'=>'PHP','livemode'=>true,'status'=>'processing','transfer_link'=>'https://transfer.paymongo.com/claim-fixture'];
+        Http::fake(function() use (&$attrs) {return Http::response(['data'=>['id'=>'ref_claimfail','attributes'=>$attrs]]);});
+        $g->approveRefund($r->id,$admin->id);
+        $attrs['status']='failed';
+        $g->reconcileRefund(DB::table('payment_refunds')->find($r->id));
+        Sanctum::actingAs($o->customer);
+        $this->getJson('/api/customer/orders/'.$o->id.'/payment-status')->assertOk()->assertJsonPath('status','paid')->assertJsonPath('refunds.0.status','failed')->assertJsonPath('refunds.0.transfer_link',null);
+        Sanctum::actingAs($admin);
+        $this->getJson('/api/admin/gateway-payments?order_id='.$o->id)->assertOk()->assertJsonPath('refund_summary.failed',1)->assertJsonPath('refunds.0.failure_message','PayMongo could not complete this refund.');
+        $this->getJson('/api/admin/dashboard/summary')->assertOk()->assertJsonPath('data.counts.total_revenue',500);
+        $this->assertSame(0.0,GatewayFinancials::total('refunds'));
+        $this->assertDatabaseHas('admin_notifications',['title'=>'Refund needs attention: '.$o->order_no]);
+    }
+
+    public function test_ambiguous_qrph_submission_is_not_automatically_sent_again(): void {
+        config(['payments.paymongo.secret_key'=>'sk_live_example']);
+        $o=$this->order();$a=$this->attempt($o,true,'qrph');$g=app(GatewayPayments::class);
+        $g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
+        $admin=User::factory()->create(['role'=>'admin']);$r=$g->requestRefund($o->fresh()->payment,50000,'Rejected order',$admin->id,(string)Str::uuid());
+        Http::fake(['*'=>Http::response([],503)]);
+        $g->approveRefund($r->id,$admin->id);
+        $g->reconcileRefund(DB::table('payment_refunds')->find($r->id));
+        $this->artisan('payments:reconcile')->assertSuccessful();Http::assertSentCount(1);
+        $this->assertDatabaseHas('payment_refunds',['id'=>$r->id,'status'=>'unknown']);
+        Sanctum::actingAs($admin);
+        $this->postJson('/api/admin/gateway-refunds/'.$r->id.'/retry',['request_key'=>(string)Str::uuid(),'issue'=>true])->assertUnprocessable();
+        $this->assertSame(0.0,GatewayFinancials::total('refunds'));
+    }
+
+    public function test_signed_refund_success_event_updates_without_waiting_for_the_cron(): void {
+        $o=$this->order();$a=$this->attempt($o);$g=app(GatewayPayments::class);$g->applySession($a->id,$this->providerSession($a));
+        $admin=User::factory()->create(['role'=>'admin']);$r=$g->requestRefund($o->fresh()->payment,50000,'Refund',$admin->id,(string)Str::uuid());
+        DB::table('payment_refunds')->where('id',$r->id)->update(['approved_by'=>$admin->id,'provider_refund_id'=>'ref_event','status'=>'pending']);
+        Http::fake(['*'=>Http::response(['data'=>['id'=>'ref_event','attributes'=>['payment_id'=>$r->provider_payment_id,'amount'=>50000,'currency'=>'PHP','livemode'=>false,'status'=>'succeeded']]])]);
+        $body=json_encode(['data'=>['id'=>'evt_refund_now','attributes'=>['type'=>'refund.succeeded','livemode'=>false,'data'=>['id'=>'ref_event']]]]);
+        $ts=time();$sig=hash_hmac('sha256',$ts.'.'.$body,'whsec_example');
+        for($i=0;$i<2;$i++)$this->call('POST','/api/webhooks/paymongo',[],[],[],['CONTENT_TYPE'=>'application/json','HTTP_PAYMONGO_SIGNATURE'=>'t='.$ts.',te='.$sig],$body)->assertOk();
+        $this->assertDatabaseHas('payment_refunds',['id'=>$r->id,'status'=>'succeeded']);
+        $this->assertDatabaseHas('payment_webhook_events',['event_key'=>'evt_refund_now','status'=>'processed']);Http::assertSentCount(1);
+    }
+
+    public function test_claim_links_are_restricted_and_expiry_does_not_release_money(): void {
+        foreach(['javascript:alert(1)','https://transfer.paymongo.com.evil.test/claim','https://transfer.paymongo.com@evil.test/claim','https://transfer.paymongo-stg.com/claim','https://transfer.paymongo.com:8443/claim'] as $url){
+            $this->assertNull(\App\Support\RefundStatus::safeTransferLink($url,true));
+        }
+        $o=$this->order();$a=$this->attempt($o);$g=app(GatewayPayments::class);$g->applySession($a->id,$this->providerSession($a));
+        $admin=User::factory()->create(['role'=>'admin']);$r=$g->requestRefund($o->fresh()->payment,50000,'Refund',$admin->id,(string)Str::uuid());
+        DB::table('payment_refunds')->where('id',$r->id)->update(['status'=>'pending']);
+        \App\Models\OrderTrackingEvent::create(['order_id'=>$o->id,'stage'=>'to_pay','event_type'=>'system','title'=>'Refund ready to claim','occurred_at'=>now(),'metadata'=>['refund_id'=>$r->id,'transfer_link'=>'https://transfer.paymongo.com/expired','claim_expires_at'=>now()->subMinute()->toIso8601String()]]);
+        $claim=\App\Support\RefundStatus::claims(DB::table('payment_refunds')->get())->first();$this->assertNull($claim->transfer_link);
+        Sanctum::actingAs($admin);
+        $this->postJson('/api/admin/orders/'.$o->id.'/gateway-refunds',['amount_centavos'=>50000,'reason'=>'Another refund','request_key'=>(string)Str::uuid()])->assertUnprocessable();
+        $this->assertSame('paid',$o->fresh()->payment->status);Http::assertNothingSent();
+    }
+
     public function test_failed_refund_diagnostics_and_retry_permissions_are_safe(): void {
         config(['payments.paymongo.secret_key'=>'sk_live_example']);
         $o=$this->order();$a=$this->attempt($o,true,'qrph');$g=app(GatewayPayments::class);

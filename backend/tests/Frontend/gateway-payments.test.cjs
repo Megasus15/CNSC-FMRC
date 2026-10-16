@@ -179,3 +179,27 @@ test('failed refund on rejected order requests assistance instead of promising p
   assert.doesNotMatch(h.fields.get('[data-gateway-refunds]').textContent,/Needs FMRC review/);
   assert.equal(h.timers.size,0);
 });
+
+test('customer sees a safe QR Ph claim link and it disappears after confirmed completion', async () => {
+  const h=harness({status:'paid',order_status:'rejected',checkout_method:'qrph',refunds:[{id:1,status:'pending',livemode:true,amount_centavos:180,transfer_link:'https://transfer.paymongo.com/claim-fixture'}]});
+  await h.open();
+  assert.equal(h.fields.get('[data-gateway-status]').textContent,'Claim your refund');
+  assert.equal(h.fields.get('[data-gateway-claims]').hidden,false);
+  assert.match(h.fields.get('[data-gateway-claims]').innerHTML,/https:\/\/transfer.paymongo.com\/claim-fixture/);
+  assert.match(h.fields.get('[data-gateway-message]').textContent,/receiving bank or e-wallet/);
+  assert.equal(h.fields.get('[data-gateway-continue]').hidden,true);
+  await h.update({status:'refunded',order_status:'rejected',refunds:[{id:1,status:'succeeded',amount_centavos:180,transfer_link:'https://transfer.paymongo.com/claim-fixture'}]});
+  assert.equal(h.fields.get('[data-gateway-claims]').hidden,true);
+  assert.equal(h.fields.get('[data-gateway-claims]').innerHTML,'');
+  assert.equal(h.timers.size,0);
+});
+
+test('unsafe or expired refund links never become clickable claims', async () => {
+  for(const transfer_link of ['javascript:alert(1)','https://transfer.paymongo.com.evil.test/claim','https://transfer.paymongo.com@evil.test/claim','https://transfer.paymongo-stg.com/claim']){
+    const h=harness({status:'paid',refunds:[{status:'pending',livemode:true,amount_centavos:100,transfer_link}]});await h.open();
+    assert.equal(h.fields.get('[data-gateway-claims]').innerHTML,'');
+  }
+  const h=harness({status:'paid',refunds:[{status:'pending',livemode:true,amount_centavos:100,transfer_link:'https://transfer.paymongo.com/claim',claim_expires_at:'2020-01-01T00:00:00Z'}]});await h.open();
+  assert.equal(h.fields.get('[data-gateway-claims]').hidden,true);
+  assert.equal(h.fields.get('[data-gateway-status]').textContent,'Refund claim needs review');
+});

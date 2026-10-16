@@ -68,6 +68,14 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
    await until('document.querySelector("[data-gateway-status]").textContent==="Refund requested"');
    assert.equal(await run('document.querySelector("[data-gateway-continue]").hidden'),true);
    await shot('customer-refund-'+width);
+   await run('window.refunds=[{id:1,status:"pending",amount_centavos:180,livemode:true,transfer_link:"https://transfer.paymongo.com/claim-fixture"}];document.querySelector("[data-gateway-refresh]").click()');
+   await until('document.querySelector("[data-gateway-status]").textContent==="Claim your refund"');
+   assert.equal(await run('document.querySelector("[data-gateway-claims] a").href'),'https://transfer.paymongo.com/claim-fixture');
+   await shot('customer-claim-'+width);
+   await run('window.mode="refunded";window.refunds=[{id:1,status:"succeeded",amount_centavos:180}];document.querySelector("[data-gateway-refresh]").click()');
+   await until('document.querySelector("[data-gateway-status]").textContent==="Refunded"');
+   assert.equal(await run('document.querySelector("[data-gateway-claims]").hidden'),true);
+   await run('window.mode="paid"');
    await run('document.querySelector("[data-gateway-done]").click()');
    assert.equal(await run('document.querySelector("dialog").open'),false);
   }
@@ -123,6 +131,6 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
   await run('window.canApprove=false;document.querySelector("[data-gateway-all]").click()');
   await until('!document.querySelector("[data-approve]")');
   assert.ok(await run('!!document.querySelector("[data-refund]")'));
-  console.log('PASS: Customer desktop/mobile centering, pending/paid actions, Escape/Done; team payment check completion and deadline recovery; all six team dialogs, dark theme, duplicate-submit guard, error recovery and successful close. Fixtures only.');
+  console.log('PASS: Customer desktop/mobile centering, pending/paid actions, claim link and confirmed refund updates, Escape/Done; team payment check completion and deadline recovery; all six team dialogs, dark theme, duplicate-submit guard, error recovery and successful close. Fixtures only.');
  } finally {ws?.close();browser.kill();server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

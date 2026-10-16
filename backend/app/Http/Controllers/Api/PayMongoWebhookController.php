@@ -26,8 +26,9 @@ class PayMongoWebhookController extends Controller
             'resource_id' => $resource['id'], 'attempt_token' => $resource['attributes']['metadata']['attempt_token'] ?? null,
             'livemode' => $mode, 'status' => 'pending', 'created_at' => now(), 'updated_at' => now(),
         ]);
-        // Try one checkout confirmation immediately; durable inbox keeps failures recoverable.
-        if ($type === 'checkout_session.payment.paid') {
+        // Verify supported confirmations immediately; the durable inbox and worker
+        // remain the fallback when the provider cannot be reached.
+        if ($type === 'checkout_session.payment.paid' || str_contains($type,'refund')) {
             $event = DB::table('payment_webhook_events')->where('event_key', $body['data']['id'] ?? hash('sha256', $request->getContent()))->first();
             if ($event && $event->status === 'pending') {
                 try { app(GatewayPayments::class)->processEvent($event); } catch (\Throwable $e) {
@@ -43,6 +44,7 @@ class PayMongoWebhookController extends Controller
         if ($order->payment && GatewayPayments::managed($order->payment)) {
             $a = $gateway->attempt($order->payment);
             if ($a?->checkout_id && !$a->confirmed_at) $gateway->reconcile($a->id);
+            $gateway->refreshRefunds([$order->payment->id]);
         }
         return response()->json($gateway->state($order->fresh()));
     }

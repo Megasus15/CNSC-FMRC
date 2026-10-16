@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 class GatewayManagementController extends Controller
 {
     private function team(Request $r): void { abort_unless(in_array($r->user()?->role, ['admin','staff'], true), 403); }
-    public function index(Request $r, PayMongoService $provider): JsonResponse {
+    public function index(Request $r, PayMongoService $provider, GatewayPayments $gateway): JsonResponse {
         $this->team($r);
         $filter = $r->validate(['search'=>'nullable|string|max:100','refund_status'=>'nullable|in:requested,processing,failed,succeeded']);
         $rows = DB::table('payments')->join('orders', 'orders.id', '=', 'payments.order_id')
@@ -30,6 +30,9 @@ class GatewayManagementController extends Controller
             }))->orderByDesc('payments.id')
             ->select(['payments.id','payments.order_id','orders.order_no','orders.customer_name','orders.lifecycle_status','payments.amount','payments.status','payments.gateway','payments.reference','payments.paymongo_checkout_id','payments.paymongo_payment_id','payments.paid_at'])->paginate(20);
         $ids = collect($rows->items())->pluck('id');
+        $gateway->refreshRefunds($ids->all());
+        $currentStatuses=DB::table('payments')->whereIn('id',$ids)->pluck('status','id');
+        foreach($rows->items() as $row) $row->status=$currentStatuses[$row->id] ?? $row->status;
         $summary = DB::table('payment_refunds')->where('livemode',$provider->isLive())
             ->where(fn($q)=>$q->whereNotIn('status',['failed','rejected'])->orWhereNotExists(fn($new)=>$new->selectRaw('1')->from('payment_refunds as newer')
                 ->whereColumn('newer.payment_id','payment_refunds.payment_id')->whereColumn('newer.provider_payment_id','payment_refunds.provider_payment_id')->whereColumn('newer.id','>','payment_refunds.id')))
@@ -124,7 +127,8 @@ class GatewayManagementController extends Controller
         $record = DB::table('payment_refunds')->find($refund);
         abort_unless($record && $record->approved_by && !$record->provider_refund_id && in_array($record->status,['unknown','submitting'],true), 422);
         $payment = Payment::findOrFail($record->payment_id);
-        $response = $provider->request('GET', 'v1/refunds/'.$v['provider_id']); $a = $response['data']['attributes'] ?? [];
+        $qrph=DB::table('payment_receipts')->where('payment_id',$payment->id)->where('provider_payment_id',$record->provider_payment_id)->value('source_type') === 'qrph';
+        $response = $provider->retrieveRefund($v['provider_id'],$qrph); $a = $response['data']['attributes'] ?? [];
         abort_unless(($a['payment_id'] ?? '') === $record->provider_payment_id && (int) ($a['amount'] ?? -1) === (int) $record->amount_centavos
             && ($a['livemode'] ?? null) === (bool) $record->livemode && str_contains($a['notes'] ?? '', '[FMRC '.$record->token.']'), 422, 'This provider refund does not match the approved request.');
         DB::table('payment_refunds')->where('id',$record->id)->whereNull('provider_refund_id')->update(['provider_refund_id'=>$v['provider_id']]);

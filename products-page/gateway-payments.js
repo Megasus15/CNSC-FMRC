@@ -39,6 +39,7 @@
       <p id="gatewayPaymentMessage" data-gateway-message aria-live="polite">Checking your payment status\u2026</p>
       <p class="payment-modal-help" data-gateway-instructions hidden></p>
       <p class="payment-modal-help" data-gateway-refunds hidden></p>
+      <div class="payment-refund-claims" data-gateway-claims hidden></div>
       <p class="payment-modal-error" data-gateway-error role="alert" hidden></p>
       <p data-gateway-checked role="status" hidden></p>
     </div><footer class="payment-modal-footer">
@@ -80,22 +81,30 @@
     const refunds = data.refunds || [];
     const refundRequested = refunds.some(r => r.status === 'requested');
     const refundProcessing = refunds.some(r => ['submitting','pending','unknown'].includes(r.status));
+    const claimable = refunds.filter(r => {
+      if (!['pending','unknown'].includes(r.status) || !r.transfer_link) return false;
+      if(r.claim_expires_at && Date.parse(r.claim_expires_at)<=Date.now()) return false;
+      try { const u=new URL(r.transfer_link);return u.protocol==='https:' && !u.username && !u.password && !u.port && (u.hostname==='transfer.paymongo.com' || (r.livemode===false && u.hostname==='transfer.paymongo-stg.com')); } catch {return false;}
+    });
+    const expiredClaim=refunds.some(r=>['pending','unknown'].includes(r.status) && r.claim_expires_at && Date.parse(r.claim_expires_at)<=Date.now());
     const closedPaid = data.status === 'paid' && ['cancelled','rejected'].includes(data.order_status);
     const refundLabels = {requested:'Awaiting FMRC approval',submitting:'Processing',pending:'Processing',unknown:'Awaiting confirmation',succeeded:'Confirmed',failed:'Needs FMRC review',rejected:'Request declined — contact FMRC'};
     const canContinue = data.status !== 'paid' && data.status !== 'refunded' && !data.exception && Boolean(data.checkout_url || data.retry_allowed);
     dialog.querySelector('[data-gateway-error]').hidden = true;
     const status = dialog.querySelector('[data-gateway-status]');
     status.dataset.state = refundRequested || refundProcessing || closedPaid ? 'review' : data.exception ? 'review' : data.status;
-    const statusText = refundProcessing ? 'Refund processing' : refundRequested ? 'Refund requested' : data.status === 'refunded' ? 'Refunded' : closedPaid ? 'Refund needs review' : data.exception ? 'Needs review' : data.status === 'paid' ? 'Payment confirmed' : data.attempt_status === 'expired' ? 'Checkout expired' : 'Awaiting payment';
+    const statusText = claimable.length ? 'Claim your refund' : expiredClaim ? 'Refund claim needs review' : refundProcessing ? 'Refund processing' : refundRequested ? 'Refund requested' : data.status === 'refunded' ? 'Refunded' : closedPaid ? 'Refund needs review' : data.exception ? 'Needs review' : data.status === 'paid' ? 'Payment confirmed' : data.attempt_status === 'expired' ? 'Checkout expired' : 'Awaiting payment';
     if (status.textContent !== statusText) status.textContent = statusText;
     dialog.querySelector('[data-gateway-title]').textContent = (data.method_label || (qrph ? 'QR Ph' : 'GCash')) + ' payment';
     dialog.querySelector('[data-gateway-continue]').textContent = qrph ? 'Continue to payment QR' : 'Continue to GCash';
     const instructions = dialog.querySelector('[data-gateway-instructions]');
     instructions.hidden = !qrph || !canContinue;
     instructions.textContent = qrph ? 'Scan the checkout QR with GCash or another QR Ph app. On the same phone, save the QR from checkout and use your payment app’s QR image option, if available. Return here after paying; confirmation updates automatically.' : '';
-    const message = refundProcessing ? 'FMRC has approved your refund. We are waiting for confirmation from the payment provider. The money will return to the original payment method; do not pay again.'
+    const message = claimable.length ? 'Your refund is ready to claim through PayMongo. Open the secure form below and select your receiving bank or e-wallet, such as GCash. Complete it within 3 days of issue. No additional payment is needed.'
+      : expiredClaim ? 'The claim link has expired. FMRC is checking its final status with PayMongo. Contact FMRC for help; do not pay again.'
+      : refundProcessing ? 'FMRC has approved your refund. We are waiting for confirmation from the payment provider. QR Ph refunds may require a claim form; any available claim link appears here. Do not pay again.'
       : refundRequested ? 'Your refund request is awaiting FMRC approval. No money has been returned yet. Its progress will update here.'
-      : data.status === 'refunded' ? 'The payment provider has confirmed your refund to the original payment method. Check your wallet or bank transaction history.'
+      : data.status === 'refunded' ? 'The payment provider has confirmed your refund. Check your receiving wallet or bank transaction history.'
       : closedPaid ? 'This order is closed and your payment needs to be returned. FMRC must review the refund. Contact FMRC for assistance; do not pay again.'
       : refunds.some(r => r.status === 'succeeded') ? 'The confirmed refund amount is listed below. Any remaining payment stays on your order.'
       : refunds.some(r => ['failed','rejected'].includes(r.status)) ? 'Your payment was received, but the refund request needs FMRC review. Contact FMRC for assistance.'
@@ -110,6 +119,9 @@
     dialog.querySelector('[data-gateway-continue]').hidden = !canContinue;
     dialog.querySelector('[data-gateway-refunds]').textContent = refunds.map(r => 'Refund ₱' + (r.amount_centavos / 100).toFixed(2) + ': ' + (data.status === 'refunded' && ['failed','rejected'].includes(r.status) ? 'Earlier unsuccessful attempt; refund now confirmed' : refundLabels[r.status] || 'Checking status')).join(' · ');
     dialog.querySelector('[data-gateway-refunds]').hidden = !(data.refunds || []).length;
+    const escape = value => String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const claims=dialog.querySelector('[data-gateway-claims]'); claims.hidden=!claimable.length;
+    claims.innerHTML=claimable.map(r=>'<a href="'+escape(r.transfer_link)+'" target="_blank" rel="noopener noreferrer">Claim refund '+escape((Number(r.amount_centavos)/100).toLocaleString('en-PH',{style:'currency',currency:'PHP'}))+'</a>').join('');
     const currentStatus = JSON.stringify([data.status, data.order_status, refunds]);
     if (lastStatus !== currentStatus) window.dispatchEvent(new CustomEvent('fmrc:orders-updated', { detail: {type: 'payment', orderId} }));
     lastStatus = currentStatus;
@@ -152,7 +164,7 @@
     dialog.querySelector('[data-gateway-message]').textContent = 'Checking your payment status\u2026';
     const status = dialog.querySelector('[data-gateway-status]');
     status.textContent = 'Checking payment'; status.dataset.state = 'loading';
-    ['continue','instructions','refunds','error','checked'].forEach(name => { dialog.querySelector('[data-gateway-' + name + ']').hidden = true; });
+    ['continue','instructions','refunds','claims','error','checked'].forEach(name => { dialog.querySelector('[data-gateway-' + name + ']').hidden = true; });
     setBusy(false);
     if (!dialog.open) dialog.showModal();
     void poll({interactive: true});

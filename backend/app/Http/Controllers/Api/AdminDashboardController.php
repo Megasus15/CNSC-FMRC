@@ -346,6 +346,7 @@ class AdminDashboardController extends Controller
 
         return response()->json([
             'data' => [
+                'financial_revision' => $liveCounts['financial_revision'],
                 'counts' => [
                     'appointments' => $appointmentsCount,
                     'accounts' => $accountsCount,
@@ -547,6 +548,8 @@ class AdminDashboardController extends Controller
         $archives = AdminArchiveRecords::snapshot();
         $reportGenerationsAvailable = ReportGeneration::schemaAvailable();
         $generatedReports = 0;
+        try { $financialRevision=\App\Support\GatewayFinancials::revision(); }
+        catch (\Throwable) { $financialRevision=null; }
 
         if ($reportGenerationsAvailable) {
             try {
@@ -557,6 +560,7 @@ class AdminDashboardController extends Controller
         }
 
         return [
+            'financial_revision' => $financialRevision,
             'generated_reports' => $generatedReports,
             'total_archives' => $archives['total'],
             'archives' => $archives['counts'],

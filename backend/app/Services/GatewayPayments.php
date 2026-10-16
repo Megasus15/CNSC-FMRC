@@ -2,7 +2,7 @@
 namespace App\Services;
 
 use App\Models\{Order, Payment, OrderTrackingEvent, AdminNotification};
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\{DB, Cache};
 use Illuminate\Support\Str;
 use Illuminate\Support\Carbon;
 
@@ -209,7 +209,7 @@ class GatewayPayments
             'confirmed_at' => $payment?->paid_at?->toIso8601String(), 'expires_at' => $a?->expires_at,
             'exception' => $a?->exception, 'retry_allowed' => $payable && (!$a || in_array($a->status, ['expired','failed'], true)),
             'checkout_url' => $payable && $a?->status === 'pending' && $this->safeUrl($a?->checkout_url) ? $a->checkout_url : null,
-            'refunds' => $payment ? DB::table('payment_refunds')->where('payment_id', $payment->id)->get(['id','amount_centavos','status','confirmed_at']) : [],
+            'refunds' => $payment ? \App\Support\RefundStatus::claims(DB::table('payment_refunds')->where('payment_id', $payment->id)->get(['id','amount_centavos','status','confirmed_at','livemode'])) : [],
         ];
     }
     public function processEvent(object $event): bool {
@@ -273,25 +273,57 @@ class GatewayPayments
         });
     }
     public function approveRefund(int $id, int $actor): void {
+        $lock = Cache::lock('payment-refund:'.$id,30);
+        if (!$lock->get()) return;
+        try {
         $refund = DB::transaction(function () use ($id, $actor) {
             $r = DB::table('payment_refunds')->where('id', $id)->lockForUpdate()->first();
             abort_unless($r, 404); if ($r->status !== 'requested') return null;
             abort_unless($this->provider->isConfigured() && (bool) $r->livemode === $this->provider->isLive(), 422, 'The payment provider is unavailable.');
+            $payment = Payment::findOrFail($r->payment_id);
+            $source = DB::table('payment_receipts')->where('payment_id',$payment->id)->where('provider_payment_id',$r->provider_payment_id)->value('source_type');
+            OrderTrackingEvent::create(['order_id'=>$payment->order_id,'stage'=>$payment->order->customer_stage,'event_type'=>'system',
+                'title'=>'Refund approved','description'=>'FMRC approved the refund for submission to the payment provider.','occurred_at'=>now(),
+                'metadata'=>['refund_id'=>$r->id,'refund_api'=>$source === 'qrph' && $r->livemode ? 'qrph' : 'standard']]);
             DB::table('payment_refunds')->where('id', $id)->update(['approved_by' => $actor, 'status' => 'submitting', 'updated_at' => now()]);
             return DB::table('payment_refunds')->find($id);
         });
-        if ($refund) $this->reconcileRefund($refund);
+        if ($refund) $this->reconcileRefundOnce($refund, true);
+        } finally { $lock->release(); }
     }
-    public function reconcileRefund(object $r): void {
+    /** Retrieve one due refund per visible page/order; never creates a refund. */
+    public function refreshRefunds(array $paymentIds): void {
+        $r = DB::table('payment_refunds')->whereIn('payment_id',$paymentIds)->whereNotNull('provider_refund_id')
+            ->where('livemode',$this->provider->isLive())->whereNotNull('approved_by')->whereIn('status',['pending','unknown','submitting'])
+            ->where(fn($q)=>$q->whereNull('checked_at')->orWhere('checked_at','<=',now()->subSeconds(10)))
+            ->orderBy('checked_at')->first();
+        if ($r) $this->reconcileRefund($r);
+    }
+    public function reconcileRefund(object $r, bool $initialSubmission = false): void {
+        $lock = Cache::lock('payment-refund:'.$r->id,30);
+        if (!$lock->get()) return;
+        try {
+            $fresh = DB::table('payment_refunds')->find($r->id);
+            if (!$fresh || !in_array($fresh->status,['submitting','unknown','pending'],true)) return;
+            $this->reconcileRefundOnce($fresh,$initialSubmission);
+        } finally { $lock->release(); }
+    }
+    private function reconcileRefundOnce(object $r, bool $initialSubmission): void {
         if ((bool) $r->livemode !== $this->provider->isLive() || !$r->approved_by) return;
         DB::table('payment_refunds')->where('id', $r->id)->update(['checked_at' => now()]);
         $payment = Payment::findOrFail($r->payment_id);
-        if ($r->provider_refund_id) $result = $this->provider->request('GET', 'v1/refunds/'.$r->provider_refund_id);
+        $approval = OrderTrackingEvent::where('metadata->refund_id',$r->id)->where('title','Refund approved')->latest('id')->first();
+        $qrph = ($approval?->metadata['refund_api'] ?? 'standard') === 'qrph';
+        $qrphReceipt = DB::table('payment_receipts')->where('payment_id',$payment->id)->where('provider_payment_id',$r->provider_payment_id)->value('source_type') === 'qrph';
+        if ($r->provider_refund_id) $result = $this->provider->retrieveRefund($r->provider_refund_id,$qrphReceipt);
         else {
+            // Never resend an ambiguous QR Ph transfer creation. Its reference must
+            // be recovered first; a new endpoint must not retry an older standard POST.
+            if ($qrph && !$initialSubmission) return;
             // updated_at is approval time and is not changed on ambiguous retries.
             if (Carbon::parse($r->updated_at)->lt(now()->subHours(23))) return;
             $result = $this->provider->request('POST', 'v1/refunds', ['amount' => (int) $r->amount_centavos,
-                'payment_id' => $r->provider_payment_id, 'reason' => 'others', 'notes' => mb_substr($r->reason, 0, 200).' [FMRC '.$r->token.']'], $r->token);
+                'payment_id' => $r->provider_payment_id, 'reason' => 'others', 'notes' => mb_substr($r->reason, 0, 200).' [FMRC '.$r->token.']'], $r->token, $qrph);
         }
         if ($result['rejected'] ?? false) { $this->recordRefundProblem($r, $payment, 'failed', $result); return; }
         if (!$result) { $this->recordRefundProblem($r, $payment, 'unknown'); return; }
@@ -300,13 +332,21 @@ class GatewayPayments
             || ($a['currency'] ?? '') !== 'PHP' || ($a['livemode'] ?? null) !== (bool) $r->livemode || !str_starts_with($data['id'] ?? '', 'ref_')) return;
         $status = $a['status'] ?? 'pending';
         if (!in_array($status, ['succeeded','failed','pending'], true)) $status = 'pending';
-        DB::transaction(function () use ($r, $data, $status, $payment) {
+        DB::transaction(function () use ($r, $data, $a, $status, $payment, $qrphReceipt) {
             Order::whereKey($payment->order_id)->lockForUpdate()->firstOrFail();
             $payment = Payment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
             $current = DB::table('payment_refunds')->where('id', $r->id)->lockForUpdate()->first();
             if (in_array($current->status, ['succeeded','failed'], true)) return;
             DB::table('payment_refunds')->where('id', $r->id)->update(['provider_refund_id' => $data['id'], 'status' => $status,
                 'confirmed_at' => $status === 'succeeded' ? now() : null]);
+            $link = $qrphReceipt ? \App\Support\RefundStatus::safeTransferLink($a['transfer_link'] ?? null,(bool)$r->livemode) : null;
+            if ($link && $status === 'pending' && !OrderTrackingEvent::where('metadata->refund_id',$r->id)->where('title','Refund ready to claim')->exists()) {
+                $created = is_numeric($a['created_at'] ?? null) ? Carbon::createFromTimestamp((int)$a['created_at'],'UTC') : now();
+                OrderTrackingEvent::create(['order_id'=>$payment->order_id,'stage'=>$payment->order->customer_stage,'event_type'=>'system',
+                    'title'=>'Refund ready to claim','description'=>'Open My Orders > Payment details and choose Claim refund. Complete PayMongo\'s form to receive the funds in your chosen bank or e-wallet. Claim within 3 days.','occurred_at'=>now(),
+                    'metadata'=>['refund_id'=>$r->id,'transfer_link'=>$link,'claim_expires_at'=>$created->addDays(3)->toIso8601String()]]);
+                $this->notifyRefundCustomer($payment->order,'Claim your QR Ph refund','Your refund of PHP '.number_format($r->amount_centavos/100,2).' is ready to claim. Sign in to FMRC, open My Orders > Payment details, and choose Claim refund. Complete the secure PayMongo form within 3 days. The refund is not completed until the transfer succeeds.');
+            }
             $sum = DB::table('payment_refunds')->where('payment_id', $payment->id)->where('provider_payment_id', $payment->paymongo_payment_id)->where('status', 'succeeded')->sum('amount_centavos');
             if ($sum >= self::centavos($payment->amount)) {
                 $payment->update(['status' => 'refunded', 'refunded_at' => now(), 'refund_reference' => $data['id']]);
@@ -324,14 +364,18 @@ class GatewayPayments
                 $source = DB::table('payment_receipts')->where('provider_payment_id', $r->provider_payment_id)->value('source_type');
                 OrderTrackingEvent::create(['order_id' => $payment->order_id, 'stage' => $payment->order->customer_stage,
                     'event_type' => 'system', 'title' => PayMongoService::methodLabel($source ?? 'gcash').' refund confirmed', 'description' => '₱'.number_format($r->amount_centavos / 100, 2).' returned through the payment provider.', 'occurred_at' => now()]);
-                $this->notifyRefundCustomer($payment->order, 'Refund confirmed', 'The payment provider confirmed your refund of PHP '.number_format($r->amount_centavos / 100, 2).' to the original payment method. Reference: '.$data['id'].'. Check your wallet or bank transaction history.');
+                $this->notifyRefundCustomer($payment->order, 'Refund confirmed', 'The payment provider confirmed your refund of PHP '.number_format($r->amount_centavos / 100, 2).'. Reference: '.$data['id'].'. Check your receiving wallet or bank transaction history.');
                 if ($r->order_return_id) \App\Models\OrderReturnEvent::create(['order_return_id'=>$r->order_return_id,
                     'created_by_user_id'=>$r->approved_by,'status'=>$return?->status ?? 'refund_processing','actor_role'=>'system',
                     'title'=>'Refund confirmed','description'=>'PHP '.number_format($r->amount_centavos / 100, 2).' returned through the payment provider. Reference: '.$data['id'],'occurred_at'=>now()]);
             } elseif ($current->status !== $status) {
                 OrderTrackingEvent::create(['order_id'=>$payment->order_id, 'stage'=>$payment->order->customer_stage,
                     'event_type'=>'system', 'title'=>$status === 'failed' ? 'Refund needs attention' : 'Refund processing',
-                    'description'=>$status === 'failed' ? 'The refund could not be completed. FMRC needs to review it; your payment has not been marked refunded.' : 'The payment provider is processing your refund to the original payment method. Confirmation will appear here.', 'occurred_at'=>now()]);
+                    'description'=>$status === 'failed' ? 'The refund could not be completed. FMRC needs to review it; your payment has not been marked refunded.' : 'The payment provider is processing your refund. Open Payment details for any claim instructions. Confirmation will appear here.', 'occurred_at'=>now(),
+                    'metadata'=>['refund_id'=>$r->id] + ($status === 'failed' ? ['failure_message'=>'PayMongo could not complete this refund.', 'failure_action'=>'Check the refund in PayMongo. For QR Ph, an expired or declined claim can fail. Confirm its final status before approving another attempt.'] : [])]);
+                if($status === 'failed') AdminNotification::create(['type'=>'order','title'=>'Refund needs attention: '.$payment->order->order_no,
+                    'message'=>'PayMongo could not complete the refund. Review the refund in Orders > Online refunds.',
+                    'metadata'=>json_encode(['order_id'=>$payment->order_id,'refund_id'=>$r->id])]);
             }
         });
     }
@@ -346,7 +390,7 @@ class GatewayPayments
                 : 'FMRC is checking the refund with the payment provider. Confirmation will appear here. Do not submit another payment.';
             OrderTrackingEvent::create(['order_id'=>$payment->order_id,'stage'=>$payment->order->customer_stage,'event_type'=>'system',
                 'title'=>$title,'description'=>$message,'occurred_at'=>now(),
-                'metadata'=>['refund_id'=>$refund->id] + array_intersect_key($failure,array_flip(['error_code','http_status','failure_message','failure_action']))]);
+                'metadata'=>['refund_id'=>$refund->id] + array_intersect_key($failure,array_flip(['error_code','error_field','http_status','failure_message','failure_action']))]);
             if ($status === 'failed') AdminNotification::create(['type'=>'order','title'=>$title.': '.$payment->order->order_no,
                 'message'=>'Review the failed refund in Orders > Online payments & refunds. Do not mark it completed manually.',
                 'metadata'=>json_encode(['order_id'=>$payment->order_id,'refund_id'=>$refund->id])]);

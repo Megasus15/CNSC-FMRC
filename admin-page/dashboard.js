@@ -14,7 +14,8 @@ document.addEventListener("DOMContentLoaded", () => {
      Inventory, Accounts, Appointments, Products and Promotions. */
   const DASHBOARD_MIN_SYNC_GAP_MS = 2500;
   const DASHBOARD_EVENT_DEBOUNCE_MS = 300;
-  const DASHBOARD_LIVE_POLL_MS = 30000;
+  const DASHBOARD_LIVE_POLL_MS = 10000;
+  let dashboardFinancialRevision = null;
   const DASHBOARD_ORDERS_SIGNAL_KEY = "fmrc_orders_updated_at";
   const DASHBOARD_ORDERS_CHANNEL = "fmrc-orders-realtime";
 
@@ -1530,6 +1531,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const applyDashboardSummaryPayload = (summary) => {
+    if(typeof summary?.financial_revision === 'string') dashboardFinancialRevision=summary.financial_revision;
     const counts = summary?.counts || {};
     const appointments = Array.isArray(summary?.recent_appointments)
       ? summary.recent_appointments
@@ -1764,6 +1766,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const applyDashboardLiveCounts = (payload = {}) => {
     const data = payload?.data || {};
+    if(typeof data.financial_revision === 'string'){
+      const changed=dashboardFinancialRevision!==null && dashboardFinancialRevision!==data.financial_revision;
+      dashboardFinancialRevision=data.financial_revision;
+      if(changed){queueDashboardSync({force:true,source:'payments'});reloadDashboardAnalytics();}
+    }
     // Archived Records is the only card left that has to move on its own; the
     // Reports tile is a static quick action now, so data.generated_reports is
     // deliberately not rendered.

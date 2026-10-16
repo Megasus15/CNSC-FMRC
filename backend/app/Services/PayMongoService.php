@@ -26,20 +26,23 @@ class PayMongoService
     public function acceptsNewPayments(): bool {
         return config('payments.gateway') === 'paymongo' && config('payments.paymongo.enabled', false) && $this->isConfigured() && self::supportsMethod($this->checkoutMethod());
     }
-    public function request(string $method, string $path, array $attributes = [], ?string $idempotencyKey = null): ?array {
+    public function request(string $method, string $path, array $attributes = [], ?string $idempotencyKey = null, bool $qrphRefund = false): ?array {
         if (!$this->isConfigured()) return null;
+        // Separate QR Ph creation API; never accept a caller-supplied host.
+        if ($qrphRefund && !(($method === 'POST' && $path === 'v1/refunds') || ($method === 'GET' && preg_match('/^v1\/refunds\/ref_[A-Za-z0-9]+$/',$path)))) return null;
         try {
             $client = Http::withBasicAuth((string) config('payments.paymongo.secret_key'), '')->acceptJson()->timeout(15);
-            $url = 'https://api.paymongo.com/'.$path;
+            $url = ($qrphRefund ? 'https://refunds-api.paymongo.com/' : 'https://api.paymongo.com/').$path;
             if ($idempotencyKey) $client = $client->withHeaders(['Idempotency-Key' => $idempotencyKey]);
             $response = $method === 'GET' ? $client->get($url) : $client->post($url, ['data' => ['attributes' => $attributes]]);
             // Never automatically retry money-moving POSTs. An ambiguous result is reconciled first.
             if ($response->successful()) return $response->json();
+            if ($method === 'GET' && $response->status() === 404 && preg_match('/^v1\/refunds\/ref_[A-Za-z0-9]+$/',$path)) return ['not_found'=>true];
             Log::warning('Payment provider request failed', ['path' => strtok($path, '?'), 'status' => $response->status()]);
             if ($method === 'POST' && in_array($response->status(), [400,401,403,404,422], true)) {
                 $error = $response->json('errors.0') ?? [];
                 $failure = \App\Support\RefundStatus::failure(is_string($error['code'] ?? null) ? $error['code'] : null,
-                    is_string($error['detail'] ?? null) ? $error['detail'] : '', $response->status());
+                    is_string($error['detail'] ?? null) ? $error['detail'] : '', $response->status(), $error['source'] ?? []);
                 return ['rejected' => true] + $failure;
             }
             return null;
@@ -47,6 +50,14 @@ class PayMongoService
             Log::warning('Payment provider unavailable', ['operation' => $method]);
             return null;
         }
+    }
+    public function retrieveRefund(string $id, bool $qrph = false): ?array {
+        if (!preg_match('/^ref_[A-Za-z0-9]+$/',$id)) return null;
+        // Use the standard retrieval resource first. A QR Ph record absent there
+        // can be looked up on its creation service; this fallback is GET-only.
+        $result = $this->request('GET','v1/refunds/'.$id);
+        if ($qrph && ($result['not_found'] ?? false)) $result = $this->request('GET','v1/refunds/'.$id,[],null,true);
+        return ($result['not_found'] ?? false) ? null : $result;
     }
     public function createCheckoutSession(int $amountCentavos, string $description, string $orderNo, int $orderId, int $paymentId, string $appContext = '', string $attemptToken = '', ?string $checkoutMethod = null): ?array {
         $checkoutMethod ??= $this->checkoutMethod();

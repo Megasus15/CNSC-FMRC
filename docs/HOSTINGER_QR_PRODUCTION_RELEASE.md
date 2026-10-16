@@ -53,8 +53,9 @@ also assumes existing PayMongo columns: inspect the actual database before using
 
 Use production's live API key and a matching live webhook registration at:
 `https://ucn-fabmanlab.com/api/webhooks/paymongo`.
-Subscribe to `checkout_session.payment.paid`, `payment.refunded`, and
-`payment.refund.updated`, as available in the dashboard. Save its signing secret
+Subscribe to `checkout_session.payment.paid` and `refund.succeeded`. Also enable
+`refund.updated`, `refund.failed`, `payment.refunded`, and `payment.refund.updated`
+where available in the dashboard. Save its signing secret
 only in production's private environment.
 
 Verify one payment cron for the production backend, using either its existing
