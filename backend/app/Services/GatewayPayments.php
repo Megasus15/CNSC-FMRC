@@ -248,12 +248,15 @@ class GatewayPayments
             $receipt = DB::table('payment_receipts')->where('payment_id', $payment->id)->where('provider_payment_id', $providerPaymentId)->first();
             $existing = DB::table('payment_refunds')->where('token', $token)->first();
             if ($existing) {
-                abort_unless($existing->payment_id === $payment->id && (int) $existing->amount_centavos === $amount && $existing->reason === $reason && $existing->provider_payment_id === $providerPaymentId, 409, 'This request key has already been used.'); return $existing;
+                abort_unless($existing->payment_id === $payment->id && (int) $existing->order_return_id === (int) $returnId && (int) $existing->amount_centavos === $amount && $existing->reason === $reason && $existing->provider_payment_id === $providerPaymentId, 409, 'This request key has already been used.'); return $existing;
             }
             abort_unless(self::managed($payment) && $receipt && in_array($payment->status, ['paid','refunded'], true), 422, 'A confirmed online payment is required.');
             if ($returnId) {
-                $return = \App\Models\OrderReturn::whereKey($returnId)->where('order_id', $payment->order_id)->firstOrFail();
-                abort_unless($return->resolution === 'refund' && in_array($return->status, ['approved','item_received','refund_processing'], true), 422, 'Approve this return for a refund first.');
+                $return = \App\Models\OrderReturn::whereKey($returnId)->where('order_id', $payment->order_id)->lockForUpdate()->firstOrFail();
+                abort_unless($return->resolution === 'refund', 422, 'Approve this return for a refund first.');
+                abort_unless(in_array($return->status, ['item_received','refund_processing'], true), 422, 'Confirm that the item was received and inspected.');
+                abort_if(DB::table('payment_refunds')->where('order_return_id', $returnId)->whereIn('status', ['requested','submitting','pending','unknown'])->exists(),
+                    422, 'A refund is already in progress. Continue with it in Online refunds.');
                 $returnReserved = DB::table('payment_refunds')->where('order_return_id',$returnId)->whereNotIn('status',['failed','rejected'])->sum('amount_centavos');
                 abort_unless($returnReserved + $amount <= self::centavos($return->approved_amount ?? $return->requested_amount), 422, 'This exceeds the approved return amount.');
             }
@@ -263,6 +266,7 @@ class GatewayPayments
             abort_unless($attempt && $attempt->confirmed_at && (bool) $attempt->livemode === $this->provider->isLive(), 422, 'Reconcile this payment before requesting a refund.');
             $id = DB::table('payment_refunds')->insertGetId(['payment_id' => $payment->id, 'token' => $token, 'requested_by' => $actor,
                 'provider_payment_id' => $providerPaymentId, 'order_return_id' => $returnId, 'amount_centavos' => $amount, 'reason' => $reason, 'livemode' => $attempt->livemode, 'status' => 'requested', 'created_at' => now(), 'updated_at' => now()]);
+            if ($returnId) $return->update(['status' => 'refund_processing']);
             $title=$issuing ? 'Refund being prepared' : 'Refund requested';
             $progress=$issuing ? 'FMRC is preparing the refund for submission to PayMongo.' : 'The refund is awaiting Admin approval.';
             OrderTrackingEvent::create(['order_id'=>$payment->order_id, 'stage'=>$payment->order->customer_stage, 'event_type'=>'system',

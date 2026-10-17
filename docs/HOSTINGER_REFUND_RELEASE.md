@@ -12,6 +12,16 @@ Local patch files: `backend/app/Services/PayMongoService.php`, `backend/app/Serv
 
 ## Deploy
 
+### Receive and refund in one action
+
+Online returns with an approved **Refund** resolution now have one icon. Admin uses **Receive & refund**; Staff uses **Receive & request refund**. This replaces the separate receive and online-refund icons. Button labels stay on one line; whole buttons wrap to another right-aligned row on narrow screens. Open it, confirm **Item received and inspected**, add an inspection note if needed, review the refund amount, and confirm once. The same form works while the item is marked Approved or Item in transit. An item already marked received skips the receipt fields.
+
+Receipt, its audit event and the refund reservation save in one database transaction. Invalid amounts or the wrong resolution roll back that transaction. Provider submission happens afterward: Admin issues directly, while Staff requests Admin approval. A pending or uncertain refund blocks another request, even with a different request key. Repeating the same request does not record receipt or send money twice. Payments and revenue change only after provider confirmation.
+
+If funding or provider setup blocks submission, the receipt and the existing refund request remain saved. The dialog explains the next step. Continue with that request in **Online refunds** after resolving the issue; do not create another refund. Failed claims still use the existing reviewed retry. Replacement and Repair returns must be explicitly changed to Refund before any money can be sent.
+
+Deploy `backend/app/Http/Controllers/Api/OrderReturnController.php`, `backend/app/Services/GatewayPayments.php`, `backend/app/Support/ReturnPresenter.php`, `admin-page/orders.js`, `admin-page/admin-modules.css`, `admin-page/orders.html`, and `staff-page/orders.html` together. Clear cached application code as described below and reload Orders in both portals. No migration is needed. Automated checks use fake provider responses; deploying this change does not issue refunds or prove a live customer received funds.
+
 ### Claim failed after the customer submitted it
 
 The 2026-10-17 live test for **ORD-261017-00080** reached the PayMongo claim form, then failed. Read-only provider checks found a failed **PHP 1.00** InstaPay transfer to the selected G-Xchange account with **AC06 / BlockedAccount**, at the same time as the failed refund. The wallet was activated with PHP 30.00 available when checked. PayMongo's code means the receiving account was reported blocked; it does not explain why or prove that the entire GCash account is locked. The customer must have GCash resolve the restriction, or choose another active receiving account for a reviewed new claim. FMRC cannot remove a receiving-account block. Do not send a second refund while the first is pending or has an uncertain outcome.

@@ -669,40 +669,18 @@ class OrderReturnController extends Controller
             return $denied;
         }
 
-        if ($blocked = $this->guardTransition($orderReturn, 'item_received')) {
-            return $blocked;
-        }
-
-        $validated = $request->validate([
-            'note' => ['nullable', 'string', 'max:800'],
-        ]);
-
+        $validated = $request->validate(['note' => ['nullable', 'string', 'max:800']]);
         $note = $this->cleanText($validated['note'] ?? null);
-
-        $orderReturn->update([
-            'status'             => 'item_received',
-            'handled_by_user_id' => $request->user()->id,
-            'item_received_at'   => now(),
-        ]);
-
-        $this->recordEvent($orderReturn, [
-            'status'      => 'item_received',
-            'actor_role'  => $request->user()->role ?? 'admin',
-            'title'       => 'Item received & inspected',
-            'description' => $note ?: 'The returned item arrived at UCN-FMRC and passed inspection.',
-            'created_by_user_id' => $request->user()->id,
-        ]);
-
-        $this->emailStatusUpdate(
-            $orderReturn,
-            'We received your returned item',
-            "The item for return {$orderReturn->return_no} has arrived and passed inspection.\n\n"
-                . ($note ?: 'Your refund is next — we will notify you the moment it is released.'),
-            templateKey: 'return_item_received',
-            tokens: [
-                'note' => $note ?: 'Your refund is next — we will notify you the moment it is released.',
-            ],
-        );
+        $blocked = DB::transaction(function () use ($orderReturn, $request, $note) {
+            Order::whereKey($orderReturn->order_id)->lockForUpdate()->firstOrFail();
+            $current = OrderReturn::whereKey($orderReturn->id)->lockForUpdate()->firstOrFail();
+            if ($blocked = $this->guardTransition($current, 'item_received')) return $blocked;
+            $this->markItemReceived($current, $request->user()->id, $request->user()->role, $note);
+            return null;
+        });
+        if ($blocked) return $blocked;
+        $orderReturn->refresh();
+        $this->notifyItemReceived($orderReturn, $note);
 
         $orderReturn->load(['order.items', 'items', 'events', 'customer:id,name,email', 'handler:id,name,role']);
 
@@ -727,24 +705,7 @@ class OrderReturnController extends Controller
 
         $gatewayPayment = Payment::where('order_id', $orderReturn->order_id)->first();
         if (\App\Services\GatewayPayments::managed($gatewayPayment)) {
-            $v = $request->validate(['amount' => 'nullable|numeric|min:1', 'note' => 'nullable|string|max:400', 'request_key'=>'nullable|uuid','issue'=>'nullable|boolean']);
-            if ($request->boolean('issue')) abort_unless($request->user()->role === 'admin',403);
-            $amount = \App\Services\GatewayPayments::centavos($v['amount'] ?? $orderReturn->approved_amount ?? $orderReturn->requested_amount);
-            // Return ID + amount supplies a stable key for old clients that lack request keys.
-            $hex = md5('gcash-return:'.$orderReturn->id.':'.$amount);
-            $token = substr($hex,0,8).'-'.substr($hex,8,4).'-4'.substr($hex,13,3).'-a'.substr($hex,17,3).'-'.substr($hex,20,12);
-            $token = $v['request_key'] ?? $token;
-            $refund = app(\App\Services\GatewayPayments::class)->requestRefund($gatewayPayment, $amount,
-                ($v['note'] ?? '') ?: 'Return '.$orderReturn->return_no, $request->user()->id, $token, $orderReturn->id, null, $request->boolean('issue'));
-            OrderReturn::whereKey($orderReturn->id)->whereIn('status',['approved','item_received','refund_processing'])->update(['status' => 'refund_processing']);
-            if ($request->boolean('issue')) app(\App\Services\GatewayPayments::class)->approveRefund($refund->id,$request->user()->id);
-            $orderReturn->refresh();
-            $orderReturn->load(['order.payment', 'items', 'events']);
-            $refund=\App\Support\RefundStatus::details(collect([DB::table('payment_refunds')->find($refund->id)]))->first();
-            $message=$request->boolean('issue')
-                ? ($refund->status === 'failed' ? 'The refund needs attention. Open Online refunds for the provider response.' : 'Refund issued for provider processing. Follow its status and any customer claim form in Online refunds.')
-                : 'Refund requested. Admin must issue it in Online refunds; confirmation appears automatically.';
-            return response()->json(['message' => $message, 'data' => $this->transformReturnDetail($orderReturn, true), 'refund_request' => $refund]);
+            return $this->onlineReturnRefund($request, $orderReturn, $gatewayPayment);
         }
 
         $validated = $request->validate([
@@ -854,6 +815,102 @@ class OrderReturnController extends Controller
                 : 'Return marked as refund processing.',
             'data'    => $this->transformReturnDetail($orderReturn, true),
         ]);
+    }
+
+    /** Receipt and reservation commit together; provider submission happens afterward. */
+    private function onlineReturnRefund(Request $request, OrderReturn $orderReturn, Payment $payment): JsonResponse
+    {
+        $v = $request->validate([
+            'amount' => ['nullable', 'numeric', 'min:1'],
+            'note' => ['nullable', 'string', 'max:400'],
+            'request_key' => ['nullable', 'uuid'],
+            'issue' => ['nullable', 'boolean'],
+            'confirm_received' => ['nullable', 'boolean'],
+            'received_note' => ['nullable', 'string', 'max:800'],
+        ]);
+        $issue = $request->boolean('issue');
+        abort_if($issue && $request->user()->role !== 'admin', 403, 'Admin approval is required.');
+        $amount = \App\Services\GatewayPayments::centavos($v['amount'] ?? $orderReturn->approved_amount ?? $orderReturn->requested_amount);
+        $hex = md5('gcash-return:'.$orderReturn->id.':'.$amount);
+        $token = $v['request_key'] ?? (substr($hex,0,8).'-'.substr($hex,8,4).'-4'.substr($hex,13,3).'-a'.substr($hex,17,3).'-'.substr($hex,20,12));
+        $gateway = app(\App\Services\GatewayPayments::class);
+        $receivedNote = $this->cleanText($v['received_note'] ?? null);
+
+        [$refund, $received] = DB::transaction(function () use ($request, $orderReturn, $payment, $gateway, $amount, $token, $issue, $v, $receivedNote) {
+            Order::whereKey($orderReturn->order_id)->lockForUpdate()->firstOrFail();
+            $current = OrderReturn::whereKey($orderReturn->id)->lockForUpdate()->firstOrFail();
+            $received = in_array($current->status, ['approved', 'item_in_transit'], true);
+            if ($received) {
+                abort_unless($current->resolution === 'refund', 422, 'Approve this return for a refund first.');
+                abort_unless($request->boolean('confirm_received'), 422, 'Confirm that the item was received and inspected.');
+                $this->markItemReceived($current, $request->user()->id, $request->user()->role, $receivedNote);
+            }
+            $refund = $gateway->requestRefund($payment, $amount,
+                ($v['note'] ?? '') ?: 'Return '.$current->return_no,
+                $request->user()->id, $token, $current->id, null, $issue);
+            return [$refund, $received];
+        });
+
+        $orderReturn->refresh();
+        if ($received) $this->notifyItemReceived($orderReturn, $receivedNote);
+        $approvalMessage = null;
+        if ($issue) {
+            try {
+                $gateway->approveRefund($refund->id, $request->user()->id);
+            } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e) {
+                // The receipt and refund request are already saved. Continue the
+                // same request in Online refunds instead of inviting a duplicate.
+                if ($e->getStatusCode() !== 422) throw $e;
+                $approvalMessage = $e->getMessage();
+            }
+        }
+        $orderReturn->refresh()->load(['order.payment', 'items', 'events', 'handler:id,name,role']);
+        $refund = \App\Support\RefundStatus::details(collect([DB::table('payment_refunds')->find($refund->id)]))->first();
+        $attention = $issue && in_array($refund->status, ['requested', 'failed', 'unknown'], true);
+        $message = match (true) {
+            $approvalMessage !== null => 'Refund saved. '.$approvalMessage.' Continue in Online refunds.',
+            $refund->status === 'succeeded' => 'Refund confirmed.',
+            $attention => 'The refund needs attention. Review this request in Online refunds before retrying.',
+            !$issue => 'Refund requested. Admin can issue it in Online refunds.',
+            default => 'Refund submitted. Follow its status and any customer claim form in Online refunds.',
+        };
+        return response()->json([
+            'message' => ($received ? 'Item received. ' : '').$message,
+            'data' => $this->transformReturnDetail($orderReturn, true),
+            'refund_request' => $refund,
+            'needs_attention' => $attention,
+        ]);
+    }
+
+    /** Called under the order/return locks; the audit must commit with receipt. */
+    private function markItemReceived(OrderReturn $orderReturn, int $actor, string $role, ?string $note): void
+    {
+        $orderReturn->update([
+            'status' => 'item_received', 'handled_by_user_id' => $actor,
+            'item_received_at' => $orderReturn->item_received_at ?? now(),
+        ]);
+        OrderReturnEvent::create([
+            'order_return_id' => $orderReturn->id, 'created_by_user_id' => $actor,
+            'status' => 'item_received', 'actor_role' => $role,
+            'title' => 'Item received & inspected',
+            'description' => $note ?: 'The returned item arrived at UCN-FMRC and passed inspection.',
+            'occurred_at' => now(),
+        ]);
+    }
+
+    private function notifyItemReceived(OrderReturn $orderReturn, ?string $note): void
+    {
+        $this->emailStatusUpdate(
+            $orderReturn,
+            'We received your returned item',
+            "The item for return {$orderReturn->return_no} has arrived and passed inspection.\n\n"
+                . ($note ?: 'Your refund is next — we will notify you the moment it is released.'),
+            templateKey: 'return_item_received',
+            tokens: [
+                'note' => $note ?: 'Your refund is next — we will notify you the moment it is released.',
+            ],
+        );
+
     }
 
     /** Admin/Staff: every non-archived return ID matching the current filters. */

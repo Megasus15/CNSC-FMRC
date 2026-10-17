@@ -2342,6 +2342,43 @@ input.page-number:focus,
   min-width: 0;
 }
 
+/* Wrap whole refund controls, keeping every label on one line. */
+#modalReturnAction .modal-footer-fixed,
+#modalReturnDetails .modal-footer-fixed,
+.gateway-team-dialog .modal-footer-fixed,
+body:has(#modalReturnAction.show) .admin-system-popup__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+#modalReturnAction .modal-footer-fixed > .btn-admin,
+#modalReturnDetails .modal-footer-fixed > .btn-admin,
+.gateway-team-dialog .modal-footer-fixed > .btn-admin,
+body:has(#modalReturnAction.show) .admin-system-popup__actions > .btn-admin {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: max-content;
+  min-height: 44px;
+  padding: 10px 14px;
+  white-space: nowrap;
+}
+
+#modalReturnAction .return-receipt-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#modalReturnAction .return-receipt-check input {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--portal-action, #800000);
+}
+
 .return-items-table tbody td:first-child {
   overflow-wrap: anywhere;
 }

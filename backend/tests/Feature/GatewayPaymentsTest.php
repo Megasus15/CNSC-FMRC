@@ -415,7 +415,7 @@ class GatewayPaymentsTest extends TestCase {
         $g->applySession($a->id,$this->providerSession($a));
         $return=\App\Models\OrderReturn::create(['order_id'=>$o->id,'customer_id'=>$o->customer_id,'return_no'=>'RTN-RETRY','status'=>'approved','resolution'=>'refund','reason'=>'damaged','requested_amount'=>500,'approved_amount'=>500]);
         $admin=User::factory()->create(['role'=>'admin']); Sanctum::actingAs($admin);
-        $url='/api/admin/returns/'.$return->id.'/refund'; $body=['amount'=>500,'request_key'=>(string)Str::uuid()];
+        $url='/api/admin/returns/'.$return->id.'/refund'; $body=['amount'=>500,'request_key'=>(string)Str::uuid(),'confirm_received'=>true];
         $id=$this->postJson($url,$body)->assertOk()->json('refund_request.id');
         $this->postJson($url,$body)->assertOk(); $this->assertDatabaseCount('payment_refunds',1);
         Http::fake(['api.paymongo.com/v1/refunds'=>Http::sequence()->push([],422)->push(['data'=>['id'=>'ref_return','attributes'=>['payment_id'=>$o->fresh()->payment->paymongo_payment_id,'amount'=>50000,'currency'=>'PHP','livemode'=>false,'status'=>'succeeded']]])]);
@@ -443,7 +443,7 @@ class GatewayPaymentsTest extends TestCase {
         $g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
         $return=\App\Models\OrderReturn::create(['order_id'=>$o->id,'customer_id'=>$o->customer_id,'return_no'=>'RTN-CHANGE','status'=>'item_received','resolution'=>'replacement','reason'=>'other','requested_amount'=>500,'approved_amount'=>500]);
         Sanctum::actingAs(User::factory()->create(['role'=>'admin']));
-        $url='/api/admin/returns/'.$return->id.'/refund';$body=['amount'=>500,'request_key'=>(string)Str::uuid(),'issue'=>true];
+        $url='/api/admin/returns/'.$return->id.'/refund';$body=['amount'=>500,'request_key'=>(string)Str::uuid(),'issue'=>true,'confirm_received'=>true];
         $this->postJson($url,$body)->assertUnprocessable();Http::assertNothingSent();$this->assertDatabaseCount('payment_refunds',0);
         $this->postJson('/api/admin/returns/'.$return->id.'/resolution',['resolution'=>'refund','expected_resolution'=>'replacement','note'=>'Refund agreed.'])->assertOk()->assertJsonPath('data.status','item_received');
         Http::assertNothingSent();
@@ -456,9 +456,10 @@ class GatewayPaymentsTest extends TestCase {
 
     public function test_resolution_change_is_blocked_by_a_reserved_refund_even_if_return_status_is_old(): void {
         $o=$this->order();$a=$this->attempt($o);$g=app(GatewayPayments::class);$g->applySession($a->id,$this->providerSession($a));
-        $return=\App\Models\OrderReturn::create(['order_id'=>$o->id,'customer_id'=>$o->customer_id,'return_no'=>'RTN-RESERVED','status'=>'approved','resolution'=>'refund','reason'=>'other','requested_amount'=>500,'approved_amount'=>500]);
+        $return=\App\Models\OrderReturn::create(['order_id'=>$o->id,'customer_id'=>$o->customer_id,'return_no'=>'RTN-RESERVED','status'=>'item_received','resolution'=>'refund','reason'=>'other','requested_amount'=>500,'approved_amount'=>500]);
         $admin=User::factory()->create(['role'=>'admin']);Sanctum::actingAs($admin);
         $g->requestRefund($o->fresh()->payment,50000,'Reserved refund',$admin->id,(string)Str::uuid(),$return->id);
+        $return->update(['status'=>'approved']); // Simulate an old return state with a reserved refund.
         $this->postJson('/api/admin/returns/'.$return->id.'/resolution',['resolution'=>'replacement','expected_resolution'=>'refund','note'=>'Must not change a reserved refund.'])->assertUnprocessable();
         $this->assertSame('refund',$return->fresh()->resolution);Http::assertNothingSent();
     }
@@ -468,15 +469,120 @@ class GatewayPaymentsTest extends TestCase {
         $o=$this->order(['lifecycle_status'=>'completed','customer_stage'=>'completed']);$a=$this->attempt($o,true,'qrph');$g=app(GatewayPayments::class);
         $g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
         $return=\App\Models\OrderReturn::create(['order_id'=>$o->id,'customer_id'=>$o->customer_id,'return_no'=>'RTN-DIRECT','status'=>'approved','resolution'=>'refund','reason'=>'damaged','requested_amount'=>500,'approved_amount'=>500]);
-        $url='/api/admin/returns/'.$return->id.'/refund';$body=['amount'=>500,'request_key'=>(string)Str::uuid(),'issue'=>true];
+        $url='/api/admin/returns/'.$return->id.'/refund';$body=['amount'=>500,'request_key'=>(string)Str::uuid(),'issue'=>true,'confirm_received'=>true];
         Sanctum::actingAs(User::factory()->create(['role'=>'staff']));
         $this->postJson($url,$body)->assertForbidden();$this->assertDatabaseCount('payment_refunds',0);Http::assertNothingSent();
-        $this->postJson($url,[...$body,'issue'=>false])->assertOk()->assertJsonPath('refund_request.status','requested');Http::assertNothingSent();
+        $this->assertNull($return->fresh()->item_received_at);$this->assertSame('approved',$return->fresh()->status);
+        $this->postJson($url,[...$body,'issue'=>false])->assertOk()->assertJsonPath('refund_request.status','requested')
+            ->assertJsonPath('data.requires_receipt',false)->assertJsonPath('data.can_refund',false);Http::assertNothingSent();
+        $this->assertNotNull($return->fresh()->item_received_at);
+        $this->assertDatabaseHas('order_return_events',['order_return_id'=>$return->id,'title'=>'Item received & inspected','actor_role'=>'staff']);
         Sanctum::actingAs(User::factory()->create(['role'=>'admin']));
         Http::fake(['*'=>Http::response(['data'=>['id'=>'ref_returndirect','attributes'=>['payment_id'=>$o->fresh()->payment->paymongo_payment_id,'amount'=>50000,'currency'=>'PHP','livemode'=>true,'status'=>'succeeded']]])]);
         $this->postJson($url,$body)->assertOk()->assertJsonPath('refund_request.status','succeeded')->assertJsonPath('data.status','refunded');
         $this->postJson($url,$body)->assertOk()->assertJsonPath('refund_request.status','succeeded');$this->assertPaymentRequestCount(1);
         $this->assertDatabaseCount('payment_refunds',1);$this->assertSame(500.0,GatewayFinancials::total('refunds'));
+    }
+
+    private function onlineReturn(string $status = 'approved', string $resolution = 'refund'): \App\Models\OrderReturn {
+        config(['payments.paymongo.secret_key'=>'sk_live_example']);
+        $o=$this->order(['lifecycle_status'=>'completed','customer_stage'=>'completed']);
+        $a=$this->attempt($o,true,'qrph');
+        app(GatewayPayments::class)->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
+        return \App\Models\OrderReturn::create(['order_id'=>$o->id,'customer_id'=>$o->customer_id,
+            'return_no'=>'RTN-'.Str::random(8),'status'=>$status,'resolution'=>$resolution,'reason'=>'damaged',
+            'requested_amount'=>500,'approved_amount'=>500]);
+    }
+
+    #[\PHPUnit\Framework\Attributes\TestWith(['approved'])]
+    #[\PHPUnit\Framework\Attributes\TestWith(['item_in_transit'])]
+    public function test_receive_and_refund_is_atomic_and_repeated_submission_sends_once(string $status): void {
+        $return=$this->onlineReturn($status);
+        Sanctum::actingAs(User::factory()->create(['role'=>'admin']));
+        $providerStatus='processing';
+        $attrs=fn()=>['payment_id'=>$return->order->payment->paymongo_payment_id,'amount'=>50000,'currency'=>'PHP','livemode'=>true,
+            'status'=>$providerStatus,'transfer_link'=>'https://transfer.paymongo.com/combined-claim'];
+        Http::fake(['refunds-api.paymongo.com/v1/refunds'=>fn()=>Http::response(['data'=>['id'=>'ref_combined','attributes'=>$attrs()]]),
+            'api.paymongo.com/v1/refunds/ref_combined'=>function()use(&$providerStatus,$return){return Http::response(['data'=>['id'=>'ref_combined','attributes'=>[
+                'payment_id'=>$return->order->payment->paymongo_payment_id,'amount'=>50000,'currency'=>'PHP','livemode'=>true,'status'=>$providerStatus]]]);}]);
+        $url='/api/admin/returns/'.$return->id.'/refund';
+        $body=['amount'=>500,'issue'=>true,'confirm_received'=>true,'received_note'=>'Inspected and accepted.','request_key'=>(string)Str::uuid()];
+        $this->getJson('/api/admin/returns/'.$return->id)->assertOk()->assertJsonPath('data.can_refund',true)->assertJsonPath('data.requires_receipt',true);
+        $id=$this->postJson($url,$body)->assertOk()->assertJsonPath('refund_request.status','pending')
+            ->assertJsonPath('data.status','refund_processing')->assertJsonPath('data.can_receive',false)
+            ->assertJsonPath('data.can_refund',false)->assertJsonPath('data.online_refund_pending',true)->json('refund_request.id');
+        $receivedAt=$return->fresh()->item_received_at;$this->assertNotNull($receivedAt);
+        $this->postJson($url,$body)->assertOk()->assertJsonPath('refund_request.id',$id);
+        $this->assertDatabaseCount('payment_refunds',1);$this->assertPaymentRequestCount(1);
+        $events=\App\Models\OrderReturnEvent::where('order_return_id',$return->id)->orderBy('id')->get();
+        $this->assertSame('Item received & inspected',$events->first()->title);
+        $this->assertSame('Inspected and accepted.',$events->first()->description);
+        $this->assertSame(1,$events->where('title','Item received & inspected')->count());
+        $this->assertSame('paid',$return->order->payment->fresh()->status);$this->assertSame(0.0,GatewayFinancials::total('refunds'));
+        $providerStatus='succeeded';
+        app(GatewayPayments::class)->reconcileRefund(DB::table('payment_refunds')->find($id));
+        $this->assertSame('refunded',$return->fresh()->status);$this->assertSame(500.0,GatewayFinancials::total('refunds'));
+        $this->postJson($url,$body)->assertOk()->assertJsonPath('data.status','refunded');
+        $this->assertTrue($receivedAt->equalTo($return->fresh()->item_received_at));
+        $this->assertSame(1,\App\Models\OrderReturnEvent::where('order_return_id',$return->id)->where('title','Item received & inspected')->count());
+        Http::assertSentCount(3); // Wallet lookup + creation + final status GET.
+    }
+
+    public function test_combined_refund_requires_inspection_and_rolls_back_invalid_amount_or_resolution(): void {
+        $return=$this->onlineReturn('item_in_transit');Sanctum::actingAs(User::factory()->create(['role'=>'admin']));
+        $url='/api/admin/returns/'.$return->id.'/refund';
+        $body=['amount'=>500,'issue'=>true,'confirm_received'=>true,'request_key'=>(string)Str::uuid()];
+        foreach ([['confirm_received'=>false],['amount'=>600],['amount'=>0.5],['received_note'=>str_repeat('x',801)]] as $bad) {
+            $this->postJson($url,array_replace($body,$bad))->assertUnprocessable();
+            $this->assertSame('item_in_transit',$return->fresh()->status);$this->assertNull($return->fresh()->item_received_at);
+            $this->assertDatabaseCount('payment_refunds',0);$this->assertDatabaseCount('order_return_events',0);
+        }
+        $return->update(['resolution'=>'replacement']);$this->postJson($url,$body)->assertUnprocessable();
+        $return->update(['resolution'=>'refund','status'=>'requested']);$this->postJson($url,$body)->assertUnprocessable();
+        $this->assertNull($return->fresh()->item_received_at);$this->assertDatabaseCount('order_return_events',0);Http::assertNothingSent();
+    }
+
+    public function test_wallet_block_preserves_receipt_and_one_request_until_admin_funds_it(): void {
+        $return=$this->onlineReturn();$this->walletBalance=0;
+        Sanctum::actingAs(User::factory()->create(['role'=>'admin']));
+        $url='/api/admin/returns/'.$return->id.'/refund';
+        $body=['amount'=>500,'issue'=>true,'confirm_received'=>true,'request_key'=>(string)Str::uuid()];
+        $response=$this->postJson($url,$body)->assertOk()->assertJsonPath('needs_attention',true)
+            ->assertJsonPath('refund_request.status','requested')->assertJsonPath('data.status','refund_processing')
+            ->assertJsonPath('data.can_refund',false)->assertJsonPath('data.online_refund_pending',true);
+        $id=$response->json('refund_request.id');$receivedAt=$return->fresh()->item_received_at;
+        $this->assertNotNull($receivedAt);$this->assertStringContainsString('Top up',$response->json('message'));
+        $this->postJson($url,$body)->assertOk()->assertJsonPath('refund_request.id',$id);$this->assertPaymentRequestCount(0);
+        $this->walletBalance=50000;
+        Http::fake(['refunds-api.paymongo.com/v1/refunds'=>Http::response(['data'=>['id'=>'ref_afterfunding','attributes'=>[
+            'payment_id'=>$return->order->payment->paymongo_payment_id,'amount'=>50000,'currency'=>'PHP','livemode'=>true,'status'=>'processing']]])]);
+        $this->postJson('/api/admin/gateway-refunds/'.$id.'/approve')->assertOk()->assertJsonPath('data.status','pending');
+        $this->assertPaymentRequestCount(1);$this->assertDatabaseCount('payment_refunds',1);
+        $this->assertTrue($receivedAt->equalTo($return->fresh()->item_received_at));
+        $this->assertSame(1,\App\Models\OrderReturnEvent::where('order_return_id',$return->id)->where('title','Item received & inspected')->count());
+    }
+
+    public function test_active_partial_or_uncertain_return_refund_blocks_another_request(): void {
+        $return=$this->onlineReturn();Sanctum::actingAs(User::factory()->create(['role'=>'admin']));
+        Http::fake(['refunds-api.paymongo.com/v1/refunds'=>Http::response([])]); // Unknown result: reserve funds; never auto-send again.
+        $url='/api/admin/returns/'.$return->id.'/refund';$body=['amount'=>100,'issue'=>true,'confirm_received'=>true,'request_key'=>(string)Str::uuid()];
+        $this->postJson($url,$body)->assertOk()->assertJsonPath('refund_request.status','unknown')->assertJsonPath('needs_attention',true);
+        $this->postJson($url,$body)->assertOk();$this->assertPaymentRequestCount(1);
+        $this->postJson($url,array_replace($body,['request_key'=>(string)Str::uuid()]))->assertUnprocessable();
+        $this->getJson('/api/admin/returns/'.$return->id)->assertOk()->assertJsonPath('data.refund_available_amount',400)
+            ->assertJsonPath('data.can_refund',false)->assertJsonPath('data.online_refund_pending',true);
+        $this->assertDatabaseCount('payment_refunds',1);$this->assertPaymentRequestCount(1);
+    }
+
+    public function test_a_refund_key_cannot_be_reused_to_receive_a_different_return(): void {
+        $return=$this->onlineReturn();Sanctum::actingAs(User::factory()->create(['role'=>'staff']));
+        $other=$return->replicate();$other->return_no='RTN-OTHER';$other->save();
+        $body=['amount'=>100,'confirm_received'=>true,'note'=>'Same reason','request_key'=>(string)Str::uuid()];
+        $this->postJson('/api/admin/returns/'.$return->id.'/refund',$body)->assertOk();
+        $this->postJson('/api/admin/returns/'.$other->id.'/refund',$body)->assertConflict();
+        $this->assertSame('approved',$other->fresh()->status);$this->assertNull($other->fresh()->item_received_at);
+        $this->assertSame(0,\App\Models\OrderReturnEvent::where('order_return_id',$other->id)->count());
+        $this->assertDatabaseCount('payment_refunds',1);Http::assertNothingSent();
     }
 
     public function test_cancellation_reason_is_visible_and_admin_can_cancel_and_issue_in_one_action(): void {

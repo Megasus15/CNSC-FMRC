@@ -124,6 +124,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const returnApprovedAmount = document.getElementById("returnApprovedAmount");
   const returnDecisionNote = document.getElementById("returnDecisionNote");
   const returnReceivedNote = document.getElementById("returnReceivedNote");
+  const returnConfirmReceived = document.getElementById("returnConfirmReceived");
   const returnRefundStage = document.getElementById("returnRefundStage");
   const returnRefundMethod = document.getElementById("returnRefundMethod");
   const returnRefundAmount = document.getElementById("returnRefundAmount");
@@ -1982,10 +1983,10 @@ document.addEventListener("DOMContentLoaded", () => {
     lockedHint = "",
   }) => {
     if (enabled) {
-      return `<button type="button" data-tooltip="${escapeHtml(label)}" ${attrs}><i class="${icon}" aria-hidden="true"></i></button>`;
+      return `<button type="button" aria-label="${escapeHtml(label)}" data-tooltip="${escapeHtml(label)}" ${attrs}><i class="${icon}" aria-hidden="true"></i></button>`;
     }
     const tooltip = lockedHint ? `${label} — ${lockedHint}` : label;
-    return `<button type="button" class="is-disabled" aria-disabled="true" tabindex="-1" data-tooltip="${escapeHtml(tooltip)}"><i class="${icon}" aria-hidden="true"></i></button>`;
+    return `<button type="button" class="is-disabled" aria-disabled="true" tabindex="-1" aria-label="${escapeHtml(tooltip)}" data-tooltip="${escapeHtml(tooltip)}"><i class="${icon}" aria-hidden="true"></i></button>`;
   };
 
   const renderReturnActionIcons = (row, returnNo) => {
@@ -2004,20 +2005,28 @@ document.addEventListener("DOMContentLoaded", () => {
         attrs: `data-return-action="${id}" data-return-mode="${row.can_decide ? 'decision' : 'resolution'}"`,
         lockedHint: "already decided",
       }),
-      returnActionIcon({
+      row.payment_is_automated && row.resolution === 'refund' ? returnActionIcon({
+        icon: "fa-solid fa-hand-holding-dollar",
+        label: row.requires_receipt
+          ? (canIssueOnlineRefund() ? "Receive & refund" : "Receive & request refund")
+          : (canIssueOnlineRefund() ? "Issue Online Refund" : "Request Online Refund"),
+        enabled: Boolean(row.can_refund),
+        attrs: `data-return-action="${id}" data-return-mode="refund"`,
+        lockedHint: row.online_refund_pending ? "continue with the existing request in Online refunds" : "approve this return for a refund first",
+      }) : returnActionIcon({
         icon: "fa-solid fa-box-open",
         label: "Confirm Item Received",
         enabled: Boolean(row.can_receive),
         attrs: `data-return-action="${id}" data-return-mode="received"`,
         lockedHint: "available once the request is approved",
       }),
-      returnActionIcon({
+      !row.payment_is_automated ? returnActionIcon({
         icon: "fa-solid fa-peso-sign",
-        label: row.payment_is_automated ? (canIssueOnlineRefund() ? "Issue Online Refund" : "Request Online Refund") : "Release Refund",
+        label: "Release Refund",
         enabled: Boolean(row.can_refund),
         attrs: `data-return-action="${id}" data-return-mode="refund"`,
         lockedHint: row.resolution !== 'refund' ? "approve Refund as the resolution first" : "available once the return is approved",
-      }),
+      }) : '',
       row.payment_is_automated ? returnActionIcon({icon:'fa-solid fa-credit-card',label:'Manage Online Refund',enabled:true,attrs:`data-gateway-manage="${row.order_id}"`}) : '',
       returnActionIcon({
         icon: "fa-solid fa-box-archive",
@@ -3408,25 +3417,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const resolveReturnActionKind = (row) => {
     if (row?.can_decide) return "decision";
+    if (row?.payment_is_automated && row?.resolution === 'refund') return row.can_refund ? "refund" : "";
     if (row?.can_receive) return "received";
     if (row?.can_refund) return "refund";
     return "";
   };
 
-  // `approved` unlocks both "Confirm Item Received" and "Release Refund", so the
-  // clicked icon decides which form opens instead of the stage order.
+  // Online returns use one form and one request for inspection and refund.
   const isReturnActionKindAllowed = (row, kind) =>
     (kind === "decision" && Boolean(row?.can_decide)) ||
     (kind === "resolution" && Boolean(row?.can_change_resolution) && canIssueOnlineRefund()) ||
-    (kind === "received" && Boolean(row?.can_receive)) ||
+    (kind === "received" && Boolean(row?.can_receive) && !(row?.payment_is_automated && row?.resolution === 'refund')) ||
     (kind === "refund" && Boolean(row?.can_refund));
 
   const setReturnActionSections = (kind) => {
     modalReturnAction
       ?.querySelectorAll("[data-return-section]")
       .forEach((node) => {
-        node.style.display =
-          node.getAttribute("data-return-section") === (kind === "resolution" ? "decision" : kind) ? "" : "none";
+        const section = node.getAttribute("data-return-section");
+        const receipt = kind === 'refund' && modalReturnAction.dataset.confirmReceipt === '1';
+        node.style.display = section === (kind === "resolution" ? "decision" : kind)
+          || (receipt && ['received', 'receipt'].includes(section)) ? "" : "none";
       });
   };
 
@@ -3442,6 +3453,7 @@ document.addEventListener("DOMContentLoaded", () => {
     approvedAmount: String(returnApprovedAmount?.value || ""),
     decisionNote: String(returnDecisionNote?.value || "").trim(),
     receivedNote: String(returnReceivedNote?.value || "").trim(),
+    confirmReceived: Boolean(returnConfirmReceived?.checked),
     refundStage: String(returnRefundStage?.value || ""),
     refundMethod: String(returnRefundMethod?.value || ""),
     refundAmount: String(returnRefundAmount?.value || ""),
@@ -3504,7 +3516,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const returnNo = row.return_no_display || `#${row.return_no || row.id}`;
     const requested = Number(row.requested_amount || 0);
     const ceiling = Number(
-      row.approved_amount !== null && row.approved_amount !== undefined
+      kind === 'refund' && row.refund_available_amount !== undefined
+        ? row.refund_available_amount
+        : row.approved_amount !== null && row.approved_amount !== undefined
         ? row.approved_amount
         : requested,
     );
@@ -3533,16 +3547,26 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     if (returnDecisionNote) returnDecisionNote.value = "";
     if (returnReceivedNote) returnReceivedNote.value = "";
+    if (returnConfirmReceived) returnConfirmReceived.checked = false;
     if (returnRefundStage) returnRefundStage.value = "released";
     if (returnRefundMethod) {
       returnRefundMethod.value = row.refund_method || "gcash";
     }
-    if (returnRefundAmount) returnRefundAmount.value = ceiling.toFixed(2);
+    if (returnRefundAmount) {
+      returnRefundAmount.value = ceiling.toFixed(2);
+      returnRefundAmount.min = row.payment_is_automated ? '1' : '0';
+      returnRefundAmount.max = ceiling.toFixed(2);
+    }
     if (returnRefundReference) {
       returnRefundReference.value = row.refund_reference || "";
     }
-    if (returnRefundNote) returnRefundNote.value = "";
+    if (returnRefundNote) {
+      returnRefundNote.value = "";
+      returnRefundNote.maxLength = row.payment_is_automated ? 400 : 800;
+    }
 
+    const receiveAndRefund = kind === 'refund' && row.payment_is_automated && row.requires_receipt;
+    modalReturnAction.dataset.confirmReceipt = receiveAndRefund ? '1' : '0';
     setReturnActionSections(kind);
     if (kind === 'resolution') {
       const decisionField = returnDecisionSelect?.closest('.field-stack');
@@ -3556,9 +3580,12 @@ document.addEventListener("DOMContentLoaded", () => {
     modalReturnAction.dataset.gateway = row.payment_is_automated ? '1' : '0';
     if (kind === 'refund' && row.payment_is_automated) {
       [returnRefundStage, returnRefundMethod, returnRefundReference].forEach(field => { const wrapper = field?.closest('.field-stack'); if (wrapper) wrapper.style.display = 'none'; });
-      if (returnActionTitle) returnActionTitle.textContent = canIssueOnlineRefund() ? 'Issue payment refund' : 'Request payment refund';
-      if (returnActionSubtitle) returnActionSubtitle.textContent = returnNo + (canIssueOnlineRefund() ? ' · Issue directly to PayMongo. QR Ph requires a customer claim form.' : ' · Send to Admin for approval before provider processing.');
-      if (btnSubmitReturnAction) btnSubmitReturnAction.textContent = canIssueOnlineRefund() ? 'Issue refund' : 'Request refund';
+      const action = receiveAndRefund
+        ? (canIssueOnlineRefund() ? 'Receive & refund' : 'Receive & request refund')
+        : (canIssueOnlineRefund() ? 'Issue refund' : 'Request refund');
+      if (returnActionTitle) returnActionTitle.textContent = action;
+      if (returnActionSubtitle) returnActionSubtitle.textContent = returnNo + (receiveAndRefund ? ' · Confirm receipt and inspection, then continue with the refund.' : '') + (canIssueOnlineRefund() ? ' QR Ph refunds need a customer claim form.' : ' Admin approval is required to send the refund.');
+      if (btnSubmitReturnAction) btnSubmitReturnAction.textContent = action;
     }
     returnActionDiscardGuard?.capture();
     modalReturnAction.classList.add("show");
@@ -3656,13 +3683,29 @@ document.addEventListener("DOMContentLoaded", () => {
         focus: returnRefundAmount,
       };
     }
-
-    if (modalReturnAction?.dataset.gateway === '1') return {
-      path: '/admin/returns/{id}/refund', body: {amount, note: String(returnRefundNote?.value || '').trim() || null, request_key:modalReturnAction.dataset.requestKey,issue:canIssueOnlineRefund()},
-      confirmTitle: canIssueOnlineRefund() ? 'Issue payment refund' : 'Request payment refund', confirmText: canIssueOnlineRefund() ? 'Issue refund' : 'Request refund',
-      confirmMessage: (canIssueOnlineRefund() ? 'Issue ' : 'Request ') + formatMoney(amount) + '? ' + (canIssueOnlineRefund() ? 'This sends the refund directly to PayMongo. QR Ph refunds require the customer to complete a claim form. The merchant wallet must have available funds.' : 'Admin must approve this request before it is sent to PayMongo.'),
-      success: canIssueOnlineRefund() ? 'Follow the provider result in Online refunds.' : 'Refund requested. Admin can issue it in Online refunds.',
+    if (amount > returnActionCeilingAmount) return {
+      error: 'The amount exceeds the available refund.', focus: returnRefundAmount,
     };
+
+    if (modalReturnAction?.dataset.gateway === '1') {
+      if (amount < 1) return { error: 'Online refunds start at PHP 1.00.', focus: returnRefundAmount };
+      const confirmReceipt = modalReturnAction.dataset.confirmReceipt === '1';
+      if (confirmReceipt && !returnConfirmReceived?.checked) return {
+        error: 'Confirm that the item was received and inspected.', focus: returnConfirmReceived,
+      };
+      const action = confirmReceipt
+        ? (canIssueOnlineRefund() ? 'Receive & refund' : 'Receive & request refund')
+        : (canIssueOnlineRefund() ? 'Issue refund' : 'Request refund');
+      return {
+        path: '/admin/returns/{id}/refund',
+        body: { amount, note: String(returnRefundNote?.value || '').trim() || null,
+          request_key: modalReturnAction.dataset.requestKey, issue: canIssueOnlineRefund(),
+          confirm_received: confirmReceipt, received_note: confirmReceipt ? String(returnReceivedNote?.value || '').trim() || null : null },
+        confirmTitle: action, confirmText: action,
+        confirmMessage: (confirmReceipt ? 'Confirm receipt and inspection, then ' : '') + (canIssueOnlineRefund() ? 'issue ' : 'request ') + formatMoney(amount) + '? ' + (canIssueOnlineRefund() ? 'QR Ph needs a customer claim form and available wallet funds. The refund is complete only after provider confirmation.' : 'Admin must approve this request before the refund is sent.'),
+        success: 'Follow this request in Online refunds.',
+      };
+    }
 
     return {
       path: `/admin/returns/{id}/refund`,
@@ -3725,7 +3768,7 @@ document.addEventListener("DOMContentLoaded", () => {
       confirmText: plan.confirmText,
     });
 
-    if (!shouldContinue) return;
+    if (!shouldContinue || returnActionBusy) return;
 
     returnActionBusy = true;
     const originalSubmitHtml = btnSubmitReturnAction?.innerHTML || "";
@@ -3756,7 +3799,7 @@ document.addEventListener("DOMContentLoaded", () => {
         returnId: id,
         orderId: String(response?.data?.order_id || ""),
       });
-      showPopup(response?.message || plan.success, { title: "Success" });
+      showPopup(response?.message || plan.success, { title: response?.needs_attention ? "Refund needs attention" : "Saved" });
       void syncOrders(false, { force: true, source: "action" });
     } catch (error) {
       showPopup(error.message || "Unable to save this return update.", {

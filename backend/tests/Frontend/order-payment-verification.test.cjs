@@ -281,7 +281,7 @@ test('product-return refund plan distinguishes direct Admin issue from Staff app
     assert.equal(context.plan.body.issue,role==='admin');
     assert.equal(context.plan.confirmText,role==='admin'?'Issue refund':'Request refund');
     assert.equal(context.plan.path,'/admin/returns/{id}/refund');
-    if(role==='admin')assert.match(context.plan.confirmMessage,/directly to PayMongo.*claim form/);
+    if(role==='admin')assert.match(context.plan.confirmMessage,/claim form.*provider confirmation/);
     else assert.match(context.plan.confirmMessage,/Admin must approve/);
   }
 });

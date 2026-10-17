@@ -14,7 +14,7 @@
     <title>Orders | UCN-FMRC Staff</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap" />
     <link rel="stylesheet" href="../admin-page/dashboard.css?v=7.4" />
-    <link rel="stylesheet" href="../admin-page/admin-modules.css?v=20260919-cop-courier-fields" />
+    <link rel="stylesheet" href="../admin-page/admin-modules.css?v=20261017-receive-refund" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -1139,6 +1139,11 @@
                 placeholder="Return instructions or reason for this decision. Required when changing the resolution or rejecting."
               ></textarea>
             </div>
+            <!-- One online refund action confirms receipt before sending money. -->
+            <div class="field-stack full" data-return-section="receipt">
+              <label class="return-receipt-check" for="returnConfirmReceived"><input type="checkbox" id="returnConfirmReceived" /> Item received and inspected</label>
+              <span class="field-hint">Confirm before continuing with the refund.</span>
+            </div>
             <!-- Inspection: confirm the item came back. -->
             <div class="field-stack full" data-return-section="received">
               <label>Inspection Note</label
@@ -1780,7 +1785,7 @@
     <script src="../admin-page/admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="../admin-page/admin-common.js?v=8.4"></script>
-    <script src="../admin-page/orders.js?v=20261017-return-resolution"></script>
+    <script src="../admin-page/orders.js?v=20261017-receive-refund"></script>
     <script src="../admin-page/admin-table-resize.js?v=1.4" defer></script>
   <link rel="stylesheet" href="../admin-page/gateway-payments.css?v=2.6-refund-funding">
     <link rel="stylesheet" href="../home-page/payment-dialogs.css?v=2.1-refund-claims">

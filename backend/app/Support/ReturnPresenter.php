@@ -116,11 +116,24 @@ class ReturnPresenter
             $payload['can_decide'] = $orderReturn->status === 'requested';
             $payload['can_change_resolution'] = in_array($orderReturn->status, ['approved', 'item_in_transit', 'item_received'], true);
             $payload['can_receive'] = in_array($orderReturn->status, ['approved', 'item_in_transit'], true);
+            $payload['requires_receipt'] = $payload['payment_is_automated'] && $payload['can_receive'];
             $payload['can_refund'] = $orderReturn->resolution === 'refund' && in_array(
                 $orderReturn->status,
                 ['approved', 'item_received', 'refund_processing'],
                 true,
             );
+            if ($payload['payment_is_automated']) {
+                $refunds = \Illuminate\Support\Facades\DB::table('payment_refunds')
+                    ->where('order_return_id', $orderReturn->id)->get(['status', 'amount_centavos']);
+                $payload['online_refund_pending'] = $refunds->contains(fn ($refund) => in_array($refund->status, ['requested', 'submitting', 'pending', 'unknown'], true));
+                $payload['can_change_resolution'] = $payload['can_change_resolution'] && !$payload['online_refund_pending'];
+                $reserved = $refunds->whereNotIn('status', ['failed', 'rejected'])->sum('amount_centavos');
+                $remaining = max(0, \App\Services\GatewayPayments::centavos($orderReturn->approved_amount ?? $orderReturn->requested_amount) - $reserved);
+                $payload['refund_available_amount'] = $remaining / 100;
+                $payload['can_refund'] = $orderReturn->resolution === 'refund'
+                    && in_array($orderReturn->status, ['approved', 'item_in_transit', 'item_received', 'refund_processing'], true)
+                    && !$payload['online_refund_pending'] && $remaining >= 100;
+            }
             $payload['can_archive'] = in_array($orderReturn->status, OrderReturn::TERMINAL_STATUSES, true);
         }
 
