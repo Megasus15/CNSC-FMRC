@@ -20917,7 +20917,7 @@ body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card .u
   letter-spacing: 0;
   text-align: center;
   text-decoration: none;
-  white-space: normal;
+  white-space: nowrap;
   box-shadow: none;
   filter: none;
   cursor: pointer;
@@ -20936,8 +20936,9 @@ body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card .u
 
 #customerOrdersModal.ux-dlg .ux-dlg__card .customer-order-actions > button {
   grid-column: auto;
-  flex: 0 0 140px;
-  width: 140px;
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 140px;
   max-width: 100%;
   height: 42px;
   margin: 0;
@@ -20947,11 +20948,55 @@ body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card .u
   align-self: stretch;
 }
 
-@media (max-width: 480px) {
-  #customerOrdersModal.ux-dlg .ux-dlg__card .customer-order-actions > button {
-    flex-basis: calc((100% - 8px) / 2);
-    width: calc((100% - 8px) / 2);
-  }
+/* Every order action group ends at the right edge, including detail links. */
+#customerOrdersModal.ux-dlg .ux-dlg__card .customer-order-map-actions,
+:is(#customerOrdersModal, .customer-rating-overlay).ux-dlg .ux-dlg__card .ux-dlg__foot,
+body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card .ux-dlg__foot {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+:is(#customerOrdersModal, .customer-rating-overlay).ux-dlg .ux-dlg__card .ux-dlg__foot .ux-dlg__btn,
+body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card .ux-dlg__foot .ux-dlg__btn {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: 100%;
+}
+
+#customerOrdersModal.ux-dlg .ux-dlg__card .customer-order-detail-logistics .customer-order-logistics-link {
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  margin-top: 8px;
+  margin-left: auto;
+}
+
+#customerOrdersModal.ux-dlg .ux-dlg__card .customer-order-waybill .customer-order-waybill-copy,
+:is(#customerOrdersModal, .customer-rating-overlay).ux-dlg .ux-dlg__card.customer-rating-card .cgc-copy-btn {
+  margin-left: auto;
+}
+
+#customerOrdersModal.ux-dlg .ux-dlg__card .customer-orders-empty .customer-orders-empty-action,
+:is(#customerOrdersModal, .customer-rating-overlay).ux-dlg .ux-dlg__card.customer-rating-card :is(.cgc-qr-save, .cgc-openapp-btn, .cgc-review-proof, .customer-rating-upload) {
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  margin-left: auto;
+}
+
+body:has(#customerOrdersModal.show) .fmrc-gateway-dialog :is(button, .payment-refund-claims a) {
+  white-space: nowrap;
+}
+
+body:has(#customerOrdersModal.show) .fmrc-gateway-dialog .payment-modal-footer button {
+  flex: 0 0 auto;
+  width: auto;
+}
+
+body:has(#customerOrdersModal.show) .fmrc-gateway-dialog .payment-refund-claims {
+  justify-items: end;
 }
 
 :is(#customerOrdersModal, .customer-rating-overlay).ux-dlg .ux-dlg__card :is(
