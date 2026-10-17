@@ -9699,7 +9699,7 @@ document.addEventListener("DOMContentLoaded", () => {
               }
               ${
                 returnRow?.can_ship_back
-                  ? `<button type="button" class="customer-order-return-ship-btn" data-return-ship="${escapeHtml(returnRow?.id)}" data-return-no="${returnNo}"><i class="fa-solid fa-truck-fast" aria-hidden="true"></i> Item Shipped Back</button>`
+                  ? `<button type="button" class="customer-order-return-ship-btn" data-return-ship="${escapeHtml(returnRow?.id)}" data-return-no="${returnNo}">Item Shipped Back</button>`
                   : ""
               }
             </div>
@@ -11552,7 +11552,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 ? ""
                 : `${
                     order.has_return && order.return_id
-                      ? `<button type="button" class="customer-order-return-view-btn" data-return-detail="${escapeHtml(order.return_id)}"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> ${escapeHtml(order.return_status_label || "View Return")}</button>`
+                      ? `<button type="button" class="customer-order-return-view-btn" data-return-detail="${escapeHtml(order.return_id)}">${escapeHtml(order.return_status_label || "View Return")}</button>`
                       : ""
                   }${
                     order.return_eligible
@@ -11573,9 +11573,9 @@ document.addEventListener("DOMContentLoaded", () => {
               const payActionsHtml = order.payment_is_automated
                 ? `<button type="button" class="customer-order-pay-btn" data-gateway-order="${escapeHtml(order.id)}">${order.payment_is_confirmed || order.payment_is_refunded ? "Payment details" : "View payment"}</button>`
                 : acceptsPayment && order.awaiting_customer_payment
-                ? `<button type="button" class="customer-order-pay-btn${order.payment_is_overdue ? " is-overdue" : ""}" data-order-pay="${escapeHtml(order.id)}"><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i> Pay Now</button>`
+                ? `<button type="button" class="customer-order-pay-btn${order.payment_is_overdue ? " is-overdue" : ""}" data-order-pay="${escapeHtml(order.id)}">Pay Now</button>`
                 : acceptsPayment && order.payment_under_review
-                  ? `<button type="button" class="customer-order-pay-btn is-review" data-order-pay="${escapeHtml(order.id)}"><i class="fa-regular fa-hourglass-half" aria-hidden="true"></i> Payment under review</button>`
+                  ? `<button type="button" class="customer-order-pay-btn is-review" data-order-pay="${escapeHtml(order.id)}">Payment under review</button>`
                   : "";
 
               // Cancellation. `can_request_cancel` and `cancel_is_immediate` are
@@ -11586,9 +11586,9 @@ document.addEventListener("DOMContentLoaded", () => {
               // case it files a request so staff can arrange the refund.
               // `cancel_blocked_reason` explains a missing button.
               const cancelActionsHtml = order.can_request_cancel
-                ? `<button type="button" class="customer-order-cancel-btn" data-order-cancel="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || "Order")}"><i class="fa-regular fa-circle-xmark" aria-hidden="true"></i> ${order.cancel_is_immediate ? "Cancel Order" : "Request Cancellation"}</button>`
+                ? `<button type="button" class="customer-order-cancel-btn" data-order-cancel="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || "Order")}">${order.cancel_is_immediate ? "Cancel Order" : "Request Cancellation"}</button>`
                 : order.cancel_pending
-                  ? `<button type="button" class="customer-order-cancel-btn is-pending" data-cancel-blocked="${escapeHtml(order.cancel_blocked_reason || "Your cancellation request is already being reviewed.")}"><i class="fa-regular fa-hourglass-half" aria-hidden="true"></i> Cancellation pending</button>`
+                  ? `<button type="button" class="customer-order-cancel-btn is-pending" data-cancel-blocked="${escapeHtml(order.cancel_blocked_reason || "Your cancellation request is already being reviewed.")}">Cancellation pending</button>`
                   : "";
 
               const cancelBandHtml = order.is_cancelled
@@ -11644,7 +11644,7 @@ document.addEventListener("DOMContentLoaded", () => {
                       ? `<button type="button" class="customer-order-rate-btn" data-order-rate="${escapeHtml(order.id)}" data-order-name="${escapeHtml(order.product_name || 'Order')}">Rate Product</button>`
                       : ''}
                     ${isCompleted
-                      ? `<button type="button" class="customer-order-buy-again-btn" data-order-buy-again="${escapeHtml(order.id)}" data-buy-again-product="${escapeHtml(buyAgainSeed?.product_id ?? '')}" data-buy-again-name="${escapeHtml(buyAgainSeed?.product_name || order.product_name || 'Order')}"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Buy Again</button>`
+                      ? `<button type="button" class="customer-order-buy-again-btn" data-order-buy-again="${escapeHtml(order.id)}" data-buy-again-product="${escapeHtml(buyAgainSeed?.product_id ?? '')}" data-buy-again-name="${escapeHtml(buyAgainSeed?.product_name || order.product_name || 'Order')}">Buy Again</button>`
                       : ''}
                     ${returnActionsHtml}
                     ${cancelActionsHtml}
@@ -11941,7 +11941,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             ${
               courierTrackingUrl
-                ? `<a class="customer-order-logistics-link" href="${escapeHtml(courierTrackingUrl)}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i> ${
+                ? `<a class="customer-order-logistics-link" href="${escapeHtml(courierTrackingUrl)}" target="_blank" rel="noopener noreferrer">${
                     trackingIsUniversal
                       ? "Track this parcel on 17TRACK"
                       : `Track this parcel on ${courierName}`
@@ -12109,7 +12109,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 // registry entry to look a tracking page up in - 17TRACK reads
                 // the carrier off the number, which is already in the link.
                 String(detail?.return_tracking_no || "").trim()
-                  ? `<a class="customer-order-logistics-link" href="${escapeHtml(prefilledUniversalTrackingUrl(detail.return_tracking_no))}" target="_blank" rel="noopener noreferrer"><i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i> Track this return on 17TRACK</a>`
+                  ? `<a class="customer-order-logistics-link" href="${escapeHtml(prefilledUniversalTrackingUrl(detail.return_tracking_no))}" target="_blank" rel="noopener noreferrer">Track this return on 17TRACK</a>`
                   : '<p class="customer-order-logistics-note">Keep your shipping receipt until the refund is released.</p>'
               }
             </div>
@@ -12140,7 +12140,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <div class="customer-order-actions customer-return-detail-actions">
                 ${
                   detail?.can_ship_back
-                    ? `<button type="button" class="customer-order-return-ship-btn" data-return-ship="${escapeHtml(detail?.id)}" data-return-no="${returnNo}"><i class="fa-solid fa-truck-fast" aria-hidden="true"></i> Item Shipped Back</button>`
+                    ? `<button type="button" class="customer-order-return-ship-btn" data-return-ship="${escapeHtml(detail?.id)}" data-return-no="${returnNo}">Item Shipped Back</button>`
                     : ""
                 }
                 ${

@@ -9394,9 +9394,21 @@ body.sidebar-open {
 }
 
 .customer-order-timeline-item {
+  position: relative;
   display: grid;
   grid-template-columns: 14px 1fr;
   gap: 9px;
+}
+
+.customer-order-timeline-item:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 15px;
+  bottom: -15px;
+  width: 2px;
+  background: var(--customer-paper-edge, #e4d7d3);
+  pointer-events: none;
 }
 
 .customer-order-timeline-dot {
@@ -20885,12 +20897,14 @@ html:has(.ux-dlg--standalone[style*="display: flex"]) {
   .customer-rating-upload
 ),
 body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card .ux-dlg__btn {
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
   min-width: 0;
   min-height: 42px;
+  margin: 0;
   padding: 10px 14px;
   border: 1px solid var(--orders-action-border, var(--customer-wine));
   border-radius: 8px;
@@ -20909,6 +20923,32 @@ body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card .u
   cursor: pointer;
   transition: background-color 0.16s ease, border-color 0.16s ease,
     color 0.16s ease, transform 0.1s ease;
+}
+
+/* Match Payment details: compact 42px actions, including return cards. */
+#customerOrdersModal.ux-dlg .ux-dlg__card .customer-order-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 140px), 1fr));
+  grid-auto-rows: 1fr;
+  align-items: stretch;
+  gap: 8px;
+}
+
+#customerOrdersModal.ux-dlg .ux-dlg__card .customer-order-actions > button {
+  grid-column: auto;
+  width: 100%;
+  height: 42px;
+  margin: 0;
+  min-height: 42px;
+  padding: 0 12px;
+  line-height: 16px;
+  align-self: stretch;
+}
+
+@media (max-width: 480px) {
+  #customerOrdersModal.ux-dlg .ux-dlg__card .customer-order-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 :is(#customerOrdersModal, .customer-rating-overlay).ux-dlg .ux-dlg__card :is(
