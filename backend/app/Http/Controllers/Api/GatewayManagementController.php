@@ -137,7 +137,7 @@ class GatewayManagementController extends Controller
         abort_unless($record && $record->approved_by && !$record->provider_refund_id && in_array($record->status,['unknown','submitting'],true), 422);
         $payment = Payment::findOrFail($record->payment_id);
         $qrph=DB::table('payment_receipts')->where('payment_id',$payment->id)->where('provider_payment_id',$record->provider_payment_id)->value('source_type') === 'qrph';
-        $response = $provider->retrieveRefund($v['provider_id'],$qrph); $a = $response['data']['attributes'] ?? [];
+        $response = $provider->retrieveRefund($v['provider_id'],$qrph,$record->provider_payment_id); $a = $response['data']['attributes'] ?? [];
         abort_unless(($a['payment_id'] ?? '') === $record->provider_payment_id && (int) ($a['amount'] ?? -1) === (int) $record->amount_centavos
             && ($a['livemode'] ?? null) === (bool) $record->livemode && str_contains($a['notes'] ?? '', '[FMRC '.$record->token.']'), 422, 'This provider refund does not match the approved request.');
         DB::table('payment_refunds')->where('id',$record->id)->whereNull('provider_refund_id')->update(['provider_refund_id'=>$v['provider_id']]);

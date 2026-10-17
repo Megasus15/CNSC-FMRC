@@ -12,6 +12,16 @@ Local patch files: `backend/app/Services/PayMongoService.php`, `backend/app/Serv
 
 ## Deploy
 
+### Claim failed after the customer submitted it
+
+The 2026-10-17 live test for **ORD-261017-00080** reached the PayMongo claim form, then failed. Read-only provider checks found a failed **PHP 1.00** InstaPay transfer to the selected G-Xchange account with **AC06 / BlockedAccount**, at the same time as the failed refund. The wallet was activated with PHP 30.00 available when checked. PayMongo's code means the receiving account was reported blocked; it does not explain why or prove that the entire GCash account is locked. The customer must have GCash resolve the restriction, or choose another active receiving account for a reviewed new claim. FMRC cannot remove a receiving-account block. Do not send a second refund while the first is pending or has an uncertain outcome.
+
+The same live refund was present in its original payment's `attributes.refunds`, but both standalone refund lookup endpoints returned 404. Status reconciliation now falls back to a GET of the original payment and matches the exact refund ID, payment ID and live mode. Amount and currency remain checked before changing financial state. Failed claims lose their unusable claim link and become eligible for the existing reviewed retry; succeeded refunds still require provider confirmation. No refund POST is sent by a status lookup, and no transfer is guessed from an unrelated transaction.
+
+Deploy `backend/app/Services/PayMongoService.php`, `backend/app/Services/GatewayPayments.php`, and `backend/app/Http/Controllers/Api/GatewayManagementController.php`, then clear cached code/configuration as required by the release steps below. No migration or new frontend layout is needed. In Admin **Online refunds**, find this order and use **Check refund**. It should show **Failed** before a new attempt is considered. Resolve the receiving-account issue first. **Retry refund** creates a new claim after explicit Admin approval; the old failed claim link cannot be reused.
+
+For PayMongo's meaning of AC06, see [Transfer error codes](https://docs.paymongo.com/docs/money-movement-error-codes). The receiving account can appear as **G-Xchange, Inc.** rather than GCash in the claim dropdown.
+
 ### Approved return has the wrong resolution
 
 An approved **Replacement** or **Repair / Rework** is not approval to refund money. Adding a refund note does not change its resolution. The existing return review form now includes **Resolution**. For an already approved return, Admin uses the same gavel icon (**Change Resolution**), chooses **Refund**, enters the agreed reason, and saves. This preserves the received-item status, inspection date and approved amount, writes an audit event, and notifies the customer. It sends no money. Staff cannot change an approved resolution. Closed returns, processing refunds and reserved refund requests block changes. The refund icon is available only for a Refund resolution.

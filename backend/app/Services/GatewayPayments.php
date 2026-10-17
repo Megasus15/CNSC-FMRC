@@ -331,7 +331,7 @@ class GatewayPayments
         $approval = OrderTrackingEvent::where('metadata->refund_id',$r->id)->where('title','Refund approved')->latest('id')->first();
         $qrph = ($approval?->metadata['refund_api'] ?? 'standard') === 'qrph';
         $qrphReceipt = DB::table('payment_receipts')->where('payment_id',$payment->id)->where('provider_payment_id',$r->provider_payment_id)->value('source_type') === 'qrph';
-        if ($r->provider_refund_id) $result = $this->provider->retrieveRefund($r->provider_refund_id,$qrphReceipt);
+        if ($r->provider_refund_id) $result = $this->provider->retrieveRefund($r->provider_refund_id,$qrphReceipt,$r->provider_payment_id);
         else {
             // Never resend an ambiguous QR Ph transfer creation. Its reference must
             // be recovered first; a new endpoint must not retry an older standard POST.

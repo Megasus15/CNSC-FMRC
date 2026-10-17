@@ -574,6 +574,68 @@ class GatewayPaymentsTest extends TestCase {
         $this->assertNull($provider->retrieveRefund('../payments/pay_other',true));$this->assertPaymentRequestCount(2);
     }
 
+    #[\PHPUnit\Framework\Attributes\TestWith(['failed'])]
+    #[\PHPUnit\Framework\Attributes\TestWith(['succeeded'])]
+    public function test_qrph_status_falls_back_to_exact_payment_when_both_refund_urls_return_404(string $status): void {
+            config(['payments.paymongo.secret_key'=>'sk_live_example']);
+            $o=$this->order();$a=$this->attempt($o,true,'qrph');$g=app(GatewayPayments::class);
+            $g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
+            $admin=User::factory()->create(['role'=>'admin']);
+            $r=$g->requestRefund($o->fresh()->payment,50000,'Claim test',$admin->id,(string)Str::uuid());
+            $id='ref_embedded'.$r->id;
+            $attrs=['payment_id'=>$r->provider_payment_id,'amount'=>50000,'currency'=>'PHP','livemode'=>true,'status'=>'processing','transfer_link'=>'https://transfer.paymongo.com/fallback-claim'];
+            Http::fake(['refunds-api.paymongo.com/v1/refunds'=>Http::response(['data'=>['id'=>$id,'type'=>'refund','attributes'=>$attrs]])]);
+            $g->approveRefund($r->id,$admin->id);
+            $this->assertCount(1,Http::recorded(fn($request)=>$request->method()==='POST'));
+            $attrs['status']=$status;
+            Http::fake([
+                'api.paymongo.com/v1/refunds/'.$id=>Http::response([],404),
+                'refunds-api.paymongo.com/v1/refunds/'.$id=>Http::response([],404),
+                'api.paymongo.com/v1/payments/'.$r->provider_payment_id=>Http::response(['data'=>['id'=>$r->provider_payment_id,'type'=>'payment','attributes'=>['livemode'=>true,'status'=>'paid','refunds'=>[['id'=>$id,'type'=>'refund','attributes'=>$attrs]]]]]),
+            ]);
+            $g->reconcileRefund(DB::table('payment_refunds')->find($r->id));
+            $this->assertDatabaseHas('payment_refunds',['id'=>$r->id,'status'=>$status]);
+            $this->assertSame($status==='succeeded' ? 'refunded' : 'paid',$o->fresh()->payment->status);
+            Sanctum::actingAs($o->customer);
+            $response=$this->getJson('/api/customer/orders/'.$o->id.'/payment-status')->assertOk();
+            $this->assertSame($status,$response->json('refunds.0.status'));
+            $this->assertNull($response->json('refunds.0.transfer_link'));
+            // Repeated final-state reads must not submit another refund or
+            // generate another confirmation/failure event.
+            $g->reconcileRefund(DB::table('payment_refunds')->find($r->id));
+            $title=$status==='succeeded' ? 'QR Ph refund confirmed' : 'Refund needs attention';
+            $this->assertSame(1,DB::table('order_tracking_events')->where('order_id',$o->id)->where('title',$title)->count());
+        Http::assertNotSent(fn($request)=>$request->method()!=='GET');
+    }
+
+    public function test_payment_embedded_lookup_rejects_other_payment_mode_and_refund_ids(): void {
+        $provider=app(PayMongoService::class);
+        $refund=['id'=>'ref_expected','type'=>'refund','attributes'=>['payment_id'=>'pay_expected','livemode'=>false,'status'=>'failed','amount'=>100,'currency'=>'PHP']];
+        $data=['id'=>'pay_expected','attributes'=>['livemode'=>false,'refunds'=>[$refund]]];
+        $cases=[];
+        $bad=$data;$bad['id']='pay_other';$cases[]=$bad;
+        $bad=$data;$bad['attributes']['livemode']=true;$cases[]=$bad;
+        $bad=$data;$bad['attributes']['refunds'][0]['id']='ref_other';$cases[]=$bad;
+        $bad=$data;$bad['attributes']['refunds'][0]['attributes']['payment_id']='pay_other';$cases[]=$bad;
+        $bad=$data;$bad['attributes']['refunds'][0]['attributes']['livemode']=true;$cases[]=$bad;
+        $currentCase=$data;
+        Http::fake([
+            'api.paymongo.com/v1/refunds/ref_expected'=>Http::response([],404),
+            'refunds-api.paymongo.com/v1/refunds/ref_expected'=>Http::response([],404),
+            'api.paymongo.com/v1/payments/pay_expected'=>function() use (&$currentCase){return Http::response(['data'=>$currentCase]);},
+        ]);
+        foreach($cases as $case){
+            $currentCase=$case;
+            $this->assertNull($provider->retrieveRefund('ref_expected',true,'pay_expected'));
+        }
+        $currentCase=$data;
+        $this->assertSame('failed',$provider->retrieveRefund('ref_expected',true,'pay_expected')['data']['attributes']['status']);
+        Http::assertNotSent(fn($request)=>$request->method()!=='GET');
+        $before=Http::recorded()->count();
+        $this->assertNull($provider->retrieveRefund('../refunds/ref_expected',true,'pay_expected'));
+        $this->assertSame($before,Http::recorded()->count());
+    }
+
     public function test_failed_qrph_claim_hides_link_and_keeps_revenue_until_a_confirmed_refund(): void {
         config(['payments.paymongo.secret_key'=>'sk_live_example']);
         $o=$this->order();$a=$this->attempt($o,true,'qrph');$g=app(GatewayPayments::class);

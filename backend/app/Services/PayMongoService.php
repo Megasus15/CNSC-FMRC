@@ -76,12 +76,28 @@ class PayMongoService
             return null;
         }
     }
-    public function retrieveRefund(string $id, bool $qrph = false): ?array {
+    public function retrieveRefund(string $id, bool $qrph = false, ?string $paymentId = null): ?array {
         if (!preg_match('/^ref_[A-Za-z0-9]+$/',$id)) return null;
         // Use the standard retrieval resource first. A QR Ph record absent there
         // can be looked up on its creation service; this fallback is GET-only.
         $result = $this->request('GET','v1/refunds/'.$id);
         if ($qrph && ($result['not_found'] ?? false)) $result = $this->request('GET','v1/refunds/'.$id,[],null,true);
+        // Some live QR Ph refunds are exposed only inside their original
+        // payment, while both individual refund lookup endpoints return 404.
+        // Read that exact payment; never recreate a refund to recover its status.
+        if ($qrph && ($result['not_found'] ?? false) && preg_match('/^pay_[A-Za-z0-9]+$/', $paymentId ?? '')) {
+            $payment = $this->request('GET', 'v1/payments/'.$paymentId);
+            $data = $payment['data'] ?? [];
+            $attributes = $data['attributes'] ?? [];
+            if (($data['id'] ?? null) !== $paymentId || ($attributes['livemode'] ?? null) !== $this->isLive()) return null;
+            foreach (($attributes['refunds'] ?? []) as $refund) {
+                if (!is_array($refund) || ($refund['id'] ?? null) !== $id) continue;
+                $a = $refund['attributes'] ?? [];
+                if (($a['payment_id'] ?? null) !== $paymentId || ($a['livemode'] ?? null) !== $this->isLive()) return null;
+                return ['data' => $refund];
+            }
+            return null;
+        }
         return ($result['not_found'] ?? false) ? null : $result;
     }
     public function createCheckoutSession(int $amountCentavos, string $description, string $orderNo, int $orderId, int $paymentId, string $appContext = '', string $attemptToken = '', ?string $checkoutMethod = null): ?array {
