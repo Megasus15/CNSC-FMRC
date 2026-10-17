@@ -232,6 +232,7 @@ Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(func
     Route::patch('/admin/returns/archive-bulk', [OrderReturnController::class, 'archiveBulk']);
     Route::get('/admin/returns/{orderReturn}', [OrderReturnController::class, 'adminShow']);
     Route::post('/admin/returns/{orderReturn}/decision', [OrderReturnController::class, 'decision']);
+    Route::post('/admin/returns/{orderReturn}/resolution', [OrderReturnController::class, 'resolution']);
     Route::post('/admin/returns/{orderReturn}/received', [OrderReturnController::class, 'received']);
     Route::post('/admin/returns/{orderReturn}/refund', [OrderReturnController::class, 'refund']);
 

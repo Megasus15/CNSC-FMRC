@@ -522,6 +522,7 @@ class OrderReturnController extends Controller
             'decision'        => ['required', Rule::in(['approve', 'reject'])],
             'decision_note'   => ['nullable', 'string', 'max:800'],
             'approved_amount' => ['nullable', 'numeric', 'min:0'],
+            'resolution'      => ['sometimes', Rule::in(OrderReturn::RESOLUTIONS)],
         ]);
 
         $approving = $validated['decision'] === 'approve';
@@ -561,12 +562,15 @@ class OrderReturnController extends Controller
             ? round(min((float) ($validated['approved_amount'] ?? $requested), $requested), 2)
             : null;
 
+        $previousResolution = $orderReturn->resolution;
+
         $orderReturn->update([
             'status'             => $target,
             'handled_by_user_id' => $request->user()->id,
             'decided_at'         => now(),
             'decision_note'      => $note,
             'approved_amount'    => $approvedAmount,
+            'resolution'         => $approving ? ($validated['resolution'] ?? $previousResolution) : $previousResolution,
         ]);
 
         $this->recordEvent($orderReturn, [
@@ -578,7 +582,7 @@ class OrderReturnController extends Controller
                     . ($note ? "\n" . $note : "\nPlease send the item back using any trusted courier.")
                 : $note,
             'created_by_user_id' => $request->user()->id,
-            'metadata'    => ['approved_amount' => $approvedAmount],
+            'metadata'    => ['approved_amount' => $approvedAmount, 'previous_resolution' => $previousResolution, 'resolution' => $orderReturn->resolution],
         ]);
 
         $this->emailStatusUpdate(
@@ -606,6 +610,56 @@ class OrderReturnController extends Controller
             'message' => $approving ? 'Return request approved.' : 'Return request rejected.',
             'data'    => $this->transformReturnDetail($orderReturn, true),
         ]);
+    }
+
+    /** Admin: change an approved resolution without resetting return progress. */
+    public function resolution(Request $request, OrderReturn $orderReturn): JsonResponse
+    {
+        abort_unless($request->user()?->role === 'admin', 403, 'Admin approval is required.');
+        $validated = $request->validate([
+            'resolution' => ['required', Rule::in(OrderReturn::RESOLUTIONS)],
+            'expected_resolution' => ['required', Rule::in(OrderReturn::RESOLUTIONS)],
+            'note' => ['required', 'string', 'max:800'],
+        ]);
+        $note = $this->cleanText($validated['note']);
+        abort_unless($note, 422, 'Enter a reason for this change.');
+
+        $changed = DB::transaction(function () use ($orderReturn, $request, $validated, $note) {
+            // Use the same order lock as refund creation so a resolution cannot
+            // change while a refund is being reserved for this return.
+            Order::whereKey($orderReturn->order_id)->lockForUpdate()->firstOrFail();
+            $current = OrderReturn::whereKey($orderReturn->id)->lockForUpdate()->firstOrFail();
+            abort_unless(in_array($current->status, ['approved', 'item_in_transit', 'item_received'], true),
+                422, 'The resolution can no longer be changed.');
+            abort_unless($current->resolution === $validated['expected_resolution'],
+                409, 'This return has changed. Refresh and review it again.');
+            abort_if(DB::table('payment_refunds')->where('order_return_id', $current->id)
+                ->whereNotIn('status', ['failed', 'rejected'])->exists(),
+                422, 'A refund already exists. Check Online refunds before changing this return.');
+            if ($current->resolution === $validated['resolution']) return false;
+
+            $previous = $current->resolution;
+            $current->update(['resolution' => $validated['resolution'], 'handled_by_user_id' => $request->user()->id]);
+            // Audit is part of the same transaction as the decision.
+            OrderReturnEvent::create([
+                'order_return_id' => $current->id,
+                'status' => $current->status,
+                'actor_role' => 'admin',
+                'title' => 'Resolution updated',
+                'description' => OrderReturn::RESOLUTION_LABELS[$previous] . ' to ' . $current->resolutionLabel() . '. ' . $note,
+                'metadata' => ['previous_resolution' => $previous, 'resolution' => $current->resolution, 'note' => $note],
+                'created_by_user_id' => $request->user()->id,
+                'occurred_at' => now(),
+            ]);
+            return true;
+        });
+        $orderReturn->refresh();
+        if ($changed) {
+            $this->emailStatusUpdate($orderReturn, 'Return resolution updated',
+                'Approved resolution: ' . $orderReturn->resolutionLabel() . '. ' . $note . ' No refund has been sent by this update.');
+        }
+        $orderReturn->load(['order.payment', 'items', 'events', 'customer:id,name,email', 'handler:id,name,role']);
+        return response()->json(['message' => 'Resolution saved. No money was sent.', 'data' => $this->transformReturnDetail($orderReturn, true)]);
     }
 
     /** Admin/Staff: confirm the returned item arrived and passed inspection. */
@@ -700,6 +754,8 @@ class OrderReturnController extends Controller
             'refund_reference' => ['nullable', 'string', 'max:180'],
             'note'             => ['nullable', 'string', 'max:800'],
         ]);
+
+        abort_unless($orderReturn->resolution === 'refund', 422, 'Approve this return for a refund first.');
 
         $releasing = ($validated['stage'] ?? 'released') === 'released';
         $target = $releasing ? 'refunded' : 'refund_processing';

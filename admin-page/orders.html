@@ -1123,6 +1123,14 @@
               </select>
             </div>
             <div class="field-stack" data-return-section="decision">
+              <label for="returnResolutionSelect">Resolution</label>
+              <select id="returnResolutionSelect" class="filter-select">
+                <option value="refund">Refund</option>
+                <option value="replacement">Replacement</option>
+                <option value="repair">Repair / Rework</option>
+              </select>
+            </div>
+            <div class="field-stack" data-return-section="decision">
               <label>Approved Amount</label
               ><input
                 id="returnApprovedAmount"
@@ -1142,7 +1150,7 @@
               ><textarea
                 id="returnDecisionNote"
                 class="textarea-field"
-                placeholder="Return instructions for the customer, or the reason for rejecting. Required when rejecting."
+                placeholder="Return instructions or reason for this decision. Required when changing the resolution or rejecting."
               ></textarea>
             </div>
             <!-- Inspection: confirm the item came back. -->
@@ -1795,7 +1803,7 @@
     <script src="admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="admin-common.js?v=8.4"></script>
-    <script src="orders.js?v=20261016-orders-tabs-dialogs"></script>
+    <script src="orders.js?v=20261017-return-resolution"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
   <link rel="stylesheet" href="gateway-payments.css?v=2.6-refund-funding">
     <link rel="stylesheet" href="../home-page/payment-dialogs.css?v=2.1-refund-claims">

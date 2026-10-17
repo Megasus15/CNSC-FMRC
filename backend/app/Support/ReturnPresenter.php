@@ -114,8 +114,9 @@ class ReturnPresenter
             $payload['handled_by'] = $handler?->name;
             $payload['handled_by_role'] = $handler?->role;
             $payload['can_decide'] = $orderReturn->status === 'requested';
+            $payload['can_change_resolution'] = in_array($orderReturn->status, ['approved', 'item_in_transit', 'item_received'], true);
             $payload['can_receive'] = in_array($orderReturn->status, ['approved', 'item_in_transit'], true);
-            $payload['can_refund'] = in_array(
+            $payload['can_refund'] = $orderReturn->resolution === 'refund' && in_array(
                 $orderReturn->status,
                 ['approved', 'item_received', 'refund_processing'],
                 true,

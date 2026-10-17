@@ -12,6 +12,14 @@ Local patch files: `backend/app/Services/PayMongoService.php`, `backend/app/Serv
 
 ## Deploy
 
+### Approved return has the wrong resolution
+
+An approved **Replacement** or **Repair / Rework** is not approval to refund money. Adding a refund note does not change its resolution. The existing return review form now includes **Resolution**. For an already approved return, Admin uses the same gavel icon (**Change Resolution**), chooses **Refund**, enters the agreed reason, and saves. This preserves the received-item status, inspection date and approved amount, writes an audit event, and notifies the customer. It sends no money. Staff cannot change an approved resolution. Closed returns, processing refunds and reserved refund requests block changes. The refund icon is available only for a Refund resolution.
+
+For the live test return **RTN-261017-00032 / ORD-261017-00080**, deploy these files before continuing: `backend/app/Http/Controllers/Api/OrderReturnController.php`, `backend/app/Support/ReturnPresenter.php`, `backend/routes/api.php`, `admin-page/orders.js`, `admin-page/orders.html`, and `staff-page/orders.html`. Clear the route cache with `php artisan optimize:clear`, then reload Orders. Admin changes the resolution to Refund, saves it, and opens **Issue refund** for **PHP 1.00**. The earlier resolution error occurs before creating a provider refund request; it is not a PayMongo rejection. No migration or new customer payment is needed.
+
+### Release steps
+
 1. Commit the refund changes in GitHub Desktop and push to the connected production branch.
 2. In Hostinger, confirm that the deployment for `ucn-fabmanlab.com` completed with that commit.
 3. In the production backend directory, run `php artisan optimize:clear` to remove cached routes/configuration. No new database migration is needed for this correction. Keep the existing payment reconciliation cron and signed PayMongo webhook configured. In PayMongo, enable `refund.succeeded` on the live webhook; also enable refund updates/failures where available.

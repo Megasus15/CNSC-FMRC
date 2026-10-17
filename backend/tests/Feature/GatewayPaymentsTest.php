@@ -438,6 +438,31 @@ class GatewayPaymentsTest extends TestCase {
         $this->assertDatabaseCount('payment_refunds',1);
     }
 
+    public function test_replacement_return_requires_explicit_resolution_change_before_online_refund(): void {
+        $o=$this->order(['lifecycle_status'=>'completed','customer_stage'=>'completed']);$a=$this->attempt($o,false,'qrph');$g=app(GatewayPayments::class);
+        $g->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
+        $return=\App\Models\OrderReturn::create(['order_id'=>$o->id,'customer_id'=>$o->customer_id,'return_no'=>'RTN-CHANGE','status'=>'item_received','resolution'=>'replacement','reason'=>'other','requested_amount'=>500,'approved_amount'=>500]);
+        Sanctum::actingAs(User::factory()->create(['role'=>'admin']));
+        $url='/api/admin/returns/'.$return->id.'/refund';$body=['amount'=>500,'request_key'=>(string)Str::uuid(),'issue'=>true];
+        $this->postJson($url,$body)->assertUnprocessable();Http::assertNothingSent();$this->assertDatabaseCount('payment_refunds',0);
+        $this->postJson('/api/admin/returns/'.$return->id.'/resolution',['resolution'=>'refund','expected_resolution'=>'replacement','note'=>'Refund agreed.'])->assertOk()->assertJsonPath('data.status','item_received');
+        Http::assertNothingSent();
+        Http::fake(['*'=>Http::response(['data'=>['id'=>'ref_changed','attributes'=>['payment_id'=>$o->fresh()->payment->paymongo_payment_id,'amount'=>50000,'currency'=>'PHP','livemode'=>false,'status'=>'pending']]])]);
+        $this->postJson($url,$body)->assertOk()->assertJsonPath('refund_request.status','pending');
+        $this->assertSame('paid',$o->fresh()->payment->status);$this->assertPaymentRequestCount(1);
+        $this->postJson('/api/admin/returns/'.$return->id.'/resolution',['resolution'=>'replacement','expected_resolution'=>'refund','note'=>'Must not change a pending refund.'])->assertUnprocessable();
+        $this->postJson($url,$body)->assertOk();$this->assertPaymentRequestCount(1);$this->assertDatabaseCount('payment_refunds',1);
+    }
+
+    public function test_resolution_change_is_blocked_by_a_reserved_refund_even_if_return_status_is_old(): void {
+        $o=$this->order();$a=$this->attempt($o);$g=app(GatewayPayments::class);$g->applySession($a->id,$this->providerSession($a));
+        $return=\App\Models\OrderReturn::create(['order_id'=>$o->id,'customer_id'=>$o->customer_id,'return_no'=>'RTN-RESERVED','status'=>'approved','resolution'=>'refund','reason'=>'other','requested_amount'=>500,'approved_amount'=>500]);
+        $admin=User::factory()->create(['role'=>'admin']);Sanctum::actingAs($admin);
+        $g->requestRefund($o->fresh()->payment,50000,'Reserved refund',$admin->id,(string)Str::uuid(),$return->id);
+        $this->postJson('/api/admin/returns/'.$return->id.'/resolution',['resolution'=>'replacement','expected_resolution'=>'refund','note'=>'Must not change a reserved refund.'])->assertUnprocessable();
+        $this->assertSame('refund',$return->fresh()->resolution);Http::assertNothingSent();
+    }
+
     public function test_return_refund_can_be_issued_directly_only_by_admin(): void {
         config(['payments.paymongo.secret_key'=>'sk_live_example']);
         $o=$this->order(['lifecycle_status'=>'completed','customer_stage'=>'completed']);$a=$this->attempt($o,true,'qrph');$g=app(GatewayPayments::class);

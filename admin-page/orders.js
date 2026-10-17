@@ -120,6 +120,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "returnActionRequested",
   );
   const returnDecisionSelect = document.getElementById("returnDecisionSelect");
+  const returnResolutionSelect = document.getElementById("returnResolutionSelect");
   const returnApprovedAmount = document.getElementById("returnApprovedAmount");
   const returnDecisionNote = document.getElementById("returnDecisionNote");
   const returnReceivedNote = document.getElementById("returnReceivedNote");
@@ -1998,9 +1999,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }),
       returnActionIcon({
         icon: "fa-solid fa-gavel",
-        label: "Review Request",
-        enabled: Boolean(row.can_decide),
-        attrs: `data-return-action="${id}" data-return-mode="decision"`,
+        label: row.can_decide ? "Review Request" : "Change Resolution",
+        enabled: Boolean(row.can_decide || (row.can_change_resolution && canIssueOnlineRefund())),
+        attrs: `data-return-action="${id}" data-return-mode="${row.can_decide ? 'decision' : 'resolution'}"`,
         lockedHint: "already decided",
       }),
       returnActionIcon({
@@ -2015,7 +2016,7 @@ document.addEventListener("DOMContentLoaded", () => {
         label: row.payment_is_automated ? (canIssueOnlineRefund() ? "Issue Online Refund" : "Request Online Refund") : "Release Refund",
         enabled: Boolean(row.can_refund),
         attrs: `data-return-action="${id}" data-return-mode="refund"`,
-        lockedHint: "available once the return is approved",
+        lockedHint: row.resolution !== 'refund' ? "approve Refund as the resolution first" : "available once the return is approved",
       }),
       row.payment_is_automated ? returnActionIcon({icon:'fa-solid fa-credit-card',label:'Manage Online Refund',enabled:true,attrs:`data-gateway-manage="${row.order_id}"`}) : '',
       returnActionIcon({
@@ -3249,7 +3250,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ${returnField("Customer", detail?.customer_name)}
         ${returnField("Contact", detail?.customer_contact || detail?.customer_email)}
         ${returnField("Reason", detail?.reason_label)}
-        ${returnField("Preferred Resolution", detail?.resolution_label)}
+        ${returnField("Resolution", detail?.resolution_label)}
         ${returnField(`${amount.caption} Amount`, amount.label)}
         ${returnField("Order Total", detail?.order?.total_label || formatMoney(detail?.order_total))}
         ${detail?.reason_detail ? returnField("Reason Detail", detail.reason_detail, { full: true, textarea: true }) : ""}
@@ -3416,6 +3417,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // clicked icon decides which form opens instead of the stage order.
   const isReturnActionKindAllowed = (row, kind) =>
     (kind === "decision" && Boolean(row?.can_decide)) ||
+    (kind === "resolution" && Boolean(row?.can_change_resolution) && canIssueOnlineRefund()) ||
     (kind === "received" && Boolean(row?.can_receive)) ||
     (kind === "refund" && Boolean(row?.can_refund));
 
@@ -3424,7 +3426,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ?.querySelectorAll("[data-return-section]")
       .forEach((node) => {
         node.style.display =
-          node.getAttribute("data-return-section") === kind ? "" : "none";
+          node.getAttribute("data-return-section") === (kind === "resolution" ? "decision" : kind) ? "" : "none";
       });
   };
 
@@ -3436,6 +3438,7 @@ document.addEventListener("DOMContentLoaded", () => {
     id: String(returnActionId?.value || ""),
     kind: String(returnActionKind?.value || ""),
     decision: String(returnDecisionSelect?.value || ""),
+    resolution: String(returnResolutionSelect?.value || ""),
     approvedAmount: String(returnApprovedAmount?.value || ""),
     decisionNote: String(returnDecisionNote?.value || "").trim(),
     receivedNote: String(returnReceivedNote?.value || "").trim(),
@@ -3452,10 +3455,15 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   const RETURN_ACTION_COPY = {
+    resolution: {
+      title: "Change Resolution",
+      subtitle: "Choose the agreed resolution and add a reason. This does not send money.",
+      submit: "Save Resolution",
+    },
     decision: {
       title: "Review Return Request",
       subtitle:
-        "Approve to issue return instructions, or reject with a reason. The customer is emailed either way.",
+        "Choose the resolution and approve, or reject with a reason. The customer is emailed either way.",
       submit: "Save Decision",
     },
     received: {
@@ -3517,7 +3525,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (btnSubmitReturnAction) btnSubmitReturnAction.textContent = copy.submit;
 
     if (returnDecisionSelect) returnDecisionSelect.value = "approve";
-    if (returnApprovedAmount) returnApprovedAmount.value = requested.toFixed(2);
+    if (returnResolutionSelect) returnResolutionSelect.value = row.resolution || "refund";
+    modalReturnAction.dataset.expectedResolution = row.resolution || "refund";
+    if (returnApprovedAmount) {
+      returnApprovedAmount.value = (kind === 'resolution' ? ceiling : requested).toFixed(2);
+      returnApprovedAmount.readOnly = kind === 'resolution';
+    }
     if (returnDecisionNote) returnDecisionNote.value = "";
     if (returnReceivedNote) returnReceivedNote.value = "";
     if (returnRefundStage) returnRefundStage.value = "released";
@@ -3531,6 +3544,15 @@ document.addEventListener("DOMContentLoaded", () => {
     if (returnRefundNote) returnRefundNote.value = "";
 
     setReturnActionSections(kind);
+    if (kind === 'resolution') {
+      const decisionField = returnDecisionSelect?.closest('.field-stack');
+      if (decisionField) decisionField.style.display = 'none';
+      const amountHint = returnApprovedAmount?.closest('.field-stack')?.querySelector('.field-hint');
+      if (amountHint) amountHint.hidden = true;
+    } else {
+      const amountHint = returnApprovedAmount?.closest('.field-stack')?.querySelector('.field-hint');
+      if (amountHint) amountHint.hidden = false;
+    }
     modalReturnAction.dataset.gateway = row.payment_is_automated ? '1' : '0';
     if (kind === 'refund' && row.payment_is_automated) {
       [returnRefundStage, returnRefundMethod, returnRefundReference].forEach(field => { const wrapper = field?.closest('.field-stack'); if (wrapper) wrapper.style.display = 'none'; });
@@ -3545,6 +3567,17 @@ document.addEventListener("DOMContentLoaded", () => {
   // Turns the visible section of the action form into one API call. Amounts
   // are still re-clamped server-side, so this only has to be reasonable.
   const buildReturnActionRequest = (kind) => {
+    if (kind === "resolution") {
+      const note = String(returnDecisionNote?.value || "").trim();
+      if (!note) return { error: "Enter a reason for this change.", focus: returnDecisionNote };
+      return {
+        path: '/admin/returns/{id}/resolution',
+        body: { resolution: returnResolutionSelect?.value, expected_resolution: modalReturnAction.dataset.expectedResolution, note },
+        confirmTitle: 'Change Resolution', confirmText: 'Save Resolution',
+        confirmMessage: 'Save the agreed resolution? This does not send a refund.',
+        success: 'Resolution saved. No money was sent.',
+      };
+    }
     if (kind === "decision") {
       const decision = String(returnDecisionSelect?.value || "approve");
       const note = String(returnDecisionNote?.value || "").trim();
@@ -3555,7 +3588,7 @@ document.addEventListener("DOMContentLoaded", () => {
         };
       }
 
-      const body = { decision, decision_note: note || null };
+      const body = { decision, decision_note: note || null, resolution: returnResolutionSelect?.value };
       const rawApproved = String(returnApprovedAmount?.value || "").trim();
       const amount = Number(rawApproved);
       if (decision === "approve" && rawApproved) {
