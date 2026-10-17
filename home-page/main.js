@@ -22,16 +22,6 @@ const getCustomerToken = () => {
 };
 
 const ORDER_STAGE_FLOW = ["to_pay", "to_ship", "to_receive", "completed"];
-// "All" tab urgency ranking: what is arriving now, then what is being shipped,
-// then what still needs paying, and finally everything already finished.
-const ALL_TAB_STAGE_PRIORITY = {
-  to_receive: 0,
-  to_ship: 1,
-  to_pay: 2,
-  completed: 3,
-};
-const ALL_TAB_UNKNOWN_STAGE_RANK = 4;
-const ALL_TAB_REJECTED_RANK = 5;
 const BUY_AGAIN_INTENT_KEY = "fmrc_buy_again_intent";
 const BUY_AGAIN_INTENT_MAX_AGE_MS = 60000;
 const PHILIPPINES_TIME_ZONE = "Asia/Manila";
@@ -9237,28 +9227,15 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>
       `;
 
-      // Rank used by the "All" tab. Rejected and cancelled orders stay visible
-      // but are terminal, so they must never outrank a live order. They share a
-      // rank because neither is more urgent than the other - the recency
-      // tie-break below decides which dead order is listed first.
-      const resolveAllTabRank = (order) => {
-        const lifecycle = String(order?.lifecycle_status || "").toLowerCase();
-        if (lifecycle === "rejected" || lifecycle === "cancelled") {
-          return ALL_TAB_REJECTED_RANK;
-        }
-
-        const stage = String(order?.customer_stage || "");
-        return Object.prototype.hasOwnProperty.call(
-          ALL_TAB_STAGE_PRIORITY,
-          stage,
-        )
-          ? ALL_TAB_STAGE_PRIORITY[stage]
-          : ALL_TAB_UNKNOWN_STAGE_RANK;
-      };
-
-      const resolveOrderRecencyKey = (order) => {
-        const parsed = Date.parse(order?.created_at || "");
-        return Number.isFinite(parsed) ? parsed : null;
+      // One date-based order for every tab, including older session-cache rows.
+      const compareOrdersNewestFirst = (left, right) => {
+        const leftTime = Date.parse(left?.created_at || "");
+        const rightTime = Date.parse(right?.created_at || "");
+        const leftDated = Number.isFinite(leftTime);
+        const rightDated = Number.isFinite(rightTime);
+        if (leftDated && rightDated && leftTime !== rightTime) return rightTime - leftTime;
+        if (leftDated !== rightDated) return leftDated ? -1 : 1;
+        return (Number(right?.id) || 0) - (Number(left?.id) || 0);
       };
 
       // Terminal states that must not be counted as live work in a stage tab. A
@@ -9272,69 +9249,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const getVisibleOrdersByPanel = (stageKey) => {
         if (stageKey === "returns") {
-          // Returns are their own records. The server already sorts them
-          // open-first/newest-first; the copy keeps state.returns untouched.
-          return state.returns.slice();
+          // Keep In Progress / History sections; newest requests lead each section.
+          return state.returns.slice().sort(compareOrdersNewestFirst);
         }
+        // Sort copies so cached data, counters and live updates stay intact.
+        const orders = state.orders.slice().sort(compareOrdersNewestFirst);
+        if (stageKey === "all") return orders;
         if (stageKey === "cancelled") {
-          // Newest first: a cancellation is something the customer just did, so
-          // the most recent one is the one they are looking for.
-          return state.orders
-            .filter(
-              (order) =>
-                String(order.lifecycle_status || "").toLowerCase() ===
-                "cancelled",
-            )
-            .sort((left, right) => {
-              const leftTime = resolveOrderRecencyKey(left);
-              const rightTime = resolveOrderRecencyKey(right);
-              if (
-                leftTime !== null &&
-                rightTime !== null &&
-                leftTime !== rightTime
-              ) {
-                return rightTime - leftTime;
-              }
-              return (Number(right?.id) || 0) - (Number(left?.id) || 0);
-            });
+          return orders.filter(order => String(order.lifecycle_status || "").toLowerCase() === "cancelled");
         }
-        if (stageKey === "all") {
-          // A sorted copy: renderOrders(), the tab counters and the
-          // sessionStorage cache all read state.orders in server order.
-          return state.orders.slice().sort((left, right) => {
-            const rankDiff = resolveAllTabRank(left) - resolveAllTabRank(right);
-            if (rankDiff !== 0) return rankDiff;
-
-            const leftTime = resolveOrderRecencyKey(left);
-            const rightTime = resolveOrderRecencyKey(right);
-            if (leftTime !== null && rightTime !== null && leftTime !== rightTime) {
-              return rightTime - leftTime;
-            }
-
-            return (Number(right?.id) || 0) - (Number(left?.id) || 0);
-          });
-        }
-        if (stageKey === "to_rate") {
-          // Returns completed orders â€” split into rated/unrated is done in renderToRatePanel
-          return state.orders.filter(
-            (order) =>
-              !isDeadOrder(order) &&
-              String(order.customer_stage || "") === "completed",
-          );
-        }
-        if (stageKey === "completed") {
-          return state.orders.filter(
-            (order) =>
-              !isDeadOrder(order) &&
-              String(order.customer_stage || "") === "completed",
-          );
-        }
-
-        return state.orders.filter(
-          (order) =>
-            !isDeadOrder(order) &&
-            String(order.customer_stage || "") === stageKey,
-        );
+        // To Rate keeps its existing unrated/rated sections in newest-first order.
+        const stage = stageKey === "to_rate" ? "completed" : stageKey;
+        return orders.filter(order => !isDeadOrder(order) && String(order.customer_stage || "") === stage);
       };
 
       const setActivePanel = (index) => {

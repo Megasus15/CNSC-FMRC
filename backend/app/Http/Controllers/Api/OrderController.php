@@ -702,7 +702,8 @@ class OrderController extends Controller
                     ->orderByDesc('id'),
             ])
             ->where('customer_id', $request->user()->id)
-            ->orderBy('created_at', 'asc')
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->get();
 
         $data = $orders
