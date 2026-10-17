@@ -54,15 +54,16 @@ test('QR Ph settings update checkout copy while retaining the existing order met
   const h = harness({selector: true});
   h.api.applySettings({payment_gcash_ready:'1', payment_checkout_method:'qrph', payment_checkout_label:'GCash / QR Ph'});
   h.choose('GCash');
-  assert.equal(h.fields.get('tiktokGcashTitle').textContent, 'GCash / QR Ph');
-  assert.match(h.fields.get('tiktokGcashSub').textContent, /QR/);
+  assert.equal(h.fields.get('tiktokGcashTitle').textContent, 'QR Ph');
+  assert.equal(h.fields.get('tiktokGcashSub').textContent, 'Scan with your bank or e-wallet.');
   assert.equal(h.select.value, 'GCash');
-  assert.equal(h.select.options[3].textContent, 'GCash / QR Ph');
+  assert.equal(h.select.options[3].textContent, 'QR Ph');
   assert.equal(h.fields.get('submitOrderBtn').disabled, false);
   assert.equal(h.api.checkout().method, 'qrph');
   h.api.applySettings({payment_gcash_ready:'1', payment_checkout_method:'gcash'});
-  assert.equal(h.fields.get('tiktokGcashTitle').textContent, 'GCash');
-  assert.equal(h.select.value, 'GCash');
+  assert.equal(h.fields.get('tiktokGcashTitle').textContent, 'QR Ph');
+  assert.equal(h.select.value, '');
+  assert.equal(h.cards[2].hidden, true, 'direct GCash is not advertised as QR Ph');
 });
 
 test('checkout waits for settings and recovers after an initial load failure', () => {
@@ -72,7 +73,7 @@ test('checkout waits for settings and recovers after an initial load failure', (
   assert.equal(h.cards[0].attrs['aria-disabled'], 'true');
   h.api.loadFailed();
   assert.equal(h.fields.get('checkoutPaymentRetry').hidden, false);
-  assert.match(h.fields.get('checkoutPaymentMessage').textContent, /could not be loaded/);
+  assert.match(h.fields.get('checkoutPaymentMessage').textContent, /could not load/);
   h.api.applySettings({});
   assert.equal(h.fields.get('checkoutPaymentRetry').hidden, true);
   h.choose(names[0]);
@@ -82,7 +83,7 @@ test('checkout waits for settings and recovers after an initial load failure', (
 test('all eight availability combinations disable corresponding options and checkout when all are off', () => {
   for (let mask = 0; mask < 8; mask++) {
     const h = harness();
-    h.api.applySettings({payment_gcash_ready:'1', ...Object.fromEntries(keys.map((key, i) => [key, (mask >> i) & 1 ? '1' : '0']))});
+    h.api.applySettings({payment_gcash_ready:'1', payment_checkout_method:'qrph', ...Object.fromEntries(keys.map((key, i) => [key, (mask >> i) & 1 ? '1' : '0']))});
     names.forEach((name, i) => {
       const enabled = Boolean((mask >> i) & 1);
       assert.equal(h.api.isEnabled(name), enabled);
@@ -103,7 +104,7 @@ test('revoked selection clears without silently switching fulfillment method, th
   h.api.applySettings({ [keys[0]]: '0' });
   assert.equal(h.select.value, '');
   assert.equal(h.fields.get('submitOrderBtn').disabled, true);
-  assert.match(h.fields.get('checkoutPaymentMessage').textContent, /Please choose another/);
+  assert.match(h.fields.get('checkoutPaymentMessage').textContent, /Choose another/);
   h.api.applySettings({});
   assert.equal(h.select.value, '', 'reenabling does not choose for the customer');
   h.choose(names[1]);
@@ -232,7 +233,7 @@ test('failed preflight and a revoked selection prevent any order POST', async ()
   assert.equal(h.fields.get('submitOrderBtn').disabled, true);
 });
 
-test('hosted GCash checkout submits without a linked wallet or manual payment reference', async () => {
+test('hosted QR Ph checkout submits without a linked wallet or manual payment reference', async () => {
   const h = submitHarness();
   h.api.applySettings({ payment_gcash_ready: '1', payment_checkout_method: 'qrph' });
   h.choose('GCash');
@@ -276,4 +277,4 @@ test('duplicate clicks while preflight is pending send only one order, then serv
   assert.match(h.popups[0], /Method unavailable/);
 });
 
-test('GCash requires provider readiness even when the admin preference is enabled', () => { const h=harness(); h.api.applySettings({payment_gcash_enabled:'1',payment_gcash_ready:'0'}); assert.equal(h.api.isEnabled('GCash'),false); h.api.applySettings({payment_gcash_enabled:'1',payment_gcash_ready:'1'}); assert.equal(h.api.isEnabled('GCash'),true); });
+test('QR Ph requires provider readiness even when the admin preference is enabled', () => { const h=harness(); h.api.applySettings({payment_checkout_method:'qrph',payment_gcash_enabled:'1',payment_gcash_ready:'0'}); assert.equal(h.api.isEnabled('GCash'),false); h.api.applySettings({payment_checkout_method:'qrph',payment_gcash_enabled:'1',payment_gcash_ready:'1'}); assert.equal(h.api.isEnabled('GCash'),true); });

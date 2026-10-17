@@ -205,9 +205,86 @@ class GatewayPaymentsTest extends TestCase {
         $o=$this->order(['lifecycle_status'=>'completed']);$o->payment->update(['gateway'=>null,'status'=>'paid','reference'=>'GCASH-4567-FAKE','paid_at'=>now()]);
         $this->assertFalse(Order::legacyReceipts()->whereKey($o->id)->exists());
         Sanctum::actingAs(User::factory()->create(['role'=>'admin']));
-        $this->getJson('/api/admin/gateway-payments?review=1')->assertOk()->assertJsonPath('payments.total',1);
+        $this->getJson('/api/admin/gateway-payments?review=1')->assertOk()->assertJsonPath('payments.total',0);
+        $this->getJson('/api/admin/orders/'.$o->id.'/gateway-payment')->assertNotFound();
     }
 
+
+    public function test_online_refunds_excludes_orders_without_a_refund_even_when_filters_are_cleared(): void {
+        config(['payments.paymongo.checkout_method'=>'qrph']);
+        $admin=User::factory()->create(['role'=>'admin']);$gateway=app(GatewayPayments::class);
+        $excluded=[];
+        foreach (['incoming','completed','cancelled','rejected'] as $lifecycle) {
+            $order=$this->order();$attempt=$this->attempt($order,false,'qrph');
+            $gateway->applySession($attempt->id,$this->providerSession($attempt,['source'=>['type'=>'qrph']]));
+            // Deliberately no refund record: a closed order alone cannot widen this list.
+            $order->update(['lifecycle_status'=>$lifecycle]);$excluded[]=$order;
+        }
+        $excluded[]=$this->order(); // Unpaid online order.
+        foreach (['COP','COD'] as $method) {
+            $order=$this->order(['payment_method'=>$method,'lifecycle_status'=>'completed']);
+            $order->payment->update(['method'=>$method,'gateway'=>null,'status'=>'refunded']);$excluded[]=$order;
+        }
+        $refundOrders=[];
+        foreach (['requested','submitting','pending','unknown','failed','rejected','succeeded'] as $status) {
+            $order=$this->order();$attempt=$this->attempt($order,false,'qrph');
+            $gateway->applySession($attempt->id,$this->providerSession($attempt,['source'=>['type'=>'qrph']]));
+            $refund=$gateway->requestRefund($order->fresh()->payment,100,'Return refund',$admin->id,(string)Str::uuid());
+            DB::table('payment_refunds')->where('id',$refund->id)->update(['status'=>$status]);$refundOrders[]=$order->payment->id;
+        }
+        foreach (['admin','staff'] as $role) {
+            Sanctum::actingAs($role==='admin'?$admin:User::factory()->create(['role'=>$role]));
+            foreach (['','?refunds=0','?review=1','?search=&refund_status='] as $query) {
+                $result=$this->getJson('/api/admin/gateway-payments'.$query)->assertOk()->assertJsonPath('payments.total',7);
+                $this->assertEqualsCanonicalizing($refundOrders,array_column($result->json('payments.data'),'id'));
+                $this->assertCount(7,$result->json('refunds'));
+            }
+            foreach ($excluded as $order) {
+                $this->getJson('/api/admin/gateway-payments?order_id='.$order->id)->assertOk()->assertJsonPath('payments.total',0)->assertJsonCount(0,'refunds');
+            }
+            $this->getJson('/api/admin/gateway-payments?refund_status=processing')->assertOk()->assertJsonPath('payments.total',3);
+            $this->getJson('/api/admin/gateway-payments?search='.$excluded[0]->order_no)->assertOk()->assertJsonPath('payments.total',0);
+        }
+        $this->assertDatabaseCount('payment_refunds',7);Http::assertNothingSent();
+    }
+
+    public function test_online_refund_pagination_counts_only_refund_orders(): void {
+        $admin=User::factory()->create(['role'=>'admin']);$gateway=app(GatewayPayments::class);
+        for($i=0;$i<22;$i++) {
+            $order=$this->order();$attempt=$this->attempt($order);$gateway->applySession($attempt->id,$this->providerSession($attempt));
+            if($i<21) $gateway->requestRefund($order->fresh()->payment,100,'Return refund',$admin->id,(string)Str::uuid());
+        }
+        Sanctum::actingAs($admin);
+        $first=$this->getJson('/api/admin/gateway-payments')->assertOk()->assertJsonPath('payments.total',21)->assertJsonPath('payments.last_page',2)->assertJsonCount(20,'payments.data');
+        $second=$this->getJson('/api/admin/gateway-payments?page=2')->assertOk()->assertJsonPath('payments.total',21)->assertJsonCount(1,'payments.data');
+        $this->assertCount(21,array_unique(array_merge(array_column($first->json('payments.data'),'id'),array_column($second->json('payments.data'),'id'))));
+        Http::assertNothingSent();
+    }
+
+    public function test_team_can_read_one_online_payment_without_creating_or_listing_a_refund(): void {
+        $order=$this->order();$attempt=$this->attempt($order,false,'qrph');
+        app(GatewayPayments::class)->applySession($attempt->id,$this->providerSession($attempt,['source'=>['type'=>'qrph']]));
+        foreach (['admin','staff'] as $role) {
+            Sanctum::actingAs(User::factory()->create(['role'=>$role]));
+            $this->getJson('/api/admin/orders/'.$order->id.'/gateway-payment')->assertOk()
+                ->assertJsonPath('payments.total',1)->assertJsonPath('payments.data.0.order_id',$order->id)
+                ->assertJsonPath('can_approve',$role==='admin')->assertJsonPath('receipts.0.source_type','qrph')->assertJsonCount(0,'refunds');
+            $this->getJson('/api/admin/gateway-payments')->assertOk()->assertJsonPath('payments.total',0);
+        }
+        Sanctum::actingAs($order->customer);
+        $this->getJson('/api/admin/orders/'.$order->id.'/gateway-payment')->assertForbidden();
+        $this->assertDatabaseCount('payment_refunds',0);Http::assertNothingSent();
+    }
+
+    public function test_cash_orders_cannot_use_online_payment_details_or_provider_refunds(): void {
+        Sanctum::actingAs(User::factory()->create(['role'=>'admin']));
+        foreach (['COP','COD'] as $method) {
+            $order=$this->order(['payment_method'=>$method]);$order->payment->update(['method'=>$method,'gateway'=>null,'status'=>'paid']);
+            $this->getJson('/api/admin/orders/'.$order->id.'/gateway-payment')->assertNotFound();
+            $this->postJson('/api/admin/orders/'.$order->id.'/gateway-refunds',['amount_centavos'=>100,'reason'=>'Cash refund','request_key'=>(string)Str::uuid(),'issue'=>true])->assertUnprocessable();
+        }
+        $this->assertDatabaseCount('payment_refunds',0);Http::assertNothingSent();
+    }
 
     public function test_duplicate_provider_receipts_are_preserved_without_reopening_fulfillment(): void {
         $o=$this->order(['lifecycle_status'=>'cancelled']); $a=$this->attempt($o); $g=app(GatewayPayments::class);
@@ -239,7 +316,7 @@ class GatewayPaymentsTest extends TestCase {
             return Http::response(['data'=>['id'=>'cs_qrph','attributes'=>['checkout_url'=>'https://checkout.paymongo.com/qrph','livemode'=>false]]]);
         }]);
         $this->postJson('/api/customer/orders/'.$o->id.'/payment-checkout')->assertOk()
-            ->assertJsonPath('checkout_method','qrph')->assertJsonPath('checkout_label','GCash / QR Ph')
+            ->assertJsonPath('checkout_method','qrph')->assertJsonPath('checkout_label','QR Ph')
             ->assertJsonPath('checkout_url','https://checkout.paymongo.com/qrph');
         $this->assertDatabaseHas('payment_attempts',['payment_id'=>$o->payment->id,'checkout_method'=>'qrph']);
         $this->getJson('/api/site-settings')->assertOk()->assertJsonPath('data.payment_checkout_method','qrph')
@@ -594,7 +671,8 @@ class GatewayPaymentsTest extends TestCase {
         $data=$this->getJson('/api/admin/orders')->assertOk();
         $row=collect($data->json('incoming'))->firstWhere('id',$o->id);
         $this->assertTrue($row['cancel_pending']);$this->assertSame('Ordered the wrong size',$row['cancel_reason_detail']);
-        $this->getJson('/api/admin/gateway-payments?refunds=1')->assertOk()->assertJsonPath('payments.total',1)->assertJsonPath('payments.data.0.cancel_reason_detail','Ordered the wrong size');
+        $this->getJson('/api/admin/gateway-payments')->assertOk()->assertJsonPath('payments.total',0);
+        $this->getJson('/api/admin/orders/'.$o->id.'/gateway-payment')->assertOk()->assertJsonPath('payments.data.0.cancel_reason_detail','Ordered the wrong size');
         $this->postJson('/api/admin/orders/'.$o->id.'/approve')->assertUnprocessable();
         $this->postJson('/api/admin/orders/'.$o->id.'/gateway-refunds',['amount_centavos'=>50000,'reason'=>'Refund','request_key'=>(string)Str::uuid()])->assertUnprocessable();
         $this->postJson('/api/admin/orders/'.$o->id.'/cancellation',['decision'=>'approve','issue_refund'=>true])->assertForbidden();

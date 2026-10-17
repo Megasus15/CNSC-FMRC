@@ -9,7 +9,7 @@
   let submitting = false;
   let selectionRemoved = false;
   let loadFailed = false;
-  let checkout = { method: 'gcash', label: 'GCash', description: 'Authorize securely in GCash' };
+  let checkout = { method: 'qrph', label: 'QR Ph', description: 'Scan with your bank or e-wallet.' };
 
   const isEnabled = (method) => Boolean(methods && methods[method]);
   const sync = () => {
@@ -49,11 +49,11 @@
     const retry = document.getElementById("checkoutPaymentRetry");
     if (message) {
       message.textContent = !methods
-        ? (loadFailed ? "Payment methods could not be loaded. Please try again." : "Checking available payment methods…")
+        ? (loadFailed ? "Payment methods could not load. Try again." : "Checking payment methods…")
         : !available
-          ? "Ordering is temporarily unavailable because all payment methods are disabled. Please check back later."
+          ? "Ordering is temporarily unavailable. Try again later."
           : selectionRemoved
-            ? "Your selected payment method is no longer available. Please choose another method."
+            ? "This method is unavailable. Choose another."
             : "";
     }
     if (notice) notice.hidden = Boolean(methods && available && !selectionRemoved);
@@ -65,13 +65,13 @@
   const applySettings = (settings) => {
     const qrph = settings.payment_checkout_method === 'qrph';
     checkout = {
-      method: qrph ? 'qrph' : 'gcash',
-      label: settings.payment_checkout_label || (qrph ? 'GCash / QR Ph' : 'GCash'),
-      description: settings.payment_checkout_description || (qrph ? 'Scan the secure payment QR with GCash or another QR Ph app.' : 'Authorize securely in GCash'),
+      method: 'qrph',
+      label: 'QR Ph',
+      description: 'Scan with your bank or e-wallet.',
     };
     methods = Object.fromEntries(Object.entries(settingKeys).map(([method, key]) => {
       const value = settings[key];
-      return [method, (method !== "GCash" || settings.payment_gcash_ready === "1") && (value === undefined || value === true || value === 1 || value === "1")];
+      return [method, (method !== "GCash" || (qrph && settings.payment_gcash_ready === "1")) && (value === undefined || value === true || value === 1 || value === "1")];
     }));
     loadFailed = false;
     sync();

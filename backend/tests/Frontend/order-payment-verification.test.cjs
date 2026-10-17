@@ -7,7 +7,7 @@ const vm = require('node:vm');
 // Run the real renderer and async event handlers against a small DOM adapter.
 // This specifically covers the regression where finally re-enabled every action.
 const source = fs.readFileSync(path.join(__dirname, '../../../admin-page/orders.js'), 'utf8');
-const section = source.slice(source.indexOf('  const paymentActionAllowed ='), source.indexOf('  // ── GCash collection details'));
+const section = source.slice(source.indexOf('  const paymentActionAllowed ='), source.indexOf('  const getRejectedRows ='));
 const stateHelpers = source.slice(source.indexOf('  const mapOrderById ='), source.indexOf('  const populateOrderDetailsModal ='));
 const ids = [...new Set(section.match(/\b(?:modalPayment\w+|modalRefund\w+|btnMarkPayment\w+|btnRecordRefund|btnCopyPaymentRef|modalOrderDetails)\b/g))];
 

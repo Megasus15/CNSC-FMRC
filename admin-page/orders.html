@@ -445,16 +445,9 @@
               <div class="panel-header">
                 <h3>Payments History</h3>
                 <div class="filters-row">
-                  <button
-                    class="btn-admin btn-secondary"
-                    id="btnOpenGcashSettings"
-                    type="button"
-                  >
-                    <i class="fa-solid fa-qrcode"></i> GCash Details
-                  </button>
                   <select class="filter-select" id="paymentsMethodFilter">
                     <option value="all">All Payments</option>
-                    <option value="gcash">GCash</option>
+                    <option value="gcash">Online</option>
                     <option value="cop">COP</option>
                     <option value="cod">COD</option>
                   </select>
@@ -948,117 +941,6 @@
           </button>
           <button class="btn-admin" id="btnSaveTrackingUpdate" type="button">
             Save Update
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ---- GCASH COLLECTION DETAILS MODAL ---- -->
-    <!--
-      What the customer sees on the checkout page when they pick GCash: the name
-      and number to send money to, and the QR a desktop shopper scans. Stored in
-      site_settings, so there is no gateway account and no API key anywhere -
-      FMRC collects into its own GCash and a human matches the reference number.
-    -->
-    <div
-      class="modal-overlay"
-      id="modalGcashSettings"
-      data-backdrop-close="false"
-    >
-      <div class="modal-card product-modal">
-        <div class="modal-header-fixed">
-          <h3 class="modal-title">GCash Collection Details</h3>
-        </div>
-        <div class="modal-body-scroll">
-          <div class="form-grid">
-            <div class="field-stack">
-              <label>GCash Account Name</label
-              ><input
-                id="gcashSettingName"
-                class="input-field"
-                maxlength="120"
-                placeholder="Name shown in your GCash account"
-              />
-            </div>
-            <div class="field-stack">
-              <label>GCash Number</label
-              ><input
-                id="gcashSettingNumber"
-                class="input-field"
-                inputmode="numeric"
-                maxlength="20"
-                placeholder="09XXXXXXXXX"
-              />
-            </div>
-            <div class="field-stack full">
-              <label>GCash QR Code</label>
-              <p class="field-hint">
-                Screenshot the "Receive Money" QR from your own GCash app and
-                upload it here. Desktop shoppers scan this; phone shoppers get
-                an "Open the GCash app" button instead. PNG, JPG or WebP up to
-                2 MB.
-              </p>
-              <div class="gcash-qr-admin">
-                <div class="gcash-qr-admin-preview">
-                  <img
-                    id="gcashSettingQrPreview"
-                    alt="Saved GCash QR code"
-                    hidden
-                  />
-                  <span id="gcashSettingQrPlaceholder">No QR uploaded</span>
-                </div>
-                <div class="gcash-qr-admin-actions">
-                  <input
-                    type="file"
-                    id="gcashSettingQrInput"
-                    accept="image/png,image/jpeg,image/webp"
-                    hidden
-                  />
-                  <button
-                    class="btn-admin btn-secondary"
-                    id="btnGcashUploadQr"
-                    type="button"
-                  >
-                    <i class="fa-solid fa-upload"></i> Upload QR
-                  </button>
-                  <button
-                    class="btn-admin btn-secondary"
-                    id="btnGcashRemoveQr"
-                    type="button"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div class="field-stack full">
-              <p class="field-hint gcash-setting-warning">
-                Collect sales into a GCash <strong>business</strong> account.
-                BSP Memo M-2026-017 requires providers to separate merchant
-                activity from personal accounts, so a personal number used for
-                store payments can be restricted or reclassified.
-              </p>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer-fixed">
-          <span
-            class="field-hint gcash-settings-loading"
-            id="gcashSettingsLoading"
-            hidden
-          >
-            <i class="fa-solid fa-spinner fa-spin"></i> Loading current
-            details&hellip;
-          </span>
-          <button
-            class="btn-admin btn-secondary"
-            id="btnCancelGcashSettings"
-            type="button"
-          >
-            Cancel
-          </button>
-          <button class="btn-admin" id="btnSaveGcashSettings" type="button">
-            Save Details
           </button>
         </div>
       </div>
@@ -1808,10 +1690,10 @@
     <script src="admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="admin-common.js?v=8.4"></script>
-    <script src="orders.js?v=20261017-receive-refund"></script>
+    <script src="orders.js?v=20261017-qrph-refund-scope"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
   <link rel="stylesheet" href="gateway-payments.css?v=2.6-refund-funding">
     <link rel="stylesheet" href="../home-page/payment-dialogs.css?v=2.1-refund-claims">
-    <script src="gateway-payments.js?v=2.6-refund-funding"></script>
+    <script src="gateway-payments.js?v=2.7-refund-scope"></script>
   </body>
 </html>

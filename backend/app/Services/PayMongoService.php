@@ -11,10 +11,10 @@ class PayMongoService
     public function checkoutMethod(): string { return (string) config('payments.paymongo.checkout_method', 'qrph'); }
     public static function supportsMethod(string $method): bool { return in_array($method, ['gcash', 'qrph'], true); }
     public static function methodLabel(string $method): string { return $method === 'qrph' ? 'QR Ph' : 'GCash'; }
-    public static function checkoutLabel(string $method): string { return $method === 'qrph' ? 'GCash / QR Ph' : 'GCash'; }
+    public static function checkoutLabel(string $method): string { return $method === 'qrph' ? 'QR Ph' : 'GCash'; }
     public static function checkoutDescription(string $method): string {
         return $method === 'qrph'
-            ? 'Pay with GCash or another supported app using the QR code on the secure checkout page. Your payment is confirmed automatically.'
+            ? 'Scan with your bank or e-wallet.'
             : 'Authorize payment through GCash on the secure checkout page. Your payment is confirmed automatically.';
     }
     public function isLive(): bool { return str_starts_with((string) config('payments.paymongo.secret_key'), 'sk_live_'); }

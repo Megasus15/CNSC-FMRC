@@ -7,6 +7,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\{Http, Mail};
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class OrderReturnResolutionTest extends TestCase
 {
@@ -109,6 +110,23 @@ class OrderReturnResolutionTest extends TestCase
         ])->assertOk()->assertJsonPath('data.resolution', 'refund')->assertJsonPath('data.status', 'approved');
         $this->assertDatabaseCount('payment_refunds', 0);
         Http::assertNothingSent();
+    }
+
+    public static function cashMethods(): array { return [['COP'], ['COD']]; }
+
+    #[DataProvider('cashMethods')]
+    public function test_cash_returns_record_manual_refunds_without_creating_online_transfers(string $method): void
+    {
+        $return=$this->returnedOrder();$return->update(['resolution'=>'refund']);
+        $return->order->update(['payment_method'=>$method]);$return->order->payment->update(['method'=>$method]);
+        $this->postJson('/api/admin/returns/'.$return->id.'/refund',[
+            'stage'=>'released','refund_method'=>'cash','amount'=>1,'refund_reference'=>'CASH-RETURN-001',
+        ])->assertOk()->assertJsonPath('data.status','refunded')->assertJsonPath('data.refund_method','cash');
+        $this->assertSame('refunded',$return->order->payment->fresh()->status);
+        $this->assertDatabaseHas('order_returns',['id'=>$return->id,'refunded_amount'=>1,'refund_reference'=>'CASH-RETURN-001']);
+        $this->assertDatabaseCount('payment_refunds',0);Http::assertNothingSent();
+        $this->getJson('/api/admin/gateway-payments')->assertOk()->assertJsonPath('payments.total',0);
+        Http::assertNotSent(fn($request)=>$request->method()==='POST');
     }
 
     public function test_manual_refund_also_requires_an_approved_refund_resolution(): void

@@ -3,16 +3,15 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!target) return;
   const base = (window.APP_API_BASE_URL || ((['localhost','127.0.0.1'].includes(location.hostname) && location.port !== '8000') ? location.protocol + '//' + location.hostname + ':8000/api' : location.origin + '/api')).replace(/\/$/, '');
   const panel = document.createElement('article'); panel.className = 'panel gateway-team';
-  panel.innerHTML = `<div class="panel-header"><h3>Refunds &amp; online payments</h3></div>
-    <div class="gateway-content"><p class="gateway-intro">Admin can issue refunds directly. Staff sends requests for Admin approval. QR Ph refunds use a secure PayMongo claim form where the customer selects a receiving bank or e-wallet. The merchant wallet must have available funds.</p>
+  panel.innerHTML = `<div class="panel-header"><h3>Online refunds</h3></div>
+    <div class="gateway-content"><p class="gateway-intro">QR Ph refund requests and updates. Admin issues refunds; Staff requests approval. Customers claim QR Ph refunds through PayMongo.</p>
     <div class="gateway-stats" data-gateway-stats aria-label="Refund overview"></div>
-    <div class="gateway-health" data-gateway-health role="status">Loading payment status...</div>
+    <div class="gateway-health" data-gateway-health role="status">Loading refund status...</div>
     <div class="gateway-toolbar"><label class="gateway-search">Find an order or customer<input type="search" maxlength="100" placeholder="Order number or customer name" data-gateway-search></label>
       <label class="gateway-filter">Refund status<select data-gateway-status-filter><option value="">All statuses</option><option value="requested">Awaiting approval</option><option value="processing">Processing</option><option value="failed">Needs attention</option><option value="succeeded">Refund confirmed</option></select></label>
       <button type="button" data-gateway-all>Clear filters</button></div>
-    <div class="gateway-scope"><label><input type="checkbox" data-gateway-refund-filter checked> Refunds &amp; closed paid orders</label><label><input type="checkbox" data-gateway-review> Payment issues only</label><span data-gateway-focus></span></div>
-    <div class="table-scroll-hint table-scroll-hint--mobile"><i class="fa-solid fa-left-right" aria-hidden="true"></i> Scroll horizontally to see all columns.</div><div class="table-wrapper gateway-table-wrap"><table class="admin-table" id="gatewayPaymentsTable"><thead><tr><th>Order / customer</th><th>Cancellation / reason</th><th>Received</th><th>Refunded</th><th>Refund status</th><th class="sticky-action">Actions</th></tr></thead><tbody data-payment-list><tr><td colspan="6">Loading online payments...</td></tr></tbody></table></div>
-    <div class="table-footer"><span class="table-footer-meta" data-page aria-live="polite"></span><div class="table-pagination"><button class="page-btn" type="button" data-prev aria-label="Previous payment page"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button><input class="page-number" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to online refunds page" data-payment-page><button class="page-btn" type="button" data-next aria-label="Next payment page"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button></div></div></div>`;
+    <div class="table-scroll-hint table-scroll-hint--mobile"><i class="fa-solid fa-left-right" aria-hidden="true"></i> Scroll horizontally to see all columns.</div><div class="table-wrapper gateway-table-wrap"><table class="admin-table" id="gatewayPaymentsTable"><thead><tr><th>Order / customer</th><th>Cancellation / reason</th><th>Received</th><th>Refunded</th><th>Refund status</th><th class="sticky-action">Actions</th></tr></thead><tbody data-payment-list><tr><td colspan="6">Loading refunds...</td></tr></tbody></table></div>
+    <div class="table-footer"><span class="table-footer-meta" data-page aria-live="polite"></span><div class="table-pagination"><button class="page-btn" type="button" data-prev aria-label="Previous refunds page"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button><input class="page-number" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to online refunds page" data-payment-page><button class="page-btn" type="button" data-next aria-label="Next refunds page"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button></div></div></div>`;
   const workspace = document.createElement('section'); workspace.id='sectionRefunds'; workspace.className='archive-section'; workspace.hidden=true; workspace.append(panel);
   const tabs = document.getElementById('ordersModuleTabs');
   if (tabs && document.getElementById('sectionRecords')) document.getElementById('sectionRecords').after(workspace);
@@ -52,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     currentCancellations=(e.detail?.orders || []).filter(o=>o.cancel_state && o.cancel_state!=='none');
     renderCancellations();
   });
-  let focusedOrder = null, reloadPending = false;
+  let reloadPending = false;
   let page = 1, pages = 1, timer, busy = false, delay = 5000, snapshot = '', canApprove = false, currentRefunds = [], currentPayments = [], currentReceipts = [];
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const emptyRow = message => `<tr class="table-empty-row"><td colspan="6"><div class="table-empty-state"><i class="fa-regular fa-folder-open" aria-hidden="true"></i><span>${esc(message)}</span></div></td></tr>`;
@@ -135,7 +134,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (busy) { reloadPending = true; return; }
     busy = true;
     try {
-      const data = await api('/admin/gateway-payments?page=' + page + (panel.querySelector('[data-gateway-review]').checked ? '&review=1' : '') + (panel.querySelector('[data-gateway-refund-filter]').checked ? '&refunds=1' : '') + (focusedOrder ? '&order_id='+encodeURIComponent(focusedOrder) : '') + '&search='+encodeURIComponent(panel.querySelector('[data-gateway-search]').value)+'&refund_status='+encodeURIComponent(panel.querySelector('[data-gateway-status-filter]').value));
+      const data = await api('/admin/gateway-payments?page=' + page + '&search='+encodeURIComponent(panel.querySelector('[data-gateway-search]').value)+'&refund_status='+encodeURIComponent(panel.querySelector('[data-gateway-status-filter]').value));
+      // Keep this card refund-only even while an older API release is being replaced.
+      data.refunds ||= [];
+      const refundPaymentIds = new Set(data.refunds.map(r=>Number(r.payment_id)));
+      data.payments.data = data.payments.data.filter(p=>refundPaymentIds.has(Number(p.id)));
       if (reloadPending) return;
       currentReceipts = data.receipts || []; currentRefunds = data.refunds; currentPayments = data.payments.data; canApprove = data.can_approve; pages = data.payments.last_page; renderCancellations();
       refundShortcut.innerHTML = '<i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Online refunds <span class="tab-count">'+Number(data.refunds_awaiting_approval || 0)+'</span>';
@@ -148,7 +151,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const balance=funding.available_centavos===null?'': 'Wallet: '+money(funding.available_centavos)+' ? ';
         panel.querySelector('[data-gateway-health]').insertAdjacentHTML('beforeend','<span>'+esc(balance+funding.message)+'</span>');
       }
-      panel.querySelector('[data-gateway-focus]').textContent = focusedOrder ? 'Showing selected order' : '';
       const nextSnapshot = JSON.stringify([data.payments,data.attempts,data.refunds,data.receipts,data.can_approve]);
       if (nextSnapshot !== snapshot) {
         panel.querySelector('[data-payment-list]').innerHTML = data.payments.data.map(p=>{
@@ -171,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
           actions.push(`<button data-check="${p.order_id}">Check payment</button><button data-history="${p.order_id}">Details</button>`);
           const status=visible.map(r=>`<div class="gateway-table-state"><span class="status-pill ${statusClass(r.status)}" data-status="${esc(r.status)}">${esc(r.transfer_link?'Awaiting customer claim':refundLabel(r.status))}</span><small>${money(r.amount_centavos)}${r.status==='failed'?' - '+esc(r.failure_message || 'Needs review'):''}</small></div>`).join('') || '<span class="gateway-secondary">'+(p.cancel_state==='requested'?'Review cancellation first':['cancelled','rejected'].includes(p.lifecycle_status) && p.status==='paid'?'Refund required':'No refund requested')+'</span>';
           return `<tr><td><strong>${esc(p.order_no)}</strong><small>${esc(p.customer_name || 'Customer')}</small><small>${esc(readable(p.lifecycle_status))} &middot; ${esc(readable(p.status))}</small></td><td>${esc(cancellationReason(p) || (p.lifecycle_status==='rejected'?'Order rejected':'-'))}${p.cancel_requested_at?'<small>'+esc(dateLabel(p.cancel_requested_at))+'</small>':''}</td><td class="gateway-money">${money(receipts.reduce((n,r)=>n+Number(r.amount_centavos),0))}</td><td class="gateway-money">${money(refunds.filter(r=>r.status==='succeeded').reduce((n,r)=>n+Number(r.amount_centavos),0))}</td><td>${status}</td><td class="action-icons sticky-action gateway-actions">${actions.join('')}</td></tr>`;
-        }).join('') || emptyRow('No payments match these filters.');
+        }).join('') || emptyRow('No refunds match these filters.');
         window.AdminTableResize?.refresh?.();
         snapshot = nextSnapshot;
         panel.querySelectorAll('[data-check]').forEach(b => { b.disabled = checking.has(b.dataset.check); b.textContent = b.disabled ? 'Checking\u2026' : 'Check payment'; });
@@ -212,9 +214,12 @@ document.addEventListener('DOMContentLoaded', () => {
   modal.addEventListener('keydown', e => {
     if (submitting && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); }
   });
-  const show = (type,id) => {
+  const show = (type,id, records=null) => {
     if (submitting) return;
-    action = {type,id,key:crypto.randomUUID()}; const request = type === 'refund'; const recovering = type.startsWith('recover');
+    const payments = records?.payments?.data || currentPayments;
+    const receipts = records?.receipts || currentReceipts;
+    const refunds = records?.refunds || currentRefunds;
+    action = {type,id,key:crypto.randomUUID(),records}; const request = type === 'refund'; const recovering = type.startsWith('recover');
     modal.querySelector('[data-context]').hidden=true;
     modal.querySelector('[data-context]').innerHTML='';
     modal.querySelector('[data-description]').hidden=false;
@@ -226,11 +231,11 @@ document.addEventListener('DOMContentLoaded', () => {
     modal.querySelector('[data-description]').textContent = request ? (canApprove?'You are issuing this refund as Admin. For QR Ph, PayMongo creates a claim form for the customer. No separate Admin approval is needed.':'Send this refund request to Admin for approval. No money is returned until Admin issues it.') : type === 'approve' ? 'This sends the requested refund to the original payment method. Confirm only after reviewing the amount and reason in the payment history.' : 'No money will be returned for this request.';
     modal.querySelector('[data-receipt]').hidden = !request;
     modal.querySelector('[name=provider_payment_id]').disabled = !request;
-    const payment = currentPayments.find(p => String(p.order_id) === String(id));
-    modal.querySelector('[name=provider_payment_id]').innerHTML = currentReceipts.filter(r => r.payment_id === payment?.id).map(r => '<option value="'+esc(r.provider_payment_id)+'">'+esc(methodLabel(r.source_type))+' — '+esc(r.provider_payment_id)+' — '+money(r.amount_centavos)+'</option>').join('');
+    const payment = payments.find(p => String(p.order_id) === String(id));
+    modal.querySelector('[name=provider_payment_id]').innerHTML = receipts.filter(r => r.payment_id === payment?.id).map(r => '<option value="'+esc(r.provider_payment_id)+'">'+esc(methodLabel(r.source_type))+' — '+esc(r.provider_payment_id)+' — '+money(r.amount_centavos)+'</option>').join('');
     const updateRefundAmount = () => {
-      const receipt = currentReceipts.find(r => r.provider_payment_id === modal.querySelector('[name=provider_payment_id]').value);
-      const reserved = currentRefunds.filter(r => r.provider_payment_id === receipt?.provider_payment_id && !['failed','rejected'].includes(r.status)).reduce((sum,r)=>sum+Number(r.amount_centavos),0);
+      const receipt = receipts.find(r => r.provider_payment_id === modal.querySelector('[name=provider_payment_id]').value);
+      const reserved = refunds.filter(r => r.provider_payment_id === receipt?.provider_payment_id && !['failed','rejected'].includes(r.status)).reduce((sum,r)=>sum+Number(r.amount_centavos),0);
       const remaining = Math.max(0, Number(receipt?.amount_centavos || 0) - reserved) / 100;
       const input = modal.querySelector('[name=amount]'); input.max = remaining.toFixed(2); input.value = remaining.toFixed(2);
     };
@@ -245,13 +250,13 @@ document.addEventListener('DOMContentLoaded', () => {
       modal.querySelector('[data-description]').textContent = 'Explain why this refund request is being declined. The customer will see this reason. No money will be returned.';
     }
     if (type === 'approve') {
-      const refund = currentRefunds.find(r => String(r.id) === String(id));
-      const payment = currentPayments.find(p => p.id === refund?.payment_id);
-      const qr = currentReceipts.some(r=>r.provider_payment_id===refund?.provider_payment_id && r.source_type==='qrph');
+      const refund = refunds.find(r => String(r.id) === String(id));
+      const payment = payments.find(p => p.id === refund?.payment_id);
+      const qr = receipts.some(r=>r.provider_payment_id===refund?.provider_payment_id && r.source_type==='qrph');
       modal.querySelector('[data-description]').textContent = 'Refund ' + money(refund?.amount_centavos || 0) + ' for ' + (payment?.order_no || 'this order') + '? ' + (qr ? 'This creates a PayMongo claim link. The customer must complete the form to receive the refund. The merchant wallet needs sufficient available funds. ' : 'Funds return through the original payment method. ') + 'Reason: ' + (refund?.reason || '');
     }
     if (type === 'retry') {
-      const refund = currentRefunds.find(r => String(r.id) === String(id));
+      const refund = refunds.find(r => String(r.id) === String(id));
       modal.querySelector('[data-title]').textContent = 'Review refund retry';
       modal.querySelector('[data-description]').textContent = (refund?.failure_action || 'Check PayMongo for any existing refund before retrying.') + ' ' + (canApprove ? 'Submit a new refund of ' : 'Request Admin approval to refund ') + money(refund?.amount_centavos || 0) + '. For QR Ph, the customer must claim it through PayMongo and the merchant wallet must be funded. A scheduled payout is not an available wallet balance.';
     }
@@ -260,17 +265,23 @@ document.addEventListener('DOMContentLoaded', () => {
     modal.querySelector('[type=submit]').textContent = request ? (canApprove?'Issue refund':'Send refund request') : type === 'approve' ? 'Issue refund' : recovering ? 'Verify record' : 'Reject request';
     if (type === 'retry') modal.querySelector('[type=submit]').textContent = canApprove ? 'Retry and issue refund' : 'Request retry';
     if(type==='history'){
-      const p=currentPayments.find(p=>String(p.order_id)===String(id));
-      const receipts=currentReceipts.filter(r=>Number(r.payment_id)===Number(p?.id));
-      const refunds=currentRefunds.filter(r=>Number(r.payment_id)===Number(p?.id));
+      const p=payments.find(p=>String(p.order_id)===String(id));
+      const orderReceipts=receipts.filter(r=>Number(r.payment_id)===Number(p?.id));
+      const orderRefunds=refunds.filter(r=>Number(r.payment_id)===Number(p?.id));
       modal.querySelector('[data-title]').textContent='Payment & refund details';
       modal.querySelector('[data-description]').textContent='Payment and refund records.';
       modal.querySelector('[data-description]').hidden=true;
       modal.querySelector('[data-context]').hidden=false;
       modal.querySelector('[data-context]').innerHTML=orderDetails(p || {},cancellationReason(p || {}) || 'No cancellation recorded');
       modal.querySelector('[data-record]').hidden=false;
-      modal.querySelector('[data-record]').innerHTML=paymentHistory(receipts,refunds);
-      modal.querySelector('[type=submit]').hidden=true;modal.querySelector('[data-cancel]').textContent='Done';
+      modal.querySelector('[data-record]').innerHTML=paymentHistory(orderReceipts,orderRefunds);
+      const activeRefund=orderRefunds.some(r=>['requested','submitting','pending','unknown','failed'].includes(r.status));
+      const refundable=orderReceipts.some(r=>Number(r.amount_centavos)-orderRefunds.filter(f=>f.provider_payment_id===r.provider_payment_id && !['failed','rejected'].includes(f.status)).reduce((sum,f)=>sum+Number(f.amount_centavos||0),0)>=100);
+      const recoverable=canApprove && records?.attempts?.some(a=>Number(a.payment_id)===Number(p?.id) && !a.checkout_id && ['creating','unknown'].includes(a.status));
+      action.next=p?.cancel_state!=='requested' && !activeRefund && refundable && ['paid','refunded'].includes(p?.status) ? 'refund' : recoverable ? 'recovercheckout' : null;
+      modal.querySelector('[type=submit]').hidden=!action.next;
+      modal.querySelector('[type=submit]').textContent=action.next==='refund' ? (canApprove?'Issue refund':'Request refund') : 'Match checkout';
+      modal.querySelector('[data-cancel]').textContent='Done';
     }
     if(type==='cancelapprove' || type==='canceldecline'){
       const o=currentCancellations.find(o=>String(o.id)===String(id));
@@ -289,7 +300,9 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   modal.querySelector('form').onsubmit = async e => {
     e.preventDefault();
-    if (submitting || !action || action.type === 'history' || !modal.querySelector('form').reportValidity()) return;
+    if (submitting || !action) return;
+    if (action.type === 'history') { if(action.next) show(action.next,action.id,action.records); return; }
+    if (!modal.querySelector('form').reportValidity()) return;
     submitting = true; const button = modal.querySelector('[type=submit]'), label = button.textContent;
     modal.setAttribute('closedby', 'none');
     button.disabled = true; button.textContent = 'Processing\u2026';
@@ -337,7 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
       finally {checking.delete(key);b.disabled=false;b.textContent='Check refund'; styleActions(panel);}
       return;
     }
-    if (b.hasAttribute('data-gateway-all')) { focusedOrder=null; page=1; snapshot=''; panel.querySelector('[data-gateway-search]').value=''; panel.querySelector('[data-gateway-status-filter]').value=''; panel.querySelector('[data-gateway-review]').checked=false; panel.querySelector('[data-gateway-refund-filter]').checked=false; return load(); }
+    if (b.hasAttribute('data-gateway-all')) { page=1; snapshot=''; panel.querySelector('[data-gateway-search]').value=''; panel.querySelector('[data-gateway-status-filter]').value=''; return load(); }
     if (b.hasAttribute('data-prev')) { page--; snapshot=''; return load(); }
     if (b.hasAttribute('data-next')) { page++; snapshot=''; return load(); }
     for (const type of ['refund','retry','approve','reject','history','recovercheckout','recoverrefund']) if (b.dataset[type]) return show(type,b.dataset[type]);
@@ -357,23 +370,29 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   });
-  panel.querySelector('[data-gateway-review]').onchange = () => { page=1; snapshot=''; load(); };
-  panel.querySelector('[data-gateway-refund-filter]').onchange = () => { focusedOrder=null; page=1; snapshot=''; load(); };
   let searchTimer;
-  panel.querySelector('[data-gateway-search]').oninput = () => {clearTimeout(searchTimer);searchTimer=setTimeout(()=>{focusedOrder=null;page=1;snapshot='';void load();},300);};
-  panel.querySelector('[data-gateway-status-filter]').onchange = () => {focusedOrder=null;page=1;snapshot='';void load();};
+  panel.querySelector('[data-gateway-search]').oninput = () => {clearTimeout(searchTimer);searchTimer=setTimeout(()=>{page=1;snapshot='';void load();},300);};
+  panel.querySelector('[data-gateway-status-filter]').onchange = () => {page=1;snapshot='';void load();};
   refundShortcut.onclick = () => {
     openWorkspace();
-    focusedOrder=null; page=1; snapshot=''; panel.querySelector('[data-gateway-search]').value=''; panel.querySelector('[data-gateway-status-filter]').value=''; panel.querySelector('[data-gateway-review]').checked=false;
-    panel.querySelector('[data-gateway-refund-filter]').checked=true;  void load(); panel.scrollIntoView({behavior:'smooth',block:'start'});
+    page=1; snapshot=''; panel.querySelector('[data-gateway-search]').value=''; panel.querySelector('[data-gateway-status-filter]').value='';
+    void load(); panel.scrollIntoView({behavior:'smooth',block:'start'});
   };
   document.addEventListener('click',e=>{const button=e.target.closest('[data-cancellation-review]');if(!button)return;document.getElementById('modalOrderDetails')?.classList.remove('show');openWorkspace('cancellations');show('cancelapprove',button.dataset.cancellationReview);});
-  document.addEventListener('click', e => {
-    const button = e.target.closest('[data-gateway-manage]'); if (!button) return;
-    openWorkspace();
-    focusedOrder=button.dataset.gatewayManage; page=1; snapshot=''; panel.querySelector('[data-gateway-search]').value=''; panel.querySelector('[data-gateway-status-filter]').value='';
-    panel.querySelector('[data-gateway-review]').checked=false; panel.querySelector('[data-gateway-refund-filter]').checked=false;
-     void load(); panel.scrollIntoView({behavior:'smooth',block:'start'});
+  const openingDetails = new Set();
+  document.addEventListener('click', async e => {
+    const button=e.target.closest('[data-gateway-manage]'); if(!button) return;
+    const id=button.dataset.gatewayManage;
+    if(openingDetails.has(id) || submitting) return;
+    openingDetails.add(id); button.disabled=true;
+    try {
+      const records=await api('/admin/orders/'+encodeURIComponent(id)+'/gateway-payment');
+      canApprove=records.can_approve;
+      // An individual payment never changes the refund table's scope or filters.
+      show('history',id,records);
+    } catch(error) {
+      openWorkspace(); checkResult.hidden=false; checkResult.textContent=error.message;
+    } finally { openingDetails.delete(id); button.disabled=false; }
   });
   window.AdminPageNumberInput?.bind(panel.querySelector('[data-payment-page]'), {
     getPage:()=>page, getTotalPages:()=>pages,

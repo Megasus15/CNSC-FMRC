@@ -195,6 +195,7 @@ Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(func
     Route::post('/admin/orders/{order}/payment-recover', [\App\Http\Controllers\Api\GatewayManagementController::class, 'recoverCheckout'])->middleware('throttle:10,1');
     Route::post('/admin/gateway-refunds/{refund}/recover', [\App\Http\Controllers\Api\GatewayManagementController::class, 'recoverRefund'])->middleware('throttle:10,1');
     Route::get('/admin/gateway-payments', [\App\Http\Controllers\Api\GatewayManagementController::class, 'index']);
+    Route::get('/admin/orders/{order}/gateway-payment', [\App\Http\Controllers\Api\GatewayManagementController::class, 'show']);
     Route::post('/admin/orders/{order}/gateway-refunds', [\App\Http\Controllers\Api\GatewayManagementController::class, 'requestRefund'])->middleware('throttle:10,1');
     Route::post('/admin/orders/{order}/payment-reconcile', [\App\Http\Controllers\Api\GatewayManagementController::class, 'reconcile'])->middleware('throttle:10,1');
     Route::post('/admin/gateway-refunds/{refund}/approve', [\App\Http\Controllers\Api\GatewayManagementController::class, 'approve'])->middleware('throttle:10,1');

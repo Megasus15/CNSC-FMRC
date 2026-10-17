@@ -13,23 +13,32 @@ class GatewayManagementController extends Controller
     private function team(Request $r): void { abort_unless(in_array($r->user()?->role, ['admin','staff'], true), 403); }
     public function index(Request $r, PayMongoService $provider, GatewayPayments $gateway): JsonResponse {
         $this->team($r);
-        $filter = $r->validate(['search'=>'nullable|string|max:100','refund_status'=>'nullable|in:requested,processing,failed,succeeded']);
-        $rows = DB::table('payments')->join('orders', 'orders.id', '=', 'payments.order_id')
-            ->where('payments.method', 'GCash')
+        $filter = $r->validate(['search'=>'nullable|string|max:100','refund_status'=>'nullable|in:requested,processing,failed,succeeded','order_id'=>'nullable|integer|min:1']);
+        $rows = $this->paymentQuery()
+            ->whereExists(fn($f)=>$f->selectRaw('1')->from('payment_refunds')->whereColumn('payment_refunds.payment_id','payments.id'))
             ->when($r->filled('search'),fn($q)=>$q->where(fn($s)=>$s->where('orders.order_no','like','%'.$filter['search'].'%')->orWhere('orders.customer_name','like','%'.$filter['search'].'%')))
             ->when($r->filled('refund_status'),fn($q)=>$q->whereExists(fn($f)=>$f->selectRaw('1')->from('payment_refunds')->whereColumn('payment_refunds.payment_id','payments.id')
                 ->whereIn('payment_refunds.status', $filter['refund_status'] === 'processing' ? ['submitting','pending','unknown'] : [$filter['refund_status']])))
-            ->when($r->filled('order_id'), fn($q) => $q->where('orders.id', $r->integer('order_id')))
-            ->when($r->boolean('refunds'), fn($q) => $q->where(function($q) {
-                $q->whereExists(fn($f) => $f->selectRaw('1')->from('payment_refunds')->whereColumn('payment_refunds.payment_id','payments.id'))
-                  ->orWhere(fn($c) => $c->whereIn('orders.lifecycle_status',['cancelled','rejected'])->where('payments.status','paid'))
-                  ->orWhere('orders.cancel_state','requested');
-            }))
-            ->when($r->boolean('review'), fn($q) => $q->where(function($q) {
-                $q->where('payments.reference', 'like', 'GCASH-%')->orWhere('payments.paymongo_checkout_id','like','cs_sim_%')
-                  ->orWhereExists(fn($a) => $a->selectRaw('1')->from('payment_attempts')->whereColumn('payment_attempts.payment_id','payments.id')->whereNotNull('exception'));
-            }))->orderByDesc('payments.id')
-            ->select(['payments.id','payments.order_id','orders.order_no','orders.customer_name','orders.lifecycle_status','orders.cancel_state','orders.cancel_reason','orders.cancel_reason_detail','orders.cancel_requested_at','orders.cancel_decision_note','payments.amount','payments.status','payments.gateway','payments.reference','payments.paymongo_checkout_id','payments.paymongo_payment_id','payments.paid_at'])->paginate(20);
+            ->when($r->filled('order_id'),fn($q)=>$q->where('orders.id',$filter['order_id']))
+            ->orderByDesc('payments.id')->paginate(20);
+        return $this->paymentData($r, $provider, $gateway, $rows);
+    }
+
+    /** Read one online payment without adding it to the refund workspace. */
+    public function show(Request $r, Order $order, PayMongoService $provider, GatewayPayments $gateway): JsonResponse {
+        $this->team($r);
+        abort_unless(GatewayPayments::managed($order->payment), 404, 'No online payment was found for this order.');
+        $rows = $this->paymentQuery()->where('orders.id',$order->id)->paginate(20);
+        return $this->paymentData($r, $provider, $gateway, $rows);
+    }
+
+    private function paymentQuery(): \Illuminate\Database\Query\Builder {
+        return DB::table('payments')->join('orders','orders.id','=','payments.order_id')
+            ->where('payments.method','GCash')
+            ->select(['payments.id','payments.order_id','orders.order_no','orders.customer_name','orders.lifecycle_status','orders.cancel_state','orders.cancel_reason','orders.cancel_reason_detail','orders.cancel_requested_at','orders.cancel_decision_note','payments.amount','payments.status','payments.gateway','payments.reference','payments.paymongo_checkout_id','payments.paymongo_payment_id','payments.paid_at']);
+    }
+
+    private function paymentData(Request $r, PayMongoService $provider, GatewayPayments $gateway, \Illuminate\Pagination\LengthAwarePaginator $rows): JsonResponse {
         $ids = collect($rows->items())->pluck('id');
         $gateway->refreshRefunds($ids->all());
         $currentStatuses=DB::table('payments')->whereIn('id',$ids)->pluck('status','id');

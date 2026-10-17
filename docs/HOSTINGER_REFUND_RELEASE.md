@@ -1,5 +1,23 @@
 # Refund management update
 
+## 2026-10-17: QR Ph checkout and refund-only workspace
+
+- Admin and Staff Payments History no longer includes the **GCash Details** button or its collection-settings dialog. The **Online** payment filter includes QR Ph and historical online GCash payments; original payment records remain intact.
+- Products checkout shows **QR Ph** with its logo and the instruction **Scan with your bank or e-wallet.** The QR Ph choice requires provider readiness and `PAYMONGO_CHECKOUT_METHOD=qrph`. Direct GCash is not offered as a new checkout method by this page. Existing direct GCash records retain their original method and history.
+- **Online refunds** lists only online payments with an actual refund record, including requests awaiting Admin approval, processing, failed, declined and confirmed refunds. Clearing filters cannot reveal ordinary orders, unpaid checkouts, cash refunds, or closed orders without a refund request. Payment History and Order Details open one payment through the team-only `GET /api/admin/orders/{order}/gateway-payment` endpoint without widening the refund list or creating a refund.
+
+| Method | Payment | Refund |
+| --- | --- | --- |
+| COP | Collect and confirm cash at pickup. | Return the money manually, then record the refund and reference in Returns & Refunds. |
+| COD | Collect cash on delivery and confirm actual receipt. | Return the money manually, then record the refund and reference in Returns & Refunds. |
+| QR Ph | Pay through the provider's QR checkout; confirmation comes from the provider. | Admin issues the eligible refund; Staff requests approval. The customer completes PayMongo's claim form. Only provider confirmation marks the online refund complete. |
+
+Deploy the changed Orders HTML files, shared `admin-page/orders.js` and `admin-page/gateway-payments.js`, Products HTML/CSS/availability script, `images/qrph-logo.svg`, `PayMongoService.php`, `GatewayManagementController.php`, and `backend/routes/api.php` together. Run `php artisan optimize:clear` after release so the new details route is available. No migration is required. This local change does not deploy, change credentials, or send live money.
+
+Local verification: 139 backend tests (1,275 assertions), 53 frontend tests, and mocked browser checks for Admin/Staff at desktop/mobile sizes in both themes passed. QR Ph checkout was checked at 1280, 390 and 320 pixels. Run the browser fixture with `node tools/design/check-refund-scope.cjs`. These checks do not verify a production deployment or live transfer.
+
+The QR Ph logo is the CC0 reproduction by Bamboofirdaus, downloaded from [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:QR_Ph_Logo.svg), which identifies AUB as its source. QR Ph payment support is described in [PayMongo's documentation](https://docs.paymongo.com/docs/payment-acceptance-qr-ph).
+
 This update adds shared Admin/Staff cancellation and refund tables, direct Admin refund issuing, safe failure explanations, explicit retry approval, and refund status checks. Confirmed refunds reduce net revenue; pending and failed attempts do not. A day with only refunds can correctly show negative net collections.
 
 The 2026-10-16 correction uses PayMongo's separate live QR Ph creation endpoint, `https://refunds-api.paymongo.com/v1/refunds`. The standard refund endpoint is retained for direct GCash and existing standard API attempts. QR Ph refunds generate a customer claim link: they are not an automatic reversal to the wallet that scanned the payment QR.

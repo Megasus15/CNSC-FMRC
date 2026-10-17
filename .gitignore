@@ -59,6 +59,7 @@ _ide_helper.php
 
 # Local browser QA profiles and rendered test artifacts.
 /tmp/payment-dialogs/
+/tmp/refund-scope/
 /tmp/pdfs/
 
 # Private manual deployment artifacts (includes a presentation password hash).
