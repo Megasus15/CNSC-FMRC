@@ -92,6 +92,9 @@ document.addEventListener("DOMContentLoaded", () => {
   );
   const rejectedOrdersTable = document.getElementById("rejectedOrdersTable");
   const rejectedOrdersFooter = document.getElementById("rejectedOrdersFooter");
+  const manualRefundsPanel = document.getElementById("manualRefundsPanel");
+  const manualRefundsTbody = document.querySelector("#manualRefundsTable tbody");
+  const manualRefundsFooter = document.getElementById("manualRefundsFooter");
 
   // ── Returns & Refunds ──────────────────────────────────────────────────
   const returnsRefundsTbody = document.querySelector(
@@ -338,6 +341,7 @@ document.addEventListener("DOMContentLoaded", () => {
     paymentsPage: 1,
     walkInPage: 1,
     rejectedPage: 1,
+    manualRefundsPage: 1,
     returnsPage: 1,
     returnItemsPage: 1,
     isSyncing: false,
@@ -444,6 +448,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const walkInPager = getFooterControls(walkInOrdersFooter);
 
   const rejectedPager = getFooterControls(rejectedOrdersFooter);
+  const manualRefundsPager = getFooterControls(manualRefundsFooter);
   const returnsPager = getFooterControls(returnsRefundsFooter);
 
   const toTimestamp = (value) => {
@@ -1315,16 +1320,33 @@ document.addEventListener("DOMContentLoaded", () => {
   btnMarkPaymentPending?.addEventListener("click", () => { void setPaymentStatus("pending"); });
   btnRecordRefund?.addEventListener("click", () => { void setPaymentStatus("refunded"); });
 
-  const getRejectedRows = () =>
-    state.directory.filter(
-      (order) =>
-        String(order?.lifecycle_status || "").toLowerCase() === "rejected",
-    );
+  // One rejected order belongs to one work queue, including old cached payloads.
+  const rejectedOrderWorkspace = (order) => {
+    if (String(order?.lifecycle_status || "").toLowerCase() !== "rejected") return null;
+    if (["rejected", "online_refunds", "manual_refunds"].includes(order.rejected_order_workspace)) return order.rejected_order_workspace;
+    const hasValue = Number(order.payment_amount ?? order.total_amount ?? 1) > 0 || Number(order.total_amount || 0) > 0;
+    const financial = order.payment_has_refund_record || (!order.payment_is_automated && order.payment_reference_supplied)
+      || (hasValue && (["paid", "refunded"].includes(String(order.payment_status || "").toLowerCase()) || order.payment_refund_status));
+    return financial ? (order.payment_is_automated ? "online_refunds" : "manual_refunds") : "rejected";
+  };
+  const getRejectedRows = () => state.directory.filter(order => rejectedOrderWorkspace(order) === "rejected");
+  const getManualRefundRows = () => state.directory.filter(order => rejectedOrderWorkspace(order) === "manual_refunds");
+  const followRejectedOrders = (orders) => {
+    const online = orders.filter(order => rejectedOrderWorkspace(order) === "online_refunds");
+    if (online.length) {
+      window.dispatchEvent(new CustomEvent("fmrc:open-online-refunds", {detail:{orderNo:online.length === 1 ? online[0].order_no : ""}}));
+      return;
+    }
+    document.querySelector('#ordersModuleTabs [data-tab="records"]')?.click();
+    (orders.some(order => rejectedOrderWorkspace(order) === "manual_refunds") ? manualRefundsPanel : document.getElementById("rejectedOrdersPanel"))?.scrollIntoView({behavior:"smooth",block:"start"});
+  };
+  const rejectionResult = (order) => ({
+    online_refunds: "Order rejected. Open Online refunds to issue or track the refund. No money is returned until the refund is confirmed.",
+    manual_refunds: "Order rejected. Review Manual refunds and record repayment after returning the money.",
+    rejected: "Order rejected. No payment was received.",
+  }[rejectedOrderWorkspace(order)] || "Order rejected.");
 
-  // The Directory panel never shows Completed or Rejected rows; they live in the
-  // Rejected panel and on the Archives page. The chip above the stack has to
-  // agree, or it advertises rows that opening the section does not reveal - and
-  // every Rejected row gets counted twice, here and on chip 2.
+  // Directory and record counts use the same visible work-queue rules.
   const getDirectoryScopeRows = () =>
     state.directory.filter((order) => {
       const ls = String(order?.lifecycle_status || "").toLowerCase();
@@ -1374,9 +1396,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const method = String(order?.payment_method || "").trim();
     const status = String(order?.payment_status || "pending").toLowerCase();
     const isPaid = status === "paid";
+    const isClosed = ["rejected", "cancelled"].includes(order?.lifecycle_status);
     const isAutomated = order?.payment_is_automated === true;
     const gatewayLabel = escapeHtml(order?.payment_method_label || (order?.payment_checkout_method === 'qrph' ? 'QR Ph' : 'GCash'));
 
+    const amount = order?.payment_amount ?? order?.total_amount;
+    if (isClosed && amount != null && Number(amount) === 0 && Number(order?.total_amount || 0) === 0
+      && !order?.payment_reference_supplied && !order?.payment_has_refund_record) {
+      return `<div class="table-pay-cell"><span class="status-pill status-grey">${escapeHtml(order?.payment_method_label || method)}</span><small class="table-pay-sub">No payment required</small></div>`;
+    }
     if (method.toLowerCase() === "gcash") {
       if (status === "refunded") {
         return `<div class="table-pay-cell"><span class="status-pill status-grey">${gatewayLabel} (Refunded)</span>${isAutomated ? `<button type="button" data-gateway-manage="${order.id}">Refund history</button>` : ""}<small class="table-pay-sub">Refund recorded</small></div>`;
@@ -1394,10 +1422,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       return `
         <div class="table-pay-cell">
-          <span class="status-pill status-yellow" title="Awaiting payment or verification">
+          <span class="status-pill status-yellow" title="${isClosed ? "Payment closed" : "Awaiting payment or verification"}">
             <i class="fa-regular fa-clock"></i> ${gatewayLabel} (Unpaid)
           </span>
-          <small class="table-pay-sub">${order?.payment_under_review ? "Needs verification" : "Awaiting payment"}</small>
+          <small class="table-pay-sub">${isClosed ? (order?.payment_reference_supplied && !isAutomated ? "Verify payment before refunding" : "No payment received") : order?.payment_under_review ? "Needs verification" : "Awaiting payment"}</small>
         </div>
       `;
     }
@@ -1408,7 +1436,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <span class="status-pill status-blue">
             <i class="fa-solid fa-truck"></i> COD
           </span>
-          <small class="table-pay-sub">${isPaid ? "Cash received" : status === "refunded" ? "Refund recorded" : "Pay on delivery"}</small>
+          <small class="table-pay-sub">${isPaid ? "Cash received" : status === "refunded" ? "Refund recorded" : isClosed ? "No cash collected" : "Pay on delivery"}</small>
         </div>
       `;
     }
@@ -1419,7 +1447,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <span class="status-pill status-blue">
             <i class="fa-solid fa-store"></i> COP
           </span>
-          <small class="table-pay-sub">${isPaid ? "Cash received" : status === "refunded" ? "Refund recorded" : "Pay at counter"}</small>
+          <small class="table-pay-sub">${isPaid ? "Cash received" : status === "refunded" ? "Refund recorded" : isClosed ? "No cash collected" : "Pay at counter"}</small>
         </div>
       `;
     }
@@ -1631,7 +1659,7 @@ document.addEventListener("DOMContentLoaded", () => {
       footer: rejectedOrdersFooter,
       currentPage: state.rejectedPage,
       pageSize: PAGE_SIZE,
-      emptyMessage: "No rejected orders found.",
+      emptyMessage: "No rejected orders without payment.",
       renderRow: (order) => {
         const orderNo = escapeHtml(
           order.order_no_display || `#${order.order_no || order.id}`,
@@ -1655,6 +1683,22 @@ document.addEventListener("DOMContentLoaded", () => {
       },
     });
     rejectedBulkController?.sync();
+  };
+
+  const renderManualRefundsTable = () => {
+    const rows = getManualRefundRows();
+    if (manualRefundsPanel) manualRefundsPanel.hidden = !rows.length;
+    state.manualRefundsPage = renderPagedRows({
+      rows, tbody: manualRefundsTbody, colCount: 8, footer: manualRefundsFooter,
+      currentPage: state.manualRefundsPage, pageSize: PAGE_SIZE,
+      emptyMessage: "No manual refunds to review.",
+      renderRow: order => {
+        const refunded = order.payment_status === "refunded";
+        const paid = order.payment_status === "paid";
+        const label = refunded ? "Refund recorded" : paid ? "Refund due" : "Verify payment";
+        return `<tr><td>${escapeHtml(order.order_no_display || order.order_no)}</td><td>${escapeHtml(order.product_name || "Custom Order")}</td><td>${escapeHtml(formatDateShort(order.created_at))}</td><td>${escapeHtml(order.customer_name || "Customer")}</td><td>${renderPaymentMethodCell(order)}</td><td>${escapeHtml(order.payment_amount_label || formatMoney(order.payment_amount ?? order.total_amount))}</td><td><span class="status-pill ${refunded ? "status-green" : "status-yellow"}">${label}</span></td><td class="action-icons sticky-action"><button type="button" data-order-view="${order.id}" data-tooltip="${refunded ? "Refund details" : "Review manual refund"}" aria-label="${refunded ? "Refund details" : "Review manual refund"}"><i class="fa-regular fa-eye" aria-hidden="true"></i></button></td></tr>`;
+      },
+    });
   };
 
   // Returns arrive whole in the /admin/orders payload, so the status filter
@@ -1904,6 +1948,10 @@ document.addEventListener("DOMContentLoaded", () => {
           processedIds: payload?.processed_ids || [],
         });
         await syncOrders(true, { force: true, source: "action" });
+        if (action === "reject") {
+          const ids = new Set((payload?.processed_ids || []).map(String));
+          followRejectedOrders(state.directory.filter(order => ids.has(String(order.id))));
+        }
       },
     });
   };
@@ -2070,7 +2118,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
   // The three section chips above the stack. Chip 1 covers the panels in
-  // #sectionOrders, chip 2 the three record panels, chip 3 the walk-ins - so the
+  // #sectionOrders, chip 2 the record panels (including manual refunds), chip 3 the walk-ins - so the
   // number on a chip always matches what opening it reveals.
   const ordersTabCountEls = {
     main: document.getElementById("tabCountOrdersMain"),
@@ -2092,7 +2140,7 @@ document.addEventListener("DOMContentLoaded", () => {
     );
     setCount(
       ordersTabCountEls.records,
-      getRejectedRows().length + state.returns.length + state.payments.length,
+      getRejectedRows().length + getManualRefundRows().length + state.returns.length + state.payments.length,
     );
     setCount(ordersTabCountEls.walkin, state.walkIn.length);
   };
@@ -2101,6 +2149,7 @@ document.addEventListener("DOMContentLoaded", () => {
     renderIncomingTable();
     renderDirectoryTable();
     renderRejectedTable();
+    renderManualRefundsTable();
     renderReturnsTable();
     renderPaymentsTable();
     renderWalkInTable();
@@ -2146,6 +2195,9 @@ document.addEventListener("DOMContentLoaded", () => {
         rejectedOrdersTbody.querySelector(".table-empty-state"))
     ) {
       showSkeletons(rejectedOrdersTbody, 9);
+    }
+    if (manualRefundsPanel && !manualRefundsPanel.hidden && !manualRefundsTbody?.children.length) {
+      showSkeletons(manualRefundsTbody, 8);
     }
     if (
       returnsRefundsTbody &&
@@ -2287,6 +2339,7 @@ document.addEventListener("DOMContentLoaded", () => {
         9,
         "Unable to load rejected orders.",
       );
+      renderEmptyTable(manualRefundsTbody, 8, "Unable to load manual refunds.");
       renderEmptyTable(
         returnsRefundsTbody,
         11,
@@ -3657,7 +3710,7 @@ document.addEventListener("DOMContentLoaded", () => {
         path: `/admin/orders/${orderId}/reject`,
         method: "POST",
         title: "Reject Incoming Order",
-        message: "Reject this incoming order? A confirmed online payment will be queued for refund. Admin must approve the refund in Online payments & refunds before money is returned.",
+        message: "Reject this order? Paid online orders move to Online refunds for Admin approval. Cash and legacy payments require a manual refund.",
         confirmText: "Reject",
         loadingText: "Rejecting...",
         success: "Order rejected.",
@@ -3693,12 +3746,13 @@ document.addEventListener("DOMContentLoaded", () => {
           }
 
           renderAll();
+          if (action === "reject" && payload?.data) followRejectedOrders([payload.data]);
           notifyOrdersRealtimeUpdate({
             type: `order-${action}`,
             orderId: String(orderId),
           });
           window.setTimeout(() => {
-            showPopup(config.success, { title: "Success" });
+            showPopup(action === "reject" ? rejectionResult(payload?.data) : config.success, { title: "Success" });
           }, 150);
         },
         onError: (error) => {
@@ -3730,11 +3784,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       renderAll();
+      if (action === "reject" && payload?.data) followRejectedOrders([payload.data]);
       notifyOrdersRealtimeUpdate({
         type: `order-${action}`,
         orderId: String(orderId),
       });
-      queueSuccessFlash(config.success, "Success");
+      queueSuccessFlash(action === "reject" ? rejectionResult(payload?.data) : config.success, "Success");
     } catch (error) {
       showPopup(error.message || "Action failed.", { title: "Action Failed" });
     }
@@ -4760,6 +4815,20 @@ document.addEventListener("DOMContentLoaded", () => {
     if (state.rejectedPage >= totalPages) return;
     state.rejectedPage += 1;
     renderRejectedTable();
+  });
+
+  manualRefundsPager.prev?.addEventListener("click", () => {
+    if (state.manualRefundsPage <= 1) return;
+    state.manualRefundsPage--; renderManualRefundsTable();
+  });
+  manualRefundsPager.next?.addEventListener("click", () => {
+    if (state.manualRefundsPage >= Math.max(1, Math.ceil(getManualRefundRows().length / PAGE_SIZE))) return;
+    state.manualRefundsPage++; renderManualRefundsTable();
+  });
+  window.AdminPageNumberInput?.bind(manualRefundsPager.pageNumber, {
+    getPage: () => state.manualRefundsPage,
+    getTotalPages: () => Math.max(1, Math.ceil(getManualRefundRows().length / PAGE_SIZE)),
+    onChange: page => { state.manualRefundsPage = page; renderManualRefundsTable(); },
   });
 
   returnsPager.prev?.addEventListener("click", () => {

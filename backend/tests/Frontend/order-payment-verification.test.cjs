@@ -82,7 +82,7 @@ test('pending claim requires actual receipt acknowledgement and hides unrelated 
 });
 
 test('confirmation stays Incoming and finally does not unlock receive/refund on paid order', async () => {
-  const { context, elements: ui, calls } = harness();
+  const { context, elements: ui, calls, popups } = harness();
   const paid = order({ payment_status: 'paid', payment_actions: actions(false, true) });
   ui.modalPaymentAcknowledgement.checked = true;
   context.request = async (url, options) => {
@@ -95,6 +95,9 @@ test('confirmation stays Incoming and finally does not unlock receive/refund on 
   };
   await context.setPaymentStatus('paid');
   assert.equal(calls.length, 1);
+  assert.equal(popups.length, 1);
+  assert.equal(popups[0].options.title, 'Success');
+  assert.match(popups[0].message, /Payment confirmed/);
   assert.equal(calls[0].options.body.confirmed_received, true);
   assert.equal(calls[0].options.body.expected_status, 'pending');
   assert.equal(context.state.incoming.length, 1);

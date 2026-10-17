@@ -3087,8 +3087,16 @@ class OrderController extends Controller
 
         $ref = (string) ($payment?->reference ?? $order->payment_reference ?? '');
         $isLinkedGcash = false;
+        $gatewayFields = GatewayPayments::displayFields($payment, $order->payment_method);
+        $hasPaymentValue = (float) ($payment?->amount ?? $order->total) > 0 || (float) $order->total > 0;
+        $financialRecord = $gatewayFields['payment_has_refund_record'] || (! $this->paymentIsAutomated($order) && $hasClaim)
+            || ($hasPaymentValue && in_array($status, ['paid', 'refunded'], true));
+        // A rejected fulfillment stays recorded; its payment decides the work queue.
+        $rejectedWorkspace = $order->lifecycle_status !== 'rejected' ? null
+            : ($financialRecord ? ($this->paymentIsAutomated($order) ? 'online_refunds' : 'manual_refunds') : 'rejected');
 
         return [
+            'rejected_order_workspace' => $rejectedWorkspace,
             'payment_due_at' => $this->formatPhilippineIso($dueAt),
             'payment_due_label' => $this->formatPhilippineLabel($dueAt),
             'payment_submitted_at' => $this->formatPhilippineIso($payment?->submitted_at),
@@ -3105,7 +3113,7 @@ class OrderController extends Controller
             'payment_is_confirmed' => $isConfirmed,
             'payment_awaiting_approval' => $isConfirmed && $order->lifecycle_status === 'incoming',
             'payment_is_automated' => $this->paymentIsAutomated($order),
-            ...GatewayPayments::displayFields($payment, $order->payment_method),
+            ...$gatewayFields,
             'payment_actions' => $this->buildPaymentActions($order),
             'payment_is_overdue' => $isOverdue,
             // Refund side of the same row: set once staff have sent the money

@@ -1,5 +1,19 @@
 # Refund management update
 
+## 2026-10-17: Route rejected orders by payment
+
+Rejected fulfillment and refund completion are separate records. The earlier Rejected Orders table filtered only by order status, so paid QR Ph orders appeared there as well as in Online refunds.
+
+- **Rejected Orders:** only rejections with no received payment or submitted legacy payment claim. Unpaid COP, COD and QR Ph orders belong here. Closed orders no longer say ?Awaiting payment,? ?Pay at counter,? or ?Pay on delivery.?
+- **Online refunds:** rejected provider payments with refund requests, failures, processing or confirmed refunds. Rejecting a confirmed QR Ph payment already reserves a refund request inside the rejection transaction; this update routes the operator to that queue and removes the duplicate rejected-table row. Rejection does not issue money. Admin still reviews and issues the refund; Staff can request approval. A late provider-confirmed payment moves the rejected order to this queue without reopening fulfillment or creating duplicate requests.
+- **Manual refunds:** a separate card for rejected paid COP/COD or historical manual GCash payments, plus submitted legacy claims that need verification. Open the eye action, verify any received money, return it manually, and record the outgoing refund reference. Completed manual refunds remain in this card as history. No PayMongo transfer is created for cash or legacy manual payments.
+- **Missing online record:** an older paid rejected online order without a refund record appears in a review notice above Online refunds. **Check payment** reconciles the payment and prepares an eligible refund request; it never authorizes money movement. **Payment details** opens the individual record. Missing evidence is not treated as a confirmed refund or hidden from the operator.
+
+Admin and Staff share the same queue rules, pagination, counts and rejection navigation. These fields are included in the existing order payload; no migration is required. Deploy `OrderController.php`, `GatewayPayments.php`, `admin-page/orders.js`, `admin-page/gateway-payments.js`, `admin-page/admin-modules.css`, and both Orders HTML files together. Include the earlier QR Ph release files if they are not already deployed. Clear the backend cache with `php artisan optimize:clear` after release.
+
+Local verification: 127 backend tests (1,315 assertions), 58 frontend tests, and full Admin/Staff browser fixtures passed. Coverage includes single/bulk rejections, both roles, cash/online separation, late payments, missing provider evidence, zero-value orders, manual repayment and pagination. Browser checks used 1440, 390 and 320 pixel widths in light and dark themes with mocked APIs. The local fixtures do not deploy changes or transfer real funds. Run `node tools/design/check-rejected-orders.cjs` for the browser checks.
+
+
 ## 2026-10-17: QR Ph checkout and refund-only workspace
 
 - Admin and Staff Payments History no longer includes the **GCash Details** button or its collection-settings dialog. The **Online** payment filter includes QR Ph and historical online GCash payments; original payment records remain intact.

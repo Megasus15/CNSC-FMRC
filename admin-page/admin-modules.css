@@ -5736,3 +5736,9 @@ html.report-modal-open-root {
     width: 100%;
   }
 }
+
+/* Keep rejected-order work queues below the fixed Orders header when opened. */
+#rejectedOrdersPanel,
+#manualRefundsPanel {
+  scroll-margin-block-start: 96px;
+}

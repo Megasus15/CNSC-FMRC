@@ -30,7 +30,7 @@ class GatewayPayments
             : ($refunds->contains('status','requested') ? 'requested'
             : ($payment?->status === 'refunded' ? 'succeeded' : ($refunds->contains('status','failed') || $refunds->contains('status','rejected') ? 'needs_review'
             : ($refunds->contains('status','succeeded') ? 'succeeded' : null))));
-        return ['payment_refund_status' => $refundStatus,
+        return ['payment_refund_status' => $refundStatus, 'payment_has_refund_record' => $refunds->isNotEmpty(),
             'payment_refunded_amount' => $refunds->where('status','succeeded')->sum('amount_centavos') / 100,
             'payment_checkout_method' => $method,
             'payment_method_label' => $method ? PayMongoService::methodLabel($method) : ($payment?->method ?? $fallback)];

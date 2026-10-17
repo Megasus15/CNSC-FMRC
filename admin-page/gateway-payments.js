@@ -27,6 +27,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const checkResult = document.createElement('p');
   checkResult.className = 'gateway-intro'; checkResult.setAttribute('role', 'status'); checkResult.hidden = true;
   panel.querySelector('[data-gateway-health]').after(checkResult);
+  const rejectedPaymentReview = document.createElement('div');
+  rejectedPaymentReview.className='order-cancellation-notice'; rejectedPaymentReview.hidden=true;
+  checkResult.after(rejectedPaymentReview);
+  let rejectedPaymentReviews=[];
   const checking = new Set();
   let financialSnapshot='';
   let realtimeChannel;
@@ -140,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const refundPaymentIds = new Set(data.refunds.map(r=>Number(r.payment_id)));
       data.payments.data = data.payments.data.filter(p=>refundPaymentIds.has(Number(p.id)));
       if (reloadPending) return;
-      currentReceipts = data.receipts || []; currentRefunds = data.refunds; currentPayments = data.payments.data; canApprove = data.can_approve; pages = data.payments.last_page; renderCancellations();
+      currentReceipts = data.receipts || []; currentRefunds = data.refunds; currentPayments = data.payments.data; canApprove = data.can_approve; pages = data.payments.last_page; renderCancellations(); renderRejectedPaymentReviews();
       refundShortcut.innerHTML = '<i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Online refunds <span class="tab-count">'+Number(data.refunds_awaiting_approval || 0)+'</span>';
       refundShortcut.title = 'Refund requests awaiting Admin approval';
       const stats=data.refund_summary || {};
@@ -379,6 +383,22 @@ document.addEventListener('DOMContentLoaded', () => {
     void load(); panel.scrollIntoView({behavior:'smooth',block:'start'});
   };
   document.addEventListener('click',e=>{const button=e.target.closest('[data-cancellation-review]');if(!button)return;document.getElementById('modalOrderDetails')?.classList.remove('show');openWorkspace('cancellations');show('cancelapprove',button.dataset.cancellationReview);});
+  const renderRejectedPaymentReviews = () => {
+    const missing=rejectedPaymentReviews.filter(o=>!currentPayments.some(p=>Number(p.order_id)===Number(o.id)));
+    rejectedPaymentReview.hidden=!missing.length;
+    rejectedPaymentReview.innerHTML=missing.length ? '<strong>Refund setup needs review</strong><p>These rejected online payments have no refund record. Check the payment or open its details. Checking never issues money.</p>'+missing.map(o=>`<div class="gateway-toolbar"><strong>${esc(o.order_no_display || o.order_no)}</strong><button type="button" class="btn-admin btn-secondary" data-check="${o.id}" ${checking.has(String(o.id))?'disabled':''}>Check payment</button><button type="button" class="btn-admin btn-secondary" data-gateway-manage="${o.id}">Payment details</button></div>`).join('') : '';
+  };
+  window.addEventListener('fmrc:orders-synced',e=>{
+    rejectedPaymentReviews=(e.detail?.orders || []).filter(o=>o.rejected_order_workspace==='online_refunds' && o.payment_is_automated
+      && o.payment_has_refund_record===false);
+    renderRejectedPaymentReviews();
+  });
+  window.addEventListener('fmrc:open-online-refunds',e=>{
+    openWorkspace(); page=1; snapshot='';
+    panel.querySelector('[data-gateway-search]').value=e.detail?.orderNo || '';
+    panel.querySelector('[data-gateway-status-filter]').value='';
+    void load(); panel.scrollIntoView({behavior:'smooth',block:'start'});
+  });
   const openingDetails = new Set();
   document.addEventListener('click', async e => {
     const button=e.target.closest('[data-gateway-manage]'); if(!button) return;
