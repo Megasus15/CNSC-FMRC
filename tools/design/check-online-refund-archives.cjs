@@ -72,13 +72,16 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
    assert.equal(await run(`document.querySelector('[data-archive="1"]').disabled`),true);
    assert.equal(await run(`document.querySelector('[data-archive="2"]').disabled`),false);
    assert.equal(await run(`document.querySelector('[data-archive="1"] i').className`),'fa-solid fa-box-archive');
-   await run(`window.archiveReady=false;window.dispatchEvent(new Event('focus'))`);
-   await until(`!!document.querySelector('[data-archive-unavailable]')`);
-   assert.equal(await run(`document.querySelector('[data-archive="2"]').disabled`),true);
+   await run(`window.calls=[];window.archiveReady=false;window.dispatchEvent(new Event('focus'))`);
+   await until(`calls.some(c=>c.url.includes('/gateway-payments'))`);
+   assert.equal(await run(`document.querySelector('[data-archive="2"]').disabled`),false);
    assert.match(await run(`document.querySelector('#gatewayPaymentsTable tbody tr:nth-child(2)').textContent`),/Refund confirmed/);
-   assert.match(await run(`document.querySelector('[data-archive="2"]').getAttribute('aria-label')`),/temporarily unavailable/);
-   await run(`window.archiveReady=true;window.dispatchEvent(new Event('focus'))`);
-   await until(`!document.querySelector('[data-archive-unavailable]') && document.querySelector('[data-archive="2"]').disabled===false`);
+   assert.equal(await run(`document.querySelector('[data-archive="1"]').title`),'Available after refund confirmation.');
+   assert.equal(await run(`getComputedStyle(document.querySelector('[data-archive="1"]')).pointerEvents`),'auto');
+   await run(`refunds.push({id:23,payment_id:2,provider_payment_id:'pay_2',amount_centavos:100,status:'unknown'});window.dispatchEvent(new Event('focus'))`);
+   await until(`document.querySelector('[data-archive="2"]').disabled===true`);
+   await run(`refunds=refunds.filter(r=>r.id!==23);window.dispatchEvent(new Event('focus'))`);
+   await until(`document.querySelector('[data-archive="2"]').disabled===false`);
    assert.equal(await run(`calls.filter(c=>c.options.method==='POST').length`),0);
 
    for(const width of [1440,390,320]){
@@ -129,6 +132,6 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
    assert.equal(await run(`calls.some(c=>c.options.method==='POST')`),false);
    assert.deepEqual(await run('errors'),[]);
   }
-  console.log('PASS: Admin and Staff refund actions, merged GET-only provider checks, archive confirmation, disabled open-refund archive, storage readiness and realtime button recovery, Archives tab/restore and archived details. 1440/390/320px, light/dark. Mocked APIs only.');
+  console.log('PASS: Admin and Staff confirmed refunds enable Archive despite stale capability flags, pending refunds stay disabled with a readable reason, realtime transitions, Archives/restore and GET-only status checks. 1440/390/320px, light/dark. Mocked APIs only.');
  } finally {ws?.close();browser.kill();server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -49,9 +49,7 @@ class GatewayManagementController extends Controller
         foreach($rows->items() as $row) {
             $row->status=$currentStatuses[$row->id] ?? $row->status;
             $row->cancel_reason_label=Order::CANCEL_REASON_LABELS[$row->cancel_reason] ?? $row->cancel_reason;
-            $row->refund_archive_reason = $archiveAvailable
-                ? OnlineRefundArchive::blockedReason($refunds->where('payment_id', $row->id), $row->cancel_state)
-                : 'Refund archiving is temporarily unavailable.';
+            $row->refund_archive_reason = OnlineRefundArchive::blockedReason($refunds->where('payment_id', $row->id), $row->cancel_state);
             $row->can_archive_refunds = $row->refund_archive_reason === null;
         }
         $summary = DB::table('payment_refunds')->where('livemode',$provider->isLive())
@@ -149,7 +147,14 @@ class GatewayManagementController extends Controller
 
     public function archiveRefunds(Request $r, Order $order): JsonResponse {
         $this->team($r);
-        abort_unless(OnlineRefundArchive::available(), 503, 'Refund archiving is temporarily unavailable.');
+        $payment = $order->payment;
+        abort_unless(GatewayPayments::managed($payment), 422, 'No online payment was found for this order.');
+        $reason = OnlineRefundArchive::blockedReason(DB::table('payment_refunds')->where('payment_id', $payment->id)->get(), $order->cancel_state);
+        abort_if($reason !== null, 422, $reason ?? 'Refund cannot be archived.');
+        // Shared-host releases can precede the archive migration. Prepare its
+        // nullable fields only on an eligible Archive action, never while polling.
+        // MySQL DDL must finish before starting the locked archive transaction.
+        abort_unless(OnlineRefundArchive::prepareStorage(), 503, 'Archive is unavailable. Please try again later.');
         DB::transaction(function () use ($r, $order) {
             $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             $payment = Payment::where('order_id', $order->id)->lockForUpdate()->firstOrFail();

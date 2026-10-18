@@ -1,10 +1,21 @@
 # Enable confirmed-refund archives on Hostinger
 
-A **Refund confirmed** row can still have a disabled Archive icon when the live database lacks archive storage or the deployed API predates archive eligibility. The live backend needs both `payments.online_refund_archived_at` and `payments.online_refund_archived_by`. Pending claims and unresolved refunds must remain disabled.
+The latest update enables Archive when the row's current refund status is **Refund confirmed**. Pending refunds remain disabled. Older failed or declined attempts stay in history after a later confirmed refund for the same payment; they do not keep the confirmed row disabled.
 
-Upload the matching archive release files first: `backend/app/Support/OnlineRefundArchive.php`, `backend/app/Http/Controllers/Api/GatewayManagementController.php`, the archive migration, shared `admin-page/gateway-payments.js`, and both Orders HTML files. Include the Archives page/controller files from [the release guide](HOSTINGER_REFUND_RELEASE.md) if they are not already deployed.
+Deploy these six application files together:
 
-Use one database setup method below.
+- `backend/app/Support/OnlineRefundArchive.php`
+- `backend/app/Http/Controllers/Api/GatewayManagementController.php`
+- `admin-page/gateway-payments.js`
+- `admin-page/gateway-payments.css`
+- `admin-page/orders.html`
+- `staff-page/orders.html`
+
+Both Orders pages load script version `3.2-confirmed-archive`. Reload Orders after deployment. Include the Archives page/controller files from [the release guide](HOSTINGER_REFUND_RELEASE.md) if they are not already deployed.
+
+On the first eligible Archive action, the backend prepares missing nullable archive fields, then rechecks the refund under the existing order/payment locks before archiving. Schema setup runs outside the payment transaction and never runs during polling. Normal installations no longer require a separate SQL import to enable the button.
+
+Use a database setup method below only if the hosting database account cannot create the missing fields automatically. The action reports **Archive is unavailable. Please try again later.** if setup cannot finish, and leaves the refund in the active list.
 
 ## With Hostinger Terminal / SSH
 
@@ -27,6 +38,6 @@ Use one database setup method below.
 
 The SQL patch does not insert a Laravel migration-history record. The updated migration also accepts the columns created by this patch, so a later normal migration run can register it without recreating existing archive storage.
 
-If Archive remains disabled, inspect the action's explanation and the current API response before changing any refund record. The response must include `refund_archive_available`, `can_archive_refunds` and `refund_archive_reason`. A missing capability field indicates an older deployed API; an unavailable-storage explanation indicates that the patch was not applied to the database used by the live backend. Outstanding cancellation review or unresolved refund attempts can also legitimately block archival.
+Disabled icons now accept hover and show **Available after refund confirmation.** Outstanding cancellation reviews show **Review cancellation first.** Archive eligibility is independent of `refund_archive_available`; that field reports only whether storage already exists. A row with an active requested, pending, unknown or failed refund still needs that refund resolved before archival.
 
 These steps add archive metadata only. They do not issue refunds or change payment/refund amounts or statuses. Local checks do not verify the live deployment.

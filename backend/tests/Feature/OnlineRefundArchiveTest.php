@@ -6,7 +6,7 @@ use App\Models\{Order, Payment, User};
 use App\Services\GatewayPayments;
 use App\Support\GatewayFinancials;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\{DB, Http, Mail, Schema};
+use Illuminate\Support\Facades\{Cache, DB, Http, Mail, Schema};
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -162,9 +162,9 @@ class OnlineRefundArchiveTest extends TestCase
         $payment=$this->payment(); Sanctum::actingAs(User::factory()->create(['role'=>'admin']));
         $endpoint='/api/admin/orders/'.$payment->order_id.'/archive-refunds';
         $this->postJson($endpoint)->assertUnprocessable();
-        $this->refund($payment,'failed',1000); $this->refund($payment,'succeeded',100);
-        $this->postJson($endpoint)->assertUnprocessable(); // Smaller retry does not resolve the failed amount.
-        DB::table('payment_refunds')->where('payment_id',$payment->id)->where('status','failed')->update(['amount_centavos'=>100]);
+        $this->refund($payment,'failed',1000);
+        $this->postJson($endpoint)->assertUnprocessable();
+        $this->refund($payment,'succeeded',100);
         $payment->order->update(['cancel_state'=>'requested']);
         $this->postJson($endpoint)->assertUnprocessable();
         $payment->order->update(['cancel_state'=>'none']);
@@ -199,15 +199,58 @@ class OnlineRefundArchiveTest extends TestCase
     }
 
     #[DataProvider('roles')]
-    public function test_missing_archive_storage_is_reported_separately_from_a_confirmed_refund(string $role): void
+    public function test_confirmed_refund_archives_when_storage_has_not_been_deployed(string $role): void
     {
         $payment=$this->payment(); $this->refund($payment,'succeeded');
-        Sanctum::actingAs(User::factory()->create(['role'=>$role]));
+        $actor=User::factory()->create(['role'=>$role]); Sanctum::actingAs($actor);
         Schema::table('payments',fn($table)=>$table->renameColumn('online_refund_archived_at','archive_fixture_missing'));
+        Schema::table('payments',fn($table)=>$table->dropIndex('payments_online_refund_archived_at_index'));
         $this->getJson('/api/admin/gateway-payments')->assertOk()->assertJsonPath('refund_archive_available',false)
-            ->assertJsonPath('refunds.0.status','succeeded')->assertJsonPath('payments.data.0.can_archive_refunds',false)
-            ->assertJsonPath('payments.data.0.refund_archive_reason','Refund archiving is temporarily unavailable.');
-        $this->postJson('/api/admin/orders/'.$payment->order_id.'/archive-refunds')->assertStatus(503);
+            ->assertJsonPath('refunds.0.status','succeeded')->assertJsonPath('payments.data.0.can_archive_refunds',true)
+            ->assertJsonPath('payments.data.0.refund_archive_reason',null);
+        $this->assertFalse(Schema::hasColumn('payments','online_refund_archived_at')); // Polling does not install storage.
+        $this->postJson('/api/admin/orders/'.$payment->order_id.'/archive-refunds')->assertOk();
+        $this->assertNotNull($payment->fresh()->online_refund_archived_at);
+        $this->assertSame($actor->id,(int)$payment->fresh()->online_refund_archived_by);
+        $this->getJson('/api/admin/archives?module=online_refund')->assertOk()->assertJsonCount(1,'online_refunds');
+        $this->getJson('/api/admin/gateway-payments')->assertOk()->assertJsonPath('payments.total',0);
+        $this->assertDatabaseCount('payment_refunds',1); Http::assertNothingSent();
+    }
+
+    #[DataProvider('roles')]
+    public function test_confirmed_refund_matches_the_displayed_status_after_a_failed_larger_attempt(string $role): void
+    {
+        $payment=$this->payment(); $this->refund($payment,'failed',1000); $this->refund($payment,'succeeded',100);
+        Sanctum::actingAs(User::factory()->create(['role'=>$role]));
+        $this->getJson('/api/admin/gateway-payments')->assertOk()->assertJsonPath('payments.data.0.can_archive_refunds',true);
+        $this->postJson('/api/admin/orders/'.$payment->order_id.'/archive-refunds')->assertOk();
+        $this->assertSame(100,(int)DB::table('payment_refunds')->where('status','succeeded')->sum('amount_centavos'));
+        $this->assertSame('paid',$payment->fresh()->status); // Archiving a partial refund does not mark the whole payment refunded.
+        Http::assertNothingSent();
+    }
+
+    public function test_pending_refund_cannot_prepare_archive_storage(): void
+    {
+        $payment=$this->payment(); $this->refund($payment,'pending');
+        Sanctum::actingAs(User::factory()->create(['role'=>'staff']));
+        Schema::table('payments',fn($table)=>$table->renameColumn('online_refund_archived_at','archive_fixture_missing'));
+        $this->postJson('/api/admin/orders/'.$payment->order_id.'/archive-refunds')->assertUnprocessable();
+        $this->assertFalse(Schema::hasColumn('payments','online_refund_archived_at'));
+        Http::assertNothingSent();
+    }
+
+    public function test_archive_setup_failure_does_not_hide_or_change_the_refund(): void
+    {
+        $payment=$this->payment(); $this->refund($payment,'succeeded');
+        Sanctum::actingAs(User::factory()->create(['role'=>'admin']));
+        Schema::table('payments',fn($table)=>$table->renameColumn('online_refund_archived_at','archive_fixture_missing'));
+        $cache=Cache::getFacadeRoot();
+        Cache::partialMock()->shouldReceive('lock')->once()->andThrow(new \RuntimeException('Fixture setup failure'));
+        $this->postJson('/api/admin/orders/'.$payment->order_id.'/archive-refunds')->assertStatus(503)
+            ->assertJsonPath('message','Archive is unavailable. Please try again later.');
+        Cache::swap($cache);
+        $this->getJson('/api/admin/gateway-payments')->assertOk()->assertJsonPath('payments.total',1)
+            ->assertJsonPath('refunds.0.status','succeeded');
         $this->assertDatabaseCount('payment_refunds',1); Http::assertNothingSent();
     }
 

@@ -1,5 +1,15 @@
 # Refund management update
 
+## 2026-10-19: Archive follows the confirmed refund status
+
+Archive now enables for **Refund confirmed** in both Admin and Staff, using the same current-refund rule as the row's status. Historical failed/declined attempts no longer block a later confirmed refund for the same provider payment. Active requests, claims, unknown outcomes, new failures and pending cancellation reviews stay disabled. Archiving a confirmed partial refund preserves its actual amount and the payment's remaining balance.
+
+Missing archive fields no longer disable a confirmed row. The first eligible Archive action prepares only its two nullable metadata fields, outside the payment transaction and behind a short setup lock, then rechecks eligibility inside the normal order/payment locks. Read-only polling never changes the schema. A setup failure leaves the refund visible and reports a short error. Existing customer history, provider calls, payment/refund amounts and realtime refresh remain unchanged.
+
+Deploy the six application files listed in [the archive fix guide](HOSTINGER_ARCHIVE_FIX.md). Both portals use `gateway-payments.js?v=3.2-confirmed-archive` and `gateway-payments.css?v=2.8-archive-tooltip`. Reload Orders after deployment. Manual SQL setup is only a fallback if the hosting database account cannot add the fields automatically. Earlier release notes below describe the superseded storage gate.
+
+Local verification: 97 backend tests (952 assertions) passed. Admin/Staff browser fixtures passed at 1440, 390 and 320 pixels in both themes: confirmed rows enable Archive even with an old capability flag, pending rows stay disabled, realtime status transitions update the button, and Archive/Restore works. Both automatic storage preparation and the SQL fallback passed against four isolated local MySQL schemas, including missing and partially installed fields, with repeat runs and preserved amounts/statuses. No production database or deployment was changed.
+
 ## 2026-10-19: Confirmed refund with a disabled Archive icon
 
 Both Admin and Staff use the same archive eligibility check. A provider-confirmed refund can still show a disabled icon if the deployed database lacks the archive columns or unresolved attempts remain. The API now reports archive storage readiness, and Orders shows a setup notice when storage is missing. Earlier failed or declined attempts can be covered by later successful partial refunds totaling the attempted amount for the same provider payment and return. New failed requests, pending claims, processing refunds and outstanding cancellation reviews continue to block archival.

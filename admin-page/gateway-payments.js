@@ -65,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const icon=Object.keys(actionIcons).find(key=>button.hasAttribute('data-'+key));
     button.type='button'; button.classList.remove('gateway-primary');
     button.setAttribute('aria-label',label); button.dataset.tooltip=label;
+    if (icon==='archive') button.title=label;
     const spinning=button.disabled && icon==='check';
     button.innerHTML='<i class="'+(['order-view','history'].includes(icon)?'fa-regular':'fa-solid')+' fa-'+(spinning?'spinner fa-spin':actionIcons[icon] || 'eye')+'" aria-hidden="true"></i>';
   });
@@ -152,8 +153,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const stats=data.refund_summary || {};
       panel.querySelector('[data-gateway-stats]').innerHTML=[['Awaiting approval',stats.requested||0],['Processing',stats.processing||0],['Needs attention',stats.failed||0],['Returned to customers',money(stats.refunded_centavos||0)]].map(([label,value])=>'<div><span>'+esc(label)+'</span><strong>'+esc(value)+'</strong></div>').join('');
       panel.querySelector('[data-gateway-health]').innerHTML = '<span>'+esc(data.checkout_label || methodLabel(data.checkout_method))+'</span>'+badge(data.livemode?'live':'test')+'<span>Last scheduled check: '+esc(dateLabel(data.last_reconciled_at))+'</span>';
-      const archiveUnavailable = data.refund_archive_available === false || data.payments.data.some(p=>p.refund_archive_reason==='Refund archiving is temporarily unavailable.');
-      if (archiveUnavailable) panel.querySelector('[data-gateway-health]').insertAdjacentHTML('beforeend','<span data-archive-unavailable>Refund archiving is unavailable. Ask the administrator to complete archive setup.</span>');
       if (data.refund_funding) {
         const funding=data.refund_funding;
         const balance=funding.available_centavos===null?'': 'Wallet: '+money(funding.available_centavos)+' ? ';
@@ -167,6 +166,9 @@ document.addEventListener('DOMContentLoaded', () => {
           const remaining=receipt=>Number(receipt.amount_centavos)-refunds.filter(f=>f.provider_payment_id===receipt.provider_payment_id && !['failed','rejected'].includes(f.status)).reduce((sum,f)=>sum+Number(f.amount_centavos||0),0);
           const refundable=receipts.some(r=>remaining(r)>=100);
           const visible=refunds.filter(r=>!['failed','rejected'].includes(r.status)||!refunds.some(n=>n.id>r.id && n.provider_payment_id===r.provider_payment_id));
+          // The icon follows the displayed confirmed status, including during a
+          // staggered API release. The archive endpoint rechecks it before saving.
+          const canArchive=visible.length>0 && visible.every(r=>r.status==='succeeded') && p.cancel_state!=='requested';
           const actions=[`<button data-history="${p.order_id}">View details</button>`];
           if(p.cancel_state==='requested')actions.push(`<button class="gateway-primary" data-cancellation-review="${p.order_id}">Review cancellation</button>`);
           for(const r of visible){
@@ -178,7 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if(refundable && ['paid','refunded'].includes(p.status) && p.cancel_state!=='requested' && !visible.some(r=>['requested','submitting','pending','unknown','failed'].includes(r.status)))actions.push(`<button data-refund="${p.order_id}">${canApprove?'Issue refund':'Request refund'}</button>`);
           if(canApprove && data.attempts.some(a=>Number(a.payment_id)===Number(p.id) && !a.checkout_id && ['creating','unknown'].includes(a.status)))actions.push(`<button data-recovercheckout="${p.order_id}">Match checkout</button>`);
           actions.push(`<button data-check="${p.order_id}">Check status</button>`);
-          actions.push(`<button data-archive="${p.order_id}" ${p.can_archive_refunds?'':'disabled'}>${p.can_archive_refunds?'Archive refund':esc(p.refund_archive_reason || 'Archive becomes available after the refund is confirmed.')}</button>`);
+          actions.push(`<button data-archive="${p.order_id}" ${canArchive?'':'disabled'}>${canArchive?'Archive refund':esc(p.cancel_state==='requested'?'Review cancellation first.':'Available after refund confirmation.')}</button>`);
           const status=visible.map(r=>`<div class="gateway-table-state"><span class="status-pill ${statusClass(r.status)}" data-status="${esc(r.status)}">${esc(r.transfer_link?'Awaiting customer claim':refundLabel(r.status))}</span><small>${money(r.amount_centavos)}${r.status==='failed'?' - '+esc(r.failure_message || 'Needs review'):''}</small></div>`).join('') || '<span class="gateway-secondary">'+(p.cancel_state==='requested'?'Review cancellation first':['cancelled','rejected'].includes(p.lifecycle_status) && p.status==='paid'?'Refund required':'No refund requested')+'</span>';
           return `<tr><td><strong>${esc(p.order_no)}</strong><small>${esc(p.customer_name || 'Customer')}</small><small>${esc(readable(p.lifecycle_status))} &middot; ${esc(readable(p.status))}</small></td><td>${esc(cancellationReason(p) || (p.lifecycle_status==='rejected'?'Order rejected':'-'))}${p.cancel_requested_at?'<small>'+esc(dateLabel(p.cancel_requested_at))+'</small>':''}</td><td class="gateway-money">${money(receipts.reduce((n,r)=>n+Number(r.amount_centavos),0))}</td><td class="gateway-money">${money(refunds.filter(r=>r.status==='succeeded').reduce((n,r)=>n+Number(r.amount_centavos),0))}</td><td>${status}</td><td class="action-icons sticky-action gateway-actions">${actions.join('')}</td></tr>`;
         }).join('') || emptyRow('No refunds match these filters.');
