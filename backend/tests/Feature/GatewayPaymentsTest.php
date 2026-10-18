@@ -440,7 +440,7 @@ class GatewayPaymentsTest extends TestCase {
         $paid=$this->order(); $a=$this->attempt($paid,false,'qrph');
         app(GatewayPayments::class)->applySession($a->id,$this->providerSession($a,['source'=>['type'=>'qrph']]));
         $unpaid=$this->order(); Sanctum::actingAs(User::factory()->create(['role'=>'staff']));
-        $this->postJson('/api/admin/orders/reject-bulk',['ids'=>[$paid->id,$unpaid->id]])->assertOk();
+        $this->postJson('/api/admin/orders/reject-bulk',['reason'=>'The requested material is unavailable.','ids'=>[$paid->id,$unpaid->id]])->assertOk();
         $this->assertDatabaseCount('payment_refunds',1);
         $this->assertDatabaseHas('payment_refunds',['payment_id'=>$paid->payment->id,'status'=>'requested','amount_centavos'=>50000]);
         Http::assertNothingSent();
@@ -930,6 +930,27 @@ class GatewayPaymentsTest extends TestCase {
         }
         DB::table('payment_refunds')->insert(['payment_id'=>$r->payment_id,'provider_payment_id'=>$r->provider_payment_id,'token'=>(string)Str::uuid(),'requested_by'=>$admin->id,'amount_centavos'=>50000,'reason'=>'Previous failed attempt','livemode'=>true,'status'=>'failed','created_at'=>now(),'updated_at'=>now()]);
         $this->assertSame('succeeded',GatewayPayments::displayFields($o->fresh()->payment)['payment_refund_status']);
+    }
+
+    public function test_provider_totals_and_chart_use_philippine_midnight_for_utc_entries(): void {
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-10-18 22:30:00','UTC'));
+        config(['payments.paymongo.secret_key'=>'sk_live_example']);
+        $actor=User::factory()->create(['role'=>'admin']); Sanctum::actingAs($actor);
+        foreach (['2026-10-18 15:59:59','2026-10-18 16:00:00','2026-10-18 22:30:00','2026-10-19 15:59:59','2026-10-19 16:00:00'] as $timestamp) {
+            $order=$this->order(); $attempt=$this->attempt($order,true,'qrph');
+            app(GatewayPayments::class)->applySession($attempt->id,$this->providerSession($attempt,['source'=>['type'=>'qrph']]));
+            DB::table('payment_receipts')->where('payment_id',$order->payment->id)->update(['confirmed_at'=>$timestamp]);
+            DB::table('payment_refunds')->insert(['payment_id'=>$order->payment->id,'provider_payment_id'=>'pay_'.str_replace('-','',$attempt->token),
+                'token'=>(string)Str::uuid(),'requested_by'=>$actor->id,'amount_centavos'=>10000,'reason'=>'Date boundary fixture',
+                'livemode'=>true,'status'=>'succeeded','confirmed_at'=>$timestamp,'created_at'=>now(),'updated_at'=>now()]);
+        }
+        $day=$this->getJson('/api/admin/dashboard/revenue?period=day')->assertOk();
+        $day->assertJsonPath('data.period.breakdown.gcash_advance',1500)
+            ->assertJsonPath('data.period.breakdown.refunds',300)->assertJsonPath('data.period.collected',1200)
+            ->assertJsonPath('data.series.0.amount',1200);
+        $this->assertSame(2500.0,GatewayFinancials::total('receipts'));
+        $this->assertSame(500.0,GatewayFinancials::total('refunds'));
+        Http::assertNothingSent();
     }
 
     public function test_live_qrph_report_labels_receipt_and_refund_without_guessing_wallet(): void {

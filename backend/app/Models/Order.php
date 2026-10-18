@@ -360,4 +360,13 @@ class Order extends Model
             ->whereIn('lifecycle_status', self::GCASH_ADVANCE_LIFECYCLE_STATUSES)
             ->whereHas('payment', fn (Builder $payment) => $payment->where('status', 'paid'));
     }
+
+    /** The reason appended by the rejection action, shared with customer alerts. */
+    public function rejectionReason(): ?string
+    {
+        if ($this->lifecycle_status !== 'rejected') return null;
+        preg_match_all('/(?:^|\R)Rejection reason:[ \t]*([^\r\n]+)/u', (string) $this->notes, $matches);
+        $reasons = $matches[1] ?? [];
+        return $reasons ? trim(end($reasons)) : null;
+    }
 }

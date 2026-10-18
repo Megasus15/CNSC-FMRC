@@ -1925,6 +1925,10 @@ document.addEventListener("DOMContentLoaded", () => {
     body = {},
     confirmMessage,
   }) => {
+    if (action === "reject") {
+      openIncomingOrderRejection(ids, controller);
+      return;
+    }
     window.runAdminBulkAction?.({
       controller,
       ids,
@@ -3695,7 +3699,99 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   };
 
+  const incomingRejectionDialog = document.getElementById("rejectIncomingOrderDialog");
+  const incomingRejectionForm = document.getElementById("rejectIncomingOrderForm");
+  const incomingRejectionReason = document.getElementById("rejectIncomingOrderReason");
+  const incomingRejectionError = document.getElementById("rejectIncomingOrderError");
+  const incomingRejectionSubmit = document.getElementById("confirmIncomingOrderRejection");
+  const incomingRejectionCancel = document.getElementById("cancelIncomingOrderRejection");
+  let incomingRejection = null;
+  let incomingRejectionBusy = false;
+
+  const openIncomingOrderRejection = (rawIds, controller = null) => {
+    if (incomingRejectionBusy || incomingRejectionDialog?.open) return;
+    const ids = [...new Set(rawIds.map(Number).filter(id => Number.isSafeInteger(id) && id > 0))];
+    if (!ids.length) return;
+    if (!incomingRejectionDialog) {
+      showPopup("Refresh this page to open the rejection form.", { title: "Refresh Required" });
+      return;
+    }
+    incomingRejection = { ids, controller };
+    incomingRejectionForm.reset();
+    incomingRejectionReason.removeAttribute("aria-invalid");
+    incomingRejectionError.textContent = "";
+    document.getElementById("rejectIncomingOrderCount").textContent = "0 / 500";
+    const bulk = ids.length > 1;
+    const order = state.ordersById.get(String(ids[0]));
+    document.getElementById("rejectIncomingOrderTitle").textContent = bulk ? "Reject Incoming Orders" : "Reject Incoming Order";
+    document.getElementById("rejectIncomingOrderContext").textContent = bulk
+      ? `${ids.length} selected orders. Each customer will receive the same reason.`
+      : [order?.order_no_display || order?.order_no || `Order #${ids[0]}`, order?.customer_name].filter(Boolean).join(" · ");
+    incomingRejectionSubmit.textContent = bulk ? "Reject orders" : "Reject order";
+    incomingRejectionDialog.showModal();
+    incomingRejectionReason.focus();
+  };
+
+  incomingRejectionReason?.addEventListener("input", () => {
+    document.getElementById("rejectIncomingOrderCount").textContent = `${incomingRejectionReason.value.length} / 500`;
+    incomingRejectionReason.removeAttribute("aria-invalid");
+    incomingRejectionError.textContent = "";
+  });
+  incomingRejectionCancel?.addEventListener("click", () => {
+    if (!incomingRejectionBusy) incomingRejectionDialog.close();
+  });
+  incomingRejectionDialog?.addEventListener("cancel", event => {
+    if (incomingRejectionBusy) event.preventDefault();
+  });
+  incomingRejectionForm?.addEventListener("submit", async event => {
+    event.preventDefault();
+    if (incomingRejectionBusy || !incomingRejection) return;
+    const reason = incomingRejectionReason.value.replace(/\s+/gu, " ").trim();
+    if (!reason || reason.length > 500) {
+      incomingRejectionError.textContent = reason ? "Keep the rejection reason within 500 characters." : "Enter a reason for rejecting the order.";
+      incomingRejectionReason.setAttribute("aria-invalid", "true");
+      incomingRejectionReason.focus();
+      return;
+    }
+    const { ids, controller } = incomingRejection;
+    const bulk = Boolean(controller) || ids.length > 1;
+    const label = incomingRejectionSubmit.textContent;
+    incomingRejectionBusy = true;
+    controller?.setBusy(true);
+    incomingRejectionDialog.setAttribute("closedby", "none");
+    incomingRejectionSubmit.disabled = incomingRejectionCancel.disabled = incomingRejectionReason.disabled = true;
+    incomingRejectionSubmit.textContent = "Rejecting...";
+    incomingRejectionError.textContent = "";
+    try {
+      const payload = await request(bulk ? "/admin/orders/reject-bulk" : `/admin/orders/${ids[0]}/reject`, {
+        method: "POST", body: bulk ? { ids, reason } : { reason },
+      });
+      if (payload?.data) upsertOrderSummaryInState(payload.data);
+      if (bulk) controller?.clear();
+      notifyOrdersRealtimeUpdate({ type: bulk ? "orders-reject-bulk" : "order-reject", orderId: String(ids[0]), processedIds: payload?.processed_ids || ids });
+      incomingRejectionDialog.close();
+      if (bulk) {
+        await syncOrders(true, { force: true, source: "action" });
+        const processed = new Set((payload?.processed_ids || []).map(String));
+        followRejectedOrders(state.directory.filter(order => processed.has(String(order.id))));
+      } else {
+        renderAll();
+        if (payload?.data) followRejectedOrders([payload.data]);
+      }
+      window.setTimeout(() => showPopup(bulk ? payload.message || "Selected orders rejected. Customers will receive the reason." : rejectionResult(payload?.data), { title: "Success" }), 150);
+    } catch (error) {
+      incomingRejectionError.textContent = error?.message || "The order could not be rejected. Please try again.";
+    } finally {
+      incomingRejectionBusy = false;
+      controller?.setBusy(false);
+      incomingRejectionDialog.removeAttribute("closedby");
+      incomingRejectionSubmit.disabled = incomingRejectionCancel.disabled = incomingRejectionReason.disabled = false;
+      incomingRejectionSubmit.textContent = label;
+    }
+  });
+
   const mutateOrder = async (orderId, action) => {
+    if (action === "reject") return openIncomingOrderRejection([orderId]);
     const actionMap = {
       approve: {
         path: `/admin/orders/${orderId}/approve`,
@@ -3705,15 +3801,6 @@ document.addEventListener("DOMContentLoaded", () => {
         confirmText: "Approve",
         loadingText: "Approving...",
         success: "Order approved and moved to Orders Directory.",
-      },
-      reject: {
-        path: `/admin/orders/${orderId}/reject`,
-        method: "POST",
-        title: "Reject Incoming Order",
-        message: "Reject this order? Paid online orders move to Online refunds for Admin approval. Cash and legacy payments require a manual refund.",
-        confirmText: "Reject",
-        loadingText: "Rejecting...",
-        success: "Order rejected.",
       },
       delete: {
         path: `/admin/orders/${orderId}`,
@@ -3728,7 +3815,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const config = actionMap[action];
     if (!config) return;
 
-    if (action === "approve" || action === "reject") {
+    if (action === "approve") {
       window.showAdminConfirmPopup?.(config.message, {
         title: config.title,
         confirmText: config.confirmText,
@@ -3738,7 +3825,6 @@ document.addEventListener("DOMContentLoaded", () => {
         onConfirm: async () => {
           const payload = await request(config.path, {
             method: config.method || "POST",
-            body: action === "reject" ? { reason: null } : undefined,
           });
 
           if (payload?.data) {
@@ -3746,13 +3832,12 @@ document.addEventListener("DOMContentLoaded", () => {
           }
 
           renderAll();
-          if (action === "reject" && payload?.data) followRejectedOrders([payload.data]);
           notifyOrdersRealtimeUpdate({
             type: `order-${action}`,
             orderId: String(orderId),
           });
           window.setTimeout(() => {
-            showPopup(action === "reject" ? rejectionResult(payload?.data) : config.success, { title: "Success" });
+            showPopup(config.success, { title: "Success" });
           }, 150);
         },
         onError: (error) => {
@@ -3774,7 +3859,6 @@ document.addEventListener("DOMContentLoaded", () => {
     try {
       const payload = await request(config.path, {
         method: config.method || "POST",
-        body: action === "reject" ? { reason: null } : undefined,
       });
 
       if (action === "delete") {
@@ -3784,12 +3868,11 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       renderAll();
-      if (action === "reject" && payload?.data) followRejectedOrders([payload.data]);
       notifyOrdersRealtimeUpdate({
         type: `order-${action}`,
         orderId: String(orderId),
       });
-      queueSuccessFlash(action === "reject" ? rejectionResult(payload?.data) : config.success, "Success");
+      queueSuccessFlash(config.success, "Success");
     } catch (error) {
       showPopup(error.message || "Action failed.", { title: "Action Failed" });
     }

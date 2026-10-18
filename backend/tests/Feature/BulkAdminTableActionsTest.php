@@ -576,6 +576,7 @@ class BulkAdminTableActionsTest extends TestCase
         ]);
 
         $this->postJson('/api/admin/orders/reject-bulk', [
+            'reason' => 'The requested material is unavailable.',
             'ids' => [$unpaidIncoming->id, $alreadyPending->id],
         ])
             ->assertOk()
@@ -593,7 +594,7 @@ class BulkAdminTableActionsTest extends TestCase
             'created_by_user_id' => $admin->id,
             'event_type' => 'admin_update',
             'title' => 'Order rejected',
-            'description' => 'Your order could not be processed at this time.',
+            'description' => 'The requested material is unavailable.',
         ]);
         $this->assertDatabaseHas('admin_notifications', [
             'type' => 'warning',

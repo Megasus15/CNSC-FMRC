@@ -28,7 +28,10 @@ final class GatewayFinancials {
         $table = $kind === 'receipts' ? 'payment_receipts' : 'payment_refunds';
         $q = $kind === 'receipts' ? self::receipts() : self::refunds();
         $q->where('orders.is_archived',false);
-        if ($start && $end) $q->whereBetween($table.'.confirmed_at',[$start,$end]);
+        // Ledger timestamps are UTC; calendar filters arrive in Philippine time.
+        if ($start && $end) $q->whereBetween($table.'.confirmed_at',[
+            \Illuminate\Support\Carbon::parse($start)->utc(), \Illuminate\Support\Carbon::parse($end)->utc(),
+        ]);
         return (float) $q->sum($table.'.amount_centavos') / 100;
     }
 }

@@ -14,7 +14,7 @@
     <title>Orders | UCN-FMRC Admin</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap" />
     <link rel="stylesheet" href="dashboard.css?v=7.4" />
-    <link rel="stylesheet" href="admin-modules.css?v=20261017-rejection-routing" />
+    <link rel="stylesheet" href="admin-modules.css?v=20261019-rejection-reason" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -971,6 +971,30 @@
       </div>
     </div>
 
+    <!-- Incoming-order rejection: shared by single and bulk actions. -->
+    <dialog id="rejectIncomingOrderDialog" class="modal-card product-modal order-rejection-dialog" aria-labelledby="rejectIncomingOrderTitle" aria-describedby="rejectIncomingOrderDescription">
+      <form id="rejectIncomingOrderForm" novalidate>
+        <div class="modal-header-fixed">
+          <h3 class="modal-title" id="rejectIncomingOrderTitle">Reject Incoming Order</h3>
+          <p class="field-hint" id="rejectIncomingOrderDescription">Explain why the order cannot be fulfilled. The customer will receive this reason.</p>
+        </div>
+        <div class="modal-body-scroll">
+          <p class="order-rejection-context" id="rejectIncomingOrderContext"></p>
+          <div class="field-stack">
+            <label for="rejectIncomingOrderReason">Reason for rejection <span aria-hidden="true">*</span></label>
+            <textarea class="textarea-field" id="rejectIncomingOrderReason" name="reason" rows="4" maxlength="500" required placeholder="For example: The requested material is unavailable. Please contact FMRC to discuss an alternative." aria-describedby="rejectIncomingOrderHint rejectIncomingOrderError"></textarea>
+            <div class="order-rejection-hint"><span class="field-hint" id="rejectIncomingOrderHint">Use a clear, respectful explanation.</span><output id="rejectIncomingOrderCount" for="rejectIncomingOrderReason">0 / 500</output></div>
+          </div>
+          <p class="field-hint">Any received payment will follow the refund process. Rejecting an order does not send a refund.</p>
+          <p class="order-rejection-error" id="rejectIncomingOrderError" role="alert"></p>
+        </div>
+        <div class="modal-footer-fixed">
+          <button type="button" class="btn-admin btn-secondary" id="cancelIncomingOrderRejection">Cancel</button>
+          <button type="submit" class="btn-admin" id="confirmIncomingOrderRejection">Reject order</button>
+        </div>
+      </form>
+    </dialog>
+
     <!-- ---- RETURN DETAILS MODAL ---- -->
     <div
       class="modal-overlay"
@@ -1715,10 +1739,10 @@
     <script src="admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="admin-common.js?v=8.4"></script>
-    <script src="orders.js?v=20261017-rejection-routing"></script>
+    <script src="orders.js?v=20261019-rejection-reason"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
   <link rel="stylesheet" href="gateway-payments.css?v=2.7-refund-actions">
     <link rel="stylesheet" href="../home-page/payment-dialogs.css?v=2.1-refund-claims">
-    <script src="gateway-payments.js?v=2.9-refund-archives"></script>
+    <script src="gateway-payments.js?v=3.0-confirmed-refund-archive"></script>
   </body>
 </html>

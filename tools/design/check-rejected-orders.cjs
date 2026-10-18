@@ -9,6 +9,7 @@ const fixture=role=>{
  const mock=String.raw`<script>
  window.errors=[];window.calls=[];window.messages=[];
  addEventListener('error',e=>window.errors.push(e.message));addEventListener('unhandledrejection',e=>window.errors.push(String(e.reason)));
+ window.bulkConfigs={};window.AdminBulkSelection={create(config){bulkConfigs[config.key]=config;return {sync(){},setBusy(){},clear(){}}}};
  window.APP_API_BASE_URL=location.origin+'/api';localStorage.setItem('auth_token','fixture');window.AdminSession={role:'${role}',getToken:()=> 'fixture'};
  window.AdminPageNotice={clear(){},show(error){window.errors.push(String(error?.message || error))}};
  window.showAdminPopup=(message)=>window.messages.push(message);
@@ -21,7 +22,7 @@ const fixture=role=>{
   window.calls.push({url:String(url),options});const parsed=new URL(url,location.origin),path=parsed.pathname;
   let match;
   if(path==='/api/admin/orders')return response({incoming:rows.filter(r=>r.lifecycle_status==='incoming'),directory:rows.filter(r=>r.lifecycle_status!=='incoming'),returns:[],returns_summary:{},cancellations_summary:{}});
-  if((match=path.match(/^\/api\/admin\/orders\/(\d+)\/reject$/))){const order=rows.find(r=>r.id===Number(match[1]));order.lifecycle_status='rejected';order.rejected_order_workspace='online_refunds';order.payment_has_refund_record=true;order.payment_refund_status='requested';refundRows.push({id:100+order.id,payment_id:order.id,provider_payment_id:'pay_'+order.id,amount_centavos:100,status:'requested',reason:'Rejected order'});return response({data:order,message:'Order rejected.'});}
+  if((match=path.match(/^\/api\/admin\/orders\/(\d+)\/reject$/))){if(window.rejectFailure)return new Response(JSON.stringify({message:'This order can no longer be rejected. Refresh its status.'}),{status:422,headers:{'Content-Type':'application/json'}});if(window.holdReject)await new Promise(resolve=>{window.releaseReject=resolve;});window.savedReason=JSON.parse(options.body).reason;const order=rows.find(r=>r.id===Number(match[1]));order.lifecycle_status='rejected';order.rejected_order_workspace='online_refunds';order.payment_has_refund_record=true;order.payment_refund_status='requested';refundRows.push({id:100+order.id,payment_id:order.id,provider_payment_id:'pay_'+order.id,amount_centavos:100,status:'requested',reason:'Rejected order'});return response({data:order,message:'Order rejected.'});}
   if((match=path.match(/^\/api\/admin\/orders\/(\d+)\/payment-(?:reconcile|check)$/))){const order=rows.find(r=>r.id===Number(match[1]));if(!order.payment_has_refund_record){order.payment_has_refund_record=true;order.payment_refund_status='requested';refundRows.push({id:100+order.id,payment_id:order.id,provider_payment_id:'pay_'+order.id,amount_centavos:100,status:'requested',reason:'Rejected order'});}return response({status:'paid'});}
   if(path==='/api/admin/gateway-payments'){
    const ids=new Set(refundRows.map(r=>r.payment_id)),search=parsed.searchParams.get('search')||'';
@@ -90,23 +91,51 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
     }
    }
    await run(`document.querySelector('#ordersModuleTabs [data-tab=orders]').click();document.querySelector('[data-order-reject="1"]').click()`);
-   await until(`!!window.confirmAction`);
-   assert.match(await run('window.confirmMessage'),/Online refunds/);
-   await run(`window.confirmAction()`);
+   await until(`document.querySelector('#rejectIncomingOrderDialog').open`);
+   assert.equal(await run(`document.activeElement.id`),'rejectIncomingOrderReason');
+   await run(`document.querySelector('#confirmIncomingOrderRejection').click()`);
+   assert.match(await run(`document.querySelector('#rejectIncomingOrderError').textContent`),/Enter a reason/);
+   assert.equal(await run(`calls.filter(c=>c.options.method==='POST').length`),0);
+   for(const width of [1440,390,320]){
+    await cdp('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false});
+    for(const theme of ['light','dark']){
+     await run(`document.documentElement.dataset.theme='${theme}'`);
+     const metrics=await run(`(()=>{const d=document.querySelector('#rejectIncomingOrderDialog'),r=d.getBoundingClientRect(),buttons=Array.from(d.querySelectorAll('.modal-footer-fixed button'));return {width:r.width,left:r.left,right:r.right,height:r.height,scroll:d.scrollWidth,client:d.clientWidth,buttons:buttons.map(b=>({height:b.getBoundingClientRect().height,whiteSpace:getComputedStyle(b).whiteSpace}))};})()`);
+     assert.ok(metrics.left>=0&&metrics.right<=width+1&&metrics.height<=1000);
+     assert.ok(metrics.scroll<=metrics.client+1);
+     assert.ok(metrics.buttons.every(b=>b.whiteSpace==='nowrap'&&b.height===metrics.buttons[0].height));
+     await shot('incoming-rejection-'+portal+'-'+width+'-'+theme);
+    }
+   }
+   await run(`document.querySelector('#cancelIncomingOrderRejection').click()`);
+   assert.equal(await run(`calls.filter(c=>c.options.method==='POST').length`),0);
+   await run(`bulkConfigs['incoming-orders'].actions.find(a=>a.key==='reject').onClick([1,42],{setBusy(){},clear(){}})`);
+   assert.match(await run(`document.querySelector('#rejectIncomingOrderContext').textContent`),/2 selected orders.*same reason/);
+   await run(`document.querySelector('#cancelIncomingOrderRejection').click();document.querySelector('[data-order-reject="1"]').click()`);
+   await run(`document.querySelector('#rejectIncomingOrderReason').value='  Material unavailable.\\n Contact FMRC for alternatives.  ';document.querySelector('#rejectIncomingOrderReason').dispatchEvent(new Event('input'));window.rejectFailure=true;document.querySelector('#confirmIncomingOrderRejection').click()`);
+   await until(`document.querySelector('#rejectIncomingOrderError').textContent.includes('no longer')`);
+   assert.match(await run(`document.querySelector('#rejectIncomingOrderReason').value`),/Material unavailable/);
+   assert.equal(await run(`document.querySelector('#rejectIncomingOrderDialog').open`),true);
+   await run(`window.rejectFailure=false;window.holdReject=true;document.querySelector('#confirmIncomingOrderRejection').click();document.querySelector('#confirmIncomingOrderRejection').click()`);
+   await until(`!!window.releaseReject`);
+   assert.equal(await run(`document.querySelector('#cancelIncomingOrderRejection').disabled`),true);
+   assert.equal(await run(`document.querySelector('#rejectIncomingOrderReason').disabled`),true);
+   await run(`releaseReject()`);
    await until(`document.querySelector('#sectionRefunds').hidden===false && document.querySelector('#gatewayPaymentsTable tbody').textContent.includes('ORDER-1')`);
    assert.equal(await run(`document.querySelector('#rejectedOrdersTable tbody').textContent.includes('ORDER-1')`),false);
    assert.equal(await run(`document.querySelector('#manualRefundsTable tbody').textContent.includes('ORDER-1')`),false);
    assert.equal(await run(`document.querySelector('[data-gateway-search]').value`),'ORDER-1');
-   assert.equal(await run(`window.calls.filter(c=>c.options.method==='POST').length`),1);
+   assert.equal(await run(`window.calls.filter(c=>c.options.method==='POST').length`),2);
+   assert.equal(await run('savedReason'),'Material unavailable. Contact FMRC for alternatives.');
    await run(`window.dispatchEvent(new Event('focus'))`);
    await until(`document.querySelector('.order-cancellation-notice:not([hidden]) [data-check="11"]')`);
    await shot('rejected-'+portal+'-online-review');
    await run(`document.querySelector('[data-check="11"]').click()`);
    await until(`window.refundRows.some(r=>r.payment_id===11)`);
    assert.equal(await run(`window.calls.some(c=>/gateway-refunds/.test(c.url))`),false);
-   assert.equal(await run(`window.calls.filter(c=>c.options.method==='POST').length`),2);
+   assert.equal(await run(`window.calls.filter(c=>c.options.method==='POST').length`),3);
    assert.deepEqual(await run('window.errors'),[]);
   }
-  console.log('PASS: Full Admin/Staff pages, exclusive rejected/manual/online refund queues, manual pagination and payment details, rejection opens Online refunds, missing-record review without money submission, desktop/mobile in both themes. Local mocked APIs only.');
+  console.log('PASS: Full Admin/Staff pages, exclusive rejected/manual/online refund queues, manual pagination and payment details, required rejection reason, cancel/validation/failure/duplicate guards, bulk reason form, rejection opens Online refunds, missing-record review without money submission, desktop/mobile in both themes. Local mocked APIs only.');
  } finally {ws?.close();browser.kill();server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

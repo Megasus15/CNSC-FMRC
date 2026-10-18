@@ -1806,7 +1806,8 @@ class OrderController extends Controller
         }
 
         $ids = $this->validatedBulkIds($request);
-        $processedIds = DB::transaction(function () use ($request, $ids): array {
+        $reason = $this->validatedRejectionReason($request);
+        $processedIds = DB::transaction(function () use ($request, $ids, $reason): array {
             $orders = Order::query()
                 ->with(['payment', 'items', 'customer'])
                 ->whereIn('id', $ids)
@@ -1818,6 +1819,7 @@ class OrderController extends Controller
             foreach ($orders as $order) {
                 $order->lifecycle_status = 'rejected';
                 $order->rejected_at = Carbon::now();
+                $order->notes = trim(($order->notes ? $order->notes . "\n\n" : '') . 'Rejection reason: ' . $reason);
                 $order->save();
                 app(GatewayPayments::class)->queueClosedOrderRefunds($order, $request->user()->id);
 
@@ -1826,13 +1828,12 @@ class OrderController extends Controller
                 // the surrounding transaction.
                 $restocked = $this->restockOrder($order);
 
-                $genericReason = 'Your order could not be processed at this time.';
                 $this->createTrackingEvent($order, [
                     'created_by_user_id' => $request->user()?->id,
                     'stage' => $order->customer_stage,
                     'event_type' => 'admin_update',
                     'title' => 'Order rejected',
-                    'description' => $genericReason,
+                    'description' => $reason,
                     'occurred_at' => now(),
                     'metadata' => [
                         'lifecycle_status' => 'rejected',
@@ -1844,17 +1845,18 @@ class OrderController extends Controller
                 $this->createAdminNotification(
                     'warning',
                     "Order Rejected: {$orderNoLabel}",
-                    "Order {$orderNoLabel} for {$order->customer_name} was rejected. Reason: No reason provided",
+                    "Order {$orderNoLabel} for {$order->customer_name} was rejected. Reason: {$reason}",
                     ['order_id' => $order->id, 'order_no' => $orderNoLabel]
                 );
 
                 $emailHtml = $this->buildOrderEmailHtml(
                     $order,
                     'Your Order Could Not Be Processed',
-                    "Hi {$order->customer_name},\n\nUnfortunately, your order {$orderNoLabel} could not be processed at this time.\n\nReason: No reason provided\n\nIf you have questions, please contact us directly or place a new order. We apologize for any inconvenience.",
+                    "Hi {$order->customer_name},\n\nYour order {$orderNoLabel} could not be processed.\n\nReason: {$reason}\n\nOpen My Orders for the order status and any refund updates. Contact FMRC if you need assistance.",
                     '#dc2626',
                     templateKey: 'order_rejected',
-                    tokens: ['reason' => 'No reason provided']
+                    tokens: ['reason' => $reason],
+                    statusOverride: 'Rejected'
                 );
                 $this->sendCustomerOrderEmail($order, "Order Update – {$orderNoLabel}", $emailHtml);
             }
@@ -1867,6 +1869,18 @@ class OrderController extends Controller
         }
 
         return $this->bulkActionResponse('reject', 'incoming_orders', $ids, $processedIds);
+    }
+
+    private function validatedRejectionReason(Request $request): string
+    {
+        $validated = $request->validate(['reason' => 'required|string|max:500'], [
+            'reason.required' => 'Enter a reason for rejecting the order.',
+            'reason.max' => 'Keep the rejection reason within 500 characters.',
+        ]);
+        // Keep the customer-facing reason in one paragraph in notes and notifications.
+        $reason = trim(preg_replace('/\s+/u', ' ', $validated['reason']) ?? '');
+        if ($reason === '') throw ValidationException::withMessages(['reason' => 'Enter a reason for rejecting the order.']);
+        return $reason;
     }
 
     public function approve(Request $request, Order $order): JsonResponse
@@ -1945,9 +1959,7 @@ class OrderController extends Controller
             return $denied;
         }
 
-        $validated = $request->validate([
-            'reason' => 'nullable|string|max:500',
-        ]);
+        $reason = $this->validatedRejectionReason($request);
 
         if (!in_array($order->lifecycle_status, ['incoming', 'pending'], true)) {
             return response()->json([
@@ -1955,38 +1967,34 @@ class OrderController extends Controller
             ], 422);
         }
 
-        $restocked = DB::transaction(function () use ($order, $request, $validated): array {
+        DB::transaction(function () use ($order, $request, $reason): void {
             $fresh = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless(in_array($fresh->lifecycle_status, ['incoming','pending'], true), 422, 'This order can no longer be rejected. Refresh its status.');
             $order->setRawAttributes($fresh->getAttributes(), true);
             $order->lifecycle_status = 'rejected';
             $order->rejected_at = Carbon::now();
-            if (!empty($validated['reason'])) {
-                $order->notes = trim(($order->notes ? $order->notes . "\n\n" : '') . 'Rejection reason: ' . $validated['reason']);
-            }
+            $order->notes = trim(($order->notes ? $order->notes . "\n\n" : '') . 'Rejection reason: ' . $reason);
             $order->save();
             app(GatewayPayments::class)->queueClosedOrderRefunds($order, $request->user()->id);
-            return $this->restockOrder($order);
+            $restocked = $this->restockOrder($order);
+            $this->createTrackingEvent($order, [
+                'created_by_user_id' => $request->user()?->id,
+                'stage' => $order->customer_stage,
+                'event_type' => 'admin_update',
+                'title' => 'Order rejected',
+                'description' => $reason,
+                'occurred_at' => now(),
+                'metadata' => [
+                    'lifecycle_status' => 'rejected',
+                    'restocked' => $restocked,
+                ],
+            ]);
         });
-
-        $this->createTrackingEvent($order, [
-            'created_by_user_id' => $request->user()?->id,
-            'stage' => $order->customer_stage,
-            'event_type' => 'admin_update',
-            'title' => 'Order rejected',
-            'description' => $validated['reason'] ?? 'Your order could not be processed at this time.',
-            'occurred_at' => now(),
-            'metadata' => [
-                'lifecycle_status' => 'rejected',
-                'restocked' => $restocked,
-            ],
-        ]);
 
         $order->load(['items', 'payment', 'latestTrackingEvent']);
 
         // --- Admin/Staff Notification: Order Rejected ---
         $orderNoLabel = $order->order_no ?? "ORD-{$order->id}";
-        $reason = $validated['reason'] ?? 'No reason provided';
         $this->createAdminNotification(
             'warning',
             "Order Rejected: {$orderNoLabel}",
@@ -1998,10 +2006,11 @@ class OrderController extends Controller
         $emailHtml = $this->buildOrderEmailHtml(
             $order,
             'Your Order Could Not Be Processed',
-            "Hi {$order->customer_name},\n\nUnfortunately, your order {$orderNoLabel} could not be processed at this time.\n\nReason: {$reason}\n\nIf you have questions, please contact us directly or place a new order. We apologize for any inconvenience.",
+            "Hi {$order->customer_name},\n\nYour order {$orderNoLabel} could not be processed.\n\nReason: {$reason}\n\nOpen My Orders for the order status and any refund updates. Contact FMRC if you need assistance.",
             '#dc2626',
             templateKey: 'order_rejected',
-            tokens: ['reason' => $reason]
+            tokens: ['reason' => $reason],
+            statusOverride: 'Rejected'
         );
         $this->sendCustomerOrderEmail($order, "Order Update – {$orderNoLabel}", $emailHtml);
 
@@ -2636,12 +2645,14 @@ class OrderController extends Controller
         string $statusColor = '#800000',
         ?string $templateKey = null,
         array $tokens = [],
+        ?string $statusOverride = null,
     ): string {
         return OrderNotifier::buildEmailHtml(
             $order,
             $headline,
             $bodyText,
             $statusColor,
+            statusOverride: $statusOverride,
             templateKey: $templateKey,
             tokens: $tokens,
         );

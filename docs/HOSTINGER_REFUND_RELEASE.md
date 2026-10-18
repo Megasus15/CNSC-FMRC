@@ -1,5 +1,18 @@
 # Refund management update
 
+## 2026-10-19: Confirmed-refund archives and rejection reasons
+
+- **Archive enables only after PayMongo confirms the refund.** Awaiting approval, customer claim, processing, unknown, failed and declined requests keep the icon disabled. An older failed/declined attempt may be ignored only when a later successful refund covers it. Both roles use the same server rule, rechecked when archiving. The existing polling, signed webhooks, reconciliation worker and customer claim flow continue unchanged.
+- **Reject Incoming Order** now opens a required reason field (500 characters) for Admin and Staff. Single and bulk rejection both send the typed reason. Bulk rejection clearly states that each selected customer receives the same explanation. Validation is enforced by the API as well as the form; cancelling sends no request, duplicate submissions are blocked, and a failed save preserves the text for correction.
+- The reason is saved with the order and timeline, included in the private customer notification and existing transactional email, and shown in Order Details. Rejection and its timeline/stock updates are atomic. Paid QR Ph orders still move to Online refunds for approval; rejection does not issue money. Cash and unpaid-order routing stays unchanged.
+- A regression check also found a date boundary error in provider revenue queries before 08:00 Philippine time. Provider timestamps remain UTC; revenue filters and chart buckets now use the same Philippine calendar day. No payment or refund mutation changed.
+
+Local database: the archive migration below was applied successfully and `OnlineRefundArchive::available()` returns `true`. This verifies the local database only. The live Hostinger database and deployed assets have not been changed by this work.
+
+Deploy both Orders HTML files, shared `admin-page/orders.js` and `admin-page/admin-modules.css`, `OrderController.php`, `Order.php`, `PwaNotifications.php`, `OnlineRefundArchive.php`, `GatewayFinancials.php` and `FinancialMetrics.php` together. Include the previous archive release files and migration if they are not already deployed. Existing open pages need a refresh to load the new required reason form. Use the migration command below on the live backend if it is still pending; then run `php artisan optimize:clear`.
+
+Local checks: 158 backend tests (1,599 assertions) and 46 frontend tests passed. Admin/Staff browser fixtures cover desktop and phone widths, light/dark mode, reason validation/cancel/failure handling, duplicate protection and refund routing with mocked APIs. The archive tests prove that a claim remains unarchivable until provider confirmation and that archiving preserves customer history and financial totals. No live refund or rejection was issued.
+
 ## 2026-10-18: Refund actions and archives
 
 - Admin/Staff Dashboard uses **Online payment** in the revenue breakdown and chart note. Calculations are unchanged.

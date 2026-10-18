@@ -132,8 +132,8 @@ class FinancialMetrics
             'COALESCE(refunded_at, decided_at)', 'COALESCE(refunded_amount, approved_amount, 0)', $from, $to, $granularity
         );
 
-        $gatewayReceipts = self::bucketSums(GatewayFinancials::receipts()->where('orders.is_archived',false), 'payment_receipts.confirmed_at', 'payment_receipts.amount_centavos / 100.0', $from, $to, $granularity);
-        $gatewayRefunds = self::bucketSums(GatewayFinancials::refunds()->where('orders.is_archived',false), 'payment_refunds.confirmed_at', 'payment_refunds.amount_centavos / 100.0', $from, $to, $granularity);
+        $gatewayReceipts = self::bucketSums(GatewayFinancials::receipts()->where('orders.is_archived',false), self::gatewayLocalDate('payment_receipts.confirmed_at'), 'payment_receipts.amount_centavos / 100.0', $from, $to, $granularity);
+        $gatewayRefunds = self::bucketSums(GatewayFinancials::refunds()->where('orders.is_archived',false), self::gatewayLocalDate('payment_refunds.confirmed_at'), 'payment_refunds.amount_centavos / 100.0', $from, $to, $granularity);
         $series = [];
         foreach (self::buckets($from, $to, $granularity) as $bucket) {
             $key = $bucket['key'];
@@ -142,6 +142,14 @@ class FinancialMetrics
         }
 
         return $series;
+    }
+
+    /** Keep UTC provider entries in the same Philippine-day buckets as the total. */
+    private static function gatewayLocalDate(string $column): string
+    {
+        return DB::connection()->getDriverName() === 'sqlite'
+            ? "datetime({$column}, '+8 hours')"
+            : "DATE_ADD({$column}, INTERVAL 8 HOUR)";
     }
 
     /**

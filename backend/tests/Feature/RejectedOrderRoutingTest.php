@@ -59,7 +59,7 @@ class RejectedOrderRoutingTest extends TestCase
     public function test_paid_qr_rejection_reserves_one_refund_and_moves_to_the_online_queue(string $role): void
     {
         $order=$this->order(); Sanctum::actingAs(User::factory()->create(['role'=>$role]));
-        $this->postJson('/api/admin/orders/'.$order->id.'/reject')->assertOk()
+        $this->postJson('/api/admin/orders/'.$order->id.'/reject',['reason'=>'The requested material is unavailable.'])->assertOk()
             ->assertJsonPath('data.rejected_order_workspace','online_refunds')
             ->assertJsonPath('data.payment_has_refund_record',true)
             ->assertJsonPath('data.payment_refund_status','requested');
@@ -68,7 +68,7 @@ class RejectedOrderRoutingTest extends TestCase
             ->assertJsonPath('payments.data.0.order_id',$order->id);
         $this->getJson('/api/admin/orders')->assertOk()->assertJsonCount(0,'incoming')
             ->assertJsonPath('directory.0.rejected_order_workspace','online_refunds');
-        $this->postJson('/api/admin/orders/'.$order->id.'/reject')->assertUnprocessable();
+        $this->postJson('/api/admin/orders/'.$order->id.'/reject',['reason'=>'The requested material is unavailable.'])->assertUnprocessable();
         $this->assertDatabaseCount('payment_refunds',1);
         $this->assertSame('paid',$order->payment->fresh()->status);
         $this->assertSame('rejected',$order->fresh()->lifecycle_status);
@@ -80,7 +80,7 @@ class RejectedOrderRoutingTest extends TestCase
     {
         $order=$this->order($method,'pending',$method==='GCash');
         Sanctum::actingAs(User::factory()->create(['role'=>$role]));
-        $this->postJson('/api/admin/orders/'.$order->id.'/reject')->assertOk()
+        $this->postJson('/api/admin/orders/'.$order->id.'/reject',['reason'=>'The requested material is unavailable.'])->assertOk()
             ->assertJsonPath('data.rejected_order_workspace','rejected')->assertJsonPath('data.payment_has_refund_record',false);
         $this->getJson('/api/admin/gateway-payments')->assertOk()->assertJsonPath('payments.total',0);
         $this->assertDatabaseCount('payment_refunds',0); Http::assertNothingSent();
@@ -91,7 +91,7 @@ class RejectedOrderRoutingTest extends TestCase
     {
         $order=$this->order($method,'paid',false);
         Sanctum::actingAs(User::factory()->create(['role'=>$role]));
-        $this->postJson('/api/admin/orders/'.$order->id.'/reject')->assertOk()
+        $this->postJson('/api/admin/orders/'.$order->id.'/reject',['reason'=>'The requested material is unavailable.'])->assertOk()
             ->assertJsonPath('data.rejected_order_workspace','manual_refunds')
             ->assertJsonPath('data.payment_actions.refunded.allowed',true);
         $this->patchJson('/api/admin/orders/'.$order->id.'/payment-status',[
@@ -109,7 +109,7 @@ class RejectedOrderRoutingTest extends TestCase
         $cop=$this->order('COP','pending',false); $cod=$this->order('COD','pending',false);
         $legacy=$this->order('GCash','paid',false); $cash=$this->order('COP','paid',false);
         Sanctum::actingAs(User::factory()->create(['role'=>$role]));
-        $this->postJson('/api/admin/orders/reject-bulk',['ids'=>[$online->id,$unpaid->id,$cop->id,$cod->id,$legacy->id,$cash->id]])->assertOk();
+        $this->postJson('/api/admin/orders/reject-bulk',['reason'=>'The requested material is unavailable.','ids'=>[$online->id,$unpaid->id,$cop->id,$cod->id,$legacy->id,$cash->id]])->assertOk();
         $rows=collect($this->getJson('/api/admin/orders')->assertOk()->json('directory'))->keyBy('id');
         foreach ([$online->id=>'online_refunds', $unpaid->id=>'rejected', $cop->id=>'rejected', $cod->id=>'rejected', $legacy->id=>'manual_refunds', $cash->id=>'manual_refunds'] as $id=>$workspace) {
             $this->assertSame($workspace,$rows[$id]['rejected_order_workspace']);
@@ -121,7 +121,7 @@ class RejectedOrderRoutingTest extends TestCase
     public function test_late_provider_payment_moves_an_unpaid_rejection_to_online_refunds_once(): void
     {
         $order=$this->order('GCash','pending'); Sanctum::actingAs(User::factory()->create(['role'=>'staff']));
-        $this->postJson('/api/admin/orders/'.$order->id.'/reject')->assertOk()->assertJsonPath('data.rejected_order_workspace','rejected');
+        $this->postJson('/api/admin/orders/'.$order->id.'/reject',['reason'=>'The requested material is unavailable.'])->assertOk()->assertJsonPath('data.rejected_order_workspace','rejected');
         $token=(string)Str::uuid();
         $id=DB::table('payment_attempts')->insertGetId(['payment_id'=>$order->payment->id, 'token'=>$token,
             'checkout_id'=>'cs_late', 'checkout_method'=>'qrph', 'api_version'=>'v2', 'livemode'=>false,
@@ -139,7 +139,7 @@ class RejectedOrderRoutingTest extends TestCase
     public function test_missing_provider_receipt_is_flagged_for_review_instead_of_inventing_a_refund(): void
     {
         $order=$this->order(receipt:false); Sanctum::actingAs(User::factory()->create(['role'=>'admin']));
-        $this->postJson('/api/admin/orders/'.$order->id.'/reject')->assertOk()
+        $this->postJson('/api/admin/orders/'.$order->id.'/reject',['reason'=>'The requested material is unavailable.'])->assertOk()
             ->assertJsonPath('data.rejected_order_workspace','online_refunds')
             ->assertJsonPath('data.payment_has_refund_record',false);
         $this->getJson('/api/admin/gateway-payments')->assertOk()->assertJsonPath('payments.total',0);
@@ -151,7 +151,7 @@ class RejectedOrderRoutingTest extends TestCase
     {
         $order=$this->order('GCash','pending',false); $order->payment->update(['reference'=>'1234567890123']);
         Sanctum::actingAs(User::factory()->create(['role'=>'staff']));
-        $this->postJson('/api/admin/orders/'.$order->id.'/reject')->assertOk()
+        $this->postJson('/api/admin/orders/'.$order->id.'/reject',['reason'=>'The requested material is unavailable.'])->assertOk()
             ->assertJsonPath('data.rejected_order_workspace','manual_refunds')->assertJsonPath('data.payment_status','pending');
         $this->assertDatabaseCount('payment_refunds',0); Http::assertNothingSent();
     }
@@ -162,7 +162,7 @@ class RejectedOrderRoutingTest extends TestCase
         $order=$this->order($method,'paid',$online,false);
         $order->update(['subtotal'=>0,'total'=>0]); $order->payment->update(['amount'=>0]);
         Sanctum::actingAs(User::factory()->create(['role'=>'admin']));
-        $this->postJson('/api/admin/orders/'.$order->id.'/reject')->assertOk()
+        $this->postJson('/api/admin/orders/'.$order->id.'/reject',['reason'=>'The requested material is unavailable.'])->assertOk()
             ->assertJsonPath('data.rejected_order_workspace','rejected')->assertJsonPath('data.payment_has_refund_record',false);
         $this->assertDatabaseCount('payment_refunds',0); Http::assertNothingSent();
     }

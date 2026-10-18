@@ -2343,6 +2343,7 @@ input.page-number:focus,
 }
 
 /* Wrap whole refund controls, keeping every label on one line. */
+#rejectIncomingOrderDialog .modal-footer-fixed,
 #modalReturnAction .modal-footer-fixed,
 #modalReturnDetails .modal-footer-fixed,
 .gateway-team-dialog .modal-footer-fixed,
@@ -2353,6 +2354,7 @@ body:has(#modalReturnAction.show) .admin-system-popup__actions {
   gap: 8px;
 }
 
+#rejectIncomingOrderDialog .modal-footer-fixed > .btn-admin,
 #modalReturnAction .modal-footer-fixed > .btn-admin,
 #modalReturnDetails .modal-footer-fixed > .btn-admin,
 .gateway-team-dialog .modal-footer-fixed > .btn-admin,
@@ -2363,6 +2365,36 @@ body:has(#modalReturnAction.show) .admin-system-popup__actions > .btn-admin {
   min-height: 44px;
   padding: 10px 14px;
   white-space: nowrap;
+}
+
+dialog.order-rejection-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  padding: 0;
+  box-sizing: border-box;
+  width: min(620px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  color: var(--text-main);
+  font: inherit;
+  max-height: calc(100dvh - 32px);
+}
+dialog.order-rejection-dialog:not([open]) { display: none; }
+html:has(#rejectIncomingOrderDialog[open]) { overflow: hidden; }
+dialog.order-rejection-dialog::backdrop { background: rgba(30, 20, 20, .38); }
+.order-rejection-dialog form { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.order-rejection-dialog :is(.modal-header-fixed, .modal-footer-fixed) { flex-shrink: 0; }
+.order-rejection-dialog .modal-body-scroll { min-height: 0; max-height: none; overscroll-behavior: contain; }
+.order-rejection-dialog .order-rejection-context { margin: 0 0 18px; font-weight: 600; overflow-wrap: anywhere; }
+.order-rejection-dialog .field-stack { margin-bottom: 16px; }
+.order-rejection-dialog textarea { box-sizing: border-box; width: 100%; min-height: 120px; max-height: 200px; resize: vertical; }
+.order-rejection-dialog .order-rejection-hint { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; margin-top: 6px; }
+.order-rejection-dialog .order-rejection-hint :is(.field-hint, output) { margin: 0; font-size: .74rem; color: var(--text-muted); }
+.order-rejection-dialog .order-rejection-error { color: var(--primary-color); font-size: .82rem; line-height: 1.6; margin: 12px 0 0; }
+.order-rejection-dialog .order-rejection-error:empty { display: none; }
+.order-rejection-dialog textarea[aria-invalid="true"] { border-color: var(--primary-color); }
+@media (max-width: 540px) {
+  .order-rejection-dialog :is(.modal-header-fixed, .modal-body-scroll, .modal-footer-fixed) { padding-left: 16px; padding-right: 16px; }
 }
 
 #modalReturnAction .return-receipt-check {

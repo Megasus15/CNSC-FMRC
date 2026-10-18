@@ -74,6 +74,10 @@ class PwaNotifications
             $owner = $model->customer_id;
             $kind = 'order';
             $message = $created ? 'Your order has been received.' : 'Your order status has been updated. Open My Orders to see the latest information.';
+            if (!$created && $model->wasChanged('lifecycle_status') && $model->lifecycle_status === 'rejected') {
+                $reason = $model->rejectionReason();
+                $message = 'Your order '.$model->order_no.' was rejected.'.($reason ? ' Reason: '.$reason : ' Open My Orders for details.');
+            }
             $target .= '?orders=1&order_id='.$model->id;
         } elseif ($model instanceof Payment && (($created && in_array($model->status, ['paid', 'refunded'])) || $model->wasChanged(['status', 'submitted_at'])) && $model->order) {
             $owner = $model->order->customer_id;

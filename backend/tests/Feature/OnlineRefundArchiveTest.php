@@ -54,7 +54,7 @@ class OnlineRefundArchiveTest extends TestCase
     }
 
     public static function roles(): array { return [['admin'], ['staff']]; }
-    public static function unresolved(): array { return [['requested'], ['pending'], ['unknown'], ['submitting'], ['failed']]; }
+    public static function unresolved(): array { return [['requested'], ['pending'], ['unknown'], ['submitting'], ['failed'], ['rejected']]; }
 
     #[DataProvider('roles')]
     public function test_archive_restore_preserves_customer_history_and_financial_totals(string $role): void
@@ -108,9 +108,9 @@ class OnlineRefundArchiveTest extends TestCase
         Http::assertNothingSent();
     }
 
-    public function test_declined_refunds_are_restorable_and_excluded_from_permanent_and_automatic_deletion(): void
+    public function test_confirmed_refunds_are_restorable_and_excluded_from_permanent_and_automatic_deletion(): void
     {
-        $payment=$this->payment(); $this->refund($payment,'rejected');
+        $payment=$this->payment(); $this->refund($payment,'succeeded');
         Sanctum::actingAs(User::factory()->create(['role'=>'staff']));
         $this->postJson('/api/admin/orders/'.$payment->order_id.'/archive-refunds')->assertOk();
         DB::table('payments')->where('id',$payment->id)->update(['online_refund_archived_at'=>now()->subDays(120)]);
@@ -129,6 +129,34 @@ class OnlineRefundArchiveTest extends TestCase
         Http::assertNothingSent();
     }
 
+    #[DataProvider('roles')]
+    public function test_customer_claim_enables_archive_only_after_provider_confirms_the_refund(string $role): void
+    {
+        $payment=$this->payment(); $actor=User::factory()->create(['role'=>$role]); Sanctum::actingAs($actor);
+        $id=$this->refund($payment,'pending',1000,['provider_refund_id'=>'ref_claim','approved_by'=>$actor->id,'checked_at'=>now()]);
+        \App\Models\OrderTrackingEvent::create(['order_id'=>$payment->order_id,'stage'=>'completed','event_type'=>'system',
+            'title'=>'Refund ready to claim','occurred_at'=>now(),'metadata'=>['refund_id'=>$id,
+                'transfer_link'=>'https://transfer.paymongo.com/claim-fixture','claim_expires_at'=>now()->addDays(3)->toIso8601String()]]);
+        $this->getJson('/api/admin/gateway-payments')->assertOk()
+            ->assertJsonPath('payments.data.0.can_archive_refunds',false)
+            ->assertJsonPath('refunds.0.transfer_link','https://transfer.paymongo.com/claim-fixture');
+        $this->postJson('/api/admin/orders/'.$payment->order_id.'/archive-refunds')->assertUnprocessable();
+        $this->assertDatabaseHas('payment_refunds',['id'=>$id,'status'=>'pending']);
+        Http::assertNothingSent();
+        // Check only the already-issued refund; this does not submit another transfer.
+        Http::fake([
+            'api.paymongo.com/v1/checkout_sessions/cs_fixture'=>Http::response(['data'=>[]]),
+            'api.paymongo.com/v1/refunds/ref_claim'=>Http::response(['data'=>['id'=>'ref_claim','attributes'=>[
+                'payment_id'=>'pay_fixture','amount'=>1000,'currency'=>'PHP','livemode'=>false,'status'=>'succeeded',
+            ]]]),
+        ]);
+        $this->postJson('/api/admin/orders/'.$payment->order_id.'/payment-check')->assertOk()->assertJsonPath('status','refunded');
+        $this->getJson('/api/admin/gateway-payments')->assertOk()->assertJsonPath('payments.data.0.can_archive_refunds',true);
+        $this->postJson('/api/admin/orders/'.$payment->order_id.'/archive-refunds')->assertOk();
+        $this->assertDatabaseHas('payment_refunds',['id'=>$id,'status'=>'succeeded','amount_centavos'=>1000]);
+        Http::assertNotSent(fn($request)=>$request->method() !== 'GET');
+    }
+
     public function test_archive_rechecks_refund_evidence_and_pending_cancellation(): void
     {
         $payment=$this->payment(); Sanctum::actingAs(User::factory()->create(['role'=>'admin']));
@@ -136,7 +164,7 @@ class OnlineRefundArchiveTest extends TestCase
         $this->postJson($endpoint)->assertUnprocessable();
         $this->refund($payment,'failed',1000); $this->refund($payment,'succeeded',100);
         $this->postJson($endpoint)->assertUnprocessable(); // Smaller retry does not resolve the failed amount.
-        $this->refund($payment,'rejected',1000);
+        DB::table('payment_refunds')->where('payment_id',$payment->id)->where('status','failed')->update(['amount_centavos'=>100]);
         $payment->order->update(['cancel_state'=>'requested']);
         $this->postJson($endpoint)->assertUnprocessable();
         $payment->order->update(['cancel_state'=>'none']);
