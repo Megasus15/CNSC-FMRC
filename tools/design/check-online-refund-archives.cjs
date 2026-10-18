@@ -17,12 +17,12 @@ const fixture=route=>{
  const payment=(id,status='paid')=>({id,order_id:id,order_no:'ORD-FIXTURE-'+id,customer_name:'Refund Customer '+id,lifecycle_status:'completed',status,gateway:'paymongo',can_archive_refunds:id===2,refund_archive_reason:id===2?null:'Resolve pending or failed refunds before archiving.'});
  window.payments=[payment(1),payment(2,'refunded')];window.refunds=[{id:11,payment_id:1,provider_payment_id:'pay_1',amount_centavos:100,status:'pending',provider_refund_id:'ref_1',reason:'Returned item'},{id:22,payment_id:2,provider_payment_id:'pay_2',amount_centavos:100,status:'succeeded',reason:'Returned item'}];
  const receipt=id=>({payment_id:id,provider_payment_id:'pay_'+id,amount_centavos:100,source_type:'qrph'});
- window.archived=${archives};
+ window.archived=${archives};window.archiveReady=true;
  const response=data=>new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});
  window.fetch=async(url,options={})=>{
   calls.push({url:String(url),options});const parsed=new URL(url,location.origin),path=parsed.pathname;
   if(path==='/api/admin/orders')return response({incoming:[],directory:[],returns:[],returns_summary:{}});
-  if(path==='/api/admin/gateway-payments')return response({payments:{data:payments.filter(p=>!archived||p.id!==2),last_page:1},refunds,receipts:[receipt(1),receipt(2)],attempts:[],can_approve:'${role}'==='admin',checkout_method:'qrph',livemode:false,refund_summary:{processing:1}});
+  if(path==='/api/admin/gateway-payments')return response({payments:{data:payments.filter(p=>!archived||p.id!==2).map(p=>({...p,can_archive_refunds:archiveReady&&p.can_archive_refunds,refund_archive_reason:archiveReady?p.refund_archive_reason:'Refund archiving is temporarily unavailable.'})),last_page:1},refund_archive_available:archiveReady,refunds,receipts:[receipt(1),receipt(2)],attempts:[],can_approve:'${role}'==='admin',checkout_method:'qrph',livemode:false,refund_summary:{processing:1}});
   if(path.endsWith('/payment-check')){await new Promise(r=>setTimeout(r,100));return response({status:'paid',refunds:[refunds[0]]});}
   if(path.endsWith('/archive-refunds')){archived=true;return response({message:'Refund moved to Archives > Online refunds.'});}
   if(path.endsWith('/gateway-payment'))return response({payments:{data:[payment(2,'refunded')]},receipts:[receipt(2)],refunds:[refunds[1]],attempts:[],can_approve:'${role}'==='admin'});
@@ -72,6 +72,15 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
    assert.equal(await run(`document.querySelector('[data-archive="1"]').disabled`),true);
    assert.equal(await run(`document.querySelector('[data-archive="2"]').disabled`),false);
    assert.equal(await run(`document.querySelector('[data-archive="1"] i').className`),'fa-solid fa-box-archive');
+   await run(`window.archiveReady=false;window.dispatchEvent(new Event('focus'))`);
+   await until(`!!document.querySelector('[data-archive-unavailable]')`);
+   assert.equal(await run(`document.querySelector('[data-archive="2"]').disabled`),true);
+   assert.match(await run(`document.querySelector('#gatewayPaymentsTable tbody tr:nth-child(2)').textContent`),/Refund confirmed/);
+   assert.match(await run(`document.querySelector('[data-archive="2"]').getAttribute('aria-label')`),/temporarily unavailable/);
+   await run(`window.archiveReady=true;window.dispatchEvent(new Event('focus'))`);
+   await until(`!document.querySelector('[data-archive-unavailable]') && document.querySelector('[data-archive="2"]').disabled===false`);
+   assert.equal(await run(`calls.filter(c=>c.options.method==='POST').length`),0);
+
    for(const width of [1440,390,320]){
     await cdp('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false});
     for(const theme of ['light','dark']){
@@ -120,6 +129,6 @@ const wait=ms=>new Promise(r=>setTimeout(r,ms));
    assert.equal(await run(`calls.some(c=>c.options.method==='POST')`),false);
    assert.deepEqual(await run('errors'),[]);
   }
-  console.log('PASS: Admin and Staff refund actions, merged GET-only provider checks, archive confirmation, disabled open-refund archive, Archives tab/restore and archived details. 1440/390/320px, light/dark. Mocked APIs only.');
+  console.log('PASS: Admin and Staff refund actions, merged GET-only provider checks, archive confirmation, disabled open-refund archive, storage readiness and realtime button recovery, Archives tab/restore and archived details. 1440/390/320px, light/dark. Mocked APIs only.');
  } finally {ws?.close();browser.kill();server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

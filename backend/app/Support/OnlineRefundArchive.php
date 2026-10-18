@@ -20,10 +20,14 @@ final class OnlineRefundArchive
         if ($cancellation === 'requested') return 'Review the cancellation before archiving.';
         foreach ($refunds as $refund) {
             if ($refund->status === 'succeeded') continue;
-            if (in_array($refund->status, ['failed','rejected'], true) && $refunds->contains(fn ($later) =>
-                $later->id > $refund->id && $later->provider_payment_id === $refund->provider_payment_id
-                && $later->status === 'succeeded'
-                && (int) $later->amount_centavos >= (int) $refund->amount_centavos)) continue;
+            // Several later confirmed partial refunds can cover one attempt.
+            // A new failed request or a different return must stay actionable.
+            $covered = $refunds->filter(fn ($later) => $later->id > $refund->id
+                && $later->provider_payment_id === $refund->provider_payment_id
+                && ($later->order_return_id ?? null) === ($refund->order_return_id ?? null)
+                && $later->status === 'succeeded');
+            if (in_array($refund->status, ['failed','rejected'], true)
+                && $covered->isNotEmpty() && (int) $covered->sum('amount_centavos') >= (int) $refund->amount_centavos) continue;
             return 'Archive becomes available after the refund is confirmed.';
         }
         return null;

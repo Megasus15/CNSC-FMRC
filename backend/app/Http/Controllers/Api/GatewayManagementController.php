@@ -61,6 +61,7 @@ class GatewayManagementController extends Controller
         return response()->json(['payments' => $rows, 'attempts' => DB::table('payment_attempts')->whereIn('payment_id', $ids)->get(),
             'receipts' => DB::table('payment_receipts')->whereIn('payment_id', $ids)->get(),
             'refunds' => RefundStatus::details($refunds),
+            'refund_archive_available' => $archiveAvailable,
             'can_approve' => $r->user()->role === 'admin', 'enabled' => $provider->acceptsNewPayments(),
             'refunds_awaiting_approval' => (int) ($summary->get('requested')?->count ?? 0),
             'refund_summary'=>['requested'=>(int) ($summary->get('requested')?->count ?? 0),

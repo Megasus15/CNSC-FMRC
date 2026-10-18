@@ -1,5 +1,13 @@
 # Refund management update
 
+## 2026-10-19: Confirmed refund with a disabled Archive icon
+
+Both Admin and Staff use the same archive eligibility check. A provider-confirmed refund can still show a disabled icon if the deployed database lacks the archive columns or unresolved attempts remain. The API now reports archive storage readiness, and Orders shows a setup notice when storage is missing. Earlier failed or declined attempts can be covered by later successful partial refunds totaling the attempted amount for the same provider payment and return. New failed requests, pending claims, processing refunds and outstanding cancellation reviews continue to block archival.
+
+Deploy `backend/app/Support/OnlineRefundArchive.php`, `backend/app/Http/Controllers/Api/GatewayManagementController.php`, the updated archive migration, `admin-page/gateway-payments.js`, and both Orders HTML files together. Both portals load `gateway-payments.js?v=3.1-archive-readiness`. For missing live archive columns, follow [the focused Hostinger fix](HOSTINGER_ARCHIVE_FIX.md): run the archive migration or import [the repeatable phpMyAdmin patch](sql/ENABLE_ONLINE_REFUND_ARCHIVES.sql). The migration accepts columns already installed by that patch. Include the existing Archives release files below if they have not been deployed.
+
+Local verification: 93 backend tests (915 assertions) passed. Admin/Staff browser fixtures passed at 1440, 390 and 320 pixels in light and dark themes, including disabled pending claims, enabled confirmed refunds, storage-readiness recovery, Archive and Restore. The SQL patch passed two imports against each of four isolated local MySQL schemas: neither, either, or both archive columns already present. Amounts and statuses were preserved. No live database, provider transfer or deployment was changed; polling, signed webhooks and reconciliation paths are unchanged.
+
 ## 2026-10-19: Confirmed-refund archives and rejection reasons
 
 - **Archive enables only after PayMongo confirms the refund.** Awaiting approval, customer claim, processing, unknown, failed and declined requests keep the icon disabled. An older failed/declined attempt may be ignored only when a later successful refund covers it. Both roles use the same server rule, rechecked when archiving. The existing polling, signed webhooks, reconciliation worker and customer claim flow continue unchanged.

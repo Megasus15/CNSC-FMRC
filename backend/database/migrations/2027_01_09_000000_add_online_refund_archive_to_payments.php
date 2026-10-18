@@ -7,10 +7,13 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
-        Schema::table('payments', function (Blueprint $table) {
-            $table->timestamp('online_refund_archived_at')->nullable()->index();
-            $table->foreignId('online_refund_archived_by')->nullable()->constrained('users')->nullOnDelete();
-        });
+        // Hostinger may have received the equivalent phpMyAdmin SQL patch first.
+        if (!Schema::hasColumn('payments', 'online_refund_archived_at')) {
+            Schema::table('payments', fn (Blueprint $table) => $table->timestamp('online_refund_archived_at')->nullable()->index());
+        }
+        if (!Schema::hasColumn('payments', 'online_refund_archived_by')) {
+            Schema::table('payments', fn (Blueprint $table) => $table->foreignId('online_refund_archived_by')->nullable()->constrained('users')->nullOnDelete());
+        }
     }
 
     public function down(): void
