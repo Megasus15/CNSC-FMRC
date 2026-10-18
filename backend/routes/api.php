@@ -198,6 +198,8 @@ Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(func
     Route::get('/admin/orders/{order}/gateway-payment', [\App\Http\Controllers\Api\GatewayManagementController::class, 'show']);
     Route::post('/admin/orders/{order}/gateway-refunds', [\App\Http\Controllers\Api\GatewayManagementController::class, 'requestRefund'])->middleware('throttle:10,1');
     Route::post('/admin/orders/{order}/payment-reconcile', [\App\Http\Controllers\Api\GatewayManagementController::class, 'reconcile'])->middleware('throttle:10,1');
+    Route::post('/admin/orders/{order}/payment-check', [\App\Http\Controllers\Api\GatewayManagementController::class, 'checkStatus'])->middleware('throttle:10,1');
+    Route::post('/admin/orders/{order}/archive-refunds', [\App\Http\Controllers\Api\GatewayManagementController::class, 'archiveRefunds']);
     Route::post('/admin/gateway-refunds/{refund}/approve', [\App\Http\Controllers\Api\GatewayManagementController::class, 'approve'])->middleware('throttle:10,1');
     Route::post('/admin/gateway-refunds/{refund}/retry', [\App\Http\Controllers\Api\GatewayManagementController::class, 'retry'])->middleware('throttle:10,1');
     Route::post('/admin/gateway-refunds/{refund}/check', [\App\Http\Controllers\Api\GatewayManagementController::class, 'checkRefund'])->middleware('throttle:10,1');

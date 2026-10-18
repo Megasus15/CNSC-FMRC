@@ -41,7 +41,7 @@ class AdminDashboardLiveCountsTest extends TestCase
         }
     }
 
-    public function test_dashboard_counts_match_all_eight_unified_archive_modules(): void
+    public function test_dashboard_counts_match_all_unified_archive_modules(): void
     {
         $admin = $this->actingAsRole('admin');
         $fixtures = $this->makeArchivedFixtures($admin);
@@ -51,6 +51,7 @@ class AdminDashboardLiveCountsTest extends TestCase
             'appointments' => 1,
             'orders' => 1,
             'returns' => 1,
+            'online_refunds' => 0,
             'ratings' => 1,
             'promotions' => 1,
             'announcements' => 1,

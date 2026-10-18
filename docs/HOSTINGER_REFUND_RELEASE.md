@@ -1,5 +1,25 @@
 # Refund management update
 
+## 2026-10-18: Refund actions and archives
+
+- Admin/Staff Dashboard uses **Online payment** in the revenue breakdown and chart note. Calculations are unchanged.
+- Online refunds shows **View details** first, one **Check status** action for payment and refund checks, and the shared **Archive** icon last. Checking retrieves existing provider references; it never approves or submits a refund.
+- Archive is available for confirmed or declined refund requests. Requested, processing, ambiguous and unresolved failed refunds stay in the active queue. A failed attempt followed by an equal or larger successful/declined retry can be archived. The server rechecks eligibility under the same order/payment locks used for new requests.
+- **Archives > Online refunds** supports search, pagination, View, Restore and bulk restore for both roles. Refund archives are retained, with no permanent-delete action and no automatic deletion. Archiving changes only the team's refund workspace; customer orders, receipts, refunds and financial totals stay intact. New refund requests automatically restore the payment to Online refunds.
+
+Deploy the shared `admin-page/dashboard.js`, `gateway-payments.js`, `gateway-payments.css`, `archives.js`, and both portals' Dashboard, Orders and Archives HTML files. Backend files: `GatewayManagementController.php`, `ArchiveController.php`, `GatewayPayments.php`, `AdminArchiveRecords.php`, `OnlineRefundArchive.php`, `routes/api.php`, and the new migration below. The migration is required for archive storage; without it, the refund list stays available and archive actions stay disabled.
+
+After uploading the backend files, run from the backend directory:
+
+```sh
+php artisan migrate --path=database/migrations/2027_01_09_000000_add_online_refund_archive_to_payments.php --force
+php artisan optimize:clear
+```
+
+This release adds nullable archive metadata to `payments`; it does not alter monetary values. The January filename follows the existing ledger migration sequence. No deployment or real-money test is performed by this local update. Browser fixture: `node tools/design/check-online-refund-archives.cjs` (local mocked APIs).
+
+Local verification: 127 backend tests and 44 frontend tests passed, plus Admin/Staff browser checks at 1440, 390 and 320 pixel widths in light and dark themes. Coverage includes archive eligibility, restore, retained financial totals/customer history, automatic reopening on a new refund request, archive retention, role restrictions and combined status checks without provider submission.
+
 ## 2026-10-17: Route rejected orders by payment
 
 Rejected fulfillment and refund completion are separate records. The earlier Rejected Orders table filtered only by order status, so paid QR Ph orders appeared there as well as in Online refunds.

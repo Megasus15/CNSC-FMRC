@@ -59,13 +59,14 @@ document.addEventListener('DOMContentLoaded', () => {
   let page = 1, pages = 1, timer, busy = false, delay = 5000, snapshot = '', canApprove = false, currentRefunds = [], currentPayments = [], currentReceipts = [];
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const emptyRow = message => `<tr class="table-empty-row"><td colspan="6"><div class="table-empty-state"><i class="fa-regular fa-folder-open" aria-hidden="true"></i><span>${esc(message)}</span></div></td></tr>`;
-  const actionIcons = {'cancelapprove':'check','canceldecline':'xmark','gateway-manage':'rotate-left','order-view':'eye','cancellation-review':'clipboard-check','approve':'check','reject':'xmark','retry':'rotate-right','check-refund':'arrows-rotate','copy-claim':'copy','recoverrefund':'link','refund':'rotate-left','recovercheckout':'link','check':'arrows-rotate','history':'eye'};
+  const actionIcons = {'cancelapprove':'check','canceldecline':'xmark','gateway-manage':'rotate-left','order-view':'eye','cancellation-review':'clipboard-check','approve':'check','reject':'xmark','retry':'rotate-right','copy-claim':'copy','recoverrefund':'link','refund':'rotate-left','recovercheckout':'link','check':'arrows-rotate','history':'eye','archive':'box-archive'};
   const styleActions = root => root.querySelectorAll('.gateway-actions button').forEach(button => {
     const label=button.textContent.trim() || button.getAttribute('aria-label');
     const icon=Object.keys(actionIcons).find(key=>button.hasAttribute('data-'+key));
     button.type='button'; button.classList.remove('gateway-primary');
     button.setAttribute('aria-label',label); button.dataset.tooltip=label;
-    button.innerHTML='<i class="'+(!button.disabled && ['order-view','history'].includes(icon)?'fa-regular':'fa-solid')+' fa-'+(button.disabled?'spinner fa-spin':actionIcons[icon] || 'eye')+'" aria-hidden="true"></i>';
+    const spinning=button.disabled && icon==='check';
+    button.innerHTML='<i class="'+(['order-view','history'].includes(icon)?'fa-regular':'fa-solid')+' fa-'+(spinning?'spinner fa-spin':actionIcons[icon] || 'eye')+'" aria-hidden="true"></i>';
   });
   const money = cents => '₱' + (Number(cents) / 100).toLocaleString('en-PH', {minimumFractionDigits:2,maximumFractionDigits:2});
   const methodLabel = method => method === 'qrph' ? 'QR Ph' : method === 'gcash' ? 'GCash' : 'Online payment';
@@ -143,6 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
       data.refunds ||= [];
       const refundPaymentIds = new Set(data.refunds.map(r=>Number(r.payment_id)));
       data.payments.data = data.payments.data.filter(p=>refundPaymentIds.has(Number(p.id)));
+      if (page > data.payments.last_page) { page = Math.max(1, data.payments.last_page); snapshot=''; reloadPending=true; return; }
       if (reloadPending) return;
       currentReceipts = data.receipts || []; currentRefunds = data.refunds; currentPayments = data.payments.data; canApprove = data.can_approve; pages = data.payments.last_page; renderCancellations(); renderRejectedPaymentReviews();
       refundShortcut.innerHTML = '<i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Online refunds <span class="tab-count">'+Number(data.refunds_awaiting_approval || 0)+'</span>';
@@ -163,25 +165,24 @@ document.addEventListener('DOMContentLoaded', () => {
           const remaining=receipt=>Number(receipt.amount_centavos)-refunds.filter(f=>f.provider_payment_id===receipt.provider_payment_id && !['failed','rejected'].includes(f.status)).reduce((sum,f)=>sum+Number(f.amount_centavos||0),0);
           const refundable=receipts.some(r=>remaining(r)>=100);
           const visible=refunds.filter(r=>!['failed','rejected'].includes(r.status)||!refunds.some(n=>n.id>r.id && n.provider_payment_id===r.provider_payment_id));
-          const actions=[];
+          const actions=[`<button data-history="${p.order_id}">View details</button>`];
           if(p.cancel_state==='requested')actions.push(`<button class="gateway-primary" data-cancellation-review="${p.order_id}">Review cancellation</button>`);
           for(const r of visible){
             if(canApprove && r.status==='requested')actions.push(`<button class="gateway-primary" data-approve="${r.id}">Issue refund</button><button data-reject="${r.id}">Decline refund</button>`);
             if(r.status==='failed' && receipts.some(x=>x.provider_payment_id===r.provider_payment_id && remaining(x)>=Number(r.amount_centavos)))actions.push(`<button data-retry="${r.id}">${canApprove?'Retry refund':'Request retry'}</button>`);
-            if(r.provider_refund_id && ['pending','unknown','submitting'].includes(r.status))actions.push(`<button data-check-refund="${r.id}">Check refund</button>`);
             if(r.transfer_link)actions.push(`<button data-copy-claim="${r.id}">Copy claim link</button>`);
             if(canApprove && !r.provider_refund_id && ['unknown','submitting'].includes(r.status))actions.push(`<button data-recoverrefund="${r.id}">Match refund</button>`);
           }
           if(refundable && ['paid','refunded'].includes(p.status) && p.cancel_state!=='requested' && !visible.some(r=>['requested','submitting','pending','unknown','failed'].includes(r.status)))actions.push(`<button data-refund="${p.order_id}">${canApprove?'Issue refund':'Request refund'}</button>`);
           if(canApprove && data.attempts.some(a=>Number(a.payment_id)===Number(p.id) && !a.checkout_id && ['creating','unknown'].includes(a.status)))actions.push(`<button data-recovercheckout="${p.order_id}">Match checkout</button>`);
-          actions.push(`<button data-check="${p.order_id}">Check payment</button><button data-history="${p.order_id}">Details</button>`);
+          actions.push(`<button data-check="${p.order_id}">Check status</button>`);
+          actions.push(`<button data-archive="${p.order_id}" ${p.can_archive_refunds?'':'disabled'}>${p.can_archive_refunds?'Archive refund':esc(p.refund_archive_reason || 'Resolve refunds before archiving')}</button>`);
           const status=visible.map(r=>`<div class="gateway-table-state"><span class="status-pill ${statusClass(r.status)}" data-status="${esc(r.status)}">${esc(r.transfer_link?'Awaiting customer claim':refundLabel(r.status))}</span><small>${money(r.amount_centavos)}${r.status==='failed'?' - '+esc(r.failure_message || 'Needs review'):''}</small></div>`).join('') || '<span class="gateway-secondary">'+(p.cancel_state==='requested'?'Review cancellation first':['cancelled','rejected'].includes(p.lifecycle_status) && p.status==='paid'?'Refund required':'No refund requested')+'</span>';
           return `<tr><td><strong>${esc(p.order_no)}</strong><small>${esc(p.customer_name || 'Customer')}</small><small>${esc(readable(p.lifecycle_status))} &middot; ${esc(readable(p.status))}</small></td><td>${esc(cancellationReason(p) || (p.lifecycle_status==='rejected'?'Order rejected':'-'))}${p.cancel_requested_at?'<small>'+esc(dateLabel(p.cancel_requested_at))+'</small>':''}</td><td class="gateway-money">${money(receipts.reduce((n,r)=>n+Number(r.amount_centavos),0))}</td><td class="gateway-money">${money(refunds.filter(r=>r.status==='succeeded').reduce((n,r)=>n+Number(r.amount_centavos),0))}</td><td>${status}</td><td class="action-icons sticky-action gateway-actions">${actions.join('')}</td></tr>`;
         }).join('') || emptyRow('No refunds match these filters.');
         window.AdminTableResize?.refresh?.();
         snapshot = nextSnapshot;
-        panel.querySelectorAll('[data-check]').forEach(b => { b.disabled = checking.has(b.dataset.check); b.textContent = b.disabled ? 'Checking\u2026' : 'Check payment'; });
-        panel.querySelectorAll('[data-check-refund]').forEach(b => {b.disabled=checking.has('refund-'+b.dataset.checkRefund);b.textContent=b.disabled?'Checking...':'Check refund';});
+        panel.querySelectorAll('[data-check]').forEach(b => { b.disabled = checking.has(b.dataset.check); b.textContent = b.disabled ? 'Checking\u2026' : 'Check status'; });
         const financial=JSON.stringify([data.payments.data.map(p=>[p.id,p.status]),data.refunds.map(r=>[r.id,r.status,r.amount_centavos])]);
         if(financial!==financialSnapshot){
           financialSnapshot=financial;
@@ -268,6 +269,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (recovering) { modal.querySelector('[data-title]').textContent = 'Match provider record'; modal.querySelector('[data-description]').textContent = 'Copy the matching checkout or refund ID from the school PayMongo dashboard. FMRC verifies the original request before accepting it.'; }
     modal.querySelector('[type=submit]').textContent = request ? (canApprove?'Issue refund':'Send refund request') : type === 'approve' ? 'Issue refund' : recovering ? 'Verify record' : 'Reject request';
     if (type === 'retry') modal.querySelector('[type=submit]').textContent = canApprove ? 'Retry and issue refund' : 'Request retry';
+    if (type === 'archive') {
+      modal.querySelector('[data-title]').textContent = 'Archive refund';
+      modal.querySelector('[data-description]').textContent = 'Move the refund record for '+(payment?.order_no || 'this order')+' to Archives > Online refunds? You can restore it anytime. The payment history and totals stay available.';
+      modal.querySelector('[type=submit]').textContent = 'Archive refund';
+    }
     if(type==='history'){
       const p=payments.find(p=>String(p.order_id)===String(id));
       const orderReceipts=receipts.filter(r=>Number(r.payment_id)===Number(p?.id));
@@ -313,7 +319,12 @@ document.addEventListener('DOMContentLoaded', () => {
     modal.querySelector('[data-cancel]').disabled = true;
     modal.querySelector('[data-error]').textContent = '';
     try {
-      if (action.type === 'recovercheckout') await api('/admin/orders/'+action.id+'/payment-recover', {provider_id:modal.querySelector('[name=provider_id]').value.trim()});
+      if (action.type === 'archive') {
+        const result=await api('/admin/orders/'+action.id+'/archive-refunds', {});
+        checkResult.hidden=false; checkResult.textContent=result.message;
+        window.dispatchEvent(new CustomEvent('fmrc:archives-updated',{detail:{module:'online_refund',action:'archive'}}));
+      }
+      else if (action.type === 'recovercheckout') await api('/admin/orders/'+action.id+'/payment-recover', {provider_id:modal.querySelector('[name=provider_id]').value.trim()});
       else if (action.type === 'recoverrefund') await api('/admin/gateway-refunds/'+action.id+'/recover', {provider_id:modal.querySelector('[name=provider_id]').value.trim()});
       else if(action.type==='cancelapprove' || action.type==='canceldecline'){
         const result=await api('/admin/orders/'+action.id+'/cancellation',{decision:action.type==='cancelapprove'?'approve':'decline',note:modal.querySelector('[name=reason]').value.trim(),issue_refund:!!action.issueRefund});
@@ -337,7 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
     finally { submitting = false; modal.removeAttribute('closedby'); button.disabled = false; button.textContent = label; modal.querySelector('[data-cancel]').disabled = false; }
   };
   panel.addEventListener('click', async e => {
-    const b = e.target.closest('button'); if (!b) return;
+    const b = e.target.closest('button'); if (!b || b.disabled) return;
     if (b.dataset.copyClaim) {
       const refund=currentRefunds.find(r=>String(r.id)===b.dataset.copyClaim);
       if(!refund?.transfer_link) return;
@@ -345,32 +356,23 @@ document.addEventListener('DOMContentLoaded', () => {
       catch {checkResult.textContent='Copy unavailable. The customer can open the claim link in My Orders > Payment details.';}
       checkResult.hidden=false;return;
     }
-    if (b.dataset.checkRefund) {
-      const key='refund-'+b.dataset.checkRefund; if(checking.has(key)) return;
-      checking.add(key); b.disabled=true; b.textContent='Checking...'; styleActions(panel);
-      try { const result=await api('/admin/gateway-refunds/'+b.dataset.checkRefund+'/check',{});
-        checkResult.hidden=false; checkResult.textContent=refundLabel(result.data?.status)+'. '+(result.data?.failure_message || 'Refund status checked.'); snapshot=''; void load();
-      } catch(error) {checkResult.hidden=false;checkResult.textContent=error.message;}
-      finally {checking.delete(key);b.disabled=false;b.textContent='Check refund'; styleActions(panel);}
-      return;
-    }
     if (b.hasAttribute('data-gateway-all')) { page=1; snapshot=''; panel.querySelector('[data-gateway-search]').value=''; panel.querySelector('[data-gateway-status-filter]').value=''; return load(); }
     if (b.hasAttribute('data-prev')) { page--; snapshot=''; return load(); }
     if (b.hasAttribute('data-next')) { page++; snapshot=''; return load(); }
-    for (const type of ['refund','retry','approve','reject','history','recovercheckout','recoverrefund']) if (b.dataset[type]) return show(type,b.dataset[type]);
+    for (const type of ['refund','retry','approve','reject','history','recovercheckout','recoverrefund','archive']) if (b.dataset[type]) return show(type,b.dataset[type]);
     if (b.dataset.check) {
       const id = b.dataset.check; if (checking.has(id)) return;
       checking.add(id); b.disabled = true; b.textContent = 'Checking\u2026'; styleActions(panel);
       const order = currentPayments.find(p => String(p.order_id) === id);
-      checkResult.hidden = false; checkResult.textContent = 'Checking payment for ' + (order?.order_no || 'this order') + '\u2026';
+      checkResult.hidden = false; checkResult.textContent = 'Checking payment and refunds for ' + (order?.order_no || 'this order') + '\u2026';
       try {
-        const result = await api('/admin/orders/'+id+'/payment-reconcile', {});
-        checkResult.textContent = (order?.order_no || 'Order') + ': ' + (result.exception ? 'Payment needs review.' : result.status === 'paid' ? 'Payment confirmed.' : result.status === 'refunded' ? 'Refund confirmed.' : 'Payment is not confirmed yet.') + ' Checked at ' + dateLabel(new Date().toISOString()) + '.';
+        const result = await api('/admin/orders/'+id+'/payment-check', {});
+        checkResult.textContent = (order?.order_no || 'Order') + ': ' + (result.exception ? 'Payment needs review. Open View details.' : 'Payment and refund status checked. Review the latest status below.') + ' Checked at ' + dateLabel(new Date().toISOString()) + '.';
         snapshot=''; void load();
       } catch(e) { checkResult.textContent = e.message; }
       finally {
         checking.delete(id);
-        panel.querySelectorAll('[data-check]').forEach(button => { if(button.dataset.check === id) { button.disabled=false; button.textContent='Check payment'; styleActions(panel); } });
+        panel.querySelectorAll('[data-check]').forEach(button => { if(button.dataset.check === id) { button.disabled=false; button.textContent='Check status'; styleActions(panel); } });
       }
     }
   });
@@ -400,11 +402,9 @@ document.addEventListener('DOMContentLoaded', () => {
     void load(); panel.scrollIntoView({behavior:'smooth',block:'start'});
   });
   const openingDetails = new Set();
-  document.addEventListener('click', async e => {
-    const button=e.target.closest('[data-gateway-manage]'); if(!button) return;
-    const id=button.dataset.gatewayManage;
+  const openPaymentDetails = async (id, button=null) => {
     if(openingDetails.has(id) || submitting) return;
-    openingDetails.add(id); button.disabled=true;
+    openingDetails.add(id); if(button) button.disabled=true;
     try {
       const records=await api('/admin/orders/'+encodeURIComponent(id)+'/gateway-payment');
       canApprove=records.can_approve;
@@ -412,8 +412,17 @@ document.addEventListener('DOMContentLoaded', () => {
       show('history',id,records);
     } catch(error) {
       openWorkspace(); checkResult.hidden=false; checkResult.textContent=error.message;
-    } finally { openingDetails.delete(id); button.disabled=false; }
+    } finally { openingDetails.delete(id); if(button) button.disabled=false; }
+  };
+  document.addEventListener('click', e => {
+    const button=e.target.closest('[data-gateway-manage]'); if(!button) return;
+    void openPaymentDetails(button.dataset.gatewayManage,button);
   });
+  const archivedOrder = new URLSearchParams(location.search).get('refund_order');
+  if (archivedOrder && /^[1-9]\d*$/.test(archivedOrder)) {
+    openWorkspace();
+    void openPaymentDetails(archivedOrder);
+  }
   window.AdminPageNumberInput?.bind(panel.querySelector('[data-payment-page]'), {
     getPage:()=>page, getTotalPages:()=>pages,
     onChange:value=>{page=value;snapshot='';void load();}

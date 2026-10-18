@@ -8,6 +8,7 @@ use App\Models\Appointment;
 use App\Models\InventoryItem;
 use App\Models\Order;
 use App\Models\OrderReturn;
+use App\Models\Payment;
 use App\Models\ProductRating;
 use App\Models\ProductRatingLike;
 use App\Models\Promotion;
@@ -39,6 +40,7 @@ class ArchiveController extends Controller
         $appointments = collect();
         $orders = collect();
         $returns = collect();
+        $onlineRefunds = collect();
         $promotions = collect();
         $announcements = collect();
         $ratings = collect();
@@ -329,11 +331,39 @@ class ArchiveController extends Controller
             Log::error('ArchiveController: walk-in orders fetch failed', ['error' => $e->getMessage()]);
         }
 
+        try {
+            if ($module === 'all' || $module === 'online_refund') {
+                $payments = AdminArchiveRecords::query('online_refunds')->with('order')
+                    ->orderByDesc('online_refund_archived_at')->orderByDesc('id')->get();
+                $refunds = DB::table('payment_refunds')->whereIn('payment_id', $payments->modelKeys())->orderByDesc('id')->get()->groupBy('payment_id');
+                $receipts = DB::table('payment_receipts')->whereIn('payment_id', $payments->modelKeys())->get()->groupBy('payment_id');
+                $archivers = DB::table('users')->whereIn('id', $payments->pluck('online_refund_archived_by'))->pluck('name', 'id');
+                $onlineRefunds = $payments->map(function (Payment $payment) use ($refunds, $receipts, $archivers) {
+                    $records = $refunds->get($payment->id, collect());
+                    $received = $receipts->get($payment->id, collect());
+                    return [
+                        'id' => 'online-refund-'.$payment->id, 'source_id' => $payment->id, 'module' => 'online_refund',
+                        'order_id' => $payment->order_id, 'order_no' => $payment->order?->order_no,
+                        'customer_name' => $payment->order?->customer_name,
+                        'payment_method' => $received->contains('source_type', 'qrph') ? 'QR Ph' : 'Online payment',
+                        'received_label' => '₱ '.number_format($received->sum('amount_centavos') / 100, 2),
+                        'refunded_label' => '₱ '.number_format($records->where('status', 'succeeded')->sum('amount_centavos') / 100, 2),
+                        'status_label' => $records->contains('status', 'succeeded') ? 'Refund confirmed' : 'Request declined',
+                        'archived_at' => $payment->online_refund_archived_at,
+                        'archived_by' => $archivers[$payment->online_refund_archived_by] ?? 'Team member',
+                    ];
+                });
+            }
+        } catch (\Throwable $e) {
+            Log::error('ArchiveController: online refunds fetch failed', ['error' => $e->getMessage()]);
+        }
+
         return response()->json([
             'inventory' => $inventory->values(),
             'appointments' => $appointments->values(),
             'orders' => $orders->values(),
             'returns' => $returns->values(),
+            'online_refunds' => $onlineRefunds->values(),
             'promotions' => $promotions->values(),
             'announcements' => $announcements->values(),
             'ratings' => $ratings->values(),
@@ -349,7 +379,7 @@ class ArchiveController extends Controller
         }
 
         $validated = $request->validate([
-            'module' => ['required', 'string', Rule::in(['inventory', 'appointment', 'order', 'return', 'promotion', 'announcement', 'rating', 'walkin'])],
+            'module' => ['required', 'string', Rule::in(['inventory', 'appointment', 'order', 'return', 'online_refund', 'promotion', 'announcement', 'rating', 'walkin'])],
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['integer', 'min:1', 'distinct'],
         ]);
@@ -364,6 +394,7 @@ class ArchiveController extends Controller
                 'appointment' => Appointment::query()->whereIn('id', $ids)->where('status', 'Archived'),
                 'order' => Order::query()->whereIn('id', $ids)->where('is_archived', true),
                 'return' => OrderReturn::query()->whereIn('id', $ids)->where('is_archived', true),
+                'online_refund' => Payment::query()->whereIn('id', $ids)->whereNotNull('online_refund_archived_at'),
                 'promotion' => Promotion::query()->whereIn('id', $ids)->where('is_archived', true),
                 'announcement' => Announcement::query()->whereIn('id', $ids)->where('is_archived', true),
                 'rating' => ProductRating::query()->whereIn('id', $ids)->where('is_archived', true),
@@ -381,6 +412,7 @@ class ArchiveController extends Controller
             }
 
             $updates = match ($module) {
+                'online_refund' => ['online_refund_archived_at' => null, 'online_refund_archived_by' => null],
                 'inventory', 'order', 'return', 'promotion', 'announcement', 'rating', 'walkin' => [
                     'is_archived' => false,
                     'archived_at' => null,

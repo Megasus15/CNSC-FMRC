@@ -1,4 +1,7 @@
 /* Shared Admin/Staff cancellation and refund tables. */
+#gatewayPaymentsTable .gateway-actions{text-align:left;white-space:nowrap}
+#gatewayPaymentsTable .gateway-actions button:disabled{opacity:.4;cursor:not-allowed}
+.gateway-team button,.gateway-team-dialog button{white-space:nowrap}
 #sectionRefunds[hidden],#sectionCancellations[hidden],.cancellation-alert[hidden],.order-cancellation-notice[hidden]{display:none!important}
 .gateway-content{min-width:0}.gateway-intro{font-size:13px;line-height:1.7;color:var(--text-muted,#6b6872);margin:18px 0}
 .gateway-stats{display:flex;flex-wrap:wrap;gap:20px;padding:16px 0;margin-bottom:16px;border-bottom:1px solid var(--border-color,#dfe5ee)}.gateway-stats>div{flex:1;min-width:120px}.gateway-stats span{display:block;font-size:12px;color:var(--text-muted,#6b6872)}.gateway-stats strong{display:block;margin-top:5px;font-size:20px;font-weight:650;font-variant-numeric:tabular-nums}

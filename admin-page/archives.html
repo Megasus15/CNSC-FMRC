@@ -294,10 +294,7 @@
             <div class="toolbar-title">
               <h2>Archives</h2>
               <p>
-                All archived records from Inventory, Appointments, Orders,
-                Returns &amp; Refunds, Ratings &amp; Feedback, Promotions, and
-                Announcements.<br />Archived items are removed
-                from their source pages.
+                View archived records and restore them to their original sections.
               </p>
             </div>
             <div class="toolbar-actions">
@@ -327,6 +324,10 @@
             <button class="archive-tab-btn" data-tab="return">
               <i class="fa-solid fa-rotate-left"></i> Returns &amp; Refunds
               <span class="tab-count" id="tabCountReturn">0</span>
+            </button>
+            <button class="archive-tab-btn" data-tab="online_refund">
+              <i class="fa-solid fa-box-archive" aria-hidden="true"></i> Online refunds
+              <span class="tab-count" id="tabCountOnlineRefund">0</span>
             </button>
             <button class="archive-tab-btn" data-tab="rating">
               <i class="fa-solid fa-star"></i> Ratings &amp; Feedback
@@ -681,6 +682,31 @@
             </div>
           </div>
 
+          <div class="archive-section" id="sectionOnline_refund">
+            <div class="panel">
+              <div class="panel-header"><h3>Online refund archives</h3></div>
+              <p class="field-hint">Closed online refunds. View the payment history or restore a record to Online refunds. These records are kept and excluded from automatic deletion.</p>
+              <div class="table-scroll-hint"><i class="fa-solid fa-left-right" aria-hidden="true"></i> Scroll horizontally to see all columns.</div>
+              <div class="table-wrapper">
+                <table class="admin-table inventory-table" id="onlineRefundArchiveTable">
+                  <thead><tr>
+                    <th class="admin-bulk-select-cell"><input type="checkbox" data-admin-bulk-page="archive-online_refund" aria-label="Select all online refund archives on this page" /></th>
+                    <th>Order No.</th><th>Customer</th><th>Payment method</th><th>Received</th><th>Refunded</th><th>Status</th><th>Archived</th><th class="sticky-action">Actions</th>
+                  </tr></thead>
+                  <tbody id="onlineRefundArchiveTbody"></tbody>
+                </table>
+              </div>
+              <div class="table-footer" id="onlineRefundArchiveFooter">
+                <div class="table-footer-meta" id="onlineRefundArchiveMeta">&mdash;</div>
+                <div class="table-pagination">
+                  <button class="page-btn" id="onlineRefundArchivePrev" aria-label="Previous online refund archives page"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+                  <input class="page-number" id="onlineRefundArchivePage" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to online refund archives page" />
+                  <button class="page-btn" id="onlineRefundArchiveNext" aria-label="Next online refund archives page"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="archive-section" id="sectionRating">
             <div class="panel">
               <div class="panel-header">
@@ -1021,6 +1047,7 @@
         <p class="confirm-text">
           Archived records older than the selected period will be
           <strong>automatically and permanently deleted</strong>.
+          Online refund records are kept and excluded from automatic deletion.
         </p>
         <div
           style="
@@ -1203,7 +1230,7 @@
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="admin-common.js?v=8.4"></script>
 
-    <script src="archives.js?v=5.5.2"></script>
+    <script src="archives.js?v=5.6-online-refunds"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>

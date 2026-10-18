@@ -7,6 +7,7 @@ use App\Models\Appointment;
 use App\Models\InventoryItem;
 use App\Models\Order;
 use App\Models\OrderReturn;
+use App\Models\Payment;
 use App\Models\ProductRating;
 use App\Models\Promotion;
 use App\Models\WalkInOrder;
@@ -19,6 +20,7 @@ class AdminArchiveRecords
         'appointments',
         'orders',
         'returns',
+        'online_refunds',
         'ratings',
         'promotions',
         'announcements',
@@ -32,6 +34,7 @@ class AdminArchiveRecords
             'appointments' => Appointment::query()->where('status', 'Archived'),
             'orders' => Order::query()->where('is_archived', true),
             'returns' => OrderReturn::query()->where('is_archived', true),
+            'online_refunds' => Payment::query()->whereNotNull('online_refund_archived_at'),
             'ratings' => ProductRating::query()->where('is_archived', true),
             'promotions' => Promotion::query()->where('is_archived', true),
             'announcements' => Announcement::query()->where('is_archived', true),
@@ -41,7 +44,7 @@ class AdminArchiveRecords
     }
 
     /**
-     * Return the exact eight module counts used by the unified Archives page.
+     * Return the module counts used by the unified Archives page.
      * Missing or partially deployed schemas degrade to zero for that module.
      *
      * @return array{counts: array<string, int>, availability: array<string, bool>, total: int}

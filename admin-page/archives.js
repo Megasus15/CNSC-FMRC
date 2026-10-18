@@ -72,7 +72,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const normalized = String(text || "—").toLowerCase();
     let className = "status-gray";
     if (
-      ["good", "active", "completed", "confirmed", "paid", "enabled"].includes(
+      ["good", "active", "completed", "confirmed", "paid", "enabled", "refund confirmed"].includes(
         normalized,
       )
     ) {
@@ -80,7 +80,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (["low", "pending", "incoming", "paused"].includes(normalized)) {
       className = "status-yellow";
     } else if (
-      ["critical", "rejected", "cancelled", "archived"].includes(normalized)
+      ["critical", "rejected", "cancelled", "archived", "request declined"].includes(normalized)
     ) {
       className = "status-red";
     }
@@ -98,6 +98,7 @@ document.addEventListener("DOMContentLoaded", () => {
     appointment: { all: [], page: 1, controller: null },
     order: { all: [], page: 1, controller: null },
     return: { all: [], page: 1, controller: null },
+    online_refund: { all: [], page: 1, controller: null },
     rating: { all: [], page: 1, controller: null },
     promotion: { all: [], page: 1, controller: null },
     announcement: { all: [], page: 1, controller: null },
@@ -107,6 +108,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const inventoryVariantPages = new Map();
 
   const moduleConfig = {
+    online_refund: {
+      payloadKey: "online_refunds",
+      tableId: "onlineRefundArchiveTable", tbodyId: "onlineRefundArchiveTbody",
+      footerId: "onlineRefundArchiveFooter", metaId: "onlineRefundArchiveMeta",
+      pageId: "onlineRefundArchivePage", prevId: "onlineRefundArchivePrev", nextId: "onlineRefundArchiveNext",
+      countId: "tabCountOnlineRefund", colCount: 9,
+      tableLabel: "Online Refund Archives", restoreOnly: true,
+      emptyMessage: "No archived online refunds found.",
+      searchFields: ["order_no", "customer_name", "payment_method", "status_label", "archived_by"],
+    },
     inventory: {
       payloadKey: "inventory",
       tableId: "inventoryArchiveTable",
@@ -415,6 +426,16 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const renderRow = (module, row, index) => {
+    if (module === "online_refund") {
+      return `<tr>
+        ${rowCheckbox(module, row, row.order_no)}
+        <td><strong>${esc(row.order_no)}</strong></td><td>${esc(row.customer_name)}</td>
+        <td>${esc(row.payment_method)}</td><td>${esc(row.received_label)}</td><td>${esc(row.refunded_label)}</td>
+        <td>${statusPill(row.status_label)}</td>
+        <td>${fmtDate(row.archived_at, true)}<div>${esc(row.archived_by)}</div></td>
+        <td class="action-icons sticky-action"><button type="button" data-refund-view="${Number(row.order_id)}" data-tooltip="View details" aria-label="View refund for ${esc(row.order_no)}"><i class="fa-regular fa-eye" aria-hidden="true"></i></button>${restoreButton(module, row, row.order_no)}</td>
+      </tr>`;
+    }
     if (module === "inventory") return renderInventoryRow(row, index);
     if (module === "appointment") {
       return `<tr>
@@ -710,7 +731,7 @@ document.addEventListener("DOMContentLoaded", () => {
             icon: "fa-trash",
             className: "admin-bulk-delete",
           },
-        ],
+        ].filter(item => !config.restoreOnly || item.key === "restore"),
         actions: [
           {
             key: "restore",
@@ -728,7 +749,7 @@ document.addEventListener("DOMContentLoaded", () => {
             onClick: (ids, controller) =>
               deleteSelected(module, ids, controller),
           },
-        ],
+        ].filter(item => !config.restoreOnly || item.key === "restore"),
       });
     });
   };
@@ -883,6 +904,11 @@ document.addEventListener("DOMContentLoaded", () => {
   document.body.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
+    const refundView = target.closest('[data-refund-view]');
+    if (refundView) {
+      window.location.href = 'orders.html?refund_order=' + Number(refundView.dataset.refundView);
+      return;
+    }
 
     const goToInventoryVariantPage = (itemId, rawPage) => {
       const item = state.inventory.all.find(

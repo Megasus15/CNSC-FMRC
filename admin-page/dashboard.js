@@ -1231,7 +1231,7 @@ document.addEventListener("DOMContentLoaded", () => {
       let line = [
         `Online ${formatCurrencyCompact(b.online || 0)}`,
         `Walk-in ${formatCurrencyCompact(b.walkins || 0)}`,
-        `GCash ${formatCurrencyCompact(b.gcash_advance || 0)}`,
+        `Online payment ${formatCurrencyCompact(b.gcash_advance || 0)}`,
       ].join("  ·  ");
       if (Number(b.refunds || 0) > 0)
         line += `  ·  −${formatCurrencyCompact(b.refunds || 0)} refunds`;
@@ -1586,6 +1586,7 @@ document.addEventListener("DOMContentLoaded", () => {
       "appointments",
       "orders",
       "returns",
+      "online_refunds",
       "ratings",
       "promotions",
       "announcements",
@@ -1785,6 +1786,7 @@ document.addEventListener("DOMContentLoaded", () => {
       "appointments",
       "orders",
       "returns",
+      "online_refunds",
       "ratings",
       "promotions",
       "announcements",

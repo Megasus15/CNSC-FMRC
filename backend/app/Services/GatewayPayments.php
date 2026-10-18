@@ -266,6 +266,10 @@ class GatewayPayments
             abort_unless($attempt && $attempt->confirmed_at && (bool) $attempt->livemode === $this->provider->isLive(), 422, 'Reconcile this payment before requesting a refund.');
             $id = DB::table('payment_refunds')->insertGetId(['payment_id' => $payment->id, 'token' => $token, 'requested_by' => $actor,
                 'provider_payment_id' => $providerPaymentId, 'order_return_id' => $returnId, 'amount_centavos' => $amount, 'reason' => $reason, 'livemode' => $attempt->livemode, 'status' => 'requested', 'created_at' => now(), 'updated_at' => now()]);
+            // A new request brings this payment back into the team's working queue.
+            if (\App\Support\OnlineRefundArchive::available()) DB::table('payments')->where('id', $payment->id)->update([
+                'online_refund_archived_at' => null, 'online_refund_archived_by' => null,
+            ]);
             if ($returnId) $return->update(['status' => 'refund_processing']);
             $title=$issuing ? 'Refund being prepared' : 'Refund requested';
             $progress=$issuing ? 'FMRC is preparing the refund for submission to PayMongo.' : 'The refund is awaiting Admin approval.';

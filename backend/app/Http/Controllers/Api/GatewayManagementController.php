@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use App\Models\{Order, Payment};
 use App\Services\{GatewayPayments, PayMongoService};
 use App\Support\RefundStatus;
+use App\Support\OnlineRefundArchive;
 use Illuminate\Http\{Request, JsonResponse};
 use Illuminate\Support\Facades\DB;
 
@@ -15,6 +16,7 @@ class GatewayManagementController extends Controller
         $this->team($r);
         $filter = $r->validate(['search'=>'nullable|string|max:100','refund_status'=>'nullable|in:requested,processing,failed,succeeded','order_id'=>'nullable|integer|min:1']);
         $rows = $this->paymentQuery()
+            ->when(OnlineRefundArchive::available(), fn($q)=>$q->whereNull('payments.online_refund_archived_at'))
             ->whereExists(fn($f)=>$f->selectRaw('1')->from('payment_refunds')->whereColumn('payment_refunds.payment_id','payments.id'))
             ->when($r->filled('search'),fn($q)=>$q->where(fn($s)=>$s->where('orders.order_no','like','%'.$filter['search'].'%')->orWhere('orders.customer_name','like','%'.$filter['search'].'%')))
             ->when($r->filled('refund_status'),fn($q)=>$q->whereExists(fn($f)=>$f->selectRaw('1')->from('payment_refunds')->whereColumn('payment_refunds.payment_id','payments.id')
@@ -42,9 +44,15 @@ class GatewayManagementController extends Controller
         $ids = collect($rows->items())->pluck('id');
         $gateway->refreshRefunds($ids->all());
         $currentStatuses=DB::table('payments')->whereIn('id',$ids)->pluck('status','id');
+        $refunds = DB::table('payment_refunds')->whereIn('payment_id', $ids)->orderByDesc('id')->get();
+        $archiveAvailable = OnlineRefundArchive::available();
         foreach($rows->items() as $row) {
             $row->status=$currentStatuses[$row->id] ?? $row->status;
             $row->cancel_reason_label=Order::CANCEL_REASON_LABELS[$row->cancel_reason] ?? $row->cancel_reason;
+            $row->refund_archive_reason = $archiveAvailable
+                ? OnlineRefundArchive::blockedReason($refunds->where('payment_id', $row->id), $row->cancel_state)
+                : 'Refund archiving is temporarily unavailable.';
+            $row->can_archive_refunds = $row->refund_archive_reason === null;
         }
         $summary = DB::table('payment_refunds')->where('livemode',$provider->isLive())
             ->where(fn($q)=>$q->whereNotIn('status',['failed','rejected'])->orWhereNotExists(fn($new)=>$new->selectRaw('1')->from('payment_refunds as newer')
@@ -52,7 +60,7 @@ class GatewayManagementController extends Controller
             ->selectRaw('status, COUNT(*) as count, SUM(amount_centavos) as amount')->groupBy('status')->get()->keyBy('status');
         return response()->json(['payments' => $rows, 'attempts' => DB::table('payment_attempts')->whereIn('payment_id', $ids)->get(),
             'receipts' => DB::table('payment_receipts')->whereIn('payment_id', $ids)->get(),
-            'refunds' => RefundStatus::details(DB::table('payment_refunds')->whereIn('payment_id', $ids)->orderByDesc('id')->get()),
+            'refunds' => RefundStatus::details($refunds),
             'can_approve' => $r->user()->role === 'admin', 'enabled' => $provider->acceptsNewPayments(),
             'refunds_awaiting_approval' => (int) ($summary->get('requested')?->count ?? 0),
             'refund_summary'=>['requested'=>(int) ($summary->get('requested')?->count ?? 0),
@@ -122,6 +130,37 @@ class GatewayManagementController extends Controller
         // Refund reconciliation is performed by the scheduled worker. A refresh
         // must not authorize a refund or race another provider submission.
         return response()->json($gateway->state($order->fresh()));
+    }
+
+    /** One explicit check for the payment and all known, approved refund references. */
+    public function checkStatus(Request $r, Order $order, GatewayPayments $gateway): JsonResponse {
+        $this->team($r);
+        abort_unless(GatewayPayments::managed($order->payment), 422, 'No online payment was found for this order.');
+        $this->reconcile($r, $order, $gateway);
+        foreach (DB::table('payment_refunds')->where('payment_id', $order->payment->id)
+            ->whereNotNull('provider_refund_id')->whereNotNull('approved_by')
+            ->whereIn('status', ['pending','unknown','submitting'])->get() as $refund) {
+            // Never call reconciliation without a provider ID: that can retry submission.
+            $gateway->reconcileRefund($refund);
+        }
+        return response()->json($gateway->state($order->fresh()));
+    }
+
+    public function archiveRefunds(Request $r, Order $order): JsonResponse {
+        $this->team($r);
+        abort_unless(OnlineRefundArchive::available(), 503, 'Refund archiving is temporarily unavailable.');
+        DB::transaction(function () use ($r, $order) {
+            $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $payment = Payment::where('order_id', $order->id)->lockForUpdate()->firstOrFail();
+            abort_unless(GatewayPayments::managed($payment), 422, 'No online payment was found for this order.');
+            $refunds = DB::table('payment_refunds')->where('payment_id', $payment->id)->lockForUpdate()->get();
+            $reason = OnlineRefundArchive::blockedReason($refunds, $order->cancel_state);
+            abort_if($reason !== null, 422, $reason ?? 'Refund cannot be archived.');
+            DB::table('payments')->where('id', $payment->id)->whereNull('online_refund_archived_at')->update([
+                'online_refund_archived_at' => now(), 'online_refund_archived_by' => $r->user()->id,
+            ]);
+        });
+        return response()->json(['message' => 'Refund moved to Archives > Online refunds.']);
     }
     /** Attach only a provider record whose immutable association matches this attempt. */
     public function recoverCheckout(Request $r, Order $order, GatewayPayments $gateway, PayMongoService $provider): JsonResponse {
