@@ -106,12 +106,14 @@ class Element {
   };
   }
   appendChild(child) { child.parentElement = this; this.children.push(child); return child; }
+  append(...children) { children.forEach((child) => this.appendChild(child)); }
   after(child) { this.parentElement.appendChild(child); }
   remove() { this.parentElement.children = this.parentElement.children.filter((child) => child !== this); }
   setAttribute(key, value) { this.attributes[key] = String(value); }
   getAttribute(key) { return this.attributes[key] ?? null; }
   addEventListener(type, callback, options = {}) { (this.events[type] ||= []).push({ callback, signal: options.signal }); }
-  emit(type, detail = {}) { for (const event of this.events[type] || []) if (!event.signal?.aborted) event.callback({ type, target: this, ...detail }); }
+  emit(type, detail = {}) { for (const event of this.events[type] || []) if (!event.signal?.aborted) event.callback({ type, target: this, currentTarget: this, ...detail }); }
+  closest(selector) { return selector.startsWith('.') && this.classList.contains(selector.slice(1)) ? this : this.parentElement?.closest(selector) || null; }
   contains(element) { return element === this || this.children.some((child) => child.contains(element)); }
   querySelectorAll(selector) {
     const matches = (node) => selector.startsWith('.') ? node.classList.contains(selector.slice(1)) : selector.startsWith('[') ? Object.hasOwn(node.attributes, selector.slice(1, -1)) : node.tagName.toLowerCase() === selector;
@@ -135,28 +137,30 @@ test('gallery crossfades loop, supports dots and swipe, respects reduced motion 
   const first = deck.appendChild(new Element()); first.className = 'vm-deck__card'; first.appendChild(new Element('img'));
   const timers = new Map(); let nextTimer = 0; let disconnects = 0;
   const reduced = new Element(); reduced.matches = false;
-  const document = { hidden: false, activeElement: null, body: new Element('body'), createElement: (tag) => new Element(tag) };
+  const document = Object.assign(new Element(), { hidden: false, activeElement: null, body: new Element('body'), createElement: (tag) => new Element(tag) });
+  const window = Object.assign(new Element(), { matchMedia: () => reduced, IntersectionObserver: true });
   const ctx = {
-    document, window: { matchMedia: () => reduced, IntersectionObserver: true }, AbortController,
+    document, window, AbortController, performance: { now: () => 0 },
     IntersectionObserver: class { observe() {} disconnect() { disconnects++; } },
-    setInterval: (fn, delay) => { assert.equal(delay, 5000); timers.set(++nextTimer, fn); return nextTimer; },
-    clearInterval: (id) => timers.delete(id), vmPhotoSettle() {}, vmWarmDeckImages() {},
+    setTimeout: (fn, delay) => { assert.equal(delay, 6000); timers.set(++nextTimer, fn); return nextTimer; },
+    clearTimeout: (id) => timers.delete(id), vmPhotoSettle() {}, vmWarmDeckImages() {},
     vmResetToFirstCard: (el) => { for (const child of el.querySelectorAll('.vm-deck__card').slice(1)) child.remove(); },
   };
   vm.runInNewContext(code, ctx);
   ctx.applyEditorialGallery(deck, 'mission', ['a', 'b', 'c']);
   const current = () => deck.querySelectorAll('.vm-deck__card').findIndex((card) => card.dataset.current === 'true');
   assert.equal(current(), 0); assert.equal(timers.size, 1);
-  const tick = () => [...timers.values()][0]?.();
+  const tick = () => { const [id, callback] = [...timers.entries()][0] || []; timers.delete(id); callback?.(); };
   tick(); assert.equal(current(), 1); tick(); tick(); assert.equal(current(), 0);
-  document.hidden = true; tick(); assert.equal(current(), 0); document.hidden = false;
+  document.hidden = true; document.emit('visibilitychange'); tick(); assert.equal(current(), 0);
+  document.hidden = false; document.emit('visibilitychange');
   const controls = parent.querySelector('.editorial-gallery-controls');
   const dots = controls.querySelector('[data-gallery-dots]');
   assert.equal(dots.querySelectorAll('button').length, 3);
   assert.equal(dots.querySelectorAll('button')[0].getAttribute('aria-current'), 'true');
   dots.querySelectorAll('button')[2].emit('click'); assert.equal(current(), 2);
-  deck.emit('pointerdown', { isPrimary: true, clientX: 220, clientY: 20, pointerId: 1 });
-  deck.emit('pointerup', { isPrimary: true, clientX: 140, clientY: 22, pointerId: 1 });
+  deck.emit('pointerdown', { button: 0, isPrimary: true, clientX: 220, clientY: 20, pointerId: 1 });
+  window.emit('pointerup', { isPrimary: true, clientX: 140, clientY: 22, pointerId: 1 });
   assert.equal(current(), 0, 'Horizontal swipe advances the slideshow');
   reduced.matches = true; reduced.emit('change'); assert.equal(timers.size, 0);
   ctx.applyEditorialGallery(deck, 'mission', ['a', 'b']);

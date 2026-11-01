@@ -63,6 +63,7 @@ let currentSettings = {};
 // False until a snapshot has actually been read. Gates Save All Changes; see
 // setSettingsLoaded().
 let settingsLoaded = false;
+let settingsSaving = false;
 let servicesData = [];
 let svcImageData = null; // base64 for current service modal image
 let heroBgImageData = null;
@@ -181,13 +182,7 @@ async function loadInitialData() {
 }
 
 // ── API: Load settings ────────────────────────────────────────────────────────
-/**
- * Reads the live snapshot. Throws with a sentence naming the actual failure,
- * because the four ways this can go wrong used to be indistinguishable: the old
- * version had no `res.ok` check and no `Accept` header, so an HTTP 500 whose body
- * is Laravel's HTML error page, a 404 from a missing rewrite, an expired session
- * and a genuinely offline server all printed "check your backend connection".
- */
+/** Read the live snapshot and give the editor an actionable loading message. */
 async function fetchSiteSettings() {
   let res;
   try {
@@ -196,22 +191,17 @@ async function fetchSiteSettings() {
     });
   } catch {
     throw new Error(
-      "The request never reached the server — it is offline, or this page is being blocked from calling it.",
+      "We couldn't load the page content. Check your connection and try again.",
     );
   }
 
   if (!res.ok) {
     if (res.status === 401 || res.status === 403) {
       throw new Error(
-        `The server refused the request (HTTP ${res.status}). Sign in again and reopen this page.`,
+        "Please sign in again and reopen this page to load the content.",
       );
     }
-    if (res.status === 404) {
-      throw new Error(
-        `The settings address returned HTTP 404, so ${API} is not where the API is answering.`,
-      );
-    }
-    throw new Error(`The server answered with HTTP ${res.status}.`);
+    throw new Error("Page content is temporarily unavailable. Please try again.");
   }
 
   let json;
@@ -219,12 +209,12 @@ async function fetchSiteSettings() {
     json = await res.json();
   } catch {
     throw new Error(
-      "The server replied with something other than JSON, which usually means it returned an error page.",
+      "We couldn't load the page content. Please try again.",
     );
   }
 
-  if (!json || typeof json.data !== "object" || json.data === null) {
-    throw new Error("The server's reply carried no settings.");
+  if (!json || typeof json.data !== "object" || json.data === null || Array.isArray(json.data)) {
+    throw new Error("We couldn't load the page content. Please try again.");
   }
   return json.data;
 }
@@ -255,11 +245,9 @@ async function loadSettingsData(options) {
 }
 
 /**
- * Save All Changes publishes eleven text fields and four media keys in a single
- * PUT. Until the snapshot has been read those fields are empty, so one click
- * would blank the customer Home page — hero title, About, Vision and Mission
- * copy — with no warning and no undo. The button therefore stays locked until a
- * load succeeds, which is the rule the Maintenance Mode panel already follows.
+ * Save All Changes publishes the current page's text and media in a single PUT.
+ * Keep it locked until a snapshot has loaded so an empty form cannot replace
+ * saved customer content, and retain that lock while a save is in progress.
  */
 function setSettingsLoaded(loaded) {
   settingsLoaded = Boolean(loaded);
@@ -268,7 +256,7 @@ function setSettingsLoaded(loaded) {
   });
   const btn = document.getElementById("btnSaveAllHome");
   if (!btn) return;
-  btn.disabled = !settingsLoaded;
+  btn.disabled = !settingsLoaded || settingsSaving;
   btn.title = settingsLoaded
     ? ""
     : `Locked until the live ${CONFIG_LABEL} page content has loaded.`;
@@ -279,7 +267,7 @@ function showSettingsLoadFailure(error) {
   const reason =
     (error && error.message) || "The request could not be completed.";
   window.showAdminConfirmPopup(
-    `${reason}\n\nThe live ${CONFIG_LABEL} page content could not be read from ${API}, so Save All Changes is locked until it loads.`,
+    `${reason}\n\nSave All Changes is unavailable until the ${CONFIG_LABEL} content loads.`,
     {
       title: `${CONFIG_LABEL} Content Not Loaded`,
       confirmText: "Retry",
@@ -290,7 +278,7 @@ function showSettingsLoadFailure(error) {
       // again instead of stacking a second copy of itself on top.
       onConfirm: async () => {
         const ok = await loadSettings({ silent: true });
-        if (!ok) throw new Error("Retry failed");
+        if (!ok) throw new Error("The content could not be loaded. Please try again.");
       },
       onSuccess: () => {
         window.showAdminPopup(`${CONFIG_LABEL} page content loaded.`, {
@@ -917,10 +905,54 @@ function applyBrowserIcon(value) {
   else link.removeAttribute("type");
 }
 
+function collectPageSettings() {
+  const payload = { ...window.FMRC_PAGE_CONTENT?.collect() };
+  const fields = CONFIG_PAGE === "about" ? {
+    about_heading: "aboutHeading",
+    about_text_1: "aboutText1",
+    about_text_2: "aboutText2",
+    vision_heading: "visionHeading",
+    vision_text: "visionText",
+    mission_heading: "missionHeading",
+    mission_text: "missionText",
+  } : {
+    hero_title: "heroTitle",
+    hero_bg_type: "heroBgType",
+    hero_bg_color: "heroBgColor",
+    hero_scene_accent: "heroSceneAccent",
+    hero_scene_motion: "heroSceneMotion",
+    hero_scene_machine: "heroSceneMachine",
+    home_sdg_heading: "homeSdgHeading",
+  };
+
+  Object.entries(fields).forEach(([key, id]) => {
+    const input = document.getElementById(id);
+    if (input) payload[key] = input.value;
+  });
+
+  // Missing controls must never clear saved content from another page.
+  const media = CONFIG_PAGE === "about" ? [
+    ["about_video_url", "aboutVideoInput", aboutVideoData],
+    ["vision_image", "visionImgInput", visionImageData],
+    ["mission_image", "missionImgInput", missionImageData],
+  ] : [["hero_bg_image", "heroBgImgInput", heroBgImageData]];
+  media.forEach(([key, id, value]) => {
+    if (document.getElementById(id)) payload[key] = value || "";
+  });
+
+  if (CONFIG_PAGE === "home") {
+    if (document.getElementById("heroBgType")) payload.hero_bg_gradient = heroBgGradient || "";
+    const scale = document.getElementById("heroSceneScale");
+    if (scale) payload.hero_scene_scale = Number(scale.value);
+  }
+
+  // Brand logos and galleries have their own immediate-save controls.
+  return scopePageSettings(payload);
+}
+
 async function doSaveAll() {
-  // Backstop. The button is already disabled in this state, so a click cannot
-  // normally get here — but this payload is built from the form unconditionally,
-  // and publishing it unread is a one-click wipe of the live Home page copy.
+  if (settingsSaving) return;
+  // Keep the loaded-content guard for direct calls as well as button clicks.
   if (!settingsLoaded) {
     window.showAdminPopup(
       `The live ${CONFIG_LABEL} page content has not loaded. Load the content first, then save.`,
@@ -933,40 +965,17 @@ async function doSaveAll() {
 
   const saveButton = document.getElementById("btnSaveAllHome");
   const originalSaveButtonHtml = saveButton?.innerHTML || "";
+  settingsSaving = true;
   if (saveButton) {
     saveButton.disabled = true;
+    saveButton.setAttribute("aria-busy", "true");
     saveButton.innerHTML =
       '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
   }
 
-  const payload = scopePageSettings({
-    ...window.FMRC_PAGE_CONTENT?.collect(),
-    hero_title: document.getElementById("heroTitle").value,
-    hero_bg_type: document.getElementById("heroBgType").value,
-    hero_bg_color: document.getElementById("heroBgColor").value,
-    hero_bg_gradient: heroBgGradient || "",
-    hero_bg_image: heroBgImageData || "",
-    hero_scene_accent: document.getElementById("heroSceneAccent").value,
-    hero_scene_scale: Number(document.getElementById("heroSceneScale").value),
-    hero_scene_motion: document.getElementById("heroSceneMotion").value,
-    hero_scene_machine: document.getElementById("heroSceneMachine")?.value || "printer",
-    // hero_logo_image is deliberately absent: the Brand Logos section saves it
-    // the moment a crop is applied, so re-sending it here could only overwrite a
-    // newer upload with whatever this form happened to load with.
-    home_sdg_heading: document.getElementById("homeSdgHeading")?.value || "",
-    about_heading: document.getElementById("aboutHeading").value,
-    about_text_1: document.getElementById("aboutText1").value,
-    about_text_2: document.getElementById("aboutText2").value,
-    about_video_url: aboutVideoData || "",
-    vision_heading: document.getElementById("visionHeading").value,
-    vision_text: document.getElementById("visionText").value,
-    vision_image: visionImageData || "",
-    mission_heading: document.getElementById("missionHeading").value,
-    mission_text: document.getElementById("missionText").value,
-    mission_image: missionImageData || "",
-  });
-
+  let errorMessage = `We couldn't save your ${CONFIG_LABEL} changes. Please try again.`;
   try {
+    const payload = collectPageSettings();
     const res = await fetch(`${API}/admin/site-settings`, {
       method: "PUT",
       headers: {
@@ -978,23 +987,37 @@ async function doSaveAll() {
     });
     if (!res.ok) {
       const error = await res.json().catch(() => ({}));
-      throw new Error(Object.values(error.errors || {}).flat()[0] || error.message || "Failed to save. Check your connection and try again.");
+      if (res.status === 422) {
+        errorMessage = Object.values(error.errors || {}).flat()
+          .find((message) => typeof message === "string" && message.trim())
+          || "Please review the page content and try again.";
+      } else if (res.status === 401 || res.status === 403) {
+        errorMessage = "Please sign in again before saving your changes.";
+      }
+      throw new Error(errorMessage);
     }
-    window.showAdminPopup(`${CONFIG_LABEL} page settings saved successfully!`, {
-      title: "Saved!",
-    });
     broadcastSiteUpdate("updated");
-    await loadSettings();
-  } catch (error) {
+    const reloaded = await loadSettings({ silent: true });
+    if (reloaded) {
+      window.showAdminPopup(`${CONFIG_LABEL} page settings saved successfully!`, {
+        title: "Saved!",
+        type: "success",
+      });
+    } else {
+      showSettingsLoadFailure(new Error("Your changes were saved, but the updated content could not be loaded. Retry loading before making more changes."));
+    }
+  } catch {
     window.showAdminPopup(
-      error.message || "Failed to save. Check your connection and try again.",
-      { title: "Error" },
+      errorMessage,
+      { title: "Changes Not Saved", type: "error" },
     );
   } finally {
+    settingsSaving = false;
     if (saveButton) {
       // Not a flat `false`: if the read-back above failed, the form is no longer
       // known to hold live content, and the lock has to survive this handler.
       saveButton.disabled = !settingsLoaded;
+      saveButton.removeAttribute("aria-busy");
       saveButton.innerHTML =
         originalSaveButtonHtml ||
         '<i class="fa-solid fa-floppy-disk"></i> Save All Changes';

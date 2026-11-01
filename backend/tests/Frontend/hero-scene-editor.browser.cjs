@@ -22,7 +22,7 @@ function editorFixture(file) {
   html = html.replace(/<script\b[^>]*\bsrc="[^"]*(?:session-helper|admin-session|fmrc-loader|admin-common|admin-table-resize)[^"]*"[^>]*><\/script>/gi, '');
   const setup = `<script>
     window.APP_API_BASE_URL = location.origin + '/api';
-    window.AdminSession = {getToken: () => 'fixture-only'};
+    window.AdminSession = {getToken: () => 'fixture-only', getUserInfo: () => ({role: 'admin'})};
     window.showAdminPopup = () => {};
     window.showAdminConfirmPopup = (_message, options) => options.onConfirm();
     window.fixtureErrors = [];

@@ -70,6 +70,52 @@ class WebsiteContentValidationTest extends TestCase
     }
 
     #[DataProvider('editorRoles')]
+    public function test_about_changes_persist_with_portal_bearer_tokens_and_are_readable_by_customers(string $role): void
+    {
+        $operator = User::factory()->create(['role' => $role]);
+        $token = $operator->createToken('about-editor')->plainTextToken;
+        SiteSetting::set('hero_title', 'Preserve the Home headline');
+        SiteSetting::set('hero_scene_scale', '110');
+        SiteSetting::set('footer_brand_name', 'Preserve the footer');
+        $payload = [
+            'about_heading' => 'About our fabrication center',
+            'about_text_1' => 'Research, design, and manufacturing support.',
+            'about_text_2' => 'Edited through the '.$role.' portal.',
+            'vision_heading' => 'Our vision',
+            'vision_text' => 'Practical innovation for our community.',
+            'mission_heading' => 'Our mission',
+            'mission_text' => 'Helping clients develop their ideas.',
+            'about_video_url' => '',
+            'vision_image' => 'data:image/png;base64,vision-fixture',
+            'mission_image' => 'data:image/png;base64,mission-fixture',
+            'editorial_about_page_copy' => 'A shared place for ideas and innovation.',
+        ];
+
+        $this->withToken($token)->putJson('/api/admin/site-settings', $payload)->assertOk();
+        foreach ($payload as $key => $value) {
+            $this->assertDatabaseHas('site_settings', [
+                'key' => $key,
+                'value' => $value === '' ? null : $value,
+            ]);
+        }
+
+        // A later edit can intentionally clear copy without replacing other pages.
+        $this->putJson('/api/admin/site-settings', ['about_text_2' => ''])->assertOk();
+        $payload['about_text_2'] = null;
+        $payload['about_video_url'] = null;
+        $customer = User::factory()->create(['role' => 'customer']);
+        $this->app['auth']->forgetGuards();
+        $response = $this->withToken($customer->createToken('about-reader')->plainTextToken)
+            ->getJson('/api/site-settings')->assertOk();
+        foreach ($payload as $key => $value) {
+            $response->assertJsonPath('data.'.$key, $value);
+        }
+        $response->assertJsonPath('data.hero_title', 'Preserve the Home headline')
+            ->assertJsonPath('data.hero_scene_scale', '110')
+            ->assertJsonPath('data.footer_brand_name', 'Preserve the footer');
+    }
+
+    #[DataProvider('editorRoles')]
     public function test_home_scene_settings_can_be_saved_by_both_editors_without_replacing_the_logo(string $role): void
     {
         $this->signIn($role);
