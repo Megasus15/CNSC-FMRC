@@ -1,4 +1,4 @@
-// Real portal/customer markup and scripts against an isolated, persistent API fixture.
+// Complete portal/customer scripts and real dialogs against a persistent API fixture.
 // Database-backed bearer-token coverage lives in WebsiteContentValidationTest.
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -13,26 +13,32 @@ const chrome = [process.env.FMRC_CHROME,
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
   'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
 ].find((candidate) => candidate && fs.existsSync(candidate));
+let fixtureDocument = 0;
 
 function pageFixture(file) {
   const role = file.startsWith('staff-page/') ? 'staff' : 'admin';
-  let html = fs.readFileSync(path.join(repo, file), 'utf8');
-  html = html.replace(/<script\b[^>]*\bsrc="[^"]*(?:session-helper|admin-session|fmrc-loader|admin-common|admin-table-resize|maintenance-gate|\/pwa\.js)[^"]*"[^>]*><\/script>/gi, '');
+  const html = fs.readFileSync(path.join(repo, file), 'utf8');
   const setup = `<script>
+    window.fixtureDocument = ${++fixtureDocument};
     window.APP_API_BASE_URL = location.origin + '/api';
-    window.AdminSession = {getToken: () => 'fixture-${role}', getUserInfo: () => ({role: '${role}'})};
+    if (${JSON.stringify(/^(admin|staff)-page\//.test(file))}) {
+      localStorage.setItem('${role}_auth_token', 'fixture-${role}');
+      localStorage.setItem('${role}_user_info', JSON.stringify({id:${role === 'admin' ? 11 : 22},role:'${role}',email:'${role}@gmail.com'}));
+    }
     window.fixtureErrors = [];
     window.fixtureDialogs = [];
     addEventListener('error', event => window.fixtureErrors.push(event.message));
     addEventListener('unhandledrejection', event => window.fixtureErrors.push(String(event.reason)));
-    window.showAdminPopup = (message, options) => window.fixtureDialogs.push({message, title: options?.title});
-    window.showAdminConfirmPopup = (message, options) => {
-      window.fixtureDialogs.push({message, title: options?.title});
-      if (options.confirmText === 'Save') return options.onConfirm();
-      window.fixtureRetry = options.onConfirm;
-    };
+    addEventListener('admin:success-notification', event => window.fixtureDialogs.push({...event.detail, success:true}));
+    new MutationObserver(() => {
+      const popup = document.getElementById('adminSystemPopup');
+      if (!popup?.classList.contains('show')) return;
+      const dialog = {message:document.getElementById('adminSystemPopupMessage').textContent, title:document.getElementById('adminSystemPopupTitle').textContent};
+      if (dialog.message && JSON.stringify(window.fixtureDialogs.at(-1)) !== JSON.stringify(dialog)) window.fixtureDialogs.push(dialog);
+    }).observe(document.documentElement, {subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class']});
+    window.fixtureRetry = () => document.getElementById('adminSystemPopupOk').click();
   </script>`;
-  return html.replace('</head>', setup + '</head>');
+  return html.replace('<head>', '<head>' + setup);
 }
 
 async function connect(url) {
@@ -68,12 +74,15 @@ test('About saves and reloads across both portals, themes and widths, reaches cu
       vision_heading: 'Our vision', vision_text: 'Original vision',
       mission_heading: 'Our mission', mission_text: 'Original mission',
       editorial_about_page_copy: 'Original introduction',
+      about_video_url: 'data:video/mp4;base64,' + 'A'.repeat(1024 * 1024),
     };
     let settings = { ...initial };
     let getStatus = 200;
     let putStatus = 200;
     let failReadback = false;
+    let preferenceTheme = 'light';
     const writes = [];
+    const settingsReads = [];
     const server = http.createServer(async (request, response) => {
       const route = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
       const json = (data, status = 200) => {
@@ -81,7 +90,20 @@ test('About saves and reloads across both portals, themes and widths, reaches cu
         response.end(JSON.stringify(data));
       };
       try {
-        if (route === '/api/site-settings') return json({ data: settings }, getStatus);
+        const role = String(request.headers.authorization || '').includes('staff') ? 'staff' : 'admin';
+        if (route === '/api/user') return json({ id: role === 'admin' ? 11 : 22, role, email: `${role}@gmail.com`, username: `${role}_fixture` });
+        if (route === '/api/admin/preferences') return json({ user_id: role === 'admin' ? 11 : 22, preferences: { theme: preferenceTheme, compact: false, reducedMotion: false } });
+        if (route === '/api/admin/session') return json({ server_time: new Date().toISOString(), idle_warning_at: new Date(Date.now()+3600000).toISOString(), idle_expires_at: new Date(Date.now()+3780000).toISOString(), absolute_expires_at: new Date(Date.now()+21600000).toISOString() });
+        if (route === '/api/maintenance') return json({ installed: true, data: {}, site_page_installed: true, site_page: {} });
+        if (route === '/api/site-settings') {
+          const mode = new URL(request.url, 'http://localhost').searchParams.get('media');
+          settingsReads.push(mode);
+          return json({ data: { ...settings, about_video_url: mode === 'references' ? `http://${request.headers.host}/api/site-settings/about-video?v=fixture` : settings.about_video_url } }, getStatus);
+        }
+        if (route === '/api/site-settings/about-video') {
+          response.writeHead(200, {'Content-Type':'video/mp4'});
+          return response.end(Buffer.from('fixture video bytes'));
+        }
         if (route === '/api/admin/site-settings' && request.method === 'PUT') {
           if (!['Bearer fixture-admin', 'Bearer fixture-staff'].includes(request.headers.authorization)) {
             return json({ message: 'Sign in required' }, 401);
@@ -144,17 +166,34 @@ test('About saves and reloads across both portals, themes and widths, reaches cu
           if (await evaluate(expression)) return;
           await new Promise((resolve) => setTimeout(resolve, 40));
         }
-        throw new Error(`Not ready: ${expression}; state: ${JSON.stringify(await evaluate('({errors:window.fixtureErrors, dialogs:window.fixtureDialogs, focus:document.activeElement?.id})'))}`);
+        throw new Error(`Not ready: ${expression}; state: ${JSON.stringify(await evaluate('({url:location.href, errors:window.fixtureErrors, dialogs:window.fixtureDialogs, focus:document.activeElement?.id})'))}`);
       };
       const origin = `http://127.0.0.1:${server.address().port}`;
-      const navigate = (route) => cdp.send('Page.navigate', { url: origin + route });
-      const ready = () => waitFor("document.readyState === 'complete' && document.getElementById('btnSaveAllHome')?.disabled === false && !document.querySelector('.website-section-loading')");
-      const clickSave = () => evaluate("document.getElementById('btnSaveAllHome').click()");
+      const navigate = async (route) => {
+        const previous = await evaluate('window.fixtureDocument');
+        await cdp.send('Page.navigate', { url: origin + route });
+        await waitFor(`typeof window.fixtureDocument === 'number' && window.fixtureDocument !== ${JSON.stringify(previous) ?? 'undefined'} && document.readyState === 'complete' && location.pathname === ${JSON.stringify(route)}`);
+      };
+      const reload = async () => {
+        const previous = await evaluate('window.fixtureDocument');
+        await cdp.send('Page.reload');
+        await waitFor(`typeof window.fixtureDocument === 'number' && window.fixtureDocument !== ${previous} && document.readyState === 'complete'`);
+      };
+      const ready = () => waitFor("document.readyState === 'complete' && document.getElementById('btnSaveAllHome')?.disabled === false && !document.querySelector('.website-section-loading,.admin-global-page-skeleton,.fmrc-load-veil.is-on')");
+      const confirmSave = async () => {
+        await waitFor("document.querySelector('#adminSystemPopup.show #adminSystemPopupTitle')?.textContent === 'Save All Changes'");
+        await evaluate("document.getElementById('adminSystemPopupOk').click()");
+      };
+      const clickSave = async () => {
+        await evaluate("(() => { if(document.getElementById('adminSystemPopup')?.classList.contains('show')) document.getElementById('adminSystemPopupOk').click(); window.fixtureDialogs=[]; document.getElementById('btnSaveAllHome').click(); })()");
+        await confirmSave();
+      };
       const geometry = new Map();
       for (const portal of ['admin', 'staff']) {
         for (const width of [390, 768, 1440]) {
           for (const theme of ['light', 'dark']) {
             settings = { ...initial };
+            preferenceTheme = theme;
             await cdp.send('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
             await navigate(`/${portal}-page/website-about.html`);
             await ready();
@@ -176,16 +215,20 @@ test('About saves and reloads across both portals, themes and widths, reaches cu
             const before = writes.length;
             await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13, text: '\r', unmodifiedText: '\r' });
             await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 });
+            await confirmSave();
             await waitFor("document.getElementById('btnSaveAllHome').getAttribute('aria-busy') === 'true'");
-            await waitFor("window.fixtureDialogs.some(dialog => dialog.title === 'Saved!') && !document.getElementById('btnSaveAllHome').disabled");
+            await waitFor("window.fixtureDialogs.some(dialog => dialog.success) && !document.getElementById('btnSaveAllHome').disabled");
             assert.equal(writes.length, before + 1, `${portal} ${width} ${theme}: one keyboard save`);
             assert.equal(settings.about_heading, draft.aboutHeading);
             assert.equal(settings.about_text_2, '');
             assert.equal(settings.hero_title, initial.hero_title);
             assert.equal(settings.hero_scene_scale, initial.hero_scene_scale);
             assert.equal(settings.footer_brand_name, initial.footer_brand_name);
+            assert.equal(settings.about_video_url, initial.about_video_url);
+            assert.equal(Object.hasOwn(writes.at(-1), 'about_video_url'), false, 'Text saves must not re-upload the video');
+            assert(Buffer.byteLength(JSON.stringify(writes.at(-1))) < 5000);
             assert(Object.keys(writes.at(-1)).every((key) => /^(about|vision|mission|editorial_about)_/.test(key)));
-            await cdp.send('Page.reload');
+            await reload();
             await ready();
             assert.equal(await evaluate("document.getElementById('aboutHeading').value"), draft.aboutHeading);
             assert.equal(await evaluate("document.getElementById('missionText').value"), draft.missionText);
@@ -238,7 +281,7 @@ test('About saves and reloads across both portals, themes and widths, reaches cu
         assert.equal(await evaluate("document.getElementById('btnSaveAllHome').disabled"), false);
         putStatus = 200;
         await clickSave();
-        await waitFor("window.fixtureDialogs.some(dialog => dialog.title === 'Saved!')");
+        await waitFor("window.fixtureDialogs.some(dialog => dialog.success)");
         assert.equal(settings.about_text_1, 'Keep this unsaved draft');
 
         failReadback = true;
@@ -251,14 +294,15 @@ test('About saves and reloads across both portals, themes and widths, reaches cu
         await ready();
 
         getStatus = 503;
-        await cdp.send('Page.reload');
-        await waitFor("typeof window.fixtureRetry === 'function'");
+        await reload();
+        await waitFor("document.querySelector('#adminSystemPopup.show #adminSystemPopupTitle')?.textContent === 'About Us Content Not Loaded'");
         assert.equal(await evaluate("document.getElementById('btnSaveAllHome').disabled"), true);
         getStatus = 200;
         await evaluate('window.fixtureRetry()');
         await ready();
         assert.deepEqual(await evaluate('window.fixtureErrors'), []);
       }
+      assert(settingsReads.length > 20 && settingsReads.every(mode => mode === 'references'), 'All editor/customer reads use compact media references');
       console.log('Verified 12 portal/theme/viewport save-and-reload cases, Customer rendering, keyboard Save, and both portals\' failure/retry states.');
       if (process.env.FMRC_KEEP_SHOTS === '1') console.log(`Screenshots: ${artifacts}`);
     } finally {

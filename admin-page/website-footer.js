@@ -42,6 +42,14 @@ const token = () =>
   localStorage.getItem("auth_token");
 
 let quickLinks = [];
+let settingsLoaded = false;
+let settingsSaving = false;
+
+function setSettingsLoaded(loaded) {
+  settingsLoaded = Boolean(loaded);
+  const button = document.getElementById("btnSaveFooter");
+  if (button) button.disabled = !settingsLoaded || settingsSaving;
+}
 
 document.addEventListener("DOMContentLoaded", async () => {
   await loadSettings();
@@ -66,10 +74,13 @@ async function loadSettings(...args) {
 }
 
 async function loadSettingsData() {
+  setSettingsLoaded(false);
   try {
     const res = await fetch(`${API}/site-settings`);
+    if (!res.ok) throw Object.assign(new Error("Footer content could not be loaded."), { status: res.status });
     const json = await res.json();
-    const s = json.data || {};
+    const s = json.data;
+    if (!s || typeof s !== "object" || Array.isArray(s)) throw new Error("Footer content could not be loaded.");
     setVal("footerBrandName", s.footer_brand_name || s.footerBrandName || "UCN-FMRC");
     setVal("footerBrandSubtitle", s.footer_brand_subtitle || s.footerBrandSubtitle || "Fabrication & Manufacturing Research Center");
     setVal("footerCampusTag", s.footer_campus_tag || s.footerCampusTag || "Main Campus • Daet, Camarines Norte, Philippines, 4600");
@@ -94,10 +105,13 @@ async function loadSettingsData() {
       quickLinks = [];
     }
     renderQuickLinks();
-  } catch {
-    window.showAdminPopup(
-      "Failed to load footer settings. Please try again.",
-    );
+    setSettingsLoaded(true);
+    window.AdminPageNotice?.clear("footer");
+    return true;
+  } catch (error) {
+    if (window.AdminPageNotice) window.AdminPageNotice.show(error, { key: "footer", retry: loadSettings });
+    else window.showAdminPopup("Footer content could not be loaded. Please try again.");
+    return false;
   }
 }
 
@@ -151,48 +165,50 @@ function collectQuickLinks() {
 }
 
 async function doSave() {
+  if (!settingsLoaded || settingsSaving) return;
   const saveButton = document.getElementById("btnSaveFooter");
   const originalSaveButtonHtml = saveButton?.innerHTML || "";
+  settingsSaving = true;
   if (saveButton) {
     saveButton.disabled = true;
     saveButton.innerHTML =
       '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
   }
 
-  const links = collectQuickLinks();
-  const getV = (id) => (document.getElementById(id)?.value || "").trim();
-  const payload = {
-    footer_brand_name: getV("footerBrandName"),
-    footer_brand_subtitle: getV("footerBrandSubtitle"),
-    footer_campus_tag: getV("footerCampusTag"),
-    footer_quick_links: JSON.stringify(links),
-    footer_hours_days: getV("footerHoursDays"),
-    footer_hours_time: getV("footerHoursTime"),
-    footer_contact_location: getV("footerContactLocation"),
-    footer_contact_location_url: getV("footerContactLocationUrl"),
-    footer_contact_email: getV("footerContactEmail"),
-    footer_contact_phone: getV("footerContactPhone"),
-    footer_contact_facebook: getV("footerContactFacebook"),
-    footer_contact_facebook_url: getV("footerContactFacebookUrl"),
-    footer_public_website_label: getV("footerPublicWebsiteLabel"),
-    footer_public_website_url: getV("footerPublicWebsiteUrl"),
-    footer_public_ucn_fb_label: getV("footerPublicUcnFbLabel"),
-    footer_public_ucn_fb_url: getV("footerPublicUcnFbUrl"),
-    footer_copyright: getV("footerCopyright"),
-    footer_bottom_dev: getV("footerBottomDev"),
-    footerBrandName: getV("footerBrandName"),
-    footerBrandSubtitle: getV("footerBrandSubtitle"),
-    footerCampusTag: getV("footerCampusTag"),
-    footerHoursDays: getV("footerHoursDays"),
-    footerHoursTime: getV("footerHoursTime"),
-    footerPublicWebsiteLabel: getV("footerPublicWebsiteLabel"),
-    footerPublicWebsiteUrl: getV("footerPublicWebsiteUrl"),
-    footerPublicUcnFbLabel: getV("footerPublicUcnFbLabel"),
-    footerPublicUcnFbUrl: getV("footerPublicUcnFbUrl"),
-    footerCopyright: getV("footerCopyright"),
-    footerBottomDev: getV("footerBottomDev"),
-  };
   try {
+    const links = collectQuickLinks();
+    const getV = (id) => (document.getElementById(id)?.value || "").trim();
+    const payload = {
+      footer_brand_name: getV("footerBrandName"),
+      footer_brand_subtitle: getV("footerBrandSubtitle"),
+      footer_campus_tag: getV("footerCampusTag"),
+      footer_quick_links: JSON.stringify(links),
+      footer_hours_days: getV("footerHoursDays"),
+      footer_hours_time: getV("footerHoursTime"),
+      footer_contact_location: getV("footerContactLocation"),
+      footer_contact_location_url: getV("footerContactLocationUrl"),
+      footer_contact_email: getV("footerContactEmail"),
+      footer_contact_phone: getV("footerContactPhone"),
+      footer_contact_facebook: getV("footerContactFacebook"),
+      footer_contact_facebook_url: getV("footerContactFacebookUrl"),
+      footer_public_website_label: getV("footerPublicWebsiteLabel"),
+      footer_public_website_url: getV("footerPublicWebsiteUrl"),
+      footer_public_ucn_fb_label: getV("footerPublicUcnFbLabel"),
+      footer_public_ucn_fb_url: getV("footerPublicUcnFbUrl"),
+      footer_copyright: getV("footerCopyright"),
+      footer_bottom_dev: getV("footerBottomDev"),
+      footerBrandName: getV("footerBrandName"),
+      footerBrandSubtitle: getV("footerBrandSubtitle"),
+      footerCampusTag: getV("footerCampusTag"),
+      footerHoursDays: getV("footerHoursDays"),
+      footerHoursTime: getV("footerHoursTime"),
+      footerPublicWebsiteLabel: getV("footerPublicWebsiteLabel"),
+      footerPublicWebsiteUrl: getV("footerPublicWebsiteUrl"),
+      footerPublicUcnFbLabel: getV("footerPublicUcnFbLabel"),
+      footerPublicUcnFbUrl: getV("footerPublicUcnFbUrl"),
+      footerCopyright: getV("footerCopyright"),
+      footerBottomDev: getV("footerBottomDev"),
+    };
     const res = await fetch(`${API}/admin/site-settings`, {
       method: "PUT",
       headers: {
@@ -210,11 +226,16 @@ async function doSave() {
     // edit look instant on some panels and delayed on this one.
     broadcastSiteUpdate();
     await loadSettings();
-  } catch {
-    window.showAdminPopup("Failed to save. Try again.", { title: "Error" });
+  } catch (error) {
+    const uncertain = error?.name === "TimeoutError" || error?.name === "AbortError";
+    if (uncertain) setSettingsLoaded(false);
+    window.showAdminPopup(uncertain
+      ? "We couldn't confirm whether your changes were saved. Refresh the page content to check before trying again."
+      : "Changes could not be saved. Please try again.", { title: uncertain ? "Save Not Confirmed" : "Changes Not Saved" });
   } finally {
+    settingsSaving = false;
     if (saveButton) {
-      saveButton.disabled = false;
+      saveButton.disabled = !settingsLoaded;
       saveButton.innerHTML =
         originalSaveButtonHtml ||
         '<i class="fa-solid fa-floppy-disk"></i> Save All Changes';

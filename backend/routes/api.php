@@ -132,6 +132,7 @@ Route::get('/promotions/active', [PromotionController::class, 'active']);
 
 // Public: Site settings (read-only for customer pages)
 Route::get('/site-settings', [SiteSettingController::class, 'index']);
+Route::get('/site-settings/about-video', [SiteSettingController::class, 'aboutVideo']);
 // Public: lightweight browser icon snapshot for the Admin/Staff shell.
 Route::get('/site-favicon', [SiteSettingController::class, 'favicon']);
 

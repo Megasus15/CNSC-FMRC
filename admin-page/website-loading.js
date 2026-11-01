@@ -1,6 +1,49 @@
 /* Section-shaped loading states shared by every Website Management editor. */
 (() => {
   "use strict";
+  if (window.AdminWebsiteLoading) return;
+
+  // A saved video can be tens of MB. Editors need its URL, not its bytes in
+  // every settings read. Keep the timeout active while response bodies load.
+  const nativeFetch = window.fetch.bind(window);
+  const requestSignal = (caller, milliseconds) => {
+    const timeout = typeof AbortSignal.timeout === "function"
+      ? AbortSignal.timeout(milliseconds)
+      : (() => {
+        const controller = new AbortController();
+        setTimeout(() => controller.abort(new DOMException("Request timed out.", "TimeoutError")), milliseconds);
+        return controller.signal;
+      })();
+    if (!caller) return timeout;
+    if (typeof AbortSignal.any === "function") return AbortSignal.any([caller, timeout]);
+    const controller = new AbortController();
+    const abort = (event) => {
+      controller.abort(event.target.reason);
+      caller.removeEventListener("abort", abort);
+      timeout.removeEventListener("abort", abort);
+    };
+    if (caller.aborted) controller.abort(caller.reason);
+    else {
+      caller.addEventListener("abort", abort, { once: true });
+      timeout.addEventListener("abort", abort, { once: true });
+    }
+    return controller.signal;
+  };
+  window.fetch = (input, options = {}) => {
+    const request = typeof Request !== "undefined" && input instanceof Request ? input : null;
+    const url = new URL(request ? request.url : input, document.baseURI);
+    if (!/\/api\//.test(url.pathname)) return nativeFetch(input, options);
+    const method = String(options.method || request?.method || "GET").toUpperCase();
+    if (method === "GET" && /\/site-settings\/?$/.test(url.pathname) && !url.searchParams.has("media")) {
+      url.searchParams.set("media", "references");
+      input = request ? new Request(url.href, request) : url.href;
+    }
+    return nativeFetch(input, {
+      ...options,
+      signal: requestSignal(options.signal || request?.signal, method === "GET" || method === "HEAD" ? 30000 : 120000),
+    });
+  };
+
   const selector = ".module-content :is(.page-toolbar,.wm-section,.panel,.payment-settings-card,.portal-tabs,.portal-editor-panel),.wm-save-bar";
   const entries = new Map();
   let pending = 0;

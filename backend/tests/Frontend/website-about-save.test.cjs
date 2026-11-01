@@ -19,6 +19,7 @@ function harness(page = 'about', portal = 'admin') {
   const context = vm.createContext({
     CONFIG_PAGE: page, CONFIG_LABEL: page === 'about' ? 'About Us' : 'Home',
     API: '/api', settingsLoaded: true, settingsSaving: false,
+    currentSettings: {},
     heroBgGradient: 'warm', heroBgImageData: 'home-image',
     aboutVideoData: 'about-video', visionImageData: 'vision-image', missionImageData: 'mission-image',
     token: () => `${portal}-token`,
@@ -39,7 +40,7 @@ function harness(page = 'about', portal = 'admin') {
     fetch: async (url, options) => {
       state.requests.push({ url, options });
       if (state.wait) await state.wait;
-      if (state.networkError) throw new TypeError('Failed to fetch');
+      if (state.networkError) throw state.networkError instanceof Error ? state.networkError : new TypeError('Failed to fetch');
       return { ok: state.status === 200, status: state.status, json: async () => ({
         errors: state.status === 422 ? { about_text_1: ['Please shorten the profile text.'] } : {},
         message: 'Internal technical details must stay private',
@@ -179,4 +180,46 @@ test('missing optional controls do not clear their saved text or media', async (
   for (const key of ['about_text_2', 'about_video_url', 'vision_image', 'mission_image']) {
     assert.equal(Object.hasOwn(payload, key), false, key);
   }
+});
+
+test('text edits do not re-upload unchanged videos or images', async () => {
+  const h = harness();
+  h.context.aboutVideoData = 'data:video/mp4;base64,' + 'A'.repeat(1024 * 1024);
+  h.context.currentSettings = {
+    about_video_url: h.context.aboutVideoData,
+    vision_image: h.context.visionImageData,
+    mission_image: h.context.missionImageData,
+  };
+  await h.save();
+  const payload = JSON.parse(h.state.requests[0].options.body);
+  for (const key of ['about_video_url', 'vision_image', 'mission_image']) assert.equal(Object.hasOwn(payload, key), false);
+  assert(h.state.requests[0].options.body.length < 2000);
+});
+
+test('a referenced video is preserved while explicit media replacements and removals are saved', async () => {
+  const h = harness();
+  h.context.currentSettings = { about_video_url: '/api/site-settings/about-video?v=existing' };
+  h.context.aboutVideoData = h.context.currentSettings.about_video_url;
+  await h.save();
+  assert.equal(Object.hasOwn(JSON.parse(h.state.requests[0].options.body), 'about_video_url'), false);
+  h.context.aboutVideoData = 'data:video/mp4;base64,new-upload';
+  await h.save();
+  assert.equal(JSON.parse(h.state.requests[1].options.body).about_video_url, h.context.aboutVideoData);
+  h.context.aboutVideoData = null;
+  await h.save();
+  assert.equal(JSON.parse(h.state.requests[2].options.body).about_video_url, '');
+});
+
+test('an unconfirmed timed-out save preserves the draft and requires a refresh before another write', async () => {
+  const h = harness();
+  h.elements.get('aboutText1').value = 'Keep this draft';
+  h.state.networkError = Object.assign(new Error('Request timed out.'), { name: 'TimeoutError' });
+  await h.save();
+  assert.equal(h.button.disabled, true);
+  assert.equal(h.button.attributes['aria-busy'], undefined);
+  assert.equal(h.elements.get('aboutText1').value, 'Keep this draft');
+  assert.match(h.state.messages[0].message, /couldn't confirm/);
+  assert.equal(h.state.messages[0].options.title, 'Save Not Confirmed');
+  await h.save();
+  assert.equal(h.state.requests.length, 1);
 });

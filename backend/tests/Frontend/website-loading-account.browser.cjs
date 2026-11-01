@@ -32,13 +32,24 @@ async function connect(url) {
 test('Website Management section skeletons follow slow loads, recovery, themes and phone layouts; account edits gate saving', { skip: !chrome, timeout: 180000 }, async () => {
   const artifacts = fs.mkdtempSync(path.join(os.tmpdir(), 'fmrc-website-account-'));
   let held = false, theme = 'light', failSettings = false, failSave = false;
+  let stalledSettingsBody = false;
+  const settingsModes = [];
   let releases = [], writes = [];
   const release = () => { held = false; releases.splice(0).forEach(resolve => resolve()); };
   const server = http.createServer(async (req, res) => {
-    const route = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+    const url = new URL(req.url, 'http://localhost');
+    const route = decodeURIComponent(url.pathname);
     const role = String(req.headers.authorization || '').includes('staff') ? 'staff' : 'admin';
     if (route.startsWith('/api/')) {
+      if (route === '/api/site-settings') settingsModes.push(url.searchParams.get('media'));
       if (held && ['/api/site-settings', '/api/services', '/api/sdgs', '/api/maintenance', '/api/admin/email-templates'].includes(route)) await new Promise(resolve => releases.push(resolve));
+      if (stalledSettingsBody && route === '/api/site-settings') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.write('{"data":');
+        await new Promise(resolve => releases.push(resolve));
+        if (!res.destroyed) res.end('{}}');
+        return;
+      }
       let data = { data: [] }, code = 200;
       if (route === '/api/user') {
         data = { id: role === 'admin' ? 11 : 22, role, email: `${role}@gmail.com`, username: `${role}_fixture`, name: 'Fixture Account' };
@@ -66,7 +77,7 @@ test('Website Management section skeletons follow slow loads, recovery, themes a
     if (!file.startsWith(root + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) { res.writeHead(404); res.end(); return; }
     res.setHeader('Content-Type', ({ '.html': 'text/html; charset=utf-8', '.css': 'text/css', '.js': 'text/javascript', '.png': 'image/png', '.svg': 'image/svg+xml' })[path.extname(file)] || 'application/octet-stream');
     let content = fs.readFileSync(file);
-    if (/\/(admin|staff)-page\/.*\.html$/.test(route)) content = content.toString().replace('<head>', `<head><script>window.APP_API_BASE_URL=location.origin+'/api';for(const role of ['admin','staff']){localStorage.setItem(role+'_user_info',JSON.stringify({id:role==='admin'?11:22,role,email:role+'@gmail.com'}));localStorage.setItem(role+'_auth_token','fixture-'+role);}</script>`);
+    if (/\/(admin|staff)-page\/.*\.html$/.test(route)) content = content.toString().replace('<head>', `<head><script>window.APP_API_BASE_URL=location.origin+'/api';window.fixtureErrors=[];addEventListener('error',event=>window.fixtureErrors.push(event.message));for(const role of ['admin','staff']){localStorage.setItem(role+'_user_info',JSON.stringify({id:role==='admin'?11:22,role,email:role+'@gmail.com'}));localStorage.setItem(role+'_auth_token','fixture-'+role);} ${url.searchParams.has('shortDeadline') ? 'const nativeDeadline=AbortSignal.timeout.bind(AbortSignal);AbortSignal.timeout=ms=>nativeDeadline(Math.min(ms,1000));' : ''}</script>`);
     res.end(content);
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -87,11 +98,12 @@ test('Website Management section skeletons follow slow loads, recovery, themes a
       if (value.exceptionDetails) throw Error(JSON.stringify(value.exceptionDetails));
       return value.result.value;
     };
-    const wait = async expression => { for (let i=0; i<150; i++) { if (await evaluate(expression)) return; await pause(40); } throw Error('Timeout: ' + expression); };
-    const navigate = async route => { await page.send('Page.navigate', { url: base + route }); await wait(`location.pathname===${JSON.stringify(route)} && document.readyState==='complete'`); };
+    const wait = async expression => { for (let i=0; i<150; i++) { if (await evaluate(expression)) return; await pause(40); } throw Error('Timeout: ' + expression + '; ' + JSON.stringify(await evaluate(`({url:location.href,errors:window.fixtureErrors,title:document.getElementById('adminSystemPopupTitle')?.textContent,message:document.getElementById('adminSystemPopupMessage')?.textContent,loaded:typeof settingsLoaded==='undefined'?null:settingsLoaded})`))); };
+    const navigate = async route => { await page.send('Page.navigate', { url: base + route }); await wait(`location.pathname===${JSON.stringify(new URL(base + route).pathname)} && document.readyState==='complete'`); };
     const screenshot = async name => { const value = await page.send('Page.captureScreenshot', { captureBeyondViewport: true }); fs.writeFileSync(path.join(artifacts, name + '.png'), Buffer.from(value.data, 'base64')); };
     const settled = () => wait(`!document.querySelector('.website-section-loading,.admin-global-page-skeleton,.fmrc-load-veil.is-on')`);
     const input = async (id, value) => evaluate(`(()=>{const input=document.getElementById(${JSON.stringify(id)});input.value=${JSON.stringify(value)};input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+    if (process.env.FMRC_LOADING_TIMEOUT_ONLY !== '1') {
     const pages = ['home', 'about', 'services', 'contact', 'footer', 'maintenance', 'payments', 'emails', 'portals'];
     for (const width of [1440, 390]) {
       theme = width === 1440 ? 'light' : 'dark';
@@ -150,6 +162,23 @@ test('Website Management section skeletons follow slow loads, recovery, themes a
     await evaluate('window.finishFirstSection()'); await settled();
     assert.equal(await evaluate(`!!document.querySelector('.module-content [inert],.wm-save-bar[inert]')`), false);
     console.log('Verified overlapping section load recovery');
+    }
+    for (const role of ['admin','staff']) for (const name of ['about','contact','footer']) {
+      stalledSettingsBody = true;
+      await navigate(`/${role}-page/website-${name}.html?shortDeadline=1`);
+      await wait(`!!document.querySelector('.admin-page-load-notice:not([hidden]),.admin-system-popup.show')`);
+      await settled();
+      const state = await evaluate(`(()=>{const buttons=[...document.querySelectorAll('.wm-save-bar button')].filter(button=>/save/i.test(button.textContent));return {unlocked:!document.querySelector('.module-content [inert],.wm-save-bar[inert]'),guarded:buttons.length>0&&buttons.every(button=>button.disabled)};})()`);
+      assert(state.unlocked && state.guarded, `${role}/${name}: a stalled response body releases skeletons and keeps uninitialized saves locked`);
+      stalledSettingsBody = false;
+      release();
+      if (name === 'about') await evaluate(`document.getElementById('adminSystemPopupOk').click()`);
+      else await evaluate(`document.querySelector('.admin-page-load-notice__retry').click()`);
+      await settled();
+      await wait(`[...document.querySelectorAll('.wm-save-bar button')].some(button=>/save/i.test(button.textContent)&&!button.disabled)`);
+      console.log(`Verified ${role}/${name} stalled-body timeout and real Retry recovery`);
+    }
+    assert(settingsModes.length > 0 && settingsModes.every(mode => mode === 'references'), 'all Website Management settings reads request video references');
     console.log('Browser screenshots: ' + artifacts);
   } finally {
     release();

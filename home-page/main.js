@@ -14415,7 +14415,7 @@ const openReturnRequestModal = (() => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 10000);
     try {
-      const res = await fetch(_API + "/site-settings", { signal: controller.signal });
+      const res = await fetch(_API + "/site-settings?media=references", { signal: controller.signal });
       if (!res.ok) throw new Error("Unable to load site settings.");
       const text = await res.text();
       if (text === _settingsSnapshot) return true;

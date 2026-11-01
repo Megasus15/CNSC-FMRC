@@ -6,12 +6,14 @@ use App\Models\SiteSetting;
 use App\Support\EmailTemplate;
 use App\Support\PaymentMethodAvailability;
 use App\Support\PortalAppearanceSettings;
+use App\Support\SiteSettingsVideo;
 use App\Support\WebsiteContentLimits;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class SiteSettingController extends Controller
 {
@@ -36,7 +38,10 @@ class SiteSettingController extends Controller
                 continue;
             }
 
-            $data[$row->key] = $row->value;
+            $data[$row->key] = $request->query('media') === 'references'
+                && $row->key === 'about_video_url' && SiteSettingsVideo::isEmbedded($row->value)
+                ? SiteSettingsVideo::reference($row->value)
+                : $row->value;
         }
 
         $data = array_replace($data, PaymentMethodAvailability::publicSettings($data));
@@ -62,6 +67,11 @@ class SiteSettingController extends Controller
         }
 
         return response()->json($payload)->withHeaders($headers);
+    }
+
+    public function aboutVideo(Request $request): BinaryFileResponse
+    {
+        return SiteSettingsVideo::response($request);
     }
 
     /**

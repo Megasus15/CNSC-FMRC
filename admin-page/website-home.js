@@ -937,7 +937,9 @@ function collectPageSettings() {
     ["mission_image", "missionImgInput", missionImageData],
   ] : [["hero_bg_image", "heroBgImgInput", heroBgImageData]];
   media.forEach(([key, id, value]) => {
-    if (document.getElementById(id)) payload[key] = value || "";
+    if (document.getElementById(id) && (value || "") !== (currentSettings[key] || "")) {
+      payload[key] = value || "";
+    }
   });
 
   if (CONFIG_PAGE === "home") {
@@ -974,6 +976,7 @@ async function doSaveAll() {
   }
 
   let errorMessage = `We couldn't save your ${CONFIG_LABEL} changes. Please try again.`;
+  let errorTitle = "Changes Not Saved";
   try {
     const payload = collectPageSettings();
     const res = await fetch(`${API}/admin/site-settings`, {
@@ -1006,10 +1009,15 @@ async function doSaveAll() {
     } else {
       showSettingsLoadFailure(new Error("Your changes were saved, but the updated content could not be loaded. Retry loading before making more changes."));
     }
-  } catch {
+  } catch (error) {
+    if (error?.name === "TimeoutError" || error?.name === "AbortError") {
+      setSettingsLoaded(false);
+      errorTitle = "Save Not Confirmed";
+      errorMessage = "We couldn't confirm whether your changes were saved. Refresh the page content to check before trying again.";
+    }
     window.showAdminPopup(
       errorMessage,
-      { title: "Changes Not Saved", type: "error" },
+      { title: errorTitle, type: "error" },
     );
   } finally {
     settingsSaving = false;

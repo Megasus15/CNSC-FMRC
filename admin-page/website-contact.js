@@ -40,6 +40,14 @@ const API = resolveApiBaseUrl();
 const token = () =>
   (window.AdminSession && window.AdminSession.getToken()) ||
   localStorage.getItem("auth_token");
+let settingsLoaded = false;
+let settingsSaving = false;
+
+function setSettingsLoaded(loaded) {
+  settingsLoaded = Boolean(loaded);
+  const button = document.getElementById("btnSaveContact");
+  if (button) button.disabled = !settingsLoaded || settingsSaving;
+}
 
 document.addEventListener("DOMContentLoaded", async () => {
   await loadSettings();
@@ -61,10 +69,13 @@ async function loadSettings(...args) {
 }
 
 async function loadSettingsData() {
+  setSettingsLoaded(false);
   try {
     const res = await fetch(`${API}/site-settings`);
+    if (!res.ok) throw Object.assign(new Error("Contact content could not be loaded."), { status: res.status });
     const json = await res.json();
-    const s = json.data || {};
+    const s = json.data;
+    if (!s || typeof s !== "object" || Array.isArray(s)) throw new Error("Contact content could not be loaded.");
     setVal("contactHeading", s.contact_heading || "");
     setVal("contactLead", s.contact_lead || "");
     setVal("contactLocation", s.contact_location || "");
@@ -80,10 +91,13 @@ async function loadSettingsData() {
       s.contact_consent_text ||
         "I hereby consent to the collection, processing, and storage of my personal information in accordance with the Data Privacy Act of 2012 (R.A. 10173).",
     );
-  } catch {
-    window.showAdminPopup(
-      "Failed to load contact settings. Please try again.",
-    );
+    setSettingsLoaded(true);
+    window.AdminPageNotice?.clear("contact");
+    return true;
+  } catch (error) {
+    if (window.AdminPageNotice) window.AdminPageNotice.show(error, { key: "contact", retry: loadSettings });
+    else window.showAdminPopup("Contact content could not be loaded. Please try again.");
+    return false;
   }
 }
 
@@ -93,28 +107,30 @@ function setVal(id, val) {
 }
 
 async function doSave() {
+  if (!settingsLoaded || settingsSaving) return;
   const saveButton = document.getElementById("btnSaveContact");
   const originalSaveButtonHtml = saveButton?.innerHTML || "";
+  settingsSaving = true;
   if (saveButton) {
     saveButton.disabled = true;
     saveButton.innerHTML =
       '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
   }
 
-  const payload = {
-    contact_heading: document.getElementById("contactHeading").value,
-    contact_lead: document.getElementById("contactLead").value,
-    contact_location: document.getElementById("contactLocation").value,
-    contact_location_url: document.getElementById("contactLocationUrl").value,
-    contact_email: document.getElementById("contactEmail").value,
-    contact_phone: document.getElementById("contactPhone").value,
-    contact_facebook: document.getElementById("contactFacebook").value,
-    contact_facebook_url: document.getElementById("contactFacebookUrl").value,
-    contact_form_heading: document.getElementById("contactFormHeading").value,
-    contact_form_subtitle: document.getElementById("contactFormSubtitle").value,
-    contact_consent_text: document.getElementById("contactConsentText").value,
-  };
   try {
+    const payload = {
+      contact_heading: document.getElementById("contactHeading").value,
+      contact_lead: document.getElementById("contactLead").value,
+      contact_location: document.getElementById("contactLocation").value,
+      contact_location_url: document.getElementById("contactLocationUrl").value,
+      contact_email: document.getElementById("contactEmail").value,
+      contact_phone: document.getElementById("contactPhone").value,
+      contact_facebook: document.getElementById("contactFacebook").value,
+      contact_facebook_url: document.getElementById("contactFacebookUrl").value,
+      contact_form_heading: document.getElementById("contactFormHeading").value,
+      contact_form_subtitle: document.getElementById("contactFormSubtitle").value,
+      contact_consent_text: document.getElementById("contactConsentText").value,
+    };
     const res = await fetch(`${API}/admin/site-settings`, {
       method: "PUT",
       headers: {
@@ -132,11 +148,16 @@ async function doSave() {
       });
     }
     await loadSettings();
-  } catch {
-    window.showAdminPopup("Failed to save. Try again.", { title: "Error" });
+  } catch (error) {
+    const uncertain = error?.name === "TimeoutError" || error?.name === "AbortError";
+    if (uncertain) setSettingsLoaded(false);
+    window.showAdminPopup(uncertain
+      ? "We couldn't confirm whether your changes were saved. Refresh the page content to check before trying again."
+      : "Changes could not be saved. Please try again.", { title: uncertain ? "Save Not Confirmed" : "Changes Not Saved" });
   } finally {
+    settingsSaving = false;
     if (saveButton) {
-      saveButton.disabled = false;
+      saveButton.disabled = !settingsLoaded;
       saveButton.innerHTML =
         originalSaveButtonHtml ||
         '<i class="fa-solid fa-floppy-disk"></i> Save All Changes';
