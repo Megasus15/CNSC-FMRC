@@ -53,8 +53,13 @@ const DEFAULT_SERVICE_CATEGORIES = [
 let serviceCategories = [...DEFAULT_SERVICE_CATEGORIES];
 let categoriesLoaded = false;
 let categoriesSaving = false;
+let categoryDraft = null;
+let serviceDraft = null;
+let serviceSaving = false;
 
 document.addEventListener("DOMContentLoaded", () => {
+  serviceDraft = window.AdminWebsiteDraft?.create({ button: "btnSaveService", read: getServiceFormSnapshot,
+    ready: () => document.getElementById("serviceModal")?.classList.contains("show"), busy: () => serviceSaving });
   loadServices();
   bindEvents();
   initializePageCopyEditor();
@@ -104,6 +109,7 @@ function syncCategoryControls() {
   document.querySelectorAll("#serviceCategoryList input, #serviceCategoryList button").forEach((control) => {
     control.disabled = !enabled;
   });
+  categoryDraft?.refresh();
 }
 
 function renderCategoryManager() {
@@ -124,6 +130,7 @@ function renderCategoryManager() {
       input.setCustomValidity(duplicateCategory(index) ? "Category labels must be unique." : "");
       setServiceCategoryOptions();
       document.getElementById("serviceCategoryStatus").textContent = "Unsaved category changes.";
+      syncCategoryControls();
     });
     const remove = document.createElement("button");
     remove.className = "btn-del-sm";
@@ -187,6 +194,7 @@ async function loadServiceCategoriesData() {
     serviceCategories = [...new Set(source.map((value) => String(value || "").trim()).filter(Boolean))].slice(0, 30);
     categoriesLoaded = true;
     renderCategoryManager();
+    categoryDraft?.capture();
     if (status) {
       status.classList.remove("is-invalid");
       status.textContent = "Categories loaded. Edit, add, or delete labels, then save changes.";
@@ -201,6 +209,9 @@ async function loadServiceCategoriesData() {
 }
 
 function initializeCategoryManager() {
+  categoryDraft = window.AdminWebsiteDraft?.create({ button: "btnSaveCategories",
+    read: () => serviceCategories.map((value) => String(value || "").trim()),
+    ready: () => categoriesLoaded, busy: () => categoriesSaving });
   const add = document.getElementById("btnAddCategory");
   const input = document.getElementById("newServiceCategory");
   const save = document.getElementById("btnSaveCategories");
@@ -226,7 +237,7 @@ function initializeCategoryManager() {
     document.getElementById("serviceCategoryStatus").textContent = "Unsaved category changes.";
   });
   save?.addEventListener("click", () => {
-    if (!categoriesLoaded || categoriesSaving) return;
+    if (!categoriesLoaded || categoriesSaving || (categoryDraft && !categoryDraft.isDirty())) return;
     const categories = categoryPayload();
     if (!categories) {
       window.showAdminPopup("Use unique category labels, each 1–60 characters, with at most 30 categories.", { title: "Invalid Categories" });
@@ -255,6 +266,7 @@ function initializeCategoryManager() {
 }
 
 async function saveServiceCategories(categories) {
+  if (!categoriesLoaded || categoriesSaving || (categoryDraft && !categoryDraft.isDirty())) return;
   categoriesSaving = true;
   const save = document.getElementById("btnSaveCategories");
   syncCategoryControls();
@@ -270,6 +282,7 @@ async function saveServiceCategories(categories) {
     }
     serviceCategories = [...categories];
     renderCategoryManager();
+    categoryDraft?.capture();
     document.getElementById("serviceCategoryStatus").textContent = "Service categories saved successfully.";
     broadcastSiteUpdate("updated");
   } finally {
@@ -386,6 +399,7 @@ function bindEvents() {
           preview.classList.add("visible");
           placeholder.classList.add("hidden");
           if (removeBtn) removeBtn.style.display = "inline-flex";
+          serviceDraft?.refresh();
         };
         img.onerror = () => {
           window.showAdminPopup?.("Choose a valid image file.", { title: "Image unavailable" });
@@ -420,6 +434,7 @@ function openAdd() {
   clearForm();
   setServiceCategoryOptions();
   serviceDiscardGuard?.capture();
+  serviceDraft?.capture();
   updateServiceLimits();
   document.getElementById("serviceModal").classList.add("show");
 }
@@ -455,6 +470,7 @@ function openEdit(id) {
     if (btn) btn.style.display = "none";
   }
   serviceDiscardGuard?.capture();
+  serviceDraft?.capture();
   updateServiceLimits();
   document.getElementById("serviceModal").classList.add("show");
 }
@@ -498,6 +514,7 @@ function getServiceFormSnapshot() {
 }
 
 function onSave() {
+  if (serviceSaving || (serviceDraft && !serviceDraft.isDirty())) return;
   if (!validateServiceForm()) return;
   const id = document.getElementById("serviceEditId").value;
   const title = document.getElementById("svcTitle").value.trim();
@@ -523,9 +540,11 @@ function onSave() {
 }
 
 async function doSave(id) {
+  if (serviceSaving || (serviceDraft && !serviceDraft.isDirty())) return;
   if (!validateServiceForm()) return;
   const submitButton = document.getElementById("btnSaveService");
   const originalSubmitButtonHtml = submitButton?.innerHTML || "";
+  serviceSaving = true;
   if (submitButton) {
     submitButton.disabled = true;
     submitButton.innerHTML =
@@ -581,12 +600,14 @@ async function doSave(id) {
   } catch (error) {
     window.showAdminPopup(error.message || "Failed to save. Try again.", { title: "Error" });
   } finally {
+    serviceSaving = false;
     if (submitButton) {
       submitButton.disabled = false;
       submitButton.innerHTML =
         originalSubmitButtonHtml ||
         '<i class="fa-solid fa-floppy-disk"></i> Save Service';
     }
+    serviceDraft?.refresh();
   }
 }
 
@@ -779,6 +800,9 @@ function initializePageCopyEditor() {
     field.addEventListener("input", () => describe(field, definition));
     fields.set(definition.key, field);
   });
+  const contentDraft = window.AdminWebsiteDraft?.create({ button: save,
+    read: () => Object.fromEntries([...fields].map(([key, field]) => [key, field.value])),
+    ready: () => loaded, busy: () => saving });
   async function load(...args) {
     const work = () => loadData(...args);
     return window.AdminWebsiteLoading ? window.AdminWebsiteLoading.during(work) : work();
@@ -803,7 +827,7 @@ function initializePageCopyEditor() {
       });
       loaded = true;
       fieldset.disabled = false;
-      save.disabled = false;
+      contentDraft?.capture();
       status.textContent = "All fields show their exact character limit. Existing over-limit text must be shortened before saving.";
     } catch (error) {
       status.textContent = error.message || "Unable to load page content. Please retry.";
@@ -814,7 +838,7 @@ function initializePageCopyEditor() {
   retry.addEventListener("click", load);
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (!loaded || saving) return;
+    if (!loaded || saving || (contentDraft && !contentDraft.isDirty())) return;
     const payload = {};
     for (const definition of definitions) {
       const field = fields.get(definition.key);
@@ -840,11 +864,12 @@ function initializePageCopyEditor() {
           throw new Error(Object.values(error.errors || {}).flat().join(" ") || error.message || "The page content was not saved. Please try again.");
         }
         broadcastSiteUpdate();
+        contentDraft?.capture();
         status.textContent = "Services page content saved successfully.";
       } finally {
         saving = false;
         fieldset.disabled = false;
-        save.disabled = false;
+        contentDraft?.refresh();
         save.innerHTML = '<i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save Changes';
       }
     };

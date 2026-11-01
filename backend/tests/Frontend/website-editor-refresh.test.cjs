@@ -85,6 +85,18 @@ test('Email Templates keeps saved wording when tab focus, visibility, or cross-t
   assert.match(h.field('emailTemplateStatus').textContent, /Use Refresh/);
 });
 
+test('Email Template Save starts disabled and follows edits and reversions', async (t) => {
+  const h = await emailHarness(t);
+  const original = h.field('emailTplBodyText').value;
+  assert.equal(h.field('emailTemplateSaveBtn').disabled, true);
+  h.field('emailTplBodyText').value = original + ' Updated.';
+  await h.field('emailTplBodyText').emit('input');
+  assert.equal(h.field('emailTemplateSaveBtn').disabled, false);
+  h.field('emailTplBodyText').value = original;
+  await h.field('emailTplBodyText').emit('input');
+  assert.equal(h.field('emailTemplateSaveBtn').disabled, true);
+});
+
 test('Email Templates retains a draft across incoming updates and still publishes explicit saves', async (t) => {
   const h = await emailHarness(t);
   const draft = 'A carefully edited notification.';

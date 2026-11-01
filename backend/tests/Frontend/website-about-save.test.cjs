@@ -20,6 +20,9 @@ function harness(page = 'about', portal = 'admin') {
     CONFIG_PAGE: page, CONFIG_LABEL: page === 'about' ? 'About Us' : 'Home',
     API: '/api', settingsLoaded: true, settingsSaving: false,
     currentSettings: {},
+    pageDraft: null, videoUploading: false, videoUploadFailed: false, videoUploadToken: null,
+    videoUploadFile: null, videoPreviewUrl: '',
+    syncVideoControls() {}, paintVideoUpload() {},
     heroBgGradient: 'warm', heroBgImageData: 'home-image',
     aboutVideoData: 'about-video', visionImageData: 'vision-image', missionImageData: 'mission-image',
     token: () => `${portal}-token`,
@@ -212,6 +215,8 @@ test('a referenced video is preserved while explicit media replacements and remo
 
 test('an unconfirmed timed-out save preserves the draft and requires a refresh before another write', async () => {
   const h = harness();
+  h.context.videoUploadToken = '11111111-1111-4111-8111-111111111111';
+  h.context.aboutVideoData = 'blob:staged-preview';
   h.elements.get('aboutText1').value = 'Keep this draft';
   h.state.networkError = Object.assign(new Error('Request timed out.'), { name: 'TimeoutError' });
   await h.save();
@@ -220,6 +225,29 @@ test('an unconfirmed timed-out save preserves the draft and requires a refresh b
   assert.equal(h.elements.get('aboutText1').value, 'Keep this draft');
   assert.match(h.state.messages[0].message, /couldn't confirm/);
   assert.equal(h.state.messages[0].options.title, 'Save Not Confirmed');
+  assert.equal(h.context.videoUploadToken, null, 'the receipt cannot block refresh after an ambiguous save');
+  assert.equal(h.context.videoUploadFailed, false);
   await h.save();
   assert.equal(h.state.requests.length, 1);
+});
+
+test('uploads in progress or failed uploads cannot submit any page edits', async () => {
+  const h = harness();
+  h.context.videoUploading = true;
+  await h.save();
+  h.context.videoUploading = false;
+  h.context.videoUploadFailed = true;
+  await h.save();
+  assert.equal(h.state.requests.length, 0);
+});
+
+test('a staged video saves its receipt without sending the preview or video bytes', async () => {
+  const h = harness();
+  h.context.videoUploadToken = '11111111-1111-4111-8111-111111111111';
+  h.context.aboutVideoData = 'blob:staged-preview';
+  await h.save();
+  const payload = JSON.parse(h.state.requests[0].options.body);
+  assert.equal(payload.about_video_upload_token, '11111111-1111-4111-8111-111111111111');
+  assert.equal(Object.hasOwn(payload, 'about_video_url'), false);
+  assert.equal(h.context.videoUploadToken, null);
 });

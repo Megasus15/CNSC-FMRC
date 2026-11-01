@@ -64,12 +64,23 @@ let currentSettings = {};
 // setSettingsLoaded().
 let settingsLoaded = false;
 let settingsSaving = false;
+let pageDraft = null;
+let videoUploading = false;
+let videoUploadFailed = false;
+let videoUploadToken = null;
+let videoUploadRequest = null;
+let videoUploadFile = null;
+let videoUploadSequence = 0;
+let videoPreviewUrl = "";
+let pendingVideoPreviewUrl = "";
+let videoFileName = "";
+const VIDEO_MAX_BYTES = 50 * 1024 * 1024;
 let servicesData = [];
 let svcImageData = null; // base64 for current service modal image
 let heroBgImageData = null;
 let visionImageData = null;
 let missionImageData = null;
-let aboutVideoData = null; // base64 or null for video upload
+let aboutVideoData = null; // saved reference, staged preview URL, or null
 
 // Hero background gradient: a preset id from ../home-page/hero-gradients.js, the
 // same module the customer hero reads, so a swatch here and the live banner can
@@ -161,11 +172,20 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.querySelectorAll("input[maxlength], textarea[maxlength]").forEach((input) => {
     window.FMRC_PAGE_CONTENT?.bindCounter(input, input.maxLength);
   });
+  pageDraft = window.AdminWebsiteDraft?.create({
+    button: "btnSaveAllHome", read: collectPageSettings,
+    ready: () => settingsLoaded,
+    busy: () => settingsSaving || videoUploading || videoUploadFailed,
+  });
   await loadAllData();
   bindEvents();
 });
 
 async function loadAllData(...args) {
+  if (videoUploading || videoUploadFailed || videoUploadToken) {
+    window.showAdminPopup("Save or cancel your video change before refreshing the page content.", { title: "Video Change Pending" });
+    return;
+  }
   const work = () => loadInitialData(...args);
   return window.AdminWebsiteLoading ? window.AdminWebsiteLoading.during(work) : work();
 }
@@ -236,6 +256,7 @@ async function loadSettingsData(options) {
     currentSettings = await fetchSiteSettings();
     populateForm();
     setSettingsLoaded(true);
+    if (!videoUploading && !videoUploadFailed && !videoUploadToken) pageDraft?.capture();
     return true;
   } catch (error) {
     setSettingsLoaded(false);
@@ -256,7 +277,9 @@ function setSettingsLoaded(loaded) {
   });
   const btn = document.getElementById("btnSaveAllHome");
   if (!btn) return;
-  btn.disabled = !settingsLoaded || settingsSaving;
+  btn.disabled = !settingsLoaded || settingsSaving || videoUploading || videoUploadFailed;
+  pageDraft?.refresh();
+  syncVideoControls();
   btn.title = settingsLoaded
     ? ""
     : `Locked until the live ${CONFIG_LABEL} page content has loaded.`;
@@ -354,10 +377,12 @@ function populateForm() {
   setText("aboutText1", s.about_text_1 || "");
   setText("aboutText2", s.about_text_2 || "");
   // Restore saved video
-  if (s.about_video_url) {
+  if (!videoUploading && !videoUploadFailed && !videoUploadToken && s.about_video_url) {
+    if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
+    videoPreviewUrl = videoFileName = "";
     aboutVideoData = s.about_video_url;
     restoreVideoPreview(s.about_video_url);
-  } else {
+  } else if (!videoUploading && !videoUploadFailed && !videoUploadToken) {
     clearVideoUpload();
   }
   setText("visionHeading", savedText(s, "vision_heading", "OUR VISION"));
@@ -937,10 +962,12 @@ function collectPageSettings() {
     ["mission_image", "missionImgInput", missionImageData],
   ] : [["hero_bg_image", "heroBgImgInput", heroBgImageData]];
   media.forEach(([key, id, value]) => {
+    if (key === "about_video_url" && (videoUploadToken || String(value || "").startsWith("blob:"))) return;
     if (document.getElementById(id) && (value || "") !== (currentSettings[key] || "")) {
       payload[key] = value || "";
     }
   });
+  if (CONFIG_PAGE === "about" && videoUploadToken) payload.about_video_upload_token = videoUploadToken;
 
   if (CONFIG_PAGE === "home") {
     if (document.getElementById("heroBgType")) payload.hero_bg_gradient = heroBgGradient || "";
@@ -953,7 +980,7 @@ function collectPageSettings() {
 }
 
 async function doSaveAll() {
-  if (settingsSaving) return;
+  if (settingsSaving || videoUploading || videoUploadFailed || (pageDraft && !pageDraft.isDirty())) return;
   // Keep the loaded-content guard for direct calls as well as button clicks.
   if (!settingsLoaded) {
     window.showAdminPopup(
@@ -968,6 +995,7 @@ async function doSaveAll() {
   const saveButton = document.getElementById("btnSaveAllHome");
   const originalSaveButtonHtml = saveButton?.innerHTML || "";
   settingsSaving = true;
+  syncVideoControls();
   if (saveButton) {
     saveButton.disabled = true;
     saveButton.setAttribute("aria-busy", "true");
@@ -991,6 +1019,10 @@ async function doSaveAll() {
     if (!res.ok) {
       const error = await res.json().catch(() => ({}));
       if (res.status === 422) {
+        if (error.errors?.about_video_upload_token) {
+          videoUploadFailed = true;
+          paintVideoUpload("The video upload is unavailable. Retry uploading before saving.", 0, true);
+        }
         errorMessage = Object.values(error.errors || {}).flat()
           .find((message) => typeof message === "string" && message.trim())
           || "Please review the page content and try again.";
@@ -1000,8 +1032,13 @@ async function doSaveAll() {
       throw new Error(errorMessage);
     }
     broadcastSiteUpdate("updated");
+    videoUploadToken = null;
+    videoUploadFile = null;
     const reloaded = await loadSettings({ silent: true });
     if (reloaded) {
+      if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
+      videoPreviewUrl = "";
+      paintVideoUpload();
       window.showAdminPopup(`${CONFIG_LABEL} page settings saved successfully!`, {
         title: "Saved!",
         type: "success",
@@ -1012,6 +1049,12 @@ async function doSaveAll() {
   } catch (error) {
     if (error?.name === "TimeoutError" || error?.name === "AbortError") {
       setSettingsLoaded(false);
+      // The save may already have published this receipt. Read the current
+      // content before offering another save; do not discard an in-flight receipt.
+      videoUploadToken = null;
+      videoUploadFile = null;
+      videoUploadFailed = false;
+      paintVideoUpload();
       errorTitle = "Save Not Confirmed";
       errorMessage = "We couldn't confirm whether your changes were saved. Refresh the page content to check before trying again.";
     }
@@ -1030,6 +1073,8 @@ async function doSaveAll() {
         originalSaveButtonHtml ||
         '<i class="fa-solid fa-floppy-disk"></i> Save All Changes';
     }
+    pageDraft?.refresh();
+    syncVideoControls();
   }
 }
 
@@ -1179,6 +1224,7 @@ function setupImgInput(inputId, previewId, placeholderId, callback) {
       const image = event.target.result;
       setImgPreview(previewId, placeholderId, image);
       callback(image);
+      pageDraft?.refresh();
     };
     reader.readAsDataURL(file);
   });
@@ -1186,14 +1232,140 @@ function setupImgInput(inputId, previewId, placeholderId, callback) {
 
 // ── Video upload helpers ──────────────────────────────────────────────────────
 function handleVideoUpload(input) {
+  if (!settingsLoaded || settingsSaving || videoUploading) { input.value = ""; return; }
   const file = input.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    aboutVideoData = e.target.result;
-    restoreVideoPreview(aboutVideoData, file.name);
+  if (file.size > VIDEO_MAX_BYTES) {
+    input.value = "";
+    videoUploadFailed = true;
+    videoUploadFile = null;
+    paintVideoUpload("The video must be 50 MB or smaller.", 0, true);
+    return;
+  }
+  if (!/\.(mp4|webm|ogg|ogv|mov|avi)$/i.test(file.name)) {
+    input.value = "";
+    videoUploadFailed = true;
+    videoUploadFile = null;
+    paintVideoUpload("Choose an MP4, WebM, OGG, MOV, or AVI video.", 0, true);
+    return;
+  }
+  uploadAboutVideo(file);
+}
+
+function paintVideoUpload(message = "", percent = 0, error = false) {
+  syncVideoControls();
+  const box = document.getElementById("aboutVideoUploadStatus");
+  if (!box) return;
+  box.hidden = !message;
+  box.classList.toggle("is-invalid", error);
+  box.setAttribute("aria-busy", String(videoUploading));
+  const label = document.getElementById("aboutVideoUploadLabel");
+  if (label) label.textContent = message;
+  const progress = document.getElementById("aboutVideoUploadProgress");
+  if (progress) { progress.value = percent; progress.hidden = error; }
+  const retry = document.getElementById("aboutVideoUploadRetry");
+  if (retry) retry.hidden = !videoUploadFailed || !videoUploadFile;
+  const cancel = document.getElementById("aboutVideoUploadCancel");
+  if (cancel) cancel.hidden = !videoUploading && !videoUploadFailed;
+  const spinner = document.getElementById("aboutVideoUploadSpinner");
+  if (spinner) spinner.hidden = !videoUploading;
+  pageDraft?.refresh();
+}
+
+function syncVideoControls() {
+  const input = document.getElementById("aboutVideoInput");
+  if (input) input.disabled = !settingsLoaded || videoUploading || settingsSaving;
+  const remove = document.getElementById("aboutVideoRemoveBtn");
+  if (remove) remove.disabled = !settingsLoaded || videoUploading || settingsSaving;
+}
+
+function discardVideoToken(value) {
+  if (value) void fetch(`${API}/admin/site-settings/about-video-upload/${encodeURIComponent(value)}`, {
+    method: "DELETE", headers: { Authorization: "Bearer " + token(), Accept: "application/json" },
+  }).catch(() => {});
+}
+
+function uploadAboutVideo(file) {
+  if (settingsSaving) return;
+  const sequence = ++videoUploadSequence;
+  videoUploadRequest?.abort();
+  if (pendingVideoPreviewUrl) URL.revokeObjectURL(pendingVideoPreviewUrl);
+  videoUploadFile = file;
+  pendingVideoPreviewUrl = URL.createObjectURL(file);
+  restoreVideoPreview(pendingVideoPreviewUrl, file.name);
+  videoUploading = true;
+  videoUploadFailed = false;
+  paintVideoUpload("Uploading video… 0%", 0);
+  const request = new XMLHttpRequest();
+  videoUploadRequest = request;
+  request.open("POST", `${API}/admin/site-settings/about-video-upload`);
+  request.timeout = 120000;
+  request.setRequestHeader("Authorization", "Bearer " + token());
+  request.setRequestHeader("Accept", "application/json");
+  request.upload.onprogress = (event) => {
+    if (sequence !== videoUploadSequence || !event.lengthComputable) return;
+    const percent = Math.min(99, Math.floor(event.loaded / event.total * 100));
+    paintVideoUpload(`Uploading video… ${percent}%`, percent);
   };
-  reader.readAsDataURL(file);
+  request.upload.onload = () => {
+    if (sequence === videoUploadSequence) paintVideoUpload("Finishing video upload… 99%", 99);
+  };
+  const fail = (message) => {
+    if (sequence !== videoUploadSequence) return;
+    videoUploading = false;
+    videoUploadFailed = true;
+    videoUploadRequest = null;
+    paintVideoUpload(message, 0, true);
+  };
+  request.onload = () => {
+    if (sequence !== videoUploadSequence) return;
+    let response;
+    try { response = JSON.parse(request.responseText); } catch {}
+    if (request.status !== 201 || !/^[a-f0-9-]{36}$/i.test(response?.data?.token || "")) {
+      const validation = response?.errors?.video?.[0];
+      fail(typeof validation === "string" ? validation : request.status === 413
+        ? "The video must be 50 MB or smaller."
+        : "The video could not be uploaded. Please try again.");
+      return;
+    }
+    discardVideoToken(videoUploadToken);
+    if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
+    videoUploadToken = response.data.token;
+    videoPreviewUrl = pendingVideoPreviewUrl;
+    pendingVideoPreviewUrl = "";
+    aboutVideoData = videoPreviewUrl;
+    videoFileName = file.name;
+    videoUploading = false;
+    videoUploadFailed = false;
+    videoUploadRequest = null;
+    const input = document.getElementById("aboutVideoInput");
+    if (input) input.value = "";
+    paintVideoUpload("Video uploaded — 100%. Save All Changes to publish it.", 100);
+  };
+  request.onerror = () => fail("The video could not be uploaded. Check your connection and retry.");
+  request.ontimeout = () => fail("The video upload timed out. Please retry.");
+  const body = new FormData();
+  body.append("video", file);
+  request.send(body);
+}
+
+function retryVideoUpload() {
+  if (videoUploadFile && !videoUploading) uploadAboutVideo(videoUploadFile);
+}
+
+function cancelVideoUpload() {
+  ++videoUploadSequence;
+  videoUploadRequest?.abort();
+  videoUploadRequest = null;
+  videoUploading = false;
+  videoUploadFailed = false;
+  videoUploadFile = null;
+  if (pendingVideoPreviewUrl) URL.revokeObjectURL(pendingVideoPreviewUrl);
+  pendingVideoPreviewUrl = "";
+  if (aboutVideoData) restoreVideoPreview(aboutVideoData, videoFileName);
+  else clearVideoUpload();
+  if (videoUploadToken) paintVideoUpload("Video uploaded — 100%. Save All Changes to publish it.", 100);
+  else paintVideoUpload();
 }
 
 function restoreVideoPreview(src, fileName) {
@@ -1207,13 +1379,14 @@ function restoreVideoPreview(src, fileName) {
   }
   if (placeholder) placeholder.classList.add("hidden");
   if (removeBtn) removeBtn.style.display = "inline-flex";
-  if (fileNameEl && fileName) {
-    fileNameEl.textContent = fileName;
-    fileNameEl.style.display = "block";
+  if (fileNameEl) {
+    fileNameEl.textContent = fileName || "";
+    fileNameEl.style.display = fileName ? "block" : "none";
   }
 }
 
 function clearVideoUpload() {
+  cancelVideoUploadState();
   aboutVideoData = null;
   const preview = document.getElementById("aboutVideoPreview");
   const placeholder = document.getElementById("aboutVideoPlaceholder");
@@ -1231,6 +1404,21 @@ function clearVideoUpload() {
     fileNameEl.style.display = "none";
   }
   if (input) input.value = "";
+  paintVideoUpload();
+  pageDraft?.refresh();
+}
+
+function cancelVideoUploadState() {
+  ++videoUploadSequence;
+  videoUploadRequest?.abort();
+  discardVideoToken(videoUploadToken);
+  videoUploadRequest = null;
+  videoUploading = false;
+  videoUploadFailed = false;
+  videoUploadToken = null;
+  videoUploadFile = null;
+  for (const url of [videoPreviewUrl, pendingVideoPreviewUrl]) if (url) URL.revokeObjectURL(url);
+  videoPreviewUrl = pendingVideoPreviewUrl = videoFileName = "";
 }
 
 function setImgPreview(previewId, placeholderId, src) {

@@ -15,7 +15,7 @@ function harness(fetch) {
     return fetch ? fetch(input, options) : new Response('{}');
   } };
   const context = vm.createContext({
-    window, document: { baseURI: 'https://fmrc.test/admin-page/website-about' },
+    window, document: { baseURI: 'https://fmrc.test/admin-page/website-about', addEventListener() {} },
     URL, Request, AbortController, DOMException,
     AbortSignal: {
       timeout(milliseconds) {

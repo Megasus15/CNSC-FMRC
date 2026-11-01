@@ -121,6 +121,41 @@ test('Website Management section skeletons follow slow loads, recovery, themes a
         if (name === 'footer' || name === 'services' || name === 'portals') await screenshot(`${role}-${name}-${width}-loading`);
         release(); await settled();
         assert.equal(await evaluate(`!!document.querySelector('.module-content [inert],.wm-save-bar[inert]')`), false, route + ' unlocks after data rendering');
+        const clean = await evaluate(`(()=>{const ids=['btnSaveAllHome','btnSaveContact','btnSaveFooter','servicePageCopySave','btnSaveCategories','btnSaveMaintenance','emailTemplateSaveBtn','savePaymentSettings','savePortalSettings'];return ids.map(id=>document.getElementById(id)).filter(Boolean).every(button=>button.disabled)})()`);
+        assert.equal(clean,true,route+' clean Save buttons remain disabled');
+        if (name==='maintenance') {
+          await evaluate(`document.querySelector('[data-toggle]').click()`);
+          assert.equal(await evaluate(`document.getElementById('btnSaveMaintenance').disabled`),false);
+          await evaluate(`document.querySelector('[data-toggle]').click()`);
+          assert.equal(await evaluate(`document.getElementById('btnSaveMaintenance').disabled`),true);
+        } else {
+          const edit = await evaluate(`(()=>{const selectors={home:'#heroTitle',about:'#aboutHeading',services:'#pageCopy_editorial_services_title',contact:'#contactHeading',footer:'#footerBrandName',payments:'#paymentSettingsFields input[type=checkbox]',portals:'#portalSettingsFields input[type=text]',emails:'#emailTplBodyText'};const field=document.querySelector(selectors[${JSON.stringify(name)}]);if(!field)return null;window.fixtureOriginal=field.type==='checkbox'?field.checked:field.value;window.fixtureEditField=field;if(field.type==='checkbox')field.click();else{field.value+=' changed';field.dispatchEvent(new Event('input',{bubbles:true}));}return true})()`);
+          assert(edit,route+' has an editable saved field');
+          const buttonId={home:'btnSaveAllHome',about:'btnSaveAllHome',services:'servicePageCopySave',contact:'btnSaveContact',footer:'btnSaveFooter',payments:'savePaymentSettings',portals:'savePortalSettings',emails:'emailTemplateSaveBtn'}[name];
+          assert.equal(await evaluate(`document.getElementById(${JSON.stringify(buttonId)}).disabled`),false,route+' edits enable Save');
+          await evaluate(`(()=>{const field=window.fixtureEditField;if(field.type==='checkbox')field.click();else{field.value=window.fixtureOriginal;field.dispatchEvent(new Event('input',{bubbles:true}));}})()`);
+          assert.equal(await evaluate(`document.getElementById(${JSON.stringify(buttonId)}).disabled`),true,route+' reverting disables Save');
+        }
+        if (name==='services') {
+          const categoryCount = await evaluate(`document.querySelectorAll('#serviceCategoryList input').length`);
+          await input('newServiceCategory', 'Fixture tooling');
+          assert.equal(await evaluate(`document.getElementById('btnSaveCategories').disabled`),true,'typing a proposed category has not added it yet');
+          await evaluate(`document.getElementById('btnAddCategory').click()`);
+          assert.equal(await evaluate(`document.querySelectorAll('#serviceCategoryList input').length`),categoryCount+1,'Add category works from a clean form');
+          assert.equal(await evaluate(`document.getElementById('btnSaveCategories').disabled`),false);
+          await evaluate(`document.querySelector('#serviceCategoryList').lastElementChild.querySelector('button').click()`);
+          await wait(`document.querySelector('#adminSystemPopup.show #adminSystemPopupTitle')?.textContent==='Delete Category'`);
+          await evaluate(`document.getElementById('adminSystemPopupOk').click()`);
+          await wait(`document.getElementById('btnSaveCategories').disabled`);
+          assert.equal(await evaluate(`document.querySelectorAll('#serviceCategoryList input').length`),categoryCount);
+          await evaluate(`document.getElementById('btnAddService').click()`);
+          assert.equal(await evaluate(`document.getElementById('btnSaveService').disabled`),true,'new service starts clean');
+          await input('svcTitle','Fixture service');
+          assert.equal(await evaluate(`document.getElementById('btnSaveService').disabled`),false);
+          await input('svcTitle','');
+          assert.equal(await evaluate(`document.getElementById('btnSaveService').disabled`),true);
+          await evaluate(`document.getElementById('btnCancelService').click()`);
+        }
         console.log(`Verified ${role}/${name} ${width}px ${theme}`);
       }
       for (const role of ['admin', 'staff']) {
@@ -175,7 +210,7 @@ test('Website Management section skeletons follow slow loads, recovery, themes a
       if (name === 'about') await evaluate(`document.getElementById('adminSystemPopupOk').click()`);
       else await evaluate(`document.querySelector('.admin-page-load-notice__retry').click()`);
       await settled();
-      await wait(`[...document.querySelectorAll('.wm-save-bar button')].some(button=>/save/i.test(button.textContent)&&!button.disabled)`);
+      await wait(`typeof settingsLoaded!=='undefined' && settingsLoaded && [...document.querySelectorAll('.wm-save-bar button')].filter(button=>/save/i.test(button.textContent)).every(button=>button.disabled)`);
       console.log(`Verified ${role}/${name} stalled-body timeout and real Retry recovery`);
     }
     assert(settingsModes.length > 0 && settingsModes.every(mode => mode === 'references'), 'all Website Management settings reads request video references');

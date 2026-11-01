@@ -38,8 +38,8 @@ class SiteSettingController extends Controller
                 continue;
             }
 
-            $data[$row->key] = $request->query('media') === 'references'
-                && $row->key === 'about_video_url' && SiteSettingsVideo::isEmbedded($row->value)
+            $data[$row->key] = $row->key === 'about_video_url' && (SiteSettingsVideo::storedFile($row->value)
+                || ($request->query('media') === 'references' && SiteSettingsVideo::isEmbedded($row->value)))
                 ? SiteSettingsVideo::reference($row->value)
                 : $row->value;
         }
@@ -72,6 +72,27 @@ class SiteSettingController extends Controller
     public function aboutVideo(Request $request): BinaryFileResponse
     {
         return SiteSettingsVideo::response($request);
+    }
+
+    public function uploadAboutVideo(Request $request): JsonResponse
+    {
+        $actor = $request->user();
+        abort_unless($actor && in_array(strtolower((string) $actor->role), ['admin', 'staff'], true), 403);
+        $request->validate(['video' => ['required', 'file', 'max:51200', 'mimetypes:video/mp4,video/webm,video/ogg,video/quicktime,video/x-msvideo']], [
+            'video.max' => 'The video must be 50 MB or smaller.',
+            'video.mimetypes' => 'Choose an MP4, WebM, OGG, MOV, or AVI video.',
+        ]);
+
+        return response()->json(['data' => SiteSettingsVideo::stage($request->file('video'), (int) $actor->id)], 201);
+    }
+
+    public function discardAboutVideo(Request $request, string $token): JsonResponse
+    {
+        $actor = $request->user();
+        abort_unless($actor && in_array(strtolower((string) $actor->role), ['admin', 'staff'], true), 403);
+        SiteSettingsVideo::discard($token, (int) $actor->id);
+
+        return response()->json(['message' => 'Video draft discarded.']);
     }
 
     /**
@@ -142,7 +163,10 @@ class SiteSettingController extends Controller
         // Validate the entire payload before saving any settings so an overlong
         // field produces a field-specific 422 without a partially saved page.
         $request->validate(
-            array_merge(WebsiteContentLimits::settingsRules(), PaymentMethodAvailability::rules(), PortalAppearanceSettings::rules()),
+            array_merge(WebsiteContentLimits::settingsRules(), PaymentMethodAvailability::rules(), PortalAppearanceSettings::rules(), [
+                'about_video_upload_token' => ['sometimes', 'nullable', 'uuid'],
+                'about_video_url' => ['sometimes', 'nullable', 'string', SiteSettingsVideo::validateSetting(...)],
+            ]),
             WebsiteContentLimits::messages(),
         );
 
@@ -158,6 +182,12 @@ class SiteSettingController extends Controller
                     ], 403);
                 }
             }
+        }
+
+        $uploadToken = $input['about_video_upload_token'] ?? null;
+        unset($input['about_video_upload_token']);
+        if ($uploadToken) {
+            $input['about_video_url'] = SiteSettingsVideo::publish($uploadToken, (int) $actor->id);
         }
 
         // Saving all payment switches is one operation: readers must never see

@@ -199,6 +199,7 @@ const form = {};
 const serverState = {};
 let loaded = false;
 let dirty = false;
+let savedDraft = null;
 let pageForm = { ...PAGE_DEFAULTS };
 let pageInstalled = false;
 let pendingImage;
@@ -435,6 +436,8 @@ function paintPagePreview() {
   if (fields) fields.disabled = !loaded || !pageInstalled;
   const notice = document.getElementById("mtPageMigrationNotice");
   if (notice) notice.hidden = !loaded || pageInstalled;
+  const save = document.getElementById("btnSaveMaintenance");
+  if (save) save.disabled = !loaded || saving || imageLoading || !dirty;
 }
 
 async function choosePageImage(event) {
@@ -593,13 +596,19 @@ function paintAll() {
   paintSummary();
   document.querySelectorAll('[data-toggle], [data-msg], [data-default]').forEach((control) => { control.disabled = !loaded || saving; });
   const save = document.getElementById("btnSaveMaintenance");
-  if (save) save.disabled = !loaded || saving;
+  if (save) save.disabled = !loaded || saving || imageLoading || !dirty;
+}
+
+function maintenanceDraft() {
+  return JSON.stringify({ scopes: SCOPES.map((cfg) => [cfg.key, !!form[cfg.key].active, (form[cfg.key].message || "").trim()]),
+    page: pageInstalled ? { ...pageForm, pendingImage: pendingImage ?? null } : null });
 }
 
 function markDirty() {
-  if (dirty) return;
-  dirty = true;
+  dirty = savedDraft !== null && maintenanceDraft() !== savedDraft;
   paintSaveHint();
+  const save = document.getElementById("btnSaveMaintenance");
+  if (save) save.disabled = !loaded || saving || imageLoading || !dirty;
 }
 
 // ── Load ────────────────────────────────────────────────────────────────────
@@ -686,6 +695,7 @@ async function loadData() {
     window.AdminPageNotice.clear("maintenance");
     loaded = true;
     dirty = false;
+    savedDraft = maintenanceDraft();
     document.getElementById("mtStack")?.classList.remove("mt-loading");
     paintAll();
   } catch {
@@ -703,7 +713,7 @@ function newlyActivated() {
 }
 
 function requestSave() {
-  if (!loaded || saving) return;
+  if (!loaded || saving || !dirty) return;
   if (imageLoading) {
     window.showAdminPopup?.("Please wait until your illustration finishes loading.", { title: "Checking image" });
     return;
@@ -734,7 +744,7 @@ function requestSave() {
 }
 
 async function doSave() {
-  if (saving) return;
+  if (!loaded || saving || imageLoading || !dirty) return;
   saving = true;
   const stack = document.getElementById("mtStack");
   if (stack) { stack.inert = true; stack.setAttribute("aria-busy", "true"); }
@@ -815,6 +825,7 @@ async function doSave() {
     applySnapshot(data.data);
     applyPageSnapshot(data.site_page);
     dirty = false;
+    savedDraft = maintenanceDraft();
     paintAll();
     broadcastSiteUpdate("updated");
     window.showAdminPopup?.("Maintenance settings saved.", { title: "Saved!" });
@@ -827,7 +838,7 @@ async function doSave() {
     saving = false;
     if (stack) { stack.inert = false; stack.removeAttribute("aria-busy"); }
     if (button) {
-      button.disabled = !loaded;
+      button.disabled = !loaded || imageLoading || !dirty;
       button.innerHTML =
         originalHtml ||
         '<i class="fa-solid fa-floppy-disk"></i> Save All Changes';

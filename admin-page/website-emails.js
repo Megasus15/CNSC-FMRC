@@ -273,6 +273,8 @@ const savedStatusMessage = (row) =>
  * already live.
  */
 const syncDirty = () => {
+  const save = el("emailTemplateSaveBtn");
+  if (save) save.disabled = state.saving || !isDirty();
   const row = state.bySlug.get(state.activeSlug);
   if (!row) return;
   setStatus(
@@ -320,7 +322,7 @@ const selectTemplate = (slug) => {
   state.lastTokenTarget = "body_text";
 
   const saveBtn = el("emailTemplateSaveBtn");
-  if (saveBtn) saveBtn.disabled = false;
+  if (saveBtn) saveBtn.disabled = true;
   const resetBtn = el("emailTemplateResetBtn");
   if (resetBtn) resetBtn.disabled = !edited;
 
@@ -429,7 +431,7 @@ const broadcastUpdate = () => {
  * falls back to the compiled-in default wording.
  */
 const persist = async (isReset) => {
-  if (state.saving) return;
+  if (state.saving || (!isReset && !isDirty())) return;
   const slug = state.activeSlug;
   const row = state.bySlug.get(slug);
   if (!row) return;
@@ -499,6 +501,8 @@ const persist = async (isReset) => {
     state.saving = false;
     setButtonPending(button, false);
     if (sibling) sibling.disabled = isReset ? false : !hasOverride(row);
+    const save = el("emailTemplateSaveBtn");
+    if (save) save.disabled = !isDirty();
     setStatus(message, true);
     window.showAdminPopup?.(message, { title: "Error" });
   }

@@ -309,6 +309,8 @@ Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(func
 
     // Admin/Staff: editable customer page settings
     Route::put('/admin/site-settings', [SiteSettingController::class, 'bulkUpdate']);
+    Route::post('/admin/site-settings/about-video-upload', [SiteSettingController::class, 'uploadAboutVideo']);
+    Route::delete('/admin/site-settings/about-video-upload/{token}', [SiteSettingController::class, 'discardAboutVideo']);
 
     // Admin only: Gmail notification templates. Reads only -- saving an edited
     // template goes through PUT /admin/site-settings like every other setting,

@@ -3,6 +3,38 @@
   "use strict";
   if (window.AdminWebsiteLoading) return;
 
+  // Every editor compares its own saved snapshot and retains ownership of
+  // loading, validation and pending-upload eligibility.
+  const drafts = new Set();
+  window.AdminWebsiteDraft = {
+    readFields(root) {
+      return [...(root?.querySelectorAll("input:not([type=file]),textarea,select") || [])]
+        .map((input, index) => [input.id || input.name || index, input.type === "checkbox" || input.type === "radio" ? input.checked : input.value]);
+    },
+    create({ button, read, ready = () => true, busy = () => false }) {
+      const target = typeof button === "string" ? document.getElementById(button) : button;
+      let baseline = null;
+      const snapshot = () => JSON.stringify(read());
+      const draft = {
+        isDirty() {
+          try { return baseline !== null && snapshot() !== baseline; }
+          catch { return false; }
+        },
+        refresh() {
+          if (target) target.disabled = !ready() || busy() || !draft.isDirty();
+        },
+        capture() { baseline = snapshot(); draft.refresh(); },
+      };
+      drafts.add(draft);
+      draft.refresh();
+      return draft;
+    },
+    refresh() { drafts.forEach((draft) => draft.refresh()); },
+  };
+  document.addEventListener("input", () => window.AdminWebsiteDraft.refresh());
+  document.addEventListener("change", () => window.AdminWebsiteDraft.refresh());
+  document.addEventListener("click", () => queueMicrotask(() => window.AdminWebsiteDraft.refresh()));
+
   // A saved video can be tens of MB. Editors need its URL, not its bytes in
   // every settings read. Keep the timeout active while response bodies load.
   const nativeFetch = window.fetch.bind(window);

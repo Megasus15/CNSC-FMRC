@@ -772,7 +772,7 @@
     <script src="../admin-page/dark-mode.js?v=3.1"></script>
     <link rel="stylesheet" href="../admin-page/portal-sidebar.css?v=1.3" />
     <script src="../admin-page/portal-sidebar.js?v=1.1" defer></script>
-    <link rel="stylesheet" href="../admin-page/website-loading.css?v=1.0" />
+    <link rel="stylesheet" href="../admin-page/website-loading.css?v=1.1" />
   </head>
   <body data-config-page="home">
     <div class="dashboard-container">
@@ -1222,10 +1222,20 @@
                   >
                     <i class="fa-solid fa-xmark"></i> Remove
                   </button>
+                  <p class="field-hint" id="aboutVideoLimit">MP4, WebM, OGG, MOV, or AVI. Maximum 50 MB. Finish uploading before saving.</p>
+                  <div class="wm-video-upload" id="aboutVideoUploadStatus" role="status" aria-live="polite" hidden>
+                    <p><i class="fa-solid fa-spinner fa-spin" id="aboutVideoUploadSpinner" aria-hidden="true" hidden></i> <span id="aboutVideoUploadLabel"></span></p>
+                    <progress id="aboutVideoUploadProgress" max="100" value="0" aria-label="Video upload progress"></progress>
+                    <div class="wm-video-upload-actions">
+                      <button type="button" class="btn-admin btn-secondary" id="aboutVideoUploadRetry" onclick="retryVideoUpload()" hidden>Retry upload</button>
+                      <button type="button" class="btn-admin btn-secondary" id="aboutVideoUploadCancel" onclick="cancelVideoUpload()" hidden>Cancel upload</button>
+                    </div>
+                  </div>
                   <input
                     type="file"
                     id="aboutVideoInput"
-                    accept="video/*"
+                    aria-describedby="aboutVideoLimit"
+                    accept=".mp4,.webm,.ogg,.ogv,.mov,.avi"
                     style="display: none"
                     onchange="handleVideoUpload(this)"
                   />
@@ -1480,7 +1490,7 @@
                 ></i
                 >Changes only apply after clicking Save All Changes.
               </p>
-              <button class="btn-admin" id="btnSaveAllHome">
+              <button class="btn-admin" id="btnSaveAllHome" disabled>
                 <i class="fa-solid fa-floppy-disk"></i> Save All Changes
               </button>
             </div>
@@ -1743,14 +1753,14 @@
     <script src="../admin-page/session-helper.js?v=2.4"></script>
     <script src="../admin-page/admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
-    <script src="../admin-page/website-loading.js?v=1.1"></script>
+    <script src="../admin-page/website-loading.js?v=1.2"></script>
     <script src="../admin-page/admin-common.js?v=8.4"></script>
     <script src="../home-page/hero-gradients.js"></script>
     <script src="../home-page/page-content.js?v=1.2"></script>
     <script src="../home-page/hero-machine-power.js?v=1.0"></script>
     <script src="../home-page/hero-printer-scene.js?v=2.0"></script>
     <script src="../home-page/hero-machine-scenes.js?v=1.2"></script>
-    <script src="../admin-page/website-home.js?v=2.9"></script>
+    <script src="../admin-page/website-home.js?v=2.10"></script>
     <script src="../admin-page/admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>

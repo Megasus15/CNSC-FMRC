@@ -42,14 +42,19 @@ const token = () =>
   localStorage.getItem("auth_token");
 let settingsLoaded = false;
 let settingsSaving = false;
+let pageDraft = null;
 
 function setSettingsLoaded(loaded) {
   settingsLoaded = Boolean(loaded);
   const button = document.getElementById("btnSaveContact");
   if (button) button.disabled = !settingsLoaded || settingsSaving;
+  pageDraft?.refresh();
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  pageDraft = window.AdminWebsiteDraft?.create({ button: "btnSaveContact",
+    read: () => window.AdminWebsiteDraft.readFields(document.querySelector(".module-content")),
+    ready: () => settingsLoaded, busy: () => settingsSaving });
   await loadSettings();
   document.getElementById("btnSaveContact").addEventListener("click", () => {
     window.showAdminConfirmPopup(
@@ -92,6 +97,7 @@ async function loadSettingsData() {
         "I hereby consent to the collection, processing, and storage of my personal information in accordance with the Data Privacy Act of 2012 (R.A. 10173).",
     );
     setSettingsLoaded(true);
+    pageDraft?.capture();
     window.AdminPageNotice?.clear("contact");
     return true;
   } catch (error) {
@@ -107,7 +113,7 @@ function setVal(id, val) {
 }
 
 async function doSave() {
-  if (!settingsLoaded || settingsSaving) return;
+  if (!settingsLoaded || settingsSaving || (pageDraft && !pageDraft.isDirty())) return;
   const saveButton = document.getElementById("btnSaveContact");
   const originalSaveButtonHtml = saveButton?.innerHTML || "";
   settingsSaving = true;
@@ -162,5 +168,6 @@ async function doSave() {
         originalSaveButtonHtml ||
         '<i class="fa-solid fa-floppy-disk"></i> Save All Changes';
     }
+    pageDraft?.refresh();
   }
 }

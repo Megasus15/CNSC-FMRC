@@ -57,7 +57,8 @@ async function connect(url) {
     send(method, params = {}) {
       return new Promise((resolve, reject) => {
         const id = ++nextId;
-        pending.set(id, { resolve, reject });
+        const timer = setTimeout(() => { pending.delete(id); reject(new Error(`CDP timeout: ${method}`)); }, 15000);
+        pending.set(id, { resolve: value => { clearTimeout(timer); resolve(value); }, reject: error => { clearTimeout(timer); reject(error); } });
         socket.send(JSON.stringify({ id, method, params }));
       });
     },
@@ -82,6 +83,9 @@ test('About saves and reloads across both portals, themes and widths, reaches cu
     let failReadback = false;
     let preferenceTheme = 'light';
     const writes = [];
+    const uploads = [];
+    const uploadReplies = [];
+    let uploadStatus = 201;
     const settingsReads = [];
     const server = http.createServer(async (request, response) => {
       const route = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
@@ -98,11 +102,19 @@ test('About saves and reloads across both portals, themes and widths, reaches cu
         if (route === '/api/site-settings') {
           const mode = new URL(request.url, 'http://localhost').searchParams.get('media');
           settingsReads.push(mode);
-          return json({ data: { ...settings, about_video_url: mode === 'references' ? `http://${request.headers.host}/api/site-settings/about-video?v=fixture` : settings.about_video_url } }, getStatus);
+          return json({ data: { ...settings, about_video_url: mode === 'references' && settings.about_video_url?.startsWith('data:') ? `http://${request.headers.host}/api/site-settings/about-video?v=fixture` : settings.about_video_url } }, getStatus);
         }
         if (route === '/api/site-settings/about-video') {
           response.writeHead(200, {'Content-Type':'video/mp4'});
           return response.end(Buffer.from('fixture video bytes'));
+        }
+        if (route === '/api/admin/site-settings/about-video-upload' && request.method === 'POST') {
+          let bytes = 0;
+          for await (const chunk of request) bytes += chunk.length;
+          uploads.push({bytes, authorization:request.headers.authorization});
+          if (uploadStatus !== 201) return json({errors:{video:['The video could not be uploaded. Please retry.']}}, uploadStatus);
+          await new Promise(resolve => uploadReplies.push(resolve));
+          return json({data:{token:'11111111-1111-4111-8111-111111111111',name:'intro.mp4'}}, 201);
         }
         if (route === '/api/admin/site-settings' && request.method === 'PUT') {
           if (!['Bearer fixture-admin', 'Bearer fixture-staff'].includes(request.headers.authorization)) {
@@ -115,6 +127,10 @@ test('About saves and reloads across both portals, themes and widths, reaches cu
           // Give the browser time to expose its pending-save state.
           await new Promise((resolve) => setTimeout(resolve, 150));
           Object.assign(settings, payload);
+          if (payload.about_video_upload_token) {
+            settings.about_video_url = `http://${request.headers.host}/api/site-settings/about-video?v=uploaded`;
+            delete settings.about_video_upload_token;
+          }
           writes.push(payload);
           if (failReadback) getStatus = 503;
           return json({ message: 'Site settings updated successfully.' });
@@ -163,7 +179,10 @@ test('About saves and reloads across both portals, themes and widths, reaches cu
       };
       const waitFor = async (expression) => {
         for (let attempt = 0; attempt < 150; attempt++) {
-          if (await evaluate(expression)) return;
+          try { if (await evaluate(expression)) return; }
+          catch (error) {
+            if (!/Inspected target navigated|Execution context was destroyed|Cannot find context/.test(error.message)) throw error;
+          }
           await new Promise((resolve) => setTimeout(resolve, 40));
         }
         throw new Error(`Not ready: ${expression}; state: ${JSON.stringify(await evaluate('({url:location.href, errors:window.fixtureErrors, dialogs:window.fixtureDialogs, focus:document.activeElement?.id})'))}`);
@@ -179,7 +198,7 @@ test('About saves and reloads across both portals, themes and widths, reaches cu
         await cdp.send('Page.reload');
         await waitFor(`typeof window.fixtureDocument === 'number' && window.fixtureDocument !== ${previous} && document.readyState === 'complete'`);
       };
-      const ready = () => waitFor("document.readyState === 'complete' && document.getElementById('btnSaveAllHome')?.disabled === false && !document.querySelector('.website-section-loading,.admin-global-page-skeleton,.fmrc-load-veil.is-on')");
+      const ready = () => waitFor("document.readyState === 'complete' && typeof settingsLoaded !== 'undefined' && settingsLoaded && !document.querySelector('.website-section-loading,.admin-global-page-skeleton,.fmrc-load-veil.is-on')");
       const confirmSave = async () => {
         await waitFor("document.querySelector('#adminSystemPopup.show #adminSystemPopupTitle')?.textContent === 'Save All Changes'");
         await evaluate("document.getElementById('adminSystemPopupOk').click()");
@@ -189,6 +208,12 @@ test('About saves and reloads across both portals, themes and widths, reaches cu
         await confirmSave();
       };
       const geometry = new Map();
+      const acknowledgeUpload = async () => {
+        for (let attempt = 0; !uploadReplies.length && attempt < 150; attempt++) await new Promise(resolve => setTimeout(resolve, 40));
+        assert(uploadReplies.length, 'the upload reached the API before acknowledgement');
+        uploadReplies.splice(0).forEach(resolve => resolve());
+      };
+      if (process.env.FMRC_ABOUT_UPLOAD_ONLY !== '1') {
       for (const portal of ['admin', 'staff']) {
         for (const width of [390, 768, 1440]) {
           for (const theme of ['light', 'dark']) {
@@ -217,7 +242,7 @@ test('About saves and reloads across both portals, themes and widths, reaches cu
             await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13 });
             await confirmSave();
             await waitFor("document.getElementById('btnSaveAllHome').getAttribute('aria-busy') === 'true'");
-            await waitFor("window.fixtureDialogs.some(dialog => dialog.success) && !document.getElementById('btnSaveAllHome').disabled");
+            await waitFor("window.fixtureDialogs.some(dialog => dialog.success) && document.getElementById('btnSaveAllHome').disabled");
             assert.equal(writes.length, before + 1, `${portal} ${width} ${theme}: one keyboard save`);
             assert.equal(settings.about_heading, draft.aboutHeading);
             assert.equal(settings.about_text_2, '');
@@ -274,7 +299,7 @@ test('About saves and reloads across both portals, themes and widths, reaches cu
         await navigate(`/${portal}-page/website-about.html`);
         await ready();
         putStatus = 503;
-        await evaluate("document.getElementById('aboutText1').value = 'Keep this unsaved draft'");
+        await evaluate("document.getElementById('aboutText1').value = 'Keep this unsaved draft';document.getElementById('aboutText1').dispatchEvent(new Event('input',{bubbles:true}))");
         await clickSave();
         await waitFor("window.fixtureDialogs.some(dialog => dialog.title === 'Changes Not Saved')");
         assert.equal(await evaluate("document.getElementById('aboutText1').value"), 'Keep this unsaved draft');
@@ -285,6 +310,7 @@ test('About saves and reloads across both portals, themes and widths, reaches cu
         assert.equal(settings.about_text_1, 'Keep this unsaved draft');
 
         failReadback = true;
+        await evaluate("document.getElementById('aboutText1').value='Readback retry draft';document.getElementById('aboutText1').dispatchEvent(new Event('input',{bubbles:true}))");
         await clickSave();
         await waitFor("window.fixtureDialogs.some(dialog => dialog.message.includes('changes were saved'))");
         assert.equal(await evaluate("document.getElementById('btnSaveAllHome').disabled"), true);
@@ -302,10 +328,77 @@ test('About saves and reloads across both portals, themes and widths, reaches cu
         await ready();
         assert.deepEqual(await evaluate('window.fixtureErrors'), []);
       }
-      assert(settingsReads.length > 20 && settingsReads.every(mode => mode === 'references'), 'All editor/customer reads use compact media references');
-      console.log('Verified 12 portal/theme/viewport save-and-reload cases, Customer rendering, keyboard Save, and both portals\' failure/retry states.');
+      }
+      for (const portal of ['admin','staff']) {
+        settings = {...initial}; getStatus = putStatus = 200; failReadback = false;
+        await navigate(`/${portal}-page/website-about.html`); await ready();
+        assert.equal(await evaluate("document.getElementById('btnSaveAllHome').disabled"), true, 'clean forms start disabled');
+        await evaluate("document.getElementById('aboutText1').value='Edited';document.getElementById('aboutText1').dispatchEvent(new Event('input',{bubbles:true}))");
+        assert.equal(await evaluate("document.getElementById('btnSaveAllHome').disabled"), false);
+        await evaluate(`document.getElementById('aboutText1').value=${JSON.stringify(initial.about_text_1)};document.getElementById('aboutText1').dispatchEvent(new Event('input',{bubbles:true}))`);
+        assert.equal(await evaluate("document.getElementById('btnSaveAllHome').disabled"), true, 'reverting disables Save again');
+        const selectFile = async (bytes, name = 'intro.mp4') => evaluate(`(() => {
+          const input=document.getElementById('aboutVideoInput');const files=new DataTransfer();
+          files.items.add(new File([new Uint8Array(${bytes})],${JSON.stringify(name)},{type:'video/mp4'}));
+          input.files=files.files;input.dispatchEvent(new Event('change',{bubbles:true}));
+          return {disabled:document.getElementById('btnSaveAllHome').disabled,progress:document.getElementById('aboutVideoUploadProgress').value};
+        })()`);
+        const before = uploads.length;
+        await selectFile(50*1024*1024+1);
+        assert.match(await evaluate("document.getElementById('aboutVideoUploadLabel').textContent"), /50 MB/);
+        assert.equal(uploads.length, before, 'oversize selections never upload');
+        await evaluate('cancelVideoUpload()');
+        const started = await selectFile(50*1024*1024);
+        assert.deepEqual(started,{disabled:true,progress:0});
+        await waitFor("document.getElementById('aboutVideoUploadProgress').value===99");
+        assert.equal(await evaluate("document.getElementById('btnSaveAllHome').disabled"), true, 'transport progress cannot unlock an unconfirmed upload');
+        const pendingWrites = writes.length;
+        await evaluate('doSaveAll()');
+        assert.equal(writes.length,pendingWrites);
+        await acknowledgeUpload();
+        assert.equal(uploads.at(-1).authorization,`Bearer fixture-${portal}`);
+        await waitFor("document.getElementById('aboutVideoUploadProgress').value===100 && !document.getElementById('btnSaveAllHome').disabled");
+        for (const width of [390,768,1440]) for (const theme of ['light','dark']) {
+          await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
+          await evaluate(`document.documentElement.dataset.theme=${JSON.stringify(theme)};new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);
+          await evaluate(`Promise.all(document.getAnimations().filter(animation=>animation.effect?.getTiming().iterations!==Infinity).map(animation=>animation.finished.catch(()=>{})))`);
+          await evaluate(`document.getElementById('aboutVideoUploadStatus').scrollIntoView({block:'center'})`);
+          const fits = await evaluate(`(()=>{const rect=document.getElementById('aboutVideoUploadStatus').getBoundingClientRect();return document.documentElement.scrollWidth<=innerWidth+1&&rect.left>=0&&rect.right<=innerWidth+1&&!document.getElementById('btnSaveAllHome').disabled})()`);
+          assert(fits,`${portal} upload progress and enabled Save fit ${width}px ${theme}`);
+          if(process.env.FMRC_KEEP_SHOTS==='1' && width!==768) {
+            const shot=await cdp.send('Page.captureScreenshot',{format:'png'});
+            fs.writeFileSync(path.join(artifacts,`${portal}-upload-${width}-${theme}.png`),Buffer.from(shot.data,'base64'));
+          }
+        }
+        await clickSave(); await waitFor("window.fixtureDialogs.some(dialog=>dialog.success) && !settingsSaving");
+        assert.equal(writes.at(-1).about_video_upload_token,'11111111-1111-4111-8111-111111111111');
+        assert.equal(Object.hasOwn(writes.at(-1),'about_video_url'),false);
+        assert.equal(await evaluate("document.getElementById('btnSaveAllHome').disabled"),true);
+        await ready();
+        uploadStatus = 422;
+        await selectFile(1000);
+        await waitFor("document.getElementById('aboutVideoUploadRetry').hidden===false");
+        assert.equal(await evaluate("document.getElementById('btnSaveAllHome').disabled"),true);
+        uploadStatus = 201;
+        await evaluate('retryVideoUpload()');
+        await waitFor("document.getElementById('aboutVideoUploadProgress').value===99");
+        await acknowledgeUpload();
+        await waitFor("document.getElementById('aboutVideoUploadProgress').value===100");
+        await selectFile(1000,'replacement.mp4');
+        await waitFor("document.getElementById('aboutVideoUploadProgress').value===99");
+        await evaluate('cancelVideoUpload()');
+        await acknowledgeUpload();
+        assert.equal(await evaluate("document.getElementById('aboutVideoUploadProgress').value"),100,'cancelling a replacement restores the previous complete draft');
+        assert.equal(await evaluate("document.getElementById('btnSaveAllHome').disabled"),false);
+        await evaluate('clearVideoUpload()');
+        assert.equal(await evaluate("document.getElementById('btnSaveAllHome').disabled"),false, 'removing the existing video is an unsaved change');
+        console.log(`Verified ${portal} 50 MB limit, real upload progress, acknowledgement gating, retry, removal and clean-save state`);
+      }
+      assert(settingsReads.length > 0 && settingsReads.every(mode => mode === 'references'), 'All editor/customer reads use compact media references');
+      if (process.env.FMRC_ABOUT_UPLOAD_ONLY !== '1') console.log('Verified 12 portal/theme/viewport save-and-reload cases, Customer rendering, keyboard Save, and both portals\' failure/retry states.');
       if (process.env.FMRC_KEEP_SHOTS === '1') console.log(`Screenshots: ${artifacts}`);
     } finally {
+      uploadReplies.splice(0).forEach(resolve=>resolve());
       cdp?.close();
       browser.kill();
       if (browser.exitCode === null) await new Promise((resolve) => browser.once('exit', resolve));
