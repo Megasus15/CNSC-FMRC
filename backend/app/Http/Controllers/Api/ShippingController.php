@@ -29,7 +29,8 @@ final class ShippingController extends Controller
     {
         return ['revision' => $record->revision, 'published_version' => $record->published_version,
             'published_at' => $record->published_at, 'published' => ShippingService::decode($record->published),
-            'can_edit' => $admin, ...($admin ? ['draft' => ShippingService::decode($record->draft) ?? ShippingService::decode($record->published) ?? ShippingService::defaults()] : [])];
+            'can_edit' => $admin, ...($admin ? ['draft' => ShippingService::decode($record->draft) ?? ShippingService::decode($record->published) ?? ShippingService::defaults(),
+                'has_saved_draft' => $record->draft !== null] : [])];
     }
 
     public function saveDraft(Request $request): JsonResponse

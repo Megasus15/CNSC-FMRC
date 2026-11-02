@@ -15,7 +15,7 @@ async function connect(url){
 }
 test('shipping draft/publication, Staff read access, customer quote review and order details agree across responsive portals',{skip:!fs.existsSync(chrome),timeout:180000},async()=>{
   const artifacts=fs.mkdtempSync(path.join(os.tmpdir(),'fmrc-shipping-'));
-  let settings={revision:0,draft:{enabled:false,nonworking_weekdays:[6,7],nonworking_dates:[],zones:[]},published:null,published_version:null,published_at:null};
+  let settings={revision:0,has_saved_draft:false,draft:{enabled:false,nonworking_weekdays:[6,7],nonworking_dates:[],zones:[]},published:null,published_version:null,published_at:null};
   let quotes=0,stale=true,fee=85.5,deliveryAvailable=true,settingsUnavailable=false;
   const writes=[],submissions=[],policyHistory=new Map(),shipmentWrites=[];
   let policySettings={revision:0,can_edit:true,has_saved_draft:false,published:null,draft:{title:'FMRC Transaction Terms and Refund Policy',terms_text:'Ordering and delivery\nReview the full order total and fulfillment details before ordering.',refund_text:'Eligible concerns\nContact FMRC to review defective, incorrect, or incomplete items and appropriate remedies.'}};
@@ -49,7 +49,7 @@ test('shipping draft/publication, Staff read access, customer quote review and o
       if(route==='/api/admin/shipping-settings/draft'||route==='/api/admin/shipping-settings/publish'){
         assert.equal(role,'admin');let body='';for await(const chunk of req)body+=chunk;const input=JSON.parse(body);writes.push({route,input});
         assert.equal(input.expected_revision,settings.revision);
-        if(route.endsWith('draft'))settings.draft=input.settings;
+        if(route.endsWith('draft')){settings.draft=input.settings;settings.has_saved_draft=true;}
         else{assert.equal(input.approved,true);settings.published=structuredClone(settings.draft);settings.published_at='2026-11-02 00:00:00';settings.published_version='fixture-version';}
         settings.revision++;return json({data:{...settings,can_edit:true}});
       }
@@ -115,13 +115,22 @@ test('shipping draft/publication, Staff read access, customer quote review and o
     }
     await navigate('/admin-page/website-shipping.html');await until(`!document.getElementById('shippingFields').disabled`);
     assert(await run(`document.getElementById('shippingSave').disabled&&document.getElementById('shippingPublish').disabled`));
+    assert.match(await run(`document.getElementById('shippingPublishHint').textContent`),/Save draft/);
+    assert.equal(await run(`document.getElementById('shippingApproved').disabled`),true,'Save setup before approval');
+    await run(`document.getElementById('shippingEnabled').click()`);
+    assert.match(await run(`document.getElementById('shippingPublishHint').textContent`),/at least one delivery area/);
     await run(`document.getElementById('shippingAddZone').click()`);
     for(const [key,value]of Object.entries({name:'Camarines Norte',province:'Camarines Norte',fee:'85.50'}))await input('shipping-0-'+key,value);
-    await run(`document.getElementById('shippingEnabled').click()`);await input('shippingDates','2026-11-09');
+    await input('shippingDates','2026-11-09');
     assert.equal(await run(`document.getElementById('shippingSave').disabled`),false);
     await run(`document.getElementById('shippingSave').click()`);await confirm('Save Shipping Draft');await until(`document.getElementById('shippingSave').disabled&&!document.getElementById('shippingFields').disabled`);
     assert.equal(writes.length,1);assert.equal(settings.published,null);
-    await run(`document.getElementById('shippingApproved').click();document.getElementById('shippingPublish').click()`);await confirm('Publish Shipping Settings');await until(`document.getElementById('shippingPublished').textContent.includes('85.50')&&document.getElementById('shippingPublish').disabled`);
+    assert.equal(await run(`document.getElementById('shippingApproved').disabled`),false);
+    assert.match(await run(`document.getElementById('shippingPublishHint').textContent`),/Tick the FMRC approval box/);
+    await run(`document.getElementById('shippingApproved').click()`);
+    assert.equal(await run(`document.getElementById('shippingPublish').disabled`),false,'Saved, reviewed settings can be published');
+    await run(`document.getElementById('shippingPublish').click()`);await confirm('Publish Shipping Settings');await until(`document.getElementById('shippingPublished').textContent.includes('85.50')&&document.getElementById('shippingPublish').disabled`);
+    assert.match(await run(`document.getElementById('shippingPublishHint').textContent`),/already published/);
     for(const portal of ['admin','staff'])for(const width of [390,768,1440])for(const theme of ['light','dark']){
       await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});await navigate('/'+portal+'-page/website-shipping.html');
       await until(`document.getElementById('shippingPublished').textContent.includes('85.50')&&!document.querySelector('.website-section-loading,.fmrc-load-veil.is-on')`);

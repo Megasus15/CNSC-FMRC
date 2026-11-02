@@ -89,10 +89,11 @@ class ShippingQuotesTest extends TestCase
     public function test_admin_drafts_do_not_activate_rates_and_staff_reads_only_published_values(): void
     {
         Sanctum::actingAs(User::factory()->create(['role' => 'admin']));
-        $this->putJson('/api/admin/shipping-settings/draft', ['expected_revision' => 0, 'settings' => $this->settings()])->assertOk();
+        $this->getJson('/api/admin/shipping-settings')->assertOk()->assertJsonPath('data.has_saved_draft', false);
+        $this->putJson('/api/admin/shipping-settings/draft', ['expected_revision' => 0, 'settings' => $this->settings()])->assertOk()->assertJsonPath('data.has_saved_draft', true);
         $this->assertFalse($this->quote()['available']);
         Sanctum::actingAs(User::factory()->create(['role' => 'staff']));
-        $this->getJson('/api/admin/shipping-settings')->assertOk()->assertJsonMissingPath('data.draft')->assertJsonPath('data.can_edit', false);
+        $this->getJson('/api/admin/shipping-settings')->assertOk()->assertJsonMissingPath('data.draft')->assertJsonMissingPath('data.has_saved_draft')->assertJsonPath('data.can_edit', false);
         $this->putJson('/api/admin/shipping-settings/draft', [])->assertForbidden();
         $this->postJson('/api/admin/shipping-settings/publish', [])->assertForbidden();
         Sanctum::actingAs($this->customer);
@@ -240,7 +241,7 @@ class ShippingQuotesTest extends TestCase
         $settings['nonworking_weekdays'] = ['6', '7'];
         $this->publish($settings);
         $quote = $this->quote();
-        $this->postJson('/api/orders',$this->order($quote,['shipping_fee' => 0, 'total_amount' => 0.01]))->assertCreated()
-            ->assertJsonPath('data.total_amount',332.4)->assertJsonPath('data.pricing.shipping_fee',85.5);
+        $this->postJson('/api/orders', $this->order($quote, ['shipping_fee' => 0, 'total_amount' => 0.01]))->assertCreated()
+            ->assertJsonPath('data.total_amount', 332.4)->assertJsonPath('data.pricing.shipping_fee', 85.5);
     }
 }

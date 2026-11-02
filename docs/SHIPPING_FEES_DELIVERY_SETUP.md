@@ -8,6 +8,14 @@ the published rates and working calendar through the same screen. Staff and
 Customer accounts cannot write or publish shipping settings. Draft changes do
 not affect checkout. Concurrent edits use a revision check.
 
+The shared editor now gives a specific reason while Publish is disabled: add a
+delivery area, save the draft, confirm FMRC approval, or the settings are already
+published. The API identifies whether a draft has actually been saved; the empty
+starting setup is not treated as an existing publication. Approval becomes
+available after a valid draft is saved, and saving resets the approval checkbox.
+Delivery requires at least one area. Each field includes a short explanation;
+no fees or delivery commitments are filled in for the Admin.
+
 There are no seeded delivery rates. Until approved settings are published,
 delivery is unavailable and checkout offers pickup. Pickup has zero shipping
 fee. Enabling delivery requires at least one valid destination zone.

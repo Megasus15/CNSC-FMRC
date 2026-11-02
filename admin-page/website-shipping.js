@@ -25,29 +25,33 @@
       if (!settings) return '<div class="shipping-empty"><strong>Pickup only</strong><p>Publish approved delivery rates to offer shipping. Pickup at FMRC has no shipping fee.</p></div>';
       if (!settings.enabled) return '<div class="shipping-empty"><strong>Delivery is turned off</strong><p>Customers can choose free pickup at FMRC.</p></div>';
       if (!settings.zones.length) return '<div class="shipping-empty"><strong>No destinations added</strong><p>Add a destination and its rate before publishing delivery settings.</p></div>';
-      return '<div class="shipping-table-wrap" tabindex="0" role="region" aria-label="Delivery rates"><table class="shipping-table"><thead><tr><th scope="col">Destination zone</th><th scope="col">Coverage</th><th scope="col">Fee per order</th><th scope="col">Preparation</th><th scope="col">Transit</th></tr></thead><tbody>'+settings.zones.map(zone=>
+      return '<div class="shipping-table-wrap" tabindex="0" role="region" aria-label="Delivery rates"><table class="shipping-table"><thead><tr><th scope="col">Delivery area</th><th scope="col">Places covered</th><th scope="col">Fee per order</th><th scope="col">Preparation</th><th scope="col">Delivery time</th></tr></thead><tbody>'+settings.zones.map(zone=>
         '<tr><td>'+escape(zone.name)+'</td><td>'+escape([zone.province,zone.cities?.join(', ')||'All cities / municipalities',zone.postal_codes?.join(', ')||'All postal codes'].join(' · '))+'</td><td>'+money(zone.fee)+'</td><td>'+zone.preparation_days+' working '+(Number(zone.preparation_days)===1?'day':'days')+'</td><td>'+zone.transit_min_days+'–'+zone.transit_max_days+' working days</td></tr>').join('')+'</tbody></table></div>';
     };
     const sync = () => {
-      const changed=dirty();
+      const values=read(),changed=!!record&&normalized(values)!==baseline;
+      const savedDraft=!!record?.draft&&record.has_saved_draft!==false;
+      const same=!!record?.published&&normalized(record.draft||values)===normalized(record.published);
+      const needsArea=values.enabled&&!values.zones.length;
       get('shippingForm').setAttribute('aria-busy',String(busy));
       get('shippingSave').disabled=!admin()||busy||!changed;
       get('shippingDiscard').disabled=!admin()||busy||!changed;
-      get('shippingPublish').disabled=!admin()||busy||changed||!record?.draft||!get('shippingApproved').checked||normalized(record.draft)===normalized(record.published || {enabled:false,nonworking_weekdays:[6,7],nonworking_dates:[],zones:[]});
+      get('shippingPublish').disabled=!admin()||busy||changed||!savedDraft||needsArea||same||!get('shippingApproved').checked;
       get('shippingFields').disabled=!admin()||busy;
-      get('shippingApproved').disabled=!admin()||busy;
-      get('shippingDraftPreview').innerHTML=record ? table(read()) : '';
+      get('shippingApproved').disabled=!admin()||busy||changed||!savedDraft||needsArea||same;
+      get('shippingDraftPreview').innerHTML=record ? table(values) : '';
       get('shippingRefresh').disabled=busy;get('shippingRetry').disabled=busy;
       get('shippingSaveStatus').textContent=busy?(loaded?'Updating settings…':'Loading settings…'):!loaded?'Settings unavailable. Please retry.':changed?'Unsaved draft changes':admin()?'No unsaved changes':'Published settings · Read only';
       const hint=get('shippingPublishHint');
-      if(hint)hint.textContent=!loaded?'':busy?'Please wait…':changed?'Save your draft before publishing.':!record?.draft?'Save a draft to get started.':normalized(record.draft)===normalized(record.published || {enabled:false,nonworking_weekdays:[6,7],nonworking_dates:[],zones:[]})?'No changes to publish.':!get('shippingApproved').checked?'Confirm FMRC approval to publish.':'Ready to publish.';
+      if(hint)hint.textContent=!loaded?'':busy?'Please wait…':needsArea?'Add at least one delivery area before offering delivery.':changed?'Click Save draft first. Then tick the FMRC approval box.':!savedDraft?'Set up your delivery areas and fees, then click Save draft.':same?'These settings are already published.':!get('shippingApproved').checked?'Tick the FMRC approval box to enable Publish settings.':'Ready to publish. These settings will be used for new orders.';
     };
     const renderZones = values => {
       zones=values;
-      const fields=[['name','Destination name','text'],['province','Province','text'],['cities','Cities / municipalities (optional)','text'],['postal_codes','Postal codes (optional)','text'],['fee','Fee per order (PHP)','number'],['preparation_days','Preparation days','number'],['transit_min_days','Minimum transit days','number'],['transit_max_days','Maximum transit days','number']];
+      const fields=[['name','Delivery area name','text'],['province','Province','text'],['cities','Cities / municipalities (optional)','text'],['postal_codes','Postal codes (optional)','text'],['fee','Shipping fee per order (PHP)','number'],['preparation_days','Days to prepare the order','number'],['transit_min_days','Fastest delivery (working days)','number'],['transit_max_days','Longest delivery (working days)','number']];
+      const help={name:'A label for your reference, such as Daet delivery.',province:'Use the province name shown in customer addresses.',cities:'Separate names with commas. Leave blank to include all cities in this province.',postal_codes:'Use four-digit codes, separated by commas. Leave blank for all postal codes in the selected area.',fee:'Charged once for the whole order, regardless of the number of items.',preparation_days:'Working days FMRC needs before the parcel is ready to send.',transit_min_days:'Fewest working days for delivery after preparation.',transit_max_days:'Most working days usually needed after preparation.'};
       if(!zones.length){get('shippingZones').innerHTML='<div class="shipping-empty"><strong>No destinations yet</strong><p>Add your first destination to set its shipping fee and delivery estimate.</p></div>';return;}
-      get('shippingZones').innerHTML=zones.map((zone,index)=>'<section class="shipping-zone" data-zone-id="'+escape(zone.id)+'"><div class="shipping-zone-heading"><h4>Destination zone '+(index+1)+'</h4><button type="button" class="btn-admin btn-secondary" data-remove-zone="'+index+'">Remove zone</button></div><div class="shipping-zone-fields">'+fields.map(([key,label,type])=>
-        '<div class="field-stack"><label for="shipping-'+index+'-'+key+'">'+label+'</label><input class="input-field" id="shipping-'+index+'-'+key+'" data-field="'+key+'" type="'+type+'" value="'+escape(Array.isArray(zone[key])?zone[key].join(', '):zone[key])+'" '+(['cities','postal_codes'].includes(key)?'':'required ') + (type==='number'?'min="'+(key.includes('transit')?1:0)+'" max="'+(key==='fee'?'999999.99':'90')+'" step="'+(key==='fee'?'.01':'1')+'"':'maxlength="'+(['cities','postal_codes'].includes(key)?'10000':'120')+'"')+' /></div>').join('')+'</div></section>').join('');
+      get('shippingZones').innerHTML=zones.map((zone,index)=>'<section class="shipping-zone" data-zone-id="'+escape(zone.id)+'"><div class="shipping-zone-heading"><h4>Delivery area '+(index+1)+'</h4><button type="button" class="btn-admin btn-secondary" data-remove-zone="'+index+'">Remove area</button></div><div class="shipping-zone-fields">'+fields.map(([key,label,type])=>
+        '<div class="field-stack"><label for="shipping-'+index+'-'+key+'">'+label+'</label><input class="input-field" id="shipping-'+index+'-'+key+'" data-field="'+key+'" aria-describedby="shipping-'+index+'-'+key+'-help" type="'+type+'" value="'+escape(Array.isArray(zone[key])?zone[key].join(', '):zone[key])+'" '+(['cities','postal_codes'].includes(key)?'':'required ') + (type==='number'?'min="'+(key.includes('transit')?1:0)+'" max="'+(key==='fee'?'999999.99':'90')+'" step="'+(key==='fee'?'.01':'1')+'"':'maxlength="'+(['cities','postal_codes'].includes(key)?'10000':key==='name'?'100':'120')+'"')+' /><small id="shipping-'+index+'-'+key+'-help">'+help[key]+'</small></div>').join('')+'</div></section>').join('');
     };
     const populate = data => {
       loaded=true;
