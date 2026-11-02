@@ -316,6 +316,16 @@ class PaymentMethodAvailabilityTest extends TestCase
             ];
         }
 
+        if ($method === 'COD') {
+            // An approved zero-fee fixture keeps this suite focused on payment availability.
+            $settings=\App\Services\ShippingService::defaults();
+            $settings['enabled']=true;
+            $settings['zones']=[['id'=>(string)\Illuminate\Support\Str::uuid(),'name'=>'Test zone','province'=>'Camarines Norte','cities'=>[],'postal_codes'=>[],'fee'=>0,'preparation_days'=>1,'transit_min_days'=>1,'transit_max_days'=>2]];
+            \Illuminate\Support\Facades\DB::table('shipping_settings')->where('id',1)->update(['published'=>json_encode($settings),'published_version'=>(string)\Illuminate\Support\Str::uuid()]);
+        }
+        $quote=\App\Services\ShippingService::catalogQuote(array_replace($payload,['items'=>[['product_id'=>$product->id,'quantity'=>1]]]),(int)auth()->id());
+        $payload['shipping_quote_token']=$quote['quote_token'];
+        $payload+=\Tests\Support\CommercePolicyFixture::acceptance();
         return $payload;
     }
 }

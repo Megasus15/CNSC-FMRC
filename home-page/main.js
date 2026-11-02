@@ -579,6 +579,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "#serviceModal.show-modal",
     "#productInfoModal.show-modal",
     "#customerOrdersModal.show",
+    "#customerAppointmentsModal.show",
   ];
 
   const syncHeaderStickyState = () => {
@@ -1539,6 +1540,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let currentProductId = null;
   let currentCheckoutMode = "single";
   let currentCheckoutItems = [];
+  let shippingQuoteController = null;
   let isCheckoutQtyLocked = false;
   let protectionFee = 5.0;
 
@@ -1669,6 +1671,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // the total as quantities change. Safe to call even though it is defined
     // further down: every caller of this function is an event handler.
     renderGcashSection();
+    shippingQuoteController?.refresh();
   }
 
   // Delegated +/- handlers for individual cart items inside the Order summary.
@@ -2703,12 +2706,11 @@ document.addEventListener("DOMContentLoaded", () => {
    * Payment method decides pickup vs delivery:
    * - Cash on Pickup is collected at the counter ("pickup").
    * - Cash on Delivery is shipped via courier ("delivery").
-   * - GCash is prepaid and shipped via courier ("delivery").
+   * - Online payments support either pickup or delivery.
    */
   const getLockedFulfillmentForPayment = (paymentKey) => {
     if (paymentKey === "COP") return "pickup";
     if (paymentKey === "COD") return "delivery";
-    if (paymentKey === "GCash") return "delivery";
     return null;
   };
 
@@ -3170,6 +3172,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     syncFulfillmentUi();
+    shippingQuoteController?.refresh();
   };
 
   const syncAddressEditUi = () => {
@@ -4154,6 +4157,57 @@ document.addEventListener("DOMContentLoaded", () => {
   // re-render the summary. The payment method also decides whether the GCash
   // step is on screen at all.
   // GCash authorization happens exclusively on the provider's checkout.
+  if (checkoutModal && window.FMRCShippingQuotes) {
+    shippingQuoteController = window.FMRCShippingQuotes.create({
+      read: () => {
+        if (!checkoutModal.classList.contains('show-modal')) return null;
+        if (!(getCustomerToken() || customerSession.token)) return {error:'Sign in to calculate shipping.'};
+        const items = currentCheckoutMode === 'cart' ? currentCheckoutItems.map(item => ({product_id:Number(item.product_id),quantity:Number(item.quantity)}))
+          : [{product_id:Number(currentProductId),quantity:Math.max(1,Number(inputQty?.value || 1))}];
+        if (!items.length || items.some(item => !item.product_id)) return {error:'Choose products from the current catalog.'};
+        const type = getSelectedFulfillmentType();
+        const address = getEffectiveCheckoutAddress();
+        if (type === 'delivery' && (!address.province || !address.city_municipality || !/^\d{4}$/.test(address.postal_code || ''))) return {error:'Complete the province, city or municipality, and postal code to calculate delivery.'};
+        return {items,fulfillment_type:type,...(type === 'delivery' ? {delivery_province:address.province,delivery_city:address.city_municipality,delivery_postal_code:address.postal_code} : {})};
+      },
+      request: async (input, signal) => {
+        const response = await fetch(`${API_BASE_URL}/shipping/quote`, {method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json',Authorization:`Bearer ${getCustomerToken() || customerSession.token}`},body:JSON.stringify(input),signal});
+        const data = await response.json().catch(()=>({}));
+        if (!response.ok) throw new Error(response.status===401 ? 'Sign in again to calculate shipping.' : data.message || 'Shipping could not be calculated. Please retry.');
+        if (typeof data.data?.available!=='boolean') throw new Error('Shipping could not be calculated. Please retry.');
+        return data.data;
+      },
+      setReady: value => window.FMRC_PAYMENT_METHODS?.setShippingReady(value),
+      render: ({quote,busy,review,message,failed}) => {
+        const money = value => value===null || value===undefined ? '—' : formatPrice(value);
+        if (quote) checkoutSubtotal.innerText=money(quote.item_subtotal);
+        document.getElementById('checkoutShippingFee').textContent=money(quote?.shipping_fee);
+        checkoutGrandTotal.innerText=money(quote?.payable_total);
+        if (footerTotalDisplay) footerTotalDisplay.innerText=money(quote?.payable_total);
+        const formatDate = date => new Date(date+'T00:00:00+08:00').toLocaleDateString('en-PH',{timeZone:'Asia/Manila',month:'short',day:'numeric',year:'numeric'});
+        document.getElementById('checkoutDeliveryEstimate').textContent=quote?.fulfillment_type==='pickup' ? 'Not applicable (pickup)' : quote?.estimated_delivery_from
+          ? formatDate(quote.estimated_delivery_from)+(quote.estimated_delivery_to!==quote.estimated_delivery_from ? ' – '+formatDate(quote.estimated_delivery_to) : '') : '—';
+        const box=document.getElementById('checkoutShippingQuote'); box.setAttribute('aria-busy',String(busy));box.classList.toggle('is-error',failed);
+        document.getElementById('checkoutShippingMessage').textContent=message;
+        document.getElementById('checkoutShippingAccept').hidden=!review || !quote?.available;
+        document.getElementById('checkoutShippingRetry').hidden=!failed;
+        document.getElementById('checkoutShippingPickup').hidden=!!quote?.available || busy || getSelectedFulfillmentType()==='pickup';
+        renderGcashSection();
+      },
+    });
+    document.getElementById('checkoutShippingAccept').addEventListener('click',()=>shippingQuoteController.accept());
+    document.getElementById('checkoutShippingRetry').addEventListener('click',()=>shippingQuoteController.refresh(true));
+    document.getElementById('checkoutShippingPickup').addEventListener('click',()=>{
+      const select=document.getElementById('hiddenPaymentSelect');
+      if (window.FMRC_PAYMENT_METHODS?.isEnabled('Cash on Pickup')) select.value='Cash on Pickup';
+      else if (window.FMRC_PAYMENT_METHODS?.isEnabled('GCash')) select.value='GCash';
+      else { void showCustomerPopup('Pickup payment is currently unavailable. Please contact FMRC for assistance.',{title:'Pickup unavailable'});return; }
+      fulfillPickupRadio.checked=true;fulfillDeliveryRadio.checked=false;
+      select.dispatchEvent(new Event('change'));renderCheckoutAddress();
+    });
+    [fulfillPickupRadio,fulfillDeliveryRadio].forEach(input=>input?.addEventListener('change',renderCheckoutAddress));
+    new MutationObserver(()=>shippingQuoteController.refresh()).observe(checkoutModal,{attributes:true,attributeFilter:['class']});
+  }
   const initTikTokPaymentMethods = () => {
     const list = document.getElementById('tiktokPaymentList');
     const select = document.querySelector('#checkoutModal .payment-select');
@@ -4210,6 +4264,12 @@ document.addEventListener("DOMContentLoaded", () => {
           return;
         }
       }
+      if (window.FMRC_CHECKOUT_POLICY && !(await window.FMRC_CHECKOUT_POLICY.refresh())) {
+        await showCustomerPopup('Review and accept the current Transaction Terms and Refund Policy before placing your order.',{title:'Policy agreement'});
+        return;
+      }
+      const acceptedShippingToken = shippingQuoteController?.token();
+      if (!acceptedShippingToken) return;
       const terms = document.getElementById("orderTerms");
       if (terms && !terms.checked) {
         await showCustomerPopup(
@@ -4292,25 +4352,7 @@ document.addEventListener("DOMContentLoaded", () => {
           )
         : Math.max(1, Number.parseInt(inputQty?.value || "1", 10) || 1);
 
-      const totalText =
-        checkoutGrandTotal?.innerText || checkoutPrice?.innerText || "₱0.00";
-      const parsedDisplayedTotal = Number.isFinite(parsePrice(totalText))
-        ? parsePrice(totalText)
-        : 0;
-      const totalAmount = useCartCheckout
-        ? currentCheckoutItems.reduce((sum, item) => {
-            const qty = Math.max(
-              1,
-              Number.parseInt(item?.quantity || "1", 10) || 1,
-            );
-            const lineTotal = Number(item?.line_total);
-            if (Number.isFinite(lineTotal) && lineTotal >= 0) {
-              return sum + lineTotal;
-            }
-            const unitPrice = Number(item?.unit_price || 0);
-            return sum + (Number.isFinite(unitPrice) ? unitPrice * qty : 0);
-          }, 0)
-        : parsedDisplayedTotal;
+      const totalAmount = Number(shippingQuoteController.total());
 
       const originalText = this.innerText;
       window.FMRC_PAYMENT_METHODS?.setSubmitting(true);
@@ -4363,6 +4405,9 @@ document.addEventListener("DOMContentLoaded", () => {
           : customerSession.userInfo?.email || "N/A";
 
         const basePayload = {
+          shipping_quote_token: acceptedShippingToken,
+          policy_version: window.FMRC_CHECKOUT_POLICY?.version(),
+          policy_accepted: Boolean(terms?.checked),
           payment_method: paymentMethod,
           customer_name: customerName,
           customer_contact: customerContact,
@@ -4453,7 +4498,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         // Persist the same key across ambiguous network retries; changed baskets get a new key.
-        const checkoutFingerprint = JSON.stringify(payload);
+        const {shipping_quote_token:quoteToken,policy_version:policyVersion,policy_accepted:policyAccepted,total_amount:quotedTotal,unit_price:quotedPrice,...checkoutIntent}=payload;
+        // Quote and policy refreshes retain the same submission intent after an uncertain response.
+        if(checkoutIntent.items)checkoutIntent.items=checkoutIntent.items.map(({unit_price,total_amount,...item})=>item);
+        const checkoutFingerprint = JSON.stringify(checkoutIntent);
         let savedCheckout;
         try { savedCheckout = JSON.parse(sessionStorage.getItem('fmrc_checkout_request') || 'null'); } catch {}
         if (!savedCheckout || savedCheckout.fingerprint !== checkoutFingerprint) {
@@ -4487,6 +4535,8 @@ document.addEventListener("DOMContentLoaded", () => {
           throw new Error("Session expired. Please sign in again.");
         }
         if (!response.ok) {
+          if (data.code === 'shipping_quote_stale') shippingQuoteController?.reject(data.quote);
+          if (data.code === 'policy_changed') window.FMRC_CHECKOUT_POLICY?.reject(data.policy);
           if (data.code === "payment_method_disabled") {
             window.FMRC_PAYMENT_METHODS?.rejectMethod(paymentMethod);
             await window.FMRC_REFRESH_SITE_SETTINGS?.();
@@ -5606,7 +5656,7 @@ document.addEventListener("DOMContentLoaded", () => {
   );
   let currentMonth = todayOnly.getMonth();
   let currentYear = todayOnly.getFullYear();
-  let uploadedAppointmentFile = null;
+  let uploadedAppointmentFiles = [];
 
   const defaultTimeSlots = [
     { label: "9:00 - 10:00 AM", type: "AM", sort_order: 1 },
@@ -5763,6 +5813,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!response.ok) return;
       const data = await response.json();
 
+      if(/^\d{4}-\d{2}-\d{2}$/.test(data?.today||'')){const [year,month,day]=data.today.split('-').map(Number);todayOnly.setFullYear(year,month-1,day);}
       const incomingSlots = Array.isArray(data?.time_slots)
         ? data.time_slots
         : [];
@@ -6123,6 +6174,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!purpose) {
       markError("aptPurpose", "Purpose of Visit is required.");
     }
+    if(!document.getElementById("aptMethod")?.value)markError("aptMethod","Choose an appointment method.");
 
     if (!clientType) {
       markError("aptRole", "Type of Client is required.");
@@ -6232,7 +6284,7 @@ document.addEventListener("DOMContentLoaded", () => {
       document.getElementById("aptCountry")?.value?.trim() || "Philippines";
     const notes = document.getElementById("aptDesc")?.value?.trim() || "N/A";
     const address = getAppointmentAddress() || "N/A";
-    const attachmentName = uploadedAppointmentFile?.name || "N/A";
+    const attachmentName = uploadedAppointmentFiles.map(file=>file.name).join(", ") || "N/A";
 
     const { date, time } = getSelectedSchedule();
     const scheduleText =
@@ -6248,6 +6300,7 @@ document.addEventListener("DOMContentLoaded", () => {
     setText(`${prefix}Country`, country);
     setText(`${prefix}Desc`, notes);
     setText(`${prefix}FileAttach`, attachmentName);
+    setText(`${prefix}Method`,document.getElementById("aptMethod")?.value==="online"?"Online — meeting link pending":"Face-to-face at FMRC");
     setText(`${prefix}TicketNo`, `Ticket #${referenceNo}`);
     setHtml(`${prefix}Sched`, scheduleText);
 
@@ -6404,9 +6457,8 @@ document.addEventListener("DOMContentLoaded", () => {
       formData.append("cf-turnstile-response", turnstileToken);
     }
 
-    if (uploadedAppointmentFile) {
-      formData.append("attachment", uploadedAppointmentFile);
-    }
+    formData.append("appointment_method",document.getElementById("aptMethod")?.value || "face_to_face");
+    for(const file of uploadedAppointmentFiles)formData.append("attachments[]",file);
 
     const token = localStorage.getItem("customer_token");
 
@@ -6841,7 +6893,7 @@ document.addEventListener("DOMContentLoaded", () => {
     clearSlotMessage();
     submittedAppointment = null;
     appointmentSubmitted = false;
-    uploadedAppointmentFile = null;
+    uploadedAppointmentFiles = [];
     /* Isolated: a widget that failed to load must not throw here and leave the
        form half-cleared. */
     try {
@@ -6898,6 +6950,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (roleSelect) roleSelect.selectedIndex = 0;
     const purposeSelect = document.getElementById("aptPurpose");
     if (purposeSelect) purposeSelect.selectedIndex = 0;
+    const methodSelect=document.getElementById("aptMethod");if(methodSelect)methodSelect.selectedIndex=0;
     if (aptCountry) aptCountry.value = "Philippines";
 
     /* Never .value = "" or innerHTML = "" the four PSGC selects: fillSelect()
@@ -7104,51 +7157,11 @@ document.addEventListener("DOMContentLoaded", () => {
   // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   aptFileInput?.addEventListener("change", () => {
-    const file = aptFileInput.files?.[0];
-    clearAptFileError();
-
-    if (!file) {
-      uploadedAppointmentFile = null;
-      if (aptFileName) aptFileName.textContent = "No file selected";
-      return;
-    }
-
-    const isAllowedMime =
-      file.type.startsWith("image/") ||
-      file.type === "application/pdf" ||
-      file.type === "application/msword" ||
-      file.type ===
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    const isAllowedExt = /\.(png|jpg|jpeg|webp|gif|pdf|doc|docx)$/i.test(
-      file.name,
-    );
-
-    if (!isAllowedMime && !isAllowedExt) {
-      uploadedAppointmentFile = null;
-      aptFileInput.value = "";
-      if (aptFileName)
-        aptFileName.textContent =
-          "Invalid file. Use image, DOC/DOCX, or PDF only.";
-      setAptFileError(
-        "Attachment is invalid. Please upload an image, DOC/DOCX, or PDF file only.",
-      );
-      return;
-    }
-
-    // Matches the server's attachment rule (max:51200 KB).
-    if (file.size > APT_MAX_ATTACHMENT_BYTES) {
-      uploadedAppointmentFile = null;
-      aptFileInput.value = "";
-      if (aptFileName)
-        aptFileName.textContent = "File is too large. Use 50 MB or smaller.";
-      setAptFileError(
-        "Attachment is too large. Please upload a file of 50 MB or smaller.",
-      );
-      return;
-    }
-
-    uploadedAppointmentFile = file;
-    if (aptFileName) aptFileName.textContent = file.name;
+    const files=Array.from(aptFileInput.files || []);clearAptFileError();
+    const error=files.length>5?'Choose up to five design files.':files.some(file=>!/\.(png|jpe?g|webp|gif|pdf|docx?|stl|obj|step|stp|iges|igs|dxf|dwg)$/i.test(file.name))?'Use an image, PDF, Word document, or supported CAD file.':files.reduce((sum,file)=>sum+file.size,0)>APT_MAX_ATTACHMENT_BYTES?'The combined file size must be 50 MB or less.':'';
+    if(error){uploadedAppointmentFiles=[];aptFileInput.value='';if(aptFileName)aptFileName.textContent='No files selected';setAptFileError(error);return;}
+    uploadedAppointmentFiles=files;
+    if(aptFileName)aptFileName.textContent=files.length?files.map(file=>file.name).join(', ')+' ('+(files.reduce((sum,file)=>sum+file.size,0)/1024/1024).toFixed(1)+' MB total)':'No files selected';
   });
 
   const aptLName = document.getElementById("aptLName");
@@ -7326,7 +7339,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // 3. File upload
-    if (aptFileInput?.files?.length > 0 || uploadedAppointmentFile) return true;
+    if (aptFileInput?.files?.length > 0 || uploadedAppointmentFiles.length) return true;
 
     // 4. Schedule selection
     if (selectedDateKey) return true;
@@ -11800,6 +11813,9 @@ document.addEventListener("DOMContentLoaded", () => {
               ["Postal code", deliveryAddress.postal_code],
               ["Landmark", deliveryAddress.landmark],
             ];
+        if (detail.pricing) fulfillmentRows.push(
+          ['Item subtotal',detail.pricing.item_subtotal_label], ['Shipping fee',detail.pricing.shipping_fee_label],
+          ['Payable total',detail.pricing.payable_total_label], ['Estimated delivery',detail.pricing.estimated_delivery_label]);
 
         const fulfillmentRowsHtml = fulfillmentRows
           .filter(([, value]) => String(value || "").trim())
@@ -11840,6 +11856,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           ${cancelDetailHtml}
           ${paymentDetailHtml}
+          ${detail.accepted_policy ? `<div class="customer-order-detail-fulfillment"><h4>Accepted transaction policy</h4><p>Accepted ${escapeHtml(detail.accepted_policy.accepted_at_label || '')}.</p><a class="checkout-policy-link" target="_blank" rel="noopener noreferrer" href="/products-page/refund-policy.html?version=${encodeURIComponent(detail.accepted_policy.version)}#refund-policy">View the accepted Refund Policy and Transaction Terms</a></div>` : ''}
 
           <div class="customer-order-detail-items">
             <h4>Items (${detailItems.length || 1})</h4>
@@ -11849,6 +11866,8 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
 
           ${fulfillmentHtml}
+          ${detail.courier_shipment ? `<div class="customer-order-detail-fulfillment"><h4>Courier shipment updates</h4><p class="customer-order-fulfillment-mode"><strong>${escapeHtml(detail.courier_shipment.status_label || '')}</strong></p><p class="customer-order-logistics-note">Courier updates do not confirm payment or complete your order.</p><dl class="customer-order-fulfillment-grid">${(detail.courier_shipment.events || []).map(event=>`<div class="customer-order-fulfillment-row"><dt>${escapeHtml(event.status)}</dt><dd>${escapeHtml(event.occurred_at_label || '')}${event.location?' · '+escapeHtml(event.location):''}</dd></div>`).join('')}</dl></div>` : ''}
+
 
           ${
             isPickupOrder
@@ -13994,6 +14013,7 @@ const openReturnRequestModal = (() => {
     <a href="#" id="viewOrdersBtn" class="profile-popup-link">
       <i class="fa-solid fa-box-archive"></i> My Orders
     </a>
+    <a href="#" id="viewAppointmentsBtn" class="profile-popup-link"><i class="fa-regular fa-calendar-check"></i> My Appointments</a>
     <hr />
     <button type="button" id="logoutBtn" class="logout-btn popup-logout" style="border: none; font-family: inherit;">
       <i class="fa-solid fa-right-from-bracket"></i> Logout
@@ -14038,6 +14058,8 @@ const openReturnRequestModal = (() => {
       hideDropdown(dropdown);
       openOrdersModal(userInfo);
     });
+  dropdown.querySelector("#viewAppointmentsBtn")?.addEventListener("click",event=>{event.preventDefault();hideDropdown(dropdown);window.FMRCAppointments?.open();});
+  if(new URLSearchParams(location.search).get("my_appointments")==="1")window.FMRCAppointments?.open();
   if (new URLSearchParams(window.location.search).get("orders") === "1") {
     openOrdersModal(userInfo);
   }

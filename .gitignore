@@ -69,3 +69,6 @@ _ide_helper.php
 
 # Local editor/agent settings.
 /.claude/settings.local.json
+
+# Local commerce, appointment, and report regression logs.
+/tmp/shipping-step2/

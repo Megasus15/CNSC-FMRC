@@ -45,14 +45,14 @@ function menuFor(portal, cachedAdminEntries = false) {
 
 test('Staff shell retains normal configuration destinations and removes cached Admin-only links', () => {
   for (const cached of [false, true]) {
-    assert.deepEqual(menuFor('staff', cached), ['website-home.html', 'website-about.html', 'website-footer.html']);
+    assert.deepEqual(menuFor('staff', cached), ['website-home.html', 'website-about.html', 'website-footer.html', 'website-shipping.html', 'website-policies.html']);
   }
 });
 
 test('Admin shell inserts both configuration editors once and preserves existing entries', () => {
   for (const cached of [false, true]) {
     const links = menuFor('admin', cached);
-    for (const href of ['website-home.html', 'website-about.html', 'website-footer.html', 'website-portals.html', 'website-payments.html']) {
+    for (const href of ['website-home.html', 'website-about.html', 'website-footer.html', 'website-portals.html', 'website-payments.html', 'website-shipping.html', 'website-policies.html']) {
       assert.equal(links.filter((link) => link === href).length, 1, href);
     }
   }

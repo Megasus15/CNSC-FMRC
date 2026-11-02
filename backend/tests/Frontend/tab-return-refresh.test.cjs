@@ -106,7 +106,7 @@ async function checkReportPagination() {
   let rows = 50;
   const state = { isLoading: false, currentPage: 3, reportData: {}, activeParams: { ...params } };
   const context = {
-    state, window: {}, elements: { lastUpdated: {} },
+    state, window: {AdminPageNotice:{clear(){},describe:error=>error.message,show(){}}}, elements: { lastUpdated: {} },
     setButtonPending() {}, syncActionButtons() {},
     renderLoadingState: () => { loadingViews++; },
     requestReport: async () => ({ report: { generated_at: '2026-09-29T12:00:00Z' }, table: { rows: Array(rows).fill({}) } }),

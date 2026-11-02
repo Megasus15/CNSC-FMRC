@@ -14,6 +14,9 @@ use App\Models\ProductRating;
 use App\Models\Promotion;
 use App\Services\PayMongoService;
 use App\Services\GatewayPayments;
+use App\Services\ShippingService;
+use App\Services\CommercePolicy;
+use App\Services\NinjaVanShipping;
 use App\Support\OrderNotifier;
 use App\Support\PaymentMethodAvailability;
 use App\Support\ReturnPresenter;
@@ -132,6 +135,9 @@ class OrderController extends Controller
             'items.*.line_total' => 'nullable|numeric|min:0|max:9999999.99',
             'payment_method' => 'required|string|max:30',
             'checkout_request_key' => 'nullable|uuid',
+            'shipping_quote_token' => 'nullable|string|max:10000',
+            'policy_version' => 'nullable|uuid',
+            'policy_accepted' => 'nullable|boolean',
             'payment_reference' => 'nullable|string|max:180',
             'notes' => 'nullable|string|max:2000',
             'customer_name' => 'nullable|string|max:160',
@@ -278,19 +284,10 @@ class OrderController extends Controller
                     ->keyBy('id');
 
                 $activePromotions = Promotion::query()->where('is_enabled', true)->get();
-                $serverPricedItems = [];
-                foreach ($orderItems as $lineItem) {
-                    $product = !is_null($lineItem['product_id']) ? $productsById->get((int) $lineItem['product_id']) : null;
-                    $basePrice = $product ? (float) $product->price : max(0, (float) ($lineItem['unit_price'] ?? 0));
-                    $promotion = $product ? $activePromotions->filter(fn (Promotion $candidate) => $candidate->appliesTo($product))->sortByDesc('discount_percent')->first() : null;
-                    $unitCentavos = (int) round(GatewayPayments::centavos($basePrice) * (100 - ($promotion ? (int) $promotion->discount_percent : 0)) / 100);
-                    $unitPrice = $unitCentavos / 100;
-                    $lineItem['unit_price'] = $unitPrice;
-                    $lineItem['line_total'] = ($unitCentavos * max(1, (int) $lineItem['quantity'])) / 100;
-                    $serverPricedItems[] = $lineItem;
-                }
-                $orderItems = $serverPricedItems;
-                $totalCentavos = array_reduce($orderItems, fn (int $carry, array $item): int => $carry + GatewayPayments::centavos($item['line_total']), 0);
+                $orderItems = ShippingService::priceItems($orderItems, $productsById, $activePromotions);
+                $shipping = ShippingService::accept(array_replace($validated, ['fulfillment_type' => $fulfillmentType]), $orderItems, (int) $customer->id);
+                $policy = CommercePolicy::accept($validated);
+                $totalCentavos = GatewayPayments::centavos($shipping['payable_total']);
                 $totalAmount = $totalCentavos / 100;
                 if ($paymentMethod === 'GCash' && ($totalCentavos < 100 || $totalCentavos > 10000000)) throw new \RuntimeException('GCash orders must be between ₱1 and ₱100,000.');
 
@@ -365,8 +362,15 @@ class OrderController extends Controller
                         ?? $customer?->email
                         ?? 'N/A',
                     'quantity' => $quantity,
-                    'subtotal' => $totalAmount,
+                    'subtotal' => $shipping['item_subtotal'],
                     'total' => $totalAmount,
+                    'shipping_fee' => $shipping['shipping_fee'],
+                    'shipping_quote' => $shipping,
+                    'accepted_policy_version' => $policy['version'],
+                    'accepted_policy_text' => array_intersect_key($policy,array_flip(['version','title','terms_text','refund_text','published_at'])),
+                    'policy_accepted_at' => now(),
+                    'estimated_delivery_from' => $shipping['estimated_delivery_from'],
+                    'estimated_delivery_to' => $shipping['estimated_delivery_to'],
                     'payment_method' => $paymentMethod,
                     // The GCash reference is normalised to bare digits so staff
                     // can search for it verbatim; other methods keep their
@@ -592,6 +596,8 @@ class OrderController extends Controller
                 'data' => $responseData,
             ], 201);
 
+        } catch (ValidationException|\Illuminate\Http\Exceptions\HttpResponseException $e) {
+            throw $e;
         } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e) {
             throw $e;
         } catch (\RuntimeException $e) {
@@ -637,6 +643,12 @@ class OrderController extends Controller
                 'customer_name',
                 'customer_contact',
                 'quantity',
+                'subtotal',
+                'shipping_fee',
+                'shipping_quote',
+                'courier_history_version',
+                'estimated_delivery_from',
+                'estimated_delivery_to',
                 'total',
                 'payment_method',
                 'payment_reference',
@@ -693,6 +705,7 @@ class OrderController extends Controller
                 // out of the select reads back as null rather than as an error.
                 'payment' => fn ($query) => $query->select($this->paymentSelectColumns()),
                 'latestTrackingEvent',
+                ...NinjaVanShipping::relations(),
                 'ratings:id,order_id,order_item_id,product_id,stars,feedback,media,is_anonymous,admin_reply,replied_at,created_at,updated_at',
                 // Returns ride along with the orders so the Returns tab, the
                 // per-order badges and the ETag all come from this one request.
@@ -792,6 +805,7 @@ class OrderController extends Controller
                 ->select($this->customerOrderItemColumns()),
             'payment',
             'latestTrackingEvent',
+                ...NinjaVanShipping::relations(),
             'ratings',
             'returns' => fn ($query) => $query
                 ->where('is_archived', false)
@@ -953,6 +967,7 @@ class OrderController extends Controller
                 ->select($this->customerOrderItemColumns()),
             'payment',
             'latestTrackingEvent',
+                ...NinjaVanShipping::relations(),
             'ratings',
             'returns' => fn ($query) => $query
                 ->where('is_archived', false)
@@ -1147,6 +1162,7 @@ class OrderController extends Controller
                 ->select($this->customerOrderItemColumns()),
             'payment',
             'latestTrackingEvent',
+                ...NinjaVanShipping::relations(),
             'ratings',
             'returns' => fn ($query) => $query
                 ->where('is_archived', false)
@@ -1388,6 +1404,7 @@ class OrderController extends Controller
                 ->select($this->customerOrderItemColumns()),
             'payment',
             'latestTrackingEvent',
+                ...NinjaVanShipping::relations(),
             'ratings',
             'returns' => fn ($query) => $query
                 ->where('is_archived', false)
@@ -1571,7 +1588,8 @@ class OrderController extends Controller
             $emailHtml
         );
 
-        $order->load(['items', 'payment', 'latestTrackingEvent', 'ratings']);
+        $order->load(['items', 'payment', 'latestTrackingEvent',
+                ...NinjaVanShipping::relations(), 'ratings']);
 
         return response()->json([
             'message' => $approve
@@ -1641,6 +1659,7 @@ class OrderController extends Controller
                 'items:id,order_id,product_id,product_name,unit_price,quantity,line_total',
                 'payment' => fn ($query) => $query->select($this->paymentSelectColumns()),
                 'latestTrackingEvent',
+                ...NinjaVanShipping::relations(),
             ])
             ->where('is_archived', false)
             ->orderBy('created_at', 'asc')
@@ -2259,6 +2278,14 @@ class OrderController extends Controller
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
         ]);
+
+        if (NinjaVanShipping::installed()) {
+            $active=\App\Models\CourierShipment::where('active_order_id',$order->id)->first();
+            if ($active && ((array_key_exists('courier_name',$validated) && ($validated['courier_name'] ?? '') !== ($order->courier_name ?? ''))
+                || (array_key_exists('courier_tracking_no',$validated) && ($validated['courier_tracking_no'] ?? '') !== ($order->courier_tracking_no ?? '')))) {
+                throw ValidationException::withMessages(['courier_tracking_no'=>'Resolve the active Ninja Van shipment before replacing its courier tracking.']);
+            }
+        }
 
         $nextStage = $validated['stage'] ?? $order->customer_stage;
         $title = trim((string) ($validated['title'] ?? ''));
@@ -3668,6 +3695,8 @@ class OrderController extends Controller
             'unit_price' => (float) ($item?->unit_price ?? 0),
             'total_amount' => (float) $order->total,
             'total_label' => $this->formatMoney((float) $order->total),
+            'pricing' => ShippingService::present($order),
+            'courier_shipment' => NinjaVanShipping::present($order),
             'payment_method' => $payment?->method ?? $order->payment_method,
             'payment_reference' => $payment?->reference ?? $order->payment_reference,
             'payment_status' => $payment?->status ?? 'pending',
@@ -3758,6 +3787,11 @@ class OrderController extends Controller
         return array_merge($summary, [
             'items' => $items,
             'timeline' => $timeline,
+            'courier_shipment' => NinjaVanShipping::present($order, in_array(strtolower((string) auth()->user()?->role), ['admin','staff'], true), true),
+            'accepted_policy' => $order->accepted_policy_text ? array_merge($order->accepted_policy_text,[
+                'accepted_at'=>$this->formatPhilippineIso($order->policy_accepted_at),
+                'accepted_at_label'=>$this->formatPhilippineLabel($order->policy_accepted_at),
+            ]) : null,
         ]);
     }
 

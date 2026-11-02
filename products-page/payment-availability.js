@@ -7,6 +7,8 @@
   };
   let methods = null;
   let submitting = false;
+  let shippingReady = !document.getElementById('checkoutShippingQuote');
+  let policyReady = !document.getElementById('checkoutPolicyStatus');
   let selectionRemoved = false;
   let loadFailed = false;
   let checkout = { method: 'qrph', label: 'QR Ph', description: 'Scan with your bank or e-wallet.' };
@@ -59,7 +61,7 @@
     if (notice) notice.hidden = Boolean(methods && available && !selectionRemoved);
     if (retry) retry.hidden = Boolean(methods || !loadFailed);
     const submit = document.getElementById("submitOrderBtn");
-    if (submit) submit.disabled = submitting || !available || !isEnabled(select.value);
+    if (submit) submit.disabled = submitting || !shippingReady || !policyReady || !available || !isEnabled(select.value);
   };
 
   const applySettings = (settings) => {
@@ -87,6 +89,8 @@
     },
     loadFailed() { loadFailed = true; sync(); },
     setSubmitting(value) { submitting = Boolean(value); sync(); },
+    setShippingReady(value) { shippingReady = Boolean(value); sync(); },
+    setPolicyReady(value) { policyReady = Boolean(value); sync(); },
   };
   document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("hiddenPaymentSelect")?.addEventListener("change", () => {

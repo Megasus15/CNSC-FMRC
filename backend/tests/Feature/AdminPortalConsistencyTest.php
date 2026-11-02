@@ -20,12 +20,12 @@ class AdminPortalConsistencyTest extends TestCase
         return array_map(static fn (string $file): array => [$file], $files);
     }
 
-    public function test_portal_has_the_expected_37_admin_and_staff_pages(): void
+    public function test_portal_has_the_expected_44_admin_and_staff_pages(): void
     {
-        // 21 admin-page/*.html + 16 staff-page/*.html. Bump this when a portal
+        // 25 admin-page/*.html + 19 staff-page/*.html. Bump this when a portal
         // page is genuinely added or removed — it is the guard that every new
         // page inherits the shared-UI version pins the tests below enforce.
-        $this->assertCount(37, self::portalHtmlProvider());
+        $this->assertCount(44, self::portalHtmlProvider());
     }
 
     public function test_login_portals_and_payment_editors_belong_to_admin_only(): void

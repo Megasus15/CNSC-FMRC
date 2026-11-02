@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="stylesheet" href="/apps/shared/pwa.css?v=1.5" />
+    <script src="/apps/shared/pwa.js?v=1.5"></script>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#800000" />
+    <link rel="icon" type="image/png" href="../images/FMRC%20Brand%20Logo.png?v=1" />
+    <link rel="apple-touch-icon" href="../images/FMRC%20Brand%20Logo.png?v=1" />
+    <title>Transaction Policies | UCN-FMRC Staff</title>
+    <link rel="stylesheet" href="../admin-page/dashboard.css?v=7.4" />
+    <link rel="stylesheet" href="../admin-page/admin-modules.css?v=6.8" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <style>
+      .wm-section {
+        background: #fdfaf6;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 22px 24px;
+      }
+      .wm-section-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 18px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #f0f0f0;
+      }
+      .wm-section-header h3 {
+        font-size: 1rem;
+        color: var(--primary-color);
+        margin: 0;
+      }
+      .wm-section-header i {
+        color: var(--primary-color);
+      }
+      .wm-form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .wm-form-grid .full {
+        grid-column: 1/-1;
+      }
+      .field-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+      .field-stack label {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #111827;
+      }
+      .wm-input,
+      .wm-textarea {
+        border: 1px solid #d8dde3;
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: 0.82rem;
+        color: #333;
+        width: 100%;
+        background: #fdfaf6;
+        font-family: inherit;
+      }
+      .wm-textarea {
+        min-height: 80px;
+        resize: vertical;
+      }
+      .section-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+      .wm-save-bar {
+        background: #fdfaf6;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 16px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        position: sticky;
+        bottom: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      }
+      .wm-save-bar p {
+        font-size: 0.82rem;
+        color: #6b7280;
+        margin: 0;
+      }
+      .contact-preview-card {
+        background: linear-gradient(135deg, #fef2f2, #fff);
+        border: 1px solid #fecaca;
+        border-radius: 10px;
+        padding: 14px 16px;
+        margin-top: 12px;
+      }
+      .contact-preview-card .preview-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #9ca3af;
+        letter-spacing: 0.05em;
+        margin-bottom: 8px;
+      }
+      .contact-preview-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        font-size: 0.82rem;
+        color: #374151;
+        margin-bottom: 6px;
+      }
+      .contact-preview-row i {
+        color: var(--primary-color);
+        margin-top: 2px;
+        flex-shrink: 0;
+      }
+    </style>
+    <link rel="stylesheet" href="../admin-page/admin-responsive.css?v=3.2" />
+    <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=3.0" />
+    <!-- Shared authenticated appearance -->
+    <link rel="stylesheet" href="../admin-page/dark-mode.css?v=2.3" />
+    <script src="../admin-page/dark-mode.js?v=3.1"></script>
+    <link rel="stylesheet" href="../admin-page/portal-sidebar.css?v=1.3" />
+    <script src="../admin-page/portal-sidebar.js?v=1.1" defer></script>
+    <link rel="stylesheet" href="../admin-page/website-loading.css?v=1.1" />
+  <link rel="stylesheet" href="../admin-page/website-payments.css?v=1.2" /><link rel="stylesheet" href="../admin-page/website-policies.css?v=1.0" /></head>
+  <body>
+    <div class="dashboard-container">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <img src="../images/FMRC Brand Logo.png" alt="FMRC Logo" class="logo" />
+          <h2>UCN-FMRC</h2>
+        </div>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html" class="nav-link"
+            ><i class="admin-dashboard-icon" aria-hidden="true"></i> Dashboard</a
+          >
+          <a href="inventory.html" class="nav-link"
+            ><i class="fa-solid fa-box"></i> Inventory</a
+          >
+          <a href="products.html" class="nav-link"
+            ><i class="fa-solid fa-tags"></i> Products</a
+          >
+          <a href="promotions.html" class="nav-link" title="Promotions &amp; Announcements"
+            ><i class="fa-solid fa-bullhorn"></i> Promotions</a
+          >
+          <a href="appointments.html" class="nav-link"
+            ><i class="fa-regular fa-calendar-check"></i> Appointment</a
+          >
+          <a href="reports.html" class="nav-link"
+            ><i class="fa-solid fa-chart-line"></i> Reports</a
+          >
+          <a href="orders.html" class="nav-link"
+            ><i class="fa-solid fa-box-open"></i> Orders</a
+          >
+          <a href="customer-inquiries.html" class="nav-link"><i class="fa-regular fa-envelope-open"></i> Customer Inquiries</a>
+          <a href="ratings.html" class="nav-link"><i class="fa-solid fa-star"></i> Ratings &amp; Feedback</a>
+
+          <div class="nav-item has-dropdown open">
+            <a href="#" class="nav-link dropdown-toggle" id="staffControlBtn">
+              <div class="dropdown-title">
+                <i class="fa-solid fa-screwdriver-wrench"></i> Website
+                Management
+              </div>
+              <i class="fa-solid fa-chevron-down arrow"></i>
+            </a>
+            <div class="dropdown-menu">
+              <a href="website-home.html" class="sub-link">Home</a>
+              <a href="website-services.html" class="sub-link">Services</a>
+              <a href="website-contact.html" class="sub-link">Contact</a>
+              <a href="website-footer.html" class="sub-link">Footer</a>
+            </div>
+          </div>
+
+          <a href="archives.html" class="nav-link"
+            ><i class="fa-solid fa-box-archive"></i> Archives</a
+          >
+          <a href="my-account.html" class="nav-link"
+            ><i class="fa-regular fa-id-card"></i> My Account</a
+          >
+          <a href="settings.html" class="nav-link"
+            ><i class="fa-solid fa-gear"></i> <span class="nav-label">Settings</span></a
+          >
+        </nav>
+        <div class="sidebar-footer">
+          <button class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="top-header">
+          <div class="header-left"><h1>Transaction Policies</h1></div>
+          <div class="header-right">
+            <div class="notifications" id="notifBell">
+              <i class="fa-regular fa-bell"></i
+              ><span class="badge" id="notifBadge" style="display: none"></span>
+            </div>
+            <div class="user-profile">
+              <div class="user-info"><span class="role">Staff</span></div>
+              <span
+                class="profile-icon profile-initial"
+                data-email="staff@cnsc.edu.ph"
+              ></span>
+              <div class="profile-popup" id="profilePopup">
+                <div class="popup-header">
+                  <div class="popup-profile-row">
+                    <span
+                      class="popup-profile-icon profile-initial"
+                      data-email="staff@cnsc.edu.ph"
+                    ></span>
+                    <div class="popup-profile-meta">
+                      <p class="popup-identity">staff@cnsc.edu.ph</p>
+                      <span class="popup-role">Staff</span>
+                    </div>
+                  </div>
+                </div>
+                <a href="my-account.html" class="profile-popup-link"
+                  ><i class="fa-regular fa-id-card"></i> My Account</a
+                >
+                <a href="settings.html" class="profile-popup-link"
+                  ><i class="fa-solid fa-gear"></i> Settings</a
+                >
+                <hr />
+                <button class="logout-btn popup-logout">
+                  <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section class="module-content payment-settings-page policy-settings-page" aria-labelledby="policySettingsTitle">
+<div class="page-toolbar"><div class="toolbar-title"><h2 id="policySettingsTitle">Transaction Policies</h2><p>Review the transaction terms and refund policy shown to customers before ordering.</p></div><button class="btn-admin btn-secondary" id="policySettingsRefresh" type="button">Refresh</button></div>
+<div class="payment-settings-message is-error" id="policySettingsError" role="alert" hidden><span id="policySettingsErrorText"></span><button class="btn-admin btn-secondary" id="policySettingsRetry" type="button">Try again</button></div>
+<section class="payment-settings-card wm-section"><h3 id="policyPublishedTitle">Loading the published policy…</h3><p id="policyPublishedMessage"></p><a class="btn-admin btn-secondary" id="policyPublishedLink" target="_blank" rel="noopener noreferrer" href="/products-page/refund-policy.html" hidden>Open customer policy page</a><details><summary>Published transaction terms</summary><div class="policy-admin-text" id="policyPublishedTerms"></div></details><details><summary>Published refund policy</summary><div class="policy-admin-text" id="policyPublishedRefund"></div></details></section>
+<section class="payment-settings-card wm-section" id="policyDraftEditor" hidden><h3>Policy draft</h3><p>The proposed wording is a draft for FMRC review. Save changes, review the preview, and confirm approval before publication. Staff can read only the published version.</p>
+<form id="policyEditorForm"><fieldset id="policyEditorFields" disabled><div class="field-stack"><label for="policyDraftTitle">Policy title</label><input class="input-field" id="policyDraftTitle" required maxlength="180" /></div><div class="field-stack"><label for="policyDraftTerms">Transaction terms</label><textarea class="input-field" id="policyDraftTerms" rows="16" required minlength="40" maxlength="20000"></textarea></div><div class="field-stack"><label for="policyDraftRefund">Refund policy</label><textarea class="input-field" id="policyDraftRefund" rows="22" required minlength="40" maxlength="20000"></textarea></div></fieldset></form>
+<details><summary>Draft preview</summary><h4>Transaction Terms</h4><div class="policy-admin-text" id="policyPreviewTerms"></div><h4>Refund Policy</h4><div class="policy-admin-text" id="policyPreviewRefund"></div></details>
+<p>Review applicable consumer remedies before approving wording. Reference: <a href="https://fairtrade.dti.gov.ph/faq/is-no-return-no-exchange-policy-allowed/" target="_blank" rel="noopener noreferrer">DTI consumer guidance</a> and <a href="https://elibrary.judiciary.gov.ph/thebookshelf/showdocs/2/96902" target="_blank" rel="noopener noreferrer">Internet Transactions Act</a>.</p>
+<label class="policy-approval"><input type="checkbox" id="policyApproval" disabled /> FMRC has reviewed and approved this transaction and refund policy wording for publication.</label><button class="btn-admin" id="policyPublish" type="button" disabled>Publish approved policy</button></section>
+<div class="wm-save-bar" id="policySaveBar" data-dock-save-bar hidden><p id="policySaveStatus" role="status">Loading policy settings…</p><div class="policy-save-actions"><button class="btn-admin btn-secondary" id="policyDraftDiscard" type="button" disabled>Discard changes</button><button class="btn-admin" id="policyDraftSave" type="submit" form="policyEditorForm" disabled>Save draft changes</button></div></div>
+</section>
+</main>
+    </div>
+
+    <script src="../admin-page/session-helper.js?v=2.4"></script>
+    <script src="../admin-page/admin-session.js?v=1.0"></script>
+    <script src="../home-page/fmrc-loader.js?v=2.1"></script>
+    <script src="../admin-page/website-loading.js?v=1.2"></script>
+    <script src="../admin-page/admin-common.js?v=8.6-policies"></script>
+    <script src="../admin-page/website-policies.js?v=1.0"></script>
+    <script src="../admin-page/admin-table-resize.js?v=1.4" defer></script>
+  </body>
+</html>

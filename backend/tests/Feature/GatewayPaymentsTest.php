@@ -52,6 +52,8 @@ class GatewayPaymentsTest extends TestCase {
             return Http::response(['data'=>['id'=>'cs_created','attributes'=>['checkout_url'=>'https://checkout.paymongo.com/test','livemode'=>false]]]);
         },'api.paymongo.com/v1/checkout_sessions/*'=>Http::response(['data'=>['id'=>'cs_created','attributes'=>['livemode'=>false,'payments'=>[]]]])]);
         $body=['product_id'=>$p->id,'product_name'=>'Test','quantity'=>2,'unit_price'=>0.01,'total_amount'=>0.02,'payment_method'=>'GCash','fulfillment_type'=>'pickup','checkout_request_key'=>(string)Str::uuid()];
+        $body['shipping_quote_token']=$this->postJson('/api/shipping/quote',['items'=>[['product_id'=>$p->id,'quantity'=>2]],'fulfillment_type'=>'pickup'])->assertOk()->json('data.quote_token');
+        $body+=\Tests\Support\CommercePolicyFixture::acceptance();
         $r=$this->postJson('/api/orders',$body)->assertCreated()->assertJsonPath('data.payment_status','pending')->assertJsonPath('data.checkout_url','https://checkout.paymongo.com/test');
         $this->postJson('/api/orders',$body)->assertCreated()->assertJsonPath('data.id',$r->json('data.id'));
         $this->assertDatabaseCount('orders',1); $this->assertDatabaseCount('payment_attempts',1); $this->assertSame(8,$p->fresh()->stock);

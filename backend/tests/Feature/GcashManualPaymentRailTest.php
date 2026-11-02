@@ -43,6 +43,8 @@ class GcashManualPaymentRailTest extends TestCase
         $product = $this->makeProduct();
 
         $this->postJson('/api/orders', [
+            'shipping_quote_token' => $this->postJson('/api/shipping/quote', ['items'=>[['product_id'=>$product->id,'quantity'=>1]],'fulfillment_type'=>'pickup'])->assertOk()->json('data.quote_token'),
+            ...\Tests\Support\CommercePolicyFixture::acceptance(),
             'product_id' => $product->id,
             'product_name' => $product->name,
             'quantity' => 1,

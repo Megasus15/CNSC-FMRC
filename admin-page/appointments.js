@@ -505,7 +505,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const fetchAppointments = async () => {
     const response = await fetch(`${API_BASE_URL}/appointments`, {
-      headers: { Accept: "application/json" },
+      headers: { Accept: "application/json",Authorization:"Bearer "+(window.AdminSession?.getToken()||"") },
     });
     if (!response.ok) throw new Error("Failed to fetch appointments");
     const payload = await response.json();
@@ -610,6 +610,7 @@ document.addEventListener("DOMContentLoaded", () => {
    */
   const attachmentHtml = (appointment, options = {}) => {
     const emptyHtml = options.emptyHtml ?? "N/A";
+    if(appointment.attachments?.length)return window.AdminAppointmentDetails?.files(appointment)||emptyHtml;
     const fileName = safe(appointment.attachment_name);
     const fileUrl = String(appointment.attachment_url || "").trim();
 
@@ -1144,8 +1145,11 @@ document.addEventListener("DOMContentLoaded", () => {
         </div>`;
     }
 
+    window.AdminAppointmentDetails?.render(appt,body);
     modal.classList.add("show");
   };
+
+  window.addEventListener("fmrc:appointment-updated",event=>{const item=event.detail?.appointment;if(!item)return;state.appointments=state.appointments.map(row=>row.id===item.id?item:row);renderTable();if(viewingAppointment?.id===item.id)openAppointmentViewModal(item);});
 
   document.getElementById("btnCloseApptView")?.addEventListener("click", () => {
     document.getElementById("modalViewAppointment")?.classList.remove("show");

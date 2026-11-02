@@ -1,0 +1,24 @@
+#customerAppointmentsModal .appointment-content{overflow:auto;min-height:0;flex:1;padding:2px 3px 12px}
+#customerAppointmentsModal .appointment-list{display:grid;gap:16px}
+#customerAppointmentsModal .appointment-detail{margin-top:14px;padding:20px;border:1px solid #e2d9d2;border-radius:12px;background:#fffefa;line-height:1.7;color:#3f3540}
+#customerAppointmentsModal .appointment-card-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+#customerAppointmentsModal h3,#customerAppointmentsModal h4{color:#800000;margin:6px 0 12px}
+#customerAppointmentsModal .appointment-card-heading>span{font-size:12px;background:#f4e9e4;color:#800000;padding:4px 10px;border-radius:999px}
+#customerAppointmentsModal .appointment-fields{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
+#customerAppointmentsModal .appointment-fields label{font-size:13px;font-weight:600;display:grid;gap:6px;min-width:0}
+#customerAppointmentsModal .appointment-fields .c-input{width:100%;min-width:0;font:inherit}
+#customerAppointmentsModal fieldset{border:0;padding:0;min-width:0}
+#customerAppointmentsModal .appointment-text-link{color:#800000;text-decoration:underline;text-underline-offset:3px;font:inherit;background:none;border:0;padding:0;cursor:pointer;overflow-wrap:anywhere;text-align:left}
+#customerAppointmentsModal .appointment-text-link:focus-visible{outline:2px solid #800000;outline-offset:4px}
+#customerAppointmentsModal .appointment-files{padding-left:20px}
+#customerAppointmentsModal [data-appointment-message]{font-size:13px;margin-top:12px;min-height:20px}
+#customerAppointmentsModal .is-error{color:#a41624}
+#customerAppointmentsModal [aria-busy=true]{cursor:progress}
+#customerAppointmentsModal .appointment-empty{padding:28px 16px;text-align:center}
+@media(max-width:540px){#customerAppointmentsModal .appointment-fields{grid-template-columns:1fr}#customerAppointmentsModal .appointment-detail{padding:16px}#customerAppointmentsModal .customer-orders-modal{width:100%}}
+
+/* Match the existing Customer dialog header colors. */
+#customerAppointmentsModal.ux-dlg .ux-dlg__head .ux-dlg__title{color:#fff8ef}
+#customerAppointmentsModal.ux-dlg .ux-dlg__head p{color:#f5e6df;line-height:1.6}
+#customerAppointmentsModal.ux-dlg .ux-dlg__head .ux-dlg__eyebrow{color:#f4edb3}
+#customerAppointmentsModal.ux-dlg .ux-dlg__head .is-error{color:#ffdbd9}

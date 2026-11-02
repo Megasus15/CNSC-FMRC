@@ -1748,8 +1748,6 @@
             <div><dt>Category</dt><dd>${escapeHtml(CATEGORY_LABELS[report.category] || report.category || "System report")}</dd></div>
             <div><dt>Coverage</dt><dd>${escapeHtml(reportCoverageLabel(report))}</dd></div>
             <div><dt>${isSnapshot ? "Report scope" : "Reporting period"}</dt><dd>${escapeHtml(periodLabel)}</dd></div>
-            <div><dt>Prepared by</dt><dd>${escapeHtml(report.generated_by)}</dd></div>
-            <div><dt>Role</dt><dd>${escapeHtml(getPreparedRole())}</dd></div>
             <div><dt>Generated</dt><dd>${escapeHtml(formatDateValue(report.generated_at, true))}</dd></div>
             <div><dt>Time zone</dt><dd>${escapeHtml(report.timezone || "Asia/Manila")}</dd></div>
           </dl>

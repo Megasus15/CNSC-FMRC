@@ -912,11 +912,17 @@ document.addEventListener("DOMContentLoaded", () => {
     mapOrderById();
   };
 
+  window.addEventListener("fmrc:shipment-updated",event=>{
+    const order=event.detail?.order;if(!order?.id)return;
+    upsertOrderSummaryInState(order);
+    if(modalOrderDetails?.classList.contains("show"))populateOrderDetailsModal(order);
+  });
+
   const populateOrderDetailsModal = (order) => {
     if (!order || !modalOrderDetails) return;
     if (!paymentActionBusy) paymentVerificationKey = "";
 
-    const body=modalOrderDetails.querySelector('.modal-body');
+    const body=modalOrderDetails.querySelector('.modal-body-scroll');
     if(body){
       let notice=body.querySelector('[data-cancellation-notice]');
       if(!notice){notice=document.createElement('section');notice.className='order-cancellation-notice';notice.dataset.cancellationNotice='';body.prepend(notice);}
@@ -928,6 +934,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!input) return;
       input.value = value || "-";
     };
+    if(body){
+      let policy=body.querySelector('[data-accepted-policy]');
+      if(!policy){policy=document.createElement('section');policy.className='order-cancellation-notice';policy.dataset.acceptedPolicy='';body.appendChild(policy);}
+      policy.hidden=!order.accepted_policy;
+      if(order.accepted_policy){const accepted=order.accepted_policy;policy.replaceChildren();const title=document.createElement('strong');title.textContent='Accepted transaction policy';const note=document.createElement('p');note.textContent='Accepted '+(accepted.accepted_at_label || '')+'.';const link=document.createElement('a');link.href='/products-page/refund-policy.html?version='+encodeURIComponent(accepted.version)+'#refund-policy';link.target='_blank';link.rel='noopener noreferrer';link.textContent='View accepted Refund Policy and Transaction Terms';link.style.color='var(--portal-accent, #800000)';policy.append(title,note,link);}
+    }
 
     setInput(
       "modalOrderNo",
@@ -980,6 +992,9 @@ document.addEventListener("DOMContentLoaded", () => {
       order.payment_reference || "Not supplied",
     );
     setInput("modalOrderQty", formatQuantity(order.quantity));
+    setInput('modalOrderSubtotal',order.pricing?.item_subtotal_label || 'Not recorded');
+    setInput('modalOrderShippingFee',order.pricing?.shipping_fee_label || 'Not recorded');
+    setInput('modalOrderDeliveryEstimate',order.pricing?.estimated_delivery_label || 'Not recorded');
     setInput(
       "modalOrderTotal",
       order.total_label || formatMoney(order.total_amount),
@@ -1008,6 +1023,7 @@ document.addEventListener("DOMContentLoaded", () => {
         "-";
     }
 
+    window.AdminCourierShipments?.render(order,body);
     modalOrderDetails.classList.add("show");
   };
 

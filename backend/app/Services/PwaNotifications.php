@@ -90,11 +90,11 @@ class PwaNotifications
             $kind = 'return';
             $message = 'There is an update to your return request. Open My Orders to review it.';
             $target .= '?orders=1&order_id='.$model->order_id;
-        } elseif ($model instanceof Appointment && ($created || $model->wasChanged('status'))) {
+        } elseif ($model instanceof Appointment && ($created || $model->wasChanged(['status','appointment_date','appointment_time','meeting_url','meeting_platform']))) {
             $owner = $model->user_id;
             $kind = 'appointment';
-            $message = $created ? 'Your appointment request has been received.' : 'Your appointment status has been updated.';
-            $target .= '?appointment=1';
+            $message = $created ? 'Your appointment request has been received.' : 'Your appointment details have been updated. Open My Appointments to review the current schedule and meeting information.';
+            $target .= '?my_appointments=1';
         }
         if ($kind && $owner && User::whereKey($owner)->where('role', 'customer')->exists()) {
             $this->publish($owner, $kind, ucfirst($kind).' update', $message, $target,

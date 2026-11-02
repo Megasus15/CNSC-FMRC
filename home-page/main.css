@@ -21269,3 +21269,8 @@ body:has(#customerOrdersModal.show) #customerSystemPopup.ux-dlg .ux-dlg__card .u
   color: var(--customer-wine-hover);
   transform: none;
 }
+
+/* Published policy links shared across Customer order views. */
+.checkout-policy-link { color: #800000; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.checkout-policy-link:hover { color: #5f1425; }
+.checkout-policy-link:focus-visible { outline: 3px solid #d9a334; outline-offset: 4px; border-radius: 3px; }

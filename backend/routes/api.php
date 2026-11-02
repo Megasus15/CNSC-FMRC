@@ -26,6 +26,9 @@ use App\Http\Controllers\Api\PsgcController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\SiteSettingController;
+use App\Http\Controllers\Api\ShippingController;
+use App\Http\Controllers\Api\CommercePolicyController;
+use App\Http\Controllers\Api\CourierShipmentController;
 use App\Http\Controllers\Api\StaffAccountRequestController;
 use App\Http\Controllers\Api\WalkInOrderController;
 use App\Http\Controllers\CartItemController;
@@ -111,16 +114,16 @@ Route::post('/reset-password', [PasswordResetController::class, 'verifyOtpAndRes
 // emailed to the account as a security alert.
 Route::post('/forgot-password/recovery-code', [AdminRecoveryController::class, 'redeem']);
 
-Route::get('/appointments', [AppointmentController::class, 'index']);
+Route::get('/appointments', [AppointmentController::class, 'index'])->middleware('auth:sanctum');
 Route::post('/appointments', [AppointmentController::class, 'store'])->middleware([
     VerifyTurnstile::class,
     EnsureNotUnderMaintenance::class . ':page_appointment',
 ]);
-Route::delete('/appointments/{appointment}', [AppointmentController::class, 'destroy']);
-Route::patch('/appointments/{appointment}/archive', [AppointmentController::class, 'archive']);
-Route::patch('/appointments/{appointment}/unarchive', [AppointmentController::class, 'unarchive']);
+Route::delete('/appointments/{appointment}', [AppointmentController::class, 'destroy'])->middleware('auth:sanctum');
+Route::patch('/appointments/{appointment}/archive', [AppointmentController::class, 'archive'])->middleware('auth:sanctum');
+Route::patch('/appointments/{appointment}/unarchive', [AppointmentController::class, 'unarchive'])->middleware('auth:sanctum');
 Route::get('/appointments/calendar', [AppointmentController::class, 'calendar']);
-Route::put('/appointments/calendar', [AppointmentController::class, 'updateCalendar']);
+Route::put('/appointments/calendar', [AppointmentController::class, 'updateCalendar'])->middleware('auth:sanctum');
 Route::get('/appointments/{reference}/verify', [AppointmentController::class, 'verifyByReference']);
 
 // Public: Customer-facing products (non-blocked only)
@@ -135,6 +138,7 @@ Route::get('/site-settings', [SiteSettingController::class, 'index']);
 Route::get('/site-settings/about-video', [SiteSettingController::class, 'aboutVideo']);
 // Public: lightweight browser icon snapshot for the Admin/Staff shell.
 Route::get('/site-favicon', [SiteSettingController::class, 'favicon']);
+Route::get('/commerce/policy/{version?}', [CommercePolicyController::class, 'published'])->whereUuid('version');
 
 // Public: Maintenance Mode snapshot. Read by every customer page before it
 // paints, and revalidated on the site-content tick that already exists, so it
@@ -158,6 +162,7 @@ Route::get('/couriers', [OrderController::class, 'couriers']);
 // handled by HMAC signature verification inside the controller, not by
 // Sanctum, because PayMongo is the caller, not a logged-in customer.
 Route::post('/webhooks/paymongo', [PayMongoWebhookController::class, 'handleWebhook']);
+Route::post('/webhooks/ninjavan', [CourierShipmentController::class, 'webhook']);
 // ────────────────────────────────────────────────────────────────────────────
 
 Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(function () {
@@ -174,11 +179,26 @@ Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(func
     Route::patch('/appointments/archive-bulk', [AppointmentController::class, 'archiveBulk']);
     Route::patch('/appointments/{appointment}/complete', [AppointmentController::class, 'markCompleted']);
 
+    Route::get('/customer/appointments', [AppointmentController::class, 'customerIndex']);
+    Route::get('/customer/appointments/{appointment}', [AppointmentController::class, 'customerShow']);
+    Route::post('/customer/appointments/{appointment}/reschedule', [AppointmentController::class, 'reschedule']);
+    Route::get('/customer/appointments/{appointment}/attachments/{file}', [AppointmentController::class, 'attachment'])->where('file','[0-9]+|legacy');
+    Route::patch('/admin/appointments/{appointment}/meeting', [AppointmentController::class, 'updateMeeting']);
     Route::get('/customer/profile', [AuthController::class, 'customerProfile']);
     Route::put('/customer/profile', [AuthController::class, 'updateCustomerProfile']);
 
     Route::post('/orders', [OrderController::class, 'customerStore'])
         ->middleware(EnsureNotUnderMaintenance::class . ':page_products');
+    Route::post('/shipping/quote', [ShippingController::class, 'quote']);
+    Route::get('/admin/shipping-settings', [ShippingController::class, 'show']);
+    Route::put('/admin/shipping-settings/draft', [ShippingController::class, 'saveDraft']);
+    Route::post('/admin/shipping-settings/publish', [ShippingController::class, 'publish']);
+    Route::get('/admin/commerce-policy', [CommercePolicyController::class, 'show']);
+    Route::put('/admin/commerce-policy/draft', [CommercePolicyController::class, 'saveDraft']);
+    Route::post('/admin/commerce-policy/publish', [CommercePolicyController::class, 'publish']);
+    Route::post('/admin/orders/{order}/shipment/book', [CourierShipmentController::class, 'book']);
+    Route::post('/admin/orders/{order}/shipment/cancel', [CourierShipmentController::class, 'cancel']);
+    Route::post('/admin/orders/{order}/shipment/link-tracking', [CourierShipmentController::class, 'link']);
     Route::get('/customer/orders', [OrderController::class, 'customerIndex']);
     Route::get('/customer/orders/{order}', [OrderController::class, 'customerShow']);
     Route::get('/customer/orders/{order}/items/{orderItem}/image', [OrderController::class, 'customerItemImage']);

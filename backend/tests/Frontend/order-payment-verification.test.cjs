@@ -55,7 +55,7 @@ function harness(initial = order()) {
     normalizeStateOrdering() {}, refreshPaymentsFromDirectory() {}, renderAll() {},
     formatMoney: (amount) => `PHP ${Number(amount).toFixed(2)}`,
     resolveMediaUrl: (url) => url || '',
-    window: { setTimeout }, navigator: {},
+    window: { setTimeout, addEventListener() {} }, navigator: {},
     document: { getElementById: (id) => elements[id] || null, createElement: element },
     showPopup: (message, options) => popups.push({ message, options }),
     askConfirm: async () => true,

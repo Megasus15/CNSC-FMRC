@@ -1,0 +1,20 @@
+.shipment-control-card { grid-column: 1/-1; border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; background: var(--surface-alt,var(--surface)); margin-top: 18px; }
+.shipment-control-card p { font-size: .85rem; line-height: 1.6; }
+.shipment-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.shipment-heading h4 { margin: 0; }
+.shipment-control-card fieldset { padding: 0; border: 0; min-width: 0; }
+.shipment-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+.shipment-fields .field-stack { min-width: 0; }
+.shipment-control-card label { display: block; margin-bottom: 6px; font-size: .8rem; }
+.shipment-control-card .input-field { width: 100%; box-sizing: border-box; min-width: 0; }
+.shipment-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.shipment-control-card .shipment-message { color: var(--portal-accent,var(--primary-color)); overflow-wrap: anywhere; }
+.shipment-reference { overflow-wrap: anywhere; color: var(--text-muted); }
+.shipment-events { margin: 14px 0 0; padding-left: 20px; }
+.shipment-events li { padding: 8px 0; line-height: 1.5; font-size: .85rem; }
+.shipment-events time,.shipment-events span { display: block; color: var(--text-muted); font-size: .8rem; }
+.shipment-control-card details { margin-top: 18px; }
+.shipment-control-card summary { cursor: pointer; font-weight: 600; }
+.shipment-link { margin: 18px 0; }
+.shipment-link button { margin-top: 10px; }
+@media(max-width:620px) { .shipment-fields { grid-template-columns: 1fr; } .shipment-control-card { padding: 15px; } .shipment-actions { display: grid; grid-template-columns: 1fr; } .shipment-actions .btn-admin { width: 100%; } }

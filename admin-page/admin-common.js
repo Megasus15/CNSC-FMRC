@@ -110,6 +110,8 @@ document.documentElement.classList.add("fmrc-admin-portal");
     "website-payments": "Payment settings are loading.",
     "website-portals": "Login portal settings are loading.",
     "website-services": "Services page settings are loading.",
+    "website-shipping": "Shipping settings are loading.",
+    "website-policies": "Transaction policies are loading.",
   });
   const PAGE_TIMING = Object.freeze({ min: 200, max: 200, cap: 1000 });
   const ACTION_TIMING = Object.freeze({ min: 500, max: 500, cap: 1300 });
@@ -2285,6 +2287,8 @@ document.addEventListener("DOMContentLoaded", () => {
     "website-services.html",
     "website-contact.html",
     "website-footer.html",
+    "website-shipping.html",
+    "website-policies.html",
     ...(!isStaffWebsiteShell ? ADMIN_ONLY_WEBSITE_ROUTES : []),
     "website-emails.html",
     "website-maintenance.html",
@@ -2351,6 +2355,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Keep the longer configuration menu scannable without adding another
   // accordion level. Reuse existing links so permissions and handlers survive.
+  document.querySelectorAll('a.sub-link[href="website-home.html"]').forEach(homeLink=>{
+    const menu=homeLink.parentElement;
+    let link=menu.querySelector('a[href="website-shipping.html"]');
+    if(!link){link=document.createElement('a');link.href='website-shipping.html';link.className='sub-link';link.textContent='Shipping & Delivery';menu.appendChild(link);}
+    if(/\/website-shipping(?:\.html)?\/?$/i.test(window.location.pathname)){link.classList.add('active');link.setAttribute('aria-current','page');}
+    let policies=menu.querySelector('a[href="website-policies.html"]');
+    if(!policies){policies=document.createElement('a');policies.href='website-policies.html';policies.className='sub-link';policies.textContent='Transaction Policies';menu.appendChild(policies);}
+    if(/\/website-policies(?:\.html)?\/?$/i.test(window.location.pathname)){policies.classList.add('active');policies.setAttribute('aria-current','page');}
+  });
   document.querySelectorAll('a.sub-link[href="website-home.html"]').forEach((homeLink) => {
     const menu = homeLink.parentElement;
     if (menu.dataset.grouped === "true") return;
@@ -2358,7 +2371,7 @@ document.addEventListener("DOMContentLoaded", () => {
     menu.classList.add("website-config-menu");
     const groups = [
       ["Site content", ["home", "about", "services", "contact", "footer"]],
-      ["Settings", ["portals", "payments", "emails", "maintenance"]],
+      ["Settings", ["portals", "payments", "shipping", "policies", "emails", "maintenance"]],
     ];
     groups.forEach(([label, routes]) => {
       const links = routes.map(route => menu.querySelector(`a.sub-link[href="website-${route}.html"]`)).filter(Boolean);

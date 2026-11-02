@@ -65,7 +65,7 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
     />
 
-    <link rel="stylesheet" href="main.css?v=9.9-order-single-line" />
+    <link rel="stylesheet" href="main.css?v=9.9-order-single-line-policies" />
     <link rel="stylesheet" href="responsive.css?v=8.4" />
 
     <!-- The signature loader. One sheet shared by every customer page, so the
@@ -138,7 +138,8 @@
     </script>
       <link rel="stylesheet" href="customer-scroll.css?v=1.2" />
     <script defer src="customer-scroll.js?v=1.0"></script>
-  </head>
+  <link rel="stylesheet" href="../home-page/my-appointments.css?v=1.0">
+</head>
   <body class="home-editorial-page">
     <!-- The boot curtain. Static markup, so it can paint on the very first
          frame; hidden by default in CSS and shown only while html.fmrc-booting
@@ -1016,6 +1017,7 @@
                 ></textarea>
               </div>
 
+              <div class="apt-input-group" style="grid-column:span 3"><label for="aptMethod">Appointment method</label><select id="aptMethod" class="c-input" required><option value="" selected disabled>Choose appointment method</option><option value="online">Online</option><option value="face_to_face">Face-to-face at FMRC</option></select><small>Online meeting details will appear in My Appointments when FMRC provides them. All schedules use Philippine time.</small></div>
               <!-- Section 3: Appointment Details -->
               <div class="apt-form-header">
                 <h4>Appointment Details</h4>
@@ -1045,8 +1047,9 @@
                 <div class="file-upload-wrapper file-upload-field">
                   <div class="file-upload-icon">+</div>
                   <span class="file-upload-text" id="aptFileLabel"
-                    >Click to Attach Design File (Optional)</span
+                    >Attach Design Files (Optional)</span
                   >
+                  <small>Up to 5 files, 50 MB total. Images, PDF, Word, STL, OBJ, STEP/STP, IGES/IGS, DXF, DWG.</small>
                   <small id="aptFileName" class="file-upload-name"
                     >No file selected</small
                   >
@@ -1054,7 +1057,7 @@
                     type="file"
                     id="aptFile"
                     class="file-upload-input"
-                    accept="image/*,.pdf,.doc,.docx"
+                    multiple accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.stl,.obj,.step,.stp,.iges,.igs,.dxf,.dwg"
                   />
                 </div>
               </div>
@@ -1281,7 +1284,7 @@
               <div class="ticket-row">
                 <div class="ticket-column">
                   <div class="t-label">ATTACHED FILE</div>
-                  <div class="t-value" id="revFileAttach">N/A</div>
+                  <div class="t-value" id="revFileAttach">N/A</div><div class="t-label">Appointment method</div><div class="t-value" id="revMethod">N/A</div>
                 </div>
                 <div class="ticket-column">
                   <div class="t-label">COUNTRY</div>
@@ -1393,7 +1396,7 @@
                 <div class="ticket-row">
                   <div class="ticket-column">
                     <div class="t-label">ATTACHED FILE</div>
-                    <div class="t-value" id="comFileAttach">N/A</div>
+                    <div class="t-value" id="comFileAttach">N/A</div><div class="t-label">Appointment method</div><div class="t-value" id="comMethod">N/A</div>
                   </div>
                 </div>
               </div>
@@ -1949,7 +1952,8 @@
     <link rel="stylesheet" href="../products-page/gateway-payments.css?v=1.0">
     <link rel="stylesheet" href="../home-page/payment-dialogs.css?v=2.1-refund-claims">
     <script defer src="../products-page/gateway-payments.js?v=2.1-qrph-claims"></script>
-    <script defer src="main.js?v=12.8-settings-video"></script>
+    <script defer src="../home-page/my-appointments.js?v=1.0"></script>
+<script defer src="main.js?v=12.12-appointments"></script>
     <script defer src="service-dialogs.js?v=1.0"></script>
     <script defer src="customer-announcements.js?v=6.8"></script>
   </body>

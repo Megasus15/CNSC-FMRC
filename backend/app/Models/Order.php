@@ -23,6 +23,14 @@ class Order extends Model
         'quantity',
         'subtotal',
         'total',
+        'shipping_fee',
+        'shipping_quote',
+        'courier_history_version',
+        'accepted_policy_version',
+        'accepted_policy_text',
+        'policy_accepted_at',
+        'estimated_delivery_from',
+        'estimated_delivery_to',
         'payment_method',
         'payment_reference',
         'payment_due_at',
@@ -146,6 +154,13 @@ class Order extends Model
     protected $casts = [
         'subtotal'    => 'decimal:2',
         'total'       => 'decimal:2',
+        'shipping_fee' => 'decimal:2',
+        'shipping_quote' => 'array',
+        'courier_history_version' => 'integer',
+        'accepted_policy_text' => 'array',
+        'policy_accepted_at' => 'datetime',
+        'estimated_delivery_from' => 'date',
+        'estimated_delivery_to' => 'date',
         'delivery_lat' => 'decimal:7',
         'delivery_lng' => 'decimal:7',
         'last_known_lat' => 'decimal:7',
@@ -285,6 +300,11 @@ class Order extends Model
     public function payment(): HasOne
     {
         return $this->hasOne(Payment::class);
+    }
+
+    public function latestShipment(): HasOne
+    {
+        return $this->hasOne(CourierShipment::class)->latestOfMany();
     }
 
     public function trackingEvents(): HasMany

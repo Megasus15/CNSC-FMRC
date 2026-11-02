@@ -9,6 +9,8 @@ use App\Models\AdminNotification;
 use App\Models\Appointment;
 use App\Models\AppointmentCalendarDay;
 use App\Models\AppointmentTimeSlot;
+use App\Services\AppointmentFiles;
+use App\Services\AppointmentScheduling;
 use App\Support\OrderNotifier;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -17,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class AppointmentController extends Controller
 {
@@ -31,8 +34,11 @@ class AppointmentController extends Controller
         ['label' => '3:00 - 4:00 PM', 'type' => 'PM', 'sort_order' => 6],
     ];
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        if ($denied = $this->ensureAdminOrStaff($request)) {
+            return $denied;
+        }
         $appointments = Appointment::query()
             ->whereNotIn('status', ['Cancelled', 'Archived'])
             ->orderBy('created_at', 'asc')
@@ -62,135 +68,80 @@ class AppointmentController extends Controller
             'additional_notes' => 'nullable|string|max:2000',
             'appointment_date' => 'required|date_format:Y-m-d',
             'appointment_time' => 'required|string|max:60',
-            'attachment' => 'nullable|file|mimes:jpg,jpeg,png,webp,gif,pdf,doc,docx|max:51200',
+            'attachment' => 'nullable|file|max:51200',
+            'attachments' => 'nullable|array|max:5',
+            'attachments.*' => 'required|file|max:51200',
+            'appointment_method' => 'sometimes|required|in:online,face_to_face',
         ]);
 
-        $appointmentDate = Carbon::createFromFormat('Y-m-d', $validated['appointment_date']);
-        $today = Carbon::today();
-
-        if ($appointmentDate->isWeekend()) {
-            return response()->json([
-                'message' => 'Weekend booking is not available. Please select a weekday.',
-            ], 422);
-        }
-
-        if ($appointmentDate->lt($today)) {
-            return response()->json([
-                'message' => 'Past dates are not allowed. Please select a valid future date.',
-            ], 422);
-        }
-
-        $calendarDay = AppointmentCalendarDay::query()
-            ->whereDate('date', $validated['appointment_date'])
-            ->first();
-
-        if ($calendarDay?->is_blocked) {
-            return response()->json([
-                'message' => 'This date is currently blocked by the administrator.',
-            ], 422);
-        }
-
-        $blockedSlots = array_values(array_filter($calendarDay?->blocked_slots ?? [], 'is_string'));
-        if (in_array($validated['appointment_time'], $blockedSlots, true)) {
-            return response()->json([
-                'message' => 'This selected time slot is blocked by the administrator.',
-            ], 422);
-        }
-
-        $customSlots = collect($calendarDay?->custom_slots ?? [])
-            ->map(fn ($slot) => is_array($slot) ? trim((string) ($slot['label'] ?? '')) : '')
-            ->filter()
-            ->values()
-            ->all();
-
+        $files = AppointmentFiles::validate($request);
         $this->ensureDefaultSlots();
+        $stored = AppointmentFiles::store($files);
+        try {
+            $appointment = DB::transaction(function () use ($validated, $request, $stored) {
+                AppointmentScheduling::lock();
+                $starts = AppointmentScheduling::available($validated['appointment_date'], $validated['appointment_time']);
+                $appointment = Appointment::create([
+                    'reference_no' => null,
+                    // This public route accepts guest bookings and optional Customer bearer authentication.
+                    'user_id' => $request->user('sanctum')?->id,
+                    'first_name' => $validated['first_name'],
+                    'last_name' => $validated['last_name'],
+                    'middle_initial' => $validated['middle_initial'] ?? null,
+                    'contact_number' => $validated['contact_number'],
+                    'email' => $validated['email'],
+                    'country' => $validated['country'],
+                    'region' => $validated['region'] ?? null,
+                    'province' => $validated['province'] ?? null,
+                    'municipality' => $validated['municipality'] ?? null,
+                    'barangay' => $validated['barangay'] ?? null,
+                    'intl_address' => $validated['intl_address'] ?? null,
+                    'full_address' => $validated['full_address'],
+                    'client_type' => $validated['client_type'],
+                    'purpose' => $validated['purpose'],
+                    'additional_notes' => $validated['additional_notes'] ?? null,
+                    'appointment_date' => $validated['appointment_date'],
+                    'appointment_time' => $validated['appointment_time'],
+                    'attachment_name' => null,
+                    'attachment_path' => null,
+                    'appointment_method' => $validated['appointment_method'] ?? 'face_to_face',
+                    'appointment_starts_at' => $starts->utc(),
+                    'status' => 'Scheduled',
+                    'qr_payload' => null,
+                ]);
 
-        $isGlobalSlot = AppointmentTimeSlot::query()
-            ->where('is_active', true)
-            ->where('label', $validated['appointment_time'])
-            ->exists();
+                $appointment->reference_no = 'AP-'.str_pad((string) $appointment->id, 5, '0', STR_PAD_LEFT);
+                $appointment->qr_payload = url('/appointments/verify/'.$appointment->reference_no);
+                $appointment->save();
 
-        $isCustomDaySlot = in_array($validated['appointment_time'], $customSlots, true);
+                foreach ($stored as $file) {
+                    DB::table('appointment_attachments')->insert($file + ['appointment_id' => $appointment->id]);
+                }
 
-        if (!$isGlobalSlot && !$isCustomDaySlot) {
-            return response()->json([
-                'message' => 'The selected time slot is no longer available.',
-            ], 422);
+                return $appointment;
+            });
+        } catch (\Throwable $error) {
+            AppointmentFiles::clean($stored);
+            throw $error;
         }
-
-        $isAlreadyBooked = Appointment::query()
-            ->whereDate('appointment_date', $validated['appointment_date'])
-            ->where('appointment_time', $validated['appointment_time'])
-            ->whereNotIn('status', ['Cancelled', 'Archived'])
-            ->exists();
-
-        if ($isAlreadyBooked) {
-            return response()->json([
-                'message' => 'This date and time is already booked. Please choose another schedule.',
-            ], 422);
-        }
-
-        $storedPath = null;
-        $storedName = null;
-
-        if ($request->hasFile('attachment')) {
-            $file = $request->file('attachment');
-            $storedPath = $file->store('appointment-attachments', 'public');
-            $storedName = $file->getClientOriginalName();
-        }
-
-        $appointment = DB::transaction(function () use ($validated, $request, $storedPath, $storedName) {
-            $appointment = Appointment::create([
-                'reference_no' => null,
-                // This public route accepts guest bookings and optional Customer bearer authentication.
-                'user_id' => $request->user('sanctum')?->id,
-                'first_name' => $validated['first_name'],
-                'last_name' => $validated['last_name'],
-                'middle_initial' => $validated['middle_initial'] ?? null,
-                'contact_number' => $validated['contact_number'],
-                'email' => $validated['email'],
-                'country' => $validated['country'],
-                'region' => $validated['region'] ?? null,
-                'province' => $validated['province'] ?? null,
-                'municipality' => $validated['municipality'] ?? null,
-                'barangay' => $validated['barangay'] ?? null,
-                'intl_address' => $validated['intl_address'] ?? null,
-                'full_address' => $validated['full_address'],
-                'client_type' => $validated['client_type'],
-                'purpose' => $validated['purpose'],
-                'additional_notes' => $validated['additional_notes'] ?? null,
-                'appointment_date' => $validated['appointment_date'],
-                'appointment_time' => $validated['appointment_time'],
-                'attachment_name' => $storedName,
-                'attachment_path' => $storedPath,
-                'status' => 'Scheduled',
-                'qr_payload' => null,
-            ]);
-
-            $appointment->reference_no = 'AP-' . str_pad((string) $appointment->id, 5, '0', STR_PAD_LEFT);
-            $appointment->qr_payload = url('/appointments/verify/' . $appointment->reference_no);
-            $appointment->save();
-
-            return $appointment;
-        });
 
         // --- Admin/Staff Notification: New Appointment ---
         try {
-            $clientName = trim($validated['first_name'] . ' ' . $validated['last_name']);
-            $apptDate   = $validated['appointment_date'];
-            $apptTime   = $validated['appointment_time'];
+            $clientName = trim($validated['first_name'].' '.$validated['last_name']);
+            $apptDate = $validated['appointment_date'];
+            $apptTime = $validated['appointment_time'];
             AdminNotification::create([
-                'type'    => 'appointment',
-                'title'   => "New Appointment: {$appointment->reference_no}",
+                'type' => 'appointment',
+                'title' => "New Appointment: {$appointment->reference_no}",
                 'message' => "{$clientName} scheduled an appointment on {$apptDate} at {$apptTime}. Purpose: {$validated['purpose']}",
                 'is_read' => false,
-                'metadata'=> [
+                'metadata' => [
                     'appointment_id' => $appointment->id,
-                    'reference_no'   => $appointment->reference_no,
+                    'reference_no' => $appointment->reference_no,
                 ],
             ]);
         } catch (\Throwable $e) {
-            Log::warning('Could not create appointment admin notification: ' . $e->getMessage());
+            Log::warning('Could not create appointment admin notification: '.$e->getMessage());
         }
 
         // --- Customer Email: Appointment Confirmation ---
@@ -206,13 +157,13 @@ class AppointmentController extends Controller
 
                     Log::info(
                         '[APPT EMAIL] Sent AppointmentConfirmation to '
-                        . $emailAddress
-                        . ' | Ref: ' . $appointmentForMail->reference_no
+                        .$emailAddress
+                        .' | Ref: '.$appointmentForMail->reference_no
                     );
                 } catch (\Throwable $e) {
                     Log::error(
                         '[APPT EMAIL] SMTP send FAILED for '
-                        . $appointmentForMail->reference_no . ': ' . $e->getMessage()
+                        .$appointmentForMail->reference_no.': '.$e->getMessage()
                     );
                 }
             });
@@ -221,16 +172,20 @@ class AppointmentController extends Controller
         // Return 201 immediately — email is processed in background.
         return response()->json([
             'message' => 'Appointment created successfully.',
-            'data'    => $this->transformAppointment($appointment),
+            'data' => $this->transformAppointment($appointment),
         ], 201);
     }
 
-    public function destroy(Appointment $appointment): JsonResponse
+    public function destroy(Request $request, Appointment $appointment): JsonResponse
     {
+        if ($denied = $this->ensureAdminOrStaff($request)) {
+            return $denied;
+        }
         if ($appointment->attachment_path) {
             Storage::disk('public')->delete($appointment->attachment_path);
         }
 
+        AppointmentFiles::clean(DB::table('appointment_attachments')->where('appointment_id', $appointment->id)->get()->map(fn ($file) => (array) $file)->all());
         $appointment->delete();
 
         return response()->json(['message' => 'Appointment deleted successfully.']);
@@ -249,6 +204,7 @@ class AppointmentController extends Controller
         $ids = collect($validated['ids'])->map(fn ($id) => (int) $id)->unique()->values()->all();
 
         $archivedIds = DB::transaction(function () use ($ids): array {
+            AppointmentScheduling::lock();
             $eligibleIds = Appointment::query()
                 ->whereIn('id', $ids)
                 ->where('status', 'Completed')
@@ -267,7 +223,7 @@ class AppointmentController extends Controller
             return $eligibleIds;
         });
 
-        if (!$archivedIds) {
+        if (! $archivedIds) {
             return response()->json(['message' => 'No completed appointments were found to archive.'], 404);
         }
 
@@ -277,12 +233,15 @@ class AppointmentController extends Controller
             'processed_ids' => $archivedIds,
             'processed_count' => count($archivedIds),
             'skipped_ids' => array_values(array_diff($ids, $archivedIds)),
-            'message' => count($archivedIds) . ' appointment(s) archived successfully.',
+            'message' => count($archivedIds).' appointment(s) archived successfully.',
         ]);
     }
 
-    public function archive(Appointment $appointment): JsonResponse
+    public function archive(Request $request, Appointment $appointment): JsonResponse
     {
+        if ($denied = $this->ensureAdminOrStaff($request)) {
+            return $denied;
+        }
         if (strtolower((string) $appointment->status) !== 'completed') {
             return response()->json([
                 'message' => 'Only appointments marked as completed can be archived.',
@@ -298,8 +257,11 @@ class AppointmentController extends Controller
         ]);
     }
 
-    public function unarchive(Appointment $appointment): JsonResponse
+    public function unarchive(Request $request, Appointment $appointment): JsonResponse
     {
+        if ($denied = $this->ensureAdminOrStaff($request)) {
+            return $denied;
+        }
         $appointment->status = 'Pending';
         $appointment->save();
 
@@ -315,15 +277,15 @@ class AppointmentController extends Controller
             return $denied;
         }
 
-        $currentStatus = strtolower($appointment->status ?? '');
-        if (in_array($currentStatus, ['completed', 'cancelled', 'archived'], true)) {
-            return response()->json([
-                'message' => 'This appointment cannot be marked as completed (current status: ' . $appointment->status . ').',
-            ], 422);
-        }
+        $appointment = DB::transaction(function () use ($appointment) {
+            AppointmentScheduling::lock();
+            $current = Appointment::whereKey($appointment->id)->lockForUpdate()->firstOrFail();
+            abort_if(in_array(strtolower($current->status), ['completed', 'cancelled', 'archived'], true), 422, 'This appointment cannot be marked as completed.');
+            $current->status = 'Completed';
+            $current->save();
 
-        $appointment->status = 'Completed';
-        $appointment->save();
+            return $current;
+        });
 
         // --- Customer Email: Thank-you note for the completed visit ---
         // Same deferred-send pattern as store(): queued behind the response so
@@ -339,13 +301,13 @@ class AppointmentController extends Controller
 
                     Log::info(
                         '[APPT EMAIL] Sent AppointmentCompleted to '
-                        . $emailAddress
-                        . ' | Ref: ' . $appointmentForMail->reference_no
+                        .$emailAddress
+                        .' | Ref: '.$appointmentForMail->reference_no
                     );
                 } catch (\Throwable $e) {
                     Log::error(
                         '[APPT EMAIL] Thank-you SMTP send FAILED for '
-                        . $appointmentForMail->reference_no . ': ' . $e->getMessage()
+                        .$appointmentForMail->reference_no.': '.$e->getMessage()
                     );
                 }
             });
@@ -381,7 +343,7 @@ class AppointmentController extends Controller
                     'events' => array_values(array_filter($day->events ?? [], 'is_string')),
                     'custom_slots' => collect($day->custom_slots ?? [])
                         ->map(function ($slot) {
-                            if (!is_array($slot)) {
+                            if (! is_array($slot)) {
                                 return null;
                             }
 
@@ -411,7 +373,8 @@ class AppointmentController extends Controller
             });
 
         return response()->json([
-            'today' => Carbon::today()->format('Y-m-d'),
+            'today' => Carbon::today(AppointmentScheduling::ZONE)->format('Y-m-d'),
+            'timezone' => AppointmentScheduling::ZONE,
             'time_slots' => $slots,
             'day_settings' => $days,
             'booked_slots' => $bookedSlots,
@@ -420,6 +383,9 @@ class AppointmentController extends Controller
 
     public function updateCalendar(Request $request): JsonResponse
     {
+        if ($denied = $this->ensureAdminOrStaff($request)) {
+            return $denied;
+        }
         $validated = $request->validate([
             'time_slots' => 'required|array|min:1',
             'time_slots.*.id' => 'nullable|integer',
@@ -439,11 +405,24 @@ class AppointmentController extends Controller
             'day_settings.*.custom_slots.*.type' => 'required|in:AM,PM',
         ]);
 
+        foreach ($validated['time_slots'] as $slot) {
+            if (! AppointmentScheduling::range('2026-01-05', $slot['label'], $slot['type'])) {
+                throw ValidationException::withMessages(['time_slots' => 'Use a valid start and end time, for example 9:00 - 10:00 AM.']);
+            }
+        }
+        foreach ($validated['day_settings'] ?? [] as $day) {
+            foreach ($day['custom_slots'] ?? [] as $slot) {
+                if (! AppointmentScheduling::range($day['date'], $slot['label'], $slot['type'])) {
+                    throw ValidationException::withMessages(['day_settings' => 'Each custom slot needs a valid start and end time.']);
+                }
+            }
+        }
         DB::transaction(function () use ($validated) {
+            AppointmentScheduling::lock();
             $incomingSlotIds = [];
 
             foreach ($validated['time_slots'] as $slotData) {
-                $slot = AppointmentTimeSlot::query()->find($slotData['id'] ?? 0) ?? new AppointmentTimeSlot();
+                $slot = AppointmentTimeSlot::query()->find($slotData['id'] ?? 0) ?? new AppointmentTimeSlot;
                 $slot->label = $slotData['label'];
                 $slot->type = $slotData['type'];
                 $slot->sort_order = (int) $slotData['sort_order'];
@@ -464,7 +443,7 @@ class AppointmentController extends Controller
                 $day->events = array_values(array_filter($dayData['events'] ?? [], 'is_string'));
                 $day->custom_slots = collect($dayData['custom_slots'] ?? [])
                     ->map(function ($slot) {
-                        if (!is_array($slot)) {
+                        if (! is_array($slot)) {
                             return null;
                         }
 
@@ -502,12 +481,12 @@ class AppointmentController extends Controller
     {
         $appointment = Appointment::query()->where('reference_no', $reference)->first();
 
-        if (!$appointment) {
+        if (! $appointment) {
             return response()->json(['message' => 'Appointment not found.'], 404);
         }
 
         return response()->json([
-            'data' => $this->transformAppointment($appointment),
+            'data' => $this->transformAppointment($appointment, false),
             'verified_at' => now()->toIso8601String(),
         ]);
     }
@@ -516,34 +495,149 @@ class AppointmentController extends Controller
     {
         $appointment = Appointment::query()->where('reference_no', $reference)->first();
 
-        if (!$appointment) {
+        if (! $appointment) {
             return response('<h1>Appointment Not Found</h1><p>The reference number is invalid.</p>', 404)
                 ->header('Content-Type', 'text/html');
         }
 
-        $data = $this->transformAppointment($appointment);
+        $data = $this->transformAppointment($appointment, false);
         $verifiedAt = now()->format('F j, Y g:i A');
 
-        $html = '<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>FMRC Official Appointment Receipt</title><style>*{box-sizing:border-box}body{margin:0;background:linear-gradient(140deg,#f7f2ec,#efe6da);font-family:Montserrat,Segoe UI,Tahoma,Arial,sans-serif;color:#4b5563;padding:24px}.receipt{max-width:980px;margin:0 auto;background:#fdfaf6;border-radius:8px;border:1px solid #f0e8c8;overflow:hidden;box-shadow:0 22px 54px rgba(27,4,4,.18)}.header{background:linear-gradient(135deg,#3d0808 0%,#511721 52%,#6b202b 100%);color:#f7f2ec;padding:22px 24px;display:flex;justify-content:space-between;gap:16px;align-items:center}.kicker{display:block;font-size:11px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;color:#f5ef8e}.ticket{margin-top:6px;font-size:30px;font-weight:800;color:#f7f2ec}.badge{background:#f1ed12;color:#6b202b;border-radius:999px;padding:7px 14px;font-size:12px;font-weight:800;letter-spacing:.04em}.body{display:flex;gap:0;align-items:stretch}.left{flex:1;padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:12px}.item{border-bottom:1px solid #f0e8c8;padding:10px 4px}.label{font-size:10.5px;text-transform:uppercase;letter-spacing:.11em;color:#77610d;font-weight:800}.value{font-size:14.5px;font-weight:600;color:#4b5563;margin-top:6px;word-break:break-word}.highlight{color:#6b202b;font-weight:800}.right{width:260px;border-left:1px solid #f0e8c8;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:22px 16px;background:#fffdf4}.verify-chip{font-size:12px;color:#6b202b;background:#fff8d2;border:1px solid #f0e8c8;border-radius:999px;padding:7px 12px;font-weight:800;margin-bottom:12px}.qr-box{width:170px;height:170px;border:2px solid #f0e8c8;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fff;text-align:center;color:#6b202b;font-size:12px;font-weight:700;padding:10px}.verify-note{text-align:center;font-size:12px;color:#4b5563;line-height:1.5;margin-top:10px}.footer{background:#fffdf4;border-top:1px solid #f0e8c8;padding:14px 18px;font-size:12px;color:#4b5563;line-height:1.65}.footer strong{color:#6b202b}@media (max-width:860px){body{padding:12px}.body{flex-direction:column}.right{width:100%;border-left:none;border-top:1px solid #f0e8c8}.left{grid-template-columns:1fr}}</style></head><body><div class="receipt"><div class="header"><div><span class="kicker">OFFICIAL RECEIPT VERIFICATION</span><div class="ticket">Ticket #' . e($data['reference_no']) . '</div></div><span class="badge">CONFIRMED</span></div><div class="body"><div class="left"><div class="item"><div class="label">Full Name</div><div class="value">' . e($data['client_name']) . '</div></div><div class="item"><div class="label">Purpose</div><div class="value">' . e($data['purpose']) . '</div></div><div class="item"><div class="label">Type of Client</div><div class="value">' . e($data['client_type']) . '</div></div><div class="item"><div class="label">Schedule</div><div class="value highlight">' . e($data['appointment_date']) . ' @ ' . e($data['appointment_time']) . '</div></div><div class="item"><div class="label">Contact Number</div><div class="value">' . e($data['contact_number']) . '</div></div><div class="item"><div class="label">Email Address</div><div class="value">' . e($data['email']) . '</div></div><div class="item"><div class="label">Address</div><div class="value">' . e($data['full_address']) . '</div></div><div class="item"><div class="label">Status</div><div class="value">' . e($data['status']) . '</div></div></div><div class="right"><span class="verify-chip">VALID APPOINTMENT RECEIPT</span><div class="qr-box">QR Verified</div><p class="verify-note">This receipt has been successfully verified by the FMRC system.</p><p class="verify-note">Verified at: ' . e($verifiedAt) . '</p></div></div><div class="footer"><strong>Important:</strong> Present this verified receipt or the original QR code at the FMRC office for appointment confirmation.</div></div></body></html>';
+        $html = '<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>FMRC Official Appointment Receipt</title><style>*{box-sizing:border-box}body{margin:0;background:linear-gradient(140deg,#f7f2ec,#efe6da);font-family:Montserrat,Segoe UI,Tahoma,Arial,sans-serif;color:#4b5563;padding:24px}.receipt{max-width:980px;margin:0 auto;background:#fdfaf6;border-radius:8px;border:1px solid #f0e8c8;overflow:hidden;box-shadow:0 22px 54px rgba(27,4,4,.18)}.header{background:linear-gradient(135deg,#3d0808 0%,#511721 52%,#6b202b 100%);color:#f7f2ec;padding:22px 24px;display:flex;justify-content:space-between;gap:16px;align-items:center}.kicker{display:block;font-size:11px;font-weight:800;letter-spacing:.11em;text-transform:uppercase;color:#f5ef8e}.ticket{margin-top:6px;font-size:30px;font-weight:800;color:#f7f2ec}.badge{background:#f1ed12;color:#6b202b;border-radius:999px;padding:7px 14px;font-size:12px;font-weight:800;letter-spacing:.04em}.body{display:flex;gap:0;align-items:stretch}.left{flex:1;padding:18px;display:grid;grid-template-columns:1fr 1fr;gap:12px}.item{border-bottom:1px solid #f0e8c8;padding:10px 4px}.label{font-size:10.5px;text-transform:uppercase;letter-spacing:.11em;color:#77610d;font-weight:800}.value{font-size:14.5px;font-weight:600;color:#4b5563;margin-top:6px;word-break:break-word}.highlight{color:#6b202b;font-weight:800}.right{width:260px;border-left:1px solid #f0e8c8;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:22px 16px;background:#fffdf4}.verify-chip{font-size:12px;color:#6b202b;background:#fff8d2;border:1px solid #f0e8c8;border-radius:999px;padding:7px 12px;font-weight:800;margin-bottom:12px}.qr-box{width:170px;height:170px;border:2px solid #f0e8c8;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#fff;text-align:center;color:#6b202b;font-size:12px;font-weight:700;padding:10px}.verify-note{text-align:center;font-size:12px;color:#4b5563;line-height:1.5;margin-top:10px}.footer{background:#fffdf4;border-top:1px solid #f0e8c8;padding:14px 18px;font-size:12px;color:#4b5563;line-height:1.65}.footer strong{color:#6b202b}@media (max-width:860px){body{padding:12px}.body{flex-direction:column}.right{width:100%;border-left:none;border-top:1px solid #f0e8c8}.left{grid-template-columns:1fr}}</style></head><body><div class="receipt"><div class="header"><div><span class="kicker">OFFICIAL RECEIPT VERIFICATION</span><div class="ticket">Ticket #'.e($data['reference_no']).'</div></div><span class="badge">CONFIRMED</span></div><div class="body"><div class="left"><div class="item"><div class="label">Full Name</div><div class="value">'.e($data['client_name']).'</div></div><div class="item"><div class="label">Purpose</div><div class="value">'.e($data['purpose']).'</div></div><div class="item"><div class="label">Type of Client</div><div class="value">'.e($data['client_type']).'</div></div><div class="item"><div class="label">Schedule</div><div class="value highlight">'.e($data['appointment_date']).' @ '.e($data['appointment_time']).'</div></div><div class="item"><div class="label">Contact Number</div><div class="value">'.e($data['contact_number']).'</div></div><div class="item"><div class="label">Email Address</div><div class="value">'.e($data['email']).'</div></div><div class="item"><div class="label">Address</div><div class="value">'.e($data['full_address']).'</div></div><div class="item"><div class="label">Appointment method</div><div class="value">'.e($data['method_label']).'</div></div><div class="item"><div class="label">Status</div><div class="value">'.e($data['status']).'</div></div></div><div class="right"><span class="verify-chip">VALID APPOINTMENT RECEIPT</span><div class="qr-box">QR Verified</div><p class="verify-note">This receipt has been successfully verified by the FMRC system.</p><p class="verify-note">Verified at: '.e($verifiedAt).'</p></div></div><div class="footer"><strong>Important:</strong> Present this verified receipt or the original QR code at the FMRC office for appointment confirmation.</div></div></body></html>';
 
         return response($html)->header('Content-Type', 'text/html');
     }
 
-    private function ensureDefaultSlots(): void
+    public function customerIndex(Request $request): JsonResponse
     {
-        if (AppointmentTimeSlot::query()->exists()) {
-            return;
-        }
+        abort_unless($request->user()?->role === 'customer', 403);
+        $items = Appointment::where('user_id', $request->user()->id)->orderByDesc('appointment_date')->orderByDesc('id')->get();
 
-        foreach ($this->defaultTimeSlots as $slot) {
-            AppointmentTimeSlot::query()->create($slot + ['is_active' => true]);
-        }
+        return response()->json(['data' => $items->map(fn ($item) => $this->transformAppointment($item))]);
     }
 
-    private function transformAppointment(Appointment $appointment): array
+    public function customerShow(Request $request, Appointment $appointment): JsonResponse
+    {
+        $this->authorizeOwner($request, $appointment);
+
+        return response()->json(['data' => $this->transformAppointment($appointment)]);
+    }
+
+    public function reschedule(Request $request, Appointment $appointment): JsonResponse
+    {
+        $this->authorizeOwner($request, $appointment);
+        abort_unless($request->user()->role === 'customer', 403);
+        $data = $request->validate(['appointment_date' => 'required|date_format:Y-m-d', 'appointment_time' => 'required|string|max:60',
+            'expected_date' => 'required|date_format:Y-m-d', 'expected_time' => 'required|string|max:60', 'expected_version' => 'required|integer|min:0']);
+        $appointment = DB::transaction(function () use ($request, $appointment, $data) {
+            AppointmentScheduling::lock();
+            $current = Appointment::whereKey($appointment->id)->lockForUpdate()->firstOrFail();
+            abort_unless($current->user_id === $request->user()->id, 404);
+            abort_unless($current->appointment_date->format('Y-m-d') === $data['expected_date'] && $current->appointment_time === $data['expected_time'] && $current->schedule_version === (int) $data['expected_version'], 409, 'This appointment has changed. Refresh its details before rescheduling.');
+            abort_unless(AppointmentScheduling::canReschedule($current), 422, 'This appointment can no longer be rescheduled. Changes must be made before its original start in Philippine time.');
+            if ($data['appointment_date'] === $data['expected_date'] && $data['appointment_time'] === $data['expected_time']) {
+                return $current;
+            }
+            $starts = AppointmentScheduling::available($data['appointment_date'], $data['appointment_time'], $current->id);
+            DB::table('appointment_schedule_history')->insert(['appointment_id' => $current->id, 'actor_id' => $request->user()->id,
+                'previous_date' => $data['expected_date'], 'previous_time' => $data['expected_time'], 'appointment_date' => $data['appointment_date'], 'appointment_time' => $data['appointment_time'], 'created_at' => now()]);
+            $current->fill(['appointment_date' => $data['appointment_date'], 'appointment_time' => $data['appointment_time'],
+                'appointment_starts_at' => $starts->utc(), 'meeting_platform' => null, 'meeting_url' => null, 'schedule_version' => $current->schedule_version + 1])->save();
+            AdminNotification::create(['type' => 'appointment', 'title' => 'Appointment rescheduled: '.$current->reference_no,
+                'message' => $current->first_name.' '.$current->last_name.' moved their appointment to '.$data['appointment_date'].' at '.$data['appointment_time'].' (Philippine time).',
+                'is_read' => false, 'metadata' => ['appointment_id' => $current->id, 'reference_no' => $current->reference_no]]);
+
+            return $current;
+        });
+        $this->sendUpdatedConfirmation($appointment);
+
+        return response()->json(['message' => 'Appointment rescheduled. Please use the updated receipt.', 'data' => $this->transformAppointment($appointment)]);
+    }
+
+    public function updateMeeting(Request $request, Appointment $appointment): JsonResponse
+    {
+        if ($denied = $this->ensureAdminOrStaff($request)) {
+            return $denied;
+        }
+        $data = $request->validate(['platform' => 'nullable|string|max:60', 'meeting_url' => 'nullable|url:https|max:2000', 'expected_version' => 'required|integer|min:0']);
+        if (filled($data['meeting_url'] ?? null)) {
+            $url = parse_url($data['meeting_url']);
+            if (blank($data['platform'] ?? null) || isset($url['user']) || isset($url['pass'])) {
+                throw ValidationException::withMessages(['meeting_url' => 'Enter a platform name and an HTTPS meeting link without embedded credentials.']);
+            }
+        }
+        $appointment = DB::transaction(function () use ($appointment, $data) {
+            AppointmentScheduling::lock();
+            $current = Appointment::whereKey($appointment->id)->lockForUpdate()->firstOrFail();
+            abort_unless($current->appointment_method === 'online' && AppointmentScheduling::canReschedule($current), 422, 'Meeting details can be updated for an upcoming online appointment.');
+            abort_unless($current->schedule_version === (int) $data['expected_version'], 409, 'This appointment has changed. Refresh its details before saving a meeting link.');
+            $current->fill(['meeting_platform' => filled($data['meeting_url'] ?? null) ? trim($data['platform']) : null,
+                'meeting_url' => $data['meeting_url'] ?? null, 'schedule_version' => $current->schedule_version + 1])->save();
+
+            return $current;
+        });
+        $this->sendUpdatedConfirmation($appointment);
+
+        return response()->json(['message' => 'Meeting information saved.', 'data' => $this->transformAppointment($appointment)]);
+    }
+
+    public function attachment(Request $request, Appointment $appointment, string $file)
+    {
+        $this->authorizeOwner($request, $appointment);
+        if ($file === 'legacy') {
+            abort_unless($appointment->attachment_path, 404);
+            $disk = 'public';
+            $path = $appointment->attachment_path;
+            $name = $appointment->attachment_name;
+        } else {
+            $record = DB::table('appointment_attachments')->where('appointment_id', $appointment->id)->where('id', $file)->first();
+            abort_unless($record, 404);
+            $disk = 'local';
+            $path = $record->path;
+            $name = $record->name;
+        }
+        abort_unless(Storage::disk($disk)->exists($path), 404, 'This attachment is unavailable.');
+
+        return Storage::disk($disk)->download($path, $name, ['Content-Type' => 'application/octet-stream', 'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'private, no-store']);
+    }
+
+    private function authorizeOwner(Request $request, Appointment $appointment): void
+    {
+        $user = $request->user();
+        abort_unless($user && (in_array($user->role, self::ALLOWED_ADMIN_ROLES, true) || ($user->role === 'customer' && $appointment->user_id === $user->id)), 404);
+    }
+
+    private function sendUpdatedConfirmation(Appointment $appointment): void
+    {
+        if (! filter_var($appointment->email, FILTER_VALIDATE_EMAIL)) {
+            return;
+        }
+        OrderNotifier::afterResponse(function () use ($appointment) {
+            try {
+                Mail::to($appointment->email)->send(new AppointmentConfirmation($appointment, true));
+            } catch (\Throwable $error) {
+                Log::warning('Appointment update email could not be sent.', ['appointment_id' => $appointment->id]);
+            }
+        });
+    }
+
+    private function ensureDefaultSlots(): void
+    {
+        DB::transaction(function () {
+            AppointmentScheduling::lock();
+            if (AppointmentTimeSlot::exists()) {
+                return;
+            }
+            foreach ($this->defaultTimeSlots as $slot) {
+                AppointmentTimeSlot::create($slot + ['is_active' => true]);
+            }
+        });
+    }
+
+    private function transformAppointment(Appointment $appointment, bool $private = true): array
     {
         $middleInitial = trim((string) ($appointment->middle_initial ?? ''));
-        $middleInitial = $middleInitial ? rtrim($middleInitial, '.') . '.' : '';
+        $middleInitial = $middleInitial ? rtrim($middleInitial, '.').'.' : '';
 
         $clientNameParts = array_filter([
             trim((string) $appointment->first_name),
@@ -551,16 +645,20 @@ class AppointmentController extends Controller
             trim((string) $appointment->last_name),
         ]);
 
-        $attachmentUrl = null;
-        if ($appointment->attachment_path) {
-            // Build the URL from the incoming request host (same helper used for
-            // qr_payload) instead of config('app.url'). A stale production
-            // APP_URL would otherwise hand the browser a localhost link and the
-            // File Attach item would silently fail to open.
-            $storagePath = ltrim($appointment->attachment_path, '/');
-            $attachmentUrl = url('/storage/' . $storagePath);
+        $attachmentUrl = $private && $appointment->attachment_path ? url('/api/customer/appointments/'.$appointment->id.'/attachments/legacy') : null;
+        $extra = ['appointment_method' => $appointment->appointment_method, 'method_label' => match ($appointment->appointment_method) {
+            'online' => 'Online','face_to_face' => 'Face-to-face at FMRC',default => 'Not recorded'
+        }];
+        if ($private) {
+            $files = AppointmentFiles::records($appointment->id);
+            if ($appointment->attachment_path) {
+                $files[] = ['id' => 'legacy', 'name' => $appointment->attachment_name, 'size' => null, 'download_url' => $attachmentUrl];
+            }
+            $extra += ['attachments' => $files, 'meeting_platform' => $appointment->meeting_platform, 'meeting_url' => $appointment->meeting_url,
+                'meeting_status' => $appointment->appointment_method === 'online' ? ($appointment->meeting_url ? 'Meeting link available' : 'Meeting link pending') : null,
+                'schedule_version' => (int) $appointment->schedule_version, 'can_reschedule' => AppointmentScheduling::canReschedule($appointment),
+                'schedule_history' => DB::table('appointment_schedule_history')->where('appointment_id', $appointment->id)->orderBy('id')->get(['previous_date', 'previous_time', 'appointment_date', 'appointment_time', 'created_at'])->all()];
         }
-
 
         return [
             'id' => $appointment->id,
@@ -583,18 +681,18 @@ class AppointmentController extends Controller
             'additional_notes' => $appointment->additional_notes,
             'appointment_date' => optional($appointment->appointment_date)->format('Y-m-d'),
             'appointment_time' => $appointment->appointment_time,
-            'attachment_name' => $appointment->attachment_name,
+            'attachment_name' => $private ? $appointment->attachment_name : null,
             'attachment_url' => $attachmentUrl,
             'status' => $appointment->status,
             'qr_payload' => $appointment->qr_payload,
             'created_at' => optional($appointment->created_at)->toIso8601String(),
-        ];
+        ] + $extra;
     }
 
     private function ensureAdminOrStaff(Request $request): ?JsonResponse
     {
         $user = $request->user();
-        if (!$user || !in_array($user->role, self::ALLOWED_ADMIN_ROLES, true)) {
+        if (! $user || ! in_array($user->role, self::ALLOWED_ADMIN_ROLES, true)) {
             return response()->json([
                 'message' => 'Forbidden. Admin or staff access is required.',
             ], 403);
@@ -602,5 +700,4 @@ class AppointmentController extends Controller
 
         return null;
     }
-
 }

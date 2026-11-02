@@ -34,7 +34,7 @@
     <script src="dark-mode.js?v=3.1"></script>
     <link rel="stylesheet" href="portal-sidebar.css?v=1.3" />
     <script src="portal-sidebar.js?v=1.1" defer></script>
-  </head>
+  <link rel="stylesheet" href="courier-shipments.css?v=1.0" /></head>
   <body>
     <div class="dashboard-container">
       <aside class="sidebar">
@@ -636,11 +636,23 @@
               ><input id="modalOrderReference" class="input-field" readonly />
             </div>
             <div class="field-stack">
+              <label for="modalOrderSubtotal">Item subtotal</label>
+              <input id="modalOrderSubtotal" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label for="modalOrderShippingFee">Shipping fee</label>
+              <input id="modalOrderShippingFee" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
+              <label for="modalOrderDeliveryEstimate">Estimated delivery</label>
+              <input id="modalOrderDeliveryEstimate" class="input-field" readonly />
+            </div>
+            <div class="field-stack">
               <label>Quantity</label
               ><input id="modalOrderQty" class="input-field" readonly />
             </div>
             <div class="field-stack">
-              <label>Total</label
+              <label>Payable total</label
               ><input id="modalOrderTotal" class="input-field" readonly />
             </div>
             <div class="field-stack">
@@ -1738,8 +1750,9 @@
     <script src="session-helper.js?v=2.4"></script>
     <script src="admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
-    <script src="admin-common.js?v=8.4"></script>
-    <script src="orders.js?v=20261019-rejection-reason"></script>
+    <script src="admin-common.js?v=8.6-policies"></script>
+    <script src="courier-shipments.js?v=1.0"></script>
+<script src="orders.js?v=6.2-courier"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
   <link rel="stylesheet" href="gateway-payments.css?v=2.8-archive-tooltip">
     <link rel="stylesheet" href="../home-page/payment-dialogs.css?v=2.1-refund-claims">

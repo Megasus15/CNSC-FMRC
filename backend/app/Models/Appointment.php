@@ -9,6 +9,8 @@ class Appointment extends Model
 {
     use HasFactory;
 
+    protected $attributes = ['schedule_version'=>0];
+
     protected $fillable = [
         'reference_no',
         'user_id',
@@ -33,9 +35,12 @@ class Appointment extends Model
         'attachment_path',
         'status',
         'qr_payload',
+        'appointment_method','appointment_starts_at','meeting_platform','meeting_url','schedule_version',
     ];
 
     protected $casts = [
         'appointment_date' => 'date:Y-m-d',
+        'schedule_version'=>'integer',
+        'appointment_starts_at'=>'datetime',
     ];
 }

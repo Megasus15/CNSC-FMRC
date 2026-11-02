@@ -189,7 +189,7 @@ test('every authenticated page shares the sidebar; My Account precedes Settings 
     }
     if (file !== 'settings.html') assert(!html.includes('name="portalTheme"'));
   }
-  assert.equal(count, 39);
+  assert.equal(count, 43);
   assert(!fs.readFileSync(path.join(root, 'admin-auth/auth.html'), 'utf8').includes('dark-mode'));
 });
 

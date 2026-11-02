@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="stylesheet" href="/apps/shared/pwa.css?v=1.5" />
+    <script src="/apps/shared/pwa.js?v=1.5"></script>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#800000" />
+    <link rel="icon" type="image/png" href="../images/FMRC%20Brand%20Logo.png?v=1" />
+    <link rel="apple-touch-icon" href="../images/FMRC%20Brand%20Logo.png?v=1" />
+    <title>Shipping &amp; Delivery | UCN-FMRC Admin</title>
+    <link rel="stylesheet" href="dashboard.css?v=7.4" />
+    <link rel="stylesheet" href="admin-modules.css?v=6.8" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="admin-responsive.css?v=3.2" />
+    <link rel="stylesheet" href="website-payments.css?v=1.2" />
+    <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=3.0" />
+    <!-- Shared authenticated appearance -->
+    <link rel="stylesheet" href="dark-mode.css?v=2.3" />
+    <script src="dark-mode.js?v=3.1"></script>
+    <link rel="stylesheet" href="portal-sidebar.css?v=1.3" />
+    <script src="portal-sidebar.js?v=1.1" defer></script>
+    <link rel="stylesheet" href="website-loading.css?v=1.1" />
+  <link rel="stylesheet" href="website-shipping.css?v=1.0" />
+  </head>
+  <body>
+    <div class="dashboard-container">
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <img src="../images/FMRC Brand Logo.png" alt="FMRC Logo" class="logo" />
+          <h2>UCN-FMRC</h2>
+        </div>
+        <nav class="sidebar-nav">
+          <a href="dashboard.html" class="nav-link"
+            ><i class="admin-dashboard-icon" aria-hidden="true"></i> Dashboard</a
+          >
+          <a href="inventory.html" class="nav-link"
+            ><i class="fa-solid fa-box"></i> Inventory</a
+          >
+          <a href="products.html" class="nav-link"
+            ><i class="fa-solid fa-tags"></i> Products</a
+          >
+          <a href="promotions.html" class="nav-link" title="Promotions &amp; Announcements"
+            ><i class="fa-solid fa-bullhorn"></i> Promotions</a
+          >
+          <a href="appointments.html" class="nav-link"
+            ><i class="fa-regular fa-calendar-check"></i> Appointment</a
+          >
+          <a href="accounts.html" class="nav-link"
+            ><i class="fa-solid fa-users"></i> User Management</a
+          >
+          <a href="reports.html" class="nav-link"
+            ><i class="fa-solid fa-chart-line"></i> Reports</a
+          >
+          <a href="orders.html" class="nav-link"
+            ><i class="fa-solid fa-box-open"></i> Orders</a
+          >
+          <a href="customer-inquiries.html" class="nav-link"><i class="fa-regular fa-envelope-open"></i> Customer Inquiries</a>
+          <a href="ratings.html" class="nav-link"><i class="fa-solid fa-star"></i> Ratings &amp; Feedback</a>
+          <div class="nav-item has-dropdown open">
+            <a href="#" class="nav-link dropdown-toggle" id="adminControlBtn">
+              <div class="dropdown-title">
+                <i class="fa-solid fa-screwdriver-wrench"></i> Website
+                Management
+              </div>
+              <i class="fa-solid fa-chevron-down arrow"></i>
+            </a>
+            <div class="dropdown-menu">
+              <a href="website-home.html" class="sub-link">Home</a>
+              <a href="website-services.html" class="sub-link">Services</a>
+              <a href="website-contact.html" class="sub-link">Contact</a>
+              <a href="website-footer.html" class="sub-link">Footer</a>
+              <a href="website-payments.html" class="sub-link">Payment Methods</a>
+              <a href="website-emails.html" class="sub-link">Email Templates</a>
+              <a href="website-maintenance.html" class="sub-link">Maintenance</a>
+            </div>
+          </div>
+          <a href="archives.html" class="nav-link"
+            ><i class="fa-solid fa-box-archive"></i> Archives</a
+          >
+          <a href="my-account.html" class="nav-link"
+            ><i class="fa-regular fa-id-card"></i> My Account</a
+          >
+          <a href="settings.html" class="nav-link"
+            ><i class="fa-solid fa-gear"></i> <span class="nav-label">Settings</span></a
+          >
+        </nav>
+        <div class="sidebar-footer">
+          <button class="logout-btn">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+          </button>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="top-header">
+          <div class="header-left"><h1>Shipping &amp; Delivery</h1></div>
+          <div class="header-right">
+            <div class="notifications" id="notifBell">
+              <i class="fa-regular fa-bell"></i
+              ><span class="badge" id="notifBadge" style="display: none"></span>
+            </div>
+            <div class="user-profile">
+              <div class="user-info"><span class="role">Admin</span></div>
+              <span
+                class="profile-icon profile-initial"
+                data-email="admin@cnsc.edu.ph"
+              ></span>
+              <div class="profile-popup" id="profilePopup">
+                <div class="popup-header">
+                  <div class="popup-profile-row">
+                    <span
+                      class="popup-profile-icon profile-initial"
+                      data-email="admin@cnsc.edu.ph"
+                    ></span>
+                    <div class="popup-profile-meta">
+                      <p class="popup-identity">admin@cnsc.edu.ph</p>
+                      <span class="popup-role">Admin</span>
+                    </div>
+                  </div>
+                </div>
+                <a href="my-account.html" class="profile-popup-link"
+                  ><i class="fa-regular fa-id-card"></i> My Account</a
+                >
+                <a href="settings.html" class="profile-popup-link"
+                  ><i class="fa-solid fa-gear"></i> Settings</a
+                >
+                <hr />
+                <button class="logout-btn popup-logout">
+                  <i class="fa-solid fa-right-from-bracket"></i> Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section class="module-content payment-settings-page shipping-page" aria-labelledby="shippingPageTitle">
+  <div class="page-toolbar"><div class="toolbar-title"><h2 id="shippingPageTitle">Shipping &amp; Delivery</h2><p>Published destination fees and delivery estimates for customer orders.</p></div><button class="btn-admin btn-secondary" type="button" id="shippingRefresh"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Refresh</button></div>
+  <div id="shippingError" class="payment-settings-message is-error" role="alert" hidden><span id="shippingErrorText"></span><button type="button" class="btn-admin btn-secondary" id="shippingRetry">Try again</button></div>
+  <section class="payment-settings-card wm-section"><h3>Published shipping settings</h3><p id="shippingPublishedVersion">Loading published settings…</p><div id="shippingPublished"></div><p id="shippingPublishedCalendar"></p><p>Fees apply once per order. Pickup has no shipping fee. Preparation and transit use working days in Asia/Manila; nonworking dates are excluded. FMRC handles any difference between the accepted customer fee and the courier booking cost.</p></section>
+  <section class="payment-settings-card wm-section" id="shippingEditor" hidden><h3>Shipping settings draft</h3><p>Only an Admin can save and publish FMRC-approved fees, coverage, and working dates. A saved draft does not change checkout.</p>
+    <form id="shippingForm"><fieldset id="shippingFields" disabled>
+      <label class="shipping-check"><input type="checkbox" id="shippingEnabled" /> Enable courier delivery for configured destination zones</label>
+      <div class="shipping-calendar"><div><strong>Nonworking weekdays</strong><div class="shipping-weekdays"><label><input type="checkbox" value="1" data-shipping-weekday />Monday</label><label><input type="checkbox" value="2" data-shipping-weekday />Tuesday</label><label><input type="checkbox" value="3" data-shipping-weekday />Wednesday</label><label><input type="checkbox" value="4" data-shipping-weekday />Thursday</label><label><input type="checkbox" value="5" data-shipping-weekday />Friday</label><label><input type="checkbox" value="6" data-shipping-weekday />Saturday</label><label><input type="checkbox" value="7" data-shipping-weekday />Sunday</label></div></div>
+      <div class="field-stack"><label for="shippingDates">Additional nonworking dates (YYYY-MM-DD, one per line)</label><textarea class="input-field" id="shippingDates" rows="4"></textarea></div></div>
+      <h3>Philippine destination zones</h3><p>Use official province and city names from the customer address. Specific city or postal-code zones take priority over a province-wide zone. Unconfigured destinations offer pickup.</p>
+      <div id="shippingZones"></div><button type="button" class="btn-admin btn-secondary" id="shippingAddZone"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add destination zone</button>
+    </fieldset></form>
+    <details open><summary>Draft preview</summary><div id="shippingDraftPreview"></div></details>
+    <div class="shipping-publish"><label class="shipping-check"><input type="checkbox" id="shippingApproved" disabled /> FMRC has approved these shipping fees, destination coverage, and working dates.</label><button class="btn-admin" id="shippingPublish" type="button" disabled>Publish approved settings</button><p>Save draft changes before publishing. Updated rates apply to new quotes; existing orders retain their accepted fee and estimate.</p></div>
+  </section>
+  <div class="wm-save-bar" data-dock-save-bar id="shippingSaveBar" hidden><p id="shippingSaveStatus" role="status">Loading shipping settings…</p><div class="shipping-save-actions"><button class="btn-admin btn-secondary" type="button" id="shippingDiscard" disabled>Discard changes</button><button class="btn-admin" type="submit" form="shippingForm" id="shippingSave" disabled><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i> Save draft changes</button></div></div>
+</section>
+</main>
+    </div>
+
+    <script src="session-helper.js?v=2.4"></script>
+    <script src="admin-session.js?v=1.0"></script>
+    <script src="../home-page/fmrc-loader.js?v=2.1"></script>
+    <script src="website-loading.js?v=1.2"></script>
+    <script src="admin-common.js?v=8.6-policies"></script>
+    <script src="website-shipping.js?v=1.0"></script>
+  </body>
+</html>

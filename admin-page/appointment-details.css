@@ -1,0 +1,11 @@
+.appointment-operational{border-top:1px solid var(--border-color);margin-top:20px;padding-top:18px;color:var(--text-main);line-height:1.7}
+.appointment-operational h4{margin:0 0 12px;color:var(--portal-accent,var(--primary-color))}
+.appointment-operational fieldset{border:0;padding:0;min-width:0}
+.appointment-meeting-fields{display:grid;grid-template-columns:1fr 2fr;gap:16px;margin-top:18px}
+.appointment-meeting-fields .field-stack{min-width:0;display:grid;gap:7px}
+.appointment-meeting-fields .input-field{min-width:0;width:100%}
+.appointment-operational form p{font-size:13px}
+.appointment-operational [data-meeting-status]{min-height:20px}
+.appointment-file-button{background:none;border:0;padding:3px 0;font:inherit;color:var(--portal-accent,#800000);text-decoration:underline;cursor:pointer;text-align:left;overflow-wrap:anywhere}
+.appointment-file-button:disabled{opacity:.6;cursor:progress}
+@media(max-width:700px){.appointment-meeting-fields{grid-template-columns:1fr}}

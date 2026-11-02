@@ -1,0 +1,32 @@
+.shipping-page .payment-settings-card { padding: 24px; margin-bottom: 24px; }
+.shipping-page h3 { margin: 0 0 12px; }
+.shipping-page p { line-height: 1.6; }
+.shipping-page fieldset { border: 0; padding: 0; min-width: 0; }
+.shipping-calendar { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin: 22px 0; }
+.shipping-weekdays { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
+.shipping-weekdays label,.shipping-check { display: flex; align-items: center; gap: 8px; font-size: .9rem; }
+.shipping-zone { border: 1px solid var(--border-color); border-radius: 10px; padding: 18px; margin: 18px 0; }
+.shipping-zone-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.shipping-zone-heading h4 { margin: 0; }
+.shipping-zone-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
+.shipping-page .field-stack label { display: block; margin-bottom: 7px; font-size: .85rem; }
+.shipping-page .input-field { width: 100%; min-width: 0; box-sizing: border-box; }
+.shipping-table-wrap { overflow-x: auto; }
+.shipping-table { border-collapse: collapse; width: 100%; font-size: .85rem; text-align: left; }
+.shipping-table th,.shipping-table td { padding: 12px; border-bottom: 1px solid var(--border-color); vertical-align: top; min-width: 100px; }
+.shipping-page [hidden] { display: none !important; }
+.shipping-page details { margin: 20px 0; }
+.shipping-page summary { cursor: pointer; font-weight: 600; }
+.shipping-publish { padding: 18px 0; border-top: 1px solid var(--border-color); }
+.shipping-publish .btn-admin { margin-top: 14px; }
+#shippingSaveBar { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+#shippingSaveBar[hidden] { display: none !important; }
+.shipping-save-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+@media(max-width:720px) {
+  .shipping-calendar,.shipping-zone-fields { grid-template-columns: 1fr; }
+  .shipping-page .payment-settings-card { padding: 16px; }
+  #shippingSaveBar { flex-wrap: wrap; gap: 10px; }
+  #shippingSaveBar > p { flex: 1 1 100%; margin: 0; }
+  #shippingSaveBar .shipping-save-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  #shippingSaveBar .btn-admin { width: 100%; min-width: 0; white-space: nowrap; }
+}

@@ -1,0 +1,48 @@
+(() => {
+  'use strict';
+  document.addEventListener('DOMContentLoaded',()=>{
+    const get=id=>document.getElementById(id);if(!get('policyEditorForm'))return;
+    const api=(window.APP_API_BASE_URL||(['localhost','127.0.0.1'].includes(location.hostname)&&location.port!=='8000'?location.protocol+'//'+location.hostname+':8000/api':location.origin+'/api')).replace(/\/$/,'');
+    const fields={title:get('policyDraftTitle'),terms_text:get('policyDraftTerms'),refund_text:get('policyDraftRefund')};
+    let record=null,busy=false,loaded=false,baseline='';
+    const read=()=>Object.fromEntries(Object.entries(fields).map(([key,field])=>[key,field.value]));
+    const changed=()=>!!record&&JSON.stringify(read())!==baseline;
+    const canEdit=()=>loaded&&record?.can_edit;
+    const sync=()=>{
+      get('policyEditorFields').disabled=!canEdit()||busy;
+      get('policyDraftSave').disabled=!canEdit()||busy||!changed();
+      get('policyDraftDiscard').disabled=!canEdit()||busy||!changed();
+      get('policyApproval').disabled=!canEdit()||busy;
+      const published=record?.published;const same=published&&Object.keys(fields).every(key=>published[key]===fields[key].value);
+      get('policyPublish').disabled=!canEdit()||busy||changed()||!record?.draft||!get('policyApproval').checked||same;
+      get('policyEditorForm').setAttribute('aria-busy',String(busy));
+      get('policySaveStatus').textContent=busy?'Saving policy settings…':changed()?'You have unsaved draft changes.':'Draft changes are saved. Publish only FMRC-approved wording.';
+      get('policyPreviewTerms').textContent=fields.terms_text.value;get('policyPreviewRefund').textContent=fields.refund_text.value;
+    };
+    const apply=data=>{
+      record=data;loaded=true;get('policyDraftEditor').hidden=!data.can_edit;get('policySaveBar').hidden=!data.can_edit;
+      const draft=data.draft||data.published||{title:'',terms_text:'',refund_text:''};
+      Object.keys(fields).forEach(key=>{fields[key].value=draft[key];});baseline=JSON.stringify(read());get('policyApproval').checked=false;
+      get('policyPublishedTitle').textContent=data.published?.title||'No published policy';
+      get('policyPublishedMessage').textContent=data.published?'Customers review and accept this version at checkout.':'A draft is available to Admin for FMRC review. No draft wording is shown to customers.';
+      get('policyPublishedTerms').textContent=data.published?.terms_text||'';get('policyPublishedRefund').textContent=data.published?.refund_text||'';
+      get('policyPublishedLink').hidden=!data.published;
+      if(data.published)get('policyPublishedLink').href='/products-page/refund-policy.html?version='+encodeURIComponent(data.published.version)+'#refund-policy';
+      sync();
+    };
+    const showError=text=>{get('policySettingsError').hidden=false;get('policySettingsErrorText').textContent=text;};
+    const request=async(path,options={})=>{
+      const response=await fetch(api+'/admin/commerce-policy'+path,{...options,headers:{Accept:'application/json','Content-Type':'application/json',Authorization:'Bearer '+window.AdminSession?.getToken()}});
+      const json=await response.json().catch(()=>({}));if(!response.ok)throw Error(Object.values(json.errors||{}).flat()[0]||json.message||'Policy settings could not be saved. Please retry.');return json.data;
+    };
+    const load=async()=>{busy=true;loaded=false;sync();get('policySettingsError').hidden=true;try{apply(await request(''));}catch{showError('The policy could not be loaded. Retry before editing.');}finally{busy=false;sync();}};
+    const save=async(publish)=>{busy=true;sync();get('policySettingsError').hidden=true;try{apply(await request(publish?'/publish':'/draft',{method:publish?'POST':'PUT',body:JSON.stringify({expected_revision:record.revision,...(publish?{approved:true}:read())})}));window.showAdminSuccessNotification?.(publish?'Approved transaction terms and refund policy published.':'Policy draft saved.',{title:'Saved!'});}catch(error){showError(error.message);}finally{busy=false;sync();}};
+    get('policyEditorForm').addEventListener('input',sync);get('policyApproval').addEventListener('change',sync);
+    get('policyEditorForm').addEventListener('submit',event=>{event.preventDefault();if(!canEdit()||busy||!changed()||!get('policyEditorForm').reportValidity())return;window.showAdminConfirmPopup('Save this wording as a policy draft for FMRC review?',{title:'Save Policy Draft',confirmText:'Save draft',onConfirm:()=>save(false)});});
+    get('policyPublish').addEventListener('click',()=>{if(get('policyPublish').disabled)return;window.showAdminConfirmPopup('Publish the FMRC-approved transaction terms and refund policy? Customers must accept this new version before placing an order.',{title:'Publish Approved Policy',confirmText:'Publish',onConfirm:()=>save(true)});});
+    get('policyDraftDiscard').addEventListener('click',()=>{if(!busy&&record)apply(record);});
+    const refresh=()=>{if(busy)return;if(changed())window.showAdminConfirmPopup('Discard unsaved wording and load the latest policy draft?',{title:'Refresh Policy',confirmText:'Load latest',onConfirm:load});else void load();};
+    get('policySettingsRefresh').addEventListener('click',refresh);get('policySettingsRetry').addEventListener('click',refresh);
+    void(window.AdminWebsiteLoading?window.AdminWebsiteLoading.during(load):load());
+  });
+})();

@@ -200,6 +200,7 @@ function submitHarness() {
     currentCheckoutMode: 'single', currentCheckoutItems: [], currentProductId: 1,
     inputQty: { value: '1' }, checkoutGrandTotal: { innerText: '250.00' }, checkoutPrice: null,
     currentItemPrice: 250, checkoutTitle: { innerText: 'Test Product' }, checkoutImg: null,
+    shippingQuoteController: { token: () => 'accepted-quote', total: () => 250, reject() {} },
     parsePrice: Number, API_BASE_URL: '/api',
     showCustomerPopup: async (message) => { popups.push(message); },
     fetchWithTimeout: async (url, options) => {

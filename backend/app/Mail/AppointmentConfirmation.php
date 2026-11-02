@@ -24,6 +24,7 @@ class AppointmentConfirmation extends Mailable
 
     public function __construct(
         public readonly Appointment $appointment,
+        public readonly bool $updated=false,
     ) {}
 
     /**
@@ -34,7 +35,7 @@ class AppointmentConfirmation extends Mailable
         $referenceNo = $this->appointment->reference_no ?? 'N/A';
 
         return new Envelope(
-            subject: "Appointment Confirmed - {$referenceNo}",
+            subject: ($this->updated?"Appointment Updated - ":"Appointment Confirmed - ").$referenceNo,
         );
     }
 
@@ -89,7 +90,11 @@ class AppointmentConfirmation extends Mailable
                 </td>
               </tr>" : '';
 
+        $method=e(match($appointment->appointment_method){'online'=>'Online','face_to_face'=>'Face-to-face at FMRC',default=>'Not recorded'});
+        $meeting=$appointment->appointment_method==='online'?($appointment->meeting_url?'<a href="'.e($appointment->meeting_url).'">'.e($appointment->meeting_platform?:'Join online meeting').'</a>':'Meeting link pending. Open My Appointments for updates.'):'Fabrication and Manufacturing Research Center (FMRC)';
+        $updatedNote=$this->updated?'<p>Your appointment details have changed. Use the current schedule below; previous meeting links may no longer apply.</p>':'';
         $extra = <<<HTML
+{$updatedNote}<p><strong>Appointment method:</strong> {$method}<br>{$meeting}</p>
 <!-- Appointment Details Card -->
             <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;">
               <tr>
