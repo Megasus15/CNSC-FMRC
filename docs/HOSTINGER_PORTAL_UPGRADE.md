@@ -1,5 +1,18 @@
 # Install the portal upgrade together
 
+## phpMyAdmin alternative for the confirmed missing-schema database
+
+Use [HOSTINGER_PORTAL_UPGRADE.sql](HOSTINGER_PORTAL_UPGRADE.sql) only for the inspected `u799987132_ucn_fmrc_db` database where all nine upgrade tables and all new order/appointment columns are absent. The file explicitly selects that database. It is generated from the four canonical migrations by `php scripts/build_portal_upgrade_sql.php` and records each completed migration so a later Artisan deployment will skip it.
+
+1. Select the website database in phpMyAdmin and use Export to save a complete SQL backup.
+2. Select Import, choose `docs/HOSTINGER_PORTAL_UPGRADE.sql` from your local repository, keep SQL format and foreign-key checks enabled, and click Go/Import.
+3. Import only once. If an error appears, stop and retain the exact error. DDL is not transactional; a partially completed import requires targeted recovery, not a blind reimport.
+4. After success, refresh Shipping & Delivery and Transaction Policies. Publish only FMRC-approved settings. Check checkout, appointments and reports separately; this import does not prove those live workflows work.
+
+This adds schema and initial settings/lock rows. It does not delete existing data, fabricate historical delivery dates or policy acceptance, publish settings, or enable courier booking. Do not import into a database with a different or partially upgraded schema.
+
+## SSH installation
+
 The files and the database must both be upgraded. Pushing HTML/JavaScript alone does not install the database tables. Missing schema causes Shipping and Transaction Policies to return HTTP 503.
 
 1. Back up the live database and website in Hostinger. Keep the live `backend/.env`, `APP_KEY` and `backend/storage`.

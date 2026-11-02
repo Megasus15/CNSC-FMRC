@@ -22,10 +22,11 @@
     const normalized = settings => JSON.stringify({enabled:settings.enabled,nonworking_weekdays:settings.nonworking_weekdays,nonworking_dates:settings.nonworking_dates,zones:settings.zones.map(zone=>({...zone,fee:Number(zone.fee)}))});
     const dirty = () => !!record && normalized(read())!==baseline;
     const table = settings => {
-      if (!settings) return '<p>No shipping rates have been published. Delivery is unavailable; customers can choose pickup.</p>';
-      if (!settings.enabled) return '<p>Courier delivery is currently unavailable. Pickup has no shipping fee.</p>';
-      return '<div class="shipping-table-wrap"><table class="shipping-table"><thead><tr><th>Destination zone</th><th>Coverage</th><th>Fee per order</th><th>Preparation</th><th>Transit</th></tr></thead><tbody>'+settings.zones.map(zone=>
-        '<tr><td>'+escape(zone.name)+'</td><td>'+escape([zone.province,zone.cities?.join(', ')||'All cities / municipalities',zone.postal_codes?.join(', ')||'All postal codes'].join(' · '))+'</td><td>'+money(zone.fee)+'</td><td>'+zone.preparation_days+' working days</td><td>'+zone.transit_min_days+'–'+zone.transit_max_days+' working days</td></tr>').join('')+'</tbody></table></div>';
+      if (!settings) return '<div class="shipping-empty"><strong>Pickup only</strong><p>Publish approved delivery rates to offer shipping. Pickup at FMRC has no shipping fee.</p></div>';
+      if (!settings.enabled) return '<div class="shipping-empty"><strong>Delivery is turned off</strong><p>Customers can choose free pickup at FMRC.</p></div>';
+      if (!settings.zones.length) return '<div class="shipping-empty"><strong>No destinations added</strong><p>Add a destination and its rate before publishing delivery settings.</p></div>';
+      return '<div class="shipping-table-wrap" tabindex="0" role="region" aria-label="Delivery rates"><table class="shipping-table"><thead><tr><th scope="col">Destination zone</th><th scope="col">Coverage</th><th scope="col">Fee per order</th><th scope="col">Preparation</th><th scope="col">Transit</th></tr></thead><tbody>'+settings.zones.map(zone=>
+        '<tr><td>'+escape(zone.name)+'</td><td>'+escape([zone.province,zone.cities?.join(', ')||'All cities / municipalities',zone.postal_codes?.join(', ')||'All postal codes'].join(' · '))+'</td><td>'+money(zone.fee)+'</td><td>'+zone.preparation_days+' working '+(Number(zone.preparation_days)===1?'day':'days')+'</td><td>'+zone.transit_min_days+'–'+zone.transit_max_days+' working days</td></tr>').join('')+'</tbody></table></div>';
     };
     const sync = () => {
       const changed=dirty();
@@ -37,11 +38,14 @@
       get('shippingApproved').disabled=!admin()||busy;
       get('shippingDraftPreview').innerHTML=record ? table(read()) : '';
       get('shippingRefresh').disabled=busy;get('shippingRetry').disabled=busy;
-      get('shippingSaveStatus').textContent=busy?(loaded?'Saving shipping settings…':'Loading shipping settings…'):!loaded?'Settings are unavailable. Retry before editing.':changed?'You have unsaved draft changes.':admin()?'Draft changes are saved. Publish only FMRC-approved settings.':'Published shipping settings are read-only for Staff.';
+      get('shippingSaveStatus').textContent=busy?(loaded?'Updating settings…':'Loading settings…'):!loaded?'Settings unavailable. Please retry.':changed?'Unsaved draft changes':admin()?'No unsaved changes':'Published settings · Read only';
+      const hint=get('shippingPublishHint');
+      if(hint)hint.textContent=!loaded?'':busy?'Please wait…':changed?'Save your draft before publishing.':!record?.draft?'Save a draft to get started.':normalized(record.draft)===normalized(record.published || {enabled:false,nonworking_weekdays:[6,7],nonworking_dates:[],zones:[]})?'No changes to publish.':!get('shippingApproved').checked?'Confirm FMRC approval to publish.':'Ready to publish.';
     };
     const renderZones = values => {
       zones=values;
-      const fields=[['name','Zone name','text'],['province','Province (official name)','text'],['cities','Cities / municipalities (comma separated; blank = all)','text'],['postal_codes','Postal codes (comma separated; blank = all)','text'],['fee','Shipping fee per order (PHP)','number'],['preparation_days','Preparation (working days)','number'],['transit_min_days','Minimum transit (working days)','number'],['transit_max_days','Maximum transit (working days)','number']];
+      const fields=[['name','Destination name','text'],['province','Province','text'],['cities','Cities / municipalities (optional)','text'],['postal_codes','Postal codes (optional)','text'],['fee','Fee per order (PHP)','number'],['preparation_days','Preparation days','number'],['transit_min_days','Minimum transit days','number'],['transit_max_days','Maximum transit days','number']];
+      if(!zones.length){get('shippingZones').innerHTML='<div class="shipping-empty"><strong>No destinations yet</strong><p>Add your first destination to set its shipping fee and delivery estimate.</p></div>';return;}
       get('shippingZones').innerHTML=zones.map((zone,index)=>'<section class="shipping-zone" data-zone-id="'+escape(zone.id)+'"><div class="shipping-zone-heading"><h4>Destination zone '+(index+1)+'</h4><button type="button" class="btn-admin btn-secondary" data-remove-zone="'+index+'">Remove zone</button></div><div class="shipping-zone-fields">'+fields.map(([key,label,type])=>
         '<div class="field-stack"><label for="shipping-'+index+'-'+key+'">'+label+'</label><input class="input-field" id="shipping-'+index+'-'+key+'" data-field="'+key+'" type="'+type+'" value="'+escape(Array.isArray(zone[key])?zone[key].join(', '):zone[key])+'" '+(['cities','postal_codes'].includes(key)?'':'required ') + (type==='number'?'min="'+(key.includes('transit')?1:0)+'" max="'+(key==='fee'?'999999.99':'90')+'" step="'+(key==='fee'?'.01':'1')+'"':'maxlength="'+(['cities','postal_codes'].includes(key)?'10000':'120')+'"')+' /></div>').join('')+'</div></section>').join('');
     };
@@ -58,7 +62,7 @@
       get('shippingPublished').innerHTML=table(data.published);
       get('shippingPublishedVersion').textContent=data.published_at?'Published '+new Date(data.published_at.replace(' ','T')+'Z').toLocaleString('en-PH',{timeZone:'Asia/Manila'}):'No published rates';
       const calendar=data.published;
-      get('shippingPublishedCalendar').textContent=calendar ? 'Nonworking weekdays: '+calendar.nonworking_weekdays.map(day=>['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][day-1]).join(', ')+'. Additional nonworking dates: '+(calendar.nonworking_dates.join(', ')||'None')+'.' : '';
+      get('shippingPublishedCalendar').textContent=calendar ? 'Nonworking days: '+(calendar.nonworking_weekdays.map(day=>['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][day-1]).join(', ')||'None')+'. Other closures: '+(calendar.nonworking_dates.join(', ')||'None')+'.' : '';
       sync();
     };
     const error = message => {get('shippingError').hidden=false;get('shippingErrorText').textContent=message;};
