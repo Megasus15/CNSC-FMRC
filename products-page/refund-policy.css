@@ -14,6 +14,9 @@
 .policy-document-section p { margin: 0; white-space: pre-wrap; }
 .policy-help { border-top: 1px solid #e9dce0; margin-top: 28px; padding-top: 22px; }
 .checkout-policy-status { font-size: .8rem; line-height: 1.5; margin: 10px 0; color: #62575d; overflow-wrap: anywhere; }
+#checkoutPolicyRetry { align-self: flex-start; width: auto; padding: 10px 16px; border: 1px solid #800000; border-radius: 8px; background: #fff; font: inherit; font-size: .85rem; color: #800000; text-decoration: none; cursor: pointer; }
+#checkoutPolicyRetry:hover { background: #f7edef; }
+#checkoutPolicyRetry[hidden] { display: none !important; }
 .policy-page [hidden] { display: none !important; }
 @media(max-width:620px) { .policy-page { padding: 24px 16px 40px; } .policy-page-heading,.policy-card { padding: 22px; } }
 

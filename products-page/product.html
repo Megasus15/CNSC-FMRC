@@ -221,7 +221,7 @@
     </script>
       <link rel="stylesheet" href="../home-page/customer-scroll.css?v=1.2" />
     <script defer src="../home-page/customer-scroll.js?v=1.0"></script>
-  <link rel="stylesheet" href="shipping-quotes.css?v=1.0" /><link rel="stylesheet" href="refund-policy.css?v=1.0" /><link rel="stylesheet" href="../home-page/my-appointments.css?v=1.0">
+  <link rel="stylesheet" href="shipping-quotes.css?v=1.1" /><link rel="stylesheet" href="refund-policy.css?v=1.1" /><link rel="stylesheet" href="../home-page/my-appointments.css?v=1.0">
 </head>
   <body class="products-page-body">
     <!-- The boot curtain. Static markup, so it can paint on the very first
@@ -768,12 +768,6 @@
                 <button type="button" id="checkoutShippingPickup" hidden>Choose pickup at FMRC</button>
               </div>
             </div>
-            <fieldset class="checkout-fulfillment">
-              <legend>Fulfillment method</legend>
-              <label><input type="radio" name="checkoutFulfillment" id="fulfillDeliveryRadio" value="delivery" checked /> Courier delivery</label>
-              <label><input type="radio" name="checkoutFulfillment" id="fulfillPickupRadio" value="pickup" /> Pickup at FMRC</label>
-              <p id="fulfillmentNote"></p>
-            </fieldset>
 
             <div class="c-payment-method">
               <label class="tiktok-pm-label">Payment method</label>
@@ -838,6 +832,12 @@
                 <option value="GCash">QR Ph</option>
               </select>
             </div>
+            <fieldset class="checkout-fulfillment" hidden>
+              <legend>How would you like to receive your order?</legend>
+              <label><input type="radio" name="checkoutFulfillment" id="fulfillDeliveryRadio" value="delivery" checked /> Courier delivery</label>
+              <label><input type="radio" name="checkoutFulfillment" id="fulfillPickupRadio" value="pickup" /> Pickup at FMRC</label>
+              <p id="fulfillmentNote"></p>
+            </fieldset>
           </div>
 
           <!-- New online payments use provider-hosted checkout and automatic confirmation. -->
@@ -1854,7 +1854,7 @@
     <link rel="stylesheet" href="../home-page/payment-dialogs.css?v=2.1-refund-claims">
     <script defer src="../products-page/gateway-payments.js?v=2.1-qrph-claims"></script>
     <script defer src="../home-page/my-appointments.js?v=1.0"></script>
-<script defer src="../home-page/main.js?v=12.12-appointments"></script>
+<script defer src="../home-page/main.js?v=12.13-checkout-method"></script>
     <script defer src="products.js?v=6.6-gcash"></script>
   </body>
 </html>

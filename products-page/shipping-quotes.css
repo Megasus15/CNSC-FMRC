@@ -8,6 +8,7 @@
 .checkout-shipping-actions [hidden] { display: none; }
 .checkout-shipping-quote.is-error { border-color: #b36370; }
 .checkout-fulfillment { border: 0; padding: 0; margin: 16px 0; }
+.checkout-fulfillment[hidden] { display: none !important; }
 .checkout-fulfillment legend { font-weight: 600; margin-bottom: 10px; }
 .checkout-fulfillment label { display: inline-flex; align-items: center; gap: 7px; margin: 0 18px 8px 0; font-size: .88rem; }
 .checkout-fulfillment p { font-size: .8rem; line-height: 1.5; color: #625b65; }

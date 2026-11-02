@@ -150,7 +150,14 @@ test('shipping draft/publication, Staff read access, customer quote review and o
     console.log('Verified private policy drafts, approval publication, reload persistence, Staff read access and eight policy layouts.');
     await navigate('/products-page/product.html');await until(`document.getElementById('displayClientName').textContent.includes('Fixture')`);
     await run(`document.dispatchEvent(new CustomEvent('product:buy-now',{detail:${JSON.stringify(product)}}));document.getElementById('hiddenPaymentSelect').value='Cash on Delivery';document.getElementById('hiddenPaymentSelect').dispatchEvent(new Event('change'));`);
+    for(const method of ['Cash on Pickup','GCash','Cash on Delivery']){
+      await run(`document.getElementById('hiddenPaymentSelect').value=${JSON.stringify(method)};document.getElementById('hiddenPaymentSelect').dispatchEvent(new Event('change'));`);
+      assert.equal(await run(`getComputedStyle(document.querySelector('.checkout-fulfillment')).display==='none'`),method!=='GCash','Only online payment needs a separate delivery/pickup choice');
+      if(method==='Cash on Pickup')assert(await run(`document.getElementById('fulfillPickupRadio').checked`));
+      if(method==='Cash on Delivery')assert(await run(`document.getElementById('fulfillDeliveryRadio').checked`));
+    }
     await until(`document.getElementById('checkoutShippingFee').textContent.includes('85.50')&&!document.getElementById('orderTerms').disabled`);
+    await run(`if(!document.getElementById('checkoutShippingAccept').hidden)document.getElementById('checkoutShippingAccept').click()`);
     assert(await run(`document.getElementById('submitOrderBtn').disabled`));
     const link=await run(`(()=>{const link=document.getElementById('checkoutRefundLink');return {target:link.target,rel:link.rel,color:getComputedStyle(link).color,href:link.href}})()`);
     assert.equal(link.target,'_blank');assert.match(link.rel,/noopener/);assert.equal(link.color,'rgb(128, 0, 0)');

@@ -2724,8 +2724,8 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   /**
-   * Keep the pickup/delivery block honest about the chosen payment method:
-   * locked and explained for cash, open for GCash, and loud about an
+   * Keep the pickup/delivery block consistent with the payment method:
+   * automatic and hidden for cash, selectable online, and clear about an
    * incomplete address while delivery is selected.
    */
   const syncFulfillmentUi = () => {
@@ -2734,6 +2734,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const paymentKey = getCheckoutPaymentKey();
     const locked = getLockedFulfillmentForPayment(paymentKey);
     const missing = getMissingAddressParts(getEffectiveCheckoutAddress());
+
+    // Cash methods already specify delivery or pickup. Only online payments
+    // need a separate choice of how the customer receives the order.
+    const fulfillmentChoices = fulfillPickupRadio.closest('.checkout-fulfillment');
+    if (fulfillmentChoices) fulfillmentChoices.hidden = paymentKey !== 'GCash';
 
     fulfillPickupRadio.disabled = Boolean(locked);
     fulfillDeliveryRadio.disabled = Boolean(locked);
