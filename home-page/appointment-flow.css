@@ -1,31 +1,32 @@
 /* One type scale for all five Customer booking steps. */
-#appointmentFlow { font-family: "Poppins", sans-serif; }
-#appointmentFlow :is(.apt-card-header h3, .apt-step-heading h3, .calendar-header-text h3) { margin: 0; font-family: "Montserrat", "Poppins", sans-serif; font-size: clamp(18px, 2vw, 21px); line-height: 1.45; font-weight: 700; letter-spacing: -.015em; color: var(--customer-ink-strong, #292f3c); }
+#appointmentFlow { font-family: "Montserrat", sans-serif; }
+#appointmentFlow :is(button, input, select, textarea) { font-family: inherit; }
+#appointmentFlow :is(.apt-card-header h3, .apt-step-heading h3, .calendar-header-text h3) { margin: 0; font-family: "Montserrat", sans-serif; font-size: clamp(18px, 2vw, 21px); line-height: 1.45; font-weight: 700; letter-spacing: -.015em; color: var(--customer-ink-strong, #292f3c); }
 #appointmentFlow :is(.apt-step-heading, .calendar-header-text) { margin-bottom: 24px; }
 #appointmentFlow :is(.apt-step-heading p, .calendar-header-text p) { margin: 9px 0 0; max-width: 85ch; font-size: 14px; line-height: 1.75; font-weight: 400; color: var(--customer-ink-muted, #6d7480); }
 #appointmentFlow .calendar-header-text .apt-step-note { margin-top: 8px; font-size: 13px; }
-#appointmentFlow :is(.apt-reminder-content h4, .apt-form-header h4) { font-family: "Montserrat", "Poppins", sans-serif; font-size: 16px; line-height: 1.5; font-weight: 700; }
+#appointmentFlow :is(.apt-reminder-content h4, .apt-form-header h4) { font-family: "Montserrat", sans-serif; font-size: 16px; line-height: 1.5; font-weight: 700; }
 #appointmentFlow :is(.apt-reminder-content p, .apt-reminder-list li, .apt-input-group small) { font-size: 13px; line-height: 1.75; }
 #appointmentFlow .apt-input-group label { font-size: 13px; line-height: 1.6; }
 #appointmentFlow :is(.c-input, .apt-input-group select, .apt-input-group textarea) { font-family: inherit; font-size: 14px; }
-#appointmentFlow :is(.cal-navigation h4, #selectedDateDisplay) { margin: 0; font-family: "Montserrat", "Poppins", sans-serif; font-size: 18px; line-height: 1.5; font-weight: 700; }
-#appointmentFlow .cal-days-header span { font-family: "Montserrat", "Poppins", sans-serif; font-size: 12px; font-weight: 700; }
+#appointmentFlow :is(.cal-navigation h4, #selectedDateDisplay) { margin: 0; font-family: "Montserrat", sans-serif; font-size: 18px; line-height: 1.5; font-weight: 700; }
+#appointmentFlow .cal-days-header span { font-family: "Montserrat", sans-serif; font-size: 12px; font-weight: 700; }
 #appointmentFlow .cal-day-cell { font-size: 14px; font-weight: 600; }
 #appointmentFlow .cal-legend { gap: 12px 18px; padding-top: 18px; margin-top: 20px; }
 #appointmentFlow .leg-item { font-size: 12px; line-height: 1.6; color: var(--customer-ink-muted, #6d7480); }
 #appointmentFlow #slotCounter { color: var(--customer-ink-muted, #6d7480); font-size: 13px; line-height: 1.6; font-weight: 500; }
 #appointmentFlow .slot-counter-wrapper { margin-top: 6px; margin-bottom: 18px; }
-#appointmentFlow .time-slot-btn { font-family: "Montserrat", "Poppins", sans-serif; font-size: 14px; font-weight: 600; line-height: 1.5; }
-#appointmentFlow :is(.time-placeholder, #maxLimitMsg, .date-note-card) { font-family: "Poppins", sans-serif; font-size: 13px; font-weight: 400; line-height: 1.7; }
+#appointmentFlow .time-slot-btn { font-family: "Montserrat", sans-serif; font-size: 14px; font-weight: 600; line-height: 1.5; }
+#appointmentFlow :is(.time-placeholder, #maxLimitMsg, .date-note-card) { font-family: "Montserrat", sans-serif; font-size: 13px; font-weight: 400; line-height: 1.7; }
 #appointmentFlow .apt-step-heading--receipt { width: 100%; max-width: 800px; margin: 0 auto 20px; }
 #appointmentFlow .apt-step-heading--receipt h3 { color: var(--customer-paper, #fdfaf6); }
 #appointmentFlow .apt-step-heading--receipt p { color: rgb(253 250 246 / 82%); }
-#appointmentFlow .ticket-eyebrow { font-family: "Montserrat", "Poppins", sans-serif; font-size: 11px; line-height: 1.6; font-weight: 700; letter-spacing: .07em; }
-#appointmentFlow .ticket-no { font-family: "Montserrat", "Poppins", sans-serif; font-size: 21px; line-height: 1.5; font-weight: 700; }
-#appointmentFlow .t-label { font-family: "Montserrat", "Poppins", sans-serif; font-size: 11px; line-height: 1.6; font-weight: 700; }
-#appointmentFlow .t-value { font-family: "Poppins", sans-serif; font-size: 14px; line-height: 1.7; font-weight: 500; }
+#appointmentFlow .ticket-eyebrow { font-family: "Montserrat", sans-serif; font-size: 11px; line-height: 1.6; font-weight: 700; letter-spacing: .07em; }
+#appointmentFlow .ticket-no { font-family: "Montserrat", sans-serif; font-size: 21px; line-height: 1.5; font-weight: 700; }
+#appointmentFlow .t-label { font-family: "Montserrat", sans-serif; font-size: 11px; line-height: 1.6; font-weight: 700; }
+#appointmentFlow .t-value { font-family: "Montserrat", sans-serif; font-size: 14px; line-height: 1.7; font-weight: 500; }
 #appointmentFlow .t-value--lead { font-size: 16px; }
-#appointmentFlow .apt-footer-actions .apt-btn { font-family: "Montserrat", "Poppins", sans-serif; font-size: 14px; font-weight: 700; line-height: 1.5; }
+#appointmentFlow .apt-footer-actions .apt-btn { font-family: "Montserrat", sans-serif; font-size: 14px; font-weight: 700; line-height: 1.5; }
 @media (max-width: 640px) {
   #appointmentFlow :is(.apt-step-heading, .calendar-header-text) { margin-bottom: 20px; }
   #appointmentFlow :is(.cal-navigation h4, #selectedDateDisplay) { font-size: 16px; }

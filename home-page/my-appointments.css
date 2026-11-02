@@ -1,5 +1,9 @@
 /* Customer appointment layout; shared ux-dlg classes supply the My Account skin. */
-#customerAppointmentsModal { position: fixed; inset: 0; z-index: 10050; display: none; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; background: var(--ux-dlg-scrim, rgb(15 23 42 / 55%)); backdrop-filter: blur(8px); color: var(--customer-ink-strong, #312a30); font-family: "Poppins", sans-serif; }
+#customerAppointmentsModal { position: fixed; inset: 0; z-index: 10050; display: none; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; background: var(--ux-dlg-scrim, rgb(15 23 42 / 55%)); backdrop-filter: blur(8px); color: var(--customer-ink-strong, #312a30); font-family: "Montserrat", sans-serif; }
+/* Keep the shared dialog controls on the Customer site's Montserrat family. */
+#customerAppointmentsModal.ux-dlg .ux-dlg__card :is(.ux-dlg__title, .ux-dlg__eyebrow, .ux-dlg__btn, .ux-dlg__close) { font-family: "Montserrat", sans-serif; }
+#customerAppointmentsModal.ux-dlg .ux-dlg__card .appointment-modal-footer { display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
+#customerAppointmentsModal.ux-dlg .ux-dlg__card .appointment-modal-footer .ux-dlg__btn { flex: 0 0 auto; width: auto; min-width: 96px; }
 #customerAppointmentsModal.show { display: flex; }
 #customerAppointmentsModal .appointment-modal.ux-dlg__card { width: min(860px, 100%); max-width: 860px; max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); min-height: 0; margin: 0; padding: 0; gap: 0; overflow: hidden; transform: none; border: 1px solid var(--ux-dlg-edge); border-radius: var(--ux-dlg-radius, 8px); box-shadow: var(--ux-dlg-shadow); }
 #customerAppointmentsModal .appointment-modal-head, #customerAppointmentsModal .appointment-modal-footer { flex: 0 0 auto; }
@@ -14,17 +18,17 @@
 #customerAppointmentsModal .appointment-status, #customerAppointmentsModal .appointment-method-tag, #customerAppointmentsModal .appointment-section-count { display: inline-flex; align-items: center; padding: 4px 9px; border-radius: 6px; font-size: 11px; font-weight: 600; line-height: 1.5; background: var(--customer-paper-sink, #f7f2ec); color: var(--customer-wine, #6b202b); }
 #customerAppointmentsModal .appointment-status[data-status="completed"], #customerAppointmentsModal .appointment-status[data-status="done"] { color: #34604b; background: #edf4ee; }
 #customerAppointmentsModal .appointment-status[data-status="cancelled"] { color: #79616a; background: #f1ebed; }
-#customerAppointmentsModal h3.appointment-service { font-family: "Montserrat", "Poppins", sans-serif; font-size: 17px; line-height: 1.5; margin: 14px 0 18px; font-weight: 700; color: var(--customer-wine, #6b202b); overflow-wrap: anywhere; }
+#customerAppointmentsModal h3.appointment-service { font-family: "Montserrat", sans-serif; font-size: 17px; line-height: 1.5; margin: 14px 0 18px; font-weight: 700; color: var(--customer-wine, #6b202b); overflow-wrap: anywhere; }
 #customerAppointmentsModal .appointment-schedule { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0; }
 #customerAppointmentsModal .appointment-schedule > div { min-width: 0; }
 #customerAppointmentsModal .appointment-schedule > div:last-child { grid-column: 1 / -1; }
-#customerAppointmentsModal .appointment-schedule dt { margin-bottom: 5px; color: #806612; font-family: "Montserrat", "Poppins", sans-serif; font-size: 11px; font-weight: 700; letter-spacing: .035em; text-transform: uppercase; }
+#customerAppointmentsModal .appointment-schedule dt { margin-bottom: 5px; color: #806612; font-family: "Montserrat", sans-serif; font-size: 11px; font-weight: 700; letter-spacing: .035em; text-transform: uppercase; }
 #customerAppointmentsModal .appointment-schedule dd { margin: 0; font-size: 13px; line-height: 1.65; font-weight: 500; overflow-wrap: anywhere; }
 #customerAppointmentsModal .appointment-card-actions { display: flex; margin-top: auto; padding-top: 22px; }
 #customerAppointmentsModal .appointment-detail-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
 #customerAppointmentsModal .appointment-detail-toolbar .ux-dlg__btn { width: auto; min-height: 44px; padding: 12px 16px; font-size: 13px; }
 #customerAppointmentsModal .appointment-detail { display: grid; gap: 18px; }
-#customerAppointmentsModal .appointment-section h3 { margin: 0 0 12px; font-family: "Montserrat", "Poppins", sans-serif; font-size: 16px; line-height: 1.5; font-weight: 700; color: var(--customer-wine, #6b202b); }
+#customerAppointmentsModal .appointment-section h3 { margin: 0 0 12px; font-family: "Montserrat", sans-serif; font-size: 16px; line-height: 1.5; font-weight: 700; color: var(--customer-wine, #6b202b); }
 #customerAppointmentsModal .appointment-section p { margin: 0; font-size: 13px; line-height: 1.7; }
 #customerAppointmentsModal .appointment-section-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
 #customerAppointmentsModal .appointment-section-heading h3 { margin: 0; }
@@ -59,7 +63,7 @@
 #customerAppointmentsModal [hidden] { display: none !important; }
 #customerAppointmentsModal .appointment-empty { padding: 30px 18px; text-align: center; }
 #customerAppointmentsModal .appointment-empty-icon { display: block; color: var(--customer-wine, #6b202b); font-size: 32px; margin-bottom: 12px; }
-#customerAppointmentsModal .appointment-empty h3 { margin: 0 0 10px; font: 700 19px "Montserrat", "Poppins", sans-serif; }
+#customerAppointmentsModal .appointment-empty h3 { margin: 0 0 10px; font: 700 19px "Montserrat", sans-serif; }
 #customerAppointmentsModal .appointment-empty p { max-width: 45ch; margin: auto; font-size: 14px; line-height: 1.7; color: var(--customer-ink-muted, #716770); }
 #customerAppointmentsModal :is(input, select, summary, .appointment-file):focus-visible { outline: 2px solid var(--customer-wine, #6b202b); outline-offset: 3px; }
 @media (max-width: 640px) {
