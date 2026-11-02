@@ -91,11 +91,12 @@ test('shipping draft/publication, Staff read access, customer quote review and o
   try{
     const endpoint=await new Promise((resolve,reject)=>{let output='';const timer=setTimeout(()=>reject(Error('Chrome startup')),15000);browser.stderr.on('data',chunk=>{output+=chunk;const match=output.match(/DevTools listening on (ws:\/\/\S+)/);if(match){clearTimeout(timer);resolve(match[1]);}});browser.once('error',reject);});
     const tabs=await(await fetch('http://127.0.0.1:'+new URL(endpoint).port+'/json/list')).json();cdp=await connect(tabs.find(tab=>tab.type==='page').webSocketDebuggerUrl);
-    await cdp.send('Page.enable');await cdp.send('Network.enable');await cdp.send('Network.setBlockedURLs',{urls:['https://*']});
+    await cdp.send('Page.enable');await cdp.send('Network.enable');await cdp.send('Emulation.setFocusEmulationEnabled',{enabled:true});await cdp.send('Network.setBlockedURLs',{urls:['https://*']});
     const run=async expression=>{const result=await cdp.send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true});if(result.exceptionDetails)throw Error(JSON.stringify(result.exceptionDetails));return result.result.value;};
     const until=async expression=>{for(let i=0;i<180;i++){try{if(await run(expression))return;}catch(error){if(!/context|navigated/i.test(error.message))throw error;}await pause(45);}throw Error('Timeout: '+expression+'; '+JSON.stringify(await run('({url:location.href,errors:fixtureErrors,popup:document.getElementById("customerSystemPopupMessage")?.textContent,shipping:document.getElementById("checkoutShippingMessage")?.textContent})')));};
     const navigate=async route=>{await cdp.send('Page.navigate',{url:'http://127.0.0.1:'+server.address().port+route});await until(`location.pathname===${JSON.stringify(route)}&&document.readyState==='complete'`);};
     const input=async(id,value)=>run(`(()=>{const input=document.getElementById(${JSON.stringify(id)});input.value=${JSON.stringify(value)};input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+    const key=async value=>{await cdp.send('Input.dispatchKeyEvent',{type:'keyDown',key:value,windowsVirtualKeyCode:({Enter:13,Escape:27,ArrowDown:40,ArrowUp:38})[value]});await cdp.send('Input.dispatchKeyEvent',{type:'keyUp',key:value});};
     const confirm=async title=>{await until(`document.querySelector('#adminSystemPopup.show #adminSystemPopupTitle')?.textContent===${JSON.stringify(title)}`);await run(`document.getElementById('adminSystemPopupOk').click()`);};
     const shot=async name=>{const image=await cdp.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(artifacts,name+'.png'),Buffer.from(image.data,'base64'));};
     for(const portal of ['admin','staff']){
@@ -136,9 +137,17 @@ test('shipping draft/publication, Staff read access, customer quote review and o
     await run(`document.getElementById('shippingEnabled').click()`);
     assert.match(await run(`document.getElementById('shippingPublishHint').textContent`),/at least one delivery area/);
     await run(`document.getElementById('shippingAddZone').click()`);
-    for(const [key,value]of Object.entries({name:'Camarines Norte',province:'Camarines Norte',fee:'85.50'}))await input('shipping-0-'+key,value);
+    for(const [field,value]of Object.entries({name:'Camarines Norte',fee:'85.50'}))await input('shipping-0-'+field,value);
     assert.equal(await run(`document.getElementById('shipping-0-province').tagName`),'SELECT');
     assert.deepEqual(await run(`Array.from(document.getElementById('shipping-0-province').options).slice(1).map(option=>option.textContent)`),['Albay','Camarines Norte','Zambales']);
+    await run(`document.getElementById('shipping-0-province-search').focus()`);
+    assert.equal(await run(`document.querySelectorAll('#shipping-0-province-list [role=option]').length`),provinceCatalog.length,'Opening Province includes the entire nationwide API response');
+    await input('shipping-0-province-search','CAM');
+    assert.deepEqual(await run(`Array.from(document.querySelectorAll('#shipping-0-province-list [role=option]')).map(option=>option.textContent)`),['Camarines Norte']);
+    assert.equal(await run(`document.getElementById('shipping-0-province').value`),'','Typing a search is not a province selection');
+    await key('Enter');
+    assert.equal(await run(`document.getElementById('shipping-0-province').value`),'Camarines Norte');
+    assert.equal(await run(`document.getElementById('shipping-0-province-search').value`),'Camarines Norte');
     await input('shippingDates','2026-11-09');
     assert.equal(await run(`document.getElementById('shippingSave').disabled`),false);
     await input('shipping-0-postal_codes','4604, 4604');await run(`document.getElementById('shippingSave').click()`);
@@ -160,11 +169,26 @@ test('shipping draft/publication, Staff read access, customer quote review and o
     await run(`document.getElementById('adminSystemPopupOk').click()`);
     for(const width of [390,1440]){
       await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
-      await run(`document.getElementById('shipping-0-province').scrollIntoView({block:'center',behavior:'instant'})`);
+      await run(`document.getElementById('shipping-0-province-search').scrollIntoView({block:'center',behavior:'instant'})`);
       await shot('admin-shipping-province-select-'+width);
     }
     await run(`document.getElementById('shippingSave').click()`);await confirm('Save Shipping Draft');await until(`document.getElementById('shippingSave').disabled&&!document.getElementById('shippingFields').disabled`);
     assert.equal(writes.length,1);assert.equal(settings.published,null);
+    await run(`document.getElementById('shipping-0-province-search').focus()`);await input('shipping-0-province-search','no such province');
+    assert.match(await run(`document.getElementById('shipping-0-province-list').textContent`),/No provinces found/);
+    assert.equal(await run(`document.getElementById('shippingSave').disabled`),true,'Searching alone keeps an unchanged Save disabled');
+    await key('ArrowDown');await key('Enter');assert.equal(writes.length,1,'An empty search result cannot submit the form');await key('Escape');
+    assert.equal(await run(`document.getElementById('shipping-0-province-search').value`),'Camarines Norte','Escape restores the current province');
+    await run(`document.querySelector('[data-province-toggle]').click()`);
+    assert.equal(await run(`document.querySelectorAll('#shipping-0-province-list [role=option]').length`),provinceCatalog.length,'Reopening clears the filter and restores every province');
+    await key('ArrowUp');await key('Enter');
+    assert.equal(await run(`document.getElementById('shipping-0-province').value`),'Zambales','Keyboard selection reaches provinces outside the current region');
+    assert.equal(await run(`document.getElementById('shippingSave').disabled`),false,'Choosing a different province enables Save');
+    await input('shipping-0-province-search','cam');await run(`document.querySelector('#shipping-0-province-list [role=option]').click()`);
+    assert.equal(await run(`document.getElementById('shippingSave').disabled`),true,'Reselecting the saved province restores the clean draft');
+    await input('shipping-0-province-search','albay');await run(`document.getElementById('shipping-0-name').focus()`);
+    assert.equal(await run(`document.getElementById('shipping-0-province-search').value`),'Camarines Norte','Leaving a search keeps the saved choice');
+    assert.equal(await run(`document.getElementById('shippingSave').disabled`),true);
     assert.equal(await run(`document.getElementById('shippingApproved').disabled`),false);
     assert.match(await run(`document.getElementById('shippingPublishHint').textContent`),/Tick the FMRC approval box/);
     await run(`document.getElementById('shippingApproved').click()`);
@@ -179,11 +203,14 @@ test('shipping draft/publication, Staff read access, customer quote review and o
       assert.equal(await run(`document.getElementById('shippingEditor').hidden`),portal==='staff');
       if(portal==='staff')assert.equal(await run(`getComputedStyle(document.getElementById('shippingSaveBar')).display`),'none');
       if(width!==768)await shot(portal+'-settings-'+width+'-'+theme);
-      if(portal==='admin'&&theme==='dark'&&width!==768){
-        await until(`!document.getElementById('shipping-0-province').disabled`);
-        await run(`if(innerWidth<600&&document.body.classList.contains('admin-sidebar-open'))document.querySelector('.admin-sidebar-toggle').click();document.getElementById('shipping-0-province').scrollIntoView({block:'center',behavior:'instant'});`);
-        await until(`(()=>{const select=document.getElementById('shipping-0-province'),r=select.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&select.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})()`);
-        await shot('admin-shipping-province-ready-'+width);
+      if(portal==='admin'&&width!==768){
+        await until(`!document.getElementById('shipping-0-province-search').disabled`);
+        await run(`if(innerWidth<600&&document.body.classList.contains('admin-sidebar-open'))document.querySelector('.admin-sidebar-toggle').click();document.getElementById('shipping-0-province-search').scrollIntoView({block:'center',behavior:'instant'});`);
+        await until(`(()=>{const input=document.getElementById('shipping-0-province-search'),r=input.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&input.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})()`);
+        await run(`document.getElementById('shipping-0-province-search').focus()`);await input('shipping-0-province-search','cam');
+        await run(`Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})))`);
+        assert.equal(await run(`(()=>{const option=document.querySelector('#shipping-0-province-list [role=option]'),r=option.getBoundingClientRect();return option.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})()`),true,'Province results are visible and clickable at '+width+theme);
+        await shot('admin-shipping-province-search-'+width+'-'+theme);await key('Escape');
       }
       assert.deepEqual(await run('fixtureErrors'),[]);
     }

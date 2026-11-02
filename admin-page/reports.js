@@ -1644,7 +1644,7 @@
     /** Editable letterhead line, HTML-escaped for the printed page. */
     const head = (key) => escapeHtml(state.letterhead[key] ?? "");
 
-    const buildOfficialHeader = () => `
+    const buildOfficialHeader = (category) => `
       <header class="official-report-header" aria-label="University of Camarines Norte official report header">
         <img class="official-header-ucn-mark" src="${templateAsset("ucn-mark.png")}" alt="University of Camarines Norte mark" />
         <div class="official-header-copy">
@@ -1662,7 +1662,7 @@
         <span class="official-header-rule" aria-hidden="true"></span>
         <div class="official-header-unit">
           <strong>${head("unitName")}</strong>
-          <span>${head("unitContact")}</span>
+          ${category === "sales" ? "" : `<span>${head("unitContact")}</span>`}
         </div>
       </header>`;
 
@@ -1688,9 +1688,9 @@
         <span class="official-footer-page">Page ${pageNumber} of ${totalPages}</span>
       </footer>`;
 
-    const buildOfficialPage = (body, pageNumber, totalPages, className = "") => `
+    const buildOfficialPage = (body, pageNumber, totalPages, className = "", category = "") => `
       <article class="official-report-page ${className}" data-report-page="${pageNumber}" aria-label="Report page ${pageNumber} of ${totalPages}">
-        ${buildOfficialHeader()}
+        ${buildOfficialHeader(category)}
         ${body}
         ${buildOfficialFooter(pageNumber, totalPages)}
       </article>`;
@@ -1963,6 +1963,7 @@
           1,
           totalPages,
           "official-report-summary-page",
+          data.report.category,
         ),
       ];
       detailGroups.forEach((fragments, index) => {
@@ -1973,6 +1974,7 @@
             pageNumber,
             totalPages,
             "official-report-detail-page",
+            data.report.category,
           ),
         );
       });

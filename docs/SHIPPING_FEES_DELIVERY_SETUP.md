@@ -16,12 +16,16 @@ available after a valid draft is saved, and saving resets the approval checkbox.
 Delivery requires at least one area. Each field includes a short explanation;
 no fees or delivery commitments are filled in for the Admin.
 
-Province is a select populated by `GET /api/psgc/provinces`. That endpoint uses
+Province is a searchable dropdown populated by `GET /api/psgc/provinces`. That endpoint uses
 PSGC Cloud's nationwide `/api/provinces` data and the existing 24-hour server
 cache shared with Customer address lookups. No province names are hardcoded as
 dropdown choices. Failed or malformed responses produce a retry state; saved
 province names and in-progress draft fields are preserved while loading/retrying.
 An unrecognized saved name must be replaced with a selection before saving.
+Open Province to browse the complete nationwide list, or type part of a province
+name to filter it. Choose a result with a click, or use the arrow keys and Enter.
+Escape or leaving the field keeps the previous selection. Searching alone does
+not change the draft or enable Save; choosing a different province does.
 
 Shipping validation uses the shared Admin/Staff system popup rather than a red
 inline banner or technical field paths. Repeated city names/postal codes are

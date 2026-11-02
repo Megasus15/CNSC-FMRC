@@ -51,9 +51,12 @@ test('Admin and Staff report preview and print PDF share clean summary metadata 
       assert.match(await run(`document.querySelector('.official-report-summary-content').textContent`),/Prepared by/,'certification retained');
       assert.match(await run(`document.querySelector('.official-report-summary-content').textContent`),/Records Officer/);
       const pageCount=await run(`document.querySelectorAll('.official-report-page').length`);assert(pageCount>=2);
+      assert.equal(await run(`document.querySelectorAll('.official-header-unit > span').length`),0,'Sales report pages omit the unit email and phone line');
+      assert.equal(await run(`Array.from(document.querySelectorAll('.official-header-unit strong')).every(node=>node.textContent==='FABRICATION AND MANUFACTURING RESEARCH CENTER')`),true,'Issuing unit remains in the report header');
       for(const width of [390,768,1440]){await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:1000,deviceScaleFactor:1,mobile:false});assert.equal(await run(`document.documentElement.scrollWidth>innerWidth+1`),false);await shot(portal+'-preview-'+width);}
       await run(`window.print=()=>{window.fixturePrintReady=true};document.getElementById('reportPrintBtn').click()`);await until(`window.fixturePrintReady===true&&document.body.classList.contains('report-printing')`);
       const fit=await run(`Array.from(document.querySelectorAll('.official-report-page')).map(page=>{const content=page.querySelector('.official-report-body');return {width:page.clientWidth,height:page.clientHeight,overflow:content.scrollHeight>content.clientHeight+2,scale:content.style.transform}})`);assert(fit.every(page=>!page.overflow||page.scale),'each print page fits or has measured scaling');
+      assert.equal(await run(`document.querySelectorAll('.official-header-unit > span').length`),0,'Printed sales pages use the same header');
       const pdf=await cdp.send('Page.printToPDF',{printBackground:true,displayHeaderFooter:false,preferCSSPageSize:true});fs.writeFileSync(path.join(artifacts,portal+'-report.pdf'),Buffer.from(pdf.data,'base64'));
       await run(`window.dispatchEvent(new Event('afterprint'))`);assert.equal(await run(`document.body.classList.contains('report-printing')`),false);assert.deepEqual(await run('fixtureErrors'),[]);
     }
