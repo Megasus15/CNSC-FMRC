@@ -54,6 +54,7 @@ Route::prefix('customer/notifications')->middleware('throttle:120,1')->group(fun
 
 // ─── PSGC Address Proxy (public, no auth needed) ──────────────────────────
 Route::get('/psgc/regions', [PsgcController::class, 'regions']);
+Route::get('/psgc/provinces', [PsgcController::class, 'allProvinces']);
 Route::get('/psgc/regions/{regionCode}/provinces', [PsgcController::class, 'provinces']);
 Route::get('/psgc/provinces/{provinceCode}/cities-municipalities', [PsgcController::class, 'citiesMunicipalities']);
 Route::get('/psgc/cities-municipalities/{cityMunCode}/barangays', [PsgcController::class, 'barangays']);

@@ -16,6 +16,20 @@ available after a valid draft is saved, and saving resets the approval checkbox.
 Delivery requires at least one area. Each field includes a short explanation;
 no fees or delivery commitments are filled in for the Admin.
 
+Province is a select populated by `GET /api/psgc/provinces`. That endpoint uses
+PSGC Cloud's nationwide `/api/provinces` data and the existing 24-hour server
+cache shared with Customer address lookups. No province names are hardcoded as
+dropdown choices. Failed or malformed responses produce a retry state; saved
+province names and in-progress draft fields are preserved while loading/retrying.
+An unrecognized saved name must be replaced with a selection before saving.
+
+Shipping validation uses the shared Admin/Staff system popup rather than a red
+inline banner or technical field paths. Repeated city names/postal codes are
+validated within each delivery area; different areas may share these values when
+their other coverage differs. Publication still rejects overlapping areas that
+would produce equally specific matches. The popup identifies the affected area
+and returns focus to the field after acknowledgement.
+
 There are no seeded delivery rates. Until approved settings are published,
 delivery is unavailable and checkout offers pickup. Pickup has zero shipping
 fee. Enabling delivery requires at least one valid destination zone.

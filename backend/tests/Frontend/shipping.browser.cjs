@@ -16,7 +16,8 @@ async function connect(url){
 test('shipping draft/publication, Staff read access, customer quote review and order details agree across responsive portals',{skip:!fs.existsSync(chrome),timeout:180000},async()=>{
   const artifacts=fs.mkdtempSync(path.join(os.tmpdir(),'fmrc-shipping-'));
   let settings={revision:0,has_saved_draft:false,draft:{enabled:false,nonworking_weekdays:[6,7],nonworking_dates:[],zones:[]},published:null,published_version:null,published_at:null};
-  let quotes=0,stale=true,fee=85.5,deliveryAvailable=true,settingsUnavailable=false;
+  let quotes=0,stale=true,fee=85.5,deliveryAvailable=true,settingsUnavailable=false,provinceUnavailable=false,rejectShippingOnce=false;
+  const provinceCatalog=[{code:'0307100000',name:'Zambales'},{code:'0501600000',name:'Camarines Norte'},{code:'0500500000',name:'Albay'}];
   const writes=[],submissions=[],policyHistory=new Map(),shipmentWrites=[];
   let policySettings={revision:0,can_edit:true,has_saved_draft:false,published:null,draft:{title:'FMRC Transaction Terms and Refund Policy',terms_text:'Ordering and delivery\nReview the full order total and fulfillment details before ordering.',refund_text:'Eligible concerns\nContact FMRC to review defective, incorrect, or incomplete items and appropriate remedies.'}};
   const profile={id:33,role:'customer',email:'client@gmail.com',name:'Fixture Client',phone_number:'09171234567',address_line:'1 Test Street',barangay:'Barangay 1',city_municipality:'Daet',province:'Camarines Norte',postal_code:'4600',address_details:'Near the main gate',department:'Student',customer_type:'Student'};
@@ -37,6 +38,7 @@ test('shipping draft/publication, Staff read access, customer quote review and o
       if(route==='/api/site-settings')return json({data:{payment_cash_on_pickup_enabled:'1',payment_cash_on_delivery_enabled:'1',payment_gcash_enabled:'1',payment_gcash_ready:'1',payment_checkout_method:'qrph'}});
       if(route==='/api/customer/profile')return json({data:profile});
       if(route==='/api/products')return json({data:[product]});
+      if(route==='/api/psgc/provinces'){if(provinceUnavailable){await pause(1600);return json({message:'Province list unavailable'},502);}return json(provinceCatalog);}
       if(route==='/api/admin/shipping-settings')return json({data:{...settings,can_edit:role==='admin',...(role==='staff'?{draft:undefined}:{})}});
       if(route==='/api/commerce/policy'||route.startsWith('/api/commerce/policy/'))return json({data:route==='/api/commerce/policy'?policySettings.published:policyHistory.get(route.split('/').at(-1))||null});
       if(route==='/api/admin/commerce-policy')return json({data:{...policySettings,can_edit:role==='admin',...(role==='staff'?{draft:undefined}:{})}});
@@ -47,7 +49,9 @@ test('shipping draft/publication, Staff read access, customer quote review and o
         policySettings.revision++;return json({data:policySettings});
       }
       if(route==='/api/admin/shipping-settings/draft'||route==='/api/admin/shipping-settings/publish'){
-        assert.equal(role,'admin');let body='';for await(const chunk of req)body+=chunk;const input=JSON.parse(body);writes.push({route,input});
+        assert.equal(role,'admin');let body='';for await(const chunk of req)body+=chunk;const input=JSON.parse(body);
+        if(rejectShippingOnce){rejectShippingOnce=false;return json({errors:{'settings.zones.0.postal_codes.0':['The settings.zones.0.postal_codes.0 field has a duplicate value.']}},422);}
+        writes.push({route,input});
         assert.equal(input.expected_revision,settings.revision);
         if(route.endsWith('draft')){settings.draft=input.settings;settings.has_saved_draft=true;}
         else{assert.equal(input.approved,true);settings.published=structuredClone(settings.draft);settings.published_at='2026-11-02 00:00:00';settings.published_version='fixture-version';}
@@ -99,21 +103,33 @@ test('shipping draft/publication, Staff read access, customer quote review and o
         settingsUnavailable=true;
         await navigate('/'+portal+'-page/website-'+page+'.html');
         const shipping=page==='shipping';
-        const errorId=shipping?'shippingError':'policySettingsError';
-        const retryId=shipping?'shippingRetry':'policySettingsRetry';
+        const errorId='policySettingsError';
+        const retryId=shipping?'shippingRefresh':'policySettingsRetry';
         const saveId=shipping?'shippingSave':'policyDraftSave';
         const publishedId=shipping?'shippingPublished':'policyPublishedMessage';
-        await until(`!document.getElementById('${errorId}').hidden&&!document.getElementById('${retryId}').disabled`);
+        await until(shipping?`document.querySelector('#adminSystemPopup.show #adminSystemPopupTitle')?.textContent==='Shipping settings unavailable'&&!document.getElementById('${retryId}').disabled`:`!document.getElementById('${errorId}').hidden&&!document.getElementById('${retryId}').disabled`);
         assert.equal(await run(`document.getElementById('${saveId}').disabled`),true);
         assert.match(await run(`document.getElementById('${publishedId}').textContent`),/unavailable/i);
         assert.doesNotMatch(await run(`document.getElementById('${publishedId}').textContent`),/loading/i);
         settingsUnavailable=false;
+        if(shipping)await run(`document.getElementById('adminSystemPopupOk').click()`);
         await run(`document.getElementById('${retryId}').click()`);
-        await until(`document.getElementById('${errorId}').hidden&&!document.getElementById('${retryId}').disabled&&!document.getElementById('${publishedId}').textContent.includes('settings are unavailable')`);
+        await until((shipping?'':`document.getElementById('${errorId}').hidden&&`)+`!document.getElementById('${retryId}').disabled&&!document.getElementById('${publishedId}').textContent.includes('settings are unavailable')`);
         assert.equal(await run(`document.getElementById('${saveId}').disabled`),true,'Readback does not enable unchanged saves');
       }
     }
+    provinceUnavailable=true;
     await navigate('/admin-page/website-shipping.html');await until(`!document.getElementById('shippingFields').disabled`);
+    await run(`document.getElementById('shippingAddZone').click()`);
+    await input('shipping-0-name','Draft kept during province retry');await input('shipping-0-fee','85.50');
+    await until(`document.querySelector('#adminSystemPopup.show #adminSystemPopupTitle')?.textContent==='Province list unavailable'`);
+    assert.equal(await run(`document.getElementById('shipping-0-name').value`),'Draft kept during province retry');
+    assert.equal(await run(`document.getElementById('shipping-0-province').disabled`),true);
+    provinceUnavailable=false;await run(`document.getElementById('adminSystemPopupOk').click()`);
+    await until(`!document.getElementById('shipping-0-province').disabled`);
+    assert.equal(await run(`document.getElementById('shipping-0-name').value`),'Draft kept during province retry');
+    assert.equal(await run(`document.getElementById('shipping-0-province').options.length`),provinceCatalog.length+1);
+    await run(`document.getElementById('shippingDiscard').click()`);
     assert(await run(`document.getElementById('shippingSave').disabled&&document.getElementById('shippingPublish').disabled`));
     assert.match(await run(`document.getElementById('shippingPublishHint').textContent`),/Save draft/);
     assert.equal(await run(`document.getElementById('shippingApproved').disabled`),true,'Save setup before approval');
@@ -121,8 +137,32 @@ test('shipping draft/publication, Staff read access, customer quote review and o
     assert.match(await run(`document.getElementById('shippingPublishHint').textContent`),/at least one delivery area/);
     await run(`document.getElementById('shippingAddZone').click()`);
     for(const [key,value]of Object.entries({name:'Camarines Norte',province:'Camarines Norte',fee:'85.50'}))await input('shipping-0-'+key,value);
+    assert.equal(await run(`document.getElementById('shipping-0-province').tagName`),'SELECT');
+    assert.deepEqual(await run(`Array.from(document.getElementById('shipping-0-province').options).slice(1).map(option=>option.textContent)`),['Albay','Camarines Norte','Zambales']);
     await input('shippingDates','2026-11-09');
     assert.equal(await run(`document.getElementById('shippingSave').disabled`),false);
+    await input('shipping-0-postal_codes','4604, 4604');await run(`document.getElementById('shippingSave').click()`);
+    await until(`document.querySelector('#adminSystemPopup.show #adminSystemPopupMessage')?.textContent.includes('repeated postal code')`);
+    assert.equal(writes.length,0,'Duplicate entries are caught before saving');
+    assert.doesNotMatch(await run(`document.getElementById('adminSystemPopupMessage').textContent`),/settings\.zones/);
+    for(const width of [390,1440])for(const theme of ['light','dark']){
+      await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
+      await run(`document.documentElement.dataset.theme='${theme}';if(innerWidth<600&&document.body.classList.contains('admin-sidebar-open'))document.querySelector('.admin-sidebar-toggle').click();Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})))`);
+      await until(`Number(getComputedStyle(document.getElementById('adminSystemPopup')).opacity)===1`);
+      await shot('admin-shipping-validation-popup-'+width+'-'+theme);
+    }
+    await run(`document.getElementById('adminSystemPopupOk').click()`);
+    await input('shipping-0-postal_codes','');rejectShippingOnce=true;
+    await run(`document.getElementById('shippingSave').click()`);await confirm('Save Shipping Draft');
+    await until(`document.querySelector('#adminSystemPopup.show #adminSystemPopupMessage')?.textContent.includes('repeated postal code')`);
+    assert.doesNotMatch(await run(`document.getElementById('adminSystemPopupMessage').textContent`),/settings\.zones/);
+    assert.equal(await run(`document.getElementById('shipping-0-name').value`),'Camarines Norte');
+    await run(`document.getElementById('adminSystemPopupOk').click()`);
+    for(const width of [390,1440]){
+      await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});
+      await run(`document.getElementById('shipping-0-province').scrollIntoView({block:'center',behavior:'instant'})`);
+      await shot('admin-shipping-province-select-'+width);
+    }
     await run(`document.getElementById('shippingSave').click()`);await confirm('Save Shipping Draft');await until(`document.getElementById('shippingSave').disabled&&!document.getElementById('shippingFields').disabled`);
     assert.equal(writes.length,1);assert.equal(settings.published,null);
     assert.equal(await run(`document.getElementById('shippingApproved').disabled`),false);
@@ -139,6 +179,12 @@ test('shipping draft/publication, Staff read access, customer quote review and o
       assert.equal(await run(`document.getElementById('shippingEditor').hidden`),portal==='staff');
       if(portal==='staff')assert.equal(await run(`getComputedStyle(document.getElementById('shippingSaveBar')).display`),'none');
       if(width!==768)await shot(portal+'-settings-'+width+'-'+theme);
+      if(portal==='admin'&&theme==='dark'&&width!==768){
+        await until(`!document.getElementById('shipping-0-province').disabled`);
+        await run(`if(innerWidth<600&&document.body.classList.contains('admin-sidebar-open'))document.querySelector('.admin-sidebar-toggle').click();document.getElementById('shipping-0-province').scrollIntoView({block:'center',behavior:'instant'});`);
+        await until(`(()=>{const select=document.getElementById('shipping-0-province'),r=select.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&select.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));})()`);
+        await shot('admin-shipping-province-ready-'+width);
+      }
       assert.deepEqual(await run('fixtureErrors'),[]);
     }
     console.log('Verified saved draft, approval publication, reload persistence, Staff read access, and 12 settings layouts.');

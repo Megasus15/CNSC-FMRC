@@ -86,6 +86,36 @@ class ShippingQuotesTest extends TestCase
             ->assertJsonPath('data.pricing.shipping_fee', 0)->assertJsonPath('data.total_amount', 246.9);
     }
 
+    public function test_city_names_and_postal_codes_can_repeat_across_different_delivery_areas(): void
+    {
+        Sanctum::actingAs(User::factory()->create(['role' => 'admin']));
+        $settings = $this->settings();
+        $settings['zones'][0]['cities'] = ['San Jose'];
+        $settings['zones'][0]['postal_codes'] = ['4400'];
+        $other = $settings['zones'][0];
+        $other['id'] = (string) Str::uuid();
+        $other['name'] = 'Another delivery area';
+        $other['province'] = 'Camarines Sur';
+        $settings['zones'][] = $other;
+        $this->putJson('/api/admin/shipping-settings/draft', ['expected_revision' => 0, 'settings' => $settings])->assertOk();
+        $this->postJson('/api/admin/shipping-settings/publish', ['expected_revision' => 1, 'approved' => true])->assertOk();
+    }
+
+    public function test_duplicate_entries_within_one_area_have_readable_validation_messages(): void
+    {
+        Sanctum::actingAs(User::factory()->create(['role' => 'admin']));
+        $settings = $this->settings();
+        $settings['zones'][0]['postal_codes'] = ['4604', '4604'];
+        // Dotted validation keys are literal JSON keys, not nested objects.
+        $response = $this->putJson('/api/admin/shipping-settings/draft', ['expected_revision' => 0, 'settings' => $settings])->assertUnprocessable();
+        $this->assertSame('Delivery area 1 has a repeated postal code. Enter each postal code only once.', $response->json('errors')['settings.zones.0.postal_codes.0'][0]);
+        $settings['zones'][0]['postal_codes'] = ['4604'];
+        $settings['zones'][0]['cities'] = ['Labo', 'LABO'];
+        $response = $this->putJson('/api/admin/shipping-settings/draft', ['expected_revision' => 0, 'settings' => $settings])->assertUnprocessable();
+        $this->assertSame('Delivery area 1 has a repeated city or municipality. Enter each name only once.', $response->json('errors')['settings.zones.0.cities.0'][0]);
+        $this->assertNull(DB::table('shipping_settings')->value('draft'));
+    }
+
     public function test_admin_drafts_do_not_activate_rates_and_staff_reads_only_published_values(): void
     {
         Sanctum::actingAs(User::factory()->create(['role' => 'admin']));

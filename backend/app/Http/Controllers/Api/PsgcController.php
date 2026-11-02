@@ -21,7 +21,8 @@ use Illuminate\Support\Facades\Log;
  */
 class PsgcController extends Controller
 {
-    private const BASE_URL  = 'https://psgc.cloud/api';
+    private const BASE_URL = 'https://psgc.cloud/api';
+
     private const CACHE_TTL = 86400; // 24 hours in seconds
 
     // -------------------------------------------------------------------------
@@ -31,27 +32,31 @@ class PsgcController extends Controller
     /**
      * Fetch from PSGC API, with a cache layer.
      *
-     * @param  string $endpoint  e.g. "regions" or "regions/0500000000/provinces"
-     * @return array|null        Decoded JSON array, or null on failure
+     * @param  string  $endpoint  e.g. "regions" or "regions/0500000000/provinces"
+     * @return array|null Decoded JSON array, or null on failure
      */
     private function psgcFetch(string $endpoint): ?array
     {
-        $cacheKey = 'psgc_' . md5($endpoint);
+        $cacheKey = 'psgc_'.md5($endpoint);
 
         return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($endpoint) {
             try {
                 $response = Http::timeout(15)
                     ->withHeaders(['Accept' => 'application/json'])
-                    ->get(self::BASE_URL . '/' . $endpoint);
+                    ->get(self::BASE_URL.'/'.$endpoint);
 
                 if ($response->successful()) {
-                    return $response->json();
+                    $data = $response->json();
+
+                    return is_array($data) ? $data : null;
                 }
 
-                Log::warning("[PSGC] Non-2xx response for /{$endpoint}: " . $response->status());
+                Log::warning("[PSGC] Non-2xx response for /{$endpoint}: ".$response->status());
+
                 return null;
             } catch (\Throwable $e) {
-                Log::error("[PSGC] Request failed for /{$endpoint}: " . $e->getMessage());
+                Log::error("[PSGC] Request failed for /{$endpoint}: ".$e->getMessage());
+
                 return null;
             }
         });
@@ -88,6 +93,25 @@ class PsgcController extends Controller
         ])->values()->toArray();
 
         return response()->json($regions);
+    }
+
+    /** All provinces, using the same API and cache as the Customer address lists. */
+    public function allProvinces(): JsonResponse
+    {
+        $data = $this->psgcFetch('provinces');
+        if (! is_array($data) || ! array_is_list($data) || ! $data
+            || collect($data)->contains(fn ($province) => ! is_array($province)
+                || ! preg_match('/^\d{10}$/', (string) ($province['code'] ?? ''))
+                || ! is_string($province['name'] ?? null) || trim($province['name']) === '')) {
+            Cache::forget('psgc_'.md5('provinces'));
+
+            return response()->json(['message' => 'The province list is temporarily unavailable. Please try again.'], 502);
+        }
+
+        $provinces = collect($data)->map(fn ($province) => ['code' => (string) $province['code'], 'name' => trim($province['name'])])
+            ->unique('code')->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values()->all();
+
+        return response()->json($provinces, 200, ['Cache-Control' => 'no-cache']);
     }
 
     /**

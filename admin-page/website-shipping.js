@@ -7,10 +7,40 @@
     const api = (window.APP_API_BASE_URL || (['localhost','127.0.0.1'].includes(location.hostname) && location.port!=='8000' ? location.protocol+'//'+location.hostname+':8000/api' : location.origin+'/api')).replace(/\/$/,'');
     const headers = () => ({Accept:'application/json','Content-Type':'application/json',Authorization:'Bearer '+window.AdminSession?.getToken()});
     let record=null, busy=false, loaded=false, baseline='', zones=[];
+    let provinces=[], provincesReady=false, provincesBusy=false, provincesFailed=false, provinceRequest=null;
     const admin = () => loaded && !!record?.can_edit;
     const money = amount => new Intl.NumberFormat('en-PH',{style:'currency',currency:'PHP'}).format(Number(amount));
     const list = value => value.split(/[\n,]+/).map(text=>text.trim()).filter(Boolean);
     const escape = text => String(text ?? '').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    const placeKey = value => String(value||'').trim().replace(/\s+/g,' ').toLocaleLowerCase('en-PH');
+    const knownProvince = value => provinces.some(province=>placeKey(province.name)===placeKey(value));
+    const provinceOptions = current => {
+      const matching=provinces.find(province=>placeKey(province.name)===placeKey(current));
+      let html='<option value="">Select a province</option>';
+      // Keep an existing value until the Admin explicitly selects a replacement.
+      if(current&&!matching)html+='<option value="'+escape(current)+'" selected>'+escape(provincesReady?'Saved province: '+current:current)+'</option>';
+      for(const province of provinces){const selected=province===matching;html+='<option value="'+escape(selected?current:province.name)+'" data-code="'+escape(province.code)+'"'+(selected?' selected':'')+'>'+escape(province.name)+'</option>';}
+      return html;
+    };
+    const showError = (message,{title='Check shipping settings',field=null,retry=null}={}) => {
+      field?.setAttribute('aria-invalid','true');
+      const options={title,type:'error',okText:retry?'Try again':'OK',onOk:()=>{if(retry)void retry();else field?.focus();}};
+      if(window.showAdminPopup)window.showAdminPopup(message,options);
+      else window.AdminPageNotice?.show(message,{key:'shipping',...(retry?{retry}:{})});
+    };
+    const safeFailure = (message,field) => Object.assign(new Error(message),{isShippingMessage:true,field});
+    const errorField = key => {
+      const area=String(key||'').match(/^settings\.zones\.(\d+)\.([a-z_]+)/);
+      return area ? get('shipping-'+area[1]+'-'+area[2]) : key?.includes('nonworking_dates')?get('shippingDates'):null;
+    };
+    const validationMessage = (key,raw) => {
+      const area=String(key).match(/^settings\.zones\.(\d+)\.([a-z_]+)/),number=area?Number(area[1])+1:0;
+      if(area&&area[2]==='postal_codes'&&/duplicate|distinct|repeated/i.test(raw))return 'Delivery area '+number+' has a repeated postal code. Enter each postal code only once.';
+      if(area&&area[2]==='cities'&&/duplicate|distinct|repeated/i.test(raw))return 'Delivery area '+number+' has a repeated city or municipality. Enter each name only once.';
+      if(raw&&!/settings\.|SQLSTATE|Laravel|Exception|database|\bHTTP\b|postal_codes|nonworking_|transit_/i.test(raw)&&raw.length<600)return raw;
+      const labels={name:'area name',province:'province',cities:'cities or municipalities',postal_codes:'postal codes',fee:'shipping fee',preparation_days:'preparation days',transit_min_days:'fastest delivery time',transit_max_days:'longest delivery time'};
+      return area?'Please review the '+(labels[area[2]]||'settings')+' for delivery area '+number+'.':'Please review your shipping settings and try again.';
+    };
     const read = () => ({enabled:get('shippingEnabled').checked,
       nonworking_weekdays:[...document.querySelectorAll('[data-shipping-weekday]:checked')].map(input=>Number(input.value)),
       nonworking_dates:list(get('shippingDates').value),
@@ -33,25 +63,33 @@
       const savedDraft=!!record?.draft&&record.has_saved_draft!==false;
       const same=!!record?.published&&normalized(record.draft||values)===normalized(record.published);
       const needsArea=values.enabled&&!values.zones.length;
+      const provinceLock=!!values.zones.length&&(!provincesReady||provincesBusy);
+      const invalidProvince=provincesReady&&values.zones.some(zone=>!knownProvince(zone.province));
       get('shippingForm').setAttribute('aria-busy',String(busy));
-      get('shippingSave').disabled=!admin()||busy||!changed;
+      get('shippingSave').disabled=!admin()||busy||provinceLock||!changed;
       get('shippingDiscard').disabled=!admin()||busy||!changed;
-      get('shippingPublish').disabled=!admin()||busy||changed||!savedDraft||needsArea||same||!get('shippingApproved').checked;
+      get('shippingPublish').disabled=!admin()||busy||provinceLock||invalidProvince||changed||!savedDraft||needsArea||same||!get('shippingApproved').checked;
       get('shippingFields').disabled=!admin()||busy;
-      get('shippingApproved').disabled=!admin()||busy||changed||!savedDraft||needsArea||same;
+      get('shippingApproved').disabled=!admin()||busy||provinceLock||invalidProvince||changed||!savedDraft||needsArea||same;
+      get('shippingZones').querySelectorAll('[data-field="province"]').forEach(select=>{select.disabled=!admin()||busy||!provincesReady||provincesBusy;});
+      get('shippingProvinceStatus').textContent=provincesBusy?'Loading provinces…':provincesFailed?'The province list is unavailable. Reload it to continue.':'';
+      get('shippingProvinceRetry').hidden=!provincesFailed;get('shippingProvinceRetry').disabled=busy||provincesBusy;
       get('shippingDraftPreview').innerHTML=record ? table(values) : '';
-      get('shippingRefresh').disabled=busy;get('shippingRetry').disabled=busy;
+      get('shippingRefresh').disabled=busy;
       get('shippingSaveStatus').textContent=busy?(loaded?'Updating settings…':'Loading settings…'):!loaded?'Settings unavailable. Please retry.':changed?'Unsaved draft changes':admin()?'No unsaved changes':'Published settings · Read only';
       const hint=get('shippingPublishHint');
-      if(hint)hint.textContent=!loaded?'':busy?'Please wait…':needsArea?'Add at least one delivery area before offering delivery.':changed?'Click Save draft first. Then tick the FMRC approval box.':!savedDraft?'Set up your delivery areas and fees, then click Save draft.':same?'These settings are already published.':!get('shippingApproved').checked?'Tick the FMRC approval box to enable Publish settings.':'Ready to publish. These settings will be used for new orders.';
+      if(hint)hint.textContent=!loaded?'':busy?'Please wait…':needsArea?'Add at least one delivery area before offering delivery.':provinceLock?'Load the province list before saving or publishing.':invalidProvince?'Select a province from the list for each delivery area.':changed?'Click Save draft first. Then tick the FMRC approval box.':!savedDraft?'Set up your delivery areas and fees, then click Save draft.':same?'These settings are already published.':!get('shippingApproved').checked?'Tick the FMRC approval box to enable Publish settings.':'Ready to publish. These settings will be used for new orders.';
     };
     const renderZones = values => {
       zones=values;
       const fields=[['name','Delivery area name','text'],['province','Province','text'],['cities','Cities / municipalities (optional)','text'],['postal_codes','Postal codes (optional)','text'],['fee','Shipping fee per order (PHP)','number'],['preparation_days','Days to prepare the order','number'],['transit_min_days','Fastest delivery (working days)','number'],['transit_max_days','Longest delivery (working days)','number']];
-      const help={name:'A label for your reference, such as Daet delivery.',province:'Use the province name shown in customer addresses.',cities:'Separate names with commas. Leave blank to include all cities in this province.',postal_codes:'Use four-digit codes, separated by commas. Leave blank for all postal codes in the selected area.',fee:'Charged once for the whole order, regardless of the number of items.',preparation_days:'Working days FMRC needs before the parcel is ready to send.',transit_min_days:'Fewest working days for delivery after preparation.',transit_max_days:'Most working days usually needed after preparation.'};
+      const help={name:'A label for your reference, such as Daet delivery.',province:'Select a province from the address list. Review your city and postal-code entries when changing provinces.',cities:'Separate names with commas. Leave blank to include all cities in this province.',postal_codes:'Use four-digit codes, separated by commas. Leave blank for all postal codes in the selected area.',fee:'Charged once for the whole order, regardless of the number of items.',preparation_days:'Working days FMRC needs before the parcel is ready to send.',transit_min_days:'Fewest working days for delivery after preparation.',transit_max_days:'Most working days usually needed after preparation.'};
       if(!zones.length){get('shippingZones').innerHTML='<div class="shipping-empty"><strong>No destinations yet</strong><p>Add your first destination to set its shipping fee and delivery estimate.</p></div>';return;}
-      get('shippingZones').innerHTML=zones.map((zone,index)=>'<section class="shipping-zone" data-zone-id="'+escape(zone.id)+'"><div class="shipping-zone-heading"><h4>Delivery area '+(index+1)+'</h4><button type="button" class="btn-admin btn-secondary" data-remove-zone="'+index+'">Remove area</button></div><div class="shipping-zone-fields">'+fields.map(([key,label,type])=>
-        '<div class="field-stack"><label for="shipping-'+index+'-'+key+'">'+label+'</label><input class="input-field" id="shipping-'+index+'-'+key+'" data-field="'+key+'" aria-describedby="shipping-'+index+'-'+key+'-help" type="'+type+'" value="'+escape(Array.isArray(zone[key])?zone[key].join(', '):zone[key])+'" '+(['cities','postal_codes'].includes(key)?'':'required ') + (type==='number'?'min="'+(key.includes('transit')?1:0)+'" max="'+(key==='fee'?'999999.99':'90')+'" step="'+(key==='fee'?'.01':'1')+'"':'maxlength="'+(['cities','postal_codes'].includes(key)?'10000':key==='name'?'100':'120')+'"')+' /><small id="shipping-'+index+'-'+key+'-help">'+help[key]+'</small></div>').join('')+'</div></section>').join('');
+      get('shippingZones').innerHTML=zones.map((zone,index)=>'<section class="shipping-zone" data-zone-id="'+escape(zone.id)+'"><div class="shipping-zone-heading"><h4>Delivery area '+(index+1)+'</h4><button type="button" class="btn-admin btn-secondary" data-remove-zone="'+index+'">Remove area</button></div><div class="shipping-zone-fields">'+fields.map(([key,label,type])=>{
+        const id='shipping-'+index+'-'+key,attributes='class="input-field" id="'+id+'" data-field="'+key+'" aria-describedby="'+id+'-help"';
+        const control=key==='province'?'<select '+attributes+' required'+(!provincesReady?' disabled':'')+'>'+provinceOptions(zone.province)+'</select>':'<input '+attributes+' type="'+type+'" value="'+escape(Array.isArray(zone[key])?zone[key].join(', '):zone[key])+'" '+(['cities','postal_codes'].includes(key)?'':'required ') + (type==='number'?'min="'+(key.includes('transit')?1:0)+'" max="'+(key==='fee'?'999999.99':'90')+'" step="'+(key==='fee'?'.01':'1')+'"':'maxlength="'+(['cities','postal_codes'].includes(key)?'10000':key==='name'?'100':'120')+'"')+' />';
+        return '<div class="field-stack"><label for="'+id+'">'+label+'</label>'+control+'<small id="'+id+'-help">'+help[key]+'</small></div>';
+      }).join('')+'</div></section>').join('');
     };
     const populate = data => {
       loaded=true;
@@ -68,29 +106,73 @@
       const calendar=data.published;
       get('shippingPublishedCalendar').textContent=calendar ? 'Nonworking days: '+(calendar.nonworking_weekdays.map(day=>['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][day-1]).join(', ')||'None')+'. Other closures: '+(calendar.nonworking_dates.join(', ')||'None')+'.' : '';
       sync();
+      if(data.can_edit&&!provincesReady&&!provincesBusy)void loadProvinces();
     };
-    const error = message => {get('shippingError').hidden=false;get('shippingErrorText').textContent=message;};
     const fetchData = async (path,options={}) => {
       const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),20000);
       try {
       const response=await fetch(api+path,{...options,headers:headers(),signal:controller.signal});
       const json=await response.json().catch(()=>({}));
-      if(response.status===401)throw new Error('Your session has expired. Sign in again to continue.');
-      if(response.status===403)throw new Error('Your account does not have permission to manage these settings.');
-      if (!response.ok) throw new Error(Object.values(json.errors || {}).flat()[0] || json.message || 'Shipping settings could not be saved. Please retry.');
-      if(!json.data || typeof json.data.can_edit!=='boolean')throw new Error('Shipping settings could not be loaded. Please retry.');
+      if(response.status===401)throw safeFailure('Your session has expired. Sign in again to continue.');
+      if(response.status===403)throw safeFailure('Your account does not have permission to manage these settings.');
+      if(response.status===422){const [field,messages]=Object.entries(json.errors||{})[0]||[];throw safeFailure(validationMessage(field,Array.isArray(messages)?messages[0]:''),field);}
+      if(response.status===409)throw safeFailure('These settings changed in another session. Refresh and review the latest draft before continuing.');
+      if (!response.ok) throw safeFailure('Shipping settings are temporarily unavailable. Please try again.');
+      if(!json.data || typeof json.data.can_edit!=='boolean')throw safeFailure('Shipping settings could not be loaded. Please refresh and try again.');
       return json.data;
       } catch(failure) {
-        if(failure.name==='AbortError')throw new Error('The request timed out. Refresh to check the latest settings before trying again.');
-        throw failure;
+        if(failure.name==='AbortError')throw safeFailure('The request timed out. Refresh to check the latest settings before trying again.');
+        if(failure.isShippingMessage)throw failure;
+        throw safeFailure('We could not connect. Check your connection and try again.');
       } finally {clearTimeout(timeout);}
     };
+    const loadProvinces = () => {
+      if(provinceRequest)return provinceRequest;
+      provincesBusy=true;provincesFailed=false;sync();
+      provinceRequest=(async()=>{
+        const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),18000);
+        try{
+          const response=await fetch(api+'/psgc/provinces',{headers:{Accept:'application/json'},signal:controller.signal,cache:'no-cache'});
+          const data=await response.json();
+          if(!response.ok||!Array.isArray(data)||!data.length||data.some(value=>!/^\d{10}$/.test(String(value?.code||''))||typeof value?.name!=='string'||!value.name.trim()))throw Error('Province list unavailable');
+          provinces=data.map(value=>({code:String(value.code),name:value.name.trim()})).sort((a,b)=>a.name.localeCompare(b.name,'en-PH'));
+          provincesReady=true;
+          get('shippingZones').querySelectorAll('[data-field="province"]').forEach(select=>{select.innerHTML=provinceOptions(select.value);});
+          return true;
+        }catch{
+          provincesFailed=true;
+          showError('The province list is temporarily unavailable. Please try again. Your draft has been kept.',{title:'Province list unavailable',retry:loadProvinces});
+          return false;
+        }finally{clearTimeout(timeout);provincesBusy=false;provinceRequest=null;sync();}
+      })();return provinceRequest;
+    };
+    const validateDraft = () => {
+      const values=read();
+      const reject=(message,field)=>{showError(message,{field});return false;};
+      if(values.zones.length&&!provincesReady)return reject('Load the province list before saving your delivery areas.');
+      if(values.nonworking_weekdays.length===7)return reject('Leave at least one day unchecked so delivery dates can be calculated.');
+      const dates=values.nonworking_dates;
+      if(new Set(dates).size!==dates.length)return reject('A closed date is repeated. Enter each date only once.',get('shippingDates'));
+      if(dates.some(date=>{const parsed=new Date(date+'T00:00:00Z');return !/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(parsed.getTime())||parsed.toISOString().slice(0,10)!==date;}))return reject('Enter closed dates as YYYY-MM-DD, one per line.',get('shippingDates'));
+      const labels={name:'area name',province:'province',cities:'cities or municipalities',postal_codes:'postal codes',fee:'shipping fee',preparation_days:'preparation days',transit_min_days:'fastest delivery days',transit_max_days:'longest delivery days'};
+      for(const [index,zone]of values.zones.entries()){
+        for(const field of get('shippingZones').querySelectorAll('[data-zone-id]')[index].querySelectorAll('[data-field]')){
+          if(!field.checkValidity())return reject('Please enter a valid '+labels[field.dataset.field]+' for delivery area '+(index+1)+'.',field);
+        }
+        if(!knownProvince(zone.province))return reject('Select a province from the list for delivery area '+(index+1)+'.',get('shipping-'+index+'-province'));
+        if(new Set(zone.cities.map(placeKey)).size!==zone.cities.length)return reject('Delivery area '+(index+1)+' has a repeated city or municipality. Enter each name only once.',get('shipping-'+index+'-cities'));
+        if(new Set(zone.postal_codes).size!==zone.postal_codes.length)return reject('Delivery area '+(index+1)+' has a repeated postal code. Enter each postal code only once.',get('shipping-'+index+'-postal_codes'));
+        if(zone.postal_codes.some(code=>!/^\d{4}$/.test(code)))return reject('Enter four-digit postal codes for delivery area '+(index+1)+'.',get('shipping-'+index+'-postal_codes'));
+        if(zone.transit_min_days>zone.transit_max_days)return reject('The longest delivery time must be at least the fastest delivery time for delivery area '+(index+1)+'.',get('shipping-'+index+'-transit_max_days'));
+      }
+      return true;
+    };
     const load = async () => {
-      busy=true;loaded=false;sync();get('shippingError').hidden=true;
+      busy=true;loaded=false;sync();
       try { populate(await fetchData('/admin/shipping-settings')); }
       catch (failure) {
         loaded=false;
-        error(failure.message || 'Shipping settings could not be loaded. Retry before editing.');
+        showError(failure.message,{title:'Shipping settings unavailable'});
         get('shippingPublished').textContent='Published shipping settings are unavailable. Please try again.';
         get('shippingPublishedVersion').textContent='Settings unavailable';
         get('shippingPublishedCalendar').textContent='';
@@ -98,21 +180,22 @@
       finally { busy=false;sync(); }
     };
     const mutate = async (path,payload) => {
-      busy=true;sync();get('shippingError').hidden=true;
+      busy=true;sync();
       try { populate(await fetchData(path,{method:path.endsWith('/draft')?'PUT':'POST',body:JSON.stringify(payload)}));
         window.showAdminSuccessNotification?.(path.endsWith('/draft')?'Shipping draft saved.':'Approved shipping settings published.',{title:'Saved!'});
-      } catch (failure) { error(failure.message); }
+      } catch (failure) { showError(failure.message,{field:errorField(failure.field)}); }
       finally { busy=false;sync(); }
     };
-    get('shippingForm').addEventListener('input',sync);get('shippingForm').addEventListener('change',sync);
+    const edited=event=>{event.target.removeAttribute('aria-invalid');sync();};
+    get('shippingForm').addEventListener('input',edited);get('shippingForm').addEventListener('change',edited);
     get('shippingApproved').addEventListener('change',sync);
     get('shippingAddZone').addEventListener('click',()=>{const values=read().zones;if(values.length>=100)return;values.push({id:crypto.randomUUID(),name:'',province:'',cities:[],postal_codes:[],fee:'',preparation_days:1,transit_min_days:1,transit_max_days:3});renderZones(values);sync();});
     get('shippingZones').addEventListener('click',event=>{const button=event.target.closest('[data-remove-zone]');if(!button)return;window.showAdminConfirmPopup('Remove this zone from the draft?',{title:'Remove destination zone',confirmText:'Remove',onConfirm:()=>{const values=read().zones;values.splice(Number(button.dataset.removeZone),1);renderZones(values);sync();}});});
-    get('shippingForm').addEventListener('submit',event=>{event.preventDefault();if(!admin()||busy||!dirty()||!get('shippingForm').reportValidity())return;const values=read();window.showAdminConfirmPopup('Save these shipping settings as a draft?',{title:'Save Shipping Draft',confirmText:'Save draft',onConfirm:()=>mutate('/admin/shipping-settings/draft',{expected_revision:record.revision,settings:values})});});
+    get('shippingForm').addEventListener('submit',event=>{event.preventDefault();if(!admin()||busy||!dirty()||!validateDraft())return;const values=read();window.showAdminConfirmPopup('Save these shipping settings as a draft?',{title:'Save Shipping Draft',confirmText:'Save draft',onConfirm:()=>mutate('/admin/shipping-settings/draft',{expected_revision:record.revision,settings:values})});});
     get('shippingPublish').addEventListener('click',()=>{if(get('shippingPublish').disabled)return;window.showAdminConfirmPopup('Publish these FMRC-approved rates and delivery estimates for new checkouts?',{title:'Publish Shipping Settings',confirmText:'Publish',onConfirm:()=>mutate('/admin/shipping-settings/publish',{expected_revision:record.revision,approved:true})});});
     get('shippingDiscard').addEventListener('click',()=>{if(!busy&&record)populate(record);});
     const refresh = () => {if(busy)return;if(dirty())window.showAdminConfirmPopup('Discard unsaved changes and load the latest shipping settings?',{title:'Refresh Shipping Settings',confirmText:'Load latest',onConfirm:load});else void load();};
-    get('shippingRefresh').addEventListener('click',refresh);get('shippingRetry').addEventListener('click',refresh);
+    get('shippingRefresh').addEventListener('click',refresh);get('shippingProvinceRetry').addEventListener('click',()=>void loadProvinces());
     void (window.AdminWebsiteLoading ? window.AdminWebsiteLoading.during(load) : load());
   });
 })();
