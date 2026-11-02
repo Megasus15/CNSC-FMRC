@@ -8,6 +8,8 @@
 .policy-settings-page details { margin: 20px 0; }
 .policy-settings-page summary { cursor: pointer; font-weight: 600; }
 .policy-settings-page p { line-height: 1.6; }
+.policy-customer-links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+#policyPublishHint { margin-top: 12px; font-size: .8rem; }
 .policy-approval { display: flex; gap: 10px; align-items: flex-start; line-height: 1.6; margin: 20px 0; }
 .policy-settings-page [hidden],#policySaveBar[hidden] { display: none !important; }
 #policySaveBar { display: flex; justify-content: space-between; align-items: center; gap: 18px; }

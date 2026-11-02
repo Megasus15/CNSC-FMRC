@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="stylesheet" href="/apps/shared/pwa.css?v=1.5" />
+    <script src="/apps/shared/pwa.js?v=1.5"></script>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+    <link rel="icon" type="image/png" href="/images/FMRC%20Brand%20Logo.png?v=1" />
+    <link rel="apple-touch-icon" href="/images/FMRC%20Brand%20Logo.png?v=1" />
+    <link rel="preload" as="image" href="../images/FMRC%20Brand%20Logo.png" />
+    <meta name="theme-color" content="#6b202b" />
+    <title>Transaction Terms | UCN FMRC</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Font Awesome was the one head origin with no preconnect. Two hints on
+         purpose, the same pattern as Google Fonts above: the plain one warms the
+         socket the render-blocking stylesheet uses, the crossorigin one warms
+         the anonymous socket the woff2 needs (fonts are always fetched with
+         CORS, and Chrome will not reuse the other pool for them). -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" />
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+    <!-- One Montserrat request for the whole site: every customer page asks for
+         this exact string so navigating between them is a cache hit instead of a
+         fresh render-blocking round trip. Montserrat is a variable font, so the
+         extra weights cost no additional bytes. -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <!-- No `crossorigin` on the preload: the stylesheet below is fetched in
+         no-cors mode, and a mismatched preload would be a second download
+         rather than a warm cache hit. -->
+    <link
+      rel="preload"
+      as="style"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="../home-page/main.css?v=9.9-order-single-line-policies" />
+    <link rel="stylesheet" href="../home-page/responsive.css?v=8.4" />
+
+    <!-- The signature loader. One sheet shared by every customer page, so the
+         curtain that covers this page while it boots and the curtain that covers
+         a submit later are the same object, not two things that happen to share
+         a colour. It is a plain <link> and not inlined: a stylesheet in <head>
+         blocks first paint wherever in the head it sits, and this page's first
+         paint is already gated on main.css above it, so these rules are
+         guaranteed present the first time anything paints. -->
+    <link rel="stylesheet" href="../home-page/fmrc-loader.css?v=3.0" />
+    <link rel="stylesheet" href="../home-page/customer-editorial.css?v=2.1" />
+    <link rel="stylesheet" href="../home-page/customer-navbar.css?v=1.9" />
+    <link rel="stylesheet" href="../home-page/customer-footer.css?v=1.8" />
+    <link rel="stylesheet" href="../home-page/announcement-card.css?v=1.0" />
+    <link rel="stylesheet" href="../home-page/customer-button-feedback.css?v=1.0" />
+    <link rel="stylesheet" href="../home-page/customer-mobile.css?v=1.8" />
+    <script>
+      /* Keeps the signature 3D loader on screen for a minimum of 700–900 ms
+         (randomised), capped at 1 500 ms. The curtain lifts once the DOM is
+         ready AND the floor has elapsed, whichever comes second. */
+      (function () {
+        var h = document.documentElement;
+        var startedAt = performance.now();
+        var FLOOR = 700 + Math.floor(Math.random() * 201);
+        var CAP   = 1500;
+        var liftTimer;
+        h.classList.add("fmrc-booting");
+        function lift() {
+          clearTimeout(liftTimer);
+          h.classList.remove("fmrc-booting");
+          var boot = document.querySelector(".fmrc-load-boot");
+          if (!boot) return;
+          boot.addEventListener("transitionend", function (e) {
+            if (e.target === boot) boot.remove();
+          });
+          if (parseFloat(getComputedStyle(boot).opacity) === 0) boot.remove();
+        }
+        function onReady() {
+          var elapsed = performance.now() - startedAt;
+          var remaining = Math.max(0, Math.min(FLOOR - elapsed, CAP - elapsed));
+          if (remaining > 0) liftTimer = setTimeout(lift, remaining);
+          else lift();
+        }
+        if (document.readyState === "loading")
+          document.addEventListener("DOMContentLoaded", onReady, { once: true });
+        else onReady();
+        window.addEventListener("pageshow", function (e) {
+          if (e.persisted) { clearTimeout(liftTimer); h.classList.remove("fmrc-booting"); }
+        });
+      })();
+    </script>
+      <link rel="stylesheet" href="../home-page/customer-scroll.css?v=1.2" />
+    <script defer src="../home-page/customer-scroll.js?v=1.0"></script>
+  <link rel="stylesheet" href="/products-page/refund-policy.css?v=1.2-pages" /><link rel="stylesheet" href="../home-page/my-appointments.css?v=1.0">
+</head>
+  <body class="policy-document-page">
+    <!-- The boot curtain. Static markup, so it can paint on the very first
+         frame; hidden by default in CSS and shown only while html.fmrc-booting
+         is set, which the script above is the only thing that adds. A visitor
+         with scripting off therefore never receives a curtain and can never be
+         stranded behind one. No --fmrc-boot-field here: this page paints the
+         field fmrc-loader.css already defaults to (main.css:838). -->
+    <div class="fmrc-load-boot" role="status" aria-live="polite">
+      <div class="fmrc-load-core">
+        <div class="fmrc-load-mark" aria-hidden="true">
+          <span class="fmrc-load-shadow"></span>
+          <span class="fmrc-load-float">
+            <span class="fmrc-load-assembly">
+              <span class="fmrc-load-satellite"><span></span></span>
+              <span class="fmrc-load-orbit"
+                ><span class="fmrc-load-orbit-track"></span
+              ></span>
+              <span class="fmrc-load-edge" style="--layer: -7"></span>
+              <span class="fmrc-load-edge" style="--layer: -6"></span>
+              <span class="fmrc-load-edge" style="--layer: -5"></span>
+              <span class="fmrc-load-edge" style="--layer: -4"></span>
+              <span class="fmrc-load-edge" style="--layer: -3"></span>
+              <span class="fmrc-load-edge" style="--layer: -2"></span>
+              <span class="fmrc-load-edge" style="--layer: -1"></span>
+              <span class="fmrc-load-edge" style="--layer: 0"></span>
+              <span class="fmrc-load-edge" style="--layer: 1"></span>
+              <span class="fmrc-load-edge" style="--layer: 2"></span>
+              <span class="fmrc-load-edge" style="--layer: 3"></span>
+              <span class="fmrc-load-edge" style="--layer: 4"></span>
+              <span class="fmrc-load-edge" style="--layer: 5"></span>
+              <span class="fmrc-load-edge" style="--layer: 6"></span>
+              <span class="fmrc-load-edge" style="--layer: 7"></span>
+              <span class="fmrc-load-face"
+                ><span class="fmrc-load-logo-bed"
+                  ><span class="fmrc-load-logo"></span></span
+              ></span>
+            </span>
+          </span>
+        </div>
+        <p class="fmrc-load-brand">UCN&ndash;FMRC</p>
+        <p class="fmrc-load-name">
+          Fabrication &amp; Manufacturing<br />Research Center
+        </p>
+        <p class="fmrc-load-caption">Preparing your experience</p>
+        <div class="fmrc-load-rail" aria-hidden="true"><span></span></div>
+      </div>
+    </div>
+
+    <header class="site-header">
+      <a href="/home-page/main.html" class="logo-container">
+        <span class="header-logo-pair" aria-hidden="true">
+          <img
+            src="/images/UCN Logo.png"
+            alt=""
+            class="header-emblem"
+            id="navLogoEl"
+            data-brand-logo="nav-primary"
+            decoding="async"
+            fetchpriority="high"
+          />
+        </span>
+        <h1 class="logo-text">
+          <span class="logo-title">
+            <span class="brand-name-full">UNIVERSITY OF CAMARINES NORTE</span>
+            <span class="brand-name-short">UCN</span>
+          </span>
+          <span class="logo-subtitle">
+            <span class="brand-name-full"
+              >FABRICATION AND MANUFACTURING RESEARCH CENTER</span
+            >
+            <span class="brand-name-short">FMRC</span>
+          </span>
+        </h1>
+      </a>
+      <nav class="main-nav">
+        <ul>
+          <li><a href="/home-page/main.html#home" class="nav-link">Home</a></li>
+          <li>
+            <a
+              href="/about-page/about.html"
+              class="nav-link"
+              >About Us</a
+            >
+          </li>
+          <li>
+            <a href="/services-page/service.html" class="nav-link">Services</a>
+          </li>
+          <li>
+            <a href="/products-page/product.html" class="nav-link">Products</a>
+          </li>
+          <li>
+            <a href="/contact-page/contact.html" class="nav-link">Contact</a>
+          </li>
+        </ul>
+      </nav>
+      <div class="header-right-actions">
+        <button
+          class="announcement-bell"
+          id="announcementBell"
+          type="button"
+          aria-label="Open announcements"
+          title="Announcements"
+        >
+          <i class="fa-solid fa-bell" aria-hidden="true"></i>
+          <span
+            class="announcement-bell__badge"
+            id="announcementBellBadge"
+            hidden
+          ></span>
+        </button>
+        <div class="user-profile">
+          <svg
+            width="40"
+            height="40"
+            viewBox="0 0 40 40"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <circle cx="20" cy="20" r="20" fill="var(--customer-wine)" />
+            <path
+              d="M20 20C23.3137 20 26 17.3137 26 14C26 10.6863 23.3137 8 20 8C16.6863 8 14 10.6863 14 14C14 17.3137 16.6863 20 20 20ZM20 23C15.5817 23 6.66669 25.2386 6.66669 29.6667V32H33.3334V29.6667C33.3334 25.2386 24.4183 23 20 23Z"
+              fill="var(--customer-paper-sink)"
+            />
+          </svg>
+        </div>
+      </div>
+    </header>
+
+    <main class="policy-page" id="policyDocument" data-policy-type="transaction-terms" aria-busy="true">
+      <nav class="policy-breadcrumb" aria-label="Breadcrumb"><a href="/products-page/product.html">Products</a><span aria-hidden="true">/</span><span aria-current="page">Transaction Terms</span></nav>
+      <header class="policy-page-heading">
+        <p class="policy-eyebrow">Customer policies</p>
+        <h1 id="policyPageTitle">Transaction Terms</h1>
+        <p class="policy-page-intro">Information about ordering, payment, delivery, pickup, and cancellations.</p>
+        <nav class="policy-switcher" aria-label="Customer policies">
+          <a id="policyTermsPageLink" href="/products-page/transaction-terms.html" aria-current="page">Transaction Terms</a>
+          <a id="policyRefundPageLink" href="/products-page/refund-policy.html">Refund Policy</a>
+        </nav>
+        <div class="policy-meta" id="policyMetadata" hidden><p id="policyPageStatus" role="status" aria-live="polite"></p><details><summary>Policy version</summary><p id="policyPageVersion"></p><p id="policyCollectionTitle"></p></details></div>
+      </header>
+      <section class="policy-notice" id="policyNotice" role="status" aria-live="polite">
+        <h2 id="policyNoticeTitle">Loading transaction terms…</h2>
+        <p id="policyNoticeMessage">Please wait while we retrieve the published policy.</p>
+        <div class="policy-notice-actions"><button type="button" id="policyPageRetry" class="policy-action" hidden>Try again</button><a id="policyCurrentLink" class="policy-action" href="/products-page/transaction-terms.html" hidden>View current policy</a><a id="policyNoticeContact" class="policy-action" href="/contact-page/contact.html" hidden>Contact FMRC</a></div>
+      </section>
+      <div class="policy-reading-layout" id="policySections" hidden>
+        <aside class="policy-contents"><h2>On this page</h2><nav id="policyContentsLinks" aria-label="Transaction Terms contents"></nav></aside>
+        <article class="policy-card" id="transaction-terms" aria-label="Published transaction terms"><div id="policyTermsText"></div></article>
+      </div>
+      <aside class="policy-help" aria-labelledby="policyHelpTitle"><div><h2 id="policyHelpTitle">Questions about your order?</h2><p>Contact FMRC with your order number and details of your concern.</p></div><div class="policy-help-links"><a href="/products-page/product.html?orders=1">My Orders</a><a href="/contact-page/contact.html">Contact FMRC</a></div></aside>
+    </main>
+<footer class="site-footer">
+      <div class="footer-container">
+        <!-- Brand Column -->
+        <div class="footer-brand-col">
+          <div class="footer-logo-row">
+            <span class="footer-logo-disc">
+              <img
+                src="/images/UCN Logo.png"
+                alt="UCN Logo"
+                class="footer-logo"
+                id="footerLogoPrimaryEl"
+                loading="lazy"
+                decoding="async"
+              />
+            </span>
+            <span class="footer-logo-disc">
+              <img
+                src="/images/FMRC Brand Logo.png"
+                alt="FMRC Logo"
+                class="footer-logo"
+                id="footerLogoSecondaryEl"
+                loading="lazy"
+                decoding="async"
+              />
+            </span>
+            <div class="footer-brand-titles">
+              <h3 class="footer-brand" id="footerBrandNameEl">University of Camarines Norte</h3>
+              <p class="footer-subbrand" id="footerBrandSubtitleEl">Fabrication &amp; Manufacturing Research Center</p>
+            </div>
+          </div>
+          <div class="footer-brand-divider" aria-hidden="true"></div>
+          <div class="footer-campus-tag" id="footerCampusTagEl">
+            Main Campus &bull; Daet, Camarines Norte, Philippines, 4600
+          </div>
+          <div class="footer-privacy-registration">
+            <a
+              class="footer-privacy-seal"
+              href="/images/dpo-dps-registration.png"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="View DPO/DPS registration seal (opens in a new tab)"
+            >
+              <img
+                src="/images/dpo-dps-registration.png"
+                alt="National Privacy Commission DPO/DPS registration seal"
+                width="800"
+                height="1132"
+                loading="lazy"
+                decoding="async"
+              />
+            </a>
+            <div class="footer-privacy-copy">
+              <p class="footer-privacy-kicker">Data privacy</p>
+              <p class="footer-privacy-title">DPO/DPS Registered</p>
+              <p class="footer-privacy-issuer">National Privacy Commission</p>
+              <a
+                class="footer-privacy-link"
+                href="/images/dpo-dps-registration.png"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <span class="footer-link-text">View registration seal</span>
+                <svg class="footer-link-arrow" width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="10" x2="10" y2="2"></line><polyline points="4 2 10 2 10 8"></polyline></svg>
+                <span class="footer-sr-only"> (opens in a new tab)</span>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Information Column (Two Tiers) -->
+        <div class="footer-info-col">
+          <!-- Tier 1: Office & Facility Contact -->
+          <div class="footer-office-section">
+            <span class="footer-kicker">OFFICE &amp; FACILITY</span>
+            <div class="footer-contact-grid">
+              <div class="footer-contact-cell footer-contact-location">
+                <div class="footer-contact-meta">
+                  <span class="footer-contact-caption">Facility Location</span>
+                  <a
+                    href="https://www.google.com/maps/search/?api=1&query=Camarines+Norte+State+College,+Daet,+Philippines"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="footer-link"
+                    id="footerLocationLink"
+                    >First Flr., Graduate School Building, University of Camarines Norte, Daet, Philippines</a
+                  >
+                </div>
+              </div>
+              <div class="footer-contact-cell">
+                <div class="footer-contact-meta">
+                  <span class="footer-contact-caption">Official Email</span>
+                  <a
+                    href="mailto:fmrc@cnsc.edu.ph"
+                    class="footer-link"
+                    id="footerEmailLink"
+                    >fmrc@cnsc.edu.ph</a
+                  >
+                </div>
+              </div>
+              <div class="footer-contact-cell">
+                <div class="footer-contact-meta">
+                  <span class="footer-contact-caption">Direct Telephone</span>
+                  <a
+                    href="tel:+639090990000"
+                    class="footer-link"
+                    id="footerPhoneLink"
+                    >0909-099-0000</a
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tier Separator Divider -->
+          <div class="footer-tier-divider" aria-hidden="true"></div>
+
+          <!-- Tier 2: Three-Column Matrix -->
+          <div class="footer-matrix">
+            <!-- Col 1: Quick Links -->
+            <div class="footer-matrix-col">
+              <span class="footer-kicker">QUICK LINKS</span>
+              <ul class="footer-menu" id="footerQuickLinksEl">
+                <li><a href="/home-page/main.html#home">Home</a></li>
+                <li><a href="/about-page/about.html">About Us</a></li>
+                <li><a href="/services-page/service.html">Services</a></li>
+                <li><a href="/products-page/product.html">Products</a></li>
+                <li><a href="/contact-page/contact.html">Contact</a></li>
+              </ul>
+            </div>
+
+            <!-- Col 2: Business Hours (Clean Typography, No Card) -->
+            <div class="footer-matrix-col">
+              <span class="footer-kicker">BUSINESS HOURS</span>
+              <div class="footer-hours-info">
+                <p class="footer-hours-days" id="footerHoursDaysEl">Monday &ndash; Friday</p>
+                <p class="footer-hours-time" id="footerHoursTimeEl">7:00am &ndash; 6:00pm</p>
+              </div>
+            </div>
+
+            <!-- Col 3: Public Links (Clean Links, No Card) -->
+            <div class="footer-matrix-col">
+              <span class="footer-kicker">PUBLIC LINKS</span>
+              <ul class="footer-public-menu">
+                <li>
+                  <a href="https://ucn.edu.ph" target="_blank" rel="noopener noreferrer" id="footerPublicWebsiteLink">
+                    <span class="footer-link-text" id="footerPublicWebsiteLabel">Official UCN website</span>
+                    <svg class="footer-link-arrow" width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="10" x2="10" y2="2"></line><polyline points="4 2 10 2 10 8"></polyline></svg>
+                  </a>
+                </li>
+                <li>
+                  <a href="https://www.facebook.com/ucnofficial" target="_blank" rel="noopener noreferrer" id="footerPublicUcnFbLink">
+                    <span class="footer-link-text" id="footerPublicUcnFbLabel">UCN official Facebook page</span>
+                    <svg class="footer-link-arrow" width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="10" x2="10" y2="2"></line><polyline points="4 2 10 2 10 8"></polyline></svg>
+                  </a>
+                </li>
+                <li>
+                  <a href="https://www.facebook.com/share/18MJcUvJeM/" target="_blank" rel="noopener noreferrer" id="footerFacebookLink">
+                    <span class="footer-link-text" id="footerFacebookLabel">FMRC official Facebook page</span>
+                    <svg class="footer-link-arrow" width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2" y1="10" x2="10" y2="2"></line><polyline points="4 2 10 2 10 8"></polyline></svg>
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Attribution Bar -->
+      <div class="footer-bottom">
+        <div class="footer-bottom-grid">
+          <p class="footer-bottom-copy" id="footerCopyrightEl">
+            &copy; 2026 University of Camarines Norte. All rights reserved.
+          </p>
+          <p class="footer-bottom-dev" id="footerBottomDevEl">
+            Developed for UCN &ndash; Fabrication and Manufacturing Research Center.
+          </p>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Maintenance Mode gate stays synchronous: it must apply the cached
+         snapshot before anything that should be hidden can be painted. -->
+    <script src="../home-page/maintenance-gate.js?v=2.7"></script>
+    <!-- Deferred as a set, never individually: `defer` only preserves relative
+         order among deferred scripts, so leaving any one of these synchronous
+         would run it ahead of the others. All three wrap their work in a
+         DOMContentLoaded handler and deferred scripts run before that event
+         fires, so listener registration order is unchanged. -->
+    <!-- First of the set, so window.FMRCLoader exists before any handler
+         main.js or services.js registers can fire. Every call site is written
+         `window.FMRCLoader?.…`, so if this one request ever fails the affected
+         flow falls back to the plain disabled button it had before. -->
+    <script defer src="../home-page/fmrc-loader.js?v=2.2"></script>
+    <script defer src="../home-page/page-content.js?v=1.2"></script>
+    <link rel="stylesheet" href="../products-page/gateway-payments.css?v=1.0">
+    <link rel="stylesheet" href="../home-page/payment-dialogs.css?v=2.1-refund-claims">
+    <script defer src="../products-page/gateway-payments.js?v=2.1-qrph-claims"></script>
+    <script defer src="../home-page/my-appointments.js?v=1.0"></script>
+<script defer src="../home-page/main.js?v=12.13-checkout-method"></script>
+    <script defer src="../home-page/service-dialogs.js?v=1.1"></script>
+    <script defer src="../home-page/customer-announcements.js?v=6.8"></script>
+  <script defer src="/products-page/refund-policy.js?v=1.1-pages"></script></body>
+</html>

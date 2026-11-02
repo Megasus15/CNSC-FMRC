@@ -56,9 +56,9 @@ class CommercePolicyTest extends TestCase
     {
         $this->getJson('/api/commerce/policy')->assertOk()->assertJsonPath('data', null);
         Sanctum::actingAs(User::factory()->create(['role' => 'admin']));
-        $this->getJson('/api/admin/commerce-policy')->assertOk()->assertJsonPath('data.draft.title', 'FMRC Transaction Terms and Refund Policy');
+        $this->getJson('/api/admin/commerce-policy')->assertOk()->assertJsonPath('data.draft.title', 'FMRC Transaction Terms and Refund Policy')->assertJsonPath('data.has_saved_draft', false);
         $this->postJson('/api/admin/commerce-policy/publish', ['expected_revision' => 0, 'approved' => true])->assertUnprocessable();
-        $this->putJson('/api/admin/commerce-policy/draft', array_merge(CommercePolicy::draft(), ['expected_revision' => 0]))->assertOk();
+        $this->putJson('/api/admin/commerce-policy/draft', array_merge(CommercePolicy::draft(), ['expected_revision' => 0]))->assertOk()->assertJsonPath('data.has_saved_draft', true);
         $this->postJson('/api/admin/commerce-policy/publish', ['expected_revision' => 1, 'approved' => false])->assertUnprocessable();
         $this->getJson('/api/commerce/policy')->assertJsonPath('data', null);
     }
@@ -122,7 +122,7 @@ class CommercePolicyTest extends TestCase
         $draft = array_merge(CommercePolicy::draft(), ['expected_revision' => 0]);
         $this->putJson('/api/admin/commerce-policy/draft', $draft)->assertOk();
         $this->putJson('/api/admin/commerce-policy/draft', $draft)->assertConflict();
-        $this->postJson('/api/admin/commerce-policy/publish',['expected_revision' => 0, 'approved' => true])->assertConflict();
-        $this->assertDatabaseCount('commerce_policies',0);
+        $this->postJson('/api/admin/commerce-policy/publish', ['expected_revision' => 0, 'approved' => true])->assertConflict();
+        $this->assertDatabaseCount('commerce_policies', 0);
     }
 }

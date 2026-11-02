@@ -21,6 +21,8 @@ test('checkout is locked until a published policy is loaded and explicitly accep
   h.resolve(policy('v1'));await tick();assert.equal(h.fields.get('orderTerms').disabled,false);assert.equal(h.ready,false);
   h.agree();assert.equal(h.ready,true);assert.equal(h.api.version(),'v1');
   assert.match(h.fields.get('checkoutRefundLink').href,/version=v1#refund-policy/);
+  assert.match(h.fields.get('checkoutRefundLink').href,/\/refund-policy\.html\?/);
+  assert.match(h.fields.get('checkoutTermsLink').href,/\/transaction-terms\.html\?version=v1#transaction-terms/);
 });
 test('a publication change before submission clears acceptance and updates both policy links',async()=>{
   const h=harness();h.resolve(policy('v1'));await tick();h.agree();const pending=h.api.refresh();assert.equal(h.ready,false);

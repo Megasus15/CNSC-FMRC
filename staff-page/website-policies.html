@@ -134,7 +134,7 @@
     <link rel="stylesheet" href="../admin-page/portal-sidebar.css?v=1.3" />
     <script src="../admin-page/portal-sidebar.js?v=1.1" defer></script>
     <link rel="stylesheet" href="../admin-page/website-loading.css?v=1.1" />
-  <link rel="stylesheet" href="../admin-page/website-payments.css?v=1.2" /><link rel="stylesheet" href="../admin-page/website-policies.css?v=1.0" /></head>
+  <link rel="stylesheet" href="../admin-page/website-payments.css?v=1.2" /><link rel="stylesheet" href="../admin-page/website-policies.css?v=1.1-pages" /></head>
   <body>
     <div class="dashboard-container">
       <aside class="sidebar">
@@ -245,12 +245,12 @@
         <section class="module-content payment-settings-page policy-settings-page" aria-labelledby="policySettingsTitle">
 <div class="page-toolbar"><div class="toolbar-title"><h2 id="policySettingsTitle">Transaction Policies</h2><p>Review the transaction terms and refund policy shown to customers before ordering.</p></div><button class="btn-admin btn-secondary" id="policySettingsRefresh" type="button">Refresh</button></div>
 <div class="payment-settings-message is-error" id="policySettingsError" role="alert" hidden><span id="policySettingsErrorText"></span><button class="btn-admin btn-secondary" id="policySettingsRetry" type="button">Try again</button></div>
-<section class="payment-settings-card wm-section"><h3 id="policyPublishedTitle">Loading the published policy…</h3><p id="policyPublishedMessage"></p><a class="btn-admin btn-secondary" id="policyPublishedLink" target="_blank" rel="noopener noreferrer" href="/products-page/refund-policy.html" hidden>Open customer policy page</a><details><summary>Published transaction terms</summary><div class="policy-admin-text" id="policyPublishedTerms"></div></details><details><summary>Published refund policy</summary><div class="policy-admin-text" id="policyPublishedRefund"></div></details></section>
+<section class="payment-settings-card wm-section"><h3 id="policyPublishedTitle">Loading the published policy…</h3><p id="policyPublishedMessage"></p><div class="policy-customer-links"><a class="btn-admin btn-secondary" id="policyPublishedTermsLink" target="_blank" rel="noopener noreferrer" href="/products-page/transaction-terms.html" hidden>View Transaction Terms</a><a class="btn-admin btn-secondary" id="policyPublishedLink" target="_blank" rel="noopener noreferrer" href="/products-page/refund-policy.html" hidden>View Refund Policy</a></div><details><summary>Published transaction terms</summary><div class="policy-admin-text" id="policyPublishedTerms"></div></details><details><summary>Published refund policy</summary><div class="policy-admin-text" id="policyPublishedRefund"></div></details></section>
 <section class="payment-settings-card wm-section" id="policyDraftEditor" hidden><h3>Policy draft</h3><p>The proposed wording is a draft for FMRC review. Save changes, review the preview, and confirm approval before publication. Staff can read only the published version.</p>
 <form id="policyEditorForm"><fieldset id="policyEditorFields" disabled><div class="field-stack"><label for="policyDraftTitle">Policy title</label><input class="input-field" id="policyDraftTitle" required maxlength="180" /></div><div class="field-stack"><label for="policyDraftTerms">Transaction terms</label><textarea class="input-field" id="policyDraftTerms" rows="16" required minlength="40" maxlength="20000"></textarea></div><div class="field-stack"><label for="policyDraftRefund">Refund policy</label><textarea class="input-field" id="policyDraftRefund" rows="22" required minlength="40" maxlength="20000"></textarea></div></fieldset></form>
 <details><summary>Draft preview</summary><h4>Transaction Terms</h4><div class="policy-admin-text" id="policyPreviewTerms"></div><h4>Refund Policy</h4><div class="policy-admin-text" id="policyPreviewRefund"></div></details>
 <p>Review applicable consumer remedies before approving wording. Reference: <a href="https://fairtrade.dti.gov.ph/faq/is-no-return-no-exchange-policy-allowed/" target="_blank" rel="noopener noreferrer">DTI consumer guidance</a> and <a href="https://elibrary.judiciary.gov.ph/thebookshelf/showdocs/2/96902" target="_blank" rel="noopener noreferrer">Internet Transactions Act</a>.</p>
-<label class="policy-approval"><input type="checkbox" id="policyApproval" disabled /> FMRC has reviewed and approved this transaction and refund policy wording for publication.</label><button class="btn-admin" id="policyPublish" type="button" disabled>Publish approved policy</button></section>
+<label class="policy-approval"><input type="checkbox" id="policyApproval" disabled /> FMRC has reviewed and approved this transaction and refund policy wording for publication.</label><button class="btn-admin" id="policyPublish" type="button" disabled>Publish approved policy</button><p id="policyPublishHint" role="status"></p></section>
 <div class="wm-save-bar" id="policySaveBar" data-dock-save-bar hidden><p id="policySaveStatus" role="status">Loading policy settings…</p><div class="policy-save-actions"><button class="btn-admin btn-secondary" id="policyDraftDiscard" type="button" disabled>Discard changes</button><button class="btn-admin" id="policyDraftSave" type="submit" form="policyEditorForm" disabled>Save draft changes</button></div></div>
 </section>
 </main>
@@ -261,7 +261,7 @@
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="../admin-page/website-loading.js?v=1.2"></script>
     <script src="../admin-page/admin-common.js?v=8.6-policies"></script>
-    <script src="../admin-page/website-policies.js?v=1.1"></script>
+    <script src="../admin-page/website-policies.js?v=1.2-pages"></script>
     <script src="../admin-page/admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>

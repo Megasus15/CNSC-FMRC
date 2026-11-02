@@ -14,10 +14,13 @@
       get('policyDraftDiscard').disabled=!canEdit()||busy||!changed();
       get('policyApproval').disabled=!canEdit()||busy;
       const published=record?.published;const same=published&&Object.keys(fields).every(key=>published[key]===fields[key].value);
-      get('policyPublish').disabled=!canEdit()||busy||changed()||!record?.draft||!get('policyApproval').checked||same;
+      const savedDraft=!!record?.draft && record.has_saved_draft!==false;
+      get('policyPublish').disabled=!canEdit()||busy||changed()||!savedDraft||!get('policyApproval').checked||same;
       get('policyEditorForm').setAttribute('aria-busy',String(busy));
       get('policySettingsRefresh').disabled=busy;get('policySettingsRetry').disabled=busy;
-      get('policySaveStatus').textContent=busy?(loaded?'Saving policy settings…':'Loading policy settings…'):!loaded?'Settings are unavailable. Retry before editing.':changed()?'You have unsaved draft changes.':'Draft changes are saved. Publish only FMRC-approved wording.';
+      get('policySaveStatus').textContent=busy?(loaded?'Updating policy settings…':'Loading policy settings…'):!loaded?'Settings are unavailable. Retry before editing.':changed()?'You have unsaved draft changes.':'No unsaved changes.';
+      const hint=get('policyPublishHint');
+      if(hint)hint.textContent=!loaded?'':busy?'Please wait…':changed()?'Save your draft before publishing.':!savedDraft?'Review and edit the proposed wording, then save a draft before publishing.':same?'The published policy is up to date.':!get('policyApproval').checked?'Confirm FMRC approval to publish.':'Ready to publish.';
       get('policyPreviewTerms').textContent=fields.terms_text.value;get('policyPreviewRefund').textContent=fields.refund_text.value;
     };
     const apply=data=>{
@@ -28,7 +31,9 @@
       get('policyPublishedMessage').textContent=data.published?'Customers review and accept this version at checkout.':'A draft is available to Admin for FMRC review. No draft wording is shown to customers.';
       get('policyPublishedTerms').textContent=data.published?.terms_text||'';get('policyPublishedRefund').textContent=data.published?.refund_text||'';
       get('policyPublishedLink').hidden=!data.published;
+      get('policyPublishedTermsLink').hidden=!data.published;
       if(data.published)get('policyPublishedLink').href='/products-page/refund-policy.html?version='+encodeURIComponent(data.published.version)+'#refund-policy';
+      if(data.published)get('policyPublishedTermsLink').href='/products-page/transaction-terms.html?version='+encodeURIComponent(data.published.version)+'#transaction-terms';
       sync();
     };
     const showError=text=>{get('policySettingsError').hidden=false;get('policySettingsErrorText').textContent=text;};
@@ -54,7 +59,7 @@
         loaded=false;showError(failure.message||'The policy could not be loaded. Retry before editing.');
         get('policyPublishedTitle').textContent='Policy unavailable';
         get('policyPublishedMessage').textContent='Published policy settings are unavailable. Please try again.';
-        get('policyPublishedTerms').textContent='';get('policyPublishedRefund').textContent='';get('policyPublishedLink').hidden=true;
+        get('policyPublishedTerms').textContent='';get('policyPublishedRefund').textContent='';get('policyPublishedLink').hidden=true;get('policyPublishedTermsLink').hidden=true;
       }finally{busy=false;sync();}
     };
     const save=async(publish)=>{busy=true;sync();get('policySettingsError').hidden=true;try{apply(await request(publish?'/publish':'/draft',{method:publish?'POST':'PUT',body:JSON.stringify({expected_revision:record.revision,...(publish?{approved:true}:read())})}));window.showAdminSuccessNotification?.(publish?'Approved transaction terms and refund policy published.':'Policy draft saved.',{title:'Saved!'});}catch(error){showError(error.message);}finally{busy=false;sync();}};

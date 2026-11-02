@@ -35,7 +35,8 @@ final class CommercePolicyController extends Controller
 
         return response()->json(['data' => ['revision' => $settings->revision, 'can_edit' => $admin,
             'published' => CommercePolicy::published($settings->published_version),
-            ...($admin ? ['draft' => json_decode($settings->draft ?? 'null', true) ?? CommercePolicy::draft()] : [])]]);
+            ...($admin ? ['draft' => json_decode($settings->draft ?? 'null', true) ?? CommercePolicy::draft(),
+                'has_saved_draft' => $settings->draft !== null] : [])]]);
     }
 
     public function saveDraft(Request $request): JsonResponse

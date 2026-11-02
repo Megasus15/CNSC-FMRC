@@ -12,7 +12,7 @@
     <link rel="apple-touch-icon" href="/images/FMRC%20Brand%20Logo.png?v=1" />
     <link rel="preload" as="image" href="../images/FMRC%20Brand%20Logo.png" />
     <meta name="theme-color" content="#6b202b" />
-    <title>Transaction Terms &amp; Refund Policy | UCN FMRC</title>
+    <title>Refund Policy | UCN FMRC</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!-- Font Awesome was the one head origin with no preconnect. Two hints on
@@ -96,7 +96,7 @@
     </script>
       <link rel="stylesheet" href="../home-page/customer-scroll.css?v=1.2" />
     <script defer src="../home-page/customer-scroll.js?v=1.0"></script>
-  <link rel="stylesheet" href="/products-page/refund-policy.css?v=1.1" /><link rel="stylesheet" href="../home-page/my-appointments.css?v=1.0">
+  <link rel="stylesheet" href="/products-page/refund-policy.css?v=1.2-pages" /><link rel="stylesheet" href="../home-page/my-appointments.css?v=1.0">
 </head>
   <body class="policy-document-page">
     <!-- The boot curtain. Static markup, so it can paint on the very first
@@ -179,7 +179,6 @@
             <a
               href="/about-page/about.html"
               class="nav-link"
-              aria-current="page"
               >About Us</a
             >
           </li>
@@ -227,11 +226,29 @@
       </div>
     </header>
 
-    <main class="policy-page" id="policyDocument" aria-busy="true">
-  <header class="policy-page-heading"><p class="policy-eyebrow">Customer information</p><h1 id="policyPageTitle">Transaction Terms &amp; Refund Policy</h1><p>Clear information about your order, delivery, cancellations, returns, and refunds.</p><p id="policyPageStatus" role="status" aria-live="polite">Loading the published policy…</p><p id="policyPageVersion"></p><nav aria-label="Policy sections"><a href="#transaction-terms">Transaction Terms</a><a href="#refund-policy">Refund Policy</a><a href="/contact-page/contact.html">Contact FMRC</a></nav><button type="button" id="policyPageRetry" class="policy-page-retry" hidden>Try again</button></header>
-  <div id="policySections" hidden><article class="policy-card" id="transaction-terms" aria-labelledby="policyTermsHeading"><h2 id="policyTermsHeading">Transaction Terms</h2><div id="policyTermsText"></div></article><article class="policy-card" id="refund-policy" aria-labelledby="policyRefundHeading"><h2 id="policyRefundHeading">Refund Policy</h2><div id="policyRefundText"></div></article></div>
-  <div class="policy-help"><p>Need help with an existing order? Open <a href="/products-page/product.html?orders=1">My Orders</a> or <a href="/contact-page/contact.html">contact FMRC</a>. Keep your order number and proof of purchase available.</p><p>This page opens separately so you can review the policy while keeping your checkout open.</p></div>
-</main>
+    <main class="policy-page" id="policyDocument" data-policy-type="refund-policy" aria-busy="true">
+      <nav class="policy-breadcrumb" aria-label="Breadcrumb"><a href="/products-page/product.html">Products</a><span aria-hidden="true">/</span><span aria-current="page">Refund Policy</span></nav>
+      <header class="policy-page-heading">
+        <p class="policy-eyebrow">Customer policies</p>
+        <h1 id="policyPageTitle">Refund Policy</h1>
+        <p class="policy-page-intro">Information about returns, eligible concerns, and how refunds are reviewed and processed.</p>
+        <nav class="policy-switcher" aria-label="Customer policies">
+          <a id="policyTermsPageLink" href="/products-page/transaction-terms.html">Transaction Terms</a>
+          <a id="policyRefundPageLink" href="/products-page/refund-policy.html" aria-current="page">Refund Policy</a>
+        </nav>
+        <div class="policy-meta" id="policyMetadata" hidden><p id="policyPageStatus" role="status" aria-live="polite"></p><details><summary>Policy version</summary><p id="policyPageVersion"></p><p id="policyCollectionTitle"></p></details></div>
+      </header>
+      <section class="policy-notice" id="policyNotice" role="status" aria-live="polite">
+        <h2 id="policyNoticeTitle">Loading refund policy…</h2>
+        <p id="policyNoticeMessage">Please wait while we retrieve the published policy.</p>
+        <div class="policy-notice-actions"><button type="button" id="policyPageRetry" class="policy-action" hidden>Try again</button><a id="policyCurrentLink" class="policy-action" href="/products-page/refund-policy.html" hidden>View current policy</a><a id="policyNoticeContact" class="policy-action" href="/contact-page/contact.html" hidden>Contact FMRC</a></div>
+      </section>
+      <div class="policy-reading-layout" id="policySections" hidden>
+        <aside class="policy-contents"><h2>On this page</h2><nav id="policyContentsLinks" aria-label="Refund Policy contents"></nav></aside>
+        <article class="policy-card" id="refund-policy" aria-label="Published refund policy"><div id="policyRefundText"></div></article>
+      </div>
+      <aside class="policy-help" aria-labelledby="policyHelpTitle"><div><h2 id="policyHelpTitle">Questions about your order?</h2><p>Contact FMRC with your order number and details of your concern.</p></div><div class="policy-help-links"><a href="/products-page/product.html?orders=1">My Orders</a><a href="/contact-page/contact.html">Contact FMRC</a></div></aside>
+    </main>
 <footer class="site-footer">
       <div class="footer-container">
         <!-- Brand Column -->
@@ -433,5 +450,5 @@
 <script defer src="../home-page/main.js?v=12.13-checkout-method"></script>
     <script defer src="../home-page/service-dialogs.js?v=1.1"></script>
     <script defer src="../home-page/customer-announcements.js?v=6.8"></script>
-  <script defer src="/products-page/refund-policy.js?v=1.0"></script></body>
+  <script defer src="/products-page/refund-policy.js?v=1.1-pages"></script></body>
 </html>

@@ -10,10 +10,10 @@
     const paint=()=>{
       checkbox.disabled=!policy||busy||failed;
       window.FMRC_PAYMENT_METHODS?.setPolicyReady(ready());
-      status.textContent=busy?'Loading the transaction terms and refund policy…':failed?'The policy could not be loaded. Retry before ordering.':!policy?'The transaction terms and refund policy are not yet published. Please contact FMRC before ordering.':checkbox.checked?'You have accepted the current transaction terms and refund policy.':'Review the transaction terms and refund policy, then tick the agreement box.';
+      status.textContent=busy?'Loading order policies…':failed?'Order policies could not be loaded. Please try again.':!policy?'Ordering is temporarily unavailable while FMRC prepares its transaction terms and refund policy. Please contact FMRC for assistance.':checkbox.checked?'You have accepted the current transaction terms and refund policy.':'Review both policies, then select the checkbox to agree.';
       document.getElementById('checkoutPolicyRetry').hidden=!failed;
-      for(const [id,hash]of [['checkoutTermsLink','transaction-terms'],['checkoutRefundLink','refund-policy']]){
-        const link=document.getElementById(id);link.href='/products-page/refund-policy.html'+(policy?'?version='+encodeURIComponent(policy.version):'')+'#'+hash;
+      for(const [id,page]of [['checkoutTermsLink','transaction-terms'],['checkoutRefundLink','refund-policy']]){
+        const link=document.getElementById(id);link.href='/products-page/'+page+'.html'+(policy?'?version='+encodeURIComponent(policy.version):'')+'#'+page;
       }
     };
     const apply=data=>{if(policy?.version!==data?.version)checkbox.checked=false;policy=data;failed=false;paint();};

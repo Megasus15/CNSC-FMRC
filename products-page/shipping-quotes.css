@@ -1,7 +1,8 @@
 .checkout-shipping-quote { margin: 16px 0; padding: 14px; border: 1px solid #e4dadd; border-radius: 10px; background: #faf7f8; }
 .checkout-shipping-quote p { margin: 0 0 10px; font-size: .85rem; line-height: 1.5; color: #4b4650; }
 .checkout-shipping-quote[aria-busy="true"] p::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 8px; border: 2px solid #ddd; border-top-color: #800000; border-radius: 50%; animation: shipping-spin .8s linear infinite; }
-.checkout-shipping-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.checkout-shipping-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+#checkoutShippingPickup { margin-inline-start: auto; max-width: 100%; }
 .checkout-shipping-actions button { font: inherit; font-size: .82rem; padding: 9px 12px; border: 1px solid #800000; border-radius: 7px; background: white; color: #800000; cursor: pointer; }
 .checkout-shipping-actions button:focus-visible { outline: 3px solid #d7a0ac; outline-offset: 2px; }
 .checkout-shipping-actions button:hover { background: #f3e8ec; }

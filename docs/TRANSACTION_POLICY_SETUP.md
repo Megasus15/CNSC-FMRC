@@ -1,17 +1,25 @@
 # Step 3: Transaction terms and refund policy
 
-The Customer refund policy has its own page at
-`/products-page/refund-policy.html`. Checkout says **I agree to the Transaction
+The Customer documents have separate pages at
+`/products-page/transaction-terms.html` and `/products-page/refund-policy.html`.
+Checkout says **I agree to the Transaction
 Terms and Refund Policy**, with maroon, underlined links. Both links open a new
 tab using `target="_blank"` and `rel="noopener noreferrer"`, preserving the
-current checkout. The refund link opens the refund section of the published
-version. The same page can display an earlier published version by its `version`
-query parameter, so an order's accepted wording remains retrievable.
+current checkout. Each link opens its own document from the same published
+version. Both pages support the `version` query parameter, so an order's accepted
+wording remains retrievable. Switching between documents keeps that version.
+Older combined-page links ending in `#transaction-terms` redirect to the terms
+page with the version intact.
 
 Admin and Staff have **Website Management → Transaction Policies**. Admin can
 edit, save, preview, and publish a draft after explicitly confirming FMRC
 approval. Staff reads published wording only. Proposed wording supplied by the
 application stays in the Admin draft; it is not automatically published.
+The settings response identifies whether the draft has been saved. Admin must
+review and edit the proposed text, save the draft, confirm FMRC approval, then
+publish. Save starts disabled until wording changes; Publish explains the next
+required step and stays disabled for an unsaved proposed draft. Both portals link
+to the separate Customer pages.
 
 The proposed wording covers transactions, delivery/pickup, cancellations,
 customized products, eligible concerns, return arrangements, shipping-fee
