@@ -36,7 +36,8 @@
       get('shippingFields').disabled=!admin()||busy;
       get('shippingApproved').disabled=!admin()||busy;
       get('shippingDraftPreview').innerHTML=record ? table(read()) : '';
-      get('shippingSaveStatus').textContent=busy?'Saving shipping settings…':changed?'You have unsaved draft changes.':admin()?'Draft changes are saved. Publish only FMRC-approved settings.':'Published shipping settings are read-only for Staff.';
+      get('shippingRefresh').disabled=busy;get('shippingRetry').disabled=busy;
+      get('shippingSaveStatus').textContent=busy?(loaded?'Saving shipping settings…':'Loading shipping settings…'):!loaded?'Settings are unavailable. Retry before editing.':changed?'You have unsaved draft changes.':admin()?'Draft changes are saved. Publish only FMRC-approved settings.':'Published shipping settings are read-only for Staff.';
     };
     const renderZones = values => {
       zones=values;
@@ -62,15 +63,30 @@
     };
     const error = message => {get('shippingError').hidden=false;get('shippingErrorText').textContent=message;};
     const fetchData = async (path,options={}) => {
-      const response=await fetch(api+path,{...options,headers:headers()});
+      const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),20000);
+      try {
+      const response=await fetch(api+path,{...options,headers:headers(),signal:controller.signal});
       const json=await response.json().catch(()=>({}));
+      if(response.status===401)throw new Error('Your session has expired. Sign in again to continue.');
+      if(response.status===403)throw new Error('Your account does not have permission to manage these settings.');
       if (!response.ok) throw new Error(Object.values(json.errors || {}).flat()[0] || json.message || 'Shipping settings could not be saved. Please retry.');
+      if(!json.data || typeof json.data.can_edit!=='boolean')throw new Error('Shipping settings could not be loaded. Please retry.');
       return json.data;
+      } catch(failure) {
+        if(failure.name==='AbortError')throw new Error('The request timed out. Refresh to check the latest settings before trying again.');
+        throw failure;
+      } finally {clearTimeout(timeout);}
     };
     const load = async () => {
       busy=true;loaded=false;sync();get('shippingError').hidden=true;
       try { populate(await fetchData('/admin/shipping-settings')); }
-      catch { error('Shipping settings could not be loaded. Retry before editing.'); }
+      catch (failure) {
+        loaded=false;
+        error(failure.message || 'Shipping settings could not be loaded. Retry before editing.');
+        get('shippingPublished').textContent='Published shipping settings are unavailable. Please try again.';
+        get('shippingPublishedVersion').textContent='Settings unavailable';
+        get('shippingPublishedCalendar').textContent='';
+      }
       finally { busy=false;sync(); }
     };
     const mutate = async (path,payload) => {

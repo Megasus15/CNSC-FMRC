@@ -16,7 +16,7 @@ async function connect(url){
 test('shipping draft/publication, Staff read access, customer quote review and order details agree across responsive portals',{skip:!fs.existsSync(chrome),timeout:180000},async()=>{
   const artifacts=fs.mkdtempSync(path.join(os.tmpdir(),'fmrc-shipping-'));
   let settings={revision:0,draft:{enabled:false,nonworking_weekdays:[6,7],nonworking_dates:[],zones:[]},published:null,published_version:null,published_at:null};
-  let quotes=0,stale=true,fee=85.5,deliveryAvailable=true;
+  let quotes=0,stale=true,fee=85.5,deliveryAvailable=true,settingsUnavailable=false;
   const writes=[],submissions=[],policyHistory=new Map(),shipmentWrites=[];
   let policySettings={revision:0,can_edit:true,published:null,draft:{title:'FMRC Transaction Terms and Refund Policy',terms_text:'Ordering and delivery\nReview the full order total and fulfillment details before ordering.',refund_text:'Eligible concerns\nContact FMRC to review defective, incorrect, or incomplete items and appropriate remedies.'}};
   const profile={id:33,role:'customer',email:'client@gmail.com',name:'Fixture Client',phone_number:'09171234567',address_line:'1 Test Street',barangay:'Barangay 1',city_municipality:'Daet',province:'Camarines Norte',postal_code:'4600',address_details:'Near the main gate',department:'Student',customer_type:'Student'};
@@ -29,6 +29,7 @@ test('shipping draft/publication, Staff read access, customer quote review and o
     const role=String(req.headers.authorization||'').includes('staff')?'staff':String(req.headers.authorization||'').includes('customer')?'customer':'admin';
     const json=(data,status=200)=>{res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(data));};
     if(route.startsWith('/api/')){
+      if(settingsUnavailable && ['/api/admin/shipping-settings','/api/admin/commerce-policy'].includes(route))return json({message:'Settings are temporarily unavailable. Please try again later.'},503);
       if(route==='/api/user')return json(role==='customer'?profile:{id:role==='staff'?22:11,role,email:role+'@gmail.com',name:role+' Fixture'});
       if(route==='/api/admin/preferences')return json({user_id:role==='staff'?22:11,preferences:{theme:'light',compact:false,reducedMotion:false}});
       if(route==='/api/admin/session')return json({server_time:new Date().toISOString(),idle_warning_at:new Date(Date.now()+3600000).toISOString(),idle_expires_at:new Date(Date.now()+3780000).toISOString(),absolute_expires_at:new Date(Date.now()+21600000).toISOString()});
@@ -92,6 +93,25 @@ test('shipping draft/publication, Staff read access, customer quote review and o
     const input=async(id,value)=>run(`(()=>{const input=document.getElementById(${JSON.stringify(id)});input.value=${JSON.stringify(value)};input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
     const confirm=async title=>{await until(`document.querySelector('#adminSystemPopup.show #adminSystemPopupTitle')?.textContent===${JSON.stringify(title)}`);await run(`document.getElementById('adminSystemPopupOk').click()`);};
     const shot=async name=>{const image=await cdp.send('Page.captureScreenshot',{format:'png'});fs.writeFileSync(path.join(artifacts,name+'.png'),Buffer.from(image.data,'base64'));};
+    for(const portal of ['admin','staff']){
+      for(const page of ['shipping','policies']){
+        settingsUnavailable=true;
+        await navigate('/'+portal+'-page/website-'+page+'.html');
+        const shipping=page==='shipping';
+        const errorId=shipping?'shippingError':'policySettingsError';
+        const retryId=shipping?'shippingRetry':'policySettingsRetry';
+        const saveId=shipping?'shippingSave':'policyDraftSave';
+        const publishedId=shipping?'shippingPublished':'policyPublishedMessage';
+        await until(`!document.getElementById('${errorId}').hidden&&!document.getElementById('${retryId}').disabled`);
+        assert.equal(await run(`document.getElementById('${saveId}').disabled`),true);
+        assert.match(await run(`document.getElementById('${publishedId}').textContent`),/unavailable/i);
+        assert.doesNotMatch(await run(`document.getElementById('${publishedId}').textContent`),/loading/i);
+        settingsUnavailable=false;
+        await run(`document.getElementById('${retryId}').click()`);
+        await until(`document.getElementById('${errorId}').hidden&&!document.getElementById('${retryId}').disabled&&!document.getElementById('${publishedId}').textContent.includes('settings are unavailable')`);
+        assert.equal(await run(`document.getElementById('${saveId}').disabled`),true,'Readback does not enable unchanged saves');
+      }
+    }
     await navigate('/admin-page/website-shipping.html');await until(`!document.getElementById('shippingFields').disabled`);
     assert(await run(`document.getElementById('shippingSave').disabled&&document.getElementById('shippingPublish').disabled`));
     await run(`document.getElementById('shippingAddZone').click()`);

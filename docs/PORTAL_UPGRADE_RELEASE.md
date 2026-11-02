@@ -13,6 +13,8 @@ The remaining stages are implemented in canonical source assets. No production d
 
 ## Release sequence
 
+For the consolidated installation command and short Hostinger sequence, use [Install the portal upgrade together](HOSTINGER_PORTAL_UPGRADE.md). `php artisan portal:upgrade --force` installs and verifies all four upgrade schemas; it does not publish settings or activate courier delivery.
+
 Apply the four additive migrations after a reviewed backup. Publish only approved shipping rates/calendar and approved transaction/refund text. Verify authenticated Admin/Staff readback and Customer checkout on the deployment. Keep courier booking disabled while completing the provider activation steps. Check private storage, PHP/proxy upload limits, email/push delivery and production database transaction behavior before releasing appointment uploads/rescheduling.
 
 - [Shipping setup](SHIPPING_FEES_DELIVERY_SETUP.md)

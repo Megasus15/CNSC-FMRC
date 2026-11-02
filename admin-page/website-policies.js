@@ -16,7 +16,8 @@
       const published=record?.published;const same=published&&Object.keys(fields).every(key=>published[key]===fields[key].value);
       get('policyPublish').disabled=!canEdit()||busy||changed()||!record?.draft||!get('policyApproval').checked||same;
       get('policyEditorForm').setAttribute('aria-busy',String(busy));
-      get('policySaveStatus').textContent=busy?'Saving policy settings…':changed()?'You have unsaved draft changes.':'Draft changes are saved. Publish only FMRC-approved wording.';
+      get('policySettingsRefresh').disabled=busy;get('policySettingsRetry').disabled=busy;
+      get('policySaveStatus').textContent=busy?(loaded?'Saving policy settings…':'Loading policy settings…'):!loaded?'Settings are unavailable. Retry before editing.':changed()?'You have unsaved draft changes.':'Draft changes are saved. Publish only FMRC-approved wording.';
       get('policyPreviewTerms').textContent=fields.terms_text.value;get('policyPreviewRefund').textContent=fields.refund_text.value;
     };
     const apply=data=>{
@@ -32,10 +33,30 @@
     };
     const showError=text=>{get('policySettingsError').hidden=false;get('policySettingsErrorText').textContent=text;};
     const request=async(path,options={})=>{
-      const response=await fetch(api+'/admin/commerce-policy'+path,{...options,headers:{Accept:'application/json','Content-Type':'application/json',Authorization:'Bearer '+window.AdminSession?.getToken()}});
-      const json=await response.json().catch(()=>({}));if(!response.ok)throw Error(Object.values(json.errors||{}).flat()[0]||json.message||'Policy settings could not be saved. Please retry.');return json.data;
+      const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),20000);
+      try {
+        const response=await fetch(api+'/admin/commerce-policy'+path,{...options,signal:controller.signal,headers:{Accept:'application/json','Content-Type':'application/json',Authorization:'Bearer '+window.AdminSession?.getToken()}});
+        const json=await response.json().catch(()=>({}));
+        if(response.status===401)throw Error('Your session has expired. Sign in again to continue.');
+        if(response.status===403)throw Error('Your account does not have permission to manage these settings.');
+        if(!response.ok)throw Error(Object.values(json.errors||{}).flat()[0]||json.message||'Policy settings could not be saved. Please retry.');
+        if(!json.data || typeof json.data.can_edit!=='boolean')throw Error('Policy settings could not be loaded. Please retry.');
+        return json.data;
+      } catch(failure) {
+        if(failure.name==='AbortError')throw Error('The request timed out. Refresh to check the latest settings before trying again.');
+        throw failure;
+      } finally {clearTimeout(timeout);}
     };
-    const load=async()=>{busy=true;loaded=false;sync();get('policySettingsError').hidden=true;try{apply(await request(''));}catch{showError('The policy could not be loaded. Retry before editing.');}finally{busy=false;sync();}};
+    const load=async()=>{
+      busy=true;loaded=false;sync();get('policySettingsError').hidden=true;
+      try{apply(await request(''));}
+      catch(failure){
+        loaded=false;showError(failure.message||'The policy could not be loaded. Retry before editing.');
+        get('policyPublishedTitle').textContent='Policy unavailable';
+        get('policyPublishedMessage').textContent='Published policy settings are unavailable. Please try again.';
+        get('policyPublishedTerms').textContent='';get('policyPublishedRefund').textContent='';get('policyPublishedLink').hidden=true;
+      }finally{busy=false;sync();}
+    };
     const save=async(publish)=>{busy=true;sync();get('policySettingsError').hidden=true;try{apply(await request(publish?'/publish':'/draft',{method:publish?'POST':'PUT',body:JSON.stringify({expected_revision:record.revision,...(publish?{approved:true}:read())})}));window.showAdminSuccessNotification?.(publish?'Approved transaction terms and refund policy published.':'Policy draft saved.',{title:'Saved!'});}catch(error){showError(error.message);}finally{busy=false;sync();}};
     get('policyEditorForm').addEventListener('input',sync);get('policyApproval').addEventListener('change',sync);
     get('policyEditorForm').addEventListener('submit',event=>{event.preventDefault();if(!canEdit()||busy||!changed()||!get('policyEditorForm').reportValidity())return;window.showAdminConfirmPopup('Save this wording as a policy draft for FMRC review?',{title:'Save Policy Draft',confirmText:'Save draft',onConfirm:()=>save(false)});});
