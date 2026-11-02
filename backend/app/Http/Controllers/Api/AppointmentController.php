@@ -511,7 +511,7 @@ class AppointmentController extends Controller
     public function customerIndex(Request $request): JsonResponse
     {
         abort_unless($request->user()?->role === 'customer', 403);
-        $items = Appointment::where('user_id', $request->user()->id)->orderByDesc('appointment_date')->orderByDesc('id')->get();
+        $items = Appointment::where('user_id', $request->user()->id)->orderByDesc('created_at')->orderByDesc('id')->get();
 
         return response()->json(['data' => $items->map(fn ($item) => $this->transformAppointment($item))]);
     }

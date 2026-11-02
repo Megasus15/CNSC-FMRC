@@ -46,6 +46,9 @@
 #modalViewAppointment [data-meeting-status]:empty { display: none; }
 #modalViewAppointment .appointment-meeting-actions .btn-admin { margin-left: auto; width: auto; min-height: 44px; flex-shrink: 0; }
 #modalViewAppointment .appointment-history summary { cursor: pointer; font-size: .82rem; font-weight: 600; color: var(--text-main, #292d35); }
+#modalViewAppointment .appointment-history summary { list-style: none; text-decoration: underline; text-underline-offset: 4px; }
+#modalViewAppointment .appointment-history summary::-webkit-details-marker { display: none; }
+#modalViewAppointment .appointment-meeting-section > .appt-details-section-heading:only-child { margin-bottom: 0; }
 #modalViewAppointment .appointment-history ol { padding-left: 20px; margin: 16px 0 0; display: grid; gap: 16px; }
 #modalViewAppointment .appointment-history li > span { font-size: .7rem; color: var(--text-muted, #6b7280); }
 #modalViewAppointment .appointment-history li > p { margin: 2px 0 6px; font-size: .78rem; }

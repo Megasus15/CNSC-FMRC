@@ -6367,10 +6367,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (selectedDateKey) renderTimeSlots(selectedDateKey);
       // Keeps the poll's change-detection in step with what is on screen.
       aptAvailabilitySignature = getAvailabilitySignature();
-      showSlotMessage(
-        "Reminder: You can select only 1 time slot for this appointment.",
-        "#77610d",
-      );
+      clearSlotMessage();
     }
 
     if (stepNumber === 4 || stepNumber === 5) {
@@ -6626,13 +6623,10 @@ document.addEventListener("DOMContentLoaded", () => {
     selectedDateDisplay.innerText = `${months[month]} ${day}, ${year}`;
     if (slotCounter) {
       slotCounter.style.display = "block";
-      slotCounter.innerText = "Allowed: 1 time slot for this appointment";
+      slotCounter.innerText = appointmentSelections[dateKey]?.length ? "1 time slot selected" : "Choose an available time";
       slotCounter.style.color = "#6d7480";
     }
-    showSlotMessage(
-      "Reminder: You can select only 1 time slot for this appointment.",
-      "#77610d",
-    );
+    clearSlotMessage();
     renderCalendar(currentMonth, currentYear);
     renderTimeSlots(dateKey);
   };
@@ -6770,7 +6764,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!dateKey) {
       timeContainer.innerHTML =
-        '<p class="time-placeholder">Please pick a date first.</p>';
+        '<p class="time-placeholder">Choose a date to view available times.</p>';
       if (eventsDisplay) {
         eventsDisplay.style.display = "none";
         eventsDisplay.innerHTML = "";
@@ -6837,13 +6831,13 @@ document.addEventListener("DOMContentLoaded", () => {
       button.addEventListener("click", () => {
         if (isBooked) {
           showSlotMessage(
-            "This time slot is already booked by another customer.",
+            "This time slot is unavailable. Please choose another time.",
           );
           return;
         }
         if (isBlocked) {
           showSlotMessage(
-            "This time slot is blocked by admin for the selected date.",
+            "This time slot is unavailable. Please choose another time.",
           );
           return;
         }
@@ -6860,16 +6854,15 @@ document.addEventListener("DOMContentLoaded", () => {
           (key) => delete appointmentSelections[key],
         );
         appointmentSelections[dateKey] = [slot.label];
+        if (slotCounter) slotCounter.innerText = "1 time slot selected";
 
         if (isReplacingSelection) {
           showSlotMessage(
-            "Only 1 slot is allowed per appointment. Your previous slot was replaced.",
+            "Your new time slot replaces the previous selection.",
+            "#6d7480",
           );
         } else {
-          showSlotMessage(
-            "Reminder: You can select only 1 time slot for this appointment.",
-            "#77610d",
-          );
+          clearSlotMessage();
         }
         renderTimeSlots(dateKey);
         renderCalendar(currentMonth, currentYear);
@@ -6928,7 +6921,7 @@ document.addEventListener("DOMContentLoaded", () => {
        "pick a date first" placeholder and hides #userDateEventsDisplay — and the
        month is walked back to the current one so a reopen never starts in a month
        the customer had browsed to. */
-    if (selectedDateDisplay) selectedDateDisplay.innerText = "Select a Date";
+    if (selectedDateDisplay) selectedDateDisplay.innerText = "Choose a date";
     if (slotCounter) slotCounter.style.display = "none";
     currentMonth = todayOnly.getMonth();
     currentYear = todayOnly.getFullYear();

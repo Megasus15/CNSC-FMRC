@@ -138,7 +138,8 @@
     </script>
       <link rel="stylesheet" href="customer-scroll.css?v=1.2" />
     <script defer src="customer-scroll.js?v=1.0"></script>
-  <link rel="stylesheet" href="../home-page/my-appointments.css?v=1.1-dialogs">
+  <link rel="stylesheet" href="appointment-flow.css?v=1.0" />
+  <link rel="stylesheet" href="../home-page/my-appointments.css?v=1.2-customer-style">
 </head>
   <body class="home-editorial-page">
     <!-- The boot curtain. Static markup, so it can paint on the very first
@@ -848,14 +849,14 @@
                   <line x1="12" y1="8" x2="12" y2="12"></line>
                   <line x1="12" y1="16" x2="12.01" y2="16"></line>
                 </svg>
-                Important Reminders
+                Before you book
               </h3>
             </div>
             <div class="apt-reminders-grid">
               <div class="apt-reminder-item">
                 <div class="apt-reminder-icon">1</div>
                 <div class="apt-reminder-content">
-                  <h4>Data Privacy Collection</h4>
+                  <h4>Data privacy</h4>
                   <p>
                     At University of Camarines Norte, we value your privacy. In
                     compliance with RA 10173, we collect:
@@ -870,7 +871,7 @@
               <div class="apt-reminder-item">
                 <div class="apt-reminder-icon">2</div>
                 <div class="apt-reminder-content">
-                  <h4>Appointment Policy</h4>
+                  <h4>Appointment guidelines</h4>
                   <p>To ensure organized service:</p>
                   <ul class="apt-reminder-list apt-reminder-list--disc">
                     <li>All clients are required to book online.</li>
@@ -887,13 +888,13 @@
               class="apt-btn apt-btn-blue"
               id="btnGoToPrivacy"
             >
-              I Understand, Proceed
+              Continue
             </button>
           </div>
         </div>
 
         <div class="apt-content-section" id="aptStep2">
-          <div class="apt-card apt-form-card">
+          <div class="apt-card apt-form-card"><div class="apt-step-heading"><h3>Appointment information</h3><p>Provide your details and tell us how we can help.</p></div>
             <div class="apt-form-grid">
               <!-- Section 1: Personal Info -->
               <div class="apt-form-header">
@@ -1114,23 +1115,17 @@
               class="apt-btn apt-btn-blue"
               id="btnGoToStep3"
             >
-              Proceed to Schedule
+              Continue to Schedule
             </button>
           </div>
         </div>
 
         <div class="apt-content-section" id="aptStep3">
           <div class="apt-card apt-calendar-card">
-            <div class="calendar-header-text">
-              <h3>Select Date & Time</h3>
-              <p>
-                Please select a date from the calendar below. Then, choose your
-                preferred time slot on the right.
-                <br />
-                <strong>Note:</strong> Weekends (Saturday & Sunday) are
-                unavailable. Past dates are disabled. You can select only 1 time
-                slot for this whole appointment.
-              </p>
+            <div class="calendar-header-text apt-step-heading">
+              <h3>Select a date and time</h3>
+              <p>Choose an available weekday, then select one time slot.</p>
+              <p class="apt-step-note">Weekends and past dates are unavailable. All times are in Philippine time (UTC+8).</p>
             </div>
 
             <div class="apt-calendar-wrapper">
@@ -1160,15 +1155,15 @@
                 <div class="cal-legend">
                   <div class="leg-item">
                     <div class="leg-circle leg-am"></div>
-                    <span>AM Selected</span>
+                    <span>Morning</span>
                   </div>
                   <div class="leg-item">
                     <div class="leg-circle leg-pm"></div>
-                    <span>PM Selected</span>
+                    <span>Afternoon</span>
                   </div>
                   <div class="leg-item">
                     <div class="leg-circle leg-full"></div>
-                    <span>AM & PM Selected</span>
+                    <span>Morning &amp; afternoon</span>
                   </div>
                   <div class="leg-item">
                     <div class="leg-box leg-unavailable"></div>
@@ -1179,7 +1174,7 @@
 
               <!-- Right Side: Time Slots -->
               <div class="apt-time-right">
-                <h4 id="selectedDateDisplay">Select a Date</h4>
+                <h4 id="selectedDateDisplay">Choose a date</h4>
                 <div
                   id="userDateEventsDisplay"
                   class="date-note-card"
@@ -1187,16 +1182,15 @@
                 ></div>
                 <div class="slot-counter-wrapper">
                   <span id="slotCounter" style="display: none"
-                    >Allowed: 1 time slot for this appointment</span
+                    >Choose an available time</span
                   >
                 </div>
                 <div class="time-slots-container" id="timeSlotsContainer">
-                  <p class="time-placeholder">Please pick a date first.</p>
+                  <p class="time-placeholder">Choose a date to view available times.</p>
                   <!-- JS generated slots -->
                 </div>
                 <p id="maxLimitMsg" style="display: none">
-                  This time is disabled because another user already booked this
-                  date and time.
+                  This time slot is unavailable. Choose another time.
                 </p>
               </div>
             </div>
@@ -1214,16 +1208,16 @@
               class="apt-btn apt-btn-blue"
               id="btnGoToConfirm"
             >
-              Proceed
+              Review appointment
             </button>
           </div>
         </div>
 
-        <div class="apt-content-section" id="aptStep4">
+        <div class="apt-content-section" id="aptStep4"><div class="apt-step-heading apt-step-heading--receipt"><h3>Review your appointment</h3><p>Check your details and schedule before submitting.</p></div>
           <div class="ticket-container">
             <div class="ticket-header">
               <div>
-                <span class="ticket-eyebrow">Preview Appointment</span>
+                <span class="ticket-eyebrow">Appointment review</span>
                 <h3 class="ticket-no" id="revTicketNo">Ticket #PENDING</h3>
               </div>
               <span class="ticket-chip ticket-chip--draft">Draft</span>
@@ -1309,7 +1303,7 @@
               id="btnCancelTo3"
               onclick="event.preventDefault()"
             >
-              Back to Calendar
+              Back
             </button>
             <button
               type="button"
@@ -1317,16 +1311,16 @@
               id="btnGoToStep5"
               onclick="event.preventDefault()"
             >
-              Confirm &amp; Submit
+              Confirm appointment
             </button>
           </div>
         </div>
 
-        <div class="apt-content-section" id="aptStep5">
+        <div class="apt-content-section" id="aptStep5"><div class="apt-step-heading apt-step-heading--receipt"><h3>Appointment confirmed</h3><p>Keep your receipt and reference number for your records.</p></div>
           <div class="ticket-container" id="officialReceiptCard">
             <div class="ticket-header">
               <div>
-                <span class="ticket-eyebrow">Official Receipt</span>
+                <span class="ticket-eyebrow">Appointment receipt</span>
                 <h3 class="ticket-no" id="comTicketNo">Ticket #PENDING</h3>
               </div>
               <span class="ticket-chip ticket-chip--issued">Confirmed</span>
@@ -1451,7 +1445,7 @@
               class="apt-btn apt-btn-blue"
               id="btnFinishStep5"
             >
-              Finish Transaction
+              Done
             </button>
           </div>
         </div>
@@ -1952,8 +1946,8 @@
     <link rel="stylesheet" href="../products-page/gateway-payments.css?v=1.0">
     <link rel="stylesheet" href="../home-page/payment-dialogs.css?v=2.1-refund-claims">
     <script defer src="../products-page/gateway-payments.js?v=2.2-qrph-copy"></script>
-    <script defer src="../home-page/my-appointments.js?v=1.1-dialogs"></script>
-<script defer src="main.js?v=12.14-policy-qrph"></script>
+    <script defer src="../home-page/my-appointments.js?v=1.2-customer-style"></script>
+<script defer src="main.js?v=12.15-appointment-copy"></script>
     <script defer src="service-dialogs.js?v=1.0"></script>
     <script defer src="customer-announcements.js?v=6.8"></script>
   </body>

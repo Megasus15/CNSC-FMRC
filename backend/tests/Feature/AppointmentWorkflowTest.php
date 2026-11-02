@@ -79,6 +79,20 @@ class AppointmentWorkflowTest extends TestCase
         Mail::assertSent(AppointmentConfirmation::class, fn ($mail) => str_contains($mail->render(), 'Meeting link pending'));
     }
 
+    public function test_customer_list_places_new_bookings_before_older_bookings_with_later_schedules(): void
+    {
+        $newer = $this->appointment(['reference_no' => 'AP-NEWER', 'appointment_date' => '2026-11-03']);
+        $newer->forceFill(['created_at' => now()->subDay()])->save();
+        $older = $this->appointment(['reference_no' => 'AP-OLDER', 'appointment_date' => '2026-12-01']);
+        $older->forceFill(['created_at' => now()->subDays(2)])->save();
+        $latest = $this->appointment(['reference_no' => 'AP-LATEST', 'appointment_date' => '2026-11-04']);
+        $latest->forceFill(['created_at' => now()->subDay()])->save();
+        $this->appointment(['reference_no' => 'AP-OTHER', 'user_id' => User::factory()->create(['role' => 'customer'])->id]);
+
+        $this->getJson('/api/customer/appointments')->assertOk()->assertJsonCount(3, 'data')
+            ->assertJsonPath('data.0.id', $latest->id)->assertJsonPath('data.1.id', $newer->id)->assertJsonPath('data.2.id', $older->id);
+    }
+
     public function test_file_downloads_require_owner_or_operator_and_public_verification_excludes_private_data(): void
     {
         $item = $this->appointment(['meeting_platform' => 'Google Meet', 'meeting_url' => 'https://meet.google.com/private']);
@@ -208,10 +222,10 @@ class AppointmentWorkflowTest extends TestCase
         $item = $this->appointment(['appointment_method' => 'face_to_face']);
         $this->operator();
         $input = ['platform' => 'Zoom', 'meeting_url' => 'https://zoom.us/j/example', 'expected_version' => 0];
-        $this->patchJson('/api/admin/appointments/'.$item->id.'/meeting',$input)->assertUnprocessable();
+        $this->patchJson('/api/admin/appointments/'.$item->id.'/meeting', $input)->assertUnprocessable();
         $item->update(['appointment_method' => 'online', 'status' => 'Completed']);
-        $this->patchJson('/api/admin/appointments/'.$item->id.'/meeting',$input)->assertUnprocessable();
+        $this->patchJson('/api/admin/appointments/'.$item->id.'/meeting', $input)->assertUnprocessable();
         Sanctum::actingAs($this->owner);
-        $this->postJson('/api/customer/appointments/'.$item->id.'/reschedule',$this->move($item))->assertUnprocessable();
+        $this->postJson('/api/customer/appointments/'.$item->id.'/reschedule', $this->move($item))->assertUnprocessable();
     }
 }
