@@ -27,8 +27,9 @@
       record=data;loaded=true;get('policyDraftEditor').hidden=!data.can_edit;get('policySaveBar').hidden=!data.can_edit;
       const draft=data.draft||data.published||{title:'',terms_text:'',refund_text:''};
       Object.keys(fields).forEach(key=>{fields[key].value=draft[key];});baseline=JSON.stringify(read());get('policyApproval').checked=false;
-      get('policyPublishedTitle').textContent=data.published?.title||'No published policy';
-      get('policyPublishedMessage').textContent=data.published?'Customers review and accept this version at checkout.':'A draft is available to Admin for FMRC review. No draft wording is shown to customers.';
+      get('policyPublishedTitle').textContent=data.published?.title||'No published policies';
+      get('policyPublishedMessage').textContent=data.published?'Customers review and accept this version at checkout.':data.can_edit?'Review and save the draft below, then publish the approved version to make both policies available to customers.':'An Admin has not published the Transaction Terms and Refund Policy yet.';
+      get('policyPublishedDocuments').hidden=!data.published;
       get('policyPublishedTerms').textContent=data.published?.terms_text||'';get('policyPublishedRefund').textContent=data.published?.refund_text||'';
       get('policyPublishedLink').hidden=!data.published;
       get('policyPublishedTermsLink').hidden=!data.published;
@@ -59,6 +60,7 @@
         loaded=false;showError(failure.message||'The policy could not be loaded. Retry before editing.');
         get('policyPublishedTitle').textContent='Policy unavailable';
         get('policyPublishedMessage').textContent='Published policy settings are unavailable. Please try again.';
+        get('policyPublishedDocuments').hidden=true;
         get('policyPublishedTerms').textContent='';get('policyPublishedRefund').textContent='';get('policyPublishedLink').hidden=true;get('policyPublishedTermsLink').hidden=true;
       }finally{busy=false;sync();}
     };

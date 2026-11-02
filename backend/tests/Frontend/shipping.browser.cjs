@@ -77,7 +77,8 @@ test('shipping draft/publication, Staff read access, customer quote review and o
     if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()){res.writeHead(404);res.end();return;}
     const ext=path.extname(file);res.setHeader('Content-Type',({'.html':'text/html; charset=utf-8','.js':'text/javascript','.css':'text/css','.png':'image/png','.svg':'image/svg+xml'})[ext]||'application/octet-stream');
     let content=fs.readFileSync(file);
-    if(ext==='.html')content=content.toString().replace('<head>',`<head><script>window.APP_API_BASE_URL=location.origin+'/api';window.fixtureErrors=[];addEventListener('error',event=>{if(event.message)fixtureErrors.push(event.message)});addEventListener('unhandledrejection',event=>fixtureErrors.push(String(event.reason)));for(const role of ['admin','staff']){localStorage.setItem(role+'_auth_token','fixture-'+role);localStorage.setItem(role+'_user_info',JSON.stringify({id:role==='admin'?11:22,role,email:role+'@gmail.com'}));}localStorage.setItem('customer_token','fixture-customer');localStorage.setItem('customer_info',${JSON.stringify(JSON.stringify(profile))});</script>`);
+    // Reproduce the generic cosmetic filter that hid the old policy status panel.
+    if(ext==='.html')content=content.toString().replace('<head>',`<head><style>#policyNotice{display:none!important}</style><script>window.APP_API_BASE_URL=location.origin+'/api';window.fixtureErrors=[];addEventListener('error',event=>{if(event.message)fixtureErrors.push(event.message)});addEventListener('unhandledrejection',event=>fixtureErrors.push(String(event.reason)));for(const role of ['admin','staff']){localStorage.setItem(role+'_auth_token','fixture-'+role);localStorage.setItem(role+'_user_info',JSON.stringify({id:role==='admin'?11:22,role,email:role+'@gmail.com'}));}localStorage.setItem('customer_token','fixture-customer');localStorage.setItem('customer_info',${JSON.stringify(JSON.stringify(profile))});</script>`);
     res.end(content);
   });
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -136,11 +137,18 @@ test('shipping draft/publication, Staff read access, customer quote review and o
       await navigate('/products-page/'+page+'.html');
       await until(`document.getElementById('policyDocument').getAttribute('aria-busy')==='false'&&!document.documentElement.classList.contains('fmrc-booting')&&!document.querySelector('.fmrc-load-boot')`);
       assert.equal(await run(`document.getElementById('policyNoticeTitle').textContent`),'Policy awaiting publication');
+      assert.equal(await run(`getComputedStyle(document.getElementById('fmrcPolicyState')).display`),'block');
+      assert(await run(`document.getElementById('fmrcPolicyState').getBoundingClientRect().height>0`),'Unpublished state remains visible with generic notice-hiding filters');
       assert.equal(await run(`document.getElementById('policySections').hidden`),true);
       assert.equal(await run(`document.querySelector('.site-header .main-nav [aria-current="page"]')===null`),true);
       await shot('customer-'+page+'-unpublished');
     }
-    await navigate('/admin-page/website-policies.html');await until(`!document.getElementById('policyEditorFields').disabled`);
+    for(const portal of ['staff','admin']){
+      await navigate('/'+portal+'-page/website-policies.html');await until(`document.getElementById('policyPublishedTitle').textContent==='No published policies'`);
+      assert.equal(await run(`document.getElementById('policyPublishedDocuments').hidden`),true,'No empty published accordions in '+portal);
+      assert.match(await run(`document.getElementById('policyPublishedMessage').textContent`),portal==='admin'?/save the draft/:/has not published/);
+    }
+    await until(`!document.getElementById('policyEditorFields').disabled`);
     assert(await run(`document.getElementById('policyDraftSave').disabled&&document.getElementById('policyPublish').disabled`));
     await run(`document.getElementById('policyApproval').click()`);
     assert(await run(`document.getElementById('policyPublish').disabled`),'Unsaved suggested wording cannot be published');
@@ -156,9 +164,18 @@ test('shipping draft/publication, Staff read access, customer quote review and o
       await run(`document.documentElement.dataset.theme=${JSON.stringify(theme)}`);
       assert.equal(await run(`document.documentElement.scrollWidth>innerWidth+1`),false);
       assert.equal(await run(`document.getElementById('policyDraftEditor').hidden`),portal==='staff');
+      assert.equal(await run(`document.getElementById('policyPublishedDocuments').hidden`),false);
+      await run(`document.querySelectorAll('#policyPublishedDocuments details').forEach(detail=>detail.open=true)`);
+      assert.match(await run(`document.getElementById('policyPublishedTerms').textContent`),/Ordering and delivery/);
+      assert.match(await run(`document.getElementById('policyPublishedRefund').textContent`),/Eligible concerns/);
       assert.match(await run(`document.getElementById('policyPublishedTermsLink').href`),/transaction-terms\.html\?version=/);
       if(portal==='staff')assert.equal(await run(`getComputedStyle(document.getElementById('policySaveBar')).display`),'none');
       await shot(portal+'-policy-'+width+'-'+theme);
+      if(portal==='admin'){
+        assert.equal(await run(`document.querySelector('.policy-approval span').textContent`),'FMRC has approved these policies for publication.');
+        await run(`document.querySelector('.policy-approval').scrollIntoView({block:'center',behavior:'instant'})`);
+        await shot('admin-policy-approval-'+width+'-'+theme);
+      }
     }
     console.log('Verified private policy drafts, approval publication, reload persistence, Staff read access and eight policy layouts.');
     await navigate('/products-page/product.html');await until(`document.getElementById('displayClientName').textContent.includes('Fixture')`);

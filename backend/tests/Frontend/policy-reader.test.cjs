@@ -41,7 +41,7 @@ for(const type of ['transaction-terms','refund-policy']){
     assert.doesNotMatch(target.textContent,type==='transaction-terms'?/Eligible concerns/:/Review your order/);
     assert.equal(h.nodes.get('policyContentsLinks').children.length,2);
     assert.match(h.nodes.get('policyPageStatus').textContent,/November 2, 2026/);
-    assert.equal(h.nodes.get('policyNotice').hidden,true);
+    assert.equal(h.nodes.get('fmrcPolicyState').hidden,true);
     assert.equal(h.nodes.get(type).scrolled,true);
     assert.equal(h.nodes.get('policyDocument').attributes['aria-busy'],'false');
     assert.equal(h.nodes.get('policyTermsPageLink').href,'/products-page/transaction-terms.html?version=accepted-v1');
@@ -61,7 +61,7 @@ for(const type of ['transaction-terms','refund-policy']){
     const retry=h.nodes.get('policyPageRetry').events.click();h.nodes.get('policyPageRetry').events.click();
     assert.equal(h.requests.length,2);
     h.reply(policy);await retry;
-    assert.equal(h.nodes.get('policyNotice').hidden,true);
+    assert.equal(h.nodes.get('fmrcPolicyState').hidden,true);
     assert.equal(h.nodes.get('policySections').hidden,false);
   });
   test(`${type} never replaces an unavailable historical version with current wording`,async()=>{

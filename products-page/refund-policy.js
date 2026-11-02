@@ -23,7 +23,7 @@
       get('policyRefundPageLink').href = '/products-page/refund-policy.html' + query;
     };
     const notice = (heading, message, { retry = false, current = false, contact = true } = {}) => {
-      get('policyNotice').hidden = false;
+      get('fmrcPolicyState').hidden = false;
       get('policyNoticeTitle').textContent = heading;
       get('policyNoticeMessage').textContent = message;
       get('policyPageRetry').hidden = !retry;
@@ -86,7 +86,7 @@
         get('policyCollectionTitle').textContent = policy.title;
         get('policyMetadata').hidden = false;
         get('policySections').hidden = false;
-        get('policyNotice').hidden = true;
+        get('fmrcPolicyState').hidden = true;
         if (location.hash === '#' + type) get(type).scrollIntoView({ block: 'start' });
       } catch {
         notice('Policy temporarily unavailable', 'We could not load the policy. Please try again or contact FMRC for assistance.', { retry: true });
