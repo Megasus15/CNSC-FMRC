@@ -53,7 +53,11 @@ for(const type of ['transaction-terms','refund-policy']){
     assert.equal(h.nodes.get('policySections').hidden,true);
     assert.equal(h.nodes.get('policyMetadata').hidden,true);
     assert.equal(h.nodes.get('policyNoticeContact').hidden,false);
-    assert.equal(h.nodes.get('policyPageRetry').hidden,true);
+    assert.equal(h.nodes.get('policyPageRetry').hidden,false);
+    assert.equal(h.nodes.get('policyPageRetry').textContent,'Check availability');
+    const refreshed=h.nodes.get('policyPageRetry').events.click();h.reply(policy);await refreshed;
+    assert.equal(h.nodes.get('fmrcPolicyState').hidden,true);
+    assert.equal(h.nodes.get('policySections').hidden,false);
   });
   test(`${type} handles load failures, coalesces retries, and recovers`,async()=>{
     const h=harness(type);h.requests[0].reject(Error('Connection failed'));await h.done;

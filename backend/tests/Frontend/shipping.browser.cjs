@@ -43,7 +43,7 @@ test('shipping draft/publication, Staff read access, customer quote review and o
       if(route==='/api/admin/commerce-policy/draft'||route==='/api/admin/commerce-policy/publish'){
         assert.equal(role,'admin');let body='';for await(const chunk of req)body+=chunk;const input=JSON.parse(body);assert.equal(input.expected_revision,policySettings.revision);
         if(route.endsWith('/draft')){policySettings.draft={title:input.title,terms_text:input.terms_text,refund_text:input.refund_text};policySettings.has_saved_draft=true;}
-        else{assert.equal(input.approved,true);policySettings.published={...policySettings.draft,version:crypto.randomUUID(),published_at:'2026-11-02 00:00:00'};policyHistory.set(policySettings.published.version,structuredClone(policySettings.published));}
+        else{assert.equal(input.approved,true);if(!policySettings.has_saved_draft){assert.deepEqual(input.initial_draft,policySettings.draft);policySettings.has_saved_draft=true;}policySettings.published={...policySettings.draft,version:crypto.randomUUID(),published_at:'2026-11-02 00:00:00'};policyHistory.set(policySettings.published.version,structuredClone(policySettings.published));}
         policySettings.revision++;return json({data:policySettings});
       }
       if(route==='/api/admin/shipping-settings/draft'||route==='/api/admin/shipping-settings/publish'){
@@ -151,12 +151,16 @@ test('shipping draft/publication, Staff read access, customer quote review and o
     await until(`!document.getElementById('policyEditorFields').disabled`);
     assert(await run(`document.getElementById('policyDraftSave').disabled&&document.getElementById('policyPublish').disabled`));
     await run(`document.getElementById('policyApproval').click()`);
-    assert(await run(`document.getElementById('policyPublish').disabled`),'Unsaved suggested wording cannot be published');
-    assert.match(await run(`document.getElementById('policyPublishHint').textContent`),/save a draft/);
-    await run(`document.getElementById('policyApproval').click()`);
+    assert.equal(await run(`document.getElementById('policyPublish').disabled`),false,'Reviewed unchanged starting policies can be published');
+    assert.equal(await run(`document.getElementById('policyDraftSave').disabled`),true,'Unchanged Save stays disabled');
+    const startingDraft=structuredClone(policySettings.draft);
+    await run(`document.getElementById('policyPublish').click()`);await confirm('Publish Approved Policy');
+    await until(`!document.getElementById('policyPublishedLink').hidden&&!document.getElementById('policyEditorFields').disabled`);
+    assert.deepEqual(policySettings.draft,startingDraft,'First publication does not require a text edit');
+    assert.equal(policySettings.has_saved_draft,true);assert.equal(policySettings.published.refund_text,startingDraft.refund_text);
     await input('policyDraftRefund',policySettings.draft.refund_text+'\n\nAssistance\nKeep your order number available when requesting assistance.');
     await run(`document.getElementById('policyDraftSave').click()`);await confirm('Save Policy Draft');await until(`!document.getElementById('policyEditorFields').disabled&&document.getElementById('policyDraftSave').disabled`);
-    assert.equal(policySettings.published,null);
+    assert.equal(policySettings.published.refund_text,startingDraft.refund_text,'Saving edits does not change the live policy');
     await run(`document.getElementById('policyApproval').click();document.getElementById('policyPublish').click()`);await confirm('Publish Approved Policy');await until(`!document.getElementById('policyPublishedLink').hidden&&document.getElementById('policyPublish').disabled`);
     for(const portal of ['admin','staff'])for(const width of [390,1440])for(const theme of ['light','dark']){
       await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});await navigate('/'+portal+'-page/website-policies.html');
@@ -185,6 +189,11 @@ test('shipping draft/publication, Staff read access, customer quote review and o
       assert.equal(await run(`getComputedStyle(document.querySelector('.checkout-fulfillment')).display==='none'`),method!=='GCash','Only online payment needs a separate delivery/pickup choice');
       if(method==='Cash on Pickup')assert(await run(`document.getElementById('fulfillPickupRadio').checked`));
       if(method==='Cash on Delivery')assert(await run(`document.getElementById('fulfillDeliveryRadio').checked`));
+      if(method==='GCash'){
+        const instructions=await run(`document.getElementById('gcashUnconfiguredNote').textContent`);
+        assert.equal(instructions,'Continue to secure checkout to pay using QR Ph. Payment confirmation updates automatically.');
+        assert.doesNotMatch(instructions,/GCash/);
+      }
     }
     await until(`document.getElementById('checkoutShippingFee').textContent.includes('85.50')&&!document.getElementById('orderTerms').disabled`);
     await run(`if(!document.getElementById('checkoutShippingAccept').hidden)document.getElementById('checkoutShippingAccept').click()`);

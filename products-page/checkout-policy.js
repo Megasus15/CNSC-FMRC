@@ -11,7 +11,9 @@
       checkbox.disabled=!policy||busy||failed;
       window.FMRC_PAYMENT_METHODS?.setPolicyReady(ready());
       status.textContent=busy?'Loading order policies…':failed?'Order policies could not be loaded. Please try again.':!policy?'Ordering is temporarily unavailable while FMRC prepares its transaction terms and refund policy. Please contact FMRC for assistance.':checkbox.checked?'You have accepted the current transaction terms and refund policy.':'Review both policies, then select the checkbox to agree.';
-      document.getElementById('checkoutPolicyRetry').hidden=!failed;
+      const retry=document.getElementById('checkoutPolicyRetry');
+      retry.hidden=busy||(!failed&&!!policy);retry.disabled=busy;
+      retry.textContent=failed?'Try again':'Check availability';
       for(const [id,page]of [['checkoutTermsLink','transaction-terms'],['checkoutRefundLink','refund-policy']]){
         const link=document.getElementById(id);link.href='/products-page/'+page+'.html'+(policy?'?version='+encodeURIComponent(policy.version):'')+'#'+page;
       }
@@ -31,7 +33,10 @@
     window.FMRC_CHECKOUT_POLICY={refresh,version:()=>ready()?policy.version:null,reject:data=>{checkbox.checked=false;apply(data);paint();}};
     checkbox.addEventListener('change',paint);
     const checkout=document.getElementById('checkoutModal');
-    if(checkout)new MutationObserver(()=>{if(!checkout.classList.contains('show-modal')){checkbox.checked=false;paint();}}).observe(checkout,{attributes:true,attributeFilter:['class']});
+    const refreshIfWaiting=()=>{if(checkout?.classList.contains('show-modal')&&(!policy||failed))void refresh();};
+    if(checkout)new MutationObserver(()=>{if(!checkout.classList.contains('show-modal')){checkbox.checked=false;paint();}else refreshIfWaiting();}).observe(checkout,{attributes:true,attributeFilter:['class']});
+    window.addEventListener('focus',refreshIfWaiting);
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshIfWaiting();});
     document.getElementById('checkoutPolicyRetry').addEventListener('click',refresh);
     void refresh();
   });

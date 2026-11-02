@@ -15,11 +15,13 @@ Admin and Staff have **Website Management → Transaction Policies**. Admin can
 edit, save, preview, and publish a draft after explicitly confirming FMRC
 approval. Staff reads published wording only. Proposed wording supplied by the
 application stays in the Admin draft; it is not automatically published.
-The settings response identifies whether the draft has been saved. Admin must
-review and edit the proposed text, save the draft, confirm FMRC approval, then
-publish. Save starts disabled until wording changes; Publish explains the next
-required step and stays disabled for an unsaved proposed draft. Both portals link
-to the separate Customer pages.
+The settings response identifies whether the draft has been saved. Admin can
+review the unchanged starting text, confirm FMRC approval, and publish it without
+making an artificial edit. The first publication saves that exact reviewed draft
+and its published version in one database transaction. The API checks the reviewed
+text against the current starting draft and rejects stale revisions or missing
+approval. Edited wording must be saved before publishing. Save starts disabled
+until wording changes. Both portals link to the separate Customer pages.
 
 The proposed wording covers transactions, delivery/pickup, cancellations,
 customized products, eligible concerns, return arrangements, shipping-fee
@@ -35,6 +37,10 @@ published version again before submission. A version change clears prior
 acceptance and updates both links. Unpublished or unavailable policy states keep
 ordering disabled. Closing checkout resets the agreement; opening the policy in
 another tab does not accept the policy or discard the order draft.
+Waiting customers can use **Check availability**, or return to an open checkout
+after publication, to retrieve the published policy. The checkbox then becomes
+available but remains unchecked until the customer explicitly agrees. The two
+policy pages also provide a check-availability action before publication.
 
 Order creation locks the current publication and stores its title, terms, refund
 text, version, and the server acceptance timestamp. A stale version or missing

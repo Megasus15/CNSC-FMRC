@@ -99,7 +99,7 @@
     dialog.querySelector('[data-gateway-continue]').textContent = qrph ? 'Continue to payment QR' : 'Continue to GCash';
     const instructions = dialog.querySelector('[data-gateway-instructions]');
     instructions.hidden = !qrph || !canContinue;
-    instructions.textContent = qrph ? 'Scan the checkout QR with GCash or another QR Ph app. On the same phone, save the QR from checkout and use your payment app’s QR image option, if available. Return here after paying; confirmation updates automatically.' : '';
+    instructions.textContent = qrph ? 'Scan the checkout QR code with a banking or e-wallet app that supports QR Ph. Payment confirmation updates automatically.' : '';
     const message = claimable.length ? 'Your refund is ready to claim through PayMongo. Open the secure form below and select your receiving bank or e-wallet, such as GCash. Complete it within 3 days of issue. No additional payment is needed.'
       : expiredClaim ? 'The claim link has expired. FMRC is checking its final status with PayMongo. Contact FMRC for help; do not pay again.'
       : refundProcessing ? 'FMRC has approved your refund. We are waiting for confirmation from the payment provider. QR Ph refunds may require a claim form; any available claim link appears here. Do not pay again.'

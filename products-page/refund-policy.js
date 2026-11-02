@@ -22,11 +22,12 @@
       get('policyTermsPageLink').href = '/products-page/transaction-terms.html' + query;
       get('policyRefundPageLink').href = '/products-page/refund-policy.html' + query;
     };
-    const notice = (heading, message, { retry = false, current = false, contact = true } = {}) => {
+    const notice = (heading, message, { retry = false, retryLabel = 'Try again', current = false, contact = true } = {}) => {
       get('fmrcPolicyState').hidden = false;
       get('policyNoticeTitle').textContent = heading;
       get('policyNoticeMessage').textContent = message;
       get('policyPageRetry').hidden = !retry;
+      get('policyPageRetry').textContent = retryLabel;
       get('policyCurrentLink').hidden = !current;
       get('policyNoticeContact').hidden = !contact;
     };
@@ -72,7 +73,7 @@
         const json = await response.json();
         if (!response.ok || !json || !Object.hasOwn(json, 'data')) throw Error('Invalid policy response');
         if (!json.data) {
-          notice('Policy awaiting publication', 'The approved ' + title.toLowerCase() + ' will appear here when available. Ordering is temporarily unavailable. Please contact FMRC for assistance.');
+          notice('Policy awaiting publication', 'The approved ' + title.toLowerCase() + ' will appear here when available. Ordering is temporarily unavailable. Please contact FMRC for assistance.', { retry: true, retryLabel: 'Check availability' });
           return;
         }
         const policy = json.data;

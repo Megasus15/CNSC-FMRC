@@ -30,7 +30,8 @@ test('QR checkout explains scanning and stops offering payment after provider co
   assert.equal(h.fields.get('[data-gateway-title]').textContent,'QR Ph payment');
   assert.equal(h.fields.get('[data-gateway-continue]').textContent,'Continue to payment QR');
   assert.equal(h.fields.get('[data-gateway-instructions]').hidden,false);
-  assert.match(h.fields.get('[data-gateway-instructions]').textContent,/Scan.*GCash/);
+  assert.match(h.fields.get('[data-gateway-instructions]').textContent,/Scan.*QR Ph/);
+  assert.doesNotMatch(h.fields.get('[data-gateway-instructions]').textContent,/GCash/);
   await h.update({checkout_method:'qrph',method_label:'QR Ph',status:'paid',checkout_url:null,retry_allowed:false,refunds:[]});
   assert.equal(h.fields.get('[data-gateway-continue]').hidden,true);
   assert.equal(h.fields.get('[data-gateway-instructions]').hidden,true);

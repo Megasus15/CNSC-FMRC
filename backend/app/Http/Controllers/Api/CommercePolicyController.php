@@ -58,15 +58,27 @@ final class CommercePolicyController extends Controller
     public function publish(Request $request): JsonResponse
     {
         $this->authorize($request, true);
-        $input = $request->validate(['expected_revision' => ['required', 'integer', 'min:0'], 'approved' => ['required', 'accepted']]);
+        $input = $request->validate(['expected_revision' => ['required', 'integer', 'min:0'], 'approved' => ['required', 'accepted'],
+            'initial_draft' => ['sometimes', 'array:title,terms_text,refund_text'],
+            'initial_draft.title' => ['required_with:initial_draft', 'string', 'max:180'],
+            'initial_draft.terms_text' => ['required_with:initial_draft', 'string', 'min:40', 'max:20000'],
+            'initial_draft.refund_text' => ['required_with:initial_draft', 'string', 'min:40', 'max:20000']]);
         DB::transaction(function () use ($input, $request) {
             $settings = CommercePolicy::settings(true);
             abort_unless((int) $settings->revision === (int) $input['expected_revision'], 409, 'Policy settings changed. Refresh and review the latest draft.');
-            abort_unless($settings->draft, 422, 'Save and review the FMRC-approved policy draft before publishing.');
-            $draft = json_decode($settings->draft, true);
+            $draft = $settings->draft ? json_decode($settings->draft, true) : ($input['initial_draft'] ?? null);
+            abort_unless($draft, 422, 'Review the proposed policies and confirm FMRC approval before publishing.');
+            if (! $settings->draft) {
+                // An unchanged starting draft can be saved and published together
+                // after approval. Verify the exact text reviewed by the Admin.
+                foreach (CommercePolicy::draft() as $key => $text) {
+                    abort_unless(($draft[$key] ?? null) === $text, 409, 'The proposed policies have changed. Refresh and review the latest draft before publishing.');
+                }
+            }
             $version = (string) Str::uuid();
             DB::table('commerce_policies')->insert(array_merge($draft, ['version' => $version, 'published_at' => now(), 'published_by' => $request->user()->id]));
-            DB::table('commerce_policy_settings')->where('id', 1)->update(['published_version' => $version, 'revision' => $settings->revision + 1]);
+            DB::table('commerce_policy_settings')->where('id', 1)->update(['draft' => json_encode($draft),
+                'published_version' => $version, 'revision' => $settings->revision + 1]);
         });
 
         return $this->show($request);

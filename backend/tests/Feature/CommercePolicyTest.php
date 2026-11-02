@@ -75,6 +75,44 @@ class CommercePolicyTest extends TestCase
         $this->getJson('/api/commerce/policy')->assertOk()->assertJsonMissingPath('data.published_by');
     }
 
+    public function test_admin_can_approve_and_publish_the_unchanged_starting_draft_without_dummy_edits(): void
+    {
+        Sanctum::actingAs(User::factory()->create(['role' => 'admin']));
+        $draft = $this->getJson('/api/admin/commerce-policy')->assertOk()->assertJsonPath('data.has_saved_draft', false)->json('data.draft');
+        $payload = ['expected_revision' => 0, 'approved' => false, 'initial_draft' => $draft];
+        $this->postJson('/api/admin/commerce-policy/publish', $payload)->assertUnprocessable();
+        $this->assertDatabaseCount('commerce_policies', 0);
+        $this->assertNull(DB::table('commerce_policy_settings')->value('draft'));
+
+        $payload['approved'] = true;
+        $result = $this->postJson('/api/admin/commerce-policy/publish', $payload)->assertOk()
+            ->assertJsonPath('data.has_saved_draft', true)->assertJsonPath('data.published.terms_text', $draft['terms_text'])
+            ->assertJsonPath('data.published.refund_text', $draft['refund_text'])->json('data.published');
+        $this->assertSame($draft, json_decode(DB::table('commerce_policy_settings')->value('draft'), true));
+        $this->getJson('/api/commerce/policy')->assertOk()->assertJsonPath('data.version', $result['version']);
+        $this->postJson('/api/admin/commerce-policy/publish', $payload)->assertConflict();
+        $this->assertDatabaseCount('commerce_policies', 1);
+    }
+
+    public function test_initial_publication_rejects_changed_or_incomplete_text_and_non_admins(): void
+    {
+        Sanctum::actingAs(User::factory()->create(['role' => 'admin']));
+        $draft = CommercePolicy::draft();
+        $payload = ['expected_revision' => 0, 'approved' => true, 'initial_draft' => $draft];
+        $payload['initial_draft']['refund_text'] = 'Incomplete';
+        $this->postJson('/api/admin/commerce-policy/publish', $payload)->assertUnprocessable();
+        $payload['initial_draft']['refund_text'] = $draft['refund_text'].' Modified after review.';
+        $this->postJson('/api/admin/commerce-policy/publish', $payload)->assertConflict();
+        $payload['initial_draft'] = $draft;
+        foreach (['staff', 'customer'] as $role) {
+            Sanctum::actingAs(User::factory()->create(['role' => $role]));
+            $this->postJson('/api/admin/commerce-policy/publish', $payload)->assertForbidden();
+        }
+        $this->assertDatabaseCount('commerce_policies', 0);
+        $this->assertNull(DB::table('commerce_policy_settings')->value('draft'));
+        $this->assertNull(DB::table('commerce_policy_settings')->value('published_version'));
+    }
+
     public function test_no_published_policy_or_missing_acceptance_prevents_orders_and_stock_changes(): void
     {
         $this->postJson('/api/orders', $this->order())->assertConflict()->assertJsonPath('code', 'policy_changed');

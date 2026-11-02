@@ -2947,7 +2947,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (gcashUnconfiguredNote) {
         gcashUnconfiguredNote.textContent =
           settings.checkoutMethod === 'qrph'
-            ? "Continue to secure checkout for your order's payment QR. Scan it with GCash or another QR Ph app. On the same phone, save the QR and use your app's QR image option, if available. Confirmation appears automatically."
+            ? "Continue to secure checkout to pay using QR Ph. Payment confirmation updates automatically."
             : "Continue to secure checkout, then follow the GCash authorization instructions. Payment confirmation appears automatically.";
         gcashUnconfiguredNote.hidden = false;
       }
@@ -8285,7 +8285,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (order?.payment_is_automated) return {
       label: 'Payment with provider',
       note: order.payment_checkout_method === 'qrph'
-        ? 'Use the secure checkout QR to pay with GCash or another QR Ph app. Payment confirmation updates automatically.'
+        ? 'Complete your QR Ph payment through secure checkout. Payment confirmation updates automatically.'
         : 'Use secure GCash checkout to authorize payment. Do not send a separate manual payment.',
     };
     const isGcash = String(order?.payment_method || "").toLowerCase() === "gcash";
