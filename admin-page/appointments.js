@@ -610,7 +610,7 @@ document.addEventListener("DOMContentLoaded", () => {
    */
   const attachmentHtml = (appointment, options = {}) => {
     const emptyHtml = options.emptyHtml ?? "N/A";
-    if(appointment.attachments?.length)return window.AdminAppointmentDetails?.files(appointment)||emptyHtml;
+    if(appointment.attachments?.length)return window.AdminAppointmentDetails?.files(appointment, options)||emptyHtml;
     const fileName = safe(appointment.attachment_name);
     const fileUrl = String(appointment.attachment_url || "").trim();
 
@@ -1085,64 +1085,66 @@ document.addEventListener("DOMContentLoaded", () => {
         : "Mark appointment as Done before archiving";
     }
 
-    const fullName = safe(appt.client_name);
-    const apNo = formatApNo(appt.reference_no);
+    const display = (value, fallback = "Not provided") => escapeAttribute(String(value ?? "").trim() || fallback);
+    const fullName = display(appt.client_name);
+    const apNo = display(appt.reference_no, formatApNo(appt.reference_no));
     const status = safe(appt.status);
     const statusCls = statusClass(status);
     const fileHtml = attachmentHtml(appt, {
-      emptyHtml: '<span style="color:var(--portal-muted-color,#9ca3af);">No file attached</span>',
+      emptyHtml: '<p class="appt-view-empty">No design files were submitted.</p>',
+      detailed: true,
     });
 
     const body = document.getElementById("apptViewBody");
     if (body) {
       body.innerHTML = `
         <div class="appt-view-header-row">
-          <div class="appt-view-avatar">${fullName.charAt(0).toUpperCase()}</div>
+          <div class="appt-view-avatar" aria-hidden="true">${escapeAttribute(String(appt.client_name || "?").trim().charAt(0).toUpperCase())}</div>
           <div class="appt-view-title-block">
             <h4 class="appt-view-name">${fullName}</h4>
             <span class="appt-view-ref">${apNo}</span>
-            <span class="status-pill ${statusCls}" style="margin-left:8px;">${status}</span>
           </div>
+          <span class="status-pill ${statusCls}">${display(status)}</span>
         </div>
-        <hr class="confirm-separator" style="margin:12px 0;" />
-        <div class="appt-view-grid">
+        <section class="appt-details-section">
+          <div class="appt-details-section-heading"><h4>Appointment schedule</h4><p>All schedules use Philippine time (UTC+8).</p></div>
+          <dl class="appt-view-grid">
           <div class="appt-view-field">
-            <div class="inv-view-label"><i class="fa-solid fa-phone" style="margin-right:6px;color:var(--portal-data-color,#800000);"></i>Contact Number</div>
-            <div class="inv-view-value">${safe(appt.contact_number)}</div>
+            <dt>Date</dt><dd>${display(prettyDate(appt.appointment_date))}</dd>
           </div>
           <div class="appt-view-field">
-            <div class="inv-view-label"><i class="fa-regular fa-envelope" style="margin-right:6px;color:var(--portal-data-color,#800000);"></i>Email Address</div>
-            <div class="inv-view-value">${safe(appt.email)}</div>
+            <dt>Time</dt><dd>${display(appt.appointment_time)}</dd>
           </div>
           <div class="appt-view-field full">
-            <div class="inv-view-label"><i class="fa-solid fa-location-dot" style="margin-right:6px;color:var(--portal-data-color,#800000);"></i>Address</div>
-            <div class="inv-view-value">${safe(appt.full_address)}</div>
+            <dt>Purpose / service</dt><dd>${display(appt.purpose)}</dd>
+          </div>
+          </dl>
+        </section>
+        <section class="appt-details-section">
+          <div class="appt-details-section-heading"><h4>Client information</h4></div>
+          <dl class="appt-view-grid">
+          <div class="appt-view-field">
+            <dt>Contact number</dt><dd>${display(appt.contact_number)}</dd>
           </div>
           <div class="appt-view-field">
-            <div class="inv-view-label"><i class="fa-solid fa-user-tag" style="margin-right:6px;color:var(--portal-data-color,#800000);"></i>Client Type</div>
-            <div class="inv-view-value">${safe(appt.client_type)}</div>
+            <dt>Email address</dt><dd>${display(appt.email)}</dd>
           </div>
           <div class="appt-view-field">
-            <div class="inv-view-label"><i class="fa-solid fa-calendar-day" style="margin-right:6px;color:var(--portal-data-color,#800000);"></i>Appointment Date</div>
-            <div class="inv-view-value">${prettyDate(appt.appointment_date)}</div>
-          </div>
-          <div class="appt-view-field">
-            <div class="inv-view-label"><i class="fa-regular fa-clock" style="margin-right:6px;color:var(--portal-data-color,#800000);"></i>Appointment Time</div>
-            <div class="inv-view-value">${safe(appt.appointment_time)}</div>
+            <dt>Client type</dt><dd>${display(appt.client_type)}</dd>
           </div>
           <div class="appt-view-field full">
-            <div class="inv-view-label"><i class="fa-solid fa-bullseye" style="margin-right:6px;color:var(--portal-data-color,#800000);"></i>Purpose / Service</div>
-            <div class="inv-view-value">${safe(appt.purpose)}</div>
+            <dt>Address</dt><dd>${display(appt.full_address)}</dd>
           </div>
-          <div class="appt-view-field full">
-            <div class="inv-view-label"><i class="fa-regular fa-note-sticky" style="margin-right:6px;color:var(--portal-data-color,#800000);"></i>Additional Notes</div>
-            <div class="inv-view-value">${safe(appt.additional_notes)}</div>
-          </div>
-          <div class="appt-view-field full">
-            <div class="inv-view-label"><i class="fa-solid fa-paperclip" style="margin-right:6px;color:var(--portal-data-color,#800000);"></i>Attached File</div>
-            <div class="inv-view-value">${fileHtml}</div>
-          </div>
-        </div>`;
+          </dl>
+        </section>
+        <section class="appt-details-section">
+          <div class="appt-details-section-heading"><h4>Additional notes</h4></div>
+          <p class="appt-view-notes">${display(appt.additional_notes, "No additional notes were provided.")}</p>
+        </section>
+        <section class="appt-details-section">
+          <div class="appt-details-section-heading"><h4>Design files</h4><p>Private files submitted for this appointment.</p></div>
+          <div class="appt-view-files">${fileHtml}</div>
+        </section>`;
     }
 
     window.AdminAppointmentDetails?.render(appt,body);
@@ -1151,10 +1153,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   window.addEventListener("fmrc:appointment-updated",event=>{const item=event.detail?.appointment;if(!item)return;state.appointments=state.appointments.map(row=>row.id===item.id?item:row);renderTable();if(viewingAppointment?.id===item.id)openAppointmentViewModal(item);});
 
-  document.getElementById("btnCloseApptView")?.addEventListener("click", () => {
+  ["btnCloseApptView", "btnCloseApptView2"].forEach(id => document.getElementById(id)?.addEventListener("click", () => {
     document.getElementById("modalViewAppointment")?.classList.remove("show");
     viewingAppointment = null;
-  });
+  }));
 
   document
     .getElementById("btnArchiveFromView")

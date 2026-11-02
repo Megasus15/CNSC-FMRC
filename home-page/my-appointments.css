@@ -1,24 +1,97 @@
-#customerAppointmentsModal .appointment-content{overflow:auto;min-height:0;flex:1;padding:2px 3px 12px}
-#customerAppointmentsModal .appointment-list{display:grid;gap:16px}
-#customerAppointmentsModal .appointment-detail{margin-top:14px;padding:20px;border:1px solid #e2d9d2;border-radius:12px;background:#fffefa;line-height:1.7;color:#3f3540}
-#customerAppointmentsModal .appointment-card-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-#customerAppointmentsModal h3,#customerAppointmentsModal h4{color:#800000;margin:6px 0 12px}
-#customerAppointmentsModal .appointment-card-heading>span{font-size:12px;background:#f4e9e4;color:#800000;padding:4px 10px;border-radius:999px}
-#customerAppointmentsModal .appointment-fields{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}
-#customerAppointmentsModal .appointment-fields label{font-size:13px;font-weight:600;display:grid;gap:6px;min-width:0}
-#customerAppointmentsModal .appointment-fields .c-input{width:100%;min-width:0;font:inherit}
-#customerAppointmentsModal fieldset{border:0;padding:0;min-width:0}
-#customerAppointmentsModal .appointment-text-link{color:#800000;text-decoration:underline;text-underline-offset:3px;font:inherit;background:none;border:0;padding:0;cursor:pointer;overflow-wrap:anywhere;text-align:left}
-#customerAppointmentsModal .appointment-text-link:focus-visible{outline:2px solid #800000;outline-offset:4px}
-#customerAppointmentsModal .appointment-files{padding-left:20px}
-#customerAppointmentsModal [data-appointment-message]{font-size:13px;margin-top:12px;min-height:20px}
-#customerAppointmentsModal .is-error{color:#a41624}
-#customerAppointmentsModal [aria-busy=true]{cursor:progress}
-#customerAppointmentsModal .appointment-empty{padding:28px 16px;text-align:center}
-@media(max-width:540px){#customerAppointmentsModal .appointment-fields{grid-template-columns:1fr}#customerAppointmentsModal .appointment-detail{padding:16px}#customerAppointmentsModal .customer-orders-modal{width:100%}}
-
-/* Match the existing Customer dialog header colors. */
-#customerAppointmentsModal.ux-dlg .ux-dlg__head .ux-dlg__title{color:#fff8ef}
-#customerAppointmentsModal.ux-dlg .ux-dlg__head p{color:#f5e6df;line-height:1.6}
-#customerAppointmentsModal.ux-dlg .ux-dlg__head .ux-dlg__eyebrow{color:#f4edb3}
-#customerAppointmentsModal.ux-dlg .ux-dlg__head .is-error{color:#ffdbd9}
+/* Shared Customer appointment dialogs, independent of the Orders side panel. */
+#customerAppointmentsModal { position: fixed; inset: 0; z-index: 10050; display: none; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; background: rgb(30 16 22 / 58%); backdrop-filter: blur(5px); color: var(--customer-ink-strong, #312a30); font-family: inherit; }
+#customerAppointmentsModal.show { display: flex; }
+#customerAppointmentsModal .appointment-modal.ux-dlg__card { display: flex; flex-direction: column; width: min(860px, 100%); max-width: 860px; max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); min-height: 0; margin: 0; padding: 0; gap: 0; overflow: hidden; transform: none; border: 1px solid var(--customer-paper-edge, #e6d8d6); border-radius: 18px; background: var(--customer-paper, #fdfaf6); box-shadow: 0 24px 80px rgb(32 11 19 / 25%); }
+#customerAppointmentsModal .appointment-modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; flex-shrink: 0; padding: 24px 28px; background: linear-gradient(115deg, var(--customer-wine-dark, #521923), var(--customer-wine, #6b202b)); color: #fff8f0; }
+#customerAppointmentsModal .appointment-modal-heading { min-width: 0; }
+#customerAppointmentsModal .appointment-eyebrow { margin: 0 0 7px; color: #f2d9c2; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; }
+#customerAppointmentsModal .appointment-modal-head h2 { margin: 0; color: #fff8f0; font-size: clamp(21px, 2.5vw, 26px); line-height: 1.25; font-weight: 700; letter-spacing: -.02em; }
+#customerAppointmentsModal [data-appointment-subtitle] { margin: 9px 0 0; font-size: 13px; line-height: 1.6; color: #f4e6df; max-width: 60ch; }
+#customerAppointmentsModal .appointment-close { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex-shrink: 0; padding: 0; border: 1px solid rgb(255 248 240 / 30%); border-radius: 10px; color: #fff8f0; background: rgb(255 248 240 / 8%); font: inherit; font-size: 25px; cursor: pointer; }
+#customerAppointmentsModal .appointment-close:hover { background: rgb(255 248 240 / 18%); }
+#customerAppointmentsModal .appointment-content { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 24px 28px; scrollbar-gutter: stable; }
+#customerAppointmentsModal .appointment-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+#customerAppointmentsModal .appointment-list-heading h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--customer-ink-strong, #312a30); }
+#customerAppointmentsModal .appointment-list-heading > span { font-size: 12px; color: var(--customer-ink-muted, #716770); }
+#customerAppointmentsModal .appointment-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+#customerAppointmentsModal .appointment-card, #customerAppointmentsModal .appointment-section { min-width: 0; padding: 20px; border: 1px solid var(--customer-paper-edge, #e6d8d6); border-radius: 12px; background: var(--customer-paper, #fdfaf6); }
+#customerAppointmentsModal .appointment-card { display: flex; flex-direction: column; }
+#customerAppointmentsModal .appointment-card:only-child { grid-column: 1 / -1; }
+#customerAppointmentsModal .appointment-card-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+#customerAppointmentsModal .appointment-reference { font-size: 12px; color: var(--customer-wine, #6b202b); font-weight: 700; letter-spacing: .025em; }
+#customerAppointmentsModal .appointment-status, #customerAppointmentsModal .appointment-method-tag, #customerAppointmentsModal .appointment-section-count { display: inline-flex; align-items: center; padding: 4px 9px; border-radius: 6px; font-size: 11px; font-weight: 600; line-height: 1.5; background: var(--customer-paper-sink, #f5eeea); color: var(--customer-wine, #6b202b); }
+#customerAppointmentsModal .appointment-status[data-status="completed"], #customerAppointmentsModal .appointment-status[data-status="done"] { color: #34604b; background: #edf4ee; }
+#customerAppointmentsModal .appointment-status[data-status="cancelled"] { color: #79616a; background: #f1ebed; }
+#customerAppointmentsModal h3.appointment-service { font-size: 17px; line-height: 1.45; margin: 14px 0 18px; font-weight: 600; color: var(--customer-ink-strong, #312a30); overflow-wrap: anywhere; }
+#customerAppointmentsModal .appointment-schedule { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; margin: 0; }
+#customerAppointmentsModal .appointment-schedule > div { min-width: 0; }
+#customerAppointmentsModal .appointment-schedule > div:last-child { grid-column: 1 / -1; }
+#customerAppointmentsModal .appointment-schedule dt { margin-bottom: 5px; color: var(--customer-ink-muted, #716770); font-size: 11px; font-weight: 500; }
+#customerAppointmentsModal .appointment-schedule dd { margin: 0; font-size: 13px; line-height: 1.55; font-weight: 500; overflow-wrap: anywhere; }
+#customerAppointmentsModal .appointment-card-actions { display: flex; justify-content: flex-end; margin-top: auto; padding-top: 20px; }
+#customerAppointmentsModal .appointment-button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; width: auto; max-width: 100%; min-height: 42px; margin: 0; padding: 10px 15px; border: 1px solid transparent; border-radius: 8px; font: inherit; font-size: 12px; font-weight: 600; line-height: 1.5; text-decoration: none; cursor: pointer; box-sizing: border-box; transition: background-color .16s, border-color .16s; }
+#customerAppointmentsModal .appointment-button--primary { background: var(--customer-wine, #6b202b); color: var(--customer-paper, #fdfaf6); border-color: var(--customer-wine, #6b202b); }
+#customerAppointmentsModal .appointment-button--primary:hover { background: var(--customer-wine-dark, #521923); border-color: var(--customer-wine-dark, #521923); }
+#customerAppointmentsModal .appointment-button--outline { background: transparent; border-color: var(--customer-paper-edge, #d9c7c8); color: var(--customer-wine, #6b202b); }
+#customerAppointmentsModal .appointment-button--outline:hover, #customerAppointmentsModal .appointment-button--text:hover { background: var(--customer-paper-sink, #f5eeea); border-color: var(--customer-wine, #6b202b); }
+#customerAppointmentsModal .appointment-button--text { color: var(--customer-wine, #6b202b); background: transparent; padding-inline: 9px; }
+#customerAppointmentsModal .appointment-button:disabled, #customerAppointmentsModal .appointment-file:disabled { opacity: .55; cursor: wait; }
+#customerAppointmentsModal :is(button, a, input, select, summary):focus-visible { outline: 2px solid var(--customer-wine, #6b202b); outline-offset: 3px; }
+#customerAppointmentsModal .appointment-close:focus-visible { outline-color: #fff8f0; }
+#customerAppointmentsModal .appointment-detail-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+#customerAppointmentsModal .appointment-detail { display: grid; gap: 18px; }
+#customerAppointmentsModal .appointment-section h3 { margin: 0 0 10px; font-size: 15px; line-height: 1.4; font-weight: 600; color: var(--customer-wine, #6b202b); }
+#customerAppointmentsModal .appointment-section p { margin: 0; font-size: 13px; line-height: 1.65; }
+#customerAppointmentsModal .appointment-section-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+#customerAppointmentsModal .appointment-section-heading h3 { margin: 0; }
+#customerAppointmentsModal .appointment-overview .appointment-service { margin-top: 12px; font-size: 20px; }
+#customerAppointmentsModal .appointment-overview .appointment-schedule { grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--customer-paper-edge, #e6d8d6); padding-top: 18px; }
+#customerAppointmentsModal .appointment-overview .appointment-schedule > div:last-child { grid-column: auto; }
+#customerAppointmentsModal .appointment-help { color: var(--customer-ink-muted, #716770); }
+#customerAppointmentsModal .appointment-section p.appointment-help + .appointment-help { margin-top: 6px; }
+#customerAppointmentsModal .appointment-meeting-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; padding-top: 4px; }
+#customerAppointmentsModal .appointment-meeting-summary strong { font-size: 13px; font-weight: 600; }
+#customerAppointmentsModal .appointment-meeting-summary p { margin-top: 4px; color: var(--customer-ink-muted, #716770); }
+#customerAppointmentsModal .appointment-files { padding: 0; margin: 16px 0 0; list-style: none; display: grid; gap: 8px; }
+#customerAppointmentsModal .appointment-file { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 16px; padding: 12px 14px; border: 1px solid var(--customer-paper-edge, #e6d8d6); border-radius: 8px; background: var(--customer-paper-sink, #f7f2ec); font: inherit; text-align: left; cursor: pointer; }
+#customerAppointmentsModal .appointment-file-name { min-width: 0; color: var(--customer-ink-strong, #312a30); font-size: 12px; overflow-wrap: anywhere; }
+#customerAppointmentsModal .appointment-file-action { flex-shrink: 0; font-size: 11px; font-weight: 600; color: var(--customer-wine, #6b202b); }
+#customerAppointmentsModal p.appointment-empty-note { margin-top: 14px; color: var(--customer-ink-muted, #716770); }
+#customerAppointmentsModal .appointment-history summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--customer-wine, #6b202b); }
+#customerAppointmentsModal .appointment-history ol { margin: 16px 0 0; padding-left: 20px; display: grid; gap: 16px; }
+#customerAppointmentsModal .appointment-history li > span { display: block; font-size: 11px; color: var(--customer-ink-muted, #716770); }
+#customerAppointmentsModal .appointment-history li p { margin-bottom: 6px; }
+#customerAppointmentsModal .appointment-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0 16px; }
+#customerAppointmentsModal .appointment-fields label { display: grid; gap: 8px; font-size: 12px; font-weight: 600; min-width: 0; }
+#customerAppointmentsModal .appointment-fields .c-input { min-width: 0; width: 100%; min-height: 44px; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--customer-paper-edge, #d9c7c8); border-radius: 8px; background: var(--customer-paper, #fdfaf6); color: var(--customer-ink-strong, #312a30); font: inherit; font-size: 13px; }
+#customerAppointmentsModal fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+#customerAppointmentsModal .appointment-section-actions { display: flex; justify-content: flex-end; border-top: 1px solid var(--customer-paper-edge, #e6d8d6); padding-top: 18px; margin-top: 20px; }
+#customerAppointmentsModal .appointment-modal-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; flex-shrink: 0; padding: 16px 28px; border-top: 1px solid var(--customer-paper-edge, #e6d8d6); background: var(--customer-paper, #fdfaf6); }
+#customerAppointmentsModal .appointment-modal-footer > p { margin: 0; font-size: 11px; line-height: 1.5; color: var(--customer-ink-muted, #716770); }
+#customerAppointmentsModal .appointment-footer-actions { display: flex; gap: 10px; margin-left: auto; }
+#customerAppointmentsModal .appointment-notice { flex-shrink: 0; margin: 18px 28px 0; padding: 11px 14px; border: 1px solid var(--customer-paper-edge, #e6d8d6); border-radius: 8px; background: var(--customer-paper-sink, #f7f2ec); font-size: 12px; line-height: 1.6; color: var(--customer-ink-strong, #312a30); }
+#customerAppointmentsModal .appointment-notice.is-error { color: #9b2236; border-color: #e7b9c1; background: #fff5f5; }
+#customerAppointmentsModal [hidden] { display: none !important; }
+#customerAppointmentsModal .appointment-empty { padding: 32px 18px; text-align: center; }
+#customerAppointmentsModal .appointment-empty-icon { display: block; color: var(--customer-wine, #6b202b); font-size: 32px; margin-bottom: 12px; }
+#customerAppointmentsModal .appointment-empty h3 { margin: 0 0 10px; font-size: 18px; }
+#customerAppointmentsModal .appointment-empty p { max-width: 45ch; margin: auto; font-size: 13px; line-height: 1.7; color: var(--customer-ink-muted, #716770); }
+@media (min-width: 641px) {
+  #customerAppointmentsModal .appointment-card:only-child .appointment-schedule { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #customerAppointmentsModal .appointment-card:only-child .appointment-schedule > div:last-child { grid-column: auto; }
+}
+@media (max-width: 640px) {
+  #customerAppointmentsModal { padding: 12px; }
+  #customerAppointmentsModal .appointment-modal.ux-dlg__card { max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); border-radius: 14px; }
+  #customerAppointmentsModal .appointment-modal-head { padding: 20px; gap: 12px; }
+  #customerAppointmentsModal .appointment-content { padding: 18px; }
+  #customerAppointmentsModal .appointment-list { grid-template-columns: 1fr; }
+  #customerAppointmentsModal .appointment-section, #customerAppointmentsModal .appointment-card { padding: 17px; }
+  #customerAppointmentsModal .appointment-overview .appointment-schedule { grid-template-columns: 1fr 1fr; }
+  #customerAppointmentsModal .appointment-overview .appointment-schedule > div:last-child { grid-column: 1 / -1; }
+  #customerAppointmentsModal .appointment-fields { grid-template-columns: 1fr; }
+  #customerAppointmentsModal .appointment-modal-footer { padding: 14px 18px; gap: 12px; }
+  #customerAppointmentsModal .appointment-notice { margin: 16px 18px 0; }
+  #customerAppointmentsModal .appointment-button { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) { #customerAppointmentsModal .appointment-button { transition: none; } }

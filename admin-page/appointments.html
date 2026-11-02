@@ -25,7 +25,7 @@
     <script src="dark-mode.js?v=3.1"></script>
     <link rel="stylesheet" href="portal-sidebar.css?v=1.3" />
     <script src="portal-sidebar.js?v=1.1" defer></script>
-  <link rel="stylesheet" href="appointment-details.css?v=1.0">
+  <link rel="stylesheet" href="appointment-details.css?v=1.1-dialogs">
 </head>
   <body>
     <div class="dashboard-container">
@@ -383,91 +383,21 @@
     </div>
 
     <!-- ────────────── APPOINTMENT VIEW MODAL ────────────── -->
-    <div
-      class="modal-overlay"
-      id="modalViewAppointment"
-      data-backdrop-close="true"
-    >
-      <div
-        class="modal-card"
-        style="
-          max-width: 600px;
-          width: 100%;
-          max-height: 90vh;
-          display: flex;
-          flex-direction: column;
-        "
-      >
-        <div
-          class="modal-header-fixed"
-          style="
-            padding: 18px 20px 12px;
-            border-bottom: 1px solid var(--border-color, #e5e7eb);
-            flex-shrink: 0;
-          "
-        >
-          <div
-            style="
-              display: flex;
-              align-items: center;
-              justify-content: space-between;
-            "
-          >
-            <h3 class="modal-title" style="margin: 0; font-size: 1.15rem">
-              Appointment Details
-            </h3>
-            <button
-              id="btnCloseApptView"
-              type="button"
-              style="
-                background: none;
-                border: none;
-                cursor: pointer;
-                padding: 4px 8px;
-                color: #6b7280;
-                font-size: 1.2rem;
-              "
-              aria-label="Close"
-            >
-              <i class="fa-solid fa-xmark"></i>
-            </button>
+    <div class="modal-overlay" id="modalViewAppointment" data-backdrop-close="true">
+      <div class="modal-card appointment-view-modal" role="dialog" aria-modal="true" aria-labelledby="apptViewTitle">
+        <header class="appointment-view-modal-header">
+          <div>
+            <p class="appointment-view-eyebrow">FMRC appointments</p>
+            <h3 class="modal-title" id="apptViewTitle">Appointment details</h3>
+            <p class="appointment-view-subtitle">Schedule, client information, and meeting details.</p>
           </div>
-        </div>
-        <div
-          class="modal-body-scroll"
-          id="apptViewBody"
-          style="flex: 1; overflow-y: auto; padding: 20px"
-        >
-          <!-- Populated by JS -->
-        </div>
-        <div
-          class="modal-actions modal-actions-sticky"
-          style="border-top: 1px solid var(--border-color, #e5e7eb)"
-        >
-          <button
-            class="btn-admin btn-secondary"
-            id="btnCloseApptView2"
-            type="button"
-            onclick="
-              document
-                .getElementById('modalViewAppointment')
-                .classList.remove('show')
-            "
-          >
-            Close
-          </button>
-          <button
-            class="btn-admin"
-            id="btnArchiveFromView"
-            type="button"
-            style="
-              background: linear-gradient(135deg, #7f1d1d, #dc2626);
-              border-color: #dc2626;
-            "
-          >
-            <i class="fa-solid fa-box-archive"></i> Archive
-          </button>
-        </div>
+          <button id="btnCloseApptView" class="appointment-view-close" type="button" aria-label="Close appointment details">×</button>
+        </header>
+        <div class="modal-body-scroll" id="apptViewBody"><!-- Populated by JS --></div>
+        <footer class="modal-actions modal-actions-sticky appointment-view-modal-footer">
+          <button class="btn-admin btn-secondary" id="btnCloseApptView2" type="button">Close</button>
+          <button class="btn-admin" id="btnArchiveFromView" type="button"><i class="fa-solid fa-box-archive" aria-hidden="true"></i> Archive appointment</button>
+        </footer>
       </div>
     </div>
 
@@ -677,8 +607,8 @@
     <script src="admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
     <script src="admin-common.js?v=8.6-policies"></script>
-    <script src="appointment-details.js?v=1.0"></script>
-<script src="appointments.js?v=5.4-workflows"></script>
+    <script src="appointment-details.js?v=1.1-dialogs"></script>
+<script src="appointments.js?v=5.5-dialogs"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
   </body>
 </html>
