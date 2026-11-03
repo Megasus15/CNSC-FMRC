@@ -166,7 +166,8 @@ Route::get('/couriers', [OrderController::class, 'couriers']);
 Route::post('/webhooks/paymongo', [PayMongoWebhookController::class, 'handleWebhook']);
 Route::post('/webhooks/ninjavan', [CourierShipmentController::class, 'webhook']);
 // Ship24 authenticates with its own bearer secret, never a portal session/cookie.
-Route::match(['HEAD'], '/webhooks/ship24', [ShipmentTrackingController::class, 'head'])
+// Some hosting proxies forward HEAD as GET. Both readiness methods return an empty response.
+Route::match(['GET', 'HEAD'], '/webhooks/ship24', [ShipmentTrackingController::class, 'head'])
     ->withoutMiddleware([\App\Http\Middleware\EnforceAdminSession::class, \App\Http\Middleware\EnforceSpectatorMode::class]);
 Route::post('/webhooks/ship24', [ShipmentTrackingController::class, 'webhook'])
     ->withoutMiddleware([\App\Http\Middleware\EnforceAdminSession::class, \App\Http\Middleware\EnforceSpectatorMode::class]);

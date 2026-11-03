@@ -213,7 +213,11 @@ class Ship24TrackingTest extends TestCase
         app(Ship24Tracking::class)->register($tracker);
         $tracker->refresh();
         $delivered = $this->update($tracker, 'delivered');
-        $this->call('HEAD', '/api/webhooks/ship24')->assertOk();
+        $this->call('HEAD', '/api/webhooks/ship24')->assertOk()->assertContent('');
+        $this->get('/api/webhooks/ship24')->assertOk()->assertContent('');
+        $this->assertDatabaseCount('shipment_webhook_inbox', 0);
+        $this->assertSame('pending', $tracker->fresh()->status);
+        $this->postJson('/api/webhooks/ship24', ['trackings' => [$delivered]])->assertUnauthorized();
         $this->hook([$delivered], 'wrong')->assertUnauthorized();
         $this->hook([$delivered])->assertAccepted();
         $this->hook([$delivered])->assertAccepted();

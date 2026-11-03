@@ -68,7 +68,7 @@ Use Ship24's **Tracking API and Webhook, per-shipment plan**. The documented fre
 
    No carrier code is guessed or preconfigured. Non-Philippine, deprecated, or unsupported account-required entries are rejected. If `courierAccount` or other unsupported information is required, leave tracking inactive and ask Ship24 about that carrier's access requirements.
 
-4. Configure the public HTTPS callback in Ship24 as `https://YOUR_DOMAIN/api/webhooks/ship24` with `Authorization: Bearer YOUR_SEPARATE_WEBHOOK_SECRET`. HEAD must return 200. Authenticated POST returns 202 only after durable storage. Confirm the hosting proxy forwards Authorization. A dashboard test alone verifies connectivity, not an actual parcel.
+4. Configure the public HTTPS callback in Ship24 as `https://YOUR_DOMAIN/api/webhooks/ship24` with `Authorization: Bearer YOUR_SEPARATE_WEBHOOK_SECRET`. HEAD must return 200. The same empty readiness response is available through GET for hosting proxies that forward HEAD as GET. Neither readiness method stores or processes updates. Authenticated POST returns 202 only after durable storage. Confirm the hosting proxy forwards Authorization. A dashboard test alone verifies connectivity, not an actual parcel.
 5. Record one genuine prepaid parcel physically handed to J&T Daet. Its payment must have a matching full-value, live provider receipt. Verify its FMRC order ID:
 
    ```sh
@@ -97,6 +97,7 @@ Pause automatic tracking in Admin, or set `SHIP24_ENABLED=false` and refresh con
 Local automated checks cover paid dispatch eligibility, test-payment isolation, idempotency/version conflicts, timeout recovery, quota recovery, webhook authentication/batching/early callbacks/deduplication, dates/offsets, terminal conflicts, refresh throttling, separate customer receipt, and notification retry. Historical Ninja Van tests build prior shipments through the service while confirming the public booking endpoint is retired.
 
 - Focused backend suite: 80 tests / 564 assertions passed.
+- Readiness compatibility follow-up: all 21 Ship24 tests / 166 assertions passed, including empty GET/HEAD responses, no inbox writes from readiness requests, and rejection of unauthenticated POST requests. This accommodates hosting proxies that forward HEAD as GET; the callback must be retested on the hosted site after deployment.
 - Payment/checkout frontend tests: 67 passed.
 - Real Chrome fixture run: checkout quotes/policy acceptance, Admin/Staff handover/correction/reload/drafts, and Customer tracking at 320/390/768/1440px; both operator themes. Provider calls and customer data are simulated. External font/CDN downloads are blocked in this fixture; font inheritance is checked separately from remote font loading.
 - Full backend suite: 736 passed; four existing `AdminPortalConsistencyTest` failures concern maintenance-preview shared assets, inconsistent report script versions, dashboard report-button CSS, and announcement theme CSS. Their source files are unchanged by this work.
