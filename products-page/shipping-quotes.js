@@ -3,13 +3,13 @@
   'use strict';
   window.FMRCShippingQuotes = {
     create({ read, request, render, setReady, delay = 180 }) {
-      let key = '', quote = null, busy = false, review = false, message = '', failed = false;
-      let generation = 0, timer, expiry, controller, acceptedBefore = false;
+      let key = '', quote = null, busy = false, message = '', failed = false;
+      let generation = 0, timer, expiry, controller;
       const summary = () => quote?.fulfillment_type==='pickup' ? 'Pickup at FMRC has no shipping fee.' : 'Shipping is charged once per order. Delivery dates are estimates.';
-      const ready = () => !!quote?.available && !busy && !review && Date.parse(quote.expires_at) > Date.now();
+      const ready = () => !!quote?.available && !busy && Date.parse(quote.expires_at) > Date.now();
       const paint = () => {
         setReady(ready());
-        render({ quote, busy, review, message, failed, ready: ready() });
+        render({ quote, busy, message, failed, ready: ready() });
       };
       const scheduleExpiry = () => {
         clearTimeout(expiry);
@@ -22,7 +22,7 @@
         key = next;
         const current = ++generation;
         controller?.abort(); clearTimeout(timer); clearTimeout(expiry);
-        quote = null; review = false; failed = false;
+        quote = null; failed = false;
         if (!input || input.error) {
           busy = false; message = input?.error || 'Choose your order and fulfillment method to calculate the total.'; paint(); return;
         }
@@ -34,12 +34,8 @@
           try {
             const data = await request(input, activeRequest.signal);
             if (current !== generation) return;
-            quote = data; busy = false; review = !!quote.available && acceptedBefore;
-            if (!quote.available) message = quote.message;
-            else {
-              message = review ? 'Review the updated shipping fee, total, and delivery estimate before continuing.' : summary();
-              if (!review) acceptedBefore = true;
-            }
+            quote = data; busy = false;
+            message = quote.available ? summary() : quote.message;
             scheduleExpiry(); paint();
           } catch (error) {
             if (current !== generation) return;
@@ -52,18 +48,21 @@
       };
       return {
         refresh,
-        accept() { if (quote?.available && Date.parse(quote.expires_at) > Date.now()) { review = false; acceptedBefore = true; message = summary(); paint(); } else refresh(true); },
         token() {
           if (ready() && key === JSON.stringify(read())) return quote.quote_token;
           refresh(true); return null;
         },
         total() { return ready() ? quote.payable_total : null; },
-        reject(updated) {
+        reject(updated, submittedToken) {
+          // A response for an earlier submission must not replace a newer selection.
+          if (key !== JSON.stringify(read()) || (submittedToken && quote?.quote_token !== submittedToken)) {
+            refresh(); return;
+          }
           ++generation; controller?.abort(); clearTimeout(timer); clearTimeout(expiry);
-          busy = false; failed = false; quote = updated || null; review = true;
-          message = updated?.available ? 'Your quote changed. Review and accept the updated total before placing your order.'
+          busy = false; failed = false; quote = updated || null;
+          message = updated?.available ? 'Order summary updated. Select Place order to continue with the updated total.'
             : updated?.message || 'Your shipping quote is unavailable. Retry or choose pickup.';
-          if (!updated) { failed = true; review = false; }
+          if (!updated) failed = true;
           scheduleExpiry(); paint();
         },
       };

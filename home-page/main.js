@@ -4183,7 +4183,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return data.data;
       },
       setReady: value => window.FMRC_PAYMENT_METHODS?.setShippingReady(value),
-      render: ({quote,busy,review,message,failed}) => {
+      render: ({quote,busy,message,failed}) => {
         const money = value => value===null || value===undefined ? '—' : formatPrice(value);
         if (quote) checkoutSubtotal.innerText=money(quote.item_subtotal);
         document.getElementById('checkoutShippingFee').textContent=money(quote?.shipping_fee);
@@ -4194,13 +4194,11 @@ document.addEventListener("DOMContentLoaded", () => {
           ? formatDate(quote.estimated_delivery_from)+(quote.estimated_delivery_to!==quote.estimated_delivery_from ? ' – '+formatDate(quote.estimated_delivery_to) : '') : '—';
         const box=document.getElementById('checkoutShippingQuote'); box.setAttribute('aria-busy',String(busy));box.classList.toggle('is-error',failed);
         document.getElementById('checkoutShippingMessage').textContent=message;
-        document.getElementById('checkoutShippingAccept').hidden=!review || !quote?.available;
         document.getElementById('checkoutShippingRetry').hidden=!failed;
         document.getElementById('checkoutShippingPickup').hidden=!!quote?.available || busy || getSelectedFulfillmentType()==='pickup';
         renderGcashSection();
       },
     });
-    document.getElementById('checkoutShippingAccept').addEventListener('click',()=>shippingQuoteController.accept());
     document.getElementById('checkoutShippingRetry').addEventListener('click',()=>shippingQuoteController.refresh(true));
     document.getElementById('checkoutShippingPickup').addEventListener('click',()=>{
       const select=document.getElementById('hiddenPaymentSelect');
@@ -4540,7 +4538,12 @@ document.addEventListener("DOMContentLoaded", () => {
           throw new Error("Session expired. Please sign in again.");
         }
         if (!response.ok) {
-          if (data.code === 'shipping_quote_stale') shippingQuoteController?.reject(data.quote);
+          if (data.code === 'shipping_quote_stale') {
+            shippingQuoteController?.reject(data.quote, acceptedShippingToken);
+            window.FMRCLoader?.hide();
+            document.getElementById('checkoutGrandTotal')?.scrollIntoView({block:'center',behavior:'smooth'});
+            return;
+          }
           if (data.code === 'policy_changed') window.FMRC_CHECKOUT_POLICY?.reject(data.policy);
           if (data.code === "payment_method_disabled") {
             window.FMRC_PAYMENT_METHODS?.rejectMethod(paymentMethod);

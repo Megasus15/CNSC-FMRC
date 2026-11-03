@@ -13,7 +13,7 @@ async function connect(url){
   socket.onmessage=({data})=>{const reply=JSON.parse(data),job=pending.get(reply.id);if(!job)return;pending.delete(reply.id);reply.error?job.reject(Error(JSON.stringify(reply.error))):job.resolve(reply.result);};
   return {send(method,params={}){return new Promise((resolve,reject)=>{const key=++id,timer=setTimeout(()=>{pending.delete(key);reject(Error(method));},15000);pending.set(key,{resolve:value=>{clearTimeout(timer);resolve(value);},reject:error=>{clearTimeout(timer);reject(error);}});socket.send(JSON.stringify({id:key,method,params}));});},close(){socket.close();}};
 }
-test('shipping draft/publication, Staff read access, customer quote review and order details agree across responsive portals',{skip:!fs.existsSync(chrome),timeout:180000},async()=>{
+test('shipping draft/publication, Staff read access, automatic customer totals and order details agree across responsive portals',{skip:!fs.existsSync(chrome),timeout:180000},async()=>{
   const artifacts=fs.mkdtempSync(path.join(os.tmpdir(),'fmrc-shipping-'));
   let settings={revision:0,has_saved_draft:false,draft:{enabled:false,nonworking_weekdays:[6,7],nonworking_dates:[],zones:[]},published:null,published_version:null,published_at:null};
   let quotes=0,stale=true,fee=85.5,deliveryAvailable=true,settingsUnavailable=false,provinceUnavailable=false,rejectShippingOnce=false;
@@ -290,7 +290,7 @@ test('shipping draft/publication, Staff read access, customer quote review and o
     }
     await run(`document.getElementById('fulfillDeliveryRadio').click()`);
     await until(`document.getElementById('checkoutShippingFee').textContent.includes('85.50')&&!document.getElementById('orderTerms').disabled`);
-    await run(`if(!document.getElementById('checkoutShippingAccept').hidden)document.getElementById('checkoutShippingAccept').click()`);
+    assert.equal(await run(`!!document.getElementById('checkoutShippingAccept')`),false);
     assert(await run(`document.getElementById('submitOrderBtn').disabled`));
     const link=await run(`(()=>{const link=document.getElementById('checkoutRefundLink');return {target:link.target,rel:link.rel,color:getComputedStyle(link).color,href:link.href}})()`);
     assert.equal(link.target,'_blank');assert.match(link.rel,/noopener/);assert.equal(link.color,'rgb(128, 0, 0)');
@@ -323,23 +323,29 @@ test('shipping draft/publication, Staff read access, customer quote review and o
     assert(await run(`document.getElementById('checkoutModal').classList.contains('show-modal')`),'the original checkout remains open');
     await run(`document.getElementById('orderTerms').click()`);await until(`!document.getElementById('submitOrderBtn').disabled`);
     await run(`document.getElementById('btnPlusQty').click()`);
-    await until(`!document.getElementById('checkoutShippingAccept').hidden`);
-    assert(await run(`document.getElementById('submitOrderBtn').disabled`));await run(`document.getElementById('checkoutShippingAccept').click()`);
-    await until(`document.getElementById('checkoutGrandTotal').textContent.includes('332.40')`);
+    assert(await run(`document.getElementById('submitOrderBtn').disabled`));
+    await until(`document.getElementById('checkoutGrandTotal').textContent.includes('332.40')&&!document.getElementById('submitOrderBtn').disabled`);
+    await run(`document.getElementById('hiddenPaymentSelect').value='Cash on Pickup';document.getElementById('hiddenPaymentSelect').dispatchEvent(new Event('change'))`);
+    await until(`document.getElementById('checkoutShippingFee').textContent==='₱0.00'&&document.getElementById('checkoutGrandTotal').textContent==='₱246.90'&&!document.getElementById('submitOrderBtn').disabled`);
+    assert.equal(await run(`document.getElementById('checkoutDeliveryEstimate').textContent`),'Not applicable (pickup)');
+    await run(`document.getElementById('hiddenPaymentSelect').value='GCash';document.getElementById('hiddenPaymentSelect').dispatchEvent(new Event('change'));document.getElementById('fulfillDeliveryRadio').click()`);
+    await until(`document.getElementById('checkoutGrandTotal').textContent.includes('332.40')&&!document.getElementById('submitOrderBtn').disabled`);
     for(const width of [390,768,1440]){await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});await run(`document.getElementById('checkoutShippingQuote').scrollIntoView({block:'center'})`);await pause(100);assert.equal(await run(`document.documentElement.scrollWidth>innerWidth+1`),false);await shot('customer-checkout-'+width);}
     policySettings.published={...policySettings.published,version:crypto.randomUUID(),refund_text:policySettings.published.refund_text+'\n\nUpdated assistance wording.'};policyHistory.set(policySettings.published.version,structuredClone(policySettings.published));
     await run(`document.getElementById('submitOrderBtn').click()`);await until(`document.getElementById('customerSystemPopup')?.classList.contains('show')`);
     assert.equal(submissions.length,0,'new publication is caught before any order POST');
     assert.equal(await run(`document.getElementById('orderTerms').checked`),false);
     await run(`document.getElementById('customerSystemPopupOk').click();document.getElementById('orderTerms').click();document.getElementById('submitOrderBtn').click()`);
-    await until(`!document.getElementById('checkoutShippingAccept').hidden&&document.getElementById('checkoutShippingFee').textContent.includes('95.50')`);
+    await until(`document.getElementById('checkoutShippingFee').textContent.includes('95.50')&&!document.getElementById('submitOrderBtn').disabled`);
     assert.equal(submissions.length,1);assert.equal(submissions[0].total_amount,332.4);assert(submissions[0].shipping_quote_token);
-    await until(`document.getElementById('customerSystemPopup')?.classList.contains('show')`);await run(`document.getElementById('customerSystemPopupOk').click()`);
-    await run(`document.getElementById('checkoutShippingAccept').click()`);await until(`!document.getElementById('submitOrderBtn').disabled`);
+    assert.equal(await run(`document.getElementById('checkoutGrandTotal').textContent`),'₱342.40');
+    assert.match(await run(`document.getElementById('checkoutShippingMessage').textContent`),/Order summary updated/);
+    assert.equal(await run(`document.getElementById('customerSystemPopup')?.classList.contains('show')`),false);
+    await pause(300);assert.equal(submissions.length,1,'a changed total never automatically resubmits an order');
     await run(`document.getElementById('submitOrderBtn').click()`);await until(`!document.getElementById('checkoutModal').classList.contains('show-modal')`);
     assert.equal(submissions.length,2);assert.equal(submissions[1].total_amount,342.4);
     assert.equal(submissions[1].payment_method,'GCash');
-    console.log('Verified Customer quantities, quote review, totals, stale quote recovery and accepted token submission.');
+    console.log('Verified automatic quantity/payment/fulfillment totals and stale quote recovery without automatic order resubmission.');
     deliveryAvailable=false;
     // Online payment opens the existing hosted payment flow. Begin a separate checkout for unavailable-area recovery.
     await navigate('/products-page/product.html');await until(`document.getElementById('displayClientName').textContent.includes('Fixture')`);
@@ -357,7 +363,6 @@ test('shipping draft/publication, Staff read access, customer quote review and o
     }
     await run(`document.getElementById('checkoutShippingPickup').click()`);
     await until(`document.getElementById('checkoutShippingFee').textContent.includes('0.00')`);
-    await run(`if(!document.getElementById('checkoutShippingAccept').hidden)document.getElementById('checkoutShippingAccept').click()`);
     assert.equal(await run(`document.getElementById('hiddenPaymentSelect').value`),'Cash on Pickup');
     assert.equal(await run(`document.getElementById('checkoutGrandTotal').textContent`),'₱123.45');
     await navigate('/products-page/product.html');await until(`!!document.getElementById('viewOrdersBtn')`);await run(`document.getElementById('viewOrdersBtn').click()`);

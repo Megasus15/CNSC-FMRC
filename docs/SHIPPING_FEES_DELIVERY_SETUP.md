@@ -55,9 +55,12 @@ Quotes last 15 minutes and bind the customer, cart quantities and prices,
 fulfillment method, province/city/postal-code destination, published settings
 version, fee, total, and delivery dates. Changed quantities, destination,
 fulfillment, prices, published settings, expired quotes, and changed estimated
-dates require a refreshed quote. Checkout presents revised totals for explicit
-review before permitting submission. Old in-flight quote responses cannot
-replace the current cart's result.
+dates require a refreshed quote. Checkout automatically updates the shipping
+fee, payable total, and delivery estimate, with submission disabled while the
+calculation is pending. There is no separate quote acceptance button; Place order
+submits the displayed quote. If the quote changes during submission, the summary
+updates and waits for another Place order click without automatically retrying.
+Old in-flight quote or submission responses cannot replace the current cart's result.
 
 Order creation locks the products and published settings, validates the accepted
 quote, and saves the shipping fee and quote snapshot together with the order.

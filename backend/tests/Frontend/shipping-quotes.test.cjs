@@ -16,12 +16,13 @@ function harness() {
     request:(payload,signal)=>new Promise((resolve,reject)=>requests.push({payload,signal,resolve,reject}))});
   return {controller,requests,get state(){return state;},get ready(){return ready;},set input(value){input=value;},get input(){return input;},expire:()=>expiry()};
 }
-test('changed quantities lock checkout immediately and revised totals require explicit review',async()=>{
+test('changed quantities lock checkout during calculation and automatically update the payable total',async()=>{
   const h=harness();h.controller.refresh();assert.equal(h.ready,false);await tick();h.requests[0].resolve(quote());await tick();
   assert.equal(h.ready,true);assert.equal(h.controller.token(),'quote-one');assert.equal(h.controller.total(),185);
   h.input={...h.input,items:[{product_id:1,quantity:2}]};h.controller.refresh();assert.equal(h.ready,false);await tick();
-  h.requests[1].resolve(quote(285,'quote-two'));await tick();assert.equal(h.state.review,true);assert.equal(h.ready,false);
-  h.controller.accept();assert.equal(h.ready,true);assert.equal(h.controller.token(),'quote-two');assert.equal(h.controller.total(),285);
+  assert.equal(h.controller.total(),null);
+  h.requests[1].resolve(quote(285,'quote-two'));await tick();
+  assert.equal(h.ready,true);assert.equal(h.controller.token(),'quote-two');assert.equal(h.controller.total(),285);
 });
 test('a delayed old destination response cannot replace the latest quote',async()=>{
   const h=harness();h.controller.refresh();await tick();h.input={...h.input,delivery_city:'Labo'};h.controller.refresh();await tick();
@@ -33,10 +34,20 @@ test('unavailable delivery and failed requests never expose a payable total or a
   assert.equal(h.ready,false);assert.equal(h.controller.total(),null);assert.equal(h.state.message,'Choose pickup.');
   h.controller.refresh(true);await tick();h.requests[1].reject(new Error('Please retry.'));await tick();assert.equal(h.ready,false);assert.equal(h.state.failed,true);
 });
-test('expiry and a server stale-quote response require renewed review',async()=>{
+test('expiry renews automatically and a stale submission refreshes the visible summary',async()=>{
   const h=harness();h.controller.refresh();await tick();h.requests[0].resolve(quote());await tick();h.expire();assert.equal(h.ready,false);await tick();
-  h.requests[1].resolve(quote(185,'renewed'));await tick();assert.equal(h.state.review,true);h.controller.accept();assert.equal(h.ready,true);
-  h.controller.reject(quote(195,'published-new'));assert.equal(h.ready,false);assert.equal(h.state.review,true);h.controller.accept();assert.equal(h.controller.total(),195);
+  h.requests[1].resolve(quote(185,'renewed'));await tick();assert.equal(h.ready,true);
+  h.controller.reject(quote(195,'published-new'),'renewed');assert.equal(h.ready,true);assert.equal(h.controller.total(),195);
+  assert.equal(h.controller.token(),'published-new');assert.match(h.state.message,/Order summary updated/);
+});
+
+test('a stale submission response cannot overwrite a newer fulfillment choice',async()=>{
+  const h=harness();h.controller.refresh();await tick();h.requests[0].resolve(quote());await tick();
+  h.input={...h.input,fulfillment_type:'pickup'};h.controller.refresh();await tick();
+  h.controller.reject(quote(195,'old-submission'),'quote-one');assert.equal(h.ready,false);
+  h.requests[1].resolve({...quote(100,'pickup'),fulfillment_type:'pickup'});await tick();
+  assert.equal(h.ready,true);assert.equal(h.controller.total(),100);assert.equal(h.controller.token(),'pickup');
+  h.controller.reject(quote(195,'old-submission'),'quote-one');assert.equal(h.controller.token(),'pickup');
 });
 test('an incomplete address or closed checkout aborts the quote without leaving checkout enabled',async()=>{
   const h=harness();h.controller.refresh();await tick();h.input={error:'Complete your address.'};h.controller.refresh();assert.equal(h.ready,false);assert.equal(h.requests[0].signal.aborted,true);
