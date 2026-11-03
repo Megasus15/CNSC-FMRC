@@ -9073,6 +9073,8 @@ body.sidebar-open {
 .customer-order-detail-content {
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
   overflow-y: auto;
   padding: 14px;
   display: grid;
@@ -9320,11 +9322,15 @@ body.sidebar-open {
 }
 
 .customer-order-waybill-no {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
   padding: 4px 8px;
   border-radius: 6px;
   background: #f1f5f9;
   color: #0f172a;
-  font-family: "Courier New", monospace;
+  font-family: inherit;
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -9420,6 +9426,8 @@ body.sidebar-open {
 }
 
 .customer-order-timeline-body {
+  min-width: 0;
+  overflow-wrap: anywhere;
   border: 1px solid #e2e9f2;
   border-radius: 9px;
   background: #f8fafc;
@@ -9427,6 +9435,7 @@ body.sidebar-open {
 }
 
 .customer-order-timeline-top {
+  flex-wrap: wrap;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -9459,6 +9468,9 @@ body.sidebar-open {
 }
 
 .customer-order-timeline-meta span {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   border: 1px solid #d8e3ef;
   background: var(--customer-paper);
   color: #475569;

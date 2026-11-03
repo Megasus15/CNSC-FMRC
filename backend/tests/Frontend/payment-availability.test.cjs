@@ -80,12 +80,12 @@ test('checkout waits for settings and recovers after an initial load failure', (
   assert.equal(h.fields.get('submitOrderBtn').disabled, false);
 });
 
-test('all eight availability combinations disable corresponding options and checkout when all are off', () => {
+test('all availability combinations keep COD disabled and respect the two supported methods', () => {
   for (let mask = 0; mask < 8; mask++) {
     const h = harness();
     h.api.applySettings({payment_gcash_ready:'1', payment_checkout_method:'qrph', ...Object.fromEntries(keys.map((key, i) => [key, (mask >> i) & 1 ? '1' : '0']))});
     names.forEach((name, i) => {
-      const enabled = Boolean((mask >> i) & 1);
+      const enabled = i !== 1 && Boolean((mask >> i) & 1);
       assert.equal(h.api.isEnabled(name), enabled);
       assert.equal(h.cards[i].hidden, !enabled);
       assert.equal(h.select.options[i + 1].disabled, !enabled);
@@ -99,15 +99,15 @@ test('all eight availability combinations disable corresponding options and chec
 
 test('revoked selection clears without silently switching fulfillment method, then recovers on a new choice', () => {
   const h = harness();
-  h.api.applySettings({});
+  h.api.applySettings({payment_gcash_ready:'1',payment_checkout_method:'qrph'});
   h.choose(names[0]);
-  h.api.applySettings({ [keys[0]]: '0' });
+  h.api.applySettings({ [keys[0]]: '0',payment_gcash_ready:'1',payment_checkout_method:'qrph' });
   assert.equal(h.select.value, '');
   assert.equal(h.fields.get('submitOrderBtn').disabled, true);
   assert.match(h.fields.get('checkoutPaymentMessage').textContent, /Choose another/);
-  h.api.applySettings({});
+  h.api.applySettings({payment_gcash_ready:'1',payment_checkout_method:'qrph'});
   assert.equal(h.select.value, '', 'reenabling does not choose for the customer');
-  h.choose(names[1]);
+  h.choose(names[2]);
   assert.equal(h.fields.get('checkoutPaymentNotice').hidden, true);
   assert.equal(h.fields.get('submitOrderBtn').disabled, false);
 });
@@ -135,15 +135,15 @@ test('transient settings failure preserves disabled methods rather than revertin
 
 test('real payment selector ignores disabled clicks and supports keyboard selection', () => {
   const h = harness({ selector: true });
-  h.api.applySettings({ [keys[0]]: '0' });
+  h.api.applySettings({ [keys[0]]: '0',payment_gcash_ready:'1',payment_checkout_method:'qrph' });
   h.cards[0].click();
   assert.equal(h.select.value, '');
-  h.cards[1].dispatchEvent({ type: 'keydown', key: 'Enter', target: h.cards[1], preventDefault() {} });
-  assert.equal(h.select.value, names[1]);
-  assert.equal(h.cards[1].attrs['aria-pressed'], 'true');
+  h.cards[2].dispatchEvent({ type: 'keydown', key: 'Enter', target: h.cards[2], preventDefault() {} });
+  assert.equal(h.select.value, names[2]);
+  assert.equal(h.cards[2].attrs['aria-pressed'], 'true');
   h.api.setSubmitting(true);
   h.cards[0].click();
-  assert.equal(h.select.value, names[1]);
+  assert.equal(h.select.value, names[2]);
 });
 
 test('settings requests coalesce, validate responses, recover and report failures to checkout', async () => {

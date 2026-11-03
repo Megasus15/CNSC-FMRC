@@ -23,7 +23,7 @@ final class PaymentMethodAvailability
         $values = [];
         foreach (self::SETTING_KEYS as $key) {
             $value = array_key_exists($key, $settings) ? $settings[$key] : '1';
-            $values[$key] = self::canonicalValue($value);
+            $values[$key] = $key === self::SETTING_KEYS['COD'] ? '0' : self::canonicalValue($value);
         }
 
         return $values;
@@ -36,6 +36,7 @@ final class PaymentMethodAvailability
 
     public static function isEnabled(string $method): bool
     {
+        if ($method === 'COD') return false;
         $key = self::SETTING_KEYS[$method] ?? null;
 
         return $key !== null && self::canonicalValue(SiteSetting::get($key, '1')) === '1';

@@ -2468,7 +2468,9 @@ document.addEventListener("DOMContentLoaded", () => {
       .toLowerCase()
       .replace(/[\s_-]+/g, "");
 
+  const hasManagedJntTracking = order => order?.shipment_tracking_mode === 'jnt_dropoff' || (order?.courier_shipment?.tracking_provider === 'ship24' && Boolean(order.courier_shipment.id));
   const areCourierFieldsApplicable = (order = trackingModalOrder) => {
+    if (hasManagedJntTracking(order)) return false;
     const method = normalizePaymentMethodKey(
       order?.payment_method || order?.payment?.method,
     );
@@ -2940,6 +2942,13 @@ document.addEventListener("DOMContentLoaded", () => {
           : String(order.longitude);
     syncTrackingMapPreview();
 
+    const notesOnly = hasManagedJntTracking(order);
+    modalTrackingUpdate.querySelector('.modal-title').textContent = notesOnly ? 'Add FMRC Note' : 'Update Tracking Status';
+    for (const field of [trackingStage, trackingPresetSelect, trackingLatitude, trackingLocationName]) {
+      if (field?.closest('.field-stack')) field.closest('.field-stack').hidden = notesOnly;
+    }
+    if (notesOnly) { setCheckpointCoordinates(null, null); trackingLocationName.value = ''; }
+    btnSaveTrackingUpdate.textContent = notesOnly ? 'Save Note' : 'Save Update';
     trackingDiscardGuard?.capture();
     modalTrackingUpdate.classList.add("show");
   };
@@ -5154,6 +5163,15 @@ document.addEventListener("DOMContentLoaded", () => {
       latitude: latitude.value,
       longitude: longitude.value,
     };
+
+    if (hasManagedJntTracking(trackingModalOrder)) {
+      for (const key of ['stage', 'courier_name', 'courier_tracking_no', 'location_name', 'latitude', 'longitude']) delete payload[key];
+      payload.event_type = 'admin_update';
+      if (!payload.title && !payload.description) {
+        showPopup('Enter a note for the customer before saving.', {title:'Note Required'});
+        trackingEventTitle?.focus(); return;
+      }
+    }
 
     const shouldSave = await askConfirm("Save this tracking update?", {
       title: "Confirm Tracking Update",

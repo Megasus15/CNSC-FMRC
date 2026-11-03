@@ -12,6 +12,8 @@ class OrderTrackingEvent extends Model
 
     protected $fillable = [
         'order_id',
+        'shipment_tracker_id',
+        'provider_event_id',
         'created_by_user_id',
         'stage',
         'event_type',

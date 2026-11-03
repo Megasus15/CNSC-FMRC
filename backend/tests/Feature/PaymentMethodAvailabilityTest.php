@@ -47,7 +47,7 @@ class PaymentMethodAvailabilityTest extends TestCase
     {
         $response = $this->getJson('/api/site-settings')->assertOk();
         foreach (PaymentMethodAvailability::SETTING_KEYS as $key) {
-            $response->assertJsonPath('data.'.$key, '1');
+            $response->assertJsonPath('data.'.$key, $key === 'payment_cash_on_delivery_enabled' ? '0' : '1');
             $this->assertDatabaseMissing('site_settings', ['key' => $key]);
         }
     }
@@ -60,7 +60,7 @@ class PaymentMethodAvailabilityTest extends TestCase
         $this->getJson('/api/site-settings')->assertOk()
             ->assertJsonPath('data.payment_gcash_enabled', '0')
             ->assertJsonPath('data.payment_cash_on_pickup_enabled', '1')
-            ->assertJsonPath('data.payment_cash_on_delivery_enabled', '1');
+            ->assertJsonPath('data.payment_cash_on_delivery_enabled', '0');
         $this->assertSame('0', SiteSetting::get('payment_gcash_enabled'));
 
         $disabled = [
@@ -80,7 +80,7 @@ class PaymentMethodAvailabilityTest extends TestCase
         ];
         $this->putJson('/api/admin/site-settings', $enabled)->assertOk();
         foreach (array_keys($enabled) as $key) {
-            $this->assertSame('1', SiteSetting::get($key));
+            $this->assertSame($key === 'payment_cash_on_delivery_enabled' ? '0' : '1', SiteSetting::get($key));
         }
     }
 
@@ -191,6 +191,13 @@ class PaymentMethodAvailabilityTest extends TestCase
         $product = $this->makeProduct();
         foreach (PaymentMethodAvailability::SETTING_KEYS as $candidate => $key) {
             SiteSetting::set($key, $candidate === $method ? '1' : '0');
+        }
+
+        if ($method === 'COD') {
+            $this->postJson('/api/orders', $this->orderPayload($product, $method))->assertUnprocessable()->assertJsonPath('code', 'payment_method_disabled');
+            $this->assertSame(10, (int) $product->fresh()->stock);
+            Http::assertNothingSent();
+            return;
         }
 
         if ($method === 'GCash') {

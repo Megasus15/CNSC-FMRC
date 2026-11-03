@@ -11,3 +11,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('payments:reconcile')->everyMinute()->withoutOverlapping(5);
+Schedule::command('shipments:process')->everyMinute()->withoutOverlapping(5);

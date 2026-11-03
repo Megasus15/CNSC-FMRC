@@ -2981,7 +2981,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (gcashUnconfiguredNote) {
       gcashUnconfiguredNote.textContent = ready
         ? ""
-        : "FMRC has not published its GCash details yet, so there is nowhere to send the payment. Please choose Cash on Pickup or Cash on Delivery for now, or contact FMRC.";
+        : "Online payment is currently unavailable. Please choose Cash on Pickup or contact FMRC for assistance.";
       gcashUnconfiguredNote.hidden = ready;
     }
     if (gcashSteps) gcashSteps.hidden = !ready;
@@ -8299,6 +8299,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const buildGoogleMapEmbedUrl = (latitude, longitude) => {
+    if (latitude === null || latitude === undefined || latitude === '' || longitude === null || longitude === undefined || longitude === '') return '';
     const lat = Number(latitude);
     const lng = Number(longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "";
@@ -8306,19 +8307,15 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const buildGoogleMapOpenUrl = (latitude, longitude) => {
+    if (latitude === null || latitude === undefined || latitude === '' || longitude === null || longitude === undefined || longitude === '') return '';
     const lat = Number(latitude);
     const lng = Number(longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return "";
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
   };
 
-  // FMRC has no courier API contract, so a tracking link can only ever be a
-  // public web page. The server builds it in buildCourierState() and hands it
-  // over as fulfillment.courier.tracking_url, already carrying the waybill: one
-  // click and the checkpoints are on screen. 17TRACK is what makes that
-  // possible for J&T, LBC, Flash and PHLPost, whose own pages only read the
-  // number from an in-page form - it works out the carrier from the number
-  // itself, so it also covers a courier the registry has never heard of.
+  // J&T shipments use saved Ship24 events and an official courier fallback.
+  // Keep this public-link helper for historical couriers and customer returns.
   const UNIVERSAL_TRACKING_URL = "https://www.17track.net/en/tracking";
 
   const prefilledUniversalTrackingUrl = (trackingNo) => {
@@ -11724,22 +11721,20 @@ document.addEventListener("DOMContentLoaded", () => {
               : "";
 
         const timeline = Array.isArray(detail.timeline) ? detail.timeline : [];
-        // Prefer the newest checkpoint that carries coordinates; fall back to the
-        // order's own last-known point, then to the destination (the FMRC counter
-        // for a pickup) so the map is never blank when we know where it is going.
+        const isPickupOrder = Boolean(detail.is_pickup);
+        // A delivery address is not the parcel's position. Missing coordinates
+        // must not turn into the numeric point 0,0.
+        const hasCoordinates = entry => entry?.latitude !== null && entry?.latitude !== undefined && entry?.latitude !== ''
+          && entry?.longitude !== null && entry?.longitude !== undefined && entry?.longitude !== ''
+          && Number.isFinite(Number(entry.latitude)) && Number.isFinite(Number(entry.longitude))
+          && Math.abs(Number(entry.latitude)) <= 90 && Math.abs(Number(entry.longitude)) <= 180;
+        const automaticShipment = detail.courier_shipment?.tracking_provider === 'ship24';
         const withCoords =
-          timeline.find(
-            (entry) =>
-              Number.isFinite(Number(entry?.latitude)) &&
-              Number.isFinite(Number(entry?.longitude)),
-          ) ||
-          (Number.isFinite(Number(detail?.latitude)) &&
-          Number.isFinite(Number(detail?.longitude))
-            ? detail
-            : {
+          (automaticShipment ? null : timeline.find(hasCoordinates)) ||
+          (!automaticShipment && hasCoordinates(detail) ? detail : isPickupOrder ? {
                 latitude: detail?.destination_latitude,
                 longitude: detail?.destination_longitude,
-              });
+              } : null);
         const mapEmbedUrl = buildGoogleMapEmbedUrl(
           withCoords?.latitude,
           withCoords?.longitude,
@@ -11777,7 +11772,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // How this order is handed over. Pickup orders never ship, so they show
         // the FMRC counter and a pickup code instead of a courier address.
-        const isPickupOrder = Boolean(detail.is_pickup);
         const fulfillmentLabel = escapeHtml(
           detail.fulfillment_label ||
             (isPickupOrder ? "Pickup at FMRC" : "Courier Delivery"),
@@ -11864,7 +11858,7 @@ document.addEventListener("DOMContentLoaded", () => {
           </div>
 
           ${fulfillmentHtml}
-          ${detail.courier_shipment ? `<div class="customer-order-detail-fulfillment"><h4>Courier shipment updates</h4><p class="customer-order-fulfillment-mode"><strong>${escapeHtml(detail.courier_shipment.status_label || '')}</strong></p><p class="customer-order-logistics-note">Courier updates do not confirm payment or complete your order.</p><dl class="customer-order-fulfillment-grid">${(detail.courier_shipment.events || []).map(event=>`<div class="customer-order-fulfillment-row"><dt>${escapeHtml(event.status)}</dt><dd>${escapeHtml(event.occurred_at_label || '')}${event.location?' · '+escapeHtml(event.location):''}</dd></div>`).join('')}</dl></div>` : ''}
+          ${detail.courier_shipment && !automaticShipment ? `<div class="customer-order-detail-fulfillment"><h4>Courier shipment updates</h4><p class="customer-order-fulfillment-mode"><strong>${escapeHtml(detail.courier_shipment.status_label || '')}</strong></p><dl class="customer-order-fulfillment-grid">${(detail.courier_shipment.events || []).map(event=>`<div class="customer-order-fulfillment-row"><dt>${escapeHtml(event.status)}</dt><dd>${escapeHtml(event.occurred_at_label || '')}${event.location?' · '+escapeHtml(event.location):''}</dd></div>`).join('')}</dl></div>` : ''}
 
 
           ${
@@ -11873,6 +11867,12 @@ document.addEventListener("DOMContentLoaded", () => {
               : `<div class="customer-order-detail-logistics">
             <h4>Courier Tracking</h4>
             <p><strong>${courierName}</strong></p>
+            ${automaticShipment ? `<p class="customer-order-fulfillment-mode"><strong>${escapeHtml(detail.courier_shipment.status_label)}</strong></p>
+              <dl class="customer-order-fulfillment-grid">
+                <div class="customer-order-fulfillment-row"><dt>Handed to J&T</dt><dd>${escapeHtml(detail.courier_shipment.handed_over_at_label || 'Not yet recorded')}</dd></div>
+                <div class="customer-order-fulfillment-row"><dt>Latest courier update</dt><dd>${escapeHtml(detail.courier_shipment.last_updated_at_label || 'Waiting for the first update')}</dd></div>
+                <div class="customer-order-fulfillment-row"><dt>Reported location</dt><dd>${escapeHtml(detail.courier_shipment.location || 'Not provided by J&T')}</dd></div>
+              </dl><p class="customer-order-logistics-note">${escapeHtml(detail.courier_shipment.availability_message)}</p>` : ''}
             ${
               courierTrackingNo
                 ? `<div class="customer-order-waybill">
@@ -11887,7 +11887,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 ? `<a class="customer-order-logistics-link" href="${escapeHtml(courierTrackingUrl)}" target="_blank" rel="noopener noreferrer">${
                     trackingIsUniversal
                       ? "Track this parcel on 17TRACK"
-                      : `Track this parcel on ${courierName}`
+                      : `Open ${courierName} tracking`
                   }</a>
                    ${
                      courierOwnTrackingUrl
@@ -11897,15 +11897,16 @@ document.addEventListener("DOMContentLoaded", () => {
                    <p class="customer-order-logistics-note">${
                      trackingIsUniversal
                        ? `The waybill number is already in that link — 17TRACK recognises ${courierName} from the number and lists their checkpoints, no typing needed. ${courierName}'s own site asks you to paste the number in yourself, which is why it is the second link.`
-                       : `Opens ${courierName}'s tracking page with this waybill already filled in.`
-                   } FMRC also copies each checkpoint into the timeline below as the courier reports it.</p>`
+                       : courierState.tracking_url_is_prefilled ? `Opens ${courierName}'s tracking page with this waybill already filled in.`
+                       : `Copy the waybill above and paste it into ${courierName}'s tracking page.`
+                   }</p>`
                 : '<p class="customer-order-logistics-note">Tracking number will appear here once shipment info is available.</p>'
             }
           </div>`
           }
 
-          <div class="customer-order-detail-map-wrap">
-            <h4>${isPickupOrder ? "Pickup Location" : "Latest Known Location"}</h4>
+          ${mapEmbedUrl ? `<div class="customer-order-detail-map-wrap">
+            <h4>${isPickupOrder ? "Pickup Location" : "Latest Courier Checkpoint"}</h4>
             ${
               mapEmbedUrl
                 ? `<iframe class="customer-order-map-frame" src="${escapeHtml(mapEmbedUrl)}" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Order location map"></iframe>
@@ -11914,9 +11915,9 @@ document.addEventListener("DOMContentLoaded", () => {
                        ? `<a href="${escapeHtml(mapOpenUrl)}" target="_blank" rel="noopener noreferrer">Open in Google Maps</a>`
                        : ""
                    }</div>`
-                : '<div class="customer-order-map-empty"><i class="fa-solid fa-map-location-dot"></i><p>Location updates will appear here once available.</p></div>'
+                : '<div class="customer-order-map-empty"><i class="fa-solid fa-map-location-dot" aria-hidden="true"></i><p>No checkpoint coordinates are available. See the reported locations in the timeline below.</p></div>'
             }
-          </div>
+          </div>` : ''}
 
           <div class="customer-order-detail-timeline">
             <h4>Order Timeline</h4>
@@ -11931,11 +11932,13 @@ document.addEventListener("DOMContentLoaded", () => {
                             <div class="customer-order-timeline-body">
                               <div class="customer-order-timeline-top">
                                 <strong>${escapeHtml(entry.title || "Order update")}</strong>
-                                <span>${escapeHtml(formatOrderDate(entry.occurred_at || entry.occurred_at_label))}</span>
+                                <span>${escapeHtml(entry.occurred_at_label || formatOrderDate(entry.occurred_at))}</span>
                               </div>
                               ${entry.description ? `<p>${escapeHtml(entry.description)}</p>` : ""}
                               <div class="customer-order-timeline-meta">
                                 <span>${escapeHtml(entry.stage_label || ORDER_STAGE_LABELS[entry.stage] || "Stage update")}</span>
+                                <span>${escapeHtml(entry.source_label || 'FMRC')}</span>
+                                ${entry.metadata?.tracking_number ? `<span>Waybill ${escapeHtml(entry.metadata.tracking_number)}</span>` : ''}
                                 ${entry.location_name ? `<span>${escapeHtml(entry.location_name)}</span>` : ""}
                               </div>
                             </div>
@@ -12309,7 +12312,15 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           if (!result.notModified && result.detail) {
             state.detailsById.set(detailKey, result.detail);
+            const scrollPositions = [];
+            for (let element = detailContent; element && element !== document.body; element = element.parentElement) scrollPositions.push([element, element.scrollTop]);
+            const focused = detailContent.contains(document.activeElement) ? document.activeElement : null;
+            const focusAttributes = focused ? [...focused.attributes].filter(attribute => attribute.name === 'id' || attribute.name === 'href' || attribute.name.startsWith('data-')).map(attribute => [attribute.name, attribute.value]) : [];
             renderDetailModal(result.detail);
+            for (const [element, scrollTop] of scrollPositions) element.scrollTop = scrollTop;
+            const replacement = focusAttributes.length ? [...detailContent.querySelectorAll('button, a, input, select, textarea')].find(element =>
+              element.tagName === focused.tagName && focusAttributes.every(([name, value]) => element.getAttribute(name) === value)) : null;
+            replacement?.focus({preventScroll:true});
           }
           state.lastDetailRefreshAt = Date.now();
         } catch (error) {

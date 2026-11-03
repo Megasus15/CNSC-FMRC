@@ -196,7 +196,7 @@ class SiteSettingController extends Controller
             foreach ($input as $key => $value) {
                 if (is_string($key) && $key !== '') {
                     if (in_array($key, PaymentMethodAvailability::SETTING_KEYS, true)) {
-                        $value = PaymentMethodAvailability::canonicalValue($value);
+                        $value = $key === PaymentMethodAvailability::SETTING_KEYS['COD'] ? '0' : PaymentMethodAvailability::canonicalValue($value);
                     }
                     SiteSetting::set($key, $value);
                 }

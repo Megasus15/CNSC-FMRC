@@ -431,8 +431,8 @@ final class NinjaVanShipping
                 $reason = 'Tracking is already recorded. Review the existing courier shipment before creating another one.';
             }
             $data += ['operator_note' => $shipment?->status ? (self::LABELS[$shipment->status] ?? null) : null, 'booking_available' => $ready, 'booking_reason' => ! $ready ? 'Courier booking is not yet available. Manual tracking remains available.' : $reason,
-                'can_book' => $ready && ! $reason && (! $shipment || $shipment->status === 'cancelled'),
-                'can_retry' => $ready && ! $reason && in_array($shipment?->status,['booking_unknown', 'booking_failed'],true),
+                'can_book' => false,
+                'can_retry' => false,
                 'can_cancel' => ($ready && in_array($shipment?->status,['pending_pickup', 'cancel_unknown'],true)) || $shipment?->status === 'booking_failed',
                 'can_link' => $sameEnvironment && $shipment?->status === 'booking_unknown', 'environment' => $shipment?->environment ?? NinjaVanClient::environment(), 'reference' => $shipment?->reference, 'parcel' => $shipment?->parcel,
                 'actual_booking_cost' => $shipment?->actual_booking_cost, 'booking_date_min' => Carbon::now('Asia/Manila')->toDateString(),

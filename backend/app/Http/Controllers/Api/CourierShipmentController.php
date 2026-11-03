@@ -8,7 +8,6 @@ use App\Services\NinjaVanShipping;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Validation\ValidationException;
 
 final class CourierShipmentController extends Controller
 {
@@ -17,21 +16,10 @@ final class CourierShipmentController extends Controller
         abort_unless(in_array(strtolower($request->user()?->role ?? ''), ['admin', 'staff'], true), 403);
     }
 
-    public function book(Request $request, Order $order, NinjaVanShipping $shipping): JsonResponse
+    public function book(Request $request, Order $order): JsonResponse
     {
         $this->authorize($request);
-        $input = $request->validate(['request_key' => ['required', 'uuid'], 'weight' => ['required', 'numeric', 'between:0.001,1000'],
-            'length' => ['required', 'numeric', 'between:0.1,300'], 'width' => ['required', 'numeric', 'between:0.1,300'],
-            'height' => ['required', 'numeric', 'between:0.1,300'], 'dispatch_date' => ['required', 'date_format:Y-m-d'],
-            'pickup_required' => ['required', 'boolean'], 'actual_booking_cost' => ['nullable', 'numeric', 'min:0', 'max:999999.99', 'decimal:0,2']]);
-        $date = Carbon::parse($input['dispatch_date'], 'Asia/Manila')->startOfDay();
-        $today = Carbon::now('Asia/Manila')->startOfDay();
-        if ($date->lt($today) || $date->gt($today->copy()->addDays(90))) {
-            throw ValidationException::withMessages(['dispatch_date' => 'Choose a dispatch date from today through the next 90 days.']);
-        }
-        $shipping->book($order, $input, (int) $request->user()->id);
-
-        return app(OrderController::class)->adminShow($request, $order->fresh());
+        abort(422, 'New deliveries use J&T drop-off. Record the J&T waybill after handing over the parcel.');
     }
 
     public function cancel(Request $request, Order $order, NinjaVanShipping $shipping): JsonResponse

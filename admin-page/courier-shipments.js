@@ -16,6 +16,7 @@
   };
   const render=(order,host)=>{
     if(!host)return;
+    if(order.courier_shipment?.tracking_provider==='ship24'){window.AdminJntTracking?.render(order,host);return;}
     let card=host.querySelector('[data-courier-controls]');if(!card){card=document.createElement('section');card.dataset.courierControls='';card.className='shipment-control-card';host.appendChild(card);}
     const state=drafts.get(String(order.id))||{draft:null,busy:false,message:'',blocked:false};state.order=order;state.host=host;drafts.set(String(order.id),state);
     const shipment=order.courier_shipment;

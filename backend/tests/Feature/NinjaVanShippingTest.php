@@ -63,7 +63,7 @@ class NinjaVanShippingTest extends TestCase
                 }
                 if ($this->mode === 'double') {
                     $this->mode = 'success';
-                    $this->postJson($this->endpoint('book'), $this->parcel())->assertUnprocessable();
+                    $this->legacyBook($this->parcel())->assertUnprocessable();
                 }
                 $tracking = 'PREFIX'.$payload['requested_tracking_number'];
                 if ($this->earlyWebhook) {
@@ -95,9 +95,21 @@ class NinjaVanShippingTest extends TestCase
     private function book(array $changes = []): array
     {
         $body = $this->parcel($changes);
-        $this->postJson($this->endpoint('book'), $body)->assertOk();
+        $this->legacyBook($body)->assertOk();
 
         return $body;
+    }
+
+    // Build historical provider records directly; the public booking route is retired.
+    private function legacyBook(array $body): TestResponse
+    {
+        try {
+            app(\App\Services\NinjaVanShipping::class)->book($this->order, $body, (int) auth()->id());
+            return TestResponse::fromBaseResponse(response()->json(['recorded' => true]));
+        } catch (\Throwable $error) {
+            $request = \Illuminate\Http\Request::create('/legacy-fixture', 'POST', server: ['HTTP_ACCEPT' => 'application/json']);
+            return TestResponse::fromBaseResponse(app(\Illuminate\Contracts\Debug\ExceptionHandler::class)->render($request, $error));
+        }
     }
 
     private function hook(string $tracking, string $reference, string $status, string $timestamp, bool $return = false, ?string $secret = null): TestResponse
@@ -120,19 +132,19 @@ class NinjaVanShippingTest extends TestCase
         $this->assertSame(20, $payload['parcel_job']['dimensions']['length']);
         $this->assertSame('500.00', $this->order->fresh()->total);
         $this->assertSame('85.50', $this->order->fresh()->shipping_fee);
-        $this->postJson($this->endpoint('book'), $body)->assertOk();
+        $this->legacyBook($body)->assertOk();
         $this->assertCount(1, $this->sent);
         $this->assertDatabaseCount('courier_shipments', 1);
         $this->assertDatabaseCount('shipment_booking_attempts', 1);
     }
 
-    public function test_staff_can_book_and_customer_is_forbidden_while_online_payment_must_be_confirmed(): void
+    public function test_legacy_online_payment_requires_confirmation_and_customer_cannot_access_retired_booking(): void
     {
         Sanctum::actingAs($this->customer);
         $this->postJson($this->endpoint('book'), $this->parcel())->assertForbidden();
         Sanctum::actingAs(User::factory()->create(['role' => 'staff']));
         $this->order->update(['payment_method' => 'GCash']);
-        $this->postJson($this->endpoint('book'), $this->parcel())->assertUnprocessable();
+        $this->legacyBook($this->parcel())->assertUnprocessable();
         $this->order->payment->update(['status' => 'paid']);
         $this->book();
         $this->assertSame(0, $this->sent[0]['parcel_job']['cash_on_delivery']);
@@ -141,10 +153,10 @@ class NinjaVanShippingTest extends TestCase
     public function test_timeout_retries_keep_one_shipment_and_the_same_requested_tracking_number(): void
     {
         $this->mode = 'timeout';
-        $this->postJson($this->endpoint('book'), $this->parcel())->assertConflict();
+        $this->legacyBook($this->parcel())->assertConflict();
         $shipment = CourierShipment::firstOrFail();
         $this->assertSame('booking_unknown', $shipment->status);
-        $this->postJson($this->endpoint('book'), $this->parcel(['weight' => 2]))->assertUnprocessable();
+        $this->legacyBook($this->parcel(['weight' => 2]))->assertUnprocessable();
         $this->mode = 'success';
         $this->book();
         $this->assertDatabaseCount('courier_shipments', 1);
@@ -209,7 +221,7 @@ class NinjaVanShippingTest extends TestCase
     public function test_duplicate_tracking_error_can_be_linked_honestly_then_confirmed_by_a_webhook(): void
     {
         $this->mode = 'duplicate';
-        $this->postJson($this->endpoint('book'), $this->parcel())->assertConflict();
+        $this->legacyBook($this->parcel())->assertConflict();
         $shipment = CourierShipment::firstOrFail();
         $this->assertSame('booking_unknown', $shipment->status);
         $tracking = 'PREFIX'.$shipment->requested_tracking_number;
@@ -222,7 +234,7 @@ class NinjaVanShippingTest extends TestCase
     public function test_rejected_booking_can_be_corrected_or_discarded_without_cancelling_the_customer_order(): void
     {
         $this->mode = 'reject';
-        $this->postJson($this->endpoint('book'), $this->parcel())->assertConflict();
+        $this->legacyBook($this->parcel())->assertConflict();
         $this->assertSame('booking_failed', CourierShipment::first()->status);
         Http::recorded();
         $this->postJson($this->endpoint('cancel'), ['request_key' => (string) Str::uuid()])->assertOk();
@@ -233,11 +245,11 @@ class NinjaVanShippingTest extends TestCase
     public function test_production_requires_explicit_approval_and_disabled_booking_makes_no_provider_requests(): void
     {
         config(['ninjavan.environment' => 'production', 'ninjavan.production_approved' => false]);
-        $this->postJson($this->endpoint('book'), $this->parcel())->assertStatus(503);
+        $this->legacyBook($this->parcel())->assertStatus(503);
         Http::assertNothingSent();
         $this->assertDatabaseCount('courier_shipments', 0);
         config(['ninjavan.environment' => 'sandbox', 'ninjavan.enabled' => false]);
-        $this->postJson($this->endpoint('book'), $this->parcel())->assertStatus(503);
+        $this->legacyBook($this->parcel())->assertStatus(503);
         Http::assertNothingSent();
     }
 

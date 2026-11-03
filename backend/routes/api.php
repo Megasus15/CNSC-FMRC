@@ -29,6 +29,7 @@ use App\Http\Controllers\Api\SiteSettingController;
 use App\Http\Controllers\Api\ShippingController;
 use App\Http\Controllers\Api\CommercePolicyController;
 use App\Http\Controllers\Api\CourierShipmentController;
+use App\Http\Controllers\Api\ShipmentTrackingController;
 use App\Http\Controllers\Api\StaffAccountRequestController;
 use App\Http\Controllers\Api\WalkInOrderController;
 use App\Http\Controllers\CartItemController;
@@ -164,6 +165,11 @@ Route::get('/couriers', [OrderController::class, 'couriers']);
 // Sanctum, because PayMongo is the caller, not a logged-in customer.
 Route::post('/webhooks/paymongo', [PayMongoWebhookController::class, 'handleWebhook']);
 Route::post('/webhooks/ninjavan', [CourierShipmentController::class, 'webhook']);
+// Ship24 authenticates with its own bearer secret, never a portal session/cookie.
+Route::match(['HEAD'], '/webhooks/ship24', [ShipmentTrackingController::class, 'head'])
+    ->withoutMiddleware([\App\Http\Middleware\EnforceAdminSession::class, \App\Http\Middleware\EnforceSpectatorMode::class]);
+Route::post('/webhooks/ship24', [ShipmentTrackingController::class, 'webhook'])
+    ->withoutMiddleware([\App\Http\Middleware\EnforceAdminSession::class, \App\Http\Middleware\EnforceSpectatorMode::class]);
 // ────────────────────────────────────────────────────────────────────────────
 
 Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(function () {
@@ -200,6 +206,11 @@ Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(func
     Route::post('/admin/orders/{order}/shipment/book', [CourierShipmentController::class, 'book']);
     Route::post('/admin/orders/{order}/shipment/cancel', [CourierShipmentController::class, 'cancel']);
     Route::post('/admin/orders/{order}/shipment/link-tracking', [CourierShipmentController::class, 'link']);
+    Route::post('/admin/orders/{order}/shipment/tracking', [ShipmentTrackingController::class, 'store']);
+    Route::patch('/admin/orders/{order}/shipment/tracking', [ShipmentTrackingController::class, 'correct']);
+    Route::post('/admin/orders/{order}/shipment/tracking/refresh', [ShipmentTrackingController::class, 'refresh']);
+    Route::get('/admin/shipping-tracking', [ShipmentTrackingController::class, 'settings']);
+    Route::put('/admin/shipping-tracking', [ShipmentTrackingController::class, 'updateSettings']);
     Route::get('/customer/orders', [OrderController::class, 'customerIndex']);
     Route::get('/customer/orders/{order}', [OrderController::class, 'customerShow']);
     Route::get('/customer/orders/{order}/items/{orderItem}/image', [OrderController::class, 'customerItemImage']);

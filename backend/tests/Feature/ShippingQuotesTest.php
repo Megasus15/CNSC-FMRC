@@ -27,6 +27,8 @@ class ShippingQuotesTest extends TestCase
     {
         parent::setUp();
         Mail::fake();
+        config(['payments.gateway'=>'paymongo', 'payments.paymongo.enabled'=>true, 'payments.paymongo.secret_key'=>'sk_test_fixture', 'payments.paymongo.webhook_secret'=>'fixture']);
+        Http::fake(['api.paymongo.com/v2/checkout_sessions'=>Http::response(['data'=>['id'=>'cs_shipping', 'attributes'=>['checkout_url'=>'https://checkout.paymongo.com/fixture','livemode'=>false]]])]);
         Carbon::setTestNow(Carbon::parse('2026-11-06 08:00:00', 'UTC'));
         $this->product = Product::create(['name' => 'Prototype', 'code' => 'SHIPPING-TEST', 'category' => 'Fabrication', 'price' => 123.45, 'stock' => 30]);
         $this->customer = User::factory()->create(['role' => 'customer']);
@@ -71,7 +73,7 @@ class ShippingQuotesTest extends TestCase
     private function order(array $quote, array $changes = []): array
     {
         return array_replace($this->input(), CommercePolicyFixture::acceptance(), ['items' => [['product_id' => $this->product->id, 'product_name' => 'Untrusted title', 'quantity' => 2, 'unit_price' => 0.01]],
-            'payment_method' => 'COD', 'checkout_request_key' => (string) Str::uuid(), 'shipping_quote_token' => $quote['quote_token'] ?? '',
+            'payment_method' => 'GCash', 'checkout_request_key' => (string) Str::uuid(), 'shipping_quote_token' => $quote['quote_token'] ?? '',
             'delivery_recipient_name' => 'Client', 'delivery_contact_no' => '09171234567', 'delivery_street' => '1 Test Street', 'delivery_barangay' => 'Barangay 1'], $changes);
     }
 
@@ -148,8 +150,11 @@ class ShippingQuotesTest extends TestCase
         $this->publish();
         $quote = $this->quote();
         $payload = $this->order($quote);
+        $this->postJson('/api/orders', array_replace($payload, ['courier_name' => 'Customer supplied courier', 'courier_tracking_no' => 'FAKE12345']))
+            ->assertUnprocessable()->assertJsonValidationErrors(['courier_name', 'courier_tracking_no']);
         $result = $this->postJson('/api/orders', $payload)->assertCreated()->assertJsonPath('data.pricing.shipping_fee', 85.5)->assertJsonPath('data.total_amount', 332.4);
         $id = $result->json('data.id');
+        $this->assertDatabaseHas('orders', ['id' => $id, 'courier_name' => 'J&T Express', 'courier_tracking_no' => null, 'shipment_tracking_mode' => 'jnt_dropoff']);
         $this->assertDatabaseHas('orders', ['id' => $id, 'subtotal' => 246.90, 'total' => 332.40, 'shipping_fee' => 85.50]);
         $this->assertDatabaseHas('payments', ['order_id' => $id, 'amount' => 332.40]);
         $this->postJson('/api/orders', $payload)->assertCreated()->assertJsonPath('data.id', $id);

@@ -73,7 +73,7 @@
     };
     methods = Object.fromEntries(Object.entries(settingKeys).map(([method, key]) => {
       const value = settings[key];
-      return [method, (method !== "GCash" || (qrph && settings.payment_gcash_ready === "1")) && (value === undefined || value === true || value === 1 || value === "1")];
+      return [method, method !== 'Cash on Delivery' && (method !== "GCash" || (qrph && settings.payment_gcash_ready === "1")) && (value === undefined || value === true || value === 1 || value === "1")];
     }));
     loadFailed = false;
     sync();

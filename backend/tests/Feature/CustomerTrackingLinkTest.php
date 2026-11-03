@@ -9,31 +9,12 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
-/**
- * The one link the customer clicks to see their parcel's checkpoints.
- *
- * FMRC has no courier API contract, so the waybill is whatever staff were told
- * and typed in. What matters is that the link built out of it lands the customer
- * on a page *already showing* the parcel - not on a courier homepage with an
- * empty search box, which is what happened before: J&T and LBC both read the
- * number from an in-page form, so their registry entries are landing pages with
- * nothing to substitute.
- *
- * 17TRACK is the primary for those couriers because it takes the number in the
- * URL and works the carrier out from the number itself, needs no account, and
- * costs nothing. Only its public web page is used; its API and webhooks are paid
- * and are not wired up anywhere.
- *
- * The courier's own page is still handed over as a labelled secondary, and the
- * `{tracking_no}` substitution is exercised here too, so the day someone
- * confirms a real waybill URL for a Philippine courier it is a one-line config
- * edit that these tests already cover.
- */
+/** Official J&T fallback and preserved links for historical couriers. */
 class CustomerTrackingLinkTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_a_courier_that_cannot_take_the_number_gets_a_prefilled_17track_link(): void
+    public function test_jnt_uses_its_official_tracking_page_and_keeps_the_waybill_copyable(): void
     {
         $customer = $this->actingAsCustomer();
         $order = $this->makeOrder($customer, courier: 'J&T Express', trackingNo: 'JT1234567890');
@@ -43,12 +24,10 @@ class CustomerTrackingLinkTest extends TestCase
             ->assertJsonPath('data.courier.name', 'J&T Express')
             ->assertJsonPath('data.courier.key', 'jnt')
             ->assertJsonPath('data.courier.tracking_no', 'JT1234567890')
-            // One click, checkpoints on arrival.
-            ->assertJsonPath('data.courier.tracking_url', 'https://t.17track.net/en#nums=JT1234567890')
-            ->assertJsonPath('data.courier.tracking_url_provider', 'universal')
-            ->assertJsonPath('data.courier.tracking_url_is_prefilled', true)
-            // Still offered, just second: it is the source, but it needs typing.
-            ->assertJsonPath('data.courier.courier_tracking_url', 'https://www.jtexpress.ph');
+            ->assertJsonPath('data.courier.tracking_url', 'https://www.jtexpress.ph')
+            ->assertJsonPath('data.courier.tracking_url_provider', 'courier')
+            ->assertJsonPath('data.courier.tracking_url_is_prefilled', false)
+            ->assertJsonPath('data.courier.courier_tracking_url', null);
     }
 
     public function test_a_waybill_with_awkward_characters_is_url_encoded(): void
@@ -70,14 +49,14 @@ class CustomerTrackingLinkTest extends TestCase
         // the substitution path is proved against a configured one. This is the
         // mechanism a confirmed courier URL would switch on - and it also proves
         // the courier wins over 17TRACK when it can actually deep-link.
-        config()->set('couriers.options.jnt.tracking_url', 'https://www.jtexpress.ph/trajectoryQuery?waybillNo={tracking_no}');
+        config()->set('couriers.options.lbc.tracking_url', 'https://www.lbcexpress.com/track/?number={tracking_no}');
 
         $customer = $this->actingAsCustomer();
-        $order = $this->makeOrder($customer, courier: 'J&T Express', trackingNo: 'JT999');
+        $order = $this->makeOrder($customer, courier: 'LBC Express', trackingNo: 'LBC999');
 
         $this->getJson("/api/customer/orders/{$order->id}")
             ->assertOk()
-            ->assertJsonPath('data.courier.tracking_url', 'https://www.jtexpress.ph/trajectoryQuery?waybillNo=JT999')
+            ->assertJsonPath('data.courier.tracking_url', 'https://www.lbcexpress.com/track/?number=LBC999')
             ->assertJsonPath('data.courier.tracking_url_provider', 'courier')
             ->assertJsonPath('data.courier.tracking_url_is_prefilled', true)
             // No second link: the primary already is the courier's own page.
@@ -124,7 +103,7 @@ class CustomerTrackingLinkTest extends TestCase
         config()->set('couriers.universal_tracking_url', 'javascript:alert(1)');
 
         $customer = $this->actingAsCustomer();
-        $order = $this->makeOrder($customer, courier: 'J&T Express', trackingNo: 'JT555');
+        $order = $this->makeOrder($customer, courier: 'LBC Express', trackingNo: 'LBC555');
 
         $this->getJson("/api/customer/orders/{$order->id}")
             ->assertOk()
@@ -132,7 +111,7 @@ class CustomerTrackingLinkTest extends TestCase
             ->assertJsonPath('data.courier.tracking_url_provider', null)
             // The courier's own page is unaffected, so the customer keeps a way
             // through even when the fallback is unusable.
-            ->assertJsonPath('data.courier.courier_tracking_url', 'https://www.jtexpress.ph');
+            ->assertJsonPath('data.courier.courier_tracking_url', 'https://www.lbcexpress.com/track/');
     }
 
     public function test_the_registry_tells_staff_which_couriers_can_be_deep_linked(): void

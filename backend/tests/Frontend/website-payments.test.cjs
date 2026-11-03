@@ -64,7 +64,7 @@ async function harness(settings = {}, role = 'admin', initialFailure = false) {
 for (const role of ['admin']) {
   test(`${role} can save individual or all methods using the portal session, with no draft-only writes`, async () => {
     const h = await harness({}, role);
-    keys.forEach((key) => assert.equal(h.field(key).checked, true));
+    keys.forEach((key) => assert.equal(h.field(key).checked, key !== keys[1]));
     assert.equal(h.field('savePaymentSettings').disabled, true);
     await h.click('disableAllPayments');
     assert.equal(h.requests.length, 1, 'bulk action only edits the draft');
@@ -85,26 +85,27 @@ for (const role of ['admin']) {
     assert.equal(h.state.settings[keys[0]], '0');
     await h.click('enableAllPayments');
     await h.save();
-    keys.forEach((key) => assert.equal(h.state.settings[key], '1'));
+    keys.forEach((key) => assert.equal(h.state.settings[key], key === keys[1] ? '0' : '1'));
+    assert.equal(h.field(keys[1]).disabled, true);
     await h.window.emit('focus');
     await settle();
-    keys.forEach((key) => assert.equal(h.field(key).checked, true));
+    keys.forEach((key) => assert.equal(h.field(key).checked, key !== keys[1]));
   });
 }
 
 test('incoming updates announce changes without fetching; Load latest intentionally replaces a dirty draft', async () => {
   const h = await harness();
   await h.toggle(keys[0], false);
-  h.state.settings = { [keys[1]]: '0' };
+  h.state.settings = { [keys[2]]: '0' };
   await h.channel.emit('message', { data: { type: 'updated' } });
   await settle();
   assert.equal(h.field(keys[0]).checked, false);
-  assert.equal(h.field(keys[1]).checked, true);
+  assert.equal(h.field(keys[2]).checked, true);
   assert.equal(h.field('paymentSettingsUpdated').hidden, false);
   assert.equal(h.requests.length, 1, 'incoming update does not reload content');
   await h.click('reloadPaymentSettings');
   assert.equal(h.field(keys[0]).checked, true);
-  assert.equal(h.field(keys[1]).checked, false);
+  assert.equal(h.field(keys[2]).checked, false);
   assert.equal(h.field('savePaymentSettings').disabled, true);
   assert.equal(h.field('paymentSettingsUpdated').hidden, true);
   assert.equal(h.requests.length, 2, 'explicit Load latest requests saved content');
@@ -113,7 +114,7 @@ test('incoming updates announce changes without fetching; Load latest intentiona
 test('returning to a Payment Methods tab keeps controls available and never fetches content', async () => {
   const h = await harness();
   await h.toggle(keys[0], false);
-  h.state.settings = { [keys[1]]: '0' };
+  h.state.settings = { [keys[2]]: '0' };
   await h.window.emit('focus');
   h.document.hidden = false;
   await h.document.emit('visibilitychange');
@@ -121,7 +122,7 @@ test('returning to a Payment Methods tab keeps controls available and never fetc
   assert.equal(h.requests.length, 1);
   assert.equal(h.field('paymentSettingsFields').disabled, false);
   assert.equal(h.field(keys[0]).checked, false, 'unsaved selection remains');
-  assert.equal(h.field(keys[1]).checked, true, 'server changes wait for a manual load');
+  assert.equal(h.field(keys[2]).checked, true, 'server changes wait for a manual load');
 });
 
 test('storage updates show a notice without replacing clean selections or fetching', async () => {
@@ -130,7 +131,7 @@ test('storage updates show a notice without replacing clean selections or fetchi
   await h.window.emit('storage', { key: 'fmrc_site_content_updated_at' });
   await settle();
   assert.equal(h.requests.length, 1);
-  keys.forEach((key) => assert.equal(h.field(key).checked, true));
+  keys.forEach((key) => assert.equal(h.field(key).checked, key !== keys[1]));
   assert.equal(h.field('paymentSettingsUpdated').hidden, false);
   assert.equal(h.field('savePaymentSettings').disabled, true);
 });
@@ -146,7 +147,7 @@ test('save failure retains selections, and discard returns to persisted settings
   assert.match(h.field('paymentSettingsErrorText').textContent, /cannot update/);
   assert.equal(h.broadcasts.length, 0);
   await h.click('discardPaymentSettings');
-  keys.forEach((key) => assert.equal(h.field(key).checked, true));
+  keys.forEach((key) => assert.equal(h.field(key).checked, key !== keys[1]));
   assert.equal(h.field('savePaymentSettings').disabled, true);
 });
 

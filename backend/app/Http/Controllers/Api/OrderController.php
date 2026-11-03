@@ -17,6 +17,7 @@ use App\Services\GatewayPayments;
 use App\Services\ShippingService;
 use App\Services\CommercePolicy;
 use App\Services\NinjaVanShipping;
+use App\Services\ShipmentTracking;
 use App\Support\OrderNotifier;
 use App\Support\PaymentMethodAvailability;
 use App\Support\ReturnPresenter;
@@ -142,8 +143,8 @@ class OrderController extends Controller
             'notes' => 'nullable|string|max:2000',
             'customer_name' => 'nullable|string|max:160',
             'customer_contact' => 'nullable|string|max:180',
-            'courier_name' => 'nullable|string|max:120',
-            'courier_tracking_no' => 'nullable|string|max:140',
+            'courier_name' => 'prohibited',
+            'courier_tracking_no' => 'prohibited',
             'location_name' => 'nullable|string|max:160',
             'latitude' => 'nullable|numeric|between:-90,90',
             'longitude' => 'nullable|numeric|between:-180,180',
@@ -387,8 +388,9 @@ class OrderController extends Controller
                     'notes' => $validated['notes'] ?? null,
                     // A pickup never travels, so it gets a handover code at the
                     // counter instead of a courier and a tracking number.
-                    'courier_name' => $isPickup ? null : ($validated['courier_name'] ?? $this->defaultCourierLabel()),
-                    'courier_tracking_no' => $isPickup ? null : ($validated['courier_tracking_no'] ?? null),
+                    'courier_name' => $isPickup ? null : 'J&T Express',
+                    'courier_tracking_no' => null,
+                    'shipment_tracking_mode' => $isPickup ? null : 'jnt_dropoff',
                     'pickup_code' => $isPickup ? $this->generatePickupCode() : null,
                     'location_name' => $locationName,
                     // A pickup order sits at the FMRC counter from the start, so
@@ -647,6 +649,7 @@ class OrderController extends Controller
                 'shipping_fee',
                 'shipping_quote',
                 'courier_history_version',
+                'shipment_tracking_mode',
                 'estimated_delivery_from',
                 'estimated_delivery_to',
                 'total',
@@ -705,7 +708,7 @@ class OrderController extends Controller
                 // out of the select reads back as null rather than as an error.
                 'payment' => fn ($query) => $query->select($this->paymentSelectColumns()),
                 'latestTrackingEvent',
-                ...NinjaVanShipping::relations(),
+                ...ShipmentTracking::relations(),
                 'ratings:id,order_id,order_item_id,product_id,stars,feedback,media,is_anonymous,admin_reply,replied_at,created_at,updated_at',
                 // Returns ride along with the orders so the Returns tab, the
                 // per-order badges and the ETag all come from this one request.
@@ -805,7 +808,7 @@ class OrderController extends Controller
                 ->select($this->customerOrderItemColumns()),
             'payment',
             'latestTrackingEvent',
-                ...NinjaVanShipping::relations(),
+                ...ShipmentTracking::relations(),
             'ratings',
             'returns' => fn ($query) => $query
                 ->where('is_archived', false)
@@ -967,7 +970,7 @@ class OrderController extends Controller
                 ->select($this->customerOrderItemColumns()),
             'payment',
             'latestTrackingEvent',
-                ...NinjaVanShipping::relations(),
+                ...ShipmentTracking::relations(),
             'ratings',
             'returns' => fn ($query) => $query
                 ->where('is_archived', false)
@@ -1162,7 +1165,7 @@ class OrderController extends Controller
                 ->select($this->customerOrderItemColumns()),
             'payment',
             'latestTrackingEvent',
-                ...NinjaVanShipping::relations(),
+                ...ShipmentTracking::relations(),
             'ratings',
             'returns' => fn ($query) => $query
                 ->where('is_archived', false)
@@ -1404,7 +1407,7 @@ class OrderController extends Controller
                 ->select($this->customerOrderItemColumns()),
             'payment',
             'latestTrackingEvent',
-                ...NinjaVanShipping::relations(),
+                ...ShipmentTracking::relations(),
             'ratings',
             'returns' => fn ($query) => $query
                 ->where('is_archived', false)
@@ -1589,7 +1592,7 @@ class OrderController extends Controller
         );
 
         $order->load(['items', 'payment', 'latestTrackingEvent',
-                ...NinjaVanShipping::relations(), 'ratings']);
+                ...ShipmentTracking::relations(), 'ratings']);
 
         return response()->json([
             'message' => $approve
@@ -1659,7 +1662,7 @@ class OrderController extends Controller
                 'items:id,order_id,product_id,product_name,unit_price,quantity,line_total',
                 'payment' => fn ($query) => $query->select($this->paymentSelectColumns()),
                 'latestTrackingEvent',
-                ...NinjaVanShipping::relations(),
+                ...ShipmentTracking::relations(),
             ])
             ->where('is_archived', false)
             ->orderBy('created_at', 'asc')
@@ -2046,6 +2049,10 @@ class OrderController extends Controller
             return $denied;
         }
 
+        if ($order->shipment_tracking_mode === 'jnt_dropoff' && $order->lifecycle_status !== 'completed') {
+            return response()->json(['message' => 'The customer confirms receipt through My Orders. Courier delivery and customer receipt are recorded separately.'], 422);
+        }
+
         if (!in_array($order->lifecycle_status, ['pending', 'completed'], true)) {
             return response()->json([
                 'message' => 'Only pending orders can be marked as completed.',
@@ -2287,6 +2294,22 @@ class OrderController extends Controller
             }
         }
 
+        $managedTracking = $order->shipment_tracking_mode === 'jnt_dropoff'
+            || (ShipmentTracking::installed() && \App\Models\ShipmentTracker::where('active_order_id', $order->id)->exists());
+        if ($managedTracking) {
+            if (($validated['stage'] ?? $order->customer_stage) !== $order->customer_stage
+                || ($validated['event_type'] ?? 'admin_update') === 'courier_update'
+                || (isset($validated['courier_name']) && $validated['courier_name'] !== $order->courier_name)
+                || (array_key_exists('courier_tracking_no', $validated) && $validated['courier_tracking_no'] !== $order->courier_tracking_no)
+                || array_key_exists('latitude', $validated) || array_key_exists('longitude', $validated)) {
+                return response()->json(['message' => 'Use the J&T shipment controls for this waybill. FMRC notes cannot change courier events or delivery progress.'], 422);
+            }
+            $validated['event_type'] = 'admin_update';
+        }
+        if (! $order->isPickup() && $order->payment_method === 'GCash' && $order->courier_name === 'J&T Express'
+            && ! filled($order->courier_tracking_no) && in_array($validated['stage'] ?? '', ['to_receive', 'completed'], true)) {
+            return response()->json(['message' => 'Record the J&T waybill and physical handover before advancing this delivery.'], 422);
+        }
         $nextStage = $validated['stage'] ?? $order->customer_stage;
         $title = trim((string) ($validated['title'] ?? ''));
         $isPickup = $order->isPickup();
@@ -2303,7 +2326,7 @@ class OrderController extends Controller
         if ($title === '') {
             // A pickup order never ships, so the generic "out for delivery"
             // wording would be wrong on the customer's timeline.
-            $title = $isPickup
+            $title = $managedTracking ? 'FMRC note' : ($isPickup
                 ? match ($nextStage) {
                     'to_ship' => 'Order is being prepared for pickup',
                     'to_receive' => 'Order is ready for pickup at the FMRC office',
@@ -2315,7 +2338,7 @@ class OrderController extends Controller
                     'to_receive' => 'Order is out for delivery',
                     'completed' => 'Order marked as completed',
                     default => 'Order is waiting for payment confirmation',
-                };
+                });
         }
 
         if (! $courierFieldsApplicable) {
@@ -2333,7 +2356,7 @@ class OrderController extends Controller
             }
         }
 
-        if (!empty($validated['location_name'])) {
+        if (! $managedTracking && !empty($validated['location_name'])) {
             $order->location_name = $validated['location_name'];
         }
 
@@ -3484,7 +3507,10 @@ class OrderController extends Controller
         // Without a waybill there is nothing to look up, so no link is offered
         // at all — a bare courier homepage helps nobody.
         if ($trackingNo !== '' && $acceptsNumber) {
-            if (is_string($courierUrl) && str_contains($courierUrl, '{tracking_no}')) {
+            if ($matchKey === 'jnt') {
+                $primaryUrl = 'https://www.jtexpress.ph';
+                $provider = 'courier';
+            } elseif (is_string($courierUrl) && str_contains($courierUrl, '{tracking_no}')) {
                 $primaryUrl = $this->fillTrackingTemplate($courierUrl, $trackingNo);
                 $provider = 'courier';
             } else {
@@ -3505,7 +3531,7 @@ class OrderController extends Controller
             // Tells the customer UI what it is linking to, so it can label the
             // button honestly instead of sniffing the hostname.
             'tracking_url_provider' => $provider,
-            'tracking_url_is_prefilled' => $primaryUrl !== null,
+            'tracking_url_is_prefilled' => $primaryUrl !== null && $matchKey !== 'jnt',
             'courier_tracking_url' => $secondaryUrl,
         ];
     }
@@ -3696,7 +3722,7 @@ class OrderController extends Controller
             'total_amount' => (float) $order->total,
             'total_label' => $this->formatMoney((float) $order->total),
             'pricing' => ShippingService::present($order),
-            'courier_shipment' => NinjaVanShipping::present($order),
+            'courier_shipment' => ShipmentTracking::present($order, in_array(strtolower((string) auth()->user()?->role), ['admin', 'staff'], true)),
             'payment_method' => $payment?->method ?? $order->payment_method,
             'payment_reference' => $payment?->reference ?? $order->payment_reference,
             'payment_status' => $payment?->status ?? 'pending',
@@ -3717,6 +3743,7 @@ class OrderController extends Controller
             'stage_labels' => $this->stageLabels($order),
             'notes' => $order->notes,
             'courier_name' => $order->courier_name,
+            'shipment_tracking_mode' => $order->shipment_tracking_mode,
             'courier_tracking_no' => $order->courier_tracking_no,
             'location_name' => $order->location_name,
             'latitude' => $order->last_known_lat !== null ? (float) $order->last_known_lat : null,
@@ -3779,7 +3806,10 @@ class OrderController extends Controller
             ->all();
 
         $timeline = $order->trackingEvents
-            ->sortByDesc(fn (OrderTrackingEvent $event) => $event->occurred_at?->getTimestamp() ?? 0)
+            ->sortByDesc(fn (OrderTrackingEvent $event) => [
+                $event->metadata['time']['instant'] ?? $event->occurred_at?->toISOString() ?? '',
+                $event->metadata['event_order'] ?? 0, $event->id,
+            ])
             ->values()
             ->map(fn (OrderTrackingEvent $event) => $this->transformTimelineEvent($event, $order))
             ->all();
@@ -3787,7 +3817,7 @@ class OrderController extends Controller
         return array_merge($summary, [
             'items' => $items,
             'timeline' => $timeline,
-            'courier_shipment' => NinjaVanShipping::present($order, in_array(strtolower((string) auth()->user()?->role), ['admin','staff'], true), true),
+            'courier_shipment' => ShipmentTracking::present($order, in_array(strtolower((string) auth()->user()?->role), ['admin','staff'], true), true),
             'accepted_policy' => $order->accepted_policy_text ? array_merge($order->accepted_policy_text,[
                 'accepted_at'=>$this->formatPhilippineIso($order->policy_accepted_at),
                 'accepted_at_label'=>$this->formatPhilippineLabel($order->policy_accepted_at),
@@ -4139,6 +4169,7 @@ class OrderController extends Controller
      */
     private function transformTimelineEvent(OrderTrackingEvent $event, ?Order $order = null): array
     {
+        $time = $event->metadata['time'] ?? null;
         return [
             'id' => $event->id,
             'stage' => $event->stage,
@@ -4151,8 +4182,10 @@ class OrderController extends Controller
             'location_name' => $event->location_name,
             'latitude' => $event->latitude !== null ? (float) $event->latitude : null,
             'longitude' => $event->longitude !== null ? (float) $event->longitude : null,
-            'occurred_at' => $this->formatPhilippineIso($event->occurred_at),
-            'occurred_at_label' => $this->formatPhilippineLabel($event->occurred_at),
+            'occurred_at' => $time['raw'] ?? $this->formatPhilippineIso($event->occurred_at),
+            'occurred_at_label' => $time['label'] ?? $this->formatPhilippineLabel($event->occurred_at),
+            'time_precision' => $time['precision'] ?? 'datetime',
+            'source_label' => ($event->metadata['source'] ?? '') === 'ship24' ? 'J&T via Ship24' : 'FMRC',
             'metadata' => $event->metadata,
         ];
     }

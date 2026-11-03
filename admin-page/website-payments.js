@@ -18,7 +18,7 @@
     return `${origin}/api`;
   };
   const parseSettings = (data) => Object.fromEntries(METHODS.map((key) => [
-    key, data[key] === undefined || [true, 1, "1"].includes(data[key]),
+    key, key !== 'payment_cash_on_delivery_enabled' && (data[key] === undefined || [true, 1, "1"].includes(data[key])),
   ]));
   const same = (left, right) => METHODS.every((key) => left?.[key] === right?.[key]);
 
@@ -55,15 +55,18 @@
       discard.disabled = busy || refreshing || !isDirty();
       retry.disabled = busy || refreshing;
       document.getElementById("refreshPaymentSettings").disabled = busy || refreshing;
-      enableAll.disabled = count === METHODS.length;
+      enableAll.disabled = count === METHODS.length - 1;
       disableAll.disabled = count === 0;
       form.setAttribute("aria-busy", String(busy || refreshing));
       document.getElementById("reloadPaymentSettings").disabled = busy || refreshing;
       METHODS.forEach((key) => {
         document.getElementById(key).checked = !!draft?.[key];
+        if (key === 'payment_cash_on_delivery_enabled') document.getElementById(key).disabled = true;
         document.getElementById(`${key}_state`).textContent = !draft ? "Loading" : draft[key] ? "Enabled" : "Disabled";
       });
-      summary.textContent = !draft ? "Loading saved payment methods…" : `${count} of 3 methods ${isDirty() ? "selected" : "enabled"}`;
+      summary.textContent = !draft ? "Loading saved payment methods…" : `${count} of 2 available methods ${isDirty() ? "selected" : "enabled"}`;
+      const deliveryDescription = document.getElementById('deliveryPaymentDescription');
+      if (deliveryDescription) deliveryDescription.textContent = 'J&T delivery is prepaid. Courier cash collection is not available for new orders.';
       note.classList.toggle("is-paused", !!draft && count === 0);
       noteTitle.textContent = !draft || count > 0 ? "Availability applies to new product orders" : isDirty() ? "Saving will pause new product orders" : "New product orders are paused";
       status.textContent = refreshing ? "Loading payment methods…" : busy ? "Saving payment methods…" : isDirty() ? "You have unsaved changes." : saved ? (lastSaveSucceeded ? "Payment methods saved." : "All changes saved.") : "Load the saved settings before making changes.";
@@ -175,7 +178,7 @@
     }));
     const setAll = (enabled) => {
       if (!draft || busy || refreshing) return;
-      METHODS.forEach((key) => { draft[key] = enabled; });
+      METHODS.forEach((key) => { draft[key] = key === 'payment_cash_on_delivery_enabled' ? false : enabled; });
       lastSaveSucceeded = false;
       render();
     };

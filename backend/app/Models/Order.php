@@ -26,6 +26,7 @@ class Order extends Model
         'shipping_fee',
         'shipping_quote',
         'courier_history_version',
+        'shipment_tracking_mode',
         'accepted_policy_version',
         'accepted_policy_text',
         'policy_accepted_at',
@@ -305,6 +306,11 @@ class Order extends Model
     public function latestShipment(): HasOne
     {
         return $this->hasOne(CourierShipment::class)->latestOfMany();
+    }
+
+    public function latestShipmentTracker(): HasOne
+    {
+        return $this->hasOne(ShipmentTracker::class)->latestOfMany();
     }
 
     public function trackingEvents(): HasMany

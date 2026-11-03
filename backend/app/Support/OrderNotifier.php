@@ -45,6 +45,18 @@ class OrderNotifier
      */
     public static function emailCustomer(Order $order, string $subject, string $htmlBody): void
     {
+        self::afterResponse(function () use ($order, $subject, $htmlBody): void {
+            try {
+                self::emailCustomerNow($order, $subject, $htmlBody);
+            } catch (\Throwable $error) {
+                Log::error('Customer order email failed', ['order_id' => $order->id]);
+            }
+        });
+    }
+
+    /** Synchronous delivery for durable workers; failures must remain retryable. */
+    public static function emailCustomerNow(Order $order, string $subject, string $htmlBody): void
+    {
         if (!$order->relationLoaded('customer') && $order->customer_id) {
             $order->load('customer');
         }
@@ -64,22 +76,11 @@ class OrderNotifier
             return;
         }
 
-        $orderId = (string) $order->id;
         $fromAddress = config('mail.from.address', 'noreply@cnsc-fmrc.edu.ph');
         $fromName = config('mail.from.name', 'UCN-FMRC');
 
-        self::afterResponse(function () use ($emailAddress, $subject, $htmlBody, $orderId, $fromAddress, $fromName): void {
-            try {
-                Mail::html($htmlBody, function ($message) use ($emailAddress, $subject, $fromAddress, $fromName) {
-                    $message->to($emailAddress)
-                        ->subject($subject)
-                        ->from($fromAddress, $fromName);
-                });
-
-                Log::info("Customer order email sent to {$emailAddress} | Subject: {$subject} | Order #{$orderId}");
-            } catch (\Throwable $e) {
-                Log::error("Customer order email FAILED for Order #{$orderId} to {$emailAddress}: " . $e->getMessage());
-            }
+        Mail::html($htmlBody, function ($message) use ($emailAddress, $subject, $fromAddress, $fromName) {
+            $message->to($emailAddress)->subject($subject)->from($fromAddress, $fromName);
         });
     }
 
