@@ -37,7 +37,7 @@
   <link rel="stylesheet" href="courier-shipments.css?v=2.0" />
     <link rel="stylesheet" href="admin-form-controls.css?v=2026.1104.2" />
     <script src="admin-form-controls.js?v=1.0" defer></script>
-  <link rel="stylesheet" href="../products-page/custom-products.css?v=2026.1104.4">
+  <link rel="stylesheet" href="../products-page/custom-products.css?v=2026.1104.5">
 </head>
   <body>
     <div class="dashboard-container">
@@ -527,6 +527,13 @@
               <div class="panel-header">
                 <h3>Walk-in Customers</h3>
                 <div class="filters-row">
+                  <input class="search-input" id="walkInOrdersSearch" type="search" maxlength="180" placeholder="Search walk-in orders..." aria-label="Search walk-in orders" />
+                  <select class="filter-select" id="walkInOrdersStatusFilter" aria-label="Filter walk-in orders by status">
+                    <option value="all">All statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
                   <button
                     class="btn-admin"
                     id="openWalkInOrderModalBtn"
@@ -1752,11 +1759,11 @@
     <script src="admin-common.js?v=2026.1104.3"></script>
     <script src="jnt-tracking.js?v=1.0"></script>
 <script src="courier-shipments.js?v=2.0"></script>
-<script src="orders.js?v=2026.1104.3"></script>
+<script src="orders.js?v=2026.1104.5"></script>
     <script src="admin-table-resize.js?v=1.4" defer></script>
-  <link rel="stylesheet" href="gateway-payments.css?v=2.8-archive-tooltip">
+  <link rel="stylesheet" href="gateway-payments.css?v=2026.1104.5">
     <link rel="stylesheet" href="../home-page/payment-dialogs.css?v=2.1-refund-claims">
-    <script src="gateway-payments.js?v=2026.1104.3"></script>
-  <script defer src="../products-page/custom-products.js?v=2026.1104.4"></script>
+    <script src="gateway-payments.js?v=2026.1104.5"></script>
+  <script defer src="../products-page/custom-products.js?v=2026.1104.5"></script>
 </body>
 </html>

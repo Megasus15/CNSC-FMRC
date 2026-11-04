@@ -7,7 +7,7 @@ This change adds private custom requests, versioned quotations, hosted full paym
 Deploy the source assets in `products-page`, `services-page`, `home-page`, `customer-auth`, `admin-page`, and `staff-page`, and the changed Laravel application files, routes, migration, and console command. The normal website and Customer/Team PWA routes resolve these same source files through `PwaAssetController` and the existing Apache aliases. Do not copy the recursive legacy `backend/public/frontend` tree over the source pages.
 
 1. In hPanel, open the active website's File Manager and confirm which folder contains the live `backend/artisan`. Export its database through **Databases → phpMyAdmin → Export** and keep the export privately. Back up the deployed application files and the private upload directory. Confirm your Hostinger Git deployment configuration before pushing through GitHub Desktop.
-2. Upload or deploy the reviewed revision, including both new PHP schema files, the migration, and all changed customer and operator assets. Preserve the live `backend/.env` and storage. Confirm the deployed revision in hPanel and check that the served Custom Products and shared table assets use version `2026.1104.4`.
+2. Upload or deploy the reviewed revision, including both new PHP schema files, the migration, and all changed customer and operator assets. Preserve the live `backend/.env` and storage. Confirm the deployed revision in hPanel and check that the served Custom Products and shared table assets use version `2026.1104.5`.
 3. Open Hostinger SSH or a terminal connected to the hosting account. Change into the active `backend` directory identified in File Manager. Check where you are and inspect migration status. These commands are read-only.
 
    ```sh
@@ -89,9 +89,9 @@ php artisan migrate:status
 
 Confirm the archive migration shows Ran. Admin and Staff can archive cancelled or declined requests and completed custom work after outstanding payments and refunds are resolved. Archives provides View and Restore for these records. Requests, quotations, private designs, payments, and linked orders remain available in their history. A pending archive migration leaves the existing workflow available and disables the new Archive action with an explanation.
 
-Verify that Orders has one main Refresh button, with no Search, Status or Service fields in the Custom Requests header. Open a closed request, archive it, check Archives → Custom Requests, and restore it. On Shipping & Delivery, the main Refresh button reloads both shipping settings and J&T status after the existing unsaved-change confirmation.
+Verify that Orders has one main Refresh button, with working search, status and service controls in the Custom Requests header and no visible labels above them. Verify the same label-free controls in Cancellations and Online refunds, and search plus status filtering in Walk-in Customers. Test filtering before pagination and preserve keyboard focus while results update. Open a closed request, archive it, check Archives → Custom Requests, and restore it. On Shipping & Delivery, the main Refresh button reloads both shipping settings and J&T status after the existing unsaved-change confirmation.
 
-Automated local coverage is in `backend/tests/Feature/CustomProductsTest.php`, the extended Website Page Save/report suites, and `backend/tests/Frontend/custom-products.browser.cjs`.
+Automated local coverage is in `backend/tests/Feature/CustomProductsTest.php`, the extended Website Page Save/report suites, `backend/tests/Frontend/custom-products.browser.cjs`, and `backend/tests/Frontend/orders-filters.browser.cjs`. The label-free filter update passed seven local browser tests, including Admin and Staff filtering, pagination, keyboard access, desktop/tablet/phone layouts, both themes, and the Team PWA route. This update requires no additional database migration. Hostinger verification remains separate.
 
 Local repair verification on November 4, 2026:
 

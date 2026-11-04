@@ -19,7 +19,7 @@ test('Operators archive closed requests, restore them and use the main Refresh o
     await h.send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
     await h.go('/'+portal+'/orders.html?custom_requests=1');
     await h.until("document.querySelector('[data-custom-archive]') && !document.querySelector('[data-custom-archive]').closest('[inert]')");
-    assert.equal(await h.run("!!document.querySelector('#sectionCustomRequests [data-list-filters]')"),false);
+    assert.equal(await h.run("!!document.querySelector('#sectionCustomRequests [data-list-filters]')"),true);
     await h.run("document.querySelector('[data-open]').click()");
     await h.until("!!document.querySelector('.cp-order-dialog[open]')");
     assert.equal(await h.run("Array.from(document.querySelectorAll('.cp-order-dialog button')).some(button=>button.textContent.trim()==='Refresh')"),false);
@@ -223,7 +223,7 @@ test('Custom requests keep drafts, consent and responsive operator workflows con
     await h.until("!!document.querySelector('#sectionCustomRequests .admin-table')");
     await h.until("!!document.querySelector('#customRequestsTable.portal-data-table')");
     assert.equal(await h.run("!!document.querySelector('#sectionCustomRequests [data-list-filters] button[type=submit]')"),false);
-    assert.equal(await h.run("document.querySelectorAll('#sectionCustomRequests [data-list-filters]').length"),0);
+    assert.equal(await h.run("document.querySelectorAll('#sectionCustomRequests [data-list-filters]').length"),1);
     await h.until("!!document.querySelector('#sectionCustomRequests [data-open]')");
     assert.equal(await h.run("document.querySelector('#sectionCustomRequests').textContent.includes('Made for your idea')"),false);
     await click('#sectionCustomRequests [data-open]');

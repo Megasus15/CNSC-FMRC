@@ -144,6 +144,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const walkInOrdersTbody = document.querySelector("#walkInOrdersTable tbody");
   const walkInOrdersFooter = document.getElementById("walkInOrdersFooter");
+  const walkInOrdersSearch = document.getElementById("walkInOrdersSearch");
+  const walkInOrdersStatusFilter = document.getElementById("walkInOrdersStatusFilter");
   const openWalkInOrderModalBtn = document.getElementById(
     "openWalkInOrderModalBtn",
   );
@@ -1622,15 +1624,32 @@ document.addEventListener("DOMContentLoaded", () => {
   const isWalkInCompleted = (row) =>
     walkInStatusLabel(row).toLowerCase() === "completed";
 
+  const getFilteredWalkInOrders = () => {
+    const search = (walkInOrdersSearch?.value || "").trim().toLowerCase();
+    const status = walkInOrdersStatusFilter?.value || "all";
+    return state.walkIn.filter((row) => {
+      if (status !== "all" && walkInStatusLabel(row).toLowerCase() !== status) return false;
+      return !search || [
+        row.order_no, row.customer_name || row.customer, row.address,
+        row.contact_number, row.client_type, row.client_type_other,
+        row.agency_organization, row.project_description,
+        row.project_description_other, row.item_detail || row.order_item,
+        row.payment || row.payment_method,
+      ].some((value) => String(value || "").toLowerCase().includes(search));
+    });
+  };
+
   const renderWalkInTable = () => {
     state.walkInPage = renderPagedRows({
-      rows: state.walkIn,
+      rows: getFilteredWalkInOrders(),
       tbody: walkInOrdersTbody,
       colCount: 14,
       footer: walkInOrdersFooter,
       currentPage: state.walkInPage,
       pageSize: PAGE_SIZE,
-      emptyMessage: "No walk-in orders available.",
+      emptyMessage: walkInOrdersSearch?.value.trim() || (walkInOrdersStatusFilter?.value || "all") !== "all"
+        ? "No walk-in orders match these filters."
+        : "No walk-in orders available.",
       renderRow: (row) => {
         const canArchive = isWalkInCompleted(row);
         const isSettled = ["completed", "cancelled", "archived"].includes(
@@ -4912,7 +4931,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   walkInPager.next?.addEventListener("click", () => {
-    const totalPages = Math.max(1, Math.ceil(state.walkIn.length / PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(getFilteredWalkInOrders().length / PAGE_SIZE));
     if (state.walkInPage >= totalPages) return;
     state.walkInPage += 1;
     renderWalkInTable();
@@ -4997,7 +5016,7 @@ document.addEventListener("DOMContentLoaded", () => {
   window.AdminPageNumberInput?.bind(walkInPager.pageNumber, {
     getPage: () => state.walkInPage,
     getTotalPages: () =>
-      Math.max(1, Math.ceil(state.walkIn.length / PAGE_SIZE)),
+      Math.max(1, Math.ceil(getFilteredWalkInOrders().length / PAGE_SIZE)),
     onChange: (page) => {
       state.walkInPage = page;
       renderWalkInTable();
@@ -5032,6 +5051,16 @@ document.addEventListener("DOMContentLoaded", () => {
   directorySearch?.addEventListener("input", () => {
     state.directoryPage = 1;
     renderDirectoryTable();
+  });
+
+  walkInOrdersSearch?.addEventListener("input", () => {
+    state.walkInPage = 1;
+    renderWalkInTable();
+  });
+
+  walkInOrdersStatusFilter?.addEventListener("change", () => {
+    state.walkInPage = 1;
+    renderWalkInTable();
   });
 
   paymentsMethodFilter?.addEventListener("change", () => {
