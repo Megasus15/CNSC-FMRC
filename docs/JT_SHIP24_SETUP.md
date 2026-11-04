@@ -4,7 +4,9 @@
 
 New delivery orders use J&T Express and the existing provider-hosted online payment flow. Cash on pickup and historical COD records remain supported. Staff physically hands the parcel to J&T, then records its actual waybill in Orders. FMRC retains the customer's accepted shipping fee; the optional branch charge is internal only.
 
-**Automatic tracking is inactive, as requested.** No Ship24 account, credentials, or real Philippine waybill has been verified. This implementation does not book J&T transport, generate a waybill, collect COD, or report driver GPS. It does not require direct J&T API credentials.
+The software flow is implemented. **Automatic tracking remains gated until a real Philippine waybill is verified and an Admin activates it.** This implementation does not book J&T transport, generate a waybill, collect COD, or report driver GPS. It does not require direct J&T API credentials.
+
+Hosted setup evidence from November 3, 2026: operator screenshots show account configuration, the active `jt-express-ph` carrier verified, a successful Ship24 test callback (HTTP 202), and background processing running. The first real waybill remains outstanding. These screenshots establish setup progress; they do not establish a completed live payment, actual parcel tracking, or customer notification receipt. Public checkout and tracking scripts were compared with the tested canonical source and matched. Refresh Shipping & Delivery for the current authenticated status.
 
 ## Operator flow
 
@@ -46,6 +48,8 @@ The existing scheduler must execute every minute:
 ```cron
 * * * * * cd /absolute/path/to/backend && php artisan schedule:run >> /dev/null 2>&1
 ```
+
+On the current Hostinger deployment, existing PWA/payment jobs are scheduled separately and the operator added a minute job for `php /absolute/path/to/backend/artisan shipments:process`. Keep that arrangement; do not add the full scheduler alongside those jobs. Empty cron output is expected on a successful run. Use Shipping & Delivery's background-processing heartbeat to confirm execution.
 
 `shipments:process` runs through this scheduler with a lock shared by registration verification. It processes a bounded inbox, registrations, reconciliation, unsubscribes, and notification retries. The scheduler also retains the existing payment and PWA commands. Configure working mail transport and run the existing PWA processor for push delivery. SMTP now has a default 10-second timeout (`MAIL_TIMEOUT` may override it).
 
@@ -104,5 +108,12 @@ Local automated checks cover paid dispatch eligibility, test-payment isolation, 
 - New migration applied successfully to local MySQL. The worker ran successfully with zero registrations; health confirmed tracking is disabled and credentials are absent. Local HTTP checks confirmed HEAD 200 and byte-for-byte matching canonical JS/CSS. Local checks are not hosted deployment verification.
 
 Before a live release, verify actual served JS/CSS and cache URLs, HTTPS HEAD/POST, proxy Authorization forwarding, minute scheduler behavior, mail/push receipt, hosted live payment, and the real J&T Daet parcel lifecycle. Those external checks remain outstanding while tracking is inactive.
+
+### Connected-flow audit, November 3, 2026
+
+- 144 focused backend tests passed (1,266 assertions) across payments, shipping quotes, method availability, Ship24, and legacy courier compatibility.
+- `OrderDeliveryFlowTest` additionally passed 81 assertions through customer checkout, signed provider-confirmed payment, Staff approval, idempotent handover, gated tracker verification/activation, customer notification creation, courier callbacks, changed customer ETags, and separate customer receipt. Provider responses are simulated in an isolated database; no charge or real shipment is created. Duplicate callbacks preserve one receipt and one milestone, and the branch charge cannot change the accepted customer shipping fee.
+- 68 focused frontend tests and the real Chrome responsive fixture passed, including automatic totals, Admin/Staff shipment controls, and the Customer timeline.
+- The tested public checkout and tracking scripts matched the canonical source. Authenticated hosted payment and real-parcel validation remain operator tasks.
 
 Provider references: [API schema](https://docs.ship24.com/assets/openapi/ship24-tracking-api.yaml), [courier requirements](https://docs.ship24.com/couriers), [webhook setup](https://help.ship24.com/en/article/setting-up-webhooks-for-the-tracking-api-1iaiqes/), [date formats](https://docs.ship24.com/data-format), [pricing](https://help.ship24.com/en/article/ship24-pricing-and-plans-explained-425d9d/).

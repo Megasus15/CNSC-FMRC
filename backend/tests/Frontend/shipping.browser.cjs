@@ -205,13 +205,27 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
     assert.equal(await run(`document.getElementById('shippingPublish').disabled`),false,'Saved, reviewed settings can be published');
     await run(`document.getElementById('shippingPublish').click()`);await confirm('Publish Shipping Settings');await until(`document.getElementById('shippingPublished').textContent.includes('85.50')&&document.getElementById('shippingPublish').disabled`);
     assert.match(await run(`document.getElementById('shippingPublishHint').textContent`),/already published/);
-    for(const portal of ['admin','staff'])for(const width of [390,768,1440])for(const theme of ['light','dark']){
+    for(const portal of ['admin','staff'])for(const width of [320,390,768,1440])for(const theme of ['light','dark']){
       await cdp.send('Emulation.setDeviceMetricsOverride',{width,height:900,deviceScaleFactor:1,mobile:false});await navigate('/'+portal+'-page/website-shipping.html');
       await until(`document.getElementById('shippingPublished').textContent.includes('85.50')&&!document.querySelector('.website-section-loading,.fmrc-load-veil.is-on')`);
       await run(`document.documentElement.dataset.theme=${JSON.stringify(theme)};Promise.all(document.getAnimations().filter(a=>a.effect?.getTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})))`);
       assert.equal(await run(`document.documentElement.scrollWidth>innerWidth+1`),false,portal+' shipping '+width+theme);
       assert.equal(await run(`document.getElementById('shippingEditor').hidden`),portal==='staff');
       if(portal==='staff')assert.equal(await run(`getComputedStyle(document.getElementById('shippingSaveBar')).display`),'none');
+      await until(`document.querySelector('[data-tracking-refresh]')&&!document.querySelector('[data-tracking-refresh]').disabled`);
+      const actionRows=await run(`Array.from(document.querySelectorAll('.shipping-action-row,.shipping-save-actions,.shipping-zone-heading,.shipping-page .page-toolbar')).flatMap(row=>{
+        if(!row.getBoundingClientRect().height)return [];
+        const right=row.getBoundingClientRect().right-parseFloat(getComputedStyle(row).paddingRight||0);
+        const lines=new Map();
+        row.querySelectorAll(':scope > button.btn-admin,:scope > a.btn-admin').forEach(button=>{
+          if(!button.getBoundingClientRect().height)return;
+          const rect=button.getBoundingClientRect(),key=Math.round(rect.top);
+          lines.set(key,{row:row.className,gap:right-rect.right,label:button.textContent.trim()});
+        });
+        return [...lines.values()];
+      })`);
+      assert(actionRows.length>0);actionRows.forEach(row=>assert(Math.abs(row.gap)<2,'Right-aligned action at '+portal+' '+width+' '+theme+': '+JSON.stringify(row)));
+      if(portal==='admin')assert.equal(await run(`getComputedStyle(document.getElementById('shippingSaveBar')).display!=='none'&&document.getElementById('shippingSaveBar').parentElement===document.body`),true,'Docked save actions retain their layout outside the page section');
       if(width!==768)await shot(portal+'-settings-'+width+'-'+theme);
       if(portal==='admin'&&width!==768){
         await until(`!document.getElementById('shipping-0-province-search').disabled`);
@@ -224,7 +238,7 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
       }
       assert.deepEqual(await run('fixtureErrors'),[]);
     }
-    console.log('Verified saved draft, approval publication, reload persistence, Staff read access, and 12 settings layouts.');
+    console.log('Verified saved draft, approval publication, reload persistence, Staff read access, and right-aligned actions in 16 settings layouts.');
     for(const page of ['transaction-terms','refund-policy']){
       await navigate('/products-page/'+page+'.html');
       await until(`document.getElementById('policyDocument').getAttribute('aria-busy')==='false'&&!document.documentElement.classList.contains('fmrc-booting')&&!document.querySelector('.fmrc-load-boot')`);

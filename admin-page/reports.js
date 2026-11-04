@@ -1688,10 +1688,11 @@
         <span class="official-footer-page">Page ${pageNumber} of ${totalPages}</span>
       </footer>`;
 
-    const buildOfficialPage = (body, pageNumber, totalPages, className = "", category = "") => `
-      <article class="official-report-page ${className}" data-report-page="${pageNumber}" aria-label="Report page ${pageNumber} of ${totalPages}">
+    const buildOfficialPage = (body, pageNumber, totalPages, className = "", category = "", certificationData = null) => `
+      <article class="official-report-page ${className}${certificationData ? " has-final-certification" : ""}" data-report-page="${pageNumber}" aria-label="Report page ${pageNumber} of ${totalPages}">
         ${buildOfficialHeader(category)}
         ${body}
+        ${certificationData ? buildCertificationBlock(certificationData) : ""}
         ${buildOfficialFooter(pageNumber, totalPages)}
       </article>`;
 
@@ -1767,12 +1768,11 @@
             </section>
           </div>
           ${emptyDetails}
-          ${buildCertificationBlock(data)}
         </main>`;
     };
 
     /**
-     * Certification footer for the summary sheet: the three signatories every
+     * Certification for the final sheet: the three signatories every
      * official UCN document carries, plus the document-control line. Names are
      * editable; a blank Prepared by falls back to the account that generated the
      * report so the sheet is never unsigned.
@@ -1955,7 +1955,7 @@
       ];
     };
 
-    const buildPreviewMarkup = (data, detailGroups) => {
+    const buildPreviewMarkup = (data, detailGroups, certificationData = null) => {
       const totalPages = 1 + detailGroups.length;
       const pages = [
         buildOfficialPage(
@@ -1964,6 +1964,7 @@
           totalPages,
           "official-report-summary-page",
           data.report.category,
+          detailGroups.length ? null : certificationData,
         ),
       ];
       detailGroups.forEach((fragments, index) => {
@@ -1975,6 +1976,7 @@
             totalPages,
             "official-report-detail-page",
             data.report.category,
+            index === detailGroups.length - 1 ? certificationData : null,
           ),
         );
       });
@@ -2125,7 +2127,16 @@
       return groups;
     };
 
-    const renderMeasuredPreview = async (data) => {
+    // The certification is a sibling of the scalable content. Reserve its
+    // actual height before measuring rows, including after fonts have loaded.
+    const reserveCertificationSpace = () => {
+      elements.previewContent.querySelectorAll(".has-final-certification").forEach((page) => {
+        const certification = page.querySelector(".official-report-certification");
+        page.style.setProperty("--report-certification-height", `${certification.offsetHeight}px`);
+      });
+    };
+
+    const renderMeasuredPreview = async (data, certificationData = null) => {
       const detailGroups = await measureDetailGroups(data);
       const maximumPasses = Math.min(
         2000,
@@ -2133,9 +2144,10 @@
       );
 
       for (let pass = 0; pass < maximumPasses; pass += 1) {
-        elements.previewContent.innerHTML = buildPreviewMarkup(data, detailGroups);
+        elements.previewContent.innerHTML = buildPreviewMarkup(data, detailGroups, certificationData);
         await waitForDocumentAssets(elements.previewContent);
         await nextPaint();
+        reserveCertificationSpace();
 
         const pageNodes = Array.from(
           elements.previewContent.querySelectorAll(".official-report-detail-page"),
@@ -2176,9 +2188,10 @@
         if (!paginationChanged) break;
       }
 
-      elements.previewContent.innerHTML = buildPreviewMarkup(data, detailGroups);
+      elements.previewContent.innerHTML = buildPreviewMarkup(data, detailGroups, certificationData);
       await waitForDocumentAssets(elements.previewContent);
       await nextPaint();
+      reserveCertificationSpace();
       const summaryBody = elements.previewContent.querySelector(
         ".official-report-summary-content",
       );
@@ -2186,6 +2199,7 @@
       if (summaryBody && summaryPage && summaryBody.scrollHeight > summaryBody.clientHeight + 1) {
         summaryPage.classList.add("is-summary-condensed");
         await nextPaint();
+        reserveCertificationSpace();
         scalePageBodyToFit(summaryBody);
       }
       elements.previewContent
@@ -2232,12 +2246,12 @@
 
       elements.previewTitle.textContent = state.reportData.report.title;
       const data = state.reportData;
-      await renderMeasuredPreview(data);
-      if (data.additional_tables?.length) {
+      const additionalTables = asArray(data.additional_tables).filter((table) => table.rows.length);
+      await renderMeasuredPreview(data, additionalTables.length ? null : data);
+      if (additionalTables.length) {
         const pages = Array.from(elements.previewContent.querySelectorAll(".official-report-page"));
-        for (const table of data.additional_tables) {
-          if (!table.rows.length) continue;
-          await renderMeasuredPreview({ ...data, table });
+        for (const [index, table] of additionalTables.entries()) {
+          await renderMeasuredPreview({ ...data, table }, index === additionalTables.length - 1 ? data : null);
           pages.push(...elements.previewContent.querySelectorAll(".official-report-detail-page"));
         }
         const stack = document.createElement("div");

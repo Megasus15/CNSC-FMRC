@@ -27,6 +27,7 @@
 .shipping-weekdays input { margin: 0; }
 .shipping-zone { border: 1px solid var(--border-color); border-radius: 10px; padding: 20px; margin: 16px 0; }
 .shipping-zone-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.shipping-zone-heading > button { margin-inline-start: auto; }
 .shipping-zone-heading h4 { margin: 0; }
 .shipping-zone-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
 .shipping-page .field-stack label { display: block; margin-bottom: 7px; font-size: .8rem; font-weight: 600; }
@@ -56,7 +57,12 @@
 #shippingPublishHint { font-size: .78rem; }
 #shippingSaveBar { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
 #shippingSaveBar[hidden] { display: none !important; }
-.shipping-save-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.shipping-action-row,.shipping-save-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.shipping-action-row { margin-top: 12px; }
+.shipping-action-row:has(> :only-child[hidden]) { display: none; }
+.shipping-page .page-toolbar > .btn-admin { margin-inline-start: auto; align-self: flex-end; }
+.shipping-page :is(.shipping-action-row,.shipping-save-actions) > .btn-admin,
+#shippingSaveBar .shipping-save-actions > .btn-admin { flex: 0 1 auto; width: auto; min-width: 0; max-width: 100%; white-space: normal; }
 @media(max-width:900px) { .shipping-calendar { grid-template-columns: 1fr; } .shipping-section-heading { flex-wrap: wrap; } }
 @media(max-width:720px) {
   .shipping-zone-fields { grid-template-columns: 1fr; }
@@ -66,12 +72,11 @@
   .shipping-facts { flex-direction: column; gap: 10px; }
   #shippingSaveBar { flex-wrap: wrap; gap: 10px; }
   #shippingSaveBar > p { flex: 1 1 100%; margin: 0; }
-  #shippingSaveBar .shipping-save-actions { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
-  #shippingSaveBar .btn-admin { width: 100%; min-width: 0; white-space: nowrap; }
+  #shippingSaveBar .shipping-save-actions { width: 100%; }
 }
 .shipping-tracking-facts { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 18px; margin: 22px 0; }
 .shipping-tracking-facts dt { color: var(--text-muted); font-size: .78rem; margin-bottom: 5px; }
 .shipping-tracking-facts dd { margin: 0; font-size: .88rem; font-weight: 600; overflow-wrap: anywhere; }
 .shipping-tracking-status .shipping-save-actions { flex-wrap: wrap; }
 .shipping-tracking-status a.btn-admin { text-decoration: none; }
-@media (max-width:480px) { .shipping-tracking-facts { grid-template-columns: 1fr; } .shipping-tracking-status .shipping-save-actions { display: grid; } }
+@media (max-width:480px) { .shipping-tracking-facts { grid-template-columns: 1fr; } }
