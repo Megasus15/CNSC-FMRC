@@ -691,11 +691,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (tableMeta) {
-      const from = source.length ? start + 1 : 0;
-      const to = source.length
-        ? Math.min(source.length, start + rowsPerPage)
-        : 0;
-      tableMeta.textContent = `Page ${currentPage} of ${pageCount} • Showing ${from}-${to} of ${source.length}`;
+      tableMeta.textContent = window.AdminTablePagination.label(currentPage, source.length, rowsPerPage);
     }
 
     if (currentPageEl) {

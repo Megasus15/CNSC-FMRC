@@ -201,7 +201,6 @@
 .portal-data-card {
   --table-card-accent: var(--primary-color, #800000);
   --table-card-tint: #f8e8e8;
-  --table-card-badge-line: #f2d0d0;
   --table-card-line: var(--border-color, #e5e7eb);
   min-width: 0;
   padding: 16px;
@@ -244,20 +243,33 @@
   font-size: .95rem;
 }
 
-.portal-table-count {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 10px;
-  border: 1px solid var(--table-card-badge-line);
-  border-radius: 20px;
-  background: var(--table-card-tint);
-  color: var(--table-card-accent);
-  font-size: .72rem;
-  font-weight: 700;
-  white-space: nowrap;
+.portal-table-header > :is(.filters-row, .inquiry-filters, .ratings-filters, .report-table-actions, input, select, .gateway-toolbar, .cp-toolbar) {
+  margin-inline-start: auto;
 }
 
-.portal-table-count[data-derived-count] { margin-inline-start: auto; }
+.portal-table-header > :is(.gateway-toolbar, .cp-toolbar) {
+  width: auto;
+  justify-content: flex-end;
+  margin-block: 0;
+}
+
+.portal-table-title .incoming-urgent {
+  margin-inline-start: 2px;
+  flex: 0 0 auto;
+}
+
+.incoming-panel-header .portal-table-title { flex-wrap: wrap; }
+
+@media (min-width: 721px) {
+  .portal-table-header > :is(.gateway-toolbar, .cp-toolbar) {
+    flex: 0 1 660px;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 720px) {
+  .portal-table-header > :is(.gateway-toolbar, .cp-toolbar) { width: 100%; }
+}
 
 .portal-data-card .portal-data-table { width: 100%; border-collapse: collapse; }
 .portal-data-card .portal-data-table :is(th, td) {
@@ -278,7 +290,6 @@
 html[data-theme="dark"] .portal-data-card {
   --table-card-accent: var(--portal-accent-text, var(--admin-field-focus, #f5b4bd));
   --table-card-tint: color-mix(in srgb, var(--table-card-accent) 9%, var(--surface, #252226));
-  --table-card-badge-line: color-mix(in srgb, var(--table-card-accent) 18%, var(--table-card-line));
   background: var(--surface, var(--portal-surface, #252226));
 }
 
@@ -518,6 +529,8 @@ html[data-theme="dark"] .portal-data-card {
 .table-footer-meta {
   font-size: 0.76rem;
   color: #68707a;
+  text-align: start;
+  margin-inline-end: auto;
 }
 
 .table-pagination {
@@ -1899,6 +1912,7 @@ input.page-number:focus,
   position: relative;
   width: min(100%, 360px);
   margin-bottom: 14px;
+  margin-inline-start: auto;
 }
 .archive-search-bar > i {
   position: absolute;
@@ -2786,7 +2800,7 @@ dialog.order-rejection-dialog::backdrop { background: rgba(30, 20, 20, .38); }
   font-size: 1rem;
 }
 
-/* ─── An empty table drops the furniture it no longer needs ─────────────────
+/* ─── Empty tables keep their record range and responsive column widths ────
    admin-common.js puts `is-table-empty` on four nodes the moment a tbody holds
    nothing but its own empty row: the table, its scroll host, the scroll hint
    above it and the footer below. Everything here wins on specificity rather
@@ -2798,7 +2812,7 @@ dialog.order-rejection-dialog::backdrop { background: rgba(30, 20, 20, .38); }
 
    Two halves, and only one of them applies at every width:
 
-   * The footer goes always. "Page 1 of 1" over no rows is furniture.
+   * The footer keeps the page and zero-record range visible at every width.
    * The width floors come off from 1025px up only. Below that an empty table
      keeps the same column widths it has with rows in it and scrolls sideways
      like any other: releasing the floors there left 14 headers sharing a ~340px
@@ -2808,10 +2822,9 @@ dialog.order-rejection-dialog::backdrop { background: rgba(30, 20, 20, .38); }
      out at `max-width: 1024px` — so the two sheets cannot drift apart.
    -------------------------------------------------------------------------- */
 
-/* "Page 1 of 1" over no rows is furniture, not information. */
 .table-footer.is-table-empty,
 .inv-cat-footer.is-table-empty {
-  display: none;
+  display: flex;
 }
 
 @media (min-width: 1025px) {

@@ -2,6 +2,50 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {browserFixture,chrome}=require('./helpers/website-browser.cjs');
 
+test('Portal table filters, ranges and empty states share the same layout', {skip:!chrome,timeout:120000}, async t=>{
+  const h = await browserFixture(t, async ({route,json}) => {
+    if (route === '/api/admin/products') {
+      json({data:Array.from({length:11},(_,i)=>({id:i+1,name:'Fixture '+String(i+1).padStart(2,'0'),category:'3D Print',code:'P-'+i,stock:5,price:100,stock_status:'in_stock'}))});return true;
+    }
+    if (route === '/api/services') { json({data:[]});return true; }
+    if (route === '/api/admin/custom-requests') { json({data:[],current_page:1,last_page:1,total:0,counts:{}});return true; }
+    return false;
+  });
+  for (const portal of ['admin-page','staff-page']) {
+    await h.send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
+    await h.go('/'+portal+'/products.html');
+    await h.until("document.getElementById('productTableMeta').textContent === 'Page 1 of 2 • Showing 1–10 of 11'");
+    await h.until("!document.getElementById('productSearchInput').closest('[inert]')");
+    assert.deepEqual(await h.run("[AdminTablePagination.label(2,11),AdminTablePagination.label(2,21,20),AdminTablePagination.label(1,0)]"),[
+      'Page 2 of 2 • Showing 11–11 of 11','Page 2 of 2 • Showing 21–21 of 21','Page 1 of 1 • Showing 0–0 of 0',
+    ]);
+    assert.equal(await h.run(`(() => {
+      const header=document.getElementById('productTable').closest('.panel').querySelector('.panel-header');
+      const tools=header.querySelector('.filters-row');
+      return Math.abs(header.getBoundingClientRect().right-tools.getBoundingClientRect().right)<2 && !header.querySelector('.portal-table-count');
+    })()`),true,portal+' product filters align to the right');
+    await h.run("document.querySelector('#productTableFooter .page-btn:last-child').click()");
+    await h.until("document.getElementById('productTableMeta').textContent === 'Page 2 of 2 • Showing 11–11 of 11'");
+    await h.run("const field=document.getElementById('productSearchInput');field.value='missing product';field.dispatchEvent(new Event('input',{bubbles:true}))");
+    await h.until("document.getElementById('productTableMeta').textContent === 'Page 1 of 1 • Showing 0–0 of 0'");
+    assert.notEqual(await h.run("getComputedStyle(document.getElementById('productTableFooter')).display"),'none');
+    await h.run("document.getElementById('productTable').closest('.panel').scrollIntoView({block:'center',behavior:'instant'})");
+    await h.shot(portal+'-product-list-filters');
+    await h.go('/'+portal+'/orders.html?custom_requests=1');
+    await h.until("!!document.querySelector('#customRequestsTable .table-empty-state')");
+    await h.until("!document.querySelector('#customRequestsTable').closest('[inert]')");
+    assert.equal(await h.run("document.querySelector('#sectionCustomRequests .table-footer-meta').textContent"),'Page 1 of 1 • Showing 0–0 of 0');
+    assert.equal(await h.run("getComputedStyle(document.querySelector('#customRequestsTable .table-empty-state')).fontSize === getComputedStyle(document.querySelector('#ordersDirectoryTable .table-empty-state')).fontSize"),true);
+    assert.equal(await h.run("document.querySelector('.incoming-urgent').parentElement.matches('h3')"),true);
+    assert.equal(await h.run("document.querySelectorAll('.incoming-subtitle').length"),1);
+    for (const theme of ['light','dark']) {
+      await h.run(`document.documentElement.dataset.theme='${theme}'`);
+      await h.shot(portal+'-custom-empty-'+theme);
+    }
+  }
+  t.diagnostic('Table layout screenshots: '+h.artifacts);
+});
+
 test('Orders and Archives section tabs use balanced rows at portal widths', {skip:!chrome,timeout:120000}, async t=>{
   const h = await browserFixture(t);
   const rowSizes = id => h.run(`(() => {
@@ -134,7 +178,8 @@ test('Custom requests keep drafts, consent and responsive operator workflows con
     assert.equal(await h.run("!!document.querySelector('#sectionCustomRequests [data-list-filters] button[type=submit]')"),false);
     await h.until("document.querySelector('#sectionCustomRequests [data-search]')?.getClientRects().length && !document.querySelector('#sectionCustomRequests [data-search]').closest('[inert]')");
     await h.run("(()=>{const input=document.querySelector('#sectionCustomRequests [data-search]');input.focus();input.value='does not match';input.dispatchEvent(new Event('input',{bubbles:true}));window.customSearchInput=input;})()");
-    await h.until("document.querySelector('#sectionCustomRequests [data-table-count]')?.textContent === '0 requests'");
+    await h.until("document.querySelector('#sectionCustomRequests .table-footer-meta')?.textContent === 'Page 1 of 1 • Showing 0–0 of 0'");
+    assert.equal(await h.run("!!document.querySelector('#sectionCustomRequests .table-empty-state i')"),true);
     assert.equal(await h.run("window.customSearchInput.isConnected && document.activeElement === window.customSearchInput ? true : document.activeElement.outerHTML.slice(0,160)"),true,portal+' retains search focus');
     await h.run("(()=>{const input=window.customSearchInput;input.value='';input.dispatchEvent(new Event('input',{bubbles:true}));})()");
     await h.until("!!document.querySelector('#sectionCustomRequests [data-open]')");

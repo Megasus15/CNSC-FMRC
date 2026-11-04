@@ -342,6 +342,13 @@ test('all portal pages render both themes; account-scoped settings synchronize l
           await checkLogout(theme,`${folder}/${file}`);
           const uncoveredTables = await evaluate(`Array.from(document.querySelectorAll('table:is(.admin-table, .inv-variant-table, .analytics-perf-table, .return-items-table, .shipping-table):not(.portal-data-table)'), table => table.id || table.className)`);
           assert.deepEqual(uncoveredTables, [], `${folder}/${file} ${theme}: Inventory table styling covers operational tables`);
+          assert.equal(await evaluate('document.querySelectorAll(".portal-table-count, .inv-category-header .inv-category-badge").length'), 0, `${folder}/${file}: record counts belong in table footers`);
+          const inconsistentFooters = await evaluate(`Array.from(document.querySelectorAll('.table-footer-meta, .inv-cat-footer-meta'))
+            .map(node => node.textContent.trim()).filter(text => /^(Page|Showing)\\s/.test(text) && !/^Page \\d+ of \\d+ • Showing \\d+–\\d+ of \\d+$/.test(text))`);
+          assert.deepEqual(inconsistentFooters, [], `${folder}/${file}: page and visible range use the common footer format`);
+          if (file === 'archives.html') {
+            assert.equal(await evaluate(`Array.from(document.querySelectorAll('.archive-section .portal-table-title')).every(title => title.textContent.trim().startsWith('Archived'))`), true, folder + ' archive headings lead with their title');
+          }
           if (await evaluate('!!document.querySelector(".wm-save-bar[data-dock-save-bar]")')) await checkBottomBar(`${folder}/${file} ${theme}`,'.wm-save-bar');
           const report = await evaluate(`(() => { const selectors=['body','.sidebar','.top-header','.panel','.account-summary-card','.account-form-card','.modal-card','.wm-section','.settings-section','.admin-global-skeleton-card'];return selectors.flatMap(selector=>[...document.querySelectorAll(selector)].slice(0,3).map(el=>{const s=getComputedStyle(el);return {selector,background:s.backgroundColor,color:s.color}})); })()`);
           report.forEach(item => { const rgb = item.background.match(/[\d.]+/g)?.map(Number); if (!rgb || rgb[3] === 0) return; const mean = (rgb[0]+rgb[1]+rgb[2])/3; assert(theme === 'dark' ? mean < 90 : mean > 180, `${folder}/${file} ${theme} ${item.selector}: ${item.background}`); });
@@ -407,7 +414,7 @@ test('all portal pages render both themes; account-scoped settings synchronize l
       assert.equal(before.parent,'productPerformanceCard');
       assert(before.bottom >= 0 && before.bottom < 45, `${folder} ${width}: pagination sits above only the caption`);
       await evaluate('document.getElementById("productPerformancePage").value="3";document.getElementById("productPerformancePage").dispatchEvent(new Event("change",{bubbles:true}))');
-      await wait('document.getElementById("productPerformanceMeta").textContent.includes("21-23")');
+      await wait('document.getElementById("productPerformanceMeta").textContent.includes("21–23")');
       const after = await evaluate(geometry);
       assert(Math.abs(before.bottom-after.bottom)<1,`${folder} ${width}: short-page footer stays at the card edge`);
       const beforeScroll = await evaluate('document.getElementById("productPerformanceFooter").getBoundingClientRect().top');

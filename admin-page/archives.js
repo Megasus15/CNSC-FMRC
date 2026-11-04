@@ -405,13 +405,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     if (variants.length > PAGE_SIZE) {
-      const variantFrom = variantStart + 1;
-      const variantTo = Math.min(variantStart + PAGE_SIZE, variants.length);
       html += `<tr class="inv-variant-row inv-variant-pagination-row" data-parent-inv="${item.source_id}" style="display:none;">
         <td class="admin-bulk-select-cell"></td>
         <td colspan="10">
           <div class="table-footer" style="padding:6px 0;background:transparent;border:0;">
-            <div class="table-footer-meta">Showing ${variantFrom}&ndash;${variantTo} of ${variants.length} variants</div>
+            <div class="table-footer-meta">${window.AdminTablePagination.label(variantPage, variants.length, PAGE_SIZE)}</div>
             <div class="table-pagination" aria-label="${esc(item.item_name)} archived variant pages">
               <button type="button" class="page-btn" data-archive-variant-prev="${item.source_id}" ${variantPage <= 1 ? "disabled" : ""} aria-label="Previous archived variant page"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
               <input class="page-number" data-archive-variant-page="${item.source_id}" type="number" min="1" max="${variantTotalPages}" value="${variantPage}" inputmode="numeric" aria-label="Go to archived variant page for ${esc(item.item_name)}" />
@@ -592,10 +590,8 @@ document.addEventListener("DOMContentLoaded", () => {
       window.AdminPageNumberInput?.upgrade(config.tbody);
     }
 
-    const from = rows.length ? (state[module].page - 1) * PAGE_SIZE + 1 : 0;
-    const to = Math.min(rows.length, state[module].page * PAGE_SIZE);
     if (config.meta) {
-      config.meta.textContent = `Page ${state[module].page} of ${pages} • Showing ${from}–${to} of ${rows.length}`;
+      config.meta.textContent = window.AdminTablePagination.label(state[module].page, rows.length, PAGE_SIZE);
     }
     if (config.pageNumber) {
       config.pageNumber.value = String(state[module].page);

@@ -806,7 +806,7 @@
         <tr class="table-empty-row">
           <td><div class="table-empty-state"><i class="fa-solid fa-circle-exclamation"></i><span>${escapeHtml(message)}</span></div></td>
         </tr>`;
-      elements.tableMeta.textContent = "Page 1 of 1";
+      elements.tableMeta.textContent = window.AdminTablePagination.label(1, 0, REPORT_PAGE_SIZE);
       elements.resultBanner.hidden = true;
       syncActionButtons();
     };
@@ -1041,9 +1041,7 @@
           .join("");
       }
 
-      const firstShown = rows.length ? start + 1 : 0;
-      const lastShown = Math.min(start + REPORT_PAGE_SIZE, rows.length);
-      elements.tableMeta.textContent = `Page ${state.currentPage} of ${totalPages} · Showing ${firstShown}–${lastShown} of ${rows.length} records`;
+      elements.tableMeta.textContent = window.AdminTablePagination.label(state.currentPage, rows.length, REPORT_PAGE_SIZE);
       elements.pageNumber.value = String(state.currentPage);
       elements.pageNumber.max = String(totalPages);
       elements.prevPage.disabled = state.currentPage <= 1;

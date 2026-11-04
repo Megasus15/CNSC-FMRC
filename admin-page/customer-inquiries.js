@@ -255,7 +255,7 @@ document.addEventListener("DOMContentLoaded", () => {
         </td>
       </tr>
     `;
-    pageMeta.textContent = "Page 1 of 1";
+    pageMeta.textContent = window.AdminTablePagination.label(1, 0, PAGE_SIZE);
     pageNumber.value = "1";
     pageNumber.max = "1";
     prevBtn.disabled = true;
@@ -309,7 +309,7 @@ document.addEventListener("DOMContentLoaded", () => {
       })
       .join("");
 
-    pageMeta.textContent = `Page ${state.currentPage} of ${totalPages}`;
+    pageMeta.textContent = window.AdminTablePagination.label(state.currentPage, rows.length, PAGE_SIZE);
     pageNumber.value = String(state.currentPage);
     pageNumber.max = String(totalPages);
     prevBtn.disabled = state.currentPage <= 1;

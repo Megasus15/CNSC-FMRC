@@ -672,9 +672,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (tableMeta) {
-      const from = source.length ? start + 1 : 0;
-      const to = source.length ? Math.min(source.length, start + PAGE_SIZE) : 0;
-      tableMeta.textContent = `Page ${currentPage} of ${totalPages} • Showing ${from}–${to} of ${source.length} products`;
+      tableMeta.textContent = window.AdminTablePagination.label(currentPage, source.length, PAGE_SIZE);
     }
     if (currentPageEl) {
       currentPageEl.value = String(currentPage);
@@ -1262,7 +1260,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .join("");
 
     if (meta) {
-      meta.textContent = `Showing ${start + 1}-${Math.min(start + PAGE_SIZE, productPerformanceRows.length)} of ${productPerformanceRows.length} products`;
+      meta.textContent = window.AdminTablePagination.label(productPerformancePage, productPerformanceRows.length, PAGE_SIZE);
     }
     if (pageInput) {
       pageInput.value = String(productPerformancePage);

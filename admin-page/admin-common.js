@@ -552,6 +552,15 @@ document.documentElement.classList.add("fmrc-admin-portal");
     };
   };
 
+  const label = (page, totalItems, pageSize = PAGE_SIZE) => {
+    const total = Math.max(0, Number(totalItems) || 0);
+    const size = Math.max(1, Number.parseInt(pageSize, 10) || PAGE_SIZE);
+    const pages = Math.max(1, Math.ceil(total / size));
+    const current = Math.min(pages, Math.max(1, Number.parseInt(page, 10) || 1));
+    const start = (current - 1) * size;
+    return `Page ${current} of ${pages} • Showing ${total ? start + 1 : 0}–${Math.min(start + size, total)} of ${total}`;
+  };
+
   window.AdminTablePagination = Object.freeze({
     PAGE_SIZE,
     MAX_PAGE_SIZE,
@@ -560,6 +569,7 @@ document.documentElement.classList.add("fmrc-admin-portal");
     clampPage,
     bounds,
     slice,
+    label,
   });
 })();
 
@@ -4819,7 +4829,7 @@ document.addEventListener("DOMContentLoaded", () => {
         pageNumber.max = String(totalPages);
       }
       if (pageMeta)
-        pageMeta.textContent = `Page ${currentPage} of ${totalPages}`;
+        pageMeta.textContent = window.AdminTablePagination.label(currentPage, filteredRows.length, pageSize);
       if (prevButton) prevButton.disabled = currentPage <= 1;
       if (nextButton) nextButton.disabled = currentPage >= totalPages;
     };
@@ -4883,6 +4893,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (header.matches(".inv-category-header")) return;
 
     header.classList.add("portal-table-header");
+    for (const toolbar of card.querySelectorAll(".gateway-toolbar")) {
+      if (toolbar.closest(cards) === card && toolbar.parentElement !== header) header.append(toolbar);
+    }
     let title = header.querySelector("h2, h3, h4");
     if (!title && header.matches(".inv-view-section-title")) {
       title = document.createElement("h4");
@@ -4898,21 +4911,6 @@ document.addEventListener("DOMContentLoaded", () => {
       title.prepend(icon);
     }
 
-    if (header.querySelector("[data-table-count]")) return;
-    let badge = header.querySelector("[data-derived-count]");
-    if (!badge) {
-      badge = document.createElement("span");
-      badge.className = "portal-table-count";
-      badge.dataset.derivedCount = "";
-      header.append(badge);
-    }
-    const meta = [...card.querySelectorAll(".table-footer-meta")].find((node) => node.closest(cards) === card && !node.closest("table"));
-    const total = meta?.textContent.match(/\bShowing\b[^•·]*\bof\s+([\d,]+)/i)?.[1];
-    const rowCount = Array.from(table.tBodies).flatMap((body) => Array.from(body.rows))
-      .filter((row) => !row.hidden && row.style.display !== "none" && !row.matches(".table-empty-row, .admin-table-skeleton-row, [aria-hidden='true']") &&
-        !(row.cells.length === 1 && row.cells[0].colSpan > 1)).length;
-    const label = total ? `${total} records` : `${rowCount} shown`;
-    if (badge.textContent !== label) badge.textContent = label;
   };
 
   const pending = new Set();
@@ -4922,14 +4920,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const table = node.closest(tables);
     if (table) pending.add(table);
     node.querySelectorAll(tables).forEach((item) => pending.add(item));
-    if (node.matches(".table-footer-meta")) node.closest(cards)?.querySelectorAll(tables).forEach((item) => pending.add(item));
   };
   document.querySelectorAll(tables).forEach(syncTable);
   new MutationObserver((changes) => {
     for (const change of changes) {
       const target = change.target;
       if (target instanceof Element && target.closest(tables)) pending.add(target.closest(tables));
-      if (target instanceof Element && target.matches(".table-footer-meta")) queue(target);
       change.addedNodes.forEach(queue);
     }
     if (pending.size && !frame) {

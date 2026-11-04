@@ -7,7 +7,7 @@ This change adds private custom requests, versioned quotations, hosted full paym
 Deploy the source assets in `products-page`, `services-page`, `home-page`, `customer-auth`, `admin-page`, and `staff-page`, and the changed Laravel application files, routes, migration, and console command. The normal website and Customer/Team PWA routes resolve these same source files through `PwaAssetController` and the existing Apache aliases. Do not copy the recursive legacy `backend/public/frontend` tree over the source pages.
 
 1. In hPanel, open the active website's File Manager and confirm which folder contains the live `backend/artisan`. Export its database through **Databases → phpMyAdmin → Export** and keep the export privately. Back up the deployed application files and the private upload directory. Confirm your Hostinger Git deployment configuration before pushing through GitHub Desktop.
-2. Upload or deploy the reviewed revision, including both new PHP schema files, the migration, and all changed customer and operator assets. Preserve the live `backend/.env` and storage. Confirm the deployed revision in hPanel and check that the served Custom Products and shared table assets use version `2026.1104.2`.
+2. Upload or deploy the reviewed revision, including both new PHP schema files, the migration, and all changed customer and operator assets. Preserve the live `backend/.env` and storage. Confirm the deployed revision in hPanel and check that the served Custom Products and shared table assets use version `2026.1104.3`.
 3. Open Hostinger SSH or a terminal connected to the hosting account. Change into the active `backend` directory identified in File Manager. Check where you are and inspect migration status. These commands are read-only.
 
    ```sh

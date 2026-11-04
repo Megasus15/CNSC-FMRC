@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const base = (window.APP_API_BASE_URL || ((['localhost','127.0.0.1'].includes(location.hostname) && location.port !== '8000') ? location.protocol + '//' + location.hostname + ':8000/api' : location.origin + '/api')).replace(/\/$/, '');
   const panel = document.createElement('article'); panel.className = 'panel gateway-team';
   panel.innerHTML = `<div class="panel-header"><h3>Online refunds</h3></div>
-    <div class="gateway-content"><p class="gateway-intro">QR Ph refund requests and updates. Admin issues refunds; Staff requests approval. Customers claim QR Ph refunds through PayMongo.</p>
+    <div class="gateway-content">
     <div class="gateway-stats" data-gateway-stats aria-label="Refund overview"></div>
     <div class="gateway-health" data-gateway-health role="status">Loading refund status...</div>
     <div class="gateway-toolbar"><label class="gateway-search">Find an order or customer<input type="search" maxlength="100" placeholder="Order number or customer name" data-gateway-search></label>
@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
   tabs?.insertBefore(cancelShortcut,tabs.children[1] || refundShortcut);
   const cancelAlert=document.createElement('button');cancelAlert.type='button';cancelAlert.className='cancellation-alert';cancelAlert.hidden=true;tabs?.before(cancelAlert);
   const cancelWorkspace=document.createElement('section');cancelWorkspace.id='sectionCancellations';cancelWorkspace.className='archive-section';cancelWorkspace.hidden=true;
-  cancelWorkspace.innerHTML=`<article class="panel cancellation-panel"><div class="panel-header"><div><h3>Customer cancellations</h3><p>Review the customer's reason, then approve or decline the cancellation. Paid online orders also need a refund.</p></div></div>
+  cancelWorkspace.innerHTML=`<article class="panel cancellation-panel"><div class="panel-header"><div><h3>Customer cancellations</h3></div></div>
     <p class="gateway-intro" data-cancel-result role="status" hidden></p><div class="gateway-toolbar"><label class="gateway-search">Find a cancellation<input type="search" data-cancel-search placeholder="Order, customer or reason"></label><label class="gateway-filter">Status<select data-cancel-filter><option value="requested">Awaiting decision</option><option value="all">All cancellations</option><option value="approved">Approved</option><option value="declined">Declined</option></select></label></div>
     <div class="table-scroll-hint table-scroll-hint--mobile"><i class="fa-solid fa-left-right" aria-hidden="true"></i> Scroll horizontally to see all columns.</div><div class="table-wrapper gateway-table-wrap"><table class="admin-table" id="orderCancellationsTable"><thead><tr><th>Order / customer</th><th>Requested</th><th>Customer's reason</th><th>Payment</th><th>Cancellation status</th><th class="sticky-action">Actions</th></tr></thead><tbody data-cancellation-list><tr><td colspan="6">Loading cancellations...</td></tr></tbody></table></div>
     <div class="table-footer"><span class="table-footer-meta" data-cancel-page></span><div class="table-pagination"><button class="page-btn" type="button" data-cancel-prev aria-label="Previous cancellations page"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button><input class="page-number" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to cancellations page" data-cancel-page-input><button class="page-btn" type="button" data-cancel-next aria-label="Next cancellations page"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button></div></div></article>`;
@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const paid=o.payment_status==='paid',automated=o.payment_is_automated;
       return `<tr><td><strong>${esc(o.order_no_display || o.order_no)}</strong><small>${esc(o.customer_name)}</small></td><td>${esc(dateLabel(o.cancel_requested_at))}</td><td>${esc(cancellationReason(o) || 'No reason recorded')}<small>${esc(o.cancel_decision_note || '')}</small></td><td>${esc(o.payment_method_label || o.payment_method)}<small>${esc(paid?'Paid':readable(o.payment_status))} &middot; ${money(Math.round(Number(o.total_amount || o.total || 0)*100))}</small></td><td><span class="status-pill ${statusClass(o.cancel_pending?'requested':o.cancel_state)}" data-status="${o.cancel_pending?'requested':esc(o.cancel_state)}">${esc(o.cancel_pending?'Awaiting decision':o.cancel_state_label || readable(o.cancel_state))}</span></td><td class="action-icons sticky-action gateway-actions">${o.cancel_pending?`<button class="gateway-primary" data-cancelapprove="${o.id}">${canApprove && automated && paid?'Cancel & refund':paid && automated?'Cancel & request refund':'Approve cancellation'}</button><button data-canceldecline="${o.id}">Decline</button>`:automated?`<button data-gateway-manage="${o.id}">Refund details</button>`:''}<button data-order-view="${o.id}">Order details</button></td></tr>`;
     }).join('') || emptyRow('No cancellations match these filters.');
-    cancelWorkspace.querySelector('[data-cancel-page]').textContent='Page '+cancelPage+' of '+pages;
+    cancelWorkspace.querySelector('[data-cancel-page]').textContent=window.AdminTablePagination.label(cancelPage, rows.length);
     cancelWorkspace.querySelector('[data-cancel-prev]').disabled=cancelPage===1;cancelWorkspace.querySelector('[data-cancel-next]').disabled=cancelPage===pages;
     styleActions(cancelWorkspace);
     const cancelInput=cancelWorkspace.querySelector('[data-cancel-page-input]'); cancelInput.value=cancelPage; cancelInput.max=pages;
@@ -195,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
           try {localStorage.setItem('fmrc_orders_updated_at',JSON.stringify(detail));realtimeChannel?.postMessage(detail);} catch {}
         }
       }
-      panel.querySelector('[data-page]').textContent = ' Page ' + page + ' of ' + pages + ' ';
+      panel.querySelector('[data-page]').textContent = window.AdminTablePagination.label(page, data.payments.total, data.payments.per_page || 20);
       panel.querySelector('[data-prev]').disabled = page <= 1; panel.querySelector('[data-next]').disabled = page >= pages;
       const paymentInput=panel.querySelector('[data-payment-page]'); paymentInput.value=page; paymentInput.max=pages;
       styleActions(panel);

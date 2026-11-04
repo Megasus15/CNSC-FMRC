@@ -14,7 +14,7 @@
     <title>Orders | UCN-FMRC Staff</title>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800;900&display=swap" />
     <link rel="stylesheet" href="../admin-page/dashboard.css?v=7.4" />
-    <link rel="stylesheet" href="../admin-page/admin-modules.css?v=2026.1104.2" />
+    <link rel="stylesheet" href="../admin-page/admin-modules.css?v=2026.1104.3" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
@@ -29,7 +29,7 @@
   <link rel="stylesheet" href="../admin-page/courier-shipments.css?v=2.0" />
     <link rel="stylesheet" href="../admin-page/admin-form-controls.css?v=2026.1104.2" />
     <script src="../admin-page/admin-form-controls.js?v=1.0" defer></script>
-  <link rel="stylesheet" href="../products-page/custom-products.css?v=2026.1104.2">
+  <link rel="stylesheet" href="../products-page/custom-products.css?v=2026.1104.3">
 </head>
   <body>
     <div class="dashboard-container">
@@ -142,10 +142,6 @@
           <div class="page-toolbar">
             <div class="toolbar-title">
               <h2>Orders Operations Center</h2>
-              <p>
-                Review incoming requests first, manage all order statuses in one
-                table, and monitor complete payment history.
-              </p>
             </div>
             <div class="toolbar-actions">
               <button
@@ -182,13 +178,13 @@
             <article class="panel incoming-orders-panel">
               <div class="panel-header incoming-panel-header">
                 <div>
-                  <h3>Incoming Orders</h3>
+                  <h3>Incoming Orders <span class="status-pill status-yellow incoming-urgent">Urgent Review</span></h3>
                   <p class="incoming-subtitle">
                     Prioritized queue. Review first, then move orders to
                     processing.
                   </p>
                 </div>
-                <span class="status-pill status-yellow">Urgent Review</span>
+
               </div>
 
               <div class="table-scroll-hint table-scroll-hint--mobile">
@@ -222,7 +218,7 @@
                 </table>
               </div>
               <div class="table-footer" id="incomingOrdersFooter">
-                <div class="table-footer-meta">Page 1 of 1</div>
+                <div class="table-footer-meta">Page 1 of 1 • Showing 0–0 of 0</div>
                 <div class="table-pagination">
                   <button class="page-btn" type="button" disabled aria-label="Previous incoming orders page">
                     <i class="fa-solid fa-chevron-left"></i>
@@ -280,7 +276,7 @@
                 </table>
               </div>
               <div class="table-footer" id="ordersDirectoryFooter">
-                <div class="table-footer-meta">Page 1 of 1</div>
+                <div class="table-footer-meta">Page 1 of 1 • Showing 0–0 of 0</div>
                 <div class="table-pagination">
                   <button class="page-btn" type="button" disabled>
                     <i class="fa-solid fa-chevron-left"></i>
@@ -308,7 +304,7 @@
                 </h3>
                 <span class="status-pill status-red">Rejected</span>
               </div>
-              <p class="incoming-subtitle">Unpaid rejections. Paid online orders: Online refunds. Paid cash and legacy payments: Manual refunds.</p>
+
               <div class="table-scroll-hint">
                 <i class="fa-solid fa-left-right"></i> Scroll horizontally to
                 see all columns.
@@ -339,7 +335,7 @@
                 </table>
               </div>
               <div class="table-footer" id="rejectedOrdersFooter">
-                <div class="table-footer-meta">Page 1 of 1</div>
+                <div class="table-footer-meta">Page 1 of 1 • Showing 0–0 of 0</div>
                 <div class="table-pagination">
                   <button class="page-btn" type="button" disabled>
                     <i class="fa-solid fa-chevron-left"></i>
@@ -356,7 +352,7 @@
               <div class="panel-header">
                 <div>
                   <h3>Manual refunds</h3>
-                  <p class="incoming-subtitle">Cash and legacy payments. Verify receipt before returning money and recording the refund.</p>
+
                 </div>
               </div>
               <div class="table-scroll-hint"><i class="fa-solid fa-left-right" aria-hidden="true"></i> Scroll horizontally to see all columns.</div>
@@ -367,7 +363,7 @@
                 </table>
               </div>
               <div class="table-footer" id="manualRefundsFooter">
-                <div class="table-footer-meta">Page 1 of 1</div>
+                <div class="table-footer-meta">Page 1 of 1 • Showing 0–0 of 0</div>
                 <div class="table-pagination">
                   <button class="page-btn" type="button" aria-label="Previous manual refunds page" disabled><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
                   <input class="page-number" type="number" min="1" value="1" inputmode="numeric" aria-label="Go to manual refunds page" />
@@ -387,10 +383,7 @@
                     ></i
                     >Returns &amp; Refunds
                   </h3>
-                  <p class="incoming-subtitle">
-                    Review return requests, confirm returned items, then release
-                    the refund.
-                  </p>
+
                 </div>
                 <div class="filters-row">
                   <select class="filter-select" id="returnsStatusFilter">
@@ -445,7 +438,7 @@
                 </table>
               </div>
               <div class="table-footer" id="returnsRefundsFooter">
-                <div class="table-footer-meta">Page 1 of 1</div>
+                <div class="table-footer-meta">Page 1 of 1 • Showing 0–0 of 0</div>
                 <div class="table-pagination">
                   <button class="page-btn" type="button" disabled aria-label="Previous returns page">
                     <i class="fa-solid fa-chevron-left"></i>
@@ -500,7 +493,7 @@
                 </table>
               </div>
               <div class="table-footer" id="paymentsHistoryFooter">
-                <div class="table-footer-meta">Page 1 of 1</div>
+                <div class="table-footer-meta">Page 1 of 1 • Showing 0–0 of 0</div>
                 <div class="table-pagination">
                   <button class="page-btn" type="button" disabled>
                     <i class="fa-solid fa-chevron-left"></i>
@@ -562,7 +555,7 @@
                 </table>
               </div>
               <div class="table-footer" id="walkInOrdersFooter">
-                <div class="table-footer-meta">Page 1 of 1</div>
+                <div class="table-footer-meta">Page 1 of 1 • Showing 0–0 of 0</div>
                 <div class="table-pagination">
                   <button class="page-btn" type="button" disabled>
                     <i class="fa-solid fa-chevron-left"></i>
@@ -1733,14 +1726,14 @@
     <script src="../admin-page/session-helper.js?v=2.4"></script>
     <script src="../admin-page/admin-session.js?v=1.0"></script>
     <script src="../home-page/fmrc-loader.js?v=2.1"></script>
-    <script src="../admin-page/admin-common.js?v=2026.1104.2"></script>
+    <script src="../admin-page/admin-common.js?v=2026.1104.3"></script>
     <script src="../admin-page/jnt-tracking.js?v=1.0"></script>
 <script src="../admin-page/courier-shipments.js?v=2.0"></script>
-<script src="../admin-page/orders.js?v=2026.1104.2"></script>
+<script src="../admin-page/orders.js?v=2026.1104.3"></script>
     <script src="../admin-page/admin-table-resize.js?v=1.4" defer></script>
   <link rel="stylesheet" href="../admin-page/gateway-payments.css?v=2.8-archive-tooltip">
     <link rel="stylesheet" href="../home-page/payment-dialogs.css?v=2.1-refund-claims">
-    <script src="../admin-page/gateway-payments.js?v=3.2-confirmed-archive"></script>
-  <script defer src="../products-page/custom-products.js?v=2026.1104.2"></script>
+    <script src="../admin-page/gateway-payments.js?v=2026.1104.3"></script>
+  <script defer src="../products-page/custom-products.js?v=2026.1104.3"></script>
 </body>
 </html>

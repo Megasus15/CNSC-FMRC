@@ -273,10 +273,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .join("");
     }
 
-    const endCount = Math.min(startIdx + pageItems.length, total);
-    const metaText = total
-      ? `Showing ${startIdx + 1}-${endCount} of ${total} promotions`
-      : "Showing 0 of 0 promotions";
+    const metaText = window.AdminTablePagination.label(promotionPage, total, PROMOTIONS_PER_PAGE);
     if ($("promotionTableMeta")) $("promotionTableMeta").textContent = metaText;
     if ($("promotionCurrentPage")) {
       $("promotionCurrentPage").value = String(promotionPage);
@@ -341,10 +338,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .join("");
     }
 
-    const endCount = Math.min(startIdx + pageItems.length, total);
-    const metaText = total
-      ? `Showing ${startIdx + 1}-${endCount} of ${total} announcements`
-      : "Showing 0 of 0 announcements";
+    const metaText = window.AdminTablePagination.label(announcementPage, total, ANNOUNCEMENTS_PER_PAGE);
     if ($("announcementTableMeta"))
       $("announcementTableMeta").textContent = metaText;
     if ($("announcementCurrentPage")) {

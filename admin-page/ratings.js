@@ -125,7 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const renderEmpty = (message) => {
     tableBody.innerHTML = `<tr class="table-empty-row"><td colspan="9"><div class="table-empty-state"><i class="fa-regular fa-folder-open"></i><span>${escapeHtml(message)}</span></div></td></tr>`;
-    if (pageMeta) pageMeta.textContent = "Page 1 of 1";
+    if (pageMeta) pageMeta.textContent = window.AdminTablePagination.label(1, 0, PAGE_SIZE);
     if (pageNumber) {
       pageNumber.value = "1";
       pageNumber.max = "1";
@@ -181,7 +181,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }).join("");
 
     const totalPages = Math.max(1, state.lastPage);
-    if (pageMeta) pageMeta.textContent = `Page ${state.currentPage} of ${totalPages} (${state.totalRows} total)`;
+    if (pageMeta) pageMeta.textContent = window.AdminTablePagination.label(state.currentPage, state.totalRows, PAGE_SIZE);
     if (pageNumber) {
       pageNumber.value = String(state.currentPage);
       pageNumber.max = String(totalPages);

@@ -341,9 +341,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (tableMeta) {
-      const startIndex = totalRows ? start + 1 : 0;
-      const endIndex = Math.min(start + state.pageSize, totalRows);
-      tableMeta.textContent = `Showing ${startIndex}-${endIndex} of ${totalRows} users`;
+      tableMeta.textContent = window.AdminTablePagination.label(state.currentPage, totalRows, state.pageSize);
     }
 
     if (currentPageEl) {
@@ -581,7 +579,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (requestsTableMeta) {
       requestsTableMeta.textContent = !state.requestsInstalled
         ? "Account requests are temporarily unavailable."
-        : `Showing ${totalRows ? start + 1 : 0}-${Math.min(start + state.pageSize, totalRows)} of ${totalRows} requests`;
+        : window.AdminTablePagination.label(state.requestsPage, totalRows, state.pageSize);
     }
 
     if (requestsCurrentPageEl) {

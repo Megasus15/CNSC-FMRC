@@ -98,7 +98,7 @@
       return `<section class="portal-data-card">
         <header class="portal-table-header">
           <h3 class="portal-table-title"><i class="fa-solid fa-truck portal-table-icon" aria-hidden="true"></i> Delivery rates</h3>
-          <span class="portal-table-count" data-table-count>${settings.zones.length} destinations</span>
+
         </header><div class="shipping-table-wrap" tabindex="0" role="region" aria-label="Delivery rates"><table class="shipping-table"><thead><tr><th scope="col">Delivery area</th><th scope="col">Places covered</th><th scope="col">Fee per order</th><th scope="col">Preparation</th><th scope="col">Delivery time</th></tr></thead><tbody>${settings.zones.map(zone=>
         '<tr><td>'+escape(zone.name)+'</td><td>'+escape([zone.province,zone.cities?.join(', ')||'All cities / municipalities',zone.postal_codes?.join(', ')||'All postal codes'].join(' · '))+'</td><td>'+money(zone.fee)+'</td><td>'+zone.preparation_days+' working '+(Number(zone.preparation_days)===1?'day':'days')+'</td><td>'+zone.transit_min_days+'–'+zone.transit_max_days+' working days</td></tr>').join('')}</tbody></table></div></section>`;
     };

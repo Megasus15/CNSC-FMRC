@@ -232,10 +232,13 @@
         ? `<button type="button" data-open="${row.id}" aria-label="View ${esc(row.reference)}" title="View request"><i class="fa-regular fa-eye" aria-hidden="true"></i></button>`
         : `<button type="button" class="${buttonClass}" data-open="${row.id}">View request</button>`;
       const empty = '<div class="cp-empty"><h3>No requests found</h3><p>Requests matching your filters will appear here.</p></div>';
+      const operatorRows = !operator ? '' : data.data.length
+        ? data.data.map(row => `<tr><td>${esc(row.reference)}</td><td><strong>${esc(row.title)}</strong><br>${esc(row.service?.title)}</td><td>${esc(row.customer_name)}</td><td>${status(row)}</td><td>${date(row.updated_at)}</td><td class="action-icons sticky-action">${view(row)}</td></tr>`).join('')
+        : window.AdminTableEmptyState.row(6, 'No custom requests found.');
       const rows = operator
-        ? `<div class="table-wrapper"><table class="admin-table" id="customRequestsTable"><thead><tr><th>Request</th><th>Product / Service</th><th>Customer</th><th>Status</th><th>Updated</th><th class="sticky-action">Action</th></tr></thead><tbody>${data.data.map(row => `<tr><td>${esc(row.reference)}</td><td><strong>${esc(row.title)}</strong><br>${esc(row.service?.title)}</td><td>${esc(row.customer_name)}</td><td>${status(row)}</td><td>${date(row.updated_at)}</td><td class="action-icons sticky-action">${view(row)}</td></tr>`).join('')}</tbody></table></div>`
+        ? `<div class="table-wrapper"><table class="admin-table" id="customRequestsTable"><thead><tr><th>Request</th><th>Product / Service</th><th>Customer</th><th>Status</th><th>Updated</th><th class="sticky-action">Action</th></tr></thead><tbody>${operatorRows}</tbody></table></div>`
         : `<div class="cp-request-list">${data.data.map(row => `<article class="cp-card"><div class="cp-heading"><strong>${esc(row.reference)}</strong>${status(row)}</div><h3>${esc(row.title)}</h3><p>${esc(row.service?.title)} · ${date(row.updated_at)}</p><div class="cp-actions">${view(row)}</div></article>`).join('')}</div>`;
-      const results = data.data.length ? rows : empty;
+      const results = operator || data.data.length ? rows : empty;
       if (manager) {
         const list = root.querySelector('[data-list-results]');
         if (list && !rebuildFilters) {
@@ -262,16 +265,15 @@
         <input class="page-number" type="number" data-page-number min="1" max="${data.last_page}" value="${page}" aria-label="Go to custom requests page">
         <button type="button" class="page-btn" aria-label="Next page" data-page="${page+1}" ${page>=data.last_page?'disabled':''}><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
       </div>`;
-      const footer = `<span class="table-footer-meta">${data.total} request${data.total===1?'':'s'} · Page ${data.current_page} of ${data.last_page}</span>${pagination}`;
+      const footer = `<span class="table-footer-meta">${window.AdminTablePagination.label(data.current_page, data.total)}</span>${pagination}`;
       const resultsNode = root.querySelector('[data-list-results]');
       if (resultsNode && !rebuildFilters) {
         resultsNode.innerHTML = results;
         root.querySelector('[data-list-footer]').innerHTML = footer;
-        root.querySelector('[data-table-count]').textContent = `${data.total} request${data.total === 1 ? '' : 's'}`;
         setNotice('');
         root.querySelector('[data-retry]')?.remove();
       } else {
-        shell(`<article class="panel cp-orders-card portal-data-card"><div class="panel-header portal-table-header"><h3 class="portal-table-title"><i class="fa-solid fa-pen-ruler portal-table-icon" aria-hidden="true"></i> Custom Requests</h3><span class="portal-table-count" data-table-count>${data.total} request${data.total === 1 ? '' : 's'}</span></div>${filters}<div data-list-results>${results}</div><div class="table-footer" data-list-footer>${footer}</div></article>`);
+        shell(`<article class="panel cp-orders-card portal-data-card"><div class="panel-header portal-table-header"><h3 class="portal-table-title"><i class="fa-solid fa-pen-ruler portal-table-icon" aria-hidden="true"></i> Custom Requests</h3>${filters}</div><div data-list-results>${results}</div><div class="table-footer" data-list-footer>${footer}</div></article>`);
       }
       const badge=document.getElementById('tabCountCustomRequests');if(badge)badge.textContent=Object.values(data.counts||{}).reduce((sum,n)=>sum+Number(n),0);capture();
     };

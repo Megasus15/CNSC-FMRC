@@ -837,7 +837,7 @@ document.addEventListener("DOMContentLoaded", () => {
         controls.pageNumber.max = String(totalPages);
       }
       if (controls.pageMeta)
-        controls.pageMeta.textContent = `Page ${safePage} of ${totalPages}`;
+        controls.pageMeta.textContent = window.AdminTablePagination.label(safePage, rows.length, pageSize);
       if (controls.prev) controls.prev.disabled = safePage <= 1;
       if (controls.next) controls.next.disabled = safePage >= totalPages;
     }
@@ -3060,7 +3060,7 @@ document.addEventListener("DOMContentLoaded", () => {
       <section class="portal-data-card">
         <header class="portal-table-header">
           <h4 class="portal-table-title"><i class="fa-solid fa-box portal-table-icon" aria-hidden="true"></i> Returned items</h4>
-          <span class="portal-table-count" data-table-count>${list.length} items</span>
+
         </header>
       <div class="return-items-scroll">
         <table class="return-items-table">
@@ -3085,7 +3085,7 @@ document.addEventListener("DOMContentLoaded", () => {
       ${
         list.length > PAGE_SIZE
           ? `<div class="table-footer" style="padding:10px 0 0;background:transparent;border:0;">
-               <div class="table-footer-meta">Showing ${start + 1}&ndash;${Math.min(start + PAGE_SIZE, list.length)} of ${list.length} returned items</div>
+               <div class="table-footer-meta">${window.AdminTablePagination.label(state.returnItemsPage, list.length, PAGE_SIZE)}</div>
                <div class="table-pagination" aria-label="Returned item pages">
                  <button type="button" class="page-btn" data-return-items-prev ${state.returnItemsPage <= 1 ? "disabled" : ""} aria-label="Previous returned item page"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
                  <input class="page-number" data-return-items-page type="number" min="1" max="${totalPages}" value="${state.returnItemsPage}" inputmode="numeric" aria-label="Go to returned item page">

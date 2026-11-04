@@ -842,17 +842,12 @@ document.addEventListener("DOMContentLoaded", () => {
             `);
           });
           if (variants.length > PAGE_SIZE) {
-            const variantFrom = variantStart + 1;
-            const variantTo = Math.min(
-              variantStart + PAGE_SIZE,
-              variants.length,
-            );
             rows.push(`
               <tr class="inv-variant-row inv-variant-pagination-row" data-variant-parent="${item.id}" style="display:none;">
                 <td aria-hidden="true"></td>
                 <td colspan="8">
                   <div class="table-footer" style="padding:6px 0;background:transparent;border:0;">
-                    <div class="table-footer-meta">Showing ${variantFrom}&ndash;${variantTo} of ${variants.length} variants</div>
+                    <div class="table-footer-meta">${window.AdminTablePagination.label(variantPage, variants.length, PAGE_SIZE)}</div>
                     <div class="table-pagination" aria-label="${escHtml(item.item_name)} variant pages">
                       <button type="button" class="page-btn" data-inv-variant-prev="${item.id}" ${variantPage <= 1 ? "disabled" : ""} aria-label="Previous variant page"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
                       <input class="page-number" data-inv-variant-page="${item.id}" type="number" min="1" max="${variantTotalPages}" value="${variantPage}" inputmode="numeric" aria-label="Go to variant page for ${escHtml(item.item_name)}">
@@ -868,8 +863,6 @@ document.addEventListener("DOMContentLoaded", () => {
       tableRows = rows.join("");
     }
 
-    const from = items.length ? start + 1 : 0;
-    const to = items.length ? Math.min(items.length, start + PAGE_SIZE) : 0;
     const selectedCount = selectedIds.size;
     const selectionControls = isSelectionMode
       ? `
@@ -895,7 +888,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <span class="inv-category-title">Inventory of ${escHtml(category)}</span>
         </div>
         <div class="inv-category-header-right" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <span class="inv-category-badge">${items.length} item${items.length !== 1 ? "s" : ""}</span>
+
           <button type="button" class="btn-admin btn-secondary" data-cat-export="${escHtml(category)}" title="Export this category as CSV">
             <i class="fa-solid fa-file-csv"></i> Export CSV
           </button>
@@ -927,7 +920,7 @@ document.addEventListener("DOMContentLoaded", () => {
           </table>
         </div>
         <div class="inv-cat-footer">
-          <div class="inv-cat-footer-meta">Page ${validPage} of ${totalPages} &bull; Showing ${from}&ndash;${to} of ${items.length}</div>
+          <div class="inv-cat-footer-meta">${window.AdminTablePagination.label(validPage, items.length, PAGE_SIZE)}</div>
           <div class="inv-cat-footer-actions">
             <div class="inv-selection-tools">
               ${selectionControls}
@@ -984,7 +977,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <div class="inv-category-icon"><i class="fa-solid ${icon}"></i></div>
               <span class="inv-category-title">Inventory of ${escHtml(category)}</span>
             </div>
-            <span class="inv-category-badge"><div class="inv-skeleton-cell" style="width:50px;height:12px;display:inline-block;"></div></span>
+
           </div>
           <div class="inv-category-body">
             <div class="table-scroll-hint table-scroll-hint--mobile">
@@ -1586,7 +1579,7 @@ document.addEventListener("DOMContentLoaded", () => {
           ${
             variants.length > PAGE_SIZE
               ? `<div class="table-footer" style="padding:10px 0 0;background:transparent;border:0;">
-                   <div class="table-footer-meta">Showing ${variantStart + 1}&ndash;${Math.min(variantStart + PAGE_SIZE, variants.length)} of ${variants.length} variants</div>
+                   <div class="table-footer-meta">${window.AdminTablePagination.label(viewVariantPage, variants.length, PAGE_SIZE)}</div>
                    <div class="table-pagination" aria-label="Inventory variant pages">
                      <button type="button" class="page-btn" data-inv-view-variant-prev ${viewVariantPage <= 1 ? "disabled" : ""} aria-label="Previous variant page"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
                      <input class="page-number" data-inv-view-variant-page type="number" min="1" max="${variantTotalPages}" value="${viewVariantPage}" inputmode="numeric" aria-label="Go to inventory variant page">
