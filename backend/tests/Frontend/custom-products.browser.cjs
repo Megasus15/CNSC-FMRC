@@ -2,6 +2,53 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {browserFixture,chrome}=require('./helpers/website-browser.cjs');
 
+test('Operators archive closed requests, restore them and use the main Refresh only', {skip:!chrome,timeout:90000}, async t=>{
+  let archived = false, reads = 0;
+  const row={id:12,reference:'CUS-000012',title:'Closed request',service:{title:'3D Printing'},customer_name:'Customer',status:'cancelled',status_label:'Cancelled',revision:2,can_archive:true,updated_at:'2026-11-04T04:00:00Z'};
+  const h=await browserFixture(t, async ({req,route,json})=>{
+    if(route==='/api/services'){json({data:[]});return true;}
+    if(route==='/api/admin/custom-requests'){reads++;json({data:archived?[]:[row],current_page:1,last_page:1,total:archived?0:1,counts:{cancelled:archived?0:1}});return true;}
+    if(route==='/api/admin/custom-requests/12'){json({data:{...row,specifications:{title:row.title,quantity:1},orders:[],quotes:[],attachments:[],messages:[],events:[],actions:{}}});return true;}
+    if(route==='/api/admin/custom-requests/12/archive'){archived=true;json({data:{...row,is_archived:true},message:'Archived'});return true;}
+    if(route==='/api/admin/archives'){json({custom_requests:archived?[{...row,source_id:12,service:'3D Printing',archived_at:row.updated_at}]:[]});return true;}
+    if(route==='/api/admin/archives/restore-bulk'){archived=false;json({processed_ids:[12],processed_count:1,skipped_ids:[],message:'Request restored.'});return true;}
+    return false;
+  });
+  for(const portal of ['admin-page','staff-page']){
+    archived=false;
+    await h.send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
+    await h.go('/'+portal+'/orders.html?custom_requests=1');
+    await h.until("document.querySelector('[data-custom-archive]') && !document.querySelector('[data-custom-archive]').closest('[inert]')");
+    assert.equal(await h.run("!!document.querySelector('#sectionCustomRequests [data-list-filters]')"),false);
+    await h.run("document.querySelector('[data-open]').click()");
+    await h.until("!!document.querySelector('.cp-order-dialog[open]')");
+    assert.equal(await h.run("Array.from(document.querySelectorAll('.cp-order-dialog button')).some(button=>button.textContent.trim()==='Refresh')"),false);
+    await h.run("document.querySelector('.cp-order-dialog [data-cp-modal-close]').click()");
+    await h.until("!document.querySelector('.cp-order-dialog[open]')");
+    await h.until("!document.querySelector('#sectionCustomRequests [data-custom-products]').hasAttribute('aria-busy')");
+    const before=reads;
+    await h.run("document.getElementById('ordersRefreshBtn').click()");
+    for(let n=0;n<60&&reads===before;n++)await h.pause(50);
+    assert(reads>before,portal+' main Refresh updates requests');
+    await h.run("document.querySelector('[data-custom-archive]').click()");
+    await h.until("document.querySelector('#adminSystemPopup.show')");
+    await h.run("document.querySelector('#adminSystemPopupOk').click()");
+    await h.until("!!document.querySelector('#customRequestsTable .table-empty-state')");
+    await h.go('/'+portal+'/archives.html');
+    await h.until("document.getElementById('tabCountCustomRequests')?.textContent==='1'");
+    await h.run("document.querySelector('[data-tab=custom_request]').click()");
+    await h.until("!document.getElementById('customRequestArchiveTable').closest('[inert]')");
+    await h.shot(portal+'-archived-custom-requests');
+    assert.equal(await h.run("!!document.querySelector('[data-archive-delete=custom_request]')"),false);
+    await h.run("document.querySelector('[data-archive-restore=custom_request]').click()");
+    await h.until("document.querySelector('#adminSystemPopup.show')");
+    await h.run("document.querySelector('#adminSystemPopupOk').click()");
+    await h.until("document.getElementById('tabCountCustomRequests')?.textContent==='0'");
+    assert.equal(archived,false);
+  }
+  t.diagnostic('Custom archive screenshots: '+h.artifacts);
+});
+
 test('Portal table filters, ranges and empty states share the same layout', {skip:!chrome,timeout:120000}, async t=>{
   const h = await browserFixture(t, async ({route,json}) => {
     if (route === '/api/admin/products') {
@@ -60,7 +107,7 @@ test('Orders and Archives section tabs use balanced rows at portal widths', {ski
     const base = portal === 'staff-page' ? '/apps/team/staff-page/' : '/admin-page/';
     for (const [page, id, count, desktop, tablet] of [
       ['orders', 'ordersModuleTabs', 6, [6], [3, 3]],
-      ['archives', 'archivesModuleTabs', 9, [5, 4], [3, 3, 3]],
+      ['archives', 'archivesModuleTabs', 10, [5, 5], [2, 2, 2, 2, 2]],
     ]) {
       await h.send('Emulation.setDeviceMetricsOverride',{width:1920,height:1080,deviceScaleFactor:1,mobile:false});
       await h.go(base + page + '.html');
@@ -71,7 +118,7 @@ test('Orders and Archives section tabs use balanced rows at portal widths', {ski
       await h.send('Emulation.setDeviceMetricsOverride',{width:960,height:900,deviceScaleFactor:1,mobile:false});
       assert.deepEqual(await rowSizes(id), tablet, portal + ' ' + page + ' tablet');
       await h.send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
-      assert.deepEqual(await rowSizes(id), count === 6 ? [2, 2, 2] : [2, 2, 2, 2, 1], portal + ' ' + page + ' phone');
+      assert.deepEqual(await rowSizes(id), count === 6 ? [2, 2, 2] : [2, 2, 2, 2, 2], portal + ' ' + page + ' phone');
     }
   }
   t.diagnostic('Section navigation screenshots: ' + h.artifacts);
@@ -176,12 +223,7 @@ test('Custom requests keep drafts, consent and responsive operator workflows con
     await h.until("!!document.querySelector('#sectionCustomRequests .admin-table')");
     await h.until("!!document.querySelector('#customRequestsTable.portal-data-table')");
     assert.equal(await h.run("!!document.querySelector('#sectionCustomRequests [data-list-filters] button[type=submit]')"),false);
-    await h.until("document.querySelector('#sectionCustomRequests [data-search]')?.getClientRects().length && !document.querySelector('#sectionCustomRequests [data-search]').closest('[inert]')");
-    await h.run("(()=>{const input=document.querySelector('#sectionCustomRequests [data-search]');input.focus();input.value='does not match';input.dispatchEvent(new Event('input',{bubbles:true}));window.customSearchInput=input;})()");
-    await h.until("document.querySelector('#sectionCustomRequests .table-footer-meta')?.textContent === 'Page 1 of 1 • Showing 0–0 of 0'");
-    assert.equal(await h.run("!!document.querySelector('#sectionCustomRequests .table-empty-state i')"),true);
-    assert.equal(await h.run("window.customSearchInput.isConnected && document.activeElement === window.customSearchInput ? true : document.activeElement.outerHTML.slice(0,160)"),true,portal+' retains search focus');
-    await h.run("(()=>{const input=window.customSearchInput;input.value='';input.dispatchEvent(new Event('input',{bubbles:true}));})()");
+    assert.equal(await h.run("document.querySelectorAll('#sectionCustomRequests [data-list-filters]').length"),0);
     await h.until("!!document.querySelector('#sectionCustomRequests [data-open]')");
     assert.equal(await h.run("document.querySelector('#sectionCustomRequests').textContent.includes('Made for your idea')"),false);
     await click('#sectionCustomRequests [data-open]');

@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Models\ProductRating;
 use App\Models\Promotion;
 use App\Models\WalkInOrder;
+use App\Models\CustomProductRequest;
 use Illuminate\Database\Eloquent\Builder;
 
 class AdminArchiveRecords
@@ -25,6 +26,7 @@ class AdminArchiveRecords
         'promotions',
         'announcements',
         'walkins',
+        'custom_requests',
     ];
 
     public static function query(string $module): Builder
@@ -39,6 +41,7 @@ class AdminArchiveRecords
             'promotions' => Promotion::query()->where('is_archived', true),
             'announcements' => Announcement::query()->where('is_archived', true),
             'walkins' => WalkInOrder::query()->where('is_archived', true),
+            'custom_requests' => CustomProductRequest::query()->where('is_archived', true),
             default => throw new \InvalidArgumentException("Unknown archive module [{$module}]."),
         };
     }

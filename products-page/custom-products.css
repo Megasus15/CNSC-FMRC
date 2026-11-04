@@ -291,20 +291,6 @@ dialog.cp-order-dialog { width: min(1040px, 100%); max-width: calc(100vw - 24px)
 .cp-request-list .cp-card { margin: 0; }
 .cp-request-list .cp-heading { margin-bottom: 10px; }
 .cp-orders, .cp-orders-card { width: 100%; min-width: 0; }
-.cp-orders-card .cp-toolbar { align-items: end; gap: 10px; }
-.cp-orders-card .field-stack { flex: 0 1 160px; min-width: 0; margin: 0; font-size: .78rem; gap: 6px; }
-.cp-orders-card .field-stack:first-child { flex: 1 1 230px; }
-.cp-orders-card .cp-toolbar :is(input, select) {
-  min-width: 0;
-  width: 100%;
-  font-size: .8rem;
-  min-height: 40px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border-color: var(--border-color);
-  background-color: var(--surface);
-  color: var(--text-main);
-}
 .cp-orders-card .portal-table-title { font-size: 1rem; margin: 0; line-height: inherit; }
 .cp-orders-card .table-footer-meta { font-size: .76rem; }
 .cp-orders-card .table-empty-state { font-size: .82rem; }
@@ -350,8 +336,6 @@ dialog.cp-order-dialog { width: min(1040px, 100%); max-width: calc(100vw - 24px)
 @media (max-width: 600px) {
   .cp-standalone { padding: 24px 18px 40px; }
   #customerCustomRequestsModal .cp-dialog-body { padding: 16px; }
-  .cp-orders-card .cp-toolbar label { min-width: 0; }
-  .cp-orders-card .cp-toolbar .btn-admin { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {

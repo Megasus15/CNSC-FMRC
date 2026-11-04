@@ -10,15 +10,14 @@
     panel.innerHTML = '<div class="shipping-section-heading"><div><h3 id="shippingTrackingTitle">J&T tracking</h3><p>Record the physical J&T handover in Orders. Ship24 supplies automatic courier updates when active.</p></div><span class="shipping-status" data-tracking-state>Loading…</span></div>'+
       '<p data-tracking-message role="status" aria-live="polite">Loading tracking availability…</p><dl class="shipping-tracking-facts" data-tracking-facts></dl>'+
       '<p class="shipping-calendar-note">FMRC registrations show this installation’s activity for the current Philippine calendar month. Ship24’s account dashboard determines the actual allowance and reset date. Shipping can continue when automatic updates are unavailable.</p>'+
-      '<div class="shipping-save-actions"><button class="btn-admin btn-secondary" type="button" data-tracking-refresh><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i> Refresh tracking status</button><button class="btn-admin" type="button" data-tracking-toggle hidden>Activate automatic tracking</button><a class="btn-admin btn-secondary" href="https://dashboard.ship24.com" target="_blank" rel="noopener noreferrer" data-tracking-dashboard hidden>Open Ship24 account</a></div>';
+      '<div class="shipping-save-actions"><button class="btn-admin" type="button" data-tracking-toggle hidden>Activate automatic tracking</button><a class="btn-admin btn-secondary" href="https://dashboard.ship24.com" target="_blank" rel="noopener noreferrer" data-tracking-dashboard hidden>Open Ship24 account</a></div>';
     anchor.after(panel);
     const api = String(window.APP_API_BASE_URL || (['localhost','127.0.0.1'].includes(location.hostname) && location.port!=='8000' ? location.protocol+'//'+location.hostname+':8000/api' : location.origin+'/api')).replace(/\/$/,'');
-    const refresh = panel.querySelector('[data-tracking-refresh]'), toggle = panel.querySelector('[data-tracking-toggle]');
+    const toggle = panel.querySelector('[data-tracking-toggle]');
     const escape = text => String(text ?? '').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
     const date = value => value ? new Date(value.includes('T') ? value : value.replace(' ','T')+'Z').toLocaleString('en-PH',{timeZone:'Asia/Manila'}) : 'Not yet received';
     let record = null, busy = false;
     const render = () => {
-      refresh.disabled = busy;
       toggle.hidden = !record?.can_edit;
       toggle.disabled = busy || !record?.installed || (!record.enabled && !record.ready);
       toggle.textContent = record?.enabled ? 'Pause automatic tracking' : 'Activate automatic tracking';
@@ -56,11 +55,11 @@
         record = json.data;
       } catch (error) {
         panel.querySelector('[data-tracking-message]').textContent = error.name==='AbortError'||error.name==='TypeError' ? 'Tracking status could not be refreshed. Check your connection and try again.' : error.message;
-        busy=false;refresh.disabled=false;toggle.disabled=true;return;
+        busy=false;toggle.disabled=true;return;
       } finally { clearTimeout(timer);busy=false; }
       render();
     };
-    refresh.onclick=()=>load();
+    window.FMRCShippingTracking = Object.freeze({refresh: load});
     toggle.onclick=()=>{
       if(toggle.disabled)return;
       window.showAdminConfirmPopup(record.enabled ? 'Pause automatic registration and scheduled tracking checks? Saved waybills and history remain available.' : 'Activate automatic tracking for verified J&T shipments within the free pilot allowance?',

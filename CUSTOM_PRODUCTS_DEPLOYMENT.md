@@ -7,7 +7,7 @@ This change adds private custom requests, versioned quotations, hosted full paym
 Deploy the source assets in `products-page`, `services-page`, `home-page`, `customer-auth`, `admin-page`, and `staff-page`, and the changed Laravel application files, routes, migration, and console command. The normal website and Customer/Team PWA routes resolve these same source files through `PwaAssetController` and the existing Apache aliases. Do not copy the recursive legacy `backend/public/frontend` tree over the source pages.
 
 1. In hPanel, open the active website's File Manager and confirm which folder contains the live `backend/artisan`. Export its database through **Databases → phpMyAdmin → Export** and keep the export privately. Back up the deployed application files and the private upload directory. Confirm your Hostinger Git deployment configuration before pushing through GitHub Desktop.
-2. Upload or deploy the reviewed revision, including both new PHP schema files, the migration, and all changed customer and operator assets. Preserve the live `backend/.env` and storage. Confirm the deployed revision in hPanel and check that the served Custom Products and shared table assets use version `2026.1104.3`.
+2. Upload or deploy the reviewed revision, including both new PHP schema files, the migration, and all changed customer and operator assets. Preserve the live `backend/.env` and storage. Confirm the deployed revision in hPanel and check that the served Custom Products and shared table assets use version `2026.1104.4`.
 3. Open Hostinger SSH or a terminal connected to the hosting account. Change into the active `backend` directory identified in File Manager. Check where you are and inspect migration status. These commands are read-only.
 
    ```sh
@@ -77,6 +77,19 @@ Products analytics group completed custom units and product gross sales by servi
 The reference accounting fixture is: quotation ₱0 revenue; confirmed ₱1,000 product + ₱100 shipping payment ₱1,100; completion still ₱1,100; pending ₱200 refund still ₱1,100; successful refund ₱900. Gross completed product sales remain ₱1,000, with the refund reported separately.
 
 ## Verification checklist
+
+Custom Request archives add three fields through `2026_11_04_000002_add_archive_fields_to_custom_product_requests.php`. After deploying this revision, take a current database and private-upload backup. From the active Hostinger `public_html/backend` terminal directory, run these commands one at a time.
+
+```sh
+php artisan migrate --path=database/migrations/2026_11_04_000002_add_archive_fields_to_custom_product_requests.php --force
+php artisan route:clear
+php artisan config:clear
+php artisan migrate:status
+```
+
+Confirm the archive migration shows Ran. Admin and Staff can archive cancelled or declined requests and completed custom work after outstanding payments and refunds are resolved. Archives provides View and Restore for these records. Requests, quotations, private designs, payments, and linked orders remain available in their history. A pending archive migration leaves the existing workflow available and disables the new Archive action with an explanation.
+
+Verify that Orders has one main Refresh button, with no Search, Status or Service fields in the Custom Requests header. Open a closed request, archive it, check Archives → Custom Requests, and restore it. On Shipping & Delivery, the main Refresh button reloads both shipping settings and J&T status after the existing unsaved-change confirmation.
 
 Automated local coverage is in `backend/tests/Feature/CustomProductsTest.php`, the extended Website Page Save/report suites, and `backend/tests/Frontend/custom-products.browser.cjs`.
 

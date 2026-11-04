@@ -47,7 +47,6 @@
       </header>`;
     const footer = operator
       ? `<footer class="modal-footer-fixed cp-dialog-footer">
-        <button class="btn-admin btn-secondary" type="button" data-cp-modal-refresh>Refresh</button>
         <button class="btn-admin" type="button" data-cp-modal-close>Close</button>
       </footer>`
       : `<footer class="ux-dlg__foot cp-dialog-footer" data-list-pagination hidden>
@@ -183,7 +182,7 @@
     const orderCard = o => `<article class="cp-card"><div class="cp-heading"><h2>${esc(o.order_no)}</h2><span class="cp-pill">${esc(o.status_label)}</span></div><p>Total: <strong>${money(o.total)}</strong> · Payment: ${esc(titleCase(o.payment_status||'pending'))}</p><div class="cp-actions">${!operator&&o.can_pay?`<button class="cp-btn" data-pay="${o.id}">Continue to Payment</button>`:''}${operator&&o.custom_actions?.start?`<button class="cp-btn" data-production="start" data-order="${o.id}">Start Production</button>`:''}${operator&&o.custom_actions?.ready?`<button class="cp-btn" data-production="ready" data-order="${o.id}">Mark Ready</button>`:''}<a class="cp-btn secondary" href="${operator?'orders.html?notif=order&id='+o.id:'../home-page/main.html?orders=1&order_id='+o.id}">Open Order</a></div>${o.tracking?`<p>J&T waybill: <strong>${esc(o.tracking.tracking_number||'Awaiting handover')}</strong></p><p class="cp-help">${esc(o.tracking.status_label||o.tracking.status||'Tracking will appear after FMRC records the actual waybill.')}</p>`:''}</article>`;
     const renderDetail = () => {
       edit=false;quoteEdit=false;const r=current;
-      shell(`<div class="cp-heading"><div><span class="cp-eyebrow">${esc(r.reference)} · ${esc(r.service?.title)}</span><h2>${esc(r.specifications.title||'Untitled draft')}</h2><span class="cp-pill">${esc(r.status_label)}</span></div><div class="cp-actions"><button class="cp-btn secondary" data-refresh>Refresh</button>${!operator&&r.actions.edit?'<button class="cp-btn" data-edit>Edit Request</button>':''}${operator&&r.actions.quote?'<button class="cp-btn" data-quote>Prepare Quotation</button>':''}</div></div><div class="cp-layout"><div>${r.orders.map(orderCard).join('')}${r.quotes.map(quoteCard).join('')}<article class="cp-card"><h2>Request details</h2>${summary(r.specifications)}${filesMarkup(r.attachments.filter(f=>!f.message_id))}</article></div><aside><article class="cp-card"><h2>Conversation</h2><p class="cp-help">Discuss specifications and revisions here. Changes to an accepted quotation require a new version.</p><div class="cp-messages">${r.messages.length?r.messages.map(m=>`<div class="cp-message"><header><strong>${esc(m.role==='customer'?m.author:'FMRC · '+m.author)}</strong><time>${date(m.created_at)}</time></header><p>${esc(m.body)}</p>${filesMarkup(r.attachments.filter(f=>f.message_id===m.id))}</div>`).join(''):'<p class="cp-help">No messages yet.</p>'}</div>${r.actions.message?`<form data-message><label class="cp-field">Message<textarea name="body" required maxlength="3000" placeholder="Share a clarification or ask about your request."></textarea></label><label class="cp-field">Attach designs (optional)<input type="file" name="attachments" multiple accept="${fileAccept}"><small>Up to five files, 50 MB combined.</small></label><div class="cp-actions"><button class="cp-btn" type="submit">Send Message</button></div></form>`:''}</article><article class="cp-card"><h3>Request actions</h3>${operator&&r.actions.review?'<div class="cp-actions"><button class="cp-btn secondary" data-status="review">Start Review</button><button class="cp-btn secondary" data-status="clarify">Ask for Details</button><button class="cp-btn secondary" data-status="decline">Decline Request</button></div>':''}${r.actions.revision?`<button class="cp-btn secondary" data-status="${operator?'withdraw':'revision'}">${operator?'Withdraw / Revise Quote':'Request Changes'}</button>`:''}${!operator&&r.actions.cancel?'<button class="cp-link" data-status="cancel">Cancel request</button>':''}<p class="cp-help">For a linked order, use Open Order to review cancellation, pickup, delivery, and refund actions.</p><ol class="cp-history">${r.events.map(e=>`<li>${esc(e.description)}<br><time>${date(e.created_at)}</time></li>`).join('')}</ol></article></aside></div>`);
+      shell(`<div class="cp-heading"><div><span class="cp-eyebrow">${esc(r.reference)} · ${esc(r.service?.title)}</span><h2>${esc(r.specifications.title||'Untitled draft')}</h2><span class="cp-pill">${esc(r.status_label)}</span></div><div class="cp-actions">${!operator?'<button class="cp-btn secondary" data-refresh>Refresh</button>':''}${!operator&&r.actions.edit?'<button class="cp-btn" data-edit>Edit Request</button>':''}${operator&&r.actions.quote?'<button class="cp-btn" data-quote>Prepare Quotation</button>':''}</div></div><div class="cp-layout"><div>${r.orders.map(orderCard).join('')}${r.quotes.map(quoteCard).join('')}<article class="cp-card"><h2>Request details</h2>${summary(r.specifications)}${filesMarkup(r.attachments.filter(f=>!f.message_id))}</article></div><aside><article class="cp-card"><h2>Conversation</h2><p class="cp-help">Discuss specifications and revisions here. Changes to an accepted quotation require a new version.</p><div class="cp-messages">${r.messages.length?r.messages.map(m=>`<div class="cp-message"><header><strong>${esc(m.role==='customer'?m.author:'FMRC · '+m.author)}</strong><time>${date(m.created_at)}</time></header><p>${esc(m.body)}</p>${filesMarkup(r.attachments.filter(f=>f.message_id===m.id))}</div>`).join(''):'<p class="cp-help">No messages yet.</p>'}</div>${r.actions.message?`<form data-message><label class="cp-field">Message<textarea name="body" required maxlength="3000" placeholder="Share a clarification or ask about your request."></textarea></label><label class="cp-field">Attach designs (optional)<input type="file" name="attachments" multiple accept="${fileAccept}"><small>Up to five files, 50 MB combined.</small></label><div class="cp-actions"><button class="cp-btn" type="submit">Send Message</button></div></form>`:''}</article><article class="cp-card"><h3>Request actions</h3>${operator&&r.actions.review?'<div class="cp-actions"><button class="cp-btn secondary" data-status="review">Start Review</button><button class="cp-btn secondary" data-status="clarify">Ask for Details</button><button class="cp-btn secondary" data-status="decline">Decline Request</button></div>':''}${r.actions.revision?`<button class="cp-btn secondary" data-status="${operator?'withdraw':'revision'}">${operator?'Withdraw / Revise Quote':'Request Changes'}</button>`:''}${!operator&&r.actions.cancel?'<button class="cp-link" data-status="cancel">Cancel request</button>':''}<p class="cp-help">For a linked order, use Open Order to review cancellation, pickup, delivery, and refund actions.</p><ol class="cp-history">${r.events.map(e=>`<li>${esc(e.description)}<br><time>${date(e.created_at)}</time></li>`).join('')}</ol></article></aside></div>`);
       capture();lastFingerprint=JSON.stringify(current);
     };
     const renderQuote = () => {
@@ -220,7 +219,7 @@
       const statuses = ['draft','submitted','under_review','needs_information','quoted','ordered','expired','payment_review','declined','cancelled'];
       const serviceOptions = services.map(service => `<option value="${service.id}" ${String(listState.service_id) === String(service.id) ? 'selected' : ''}>${esc(service.title)}</option>`).join('');
       const historical = listState.service_id && !services.some(service => String(service.id) === String(listState.service_id));
-      const filters = `<form data-list-filters class="cp-toolbar">
+      const filters = operator ? '' : `<form data-list-filters class="cp-toolbar">
         <label class="${fieldClass}">Search<input class="${inputClass}" data-search maxlength="180" value="${esc(listState.search || '')}" placeholder="${operator ? 'Request, product or customer' : 'Request or product'}"></label>
         <label class="${fieldClass}">Status<select class="${inputClass}" data-status-filter><option value="all">All statuses</option>${statuses.filter(status => !operator || status !== 'draft').map(status => `<option value="${status}" ${listState.status === status ? 'selected' : ''}>${esc(titleCase(status))}</option>`).join('')}</select></label>
         <label class="${fieldClass}">Service<select class="${inputClass}" data-service-filter><option value="">All services</option>${historical ? `<option selected value="${esc(listState.service_id)}">Historical service</option>` : ''}${serviceOptions}</select></label>
@@ -229,7 +228,7 @@
       const tones = {submitted:'status-blue',under_review:'status-blue',needs_information:'status-yellow',quoted:'status-yellow',ordered:'status-green',payment_review:'status-yellow',declined:'status-red',cancelled:'status-grey',expired:'status-grey'};
       const status = row => `<span class="${operator ? 'status-pill ' + (tones[row.status] || 'status-grey') : 'cp-pill'}" data-status="${esc(row.status)}">${esc(row.status_label)}</span>`;
       const view = row => operator
-        ? `<button type="button" data-open="${row.id}" aria-label="View ${esc(row.reference)}" title="View request"><i class="fa-regular fa-eye" aria-hidden="true"></i></button>`
+        ? `<button type="button" data-open="${row.id}" aria-label="View ${esc(row.reference)}" title="View request"><i class="fa-regular fa-eye" aria-hidden="true"></i></button><button type="button" data-custom-archive="${row.id}" data-revision="${row.revision}" ${row.can_archive ? '' : 'disabled'} aria-label="Archive ${esc(row.reference)}" data-tooltip="${esc(row.can_archive ? 'Archive request' : row.archive_reason || 'Close this request before archiving.')}" title="${esc(row.can_archive ? 'Archive request' : row.archive_reason || 'Close this request before archiving.')}"><i class="fa-solid fa-box-archive" aria-hidden="true"></i></button>`
         : `<button type="button" class="${buttonClass}" data-open="${row.id}">View request</button>`;
       const empty = '<div class="cp-empty"><h3>No requests found</h3><p>Requests matching your filters will appear here.</p></div>';
       const operatorRows = !operator ? '' : data.data.length
@@ -308,6 +307,8 @@
       if (busy) return;
       retryLoad = () => load(task, showLoading);
       busy = true;
+      const loadingRoot = root;
+      loadingRoot.setAttribute('aria-busy', 'true');
       if (showLoading) shell('<div class="cp-empty" role="status">Loading custom requests…</div>');
       try {
         await task();
@@ -318,6 +319,7 @@
         setNotice(error.message, true);
       } finally {
         busy = false;
+        loadingRoot.removeAttribute('aria-busy');
       }
     };
     const syncListFilters = filters => {
@@ -405,6 +407,17 @@
       if(button.matches('[data-quote]')){if(await canLeave())renderQuote();}
       if(button.matches('[data-detail]')){if(await canLeave())renderDetail();}
       if(button.matches('[data-open]') && await canLeave()) await load(() => loadDetail(button.dataset.open, button));
+      if (operator && button.matches('[data-custom-archive]') && !button.disabled) {
+        const accepted = await new Promise(resolve => window.showAdminConfirmPopup('Move this custom request to Archives?', {
+          title: 'Archive Custom Request', confirmText: 'Archive', onConfirm: () => resolve(true), onCancel: () => resolve(false),
+        }));
+        if (accepted) await load(async () => {
+          await request(prefix + '/' + button.dataset.customArchive + '/archive', {expected_revision: Number(button.dataset.revision), request_key: uid()});
+          await loadList();
+          window.dispatchEvent(new CustomEvent('fmrc:archives-updated', {detail: {module: 'custom_request', action: 'archive'}}));
+          window.dispatchEvent(new CustomEvent('fmrc:orders-updated', {detail: {source: 'custom-products'}}));
+        });
+      }
       if(button.matches('[data-refresh]') && await canLeave()) await load(() => loadDetail(current.id));
       if (manager && button.matches('[data-cp-modal-refresh]')) {
         clearTimeout(searchTimer);

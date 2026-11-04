@@ -31,6 +31,7 @@ class CustomProductController extends Controller
         $operator = $this->operator($request);
         $input = $request->validate(['search'=>'nullable|string|max:180','status'=>'nullable|string|max:40','service_id'=>'nullable|integer','page'=>'nullable|integer|min:1']);
         $q = CustomProductRequest::query()->with('customer')->when($operator, fn($q)=>$q->where('status','!=','draft'), fn($q)=>$q->where('customer_id',$request->user()->id));
+        if ($operator && \App\Support\CustomProductSchema::archivingReady()) $q->where('is_archived', false);
         $counts = (clone $q)->selectRaw('status, COUNT(*) as aggregate')->groupBy('status')->pluck('aggregate','status');
         if (!empty($input['status']) && $input['status'] !== 'all') $q->where('status',$input['status']);
         if (!empty($input['service_id'])) $q->where(fn($q)=>$q->where('service_id',$input['service_id'])->orWhere('service_snapshot->id',(int)$input['service_id']));
@@ -42,9 +43,11 @@ class CustomProductController extends Controller
         $page = $q->orderByDesc('updated_at')->paginate(10);
         $page->setCollection($page->getCollection()->map(function($r) use ($operator) {
             $order = CustomProducts::activeOrder($r);
+            $archiveError = $operator ? CustomProducts::archiveError($r) : null;
             return ['id'=>$r->id,'reference'=>$r->reference(),'title'=>$r->specifications['title'] ?? 'Untitled draft','service'=>$r->service_snapshot,
                 'customer_name'=>$r->customer?->name,'status'=>$r->status,'status_label'=>$order ? CustomProducts::statusLabel($order) : (CustomProducts::LABELS[$r->status] ?? $r->status),
-                'quantity'=>$r->specifications['quantity'] ?? 0,'updated_at'=>$r->updated_at?->toIso8601String()];
+                'quantity'=>$r->specifications['quantity'] ?? 0,'updated_at'=>$r->updated_at?->toIso8601String(),
+                'revision'=>$r->revision, 'can_archive'=>$operator && !$archiveError, 'archive_reason'=>$archiveError];
         }));
         return response()->json(['data'=>$page->items(),'current_page'=>$page->currentPage(),'last_page'=>$page->lastPage(),'total'=>$page->total(),'counts'=>$counts])->header('Cache-Control','no-store');
     }

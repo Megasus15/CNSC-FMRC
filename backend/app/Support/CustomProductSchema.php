@@ -36,6 +36,12 @@ final class CustomProductSchema
         );
     }
 
+    public static function archivingReady(): bool
+    {
+        return self::check(__FUNCTION__, fn () => self::ready()
+            && Schema::hasColumns('custom_product_requests', ['is_archived', 'archived_at', 'archived_by']));
+    }
+
     private static function check(string $key, callable $check): bool
     {
         // The result lives only for this HTTP request. A refresh sees a completed migration.

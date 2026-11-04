@@ -41,6 +41,23 @@ final class CustomProducts
             ->whereNotIn('lifecycle_status', ['cancelled', 'rejected'])->latest('id')->first();
     }
 
+    public static function archiveError(CustomProductRequest $request): ?string
+    {
+        if (!\App\Support\CustomProductSchema::archivingReady()) return 'Custom request archiving needs the latest database update.';
+        if ($request->is_archived) return 'This request is already archived.';
+        if (!in_array($request->status, ['cancelled', 'declined', 'ordered'], true)) return 'Close the request or complete its order before archiving.';
+        $orders = Order::with('payment')->whereIn('custom_product_quote_id', $request->quotes()->select('id'))->get();
+        if ($request->status === 'ordered' && $orders->isEmpty()) return 'Review the linked order before archiving.';
+        foreach ($orders as $order) {
+            if (!in_array($order->lifecycle_status, ['completed', 'cancelled', 'rejected'], true) || $order->cancel_state === 'requested') return 'Resolve the linked order before archiving.';
+            $payment = $order->payment;
+            if ($order->lifecycle_status !== 'completed' && $payment?->status === 'paid') return 'Resolve the paid order and refund before archiving.';
+            if (DB::table('payment_attempts')->where('payment_id', $payment?->id)->whereNotIn('status', ['paid', 'expired', 'failed'])->exists()) return 'Wait for checkout reconciliation before archiving.';
+            if (DB::table('payment_refunds')->where('payment_id', $payment?->id)->whereNotIn('status', ['succeeded', 'rejected'])->exists()) return 'Resolve the pending refund before archiving.';
+        }
+        return null;
+    }
+
     public static function mutate(CustomProductRequest $request, int $actor, string $role, string $action, array $data, array $files): CustomProductRequest
     {
         Validator::make($data, ['expected_revision'=>'required|integer|min:0', 'request_key'=>'required|uuid'])->validate();
@@ -62,6 +79,7 @@ final class CustomProducts
                 }
                 abort_unless($r->revision === (int) $data['expected_revision'], 409, 'This request changed elsewhere. Review the latest version before saving. Your edits have been kept.');
                 $customer = $role === 'customer';
+                abort_if(!$customer && $r->is_archived, 409, 'Restore this request from Archives before updating it.');
                 $active = self::activeOrder($r);
                 $messageId = null;
                 $description = '';
@@ -127,6 +145,14 @@ final class CustomProducts
                         $quote->save();
                         $description = $action === 'send_quote' ? 'Quotation '.$quote->version.' is ready for review and payment within seven days.' : 'Quotation draft saved.';
                         break;
+                    case 'archive':
+                        abort_if($customer, 403);
+                        abort_unless(\App\Support\CustomProductSchema::archivingReady(), 503, 'Custom request archiving needs the latest database update.');
+                        $archiveError = self::archiveError($r);
+                        abort_if($archiveError !== null, 422, $archiveError ?? 'This request cannot be archived yet.');
+                        $r->fill(['is_archived' => true, 'archived_at' => now(), 'archived_by' => $actor]);
+                        $description = 'Request archived.';
+                        break;
                     case 'revision': case 'withdraw': case 'cancel':
                         abort_unless($action !== 'withdraw' || !$customer, 403);
                         abort_unless($action !== 'revision' || $customer, 403);
@@ -163,7 +189,7 @@ final class CustomProducts
                 $r->revision++; $r->save();
                 DB::table('custom_product_events')->insert(['custom_product_request_id'=>$r->id, 'actor_id'=>$actor, 'request_key'=>$data['request_key'],
                     'action'=>$action, 'payload_hash'=>$hash, 'description'=>$description ?: 'Quotation accepted.', 'created_at'=>now(), 'updated_at'=>now()]);
-                if (!in_array($action, ['save', 'save_quote'], true)) self::notify($r, $description, $customer);
+                if (!in_array($action, ['save', 'save_quote', 'archive'], true)) self::notify($r, $description, $customer);
                 return $r;
             });
         } catch (\Throwable $error) {
@@ -313,7 +339,7 @@ final class CustomProducts
         $current = $quotes->first(fn ($q)=>in_array($q->status, ['sent','accepted'], true));
         if ($status !== 'payment_review' && $current && $current->expires_at?->isPast() && (!$active || $active->payment?->status !== 'paid')) $status = 'expired';
         $editable = !$active && in_array($r->status, ['draft','submitted','needs_information'], true);
-        return ['id'=>$r->id, 'reference'=>$r->reference(), 'revision'=>$r->revision, 'status'=>$status,
+        return ['id'=>$r->id, 'reference'=>$r->reference(), 'revision'=>$r->revision, 'status'=>$status, 'is_archived'=>(bool)$r->is_archived,
             'status_label'=>$active && !in_array($status,['expired','payment_review'],true) ? self::statusLabel($active) : (self::LABELS[$status] ?? $status),
             'service_id'=>$r->service_id, 'service'=>$r->service_snapshot, 'specifications'=>$r->specifications,
             'customer_name'=>$r->customer?->name, 'updated_at'=>$r->updated_at?->toIso8601String(),
@@ -323,12 +349,12 @@ final class CustomProducts
                 'can_accept'=>!$operator && !$active && $r->status === 'quoted' && $q->status === 'sent' && $q->expires_at?->isFuture()])->values(),
             'attachments'=>DB::table('custom_product_attachments')->where('custom_product_request_id', $r->id)->orderBy('id')->get(['id','message_id','name','mime','size','author_id']),
             'messages'=>DB::table('custom_product_messages as m')->join('users as u','u.id','=','m.author_id')->where('m.custom_product_request_id',$r->id)->orderBy('m.id')->get(['m.id','m.body','m.created_at','u.name as author','u.role']),
-            'events'=>DB::table('custom_product_events')->where('custom_product_request_id',$r->id)->when(!$operator,fn ($q)=>$q->whereNotIn('action',['save_quote']))->orderByDesc('id')->limit(100)->get(['id','description','created_at']),
+            'events'=>DB::table('custom_product_events')->where('custom_product_request_id',$r->id)->when(!$operator,fn ($q)=>$q->whereNotIn('action',['save_quote','archive']))->orderByDesc('id')->limit(100)->get(['id','description','created_at']),
             'orders'=>$orders->map(fn ($o)=>['id'=>$o->id,'order_no'=>$o->order_no,'quote_id'=>$o->custom_product_quote_id,'payment_status'=>$o->payment?->status,
                 'total'=>(float)$o->total,'status_label'=>self::statusLabel($o), 'lifecycle_status'=>$o->lifecycle_status,
                 'can_pay'=>$o->payment?->status === 'pending' && self::payable($o), 'cancellation'=>$o->cancellationAvailability(),
                 'tracking'=>ShipmentTracking::present($o,$operator,true)] + self::orderFields($o))->values(),
-            'actions'=>['edit'=>$editable, 'submit'=>$editable, 'message'=>$r->status !== 'draft',
+            'actions'=>['edit'=>$editable, 'submit'=>$editable, 'message'=>$r->status !== 'draft' && (!$operator || !$r->is_archived),
                 'review'=>$operator && !$active && in_array($r->status,['submitted','needs_information','under_review','expired'],true),
                 'quote'=>$operator && !$active && in_array($r->status,['submitted','under_review','needs_information','expired'],true),
                 'revision'=>!$active && in_array($r->status,['quoted','ordered','expired','under_review','submitted'],true),

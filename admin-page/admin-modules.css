@@ -1939,6 +1939,8 @@ input.page-number:focus,
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  #archivesModuleTabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
   :is(#ordersModuleTabs, #archivesModuleTabs) > .archive-tab-btn {
     justify-content: center;
     min-width: 0;
@@ -1949,18 +1951,18 @@ input.page-number:focus,
     white-space: normal;
   }
 
+  @container portal-sections (min-width: 1000px) {
+    #archivesModuleTabs { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  }
+
   @container portal-sections (min-width: 1120px) {
     #ordersModuleTabs {
       grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 1.45fr) minmax(0, 1.15fr) minmax(0, 1fr);
     }
-    #archivesModuleTabs { grid-template-columns: repeat(20, minmax(0, 1fr)); }
-    #archivesModuleTabs > .archive-tab-btn { grid-column: span 4; }
-    #archivesModuleTabs > .archive-tab-btn:nth-child(n+6) { grid-column: span 5; }
   }
 
-  @container portal-sections (min-width: 1650px) {
-    #archivesModuleTabs { grid-template-columns: repeat(9, minmax(0, 1fr)); }
-    #archivesModuleTabs > .archive-tab-btn:nth-child(n) { grid-column: auto; }
+  @container portal-sections (min-width: 1860px) {
+    #archivesModuleTabs { grid-template-columns: repeat(10, minmax(0, 1fr)); }
   }
 }
 

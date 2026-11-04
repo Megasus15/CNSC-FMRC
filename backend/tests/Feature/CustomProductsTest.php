@@ -108,6 +108,70 @@ class CustomProductsTest extends TestCase
         return $r->fresh();
     }
 
+    public function test_closed_requests_archive_and_restore_for_both_roles_without_hiding_customer_history(): void
+    {
+        foreach (['staff', 'admin'] as $role) {
+            $r = $this->createRequest();
+            $this->action($r, 'cancel', ['note' => 'No longer needed.'])->assertOk();
+            $payload = ['expected_revision' => $r->fresh()->revision, 'request_key' => (string) Str::uuid()];
+            $path = '/api/admin/custom-requests/'.$r->id.'/archive';
+            $this->postJson('/api/customer/custom-requests/'.$r->id.'/archive', $payload)->assertForbidden();
+            Sanctum::actingAs(User::factory()->create(['role' => $role]));
+            $this->postJson($path, ['expected_revision' => $payload['expected_revision'] - 1, 'request_key' => (string) Str::uuid()])->assertConflict();
+            $this->postJson($path, $payload)->assertOk()->assertJsonPath('data.is_archived', true);
+            $this->postJson($path, $payload)->assertOk();
+            $this->getJson('/api/admin/custom-requests')->assertOk()->assertJsonPath('total', 0);
+            $this->getJson('/api/admin/archives?module=custom_request')->assertOk()->assertJsonPath('custom_requests.0.source_id', $r->id);
+            $this->assertSame(1, DB::table('custom_product_events')->where('custom_product_request_id', $r->id)->where('action', 'archive')->count());
+            $this->patchJson('/api/admin/archives/restore-bulk', ['module' => 'custom_request', 'ids' => [$r->id]])->assertOk()->assertJsonPath('processed_count', 1);
+            $this->assertFalse($r->fresh()->is_archived);
+            $this->assertSame('cancelled', $r->fresh()->status);
+            $this->action($r, 'archive', [], true)->assertOk();
+            Sanctum::actingAs($this->customer);
+            $this->getJson('/api/customer/custom-requests/'.$r->id)->assertOk()->assertJsonPath('data.status', 'cancelled');
+            $this->patchJson('/api/admin/archives/restore-bulk', ['module' => 'custom_request', 'ids' => [$r->id]])->assertForbidden();
+        }
+    }
+
+    public function test_archiving_rejects_active_work_and_unresolved_checkout_and_preserves_completed_orders(): void
+    {
+        $r = $this->createRequest();
+        $this->action($r, 'archive', [], true)->assertUnprocessable();
+        $order = $this->accept($r, $this->quote($r));
+        $this->pay($order);
+        $this->action($r, 'archive', [], true)->assertUnprocessable();
+        $order->update(['lifecycle_status' => 'completed', 'customer_stage' => 'completed', 'completed_at' => now()]);
+        DB::table('payment_attempts')->where('payment_id', $order->payment->id)->update(['status' => 'pending']);
+        $this->action($r, 'archive', [], true)->assertUnprocessable();
+        DB::table('payment_attempts')->where('payment_id', $order->payment->id)->update(['status' => 'paid']);
+        $refund = DB::table('payment_refunds')->insertGetId([
+            'payment_id' => $order->payment->id, 'token' => (string) Str::uuid(), 'provider_payment_id' => 'pay_customfixture',
+            'requested_by' => $this->staff->id, 'amount_centavos' => 100, 'reason' => 'Refund fixture',
+            'livemode' => true, 'status' => 'requested', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+        $this->action($r, 'archive', [], true)->assertUnprocessable();
+        DB::table('payment_refunds')->where('id', $refund)->update(['status' => 'rejected']);
+        $this->action($r, 'archive', [], true)->assertOk();
+        $this->assertSame('completed', $order->fresh()->lifecycle_status);
+        $this->assertSame('paid', $order->payment->fresh()->status);
+        $this->assertDatabaseCount('orders', 1);
+        $this->assertDatabaseCount('custom_product_quotes', 1);
+    }
+
+    public function test_pending_archive_migration_keeps_custom_requests_available(): void
+    {
+        if (DB::getDriverName() !== 'sqlite') $this->markTestSkipped('Schema rollback runs inside the SQLite test transaction.');
+        $migration = require database_path('migrations/2026_11_04_000002_add_archive_fields_to_custom_product_requests.php');
+        $migration->down();
+        $r = $this->createRequest();
+        Sanctum::actingAs($this->staff);
+        $this->getJson('/api/admin/custom-requests')->assertOk()->assertJsonPath('data.0.can_archive', false);
+        $this->getJson('/api/admin/archives')->assertOk()->assertJsonCount(0, 'custom_requests');
+        $this->action($r, 'archive', [], true)->assertStatus(503);
+        Sanctum::actingAs($this->customer);
+        $this->getJson('/api/customer/custom-requests/'.$r->id)->assertOk();
+    }
+
     public function test_first_save_and_submission_use_the_revision_returned_by_creation(): void
     {
         Sanctum::actingAs($this->customer);

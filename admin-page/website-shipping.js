@@ -278,7 +278,8 @@
     get('shippingForm').addEventListener('submit',event=>{event.preventDefault();if(!admin()||busy||!dirty()||!validateDraft())return;const values=read();window.showAdminConfirmPopup('Save these shipping settings as a draft?',{title:'Save Shipping Draft',confirmText:'Save draft',onConfirm:()=>mutate('/admin/shipping-settings/draft',{expected_revision:record.revision,settings:values})});});
     get('shippingPublish').addEventListener('click',()=>{if(get('shippingPublish').disabled)return;window.showAdminConfirmPopup('Publish these FMRC-approved rates and delivery estimates for new checkouts?',{title:'Publish Shipping Settings',confirmText:'Publish',onConfirm:()=>mutate('/admin/shipping-settings/publish',{expected_revision:record.revision,approved:true})});});
     get('shippingDiscard').addEventListener('click',()=>{if(!busy&&record)populate(record);});
-    const refresh = () => {if(busy)return;if(dirty())window.showAdminConfirmPopup('Discard unsaved changes and load the latest shipping settings?',{title:'Refresh Shipping Settings',confirmText:'Load latest',onConfirm:load});else void load();};
+    const loadAll = async () => { await Promise.all([load(), window.FMRCShippingTracking?.refresh()]); };
+    const refresh = () => {if(busy)return;if(dirty())window.showAdminConfirmPopup('Discard unsaved changes and load the latest shipping settings?',{title:'Refresh Shipping Settings',confirmText:'Load latest',onConfirm:loadAll});else void loadAll();};
     get('shippingRefresh').addEventListener('click',refresh);get('shippingProvinceRetry').addEventListener('click',()=>void loadProvinces());
     void (window.AdminWebsiteLoading ? window.AdminWebsiteLoading.during(load) : load());
   });

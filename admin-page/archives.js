@@ -103,11 +103,19 @@ document.addEventListener("DOMContentLoaded", () => {
     promotion: { all: [], page: 1, controller: null },
     announcement: { all: [], page: 1, controller: null },
     walkin: { all: [], page: 1, controller: null },
+    custom_request: { all: [], page: 1, controller: null },
   };
   let searchQuery = "";
   const inventoryVariantPages = new Map();
 
   const moduleConfig = {
+    custom_request: {
+      payloadKey: 'custom_requests', tableId: 'customRequestArchiveTable', tbodyId: 'customRequestArchiveTbody',
+      footerId: 'customRequestArchiveFooter', metaId: 'customRequestArchiveMeta', pageId: 'customRequestArchivePage',
+      prevId: 'customRequestArchivePrev', nextId: 'customRequestArchiveNext', countId: 'tabCountCustomRequests',
+      colCount: 8, tableLabel: 'Custom Request Archives', restoreOnly: true,
+      emptyMessage: 'No archived custom requests found.', searchFields: ['reference','title','customer_name','service','status'],
+    },
     online_refund: {
       payloadKey: "online_refunds",
       tableId: "onlineRefundArchiveTable", tbodyId: "onlineRefundArchiveTbody",
@@ -424,6 +432,13 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const renderRow = (module, row, index) => {
+    if (module === 'custom_request') {
+      return `<tr>${rowCheckbox(module, row, row.reference)}<td>${esc(row.reference)}</td><td>${esc(row.title)}</td>
+        <td>${esc(row.customer_name)}</td><td>${esc(row.service)}</td><td>${statusPill(row.status_label || row.status)}</td>
+        <td>${fmtDate(row.archived_at, true)}</td><td class="action-icons sticky-action">
+        <button type="button" data-custom-archive-view="${row.source_id}" title="View request" aria-label="View ${esc(row.reference)}"><i class="fa-regular fa-eye" aria-hidden="true"></i></button>
+        ${restoreButton(module, row, row.reference)}</td></tr>`;
+    }
     if (module === "online_refund") {
       return `<tr>
         ${rowCheckbox(module, row, row.order_no)}
@@ -899,6 +914,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.body.addEventListener("click", (event) => {
     const target = event.target;
+    const customView = target.closest('[data-custom-archive-view]');
+    if (customView) {
+      window.location.assign('orders.html?custom_requests=1&custom_request=' + Number(customView.dataset.customArchiveView));
+      return;
+    }
     if (!(target instanceof Element)) return;
     const refundView = target.closest('[data-refund-view]');
     if (refundView) {

@@ -183,7 +183,7 @@ Route::middleware(['auth:sanctum', EnsureCustomerPortalOpen::class])->group(func
             Route::get('/{customRequest}', [$controller, 'show'])->whereNumber('customRequest');
             Route::get('/{customRequest}/attachments/{attachment}', [$controller, 'attachment'])->whereNumber(['customRequest','attachment']);
             Route::post('/{customRequest}/{action}', [$controller, 'action'])
-                ->whereNumber('customRequest')->where('action','save|submit|message|review|clarify|decline|save_quote|send_quote|revision|withdraw|cancel|accept')->middleware('throttle:30,1');
+                ->whereNumber('customRequest')->where('action','save|submit|message|review|clarify|decline|save_quote|send_quote|revision|withdraw|cancel|accept|archive')->middleware('throttle:30,1');
         });
     }
     Route::post('/admin/orders/{order}/production', [\App\Http\Controllers\Api\CustomProductController::class, 'production'])->middleware($customSchema);

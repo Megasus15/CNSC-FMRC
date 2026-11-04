@@ -16,7 +16,7 @@ async function connect(url){
 test('shipping draft/publication, Staff read access, automatic customer totals and order details agree across responsive portals',{skip:!fs.existsSync(chrome),timeout:180000},async()=>{
   const artifacts=fs.mkdtempSync(path.join(os.tmpdir(),'fmrc-shipping-'));
   let settings={revision:0,has_saved_draft:false,draft:{enabled:false,nonworking_weekdays:[6,7],nonworking_dates:[],zones:[]},published:null,published_version:null,published_at:null};
-  let quotes=0,stale=true,fee=85.5,deliveryAvailable=true,settingsUnavailable=false,provinceUnavailable=false,rejectShippingOnce=false;
+  let quotes=0,stale=true,fee=85.5,deliveryAvailable=true,settingsUnavailable=false,provinceUnavailable=false,rejectShippingOnce=false,trackingReads=0;
   const provinceCatalog=[{code:'0307100000',name:'Zambales'},{code:'0501600000',name:'Camarines Norte'},{code:'0500500000',name:'Albay'}];
   const writes=[],submissions=[],policyHistory=new Map(),shipmentWrites=[];
   let policySettings={revision:0,can_edit:true,has_saved_draft:false,published:null,draft:{title:'FMRC Transaction Terms and Refund Policy',terms_text:'Ordering and delivery\nReview the full order total and fulfillment details before ordering.',refund_text:'Eligible concerns\nContact FMRC to review defective, incorrect, or incomplete items and appropriate remedies.'}};
@@ -36,7 +36,7 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
       if(route==='/api/admin/session')return json({server_time:new Date().toISOString(),idle_warning_at:new Date(Date.now()+3600000).toISOString(),idle_expires_at:new Date(Date.now()+3780000).toISOString(),absolute_expires_at:new Date(Date.now()+21600000).toISOString()});
       if(route==='/api/maintenance')return json({installed:true,data:{},site_page_installed:true,site_page:{}});
       if(route==='/api/site-settings')return json({data:{payment_cash_on_pickup_enabled:'1',payment_cash_on_delivery_enabled:'0',payment_gcash_enabled:'1',payment_gcash_ready:'1',payment_checkout_method:'qrph'}});
-      if(route==='/api/admin/shipping-tracking')return json({data:{installed:true,enabled:false,ready:false,can_edit:role==='admin',registrations:0,registration_limit:10,message:'Automatic tracking is not active. Saved J&T waybills remain available.'}});
+      if(route==='/api/admin/shipping-tracking'){trackingReads++;return json({data:{installed:true,enabled:false,ready:false,can_edit:role==='admin',registrations:0,registration_limit:10,message:'Automatic tracking is not active. Saved J&T waybills remain available.'}});}
       if(route==='/api/customer/profile')return json({data:profile});
       if(route==='/api/products')return json({data:[product]});
       if(route==='/api/psgc/provinces'){if(provinceUnavailable){await pause(1600);return json({message:'Province list unavailable'},502);}return json(provinceCatalog);}
@@ -212,7 +212,15 @@ test('shipping draft/publication, Staff read access, automatic customer totals a
       assert.equal(await run(`document.documentElement.scrollWidth>innerWidth+1`),false,portal+' shipping '+width+theme);
       assert.equal(await run(`document.getElementById('shippingEditor').hidden`),portal==='staff');
       if(portal==='staff')assert.equal(await run(`getComputedStyle(document.getElementById('shippingSaveBar')).display`),'none');
-      await until(`document.querySelector('[data-tracking-refresh]')&&!document.querySelector('[data-tracking-refresh]').disabled`);
+      await until(`document.querySelector('[data-tracking-state]')?.textContent==='Not active'`);
+      assert.equal(await run(`!!document.querySelector('[data-tracking-refresh]')`),false);
+      if (width===1440) {
+        const before=trackingReads;
+        await run(`document.getElementById('shippingRefresh').click()`);
+        for(let tries=0;tries<60&&trackingReads===before;tries++)await pause(50);
+        assert(trackingReads>before, 'Main Shipping Refresh loads J&T status for '+portal);
+        await until(`!document.getElementById('shippingRefresh').disabled`);
+      }
       const actionRows=await run(`Array.from(document.querySelectorAll('.shipping-action-row,.shipping-save-actions,.shipping-zone-heading,.shipping-page .page-toolbar')).flatMap(row=>{
         if(!row.getBoundingClientRect().height)return [];
         const right=row.getBoundingClientRect().right-parseFloat(getComputedStyle(row).paddingRight||0);
